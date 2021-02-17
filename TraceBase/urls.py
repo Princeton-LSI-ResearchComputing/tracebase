@@ -16,7 +16,10 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import include, path
 
+from DataRepo import views
+
 urlpatterns = [
-    path('DataRepo/', include('DataRepo.urls')),
     path('admin/', admin.site.urls),
+    path('',views.home, name='TraceBase Home'),
+    path('DataRepo/', include('DataRepo.urls'), name='TraceBase DataRepo'),
 ]
