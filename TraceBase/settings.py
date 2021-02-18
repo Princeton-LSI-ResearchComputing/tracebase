@@ -77,8 +77,8 @@ WSGI_APPLICATION = 'TraceBase.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'tracebasedb',
-        'USER': 'postgres',
+        'NAME': 'tracebase',
+        'USER': 'tracebase',
         'PASSWORD': 'tracebase',
         'HOST': 'localhost',
         'PORT': '5432'

@@ -9,25 +9,10 @@ Install the latest Python (version 3.9.1), and make sure it is in your path:
     $ python --version
     Python 3.9.1
 
-## Virtual Environment
-
-Create a virtual environment (from a bash shell) and activate it, for example:
-
-    python3 -m venv tracebaseenv
-    source tracebaseenv/bin/activate
-
 Test to make sure that the `python` command now shows your latest python install:
 
     $ python --version
     Python 3.9.1
-
-## Django
-
-Install Django by bootstrapping pip:
-
-    curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
-    python get-pip.py
-    python -m pip install Django
 
 ## Postgres
 
@@ -54,16 +39,30 @@ In the Postgres app interface, you can find where the `postgresql.conf` file is 
 Manually create the tracebase database (`tracebasedb`) in postgres:
 
     psql -U postgres
-    > CREATE DATABASE tracebasedb;
-    > \q
+    > CREATE DATABASE tracebase;
 
-## psycopg2
+Create a tracebase postgres user:
 
-Django's Postgres pre-built psycop2 binary dependency (https://pypi.org/project/psycopg2/) can be installed (in your tracebaseenv) via:
+    > create user tracebase with encrypted password 'mypass';
+    > grant all privileges on database tracebase to tracebase;
 
-    python -m pip install psycopg2-binary
+## Clone the repository
 
-# Verify Installations
+    git clone https://github.com/Princeton-LSI-ResearchComputing/tracebase.git
+    cd tracebase
+
+## Virtual Environment
+
+Create a virtual environment (from a bash shell) and activate it, for example:
+
+    python3 -m venv .venv
+    source .venv/bin/activate
+
+Install Django and psycopg2 dependencies
+
+    python -m venv -r requirements.txt
+
+## Verify Installations
 
 Django:
 
@@ -76,11 +75,7 @@ Postgres:
 
     psql -U postgres
 
-# Clone & test the Repo
-
-git clone https://github.com/Princeton-LSI-ResearchComputing/tracebase.git
-
-Check out the desired branch (e.g. master) and cd into the tracebase project.
+## Setup TraceBase and run the development server
 
 Set up the project's postgres database:
 
@@ -93,4 +88,3 @@ Verify you can run the development server.  Run:
 Then go to this site in your web browser:
 
     http://127.0.0.1:8000/
-
