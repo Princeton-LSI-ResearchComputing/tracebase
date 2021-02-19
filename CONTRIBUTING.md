@@ -36,7 +36,7 @@ In the Postgres app interface, you can find where the `postgresql.conf` file is 
     default_transaction_isolation: 'read committed'
     log_timezone = 'America/New_York'
 
-Manually create the tracebase database (`tracebasedb`) in postgres:
+Manually create the tracebase database (`tracebase`) in postgres:
 
     psql -U postgres
     > CREATE DATABASE tracebase;
