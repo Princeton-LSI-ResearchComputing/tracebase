@@ -60,7 +60,8 @@ Create a virtual environment (from a bash shell) and activate it, for example:
 
 Install Django and psycopg2 dependencies
 
-    python -m venv -r requirements.txt
+    python -m pip install -U pip  # Upgrade pip
+    python -m pip -r requirements/dev.txt  # Install requirements
 
 ## Verify Installations
 
