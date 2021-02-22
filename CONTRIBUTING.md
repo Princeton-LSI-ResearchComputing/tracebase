@@ -86,6 +86,19 @@ Django:
     > print(django.get_version())
     3.1.6
 
+### Configure TraceBase
+
+Copy the `TraceBase/.env.example` file to `TraceBase/.env` and update the
+values to reflect those used when setting up Postgres.  A new secret can be
+created using:
+
+    python -c "import secrets; print(secrets.token_urlsafe())"
+
+Secrets and database settings should not be stored directly in settings. Using
+environment variables to store configuration likely to change between
+environments allows these settings to be easily updated in a deployed
+application (see [The Twelve-Factor App](https://www.12factor.net/config)).
+
 ### Start TraceBase
 
 Set up the project's postgres database:
