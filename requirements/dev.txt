@@ -1,0 +1,7 @@
+# Specifies only dev-specific requirements
+# But imports the common ones too
+-r common.txt
+flake8
+black==19.10b0
+isort
+pylint

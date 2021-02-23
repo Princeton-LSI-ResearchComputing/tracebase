@@ -19,7 +19,7 @@ from django.urls import include, path
 from DataRepo import views
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('',views.home, name='TraceBase Home'),
-    path('DataRepo/', include('DataRepo.urls'), name='TraceBase DataRepo'),
+    path("admin/", admin.site.urls),
+    path("", views.home, name="TraceBase Home"),
+    path("DataRepo/", include("DataRepo.urls"), name="TraceBase DataRepo"),
 ]
