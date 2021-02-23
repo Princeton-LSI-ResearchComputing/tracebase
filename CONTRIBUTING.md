@@ -104,7 +104,7 @@ Then go to this site in your web browser:
 
 All Pull Requests must pass linting prior to being merged.
 
-Currently, all pushed are linted using [GitHub's
+Currently, all pushes are linted using [GitHub's
 Super-Linter](https://github.com/github/super-linter). The configuration files
 for the most used linters have been setup in the project root to facilitate
 linting on developers machines. These include:
