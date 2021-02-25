@@ -1,0 +1,42 @@
+name: TraceBase Tests
+
+on: [push]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:10.8
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: tracebase
+        ports:
+          - 5432:5432
+        # needed because the postgres container does not provide a healthcheck
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+    env:
+      DATABASE_NAME: tracebase
+      DATABASE_USER: postgres
+      DATABASE_PASSWORD: postgres 
+      DATABASE_HOST: 127.0.0.1
+      DATABASE_PORT: 5432
+    steps:
+    - uses: actions/checkout@v1
+    - name: Set up Python 3.7
+      uses: actions/setup-python@v1
+      with:
+        python-version: 3.7
+    - name: psycopg2 prerequisites
+      run: sudo apt-get install python-dev libpq-dev
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    - name: Run migrations
+      run: python manage.py migrate
+    - name: Run tests
+      run: python manage.py test
