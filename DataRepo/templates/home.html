@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<div>
+    <ul>
+        <h3>List of compounds</h3>
+        {% for cpd in cpds %}
+            <li>
+                <div class="compoundname">
+                    <a href="{% url 'compound_detail' cpd.id %}">
+                        <h3>{{ cpd.name }}</h3>
+                    </a>
+                    <p>{{ cpd.formula }}</p>
+                    {% if cpd.hmdb_id %}
+                        <p>{{ cpd.hmdb_id }}</p>
+                    {%  endif %}
+                </div>
+            </li>
+        {% endfor %}
+    </ul>
+</div>
+{% endblock %}
