@@ -135,3 +135,18 @@ linting on developers machines. These include:
 * [Pylint](https://www.pylint.org/) - `.python-lint` -> `.pylintrc`
 * [Black](https://black.readthedocs.io/en/stable/) - `.python-black`
 * [isort](https://pycqa.github.io/isort/) - `.isort.cfg`
+
+### Linting
+
+To lint prior to submitting a pull request, you may need to install
+`markdownlint`, linked above (the rest should have been installed in your
+environment (see Create a virtual environment)).  Then run:
+
+    markdownlint --ignore .venv "*.md"
+    flake8 --exclude .venv
+    pylint --ignore .venv */*/*/*.py */*/*.py */*.py *.py
+    black .
+    isort .
+
+`black` and `isort` will automatically fix any issues they find.  The others
+will require manual edits.
