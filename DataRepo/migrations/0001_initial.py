@@ -7,17 +7,16 @@ class Migration(migrations.Migration):
 
     initial = True
 
-    dependencies = [
-    ]
+    dependencies = []
 
     operations = [
         migrations.CreateModel(
-            name='Compound',
+            name="Compound",
             fields=[
-                ('id', models.AutoField(primary_key=True, serialize=False)),
-                ('name', models.CharField(max_length=256, unique=True)),
-                ('formula', models.CharField(max_length=256)),
-                ('hmdb_id', models.CharField(blank=True, max_length=11)),
+                ("id", models.AutoField(primary_key=True, serialize=False)),
+                ("name", models.CharField(max_length=256, unique=True)),
+                ("formula", models.CharField(max_length=256)),
+                ("hmdb_id", models.CharField(blank=True, max_length=11)),
             ],
         ),
     ]
