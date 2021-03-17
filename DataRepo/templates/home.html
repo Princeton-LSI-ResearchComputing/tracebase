@@ -11,7 +11,7 @@
                     </a>
                     <p>{{ cpd.formula }}</p>
                     {% if cpd.hmdb_id %}
-                        <p>{{ cpd.hmdb_id }}</p>
+                        <p><a href="{{ HMDB_CPD_URL }}/{{ cpd.hmdb_id }}" target="_blank">{{ cpd.hmdb_id }}</a></p>
                     {%  endif %}
                 </div>
             </li>
