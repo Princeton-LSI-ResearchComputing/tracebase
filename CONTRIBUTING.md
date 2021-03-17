@@ -115,7 +115,7 @@ Set up the project's postgres database:
 
 Verify you can run the development server.  Run:
 
-    python manage.py runserver &
+    python manage.py runserver
 
 Then go to this site in your web browser:
 
@@ -142,9 +142,9 @@ To lint prior to submitting a pull request, you may need to install
 `markdownlint`, linked above (the rest should have been installed in your
 environment (see Create a virtual environment)).  Then run:
 
-    markdownlint --ignore .venv "*.md"
-    flake8 --exclude .venv
-    pylint --ignore .venv */*/*/*.py */*/*.py */*.py *.py
+    markdownlint .
+    flake8 .
+    pylint TraceBase/ DataRepo/ DataRepo/management/commands/ *.py
     black .
     isort .
 
