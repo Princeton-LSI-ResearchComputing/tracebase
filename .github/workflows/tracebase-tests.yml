@@ -24,6 +24,7 @@ jobs:
       DATABASE_PASSWORD: postgres 
       DATABASE_HOST: 127.0.0.1
       DATABASE_PORT: 5432
+      HMDB_CPD_URL: https://hmdb.ca/metabolites
     steps:
     - uses: actions/checkout@v1
     - name: Set up Python 3.7
