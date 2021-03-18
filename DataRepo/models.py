@@ -7,4 +7,4 @@ class Compound(models.Model):
     formula = models.CharField(max_length=256)
 
     # ID to serve as an external link to record in https://hmdb.ca
-    hmdb_id = models.CharField(max_length=11, blank=True)
+    hmdb_id = models.CharField(max_length=11, unique=True)
