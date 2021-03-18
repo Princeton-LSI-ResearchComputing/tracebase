@@ -10,7 +10,7 @@
                         <h3>{{ cpd.name }}</h3>
                     </a>
                     <p>{{ cpd.formula }}</p>
-                    <p><a href="{{ HMDB_CPD_URL }}/{{ cpd.hmdb_id }}" target="_blank">{{ cpd.hmdb_id }}</a></p>
+                    <p><a href="{{ cpd.HMDB_CPD_URL }}/{{ cpd.hmdb_id }}" target="_blank">{{ cpd.hmdb_id }}</a></p>
                 </div>
             </li>
         {% endfor %}

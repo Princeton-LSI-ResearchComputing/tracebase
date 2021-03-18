@@ -6,9 +6,7 @@ from .models import Compound
 
 def home(request):
     cpds = Compound.objects.all()
-    return render(
-        request, "home.html", {"cpds": cpds, "HMDB_CPD_URL": Compound.HMDB_CPD_URL}
-    )
+    return render(request, "home.html", {"cpds": cpds})
 
 
 def compound_detail(request, cpd_id):
