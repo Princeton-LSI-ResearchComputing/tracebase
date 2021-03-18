@@ -3,8 +3,6 @@
 <div>
     <h3>{{ cpd.name }}</h3>
     <p>{{ cpd.formula }}</p>
-    {% if cpd.hmdb_id %}
-        <p><a href="{{ HMDB_CPD_URL }}/{{ cpd.hmdb_id }}" target="_blank">{{ cpd.hmdb_id }}</a></p>
-    {% endif %}
+    <p><a href="{{ HMDB_CPD_URL }}/{{ cpd.hmdb_id }}" target="_blank">{{ cpd.hmdb_id }}</a></p>
 </div>
 {% endblock %}
