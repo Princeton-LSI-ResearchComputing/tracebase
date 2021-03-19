@@ -127,5 +127,3 @@ USE_TZ = True
 STATIC_URL = "/static/"
 
 STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")]
-
-HMDB_CPD_URL = env("HMDB_CPD_URL")
