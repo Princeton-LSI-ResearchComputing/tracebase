@@ -7,7 +7,7 @@ assignees: ''
 
 ---
 
-# BUG DESCRIPTION
+## BUG DESCRIPTION
 
 ### Problem
 
@@ -20,7 +20,8 @@ A bird's-eye summation of what the problem is.
 
 ### Current behavior
 
-A clear and concise description of what happens when you perform the steps above.  Include screenshots if applicable.
+A clear and concise description of what happens when you perform the steps
+above.  Include screenshots if applicable.
 
 ### Expected behavior
 
@@ -32,10 +33,12 @@ A guess at what might fix the issue.  *Pseudocode encouraged.*
 
 ### Comment
 
-Any other relevant context or links to what you were working on when you discovered the problem.
+Any other relevant context or links to what you were working on when you
+discovered the problem.
 
 -----
-# ISSUE OWNER SECTION
+
+## ISSUE OWNER SECTION
 
 ### Assumptions
 
@@ -50,7 +53,8 @@ Any other relevant context or links to what you were working on when you discove
 ### Limitations
 
 - A list of things this work will not fix
-- E.g. Getting edge case X to work requires too much effort and will not be fixed in this effort.
+- E.g. Getting edge case X to work requires too much effort and will not be
+  fixed in this effort.
 
 ### Affected/Changed Components
 

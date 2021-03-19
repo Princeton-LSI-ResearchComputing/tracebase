@@ -2,7 +2,8 @@
 
 ## Summary Change Description
 
-Briefly describe the changes in this pull request (not intended as a full recounting of the issue description).
+Briefly describe the changes in this pull request (not intended as a full
+recounting of the issue description).
 
 ## Resolved Issue Numbers
 
@@ -11,7 +12,8 @@ Briefly describe the changes in this pull request (not intended as a full recoun
 
 ## Code Review Notes
 
-Describe any areas of concern that code reviewers should pay particular attention to.  E.g. There are significant logic changes in function X.
+Describe any areas of concern that code reviewers should pay particular
+attention to.  E.g. There are significant logic changes in function X.
 
 ## Checklist
 

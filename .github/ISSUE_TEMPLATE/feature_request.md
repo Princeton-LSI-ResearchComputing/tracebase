@@ -7,27 +7,31 @@ assignees: ''
 
 ---
 
-# FEATURE DESCRIPTION
+## FEATURE DESCRIPTION
 
 ### Feature Inspiration
 
-A brief description of *why* a new feature is needed, which may be related to an existing deficiency or shortcoming, but is not a work-around or bug.
+A brief description of *why* a new feature is needed, which may be related to an
+existing deficiency or shortcoming, but is not a work-around or bug.
 
 ### Feature Description
 
-A brief description of *what* the feature should do (not *how* it will be done - for that, jump down to the *Code Change Description* section below to make suggestions).
+A brief description of *what* the feature should do (not *how* it will be done -
+for that, jump down to the *Code Change Description* section below to make
+suggestions).
 
 ### Alternatives Considered
 
-A brief description of any alternative features that may accomplish the same ultimate goal.
+A brief description of any alternative features that may accomplish the same
+ultimate goal.
 
 ### Comment
 
 Add any other context or screenshots about the feature request here.
 
-
 -----
-# ISSUE OWNER SECTION
+
+## ISSUE OWNER SECTION
 
 ### Assumptions
 
