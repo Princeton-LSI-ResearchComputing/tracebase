@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block content %}
+<div>
+    <h3>{{ cpd.name }}</h3>
+    <p>{{ cpd.formula }}</p>
+    <p><a href="{{ cpd.hmdb_url }}" target="_blank">{{ cpd.hmdb_id }}</a></p>
+</div>
+{% endblock %}

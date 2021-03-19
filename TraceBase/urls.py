@@ -20,6 +20,7 @@ from DataRepo import views
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("", views.home, name="TraceBase Home"),
-    path("DataRepo/", include("DataRepo.urls"), name="TraceBase DataRepo"),
+    path("", views.home, name="home"),
+    path("DataRepo/", include("DataRepo.urls"), name="home"),
+    path("DataRepo/<int:cpd_id>/", views.compound_detail, name="compound_detail"),
 ]

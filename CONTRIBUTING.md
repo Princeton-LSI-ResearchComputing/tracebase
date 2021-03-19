@@ -89,16 +89,23 @@ Django:
 
 ### Configure TraceBase
 
-Copy the `TraceBase/.env.example` file to `TraceBase/.env` and update the
-values to reflect those used when setting up Postgres.  A new secret can be
-created using:
+Create a new secret:
 
     python -c "import secrets; print(secrets.token_urlsafe())"
 
-Secrets and database settings should not be stored directly in settings. Using
-environment variables to store configuration likely to change between
-environments allows these settings to be easily updated in a deployed
-application (see [The Twelve-Factor App](https://www.12factor.net/config)).
+Database and secret key information should not be stored directly in settings
+that are published to the repo.  We use environment variables to store
+configuration data.  This makes it possible to easily change between
+environments of a deployed application (see [The Twelve-Factor
+App](https://www.12factor.net/config)).  The .env file you create here is pre-
+configured to be ignored by the repo, so do not explicitly check it in.
+
+Copy the TraceBase environment example:
+
+    cp TraceBase/.env.example TraceBase/.env
+
+Update the .env file to reflect the new secret key and the database credentials
+you used when setting up Postgres.
 
 ### Start TraceBase
 
@@ -128,3 +135,18 @@ linting on developers machines. These include:
 * [Pylint](https://www.pylint.org/) - `.python-lint` -> `.pylintrc`
 * [Black](https://black.readthedocs.io/en/stable/) - `.python-black`
 * [isort](https://pycqa.github.io/isort/) - `.isort.cfg`
+
+### Linting
+
+To lint prior to submitting a pull request, you may need to install
+`markdownlint`, linked above (the rest should have been installed in your
+environment (see Create a virtual environment)).  Then run:
+
+    markdownlint .
+    flake8 .
+    pylint TraceBase/ DataRepo/ *.py
+    black .
+    isort .
+
+`black` and `isort` will automatically fix any issues they find.  The others
+will require manual edits.

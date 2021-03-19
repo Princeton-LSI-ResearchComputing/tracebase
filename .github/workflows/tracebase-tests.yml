@@ -24,6 +24,7 @@ jobs:
       DATABASE_PASSWORD: postgres 
       DATABASE_HOST: 127.0.0.1
       DATABASE_PORT: 5432
+      HMDB_CPD_URL: https://hmdb.ca/metabolites
     steps:
     - uses: actions/checkout@v1
     - name: Set up Python 3.7
@@ -31,7 +32,9 @@ jobs:
       with:
         python-version: 3.7
     - name: psycopg2 prerequisites
-      run: sudo apt-get install python-dev libpq-dev
+      run: |
+        sudo apt-get update
+        sudo apt-get install python-dev libpq-dev
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
