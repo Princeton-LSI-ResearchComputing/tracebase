@@ -155,15 +155,19 @@ will require manual edits.
 
 ### Test Implementation
 
-All pull requests must implement tests of the changes implemented prior to being merged.  Each app should either contain `tests.py` or a `tests` directory containing multiple test scripts.  Currently, all tests are implemented using the TestCase framework.
+All pull requests must implement tests of the changes implemented prior to being
+merged.  Each app should either contain `tests.py` or a `tests` directory
+containing multiple test scripts.  Currently, all tests are implemented using
+the TestCase framework.
 
 See these resources for help implementing tests:
 
-- https://realpython.com/testing-in-django-part-1-best-practices-and-examples/
-- https://developer.mozilla.org/en-US/docs/Learn/Server-side/Django/Testing
+* [Testing in Django (Part 1) - Best Practices and Examples](https://realpython.com/testing-in-django-part-1-best-practices-and-examples/)
+* [Django Tutorial Part 10: Testing a Django web application](https://developer.mozilla.org/en-US/docs/Learn/Server-side/Django/Testing)
 
 ### Quality Control
 
-All pull requests must pass new and all previous tests before merging.  Run the following locally before submitting a pull request:
+All pull requests must pass new and all previous tests before merging.  Run the
+following locally before submitting a pull request:
 
     python manage.py test
