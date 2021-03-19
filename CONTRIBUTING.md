@@ -144,7 +144,7 @@ environment (see Create a virtual environment)).  Then run:
 
     markdownlint . .github
     flake8 .
-    pylint TraceBase/ DataRepo/ DataRepo/management/commands/ *.py
+    pylint TraceBase/ DataRepo/ *.py
     black .
     isort .
 
