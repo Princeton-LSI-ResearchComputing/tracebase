@@ -121,7 +121,9 @@ Then go to this site in your web browser:
 
     http://127.0.0.1:8000/
 
-## Code Formatting Standards
+## Pull Requests
+
+### Code Formatting Standards
 
 All Pull Requests must pass linting prior to being merged.
 
@@ -136,7 +138,7 @@ linting on developers machines. These include:
 * [Black](https://black.readthedocs.io/en/stable/) - `.python-black`
 * [isort](https://pycqa.github.io/isort/) - `.isort.cfg`
 
-### Linting
+#### Linting
 
 To lint prior to submitting a pull request, you may need to install
 `markdownlint`, linked above (the rest should have been installed in your
@@ -150,3 +152,9 @@ environment (see Create a virtual environment)).  Then run:
 
 `black` and `isort` will automatically fix any issues they find.  The others
 will require manual edits.
+
+### Testing
+
+All Pull Requests must implement tests for new code and pass all tests.
+
+    python manage.py test
