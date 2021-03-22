@@ -141,14 +141,15 @@ linting on developers machines. These include:
 #### Linting
 
 To lint prior to submitting a pull request, you may need to install
-`markdownlint`, linked above (the rest should have been installed in your
-environment (see Create a virtual environment)).  Then run:
+`markdownlint` and `dotenv-linter`, linked above (the rest should have been
+installed in your environment (see Create a virtual environment)).  Then run:
 
     markdownlint .
     flake8 .
-    pylint TraceBase/ DataRepo/ *.py
+    pylint TraceBase DataRepo *.py
     black .
     isort .
+    dotenv-linter TraceBase DataRepo
 
 `black` and `isort` will automatically fix any issues they find.  The others
 will require manual edits.
