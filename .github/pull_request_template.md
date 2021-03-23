@@ -1,14 +1,12 @@
-# TraceBase Pull Request Form
-
 ## Summary Change Description
 
 Briefly describe the changes in this pull request (not intended as a full
 recounting of the issue description).
 
-## Resolved Issue Numbers
+## Affected Issue Numbers
 
-- #<issue_number_1>
-- #<issue_number_2>
+- Resolves #<issue_number_1>
+- Resolves #<issue_number_2>
 
 ## Code Review Notes
 
