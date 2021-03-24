@@ -26,5 +26,6 @@ attention to.  E.g. There are significant logic changes in function X.
 
 - [ ] All (linked above) issue requirements satisfied
 - [ ] [Linting passes](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/CONTRIBUTING.md#linting).
-- [ ] [Tests implemented](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/CONTRIBUTING.md#test-implementation)
+- [ ] [Migrations created & committed *(or no model changes)*](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/CONTRIBUTING.md#migration-process)
+- [ ] [Tests implemented *(or no code changes)*](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/CONTRIBUTING.md#test-implementation)
 - [ ] [All tests pass](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/CONTRIBUTING.md#quality-control)
