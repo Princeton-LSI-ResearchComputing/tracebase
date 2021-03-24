@@ -1,11 +1,4 @@
 ---
-name: Pull Request
-about: Propose changes to be merged into the main branch
-title: ''
-labels: ''
-assignees: ''
-
----
 
 ## Summary Change Description
 
