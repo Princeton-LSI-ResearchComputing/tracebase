@@ -125,7 +125,7 @@ Then go to this site in your web browser:
 
 ### Code Formatting Standards
 
-All Pull Requests must pass linting prior to being merged.
+All pull requests must pass linting prior to being merged.
 
 Currently, all pushes are linted using [GitHub's
 Super-Linter](https://github.com/github/super-linter). The configuration files
@@ -144,7 +144,7 @@ To lint prior to submitting a pull request, you may need to install
 `markdownlint` and `dotenv-linter`, linked above (the rest should have been
 installed in your environment (see Create a virtual environment)).  Then run:
 
-    markdownlint .
+    markdownlint . .github
     flake8 .
     pylint TraceBase DataRepo *.py
     black .
@@ -156,6 +156,21 @@ will require manual edits.
 
 ### Testing
 
-All Pull Requests must implement tests for new code and pass all tests.
+#### Test Implementation
+
+All pull requests must implement tests of the changes implemented prior to being
+merged.  Each app should either contain `tests.py` or a `tests` directory
+containing multiple test scripts.  Currently, all tests are implemented using
+the TestCase framework.
+
+See these resources for help implementing tests:
+
+* [Testing in Django (Part 1) - Best Practices and Examples](https://realpython.com/testing-in-django-part-1-best-practices-and-examples/)
+* [Django Tutorial Part 10: Testing a Django web application](https://developer.mozilla.org/en-US/docs/Learn/Server-side/Django/Testing)
+
+#### Quality Control
+
+All pull requests must pass new and all previous tests before merging.  Run the
+following locally before submitting a pull request:
 
     python manage.py test
