@@ -144,7 +144,7 @@ To lint prior to submitting a pull request, you may need to install
 `markdownlint` and `dotenv-linter`, linked above (the rest should have been
 installed in your environment (see Create a virtual environment)).  Then run:
 
-    markdownlint . .github
+    markdownlint .
     flake8 .
     pylint TraceBase DataRepo *.py
     black .
