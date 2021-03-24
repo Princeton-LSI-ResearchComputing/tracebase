@@ -1,6 +1,4 @@
----
-
-## Summary Change Description
+# Summary Change Description
 
 Briefly describe the changes in this pull request (not intended as a full
 recounting of the issue description).
