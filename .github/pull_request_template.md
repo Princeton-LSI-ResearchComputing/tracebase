@@ -17,7 +17,7 @@ attention to.  E.g. There are significant logic changes in function X.
 
 ## Checklist
 
-- [ ] All (linked above) issue requirements satisfied
+- [ ] All issue requirements satisfied (or no linked issues)
 - [ ] [Linting passes](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/CONTRIBUTING.md#linting).
 - [ ] [Migrations created & committed *(or no model changes)*](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/CONTRIBUTING.md#migration-process)
 - [ ] [Tests implemented *(or no code changes)*](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/CONTRIBUTING.md#test-implementation)
