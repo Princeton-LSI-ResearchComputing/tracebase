@@ -11,10 +11,14 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.RenameField(
-            model_name="msrun", old_name="protocol_id", new_name="protocol",
+            model_name="msrun",
+            old_name="protocol_id",
+            new_name="protocol",
         ),
         migrations.RenameField(
-            model_name="msrun", old_name="sample_id", new_name="sample",
+            model_name="msrun",
+            old_name="sample_id",
+            new_name="sample",
         ),
         migrations.AlterField(
             model_name="msrun",

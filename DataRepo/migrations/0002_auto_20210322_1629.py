@@ -19,10 +19,6 @@ class Migration(migrations.Migration):
                 ("description", models.TextField(blank=True)),
             ],
         ),
-        migrations.CreateModel(
-            name="Sample",
-            fields=[("id", models.AutoField(primary_key=True, serialize=False)),],
-        ),
         migrations.AlterField(
             model_name="compound",
             name="hmdb_id",
