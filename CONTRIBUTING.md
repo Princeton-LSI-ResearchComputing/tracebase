@@ -144,7 +144,7 @@ To lint prior to submitting a pull request, you may need to install
 `markdownlint` and `dotenv-linter`, linked above (the rest should have been
 installed in your environment (see Create a virtual environment)).  Then run:
 
-    markdownlint . .github
+    markdownlint .
     flake8 .
     pylint TraceBase DataRepo *.py
     black .
@@ -174,3 +174,23 @@ All pull requests must pass new and all previous tests before merging.  Run the
 following locally before submitting a pull request:
 
     python manage.py test
+
+### Model Updates
+
+Any pull requests that include changes to the model, must include an update to
+the migrations and the resulting auto-generated migration scripts must be
+checked in.
+
+#### Migration Process
+
+Create the migration scripts:
+
+    python manage.py makemigrations
+
+Check for unapplied migrations:
+
+    python manage.py showmigrations
+
+Apply migrations to the postgres database:
+
+    python manage.py migrate
