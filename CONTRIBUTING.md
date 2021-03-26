@@ -121,7 +121,9 @@ Then go to this site in your web browser:
 
     http://127.0.0.1:8000/
 
-## Code Formatting Standards
+## Pull Requests
+
+### Code Formatting Standards
 
 All pull requests must pass linting prior to being merged.
 
@@ -136,24 +138,25 @@ linting on developers machines. These include:
 * [Black](https://black.readthedocs.io/en/stable/) - `.python-black`
 * [isort](https://pycqa.github.io/isort/) - `.isort.cfg`
 
-### Linting
+#### Linting
 
 To lint prior to submitting a pull request, you may need to install
-`markdownlint`, linked above (the rest should have been installed in your
-environment (see Create a virtual environment)).  Then run:
+`markdownlint` and `dotenv-linter`, linked above (the rest should have been
+installed in your environment (see Create a virtual environment)).  Then run:
 
     markdownlint . .github
     flake8 .
-    pylint TraceBase/ DataRepo/ *.py
+    pylint TraceBase DataRepo *.py
     black .
     isort .
+    dotenv-linter TraceBase DataRepo
 
 `black` and `isort` will automatically fix any issues they find.  The others
 will require manual edits.
 
-## Testing Standards
+### Testing
 
-### Test Implementation
+#### Test Implementation
 
 All pull requests must implement tests of the changes implemented prior to being
 merged.  Each app should either contain `tests.py` or a `tests` directory
@@ -165,7 +168,7 @@ See these resources for help implementing tests:
 * [Testing in Django (Part 1) - Best Practices and Examples](https://realpython.com/testing-in-django-part-1-best-practices-and-examples/)
 * [Django Tutorial Part 10: Testing a Django web application](https://developer.mozilla.org/en-US/docs/Learn/Server-side/Django/Testing)
 
-### Quality Control
+#### Quality Control
 
 All pull requests must pass new and all previous tests before merging.  Run the
 following locally before submitting a pull request:
