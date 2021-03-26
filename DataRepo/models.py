@@ -52,6 +52,8 @@ class Animal(models.Model):
     MALE = "M"
     SEX_CHOICES = [(FEMALE, "female"), (MALE, "male")]
 
+    MAX_LABELED_COUNT = 20
+
     # Instance / model fields
     id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=256, unique=True)
@@ -69,7 +71,8 @@ class Animal(models.Model):
     # NOTE: encoding atom count as an integer, NOT a float, as I have seen in
     # some example files
     tracer_labeled_count = models.PositiveSmallIntegerField(
-        null=True, validators=[MinValueValidator(1), MaxValueValidator(20)]
+        null=True,
+        validators=[MinValueValidator(1), MaxValueValidator(MAX_LABELED_COUNT)],
     )
     tracer_infusion_rate = models.FloatField(
         null=True, validators=[MinValueValidator(0)]
