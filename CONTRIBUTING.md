@@ -144,11 +144,11 @@ To lint prior to submitting a pull request, you may need to install
 `markdownlint` and `dotenv-linter`, linked above (the rest should have been
 installed in your environment (see Create a virtual environment)).  Then run:
 
+    black --config .blackrc .
+    isort .
     markdownlint .
     flake8 .
     pylint TraceBase DataRepo *.py
-    black .
-    isort .
     dotenv-linter TraceBase DataRepo
 
 `black` and `isort` will automatically fix any issues they find.  The others
