@@ -4,6 +4,18 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 
+def value_from_choices_label(label, choices):
+    """
+    Retrun the choices value for a given label
+    """
+    dictionary = {}
+    for value, label in choices:
+        dictionary[label] = value
+    result = None
+    result = dictionary.get(label)
+    return result
+
+
 class Compound(models.Model):
     # Class variables
     HMDB_CPD_URL = "https://hmdb.ca/metabolites"
@@ -57,7 +69,7 @@ class Animal(models.Model):
     # Instance / model fields
     id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=256, unique=True)
-    state = models.CharField(max_length=256)
+    state = models.CharField(max_length=256, null=True, blank=True)
     tracer_compound = models.ForeignKey(Compound, on_delete=models.RESTRICT, null=True)
     # NOTE: encoding labeled atom as the atom's symbol, NOT the full element
     # name, as I have seen in some example files
@@ -72,20 +84,31 @@ class Animal(models.Model):
     # some example files
     tracer_labeled_count = models.PositiveSmallIntegerField(
         null=True,
+        blank=True,
         validators=[MinValueValidator(1), MaxValueValidator(MAX_LABELED_COUNT)],
     )
     tracer_infusion_rate = models.FloatField(
-        null=True, validators=[MinValueValidator(0)]
+        null=True, blank=True, validators=[MinValueValidator(0)]
     )
     tracer_infusion_concentration = models.FloatField(
-        null=True, validators=[MinValueValidator(0)]
+        null=True, blank=True, validators=[MinValueValidator(0)]
     )
     genotype = models.CharField(max_length=256)
-    body_weight = models.FloatField(null=True, validators=[MinValueValidator(0)])
-    age = models.FloatField(null=True, validators=[MinValueValidator(0)])
-    sex = models.CharField(max_length=1, null=True, choices=SEX_CHOICES, blank=True)
-    diet = models.CharField(max_length=256, null=True)
-    feeding_status = models.CharField(max_length=256, null=True)
+    body_weight = models.FloatField(
+        null=True, blank=True, validators=[MinValueValidator(0)]
+    )
+    age = models.FloatField(null=True, blank=True, validators=[MinValueValidator(0)])
+    sex = models.CharField(max_length=1, null=True, blank=True, choices=SEX_CHOICES)
+    diet = models.CharField(
+        max_length=256,
+        null=True,
+        blank=True,
+    )
+    feeding_status = models.CharField(
+        max_length=256,
+        null=True,
+        blank=True,
+    )
     studies = models.ManyToManyField(Study, related_name="animals")
 
     def __str__(self):
@@ -105,7 +128,7 @@ class Sample(models.Model):
     # Instance / model fields
     id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=256, unique=True)
-    date = models.DateField(null=False, default=datetime.date.today)
+    date = models.DateField(default=datetime.date.today)
     researcher = models.CharField(max_length=256)
     animal = models.ForeignKey(
         Animal, on_delete=models.CASCADE, null=False, related_name="samples"
