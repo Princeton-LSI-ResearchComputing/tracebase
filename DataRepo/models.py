@@ -6,7 +6,7 @@ from django.db import models
 
 def value_from_choices_label(label, choices):
     """
-    Retrun the choices value for a given label
+    Return the choices value for a given label
     """
     dictionary = {}
     for value, label in choices:
