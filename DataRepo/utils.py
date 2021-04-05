@@ -18,7 +18,7 @@ class SampleTableLoader:
     """
 
     SampleTableHeaders = namedtuple(
-        "SampleTable",
+        "SampleTableHeaders",
         [
             "SAMPLE_NAME",
             "SAMPLE_DATE",

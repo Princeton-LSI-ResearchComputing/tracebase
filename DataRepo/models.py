@@ -99,16 +99,8 @@ class Animal(models.Model):
     )
     age = models.FloatField(null=True, blank=True, validators=[MinValueValidator(0)])
     sex = models.CharField(max_length=1, null=True, blank=True, choices=SEX_CHOICES)
-    diet = models.CharField(
-        max_length=256,
-        null=True,
-        blank=True,
-    )
-    feeding_status = models.CharField(
-        max_length=256,
-        null=True,
-        blank=True,
-    )
+    diet = models.CharField(max_length=256, null=True, blank=True)
+    feeding_status = models.CharField(max_length=256, null=True, blank=True)
     studies = models.ManyToManyField(Study, related_name="animals")
 
     def __str__(self):
