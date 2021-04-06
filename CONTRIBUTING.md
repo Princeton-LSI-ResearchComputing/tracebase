@@ -174,11 +174,13 @@ This is most easily accomplished using Docker.
     docker run \
         -e FILTER_REGEX_EXCLUDE="(\.pylintrc|\.github)" \
         -e LINTER_RULES_PATH="/" \
+        -e IGNORE_GITIGNORED_FILES=true \
         -e RUN_LOCAL=true \
         -v /full/path/to/tracebase/:/tmp/lint github/super-linter
 
-Note: The two options `FILTER_REGEX_EXCLUDE` and `LINTER_RULES_PATH` should
-match the settings in the GitHub Action in `.github/workflows/superlinter.yml`
+Note: The options `FILTER_REGEX_EXCLUDE`, `LINTER_RULES_PATH`, and
+`IGNORE_GITIGNORED_FILES` should match the settings in the GitHub Action in
+`.github/workflows/superlinter.yml`
 
 ### Testing
 
