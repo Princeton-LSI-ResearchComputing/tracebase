@@ -138,9 +138,12 @@ linting on developers machines. These include:
 * [Black](https://black.readthedocs.io/en/stable/) - `.python-black`
 * [isort](https://pycqa.github.io/isort/) - `.isort.cfg`
 
-#### Linting locally
+#### Linting
 
-##### Linting on the fly
+Linting for this project runs automatically on github when a PR is submitted,
+but this section describes how to lint your changes locally.
+
+##### Individual linters
 
 For the most commonly used linters (*e.g.* for python, html, and markdown
 files) it is recommended to install linters locally and run them in your
@@ -161,7 +164,18 @@ editor. Some linters that may be useful to install locally include:
   * [jscpd](https://github.com/kucherenko/jscpd) - Copy/paste detector for
     programming source code
 
-#### Running Superlinter locally
+It is recommended to run superlinter (described below) routinely or
+automatically before submitting a PR, but if you want a quick check while
+developing, you can run these example linting commands on the command line:
+
+    black --config .python-black .
+    isort .
+    markdownlint .
+    flake8 .
+    pylint TraceBase DataRepo *.py
+    dotenv-linter TraceBase DataRepo
+
+##### Superlinter
 
 In addition to linting files as you write them, developers may wish to [run
 Superlinter on the entire repository
