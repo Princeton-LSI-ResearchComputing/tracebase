@@ -21,7 +21,7 @@ jobs:
     env:
       DATABASE_NAME: tracebase
       DATABASE_USER: postgres
-      DATABASE_PASSWORD: postgres 
+      DATABASE_PASSWORD: postgres
       DATABASE_HOST: 127.0.0.1
       DATABASE_PORT: 5432
       HMDB_CPD_URL: https://hmdb.ca/metabolites
@@ -45,8 +45,8 @@ jobs:
       run: python manage.py migrate
     - name: Load example compounds
       run: python manage.py load_compounds "DataRepo/example_data/obob_compounds.tsv"
-    - name: Load example sample table 
+    - name: Load example sample table
       run: |
         python manage.py load_samples \
           "DataRepo/example_data/obob_sample_table.tsv" \
-          --sample_table_headers "DataRepo/example_data/obob_sample_table_headers.yaml"
+          --sample-table-headers "DataRepo/example_data/obob_sample_table_headers.yaml"
