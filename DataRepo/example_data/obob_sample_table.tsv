@@ -98,5 +98,5 @@ Q-xz982	2020-12-04	Xianfeng Zhang	Quad	982	ob/ob	50.2	lysine	Carbon	6	0.06	23.2	
 SI-xz982	2020-12-04	Xianfeng Zhang	Small Intestine	982	ob/ob	50.2	lysine	Carbon	6	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
 sol-xz982	2020-12-04	Xianfeng Zhang	Soleus	982	ob/ob	50.2	lysine	Carbon	6	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
 Sp-xz982	2020-12-04	Xianfeng Zhang	Spleen	982	ob/ob	50.2	lysine	Carbon	6	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-blank		Xianfeng Zhang	BLANK	BLANK	BLANK		BLANK	BLANK	BLANK	BLANK	BLANK	BLANK	obob_fasted	"this sample is a quality control ""blank"" for mass spec.  It could be excluded from databse"
-bkbk1123		Xianfeng Zhang	BLANK	BLANK	BLANK		BLANK	BLANK	BLANK	BLANK	BLANK	BLANK	obob_fasted	"this sample is a quality control ""blank"" for mass spec.  It could be excluded from databse"
+blank		Xianfeng Zhang		BLANK	BLANK		BLANK	BLANK	BLANK	BLANK	BLANK	BLANK	obob_fasted	"this sample is a quality control ""blank"" for mass spec.  It could be excluded from databse"
+bkbk1123		Xianfeng Zhang		BLANK	BLANK		BLANK	BLANK	BLANK	BLANK	BLANK	BLANK	obob_fasted	"this sample is a quality control ""blank"" for mass spec.  It could be excluded from databse"

@@ -8,10 +8,11 @@ from DataRepo.utils import SampleTableLoader
 
 class Command(BaseCommand):
     # Show this when the user types help
-    help = "Loads data from a sample table into the database"
-
-    # Skip blank rows (where tissue == blank)
-    blank = "BLANK"
+    help = (
+        "Loads data from a sample table into the database."
+        "Rows where 'Tissue' is empty will be skipped "
+        "(assumed to be blank samples)."
+    )
 
     def add_arguments(self, parser):
         parser.add_argument("sample_table_filename", type=str)
@@ -19,12 +20,6 @@ class Command(BaseCommand):
             "--sample-table-headers",
             type=str,
             help="YAML file defining headers to be used",
-        )
-        parser.add_argument(
-            "--blank",
-            default="BLANK",
-            type=str,
-            help="Tissue name that indicates a BLANK sample, will be skipped",
         )
 
     def handle(self, *args, **options):
@@ -37,7 +32,7 @@ class Command(BaseCommand):
             headers = SampleTableLoader.DefaultSampleTableHeaders
         print(f"{headers}")
         print("Loading sample table")
-        loader = SampleTableLoader(sample_table_headers=headers, blank=options["blank"])
+        loader = SampleTableLoader(sample_table_headers=headers)
         loader.load_sample_table(
             DictReader(
                 open(options["sample_table_filename"]),

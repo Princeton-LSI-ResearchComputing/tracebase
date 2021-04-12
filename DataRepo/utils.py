@@ -64,16 +64,16 @@ class SampleTableLoader:
         TRACER_INFUSION_CONCENTRATION="TRACER_INFUSION_CONCENTRATION",
     )
 
-    def __init__(self, sample_table_headers=DefaultSampleTableHeaders, blank="BLANK"):
+    def __init__(self, sample_table_headers=DefaultSampleTableHeaders):
         self.headers = sample_table_headers
-        self.blank = blank
+        self.blank = ""
 
     def load_sample_table(self, data):
         for row in data:
 
             # Skip BLANK rows
             if row[self.headers.TISSUE_NAME] == self.blank:
-                print(f"Skipping row: Tissue:{self.blank}")
+                print("Skipping row: Tissue field is empty, assuming blank sample")
                 continue
 
             # Tissue
