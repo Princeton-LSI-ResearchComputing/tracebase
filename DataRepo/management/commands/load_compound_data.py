@@ -13,7 +13,10 @@ database with tables"""
 
 class Command(BaseCommand):
     # Show this when the user types help
-    help = "Loads data from TraceBase Augmented Compopund List from jcm.tsv into our Compound mode"
+    help = "Loads data from a compound list into the database"
+
+    def add_arguments(self, parser):
+        parser.add_argument("compound_list_filename", type=str)
 
     def handle(self, *args, **options):
         if Compound.objects.exists():
@@ -22,7 +25,7 @@ class Command(BaseCommand):
             return
         print("Loading compound data")
         for row in DictReader(
-            open("./TraceBase Augmented Compopund List from jcm.tsv"),
+            open(options["compound_list_filename"]),
             dialect="excel-tab",
         ):
             cpd = Compound()
