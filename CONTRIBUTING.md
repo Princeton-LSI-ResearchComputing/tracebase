@@ -135,7 +135,6 @@ linting on developers machines. These include:
 * [Markdown-lint](https://github.com/igorshubovych/markdownlint-cli#readme) - `.markdown-lint.yml`
 * [Flake8](https://flake8.pycqa.org/en/latest/) - `.flake8`
 * [Pylint](https://www.pylint.org/) - `.python-lint` -> `.pylintrc`
-* [Black](https://black.readthedocs.io/en/stable/) - `.python-black`
 * [isort](https://pycqa.github.io/isort/) - `.isort.cfg`
 
 #### Linting
@@ -168,7 +167,7 @@ It is recommended to run superlinter (described below) routinely or
 automatically before submitting a PR, but if you want a quick check while
 developing, you can run these example linting commands on the command line:
 
-    black --config .python-black .
+    black .
     isort .
     markdownlint .
     flake8 .
