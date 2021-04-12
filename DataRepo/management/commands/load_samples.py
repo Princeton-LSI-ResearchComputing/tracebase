@@ -16,7 +16,7 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument("sample_table_filename", type=str)
         parser.add_argument(
-            "--sample_table_headers",
+            "--sample-table-headers",
             type=str,
             help="YAML file defining headers to be used",
         )
