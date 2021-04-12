@@ -35,7 +35,7 @@ class SampleTableLoader:
             "ANIMAL_DIET",
             "ANIMAL_STATE",
             "TRACER_COMPOUND_NAME",
-            "TRACER_LABELED_ATOM",
+            "TRACER_LABELED_ELEMENT",
             "TRACER_LABELED_COUNT",
             "TRACER_INFUSION_RATE",
             "TRACER_INFUSION_CONCENTRATION",
@@ -58,7 +58,7 @@ class SampleTableLoader:
         ANIMAL_DIET="ANIMAL_DIET",
         ANIMAL_STATE="ANIMAL_STATE",
         TRACER_COMPOUND_NAME="TRACER_COMPOUND_NAME",
-        TRACER_LABELED_ATOM="TRACER_LABELED_ATOM",
+        TRACER_LABELED_ELEMENT="TRACER_LABELED_ELEMENT",
         TRACER_LABELED_COUNT="TRACER_LABELED_COUNT",
         TRACER_INFUSION_RATE="TRACER_INFUSION_RATE",
         TRACER_INFUSION_CONCENTRATION="TRACER_INFUSION_CONCENTRATION",
@@ -141,10 +141,10 @@ class SampleTableLoader:
                         f"ERROR: {self.headers.TRACER_COMPOUND_NAME} not found: Compound:{tracer_compound_name}"
                     )
                     raise (e)
-            if self.headers.TRACER_LABELED_ATOM:
+            if self.headers.TRACER_LABELED_ELEMENT:
                 tracer_labeled_atom = value_from_choices_label(
-                    row[self.headers.TRACER_LABELED_ATOM],
-                    animal.TRACER_LABELED_ATOM_CHOICES,
+                    row[self.headers.TRACER_LABELED_ELEMENT],
+                    animal.TRACER_LABELED_ELEMENT_CHOICES,
                 )
                 animal.tracer_labeled_atom = tracer_labeled_atom
             if self.headers.TRACER_LABELED_COUNT:

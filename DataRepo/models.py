@@ -52,7 +52,7 @@ class Animal(models.Model):
     HYDROGEN = "H"
     OXYGEN = "O"
     SULFUR = "S"
-    TRACER_LABELED_ATOM_CHOICES = [
+    TRACER_LABELED_ELEMENT_CHOICES = [
         (CARBON, "Carbon"),
         (NITROGEN, "Nitrogen"),
         (HYDROGEN, "Hydrogen"),
@@ -76,7 +76,7 @@ class Animal(models.Model):
     tracer_labeled_atom = models.CharField(
         max_length=1,
         null=True,
-        choices=TRACER_LABELED_ATOM_CHOICES,
+        choices=TRACER_LABELED_ELEMENT_CHOICES,
         default=CARBON,
         blank=True,
     )
