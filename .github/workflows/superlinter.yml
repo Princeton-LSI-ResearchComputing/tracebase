@@ -24,4 +24,5 @@ jobs:
           DEFAULT_BRANCH: main
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           LINTER_RULES_PATH: /
-          FILTER_REGEX_EXCLUDE: (\.venv|__pycache__|migrations|\.pylintrc|.github)
+          IGNORE_GITIGNORED_FILES: true
+          FILTER_REGEX_EXCLUDE: (\.pylintrc|\.github)

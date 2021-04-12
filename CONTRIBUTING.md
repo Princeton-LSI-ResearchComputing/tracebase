@@ -135,24 +135,65 @@ linting on developers machines. These include:
 * [Markdown-lint](https://github.com/igorshubovych/markdownlint-cli#readme) - `.markdown-lint.yml`
 * [Flake8](https://flake8.pycqa.org/en/latest/) - `.flake8`
 * [Pylint](https://www.pylint.org/) - `.python-lint` -> `.pylintrc`
-* [Black](https://black.readthedocs.io/en/stable/) - `.python-black`
 * [isort](https://pycqa.github.io/isort/) - `.isort.cfg`
 
 #### Linting
 
-To lint prior to submitting a pull request, you may need to install
-`markdownlint` and `dotenv-linter`, linked above (the rest should have been
-installed in your environment (see Create a virtual environment)).  Then run:
+Linting for this project runs automatically on github when a PR is submitted,
+but this section describes how to lint your changes locally.
 
+##### Individual linters
+
+For the most commonly used linters (*e.g.* for python, html, and markdown
+files) it is recommended to install linters locally and run them in your
+editor. Some linters that may be useful to install locally include:
+
+* Python
+  * [Flake8](https://flake8.pycqa.org/en/latest/) - python style checker
+  * [Pylint](https://www.pylint.org/) - python code analysis
+  * [Black](https://black.readthedocs.io/en/stable/) - code formatter
+  * [isort](https://pycqa.github.io/isort/) - sort imports
+  * [mypy](https://mypy.readthedocs.io/) - static type checker
+* HTML
+  * [HTMLHint](https://htmlhint.com/) - static analysis for HTML
+* Markdown
+  * [Markdown-lint](https://github.com/igorshubovych/markdownlint-cli#readme)
+    \- style checker for Markdown
+* General
+  * [jscpd](https://github.com/kucherenko/jscpd) - Copy/paste detector for
+    programming source code
+
+It is recommended to run superlinter (described below) routinely or
+automatically before submitting a PR, but if you want a quick check while
+developing, you can run these example linting commands on the command line:
+
+    black .
+    isort .
     markdownlint .
     flake8 .
     pylint TraceBase DataRepo *.py
-    black .
-    isort .
     dotenv-linter TraceBase DataRepo
 
-`black` and `isort` will automatically fix any issues they find.  The others
-will require manual edits.
+##### Superlinter
+
+In addition to linting files as you write them, developers may wish to [run
+Superlinter on the entire repository
+locally](https://github.com/github/super-linter/blob/master/docs/run-linter-locally.md).
+This is most easily accomplished using Docker.
+
+    #!/usr/bin/env sh
+    docker pull github/super-linter:latest
+    
+    docker run \
+        -e FILTER_REGEX_EXCLUDE="(\.pylintrc|\.github)" \
+        -e LINTER_RULES_PATH="/" \
+        -e IGNORE_GITIGNORED_FILES=true \
+        -e RUN_LOCAL=true \
+        -v /full/path/to/tracebase/:/tmp/lint github/super-linter
+
+Note: The options `FILTER_REGEX_EXCLUDE`, `LINTER_RULES_PATH`, and
+`IGNORE_GITIGNORED_FILES` should match the settings in the GitHub Action in
+`.github/workflows/superlinter.yml`
 
 ### Testing
 
@@ -165,8 +206,10 @@ the TestCase framework.
 
 See these resources for help implementing tests:
 
-* [Testing in Django (Part 1) - Best Practices and Examples](https://realpython.com/testing-in-django-part-1-best-practices-and-examples/)
-* [Django Tutorial Part 10: Testing a Django web application](https://developer.mozilla.org/en-US/docs/Learn/Server-side/Django/Testing)
+* [Testing in Django (Part 1) - Best Practices and
+  Examples](https://realpython.com/testing-in-django-part-1-best-practices-and-examples/)
+* [Django Tutorial Part 10: Testing a Django web
+  application](https://developer.mozilla.org/en-US/docs/Learn/Server-side/Django/Testing)
 
 #### Quality Control
 

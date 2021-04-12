@@ -51,97 +51,70 @@ class CompoundTests(TestCase):
 
 class StudyTests(TestCase, ExampleDataConsumer):
     def setUp(self):
-
-        # may want to just read from file;  NOTE: values have been change from
-        # the example file [datetime format, Tracer Compound name]
+        # Get test data
         self.testdata = self.get_sample_test_dataframe()
-
-    def test_create_studied_sample(self):
-        """create studied sample"""
         first = self.testdata.iloc[0]
-        # create our animals foreign keys
-        tracer, tracer_created = Compound.objects.get_or_create(
-            name=first["Tracer Compound"]
-        )
-        tissue, tissue_created = Tissue.objects.get_or_create(name=first["Tissue"])
-        self.assertEqual(tissue.name, first["Tissue"])
 
-        study = Study.objects.create(
-            name=first["Study Name"],
-        )
-        self.assertEqual(study.name, first["Study Name"])
-
-        # create the animal; using get_or_create in case this becomes a
-        # file-based test
-        animal, animal_created = Animal.objects.get_or_create(
+        # Create animal with tracer
+        self.tracer = Compound.objects.create(name=first["Tracer Compound"])
+        self.animal = Animal.objects.create(
             name=first["Animal ID"],
             state=first["Animal State"],
             body_weight=first["Animal Body Weight"],
             genotype=first["Animal Genotype"],
-            tracer_compound=tracer,
+            tracer_compound=self.tracer,
             tracer_labeled_atom=first["Tracer Labeled Atom"],
             tracer_labeled_count=int(float(first["Tracer Label Atom Count"])),
             tracer_infusion_rate=first["Tracer Infusion Rate"],
             tracer_infusion_concentration=first["Tracer Concentration"],
         )
-        self.assertEqual(animal.name, first["Animal ID"])
 
-        # add the animal to the study
-        study.animals.add(animal)
-
-        # add the animals sample(s)
-        sample = Sample.objects.create(
+        # Create a sample from the animal
+        self.tissue = Tissue.objects.create(name=first["Tissue"])
+        self.sample = Sample.objects.create(
             name=first["Sample Name"],
-            tissue=tissue,
-            animal=animal,
+            tissue=self.tissue,
+            animal=self.animal,
             researcher=first["Researcher Name"],
             date=first["Date Collected"],
         )
-        self.assertEqual(sample.name, first["Sample Name"])
 
-
-class ProtocolTests(TestCase):
-    def setUp(self):
-        Protocol.objects.create(name="p1", description="p1desc")
-
-    def test_protocol_name(self):
-        """Protocol lookup by name"""
-        ptcl = Protocol.objects.get(name="p1")
-        self.assertEqual(ptcl.description, "p1desc")
-
-
-class MSRunTests(TestCase, ExampleDataConsumer):
-    def setUp(self):
-        self.testdata = self.get_sample_test_dataframe()
-        first = self.testdata.iloc[0]
-
-        # create our animals foreign keys
-        tracer, tracer_created = Compound.objects.get_or_create(
-            name=first["Tracer Compound"]
+        self.protocol = Protocol.objects.create(name="p1", description="p1desc")
+        MSRun.objects.create(
+            name="msr1", date=datetime.now(), protocol=self.protocol, sample=self.sample
         )
 
-        tissue, tissue_created = Tissue.objects.get_or_create(name=first["Tissue"])
-        self.assertEqual(tissue.name, first["Tissue"])
+        self.first = first
 
-        # create the animal; using get_or_create in case this becomes a
-        # file-based test
-        animal, animal_created = Animal.objects.get_or_create(
-            name=first["Animal ID"],
-            state=first["Animal State"],
-            body_weight=first["Animal Body Weight"],
-            genotype=first["Animal Genotype"],
-            tracer_compound=tracer,
-            tracer_labeled_atom=first["Tracer Labeled Atom"],
-            tracer_labeled_count=int(float(first["Tracer Label Atom Count"])),
-            tracer_infusion_rate=first["Tracer Infusion Rate"],
-            tracer_infusion_concentration=first["Tracer Concentration"],
+    def test_tracer(self):
+        self.assertEqual(self.tracer.name, self.first["Tracer Compound"])
+
+    def test_tissue(self):
+        self.assertEqual(self.tissue.name, self.first["Tissue"])
+
+    def test_animal(self):
+        self.assertEqual(self.animal.name, self.first["Animal ID"])
+        self.assertEqual(
+            self.animal.tracer_compound.name, self.first["Tracer Compound"]
         )
 
-        p1 = Protocol.objects.create(name="p1", description="p1desc")
-        s1 = Sample.objects.create(name="test", animal=animal, tissue=tissue)
-        MSRun.objects.create(name="msr1", date=datetime.now(), protocol=p1, sample=s1)
+    def test_study(self):
+        """create study and associate animal"""
+        # Create a study
+        study = Study.objects.create(name=self.first["Study Name"])
+        self.assertEqual(study.name, self.first["Study Name"])
+
+        # add the animal to the study
+        study.animals.add(self.animal)
+        self.assertEqual(study.animals.get().name, self.animal.name)
+
+    def test_sample(self):
+        # Test sample relations
+        self.assertEqual(self.sample.name, self.first["Sample Name"])
+        self.assertEqual(self.sample.tissue.name, self.first["Tissue"])
+        self.assertEqual(self.sample.animal.name, self.first["Animal ID"])
 
     def test_msrun_protocol(self):
         """MSRun lookup by name"""
         msr = MSRun.objects.get(name="msr1")
-        self.assertEqual(msr.protocol.id, 1)
+        self.assertEqual(msr.protocol.name, "p1")
