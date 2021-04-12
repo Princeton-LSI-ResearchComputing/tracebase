@@ -2,4 +2,6 @@ Django==3.1.6
 psycopg2-binary
 django-environ
 django-validators
+python-dateutil
+pyyaml
 pandas
