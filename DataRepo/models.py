@@ -16,6 +16,28 @@ def value_from_choices_label(label, choices):
     return result
 
 
+# abstract class for models which are "labeled" with tracers; because we have
+# not normalized column names, this is not a Django Abstract base class
+# (https://docs.djangoproject.com/en/3.1/topics/db/models/#abstract-base-classes).
+# This simply shares some configured variables/values.
+class TracerLabeledClass:
+    # choice specifications
+    CARBON = "C"
+    NITROGEN = "N"
+    HYDROGEN = "H"
+    OXYGEN = "O"
+    SULFUR = "S"
+    TRACER_LABELED_ELEMENT_CHOICES = [
+        (CARBON, "Carbon"),
+        (NITROGEN, "Nitrogen"),
+        (HYDROGEN, "Hydrogen"),
+        (OXYGEN, "Oxygen"),
+        (SULFUR, "Sulfur"),
+    ]
+
+    MAX_LABELED_COUNT = 20
+
+
 class Compound(models.Model):
     # Class variables
     HMDB_CPD_URL = "https://hmdb.ca/metabolites"
@@ -44,27 +66,11 @@ class Study(models.Model):
         return str(self.name)
 
 
-class Animal(models.Model):
-
-    # choice specifications
-    CARBON = "C"
-    NITROGEN = "N"
-    HYDROGEN = "H"
-    OXYGEN = "O"
-    SULFUR = "S"
-    TRACER_LABELED_ELEMENT_CHOICES = [
-        (CARBON, "Carbon"),
-        (NITROGEN, "Nitrogen"),
-        (HYDROGEN, "Hydrogen"),
-        (OXYGEN, "Oxygen"),
-        (SULFUR, "Sulfur"),
-    ]
+class Animal(models.Model, TracerLabeledClass):
 
     FEMALE = "F"
     MALE = "M"
     SEX_CHOICES = [(FEMALE, "female"), (MALE, "male")]
-
-    MAX_LABELED_COUNT = 20
 
     # Instance / model fields
     id = models.AutoField(primary_key=True)
@@ -76,8 +82,8 @@ class Animal(models.Model):
     tracer_labeled_atom = models.CharField(
         max_length=1,
         null=True,
-        choices=TRACER_LABELED_ELEMENT_CHOICES,
-        default=CARBON,
+        choices=TracerLabeledClass.TRACER_LABELED_ELEMENT_CHOICES,
+        default=TracerLabeledClass.CARBON,
         blank=True,
     )
     # NOTE: encoding atom count as an integer, NOT a float, as I have seen in
@@ -85,7 +91,10 @@ class Animal(models.Model):
     tracer_labeled_count = models.PositiveSmallIntegerField(
         null=True,
         blank=True,
-        validators=[MinValueValidator(1), MaxValueValidator(MAX_LABELED_COUNT)],
+        validators=[
+            MinValueValidator(1),
+            MaxValueValidator(TracerLabeledClass.MAX_LABELED_COUNT),
+        ],
     )
     tracer_infusion_rate = models.FloatField(
         null=True, blank=True, validators=[MinValueValidator(0)]
@@ -147,3 +156,78 @@ class MSRun(models.Model):
     protocol = models.ForeignKey(Protocol, on_delete=models.RESTRICT)
     # Don't allow a Sample to be deleted if an MSRun links to it
     sample = models.ForeignKey(Sample, on_delete=models.RESTRICT)
+
+
+class PeakGroup(models.Model):
+    id = models.AutoField(primary_key=True)
+    name = models.CharField(
+        max_length=256,
+        help_text="Compound or isomer group name [i.e. citrate/isocitrate]",
+    )
+    formula = models.CharField(
+        max_length=256, help_text="molecular formula of the compound [i.e. C6H12O6]"
+    )
+    ms_run = models.ForeignKey(
+        MSRun,
+        on_delete=models.CASCADE,
+        null=False,
+        related_name="peak_groups",
+        help_text="database identifier of the MS run this PeakGroup was derived from",
+    )
+    compounds = models.ManyToManyField(
+        Compound,
+        related_name="peak_groups",
+        help_text="database identifier(s) for the TraceBase compound(s) that this PeakGroup describes",
+    )
+
+    class Meta:
+        # composite key
+        unique_together = ("name", "ms_run")
+
+    def __str__(self):
+        return str(self.name)
+
+
+class PeakData(models.Model, TracerLabeledClass):
+    id = models.AutoField(primary_key=True)
+    peak_group = models.ForeignKey(
+        PeakGroup, on_delete=models.CASCADE, null=False, related_name="peak_data"
+    )
+    labeled_element = models.CharField(
+        max_length=1,
+        null=True,
+        choices=TracerLabeledClass.TRACER_LABELED_ELEMENT_CHOICES,
+        default=TracerLabeledClass.CARBON,
+        blank=True,
+        help_text="the type of element that is labeled in this observation (i.e. C, H, O)",
+    )
+    labeled_count = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        validators=[
+            MinValueValidator(1),
+            MaxValueValidator(TracerLabeledClass.MAX_LABELED_COUNT),
+        ],
+        help_text="the M+ value (i.e. Label) for this observation.  "
+        "'1' means one atom is labeled.  '3' means 3 atoms are labeled",
+    )
+    raw_abundance = models.FloatField(
+        validators=[MinValueValidator(0)],
+        help_text="ion counts or raw abundance of this observation",
+    )
+    corrected_abundance = models.FloatField(
+        validators=[MinValueValidator(0)],
+        help_text="ion counts corrected for natural abundance of isotopomers",
+    )
+    med_mz = models.FloatField(
+        validators=[MinValueValidator(0)],
+        help_text="median mass/charge value of this measurement",
+    )
+    med_rt = models.FloatField(
+        validators=[MinValueValidator(0)],
+        help_text="median retention time value of this measurement",
+    )
+
+    class Meta:
+        # composite key
+        unique_together = ("peak_group", "labeled_element", "labeled_count")
