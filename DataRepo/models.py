@@ -199,7 +199,7 @@ class PeakData(models.Model, TracerLabeledClass):
         choices=TracerLabeledClass.TRACER_LABELED_ELEMENT_CHOICES,
         default=TracerLabeledClass.CARBON,
         blank=True,
-        help_text="the type of element that is labeled in this observation (i.e. C, H, O)",
+        help_text="the type of element that is labeled in this observation (e.g. C, H, O)",
     )
     labeled_count = models.PositiveSmallIntegerField(
         null=True,
