@@ -162,7 +162,7 @@ class PeakGroup(models.Model):
     id = models.AutoField(primary_key=True)
     name = models.CharField(
         max_length=256,
-        help_text="Compound or isomer group name [i.e. citrate/isocitrate]",
+        help_text="Compound or isomer group name [e.g. citrate/isocitrate]",
     )
     formula = models.CharField(
         max_length=256, help_text="molecular formula of the compound [e.g. C6H12O6]"
