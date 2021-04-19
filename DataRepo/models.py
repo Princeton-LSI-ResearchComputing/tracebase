@@ -188,6 +188,9 @@ class PeakGroup(models.Model):
         return str(self.name)
 
 
+# PeakData is a single observation (at the most atomic level) of a MS-detected molecule.
+# For example, this could describe the data for M+2 in glucose from mouse 345 brain tissue.
+
 class PeakData(models.Model, TracerLabeledClass):
     id = models.AutoField(primary_key=True)
     peak_group = models.ForeignKey(
