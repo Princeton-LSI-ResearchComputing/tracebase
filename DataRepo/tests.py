@@ -1,9 +1,20 @@
 from datetime import datetime
 
 import pandas as pd
+from django.db import IntegrityError
 from django.test import TestCase
 
-from .models import Animal, Compound, MSRun, Protocol, Sample, Study, Tissue
+from .models import (
+    Animal,
+    Compound,
+    MSRun,
+    PeakData,
+    PeakGroup,
+    Protocol,
+    Sample,
+    Study,
+    Tissue,
+)
 
 
 class ExampleDataConsumer:
@@ -31,6 +42,23 @@ class ExampleDataConsumer:
         )
         return test_df
 
+    def get_peak_group_test_dataframe(self):
+
+        peak_data_df = pd.DataFrame(
+            {
+                "labeled_element": ["C", "C"],
+                "labeled_count": [0, 1],
+                "raw_abundance": [187608.7, 11873.74],
+                "corrected_abundance": [203286.917004701, 0],
+                "med_mz": [179.0558, 180.0592],
+                "med_rt": [11.22489, 11.21671],
+            }
+        )
+        peak_group_df = pd.DataFrame(
+            {"name": ["glucose"], "formula": ["C6H12O6"], "peak_data": [peak_data_df]}
+        )
+        return peak_group_df
+
 
 class CompoundTests(TestCase):
     def setUp(self):
@@ -54,6 +82,7 @@ class StudyTests(TestCase, ExampleDataConsumer):
         # Get test data
         self.testdata = self.get_sample_test_dataframe()
         first = self.testdata.iloc[0]
+        self.first = first
 
         # Create animal with tracer
         self.tracer = Compound.objects.create(name=first["Tracer Compound"])
@@ -80,11 +109,38 @@ class StudyTests(TestCase, ExampleDataConsumer):
         )
 
         self.protocol = Protocol.objects.create(name="p1", description="p1desc")
-        MSRun.objects.create(
+        self.msrun = MSRun.objects.create(
             name="msr1", date=datetime.now(), protocol=self.protocol, sample=self.sample
         )
 
-        self.first = first
+        self.peak_group_df = self.get_peak_group_test_dataframe()
+        initial_peak_group = self.peak_group_df.iloc[0]
+        self.peak_group = PeakGroup.objects.create(
+            name=initial_peak_group["name"],
+            formula=initial_peak_group["formula"],
+            ms_run=self.msrun,
+        )
+        # actual code would have to more careful in retrieving compounds based
+        # on the data's peak_group name
+        compound_fk = Compound.objects.create(
+            name=self.peak_group.name,
+            formula=self.peak_group.formula,
+            hmdb_id="HMDB0000122",
+        )
+        self.peak_group.compounds.add(compound_fk)
+        self.peak_group.save()
+
+        initial_peak_data_df = initial_peak_group["peak_data"]
+        for index, row in initial_peak_data_df.iterrows():
+            model = PeakData()
+            model.peak_group = self.peak_group
+            model.labeled_element = row["labeled_element"]
+            model.labeled_count = row["labeled_count"]
+            model.raw_abundance = row["raw_abundance"]
+            model.corrected_abundance = row["corrected_abundance"]
+            model.med_mz = row["med_mz"]
+            model.med_rt = row["med_rt"]
+            model.save()
 
     def test_tracer(self):
         self.assertEqual(self.tracer.name, self.first["Tracer Compound"])
@@ -118,3 +174,16 @@ class StudyTests(TestCase, ExampleDataConsumer):
         """MSRun lookup by name"""
         msr = MSRun.objects.get(name="msr1")
         self.assertEqual(msr.protocol.name, "p1")
+
+    def test_peak_group(self):
+        t_peak_group = PeakGroup.objects.get(name=self.peak_group.name)
+        self.assertEqual(t_peak_group.peak_data.count(), 2)
+        self.assertEqual(t_peak_group.name, self.peak_group.name)
+
+    def test_peak_group_unique_constraint(self):
+        self.assertRaises(
+            IntegrityError,
+            lambda: PeakGroup.objects.create(
+                name=self.peak_group.name, ms_run=self.msrun
+            ),
+        )
