@@ -7,6 +7,7 @@ assignees: ''
 
 ---
 
+<!-- markdownlint-disable-next-line first-line-heading -->
 ## BUG DESCRIPTION
 
 ### Problem

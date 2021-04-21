@@ -185,7 +185,7 @@ This is most easily accomplished using Docker.
     docker pull github/super-linter:latest
 
     docker run \
-        -e FILTER_REGEX_EXCLUDE="(\.pylintrc|\.github)" \
+        -e FILTER_REGEX_EXCLUDE="(\.pylintrc)" \
         -e LINTER_RULES_PATH="/" \
         -e IGNORE_GITIGNORED_FILES=true \
         -e RUN_LOCAL=true \
