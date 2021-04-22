@@ -2,6 +2,7 @@ import datetime
 
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.db.models import Sum
 
 
 def value_from_choices_label(label, choices):
@@ -180,6 +181,17 @@ class PeakGroup(models.Model):
         help_text="database identifier(s) for the TraceBase compound(s) that this PeakGroup describes",
     )
 
+    @property
+    def total_abundance(self):
+        """
+        Total ion counts for this compound. Accucor provides this in the tab
+        "pool size". Calculated by summing the corrected_abundance of all
+        Measurements for this compound.
+        """
+        return self.peak_data.all().aggregate(
+            corrected_abundance=Sum("corrected_abundance")
+        )["corrected_abundance"]
+
     class Meta:
         # composite key
         unique_together = ("name", "ms_run")
@@ -188,11 +200,12 @@ class PeakGroup(models.Model):
         return str(self.name)
 
 
-# PeakData is a single observation (at the most atomic level) of a MS-detected molecule.
-# For example, this could describe the data for M+2 in glucose from mouse 345 brain tissue.
-
-
 class PeakData(models.Model, TracerLabeledClass):
+    """
+    PeakData is a single observation (at the most atomic level) of a MS-detected molecule.
+    For example, this could describe the data for M+2 in glucose from mouse 345 brain tissue.
+    """
+
     id = models.AutoField(primary_key=True)
     peak_group = models.ForeignKey(
         PeakGroup, on_delete=models.CASCADE, null=False, related_name="peak_data"

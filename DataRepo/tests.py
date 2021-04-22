@@ -179,6 +179,7 @@ class StudyTests(TestCase, ExampleDataConsumer):
         t_peak_group = PeakGroup.objects.get(name=self.peak_group.name)
         self.assertEqual(t_peak_group.peak_data.count(), 2)
         self.assertEqual(t_peak_group.name, self.peak_group.name)
+        self.assertEqual(t_peak_group.total_abundance, 203286.917004701)
 
     def test_peak_group_unique_constraint(self):
         self.assertRaises(
