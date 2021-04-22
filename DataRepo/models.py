@@ -6,6 +6,7 @@ from chempy.util.periodic import atomic_number
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.db.models import Sum
 
 
 def value_from_choices_label(label, choices):
@@ -319,6 +320,17 @@ class PeakGroup(models.Model):
     def atom_count(self, atom):
         return atom_count_in_formula(self.formula, atom)
 
+    @property
+    def total_abundance(self):
+        """
+        Total ion counts for this compound. Accucor provides this in the tab
+        "pool size". Calculated by summing the corrected_abundance of all
+        Measurements for this compound.
+        """
+        return self.peak_data.all().aggregate(
+            corrected_abundance=Sum("corrected_abundance")
+        )["corrected_abundance"]
+
     class Meta:
         # composite key
         constraints = [
@@ -332,11 +344,12 @@ class PeakGroup(models.Model):
         return str(self.name)
 
 
-# PeakData is a single observation (at the most atomic level) of a MS-detected molecule.
-# For example, this could describe the data for M+2 in glucose from mouse 345 brain tissue.
-
-
 class PeakData(models.Model, TracerLabeledClass):
+    """
+    PeakData is a single observation (at the most atomic level) of a MS-detected molecule.
+    For example, this could describe the data for M+2 in glucose from mouse 345 brain tissue.
+    """
+
     id = models.AutoField(primary_key=True)
     peak_group = models.ForeignKey(
         PeakGroup, on_delete=models.CASCADE, null=False, related_name="peak_data"
