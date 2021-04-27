@@ -5,8 +5,12 @@ from .models import Compound
 
 
 def home(request):
+    return render(request, "home.html")
+
+
+def compound_list(request):
     cpds = Compound.objects.all()
-    return render(request, "home.html", {"cpds": cpds})
+    return render(request, "compound_list.html", {"cpds": cpds})
 
 
 def compound_detail(request, cpd_id):
