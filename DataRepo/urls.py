@@ -1,9 +1,10 @@
 from django.urls import path
 
 from . import views
+from DataRepo.views import compound_list
 
 urlpatterns = [
     path("", views.home, name="home"),
-    path("compound/", views.compound_list, name="compound_list"),
+    path("compound/", compound_list.as_view(), name="compound_list"),
     path("compound/<int:cpd_id>/", views.compound_detail, name="compound_detail"),
 ]

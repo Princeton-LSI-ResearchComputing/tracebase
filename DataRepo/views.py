@@ -1,16 +1,19 @@
 from django.http import Http404
 from django.shortcuts import render
 
-from .models import Compound
+from DataRepo.models import Compound
 
 
 def home(request):
     return render(request, "home.html")
 
 
-def compound_list(request):
-    cpds = Compound.objects.all()
-    return render(request, "compound_list.html", {"cpds": cpds})
+#def compound_list(request):
+#    cpds = Compound.objects.all()
+#    return render(request, "compound_list.html", {"cpds": cpds})
+class compound_list(ListView):
+    model = Compound
+    template_name = 'compound_list.html'
 
 
 def compound_detail(request, cpd_id):
