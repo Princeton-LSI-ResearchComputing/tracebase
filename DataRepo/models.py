@@ -54,6 +54,12 @@ class Compound(models.Model):
     def hmdb_url(self):
         "Returns the url to the compound's hmdb record"
         return f"{self.HMDB_CPD_URL}/{self.hmdb_id}"
+    
+    class Meta:
+        ordering = ["-name"]
+    
+    def __str__(self):
+        return self.name
 
 
 class Study(models.Model):
