@@ -1,19 +1,11 @@
-{% extends "base.html" %}
+{% extends "base_t1.html" %}
+
 {% block content %}
 <div>
+    <h1>TraceBase Home</h1>
     <ul>
-        <h3>List of compounds</h3>
-        {% for cpd in cpds %}
-            <li>
-                <div class="compoundname">
-                    <a href="{% url 'compound_detail' cpd.id %}">
-                        <h3>{{ cpd.name }}</h3>
-                    </a>
-                    <p>{{ cpd.formula }}</p>
-                    <p><a href="{{ cpd.hmdb_url}}" target="_blank">{{ cpd.hmdb_id }}</a></p>
-                </div>
-            </li>
-        {% endfor %}
+        <a href="{% url 'compound_list' %}" role="button" class="btn btn-primary w-80 mb-2">All Compounds</a>
+        <h3>All Animals</h3>
     </ul>
 </div>
 {% endblock %}

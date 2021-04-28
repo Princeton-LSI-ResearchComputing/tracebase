@@ -1,0 +1,8 @@
+{% extends "base_t1.html" %}
+{% block content %}
+<div>
+    <h3>{{ compound.name }}</h3>
+    <p>{{ compound.formula }}</p>
+    <p><a href="{{ compound.hmdb_url }}" target="_blank">{{ compound.hmdb_id }}</a></p>
+</div>
+{% endblock %}

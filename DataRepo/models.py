@@ -2,6 +2,7 @@ import datetime
 
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.urls import reverse
 
 
 def value_from_choices_label(label, choices):
@@ -32,6 +33,9 @@ class Compound(models.Model):
     def hmdb_url(self):
         "Returns the url to the compound's hmdb record"
         return f"{self.HMDB_CPD_URL}/{self.hmdb_id}"
+    
+    def get_absolute_url(self):
+        return reverse('compound_detail', args=[str(self.id)])
 
 
 class Study(models.Model):

@@ -1,0 +1,31 @@
+{% extends "base_t1.html" %}
+
+{% block title %}Compounds{% endblock %}
+
+{% block content %}
+<div>
+    <ul>
+        <h3>List of compounds</h3>
+
+        {% if compound_list %}
+        <br>
+        <table class=table>
+            <tr>
+            <th>NAME</th>
+            <th>Formula</th>
+            <th>HMDB ACCESSION</th>
+            </tr>
+            {% for compound in compound_list %}
+            <tr>
+            <td><a href="{{ compound.get_absolute_url }}">{{ compound.name }}</a></td>
+            <td>{{ compound.formula }}</td>
+            <td><a href="{{ compound.hmdb_url}}" target="_blank">{{ compound.hmdb_id }}</a></td>
+            </tr>
+            {% endfor %}
+        </table>
+        {% else %}
+        <p>There are no compounds.</p>  
+        {% endif %}  
+    </ul>
+</div>
+{% endblock %}
