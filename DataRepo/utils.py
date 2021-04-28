@@ -1,6 +1,7 @@
 import collections
 import re
 from collections import namedtuple
+from datetime import datetime
 
 import dateutil.parser
 from django.db import IntegrityError, transaction
@@ -222,7 +223,7 @@ class AccuCorDataLoader:
         # determine the labeled element from the corrected data
         self.set_labeled_element()
 
-        self.date = dateutil.parser.parse(self.date_input)
+        self.date = datetime.strptime(self.date_input, "%Y-%m-%d")
 
         self.retrieve_samples()
 

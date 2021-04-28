@@ -110,7 +110,10 @@ class StudyTests(TestCase, ExampleDataConsumer):
 
         self.protocol = Protocol.objects.create(name="p1", description="p1desc")
         self.msrun = MSRun.objects.create(
-            name="msr1", date=datetime.now(), protocol=self.protocol, sample=self.sample
+            researcher="John Doe",
+            date=datetime.now(),
+            protocol=self.protocol,
+            sample=self.sample,
         )
 
         self.peak_group_df = self.get_peak_group_test_dataframe()
@@ -171,8 +174,8 @@ class StudyTests(TestCase, ExampleDataConsumer):
         self.assertEqual(self.sample.animal.name, self.first["Animal ID"])
 
     def test_msrun_protocol(self):
-        """MSRun lookup by name"""
-        msr = MSRun.objects.get(name="msr1")
+        """MSRun lookup by primary key"""
+        msr = MSRun.objects.get(id=self.msrun.pk)
         self.assertEqual(msr.protocol.name, "p1")
 
     def test_peak_group(self):
