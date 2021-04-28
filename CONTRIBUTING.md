@@ -213,6 +213,10 @@ See these resources for help implementing tests:
 * [Django Tutorial Part 10: Testing a Django web
   application](https://developer.mozilla.org/en-US/docs/Learn/Server-side/Django/Testing)
 
+All pull requests must pass all previous and new tests:
+
+    python3 manage.py test
+
 #### Quality Control
 
 All pull requests must pass new and all previous tests before merging.  Run the
