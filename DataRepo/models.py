@@ -160,7 +160,13 @@ class MSRun(models.Model):
     # attempt to prevent the loading of duplicate runs, but this does assume
     # that a distinct sample extract is only run once a day (per
     # researcher/protocol)
-    unique_together = ("researcher", "date", "protocol", "sample")
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["researcher", "date", "protocol", "sample"],
+                name="unique_msrun",
+            )
+        ]
 
 
 class PeakGroup(models.Model):
@@ -187,7 +193,12 @@ class PeakGroup(models.Model):
 
     class Meta:
         # composite key
-        unique_together = ("name", "ms_run")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["name", "ms_run"],
+                name="unique_peakgroup",
+            ),
+        ]
 
     def __str__(self):
         return str(self.name)
@@ -239,4 +250,9 @@ class PeakData(models.Model, TracerLabeledClass):
 
     class Meta:
         # composite key
-        unique_together = ("peak_group", "labeled_element", "labeled_count")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["peak_group", "labeled_element", "labeled_count"],
+                name="unique_peakdata",
+            )
+        ]
