@@ -179,7 +179,9 @@ developing, you can run these example linting commands on the command line:
 In addition to linting files as you write them, developers may wish to [run
 Superlinter on the entire repository
 locally](https://github.com/github/super-linter/blob/master/docs/run-linter-locally.md).
-This is most easily accomplished using Docker.
+This is most easily accomplished using [Docker](https://docs.docker.com/get-docker/)].
+Create a script outside of the repo that runs superlinter via docker and run it
+from the repo root directory. Example script:
 
     #!/usr/bin/env sh
     docker pull github/super-linter:latest
@@ -189,7 +191,7 @@ This is most easily accomplished using Docker.
         -e LINTER_RULES_PATH="/" \
         -e IGNORE_GITIGNORED_FILES=true \
         -e RUN_LOCAL=true \
-        -v /full/path/to/tracebase/:/tmp/lint github/super-linter
+        -v /full/path/to/tracebase/:/full/path/to/tmpdir github/super-linter
 
 Note: The options `FILTER_REGEX_EXCLUDE`, `LINTER_RULES_PATH`, and
 `IGNORE_GITIGNORED_FILES` should match the settings in the GitHub Action in
