@@ -6,34 +6,35 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('DataRepo', '0007_peakdata_validator'),
+        ("DataRepo", "0007_peakdata_validator"),
     ]
 
     operations = [
         migrations.AlterUniqueTogether(
-            name='peakdata',
+            name="peakdata",
             unique_together=set(),
         ),
         migrations.AlterUniqueTogether(
-            name='peakgroup',
+            name="peakgroup",
             unique_together=set(),
         ),
         migrations.AddConstraint(
-            model_name='msrun',
+            model_name="msrun",
             constraint=models.UniqueConstraint(
-                fields=('researcher', 'date', 'protocol', 'sample'),
-                name='unique_msrun'),
+                fields=("researcher", "date", "protocol", "sample"), name="unique_msrun"
+            ),
         ),
         migrations.AddConstraint(
-            model_name='peakdata',
+            model_name="peakdata",
             constraint=models.UniqueConstraint(
-                fields=('peak_group', 'labeled_element', 'labeled_count'),
-                name='unique_peakdata'),
+                fields=("peak_group", "labeled_element", "labeled_count"),
+                name="unique_peakdata",
+            ),
         ),
         migrations.AddConstraint(
-            model_name='peakgroup',
+            model_name="peakgroup",
             constraint=models.UniqueConstraint(
-                fields=('name', 'ms_run'),
-                name='unique_peakgroup'),
+                fields=("name", "ms_run"), name="unique_peakgroup"
+            ),
         ),
     ]
