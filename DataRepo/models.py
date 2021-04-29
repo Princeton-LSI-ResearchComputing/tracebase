@@ -151,15 +151,16 @@ class MSRun(models.Model):
     # Instance / model fields
     id = models.AutoField(primary_key=True)
     researcher = models.CharField(max_length=256)
-    date = models.DateTimeField(auto_now=False, auto_now_add=True, editable=True)
+    date = models.DateField()
     # Don't allow a Protocol to be deleted if an MSRun links to it
     protocol = models.ForeignKey(Protocol, on_delete=models.RESTRICT)
     # Don't allow a Sample to be deleted if an MSRun links to it
     sample = models.ForeignKey(Sample, on_delete=models.RESTRICT)
 
-    # attempt to prevent the loading of duplicate runs, but this does assume
-    # that a distinct sample extract is only run once a day (per
-    # researcher/protocol)
+    # Two runs that share researcher, date, protocol, and sample would be
+    # indistinguishable, thus we restrict the database to ensure that
+    # combination is unique. This does assume that a distinct sample extract
+    # is only run once a day (per researcher/protocol)
     class Meta:
         constraints = [
             models.UniqueConstraint(
