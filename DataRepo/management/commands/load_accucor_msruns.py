@@ -46,10 +46,10 @@ class Command(BaseCommand):
         # get the first 2 sheets as the original and corrected data
         original = pd.read_excel(
             options["accucor_filename"], sheet_name=0, engine="openpyxl"
-        )
+        ).dropna(axis=0, how="all")
         corrected = pd.read_excel(
             options["accucor_filename"], sheet_name=1, engine="openpyxl"
-        )
+        ).dropna(axis=0, how="all")
 
         loader = AccuCorDataLoader(
             accucor_original_df=original,
