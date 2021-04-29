@@ -13,14 +13,25 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument(
-            "--accucor_filename", type=str, help="Accucor data xlxs output filepath"
+            "--accucor_filename",
+            type=str,
+            help="Accucor data xlxs output filepath",
+            required=True,
         )
         parser.add_argument(
-            "--protocol", type=str, help="protocol database identifier or name"
+            "--protocol",
+            type=str,
+            help="protocol database identifier or name",
+            required=True,
         )
-        parser.add_argument("--date", type=str, help="MSRun date performed")
         parser.add_argument(
-            "--researcher", type=str, help="Name or identifier of the researcher"
+            "--date", type=str, help="MSRun date performed", required=True
+        )
+        parser.add_argument(
+            "--researcher",
+            type=str,
+            help="Name or identifier of the researcher",
+            required=True,
         )
         # optional debug argument
         parser.add_argument(
