@@ -33,8 +33,12 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         print("Reading accucor file(s)")
         # get the first 2 sheets as the original and corrected data
-        original = pd.read_excel(options["accucor_filename"], sheet_name=0)
-        corrected = pd.read_excel(options["accucor_filename"], sheet_name=1)
+        original = pd.read_excel(
+            options["accucor_filename"], sheet_name=0, engine="openpyxl"
+        )
+        corrected = pd.read_excel(
+            options["accucor_filename"], sheet_name=1, engine="openpyxl"
+        )
 
         loader = AccuCorDataLoader(
             accucor_original_df=original,

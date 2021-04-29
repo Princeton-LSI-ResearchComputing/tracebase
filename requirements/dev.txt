@@ -6,4 +6,3 @@ black==20.8b1
 isort
 pylint
 mypy
-openpyxl
