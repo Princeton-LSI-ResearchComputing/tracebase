@@ -57,12 +57,12 @@ jobs:
         python manage.py load_accucor_msruns \
         --accucor_filename "DataRepo/example_data/obob_maven_6eaas_inf.xlsx" \
         --protocol "Default" \
-        --date "2021-04-29"
+        --date "2021-04-29" \
         --researcher "Michael"
     - name: Load example accucor c160 data
       run: |
         python manage.py load_accucor_msruns \
         --accucor_filename "DataRepo/example_data/obob_maven_c160_inf.xlsx" \
         --protocol "Default" \
-        --date "2021-04-29"
+        --date "2021-04-29" \
         --researcher "Michael"
