@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('DataRepo', '0008_changed_unique_constraints_coding'),
+        ("DataRepo", "0008_changed_unique_constraints_coding"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='msrun',
-            name='date',
+            model_name="msrun",
+            name="date",
             field=models.DateField(),
         ),
     ]
