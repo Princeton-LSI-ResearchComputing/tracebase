@@ -40,6 +40,21 @@ class TracerLabeledClass:
     MAX_LABELED_COUNT = 20
 
 
+def atom_count_in_formula(formula, atom):
+    """
+    Return the number of specified atom in the compound.
+    Returns None if atom is not a recognized symbol
+    Returns 0 if the atom is recognized, but not found in the compound
+    """
+    substance = Substance.from_formula(formula)
+    count = None
+    if atom in symbols:
+        # composition returns dict of {atomic_weight: count}
+        # symbols is a tuple of elements in atomic weight order
+        count = substance.composition.get(symbols.index(atom) + 1, 0)
+    return count
+
+
 class Compound(models.Model):
     # Class variables
     HMDB_CPD_URL = "https://hmdb.ca/metabolites"
@@ -57,19 +72,8 @@ class Compound(models.Model):
         "Returns the url to the compound's hmdb record"
         return f"{self.HMDB_CPD_URL}/{self.hmdb_id}"
 
-    def element_count(self, element):
-        """
-        Return the number of specified element in the compound.
-        Returns None if element is not a recognized symbol
-        Returns 0 if the element is recognized, but not found in the compound
-        """
-        substance = Substance.from_formula(self.formula)
-        count = None
-        if element in symbols:
-            # composition returns dict of {atomic_weight: count}
-            # symbols is a tuple of elements in atomic weight order
-            count = substance.composition.get(symbols.index(element) + 1, 0)
-        return count
+    def atom_count(self, atom):
+        return atom_count_in_formula(self.formula, atom)
 
 
 class Study(models.Model):
@@ -195,6 +199,9 @@ class PeakGroup(models.Model):
         related_name="peak_groups",
         help_text="database identifier(s) for the TraceBase compound(s) that this PeakGroup describes",
     )
+
+    def atom_count(self, atom):
+        return atom_count_in_formula(self.formula, atom)
 
     class Meta:
         # composite key
