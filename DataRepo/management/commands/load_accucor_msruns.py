@@ -5,9 +5,9 @@ from DataRepo.utils import AccuCorDataLoader
 
 
 class Command(BaseCommand):
-    # Show this when the user types help
+    # Show this when the user supplies -h
     help = (
-        "Loads data from an accucor file table into"
+        "Loads data from an accucor excel file into"
         "Protocol, MsRun, PeakGroup, and PeakData database tables"
     )
 
@@ -38,11 +38,12 @@ class Command(BaseCommand):
             "--debug",
             action="store_true",
             default=False,
-            help='Raise a "debug-only" error, to abort transaction',
+            # This issues a "debug-only" error, to abort the transaction
+            help='Debug mode. Will not change the database.',
         )
 
     def handle(self, *args, **options):
-        print("Reading accucor file(s)")
+        print("Reading accucor file: " + options["accucor_filename"])
         # get the first 2 sheets as the original and corrected data
         original = pd.read_excel(
             options["accucor_filename"], sheet_name=0, engine="openpyxl"
