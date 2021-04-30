@@ -1,5 +1,7 @@
 import datetime
 
+from chempy import Substance
+from chempy.util.periodic import symbols
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
@@ -54,6 +56,20 @@ class Compound(models.Model):
     def hmdb_url(self):
         "Returns the url to the compound's hmdb record"
         return f"{self.HMDB_CPD_URL}/{self.hmdb_id}"
+
+    def element_count(self, element):
+        """
+        Return the number of specified element in the compound.
+        Returns None if element is not a recognized symbol
+        Returns 0 if the element is recognized, but not found in the compound
+        """
+        substance = Substance.from_formula(self.formula)
+        count = None
+        if element in symbols:
+            # composition returns dict of {atomic_weight: count}
+            # symbols is a tuple of elements in atomic weight order
+            count = substance.composition.get(symbols.index(element) + 1, 0)
+        return count
 
 
 class Study(models.Model):

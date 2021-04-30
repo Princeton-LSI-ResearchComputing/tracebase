@@ -76,6 +76,21 @@ class CompoundTests(TestCase):
         alanine = Compound.objects.get(name="alanine")
         self.assertEqual(alanine.hmdb_url, f"{Compound.HMDB_CPD_URL}/{alanine.hmdb_id}")
 
+    def test_compound_element_count(self):
+        """Compound element_count"""
+        alanine = Compound.objects.get(name="alanine")
+        self.assertEqual(alanine.element_count("C"), 3)
+
+    def test_compound_element_count_zero(self):
+        """Compound element_count"""
+        alanine = Compound.objects.get(name="alanine")
+        self.assertEqual(alanine.element_count("F"), 0)
+
+    def test_compound_element_count_invalid(self):
+        """Compound element_count"""
+        alanine = Compound.objects.get(name="alanine")
+        self.assertEqual(alanine.element_count("Abc"), None)
+
 
 class StudyTests(TestCase, ExampleDataConsumer):
     def setUp(self):

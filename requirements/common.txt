@@ -5,3 +5,4 @@ django-validators
 python-dateutil
 pyyaml
 pandas
+chempy
