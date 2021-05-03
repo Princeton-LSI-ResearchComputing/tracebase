@@ -49,8 +49,8 @@ def atom_count_in_formula(formula, atom):
     substance = Substance.from_formula(formula)
     count = None
     if atom in symbols:
-        # composition returns dict of {atomic_weight: count}
-        # symbols is a tuple of elements in atomic weight order
+        # composition returns dict of {atomic_number: count}
+        # symbols is a tuple of elements in atomic number order
         count = substance.composition.get(symbols.index(atom) + 1, 0)
     return count
 
