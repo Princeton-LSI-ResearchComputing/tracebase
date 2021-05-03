@@ -13,7 +13,7 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument(
-            "--accucor_filename",
+            "--accucor-file",
             type=str,
             help="Accucor data xlxs output filepath",
             required=True,
@@ -21,16 +21,19 @@ class Command(BaseCommand):
         parser.add_argument(
             "--protocol",
             type=str,
-            help="protocol database identifier or name",
+            help="Database name or ID of the protocol",
             required=True,
         )
         parser.add_argument(
-            "--date", type=str, help="MSRun date performed", required=True
+            "--date",
+            type=str,
+            help="Date MSRun was performed",
+            required=True,
         )
         parser.add_argument(
             "--researcher",
             type=str,
-            help="Name or identifier of the researcher",
+            help="Database name or ID of the researcher",
             required=True,
         )
         # optional debug argument
@@ -39,17 +42,17 @@ class Command(BaseCommand):
             action="store_true",
             default=False,
             # This issues a "debug-only" error, to abort the transaction
-            help='Debug mode. Will not change the database.',
+            help="Debug mode. Will not change the database.",
         )
 
     def handle(self, *args, **options):
-        print("Reading accucor file: " + options["accucor_filename"])
+        print("Reading accucor file: " + options["accucor_file"])
         # get the first 2 sheets as the original and corrected data
         original = pd.read_excel(
-            options["accucor_filename"], sheet_name=0, engine="openpyxl"
+            options["accucor_file"], sheet_name=0, engine="openpyxl"
         ).dropna(axis=0, how="all")
         corrected = pd.read_excel(
-            options["accucor_filename"], sheet_name=1, engine="openpyxl"
+            options["accucor_file"], sheet_name=1, engine="openpyxl"
         ).dropna(axis=0, how="all")
 
         loader = AccuCorDataLoader(

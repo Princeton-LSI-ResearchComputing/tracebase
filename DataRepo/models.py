@@ -37,6 +37,15 @@ class TracerLabeledClass:
 
     MAX_LABELED_COUNT = 20
 
+    @classmethod
+    def tracer_labeled_element_regex_pattern(cls):
+
+        tracer_element = ""
+        for idx in cls.TRACER_LABELED_ELEMENT_CHOICES:
+            tracer_element = tracer_element + idx[0]
+
+        return tracer_element
+
 
 class Compound(models.Model):
     # Class variables
@@ -159,8 +168,8 @@ class MSRun(models.Model):
 
     # Two runs that share researcher, date, protocol, and sample would be
     # indistinguishable, thus we restrict the database to ensure that
-    # combination is unique. This does assume that a distinct sample extract
-    # is only run once a day (per researcher/protocol)
+    # combination is unique. Constraint below assumes a researcher runs a
+    # sample/protocol combo only once a day.
     class Meta:
         constraints = [
             models.UniqueConstraint(

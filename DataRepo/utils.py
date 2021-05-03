@@ -4,7 +4,7 @@ from collections import namedtuple
 from datetime import datetime
 
 import dateutil.parser
-from django.db import IntegrityError, transaction
+from django.db import transaction
 
 from DataRepo.models import (
     Animal,
@@ -16,6 +16,7 @@ from DataRepo.models import (
     Sample,
     Study,
     Tissue,
+    TracerLabeledClass,
     value_from_choices_label,
 )
 
@@ -196,9 +197,6 @@ class SampleTableLoader:
 
 class AccuCorDataLoader:
 
-    # sample names we are skipping
-    SKIPPED_SAMPLE_NAMES = ["blank"]
-
     """
     Load the Protocol, MsRun, PeakGroup, and PeakData tables
     """
@@ -206,9 +204,9 @@ class AccuCorDataLoader:
     def __init__(self, **kwargs):
         self.accucor_original_df = kwargs.get("accucor_original_df")
         self.accucor_corrected_df = kwargs.get("accucor_corrected_df")
-        self.date_input = kwargs.get("date")
+        self.date_input = kwargs.get("date").strip()
         self.protocol_input = kwargs.get("protocol_input").strip()
-        self.researcher = kwargs.get("researcher")
+        self.researcher = kwargs.get("researcher").strip()
         self.debug = False
         if kwargs.get("debug"):
             self.debug = kwargs.get("debug")
@@ -233,16 +231,22 @@ class AccuCorDataLoader:
         self.validate_peak_groups()
 
     def validate_dataframes(self):
+
         print("Validating data...")
 
-        # WARNING: I have been told these might vary between Maven versions
-        # columns before sample names expected in original data
-        ORIGINAL_COLUMN_NUMBER = 14
-        # columns before sample names expected in corrected data
-        CORRECTED_COLUMN_NUMBER = 2
+        # column index of the first predicted sample for the original data
+        original_minimum_sample_index = self.get_first_sample_column_index(
+            self.accucor_original_df
+        )
+        # column index of the first predicted sample for the corrected data
+        corrected_minimum_sample_index = self.get_first_sample_column_index(
+            self.accucor_corrected_df
+        )
 
-        # strip any leading and trailing spaces from the headers and some
-        # columns, just to normalize
+        """
+        strip any leading and trailing spaces from the headers and some
+        columns, just to normalize
+        """
         self.accucor_original_df.rename(columns=lambda x: x.strip())
         self.accucor_corrected_df.rename(columns=lambda x: x.strip())
         self.accucor_original_df["compound"] = self.accucor_original_df[
@@ -260,10 +264,18 @@ class AccuCorDataLoader:
         assert len(self.accucor_original_df.index) == len(
             self.accucor_corrected_df.index
         ), err_msg
-        # validate sample headers
-        # get the sample names from the original header [all columns]
-        original_samples = list(self.accucor_original_df)[ORIGINAL_COLUMN_NUMBER:]
-        corrected_samples = list(self.accucor_corrected_df)[CORRECTED_COLUMN_NUMBER:]
+
+        """
+        Validate sample headers. Get the sample names from the original header
+        [all columns]
+        """
+
+        original_samples = list(self.accucor_original_df)[
+            original_minimum_sample_index:
+        ]
+        corrected_samples = list(self.accucor_corrected_df)[
+            corrected_minimum_sample_index:
+        ]
         err_msg = "Samples are not equivalent in the original and corrected data"
         assert collections.Counter(original_samples) == collections.Counter(
             corrected_samples
@@ -272,7 +284,8 @@ class AccuCorDataLoader:
 
     # determine the labeled element from the corrected data
     def set_labeled_element(self):
-        label_pattern = "^([CNHOS]{1})_Label$"
+        elements_string = TracerLabeledClass.tracer_labeled_element_regex_pattern()
+        label_pattern = f"^([{elements_string}])_Label$"
         labeled_df = self.accucor_corrected_df.filter(regex=(label_pattern))
         # lets hope sample names don't collide with AccuCor column labeling
         assert (
@@ -300,8 +313,6 @@ class AccuCorDataLoader:
         # cross validate in database
         self.sample_dict = {}
         for original_sample_name in self.original_samples:
-            if original_sample_name in self.SKIPPED_SAMPLE_NAMES:
-                continue
             try:
                 # cached it for later
                 self.sample_dict[original_sample_name] = Sample.objects.get(
@@ -309,12 +320,53 @@ class AccuCorDataLoader:
                 )
             except Sample.DoesNotExist as e:
                 print(f"Could not find sample {original_sample_name}")
-                raise (e)
+                raise e
+
+    def get_first_sample_column_index(self, df):
+
+        """
+        given a dataframe return the column index of the likely "first" sample
+        column
+        """
+
+        # list of column names from data files that we know are not samples
+        NONSAMPLE_COLUMN_NAMES = [
+            "label",
+            "metaGroupId",
+            "groupId",
+            "goodPeakCount",
+            "medMz",
+            "medRt",
+            "maxQuality",
+            "isotopeLabel",
+            "compound",
+            "compoundId",
+            "formula",
+            "expectedRtDiff",
+            "ppmDiff",
+            "parent",
+            "Compound",
+            "C_Label",
+        ]
+
+        max_nonsample_index = 0
+        for col_name in NONSAMPLE_COLUMN_NAMES:
+            try:
+                if df.columns.get_loc(col_name) > max_nonsample_index:
+                    max_nonsample_index = df.columns.get_loc(col_name)
+            except KeyError:
+                # column is not found, so move on
+                pass
+
+        # the sample index should be the next column
+        return max_nonsample_index + 1
 
     def validate_peak_groups(self):
 
-        # step through the original file, and note all the unique peak group
-        # names/formulas and map to database compounds
+        """
+        step through the original file, and note all the unique peak group
+        names/formulas and map to database compounds
+        """
 
         self.peak_group_dict = {}
         missing_compounds = 0
@@ -325,15 +377,17 @@ class AccuCorDataLoader:
             peak_group_formula = row["formula"]
             if peak_group_name not in self.peak_group_dict:
 
-                # cross validate in database;  this is a mapping of peak group
-                # name to one or more compounds. peak groups sometimes detect
-                # multiple compounds delimited by slash
+                """
+                cross validate in database;  this is a mapping of peak group
+                name to one or more compounds. peak groups sometimes detect
+                multiple compounds delimited by slash
+                """
 
                 compounds_input = peak_group_name.split("/")
 
                 for compound_input in compounds_input:
                     try:
-                        # cache it for later; note, if the firs row encountered
+                        # cache it for later; note, if the first row encountered
                         # is missing a formula, there will be issues later
                         self.peak_group_dict[peak_group_name] = {
                             "name": peak_group_name,
@@ -364,14 +418,14 @@ class AccuCorDataLoader:
         """
         print(f"Finding or inserting protocol for '{self.protocol_input}'...")
 
-        action = "Found "
+        action = "Found"
 
         if self.is_integer(self.protocol_input):
             try:
                 self.protocol = Protocol.objects.get(id=self.protocol_input)
             except Protocol.DoesNotExist as e:
                 print("Protocol does not exist.")
-                raise (e)
+                raise e
         else:
             try:
                 self.protocol, created = Protocol.objects.get_or_create(
@@ -379,7 +433,7 @@ class AccuCorDataLoader:
                 )
 
                 if created:
-                    action = "Created "
+                    action = "Created"
             except Exception as e:
                 print(f"Failed to get or create protocol {self.protocol_input}")
                 raise e
@@ -415,11 +469,12 @@ class AccuCorDataLoader:
 
                 if peak_group_name not in inserted_peak_group_dict:
 
-                    # here we insert and cache a PeakGroup, by name (only once
-                    # per file). NOTE: if the first row encountered has any
-                    # issues (for example, a null formula, as sometimes observed
-                    # in original Maven results), then this block will likely
-                    # fail
+                    """
+                    Here we insert and cache a PeakGroup, by name (only once per
+                    file). NOTE: if the first row encountered has any issues
+                    (for example, a null formula, as sometimes observed in
+                    original Maven results), then this block will likely fail
+                    """
 
                     print(f"\tInserting {peak_group_name} peak group")
                     peak_group_attrs = self.peak_group_dict[peak_group_name]
@@ -433,8 +488,10 @@ class AccuCorDataLoader:
                     # cache
                     inserted_peak_group_dict[peak_group_name] = peak_group
 
-                    # associate the pre-vetted compounds with the newly inserted
-                    #  PeakGroup
+                    """
+                    associate the pre-vetted compounds with the newly inserted
+                    PeakGroup
+                    """
                     for compound in peak_group_attrs["compounds"]:
                         peak_group.compounds.add(compound)
 
@@ -462,10 +519,6 @@ class AccuCorDataLoader:
 
     def load_accucor_data(self):
 
-        try:
-            with transaction.atomic():
-                self.validate_data()
-                self.load_data()
-        except (IntegrityError, Exception) as e:
-            print(e)
-            raise (e)
+        with transaction.atomic():
+            self.validate_data()
+            self.load_data()
