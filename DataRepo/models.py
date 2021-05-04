@@ -35,7 +35,7 @@ class TracerLabeledClass:
         (SULFUR, "Sulfur"),
     ]
 
-    MAX_LABELED_COUNT = 20
+    MAX_LABELED_ATOMS = 20
 
     @classmethod
     def tracer_labeled_element_regex_pattern(cls):
@@ -102,8 +102,10 @@ class Animal(models.Model, TracerLabeledClass):
         blank=True,
         validators=[
             MinValueValidator(1),
-            MaxValueValidator(TracerLabeledClass.MAX_LABELED_COUNT),
+            MaxValueValidator(TracerLabeledClass.MAX_LABELED_ATOMS),
         ],
+        help_text="The number of labeled atoms (M+) in the tracer compound "
+        "supplied to this animal.",
     )
     tracer_infusion_rate = models.FloatField(
         null=True, blank=True, validators=[MinValueValidator(0)]
@@ -236,10 +238,10 @@ class PeakData(models.Model, TracerLabeledClass):
         blank=True,
         validators=[
             MinValueValidator(0),
-            MaxValueValidator(TracerLabeledClass.MAX_LABELED_COUNT),
+            MaxValueValidator(TracerLabeledClass.MAX_LABELED_ATOMS),
         ],
-        help_text="the M+ value (i.e. Label) for this observation.  "
-        "'1' means one atom is labeled.  '3' means 3 atoms are labeled",
+        help_text="The number of labeled atoms (M+) observed relative to the "
+        "presumed compound referred to in the peak group.",
     )
     raw_abundance = models.FloatField(
         validators=[MinValueValidator(0)],

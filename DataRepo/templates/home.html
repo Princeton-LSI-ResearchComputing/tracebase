@@ -2,18 +2,14 @@
 {% block content %}
 <div>
     <ul>
-        <h3>List of compounds</h3>
-        {% for cpd in cpds %}
+        <h3>Browse the Database</h3>
             <li>
-                <div class="compoundname">
-                    <a href="{% url 'compound_detail' cpd.id %}">
-                        <h3>{{ cpd.name }}</h3>
+                <div class="table">
+                    <a href="{% url 'compound_list' %}">
+                        <h3>Compounds</h3>
                     </a>
-                    <p>{{ cpd.formula }}</p>
-                    <p><a href="{{ cpd.hmdb_url}}" target="_blank">{{ cpd.hmdb_id }}</a></p>
                 </div>
             </li>
-        {% endfor %}
     </ul>
 </div>
 {% endblock %}

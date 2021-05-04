@@ -22,5 +22,4 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("", views.home, name="home"),
     path("DataRepo/", include("DataRepo.urls"), name="home"),
-    path("DataRepo/<int:cpd_id>/", views.compound_detail, name="compound_detail"),
 ]
