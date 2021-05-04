@@ -7,18 +7,36 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('DataRepo', '0005_auto_20210421_1054'),
+        ("DataRepo", "0005_auto_20210421_1054"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='animal',
-            name='tracer_labeled_count',
-            field=models.PositiveSmallIntegerField(blank=True, help_text='The number of labeled atoms (M+) in the tracer compound supplied to this animal.', null=True, validators=[django.core.validators.MinValueValidator(1), django.core.validators.MaxValueValidator(20)]),
+            model_name="animal",
+            name="tracer_labeled_count",
+            field=models.PositiveSmallIntegerField(
+                blank=True,
+                help_text="The number of labeled atoms (M+) in the tracer "
+                "compound supplied to this animal.",
+                null=True,
+                validators=[
+                    django.core.validators.MinValueValidator(1),
+                    django.core.validators.MaxValueValidator(20),
+                ],
+            ),
         ),
         migrations.AlterField(
-            model_name='peakdata',
-            name='labeled_count',
-            field=models.PositiveSmallIntegerField(blank=True, help_text='The number of labeled atoms (M+) observed relative to the presumed compound referred to in the peak group.', null=True, validators=[django.core.validators.MinValueValidator(1), django.core.validators.MaxValueValidator(20)]),
+            model_name="peakdata",
+            name="labeled_count",
+            field=models.PositiveSmallIntegerField(
+                blank=True,
+                help_text="The number of labeled atoms (M+) observed relative "
+                "to the presumed compound referred to in the peak group.",
+                null=True,
+                validators=[
+                    django.core.validators.MinValueValidator(1),
+                    django.core.validators.MaxValueValidator(20),
+                ],
+            ),
         ),
     ]
