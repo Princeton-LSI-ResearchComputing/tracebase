@@ -287,10 +287,11 @@ class AccuCorDataLoader:
         elements_string = TracerLabeledClass.tracer_labeled_element_regex_pattern()
         label_pattern = f"^([{elements_string}])_Label$"
         labeled_df = self.accucor_corrected_df.filter(regex=(label_pattern))
-        # lets hope sample names don't collide with AccuCor column labeling
-        assert (
-            len(labeled_df.columns) == 1
-        ), "Loader cannot deal with multiple labels, currently..."
+
+        err_msg = f"{self.__class__.__name__} cannot deal with multiple tracer labels"
+        err_msg += f"({','.join(labeled_df.columns)}), currently..."
+        assert len(labeled_df.columns) == 1, err_msg
+
         labeled_column = labeled_df.columns[0]
         self.labeled_element_header = labeled_column
         re_pattern = re.compile(label_pattern)
@@ -309,6 +310,8 @@ class AccuCorDataLoader:
 
     def retrieve_samples(self):
 
+        missing_samples = 0
+
         print("Checking samples...")
         # cross validate in database
         self.sample_dict = {}
@@ -318,9 +321,10 @@ class AccuCorDataLoader:
                 self.sample_dict[original_sample_name] = Sample.objects.get(
                     name=original_sample_name
                 )
-            except Sample.DoesNotExist as e:
-                print(f"Could not find sample {original_sample_name}")
-                raise e
+            except Sample.DoesNotExist:
+                missing_samples += 1
+                print(f"Could not find sample {original_sample_name} in the database.")
+        assert missing_samples == 0, f"{missing_samples} samples are missing."
 
     def get_first_sample_column_index(self, df):
 
@@ -346,8 +350,12 @@ class AccuCorDataLoader:
             "ppmDiff",
             "parent",
             "Compound",
-            "C_Label",
         ]
+
+        # append the *_Label columns of the corrected dataframe
+        tracer_element_list = TracerLabeledClass.tracer_labeled_elements_list()
+        for element in tracer_element_list:
+            NONSAMPLE_COLUMN_NAMES.append(f"{element}_Label")
 
         max_nonsample_index = 0
         for col_name in NONSAMPLE_COLUMN_NAMES:

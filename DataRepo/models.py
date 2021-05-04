@@ -46,6 +46,13 @@ class TracerLabeledClass:
 
         return tracer_element
 
+    @classmethod
+    def tracer_labeled_elements_list(cls):
+        tracer_element_list = []
+        for idx in cls.TRACER_LABELED_ELEMENT_CHOICES:
+            tracer_element_list.append(idx[0])
+        return tracer_element_list
+
 
 class Compound(models.Model):
     # Class variables

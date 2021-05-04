@@ -6,9 +6,8 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('DataRepo', '0006_auto_20210503_1855'),
-        ('DataRepo', '0009_auto_20210429_1433'),
+        ("DataRepo", "0006_auto_20210503_1855"),
+        ("DataRepo", "0009_auto_20210429_1433"),
     ]
 
-    operations = [
-    ]
+    operations = []
