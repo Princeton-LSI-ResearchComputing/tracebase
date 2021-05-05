@@ -2,8 +2,8 @@
 {% block content %}
 <div>
     <h3>List of compounds</h3>
-    <table>
-        {% for cpd in cpds %}
+    <table class="table table-hover table-striped table-bordered">
+        {% for cpd in object_list %}
             <tr>
                 <td>
                     <div>
