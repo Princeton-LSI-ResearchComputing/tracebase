@@ -409,9 +409,7 @@ class AccuCorDataLoader:
                         }
 
                         # peaks can contain more than 1 compound
-                        mapped_compound = Compound.objects.get(
-                            name=compound_input
-                        )
+                        mapped_compound = Compound.objects.get(name=compound_input)
                         if "compounds" in self.peak_group_dict[peak_group_name]:
                             self.peak_group_dict[peak_group_name]["compounds"].append(
                                 mapped_compound
