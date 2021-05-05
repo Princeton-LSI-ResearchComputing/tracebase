@@ -1,19 +1,25 @@
 {% extends "base.html" %}
 {% block content %}
 <div>
-    <ul>
-        <h3>List of compounds</h3>
+    <h3>List of compounds</h3>
+    <table class="table table-hover table-striped table-bordered">
         {% for cpd in object_list %}
-            <li>
-                <div class="compoundname">
-                    <a href="{% url 'compound_detail' cpd.id %}">
-                        <h3>{{ cpd.name }}</h3>
-                    </a>
-                    <p>{{ cpd.formula }}</p>
-                    <p><a href="{{ cpd.hmdb_url}}" target="_blank">{{ cpd.hmdb_id }}</a></p>
-                </div>
-            </li>
+            <tr>
+                <td>
+                    <div>
+                        <a href="{% url 'compound_detail' cpd.id %}">
+                            <h3>{{ cpd.name }}</h3>
+                        </a>
+                    </div>
+                </td>
+                <td>
+                    <div>{{ cpd.formula }}</div>
+                </td>
+                <td>
+                    <div><a href="{{ cpd.hmdb_url}}" target="_blank">{{ cpd.hmdb_id }}</a></div>
+                </td>
+            </tr>
         {% endfor %}
-    </ul>
+    </table>
 </div>
 {% endblock %}
