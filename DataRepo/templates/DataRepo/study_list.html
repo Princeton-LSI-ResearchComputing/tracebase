@@ -1,0 +1,29 @@
+{% extends "base_t1.html" %}
+
+{% block title %}Compounds{% endblock %}
+
+{% block content %}
+<div>
+    <ul>
+        <h3>List of Studies</h3>
+
+        {% if study_list %}
+        <br>
+        <table class="table table-hover table-striped table-bordered">
+            <tr>
+            <th>Name</th>
+            <th>Description</th>
+            </tr>
+            {% for study in study_list %}
+            <tr>
+            <td><a href="{{ study.get_absolute_url }}">{{ study.name }}</a></td>
+            <td>{{ study.description }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+        {% else %}
+        <p>There are no studies.</p>  
+        {% endif %}  
+    </ul>
+</div>
+{% endblock %}

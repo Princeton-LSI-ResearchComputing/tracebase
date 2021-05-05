@@ -1,0 +1,29 @@
+{% extends "base_t1.html" %}
+
+{% block title %}Compounds{% endblock %}
+
+{% block content %}
+<div>
+    <ul>
+        <h3>List of Protocols</h3>
+
+        {% if protocol_list %}
+        <br>
+        <table class="table table-hover table-striped table-bordered">
+            <tr>
+            <th>Name</th>
+            <th>Description</th>
+            </tr>
+            {% for protocol in protocol_list %}
+            <tr>
+            <td><a href="{{ protocol.get_absolute_url }}">{{ protocolname }}</a></td>
+            <td>{{ study.description }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+        {% else %}
+        <p>There are no protocols.</p>  
+        {% endif %}  
+    </ul>
+</div>
+{% endblock %}

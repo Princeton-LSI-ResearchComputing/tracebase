@@ -47,6 +47,8 @@ class Study(models.Model):
     def __str__(self):
         return str(self.name)
 
+    def get_absolute_url(self):
+        return reverse('study_detail', args=[str(self.id)])
 
 class Animal(models.Model):
 
@@ -110,6 +112,8 @@ class Animal(models.Model):
     def __str__(self):
         return str(self.name)
 
+    def get_absolute_url(self):
+        return reverse('animal_detail', args=[str(self.id)])
 
 class Tissue(models.Model):
     # Instance / model fields
@@ -134,6 +138,8 @@ class Sample(models.Model):
     def __str__(self):
         return str(self.name)
 
+    def get_absolute_url(self):
+        return reverse('sample_detail', args=[str(self.id)])
 
 class Protocol(models.Model):
     # Instance / model fields
@@ -141,6 +147,11 @@ class Protocol(models.Model):
     name = models.CharField(max_length=256, unique=True)
     description = models.TextField(blank=True)
 
+    def __str__(self):
+        return str(self.name)
+
+    def get_absolute_url(self):
+        return reverse('protocol_detail', args=[str(self.id)])
 
 class MSRun(models.Model):
     # Instance / model fields

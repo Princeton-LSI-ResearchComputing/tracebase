@@ -2,10 +2,19 @@
 
 {% block content %}
 <div>
-    <h1>TraceBase Home</h1>
+    <h2>TraceBase Home</h2>
     <ul>
         <a href="{% url 'compound_list' %}" role="button" class="btn btn-primary w-80 mb-2">All Compounds</a>
-        <h3>All Animals</h3>
+        <br>
+        <a href="{% url 'study_list' %}" role="button" class="btn btn-primary w-80 mb-2">All Studies</a>
+        <br>
+        <a href="{% url 'protocol_list' %}" role="button" class="btn btn-primary w-80 mb-2">All Protocols</a>
+        <br>
+        <a href="{% url 'animal_list' %}" role="button" class="btn btn-primary w-80 mb-2">All Animals</a>
+        <br>
+        <a href="{% url 'sample_list' %}" role="button" class="btn btn-primary w-80 mb-2">All Samples</a>
+        <br>
+        <h3>All MSRuns</h3>
     </ul>
 </div>
 {% endblock %}
