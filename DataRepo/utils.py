@@ -282,10 +282,16 @@ class AccuCorDataLoader:
         ), err_msg
         self.original_samples = original_samples
 
+    def corrected_file_tracer_labeled_column_regex(self):
+        regex_pattern = ""
+        tracer_element_list = TracerLabeledClass.tracer_labeled_elements_list()
+        regex_pattern = f"^({'|'.join(tracer_element_list)})_Label$"
+        return regex_pattern
+
     # determine the labeled element from the corrected data
     def set_labeled_element(self):
-        elements_string = TracerLabeledClass.tracer_labeled_element_regex_pattern()
-        label_pattern = f"^([{elements_string}])_Label$"
+
+        label_pattern = self.corrected_file_tracer_labeled_column_regex()
         labeled_df = self.accucor_corrected_df.filter(regex=(label_pattern))
 
         err_msg = f"{self.__class__.__name__} cannot deal with multiple tracer labels"

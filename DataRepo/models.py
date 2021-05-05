@@ -38,15 +38,6 @@ class TracerLabeledClass:
     MAX_LABELED_ATOMS = 20
 
     @classmethod
-    def tracer_labeled_element_regex_pattern(cls):
-
-        tracer_element = ""
-        for idx in cls.TRACER_LABELED_ELEMENT_CHOICES:
-            tracer_element = tracer_element + idx[0]
-
-        return tracer_element
-
-    @classmethod
     def tracer_labeled_elements_list(cls):
         tracer_element_list = []
         for idx in cls.TRACER_LABELED_ELEMENT_CHOICES:
