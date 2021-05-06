@@ -56,7 +56,7 @@ class Compound(models.Model):
         return f"{self.HMDB_CPD_URL}/{self.hmdb_id}"
     
     class Meta:
-        ordering = ["-name"]
+        ordering = ["name"]
     
     def __str__(self):
         return self.name

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% load table_tags %}
+{% block content %}
+<div>
+    <h3>{{ table }} Records</h3>
+    <table>
+        <tr>
+            {% for hdr in headers %}
+                <th>
+                    {{ hdr }}
+                </th>
+            {% endfor %}
+        </tr>
+        {% for rec in object_list %}
+            <tr>
+                {% for fld in fieldnames %}
+                    <td>
+                        <div>{{ rec|value_from_model:fld }}</div>
+                    </td>
+                {% endfor %}
+            </tr>
+        {% empty %}
+            
+        {% endfor %}
+    </table>
+</div>
+{% endblock %}

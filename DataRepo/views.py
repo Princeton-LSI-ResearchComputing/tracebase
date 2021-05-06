@@ -9,12 +9,18 @@ def home(request):
     return render(request, "home.html")
 
 
-#def compound_list(request):
-#    cpds = Compound.objects.all()
-#    return render(request, "compound_list.html", {"cpds": cpds})
 class compound_list(ListView):
     model = Compound
-    template_name = 'compound_list.html'
+    template_name = 'listview.html'
+    #paginate_by = 10
+    allow_empty = True
+    queryset = Compound.objects.order_by(Compound._meta.ordering[0])
+
+    def get_context_data(self, **kwargs):
+        context = super(compound_list, self).get_context_data(**kwargs)
+        context['table'] = Compound.__name__
+        context['fieldnames'] = [field.name for field in Compound._meta.fields]
+        return context
 
 
 def compound_detail(request, cpd_id):
