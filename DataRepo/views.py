@@ -8,7 +8,6 @@ def home(request):
     return render(request, "home.html")
 
 
-
 class generic_list(ListView):
     """
     This class displays all list views of every model. It is an abstract class.
@@ -48,7 +47,6 @@ class compound_list(generic_list):
 
 class study_list(generic_list):
     generic_list.model = Study
-
 
 
 
