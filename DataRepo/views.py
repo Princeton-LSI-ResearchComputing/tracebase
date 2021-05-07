@@ -19,8 +19,12 @@ class compound_list(ListView):
         context = super().get_context_data(**kwargs)
         model = self.model
         context['table'] = model.__name__
-        context['fieldnames'] = [field.name for field in model._meta.fields]
+        all_fields = model._meta.get_fields(include_parents=False, include_hidden=False)
+        filt_fields = list(filter(lambda x:x.get_internal_type() != 'AutoField' and not getattr(x, "is_relation"), all_fields))
+        context['fieldnames'] = [field.name for field in filt_fields]
         return context
+    
+    #def is_shown_field(self,
 
 
 def compound_detail(request, cpd_id):
