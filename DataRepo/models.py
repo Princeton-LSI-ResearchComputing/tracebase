@@ -1,7 +1,8 @@
 import datetime
+import warnings
 
 from chempy import Substance
-from chempy.util.periodic import symbols
+from chempy.util.periodic import atomic_number
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
@@ -47,11 +48,15 @@ def atom_count_in_formula(formula, atom):
     Returns 0 if the atom is recognized, but not found in the compound
     """
     substance = Substance.from_formula(formula)
-    count = None
-    if atom in symbols:
-        # composition returns dict of {atomic_number: count}
-        # symbols is a tuple of elements in atomic number order
-        count = substance.composition.get(symbols.index(atom) + 1, 0)
+    try:
+        count = substance.composition.get(atomic_number(atom))
+    except ValueError:
+        warnings.warn(f"{atom} not found in list of elements")
+        count = None
+    else:
+        if count is None:
+            # Valid atom, but not in formula
+            count = 0
     return count
 
 
