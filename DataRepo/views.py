@@ -57,6 +57,16 @@ class study_list(generic_list):
 
 
 
+class compound_list(generic_list):
+    generic_list.model = Compound
+
+
+class study_list(generic_list):
+    generic_list.model = Study
+
+
+
+
 def compound_detail(request, cpd_id):
     try:
         cpd = Compound.objects.get(id=cpd_id)
