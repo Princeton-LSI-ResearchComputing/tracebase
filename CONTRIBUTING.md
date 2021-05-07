@@ -179,7 +179,9 @@ developing, you can run these example linting commands on the command line:
 In addition to linting files as you write them, developers may wish to [run
 Superlinter on the entire repository
 locally](https://github.com/github/super-linter/blob/master/docs/run-linter-locally.md).
-This is most easily accomplished using Docker.
+This is most easily accomplished using [Docker](https://docs.docker.com/get-docker/)].
+Create a script outside of the repo that runs superlinter via docker and run it
+from the repo root directory. Example script:
 
     #!/usr/bin/env sh
     docker pull github/super-linter:latest
@@ -210,6 +212,10 @@ See these resources for help implementing tests:
   Examples](https://realpython.com/testing-in-django-part-1-best-practices-and-examples/)
 * [Django Tutorial Part 10: Testing a Django web
   application](https://developer.mozilla.org/en-US/docs/Learn/Server-side/Django/Testing)
+
+All pull requests must pass all previous and new tests:
+
+    python3 manage.py test
 
 #### Quality Control
 

@@ -1,13 +1,22 @@
+import collections
+import re
 from collections import namedtuple
+from datetime import datetime
 
 import dateutil.parser
+from django.db import transaction
 
 from DataRepo.models import (
     Animal,
     Compound,
+    MSRun,
+    PeakData,
+    PeakGroup,
+    Protocol,
     Sample,
     Study,
     Tissue,
+    TracerLabeledClass,
     value_from_choices_label,
 )
 
@@ -184,3 +193,344 @@ class SampleTableLoader:
             except Exception as e:
                 print(f"Error saving record: Sample:{sample}")
                 raise (e)
+
+
+class AccuCorDataLoader:
+
+    """
+    Load the Protocol, MsRun, PeakGroup, and PeakData tables
+    """
+
+    def __init__(self, **kwargs):
+        self.accucor_original_df = kwargs.get("accucor_original_df")
+        self.accucor_corrected_df = kwargs.get("accucor_corrected_df")
+        self.date_input = kwargs.get("date").strip()
+        self.protocol_input = kwargs.get("protocol_input").strip()
+        self.researcher = kwargs.get("researcher").strip()
+        self.debug = False
+        if kwargs.get("debug"):
+            self.debug = kwargs.get("debug")
+
+    def validate_data(self):
+        """
+        basic sanity/integrity checks for the data inputs
+        """
+
+        self.validate_dataframes()
+
+        # determine the labeled element from the corrected data
+        self.set_labeled_element()
+
+        self.date = datetime.strptime(self.date_input, "%Y-%m-%d")
+
+        self.retrieve_samples()
+
+        self.retrieve_protocol()
+
+        # cross validate peak_groups/compounds in database
+        self.validate_peak_groups()
+
+    def validate_dataframes(self):
+
+        print("Validating data...")
+
+        # column index of the first predicted sample for the original data
+        original_minimum_sample_index = self.get_first_sample_column_index(
+            self.accucor_original_df
+        )
+        # column index of the first predicted sample for the corrected data
+        corrected_minimum_sample_index = self.get_first_sample_column_index(
+            self.accucor_corrected_df
+        )
+
+        """
+        strip any leading and trailing spaces from the headers and some
+        columns, just to normalize
+        """
+        self.accucor_original_df.rename(columns=lambda x: x.strip())
+        self.accucor_corrected_df.rename(columns=lambda x: x.strip())
+        self.accucor_original_df["compound"] = self.accucor_original_df[
+            "compound"
+        ].str.strip()
+        self.accucor_original_df["formula"] = self.accucor_original_df[
+            "formula"
+        ].str.strip()
+        self.accucor_corrected_df["Compound"] = self.accucor_corrected_df[
+            "Compound"
+        ].str.strip()
+
+        # original and corrected should have same number of rows
+        err_msg = "Number of rows in AccuCor original and corrected data are different"
+        assert len(self.accucor_original_df.index) == len(
+            self.accucor_corrected_df.index
+        ), err_msg
+
+        """
+        Validate sample headers. Get the sample names from the original header
+        [all columns]
+        """
+
+        original_samples = list(self.accucor_original_df)[
+            original_minimum_sample_index:
+        ]
+        corrected_samples = list(self.accucor_corrected_df)[
+            corrected_minimum_sample_index:
+        ]
+        err_msg = "Samples are not equivalent in the original and corrected data"
+        assert collections.Counter(original_samples) == collections.Counter(
+            corrected_samples
+        ), err_msg
+        self.original_samples = original_samples
+
+    def corrected_file_tracer_labeled_column_regex(self):
+        regex_pattern = ""
+        tracer_element_list = TracerLabeledClass.tracer_labeled_elements_list()
+        regex_pattern = f"^({'|'.join(tracer_element_list)})_Label$"
+        return regex_pattern
+
+    # determine the labeled element from the corrected data
+    def set_labeled_element(self):
+
+        label_pattern = self.corrected_file_tracer_labeled_column_regex()
+        labeled_df = self.accucor_corrected_df.filter(regex=(label_pattern))
+
+        err_msg = f"{self.__class__.__name__} cannot deal with multiple tracer labels"
+        err_msg += f"({','.join(labeled_df.columns)}), currently..."
+        assert len(labeled_df.columns) == 1, err_msg
+
+        labeled_column = labeled_df.columns[0]
+        self.labeled_element_header = labeled_column
+        re_pattern = re.compile(label_pattern)
+        match = re_pattern.match(labeled_column)
+        labeled_element = match.group(1)
+        if labeled_element:
+            print(f"Setting labeled element to {labeled_element}")
+            self.labeled_element = labeled_element
+
+    def is_integer(self, data):
+        try:
+            int(data)
+            return True
+        except ValueError:
+            return False
+
+    def retrieve_samples(self):
+
+        missing_samples = 0
+
+        print("Checking samples...")
+        # cross validate in database
+        self.sample_dict = {}
+        for original_sample_name in self.original_samples:
+            try:
+                # cached it for later
+                self.sample_dict[original_sample_name] = Sample.objects.get(
+                    name=original_sample_name
+                )
+            except Sample.DoesNotExist:
+                missing_samples += 1
+                print(f"Could not find sample {original_sample_name} in the database.")
+        assert missing_samples == 0, f"{missing_samples} samples are missing."
+
+    def get_first_sample_column_index(self, df):
+
+        """
+        given a dataframe return the column index of the likely "first" sample
+        column
+        """
+
+        # list of column names from data files that we know are not samples
+        NONSAMPLE_COLUMN_NAMES = [
+            "label",
+            "metaGroupId",
+            "groupId",
+            "goodPeakCount",
+            "medMz",
+            "medRt",
+            "maxQuality",
+            "isotopeLabel",
+            "compound",
+            "compoundId",
+            "formula",
+            "expectedRtDiff",
+            "ppmDiff",
+            "parent",
+            "Compound",
+        ]
+
+        # append the *_Label columns of the corrected dataframe
+        tracer_element_list = TracerLabeledClass.tracer_labeled_elements_list()
+        for element in tracer_element_list:
+            NONSAMPLE_COLUMN_NAMES.append(f"{element}_Label")
+
+        max_nonsample_index = 0
+        for col_name in NONSAMPLE_COLUMN_NAMES:
+            try:
+                if df.columns.get_loc(col_name) > max_nonsample_index:
+                    max_nonsample_index = df.columns.get_loc(col_name)
+            except KeyError:
+                # column is not found, so move on
+                pass
+
+        # the sample index should be the next column
+        return max_nonsample_index + 1
+
+    def validate_peak_groups(self):
+
+        """
+        step through the original file, and note all the unique peak group
+        names/formulas and map to database compounds
+        """
+
+        self.peak_group_dict = {}
+        missing_compounds = 0
+
+        for index, row in self.accucor_original_df.iterrows():
+            # uniquely record the group, by name
+            peak_group_name = row["compound"]
+            peak_group_formula = row["formula"]
+            if peak_group_name not in self.peak_group_dict:
+
+                """
+                cross validate in database;  this is a mapping of peak group
+                name to one or more compounds. peak groups sometimes detect
+                multiple compounds delimited by slash
+                """
+
+                compounds_input = peak_group_name.split("/")
+
+                for compound_input in compounds_input:
+                    try:
+                        # cache it for later; note, if the first row encountered
+                        # is missing a formula, there will be issues later
+                        self.peak_group_dict[peak_group_name] = {
+                            "name": peak_group_name,
+                            "formula": peak_group_formula,
+                        }
+
+                        # peaks can contain more than 1 compound
+                        mapped_compound = Compound.objects.get(name=compound_input)
+                        if "compounds" in self.peak_group_dict[peak_group_name]:
+                            self.peak_group_dict[peak_group_name]["compounds"].append(
+                                mapped_compound
+                            )
+                        else:
+                            self.peak_group_dict[peak_group_name]["compounds"] = [
+                                mapped_compound
+                            ]
+                    except Compound.DoesNotExist:
+                        missing_compounds += 1
+                        print(f"Could not find compound {compound_input}")
+
+        assert missing_compounds == 0, f"{missing_compounds} compounds are missing."
+
+    def retrieve_protocol(self):
+        """
+        retrieve or insert a protocol, based on input
+        """
+        print(f"Finding or inserting protocol for '{self.protocol_input}'...")
+
+        action = "Found"
+
+        if self.is_integer(self.protocol_input):
+            try:
+                self.protocol = Protocol.objects.get(id=self.protocol_input)
+            except Protocol.DoesNotExist as e:
+                print("Protocol does not exist.")
+                raise e
+        else:
+            try:
+                self.protocol, created = Protocol.objects.get_or_create(
+                    name=self.protocol_input
+                )
+
+                if created:
+                    action = "Created"
+            except Exception as e:
+                print(f"Failed to get or create protocol {self.protocol_input}")
+                raise e
+
+        print(f"{action} protocol {self.protocol.id} '{self.protocol.name}'")
+
+    def load_data(self):
+        """
+        extract and store the data for MsRun PeakGroup and PeakData
+        """
+        print("Loading data...")
+        self.sample_run_dict = {}
+
+        # each sample gets its own msrun
+        for original_sample_name in self.sample_dict.keys():
+
+            # each msrun/sample has its own set of peak groups
+            inserted_peak_group_dict = {}
+
+            print(f"Inserting msrun for {original_sample_name}")
+            msrun = MSRun(
+                date=self.date,
+                researcher=self.researcher,
+                protocol=self.protocol,
+                sample=self.sample_dict[original_sample_name],
+            )
+            msrun.full_clean()
+            msrun.save()
+            self.sample_run_dict[original_sample_name] = msrun
+
+            for index, row in self.accucor_original_df.iterrows():
+                peak_group_name = row["compound"]
+
+                if peak_group_name not in inserted_peak_group_dict:
+
+                    """
+                    Here we insert and cache a PeakGroup, by name (only once per
+                    file). NOTE: if the first row encountered has any issues
+                    (for example, a null formula, as sometimes observed in
+                    original Maven results), then this block will likely fail
+                    """
+
+                    print(f"\tInserting {peak_group_name} peak group")
+                    peak_group_attrs = self.peak_group_dict[peak_group_name]
+                    peak_group = PeakGroup(
+                        ms_run=msrun,
+                        name=peak_group_attrs["name"],
+                        formula=peak_group_attrs["formula"],
+                    )
+                    peak_group.full_clean()
+                    peak_group.save()
+                    # cache
+                    inserted_peak_group_dict[peak_group_name] = peak_group
+
+                    """
+                    associate the pre-vetted compounds with the newly inserted
+                    PeakGroup
+                    """
+                    for compound in peak_group_attrs["compounds"]:
+                        peak_group.compounds.add(compound)
+
+                # we should have a cached PeakGroup now
+                peak_group = inserted_peak_group_dict[peak_group_name]
+
+                # add the peakdata
+                peak_data = PeakData(
+                    peak_group=peak_group,
+                    labeled_element=self.labeled_element,
+                    labeled_count=self.accucor_corrected_df.iloc[index][
+                        self.labeled_element_header
+                    ],
+                    raw_abundance=row[original_sample_name],
+                    corrected_abundance=self.accucor_corrected_df.iloc[index][
+                        original_sample_name
+                    ],
+                    med_mz=row["medMz"],
+                    med_rt=row["medRt"],
+                )
+                peak_data.full_clean()
+                peak_data.save()
+
+        assert not self.debug, "Debugging..."
+
+    def load_accucor_data(self):
+
+        with transaction.atomic():
+            self.validate_data()
+            self.load_data()
