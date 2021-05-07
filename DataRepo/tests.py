@@ -214,14 +214,8 @@ class StudyTests(TestCase, ExampleDataConsumer):
 
 
 class CommandTests(TestCase):
-    def setUp(self):
-        pass
-
-    def test_compounds_loaded(self):
-        call_command("load_compounds", "DataRepo/example_data/obob_compounds.tsv")
-        self.assertEqual(Compound.objects.all().count(), 30)
-
-    def test_samples_loaded(self):
+    @classmethod
+    def setUpTestData(cls):
         call_command("load_compounds", "DataRepo/example_data/obob_compounds.tsv")
         call_command(
             "load_samples",
@@ -229,6 +223,10 @@ class CommandTests(TestCase):
             sample_table_headers="DataRepo/example_data/obob_sample_table_headers.yaml",
         )
 
+    def test_compounds_loaded(self):
+        self.assertEqual(Compound.objects.all().count(), 30)
+
+    def test_samples_loaded(self):
         # if we discount the header and the 2 blank samples, there should be 99
         self.assertEqual(Sample.objects.all().count(), 99)
 
