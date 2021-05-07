@@ -67,3 +67,12 @@ class SampleListView(generic.ListView):
 class SampleDetailView(generic.DetailView):
     """Generic class-based detail view for a sample."""
     model = Sample
+
+class MSRunListView(generic.ListView):
+    """Generic class-based view for a list of MSRuns."""
+    model = MSRun
+    paginate_by = 50
+
+class MSRunDetailView(generic.DetailView):
+    """Generic class-based detail view for a MSRuns."""
+    model = MSRun

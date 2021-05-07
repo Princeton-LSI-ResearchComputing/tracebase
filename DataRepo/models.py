@@ -138,7 +138,7 @@ class Sample(models.Model):
     def __str__(self):
  #       return str(self.name)
          return '{0} ({1})'.format(self.id, self.animal.name)
-         
+
     def get_absolute_url(self):
         return reverse('sample_detail', args=[str(self.id)])
 
@@ -163,3 +163,6 @@ class MSRun(models.Model):
     protocol = models.ForeignKey(Protocol, on_delete=models.RESTRICT)
     # Don't allow a Sample to be deleted if an MSRun links to it
     sample = models.ForeignKey(Sample, on_delete=models.RESTRICT)
+
+    def get_absolute_url(self):
+        return reverse('msrun_detail', args=[str(self.id)])
