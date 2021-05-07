@@ -32,6 +32,8 @@ class generic_list(ListView):
         filt_fields = list(filter(lambda x:self.is_shown_field(x), all_fields))
         context['fieldnames'] = [field.name for field in filt_fields]
         return context
+    
+    #def is_shown_field(self,
 
     def is_shown_field(self, field):
         shown = (field.get_internal_type() != 'AutoField' and
