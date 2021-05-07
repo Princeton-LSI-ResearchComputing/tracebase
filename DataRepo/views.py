@@ -1,18 +1,24 @@
 from django.http import Http404
 from django.shortcuts import render
+from django.views.generic import ListView
+from abc import ABCMeta, abstractmethod
 
-from DataRepo.models import Compound, Study
+from DataRepo.models import Compound #, Study
 
 
 def home(request):
     return render(request, "home.html")
 
 
-class generic_list(ListView):
+class generic_list(ListView, metaclass=ABCMeta):
     """
     This class displays all list views of every model. It is an abstract class.
     """
-    model = Study
+    @abstractmethod
+    def __init__(self, n):
+        self.n = n
+
+    model = Compound
     template_name = 'listview.html'
     #paginate_by = 10
     allow_empty = True
@@ -50,10 +56,15 @@ class generic_list(ListView):
 
 class compound_list(generic_list):
     generic_list.model = Compound
+    def __init__(self):
+        super(generic_list, self).__init__()
 
 
-class study_list(generic_list):
-    generic_list.model = Study
+#class study_list(generic_list):
+#    generic_list.model = Study
+#    def __init__(self):
+#        super(generic_list, self).__init__()
+
 
 
 
