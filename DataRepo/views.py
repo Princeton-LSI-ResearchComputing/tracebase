@@ -13,12 +13,13 @@ class compound_list(ListView):
     template_name = 'listview.html'
     #paginate_by = 10
     allow_empty = True
-    queryset = Compound.objects.order_by(Compound._meta.ordering[0])
+    queryset = model.objects.order_by(model._meta.ordering[0])
 
     def get_context_data(self, **kwargs):
-        context = super(compound_list, self).get_context_data(**kwargs)
-        context['table'] = Compound.__name__
-        context['fieldnames'] = [field.name for field in Compound._meta.fields]
+        context = super().get_context_data(**kwargs)
+        model = self.model
+        context['table'] = model.__name__
+        context['fieldnames'] = [field.name for field in model._meta.fields]
         return context
 
 
