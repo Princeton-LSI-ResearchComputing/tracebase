@@ -23,6 +23,11 @@ class generic_list(ListView):
             queryset = model.objects.order_by(model._meta.ordering[0])
 
     def get_context_data(self, **kwargs):
+        def is_shown_field(field):
+            shown = (field.get_internal_type() != 'AutoField' and
+                not getattr(field, "is_relation"))
+            return shown
+
         context = super().get_context_data(**kwargs)
         model = self.model
         context['table'] = model.__name__
@@ -32,8 +37,7 @@ class generic_list(ListView):
         filt_fields = list(filter(lambda x:self.is_shown_field(x), all_fields))
         context['fieldnames'] = [field.name for field in filt_fields]
         return context
-    
-    #def is_shown_field(self,
+
 
     def is_shown_field(self, field):
         shown = (field.get_internal_type() != 'AutoField' and
