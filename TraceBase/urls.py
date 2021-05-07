@@ -17,9 +17,10 @@ from django.contrib import admin
 from django.urls import include, path
 
 from DataRepo import views
+from django.views.generic import RedirectView
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("", views.home, name="home"),
-    path("DataRepo/", include("DataRepo.urls"), name="home"),
+    path("", views.HomeView.as_view(), name="home"),
+    path("DataRepo/", include("DataRepo.urls")),
 ]

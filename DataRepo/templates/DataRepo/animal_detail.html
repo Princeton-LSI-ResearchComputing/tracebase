@@ -1,0 +1,87 @@
+{% extends "base_t1.html" %}
+{% block content %}
+<div>
+    <br>
+    <h4>Animal name: <a href="{{ animal.get_absolute_url }}">{{animal.name }}</a></h4>
+    <br>
+    <h4>Tracer information:</h4>
+    <br>
+    <table class="table  table-bordered table-hover w-auto mw-100">
+        <tr>
+            <td colspan="3">Tracer (compound name)</td>
+            <td><a href="{{ animal.tracer_compound.get_absolute_url }}">{{ animal.tracer_compound.name }}</a></td>
+        </tr>
+        <tr>
+            <td colspan="3">Tracer labeled atom</td>
+            <td>{{ animal.tracer_labeled_atom }}</td>  
+        </tr>
+        <tr>
+            <td colspan="3">Tracer labeled count</td>
+            <td>{{ animal.tracer_labeled_count }}</td>  
+        </tr>
+        <tr>
+            <td colspan="3">Tracer infusion rate </td>
+            <td>{{ animal.tracer_infusion_rate }}</td>  
+        </tr>
+        <tr>
+            <td colspan="3">Tracer infusion concentration</td>
+            <td>{{ animal.tracer_infusion_concentration }}</td>  
+        </tr>
+    </table>
+    <br>
+    <h4>Other information:</h4>
+    <br>
+    <table class="table  table-sm table-bordered table-hover w-auto mw-100">
+        <tr>
+        <tr>
+            <td colspan="3">Genotype</td>
+            <td>{{ animal.genotype }}</td>  
+        </tr>
+        <tr>
+            <td colspan="3">Body Weight</td>
+            <td>{{ animal.body_weight }}</td>  
+        </tr>
+        <tr>
+            <td colspan="3">Age</td>
+            <td>{{ animal.age }}</td>  
+        </tr>
+        <tr>
+            <td colspan="3">Sex</td>
+            <td>{{ animal.sex }}</td> 
+        </tr>
+        <tr>
+            <td colspan="3">Diet</td>
+            <td>{{ animal.diet }}</td> 
+        </tr>
+        <tr>
+            <td colspan="3">Feeding_status</td>
+            <td>{{ animal.feeding_status}}</td>  
+        </tr>
+        <tr>
+            <td colspan="3">State</td>
+            <td>{{ animal.state }}</td>
+        </tr>
+    </table>
+    <br>
+    <h4>This animal has {{ animal.samples.count }} samples:</h4>
+    <br> 
+    <table class="table  table-sm table-bordered table-hover w-auto mw-100">
+        <tr>
+            <th>Animal Name</th>
+            <th>Tissue Name</th>
+            <th>Sample Name</th>
+            <th>Sample Collection Date</th>
+            <th>Researcher</th>
+        </tr>
+        {% for sample in animal.samples.all %}
+        <tr>
+            <td><a href="{{ animal.get_absolute_url }}">{{animal.name }}</a></td>
+            <td>{{ sample.tissue }}</td>
+            <td><a href="{{ sample.get_absolute_url }}">{{ sample.name }}</a></td>
+            <td>{{ sample.date }}</td>
+            <td>{{ sample.researcher }}</td>
+        </tr>
+    {% endfor %}
+    </table>  
+</div>
+{% endblock %}

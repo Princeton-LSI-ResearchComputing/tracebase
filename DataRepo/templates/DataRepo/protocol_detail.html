@@ -1,0 +1,9 @@
+{% extends "base_t1.html" %}
+{% block content %}
+<div>
+    <h4>Protocol Name: <a href="{{ protocol.get_absolute_url }}">{{protocol.name}}<a/></h4>
+    <br>
+    <h4>Description:</h4>
+    <p>{{ protocol.description }}</p>
+</div>
+{% endblock %}

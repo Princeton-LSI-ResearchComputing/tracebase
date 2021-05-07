@@ -1,15 +1,20 @@
-{% extends "base.html" %}
+{% extends "base_t1.html" %}
+
 {% block content %}
 <div>
+    <h2>TraceBase Home</h2>
     <ul>
-        <h3>Browse the Database</h3>
-            <li>
-                <div class="table">
-                    <a href="{% url 'compound_list' %}">
-                        <h3>Compounds</h3>
-                    </a>
-                </div>
-            </li>
+        <a href="{% url 'compound_list' %}" role="button" class="btn btn-primary w-80 mb-2">All Compounds</a>
+        <br>
+        <a href="{% url 'study_list' %}" role="button" class="btn btn-primary w-80 mb-2">All Studies</a>
+        <br>
+        <a href="{% url 'protocol_list' %}" role="button" class="btn btn-primary w-80 mb-2">All Protocols</a>
+        <br>
+        <a href="{% url 'animal_list' %}" role="button" class="btn btn-primary w-80 mb-2">All Animals</a>
+        <br>
+        <a href="{% url 'sample_list' %}" role="button" class="btn btn-primary w-80 mb-2">All Samples</a>
+        <br>
+        <h3>All MSRuns</h3>
     </ul>
 </div>
 {% endblock %}

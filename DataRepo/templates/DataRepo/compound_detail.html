@@ -1,0 +1,23 @@
+{% extends "base_t1.html" %}
+
+
+{% block content %}
+<div>
+    <h4>Compound Information</h4>
+    <br>
+    <table class="table  table-bordered table-hover w-auto mw-100">
+        <tr>
+            <td>Compound name</td>
+            <td>{{ compound.name }}</td>
+        </tr>
+        <tr>
+            <td>Formula</td>
+            <td>{{ compound.formula }}</td>
+        </tr>
+        <tr>
+            <td>HMDB ID</td>
+            <td><a href="{{ compound.hmdb_url }}" target="_blank">{{ compound.hmdb_id }}</a></td>
+        </tr>
+    </table>
+</div>
+{% endblock %}

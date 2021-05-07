@@ -2,6 +2,7 @@ import datetime
 
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.urls import reverse
 
 
 def value_from_choices_label(label, choices):
@@ -54,6 +55,9 @@ class Compound(models.Model):
     def hmdb_url(self):
         "Returns the url to the compound's hmdb record"
         return f"{self.HMDB_CPD_URL}/{self.hmdb_id}"
+    
+    def get_absolute_url(self):
+        return reverse('compound_detail', args=[str(self.id)])
 
 
 class Study(models.Model):
@@ -65,6 +69,8 @@ class Study(models.Model):
     def __str__(self):
         return str(self.name)
 
+    def get_absolute_url(self):
+        return reverse('study_detail', args=[str(self.id)])
 
 class Animal(models.Model, TracerLabeledClass):
 
@@ -117,6 +123,8 @@ class Animal(models.Model, TracerLabeledClass):
     def __str__(self):
         return str(self.name)
 
+    def get_absolute_url(self):
+        return reverse('animal_detail', args=[str(self.id)])
 
 class Tissue(models.Model):
     # Instance / model fields
@@ -139,8 +147,11 @@ class Sample(models.Model):
     tissue = models.ForeignKey(Tissue, on_delete=models.RESTRICT, null=False)
 
     def __str__(self):
-        return str(self.name)
-
+ #       return str(self.name)
+         return '{0} ({1})'.format(self.id, self.animal.name)
+         
+    def get_absolute_url(self):
+        return reverse('sample_detail', args=[str(self.id)])
 
 class Protocol(models.Model):
     # Instance / model fields
@@ -148,6 +159,11 @@ class Protocol(models.Model):
     name = models.CharField(max_length=256, unique=True)
     description = models.TextField(blank=True)
 
+    def __str__(self):
+        return str(self.name)
+
+    def get_absolute_url(self):
+        return reverse('protocol_detail', args=[str(self.id)])
 
 class MSRun(models.Model):
     # Instance / model fields

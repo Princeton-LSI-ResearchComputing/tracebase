@@ -1,0 +1,9 @@
+{% extends "base_t1.html" %}
+{% block content %}
+<div>
+    <h4>Study Name: <a href="{{ study.get_absolute_url }}">{{study.name}}<a/></h4>
+    <br>
+    <h4>Description:</h4>
+    <p>{{ study.description }}</p>
+</div>
+{% endblock %}
