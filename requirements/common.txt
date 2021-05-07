@@ -5,3 +5,5 @@ django-validators
 python-dateutil
 pyyaml
 pandas
+openpyxl
+xlrd

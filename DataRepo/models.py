@@ -37,6 +37,13 @@ class TracerLabeledClass:
 
     MAX_LABELED_ATOMS = 20
 
+    @classmethod
+    def tracer_labeled_elements_list(cls):
+        tracer_element_list = []
+        for idx in cls.TRACER_LABELED_ELEMENT_CHOICES:
+            tracer_element_list.append(idx[0])
+        return tracer_element_list
+
 
 class Compound(models.Model):
     # Class variables
@@ -152,12 +159,24 @@ class Protocol(models.Model):
 class MSRun(models.Model):
     # Instance / model fields
     id = models.AutoField(primary_key=True)
-    name = models.CharField(max_length=256, unique=True)
-    date = models.DateTimeField(auto_now=False, auto_now_add=True, editable=True)
+    researcher = models.CharField(max_length=256)
+    date = models.DateField()
     # Don't allow a Protocol to be deleted if an MSRun links to it
     protocol = models.ForeignKey(Protocol, on_delete=models.RESTRICT)
     # Don't allow a Sample to be deleted if an MSRun links to it
     sample = models.ForeignKey(Sample, on_delete=models.RESTRICT)
+
+    # Two runs that share researcher, date, protocol, and sample would be
+    # indistinguishable, thus we restrict the database to ensure that
+    # combination is unique. Constraint below assumes a researcher runs a
+    # sample/protocol combo only once a day.
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["researcher", "date", "protocol", "sample"],
+                name="unique_msrun",
+            )
+        ]
 
 
 class PeakGroup(models.Model):
@@ -184,7 +203,12 @@ class PeakGroup(models.Model):
 
     class Meta:
         # composite key
-        unique_together = ("name", "ms_run")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["name", "ms_run"],
+                name="unique_peakgroup",
+            ),
+        ]
 
     def __str__(self):
         return str(self.name)
@@ -211,7 +235,7 @@ class PeakData(models.Model, TracerLabeledClass):
         null=True,
         blank=True,
         validators=[
-            MinValueValidator(1),
+            MinValueValidator(0),
             MaxValueValidator(TracerLabeledClass.MAX_LABELED_ATOMS),
         ],
         help_text="The number of labeled atoms (M+) observed relative to the "
@@ -236,4 +260,9 @@ class PeakData(models.Model, TracerLabeledClass):
 
     class Meta:
         # composite key
-        unique_together = ("peak_group", "labeled_element", "labeled_count")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["peak_group", "labeled_element", "labeled_count"],
+                name="unique_peakdata",
+            )
+        ]
