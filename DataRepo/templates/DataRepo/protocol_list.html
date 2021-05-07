@@ -16,7 +16,7 @@
             </tr>
             {% for protocol in protocol_list %}
             <tr>
-            <td><a href="{{ protocol.get_absolute_url }}">{{ protocolname }}</a></td>
+            <td><a href="{{ protocol.get_absolute_url }}">{{ protocol.name }}</a></td>
             <td>{{ study.description }}</td>
             </tr>
             {% endfor %}

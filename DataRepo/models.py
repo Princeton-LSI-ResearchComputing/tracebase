@@ -136,8 +136,9 @@ class Sample(models.Model):
     tissue = models.ForeignKey(Tissue, on_delete=models.RESTRICT, null=False)
 
     def __str__(self):
-        return str(self.name)
-
+ #       return str(self.name)
+         return '{0} ({1})'.format(self.id, self.animal.name)
+         
     def get_absolute_url(self):
         return reverse('sample_detail', args=[str(self.id)])
 
