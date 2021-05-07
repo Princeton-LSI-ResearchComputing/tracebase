@@ -2,19 +2,27 @@ from django.http import Http404
 from django.shortcuts import render
 from django.views.generic import ListView
 
-from DataRepo.models import Compound
+from DataRepo.models import Compound, Study
 
 
 def home(request):
     return render(request, "home.html")
 
 
-class compound_list(ListView):
-    model = Compound
+
+class generic_list(ListView):
+    """
+    This class displays all list views of every model. It is an abstract class.
+    """
+    model = Study
     template_name = 'listview.html'
     #paginate_by = 10
     allow_empty = True
-    queryset = model.objects.order_by(model._meta.ordering[0])
+    if hasattr(model._meta, 'ordering'):
+        if isinstance(model._meta.ordering, str):
+            queryset = model.objects.order_by(model._meta.ordering)
+        elif isinstance(model._meta.ordering, list) and len(model._meta.ordering) > 0:
+            queryset = model.objects.order_by(model._meta.ordering[0])
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -31,6 +39,16 @@ class compound_list(ListView):
         shown = (field.get_internal_type() != 'AutoField' and
             not getattr(field, "is_relation"))
         return shown
+
+
+
+
+class compound_list(generic_list):
+    generic_list.model = Compound
+
+
+class study_list(generic_list):
+    generic_list.model = Study
 
 
 
