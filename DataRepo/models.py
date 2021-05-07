@@ -1,5 +1,8 @@
 import datetime
+import warnings
 
+from chempy import Substance
+from chempy.util.periodic import atomic_number
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
@@ -45,6 +48,25 @@ class TracerLabeledClass:
         return tracer_element_list
 
 
+def atom_count_in_formula(formula, atom):
+    """
+    Return the number of specified atom in the compound.
+    Returns None if atom is not a recognized symbol
+    Returns 0 if the atom is recognized, but not found in the compound
+    """
+    substance = Substance.from_formula(formula)
+    try:
+        count = substance.composition.get(atomic_number(atom))
+    except ValueError:
+        warnings.warn(f"{atom} not found in list of elements")
+        count = None
+    else:
+        if count is None:
+            # Valid atom, but not in formula
+            count = 0
+    return count
+
+
 class Compound(models.Model):
     # Class variables
     HMDB_CPD_URL = "https://hmdb.ca/metabolites"
@@ -61,6 +83,9 @@ class Compound(models.Model):
     def hmdb_url(self):
         "Returns the url to the compound's hmdb record"
         return f"{self.HMDB_CPD_URL}/{self.hmdb_id}"
+
+    def atom_count(self, atom):
+        return atom_count_in_formula(self.formula, atom)
 
 
 class Study(models.Model):
@@ -200,6 +225,9 @@ class PeakGroup(models.Model):
         related_name="peak_groups",
         help_text="database identifier(s) for the TraceBase compound(s) that this PeakGroup describes",
     )
+
+    def atom_count(self, atom):
+        return atom_count_in_formula(self.formula, atom)
 
     class Meta:
         # composite key
