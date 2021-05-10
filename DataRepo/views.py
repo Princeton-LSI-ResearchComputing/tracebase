@@ -56,7 +56,7 @@ class AnimalListView(generic.ListView):
     paginate_by = 20
 
 class AnimalDetailView(generic.DetailView):
-    """Generic class-based detail view for a animal."""
+    """Generic class-based detail view for an animal."""
     model = Animal
 
 class SampleListView(generic.ListView):
