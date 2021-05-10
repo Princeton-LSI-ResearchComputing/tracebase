@@ -33,9 +33,9 @@ class Compound(models.Model):
     def hmdb_url(self):
         "Returns the url to the compound's hmdb record"
         return f"{self.HMDB_CPD_URL}/{self.hmdb_id}"
-    
+
     def get_absolute_url(self):
-        return reverse('compound_detail', args=[str(self.id)])
+        return reverse("compound_detail", args=[str(self.id)])
 
 
 class Study(models.Model):
@@ -48,7 +48,8 @@ class Study(models.Model):
         return str(self.name)
 
     def get_absolute_url(self):
-        return reverse('study_detail', args=[str(self.id)])
+        return reverse("study_detail", args=[str(self.id)])
+
 
 class Animal(models.Model):
 
@@ -113,7 +114,8 @@ class Animal(models.Model):
         return str(self.name)
 
     def get_absolute_url(self):
-        return reverse('animal_detail', args=[str(self.id)])
+        return reverse("animal_detail", args=[str(self.id)])
+
 
 class Tissue(models.Model):
     # Instance / model fields
@@ -136,11 +138,12 @@ class Sample(models.Model):
     tissue = models.ForeignKey(Tissue, on_delete=models.RESTRICT, null=False)
 
     def __str__(self):
- #       return str(self.name)
-         return '{0} ({1})'.format(self.id, self.animal.name)
+        #       return str(self.name)
+        return "{0} ({1})".format(self.id, self.animal.name)
 
     def get_absolute_url(self):
-        return reverse('sample_detail', args=[str(self.id)])
+        return reverse("sample_detail", args=[str(self.id)])
+
 
 class Protocol(models.Model):
     # Instance / model fields
@@ -152,7 +155,8 @@ class Protocol(models.Model):
         return str(self.name)
 
     def get_absolute_url(self):
-        return reverse('protocol_detail', args=[str(self.id)])
+        return reverse("protocol_detail", args=[str(self.id)])
+
 
 class MSRun(models.Model):
     # Instance / model fields
@@ -165,4 +169,4 @@ class MSRun(models.Model):
     sample = models.ForeignKey(Sample, on_delete=models.RESTRICT)
 
     def get_absolute_url(self):
-        return reverse('msrun_detail', args=[str(self.id)])
+        return reverse("msrun_detail", args=[str(self.id)])
