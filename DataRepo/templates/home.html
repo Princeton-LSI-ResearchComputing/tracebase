@@ -1,6 +1,8 @@
 {% extends "base.html" %}
+{% load get_listviews from table_tags %}
 {% block content %}
 <div>
+    <!--
     <ul>
         <h3>Browse the Database</h3>
             <li>
@@ -17,6 +19,24 @@
                     </a>
                 </div>
             </li>
+    </ul>
+    -->
+    <h2>Browse the Database</h2>
+    <ul>
+        <!-- Retrieve the prepared list views from DataRepo.views -->
+        {% with ""|get_listviews as list_views %}
+            {% for list_view in list_views %}
+                <li>
+                    <div>
+                        <a href="{% url list_view.0 %}">
+                            <h4>{{ list_view.1 }}</h4>
+                        </a>
+                    </div>
+                </li>
+            {% empty %}
+                No tables in the database have been setup with list views.
+            {% endfor %}
+        {% endwith %}
     </ul>
 </div>
 {% endblock %}

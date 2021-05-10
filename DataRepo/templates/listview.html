@@ -4,13 +4,20 @@
 <div>
     <h3>{{ table }} Records</h3>
     <table>
-        <tr>
-            {% for hdr in fieldnames %}
-                <th>
-                    {{ hdr }}
-                </th>
-            {% endfor %}
-        </tr>
+        <!-- Column Headers -->
+        {% if object_list %}
+            <tr>
+                {% for hdr in fieldnames %}
+                    <th>
+                        {{ hdr }}
+                    </th>
+                {% endfor %}
+            </tr>
+        {% else %}
+            {{ table }} table empty.
+        {% endif %}
+
+        <!-- Records/rows -->
         {% for rec in object_list %}
             <tr>
                 {% for fld in fieldnames %}
@@ -25,8 +32,6 @@
                     </td>
                 {% endfor %}
             </tr>
-        {% empty %}
-            
         {% endfor %}
     </table>
 </div>
