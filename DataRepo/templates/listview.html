@@ -2,19 +2,19 @@
 {% load table_tags %}
 {% block content %}
 <div>
-    <h3>{{ table }} Records</h3>
+    <h3>{{ table_verbose_plural }}</h3>
     <table>
         <!-- Column Headers -->
         {% if object_list %}
             <tr>
-                {% for hdr in fieldnames %}
+                {% for hdr in fieldnames_verbose %}
                     <th>
                         {{ hdr }}
                     </th>
                 {% endfor %}
             </tr>
         {% else %}
-            {{ table }} table empty.
+            {{ table_verbose }} table empty.
         {% endif %}
 
         <!-- Records/rows -->

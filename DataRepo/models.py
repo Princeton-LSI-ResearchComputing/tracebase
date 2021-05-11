@@ -86,7 +86,9 @@ class Compound(models.Model):
     
     class Meta:
         ordering = ["name"]
-    
+        verbose_name = "Compound"
+        verbose_name_plural = "Compounds"
+
     def __str__(self):
         return self.name
 
@@ -100,6 +102,11 @@ class Study(models.Model):
     name = models.CharField(max_length=256, unique=True)
     description = models.TextField(blank=True)
 
+    class Meta:
+        ordering = ["name"]
+        verbose_name = "Study"
+        verbose_name_plural = "Studies"
+    
     def __str__(self):
         return str(self.name)
 
@@ -155,6 +162,10 @@ class Animal(models.Model, TracerLabeledClass):
     def __str__(self):
         return str(self.name)
 
+    class Meta:
+        verbose_name = "Animal"
+        verbose_name_plural = "Animals"
+
 
 class Tissue(models.Model):
     # Instance / model fields
@@ -163,6 +174,10 @@ class Tissue(models.Model):
 
     def __str__(self):
         return str(self.name)
+
+    class Meta:
+        verbose_name = "Tissue"
+        verbose_name_plural = "Tissues"
 
 
 class Sample(models.Model):
@@ -179,12 +194,20 @@ class Sample(models.Model):
     def __str__(self):
         return str(self.name)
 
+    class Meta:
+        verbose_name = "Sample"
+        verbose_name_plural = "Samples"
+
 
 class Protocol(models.Model):
     # Instance / model fields
     id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=256, unique=True)
     description = models.TextField(blank=True)
+
+    class Meta:
+        verbose_name = "Protocol"
+        verbose_name_plural = "Protocols"
 
 
 class MSRun(models.Model):
@@ -208,6 +231,8 @@ class MSRun(models.Model):
                 name="unique_msrun",
             )
         ]
+        verbose_name = "MS Run"
+        verbose_name_plural = "MS Runs"
 
 
 class PeakGroup(models.Model):
@@ -243,6 +268,8 @@ class PeakGroup(models.Model):
                 name="unique_peakgroup",
             ),
         ]
+        verbose_name = "Peak Group"
+        verbose_name_plural = "Peak Groups"
 
     def __str__(self):
         return str(self.name)
@@ -300,3 +327,6 @@ class PeakData(models.Model, TracerLabeledClass):
                 name="unique_peakdata",
             )
         ]
+        ordering = ["peak_group"]
+        verbose_name = "Peak Data"
+        verbose_name_plural = "Peak Data"

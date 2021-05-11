@@ -34,7 +34,7 @@ def get_listviews(dummy):
     for listview_name, class_ref in inspect.getmembers(sys.modules['DataRepo.views']):
         if inspect.isclass(class_ref) and re.search('_list$', listview_name):
             # Create an instance to get the model name
-            model_name = class_ref().model.__name__
+            model_name = class_ref().model._meta.verbose_name_plural
             list_views.append([listview_name, model_name])
     
     # This returns a nested list that looks like this:

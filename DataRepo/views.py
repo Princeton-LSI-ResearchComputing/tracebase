@@ -30,17 +30,39 @@ class genericlist(ListView, metaclass=ABCMeta):
         context = super().get_context_data(**kwargs)
         model = self.model
         context['table'] = model.__name__
+        context['table_verbose'] = self.verbosify(model.__name__)
+        context['table_verbose_plural'] = self.verbosify(model._meta.verbose_name_plural)
         all_fields = model._meta.get_fields()
         # Alternative, if necessary:
         # all_fields = model._meta.get_fields(include_parents=False, include_hidden=False)
         filt_fields = list(filter(lambda x:self.is_shown_field(x), all_fields))
         context['fieldnames'] = [field.name for field in filt_fields]
+        context['fieldnames_verbose'] = [self.verbosify(field.verbose_name.title()) for field in filt_fields]
         return context
 
     def is_shown_field(self, field):
         shown = (field.get_internal_type() != 'AutoField' and
             not getattr(field, "is_relation"))
         return shown
+    
+    def verbosify(self, str):
+        """Creates a table or field name "title by splitting camelcase words"""
+        words = [[str[0]]]
+
+        for i, c in enumerate(str[1:]):
+            # i starts from 0, but the string index starts from 1, so the index of the following character is:
+            j = i+2
+            d = ''
+            if j < len(str):
+                d = str[j]
+
+            if (words[-1][-1].islower() and c.isupper()) or (c.isupper() and j < len(str) and d.islower()):
+                words.append(list(c))
+            else:
+                words[-1].append(c)
+
+        return ' '.join(''.join(word) for word in words)
+
 
 
 
