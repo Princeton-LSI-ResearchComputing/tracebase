@@ -211,7 +211,6 @@ class MSRun(models.Model):
     # Don't allow a Sample to be deleted if an MSRun links to it
     sample = models.ForeignKey(Sample, on_delete=models.RESTRICT)
 
-<<<<<<< HEAD
     # Two runs that share researcher, date, protocol, and sample would be
     # indistinguishable, thus we restrict the database to ensure that
     # combination is unique. Constraint below assumes a researcher runs a
@@ -315,7 +314,5 @@ class PeakData(models.Model, TracerLabeledClass):
                 name="unique_peakdata",
             )
         ]
-=======
     def get_absolute_url(self):
         return reverse("msrun_detail", args=[str(self.id)])
->>>>>>> fkt1
