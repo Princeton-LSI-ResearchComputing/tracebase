@@ -42,7 +42,7 @@ class genericlist(ListView, metaclass=ABCMeta):
         all_fields = model._meta.get_fields()
         filt_fields = list(filter(lambda x:self.is_shown_field(x), all_fields))
         context['fieldnames'] = [field.name for field in filt_fields]
-        context['fieldnames_verbose'] = [self.verbosify(field.verbose_name.title()) for field in filt_fields]
+        context['fieldnames_verbose'] = [self.verbosify(field.verbose_name) for field in filt_fields]
 
         return context
 
@@ -53,17 +53,23 @@ class genericlist(ListView, metaclass=ABCMeta):
     
     # https://www.geeksforgeeks.org/python-split-camelcase-string-to-individual-strings/
     def verbosify(self, str):
-        """Creates a table or field name "title by splitting camelcase words"""
-        words = [[str[0]]]
+        """Creates a table or field name "title" by splitting camelcase words and applies title() if it contains only lower case characters"""
 
-        for i, c in enumerate(str[1:]):
+        if str.islower():
+            cstr = str.title()
+        else:
+            cstr = str
+
+        words = [[cstr[0]]]
+
+        for i, c in enumerate(cstr[1:]):
             # i starts from 0, but the string index starts from 1, so the index of the following character is:
             j = i+2
             d = ''
-            if j < len(str):
+            if j < len(cstr):
                 d = str[j]
 
-            if (words[-1][-1].islower() and c.isupper()) or (c.isupper() and j < len(str) and d.islower()):
+            if (words[-1][-1].islower() and c.isupper()) or (c.isupper() and j < len(cstr) and d.islower()):
                 words.append(list(c))
             else:
                 words[-1].append(c)

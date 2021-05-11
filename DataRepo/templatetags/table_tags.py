@@ -12,21 +12,27 @@ def value_from_model(model, field):
 # This obtains a value from a field of a record of the model
 @register.filter
 def verbose_name_from_model(model, field):
+    """Creates a table or field name "title" by splitting camelcase words and applies title() if it contains only lower case characters"""
 
-    str = model._meta.get_field(field).verbose_name.title()
+    str = model._meta.get_field(field).verbose_name
+
+    if str.islower():
+        cstr = str.title()
+    else:
+        cstr = str
 
     # THE FOLLOWING IS REDUNDANT CODE WITH WHAT'S IN VIEWS. TODO: Move to a common location
     # https://www.geeksforgeeks.org/python-split-camelcase-string-to-individual-strings/
-    words = [[str[0]]]
+    words = [[cstr[0]]]
 
     for i, c in enumerate(str[1:]):
         # i starts from 0, but the string index starts from 1, so the index of the following character is:
         j = i+2
         d = ''
-        if j < len(str):
-            d = str[j]
+        if j < len(cstr):
+            d = cstr[j]
 
-        if (words[-1][-1].islower() and c.isupper()) or (c.isupper() and j < len(str) and d.islower()):
+        if (words[-1][-1].islower() and c.isupper()) or (c.isupper() and j < len(cstr) and d.islower()):
             words.append(list(c))
         else:
             words[-1].append(c)

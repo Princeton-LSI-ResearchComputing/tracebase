@@ -77,7 +77,7 @@ class Compound(models.Model):
     formula = models.CharField(max_length=256)
 
     # ID to serve as an external link to record using HMDB_CPD_URL
-    hmdb_id = models.CharField(max_length=11, unique=True)
+    hmdb_id = models.CharField(max_length=11, unique=True, verbose_name="HMDB ID")
 
     @property
     def hmdb_url(self):
