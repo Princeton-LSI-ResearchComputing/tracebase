@@ -1,0 +1,29 @@
+{% block content %}
+<div>
+    <ul>
+        <h3>List of MS RUNs</h3>
+
+        {% if msrun_list %}
+        <br>
+        <table class="table table-sm table-hover table-bordered table-responsive table-striped w-auto mw-100">
+            <tr>
+            <th>Date</th>
+            <th>Protocol Name</th>
+            <th>Researcher</th>
+            <th>Sample Name</th>
+            </tr>
+            {% for msrun in msrun_list %}
+            <tr>
+            <td>{{ msrun.date}}</td>
+            <td><a href="{{ msrun.protocol.get_absolute_url }}">{{protocol.name }}</a></td>            
+            <td>{{ msrun.researcher}}</td> 
+            <td><a href="{{ msrun.sample.get_absolute_url }}">{{ msrun.sample.name }}</a></td>
+            </tr>
+            {% endfor %}
+        </table>
+        {% else %}
+        <p>There are no MS Runs.</p>  
+        {% endif %}  
+    </ul>
+</div>
+{% endblock %}
