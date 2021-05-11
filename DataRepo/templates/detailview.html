@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% load table_tags %}
+{% block content %}
+<div>
+    <h3>{{ table_verbose }}</h3>
+    <table>
+        <!-- Field Values -->
+        {% for fld in fieldnames %}
+            <tr>
+                <th>{{ object|verbose_name_from_model:fld }}</th>
+                <td>
+                    {% include "display_field.html" with rec=object table=table fld=fld %}
+                </td>
+            </tr>
+        {% endfor %}
+    </table>
+</div>
+{% endblock %}

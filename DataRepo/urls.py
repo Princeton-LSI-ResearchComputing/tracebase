@@ -20,4 +20,5 @@ urlpatterns = [
 
     # Detail Views
     path("compound/<int:cpd_id>/", views.compound_detail, name="compound_detail"),
+    path("study/<slug:slug>/", views.study_detail.as_view(), name="study_detail"),
 ]

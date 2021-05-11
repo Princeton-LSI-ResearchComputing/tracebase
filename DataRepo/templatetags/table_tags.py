@@ -9,6 +9,32 @@ register = template.Library()
 def value_from_model(model, field):
     return getattr(model, field)
 
+# This obtains a value from a field of a record of the model
+@register.filter
+def verbose_name_from_model(model, field):
+
+    str = model._meta.get_field(field).verbose_name.title()
+
+    # THE FOLLOWING IS REDUNDANT CODE WITH WHAT'S IN VIEWS. TODO: Move to a common location
+    # https://www.geeksforgeeks.org/python-split-camelcase-string-to-individual-strings/
+    words = [[str[0]]]
+
+    for i, c in enumerate(str[1:]):
+        # i starts from 0, but the string index starts from 1, so the index of the following character is:
+        j = i+2
+        d = ''
+        if j < len(str):
+            d = str[j]
+
+        if (words[-1][-1].islower() and c.isupper()) or (c.isupper() and j < len(str) and d.islower()):
+            words.append(list(c))
+        else:
+            words[-1].append(c)
+
+    vname = ' '.join(''.join(word) for word in words)
+
+    return vname
+
 # This determines whether a template (i.e. html file) exists
 @register.filter
 @stringfilter

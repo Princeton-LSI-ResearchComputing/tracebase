@@ -22,16 +22,20 @@
             <tr>
                 {% for fld in fieldnames %}
                     <td>
-                        {% with table|add:"/"|add:fld|add:".html" as template %}
-                            {% if template|template_exists %}
-                                {% include template with rec=rec %}
-                            {% else %}
-                                <div>{{ rec|value_from_model:fld }}</div>
-                            {% endif %}
-                        {% endwith %}
+                        {% if forloop.first %}
+                            {% with table|lower|add:"_detail" as lv %}
+                                <a href="{% url lv rec|value_from_model:slugfield %}">
+                            {% endwith %}
+                        {% endif %}
+                        {% include "display_field.html" with rec=rec table=table fld=fld %}
+                        {% if forloop.first %}
+                            </a>
+                        {% endif %}
                     </td>
                 {% endfor %}
             </tr>
+            </a>
+            </table>
         {% endfor %}
     </table>
 </div>
