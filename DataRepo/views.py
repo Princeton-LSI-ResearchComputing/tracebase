@@ -29,16 +29,21 @@ class genericlist(ListView, metaclass=ABCMeta):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         model = self.model
+
+        # Representations of the table name
         context['table'] = model.__name__
         context['table_verbose'] = self.verbosify(model.__name__)
         context['table_verbose_plural'] = self.verbosify(model._meta.verbose_name_plural)
+
+        # This is the tablie field used to link to detail pages
         context['slugfield'] = 'id'
+
+        # Representations of the field names
         all_fields = model._meta.get_fields()
-        # Alternative, if necessary:
-        # all_fields = model._meta.get_fields(include_parents=False, include_hidden=False)
         filt_fields = list(filter(lambda x:self.is_shown_field(x), all_fields))
         context['fieldnames'] = [field.name for field in filt_fields]
         context['fieldnames_verbose'] = [self.verbosify(field.verbose_name.title()) for field in filt_fields]
+
         return context
 
     def is_shown_field(self, field):
@@ -134,15 +139,13 @@ class genericdetail(DetailView, metaclass=ABCMeta):
         context['table'] = model.__name__
         context['table_verbose'] = self.verbosify(model.__name__)
         context['table_verbose_plural'] = self.verbosify(model._meta.verbose_name_plural)
+
         # This is the tablie field used to link to detail pages
         context['slugfield'] = 'id'
 
-        all_fields = model._meta.get_fields()
-        # Alternative, if necessary:
-        # all_fields = model._meta.get_fields(include_parents=False, include_hidden=False)
-        filt_fields = list(filter(lambda x:self.is_shown_field(x), all_fields))
-
         # Representations of the field names
+        all_fields = model._meta.get_fields()
+        filt_fields = list(filter(lambda x:self.is_shown_field(x), all_fields))
         context['fieldnames'] = [field.name for field in filt_fields]
         context['fieldnames_verbose'] = [self.verbosify(field.verbose_name.title()) for field in filt_fields]
         
@@ -178,9 +181,43 @@ class study_detail(genericdetail):
         super().__init__(Study)
 
 
-def compound_detail(request, cpd_id):
-    try:
-        cpd = Compound.objects.get(id=cpd_id)
-    except Compound.DoesNotExist:
-        raise Http404("compound not found")
-    return render(request, "compound_detail.html", {"cpd": cpd})
+class compound_detail(genericdetail):
+    def __init__(self):
+        super().__init__(Compound)
+
+
+class animal_detail(genericdetail):
+    def __init__(self):
+        super().__init__(Animal)
+
+
+class tissue_detail(genericdetail):
+    def __init__(self):
+        super().__init__(Tissue)
+
+
+class sample_detail(genericdetail):
+    def __init__(self):
+        super().__init__(Sample)
+
+
+class protocol_detail(genericdetail):
+    def __init__(self):
+        super().__init__(Protocol)
+
+
+class msrun_detail(genericdetail):
+    def __init__(self):
+        super().__init__(MSRun)
+
+
+class peakgroup_detail(genericdetail):
+    def __init__(self):
+        super().__init__(PeakGroup)
+
+
+class peakdata_detail(genericdetail):
+    def __init__(self):
+        super().__init__(PeakData)
+
+
