@@ -76,6 +76,21 @@ class CompoundTests(TestCase):
         alanine = Compound.objects.get(name="alanine")
         self.assertEqual(alanine.hmdb_url, f"{Compound.HMDB_CPD_URL}/{alanine.hmdb_id}")
 
+    def test_compound_atom_count(self):
+        """Compound atom_count"""
+        alanine = Compound.objects.get(name="alanine")
+        self.assertEqual(alanine.atom_count("C"), 3)
+
+    def test_compound_atom_count_zero(self):
+        """Compound atom_count"""
+        alanine = Compound.objects.get(name="alanine")
+        self.assertEqual(alanine.atom_count("F"), 0)
+
+    def test_compound_atom_count_invalid(self):
+        """Compound atom_count"""
+        alanine = Compound.objects.get(name="alanine")
+        self.assertEqual(alanine.atom_count("Abc"), None)
+
 
 class StudyTests(TestCase, ExampleDataConsumer):
     def setUp(self):
@@ -110,7 +125,10 @@ class StudyTests(TestCase, ExampleDataConsumer):
 
         self.protocol = Protocol.objects.create(name="p1", description="p1desc")
         self.msrun = MSRun.objects.create(
-            name="msr1", date=datetime.now(), protocol=self.protocol, sample=self.sample
+            researcher="John Doe",
+            date=datetime.now(),
+            protocol=self.protocol,
+            sample=self.sample,
         )
 
         self.peak_group_df = self.get_peak_group_test_dataframe()
@@ -171,14 +189,19 @@ class StudyTests(TestCase, ExampleDataConsumer):
         self.assertEqual(self.sample.animal.name, self.first["Animal ID"])
 
     def test_msrun_protocol(self):
-        """MSRun lookup by name"""
-        msr = MSRun.objects.get(name="msr1")
+        """MSRun lookup by primary key"""
+        msr = MSRun.objects.get(id=self.msrun.pk)
         self.assertEqual(msr.protocol.name, "p1")
 
     def test_peak_group(self):
         t_peak_group = PeakGroup.objects.get(name=self.peak_group.name)
         self.assertEqual(t_peak_group.peak_data.count(), 2)
         self.assertEqual(t_peak_group.name, self.peak_group.name)
+
+    def test_peak_group_atom_count(self):
+        """PeakGroup atom_count"""
+        t_peak_group = PeakGroup.objects.get(name=self.peak_group.name)
+        self.assertEqual(t_peak_group.atom_count("C"), 6)
 
     def test_peak_group_unique_constraint(self):
         self.assertRaises(

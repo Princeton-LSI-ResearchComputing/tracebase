@@ -1,5 +1,8 @@
 import datetime
+import warnings
 
+from chempy import Substance
+from chempy.util.periodic import atomic_number
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.urls import reverse
@@ -38,6 +41,32 @@ class TracerLabeledClass:
 
     MAX_LABELED_ATOMS = 20
 
+    @classmethod
+    def tracer_labeled_elements_list(cls):
+        tracer_element_list = []
+        for idx in cls.TRACER_LABELED_ELEMENT_CHOICES:
+            tracer_element_list.append(idx[0])
+        return tracer_element_list
+
+
+def atom_count_in_formula(formula, atom):
+    """
+    Return the number of specified atom in the compound.
+    Returns None if atom is not a recognized symbol
+    Returns 0 if the atom is recognized, but not found in the compound
+    """
+    substance = Substance.from_formula(formula)
+    try:
+        count = substance.composition.get(atomic_number(atom))
+    except ValueError:
+        warnings.warn(f"{atom} not found in list of elements")
+        count = None
+    else:
+        if count is None:
+            # Valid atom, but not in formula
+            count = 0
+    return count
+
 
 class Compound(models.Model):
     # Class variables
@@ -58,6 +87,9 @@ class Compound(models.Model):
     
     def get_absolute_url(self):
         return reverse('compound_detail', args=[str(self.id)])
+
+    def atom_count(self, atom):
+        return atom_count_in_formula(self.formula, atom)
 
 
 class Study(models.Model):
@@ -168,12 +200,24 @@ class Protocol(models.Model):
 class MSRun(models.Model):
     # Instance / model fields
     id = models.AutoField(primary_key=True)
-    name = models.CharField(max_length=256, unique=True)
-    date = models.DateTimeField(auto_now=False, auto_now_add=True, editable=True)
+    researcher = models.CharField(max_length=256)
+    date = models.DateField()
     # Don't allow a Protocol to be deleted if an MSRun links to it
     protocol = models.ForeignKey(Protocol, on_delete=models.RESTRICT)
     # Don't allow a Sample to be deleted if an MSRun links to it
     sample = models.ForeignKey(Sample, on_delete=models.RESTRICT)
+
+    # Two runs that share researcher, date, protocol, and sample would be
+    # indistinguishable, thus we restrict the database to ensure that
+    # combination is unique. Constraint below assumes a researcher runs a
+    # sample/protocol combo only once a day.
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["researcher", "date", "protocol", "sample"],
+                name="unique_msrun",
+            )
+        ]
 
 
 class PeakGroup(models.Model):
@@ -198,9 +242,17 @@ class PeakGroup(models.Model):
         help_text="database identifier(s) for the TraceBase compound(s) that this PeakGroup describes",
     )
 
+    def atom_count(self, atom):
+        return atom_count_in_formula(self.formula, atom)
+
     class Meta:
         # composite key
-        unique_together = ("name", "ms_run")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["name", "ms_run"],
+                name="unique_peakgroup",
+            ),
+        ]
 
     def __str__(self):
         return str(self.name)
@@ -227,7 +279,7 @@ class PeakData(models.Model, TracerLabeledClass):
         null=True,
         blank=True,
         validators=[
-            MinValueValidator(1),
+            MinValueValidator(0),
             MaxValueValidator(TracerLabeledClass.MAX_LABELED_ATOMS),
         ],
         help_text="The number of labeled atoms (M+) observed relative to the "
@@ -252,4 +304,9 @@ class PeakData(models.Model, TracerLabeledClass):
 
     class Meta:
         # composite key
-        unique_together = ("peak_group", "labeled_element", "labeled_count")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["peak_group", "labeled_element", "labeled_count"],
+                name="unique_peakdata",
+            )
+        ]
