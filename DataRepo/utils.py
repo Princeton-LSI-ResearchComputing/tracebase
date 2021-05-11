@@ -118,10 +118,10 @@ class SampleTableLoader:
                 name=row[self.headers.ANIMAL_NAME]
             )
 
-            '''
+            """
             We do this here, and not in the "created" block below, in case the
             researcher is creating a new study from previously-loaded animals
-            '''
+            """
             print("Adding animal to the study...")
             study.animals.add(animal)
 
