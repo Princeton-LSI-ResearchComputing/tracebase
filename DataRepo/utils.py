@@ -117,6 +117,14 @@ class SampleTableLoader:
             animal, created = Animal.objects.get_or_create(
                 name=row[self.headers.ANIMAL_NAME]
             )
+
+            '''
+            We do this here, and not in the "created" block below, in case the
+            researcher is creating a new study from previously-loaded animals
+            '''
+            print("Adding animal to the study...")
+            study.animals.add(animal)
+
             if created:
                 print(f"Created new record: Animal:{animal}")
             if self.headers.ANIMAL_GENOTYPE:
