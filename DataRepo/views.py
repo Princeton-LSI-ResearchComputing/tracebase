@@ -10,6 +10,69 @@ def home(request):
     return render(request, "home.html")
 
 
+# https://www.geeksforgeeks.org/python-split-camelcase-string-to-individual-strings/
+def verbosify(str):
+    """Creates a table or field name "title" by splitting camelcase words and applies title() if it contains only lower case characters"""
+
+    if str.islower():
+        dotitle = True
+    else:
+        dotitle = False
+
+    words = [[str[0]]]
+
+    for i, c in enumerate(str[1:]):
+        # i starts from 0, but the string index starts from 1, so the index of the following character is:
+        j = i+2
+        d = ''
+        if j < len(str):
+            d = str[j]
+
+        if (words[-1][-1].islower() and c.isupper()) or (c.isupper() and j < len(str) and d.islower()):
+            words.append(list(c))
+        else:
+            words[-1].append(c)
+
+    sstr = ' '.join(''.join(word) for word in words)
+
+    if dotitle:
+        cstr = sstr.title()
+    else:
+        cstr = sstr
+
+    return cstr
+
+
+def is_shown_field(dbfield):
+    """Takes a database field from a model and returns whether it should be displayed in a view"""
+    shown = (dbfield.get_internal_type() != 'AutoField' and
+        not getattr(dbfield, "is_relation"))
+    return shown
+
+
+def add_model_description(model, context):
+    """
+    Adds a model description to the supplied context dictionary.
+
+    This data is used by generic templates that render views for every model.
+    """
+    # Representations of the table name
+    context['table'] = model.__name__
+    context['table_verbose'] = verbosify(model.__name__)
+    context['table_verbose_plural'] = verbosify(model._meta.verbose_name_plural)
+
+    # This is the tablie field used to link to detail pages
+    context['slugfield'] = 'id'
+
+    # Representations of the field names
+    all_fields = model._meta.get_fields()
+    filt_fields = list(filter(lambda x:is_shown_field(x), all_fields))
+    context['fieldnames'] = [field.name for field in filt_fields]
+    context['fieldnames_verbose'] = [verbosify(field.verbose_name.title()) for field in filt_fields]
+    
+    return context
+
+
 class genericlist(ListView, metaclass=ABCMeta):
     """
     This class displays all list views of every model.  It is an abstract class.
@@ -28,55 +91,8 @@ class genericlist(ListView, metaclass=ABCMeta):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        model = self.model
-
-        # Representations of the table name
-        context['table'] = model.__name__
-        context['table_verbose'] = self.verbosify(model.__name__)
-        context['table_verbose_plural'] = self.verbosify(model._meta.verbose_name_plural)
-
-        # This is the tablie field used to link to detail pages
-        context['slugfield'] = 'id'
-
-        # Representations of the field names
-        all_fields = model._meta.get_fields()
-        filt_fields = list(filter(lambda x:self.is_shown_field(x), all_fields))
-        context['fieldnames'] = [field.name for field in filt_fields]
-        context['fieldnames_verbose'] = [self.verbosify(field.verbose_name) for field in filt_fields]
-
+        add_model_description(self.model, context)
         return context
-
-    def is_shown_field(self, field):
-        shown = (field.get_internal_type() != 'AutoField' and
-            not getattr(field, "is_relation"))
-        return shown
-    
-    # https://www.geeksforgeeks.org/python-split-camelcase-string-to-individual-strings/
-    def verbosify(self, str):
-        """Creates a table or field name "title" by splitting camelcase words and applies title() if it contains only lower case characters"""
-
-        if str.islower():
-            cstr = str.title()
-        else:
-            cstr = str
-
-        words = [[cstr[0]]]
-
-        for i, c in enumerate(cstr[1:]):
-            # i starts from 0, but the string index starts from 1, so the index of the following character is:
-            j = i+2
-            d = ''
-            if j < len(cstr):
-                d = str[j]
-
-            if (words[-1][-1].islower() and c.isupper()) or (c.isupper() and j < len(cstr) and d.islower()):
-                words.append(list(c))
-            else:
-                words[-1].append(c)
-
-        return ' '.join(''.join(word) for word in words)
-
-
 
 
 
@@ -126,7 +142,6 @@ class peakdata_list(genericlist):
 
 
 
-
 class genericdetail(DetailView, metaclass=ABCMeta):
     """
     This class displays all detail views of every model.  It is an abstract class.
@@ -139,60 +154,8 @@ class genericdetail(DetailView, metaclass=ABCMeta):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        model = self.model
-
-        # Representations of the table name
-        context['table'] = model.__name__
-        context['table_verbose'] = self.verbosify(model.__name__)
-        context['table_verbose_plural'] = self.verbosify(model._meta.verbose_name_plural)
-
-        # This is the tablie field used to link to detail pages
-        context['slugfield'] = 'id'
-
-        # Representations of the field names
-        all_fields = model._meta.get_fields()
-        filt_fields = list(filter(lambda x:self.is_shown_field(x), all_fields))
-        context['fieldnames'] = [field.name for field in filt_fields]
-        context['fieldnames_verbose'] = [self.verbosify(field.verbose_name.title()) for field in filt_fields]
-        
+        add_model_description(self.model, context)
         return context
-
-    def is_shown_field(self, field):
-        shown = (field.get_internal_type() != 'AutoField' and
-            not getattr(field, "is_relation"))
-        return shown
-    
-    # https://www.geeksforgeeks.org/python-split-camelcase-string-to-individual-strings/
-    def verbosify(self, str):
-        """Creates a table or field name "title" by splitting camelcase words and applies title() if it contains only lower case characters"""
-
-        if str.islower():
-            dotitle = True
-        else:
-            dotitle = False
-
-        words = [[str[0]]]
-
-        for i, c in enumerate(str[1:]):
-            # i starts from 0, but the string index starts from 1, so the index of the following character is:
-            j = i+2
-            d = ''
-            if j < len(str):
-                d = str[j]
-
-            if (words[-1][-1].islower() and c.isupper()) or (c.isupper() and j < len(str) and d.islower()):
-                words.append(list(c))
-            else:
-                words[-1].append(c)
-
-        sstr = ' '.join(''.join(word) for word in words)
-
-        if dotitle:
-            cstr = sstr.title()
-        else:
-            cstr = sstr
-
-        return cstr
 
 
 class study_detail(genericdetail):
