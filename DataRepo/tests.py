@@ -236,8 +236,6 @@ class CommandTests(TestCase):
 
         self.assertEqual(Study.objects.all().count(), 1)
 
-        """
         # and the animals should be in the study
         study = Study.objects.get(name="obob_fasted")
         self.assertEqual(study.animals.count(), ANIMALS_COUNT)
-        """
