@@ -227,8 +227,8 @@ class CommandTests(TestCase):
         self.assertEqual(Compound.objects.all().count(), 30)
 
     def test_samples_loaded(self):
-        # if we discount the header and the 2 blank samples, there should be 99
-        self.assertEqual(Sample.objects.all().count(), 99)
+        # if we discount the header and the 2 blank samples, there should be 106
+        self.assertEqual(Sample.objects.all().count(), 106)
 
         # if we discount the header and the BLANK animal, there should be 7
         ANIMALS_COUNT = 7
