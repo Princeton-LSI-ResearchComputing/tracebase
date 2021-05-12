@@ -1,0 +1,31 @@
+{% extends "base_t3.html" %}
+
+{% block title %}Peak Groups{% endblock %}
+
+{% block content %}
+<div>
+    <ul>
+        <h3>List of Peak Groups</h3>
+
+        {% if object_list %}
+        <br>
+        <table class="table table-sm table-hover table-bordered table-responsive table-striped w-auto mw-100">
+            <tr>
+            <th>Peak Group Name</th>   
+            <th>Formula For Identified Compounds</th>
+            <th>MSRUN ID</th>
+            </tr>
+            {% for peakgroup in object_list %}
+            <tr>
+            <td><a href="{{ peakgroup.get_absolute_url }}">{{ peakgroup.name }}</a></td>
+            <td>{{ peakgroup.formula }}</td>            
+            <td><a href="{{ peakgroup.ms_run.get_absolute_url }}">{{ peakgroup.ms_run.id }}</a></td>
+            </tr>
+            {% endfor %}
+        </table>
+        {% else %}
+        <p>There are no Peak Groups.</p>  
+        {% endif %}  
+    </ul>
+</div>
+{% endblock %}

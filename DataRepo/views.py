@@ -1,4 +1,5 @@
 from django.forms import modelformset_factory
+from django.shortcuts import get_object_or_404
 from django.http import Http404
 from django.shortcuts import render
 from django.views import generic
@@ -95,6 +96,15 @@ class SampleDetailView(generic.DetailView):
     """Generic class-based detail view for a sample."""
 
     model = Sample
+    paginate_by = 50
+
+class AnimalaSampleListView(ListView):
+    """thinking about this view ..."""
+    template_name = 'DataRepo/samples_by_animal.html'
+
+    def get_queryset(self):
+        self.animal = get_object_or_404(Animal, name=self.kwargs['animal'])
+        return Sample.objects.filter(animal=self.animal) 
 
 
 class MSRunListView(generic.ListView):
@@ -108,3 +118,17 @@ class MSRunDetailView(generic.DetailView):
     """Generic class-based detail view for a MSRuns."""
 
     model = MSRun
+    paginate_by = 50
+
+class PeakGroupListView(generic.ListView):
+    """Generic class-based view for a list of PeakGroup."""
+
+    model = PeakGroup
+    paginate_by = 50
+
+
+class PeakGroupDetailView(generic.DetailView):
+    """Generic class-based detail view for a PeakGroup."""
+
+    model = PeakGroup
+    paginate_by = 50

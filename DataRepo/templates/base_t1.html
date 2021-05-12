@@ -32,7 +32,8 @@
         <a href="{% url 'protocol_list' %}"" class="list-group-item list-group-item-action bg-light">Protocols</a>
         <a href="{% url 'animal_list' %}" class="list-group-item list-group-item-action bg-light">Animals</a>
         <a href="{% url 'sample_list' %}" class="list-group-item list-group-item-action bg-light">Samples</a>
-        <a href="{% url 'home' %}" class="list-group-item list-group-item-action bg-light">MS Runs</a>
+        <a href="{% url 'msrun_list' %}" class="list-group-item list-group-item-action bg-light">MS Runs</a>
+        <a href="{% url 'peakgroup_list' %}" class="list-group-item list-group-item-action bg-light">Peak Groups</a>
       </div>
     </div>
     <!-- /#sidebar-wrapper -->
@@ -47,6 +48,11 @@
           <span class="navbar-toggler-icon"></span>
         </button>
 
+        <form class="d-flex">
+          <input class="form-control form-control-lg" type="search" data-target="#navbarSupportedContent" placeholder="Search" aria-label="Search">
+          <button class="btn btn-outline-success" type="submit">Go</button>
+        </form>
+
         <div class="collapse navbar-collapse" id="navbarSupportedContent">
           <ul class="navbar-nav ml-auto mt-2 mt-lg-0">
             <li class="nav-item active">
@@ -57,7 +63,7 @@
             </li>
             <li class="nav-item dropdown">
               <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                List Data
+                Download Data
               </a>
               <div class="dropdown-menu dropdown-menu-right" aria-labelledby="navbarDropdown">
                 <a class="dropdown-item" href="{% url 'compound_list' %}">All Compounds</a>
@@ -66,6 +72,12 @@
                 <div class="dropdown-divider"></div>
                 <a class="dropdown-item" href="#"></a>
               </div>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="{% url 'home' %}">Login</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="{% url 'home' %}">Help</a>
             </li>
           </ul>
         </div>

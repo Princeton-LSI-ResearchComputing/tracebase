@@ -223,6 +223,8 @@ class MSRun(models.Model):
             )
         ]
 
+    def get_absolute_url(self):
+        return reverse("msrun_detail", args=[str(self.id)])
 
 class PeakGroup(models.Model):
     id = models.AutoField(primary_key=True)
@@ -260,6 +262,9 @@ class PeakGroup(models.Model):
 
     def __str__(self):
         return str(self.name)
+    
+    def get_absolute_url(self):
+        return reverse("peakgroup_detail", args=[str(self.id)])
 
 
 # PeakData is a single observation (at the most atomic level) of a MS-detected molecule.
@@ -315,4 +320,4 @@ class PeakData(models.Model, TracerLabeledClass):
             )
         ]
     def get_absolute_url(self):
-        return reverse("msrun_detail", args=[str(self.id)])
+        return reverse("peakdata_detail", args=[str(self.id)])
