@@ -27,7 +27,7 @@
                                 <a href="{% url lv rec|value_from_model:slugfield %}">
                             {% endwith %}
                         {% endif %}
-                        {% include "display_field.html" with rec=rec table=table fld=fld %}
+                        {% include "fieldview.html" with rec=rec table=table fld=fld %}
                         {% if forloop.first %}
                             </a>
                         {% endif %}
