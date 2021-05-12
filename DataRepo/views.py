@@ -68,7 +68,7 @@ def add_model_description(model, context):
     all_fields = model._meta.get_fields()
     filt_fields = list(filter(lambda x:is_shown_field(x), all_fields))
     context['fieldnames'] = [field.name for field in filt_fields]
-    context['fieldnames_verbose'] = [verbosify(field.verbose_name.title()) for field in filt_fields]
+    context['fieldnames_verbose'] = [verbosify(field.verbose_name) for field in filt_fields]
     
     return context
 

@@ -7,7 +7,9 @@
         <!-- Field Values -->
         {% for fld in fieldnames %}
             <tr>
-                <th>{{ object|verbose_name_from_model:fld }}</th>
+                <td><strong>
+                    {{ fieldnames_verbose|index:forloop.counter0 }}
+                </strong></td>
                 <td>
                     {% include "fieldview.html" with rec=object table=table fld=fld %}
                 </td>

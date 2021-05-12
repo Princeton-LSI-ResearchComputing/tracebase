@@ -4,64 +4,39 @@ import sys, inspect, re
 
 register = template.Library()
 
-# This obtains a value from a field of a record of the model
 @register.filter
 def value_from_model(model, field):
+    """
+    Obtain a field value from a record, given the model instance and the field name
+    """
     return getattr(model, field)
 
-# This obtains a value from a field of a record of the model
-@register.filter
-def verbose_name_from_model(model, field):
-    """Creates a table or field name "title" by splitting camelcase words and applies title() if it contains only lower case characters"""
-
-    str = model._meta.get_field(field).verbose_name
-
-    if str.islower():
-        dotitle = True
-    else:
-        dotitle = False
-
-    words = [[str[0]]]
-
-    for i, c in enumerate(str[1:]):
-        # i starts from 0, but the string index starts from 1, so the index of the following character is:
-        j = i+2
-        d = ''
-        if j < len(str):
-            d = str[j]
-
-        if (words[-1][-1].islower() and c.isupper()) or (c.isupper() and j < len(str) and d.islower()):
-            words.append(list(c))
-        else:
-            words[-1].append(c)
-
-    sstr = ' '.join(''.join(word) for word in words)
-
-    if dotitle:
-        cstr = sstr.title()
-    else:
-        cstr = sstr
-
-    return cstr
-
-# This determines whether a template (i.e. html file) exists
 @register.filter
 @stringfilter
-def template_exists(value):
+def template_exists(template_filename):
+    """
+    Determine whether a template (i.e. html file) exists
+    """
     try:
-        template.loader.get_template(value)
+        template.loader.get_template(template_filename)
         return True
     except template.TemplateDoesNotExist:
         return False
 
-# This allows indexing a list
 @register.filter
 def index(indexable, i):
+    """
+    Index a list from a template
+    """
     return indexable[i]
 
-# Retrieve all the list views and their table names (so that you don't have to pass them all to the template)
 @register.filter
 def get_listviews(dummy):
+    """
+    Retrieve all the list views (and their table names) from views.py
+
+    This is so that you don't have to pass them all to the template
+    """
     list_views = []
 
     # Obtain a list of this module's ListView classes and the names of their Models
