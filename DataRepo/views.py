@@ -164,7 +164,13 @@ class genericdetail(DetailView, metaclass=ABCMeta):
     
     # https://www.geeksforgeeks.org/python-split-camelcase-string-to-individual-strings/
     def verbosify(self, str):
-        """Creates a table or field name "title by splitting camelcase words"""
+        """Creates a table or field name "title" by splitting camelcase words and applies title() if it contains only lower case characters"""
+
+        if str.islower():
+            dotitle = True
+        else:
+            dotitle = False
+
         words = [[str[0]]]
 
         for i, c in enumerate(str[1:]):
@@ -179,7 +185,14 @@ class genericdetail(DetailView, metaclass=ABCMeta):
             else:
                 words[-1].append(c)
 
-        return ' '.join(''.join(word) for word in words)
+        sstr = ' '.join(''.join(word) for word in words)
+
+        if dotitle:
+            cstr = sstr.title()
+        else:
+            cstr = sstr
+
+        return cstr
 
 
 class study_detail(genericdetail):
