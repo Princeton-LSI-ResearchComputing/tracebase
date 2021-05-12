@@ -1,6 +1,7 @@
 from datetime import datetime
 
 import pandas as pd
+from django.core.management import call_command
 from django.db import IntegrityError
 from django.test import TestCase
 
@@ -210,3 +211,31 @@ class StudyTests(TestCase, ExampleDataConsumer):
                 name=self.peak_group.name, ms_run=self.msrun
             ),
         )
+
+
+class CommandTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        call_command("load_compounds", "DataRepo/example_data/obob_compounds.tsv")
+        call_command(
+            "load_samples",
+            "DataRepo/example_data/obob_sample_table.tsv",
+            sample_table_headers="DataRepo/example_data/obob_sample_table_headers.yaml",
+        )
+
+    def test_compounds_loaded(self):
+        self.assertEqual(Compound.objects.all().count(), 30)
+
+    def test_samples_loaded(self):
+        # if we discount the header and the 2 blank samples, there should be 99
+        self.assertEqual(Sample.objects.all().count(), 99)
+
+        # if we discount the header and the BLANK animal, there should be 7
+        ANIMALS_COUNT = 7
+        self.assertEqual(Animal.objects.all().count(), ANIMALS_COUNT)
+
+        self.assertEqual(Study.objects.all().count(), 1)
+
+        # and the animals should be in the study
+        study = Study.objects.get(name="obob_fasted")
+        self.assertEqual(study.animals.count(), ANIMALS_COUNT)
