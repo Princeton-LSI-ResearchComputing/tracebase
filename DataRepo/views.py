@@ -6,8 +6,151 @@ from abc import ABCMeta, abstractmethod
 from DataRepo.models import Compound, Study, Animal, Tissue, Sample, Protocol, MSRun, PeakGroup, PeakData
 
 
+# Home view
+
+
 def home(request):
     return render(request, "home.html")
+
+
+# Abstract classes
+
+
+class genericlist(ListView, metaclass=ABCMeta):
+    """
+    This class displays all list views of every model.  It is an abstract class.
+    """
+    @abstractmethod
+    def __init__(self, model):
+        self.model = model
+        self.template_name = 'listview.html'
+        #pself.aginate_by = 10
+        self.allow_empty = True
+        if hasattr(model._meta, 'ordering'):
+            if isinstance(model._meta.ordering, str):
+                queryset = model.objects.order_by(model._meta.ordering)
+            elif isinstance(model._meta.ordering, list) and len(model._meta.ordering) > 0:
+                queryset = model.objects.order_by(model._meta.ordering[0])
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        add_model_description(self.model, context)
+        return context
+
+
+class genericdetail(DetailView, metaclass=ABCMeta):
+    """
+    This class displays all detail views of every model.  It is an abstract class.
+    """
+    @abstractmethod
+    def __init__(self, model):
+        self.model = model
+        self.template_name = 'detailview.html'
+        self.slug_field = 'id'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        add_model_description(self.model, context)
+        return context
+
+
+# List views
+
+
+class compound_list(genericlist):
+    def __init__(self):
+        super().__init__(Compound)
+
+
+class study_list(genericlist):
+    def __init__(self):
+        super().__init__(Study)
+
+
+class animal_list(genericlist):
+    def __init__(self):
+        super().__init__(Animal)
+
+
+class tissue_list(genericlist):
+    def __init__(self):
+        super().__init__(Tissue)
+
+
+class sample_list(genericlist):
+    def __init__(self):
+        super().__init__(Sample)
+
+
+class protocol_list(genericlist):
+    def __init__(self):
+        super().__init__(Protocol)
+
+
+class msrun_list(genericlist):
+    def __init__(self):
+        super().__init__(MSRun)
+
+
+class peakgroup_list(genericlist):
+    def __init__(self):
+        super().__init__(PeakGroup)
+
+
+class peakdata_list(genericlist):
+    def __init__(self):
+        super().__init__(PeakData)
+
+
+# Detail Views
+
+
+class study_detail(genericdetail):
+    def __init__(self):
+        super().__init__(Study)
+
+
+class compound_detail(genericdetail):
+    def __init__(self):
+        super().__init__(Compound)
+
+
+class animal_detail(genericdetail):
+    def __init__(self):
+        super().__init__(Animal)
+
+
+class tissue_detail(genericdetail):
+    def __init__(self):
+        super().__init__(Tissue)
+
+
+class sample_detail(genericdetail):
+    def __init__(self):
+        super().__init__(Sample)
+
+
+class protocol_detail(genericdetail):
+    def __init__(self):
+        super().__init__(Protocol)
+
+
+class msrun_detail(genericdetail):
+    def __init__(self):
+        super().__init__(MSRun)
+
+
+class peakgroup_detail(genericdetail):
+    def __init__(self):
+        super().__init__(PeakGroup)
+
+
+class peakdata_detail(genericdetail):
+    def __init__(self):
+        super().__init__(PeakData)
+
+
+# Supporting functions
 
 
 # https://www.geeksforgeeks.org/python-split-camelcase-string-to-individual-strings/
@@ -71,135 +214,5 @@ def add_model_description(model, context):
     context['fieldnames_verbose'] = [verbosify(field.verbose_name) for field in filt_fields]
     
     return context
-
-
-class genericlist(ListView, metaclass=ABCMeta):
-    """
-    This class displays all list views of every model.  It is an abstract class.
-    """
-    @abstractmethod
-    def __init__(self, model):
-        self.model = model
-        self.template_name = 'listview.html'
-        #pself.aginate_by = 10
-        self.allow_empty = True
-        if hasattr(model._meta, 'ordering'):
-            if isinstance(model._meta.ordering, str):
-                queryset = model.objects.order_by(model._meta.ordering)
-            elif isinstance(model._meta.ordering, list) and len(model._meta.ordering) > 0:
-                queryset = model.objects.order_by(model._meta.ordering[0])
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        add_model_description(self.model, context)
-        return context
-
-
-
-class compound_list(genericlist):
-    def __init__(self):
-        super().__init__(Compound)
-
-
-class study_list(genericlist):
-    def __init__(self):
-        super().__init__(Study)
-
-
-class animal_list(genericlist):
-    def __init__(self):
-        super().__init__(Animal)
-
-
-class tissue_list(genericlist):
-    def __init__(self):
-        super().__init__(Tissue)
-
-
-class sample_list(genericlist):
-    def __init__(self):
-        super().__init__(Sample)
-
-
-class protocol_list(genericlist):
-    def __init__(self):
-        super().__init__(Protocol)
-
-
-class msrun_list(genericlist):
-    def __init__(self):
-        super().__init__(MSRun)
-
-
-class peakgroup_list(genericlist):
-    def __init__(self):
-        super().__init__(PeakGroup)
-
-
-class peakdata_list(genericlist):
-    def __init__(self):
-        super().__init__(PeakData)
-
-
-
-class genericdetail(DetailView, metaclass=ABCMeta):
-    """
-    This class displays all detail views of every model.  It is an abstract class.
-    """
-    @abstractmethod
-    def __init__(self, model):
-        self.model = model
-        self.template_name = 'detailview.html'
-        self.slug_field = 'id'
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        add_model_description(self.model, context)
-        return context
-
-
-class study_detail(genericdetail):
-    def __init__(self):
-        super().__init__(Study)
-
-
-class compound_detail(genericdetail):
-    def __init__(self):
-        super().__init__(Compound)
-
-
-class animal_detail(genericdetail):
-    def __init__(self):
-        super().__init__(Animal)
-
-
-class tissue_detail(genericdetail):
-    def __init__(self):
-        super().__init__(Tissue)
-
-
-class sample_detail(genericdetail):
-    def __init__(self):
-        super().__init__(Sample)
-
-
-class protocol_detail(genericdetail):
-    def __init__(self):
-        super().__init__(Protocol)
-
-
-class msrun_detail(genericdetail):
-    def __init__(self):
-        super().__init__(MSRun)
-
-
-class peakgroup_detail(genericdetail):
-    def __init__(self):
-        super().__init__(PeakGroup)
-
-
-class peakdata_detail(genericdetail):
-    def __init__(self):
-        super().__init__(PeakData)
 
 
