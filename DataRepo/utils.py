@@ -267,12 +267,6 @@ class AccuCorDataLoader:
             "Compound"
         ].str.strip()
 
-        # original and corrected should have same number of rows
-        err_msg = "Number of rows in AccuCor original and corrected data are different"
-        assert len(self.accucor_original_df.index) == len(
-            self.accucor_corrected_df.index
-        ), err_msg
-
         """
         Validate sample headers. Get the sample names from the original header
         [all columns]
@@ -484,19 +478,22 @@ class AccuCorDataLoader:
             msrun.save()
             self.sample_run_dict[original_sample_name] = msrun
 
+            # Create all PeakGroups
             for index, row in self.accucor_original_df.iterrows():
-                peak_group_name = row["compound"]
-
-                if peak_group_name not in inserted_peak_group_dict:
+                isotope, labeled_count = self.parse_isotope_label(row["isotopeLabel"])
+                if labeled_count == 0:
 
                     """
-                    Here we insert and cache a PeakGroup, by name (only once per
-                    file). NOTE: if the first row encountered has any issues
-                    (for example, a null formula, as sometimes observed in
-                    original Maven results), then this block will likely fail
+                    Here we insert PeakGroup, by name (only once per file).
+                    NOTE: if the C12 PARENT row encountered has any issues (for
+                    example, a null formula), then this block will fail
                     """
 
-                    print(f"\tInserting {peak_group_name} peak group")
+                    peak_group_name = row["compound"]
+                    print(
+                        f"\tInserting {peak_group_name} peak group for sample "
+                        f"{original_sample_name}"
+                    )
                     peak_group_attrs = self.peak_group_dict[peak_group_name]
                     peak_group = PeakGroup(
                         ms_run=msrun,
@@ -515,27 +512,82 @@ class AccuCorDataLoader:
                     for compound in peak_group_attrs["compounds"]:
                         peak_group.compounds.add(compound)
 
+            # For each PeakGroup, create PeakData rows
+            for peak_group_name in inserted_peak_group_dict:
+
                 # we should have a cached PeakGroup now
                 peak_group = inserted_peak_group_dict[peak_group_name]
 
-                # add the peakdata
-                peak_data = PeakData(
-                    peak_group=peak_group,
-                    labeled_element=self.labeled_element,
-                    labeled_count=self.accucor_corrected_df.iloc[index][
-                        self.labeled_element_header
-                    ],
-                    raw_abundance=row[original_sample_name],
-                    corrected_abundance=self.accucor_corrected_df.iloc[index][
-                        original_sample_name
-                    ],
-                    med_mz=row["medMz"],
-                    med_rt=row["medRt"],
-                )
-                peak_data.full_clean()
-                peak_data.save()
+                peak_group_original_data = self.accucor_original_df.loc[
+                    self.accucor_original_df["compound"] == peak_group_name
+                ]
+                # get next row from original data
+                row_idx = 0
+                for labeled_count in range(
+                    0, peak_group.atom_count(self.labeled_element) + 1
+                ):
+                    try:
+                        row = peak_group_original_data.iloc[row_idx]
+                        _atom, row_labeled_count = self.parse_isotope_label(
+                            row["isotopeLabel"]
+                        )
+                        # Not a matching row
+                        if row_labeled_count != labeled_count:
+                            row = None
+                    except IndexError:
+                        # later rows are missing
+                        row = None
+                    # Lookup corrected abundance by compound and label
+                    corrected_abundance = self.accucor_corrected_df.loc[
+                        (self.accucor_corrected_df["Compound"] == peak_group_name)
+                        & (self.accucor_corrected_df["C_Label"] == labeled_count)
+                    ][original_sample_name]
+
+                    if row is None:
+                        # No row for this labeled_count
+                        raw_abundance = 0
+                        med_mz = 0
+                        med_rt = 0
+                    else:
+                        # We have a matching row, use it and increment row_idx
+                        raw_abundance = row[original_sample_name]
+                        med_mz = row["medMz"]
+                        med_rt = row["medRt"]
+                        row_idx = row_idx + 1
+                    print(
+                        f"\t\tInserting peak data for {peak_group_name}:label-{labeled_count} "
+                        f"for sample {original_sample_name}"
+                    )
+                    peak_data = PeakData(
+                        peak_group=peak_group,
+                        labeled_element=self.labeled_element,
+                        labeled_count=labeled_count,
+                        raw_abundance=raw_abundance,
+                        corrected_abundance=corrected_abundance,
+                        med_mz=med_mz,
+                        med_rt=med_rt,
+                    )
+
+                    peak_data.full_clean()
+                    peak_data.save()
 
         assert not self.debug, "Debugging..."
+
+    @classmethod
+    def parse_isotope_label(cls, label):
+        """
+        Parse El-Maven style isotope label string
+        e.g. C12 PARENT, C13-label-1, C13-label-2
+        Returns tuple with "Atom" and "Label count"
+        e.g. ("C12", 0), ("C13", 1), ("C13", 2)
+        """
+        atom, count = (None, None)
+        if "PARENT" in label:
+            atom = label.split(" ")[0]
+            count = 0
+        else:
+            atom, _junk, count = label.split("-")
+        return (atom, int(count))
 
     def load_accucor_data(self):
 

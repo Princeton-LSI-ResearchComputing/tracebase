@@ -16,6 +16,7 @@ from .models import (
     Study,
     Tissue,
 )
+from .utils import AccuCorDataLoader
 
 
 class ExampleDataConsumer:
@@ -90,7 +91,8 @@ class CompoundTests(TestCase):
     def test_compound_atom_count_invalid(self):
         """Compound atom_count"""
         alanine = Compound.objects.get(name="alanine")
-        self.assertEqual(alanine.atom_count("Abc"), None)
+        with self.assertWarns(UserWarning):
+            self.assertEqual(alanine.atom_count("Abc"), None)
 
 
 class StudyTests(TestCase, ExampleDataConsumer):
@@ -213,7 +215,7 @@ class StudyTests(TestCase, ExampleDataConsumer):
         )
 
 
-class CommandTests(TestCase):
+class DataLoadingTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         call_command("load_compounds", "DataRepo/example_data/obob_compounds.tsv")
@@ -221,6 +223,20 @@ class CommandTests(TestCase):
             "load_samples",
             "DataRepo/example_data/obob_sample_table.tsv",
             sample_table_headers="DataRepo/example_data/obob_sample_table_headers.yaml",
+        )
+        call_command(
+            "load_accucor_msruns",
+            protocol="Default",
+            accucor_file="DataRepo/example_data/obob_maven_6eaas_inf.xlsx",
+            date="2021-04-29",
+            researcher="Michael",
+        )
+        call_command(
+            "load_accucor_msruns",
+            protocol="Default",
+            accucor_file="DataRepo/example_data/obob_maven_6eaas_serum.xlsx",
+            date="2021-04-29",
+            researcher="Michael",
         )
 
     def test_compounds_loaded(self):
@@ -239,3 +255,69 @@ class CommandTests(TestCase):
         # and the animals should be in the study
         study = Study.objects.get(name="obob_fasted")
         self.assertEqual(study.animals.count(), ANIMALS_COUNT)
+
+    def test_peak_groups_loaded(self):
+        # inf data file: 7 compounds and 56 samples, 7 * 56 = 392
+        # serum data file: 13 compounds and 4 samples, 13 * 4 = 52
+        self.assertEqual(PeakGroup.objects.all().count(), 392 + 52)
+
+    def test_peak_data_loaded(self):
+        # inf data file: 38 PeakData rows for 56 samples, 38 * 60 = 2128
+        # serum data file: 85 PeakData rows for 4 samples, 85 * 4 = 340
+        self.assertEqual(PeakData.objects.all().count(), 2128 + 340)
+
+    def test_peak_group_peak_data_1(self):
+        peak_group = (
+            PeakGroup.objects.filter(compounds__name="glucose")
+            .filter(ms_run__sample__name="BAT-xz971")
+            .get()
+        )
+        peak_data = peak_group.peak_data.filter(labeled_count=0).get()
+        self.assertEqual(peak_data.raw_abundance, 8814287)
+        self.assertEqual(peak_data.corrected_abundance, 9553199.89089051)
+
+    def test_peak_group_peak_data_2(self):
+        peak_group = (
+            PeakGroup.objects.filter(compounds__name="histidine")
+            .filter(ms_run__sample__name="serum-xz971")
+            .get()
+        )
+        # There should be a peak_data for each label count 0-6
+        self.assertEqual(peak_group.peak_data.count(), 7)
+        peak_data = peak_group.peak_data.filter(labeled_count=2).get()
+        self.assertEqual(peak_data.raw_abundance, 0)
+        self.assertEqual(peak_data.corrected_abundance, 0)
+
+    def test_peak_group_peak_data_3(self):
+        peak_group = (
+            PeakGroup.objects.filter(compounds__name="histidine")
+            .filter(ms_run__sample__name="serum-xz971")
+            .get()
+        )
+        peak_data = peak_group.peak_data.filter(labeled_count=5).get()
+        self.assertEqual(peak_data.raw_abundance, 1356.587)
+        self.assertEqual(peak_data.corrected_abundance, 0)
+
+
+class AccuCorDataLoaderTests(TestCase):
+    def test_parse_parent_isotope_label(self):
+        self.assertEqual(
+            AccuCorDataLoader.parse_isotope_label("C12 PARENT"), ("C12", 0)
+        )
+
+    def test_parse_isotope_label(self):
+        self.assertEqual(
+            AccuCorDataLoader.parse_isotope_label("C13-label-5"), ("C13", 5)
+        )
+
+    def test_parse_isotope_label_bad(self):
+        with self.assertRaises(ValueError):
+            AccuCorDataLoader.parse_isotope_label("label-5")
+
+    def test_parse_isotope_label_empty(self):
+        with self.assertRaises(ValueError):
+            AccuCorDataLoader.parse_isotope_label("")
+
+    def test_parse_isotope_label_none(self):
+        with self.assertRaises(TypeError):
+            AccuCorDataLoader.parse_isotope_label(None)
