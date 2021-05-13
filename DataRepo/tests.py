@@ -224,7 +224,7 @@ class CommandTests(TestCase):
         )
 
     def test_compounds_loaded(self):
-        self.assertEqual(Compound.objects.all().count(), 30)
+        self.assertEqual(Compound.objects.all().count(), 32)
 
     def test_samples_loaded(self):
         # if we discount the header and the 2 blank samples, there should be 106
