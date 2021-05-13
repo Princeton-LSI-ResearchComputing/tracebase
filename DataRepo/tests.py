@@ -11,6 +11,7 @@ from .models import (
     MSRun,
     PeakData,
     PeakGroup,
+    PeakGroupSet,
     Protocol,
     Sample,
     Study,
@@ -132,12 +133,17 @@ class StudyTests(TestCase, ExampleDataConsumer):
             sample=self.sample,
         )
 
+        self.peak_group_set = PeakGroupSet.objects.create(
+            filename="testing_dataset_file"
+        )
+
         self.peak_group_df = self.get_peak_group_test_dataframe()
         initial_peak_group = self.peak_group_df.iloc[0]
         self.peak_group = PeakGroup.objects.create(
             name=initial_peak_group["name"],
             formula=initial_peak_group["formula"],
             ms_run=self.msrun,
+            peak_group_set=self.peak_group_set,
         )
         # actual code would have to more careful in retrieving compounds based
         # on the data's peak_group name
@@ -222,6 +228,13 @@ class CommandTests(TestCase):
             "DataRepo/example_data/obob_sample_table.tsv",
             sample_table_headers="DataRepo/example_data/obob_sample_table_headers.yaml",
         )
+        call_command(
+            "load_accucor_msruns",
+            accucor_file="DataRepo/example_data/obob_maven_6eaas_inf.xlsx",
+            protocol="Unspecified LC-MS",
+            date="2021-04-24",
+            researcher="tester",
+        )
 
     def test_compounds_loaded(self):
         self.assertEqual(Compound.objects.all().count(), 30)
@@ -239,3 +252,26 @@ class CommandTests(TestCase):
         # and the animals should be in the study
         study = Study.objects.get(name="obob_fasted")
         self.assertEqual(study.animals.count(), ANIMALS_COUNT)
+
+    def test_peak_data_loaded(self):
+
+        # metrics that should correspond to the tested accucor_file argument
+        FILE_SAMPLES_COUNT = 56
+        FILE_COMPOUNDS_COUNT = 7
+        FILE_DATA_ROWS = 38
+
+        # should only be 1 peak group set for 1 call to load_accucor_msruns
+        self.assertEqual(PeakGroupSet.objects.all().count(), 1)
+        pgs = PeakGroupSet.objects.all().first()
+        self.assertEqual(pgs.filename, "obob_maven_6eaas_inf.xlsx")
+        # and there are 7 compounds and 56 samples in the dataset, so compute
+        # the expected number of peak groups for this test
+        self.assertEqual(
+            pgs.peak_groups.count(), FILE_COMPOUNDS_COUNT * FILE_SAMPLES_COUNT
+        )
+        # PeakData should be equivalent to the file rows by the samples
+        self.assertEqual(
+            PeakData.objects.all().count(), FILE_SAMPLES_COUNT * FILE_DATA_ROWS
+        )
+        # MsRun should be equivalent to the samples
+        self.assertEqual(MSRun.objects.all().count(), FILE_SAMPLES_COUNT)
