@@ -284,8 +284,11 @@ class DataLoadingTests(TestCase):
         )
         # There should be a peak_data for each label count 0-6
         self.assertEqual(peak_group.peak_data.count(), 7)
+        # The peak_data for labeled_count==2 is missing, thus values should be 0
         peak_data = peak_group.peak_data.filter(labeled_count=2).get()
         self.assertEqual(peak_data.raw_abundance, 0)
+        self.assertEqual(peak_data.med_mz, 0)
+        self.assertEqual(peak_data.med_rt, 0)
         self.assertEqual(peak_data.corrected_abundance, 0)
 
     def test_peak_group_peak_data_3(self):
