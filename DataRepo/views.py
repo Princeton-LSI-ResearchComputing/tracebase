@@ -193,6 +193,11 @@ def is_shown_field(dbfield):
     return shown
 
 
+def is_relation(dbfield):
+    """Takes a database field from a model and returns whether it is a link to another table"""
+    return getattr(dbfield, "is_relation")
+
+
 def add_model_description(model, context):
     """
     Adds a model description to the supplied context dictionary.
@@ -212,6 +217,11 @@ def add_model_description(model, context):
     filt_fields = list(filter(lambda x:is_shown_field(x), all_fields))
     context['fieldnames'] = [field.name for field in filt_fields]
     context['fieldnames_verbose'] = [verbosify(field.verbose_name) for field in filt_fields]
+
+    # Represenation of relationships
+    rel_fields = list(filter(lambda x:is_relation(x), all_fields))
+    context['rel_fieldnames'] = [field.name for field in rel_fields]
+    #context['rel_fieldnames_verbose'] = [verbosify(field.verbose_name) for field in rel_fields]
     
     return context
 

@@ -16,5 +16,8 @@
             </tr>
         {% endfor %}
     </table>
+    {% for relfld in rel_fieldnames %}
+        Relation: {{ relfld }}<br>
+    {% endfor %}
 </div>
 {% endblock %}

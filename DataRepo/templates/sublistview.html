@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% load table_tags %}
+{% block content %}
+<div>
+    <h3>{{ table_verbose_plural }}</h3>
+    <table>
+        <!-- Column Headers -->
+        {% if object_list %}
+            <tr>
+                {% for hdr in fieldnames_verbose %}
+                    <th>
+                        {{ hdr }}
+                    </th>
+                {% endfor %}
+            </tr>
+        {% else %}
+            {{ table_verbose }} table empty.
+        {% endif %}
+
+        <!-- Records/rows -->
+        {% for rec in object_list %}
+            <tr>
+                {% for fld in fieldnames %}
+                    <td>
+                        {% if forloop.first %}
+                            {% with table|lower|add:"_detail" as lv %}
+                                <a href="{% url lv rec|value_from_model:slugfield %}">
+                            {% endwith %}
+                        {% endif %}
+                        {% include "fieldview.html" with rec=rec table=table fld=fld %}
+                        {% if forloop.first %}
+                            </a>
+                        {% endif %}
+                    </td>
+                {% endfor %}
+            </tr>
+        {% endfor %}
+    </table>
+</div>
+{% endblock %}
