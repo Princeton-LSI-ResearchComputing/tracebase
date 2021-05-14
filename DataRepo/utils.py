@@ -540,7 +540,10 @@ class AccuCorDataLoader:
                     # Lookup corrected abundance by compound and label
                     corrected_abundance = self.accucor_corrected_df.loc[
                         (self.accucor_corrected_df["Compound"] == peak_group_name)
-                        & (self.accucor_corrected_df["C_Label"] == labeled_count)
+                        & (
+                            self.accucor_corrected_df[self.labeled_element_header]
+                            == labeled_count
+                        )
                     ][original_sample_name]
 
                     if row is None:
