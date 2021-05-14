@@ -1,7 +1,6 @@
 from datetime import datetime
 
 import pandas as pd
-import psycopg2
 from django.core.management import call_command
 from django.db import DataError, IntegrityError
 from django.test import TestCase
