@@ -1,6 +1,5 @@
 from abc import ABCMeta, abstractmethod
 
-from django.http import Http404
 from django.shortcuts import render
 from django.views.generic import DetailView, ListView
 
@@ -35,15 +34,8 @@ class genericlist(ListView, metaclass=ABCMeta):
     def __init__(self, model):
         self.model = model
         self.template_name = "listview.html"
-        # pself.aginate_by = 10
+        # self.aginate_by = 10
         self.allow_empty = True
-        if hasattr(model._meta, "ordering"):
-            if isinstance(model._meta.ordering, str):
-                queryset = model.objects.order_by(model._meta.ordering)
-            elif (
-                isinstance(model._meta.ordering, list) and len(model._meta.ordering) > 0
-            ):
-                queryset = model.objects.order_by(model._meta.ordering[0])
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -169,7 +161,10 @@ class peakdata_detail(genericdetail):
 
 # https://www.geeksforgeeks.org/python-split-camelcase-string-to-individual-strings/
 def verbosify(str):
-    """Creates a table or field name "title" by splitting camelcase words and applies title() if it contains only lower case characters"""
+    """
+    Creates a table or field name "title" by splitting camelcase words and
+    applies title() if it contains only lower case characters
+    """
 
     if str.islower():
         dotitle = True
@@ -179,7 +174,8 @@ def verbosify(str):
     words = [[str[0]]]
 
     for i, c in enumerate(str[1:]):
-        # i starts from 0, but the string index starts from 1, so the index of the following character is:
+        # i starts from 0, but the string index starts from 1, so the index of
+        # the following character is:
         j = i + 2
         d = ""
         if j < len(str):

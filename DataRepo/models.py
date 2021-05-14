@@ -197,6 +197,7 @@ class Sample(models.Model):
         return str(self.name)
 
     class Meta:
+        ordering = ["name"]
         verbose_name = "Sample"
         verbose_name_plural = "Samples"
 

@@ -14,7 +14,9 @@ def value_from_model(model, field):
     """
     Obtain a field value from a record, given the model instance and the field name
     """
-    # Note: if you get an error about a relationship that's defined in the "related" model and not *this* model, then the related model must define the "related_name" so that those related records can be retirved from either model
+    # Note: if you get an error about a relationship that's defined in the "related"
+    # model and not *this* model, then the related model must define the
+    # "related_name" so that those related records can be retirved from either model
     return getattr(model, field)
 
 
@@ -23,7 +25,9 @@ def rel_values_from_model(model, field):
     """
     Obtain a field value from a record, given the model instance and the field name
     """
-    # Note: if you get an error about a relationship that's defined in the "related" model and not *this* model, then the related model must define the "related_name" so that those related records can be retirved from either model
+    # Note: if you get an error about a relationship that's defined in the "related"
+    # model and not *this* model, then the related model must define the
+    # "related_name" so that those related records can be retirved from either model
     return getattr(model, field).all()
 
 
