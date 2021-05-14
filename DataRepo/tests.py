@@ -1,8 +1,9 @@
 from datetime import datetime
 
 import pandas as pd
+import psycopg2
 from django.core.management import call_command
-from django.db import IntegrityError
+from django.db import DataError, IntegrityError
 from django.test import TestCase
 
 from .models import (
@@ -196,6 +197,10 @@ class StudyTests(TestCase, ExampleDataConsumer):
         self.assertEqual(self.sample.name, self.first["Sample Name"])
         self.assertEqual(self.sample.tissue.name, self.first["Tissue"])
         self.assertEqual(self.sample.animal.name, self.first["Animal ID"])
+        # test time_collected restrictions
+        with self.assertRaises(DataError):
+            self.sample.time_collected = 9999999
+            self.sample.save()
 
     def test_msrun_protocol(self):
         """MSRun lookup by primary key"""

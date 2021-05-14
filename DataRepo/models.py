@@ -169,6 +169,23 @@ class Sample(models.Model):
         Animal, on_delete=models.CASCADE, null=False, related_name="samples"
     )
     tissue = models.ForeignKey(Tissue, on_delete=models.RESTRICT, null=False)
+    """
+    researchers have advised that samples might have a time_collected up to a
+    day prior-to and a week after infusion
+    """
+    MINIMUM_VALID_TIME_COLLECTED = -1440
+    MAXIMUM_VALID_TIME_COLLECTED = 10080
+    time_collected = models.SmallIntegerField(
+        null=True,
+        blank=True,
+        validators=[
+            MinValueValidator(
+                MINIMUM_VALID_TIME_COLLECTED, MAXIMUM_VALID_TIME_COLLECTED
+            ),
+        ],
+        help_text="The time, in minutes relative to an infusion timepoint, "
+        "that a sample was extracted from a animal",
+    )
 
     def __str__(self):
         return str(self.name)
