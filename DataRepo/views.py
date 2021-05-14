@@ -183,7 +183,7 @@ def verbosify(str):
     else:
         cstr = sstr
 
-    return cstr
+    return cstr.replace('_', ' ')
 
 
 def is_shown_field(dbfield):
@@ -214,15 +214,29 @@ def add_model_description(model, context):
 
     # Representations of the field names
     all_fields = model._meta.get_fields()
-    filt_fields = list(filter(lambda x:is_shown_field(x), all_fields))
-    context['fieldnames'] = [field.name for field in filt_fields]
-    context['fieldnames_verbose'] = [verbosify(field.verbose_name) for field in filt_fields]
+    local_fields = list(filter(lambda x:is_shown_field(x), all_fields))
+    context['fieldnames'] = [field.name for field in local_fields]
+    context['fieldnames_verbose'] = [verbosify(field.verbose_name) for field in local_fields]
 
     # Represenation of relationships
     rel_fields = list(filter(lambda x:is_relation(x), all_fields))
     context['rel_fieldnames'] = [field.name for field in rel_fields]
-    #context['rel_fieldnames_verbose'] = [verbosify(field.verbose_name) for field in rel_fields]
-    
+    context['rel_fieldnames_verbose'] = [verbosify(field.name) for field in rel_fields]
+    context['rel_fieldnames_lookups'] = [field.related_model._meta.verbose_name for field in rel_fields]
+
+    # Representation of the sub-table fields to display
+    context['relations'] = {}
+    for rel in rel_fields:
+        rel_model = rel.related_model
+        rel_model_name = rel.related_model._meta.verbose_name
+        rel_all_fields = rel_model._meta.get_fields()
+        rel_local_fields = list(filter(lambda x:is_shown_field(x), rel_all_fields))
+        context['relations'][rel_model_name] = {}
+        context['relations'][rel_model_name]['subtable'] = rel_model_name
+        context['relations'][rel_model_name]['subtable_verbose'] = verbosify(rel_model_name)
+        context['relations'][rel_model_name]['subfieldnames'] = [field.name for field in rel_local_fields]
+        context['relations'][rel_model_name]['subfieldnames_verbose'] = [verbosify(field.name) for field in rel_local_fields]
+
     return context
 
 

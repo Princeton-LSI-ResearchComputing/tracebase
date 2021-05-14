@@ -121,7 +121,7 @@ class Animal(models.Model, TracerLabeledClass):
     id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=256, unique=True)
     state = models.CharField(max_length=256, null=True, blank=True)
-    tracer_compound = models.ForeignKey(Compound, on_delete=models.RESTRICT, null=True)
+    tracer_compound = models.ForeignKey(Compound, on_delete=models.RESTRICT, null=True, related_name="animals")
     # NOTE: encoding labeled atom as the atom's symbol, NOT the full element
     # name, as I have seen in some example files
     tracer_labeled_atom = models.CharField(
@@ -218,7 +218,7 @@ class MSRun(models.Model):
     # Don't allow a Protocol to be deleted if an MSRun links to it
     protocol = models.ForeignKey(Protocol, on_delete=models.RESTRICT)
     # Don't allow a Sample to be deleted if an MSRun links to it
-    sample = models.ForeignKey(Sample, on_delete=models.RESTRICT)
+    sample = models.ForeignKey(Sample, on_delete=models.RESTRICT, related_name="msruns")
 
     # Two runs that share researcher, date, protocol, and sample would be
     # indistinguishable, thus we restrict the database to ensure that

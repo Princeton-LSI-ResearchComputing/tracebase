@@ -1,6 +1,7 @@
 from django import template
 from django.template.defaultfilters import stringfilter
 import sys, inspect, re
+import json # for debugging dicts
 
 register = template.Library()
 
@@ -9,7 +10,29 @@ def value_from_model(model, field):
     """
     Obtain a field value from a record, given the model instance and the field name
     """
+    # Note: if you get an error about a relationship that's defined in the "related" model and not *this* model, then the related model must define the "related_name" so that those related records can be retirved from either model
     return getattr(model, field)
+
+@register.filter
+def rel_values_from_model(model, field):
+    """
+    Obtain a field value from a record, given the model instance and the field name
+    """
+    # Note: if you get an error about a relationship that's defined in the "related" model and not *this* model, then the related model must define the "related_name" so that those related records can be retirved from either model
+    return getattr(model, field).all()
+
+@register.filter
+def get_rel_model_verbose_name(relobj):
+    return relobj.model._meta.verbose_name
+
+@register.filter
+def debug_dict(thedict):
+    return json.dumps(thedict)
+
+@register.filter
+def debug_dict_keys(theobj):
+    thedict = theobj.__dict__
+    return ', '.join(thedict.keys())
 
 @register.filter
 @stringfilter

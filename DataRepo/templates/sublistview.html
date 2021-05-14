@@ -1,33 +1,29 @@
-{% extends "base.html" %}
 {% load table_tags %}
 {% block content %}
 <div>
-    <h3>{{ table_verbose_plural }}</h3>
     <table>
         <!-- Column Headers -->
-        {% if object_list %}
+        {% if sub_object_list %}
             <tr>
-                {% for hdr in fieldnames_verbose %}
+                {% for hdr in subfieldnames_verbose %}
                     <th>
                         {{ hdr }}
                     </th>
                 {% endfor %}
             </tr>
-        {% else %}
-            {{ table_verbose }} table empty.
         {% endif %}
 
         <!-- Records/rows -->
-        {% for rec in object_list %}
+        {% for rec in sub_object_list %}
             <tr>
-                {% for fld in fieldnames %}
+                {% for fld in subfieldnames %}
                     <td>
                         {% if forloop.first %}
-                            {% with table|lower|add:"_detail" as lv %}
-                                <a href="{% url lv rec|value_from_model:slugfield %}">
+                            {% with subtable|lower|add:"_detail" as lv %}
+                                <a href="{% url lv rec|value_from_model:'id' %}">
                             {% endwith %}
                         {% endif %}
-                        {% include "fieldview.html" with rec=rec table=table fld=fld %}
+                        {% include "subfieldview.html" with rec=rec subtable=subtable fld=fld %}
                         {% if forloop.first %}
                             </a>
                         {% endif %}

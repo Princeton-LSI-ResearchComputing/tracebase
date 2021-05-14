@@ -17,7 +17,29 @@
         {% endfor %}
     </table>
     {% for relfld in rel_fieldnames %}
-        Relation: {{ relfld }}<br>
+        {% with relobj=object|value_from_model:relfld rel_model_name=rel_fieldnames_lookups|index:forloop.counter0 %}
+            <h4>{{ rel_fieldnames_verbose|index:forloop.counter0 }}
+                {% if relobj.count %}
+                    ({{ relobj.count }})
+                {% else %}
+                    (0)
+                {% endif %}
+            </h4>
+            <!-- DEBUG stuff
+            relations context dict: {{ relations|debug_dict }}<br><br>
+            related field lookup: {{ rel_model_name }}<br><br>
+            related object keys: {{ relobj|debug_dict_keys }}<br><br>
+            related field: {{ relfld }}<br><br>
+            -->
+
+            {% if relobj.all %}
+                <blockquote>
+                    {% with rel_table=relations|index:rel_model_name|index:'subtable' rel_table_fields=relations|index:rel_model_name|index:'subfieldnames' rel_table_fields_verbose=relations|index:rel_model_name|index:'subfieldnames_verbose' %}
+                        {% include "sublistview.html" with sub_object_list=relobj.all subfieldnames=rel_table_fields subfieldnames_verbose=rel_table_fields_verbose subtable=rel_table %}
+                    {% endwith %}
+                </blockquote>
+            {% endif %}
+        {% endwith %}
     {% endfor %}
 </div>
 {% endblock %}

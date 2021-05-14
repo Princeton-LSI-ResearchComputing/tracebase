@@ -1,0 +1,12 @@
+{% load table_tags %}
+{% block content %}
+    <div>
+        {% with subtable|add:"/"|add:fld|add:".html" as template %}
+            {% if template|template_exists %}
+                {% include template with rec=rec %}
+            {% else %}
+                {{ rec|value_from_model:fld }}
+            {% endif %}
+        {% endwith %}
+    </div>
+{% endblock %}
