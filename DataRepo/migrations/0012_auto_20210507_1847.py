@@ -6,12 +6,12 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('DataRepo', '0011_peakdata_help_test'),
+        ("DataRepo", "0011_peakdata_help_test"),
     ]
 
     operations = [
         migrations.AlterModelOptions(
-            name='compound',
-            options={'ordering': ['name']},
+            name="compound",
+            options={"ordering": ["name"]},
         ),
     ]

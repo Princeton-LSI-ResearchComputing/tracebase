@@ -83,7 +83,7 @@ class Compound(models.Model):
     def hmdb_url(self):
         "Returns the url to the compound's hmdb record"
         return f"{self.HMDB_CPD_URL}/{self.hmdb_id}"
-    
+
     class Meta:
         ordering = ["name"]
         verbose_name = "Compound"
@@ -106,7 +106,7 @@ class Study(models.Model):
         ordering = ["name"]
         verbose_name = "Study"
         verbose_name_plural = "Studies"
-    
+
     def __str__(self):
         return str(self.name)
 
@@ -121,7 +121,9 @@ class Animal(models.Model, TracerLabeledClass):
     id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=256, unique=True)
     state = models.CharField(max_length=256, null=True, blank=True)
-    tracer_compound = models.ForeignKey(Compound, on_delete=models.RESTRICT, null=True, related_name="animals")
+    tracer_compound = models.ForeignKey(
+        Compound, on_delete=models.RESTRICT, null=True, related_name="animals"
+    )
     # NOTE: encoding labeled atom as the atom's symbol, NOT the full element
     # name, as I have seen in some example files
     tracer_labeled_atom = models.CharField(
