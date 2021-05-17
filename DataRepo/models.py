@@ -226,6 +226,7 @@ class MSRun(models.Model):
     def get_absolute_url(self):
         return reverse("msrun_detail", args=[str(self.id)])
 
+
 class PeakGroup(models.Model):
     id = models.AutoField(primary_key=True)
     name = models.CharField(
@@ -262,7 +263,7 @@ class PeakGroup(models.Model):
 
     def __str__(self):
         return str(self.name)
-    
+
     def get_absolute_url(self):
         return reverse("peakgroup_detail", args=[str(self.id)])
 
@@ -319,5 +320,6 @@ class PeakData(models.Model, TracerLabeledClass):
                 name="unique_peakdata",
             )
         ]
+
     def get_absolute_url(self):
         return reverse("peakdata_detail", args=[str(self.id)])
