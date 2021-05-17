@@ -1,8 +1,13 @@
-{% extends "base_t3.html" %}
+{% extends "base_t1.html" %}
 {% block content %}
 <div>
     <br>
-    <h4>Animal name: <a href="{{ animal.get_absolute_url }}">{{animal.name }}</a></h4>
+    <br>
+    <h4>Animal details:<h4>     
+    <h5>Name: {{animal.name }}</a></h5>
+    <h5>This animal has {{ animal.samples.count }} samples: 
+        <a href="{% url 'sample_list' %}?animal_id={{ animal.id }}"
+        >sample list</a></h5>
     <br>
     <h4>Tracer information:</h4>
     <br>
@@ -62,26 +67,7 @@
             <td>{{ animal.state }}</td>
         </tr>
     </table>
-    <br>
-    <h4>This animal has {{ animal.samples.count }} samples:</h4>
-    <br> 
-    <table class="table  table-sm table-bordered table-hover w-auto mw-100">
-        <tr>
-            <th>Animal Name</th>
-            <th>Tissue Name</th>
-            <th>Sample Name</th>
-            <th>Sample Collection Date</th>
-            <th>Researcher</th>
-        </tr>
-        {% for sample in animal.samples.all %}
-        <tr>
-            <td><a href="{{ animal.get_absolute_url }}">{{animal.name }}</a></td>
-            <td>{{ sample.tissue }}</td>
-            <td><a href="{{ sample.get_absolute_url }}">{{ sample.name }}</a></td>
-            <td>{{ sample.date }}</td>
-            <td>{{ sample.researcher }}</td>
-        </tr>
-        {% endfor %}
-    </table>  
+    
+    
 </div>
 {% endblock %}

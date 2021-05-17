@@ -28,7 +28,8 @@
             {% endfor %}
         </table>
         {% else %}
-        <p>There are no samples.</p>  
+        <p>There are no samples.</p>
+        <p>Total sample count: {{ sample_list.count }} </p>  
         {% endif %}  
     </ul>
 </div>

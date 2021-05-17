@@ -1,0 +1,39 @@
+{% extends "base_t1.html" %}
+
+{% block title %}Peak Data{% endblock %}
+
+{% block content %}
+<div>
+    <ul>
+        <h3>Peak measurement data for all MS Runs: </h3>
+
+        {% if peakdata_list %}
+        <br>
+        <table class="table table-sm table-hover table-bordered table-responsive table-striped w-auto mw-100">
+            <tr>
+            <th>Peak Group ID</th>  
+            <th>Labeled Element</th>
+            <th>Labeled Count</th>
+            <th>Raw Abundance</th>
+            <th>Corrected Abundance</th>
+            <th>Value for med_mz</th>
+            <th>Value for med_rt</th>
+            </tr>
+            {% for peakdata in peakdata_list %}
+            <tr>
+            <td><a href="{{ peakdata.peak_group.get_absolute_url }}">{{ peakdata.peak_group_id }}</a></td>
+            <td>{{ peakdata.labeled_element}}</td>
+            <td>{{ peakdata.labeled_count}}</td> 
+            <td>{{ peakdata.raw_abundance}}</td>  
+            <td>{{ peakdata.corrected_abundance}}</td>  
+            <td>{{ peakdata.med_mz}}</td>  
+            <td>{{ peakdata.med_rt}}</td>            
+            </tr>
+            {% endfor %}
+        </table>
+        {% else %}
+        <p>There are no peak data.</p>  
+        {% endif %}  
+    </ul>
+</div>
+{% endblock %}

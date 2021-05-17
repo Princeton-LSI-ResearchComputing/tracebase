@@ -1,4 +1,4 @@
-{% extends "base_t3.html" %}
+{% extends "base_t1.html" %}
 {% block content %}
 <div>
     <h3>Peak Group Detail:</h3>
@@ -6,5 +6,7 @@
     <h4>PeakGroup Name: <a href="{{ peakgroup.get_absolute_url }}">{{peakgroup.name}}<a/></h4>
     <h4>Formula: {{ peakgroup.formula }}</h4>
     <h4>MSRUN ID: <a href="{{ peakgroup.ms_run.get_absolute_url }}">{{ peakgroup.ms_run.id }}</a></h4>
+    <h4>This Peak Group has {{ peakgroup.peak_data.count }} rows of peak data: 
+        <a href="{% url 'peakdata_list' %}?peak_group_id={{ peakgroup.id }}">Peak Data Records<a/></h4>
 </div>
 {% endblock %}

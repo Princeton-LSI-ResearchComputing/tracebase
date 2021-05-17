@@ -34,6 +34,7 @@
         <a href="{% url 'sample_list' %}" class="list-group-item list-group-item-action bg-light">Samples</a>
         <a href="{% url 'msrun_list' %}" class="list-group-item list-group-item-action bg-light">MS Runs</a>
         <a href="{% url 'peakgroup_list' %}" class="list-group-item list-group-item-action bg-light">Peak Groups</a>
+        <a href="{% url 'peakdata_list' %}" class="list-group-item list-group-item-action bg-light">Peak Data</a>
       </div>
     </div>
     <!-- /#sidebar-wrapper -->
@@ -42,14 +43,14 @@
     <div id="page-content-wrapper">
 
       <nav class="navbar navbar-expand-lg navbar-light bg-light border-bottom">
-        <button class="btn btn-primary" id="menu-toggle">Toggle Menu</button>
+        <button class="btn btn-info" id="menu-toggle">Toggle Menu</button>
 
         <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
           <span class="navbar-toggler-icon"></span>
         </button>
 
         <form class="d-flex">
-          <input class="form-control form-control-lg" type="search" data-target="#navbarSupportedContent" placeholder="Search" aria-label="Search">
+          <input class="form-control form-control lg-2" type="search" data-target="#navbarSupportedContent" placeholder="Search" aria-label="Search">
           <button class="btn btn-outline-success" type="submit">Go</button>
         </form>
 

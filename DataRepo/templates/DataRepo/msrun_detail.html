@@ -1,12 +1,15 @@
-{% extends "base_t3.html" %}
+{% extends "base_t1.html" %}
 {% block content %}
 <div>
     <h3>MS RUN Detail:</h3>
     <br>
-    <h4>MSRun ID: <a href="{{ msrun.get_absolute_url }}">{{msrun.id}}<a/></h4>
-    <h4>Sample Name: <a href="{{ msrun.sample.get_absolute_url }}">{{ msrun.sample.name }}</a></h4>
-    <h4>Protocol Name: <a href="{{ msrun.protocol.get_absolute_url }}">{{ msrun.protocol.name }}</a></h4>  
+    <h4>MSRun ID: <a href="{% url 'msrun_detail' msrun.id %}">{{msrun.id}}<a/></h4>
+    <h4>Sample Name: <a href="{% url 'sample_detail' msrun.sample.id %}">{{ msrun.sample.name }}</a></h4>
+    <h4>Protocol Name: <a href="{% url 'protocol_detail' msrun.protocol.id %}">{{ msrun.protocol.name }}</a></h4>  
     <h4>Date Performed: {{ msrun.date }}</h4>
     <h4>Researcher: {{ msrun.researcher }}</h4>
+    <h4>This MS Run has {{ msrun.peak_groups.count }} peak groups: 
+        <a href="{% url 'peakgroup_list' %}?ms_run_id={{ msrun.id }}">Peak Group List<a/></h4>
 </div>
+
 {% endblock %}

@@ -1,4 +1,4 @@
-{% extends "base_t3.html" %}
+{% extends "base_t1.html" %}
 
 {% block title %}Peak Groups{% endblock %}
 
@@ -7,15 +7,15 @@
     <ul>
         <h3>List of Peak Groups</h3>
 
-        {% if object_list %}
+        {% if peakgroup_list %}
         <br>
         <table class="table table-sm table-hover table-bordered table-responsive table-striped w-auto mw-100">
             <tr>
             <th>Peak Group Name</th>   
-            <th>Formula For Identified Compounds</th>
+            <th>Formula For Detected Compounds</th>
             <th>MSRUN ID</th>
             </tr>
-            {% for peakgroup in object_list %}
+            {% for peakgroup in peakgroup_list %}
             <tr>
             <td><a href="{{ peakgroup.get_absolute_url }}">{{ peakgroup.name }}</a></td>
             <td>{{ peakgroup.formula }}</td>            
