@@ -232,7 +232,9 @@ class DataLoadingTests(TestCase):
             "DataRepo/example_data/obob_sample_table.tsv",
             sample_table_headers="DataRepo/example_data/obob_sample_table_headers.yaml",
         )
+        # not counting the header and BLANK samples
         cls.ALL_SAMPLES_COUNT = 106
+        # not counting the header and the BLANK animal
         cls.ALL_ANIMALS_COUNT = 7
 
         call_command(
@@ -261,15 +263,12 @@ class DataLoadingTests(TestCase):
         self.assertEqual(Compound.objects.all().count(), self.ALL_COMPOUNDS_COUNT)
 
     def test_samples_loaded(self):
-        # if we discount the header and the 2 blank samples, there should be 106
         self.assertEqual(Sample.objects.all().count(), self.ALL_SAMPLES_COUNT)
 
-        # if we discount the header and the BLANK animal, there should be 7
         self.assertEqual(Animal.objects.all().count(), self.ALL_ANIMALS_COUNT)
 
         self.assertEqual(Study.objects.all().count(), 1)
 
-        # and the animals should be in the study
         study = Study.objects.get(name="obob_fasted")
         self.assertEqual(study.animals.count(), self.ALL_ANIMALS_COUNT)
 
@@ -285,9 +284,9 @@ class DataLoadingTests(TestCase):
         self.assertEqual(pgs.filename, "obob_maven_6eaas_inf.xlsx")
 
     def test_peak_groups_loaded(self):
-        # inf data file: 7 compounds and 56 samples, 7 * 56 = 392
+        # inf data file: compounds * samples
         INF_PEAKGROUP_COUNT = self.INF_COMPOUNDS_COUNT * self.INF_SAMPLES_COUNT
-        # serum data file: 13 compounds and 4 samples, 13 * 4 = 52
+        # serum data file: compounds * samples
         SERUM_PEAKGROUP_COUNT = self.SERUM_COMPOUNDS_COUNT * self.SERUM_SAMPLES_COUNT
 
         self.assertEqual(
@@ -295,9 +294,9 @@ class DataLoadingTests(TestCase):
         )
 
     def test_peak_data_loaded(self):
-        # inf data file: 38 PeakData rows for 56 samples, 38 * 60 = 2128
+        # inf data file: PeakData rows * samples
         INF_PEAKDATA_COUNT = self.INF_PEAKDATA_ROWS * self.INF_SAMPLES_COUNT
-        # serum data file: 85 PeakData rows for 4 samples, 85 * 4 = 340
+        # serum data file: PeakData rows * samples
         SERUM_PEAKDATA_COUNT = self.SERUM_PEAKDATA_ROWS * self.SERUM_SAMPLES_COUNT
 
         self.assertEqual(
