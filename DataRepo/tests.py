@@ -17,6 +17,7 @@ from .models import (
     Study,
     Tissue,
 )
+from .utils import AccuCorDataLoader
 
 
 class ExampleDataConsumer:
@@ -91,7 +92,8 @@ class CompoundTests(TestCase):
     def test_compound_atom_count_invalid(self):
         """Compound atom_count"""
         alanine = Compound.objects.get(name="alanine")
-        self.assertEqual(alanine.atom_count("Abc"), None)
+        with self.assertWarns(UserWarning):
+            self.assertEqual(alanine.atom_count("Abc"), None)
 
 
 class StudyTests(TestCase, ExampleDataConsumer):
@@ -219,59 +221,144 @@ class StudyTests(TestCase, ExampleDataConsumer):
         )
 
 
-class CommandTests(TestCase):
+class DataLoadingTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         call_command("load_compounds", "DataRepo/example_data/obob_compounds.tsv")
+        cls.ALL_COMPOUNDS_COUNT = 32
+
         call_command(
             "load_samples",
             "DataRepo/example_data/obob_sample_table.tsv",
             sample_table_headers="DataRepo/example_data/obob_sample_table_headers.yaml",
         )
+        cls.ALL_SAMPLES_COUNT = 106
+        cls.ALL_ANIMALS_COUNT = 7
+
         call_command(
             "load_accucor_msruns",
+            protocol="Default",
             accucor_file="DataRepo/example_data/obob_maven_6eaas_inf.xlsx",
-            protocol="Unspecified LC-MS",
-            date="2021-04-24",
-            researcher="tester",
+            date="2021-04-29",
+            researcher="Michael",
         )
+        cls.INF_COMPOUNDS_COUNT = 7
+        cls.INF_SAMPLES_COUNT = 56
+        cls.INF_PEAKDATA_ROWS = 38
+
+        call_command(
+            "load_accucor_msruns",
+            protocol="Default",
+            accucor_file="DataRepo/example_data/obob_maven_6eaas_serum.xlsx",
+            date="2021-04-29",
+            researcher="Michael",
+        )
+        cls.SERUM_COMPOUNDS_COUNT = 13
+        cls.SERUM_SAMPLES_COUNT = 4
+        cls.SERUM_PEAKDATA_ROWS = 85
 
     def test_compounds_loaded(self):
-        self.assertEqual(Compound.objects.all().count(), 30)
+        self.assertEqual(Compound.objects.all().count(), self.ALL_COMPOUNDS_COUNT)
 
     def test_samples_loaded(self):
-        # if we discount the header and the 2 blank samples, there should be 99
-        self.assertEqual(Sample.objects.all().count(), 99)
+        # if we discount the header and the 2 blank samples, there should be 106
+        self.assertEqual(Sample.objects.all().count(), self.ALL_SAMPLES_COUNT)
 
         # if we discount the header and the BLANK animal, there should be 7
-        ANIMALS_COUNT = 7
-        self.assertEqual(Animal.objects.all().count(), ANIMALS_COUNT)
+        self.assertEqual(Animal.objects.all().count(), self.ALL_ANIMALS_COUNT)
 
         self.assertEqual(Study.objects.all().count(), 1)
 
         # and the animals should be in the study
         study = Study.objects.get(name="obob_fasted")
-        self.assertEqual(study.animals.count(), ANIMALS_COUNT)
+        self.assertEqual(study.animals.count(), self.ALL_ANIMALS_COUNT)
 
-    def test_peak_data_loaded(self):
+        # MsRun should be equivalent to the samples
+        MSRUN_COUNT = self.INF_SAMPLES_COUNT + self.SERUM_SAMPLES_COUNT
+        self.assertEqual(MSRun.objects.all().count(), MSRUN_COUNT)
 
-        # metrics that should correspond to the tested accucor_file argument
-        FILE_SAMPLES_COUNT = 56
-        FILE_COMPOUNDS_COUNT = 7
-        FILE_DATA_ROWS = 38
+    def test_peak_groups_set_loaded(self):
 
-        # should only be 1 peak group set for 1 call to load_accucor_msruns
-        self.assertEqual(PeakGroupSet.objects.all().count(), 1)
+        # 2 peak group sets , 1 for each call to load_accucor_msruns
+        self.assertEqual(PeakGroupSet.objects.all().count(), 2)
         pgs = PeakGroupSet.objects.all().first()
         self.assertEqual(pgs.filename, "obob_maven_6eaas_inf.xlsx")
-        # and there are 7 compounds and 56 samples in the dataset, so compute
-        # the expected number of peak groups for this test
+
+    def test_peak_groups_loaded(self):
+        # inf data file: 7 compounds and 56 samples, 7 * 56 = 392
+        INF_PEAKGROUP_COUNT = self.INF_COMPOUNDS_COUNT * self.INF_SAMPLES_COUNT
+        # serum data file: 13 compounds and 4 samples, 13 * 4 = 52
+        SERUM_PEAKGROUP_COUNT = self.SERUM_COMPOUNDS_COUNT * self.SERUM_SAMPLES_COUNT
+
         self.assertEqual(
-            pgs.peak_groups.count(), FILE_COMPOUNDS_COUNT * FILE_SAMPLES_COUNT
+            PeakGroup.objects.all().count(), INF_PEAKGROUP_COUNT + SERUM_PEAKGROUP_COUNT
         )
-        # PeakData should be equivalent to the file rows by the samples
+
+    def test_peak_data_loaded(self):
+        # inf data file: 38 PeakData rows for 56 samples, 38 * 60 = 2128
+        INF_PEAKDATA_COUNT = self.INF_PEAKDATA_ROWS * self.INF_SAMPLES_COUNT
+        # serum data file: 85 PeakData rows for 4 samples, 85 * 4 = 340
+        SERUM_PEAKDATA_COUNT = self.SERUM_PEAKDATA_ROWS * self.SERUM_SAMPLES_COUNT
+
         self.assertEqual(
-            PeakData.objects.all().count(), FILE_SAMPLES_COUNT * FILE_DATA_ROWS
+            PeakData.objects.all().count(), INF_PEAKDATA_COUNT + SERUM_PEAKDATA_COUNT
         )
-        # MsRun should be equivalent to the samples
-        self.assertEqual(MSRun.objects.all().count(), FILE_SAMPLES_COUNT)
+
+    def test_peak_group_peak_data_1(self):
+        peak_group = (
+            PeakGroup.objects.filter(compounds__name="glucose")
+            .filter(ms_run__sample__name="BAT-xz971")
+            .get()
+        )
+        peak_data = peak_group.peak_data.filter(labeled_count=0).get()
+        self.assertEqual(peak_data.raw_abundance, 8814287)
+        self.assertAlmostEqual(peak_data.corrected_abundance, 9553199.89089051)
+
+    def test_peak_group_peak_data_2(self):
+        peak_group = (
+            PeakGroup.objects.filter(compounds__name="histidine")
+            .filter(ms_run__sample__name="serum-xz971")
+            .get()
+        )
+        # There should be a peak_data for each label count 0-6
+        self.assertEqual(peak_group.peak_data.count(), 7)
+        # The peak_data for labeled_count==2 is missing, thus values should be 0
+        peak_data = peak_group.peak_data.filter(labeled_count=2).get()
+        self.assertEqual(peak_data.raw_abundance, 0)
+        self.assertEqual(peak_data.med_mz, 0)
+        self.assertEqual(peak_data.med_rt, 0)
+        self.assertEqual(peak_data.corrected_abundance, 0)
+
+    def test_peak_group_peak_data_3(self):
+        peak_group = (
+            PeakGroup.objects.filter(compounds__name="histidine")
+            .filter(ms_run__sample__name="serum-xz971")
+            .get()
+        )
+        peak_data = peak_group.peak_data.filter(labeled_count=5).get()
+        self.assertAlmostEqual(peak_data.raw_abundance, 1356.587)
+        self.assertEqual(peak_data.corrected_abundance, 0)
+
+
+class AccuCorDataLoaderTests(TestCase):
+    def test_parse_parent_isotope_label(self):
+        self.assertEqual(
+            AccuCorDataLoader.parse_isotope_label("C12 PARENT"), ("C12", 0)
+        )
+
+    def test_parse_isotope_label(self):
+        self.assertEqual(
+            AccuCorDataLoader.parse_isotope_label("C13-label-5"), ("C13", 5)
+        )
+
+    def test_parse_isotope_label_bad(self):
+        with self.assertRaises(ValueError):
+            AccuCorDataLoader.parse_isotope_label("label-5")
+
+    def test_parse_isotope_label_empty(self):
+        with self.assertRaises(ValueError):
+            AccuCorDataLoader.parse_isotope_label("")
+
+    def test_parse_isotope_label_none(self):
+        with self.assertRaises(TypeError):
+            AccuCorDataLoader.parse_isotope_label(None)
