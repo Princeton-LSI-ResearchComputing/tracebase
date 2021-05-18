@@ -12,8 +12,8 @@ def value_from_choices_label(label, choices):
     Return the choices value for a given label
     """
     dictionary = {}
-    for value, label in choices:
-        dictionary[label] = value
+    for choices_value, choices_label in choices:
+        dictionary[choices_label] = choices_value
     result = None
     result = dictionary.get(label)
     return result

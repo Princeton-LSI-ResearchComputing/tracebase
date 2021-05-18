@@ -15,6 +15,7 @@ from .models import (
     Sample,
     Study,
     Tissue,
+    TracerLabeledClass,
 )
 from .utils import AccuCorDataLoader
 
@@ -255,6 +256,13 @@ class DataLoadingTests(TestCase):
         # and the animals should be in the study
         study = Study.objects.get(name="obob_fasted")
         self.assertEqual(study.animals.count(), ANIMALS_COUNT)
+
+    def test_animal_tracers(self):
+        a = Animal.objects.get(name="969")
+        c = Compound.objects.get(name="C16:0")
+        self.assertEqual(a.tracer_compound, c)
+        self.assertEqual(a.tracer_labeled_atom, TracerLabeledClass.CARBON)
+        self.assertEqual(a.sex, None)
 
     def test_peak_groups_loaded(self):
         # inf data file: 7 compounds and 56 samples, 7 * 56 = 392
