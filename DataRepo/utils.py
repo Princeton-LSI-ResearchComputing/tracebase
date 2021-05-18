@@ -589,7 +589,7 @@ class AccuCorDataLoader:
             atom = label.split(" ")[0]
             count = 0
         else:
-            atom, _junk, count = label.split("-")
+            atom, count = label.split("-label-")
         return (atom, int(count))
 
     def load_accucor_data(self):

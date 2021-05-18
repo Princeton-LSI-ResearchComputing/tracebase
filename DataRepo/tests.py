@@ -274,7 +274,7 @@ class DataLoadingTests(TestCase):
         )
         peak_data = peak_group.peak_data.filter(labeled_count=0).get()
         self.assertEqual(peak_data.raw_abundance, 8814287)
-        self.assertEqual(peak_data.corrected_abundance, 9553199.89089051)
+        self.assertAlmostEqual(peak_data.corrected_abundance, 9553199.89089051)
 
     def test_peak_group_peak_data_2(self):
         peak_group = (
@@ -298,7 +298,7 @@ class DataLoadingTests(TestCase):
             .get()
         )
         peak_data = peak_group.peak_data.filter(labeled_count=5).get()
-        self.assertEqual(peak_data.raw_abundance, 1356.587)
+        self.assertAlmostEqual(peak_data.raw_abundance, 1356.587)
         self.assertEqual(peak_data.corrected_abundance, 0)
 
 
