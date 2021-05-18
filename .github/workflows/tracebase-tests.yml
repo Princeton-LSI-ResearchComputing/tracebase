@@ -46,12 +46,15 @@ jobs:
     - name: Run migrations
       run: python manage.py migrate
     - name: Load example compounds
-      run: python manage.py load_compounds "DataRepo/example_data/obob_compounds.tsv"
+      run: |
+        python manage.py load_compounds \
+        "DataRepo/example_data/obob_compounds.tsv"
     - name: Load example sample table
       run: |
         python manage.py load_samples \
           "DataRepo/example_data/obob_sample_table.tsv" \
-          --sample-table-headers "DataRepo/example_data/obob_sample_table_headers.yaml"
+          --sample-table-headers \
+          "DataRepo/example_data/obob_sample_table_headers.yaml"
     - name: Load example accucor 6eaas data
       run: |
         python manage.py load_accucor_msruns \
@@ -59,10 +62,24 @@ jobs:
         --protocol "Default" \
         --date "2021-04-29" \
         --researcher "Michael"
+    - name: Load example accucor 6eaas serum data
+      run: |
+        python manage.py load_accucor_msruns \
+        --accucor-file "DataRepo/example_data/obob_maven_6eaas_serum.xlsx" \
+        --protocol "Default" \
+        --date "2021-04-29" \
+        --researcher "Michael"
     - name: Load example accucor c160 data
       run: |
         python manage.py load_accucor_msruns \
         --accucor-file "DataRepo/example_data/obob_maven_c160_inf.xlsx" \
+        --protocol "Default" \
+        --date "2021-04-29" \
+        --researcher "Michael"
+    - name: Load example accucor c160 serum data
+      run: |
+        python manage.py load_accucor_msruns \
+        --accucor-file "DataRepo/example_data/obob_maven_c160_serum.xlsx" \
         --protocol "Default" \
         --date "2021-04-29" \
         --researcher "Michael"
