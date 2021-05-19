@@ -179,9 +179,8 @@ class Sample(models.Model):
         null=True,
         blank=True,
         validators=[
-            MinValueValidator(
-                MINIMUM_VALID_TIME_COLLECTED, MAXIMUM_VALID_TIME_COLLECTED
-            ),
+            MinValueValidator(MINIMUM_VALID_TIME_COLLECTED),
+            MaxValueValidator(MAXIMUM_VALID_TIME_COLLECTED),
         ],
         help_text="The time, in minutes relative to an infusion timepoint, "
         "that a sample was extracted from a animal",
