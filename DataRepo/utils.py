@@ -12,6 +12,7 @@ from DataRepo.models import (
     MSRun,
     PeakData,
     PeakGroup,
+    PeakGroupSet,
     Protocol,
     Sample,
     Study,
@@ -215,6 +216,9 @@ class AccuCorDataLoader:
         self.date_input = kwargs.get("date").strip()
         self.protocol_input = kwargs.get("protocol_input").strip()
         self.researcher = kwargs.get("researcher").strip()
+        self.peak_group_set_filename_input = kwargs.get(
+            "peak_group_set_filename"
+        ).strip()
         self.debug = False
         if kwargs.get("debug"):
             self.debug = kwargs.get("debug")
@@ -454,11 +458,20 @@ class AccuCorDataLoader:
 
         print(f"{action} protocol {self.protocol.id} '{self.protocol.name}'")
 
+    def insert_peak_group_set(self):
+        self.peak_group_set = PeakGroupSet(filename=self.peak_group_set_filename_input)
+        self.peak_group_set.full_clean()
+        self.peak_group_set.save()
+
     def load_data(self):
+
         """
         extract and store the data for MsRun PeakGroup and PeakData
         """
         print("Loading data...")
+
+        self.insert_peak_group_set()
+
         self.sample_run_dict = {}
 
         # each sample gets its own msrun
@@ -499,6 +512,7 @@ class AccuCorDataLoader:
                         ms_run=msrun,
                         name=peak_group_attrs["name"],
                         formula=peak_group_attrs["formula"],
+                        peak_group_set=self.peak_group_set,
                     )
                     peak_group.full_clean()
                     peak_group.save()

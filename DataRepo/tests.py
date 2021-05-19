@@ -11,6 +11,7 @@ from .models import (
     MSRun,
     PeakData,
     PeakGroup,
+    PeakGroupSet,
     Protocol,
     Sample,
     Study,
@@ -134,12 +135,17 @@ class StudyTests(TestCase, ExampleDataConsumer):
             sample=self.sample,
         )
 
+        self.peak_group_set = PeakGroupSet.objects.create(
+            filename="testing_dataset_file"
+        )
+
         self.peak_group_df = self.get_peak_group_test_dataframe()
         initial_peak_group = self.peak_group_df.iloc[0]
         self.peak_group = PeakGroup.objects.create(
             name=initial_peak_group["name"],
             formula=initial_peak_group["formula"],
             ms_run=self.msrun,
+            peak_group_set=self.peak_group_set,
         )
         # actual code would have to more careful in retrieving compounds based
         # on the data's peak_group name
@@ -219,11 +225,18 @@ class DataLoadingTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         call_command("load_compounds", "DataRepo/example_data/obob_compounds.tsv")
+        cls.ALL_COMPOUNDS_COUNT = 32
+
         call_command(
             "load_samples",
             "DataRepo/example_data/obob_sample_table.tsv",
             sample_table_headers="DataRepo/example_data/obob_sample_table_headers.yaml",
         )
+        # not counting the header and BLANK samples
+        cls.ALL_SAMPLES_COUNT = 106
+        # not counting the header and the BLANK animal
+        cls.ALL_ANIMALS_COUNT = 7
+
         call_command(
             "load_accucor_msruns",
             protocol="Default",
@@ -231,6 +244,10 @@ class DataLoadingTests(TestCase):
             date="2021-04-29",
             researcher="Michael",
         )
+        cls.INF_COMPOUNDS_COUNT = 7
+        cls.INF_SAMPLES_COUNT = 56
+        cls.INF_PEAKDATA_ROWS = 38
+
         call_command(
             "load_accucor_msruns",
             protocol="Default",
@@ -238,33 +255,53 @@ class DataLoadingTests(TestCase):
             date="2021-04-29",
             researcher="Michael",
         )
+        cls.SERUM_COMPOUNDS_COUNT = 13
+        cls.SERUM_SAMPLES_COUNT = 4
+        cls.SERUM_PEAKDATA_ROWS = 85
 
     def test_compounds_loaded(self):
-        self.assertEqual(Compound.objects.all().count(), 32)
+        self.assertEqual(Compound.objects.all().count(), self.ALL_COMPOUNDS_COUNT)
 
     def test_samples_loaded(self):
-        # if we discount the header and the 2 blank samples, there should be 106
-        self.assertEqual(Sample.objects.all().count(), 106)
+        self.assertEqual(Sample.objects.all().count(), self.ALL_SAMPLES_COUNT)
 
-        # if we discount the header and the BLANK animal, there should be 7
-        ANIMALS_COUNT = 7
-        self.assertEqual(Animal.objects.all().count(), ANIMALS_COUNT)
+        self.assertEqual(Animal.objects.all().count(), self.ALL_ANIMALS_COUNT)
 
         self.assertEqual(Study.objects.all().count(), 1)
 
-        # and the animals should be in the study
         study = Study.objects.get(name="obob_fasted")
-        self.assertEqual(study.animals.count(), ANIMALS_COUNT)
+        self.assertEqual(study.animals.count(), self.ALL_ANIMALS_COUNT)
+
+        # MsRun should be equivalent to the samples
+        MSRUN_COUNT = self.INF_SAMPLES_COUNT + self.SERUM_SAMPLES_COUNT
+        self.assertEqual(MSRun.objects.all().count(), MSRUN_COUNT)
+
+    def test_peak_groups_set_loaded(self):
+
+        # 2 peak group sets , 1 for each call to load_accucor_msruns
+        self.assertEqual(PeakGroupSet.objects.all().count(), 2)
+        pgs = PeakGroupSet.objects.all().first()
+        self.assertEqual(pgs.filename, "obob_maven_6eaas_inf.xlsx")
 
     def test_peak_groups_loaded(self):
-        # inf data file: 7 compounds and 56 samples, 7 * 56 = 392
-        # serum data file: 13 compounds and 4 samples, 13 * 4 = 52
-        self.assertEqual(PeakGroup.objects.all().count(), 392 + 52)
+        # inf data file: compounds * samples
+        INF_PEAKGROUP_COUNT = self.INF_COMPOUNDS_COUNT * self.INF_SAMPLES_COUNT
+        # serum data file: compounds * samples
+        SERUM_PEAKGROUP_COUNT = self.SERUM_COMPOUNDS_COUNT * self.SERUM_SAMPLES_COUNT
+
+        self.assertEqual(
+            PeakGroup.objects.all().count(), INF_PEAKGROUP_COUNT + SERUM_PEAKGROUP_COUNT
+        )
 
     def test_peak_data_loaded(self):
-        # inf data file: 38 PeakData rows for 56 samples, 38 * 60 = 2128
-        # serum data file: 85 PeakData rows for 4 samples, 85 * 4 = 340
-        self.assertEqual(PeakData.objects.all().count(), 2128 + 340)
+        # inf data file: PeakData rows * samples
+        INF_PEAKDATA_COUNT = self.INF_PEAKDATA_ROWS * self.INF_SAMPLES_COUNT
+        # serum data file: PeakData rows * samples
+        SERUM_PEAKDATA_COUNT = self.SERUM_PEAKDATA_ROWS * self.SERUM_SAMPLES_COUNT
+
+        self.assertEqual(
+            PeakData.objects.all().count(), INF_PEAKDATA_COUNT + SERUM_PEAKDATA_COUNT
+        )
 
     def test_peak_group_peak_data_1(self):
         peak_group = (

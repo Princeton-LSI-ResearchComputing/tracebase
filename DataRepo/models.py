@@ -204,6 +204,20 @@ class MSRun(models.Model):
         ]
 
 
+class PeakGroupSet(models.Model):
+    id = models.AutoField(primary_key=True)
+    filename = models.CharField(
+        max_length=256,
+        unique=True,
+        help_text="Unique name of the source-file or dataset containing "
+        "a researcher-defined set of peak groups and their associated data",
+    )
+    imported_timestamp = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return str(f"{self.filename} at {self.imported_timestamp}")
+
+
 class PeakGroup(models.Model):
     id = models.AutoField(primary_key=True)
     name = models.CharField(
@@ -224,6 +238,13 @@ class PeakGroup(models.Model):
         Compound,
         related_name="peak_groups",
         help_text="database identifier(s) for the TraceBase compound(s) that this PeakGroup describes",
+    )
+    peak_group_set = models.ForeignKey(
+        PeakGroupSet,
+        on_delete=models.CASCADE,
+        null=False,
+        related_name="peak_groups",
+        help_text="source file or dataset this PeakGroup was derived from",
     )
 
     def atom_count(self, atom):
