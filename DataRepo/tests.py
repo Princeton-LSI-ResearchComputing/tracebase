@@ -1,6 +1,7 @@
 from datetime import datetime
 
 import pandas as pd
+from django.core.exceptions import ValidationError
 from django.core.management import call_command
 from django.db import IntegrityError
 from django.test import TestCase
@@ -196,6 +197,15 @@ class StudyTests(TestCase, ExampleDataConsumer):
         self.assertEqual(self.sample.name, self.first["Sample Name"])
         self.assertEqual(self.sample.tissue.name, self.first["Tissue"])
         self.assertEqual(self.sample.animal.name, self.first["Animal ID"])
+        # test time_collected exceeding MAXIMUM_VALID_TIME_COLLECTED fails
+        with self.assertRaises(ValidationError):
+            self.sample.time_collected = 11000
+            # validation errors are raised upon cleaning
+            self.sample.full_clean()
+        # test time_collected exceeding MINIMUM_VALID_TIME_COLLECTED fails
+        with self.assertRaises(ValidationError):
+            self.sample.time_collected = -2000
+            self.sample.full_clean()
 
     def test_msrun_protocol(self):
         """MSRun lookup by primary key"""
