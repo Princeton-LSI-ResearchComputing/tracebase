@@ -17,6 +17,7 @@ from .models import (
     Sample,
     Study,
     Tissue,
+    TracerLabeledClass,
 )
 from .utils import AccuCorDataLoader
 
@@ -292,6 +293,13 @@ class DataLoadingTests(TestCase):
         self.assertEqual(PeakGroupSet.objects.all().count(), 2)
         pgs = PeakGroupSet.objects.all().first()
         self.assertEqual(pgs.filename, "obob_maven_6eaas_inf.xlsx")
+
+    def test_animal_tracers(self):
+        a = Animal.objects.get(name="969")
+        c = Compound.objects.get(name="C16:0")
+        self.assertEqual(a.tracer_compound, c)
+        self.assertEqual(a.tracer_labeled_atom, TracerLabeledClass.CARBON)
+        self.assertEqual(a.sex, None)
 
     def test_peak_groups_loaded(self):
         # inf data file: compounds * samples
