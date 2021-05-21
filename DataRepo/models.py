@@ -175,7 +175,7 @@ class Sample(models.Model):
     """
     MINIMUM_VALID_TIME_COLLECTED = -1440
     MAXIMUM_VALID_TIME_COLLECTED = 10080
-    time_collected = models.SmallIntegerField(
+    time_collected = models.FloatField(
         null=True,
         blank=True,
         validators=[

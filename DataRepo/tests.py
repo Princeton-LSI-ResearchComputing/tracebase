@@ -287,6 +287,13 @@ class DataLoadingTests(TestCase):
         MSRUN_COUNT = self.INF_SAMPLES_COUNT + self.SERUM_SAMPLES_COUNT
         self.assertEqual(MSRun.objects.all().count(), MSRUN_COUNT)
 
+    def test_sample_data(self):
+        sample = Sample.objects.get(name="bat-xz969")
+        self.assertAlmostEqual(sample.time_collected, 150)
+        self.assertEqual(sample.researcher, "Xianfeng Zhang")
+        self.assertEqual(sample.animal.name, "969")
+        self.assertEqual(sample.tissue.name, "BAT")
+
     def test_peak_groups_set_loaded(self):
 
         # 2 peak group sets , 1 for each call to load_accucor_msruns
