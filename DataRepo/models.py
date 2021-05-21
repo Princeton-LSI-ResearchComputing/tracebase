@@ -67,6 +67,33 @@ def atom_count_in_formula(formula, atom):
     return count
 
 
+class Protocol(models.Model):
+
+    MSRUN_PROTOCOL = "msrun_protocol"
+    ANIMAL_TREATMENT = "animal_treatment"
+    CATEGORY_CHOICES = [
+        (MSRUN_PROTOCOL, "LC-MS Run Protocol"),
+        (ANIMAL_TREATMENT, "Animal Treatment"),
+    ]
+
+    # Instance / model fields
+    id = models.AutoField(primary_key=True)
+    name = models.CharField(max_length=256, unique=True)
+    description = models.TextField(
+        blank=True, help_text="Full text of the protocol's methods"
+    )
+    category = models.CharField(
+        max_length=256,
+        choices=CATEGORY_CHOICES,
+        default=MSRUN_PROTOCOL,
+        help_text="Classification of the protocol, "
+        "referencing it's intended application",
+    )
+
+    def __str__(self):
+        return str(self.name)
+
+
 class Compound(models.Model):
     # Class variables
     HMDB_CPD_URL = "https://hmdb.ca/metabolites"
@@ -145,6 +172,15 @@ class Animal(models.Model, TracerLabeledClass):
     diet = models.CharField(max_length=256, null=True, blank=True)
     feeding_status = models.CharField(max_length=256, null=True, blank=True)
     studies = models.ManyToManyField(Study, related_name="animals")
+    treament = models.ForeignKey(
+        Protocol,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="animals",
+        help_text="Lab controlled label of the actions taken on an animal "
+        "that are not captured by diet, feeding_status, etc.",
+    )
 
     def __str__(self):
         return str(self.name)
@@ -188,13 +224,6 @@ class Sample(models.Model):
 
     def __str__(self):
         return str(self.name)
-
-
-class Protocol(models.Model):
-    # Instance / model fields
-    id = models.AutoField(primary_key=True)
-    name = models.CharField(max_length=256, unique=True)
-    description = models.TextField(blank=True)
 
 
 class MSRun(models.Model):

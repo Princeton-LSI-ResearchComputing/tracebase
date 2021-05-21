@@ -212,6 +212,7 @@ class StudyTests(TestCase, ExampleDataConsumer):
         """MSRun lookup by primary key"""
         msr = MSRun.objects.get(id=self.msrun.pk)
         self.assertEqual(msr.protocol.name, "p1")
+        self.assertEqual(msr.protocol.category, Protocol.MSRUN_PROTOCOL)
 
     def test_peak_group(self):
         t_peak_group = PeakGroup.objects.get(name=self.peak_group.name)
