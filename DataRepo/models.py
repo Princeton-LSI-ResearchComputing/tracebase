@@ -172,7 +172,7 @@ class Animal(models.Model, TracerLabeledClass):
     diet = models.CharField(max_length=256, null=True, blank=True)
     feeding_status = models.CharField(max_length=256, null=True, blank=True)
     studies = models.ManyToManyField(Study, related_name="animals")
-    treament = models.ForeignKey(
+    treatment = models.ForeignKey(
         Protocol,
         on_delete=models.CASCADE,
         null=True,
