@@ -4,6 +4,7 @@ import pandas as pd
 from django.core.exceptions import ValidationError
 from django.core.management import call_command
 from django.db import IntegrityError
+from django.db.models.deletion import RestrictedError
 from django.test import TestCase
 
 from .models import (
@@ -213,6 +214,9 @@ class StudyTests(TestCase, ExampleDataConsumer):
         msr = MSRun.objects.get(id=self.msrun.pk)
         self.assertEqual(msr.protocol.name, "p1")
         self.assertEqual(msr.protocol.category, Protocol.MSRUN_PROTOCOL)
+        with self.assertRaises(RestrictedError):
+            # test a restricted deletion
+            msr.protocol.delete()
 
     def test_peak_group(self):
         t_peak_group = PeakGroup.objects.get(name=self.peak_group.name)
