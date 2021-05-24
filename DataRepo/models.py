@@ -87,7 +87,7 @@ class Protocol(models.Model):
         choices=CATEGORY_CHOICES,
         default=MSRUN_PROTOCOL,
         help_text="Classification of the protocol, "
-        "referencing it's intended application",
+        "e.g. an animal treatment or MSRun procedure.",
     )
 
     def __str__(self):
@@ -174,12 +174,11 @@ class Animal(models.Model, TracerLabeledClass):
     studies = models.ManyToManyField(Study, related_name="animals")
     treatment = models.ForeignKey(
         Protocol,
-        on_delete=models.CASCADE,
+        on_delete=models.RESTRICT,
         null=True,
         blank=True,
         related_name="animals",
-        help_text="Lab controlled label of the actions taken on an animal "
-        "that are not captured by diet, feeding_status, etc.",
+        help_text="Lab controlled label of the actions taken on an animal.",
     )
 
     def __str__(self):

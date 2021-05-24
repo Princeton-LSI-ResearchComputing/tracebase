@@ -16,8 +16,7 @@ class Migration(migrations.Migration):
             name="treatment",
             field=models.ForeignKey(
                 blank=True,
-                help_text="Lab controlled label of the actions taken on an animal "
-                "that are not captured by diet, feeding_status, etc.",
+                help_text="Lab controlled label of the actions taken on an animal.",
                 null=True,
                 on_delete=django.db.models.deletion.CASCADE,
                 related_name="animals",
@@ -33,7 +32,8 @@ class Migration(migrations.Migration):
                     ("animal_treatment", "Animal Treatment"),
                 ],
                 default="msrun_protocol",
-                help_text="Classification of the protocol, referencing it's intended application",
+                help_text="Classification of the protocol, "
+                "e.g. an animal treatment or MSRun procedure.",
                 max_length=256,
             ),
         ),
