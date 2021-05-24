@@ -175,9 +175,11 @@ class Sample(models.Model):
     """
     MINIMUM_VALID_TIME_COLLECTED = -1440
     MAXIMUM_VALID_TIME_COLLECTED = 10080
-    time_collected = models.FloatField(
+    time_collected = models.DecimalField(
         null=True,
         blank=True,
+        decimal_places=3,
+        max_digits=7,
         validators=[
             MinValueValidator(MINIMUM_VALID_TIME_COLLECTED),
             MaxValueValidator(MAXIMUM_VALID_TIME_COLLECTED),

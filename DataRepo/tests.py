@@ -289,7 +289,7 @@ class DataLoadingTests(TestCase):
 
     def test_sample_data(self):
         sample = Sample.objects.get(name="bat-xz969")
-        self.assertAlmostEqual(sample.time_collected, 150)
+        self.assertEqual(sample.time_collected, 150)
         self.assertEqual(sample.researcher, "Xianfeng Zhang")
         self.assertEqual(sample.animal.name, "969")
         self.assertEqual(sample.tissue.name, "BAT")
