@@ -3,6 +3,7 @@ import warnings
 
 from chempy import Substance
 from chempy.util.periodic import atomic_number
+from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
@@ -179,7 +180,18 @@ class Animal(models.Model, TracerLabeledClass):
         blank=True,
         related_name="animals",
         help_text="Lab controlled label of the actions taken on an animal.",
+        limit_choices_to={"category": Protocol.ANIMAL_TREATMENT},
     )
+
+    def clean(self):
+        super().clean()
+
+        if self.treatment is not None:
+            if self.treatment.category != Protocol.ANIMAL_TREATMENT:
+                raise ValidationError(
+                    "Protocol category for an Animal must be of type "
+                    f"{Protocol.ANIMAL_TREATMENT}"
+                )
 
     def __str__(self):
         return str(self.name)
@@ -231,7 +243,11 @@ class MSRun(models.Model):
     researcher = models.CharField(max_length=256)
     date = models.DateField()
     # Don't allow a Protocol to be deleted if an MSRun links to it
-    protocol = models.ForeignKey(Protocol, on_delete=models.RESTRICT)
+    protocol = models.ForeignKey(
+        Protocol,
+        on_delete=models.RESTRICT,
+        limit_choices_to={"category": Protocol.MSRUN_PROTOCOL},
+    )
     # Don't allow a Sample to be deleted if an MSRun links to it
     sample = models.ForeignKey(Sample, on_delete=models.RESTRICT)
 
@@ -246,6 +262,15 @@ class MSRun(models.Model):
                 name="unique_msrun",
             )
         ]
+
+    def clean(self):
+        super().clean()
+
+        if self.protocol.category != Protocol.MSRUN_PROTOCOL:
+            raise ValidationError(
+                "Protocol category for an MSRun must be of type "
+                f"{Protocol.MSRUN_PROTOCOL}"
+            )
 
 
 class PeakGroupSet(models.Model):

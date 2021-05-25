@@ -108,6 +108,11 @@ class StudyTests(TestCase, ExampleDataConsumer):
 
         # Create animal with tracer
         self.tracer = Compound.objects.create(name=first["Tracer Compound"])
+        self.animal_treatment = Protocol.objects.create(
+            name="treatment_1",
+            description="treatment_1_desc",
+            category=Protocol.ANIMAL_TREATMENT,
+        )
         self.animal = Animal.objects.create(
             name=first["Animal ID"],
             state=first["Animal State"],
@@ -118,6 +123,7 @@ class StudyTests(TestCase, ExampleDataConsumer):
             tracer_labeled_count=int(float(first["Tracer Label Atom Count"])),
             tracer_infusion_rate=first["Tracer Infusion Rate"],
             tracer_infusion_concentration=first["Tracer Concentration"],
+            treatment=self.animal_treatment,
         )
 
         # Create a sample from the animal
@@ -183,6 +189,12 @@ class StudyTests(TestCase, ExampleDataConsumer):
         self.assertEqual(
             self.animal.tracer_compound.name, self.first["Tracer Compound"]
         )
+        self.assertEqual(self.animal.treatment, self.animal_treatment)
+
+    def test_animal_treatment_validation(self):
+        self.animal.treatment = self.protocol
+        with self.assertRaises(ValidationError):
+            self.animal.full_clean()
 
     def test_study(self):
         """create study and associate animal"""
@@ -217,6 +229,12 @@ class StudyTests(TestCase, ExampleDataConsumer):
         with self.assertRaises(RestrictedError):
             # test a restricted deletion
             msr.protocol.delete()
+
+    def test_msrun_protocol_validation(self):
+        msr = MSRun.objects.get(id=self.msrun.pk)
+        msr.protocol.category = Protocol.ANIMAL_TREATMENT
+        with self.assertRaises(ValidationError):
+            msr.full_clean()
 
     def test_peak_group(self):
         t_peak_group = PeakGroup.objects.get(name=self.peak_group.name)
