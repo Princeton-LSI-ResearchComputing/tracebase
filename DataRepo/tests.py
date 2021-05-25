@@ -136,7 +136,11 @@ class StudyTests(TestCase, ExampleDataConsumer):
             date=first["Date Collected"],
         )
 
-        self.protocol = Protocol.objects.create(name="p1", description="p1desc")
+        self.protocol = Protocol.objects.create(
+            name="p1",
+            description="p1desc",
+            category=Protocol.MSRUN_PROTOCOL,
+        )
         self.msrun = MSRun.objects.create(
             researcher="John Doe",
             date=datetime.now(),
@@ -192,6 +196,10 @@ class StudyTests(TestCase, ExampleDataConsumer):
         self.assertEqual(self.animal.treatment, self.animal_treatment)
 
     def test_animal_treatment_validation(self):
+        """
+        Here we are purposefully misassociating an animal with the previously
+        created msrun protocol, to test model validation upon full_clean
+        """
         self.animal.treatment = self.protocol
         with self.assertRaises(ValidationError):
             self.animal.full_clean()
