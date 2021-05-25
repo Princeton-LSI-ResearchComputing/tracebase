@@ -1,7 +1,7 @@
 import collections
 import re
 from collections import namedtuple
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import dateutil.parser
 from django.db import transaction
@@ -192,7 +192,9 @@ class SampleTableLoader:
                 sample = Sample(
                     name=row[self.headers.SAMPLE_NAME],
                     researcher=row[self.headers.SAMPLE_RESEARCHER],
-                    time_collected=row[self.headers.TIME_COLLECTED],
+                    time_collected=timedelta(
+                        minutes=int(row[self.headers.TIME_COLLECTED])
+                    ),
                     animal=animal,
                     tissue=tissue,
                 )

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import pandas as pd
 from django.core.exceptions import ValidationError
@@ -200,12 +200,12 @@ class StudyTests(TestCase, ExampleDataConsumer):
         self.assertEqual(self.sample.animal.name, self.first["Animal ID"])
         # test time_collected exceeding MAXIMUM_VALID_TIME_COLLECTED fails
         with self.assertRaises(ValidationError):
-            self.sample.time_collected = 11000
+            self.sample.time_collected = timedelta(minutes=11000)
             # validation errors are raised upon cleaning
             self.sample.full_clean()
         # test time_collected exceeding MINIMUM_VALID_TIME_COLLECTED fails
         with self.assertRaises(ValidationError):
-            self.sample.time_collected = -2000
+            self.sample.time_collected = timedelta(minutes=-2000)
             self.sample.full_clean()
 
     def test_msrun_protocol(self):
@@ -289,7 +289,7 @@ class DataLoadingTests(TestCase):
 
     def test_sample_data(self):
         sample = Sample.objects.get(name="bat-xz969")
-        self.assertEqual(sample.time_collected, 150)
+        self.assertEqual(sample.time_collected, timedelta(minutes=150))
         self.assertEqual(sample.researcher, "Xianfeng Zhang")
         self.assertEqual(sample.animal.name, "969")
         self.assertEqual(sample.tissue.name, "BAT")

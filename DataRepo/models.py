@@ -1,5 +1,5 @@
-import datetime
 import warnings
+from datetime import date, timedelta
 
 from chempy import Substance
 from chempy.util.periodic import atomic_number
@@ -163,7 +163,7 @@ class Sample(models.Model):
     # Instance / model fields
     id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=256, unique=True)
-    date = models.DateField(default=datetime.date.today)
+    date = models.DateField(default=date.today)
     researcher = models.CharField(max_length=256)
     animal = models.ForeignKey(
         Animal, on_delete=models.CASCADE, null=False, related_name="samples"
@@ -173,13 +173,11 @@ class Sample(models.Model):
     researchers have advised that samples might have a time_collected up to a
     day prior-to and a week after infusion
     """
-    MINIMUM_VALID_TIME_COLLECTED = -1440
-    MAXIMUM_VALID_TIME_COLLECTED = 10080
-    time_collected = models.DecimalField(
+    MINIMUM_VALID_TIME_COLLECTED = timedelta(days=-1)
+    MAXIMUM_VALID_TIME_COLLECTED = timedelta(weeks=1)
+    time_collected = models.DurationField(
         null=True,
         blank=True,
-        decimal_places=3,
-        max_digits=7,
         validators=[
             MinValueValidator(MINIMUM_VALID_TIME_COLLECTED),
             MaxValueValidator(MAXIMUM_VALID_TIME_COLLECTED),
