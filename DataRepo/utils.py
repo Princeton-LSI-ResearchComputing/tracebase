@@ -1,7 +1,7 @@
 import collections
 import re
 from collections import namedtuple
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import dateutil.parser
 from django.db import transaction
@@ -34,6 +34,7 @@ class SampleTableLoader:
             "SAMPLE_DATE",
             "SAMPLE_RESEARCHER",
             "TISSUE_NAME",
+            "TIME_COLLECTED",
             "STUDY_NAME",
             "STUDY_DESCRIPTION",
             "ANIMAL_NAME",
@@ -58,6 +59,7 @@ class SampleTableLoader:
         SAMPLE_RESEARCHER="SAMPLE_RESEARCHER",
         TISSUE_NAME="TISSUE_NAME",
         STUDY_NAME="STUDY_NAME",
+        TIME_COLLECTED="TIME_COLLECTED",
         STUDY_DESCRIPTION="STUDY_DESCRIPTION",
         ANIMAL_NAME="ANIMAL_NAME",
         ANIMAL_WEIGHT="ANIMAL_WEIGHT",
@@ -123,8 +125,9 @@ class SampleTableLoader:
             We do this here, and not in the "created" block below, in case the
             researcher is creating a new study from previously-loaded animals
             """
-            print("Adding animal to the study...")
-            study.animals.add(animal)
+            if animal not in study.animals.all():
+                print("Adding animal to the study...")
+                study.animals.add(animal)
 
             if created:
                 print(f"Created new record: Animal:{animal}")
@@ -189,6 +192,9 @@ class SampleTableLoader:
                 sample = Sample(
                     name=row[self.headers.SAMPLE_NAME],
                     researcher=row[self.headers.SAMPLE_RESEARCHER],
+                    time_collected=timedelta(
+                        minutes=int(row[self.headers.TIME_COLLECTED])
+                    ),
                     animal=animal,
                     tissue=tissue,
                 )
