@@ -7,6 +7,7 @@ from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import Sum
+from django.utils.functional import cached_property
 
 
 def value_from_choices_label(label, choices):
@@ -203,6 +204,8 @@ class Tissue(models.Model):
     id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=256, unique=True)
 
+    SERUM_TISSUE_NAME = "Serum"
+
     def __str__(self):
         return str(self.name)
 
@@ -320,7 +323,7 @@ class PeakGroup(models.Model):
     def atom_count(self, atom):
         return atom_count_in_formula(self.formula, atom)
 
-    @property
+    @cached_property
     def total_abundance(self):
         """
         Total ion counts for this compound. Accucor provides this in the tab
@@ -330,6 +333,74 @@ class PeakGroup(models.Model):
         return self.peak_data.all().aggregate(
             corrected_abundance=Sum("corrected_abundance")
         )["corrected_abundance"]
+
+    @cached_property
+    def enrichment_fraction(self):
+        """
+        enrichment fraction - for this PeakGroup in this sample, weighted
+        average of the fraction of labeled atoms. "What fraction of carbons are
+        labeled in this compound" = sum of all (PeakData.fraction *
+        PeakData.labeled_count) /
+        PeakGroup.Compound.num_atoms(PeakData.labeled_element).). Calculated
+        without using labeled_count = 0.
+        """
+        enrichment_sum = 0.0
+        for peak_data in self.peak_data.all():
+            enrichment_sum = enrichment_sum + (
+                peak_data.fraction * peak_data.labeled_count
+            )
+        compound = self.compounds.first()
+        return enrichment_sum / compound.atom_count(peak_data.labeled_element)
+
+    @cached_property
+    def enrichment_abundance(self):
+        """
+        enrichment abundance - abundance of labeled atoms in this compound =
+        PeakGroup.total_abundance * PeakGroup:enrichment_fraction
+        """
+        return self.total_abundance * self.enrichment_fraction
+
+    @cached_property
+    def normalized_labeling(self):
+        """
+        normalized labeling - enrichment in this compound normalized to the
+        enrichment in the tracer compound from the final serum timepoint. =
+        PeakGroup.enrichment_fraction / PeakGroup.enrichment_fraction = this
+        compound / tracer compound in serum
+        """
+
+        try:
+            final_serum_sample = (
+                Sample.objects.filter(animal_id=self.ms_run.sample.animal.id)
+                .filter(tissue__name=Tissue.SERUM_TISSUE_NAME)
+                .latest("time_collected")
+            )
+            serum_peak_group = (
+                PeakGroup.objects.filter(ms_run__sample_id=final_serum_sample.id)
+                .filter(compounds__id=self.ms_run.sample.animal.tracer_compound.id)
+                .get()
+            )
+            normalized_labeling = (
+                self.enrichment_fraction / serum_peak_group.enrichment_fraction
+            )
+
+        except Sample.DoesNotExist:
+            warnings.warn(
+                "Unable to compute normalized_labeling for "
+                f"{self.ms_run.sample}:{self}, "
+                "associated 'Serum' sample not found."
+            )
+            normalized_labeling = None
+
+        except PeakGroup.DoesNotExist:
+            warnings.warn(
+                "Unable to compute normalized_labeling for "
+                f"{self.ms_run.sample}:{self}, "
+                "PeakGroup for associated 'Serum' sample not found."
+            )
+            normalized_labeling = None
+
+        return normalized_labeling
 
     class Meta:
         # composite key
@@ -388,6 +459,17 @@ class PeakData(models.Model, TracerLabeledClass):
         validators=[MinValueValidator(0)],
         help_text="median retention time value of this measurement",
     )
+
+    @cached_property
+    def fraction(self):
+        """
+        fraction - the corrected abundance of this labeled form as a fraction
+        of the total abundance for all corrected forms in this PeakGroup.
+        Accucor calculates this as "Normalized", but here renaming from
+        "normalized_abundance" to avoid confusion with other variables like
+        "normalized labeling"
+        """
+        return self.corrected_abundance / self.peak_group.total_abundance
 
     class Meta:
         # composite key
