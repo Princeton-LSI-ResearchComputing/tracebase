@@ -3,6 +3,7 @@ from datetime import date, timedelta
 
 from chempy import Substance
 from chempy.util.periodic import atomic_number
+from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
@@ -65,6 +66,33 @@ def atom_count_in_formula(formula, atom):
             # Valid atom, but not in formula
             count = 0
     return count
+
+
+class Protocol(models.Model):
+
+    MSRUN_PROTOCOL = "msrun_protocol"
+    ANIMAL_TREATMENT = "animal_treatment"
+    CATEGORY_CHOICES = [
+        (MSRUN_PROTOCOL, "LC-MS Run Protocol"),
+        (ANIMAL_TREATMENT, "Animal Treatment"),
+    ]
+
+    # Instance / model fields
+    id = models.AutoField(primary_key=True)
+    name = models.CharField(max_length=256, unique=True)
+    description = models.TextField(
+        blank=True, help_text="Full text of the protocol's methods"
+    )
+    category = models.CharField(
+        max_length=256,
+        choices=CATEGORY_CHOICES,
+        default=MSRUN_PROTOCOL,
+        help_text="Classification of the protocol, "
+        "e.g. an animal treatment or MSRun procedure.",
+    )
+
+    def __str__(self):
+        return str(self.name)
 
 
 class Compound(models.Model):
@@ -145,6 +173,25 @@ class Animal(models.Model, TracerLabeledClass):
     diet = models.CharField(max_length=256, null=True, blank=True)
     feeding_status = models.CharField(max_length=256, null=True, blank=True)
     studies = models.ManyToManyField(Study, related_name="animals")
+    treatment = models.ForeignKey(
+        Protocol,
+        on_delete=models.RESTRICT,
+        null=True,
+        blank=True,
+        related_name="animals",
+        help_text="Lab controlled label of the actions taken on an animal.",
+        limit_choices_to={"category": Protocol.ANIMAL_TREATMENT},
+    )
+
+    def clean(self):
+        super().clean()
+
+        if self.treatment is not None:
+            if self.treatment.category != Protocol.ANIMAL_TREATMENT:
+                raise ValidationError(
+                    "Protocol category for an Animal must be of type "
+                    f"{Protocol.ANIMAL_TREATMENT}"
+                )
 
     def __str__(self):
         return str(self.name)
@@ -190,20 +237,17 @@ class Sample(models.Model):
         return str(self.name)
 
 
-class Protocol(models.Model):
-    # Instance / model fields
-    id = models.AutoField(primary_key=True)
-    name = models.CharField(max_length=256, unique=True)
-    description = models.TextField(blank=True)
-
-
 class MSRun(models.Model):
     # Instance / model fields
     id = models.AutoField(primary_key=True)
     researcher = models.CharField(max_length=256)
     date = models.DateField()
     # Don't allow a Protocol to be deleted if an MSRun links to it
-    protocol = models.ForeignKey(Protocol, on_delete=models.RESTRICT)
+    protocol = models.ForeignKey(
+        Protocol,
+        on_delete=models.RESTRICT,
+        limit_choices_to={"category": Protocol.MSRUN_PROTOCOL},
+    )
     # Don't allow a Sample to be deleted if an MSRun links to it
     sample = models.ForeignKey(Sample, on_delete=models.RESTRICT)
 
@@ -218,6 +262,15 @@ class MSRun(models.Model):
                 name="unique_msrun",
             )
         ]
+
+    def clean(self):
+        super().clean()
+
+        if self.protocol.category != Protocol.MSRUN_PROTOCOL:
+            raise ValidationError(
+                "Protocol category for an MSRun must be of type "
+                f"{Protocol.MSRUN_PROTOCOL}"
+            )
 
 
 class PeakGroupSet(models.Model):
