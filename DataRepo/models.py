@@ -326,23 +326,28 @@ class PeakGroup(models.Model):
     @cached_property
     def total_abundance(self):
         """
-        Total ion counts for this compound. Accucor provides this in the tab
-        "pool size". Calculated by summing the corrected_abundance of all
-        Measurements for this compound.
+        Total ion counts for this compound.
+
+        Accucor provides this in the tab "pool size".
+
+        Calculated by summing the corrected_abundance of all PeakData for
+        this PeakGroup.
+
         """
-        return self.peak_data.all().aggregate(
-            corrected_abundance=Sum("corrected_abundance")
-        )["corrected_abundance"]
+        return self.peak_data.all().aggregate(Sum("corrected_abundance"))[
+            "corrected_abundance__sum"
+        ]
 
     @cached_property
     def enrichment_fraction(self):
         """
-        enrichment fraction - for this PeakGroup in this sample, weighted
-        average of the fraction of labeled atoms. "What fraction of carbons are
-        labeled in this compound" = sum of all (PeakData.fraction *
-        PeakData.labeled_count) /
-        PeakGroup.Compound.num_atoms(PeakData.labeled_element).). Calculated
-        without using labeled_count = 0.
+        A weighted average of the fraction of labeled atoms for this PeakGroup
+        in this sample.
+
+        i.e. "What fraction of carbons are labeled in this compound"
+
+        Sum of all (PeakData.fraction * PeakData.labeled_count) /
+            PeakGroup.Compound.num_atoms(PeakData.labeled_element)
         """
         enrichment_sum = 0.0
         for peak_data in self.peak_data.all():
@@ -355,7 +360,8 @@ class PeakGroup(models.Model):
     @cached_property
     def enrichment_abundance(self):
         """
-        enrichment abundance - abundance of labeled atoms in this compound =
+        This abundance of labeled atoms in this compound.
+
         PeakGroup.total_abundance * PeakGroup:enrichment_fraction
         """
         return self.total_abundance * self.enrichment_fraction
@@ -363,10 +369,10 @@ class PeakGroup(models.Model):
     @cached_property
     def normalized_labeling(self):
         """
-        normalized labeling - enrichment in this compound normalized to the
-        enrichment in the tracer compound from the final serum timepoint. =
-        PeakGroup.enrichment_fraction / PeakGroup.enrichment_fraction = this
-        compound / tracer compound in serum
+        The enrichment in this compound normalized to the
+        enrichment in the tracer compound from the final serum timepoint.
+
+        ThisPeakGroup.enrichment_fraction / SerumTracerPeakGroup.enrichment_fraction
         """
 
         try:
@@ -463,11 +469,12 @@ class PeakData(models.Model, TracerLabeledClass):
     @cached_property
     def fraction(self):
         """
-        fraction - the corrected abundance of this labeled form as a fraction
+        The corrected abundance of this labeled form as a fraction
         of the total abundance for all corrected forms in this PeakGroup.
-        Accucor calculates this as "Normalized", but here renaming from
+
+        Accucor calculates this as "Normalized", but TraceBase renames it from
         "normalized_abundance" to avoid confusion with other variables like
-        "normalized labeling"
+        "normalized labeling".
         """
         return self.corrected_abundance / self.peak_group.total_abundance
 
