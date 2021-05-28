@@ -10,7 +10,10 @@
     <table>
         <tr>
             <th>Atom Label</th>
+            <th>Sample</th>
+            <th>Tissue</th>
             <th>Mouse</th>
+            <th>Infusate</th>
             <th>Experiment</th>
             <th>Feeding Status</th>
             <th>Infusion Rate</th>
@@ -19,26 +22,37 @@
 
 
         {% for animal in animals %}
-            <tr>
-                <td>
-                    {{ animal.tracer_labeled_atom }}:{{ animal.tracer_labeled_count }}
-                </td>
-                <td>
-                    {{ animal.name }}
-                </td>
-                <td>
-                    {{ study.name }}
-                </td>
-                <td>
-                    {{ animal.feeding_status }}
-                </td>
-                <td>
-                    {{ animal.tracer_infusion_rate }}
-                </td>
-                <td>
-                    {{ animal.tracer_infusion_concentration }}
-                </td>
-            </tr>
+            {% for sample in animal.samples.all %}
+                <tr>
+                    <td>
+                        {{ animal.tracer_labeled_atom }}:{{ animal.tracer_labeled_count }}
+                    </td>
+                    <td>
+                        {{ sample.name }}
+                    </td>
+                    <td>
+                        {{ sample.tissue.name }}
+                    </td>
+                    <td>
+                        {{ animal.name }}
+                    </td>
+                    <td>
+                        {{ animal.tracer_compound.name }}
+                    </td>
+                    <td>
+                        {{ study.name }}
+                    </td>
+                    <td>
+                        {{ animal.feeding_status }}
+                    </td>
+                    <td>
+                        {{ animal.tracer_infusion_rate }}
+                    </td>
+                    <td>
+                        {{ animal.tracer_infusion_concentration }}
+                    </td>
+                </tr>
+            {% endfor %}
         {% endfor %}
     </table>
 </div>
