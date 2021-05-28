@@ -6,6 +6,8 @@ from chempy.util.periodic import atomic_number
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.db.models import Sum
+from django.utils.functional import cached_property
 
 
 def value_from_choices_label(label, choices):
@@ -58,7 +60,7 @@ def atom_count_in_formula(formula, atom):
     substance = Substance.from_formula(formula)
     try:
         count = substance.composition.get(atomic_number(atom))
-    except ValueError:
+    except (ValueError, AttributeError):
         warnings.warn(f"{atom} not found in list of elements")
         count = None
     else:
@@ -202,6 +204,8 @@ class Tissue(models.Model):
     id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=256, unique=True)
 
+    SERUM_TISSUE_NAME = "Serum"
+
     def __str__(self):
         return str(self.name)
 
@@ -319,6 +323,113 @@ class PeakGroup(models.Model):
     def atom_count(self, atom):
         return atom_count_in_formula(self.formula, atom)
 
+    @cached_property
+    def total_abundance(self):
+        """
+        Total ion counts for this compound.
+
+        Accucor provides this in the tab "pool size".
+
+        Calculated by summing the corrected_abundance of all PeakData for
+        this PeakGroup.
+
+        """
+        return self.peak_data.all().aggregate(
+            total_abundance=Sum("corrected_abundance")
+        )["total_abundance"]
+
+    @cached_property
+    def enrichment_fraction(self):
+        """
+        A weighted average of the fraction of labeled atoms for this PeakGroup
+        in this sample.
+
+        i.e. "What fraction of carbons are labeled in this compound"
+
+        Sum of all (PeakData.fraction * PeakData.labeled_count) /
+            PeakGroup.Compound.num_atoms(PeakData.labeled_element)
+        """
+        enrichment_fraction = None
+
+        try:
+            enrichment_sum = 0.0
+            for peak_data in self.peak_data.all():
+                enrichment_sum = enrichment_sum + (
+                    peak_data.fraction * peak_data.labeled_count
+                )
+
+            compound = self.compounds.first()
+            atom_count = compound.atom_count(peak_data.labeled_element)
+
+            enrichment_fraction = enrichment_sum / atom_count
+
+        except (AttributeError, TypeError):
+            if compound is not None:
+                msg = "no compounds were associated with PeakGroup"
+            elif peak_data.labeled_count is None:
+                msg = "labeled_count missing from PeakData"
+            elif peak_data.labeled_element is None:
+                msg = "labeld_element missing from PeakData"
+            else:
+                msg = "unknown error occured"
+            warnings.warn(
+                "Unable to compute enrichment_fraction for "
+                f"{self.ms_run.sample}:{self}, {msg}."
+            )
+
+        return enrichment_fraction
+
+    @cached_property
+    def enrichment_abundance(self):
+        """
+        This abundance of labeled atoms in this compound.
+
+        PeakGroup.total_abundance * PeakGroup.enrichment_fraction
+        """
+        return self.total_abundance * self.enrichment_fraction
+
+    @cached_property
+    def normalized_labeling(self):
+        """
+        The enrichment in this compound normalized to the
+        enrichment in the tracer compound from the final serum timepoint.
+
+        ThisPeakGroup.enrichment_fraction / SerumTracerPeakGroup.enrichment_fraction
+        """
+
+        try:
+            final_serum_sample = (
+                Sample.objects.filter(animal_id=self.ms_run.sample.animal.id)
+                .filter(tissue__name=Tissue.SERUM_TISSUE_NAME)
+                .latest("time_collected")
+            )
+            serum_peak_group = (
+                PeakGroup.objects.filter(ms_run__sample_id=final_serum_sample.id)
+                .filter(compounds__id=self.ms_run.sample.animal.tracer_compound.id)
+                .get()
+            )
+            normalized_labeling = (
+                self.enrichment_fraction / serum_peak_group.enrichment_fraction
+            )
+
+        except Sample.DoesNotExist:
+            warnings.warn(
+                "Unable to compute normalized_labeling for "
+                f"{self.ms_run.sample}:{self}, "
+                "associated 'Serum' sample not found."
+            )
+            normalized_labeling = None
+
+        except PeakGroup.DoesNotExist:
+            warnings.warn(
+                "Unable to compute normalized_labeling for "
+                f"{self.ms_run.sample}:{self}, "
+                "PeakGroup for associated 'Serum' sample not found."
+            )
+            normalized_labeling = None
+
+        return normalized_labeling
+
     class Meta:
         # composite key
         constraints = [
@@ -332,11 +443,12 @@ class PeakGroup(models.Model):
         return str(self.name)
 
 
-# PeakData is a single observation (at the most atomic level) of a MS-detected molecule.
-# For example, this could describe the data for M+2 in glucose from mouse 345 brain tissue.
-
-
 class PeakData(models.Model, TracerLabeledClass):
+    """
+    PeakData is a single observation (at the most atomic level) of a MS-detected molecule.
+    For example, this could describe the data for M+2 in glucose from mouse 345 brain tissue.
+    """
+
     id = models.AutoField(primary_key=True)
     peak_group = models.ForeignKey(
         PeakGroup, on_delete=models.CASCADE, null=False, related_name="peak_data"
@@ -375,6 +487,20 @@ class PeakData(models.Model, TracerLabeledClass):
         validators=[MinValueValidator(0)],
         help_text="median retention time value of this measurement",
     )
+
+    @cached_property
+    def fraction(self):
+        """
+        The corrected abundance of the labeled element in this PeakData as a
+        fraction of the total abundance of the labeled element in this
+        PeakGroup.
+
+        Accucor calculates this as "Normalized", but TraceBase renames it to
+        "fraction" to avoid confusion with other variables like "normalized
+        labeling".
+
+        """
+        return self.corrected_abundance / self.peak_group.total_abundance
 
     class Meta:
         # composite key

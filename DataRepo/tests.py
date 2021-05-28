@@ -248,6 +248,7 @@ class StudyTests(TestCase, ExampleDataConsumer):
         t_peak_group = PeakGroup.objects.get(name=self.peak_group.name)
         self.assertEqual(t_peak_group.peak_data.count(), 2)
         self.assertEqual(t_peak_group.name, self.peak_group.name)
+        self.assertAlmostEqual(t_peak_group.total_abundance, 203286.917004701)
 
     def test_peak_group_atom_count(self):
         """PeakGroup atom_count"""
@@ -368,6 +369,10 @@ class DataLoadingTests(TestCase):
         peak_data = peak_group.peak_data.filter(labeled_count=0).get()
         self.assertEqual(peak_data.raw_abundance, 8814287)
         self.assertAlmostEqual(peak_data.corrected_abundance, 9553199.89089051)
+        self.assertAlmostEqual(peak_group.total_abundance, 9599112.684, places=3)
+        self.assertAlmostEqual(peak_group.enrichment_fraction, 0.001555566789)
+        self.assertAlmostEqual(peak_group.enrichment_abundance, 14932.06089, places=5)
+        self.assertAlmostEqual(peak_group.normalized_labeling, 0.009119978074)
 
     def test_peak_group_peak_data_2(self):
         peak_group = (
@@ -393,6 +398,139 @@ class DataLoadingTests(TestCase):
         peak_data = peak_group.peak_data.filter(labeled_count=5).get()
         self.assertAlmostEqual(peak_data.raw_abundance, 1356.587)
         self.assertEqual(peak_data.corrected_abundance, 0)
+
+    def test_peak_group_peak_data_serum(self):
+        peak_group = (
+            PeakGroup.objects.filter(compounds__name="lysine")
+            .filter(ms_run__sample__name="serum-xz971")
+            .get()
+        )
+        peak_data = peak_group.peak_data.filter(labeled_count=0).get()
+        self.assertAlmostEqual(peak_data.raw_abundance, 205652.5)
+        self.assertAlmostEqual(peak_data.corrected_abundance, 222028.365565823)
+        self.assertAlmostEqual(peak_group.total_abundance, 267686.902436353)
+        self.assertAlmostEqual(peak_group.enrichment_fraction, 0.1705669439)
+        self.assertAlmostEqual(peak_group.enrichment_abundance, 45658.53687, places=5)
+        self.assertAlmostEqual(peak_group.normalized_labeling, 1)
+
+    def test_enrichment_fraction_missing_compounds(self):
+        peak_group = (
+            PeakGroup.objects.filter(compounds__name="lysine")
+            .filter(ms_run__sample__name="serum-xz971")
+            .get()
+        )
+        peak_group.compounds.clear()
+        with self.assertWarns(UserWarning):
+            self.assertIsNone(peak_group.enrichment_fraction)
+
+    def test_enrichment_fraction_missing_labeled_element(self):
+        peak_group = (
+            PeakGroup.objects.filter(compounds__name="lysine")
+            .filter(ms_run__sample__name="serum-xz971")
+            .get()
+        )
+
+        for peak_data in peak_group.peak_data.all():
+            peak_data.labeled_element = None
+            peak_data.save()
+
+        with self.assertWarns(UserWarning):
+            self.assertIsNone(peak_group.enrichment_fraction)
+
+    def test_normalized_labeling_latest_serum(self):
+        peak_group = (
+            PeakGroup.objects.filter(compounds__name="glucose")
+            .filter(ms_run__sample__name="BAT-xz971")
+            .get()
+        )
+
+        first_serum_sample = Sample.objects.filter(name="serum-xz971").get()
+        second_serum_sample = Sample.objects.create(
+            date=first_serum_sample.date,
+            name="serum-xz971.2",
+            researcher=first_serum_sample.researcher,
+            animal=first_serum_sample.animal,
+            tissue=first_serum_sample.tissue,
+            time_collected=first_serum_sample.time_collected + timedelta(minutes=1),
+        )
+        msrun = MSRun.objects.create(
+            researcher="John Doe",
+            date=datetime.now(),
+            protocol=first_serum_sample.msrun_set.first().protocol,
+            sample=second_serum_sample,
+        )
+        second_serum_peak_group = PeakGroup.objects.create(
+            name=peak_group.name,
+            formula=peak_group.formula,
+            ms_run=msrun,
+            peak_group_set=peak_group.peak_group_set,
+        )
+        second_serum_peak_group.compounds.add(
+            peak_group.ms_run.sample.animal.tracer_compound
+        )
+        first_serum_peak_group = (
+            PeakGroup.objects.filter(compounds__name="lysine")
+            .filter(ms_run__sample__name="serum-xz971")
+            .get()
+        )
+        for orig_peak_data in first_serum_peak_group.peak_data.all():
+            PeakData.objects.create(
+                raw_abundance=orig_peak_data.raw_abundance,
+                corrected_abundance=orig_peak_data.corrected_abundance,
+                labeled_element=orig_peak_data.labeled_element,
+                labeled_count=orig_peak_data.labeled_count,
+                peak_group=second_serum_peak_group,
+                med_mz=orig_peak_data.med_mz,
+                med_rt=orig_peak_data.med_rt,
+            )
+        second_peak_data = second_serum_peak_group.peak_data.order_by(
+            "labeled_count"
+        ).last()
+        second_peak_data.corrected_abundance = 100
+        second_peak_data.save()
+        self.assertAlmostEqual(peak_group.normalized_labeling, 3.455355083)
+
+    def test_normalized_labeling_missing_serum_peak_group(self):
+        peak_group = (
+            PeakGroup.objects.filter(compounds__name="glucose")
+            .filter(ms_run__sample__name="BAT-xz971")
+            .get()
+        )
+
+        peak_group_serum = (
+            PeakGroup.objects.filter(compounds__name="lysine")
+            .filter(ms_run__sample__name="serum-xz971")
+            .get()
+        )
+        peak_group_serum.delete()
+
+        with self.assertWarns(UserWarning):
+            self.assertIsNone(peak_group.normalized_labeling)
+
+    def test_normalized_labeling_missing_serum_sample(self):
+        peak_group = (
+            PeakGroup.objects.filter(compounds__name="glucose")
+            .filter(ms_run__sample__name="BAT-xz971")
+            .get()
+        )
+
+        serum_sample_msrun = MSRun.objects.filter(sample__name="serum-xz971").get()
+        serum_sample_msrun.delete()
+        serum_sample = Sample.objects.filter(name="serum-xz971").get()
+        serum_sample.delete()
+
+        with self.assertWarns(UserWarning):
+            self.assertIsNone(peak_group.normalized_labeling)
+
+    def test_peak_data_fraction(self):
+        peak_data = (
+            PeakGroup.objects.filter(compounds__name="glucose")
+            .filter(ms_run__sample__name="BAT-xz971")
+            .get()
+            .peak_data.filter(labeled_count=0)
+            .get()
+        )
+        self.assertAlmostEqual(peak_data.fraction, 0.9952169753)
 
 
 class AccuCorDataLoaderTests(TestCase):
