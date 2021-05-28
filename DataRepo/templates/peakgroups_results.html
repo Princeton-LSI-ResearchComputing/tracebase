@@ -1,29 +1,42 @@
 {% extends "base.html" %}
 {% block content %}
 <div>
-    <h3>Peak Group Results</h3>
-    <div>{{ qry.mdl }}</div>
-    <div>{{ qry.fld }}</div>
-    <div>{{ qry.cmp }}</div>
-    <div>{{ qry.val }}</div>
+    <h3>Query</h3>
+    <div>{{ qry.mdl }}.{{ qry.fld }}__{{ qry.cmp }}={{ qry.val }}</div>
+    <h3>Output Format</h3>
     <div>{{ qry.fmt }}</div>
 
+    <h3>Peak Group Results</h3>
     <table>
         <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>Description</th>
+            <th>Atom Label</th>
+            <th>Mouse</th>
+            <th>Experiment</th>
+            <th>Feeding Status</th>
+            <th>Infusion Rate</th>
+            <th>[Infusate]</th>
         </tr>
-        {% for rec in qs %}
+
+        
+        {% for animal in animals %}
             <tr>
                 <td>
-                    {{ rec.id }}
+                    {{ animal.tracer_labeled_atom }}:{{ animal.tracer_labeled_count }}
                 </td>
                 <td>
-                    {{ rec.name }}
+                    {{ animal.name }}
                 </td>
                 <td>
-                    {{ rec.description }}
+                    {{ study.name }}
+                </td>
+                <td>
+                    {{ animal.feeding_status }}
+                </td>
+                <td>
+                    {{ animal.tracer_infusion_rate }}
+                </td>
+                <td>
+                    {{ animal.tracer_infusion_concentration }}
                 </td>
             </tr>
         {% endfor %}

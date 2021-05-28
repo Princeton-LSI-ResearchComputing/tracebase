@@ -1,8 +1,7 @@
+from django.apps import apps
 from django.http import Http404
 from django.shortcuts import render
-from django.views.generic import DetailView, ListView, TemplateView
-from django.apps import AppConfig
-from django.apps import apps
+from django.views.generic import DetailView, ListView
 
 from .models import Compound, Study
 
@@ -26,38 +25,43 @@ def compound_detail(request, cpd_id):
 
 class StudyListView(ListView):
     """Generic class-based view for a list of studies."""
+
     model = Study
     paginate_by = 20
 
 
 class StudyDetailView(DetailView):
     """Generic class-based detail view for a study."""
+
     model = Study
 
 
 def search_basic(request, mdl, fld, cmp, val, fmt):
     """Generic basic search interface"""
-    model = apps.get_app_config('DataRepo').get_model(mdl) #works
-    field = fld
-    comparator = cmp
-    value = val
-    format_name = fmt
+    model = apps.get_app_config("DataRepo").get_model(mdl)  # works
 
     qry = {}
-    qry["mdl"] = model.__name__
-    qry["fld"] = field
-    qry["cmp"] = comparator
-    qry["val"] = value
-    qry["fmt"] = format_name
+    qry["mdl"] = mdl
+    qry["fld"] = fld
+    qry["cmp"] = cmp
+    qry["val"] = val
+    qry["fmt"] = fmt
 
     # https://stackoverflow.com/questions/4720079/django-query-filter-with-variable-column
-    fld_cmp = field + '__' + comparator
-    qs = [model.objects.get(**{ fld_cmp: value })]
+    fld_cmp = fld + "__" + cmp
 
     format_template = ""
     if fmt == "peakgroups":
         format_template = "peakgroups_results.html"
+        #study = model.objects.get(**{fld_cmp: val})
+        #animals = study.animals.all()
+
+        ## This works (don't know why the second line is necessary, but without it, there's an error, even though I don't use 'animals' in the template)
+        #https://docs.djangoproject.com/en/3.2/topics/db/queries/#following-relationships-backward
+        study = model.objects.get(**{fld_cmp: val})
+        animals = study.animals.all()
+
     else:
         raise Http404("Results format [" + fmt + "] page not found")
-    
-    return render(request, format_template, {"qry": qry, "qs": qs})
+
+    return render(request, format_template, {"qry": qry, "study": study, "animals": animals})
