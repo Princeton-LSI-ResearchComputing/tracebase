@@ -57,10 +57,10 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
         # animals = study.animals.all()
 
         # This works (don't know why the second line is necessary, but without it, there's an
-        # error, even though I don't use 'animals' in the template)
+        # error, whether I use 'animals' in the template or not (and get then from study))
         # https://docs.djangoproject.com/en/3.2/topics/db/queries/#following-relationships-backward
         study = model.objects.get(**{fld_cmp: val})
-        animals = study.animals.all()
+        animals = study.animals.select_related('tracer_compound').all()
 
     else:
         raise Http404("Results format [" + fmt + "] page not found")
