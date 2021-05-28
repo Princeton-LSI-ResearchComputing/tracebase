@@ -424,9 +424,9 @@ class PeakData(models.Model, TracerLabeledClass):
     )
 
     class Meta:
-        verbose_name = "peak datum"
+        verbose_name = "peak data"
         verbose_name_plural = "peak data"
-        ordering = ["peak_group"]
+        ordering = ["peak_group", "labeled_count"]
 
         # composite key
         constraints = [
