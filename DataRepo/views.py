@@ -53,15 +53,18 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
     format_template = ""
     if fmt == "peakgroups":
         format_template = "peakgroups_results.html"
-        #study = model.objects.get(**{fld_cmp: val})
-        #animals = study.animals.all()
+        # study = model.objects.get(**{fld_cmp: val})
+        # animals = study.animals.all()
 
-        ## This works (don't know why the second line is necessary, but without it, there's an error, even though I don't use 'animals' in the template)
-        #https://docs.djangoproject.com/en/3.2/topics/db/queries/#following-relationships-backward
+        # This works (don't know why the second line is necessary, but without it, there's an
+        # error, even though I don't use 'animals' in the template)
+        # https://docs.djangoproject.com/en/3.2/topics/db/queries/#following-relationships-backward
         study = model.objects.get(**{fld_cmp: val})
         animals = study.animals.all()
 
     else:
         raise Http404("Results format [" + fmt + "] page not found")
 
-    return render(request, format_template, {"qry": qry, "study": study, "animals": animals})
+    return render(
+        request, format_template, {"qry": qry, "study": study, "animals": animals}
+    )
