@@ -249,7 +249,7 @@ class MSRun(models.Model):
         limit_choices_to={"category": Protocol.MSRUN_PROTOCOL},
     )
     # Don't allow a Sample to be deleted if an MSRun links to it
-    sample = models.ForeignKey(Sample, on_delete=models.RESTRICT)
+    sample = models.ForeignKey(Sample, on_delete=models.RESTRICT, related_name="msruns")
 
     # Two runs that share researcher, date, protocol, and sample would be
     # indistinguishable, thus we restrict the database to ensure that

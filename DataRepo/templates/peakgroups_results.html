@@ -1,18 +1,17 @@
 {% extends "base.html" %}
 {% block content %}
 <div>
-    <h3>Query</h3>
-    <div>{{ qry.mdl }}.{{ qry.fld }}__{{ qry.cmp }}={{ qry.val }}</div>
-    <h3>Output Format</h3>
-    <div>{{ qry.fmt }}</div>
-
     <h3>Peak Group Results</h3>
     <table>
         <tr>
+            <th>Compound</th>
             <th>Atom Label</th>
             <th>Sample</th>
+            <th>Fraction</th>
             <th>Tissue</th>
             <th>Mouse</th>
+            <th>TIC</th>
+            <th>NormFraction</th>
             <th>Infusate</th>
             <th>Experiment</th>
             <th>Feeding Status</th>
@@ -23,35 +22,53 @@
 
         {% for animal in animals %}
             {% for sample in animal.samples.all %}
-                <tr>
-                    <td>
-                        {{ animal.tracer_labeled_atom }}:{{ animal.tracer_labeled_count }}
-                    </td>
-                    <td>
-                        {{ sample.name }}
-                    </td>
-                    <td>
-                        {{ sample.tissue.name }}
-                    </td>
-                    <td>
-                        {{ animal.name }}
-                    </td>
-                    <td>
-                        {{ animal.tracer_compound.name }}
-                    </td>
-                    <td>
-                        {{ study.name }}
-                    </td>
-                    <td>
-                        {{ animal.feeding_status }}
-                    </td>
-                    <td>
-                        {{ animal.tracer_infusion_rate }}
-                    </td>
-                    <td>
-                        {{ animal.tracer_infusion_concentration }}
-                    </td>
-                </tr>
+                {% for msr in sample.msruns.all %}
+                    {% for pg in msr.peak_groups.all %}
+                        {% for pd in pg.peak_data.all %}
+                            <tr>
+                                <td> <!-- Compound -->
+                                    {{ pg.name }}
+                                </td>
+                                <td> <!-- Atom Label -->
+                                    {{ animal.tracer_labeled_atom }}:{{ animal.tracer_labeled_count }}
+                                </td>
+                                <td> <!-- Sample -->
+                                    {{ sample.name }}
+                                </td>
+                                <td> <!-- Fraction -->
+                                    {{ pd.fraction }}
+                                </td>
+                                <td> <!-- Tissue -->
+                                    {{ sample.tissue.name }}
+                                </td>
+                                <td> <!-- Mouse -->
+                                    {{ animal.name }}
+                                </td>
+                                <td> <!-- TIC -->
+                                    {{ pg.total_abundance }}
+                                </td>
+                                <td> <!-- NormFraction -->
+                                    {{ pg.normalized_labeling }}
+                                </td>
+                                <td> <!-- Infusate -->
+                                    {{ animal.tracer_compound.name }}
+                                </td>
+                                <td> <!-- Experiment -->
+                                    {{ study.name }}
+                                </td>
+                                <td> <!-- Feeding Status -->
+                                    {{ animal.feeding_status }}
+                                </td>
+                                <td> <!-- Infusion Rate -->
+                                    {{ animal.tracer_infusion_rate }}
+                                </td>
+                                <td> <!-- [Infusate] -->
+                                    {{ animal.tracer_infusion_concentration }}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    {% endfor %}
+                {% endfor %}
             {% endfor %}
         {% endfor %}
     </table>
