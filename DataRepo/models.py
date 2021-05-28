@@ -60,7 +60,7 @@ def atom_count_in_formula(formula, atom):
     substance = Substance.from_formula(formula)
     try:
         count = substance.composition.get(atomic_number(atom))
-    except ValueError:
+    except (ValueError, AttributeError):
         warnings.warn(f"{atom} not found in list of elements")
         count = None
     else:
@@ -334,9 +334,9 @@ class PeakGroup(models.Model):
         this PeakGroup.
 
         """
-        return self.peak_data.all().aggregate(Sum("corrected_abundance"))[
-            "corrected_abundance__sum"
-        ]
+        return self.peak_data.all().aggregate(
+            total_abundance=Sum("corrected_abundance")
+        )["total_abundance"]
 
     @cached_property
     def enrichment_fraction(self):
@@ -349,20 +349,42 @@ class PeakGroup(models.Model):
         Sum of all (PeakData.fraction * PeakData.labeled_count) /
             PeakGroup.Compound.num_atoms(PeakData.labeled_element)
         """
-        enrichment_sum = 0.0
-        for peak_data in self.peak_data.all():
-            enrichment_sum = enrichment_sum + (
-                peak_data.fraction * peak_data.labeled_count
+        enrichment_fraction = None
+
+        try:
+            enrichment_sum = 0.0
+            for peak_data in self.peak_data.all():
+                enrichment_sum = enrichment_sum + (
+                    peak_data.fraction * peak_data.labeled_count
+                )
+
+            compound = self.compounds.first()
+            atom_count = compound.atom_count(peak_data.labeled_element)
+
+            enrichment_fraction = enrichment_sum / atom_count
+
+        except (AttributeError, TypeError):
+            if compound is not None:
+                msg = "no compounds were associated with PeakGroup"
+            elif peak_data.labeled_count is None:
+                msg = "labeled_count missing from PeakData"
+            elif peak_data.labeled_element is None:
+                msg = "labeld_element missing from PeakData"
+            else:
+                msg = "unknown error occured"
+            warnings.warn(
+                "Unable to compute enrichment_fraction for "
+                f"{self.ms_run.sample}:{self}, {msg}."
             )
-        compound = self.compounds.first()
-        return enrichment_sum / compound.atom_count(peak_data.labeled_element)
+
+        return enrichment_fraction
 
     @cached_property
     def enrichment_abundance(self):
         """
         This abundance of labeled atoms in this compound.
 
-        PeakGroup.total_abundance * PeakGroup:enrichment_fraction
+        PeakGroup.total_abundance * PeakGroup.enrichment_fraction
         """
         return self.total_abundance * self.enrichment_fraction
 
@@ -469,12 +491,14 @@ class PeakData(models.Model, TracerLabeledClass):
     @cached_property
     def fraction(self):
         """
-        The corrected abundance of this labeled form as a fraction
-        of the total abundance for all corrected forms in this PeakGroup.
+        The corrected abundance of the labeled element in this PeakData as a
+        fraction of the total abundance of the labeled element in this
+        PeakGroup.
 
-        Accucor calculates this as "Normalized", but TraceBase renames it from
-        "normalized_abundance" to avoid confusion with other variables like
-        "normalized labeling".
+        Accucor calculates this as "Normalized", but TraceBase renames it to
+        "fraction" to avoid confusion with other variables like "normalized
+        labeling".
+
         """
         return self.corrected_abundance / self.peak_group.total_abundance
 

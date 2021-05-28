@@ -413,6 +413,30 @@ class DataLoadingTests(TestCase):
         self.assertAlmostEqual(peak_group.enrichment_abundance, 45658.53687, places=5)
         self.assertAlmostEqual(peak_group.normalized_labeling, 1)
 
+    def test_enrichment_fraction_missing_compounds(self):
+        peak_group = (
+            PeakGroup.objects.filter(compounds__name="lysine")
+            .filter(ms_run__sample__name="serum-xz971")
+            .get()
+        )
+        peak_group.compounds.clear()
+        with self.assertWarns(UserWarning):
+            self.assertIsNone(peak_group.enrichment_fraction)
+
+    def test_enrichment_fraction_missing_labeled_element(self):
+        peak_group = (
+            PeakGroup.objects.filter(compounds__name="lysine")
+            .filter(ms_run__sample__name="serum-xz971")
+            .get()
+        )
+
+        for peak_data in peak_group.peak_data.all():
+            peak_data.labeled_element = None
+            peak_data.save()
+
+        with self.assertWarns(UserWarning):
+            self.assertIsNone(peak_group.enrichment_fraction)
+
     def test_normalized_labeling_latest_serum(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="glucose")
