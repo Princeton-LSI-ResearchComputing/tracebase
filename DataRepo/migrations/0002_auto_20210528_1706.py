@@ -7,13 +7,17 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('DataRepo', '0001_initial'),
+        ("DataRepo", "0001_initial"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='msrun',
-            name='sample',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.RESTRICT, related_name='msruns', to='DataRepo.sample'),
+            model_name="msrun",
+            name="sample",
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.RESTRICT,
+                related_name="msruns",
+                to="DataRepo.sample",
+            ),
         ),
     ]
