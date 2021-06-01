@@ -5,7 +5,7 @@
     <table>
         <tr>
             <th>Compound</th>
-            <th>Atom Label</th>
+            <th>Atom:Label</th>
             <th>Sample</th>
             <th>Fraction</th>
             <th>Tissue</th>
@@ -30,13 +30,13 @@
                                     {{ pg.name }}
                                 </td>
                                 <td> <!-- Atom Label -->
-                                    {{ animal.tracer_labeled_atom }}:{{ animal.tracer_labeled_count }}
+                                    {{ pd.labeled_element }}:{{ pd.labeled_count }}
                                 </td>
                                 <td> <!-- Sample -->
-                                    {{ sample.name }}
+                                    <NOBR>{{ sample.name }}</NOBR>
                                 </td>
-                                <td> <!-- Fraction -->
-                                    {{ pd.fraction }}
+                                <td style="text-align:right"> <!-- Fraction -->
+                                    <p title="{{ pd.fraction }}">{{ pd.fraction|floatformat:4 }}</p>
                                 </td>
                                 <td> <!-- Tissue -->
                                     {{ sample.tissue.name }}
@@ -44,10 +44,10 @@
                                 <td> <!-- Mouse -->
                                     {{ animal.name }}
                                 </td>
-                                <td> <!-- TIC -->
-                                    {{ pg.total_abundance }}
+                                <td style="text-align:right"> <!-- TIC -->
+                                    <p title="{{ pg.total_abundance }}">{{ pg.total_abundance|floatformat:1 }}</p>
                                 </td>
-                                <td> <!-- NormFraction -->
+                                <td style="text-align:right"> <!-- NormFraction -->
                                     {{ pg.normalized_labeling }}
                                 </td>
                                 <td> <!-- Infusate -->
@@ -59,10 +59,10 @@
                                 <td> <!-- Feeding Status -->
                                     {{ animal.feeding_status }}
                                 </td>
-                                <td> <!-- Infusion Rate -->
+                                <td style="text-align:right"> <!-- Infusion Rate -->
                                     {{ animal.tracer_infusion_rate }}
                                 </td>
-                                <td> <!-- [Infusate] -->
+                                <td style="text-align:right"> <!-- [Infusate] -->
                                     {{ animal.tracer_infusion_concentration }}
                                 </td>
                             </tr>
