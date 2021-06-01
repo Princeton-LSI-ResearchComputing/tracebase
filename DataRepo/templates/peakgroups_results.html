@@ -26,43 +26,68 @@
                     {% for pg in msr.peak_groups.all %}
                         {% for pd in pg.peak_data.all %}
                             <tr>
-                                <td> <!-- Compound -->
+                                <!-- Compound -->
+                                <td>
                                     {{ pg.name }}
                                 </td>
-                                <td> <!-- Atom Label -->
+
+                                <!-- Atom Label -->
+                                <td>
                                     {{ pd.labeled_element }}:{{ pd.labeled_count }}
                                 </td>
-                                <td> <!-- Sample -->
-                                    <NOBR>{{ sample.name }}</NOBR>
+
+                                <!-- Sample -->
+                                <td>
+                                    <nobr>{{ sample.name }}</nobr>
                                 </td>
-                                <td style="text-align:right"> <!-- Fraction -->
+
+                                <!-- Fraction -->
+                                <td style="text-align:right">
                                     <p title="{{ pd.fraction }}">{{ pd.fraction|floatformat:4 }}</p>
                                 </td>
-                                <td> <!-- Tissue -->
+
+                                <!-- Tissue -->
+                                <td>
                                     {{ sample.tissue.name }}
                                 </td>
-                                <td> <!-- Mouse -->
+
+                                <!-- Mouse -->
+                                <td>
                                     {{ animal.name }}
                                 </td>
-                                <td style="text-align:right"> <!-- TIC -->
+
+                                <!-- TIC -->
+                                <td style="text-align:right">
                                     <p title="{{ pg.total_abundance }}">{{ pg.total_abundance|floatformat:1 }}</p>
                                 </td>
-                                <td style="text-align:right"> <!-- NormFraction -->
+
+                                <!-- NormFraction -->
+                                <td style="text-align:right">
                                     {{ pg.normalized_labeling }}
                                 </td>
-                                <td> <!-- Infusate -->
+
+                                <!-- Infusate -->
+                                <td>
                                     {{ animal.tracer_compound.name }}
                                 </td>
-                                <td> <!-- Experiment -->
+
+                                <!-- Experiment -->
+                                <td>
                                     {{ study.name }}
                                 </td>
-                                <td> <!-- Feeding Status -->
+
+                                <!-- Feeding Status -->
+                                <td>
                                     {{ animal.feeding_status }}
                                 </td>
-                                <td style="text-align:right"> <!-- Infusion Rate -->
+
+                                <!-- Infusion Rate -->
+                                <td style="text-align:right">
                                     {{ animal.tracer_infusion_rate }}
                                 </td>
-                                <td style="text-align:right"> <!-- [Infusate] -->
+
+                                <!-- [Infusate] -->
+                                <td style="text-align:right">
                                     {{ animal.tracer_infusion_concentration }}
                                 </td>
                             </tr>
