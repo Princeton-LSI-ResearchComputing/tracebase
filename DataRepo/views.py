@@ -55,7 +55,7 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
         format_template = "peakgroups_results.html"
 
         # https://docs.djangoproject.com/en/3.2/topics/db/queries/#following-relationships-backward
-        studies = model.objects.filter(**{fld_cmp: val}).prefetch_related("animals")
+        studies = model.objects.filter(**{fld_cmp: val}).prefetch_related("animals","animals__samples__tissue","animals__samples__msruns","animals__samples__msruns__peak_groups","animals__samples__msruns__peak_groups__peak_data")
 
         res = render(request, format_template, {"qry": qry, "studies": studies})
     else:
