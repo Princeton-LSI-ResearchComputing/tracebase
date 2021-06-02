@@ -1,0 +1,55 @@
+{% load static %}
+<!--use Bootstrap CSS and JS 5.0.1-->
+<!--https://getbootstrap.com/docs/5.0/getting-started/download/-->
+<!doctype html>
+<html lang="en-US">
+    <head>
+        <!-- Required meta tags -->
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+    
+        <!-- Bootstrap CSS -->
+        <link href="{% static 'bootstrap-5.0.1-dist/css/bootstrap.css' %}" rel="stylesheet">
+    
+         <!-- Custom styles for this template -->
+        <link href="{% static 'css/sidebar.css' %}" rel="stylesheet">
+    
+        <title>{% block title %}TraceBase{% endblock %}</title>
+      </head>
+    
+      <body>
+     
+        {% include 'navbar.html' %} 
+    
+        <div class="d-flex id=wrapper">
+            {% include 'sidebar.html' %}
+            <div class="container-fluid">
+                {% block content %}
+                {% endblock %}
+
+                {% block pagination %}
+                    {% if is_paginated %}
+                        <div class="pagination">
+                            <span class="page-links">
+                            {% if page_obj.has_previous %}
+                                <a href="{{ request.path }}?page={{ page_obj.previous_page_number }}">previous</a>
+                            {% endif %}
+                            <span class="page-current">
+                                Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}.
+                            </span>
+                            {% if page_obj.has_next %}
+                                <a href="{{ request.path }}?page={{ page_obj.next_page_number }}">next</a>
+                            {% endif %}
+                            </span>
+                        </div>
+                    {% endif %}
+                {% endblock %} 
+            </div>  
+        </div>
+    
+        
+        <!-- Use Bootstrap JS -->
+        <script src="{% static 'bootstrap-5.0.1-dist/js/bootstrap.bundle.min.js' %}"></script>
+        <!--script src=>"{% static 'js/sidebar.js' %}"</script-->
+      </body>
+    </html>
