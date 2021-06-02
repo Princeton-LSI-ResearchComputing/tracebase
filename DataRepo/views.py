@@ -2,10 +2,7 @@
 from django.shortcuts import render
 from django.views.generic import DetailView, ListView
 
-from .models import (
-    Compound,
-    Study
-)
+from .models import Compound, Study
 
 
 def home(request):
@@ -39,8 +36,9 @@ For better readability:
     list context_object_name for each ListView
 """
 
+
 # Generic class-based view for a list of compounds
-class CompoundListView(ListView):  
+class CompoundListView(ListView):
     model = Compound
     context_object_name = "compound_list"
     template_name = "DataRepo/compound_list.html"
@@ -48,7 +46,7 @@ class CompoundListView(ListView):
 
 
 # Generic class-based detail view for a compound
-class CompoundDetailView(DetailView): 
+class CompoundDetailView(DetailView):
     model = Compound
     template_name = "DataRepo/compound_detail.html"
 

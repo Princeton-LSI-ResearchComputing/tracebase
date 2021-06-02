@@ -10,7 +10,9 @@ urlpatterns = [
     # path for each CBV
     path("compounds/", views.CompoundListView.as_view(), name="compound_list"),
     path(
-        "compounds/<int:pk>/", views.CompoundDetailView.as_view(), name="compound_detail"
+        "compounds/<int:pk>/",
+        views.CompoundDetailView.as_view(),
+        name="compound_detail",
     ),
     path("studies/", views.StudyListView.as_view(), name="study_list"),
     path("studies/<int:pk>/", views.StudyDetailView.as_view(), name="study_detail"),
