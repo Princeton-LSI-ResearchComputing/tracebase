@@ -1,46 +1,55 @@
 {% load static %}
+<!--use Bootstrap CSS and JS 5.0.1-->
+<!--https://getbootstrap.com/docs/5.0/getting-started/download/-->
+<!doctype html>
 <html lang="en-US">
     <head>
-        <meta charset="UTF-8">
-        <title>Home - TraceBase</title>
-        <link rel="stylesheet" id="ample-style-css" href="{% static 'style.css' %}" type="text/css" media="all">
-    </head>
-    <body class="wide">
-        <div id="page" class="hfeed site">
-            <header>
-                <div class="header">
-                    <div class="main-head-wrap inner-wrap clearfix">
-                        <div id="header-logo-image">
-                            <a href="/">
-                                <img src="{% static 'images/logo.png' %}" alt="LSI">
-                            </a>
+        <!-- Required meta tags -->
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- Bootstrap CSS -->
+        <link href="{% static 'bootstrap-5.0.1-dist/css/bootstrap.css' %}" rel="stylesheet">
+
+         <!-- Custom styles for this template -->
+        <link href="{% static 'css/sidebar.css' %}" rel="stylesheet">
+
+        <title>{% block title %}TraceBase{% endblock %}</title>
+      </head>
+
+      <body>
+
+        {% include 'navbar.html' %}
+
+        <div class="d-flex" id="wrapper">
+            {% include 'sidebar.html' %}
+            <div class="container-fluid">
+                {% block content %}
+                {% endblock %}
+
+                {% block pagination %}
+                    {% if is_paginated %}
+                        <div class="pagination">
+                            <span class="page-links">
+                            {% if page_obj.has_previous %}
+                                <a href="{{ request.path }}?page={{ page_obj.previous_page_number }}">previous</a>
+                            {% endif %}
+                            <span class="page-current">
+                                Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}.
+                            </span>
+                            {% if page_obj.has_next %}
+                                <a href="{{ request.path }}?page={{ page_obj.next_page_number }}">next</a>
+                            {% endif %}
+                            </span>
                         </div>
-                        <div id="header-text" class="">
-                            <h1 id="site-title">
-                                <a href="/" title="TraceBase" rel="home">TraceBase</a>
-                            </h1>
-                            <p>A Mass-Spec Trace Repository for Metabolite Tracing Data.</p>
-                        </div>
-                    </div>
-                    <img src="{% static 'images/header.jpg' %}" alt="TraceBase">
-                </div>
-            </header>
-            <div class="main-wrapper">
-                <div class="single-page clearfix">
-                    <div class="inner-wrap">
-                        <hr>
-                        <div>
-                        {% block content %}
-                        {% endblock %}
-                        </div>
-                    </div>
-                </div>
+                    {% endif %}
+                {% endblock %}
             </div>
-            <footer id="colophon">
-                <div class="inner-wrap">
-                    A Mass-Spec Trace Repository for Metabolite Tracing Data.
-                </div>
-            </footer>
         </div>
-    </body>
-</html>
+
+
+        <!-- Use Bootstrap JS -->
+        <script src="{% static 'bootstrap-5.0.1-dist/js/bootstrap.bundle.min.js' %}"></script>
+        <!--script src=>"{% static 'js/sidebar.js' %}"</script-->
+      </body>
+    </html>

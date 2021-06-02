@@ -17,3 +17,7 @@ trim_trailing_whitespace = true
 [*.tsv]
 # TSV files may have empty columns
 trim_trailing_whitespace = false
+
+[*.css]
+indent_style = space
+indent_size = 2

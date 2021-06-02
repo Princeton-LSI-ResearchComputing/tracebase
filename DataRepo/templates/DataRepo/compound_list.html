@@ -1,4 +1,4 @@
-{% extends "base_1.html" %}
+{% extends "base.html" %}
 
 {% block title %}Compounds{% endblock %}
 
@@ -24,8 +24,8 @@
             {% endfor %}
         </table>
         {% else %}
-        <p>There are no compounds.</p>  
-        {% endif %}  
+        <p>There are no compounds.</p>
+        {% endif %}
     </ul>
 </div>
 {% endblock %}

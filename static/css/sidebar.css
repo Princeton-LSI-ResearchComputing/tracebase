@@ -1,13 +1,11 @@
 #wrapper {
-    overflow-x: hidden;
- }
+  overflow-x: hidden;
+}
 
 #sidebar-wrapper .list-group {
   width: 8rem;
 }
 
 @media (min-width: 768px) {
-  #sidebar-wrapper {
-    margin-left: 0;
-  }
+  #sidebar-wrapper { margin-left: 0; }
 }
