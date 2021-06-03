@@ -93,6 +93,10 @@ class Protocol(models.Model):
         "e.g. an animal treatment or MSRun procedure.",
     )
 
+    class Meta:
+        verbose_name = "protocol"
+        verbose_name_plural = "protocols"
+
     def __str__(self):
         return str(self.name)
 
@@ -107,7 +111,7 @@ class Compound(models.Model):
     formula = models.CharField(max_length=256)
 
     # ID to serve as an external link to record using HMDB_CPD_URL
-    hmdb_id = models.CharField(max_length=11, unique=True)
+    hmdb_id = models.CharField(max_length=11, unique=True, verbose_name="HMDB ID")
 
     @property
     def hmdb_url(self):
@@ -117,12 +121,25 @@ class Compound(models.Model):
     def atom_count(self, atom):
         return atom_count_in_formula(self.formula, atom)
 
+    class Meta:
+        verbose_name = "compound"
+        verbose_name_plural = "compounds"
+        ordering = ["name"]
+
+    def __str__(self):
+        return str(self.name)
+
 
 class Study(models.Model):
     # Instance / model fields
     id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=256, unique=True)
     description = models.TextField(blank=True)
+
+    class Meta:
+        verbose_name = "study"
+        verbose_name_plural = "studies"
+        ordering = ["name"]
 
     def __str__(self):
         return str(self.name)
@@ -185,6 +202,13 @@ class Animal(models.Model, TracerLabeledClass):
         limit_choices_to={"category": Protocol.ANIMAL_TREATMENT},
     )
 
+    class Meta:
+        verbose_name = "animal"
+        verbose_name_plural = "animals"
+
+    def __str__(self):
+        return str(self.name)
+
     def clean(self):
         super().clean()
 
@@ -195,14 +219,15 @@ class Animal(models.Model, TracerLabeledClass):
                     f"{Protocol.ANIMAL_TREATMENT}"
                 )
 
-    def __str__(self):
-        return str(self.name)
-
 
 class Tissue(models.Model):
     # Instance / model fields
     id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=256, unique=True)
+
+    class Meta:
+        verbose_name = "tissue"
+        verbose_name_plural = "tissues"
 
     SERUM_TISSUE_NAME = "Serum"
 
@@ -237,6 +262,11 @@ class Sample(models.Model):
         "that a sample was extracted from a animal",
     )
 
+    class Meta:
+        verbose_name = "sample"
+        verbose_name_plural = "samples"
+        ordering = ["name"]
+
     def __str__(self):
         return str(self.name)
 
@@ -255,17 +285,27 @@ class MSRun(models.Model):
     # Don't allow a Sample to be deleted if an MSRun links to it
     sample = models.ForeignKey(Sample, on_delete=models.RESTRICT)
 
-    # Two runs that share researcher, date, protocol, and sample would be
-    # indistinguishable, thus we restrict the database to ensure that
-    # combination is unique. Constraint below assumes a researcher runs a
-    # sample/protocol combo only once a day.
     class Meta:
+        verbose_name = "mass spectrometry run"
+        verbose_name_plural = "mass spectrometry runs"
+
+        """
+        MS runs that share researcher, date, protocol, and sample would be
+        indistinguishable, thus we restrict the database to ensure that
+        combination is unique. Constraint below assumes a researcher runs a
+        sample/protocol combo only once a day.
+        """
         constraints = [
             models.UniqueConstraint(
                 fields=["researcher", "date", "protocol", "sample"],
                 name="unique_msrun",
             )
         ]
+
+    def __str__(self):
+        return str(
+            f"MS run of sample {self.sample.name} with {self.protocol.name} by {self.researcher} on {self.date}"
+        )
 
     def clean(self):
         super().clean()
@@ -286,6 +326,10 @@ class PeakGroupSet(models.Model):
         "a researcher-defined set of peak groups and their associated data",
     )
     imported_timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "peak group set"
+        verbose_name_plural = "peak group sets"
 
     def __str__(self):
         return str(f"{self.filename} at {self.imported_timestamp}")
@@ -431,6 +475,9 @@ class PeakGroup(models.Model):
         return normalized_labeling
 
     class Meta:
+        verbose_name = "peak group"
+        verbose_name_plural = "peak groups"
+
         # composite key
         constraints = [
             models.UniqueConstraint(
@@ -503,6 +550,10 @@ class PeakData(models.Model, TracerLabeledClass):
         return self.corrected_abundance / self.peak_group.total_abundance
 
     class Meta:
+        verbose_name = "peak data"
+        verbose_name_plural = "peak data"
+        ordering = ["peak_group", "labeled_count"]
+
         # composite key
         constraints = [
             models.UniqueConstraint(
