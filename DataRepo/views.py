@@ -16,6 +16,7 @@ class CompoundListView(ListView):
     model = Compound
     context_object_name = "compound_list"
     template_name = "DataRepo/compound_list.html"
+    ordering = ["name"]
     paginate_by = 20
 
 
@@ -29,6 +30,9 @@ class StudyListView(ListView):
     """Generic class-based view for a list of studies."""
 
     model = Study
+    context_object_name = "study_list"
+    template_name = "DataRepo/study_list.html"
+    ordering = ["name"]
     paginate_by = 20
 
 
