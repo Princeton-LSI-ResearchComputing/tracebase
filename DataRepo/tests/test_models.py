@@ -7,7 +7,7 @@ from django.db import IntegrityError
 from django.db.models.deletion import RestrictedError
 from django.test import TestCase
 
-from .models import (
+from DataRepo.models import (
     Animal,
     Compound,
     MSRun,
@@ -20,7 +20,7 @@ from .models import (
     Tissue,
     TracerLabeledClass,
 )
-from .utils import AccuCorDataLoader
+from DataRepo.utils import AccuCorDataLoader
 
 
 class ExampleDataConsumer:
