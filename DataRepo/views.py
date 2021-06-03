@@ -2,8 +2,9 @@ from django.apps import apps
 from django.http import Http404
 from django.shortcuts import render
 from django.views.generic import DetailView, ListView
+from django.db.models import Prefetch
 
-from .models import Compound, Study
+from .models import Compound, Study, Tissue, MSRun, PeakData
 
 
 def home(request):
@@ -55,7 +56,15 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
         format_template = "peakgroups_results.html"
 
         # https://docs.djangoproject.com/en/3.2/topics/db/queries/#following-relationships-backward
-        studies = model.objects.filter(**{fld_cmp: val}).prefetch_related("animals","animals__samples__tissue","animals__samples__msruns","animals__samples__msruns__peak_groups","animals__samples__msruns__peak_groups__peak_data")
+        #studies = model.objects.filter(**{fld_cmp: val}).prefetch_related("animals","animals__samples__tissue","animals__samples__msruns","animals__samples__msruns__peak_groups","animals__samples__msruns__peak_groups__peak_data")
+
+        # This actually causes roughly 10% *more* queries
+        # https://stackoverflow.com/questions/29358729/prefetch-object-with-multiple-levels-of-reverse-lookups/29381638
+        studies = model.objects.filter(**{fld_cmp: val}).select_related().prefetch_related(
+            "animals",
+            Prefetch("animals__samples__tissue",queryset=Tissue.objects.all(),to_attr="tissue_list"),
+            Prefetch("animals__samples__msruns",queryset=MSRun.objects.all(),to_attr="msr_list"),
+            Prefetch("animals__samples__msruns__peak_groups__peak_data",queryset=PeakData.objects.all(),to_attr="pd_list"))
 
         res = render(request, format_template, {"qry": qry, "studies": studies})
     else:
