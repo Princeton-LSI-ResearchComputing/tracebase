@@ -9,10 +9,6 @@ def home(request):
     return render(request, "home.html")
 
 
-def dashboard(request):
-    return render(request, "DataRepo/dashboard.html")
-
-
 """
 For Compound list or detail:
 replace Function-based view by Class-based view (CBV)
