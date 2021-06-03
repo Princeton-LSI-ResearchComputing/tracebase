@@ -1,4 +1,3 @@
-from django.apps import apps
 from django.http import Http404
 from django.shortcuts import render
 from django.views.generic import DetailView, ListView
@@ -36,34 +35,9 @@ class StudyDetailView(DetailView):
     model = Study
 
 
-def search_basic(request, mdl, fld, cmp, val, fmt):
-    """Generic basic search interface"""
-    model = apps.get_app_config("DataRepo").get_model(mdl)  # works
+def study_peakgroups(request, idval):
 
-    qry = {}
-    qry["mdl"] = mdl
-    qry["fld"] = fld
-    qry["cmp"] = cmp
-    qry["val"] = val
-    qry["fmt"] = fmt
+    format_template = "peakgroups_results.html"
+    studies = Study.objects.filter(id__exact=idval)
 
-    # https://stackoverflow.com/questions/4720079/django-query-filter-with-variable-column
-    fld_cmp = fld + "__" + cmp
-
-    format_template = ""
-    if fmt == "peakgroups":
-        format_template = "peakgroups_results.html"
-
-        # This works (don't know why the second line is necessary, but without it, there's an
-        # error, whether I use 'animals' in the template or not (and get them from study))
-        # https://docs.djangoproject.com/en/3.2/topics/db/queries/#following-relationships-backward
-        study = model.objects.get(**{fld_cmp: val})
-        animals = study.animals.select_related("tracer_compound").all()
-
-        res = render(
-            request, format_template, {"qry": qry, "study": study, "animals": animals}
-        )
-    else:
-        raise Http404("Results format [" + fmt + "] page not found")
-
-    return res
+    return render(request, format_template, {"studies": studies})

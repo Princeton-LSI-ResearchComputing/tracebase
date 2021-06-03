@@ -19,78 +19,79 @@
             <th>[Infusate]</th>
         </tr>
 
+        {% for study in studies %}
+            {% for animal in study.animals.all %}
+                {% for sample in animal.samples.all %}
+                    {% for msr in sample.msruns.all %}
+                        {% for pg in msr.peak_groups.all %}
+                            {% for pd in pg.peak_data.all %}
+                                <tr>
+                                    <!-- Compound -->
+                                    <td>
+                                        {{ pg.name }}
+                                    </td>
 
-        {% for animal in animals %}
-            {% for sample in animal.samples.all %}
-                {% for msr in sample.msruns.all %}
-                    {% for pg in msr.peak_groups.all %}
-                        {% for pd in pg.peak_data.all %}
-                            <tr>
-                                <!-- Compound -->
-                                <td>
-                                    {{ pg.name }}
-                                </td>
+                                    <!-- Atom Label -->
+                                    <td>
+                                        {{ pd.labeled_element }}:{{ pd.labeled_count }}
+                                    </td>
 
-                                <!-- Atom Label -->
-                                <td>
-                                    {{ pd.labeled_element }}:{{ pd.labeled_count }}
-                                </td>
+                                    <!-- Sample -->
+                                    <td>
+                                        <nobr>{{ sample.name }}</nobr>
+                                    </td>
 
-                                <!-- Sample -->
-                                <td>
-                                    <nobr>{{ sample.name }}</nobr>
-                                </td>
+                                    <!-- Fraction -->
+                                    <td style="text-align:right">
+                                        <p title="{{ pd.fraction }}">{{ pd.fraction|floatformat:4 }}</p>
+                                    </td>
 
-                                <!-- Fraction -->
-                                <td style="text-align:right">
-                                    <p title="{{ pd.fraction }}">{{ pd.fraction|floatformat:4 }}</p>
-                                </td>
+                                    <!-- Tissue -->
+                                    <td>
+                                        {{ sample.tissue.name }}
+                                    </td>
 
-                                <!-- Tissue -->
-                                <td>
-                                    {{ sample.tissue.name }}
-                                </td>
+                                    <!-- Mouse -->
+                                    <td>
+                                        {{ animal.name }}
+                                    </td>
 
-                                <!-- Mouse -->
-                                <td>
-                                    {{ animal.name }}
-                                </td>
+                                    <!-- TIC -->
+                                    <td style="text-align:right">
+                                        <p title="{{ pg.total_abundance }}">{{ pg.total_abundance|floatformat:1 }}</p>
+                                    </td>
 
-                                <!-- TIC -->
-                                <td style="text-align:right">
-                                    <p title="{{ pg.total_abundance }}">{{ pg.total_abundance|floatformat:1 }}</p>
-                                </td>
+                                    <!-- NormFraction -->
+                                    <td style="text-align:right">
+                                        {{ pg.normalized_labeling }}
+                                    </td>
 
-                                <!-- NormFraction -->
-                                <td style="text-align:right">
-                                    {{ pg.normalized_labeling }}
-                                </td>
+                                    <!-- Infusate -->
+                                    <td>
+                                        {{ animal.tracer_compound.name }}
+                                    </td>
 
-                                <!-- Infusate -->
-                                <td>
-                                    {{ animal.tracer_compound.name }}
-                                </td>
+                                    <!-- Experiment -->
+                                    <td>
+                                        {{ study.name }}
+                                    </td>
 
-                                <!-- Experiment -->
-                                <td>
-                                    {{ study.name }}
-                                </td>
+                                    <!-- Feeding Status -->
+                                    <td>
+                                        {{ animal.feeding_status }}
+                                    </td>
 
-                                <!-- Feeding Status -->
-                                <td>
-                                    {{ animal.feeding_status }}
-                                </td>
+                                    <!-- Infusion Rate -->
+                                    <td style="text-align:right">
+                                        {{ animal.tracer_infusion_rate }}
+                                    </td>
 
-                                <!-- Infusion Rate -->
-                                <td style="text-align:right">
-                                    {{ animal.tracer_infusion_rate }}
-                                </td>
-
-                                <!-- [Infusate] -->
-                                <td style="text-align:right">
-                                    {{ animal.tracer_infusion_concentration }}
-                                </td>
-                            </tr>
+                                    <!-- [Infusate] -->
+                                    <td style="text-align:right">
+                                        {{ animal.tracer_infusion_concentration }}
+                                    </td>
+                                </tr>
+                            {% endfor %}
                         {% endfor %}
                     {% endfor %}
                 {% endfor %}
