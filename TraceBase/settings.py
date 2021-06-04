@@ -131,7 +131,7 @@ STATIC_URL = "/static/"
 
 STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")]
 
-#LOGGING = {
+# LOGGING = {
 #    "version": 1,
 #    "filters": {
 #        "require_debug_true": {
@@ -151,4 +151,4 @@ STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")]
 #            "handlers": ["console"],
 #        }
 #    },
-#}
+# }
