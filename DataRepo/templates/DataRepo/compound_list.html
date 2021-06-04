@@ -19,7 +19,7 @@
             <tr>
             <td><a href="{% url 'compound_detail' compound.id %}">{{ compound.name }}</a></td>
             <td>{{ compound.formula }}</td>
-            <td><a href="{{ compound.hmdb_url}}" target="_blank">{{ compound.hmdb_id }}</a></td>
+            <td><a href="{{ compound.hmdb_url }}" target="_blank">{{ compound.hmdb_id }}</a></td>
             </tr>
             {% endfor %}
         </table>
