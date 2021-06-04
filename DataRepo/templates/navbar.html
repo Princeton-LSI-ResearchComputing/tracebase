@@ -4,7 +4,10 @@
 <!--ref:  https://getbootstrap.com/docs/5.0/components/navbar/-->
 <nav class="navbar navbar-expand-md navbar-light" style="background-color: #d5f5e3;">
     <div class="container-fluid">
-        <a class="navbar-brand" href="{% url 'home' %}"><img src="{% static 'images/logo.png' %}" alt="Ichan Laboratory" width="30" height="24">TraceBase</a>
+        <a class="navbar-brand" href="{% url 'home' %}">
+            <img src="{% static 'images/logo.png' %}" alt="Icahn Laboratory" width="30" height="24">
+            TraceBase
+        </a>
 
         <ul class="navbar-nav me-auto">
             <li class="nav-item">
@@ -14,8 +17,9 @@
                 <a class="nav-link" href="{% url 'admin:index' %}">Admin</a>
             </li>
             <li class="nav-item dropdown">
-                <a class="nav-link dropdown-toggle" href="#" id="dropdown-list-data" role="button" data-bs-toggle="dropdown"
-                    aria-expanded="false">List Data</a>
+                <a class="nav-link dropdown-toggle" href="#" id="dropdown-list-data" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    List Data
+                </a>
                 <ul class="dropdown-menu" aria-labelledby="dropdown-list-data">
                     <li><a class="dropdown-item" href="{% url 'compound_list' %}">Compounds</a></li>
                     <li><hr class="dropdown-divider"></li>
@@ -26,20 +30,24 @@
             </li>
             <li class="nav-item dropdown">
                 <a class="nav-link dropdown-toggle" href="#" id="dropdown-download-data" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                Download Data</a>
-            <ul class="dropdown-menu" aria-labelledby="dropdown-download-data">
-                <li><a class="dropdown-item" href="#">Compounds</a></li>
-                <li><a class="dropdown-item" href="#">Studies</a></li>
-            </ul>
+                    Download Data
+                </a>
+                <ul class="dropdown-menu" aria-labelledby="dropdown-download-data">
+                    <li><a class="dropdown-item" href="#">Compounds</a></li>
+                    <li><a class="dropdown-item" href="#">Studies</a></li>
+                </ul>
             </li>
             <li class="nav-item dropdown">
                 <a class="nav-link dropdown-toggle" href="#" id="dropdown-help" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                Help</a>
+                    Help
+                </a>
             </li>
         </ul>
+
         <form class="d-flex">
             <input class="form-control me-2" type="search" placeholder="Text Search" aria-label="Search">
             <button class="btn btn-outline-success" type="submit">Search</button>
         </form>
+
     </div>
 </nav>
