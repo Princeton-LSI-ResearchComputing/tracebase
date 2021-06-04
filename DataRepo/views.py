@@ -39,8 +39,12 @@ class StudyDetailView(DetailView):
 def search_basic(request, mdl, fld, cmp, val, fmt):
     """Generic basic search interface"""
 
-    format_template = "peakgroups_results.html"
-    studies = Study.objects.filter(id__exact=idval)
+    qry = {}
+    qry["mdl"] = mdl
+    qry["fld"] = fld
+    qry["cmp"] = cmp
+    qry["val"] = val
+    qry["fmt"] = fmt
 
     format_template = ""
     if fmt == "peakgroups":
