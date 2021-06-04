@@ -9,8 +9,8 @@ urlpatterns = [
     path("study/", views.StudyListView.as_view(), name="study_list"),
     path("study/<int:pk>/", views.StudyDetailView.as_view(), name="study_detail"),
     path(
-        "search_basic/<str:mdl>/<str:fld>/<str:cmp>/<str:val>/<str:fmt>/",
-        views.search_basic,
-        name="search_basic",
+        "study_peakgroups/<str:idval>/",
+        views.study_peakgroups,
+        name="study_peakgroups",
     ),
 ]
