@@ -38,7 +38,7 @@
 
                         <!-- Sample -->
                         <td>
-                            <div style="white-space:nowrap">
+                            <div class="nobr">
                                 <!-- TODO: add the view link here when it is added for this model -->
                                 <a href="#">
                                     {{ pd.peak_group.ms_run.sample.name }}
@@ -47,7 +47,7 @@
                         </td>
 
                         <!-- Fraction -->
-                        <td style="text-align:right">
+                        <td class="text-end">
                             <p title="{{ pd.fraction }}">{{ pd.fraction|floatformat:4 }}</p>
                         </td>
 
@@ -65,12 +65,12 @@
                         </td>
 
                         <!-- TIC -->
-                        <td style="text-align:right">
+                        <td class="text-end">
                             <p title="{{ pd.peak_group.total_abundance }}">{{ pd.peak_group.total_abundance|floatformat:1 }}</p>
                         </td>
 
                         <!-- NormFraction -->
-                        <td style="text-align:right">
+                        <td class="text-end">
                             {{ pd.peak_group.normalized_labeling }}
                         </td>
 
@@ -92,12 +92,12 @@
                         </td>
 
                         <!-- Infusion Rate -->
-                        <td style="text-align:right">
+                        <td class="text-end">
                             {{ pd.peak_group.ms_run.sample.animal.tracer_infusion_rate }}
                         </td>
 
                         <!-- [Infusate] -->
-                        <td style="text-align:right">
+                        <td class="text-end">
                             {{ pd.peak_group.ms_run.sample.animal.tracer_infusion_concentration }}
                         </td>
                     </tr>
