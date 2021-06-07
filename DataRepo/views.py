@@ -10,34 +10,32 @@ def home(request):
     return render(request, "home.html")
 
 
-def compound_list(request):
-    cpds = Compound.objects.all()
-    return render(request, "compound_list.html", {"cpds": cpds})
+class CompoundListView(ListView):
+    """Generic class-based view for a list of compounds"""
+    model = Compound
+    context_object_name = "compound_list"
+    template_name = "DataRepo/compound_list.html"
+    paginate_by = 20
 
 
-def compound_detail(request, cpd_id):
-    try:
-        cpd = Compound.objects.get(id=cpd_id)
-    except Compound.DoesNotExist:
-        raise Http404("compound not found")
-    return render(request, "compound_detail.html", {"cpd": cpd})
+class CompoundDetailView(DetailView):
+    """Generic class-based detail view for a compound"""
+    model = Compound
 
 
 class StudyListView(ListView):
     """Generic class-based view for a list of studies."""
-
     model = Study
     paginate_by = 20
 
 
 class StudyDetailView(DetailView):
     """Generic class-based detail view for a study."""
-
     model = Study
 
 
 def search_basic(request, mdl, fld, cmp, val, fmt):
-    """Generic basic search interface"""
+    """Generic function-based view for a basic search."""
 
     qry = {}
     qry["mdl"] = mdl
@@ -65,11 +63,8 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
             fld_cmp = "peak_group__"
         elif mdl != "PeakData":
             raise Http404(
-                "Table ["
-                + mdl
-                + "] is not searchable in the ["
-                + fmt
-                + "] results format"
+                "Table [" + mdl + "] is not searchable in the [" + fmt + "] "
+                "results format."
             )
 
         fld_cmp += fld + "__" + cmp
@@ -78,13 +73,10 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
             peakdata = PeakData.objects.filter(**{fld_cmp: val})
         except FieldError as fe:
             raise Http404(
-                "Table ["
-                + mdl
-                + "] either does not contain a field named ["
-                + fld
-                + "] or that field is not searchable.  "
-                + "Note, none of the cached property fields are searchable.  The error was: "
-                + str(fe)
+                "Table [" + mdl + "] either does not contain a field named ["
+                + fld + "] or that field is not searchable.  Note, none of "
+                "the cached property fields are searchable.  The error was: ["
+                + str(fe) + "]."
             )
 
         res = render(request, format_template, {"qry": qry, "pds": peakdata})
