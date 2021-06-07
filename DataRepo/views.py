@@ -12,6 +12,7 @@ def home(request):
 
 class CompoundListView(ListView):
     """Generic class-based view for a list of compounds"""
+
     model = Compound
     context_object_name = "compound_list"
     template_name = "DataRepo/compound_list.html"
@@ -20,17 +21,20 @@ class CompoundListView(ListView):
 
 class CompoundDetailView(DetailView):
     """Generic class-based detail view for a compound"""
+
     model = Compound
 
 
 class StudyListView(ListView):
     """Generic class-based view for a list of studies."""
+
     model = Study
     paginate_by = 20
 
 
 class StudyDetailView(DetailView):
     """Generic class-based detail view for a study."""
+
     model = Study
 
 
@@ -73,10 +77,14 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
             peakdata = PeakData.objects.filter(**{fld_cmp: val})
         except FieldError as fe:
             raise Http404(
-                "Table [" + mdl + "] either does not contain a field named ["
-                + fld + "] or that field is not searchable.  Note, none of "
+                "Table ["
+                + mdl
+                + "] either does not contain a field named ["
+                + fld
+                + "] or that field is not searchable.  Note, none of "
                 "the cached property fields are searchable.  The error was: ["
-                + str(fe) + "]."
+                + str(fe)
+                + "]."
             )
 
         res = render(request, format_template, {"qry": qry, "pds": peakdata})
