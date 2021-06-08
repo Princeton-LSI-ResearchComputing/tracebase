@@ -81,9 +81,14 @@ class Protocol(models.Model):
 
     # Instance / model fields
     id = models.AutoField(primary_key=True)
-    name = models.CharField(max_length=256, unique=True)
+    name = models.CharField(
+        max_length=256,
+        unique=True,
+        help_text="Uniquename of the protocol.",
+    )
     description = models.TextField(
-        blank=True, help_text="Full text of the protocol's methods"
+        blank=True,
+        help_text="Full text of the protocol's methods.",
     )
     category = models.CharField(
         max_length=256,
@@ -107,11 +112,25 @@ class Compound(models.Model):
 
     # Instance / model fields
     id = models.AutoField(primary_key=True)
-    name = models.CharField(max_length=256, unique=True)
-    formula = models.CharField(max_length=256)
+    name = models.CharField(
+        max_length=256,
+        unique=True,
+        help_text="Common name of the compound in the laboratory [e.g. glucose].",
+    )
+    formula = models.CharField(
+        max_length=256,
+        help_text="molecular formula of the compound [e.g. C6H12O6].",
+    )
 
     # ID to serve as an external link to record using HMDB_CPD_URL
-    hmdb_id = models.CharField(max_length=11, unique=True, verbose_name="HMDB ID")
+
+    hmdb_id = models.CharField(
+        max_length=11,
+        unique=True,
+        verbose_name="HMDB ID",
+        help_text="unique identifier for this compound "
+        "in the Human Metabolome Database, https://hmdb.ca/ .",
+    )
 
     @property
     def hmdb_url(self):
@@ -133,8 +152,17 @@ class Compound(models.Model):
 class Study(models.Model):
     # Instance / model fields
     id = models.AutoField(primary_key=True)
-    name = models.CharField(max_length=256, unique=True)
-    description = models.TextField(blank=True)
+    name = models.CharField(
+        max_length=256,
+        unique=True,
+        help_text="Succinct name of the collection of one or more series "
+        "of animals, samples, and their assays.",
+    )
+    description = models.TextField(
+        blank=True,
+        help_text="Lengthy description of the collection of one or more series "
+        "of animals, samples, and their assays, which may include experimental design process.",
+    )
 
     class Meta:
         verbose_name = "study"
@@ -153,9 +181,24 @@ class Animal(models.Model, TracerLabeledClass):
 
     # Instance / model fields
     id = models.AutoField(primary_key=True)
-    name = models.CharField(max_length=256, unique=True)
-    state = models.CharField(max_length=256, null=True, blank=True)
-    tracer_compound = models.ForeignKey(Compound, on_delete=models.RESTRICT, null=True)
+    name = models.CharField(
+        max_length=256,
+        unique=True,
+        help_text="Unique name or lab identifier of a source animal for a series of studied samples.",
+    )
+    state = models.CharField(
+        max_length=256,
+        null=True,
+        blank=True,
+        help_text="Researcher code for the state of the studied animal [e.g. fasted].",
+    )
+    tracer_compound = models.ForeignKey(
+        Compound,
+        on_delete=models.RESTRICT,
+        null=True,
+        help_text="Identifier for the Compound which was used as the Tracer.  "
+        "The tracer (aka infusate) is the labeled compound that is infused into the animal.",
+    )
     # NOTE: encoding labeled atom as the atom's symbol, NOT the full element
     # name, as I have seen in some example files
     tracer_labeled_atom = models.CharField(
@@ -164,6 +207,7 @@ class Animal(models.Model, TracerLabeledClass):
         choices=TracerLabeledClass.TRACER_LABELED_ELEMENT_CHOICES,
         default=TracerLabeledClass.CARBON,
         blank=True,
+        help_text="The type of atom that is labeled in the tracer compound (i.e. C, H, O).",
     )
     # NOTE: encoding atom count as an integer, NOT a float, as I have seen in
     # some example files
@@ -178,28 +222,59 @@ class Animal(models.Model, TracerLabeledClass):
         "supplied to this animal.",
     )
     tracer_infusion_rate = models.FloatField(
-        null=True, blank=True, validators=[MinValueValidator(0)]
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(0)],
+        help_text="Rate of tracer infusion as microliters/min/gram body weight of the mouse (units of ul/min/g).",
     )
     tracer_infusion_concentration = models.FloatField(
-        null=True, blank=True, validators=[MinValueValidator(0)]
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(0)],
+        help_text="Millimolar concentration of the tracer in the solution that was infused (units of mM).",
     )
     genotype = models.CharField(max_length=256)
     body_weight = models.FloatField(
         null=True, blank=True, validators=[MinValueValidator(0)]
     )
-    age = models.FloatField(null=True, blank=True, validators=[MinValueValidator(0)])
-    sex = models.CharField(max_length=1, null=True, blank=True, choices=SEX_CHOICES)
-    diet = models.CharField(max_length=256, null=True, blank=True)
-    feeding_status = models.CharField(max_length=256, null=True, blank=True)
-    studies = models.ManyToManyField(Study, related_name="animals")
+    age = models.FloatField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(0)],
+        help_text="Age of the animal at the time samples were collected (units of weeks).",
+    )
+    sex = models.CharField(
+        max_length=1,
+        null=True,
+        blank=True,
+        choices=SEX_CHOICES,
+        help_text="Sex of the animal (i.e. M, F).",
+    )
+    diet = models.CharField(
+        max_length=256,
+        null=True,
+        blank=True,
+        help_text="Feeding descriptor for the animal [e.g. LabDiet Rodent 5001].",
+    )
+    feeding_status = models.CharField(
+        max_length=256,
+        null=True,
+        blank=True,
+        help_text="The laboratory coded dietary state for the animal (i.e. fasted).",
+    )
+    studies = models.ManyToManyField(
+        Study,
+        related_name="animals",
+        help_text="Reference(s) to the many possible experimental studies an animal is associated with.",
+    )
     treatment = models.ForeignKey(
         Protocol,
         on_delete=models.RESTRICT,
         null=True,
         blank=True,
         related_name="animals",
-        help_text="Lab controlled label of the actions taken on an animal.",
         limit_choices_to={"category": Protocol.ANIMAL_TREATMENT},
+        help_text="Lab controlled label of the actions taken on an animal.",
     )
 
     class Meta:
@@ -223,7 +298,11 @@ class Animal(models.Model, TracerLabeledClass):
 class Tissue(models.Model):
     # Instance / model fields
     id = models.AutoField(primary_key=True)
-    name = models.CharField(max_length=256, unique=True)
+    name = models.CharField(
+        max_length=256,
+        unique=True,
+        help_text="Unique name of the tissue.",
+    )
 
     class Meta:
         verbose_name = "tissue"
@@ -238,13 +317,29 @@ class Tissue(models.Model):
 class Sample(models.Model):
     # Instance / model fields
     id = models.AutoField(primary_key=True)
-    name = models.CharField(max_length=256, unique=True)
-    date = models.DateField(default=date.today)
-    researcher = models.CharField(max_length=256)
-    animal = models.ForeignKey(
-        Animal, on_delete=models.CASCADE, null=False, related_name="samples"
+    name = models.CharField(
+        max_length=256,
+        unique=True,
+        help_text="Unique name of the biological sample.",
     )
-    tissue = models.ForeignKey(Tissue, on_delete=models.RESTRICT, null=False)
+    date = models.DateField(default=date.today)
+    researcher = models.CharField(
+        max_length=256,
+        help_text="Name of researcher whom prepared sample.",
+    )
+    animal = models.ForeignKey(
+        Animal,
+        on_delete=models.CASCADE,
+        null=False,
+        related_name="samples",
+        help_text="Source animal the sample was extracted from.",
+    )
+    tissue = models.ForeignKey(
+        Tissue,
+        on_delete=models.RESTRICT,
+        null=False,
+        help_text="Laboratory enumerated title of the tissue the sample was extracted from.",
+    )
     """
     researchers have advised that samples might have a time_collected up to a
     day prior-to and a week after infusion
@@ -274,16 +369,26 @@ class Sample(models.Model):
 class MSRun(models.Model):
     # Instance / model fields
     id = models.AutoField(primary_key=True)
-    researcher = models.CharField(max_length=256)
-    date = models.DateField()
+    researcher = models.CharField(
+        max_length=256,
+        help_text="Name of the researcher who executed the mass spectrometer run.",
+    )
+    date = models.DateField(
+        help_text="Date the mass spectrometer run was performed.",
+    )
     # Don't allow a Protocol to be deleted if an MSRun links to it
     protocol = models.ForeignKey(
         Protocol,
         on_delete=models.RESTRICT,
         limit_choices_to={"category": Protocol.MSRUN_PROTOCOL},
+        help_text="Protocol performed for the mass spectrometer run.",
     )
     # Don't allow a Sample to be deleted if an MSRun links to it
-    sample = models.ForeignKey(Sample, on_delete=models.RESTRICT)
+    sample = models.ForeignKey(
+        Sample,
+        on_delete=models.RESTRICT,
+        help_text="Reference to the sample run on the mass spectrometer.",
+    )
 
     class Meta:
         verbose_name = "mass spectrometry run"
@@ -325,7 +430,10 @@ class PeakGroupSet(models.Model):
         help_text="Unique name of the source-file or dataset containing "
         "a researcher-defined set of peak groups and their associated data",
     )
-    imported_timestamp = models.DateTimeField(auto_now_add=True)
+    imported_timestamp = models.DateTimeField(
+        auto_now_add=True,
+        help_text="Timestamp for when the source datafile was imported.",
+    )
 
     class Meta:
         verbose_name = "peak group set"
@@ -339,29 +447,30 @@ class PeakGroup(models.Model):
     id = models.AutoField(primary_key=True)
     name = models.CharField(
         max_length=256,
-        help_text="Compound or isomer group name [e.g. citrate/isocitrate]",
+        help_text="Compound or isomer group name [e.g. citrate/isocitrate].",
     )
     formula = models.CharField(
-        max_length=256, help_text="molecular formula of the compound [e.g. C6H12O6]"
+        max_length=256,
+        help_text="Molecular formula of the compound [e.g. C6H12O6].",
     )
     ms_run = models.ForeignKey(
         MSRun,
         on_delete=models.CASCADE,
         null=False,
         related_name="peak_groups",
-        help_text="database identifier of the MS run this PeakGroup was derived from",
+        help_text="Database identifier of the MS run this PeakGroup was derived from.",
     )
     compounds = models.ManyToManyField(
         Compound,
         related_name="peak_groups",
-        help_text="database identifier(s) for the TraceBase compound(s) that this PeakGroup describes",
+        help_text="Database identifier(s) for the TraceBase compound(s) that this PeakGroup describes.",
     )
     peak_group_set = models.ForeignKey(
         PeakGroupSet,
         on_delete=models.CASCADE,
         null=False,
         related_name="peak_groups",
-        help_text="source file or dataset this PeakGroup was derived from",
+        help_text="Source file or dataset this PeakGroup was derived from.",
     )
 
     def atom_count(self, atom):
@@ -415,7 +524,7 @@ class PeakGroup(models.Model):
             elif peak_data.labeled_element is None:
                 msg = "labeld_element missing from PeakData"
             else:
-                msg = "unknown error occured"
+                msg = "unknown error occurred"
             warnings.warn(
                 "Unable to compute enrichment_fraction for "
                 f"{self.ms_run.sample}:{self}, {msg}."
@@ -506,7 +615,7 @@ class PeakData(models.Model, TracerLabeledClass):
         choices=TracerLabeledClass.TRACER_LABELED_ELEMENT_CHOICES,
         default=TracerLabeledClass.CARBON,
         blank=True,
-        help_text="the type of element that is labeled in this observation (e.g. C, H, O)",
+        help_text="The type of element that is labeled in this observation (e.g. C, H, O).",
     )
     labeled_count = models.PositiveSmallIntegerField(
         null=True,
@@ -520,19 +629,19 @@ class PeakData(models.Model, TracerLabeledClass):
     )
     raw_abundance = models.FloatField(
         validators=[MinValueValidator(0)],
-        help_text="ion counts or raw abundance of this observation",
+        help_text="Ion counts or raw abundance of this observation.",
     )
     corrected_abundance = models.FloatField(
         validators=[MinValueValidator(0)],
-        help_text="ion counts corrected for natural abundance of isotopomers",
+        help_text="Ion counts corrected for natural abundance of isotopomers.",
     )
     med_mz = models.FloatField(
         validators=[MinValueValidator(0)],
-        help_text="median mass/charge value of this measurement",
+        help_text="Median mass/charge value of this measurement.",
     )
     med_rt = models.FloatField(
         validators=[MinValueValidator(0)],
-        help_text="median retention time value of this measurement",
+        help_text="Median retention time value of this measurement.",
     )
 
     @cached_property
