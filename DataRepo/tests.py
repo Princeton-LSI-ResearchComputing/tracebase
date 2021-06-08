@@ -456,7 +456,7 @@ class DataLoadingTests(TestCase):
         msrun = MSRun.objects.create(
             researcher="John Doe",
             date=datetime.now(),
-            protocol=first_serum_sample.msrun_set.first().protocol,
+            protocol=first_serum_sample.msruns.first().protocol,
             sample=second_serum_sample,
         )
         second_serum_peak_group = PeakGroup.objects.create(

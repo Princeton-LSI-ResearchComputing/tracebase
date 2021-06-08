@@ -387,6 +387,7 @@ class MSRun(models.Model):
     sample = models.ForeignKey(
         Sample,
         on_delete=models.RESTRICT,
+        related_name="msruns",
         help_text="Reference to the sample run on the mass spectrometer.",
     )
 

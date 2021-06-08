@@ -187,7 +187,7 @@ from the repo root directory. Example script:
     docker pull github/super-linter:latest
 
     docker run \
-        -e FILTER_REGEX_EXCLUDE="(\.pylintrc)" \
+        -e FILTER_REGEX_EXCLUDE="(\.pylintrc|migrations|static\/bootstrap.*)" \
         -e LINTER_RULES_PATH="/" \
         -e IGNORE_GITIGNORED_FILES=true \
         -e RUN_LOCAL=true \
