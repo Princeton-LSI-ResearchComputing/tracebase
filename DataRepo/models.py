@@ -84,7 +84,7 @@ class Protocol(models.Model):
     name = models.CharField(
         max_length=256,
         unique=True,
-        help_text="Uniquename of the protocol.",
+        help_text="Unique name of the protocol.",
     )
     description = models.TextField(
         blank=True,
