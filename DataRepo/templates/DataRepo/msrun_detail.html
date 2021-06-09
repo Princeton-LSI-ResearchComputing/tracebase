@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div>
+    <h4>MS RUN Detail:</h4>
+    <br>
+    <h5>MSRun ID: {{ msrun.id }}</h5>
+    <h5>Sample Name: <a href="{% url 'sample_detail' msrun.sample.id %}">{{ msrun.sample.name }}</a></h5>
+    <h5>Protocol Name: <a href="{% url 'protocol_detail' msrun.protocol.id %}">{{ msrun.protocol.name }}</a></h5>
+    <h5>Date Performed: {{ msrun.date }}</h5>
+    <h5>Researcher: {{ msrun.researcher }}</h5>
+    <h5>This MS Run has {{ msrun.peak_groups.count }} peak groups:
+        <a href="{% url 'peakgroup_list' %}?ms_run_id={{ msrun.id }}">Peak Group List</a></h5>
+</div>
+{% endblock %}

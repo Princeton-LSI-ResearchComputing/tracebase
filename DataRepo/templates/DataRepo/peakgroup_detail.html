@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div>
+    <h4>Peak Group Detail:</h4>
+    <br>
+    <h5>PeakGroup Name: {{ peakgroup.name }}</h5>
+    <h5>Formula: {{ peakgroup.formula }}</h5>
+    <h5>PeakGroup SET ID: <a href="{% url 'peakgroupset_detail' peakgroup.peak_group_set.id %}">{{ peakgroup.peak_group_set.id }}</a></h5>
+    <h5>MSRUN ID: <a href="{% url 'msrun_detail' peakgroup.ms_run.id %}">{{ peakgroup.ms_run.id }}</a></h5>
+    <h5>This Peak Group has {{ peakgroup.peak_data.count }} rows of peak data:
+        <a href="{% url 'peakdata_list' %}?peak_group_id={{ peakgroup.id }}">Peak Data Records</a></h5>
+</div>
+{% endblock %}

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}PeakGroup Set{% endblock %}
+
+{% block content %}
+<div>
+    <ul>
+        <h3>Peak Group Sets</h3>
+
+        {% if peakgroupset_list %}
+        <br>
+        <table class="table table-sm table-hover table-striped table-bordered">
+            <tr>
+            <th>Peak Group Set ID</th>
+            <th>File Name</th>
+            <th>File Import Timestamp</th>
+            </tr>
+            {% for peakgroupset in peakgroupset_list %}
+            <tr>
+            <td><a href="{% url 'peakgroupset_detail' peakgroupset.id %}">{{ peakgroupset.id }}</a></td>
+            <td>{{ peakgroupset.filename }}</td>
+            <td>{{ peakgroupset.imported_timestamp }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+        {% else %}
+        <p>There are no PeakGroup Set.</p>
+        {% endif %}
+    </ul>
+</div>
+{% endblock %}

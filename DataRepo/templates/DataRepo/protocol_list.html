@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}Protocols{% endblock %}
+
+{% block content %}
+<div>
+    <ul>
+        <h4>List of Protocols</h4>
+
+        {% if protocol_list %}
+        <br>
+        <table class="table table-sm table-hover table-striped table-bordered">
+            <tr>
+            <th>Name</th>
+            <th>Category</th>
+            <th>Description</th>
+            </tr>
+            {% for protocol in protocol_list %}
+            <tr>
+            <td><a href="{% url 'protocol_detail' protocol.id %}">{{ protocol.name }}</a></td>
+            <td>{{ protocol.category }}</td>
+            <td>{{ protocol.description }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+        {% else %}
+        <p>There are no protocols.</p>
+        {% endif %}
+    </ul>
+</div>
+{% endblock %}

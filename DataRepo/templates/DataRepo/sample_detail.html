@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div>
+    <br>
+    <h4>Sample Information</h4>
+    <br>
+    <table class="table  table-bordered table-hover w-auto mw-100">
+        <tr>
+            <td colspan="3">Sample Name</td>
+            <td>{{ sample.name }}</td>
+        </tr>
+        <tr>
+            <td colspan="3">Sample Collection Date</td>
+            <td>{{ sample.date }}</td>
+        </tr>
+        <tr>
+            <td colspan="3">Researcher</td>
+            <td>{{ sample.researcher}}</td>
+        </tr>
+        <tr>
+            <td colspan="3">Animal Name</td>
+            <td><a href="{% url 'animal_detail' sample.animal.id %}">{{ sample.animal.name }}</a></td>
+        </tr>
+        <tr>
+            <td colspan="3">Tissue Name</td>
+            <td>{{ sample.tissue}}</td>
+        </tr>
+    </table>
+</div>
+{% endblock %}

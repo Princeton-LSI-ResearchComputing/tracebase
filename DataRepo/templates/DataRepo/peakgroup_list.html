@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}Peak Groups{% endblock %}
+
+{% block content %}
+<div>
+    <ul>
+        <h3>List of Peak Groups</h3>
+
+        {% if peakgroup_list %}
+        <br>
+        <table class="table table-sm table-hover table-bordered table-responsive table-striped w-auto mw-100">
+            <tr>
+            <th>Peak Group Name</th>
+            <th>Formula For Detected Compounds</th>
+            <th>PeakGroup SET ID</th>
+            <th>MSRUN ID</th>
+            </tr>
+            {% for peakgroup in peakgroup_list %}
+            <tr>
+            <td><a href="{% url 'peakgroup_detail' peakgroup.id %}">{{ peakgroup.name }}</a></td>
+            <td>{{ peakgroup.formula }}</td>
+            <td><a href="{% url 'peakgroupset_detail' peakgroup.peak_group_set.id %}">{{ peakgroup.peak_group_set.id }}</a></td>
+            <td><a href="{% url 'msrun_detail' peakgroup.ms_run.id %}">{{ peakgroup.ms_run.id }}</a></td>
+            </tr>
+            {% endfor %}
+        </table>
+        {% else %}
+        <p>There are no Peak Groups.</p> 
+        {% endif %}
+    </ul>
+</div>
+{% endblock %}
