@@ -5,7 +5,7 @@
     <br>
     <br>
     <h4>Animal details:</h4>
-    <h5>Name: {{ animal.name }}</a></h5>
+    <h5>Name: {{ animal.name }}</h5>
     <h5>This animal has {{ animal.samples.count }} samples:
         <a href="{% url 'sample_list' %}?animal_id={{ animal.id }}"
         >sample list</a></h5>

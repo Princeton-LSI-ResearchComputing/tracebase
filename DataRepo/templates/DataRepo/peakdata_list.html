@@ -5,7 +5,7 @@
 {% block content %}
 <div>
     <ul>
-        <h3>Peak measurement data for all MS Runs: </h3>
+        <h3>Peak measurement data:</h3>
 
         {% if peakdata_list %}
         <br>
@@ -27,7 +27,7 @@
             <td>{{ peakdata.raw_abundance }}</td>
             <td>{{ peakdata.corrected_abundance }}</td>
             <td>{{ peakdata.med_mz }}</td>
-            <td>{{ peakdata.med_rt }}</td>         
+            <td>{{ peakdata.med_rt }}</td>
             </tr>
             {% endfor %}
         </table>
