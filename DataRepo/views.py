@@ -78,7 +78,9 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
         fld_cmp += fld + "__" + cmp
 
         try:
-            peakdata = PeakData.objects.filter(**{fld_cmp: val})
+            peakdata = PeakData.objects.filter(**{fld_cmp: val}).prefetch_related(
+                "peak_group__ms_run__sample__animal__studies"
+            )
         except FieldError as fe:
             raise Http404(
                 "Table ["
