@@ -221,7 +221,7 @@ class PeakGroupListView(ListView):
     context_object_name = "peakgroup_list"
     template_name = "DataRepo/peakgroup_list.html"
     ordering = ["ms_run_id", "peak_group_set_id", "name"]
-    paginate_by = 20
+    paginate_by = 50
 
     # filter the peakgroup_list by ms_run_id
     def get_queryset(self):
@@ -252,7 +252,7 @@ class PeakDataListView(ListView):
     context_object_name = "peakdata_list"
     template_name = "DataRepo/peakdata_list.html"
     ordering = ["peak_group_id", "id"]
-    paginate_by = 20
+    paginate_by = 200
 
     # filter peakgdata_list by peak_group_id
     def get_queryset(self):
