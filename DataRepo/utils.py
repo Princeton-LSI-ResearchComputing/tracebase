@@ -169,7 +169,7 @@ class SampleTableLoader:
                 )
                 animal.tracer_labeled_atom = tracer_labeled_atom
             if self.headers.TRACER_LABELED_COUNT:
-                animal.tracer_labeled_count = row[self.headers.TRACER_LABELED_COUNT]
+                animal.tracer_labeled_count = int(row[self.headers.TRACER_LABELED_COUNT])
             if self.headers.TRACER_INFUSION_RATE:
                 animal.tracer_infusion_rate = row[self.headers.TRACER_INFUSION_RATE]
             if self.headers.TRACER_INFUSION_CONCENTRATION:
@@ -193,7 +193,7 @@ class SampleTableLoader:
                     name=row[self.headers.SAMPLE_NAME],
                     researcher=row[self.headers.SAMPLE_RESEARCHER],
                     time_collected=timedelta(
-                        minutes=int(row[self.headers.TIME_COLLECTED])
+                        minutes=float(row[self.headers.TIME_COLLECTED])
                     ),
                     animal=animal,
                     tissue=tissue,

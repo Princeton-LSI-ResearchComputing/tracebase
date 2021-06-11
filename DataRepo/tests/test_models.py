@@ -270,16 +270,35 @@ class DataLoadingTests(TestCase):
         call_command("load_compounds", "DataRepo/example_data/obob_compounds.tsv")
         cls.ALL_COMPOUNDS_COUNT = 32
 
+        # initialize some sample-table-dependent counters
+        cls.ALL_SAMPLES_COUNT = 0
+        cls.ALL_ANIMALS_COUNT = 0
+        cls.ALL_STUDIES_COUNT = 0
+
         call_command(
             "load_samples",
             "DataRepo/example_data/obob_sample_table.tsv",
             sample_table_headers="DataRepo/example_data/obob_sample_table_headers.yaml",
         )
-        # not counting the header and BLANK samples
-        cls.ALL_SAMPLES_COUNT = 106
-        # not counting the header and the BLANK animal
-        cls.ALL_ANIMALS_COUNT = 7
 
+        # from DataRepo/example_data/obob_sample_table.tsv, not counting the header and BLANK samples
+        cls.ALL_SAMPLES_COUNT += 106
+        # not counting the header and the BLANK animal
+        cls.ALL_OBOB_ANIMALS_COUNT = 7
+        cls.ALL_ANIMALS_COUNT += cls.ALL_OBOB_ANIMALS_COUNT
+        cls.ALL_STUDIES_COUNT += 1
+
+        call_command(
+            "load_samples",
+            "DataRepo/example_data/serum_lactate_timecourse_treatment.tsv",
+            sample_table_headers="DataRepo/example_data/obob_sample_table_headers.yaml",
+        )
+        # from DataRepo/example_data/serum_lactate_timecourse_treatment.tsv, not counting the header
+        cls.ALL_SAMPLES_COUNT += 24
+        # not counting the header
+        cls.ALL_ANIMALS_COUNT += 5
+        cls.ALL_STUDIES_COUNT += 1
+        
         call_command(
             "load_accucor_msruns",
             protocol="Default",
@@ -310,10 +329,10 @@ class DataLoadingTests(TestCase):
 
         self.assertEqual(Animal.objects.all().count(), self.ALL_ANIMALS_COUNT)
 
-        self.assertEqual(Study.objects.all().count(), 1)
+        self.assertEqual(Study.objects.all().count(), self.ALL_STUDIES_COUNT)
 
         study = Study.objects.get(name="obob_fasted")
-        self.assertEqual(study.animals.count(), self.ALL_ANIMALS_COUNT)
+        self.assertEqual(study.animals.count(), self.ALL_OBOB_ANIMALS_COUNT)
 
         # MsRun should be equivalent to the samples
         MSRUN_COUNT = self.INF_SAMPLES_COUNT + self.SERUM_SAMPLES_COUNT
