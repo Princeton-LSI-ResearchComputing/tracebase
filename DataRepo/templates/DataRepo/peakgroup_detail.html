@@ -17,7 +17,11 @@
         </tr>
         <tr>
             <td>Peak Group Set (Accucor File Name)</td>
-            <td><a href="{% url 'peakgroupset_detail' peakgroup.peak_group_set.id %}">{{ peakgroup.peak_group_set.filename }}</a></td>
+            <td>
+                <a href="{% url 'peakgroupset_detail' peakgroup.peak_group_set.id %}">
+                    {{ peakgroup.peak_group_set.filename }}
+                </a>
+            </td>
         </tr>
         <tr>
             <td>MS Run ID</td>
@@ -25,9 +29,17 @@
         </tr>
         <tr>
             <td>MS Run Sample Name</td>
-            <td><a href="{% url 'sample_detail' peakgroup.ms_run.sample.id %}">{{ peakgroup.ms_run.sample.name }}</a></td>
+            <td>
+                <a href="{% url 'sample_detail' peakgroup.ms_run.sample.id %}">
+                    {{ peakgroup.ms_run.sample.name }}
+                </a>
+            </td>
         </tr>
     </table>
-    <p><a href="{% url 'peakdata_list' %}?peak_group_id={{ peakgroup.id }}">View {{ peakgroup.peak_data.count }} Peak Measurement Data</a></p>
+    <p>
+        <a href="{% url 'peakdata_list' %}?peak_group_id={{ peakgroup.id }}">
+            View {{ peakgroup.peak_data.count }} Peak Measurement Data
+        </a>
+    </p>
 </div>
 {% endblock %}

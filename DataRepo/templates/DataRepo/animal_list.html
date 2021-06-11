@@ -27,7 +27,11 @@
             {% for animal in animal_list %}
             <tr>
             <td><a href="{% url 'animal_detail' animal.id %}">{{ animal.name }}</a></td>
-            <td><a href="{% url 'compound_detail' animal.tracer_compound.id %}">{{ animal.tracer_compound.name }}</a></td>
+            <td>
+                <a href="{% url 'compound_detail' animal.tracer_compound.id %}">
+                    {{ animal.tracer_compound.name }}
+                </a>
+            </td>
             <td>{{ animal.tracer_labeled_atom }}</td>
             <td>{{ animal.tracer_labeled_count }}</td>
             <td>{{ animal.tracer_infusion_rate }}</td>
