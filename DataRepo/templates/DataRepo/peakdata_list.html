@@ -5,23 +5,23 @@
 {% block content %}
 <div>
     <ul>
-        <h3>Peak measurement data:</h3>
+        <h4>List of Peak Data</h4>
 
         {% if peakdata_list %}
         <br>
         <table class="table table-sm table-hover table-bordered table-responsive table-striped w-auto mw-100">
             <tr>
-            <th>Peak Group ID</th>
+            <th>Peak Group Name</th>
             <th>Labeled Element</th>
             <th>Labeled Count</th>
             <th>Raw Abundance</th>
             <th>Corrected Abundance</th>
-            <th>Value for med_mz</th>
-            <th>Value for med_rt</th>
+            <th>Medium Mass/Charge(m/z)</th>
+            <th>Medium Retention Time</th>
             </tr>
             {% for peakdata in peakdata_list %}
             <tr>
-            <td><a href="{% url 'peakgroup_detail' peakdata.peak_group_id %}">{{ peakdata.peak_group_id }}</a></td>
+            <td><a href="{% url 'peakgroup_detail' peakdata.peak_group_id %}">{{ peakdata.peak_group.name }}</a></td>
             <td>{{ peakdata.labeled_element }}</td>
             <td>{{ peakdata.labeled_count }}</td>
             <td>{{ peakdata.raw_abundance }}</td>

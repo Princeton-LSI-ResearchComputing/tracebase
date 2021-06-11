@@ -1,10 +1,23 @@
 {% extends "base.html" %}
 
+{% block title %} Protocol Details{% endblock %}
+
 {% block content %}
 <div>
-    <br>
-    <h4>Protocol Name: {{ protocol.name }}</h4>
-    <h4>Description:</h4>
-    <p>{{ protocol.description }}</p>
+    <h4>Protocol Details:</h4>
+    <table class="table table-bordered table-hover w-auto mw-100">
+        <tr>
+            <td>Name</td>
+            <td>{{ protocol.name }}</td>
+        </tr>
+        <tr>
+            <td>Category</td>
+            <td>{{ protocol.category }}</td>
+        </tr>
+        <tr>
+            <td>Description</td>
+            <td>{{ protocol.description }}</td>
+        </tr>
+    </table>
 </div>
 {% endblock %}

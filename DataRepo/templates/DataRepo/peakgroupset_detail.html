@@ -1,11 +1,20 @@
 {% extends "base.html" %}
 
+{% block title %}Peak Group Set Details{% endblock %}
+
 {% block content %}
 <div>
-    <h4>Peak Group Set:</h4>
+    <h4>Peak Group Set Details :</h4>
     <br>
-    <h5>PeakGroup SET ID : {{ peakgroupset.id }}</h5>
-    <h5>File Name: {{ peakgroupset.filename }}</h5>
-    <h5>File Import Timestamp: {{ peakgroupset.imported_timestamp }}</h5>
+    <table class="table  table-bordered table-hover w-auto mw-100">
+        <tr>
+            <td>AccuCor File Name</td>
+            <td>{{ peakgroupset.filename }}</td>
+        </tr>
+        <tr>
+            <td>File Import Timestamp</td>
+            <td>{{ peakgroupset.imported_timestamp }}</td>
+        </tr>
+    </table>
 </div>
 {% endblock %}

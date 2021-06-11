@@ -1,4 +1,4 @@
-from django.urls import path, re_path
+from django.urls import path
 
 from . import views
 
@@ -26,11 +26,6 @@ urlpatterns = [
     path("animals/", views.AnimalListView.as_view(), name="animal_list"),
     path("animals/<int:pk>/", views.AnimalDetailView.as_view(), name="animal_detail"),
     path("samples/", views.SampleListView.as_view(), name="sample_list"),
-    re_path(
-        r"^samples/(?P<animal_id>\d+$)/",
-        views.SampleListView.as_view(),
-        name="sample_list",
-    ),
     path("samples/<int:pk>/", views.SampleDetailView.as_view(), name="sample_detail"),
     path("msruns/", views.MSRunListView.as_view(), name="msrun_list"),
     path("msruns/<int:pk>/", views.MSRunDetailView.as_view(), name="msrun_detail"),
@@ -43,20 +38,10 @@ urlpatterns = [
         name="peakgroupset_detail",
     ),
     path("peakgroups/", views.PeakGroupListView.as_view(), name="peakgroup_list"),
-    re_path(
-        r"^peakgroups/(?P<ms_run_id>\d+$)/",
-        views.PeakGroupListView.as_view(),
-        name="peakgroup_list",
-    ),
     path(
         "peakgroups/<int:pk>/",
         views.PeakGroupDetailView.as_view(),
         name="peakgroup_detail",
     ),
     path("peakdata/", views.PeakDataListView.as_view(), name="peakdata_list"),
-    re_path(
-        r"^peakdata/(?P<peak_group_id>\d+$)/",
-        views.PeakDataListView.as_view(),
-        name="peakdata_list",
-    ),
 ]

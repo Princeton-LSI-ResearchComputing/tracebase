@@ -1,68 +1,61 @@
 {% extends "base.html" %}
 
+{% block title %}Animal Details{% endblock %}
+
 {% block content %}
 <div>
-    <br>
-    <br>
-    <h4>Animal details:</h4>
-    <h5>Name: {{ animal.name }}</h5>
-    <h5>This animal has {{ animal.samples.count }} samples:
-        <a href="{% url 'sample_list' %}?animal_id={{ animal.id }}"
-        >sample list</a></h5>
-    <br>
-    <h4>Tracer information:</h4>
-    <table class="table  table-bordered table-hover w-auto mw-100">
+    <h4>Animal Details:</h4>
+    <p>Name: {{ animal.name }}</p>
+    <p><a href="{% url 'sample_list' %}?animal_id={{ animal.id }}"
+        > View {{ animal.samples.count }} samples </a></p>
+    <h5>Tracer Information:</h5>
+    <table class="table table-bordered table-hover w-auto mw-100">
         <tr>
-            <td colspan="3">Compound name</td>
+            <td>Compound Name</td>
             <td><a href="{% url 'compound_detail' animal.tracer_compound.id %}">{{ animal.tracer_compound.name }}</a></td>
         </tr>
         <tr>
-            <td colspan="3">Labeled atom</td>
+            <td>Labeled Atom</td>
             <td>{{ animal.tracer_labeled_atom }}</td>
         </tr>
         <tr>
-            <td colspan="3">Labeled count</td>
+            <td>Labeled Count</td>
             <td>{{ animal.tracer_labeled_count }}</td>
         </tr>
         <tr>
-            <td colspan="3">Infusion rate </td>
+            <td>Infusion Rate </td>
             <td>{{ animal.tracer_infusion_rate }}</td>
         </tr>
         <tr>
-            <td colspan="3">Infusion concentration</td>
+            <td>Infusion Concentration</td>
             <td>{{ animal.tracer_infusion_concentration }}</td>
         </tr>
     </table>
-    <br>
-    <h4>Other information:</h4>
-    <table class="table  table-sm table-bordered table-hover w-auto mw-100">
+    <h5>Other Information:</h5>
+    <table class="table table-sm table-bordered table-hover w-auto mw-100">
         <tr>
-            <td colspan="3">Genotype</td>
+            <td>Genotype</td>
             <td>{{ animal.genotype }}</td>
         </tr>
         <tr>
-            <td colspan="3">Body Weight</td>
+            <td>Body Weight</td>
             <td>{{ animal.body_weight }}</td>
         </tr>
         <tr>
-            <td colspan="3">Age</td>
+            <td>Age</td>
             <td>{{ animal.age }}</td>
         </tr>
         <tr>
-            <td colspan="3">Sex</td>
+            <td>Sex</td>
             <td>{{ animal.sex }}</td>
         </tr>
         <tr>
-            <td colspan="3">Diet</td>
+            <td>Diet</td>
             <td>{{ animal.diet }}</td>
         </tr>
         <tr>
-            <td colspan="3">Feeding_status</td>
+            <td>Feeding Status</td>
             <td>{{ animal.feeding_status }}</td>
-        </tr>
-        <tr>
-            <td colspan="3">State</td>
-            <td>{{ animal.state }}</td>
         </tr>
     </table>
 </div>

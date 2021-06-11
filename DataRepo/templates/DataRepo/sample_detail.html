@@ -1,30 +1,35 @@
 {% extends "base.html" %}
 
+{% block title %}Sample Details{% endblock %}
+
 {% block content %}
 <div>
-    <br>
-    <h4>Sample Information</h4>
+    <h4>Sample Details</h4>
     <br>
     <table class="table  table-bordered table-hover w-auto mw-100">
         <tr>
-            <td colspan="3">Sample Name</td>
+            <td>Name</td>
             <td>{{ sample.name }}</td>
         </tr>
         <tr>
-            <td colspan="3">Sample Collection Date</td>
+            <td>Collection Date</td>
             <td>{{ sample.date }}</td>
         </tr>
         <tr>
-            <td colspan="3">Researcher</td>
+            <td>Researcher</td>
             <td>{{ sample.researcher}}</td>
         </tr>
         <tr>
-            <td colspan="3">Animal Name</td>
+            <td>Animal Name</td>
             <td><a href="{% url 'animal_detail' sample.animal.id %}">{{ sample.animal.name }}</a></td>
         </tr>
         <tr>
-            <td colspan="3">Tissue Name</td>
+            <td>Tissue Name</td>
             <td>{{ sample.tissue}}</td>
+        </tr>
+        <tr>
+            <td>Time Collected After Infusion (hh:mm:ss)</td>
+            <td>{{ sample.time_collected}}</td>
         </tr>
     </table>
 </div>

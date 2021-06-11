@@ -1,13 +1,14 @@
 {% extends "base.html" %}
 
+{% block title %}Compound Details{% endblock %}
+
 {% block content %}
 <div>
+    <h4>Compound Details:</h4>
     <br>
-    <h4>Compound Information:</h4>
-    <br>
-    <table class="table  table-bordered table-hover w-auto mw-100">
+    <table class="table table-bordered table-hover w-auto mw-100">
         <tr>
-            <td>Compound name</td>
+            <td>Name</td>
             <td>{{ compound.name }}</td>
         </tr>
         <tr>

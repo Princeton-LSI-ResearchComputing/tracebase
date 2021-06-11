@@ -12,18 +12,17 @@
         <table class="table table-sm table-hover table-bordered table-responsive table-striped w-auto mw-100">
             <tr>
             <th>Name</th>
-            <th>Tracer</th>
-            <th>Tracer labeled atom</th>
-            <th>Tracer labeled count</th>
-            <th>Tracer infusion rate</th>
-            <th>Tracer infusion concentration </th>
+            <th>Tracer(Infusate)</th>
+            <th>Labeled Atom</th>
+            <th>Labeled Count</th>
+            <th>Infusion Rate</th>
+            <th>Infusion Concentration </th>
             <th>Genotype</th>
             <th>Body Weight</th>
             <th>Age</th>
             <th>Sex</th>
             <th>Diet</th>
-            <th>Feeding_status</th>
-            <th>State</th>
+            <th>Feeding Status</th>
             </tr>
             {% for animal in animal_list %}
             <tr>
@@ -39,7 +38,6 @@
             <td>{{ animal.sex }}</td>
             <td>{{ animal.diet }}</td>
             <td>{{ animal.feeding_status }}</td>
-            <td>{{ animal.state }}</td>
             </tr>
             {% endfor %}
         </table>
