@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}Samples{% endblock %}
+
+{% block content %}
+<div>
+    <ul>
+        <h4>List of Samples</h4>
+
+        {% if sample_list %}
+        <br>
+        <table class="table table-sm table-hover table-bordered table-responsive table-striped w-auto mw-100">
+            <tr>
+            <th>Sample</th>
+            <th>Animal</th>
+            <th>Tissue</th>
+            <th>Researcher</th>
+            <th>Collection Date</th>
+            <th>Time Collected After Infusion (hh:mm:ss)</th>
+            </tr>
+            {% for sample in sample_list %}
+            <tr>
+            <td><a href="{% url 'sample_detail' sample.id %}">{{sample.name }}</a></td>
+            <td><a href="{% url 'animal_detail' sample.animal.id %}">{{ sample.animal.name }}</a></td>
+            <td>{{ sample.tissue.name }}</td>
+            <td>{{ sample.researcher }}</td>
+            <td>{{ sample.date }}</td>
+            <td>{{ sample.time_collected }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+        {% else %}
+        <p>There are no samples.</p>
+        {% endif %}
+    </ul>
+</div>
+{% endblock %}

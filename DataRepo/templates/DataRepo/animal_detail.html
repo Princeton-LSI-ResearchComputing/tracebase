@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}Animal Details{% endblock %}
+
+{% block content %}
+<div>
+    <h4>Animal Details:</h4>
+    <p>Name: {{ animal.name }}</p>
+    <p>
+        <a href="{% url 'sample_list' %}?animal_id={{ animal.id }}">
+            View {{ animal.samples.count }} samples
+        </a>
+    </p>
+    <h5>Tracer Information:</h5>
+    <table class="table table-bordered table-hover w-auto mw-100">
+        <tr>
+            <td>Compound Name</td>
+            <td>
+                <a href="{% url 'compound_detail' animal.tracer_compound.id %}">
+                    {{ animal.tracer_compound.name }}
+                </a>
+            </td>
+        </tr>
+        <tr>
+            <td>Labeled Atom</td>
+            <td>{{ animal.tracer_labeled_atom }}</td>
+        </tr>
+        <tr>
+            <td>Labeled Count</td>
+            <td>{{ animal.tracer_labeled_count }}</td>
+        </tr>
+        <tr>
+            <td>Infusion Rate </td>
+            <td>{{ animal.tracer_infusion_rate }}</td>
+        </tr>
+        <tr>
+            <td>Infusion Concentration</td>
+            <td>{{ animal.tracer_infusion_concentration }}</td>
+        </tr>
+    </table>
+    <h5>Other Information:</h5>
+    <table class="table table-sm table-bordered table-hover w-auto mw-100">
+        <tr>
+            <td>Genotype</td>
+            <td>{{ animal.genotype }}</td>
+        </tr>
+        <tr>
+            <td>Body Weight</td>
+            <td>{{ animal.body_weight }}</td>
+        </tr>
+        <tr>
+            <td>Age</td>
+            <td>{{ animal.age }}</td>
+        </tr>
+        <tr>
+            <td>Sex</td>
+            <td>{{ animal.sex }}</td>
+        </tr>
+        <tr>
+            <td>Diet</td>
+            <td>{{ animal.diet }}</td>
+        </tr>
+        <tr>
+            <td>Feeding Status</td>
+            <td>{{ animal.feeding_status }}</td>
+        </tr>
+    </table>
+</div>
+{% endblock %}

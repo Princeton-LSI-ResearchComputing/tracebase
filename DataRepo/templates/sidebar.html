@@ -7,11 +7,12 @@
         <a href="{% url 'home' %}" class="list-group-item list-group-item-action text-primary">Home</a>
         <a href="{% url 'compound_list' %}" class="list-group-item list-group-item-action bg-light">Compounds</a>
         <a href="{% url 'study_list' %}" class="list-group-item list-group-item-action bg-light">Studies</a>
-        <a href="#" class="list-group-item list-group-item-action bg-light">Protocols</a>
-        <a href="#" class="list-group-item list-group-item-action bg-light">Animals</a>
-        <a href="#" class="list-group-item list-group-item-action bg-light">Samples</a>
-        <a href="#" class="list-group-item list-group-item-action bg-light">MS Runs</a>
-        <a href="#" class="list-group-item list-group-item-action bg-light">Peak Groups</a>
-        <a href="#" class="list-group-item list-group-item-action bg-light">Peak Data</a>
+        <a href="{% url 'protocol_list' %}" class="list-group-item list-group-item-action bg-light">Protocols</a>
+        <a href="{% url 'animal_list' %}" class="list-group-item list-group-item-action bg-light">Animals</a>
+        <a href="{% url 'sample_list' %}" class="list-group-item list-group-item-action bg-light">Samples</a>
+        <a href="{% url 'msrun_list' %}" class="list-group-item list-group-item-action bg-light">MS Runs</a>
+        <a href="{% url 'peakgroupset_list' %}" class="list-group-item list-group-item-action bg-light">PeakGroup Sets</a>
+        <a href="{% url 'peakgroup_list' %}" class="list-group-item list-group-item-action bg-light">Peak Groups</a>
+        <a href="{% url 'peakdata_list' %}" class="list-group-item list-group-item-action bg-light">Peak Data</a>
     </div>
 </div>

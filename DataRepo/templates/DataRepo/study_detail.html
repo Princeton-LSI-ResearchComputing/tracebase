@@ -1,11 +1,21 @@
 {% extends "base.html" %}
 
+{% block title %}Study Details{% endblock %}
+
 {% block content %}
 <div>
-    <h4>Study Name: {{ study.name }}</h4>
-    <br>
-    <h4>Description:</h4>
-    <p>{{ study.description }}</p>
+    <h4>Study Details:</h4>
+    <table class="table table-bordered table-hover w-auto mw-100">
+        <tr>
+            <td>Name</td>
+            <td>{{ study.name }}</td>
+        </tr>
+        <tr>
+            <td>Description</td>
+            <td>{{ study.description }}</td>
+        </tr>
+    </table>
+
     <a href="{% url 'search_basic' 'Study' 'id' 'exact' study.id 'peakgroups' %}">View Peak Data</a>
 </div>
 {% endblock %}

@@ -1,9 +1,5 @@
-#wrapper {
-  overflow-x: hidden;
-}
-
 #sidebar-wrapper .list-group {
-  width: 8rem;
+  width: 9rem;
 }
 
 @media (min-width: 768px) {

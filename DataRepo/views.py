@@ -1,9 +1,19 @@
 from django.core.exceptions import FieldError
 from django.http import Http404
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, render
 from django.views.generic import DetailView, ListView
 
-from .models import Compound, PeakData, Study
+from DataRepo.models import (
+    Animal,
+    Compound,
+    MSRun,
+    PeakData,
+    PeakGroup,
+    PeakGroupSet,
+    Protocol,
+    Sample,
+    Study,
+)
 
 
 def home(request):
@@ -24,6 +34,7 @@ class CompoundDetailView(DetailView):
     """Generic class-based detail view for a compound"""
 
     model = Compound
+    template_name = "DataRepo/compound_detail.html"
 
 
 class StudyListView(ListView):
@@ -40,6 +51,7 @@ class StudyDetailView(DetailView):
     """Generic class-based detail view for a study."""
 
     model = Study
+    template_name = "DataRepo/study_detail.html"
 
 
 def search_basic(request, mdl, fld, cmp, val, fmt):
@@ -98,3 +110,158 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
         raise Http404("Results format [" + fmt + "] page not found")
 
     return res
+
+
+class ProtocolListView(ListView):
+    """Generic class-based view for aa list of protocols"""
+
+    model = Protocol
+    context_object_name = "protocol_list"
+    template_name = "DataRepo/protocol_list.html"
+    ordering = ["name"]
+    paginate_by = 20
+
+
+class ProtocolDetailView(DetailView):
+    """Generic class-based detail view for a protocol"""
+
+    model = Protocol
+    template_name = "DataRepo/protocol_detail.html"
+
+
+class AnimalListView(ListView):
+    """Generic class-based view for aa list of animals"""
+
+    model = Animal
+    context_object_name = "animal_list"
+    template_name = "DataRepo/animal_list.html"
+    ordering = ["name"]
+    paginate_by = 20
+
+
+class AnimalDetailView(DetailView):
+    """Generic class-based detail view for an animal"""
+
+    model = Animal
+    template_name = "DataRepo/animal_detail.html"
+
+
+class SampleListView(ListView):
+    """
+    Generic class-based view for a list of samples
+    "model = Sample" is shorthand for queryset = Sample.objects.all()
+    use queryset syntax for sample list with or without filtering
+    """
+
+    # return all samples without query filter
+    queryset = Sample.objects.all()
+    context_object_name = "sample_list"
+    template_name = "DataRepo/sample_list.html"
+    ordering = ["animal_id", "name"]
+    paginate_by = 20
+
+    # filter sample list by animal_id
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        # get query string from request
+        animal_pk = self.request.GET.get("animal_id", None)
+        if animal_pk is not None:
+            self.animal = get_object_or_404(Animal, id=animal_pk)
+            queryset = Sample.objects.filter(animal_id=animal_pk)
+        return queryset
+
+
+class SampleDetailView(DetailView):
+    """Generic class-based detail view for a sample"""
+
+    model = Sample
+    template_name = "DataRepo/sample_detail.html"
+
+
+class MSRunListView(ListView):
+    """Generic class-based view for a list of MS runs"""
+
+    model = MSRun
+    context_object_name = "msrun_list"
+    template_name = "DataRepo/msrun_list.html"
+    ordering = ["id"]
+    paginate_by = 20
+
+
+class MSRunDetailView(DetailView):
+    """Generic class-based detail view for a MS run"""
+
+    model = MSRun
+    template_name = "DataRepo/msrun_detail.html"
+
+
+class PeakGroupSetListView(ListView):
+    """Generic class-based view for a list of PeakGroup sets"""
+
+    model = PeakGroupSet
+    context_object_name = "peakgroupset_list"
+    template_name = "DataRepo/peakgroupset_list.html"
+    ordering = ["id"]
+    paginate_by = 20
+
+
+class PeakGroupSetDetailView(DetailView):
+    """Generic class-based detail view for a PeakGroup set"""
+
+    model = PeakGroupSet
+    template_name = "DataRepo/peakgroupset_detail.html"
+
+
+class PeakGroupListView(ListView):
+    """
+    Generic class-based view for a list of peak groups
+    "model = PeakGroup" is shorthand for queryset = PeakGroup.objects.all()
+    use queryset syntax for PeakGroup list with or without filtering
+    """
+
+    queryset = PeakGroup.objects.all()
+    context_object_name = "peakgroup_list"
+    template_name = "DataRepo/peakgroup_list.html"
+    ordering = ["ms_run_id", "peak_group_set_id", "name"]
+    paginate_by = 50
+
+    # filter the peakgroup_list by ms_run_id
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        # get query string from request
+        msrun_pk = self.request.GET.get("ms_run_id", None)
+        if msrun_pk is not None:
+            self.msrun = get_object_or_404(MSRun, id=msrun_pk)
+            queryset = PeakGroup.objects.filter(ms_run_id=msrun_pk)
+        return queryset
+
+
+class PeakGroupDetailView(DetailView):
+    """Generic class-based detail view for a peak group"""
+
+    model = PeakGroup
+    template_name = "DataRepo/peakgroup_detail.html"
+
+
+class PeakDataListView(ListView):
+    """
+    Generic class-based view for a list of peak data
+    "model = PeakData" is shorthand for queryset = PeakData.objects.all()
+    use queryset syntax for PeakData list with or without filtering
+    """
+
+    queryset = PeakData.objects.all()
+    context_object_name = "peakdata_list"
+    template_name = "DataRepo/peakdata_list.html"
+    ordering = ["peak_group_id", "id"]
+    paginate_by = 200
+
+    # filter peakgdata_list by peak_group_id
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        # get query string from request
+        peakgroup_pk = self.request.GET.get("peak_group_id", None)
+        if peakgroup_pk is not None:
+            self.peakgroup = get_object_or_404(PeakGroup, id=peakgroup_pk)
+            queryset = PeakData.objects.filter(peak_group_id=peakgroup_pk)
+        return queryset

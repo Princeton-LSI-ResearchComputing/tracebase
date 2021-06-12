@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}MS Runs{% endblock %}
+
+{% block content %}
+<div>
+    <ul>
+        <h4>List of MS RUNs</h4>
+
+        {% if msrun_list %}
+        <br>
+        <table class="table table-sm table-hover table-bordered table-responsive table-striped w-auto mw-100">
+            <tr>
+            <th>MSRun ID</th>
+            <th>Sample Name</th>
+            <th>Date</th>
+            <th>Protocol Name</th>
+            <th>Researcher</th>
+            </tr>
+            {% for msrun in msrun_list %}
+            <tr>
+            <td><a href="{% url 'msrun_detail' msrun.id %}">{{ msrun.id }}</a></td>
+            <td><a href="{% url 'sample_detail' msrun.sample.id %}">{{ msrun.sample.name }}</a></td>
+            <td>{{ msrun.date }}</td>
+            <td><a href="{% url 'protocol_detail' msrun.protocol.id %}">{{ msrun.protocol.name }}</a></td>
+            <td>{{ msrun.researcher }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+        {% else %}
+        <p>There are no MS Runs.</p>
+        {% endif %}
+    </ul>
+</div>
+{% endblock %}
