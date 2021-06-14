@@ -5,7 +5,7 @@ from django.core.exceptions import ValidationError
 from django.core.management import call_command
 from django.db import IntegrityError
 from django.db.models.deletion import RestrictedError
-from django.test import TestCase
+from django.test import TestCase, tag
 
 from DataRepo.models import (
     Animal,
@@ -262,6 +262,60 @@ class StudyTests(TestCase, ExampleDataConsumer):
                 name=self.peak_group.name, ms_run=self.msrun
             ),
         )
+
+
+@tag("protocol")
+class ProtocolTests(TestCase):
+    def setUp(self):
+        self.p1 = Protocol.objects.create(
+            name="Protocol 1",
+            category=Protocol.MSRUN_PROTOCOL,
+            description="Description",
+        )
+        self.p1.save()
+
+    def test_retrieve_protocol_by_id(self):
+        p = Protocol.objects.filter(name="Protocol 1").get()
+        ptest = Protocol.Retrieve_protocol(
+            protocol_input=p.id,
+            category=Protocol.MSRUN_PROTOCOL,
+            provisional_description="Description",
+        )
+        self.assertEqual(self.p1, ptest)
+
+    def test_retrieve_protocol_by_name(self):
+        ptest = Protocol.Retrieve_protocol(
+            protocol_input="Protocol 1",
+            category=Protocol.MSRUN_PROTOCOL,
+            provisional_description="Description",
+        )
+        self.assertEqual(self.p1, ptest)
+
+    def test_create_protocol_by_name(self):
+        test_protocol_name = "Protocol 2"
+        ptest = Protocol.Retrieve_protocol(
+            protocol_input=test_protocol_name,
+            category=Protocol.MSRUN_PROTOCOL,
+            provisional_description="Description",
+        )
+        self.assertEqual(ptest, Protocol.objects.filter(name=test_protocol_name).get())
+
+    def test_get_protocol_by_id_dne(self):
+        with self.assertRaises(Protocol.DoesNotExist):
+            Protocol.Retrieve_protocol(
+                protocol_input=100,
+                category=Protocol.MSRUN_PROTOCOL,
+                provisional_description="Description",
+            )
+
+    def test_create_protocol_by_invalid_category(self):
+        test_protocol_name = "Protocol 2"
+        with self.assertRaises(ValidationError):
+            Protocol.Retrieve_protocol(
+                protocol_input=test_protocol_name,
+                category="Invalid Category",
+                provisional_description="Description",
+            )
 
 
 class DataLoadingTests(TestCase):
