@@ -45,6 +45,7 @@ class SampleTableLoader:
             "ANIMAL_FEEDING_STATUS",
             "ANIMAL_DIET",
             "ANIMAL_STATE",
+            "ANIMAL_TREATMENT",
             "TRACER_COMPOUND_NAME",
             "TRACER_LABELED_ELEMENT",
             "TRACER_LABELED_COUNT",
@@ -69,6 +70,7 @@ class SampleTableLoader:
         ANIMAL_FEEDING_STATUS="ANIMAL_FEEDING_STATUS",
         ANIMAL_DIET="ANIMAL_DIET",
         ANIMAL_STATE="ANIMAL_STATE",
+        ANIMAL_TREATMENT="ANIMAL_TREATMENT",
         TRACER_COMPOUND_NAME="TRACER_COMPOUND_NAME",
         TRACER_LABELED_ELEMENT="TRACER_LABELED_ELEMENT",
         TRACER_LABELED_COUNT="TRACER_LABELED_COUNT",
@@ -152,6 +154,19 @@ class SampleTableLoader:
                         animal_sex_string, animal.SEX_CHOICES
                     )
                 animal.sex = animal_sex
+            if self.headers.ANIMAL_TREATMENT:
+                # Animal Treatments are optional protocols
+                try:
+                    protocol_input = row[self.headers.ANIMAL_TREATMENT]
+                    researcher = row[self.headers.SAMPLE_RESEARCHER]
+                    animal.treatment = Protocol.Retrieve_protocol(
+                        protocol_input=protocol_input,
+                        category=Protocol.ANIMAL_TREATMENT,
+                        provisional_description=f"For protocol's full text, please consult {researcher}.",
+                    )
+                except KeyError:
+                    print("No recorded treatment.")
+
             if self.headers.TRACER_COMPOUND_NAME:
                 try:
                     tracer_compound_name = row[self.headers.TRACER_COMPOUND_NAME]
@@ -169,7 +184,9 @@ class SampleTableLoader:
                 )
                 animal.tracer_labeled_atom = tracer_labeled_atom
             if self.headers.TRACER_LABELED_COUNT:
-                animal.tracer_labeled_count = int(row[self.headers.TRACER_LABELED_COUNT])
+                animal.tracer_labeled_count = int(
+                    row[self.headers.TRACER_LABELED_COUNT]
+                )
             if self.headers.TRACER_INFUSION_RATE:
                 animal.tracer_infusion_rate = row[self.headers.TRACER_INFUSION_RATE]
             if self.headers.TRACER_INFUSION_CONCENTRATION:
@@ -440,29 +457,13 @@ class AccuCorDataLoader:
         """
         retrieve or insert a protocol, based on input
         """
-        print(f"Finding or inserting protocol for '{self.protocol_input}'...")
 
-        action = "Found"
-
-        if self.is_integer(self.protocol_input):
-            try:
-                self.protocol = Protocol.objects.get(id=self.protocol_input)
-            except Protocol.DoesNotExist as e:
-                print("Protocol does not exist.")
-                raise e
-        else:
-            try:
-                self.protocol, created = Protocol.objects.get_or_create(
-                    name=self.protocol_input
-                )
-
-                if created:
-                    action = "Created"
-            except Exception as e:
-                print(f"Failed to get or create protocol {self.protocol_input}")
-                raise e
-
-        print(f"{action} protocol {self.protocol.id} '{self.protocol.name}'")
+        category = Protocol.MSRUN_PROTOCOL
+        self.protocol = Protocol.Retrieve_protocol(
+            protocol_input=self.protocol_input,
+            category=category,
+            provisional_description=f"For protocol's full text, please consult {self.researcher}.",
+        )
 
     def insert_peak_group_set(self):
         self.peak_group_set = PeakGroupSet(filename=self.peak_group_set_filename_input)

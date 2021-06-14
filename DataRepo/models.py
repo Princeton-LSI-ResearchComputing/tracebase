@@ -93,10 +93,63 @@ class Protocol(models.Model):
     category = models.CharField(
         max_length=256,
         choices=CATEGORY_CHOICES,
-        default=MSRUN_PROTOCOL,
         help_text="Classification of the protocol, "
         "e.g. an animal treatment or MSRun procedure.",
     )
+
+    @classmethod
+    def Retrieve_protocol(cls, **kwargs):
+        """
+        retrieve or insert a protocol, based on input.
+        protocol_input can either be a name or an integer (protocol_id)
+        """
+        protocol_input = kwargs.get("protocol_input")
+        category = kwargs.get("category")
+
+        print(f"Finding or inserting {category} protocol for '{protocol_input}'...")
+
+        action = "Found"
+
+        if cls.Is_integer(protocol_input):
+
+            try:
+                protocol = Protocol.objects.get(id=protocol_input)
+            except Protocol.DoesNotExist as e:
+                print("Protocol does not exist.")
+                raise e
+        else:
+            try:
+                protocol, created = Protocol.objects.get_or_create(
+                    name=protocol_input,
+                    category=category,
+                )
+
+                if created:
+                    action = "Created"
+                    # add the provisional description
+                    description = kwargs.get("provisional_description")
+                    if description is not None:
+                        protocol.description = description
+                        protocol.full_clean()
+                        protocol.save()
+
+            except Exception as e:
+                print(f"Failed to get or create {category} protocol {protocol_input}")
+                raise e
+
+        print(
+            f"{action} {category} protocol {protocol.id} '{protocol.name}' '{protocol.description}'"
+        )
+        return protocol
+
+    # may want to move this to a site-utility class, sometime
+    @classmethod
+    def Is_integer(cls, data):
+        try:
+            int(data)
+            return True
+        except ValueError:
+            return False
 
     class Meta:
         verbose_name = "protocol"

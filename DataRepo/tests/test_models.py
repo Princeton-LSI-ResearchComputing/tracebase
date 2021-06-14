@@ -298,7 +298,7 @@ class DataLoadingTests(TestCase):
         # not counting the header
         cls.ALL_ANIMALS_COUNT += 5
         cls.ALL_STUDIES_COUNT += 1
-        
+
         call_command(
             "load_accucor_msruns",
             protocol="Default",
@@ -358,6 +358,16 @@ class DataLoadingTests(TestCase):
         self.assertEqual(a.tracer_compound, c)
         self.assertEqual(a.tracer_labeled_atom, TracerLabeledClass.CARBON)
         self.assertEqual(a.sex, None)
+
+    def test_animal_treatments_loaded(self):
+        a = Animal.objects.get(name="969")
+        self.assertEqual(a.treatment, None)
+        a = Animal.objects.get(name="exp024f_M2")
+        self.assertEqual(a.treatment.name, "T3")
+        self.assertEqual(
+            a.treatment.description,
+            "For protocol's full text, please consult Michael Neinast.",
+        )
 
     def test_peak_groups_loaded(self):
         # inf data file: compounds * samples
