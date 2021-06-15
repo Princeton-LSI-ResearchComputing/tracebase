@@ -4,6 +4,14 @@ from . import views
 
 urlpatterns = [
     path("", views.home, name="home"),
+
+    path(
+        "search_basic/<str:mdl>/<str:fld>/<str:cmp>/<str:val>/<str:fmt>/",
+        views.search_basic,
+        name="search_basic",
+    ),
+    path("search_peakgroups/", views.AdvSearchPeakGroupsFmtView.as_view(), name="search_peakgroups"),
+
     path("compounds/", views.CompoundListView.as_view(), name="compound_list"),
     path(
         "compounds/<int:pk>/",
@@ -12,11 +20,6 @@ urlpatterns = [
     ),
     path("studies/", views.StudyListView.as_view(), name="study_list"),
     path("studies/<int:pk>/", views.StudyDetailView.as_view(), name="study_detail"),
-    path(
-        "search_basic/<str:mdl>/<str:fld>/<str:cmp>/<str:val>/<str:fmt>/",
-        views.search_basic,
-        name="search_basic",
-    ),
     path("protocols/", views.ProtocolListView.as_view(), name="protocol_list"),
     path(
         "protocols/<int:pk>/",
