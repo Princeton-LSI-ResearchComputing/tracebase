@@ -2,6 +2,11 @@ from django.core.exceptions import FieldError
 from django.http import Http404
 from django.shortcuts import get_object_or_404, render
 from django.views.generic import DetailView, ListView
+from django.views.generic.edit import FormView
+from django.db.models import Q
+from django.forms import formset_factory
+
+from DataRepo.forms import AdvSearchPeakGroupsForm
 
 from DataRepo.models import (
     Animal,
@@ -13,6 +18,7 @@ from DataRepo.models import (
     Protocol,
     Sample,
     Study,
+#    TracerLabeledClass,
 )
 
 
@@ -110,6 +116,57 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
         raise Http404("Results format [" + fmt + "] page not found")
 
     return res
+
+
+#def search_advanced_start(request):
+#    text_cmps = [
+#        {"show":"is","cmp":"iexact"},
+#        {"show":"is not","cmp":"not_iexact"},
+#        {"show":"starts with","cmp":"istartswith"},
+#        {"show":"doesn't start with","cmp":"not_istartswith"},
+#        {"show":"contains","cmp":"icontains"},
+#        {"show":"doesn't contain","cmp":"not_icontains"},
+#        {"show":"ends with","cmp":"iendswith"},
+#        {"show":"doesn't end with","cmp":"not_iendswith"}
+#    ]
+#    searchables = {}
+#    searchables["fmt"] = {}
+#    searchables["fmt"]["peakgroups"] = {
+#        "Compound": {
+#            "entry_type": "textbox",
+#            "comparators": text_cmps,
+#            "field": "peak_group__name"
+#        },
+#        "Atom": {
+#            "entry_type": "select",
+#            "options": TracerLabeledClass.tracer_labeled_elements_list(),
+#            "field": "labeled_element"
+#        }
+#    }
+#    return render(request, "search_advanced.html", {"searchables": searchables})
+
+
+class AdvSearchPeakGroupsFmtView(FormView):
+    form_class = formset_factory(AdvSearchPeakGroupsForm)
+    template_name = 'DataRepo/peakgroups_results2.html'
+    success_url = ''
+
+    def form_valid(self, form):
+        # Build the query chain
+        criteria = []
+        for form_query in form.cleaned_data:
+            cmp = form_query['ncmp'].replace("not_", "", 1)
+            q = {'{0}__{1}'.format(form_query['fld'], cmp): form_query['val']}
+            if cmp == form_query['ncmp']:
+                criteria.append(Q(**q))
+            else:
+                criteria.append(~Q(**q))
+
+        res = PeakData.objects.filter(*criteria).prefetch_related(
+            "peak_group__ms_run__sample__animal__studies"
+        )
+
+        return self.render_to_response(self.get_context_data(res=res, form=form))
 
 
 class ProtocolListView(ListView):
