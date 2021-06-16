@@ -1,170 +1,171 @@
 {% extends "base.html" %}
 {% load static %}
 
+{% block head_extras %}
+    {{ block.super }}
+    <script src="{% static 'js/jquery-3.6.0.js' %}"></script>
+    <script src="{% static 'js/django-dynamic-formset-1.2.2/jquery.formset.js' %}"></script>
+    <script>
+        $(function() {
+            $('#advsrchpg tr').formset({
+                addText: '<img src="{% static "images/plus.png" %}" />',
+                deleteText: '<img src="{% static "images/minus.png" %}" />'
+            });
+        })
+    </script>
+{% endblock %}
+
 {% block content %}
-<script src="{% static 'js/jquery-3.6.0.js' %}"></script>
-<script src="{% static 'js/django-dynamic-formset-1.2.2/jquery.formset.js' %}"></script>
-<script>
-    $(function() {
-        $('#advsrchpg tbody tr').formset({
-            addText: '<img src="{% static "images/plus.png" %}" />',
-            deleteText: '<img src="{% static "images/minus.png" %}" />'
-        });
-    })
-</script>
+    <div>
+        <h3>Advanced Peak Groups Search</h3>
+        <form action="" method="POST">
+            {% csrf_token %}
+            <table>
+                <tr>
+                    <td>
+                        <table id="advsrchpg">
+                            {% for f in form %}
+                                <tr>
+                                    <td>
+                                        <div>
+                                            {{ f.fld }}
+                                            <label class="error">{{ f.fld.errors }}</label>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div>
+                                            {{ f.ncmp }}
+                                            <label class="error">{{ f.ncmp.errors }}</label>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div>
+                                            {{ f.val }}
+                                            <label class="error">{{ f.val.errors }}</label>
+                                        </div>
+                                    </td>
+                                    <td></td>
+                                </tr>
+                            {% endfor %}
+                        </table>
+                    </td>
+                    <td class="align-bottom ps-5">
+                        {{ form.management_form }}
+                        <button type="submit" class="btn btn-primary">Search</button>
+                    </td>
+                </tr>
+            </table>
+        </form>
+    </div>
+    <hr>
+    <div>
+        <h3>Peak Group Results</h3>
+        {% if res %}
+            <table class="table table-success table-hover table-striped table-bordered">
+                <tr>
+                    <th>Compound</th>
+                    <th>Atom:Label</th>
+                    <th>Sample</th>
+                    <th>Fraction</th>
+                    <th>Tissue</th>
+                    <th>Mouse</th>
+                    <th>TIC</th>
+                    <th>NormFraction</th>
+                    <th>Infusate</th>
+                    <th>Experiment</th>
+                    <th>Feeding Status</th>
+                    <th>Infusion Rate</th>
+                    <th>[Infusate]</th>
+                </tr>
 
-<div>
-    <h3>Advanced Peak Groups Search</h3>
-    <form action="" method="POST">
-        {% csrf_token %}
-        <table>
-            <tr>
-                <td>
-                    <table id="advsrchpg">
-                        <tbody>
-                        {% for f in form %}
-                            <tr>
-                                <td>
-                                    <div>
-                                        {{ f.fld }}
-                                        <label class="error">{{ f.fld.errors }}</label>
-                                    </div>
-                                </td>
-                                <td>
-                                    <div>
-                                        {{ f.ncmp }}
-                                        <label class="error">{{ f.ncmp.errors }}</label>
-                                    </div>
-                                </td>
-                                <td>
-                                    <div>
-                                        {{ f.val }}
-                                        <label class="error">{{ f.val.errors }}</label>
-                                    </div>
-                                </td>
-                                <td></td>
-                            </tr>
-                        {% endfor %}
-                        </tbody>
-                    </table>
-                </td>
-                <td class="align-bottom ps-5">
-                    {{ form.management_form }}
-                    <button type="submit" class="btn btn-primary">Search</button>
-                </td>
-            </tr>
-        </table>
-    </form>
-</div>
-<hr>
-<div>
-    <h3>Peak Group Results</h3>
-    {% if res %}
-        <table class="table table-success table-hover table-striped table-bordered">
-            <tr>
-                <th>Compound</th>
-                <th>Atom:Label</th>
-                <th>Sample</th>
-                <th>Fraction</th>
-                <th>Tissue</th>
-                <th>Mouse</th>
-                <th>TIC</th>
-                <th>NormFraction</th>
-                <th>Infusate</th>
-                <th>Experiment</th>
-                <th>Feeding Status</th>
-                <th>Infusion Rate</th>
-                <th>[Infusate]</th>
-            </tr>
-
-            {% for pd in res.all %}
-                {% for study in pd.peak_group.ms_run.sample.animal.studies.all %}
-                    <tr>
-                        <!-- Compound -->
-                        <td>
-                            <!-- TODO: add the view link here when it is added for this model -->
-                            <a href="{% url 'sample_detail' pd.peak_group.id %}">
-                                {{ pd.peak_group.name }}
-                            </a>
-                        </td>
-
-                        <!-- Atom Label -->
-                        <td>
-                            {{ pd.labeled_element }}:{{ pd.labeled_count }}
-                        </td>
-
-                        <!-- Sample -->
-                        <td>
-                            <div class="nobr">
+                {% for pd in res.all %}
+                    {% for study in pd.peak_group.ms_run.sample.animal.studies.all %}
+                        <tr>
+                            <!-- Compound -->
+                            <td>
                                 <!-- TODO: add the view link here when it is added for this model -->
-                                <a href="{% url 'sample_detail' pd.peak_group.ms_run.sample.id %}">
-                                    {{ pd.peak_group.ms_run.sample.name }}
+                                <a href="{% url 'sample_detail' pd.peak_group.id %}">
+                                    {{ pd.peak_group.name }}
                                 </a>
-                            </div>
-                        </td>
+                            </td>
 
-                        <!-- Fraction -->
-                        <td class="text-end">
-                            <p title="{{ pd.fraction }}">{{ pd.fraction|floatformat:4 }}</p>
-                        </td>
+                            <!-- Atom Label -->
+                            <td>
+                                {{ pd.labeled_element }}:{{ pd.labeled_count }}
+                            </td>
 
-                        <!-- Tissue -->
-                        <td>
-                            {{ pd.peak_group.ms_run.sample.tissue.name }}
-                        </td>
+                            <!-- Sample -->
+                            <td>
+                                <div class="nobr">
+                                    <!-- TODO: add the view link here when it is added for this model -->
+                                    <a href="{% url 'sample_detail' pd.peak_group.ms_run.sample.id %}">
+                                        {{ pd.peak_group.ms_run.sample.name }}
+                                    </a>
+                                </div>
+                            </td>
 
-                        <!-- Mouse -->
-                        <td>
-                            <!-- TODO: add the view link here when it is added for this model -->
-                            <a href="{% url 'animal_detail' pd.peak_group.ms_run.sample.animal.id %}">
-                                {{ pd.peak_group.ms_run.sample.animal.name }}
-                            </a>
-                        </td>
+                            <!-- Fraction -->
+                            <td class="text-end">
+                                <p title="{{ pd.fraction }}">{{ pd.fraction|floatformat:4 }}</p>
+                            </td>
 
-                        <!-- TIC -->
-                        <td class="text-end">
-                            <p title="{{ pd.peak_group.total_abundance }}">{{ pd.peak_group.total_abundance|floatformat:1 }}</p>
-                        </td>
+                            <!-- Tissue -->
+                            <td>
+                                {{ pd.peak_group.ms_run.sample.tissue.name }}
+                            </td>
 
-                        <!-- NormFraction -->
-                        <td class="text-end">
-                            <p title="{{ pd.peak_group.normalized_labeling }}">{{ pd.peak_group.normalized_labeling|floatformat:4 }}</p>
-                        </td>
+                            <!-- Mouse -->
+                            <td>
+                                <!-- TODO: add the view link here when it is added for this model -->
+                                <a href="{% url 'animal_detail' pd.peak_group.ms_run.sample.animal.id %}">
+                                    {{ pd.peak_group.ms_run.sample.animal.name }}
+                                </a>
+                            </td>
 
-                        <!-- Infusate -->
-                        <td>
-                            {{ pd.peak_group.ms_run.sample.animal.tracer_compound.name }}
-                        </td>
+                            <!-- TIC -->
+                            <td class="text-end">
+                                <p title="{{ pd.peak_group.total_abundance }}">{{ pd.peak_group.total_abundance|floatformat:1 }}</p>
+                            </td>
 
-                        <!-- Experiment -->
-                        <td>
-                            <a href="{% url 'study_detail' study.id %}">
-                                {{ study.name }}
-                            </a>
-                        </td>
+                            <!-- NormFraction -->
+                            <td class="text-end">
+                                <p title="{{ pd.peak_group.normalized_labeling }}">{{ pd.peak_group.normalized_labeling|floatformat:4 }}</p>
+                            </td>
 
-                        <!-- Feeding Status -->
-                        <td>
-                            {{ pd.peak_group.ms_run.sample.animal.feeding_status }}
-                        </td>
+                            <!-- Infusate -->
+                            <td>
+                                {{ pd.peak_group.ms_run.sample.animal.tracer_compound.name }}
+                            </td>
 
-                        <!-- Infusion Rate -->
-                        <td class="text-end">
-                            {{ pd.peak_group.ms_run.sample.animal.tracer_infusion_rate }}
-                        </td>
+                            <!-- Experiment -->
+                            <td>
+                                <a href="{% url 'study_detail' study.id %}">
+                                    {{ study.name }}
+                                </a>
+                            </td>
 
-                        <!-- [Infusate] -->
-                        <td class="text-end">
-                            {{ pd.peak_group.ms_run.sample.animal.tracer_infusion_concentration }}
-                        </td>
-                    </tr>
+                            <!-- Feeding Status -->
+                            <td>
+                                {{ pd.peak_group.ms_run.sample.animal.feeding_status }}
+                            </td>
+
+                            <!-- Infusion Rate -->
+                            <td class="text-end">
+                                {{ pd.peak_group.ms_run.sample.animal.tracer_infusion_rate }}
+                            </td>
+
+                            <!-- [Infusate] -->
+                            <td class="text-end">
+                                {{ pd.peak_group.ms_run.sample.animal.tracer_infusion_concentration }}
+                            </td>
+                        </tr>
+                    {% endfor %}
                 {% endfor %}
-            {% endfor %}
-        </table>
-    {% else %}
-        <p>No PeakGroup data found.<!-- where [{{ qry.mdl }}.{{ qry.fld }}] has a
-            match of type [{{ qry.cmp }}] to value [{{ qry.val }}], given the
-            table/fields in the {{ qry.fmt }} format. --></p>
-    {% endif %}
-</div>
+            </table>
+        {% else %}
+            <p>No PeakGroup data found.<!-- where [{{ qry.mdl }}.{{ qry.fld }}] has a
+                match of type [{{ qry.cmp }}] to value [{{ qry.val }}], given the
+                table/fields in the {{ qry.fmt }} format. --></p>
+        {% endif %}
+    </div>
 {% endblock %}
