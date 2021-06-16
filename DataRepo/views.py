@@ -162,9 +162,14 @@ class AdvSearchPeakGroupsFmtView(FormView):
             else:
                 criteria.append(~Q(**q))
 
-        res = PeakData.objects.filter(*criteria).prefetch_related(
-            "peak_group__ms_run__sample__animal__studies"
-        )
+        if len(criteria) == 0:
+            res = PeakData.objects.all().prefetch_related(
+                "peak_group__ms_run__sample__animal__studies"
+            )
+        else:
+            res = PeakData.objects.filter(*criteria).prefetch_related(
+                "peak_group__ms_run__sample__animal__studies"
+            )
 
         return self.render_to_response(self.get_context_data(res=res, form=form))
 
