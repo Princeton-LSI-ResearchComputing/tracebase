@@ -98,38 +98,29 @@ class Protocol(models.Model):
     )
 
     @classmethod
-    def Retrieve_protocol(cls, **kwargs):
+    def retrieve_or_create_protocol(
+        cls, protocol_input, category, provisional_description
+    ):
         """
-        retrieve or insert a protocol, based on input.
+        retrieve or create a protocol, based on input.
         protocol_input can either be a name or an integer (protocol_id)
         """
-        protocol_input = kwargs.get("protocol_input")
-        category = kwargs.get("category")
 
-        print(f"Finding or inserting {category} protocol for '{protocol_input}'...")
+        created = False
 
-        action = "Found"
-
-        if cls.Is_integer(protocol_input):
-
-            try:
-                protocol = Protocol.objects.get(id=protocol_input)
-            except Protocol.DoesNotExist as e:
-                print("Protocol does not exist.")
-                raise e
-        else:
+        try:
+            protocol = Protocol.objects.get(id=protocol_input)
+        except ValueError:
+            # protocol_input must not be an integer; try the name
             try:
                 protocol, created = Protocol.objects.get_or_create(
                     name=protocol_input,
                     category=category,
                 )
-
                 if created:
-                    action = "Created"
                     # add the provisional description
-                    description = kwargs.get("provisional_description")
-                    if description is not None:
-                        protocol.description = description
+                    if provisional_description is not None:
+                        protocol.description = provisional_description
                         protocol.full_clean()
                         protocol.save()
 
@@ -137,19 +128,11 @@ class Protocol(models.Model):
                 print(f"Failed to get or create {category} protocol {protocol_input}")
                 raise e
 
-        print(
-            f"{action} {category} protocol {protocol.id} '{protocol.name}' '{protocol.description}'"
-        )
-        return protocol
-
-    # may want to move this to a site-utility class, sometime
-    @classmethod
-    def Is_integer(cls, data):
-        try:
-            int(data)
-            return True
-        except ValueError:
-            return False
+        except Protocol.DoesNotExist as e:
+            # protocol_input was an integer, but was not found
+            print(f"Protocol ID {protocol_input} does not exist.")
+            raise e
+        return (protocol, created)
 
     class Meta:
         verbose_name = "protocol"

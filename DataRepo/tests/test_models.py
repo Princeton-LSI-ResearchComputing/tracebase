@@ -276,45 +276,45 @@ class ProtocolTests(TestCase):
 
     def test_retrieve_protocol_by_id(self):
         p = Protocol.objects.filter(name="Protocol 1").get()
-        ptest = Protocol.Retrieve_protocol(
-            protocol_input=p.id,
-            category=Protocol.MSRUN_PROTOCOL,
-            provisional_description="Description",
+        ptest, created = Protocol.retrieve_or_create_protocol(
+            p.id,
+            Protocol.MSRUN_PROTOCOL,
+            "Description",
         )
         self.assertEqual(self.p1, ptest)
 
     def test_retrieve_protocol_by_name(self):
-        ptest = Protocol.Retrieve_protocol(
-            protocol_input="Protocol 1",
-            category=Protocol.MSRUN_PROTOCOL,
-            provisional_description="Description",
+        ptest, created = Protocol.retrieve_or_create_protocol(
+            "Protocol 1",
+            Protocol.MSRUN_PROTOCOL,
+            "Description",
         )
         self.assertEqual(self.p1, ptest)
 
     def test_create_protocol_by_name(self):
         test_protocol_name = "Protocol 2"
-        ptest = Protocol.Retrieve_protocol(
-            protocol_input=test_protocol_name,
-            category=Protocol.MSRUN_PROTOCOL,
-            provisional_description="Description",
+        ptest, created = Protocol.retrieve_or_create_protocol(
+            test_protocol_name,
+            Protocol.MSRUN_PROTOCOL,
+            "Description",
         )
         self.assertEqual(ptest, Protocol.objects.filter(name=test_protocol_name).get())
 
     def test_get_protocol_by_id_dne(self):
         with self.assertRaises(Protocol.DoesNotExist):
-            Protocol.Retrieve_protocol(
-                protocol_input=100,
-                category=Protocol.MSRUN_PROTOCOL,
-                provisional_description="Description",
+            Protocol.retrieve_or_create_protocol(
+                100,
+                Protocol.MSRUN_PROTOCOL,
+                "Description",
             )
 
     def test_create_protocol_by_invalid_category(self):
         test_protocol_name = "Protocol 2"
         with self.assertRaises(ValidationError):
-            Protocol.Retrieve_protocol(
-                protocol_input=test_protocol_name,
-                category="Invalid Category",
-                provisional_description="Description",
+            Protocol.retrieve_or_create_protocol(
+                test_protocol_name,
+                "Invalid Category",
+                "Description",
             )
 
 
@@ -422,6 +422,12 @@ class DataLoadingTests(TestCase):
             a.treatment.description,
             "For protocol's full text, please consult Michael Neinast.",
         )
+
+    def test_restricted_animal_treatment_deletion(self):
+        treatment = Animal.objects.get(name="exp024f_M2").treatment
+        with self.assertRaises(RestrictedError):
+            # test a restricted deletion
+            treatment.delete()
 
     def test_peak_groups_loaded(self):
         # inf data file: compounds * samples

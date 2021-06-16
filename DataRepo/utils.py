@@ -158,12 +158,23 @@ class SampleTableLoader:
                 # Animal Treatments are optional protocols
                 try:
                     protocol_input = row[self.headers.ANIMAL_TREATMENT]
+                    category = Protocol.ANIMAL_TREATMENT
                     researcher = row[self.headers.SAMPLE_RESEARCHER]
-                    animal.treatment = Protocol.Retrieve_protocol(
-                        protocol_input=protocol_input,
-                        category=Protocol.ANIMAL_TREATMENT,
-                        provisional_description=f"For protocol's full text, please consult {researcher}.",
+                    print(
+                        f"Finding or inserting {category} protocol for '{protocol_input}'..."
                     )
+                    animal.treatment, created = Protocol.retrieve_or_create_protocol(
+                        protocol_input,
+                        category,
+                        f"For protocol's full text, please consult {researcher}.",
+                    )
+                    action = "Found"
+                    feedback = f"{animal.treatment.category} protocol {animal.treatment.id} '{animal.treatment.name}'"
+                    if created:
+                        action = "Created"
+                        feedback += f" '{animal.treatment.description}'"
+                    print(f"{action} {feedback}")
+
                 except KeyError:
                     print("No recorded treatment.")
 
@@ -260,7 +271,7 @@ class AccuCorDataLoader:
 
         self.retrieve_samples()
 
-        self.retrieve_protocol()
+        self.retrieve_or_create_protocol()
 
         # cross validate peak_groups/compounds in database
         self.validate_peak_groups()
@@ -453,17 +464,24 @@ class AccuCorDataLoader:
 
         assert missing_compounds == 0, f"{missing_compounds} compounds are missing."
 
-    def retrieve_protocol(self):
+    def retrieve_or_create_protocol(self):
         """
         retrieve or insert a protocol, based on input
         """
-
-        category = Protocol.MSRUN_PROTOCOL
-        self.protocol = Protocol.Retrieve_protocol(
-            protocol_input=self.protocol_input,
-            category=category,
-            provisional_description=f"For protocol's full text, please consult {self.researcher}.",
+        print(
+            f"Finding or inserting {Protocol.MSRUN_PROTOCOL} protocol for '{self.protocol_input}'..."
         )
+        self.protocol, created = Protocol.retrieve_or_create_protocol(
+            self.protocol_input,
+            Protocol.MSRUN_PROTOCOL,
+            f"For protocol's full text, please consult {self.researcher}.",
+        )
+        action = "Found"
+        feedback = f"{self.protocol.category} protocol {self.protocol.id} '{self.protocol.name}'"
+        if created:
+            action = "Created"
+            feedback += f" '{self.protocol.description}'"
+        print(f"{action} {feedback}")
 
     def insert_peak_group_set(self):
         self.peak_group_set = PeakGroupSet(filename=self.peak_group_set_filename_input)
