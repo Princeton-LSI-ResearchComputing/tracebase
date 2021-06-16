@@ -14,6 +14,7 @@ ANIMAL_GENOTYPE: "Animal Genotype"
 ANIMAL_FEEDING_STATUS: "Animal State"
 ANIMAL_DIET:
 ANIMAL_STATE:
+ANIMAL_TREATMENT: "Animal Treatment"
 TRACER_COMPOUND_NAME: "Infusate Compound"
 TRACER_LABELED_ELEMENT: "Infusate Labeled Atom"
 TRACER_LABELED_COUNT: "Infusate Label Atom Count"

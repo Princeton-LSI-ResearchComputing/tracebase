@@ -5,7 +5,7 @@ from django.core.exceptions import ValidationError
 from django.core.management import call_command
 from django.db import IntegrityError
 from django.db.models.deletion import RestrictedError
-from django.test import TestCase
+from django.test import TestCase, tag
 
 from DataRepo.models import (
     Animal,
@@ -264,21 +264,90 @@ class StudyTests(TestCase, ExampleDataConsumer):
         )
 
 
+@tag("protocol")
+class ProtocolTests(TestCase):
+    def setUp(self):
+        self.p1 = Protocol.objects.create(
+            name="Protocol 1",
+            category=Protocol.MSRUN_PROTOCOL,
+            description="Description",
+        )
+        self.p1.save()
+
+    def test_retrieve_protocol_by_id(self):
+        p = Protocol.objects.filter(name="Protocol 1").get()
+        ptest, created = Protocol.retrieve_or_create_protocol(p.id)
+        self.assertEqual(self.p1, ptest)
+
+    def test_retrieve_protocol_by_name(self):
+        ptest, created = Protocol.retrieve_or_create_protocol(
+            "Protocol 1",
+            Protocol.MSRUN_PROTOCOL,
+            "Description",
+        )
+        self.assertEqual(self.p1, ptest)
+
+    def test_create_protocol_by_name(self):
+        test_protocol_name = "Protocol 2"
+        ptest, created = Protocol.retrieve_or_create_protocol(
+            test_protocol_name,
+            Protocol.MSRUN_PROTOCOL,
+            "Description",
+        )
+        self.assertEqual(ptest, Protocol.objects.filter(name=test_protocol_name).get())
+
+    def test_get_protocol_by_id_dne(self):
+        with self.assertRaises(Protocol.DoesNotExist):
+            Protocol.retrieve_or_create_protocol(
+                100,
+                Protocol.MSRUN_PROTOCOL,
+                "Description",
+            )
+
+    def test_create_protocol_by_invalid_category(self):
+        test_protocol_name = "Protocol 2"
+        with self.assertRaises(ValidationError):
+            Protocol.retrieve_or_create_protocol(
+                test_protocol_name,
+                "Invalid Category",
+                "Description",
+            )
+
+
 class DataLoadingTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         call_command("load_compounds", "DataRepo/example_data/obob_compounds.tsv")
         cls.ALL_COMPOUNDS_COUNT = 32
 
+        # initialize some sample-table-dependent counters
+        cls.ALL_SAMPLES_COUNT = 0
+        cls.ALL_ANIMALS_COUNT = 0
+        cls.ALL_STUDIES_COUNT = 0
+
         call_command(
             "load_samples",
             "DataRepo/example_data/obob_sample_table.tsv",
-            sample_table_headers="DataRepo/example_data/obob_sample_table_headers.yaml",
+            sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
         )
-        # not counting the header and BLANK samples
-        cls.ALL_SAMPLES_COUNT = 106
+
+        # from DataRepo/example_data/obob_sample_table.tsv, not counting the header and BLANK samples
+        cls.ALL_SAMPLES_COUNT += 106
         # not counting the header and the BLANK animal
-        cls.ALL_ANIMALS_COUNT = 7
+        cls.ALL_OBOB_ANIMALS_COUNT = 7
+        cls.ALL_ANIMALS_COUNT += cls.ALL_OBOB_ANIMALS_COUNT
+        cls.ALL_STUDIES_COUNT += 1
+
+        call_command(
+            "load_samples",
+            "DataRepo/example_data/serum_lactate_timecourse_treatment.tsv",
+            sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
+        )
+        # from DataRepo/example_data/serum_lactate_timecourse_treatment.tsv, not counting the header
+        cls.ALL_SAMPLES_COUNT += 24
+        # not counting the header
+        cls.ALL_ANIMALS_COUNT += 5
+        cls.ALL_STUDIES_COUNT += 1
 
         call_command(
             "load_accucor_msruns",
@@ -310,10 +379,10 @@ class DataLoadingTests(TestCase):
 
         self.assertEqual(Animal.objects.all().count(), self.ALL_ANIMALS_COUNT)
 
-        self.assertEqual(Study.objects.all().count(), 1)
+        self.assertEqual(Study.objects.all().count(), self.ALL_STUDIES_COUNT)
 
         study = Study.objects.get(name="obob_fasted")
-        self.assertEqual(study.animals.count(), self.ALL_ANIMALS_COUNT)
+        self.assertEqual(study.animals.count(), self.ALL_OBOB_ANIMALS_COUNT)
 
         # MsRun should be equivalent to the samples
         MSRUN_COUNT = self.INF_SAMPLES_COUNT + self.SERUM_SAMPLES_COUNT
@@ -339,6 +408,22 @@ class DataLoadingTests(TestCase):
         self.assertEqual(a.tracer_compound, c)
         self.assertEqual(a.tracer_labeled_atom, TracerLabeledClass.CARBON)
         self.assertEqual(a.sex, None)
+
+    def test_animal_treatments_loaded(self):
+        a = Animal.objects.get(name="969")
+        self.assertEqual(a.treatment, None)
+        a = Animal.objects.get(name="exp024f_M2")
+        self.assertEqual(a.treatment.name, "T3")
+        self.assertEqual(
+            a.treatment.description,
+            "For protocol's full text, please consult Michael Neinast.",
+        )
+
+    def test_restricted_animal_treatment_deletion(self):
+        treatment = Animal.objects.get(name="exp024f_M2").treatment
+        with self.assertRaises(RestrictedError):
+            # test a restricted deletion
+            treatment.delete()
 
     def test_peak_groups_loaded(self):
         # inf data file: compounds * samples

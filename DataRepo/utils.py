@@ -45,6 +45,7 @@ class SampleTableLoader:
             "ANIMAL_FEEDING_STATUS",
             "ANIMAL_DIET",
             "ANIMAL_STATE",
+            "ANIMAL_TREATMENT",
             "TRACER_COMPOUND_NAME",
             "TRACER_LABELED_ELEMENT",
             "TRACER_LABELED_COUNT",
@@ -69,6 +70,7 @@ class SampleTableLoader:
         ANIMAL_FEEDING_STATUS="ANIMAL_FEEDING_STATUS",
         ANIMAL_DIET="ANIMAL_DIET",
         ANIMAL_STATE="ANIMAL_STATE",
+        ANIMAL_TREATMENT="ANIMAL_TREATMENT",
         TRACER_COMPOUND_NAME="TRACER_COMPOUND_NAME",
         TRACER_LABELED_ELEMENT="TRACER_LABELED_ELEMENT",
         TRACER_LABELED_COUNT="TRACER_LABELED_COUNT",
@@ -152,6 +154,31 @@ class SampleTableLoader:
                         animal_sex_string, animal.SEX_CHOICES
                     )
                 animal.sex = animal_sex
+            if self.headers.ANIMAL_TREATMENT:
+                # Animal Treatments are optional protocols
+                protocol_input = None
+                try:
+                    protocol_input = row[self.headers.ANIMAL_TREATMENT]
+                except KeyError:
+                    print("No animal treatment found.")
+                else:
+                    category = Protocol.ANIMAL_TREATMENT
+                    researcher = row[self.headers.SAMPLE_RESEARCHER]
+                    print(
+                        f"Finding or inserting {category} protocol for '{protocol_input}'..."
+                    )
+                    animal.treatment, created = Protocol.retrieve_or_create_protocol(
+                        protocol_input,
+                        category,
+                        f"For protocol's full text, please consult {researcher}.",
+                    )
+                    action = "Found"
+                    feedback = f"{animal.treatment.category} protocol {animal.treatment.id} '{animal.treatment.name}'"
+                    if created:
+                        action = "Created"
+                        feedback += f" '{animal.treatment.description}'"
+                    print(f"{action} {feedback}")
+
             if self.headers.TRACER_COMPOUND_NAME:
                 try:
                     tracer_compound_name = row[self.headers.TRACER_COMPOUND_NAME]
@@ -169,7 +196,9 @@ class SampleTableLoader:
                 )
                 animal.tracer_labeled_atom = tracer_labeled_atom
             if self.headers.TRACER_LABELED_COUNT:
-                animal.tracer_labeled_count = row[self.headers.TRACER_LABELED_COUNT]
+                animal.tracer_labeled_count = int(
+                    row[self.headers.TRACER_LABELED_COUNT]
+                )
             if self.headers.TRACER_INFUSION_RATE:
                 animal.tracer_infusion_rate = row[self.headers.TRACER_INFUSION_RATE]
             if self.headers.TRACER_INFUSION_CONCENTRATION:
@@ -193,7 +222,7 @@ class SampleTableLoader:
                     name=row[self.headers.SAMPLE_NAME],
                     researcher=row[self.headers.SAMPLE_RESEARCHER],
                     time_collected=timedelta(
-                        minutes=int(row[self.headers.TIME_COLLECTED])
+                        minutes=float(row[self.headers.TIME_COLLECTED])
                     ),
                     animal=animal,
                     tissue=tissue,
@@ -243,7 +272,7 @@ class AccuCorDataLoader:
 
         self.retrieve_samples()
 
-        self.retrieve_protocol()
+        self.retrieve_or_create_protocol()
 
         # cross validate peak_groups/compounds in database
         self.validate_peak_groups()
@@ -436,33 +465,24 @@ class AccuCorDataLoader:
 
         assert missing_compounds == 0, f"{missing_compounds} compounds are missing."
 
-    def retrieve_protocol(self):
+    def retrieve_or_create_protocol(self):
         """
         retrieve or insert a protocol, based on input
         """
-        print(f"Finding or inserting protocol for '{self.protocol_input}'...")
-
+        print(
+            f"Finding or inserting {Protocol.MSRUN_PROTOCOL} protocol for '{self.protocol_input}'..."
+        )
+        self.protocol, created = Protocol.retrieve_or_create_protocol(
+            self.protocol_input,
+            Protocol.MSRUN_PROTOCOL,
+            f"For protocol's full text, please consult {self.researcher}.",
+        )
         action = "Found"
-
-        if self.is_integer(self.protocol_input):
-            try:
-                self.protocol = Protocol.objects.get(id=self.protocol_input)
-            except Protocol.DoesNotExist as e:
-                print("Protocol does not exist.")
-                raise e
-        else:
-            try:
-                self.protocol, created = Protocol.objects.get_or_create(
-                    name=self.protocol_input
-                )
-
-                if created:
-                    action = "Created"
-            except Exception as e:
-                print(f"Failed to get or create protocol {self.protocol_input}")
-                raise e
-
-        print(f"{action} protocol {self.protocol.id} '{self.protocol.name}'")
+        feedback = f"{self.protocol.category} protocol {self.protocol.id} '{self.protocol.name}'"
+        if created:
+            action = "Created"
+            feedback += f" '{self.protocol.description}'"
+        print(f"{action} {feedback}")
 
     def insert_peak_group_set(self):
         self.peak_group_set = PeakGroupSet(filename=self.peak_group_set_filename_input)
