@@ -54,7 +54,7 @@ jobs:
         python manage.py load_samples \
           "DataRepo/example_data/obob_sample_table.tsv" \
           --sample-table-headers \
-          "DataRepo/example_data/obob_sample_table_headers.yaml"
+          "DataRepo/example_data/sample_table_headers.yaml"
     - name: Load example accucor 6eaas data
       run: |
         python manage.py load_accucor_msruns \
