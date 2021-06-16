@@ -328,7 +328,7 @@ class DataLoadingTests(TestCase):
         call_command(
             "load_samples",
             "DataRepo/example_data/obob_sample_table.tsv",
-            sample_table_headers="DataRepo/example_data/obob_sample_table_headers.yaml",
+            sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
         )
 
         # from DataRepo/example_data/obob_sample_table.tsv, not counting the header and BLANK samples
@@ -341,7 +341,7 @@ class DataLoadingTests(TestCase):
         call_command(
             "load_samples",
             "DataRepo/example_data/serum_lactate_timecourse_treatment.tsv",
-            sample_table_headers="DataRepo/example_data/obob_sample_table_headers.yaml",
+            sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
         )
         # from DataRepo/example_data/serum_lactate_timecourse_treatment.tsv, not counting the header
         cls.ALL_SAMPLES_COUNT += 24

@@ -17,7 +17,7 @@ class ViewTests(TestCase):
         call_command(
             "load_samples",
             "DataRepo/example_data/small_dataset/small_obob_sample_table.tsv",
-            sample_table_headers="DataRepo/example_data/obob_sample_table_headers.yaml",
+            sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
         )
         # not counting the header and BLANK samples
         cls.ALL_SAMPLES_COUNT = 15
