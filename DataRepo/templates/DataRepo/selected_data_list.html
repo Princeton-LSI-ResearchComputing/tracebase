@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}Selected Data{% endblock %}
+
+{% block content %}
+
+{% if selected_data_list %}
+<br>
+<table class="table table-sm table-hover table-bordered table-striped w-auto mw-100">
+    <tr>
+    <th>Peak Group Name</th>
+    <th>Atom:Label</th>
+    <th>Sample</th>
+    <th>Fraction</th>
+    <th>Tissue</th>
+    <th>Animal</th>
+    <th>TIC</th>
+    <th>NormFraction</th>
+    <th>Infusate</th>
+    <th>Experiment</th>
+    <th>Feeding Status</th>
+    <th>Infusion Rate</th>
+    <th>[Infusate]</th>
+    <tr>
+    {% for item in selected_data_list %}
+        <tr>
+            <td>{{ item.peak_group.name }}</td>
+            <td>{{ item.labeled_element }}:{{ item.labeled_count }}</td>
+            <td>{{ item.peak_group.ms_run.sample }}</td>
+            <td>{{ item.fraction }}</td>
+            <td>{{ item.peak_group.ms_run.sample.tissue }}</td>
+            <td>{{ item.peak_group.ms_run.sample.animal }}</td>
+            <td>{{ item.peak_group.total_abundance }}</td>
+            <td>{{ item.peak_group.normalized_labeling }}</td>
+            <td>{{ item.peak_group.ms_run.sample.animal.tracer_compound.name }}</td>
+            <td>{{ study }}</td>
+            <td>{{ item.peak_group.ms_run.sample.animal.feeding_status }}</td>
+            <td>{{ item.peak_group.ms_run.sample.animal.tracer_infusion_rate }}</td>
+            <td>{{ item.peak_group.ms_run.sample.animal.tracer_infusion_concentration }}</td>          
+        </tr> 
+    {% endfor %}
+</table>
+{% else %}
+<p>There are no selected data.</p>
+{% endif %}
+</ul>
+</div>
+{% endblock %}
+        

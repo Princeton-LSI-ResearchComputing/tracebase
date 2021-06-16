@@ -265,3 +265,91 @@ class PeakDataListView(ListView):
             self.peakgroup = get_object_or_404(PeakGroup, id=peakgroup_pk)
             queryset = PeakData.objects.filter(peak_group_id=peakgroup_pk)
         return queryset
+
+
+def selected_data(request):
+    context = {}
+    template_name = "DataRepo/selected_data_list.html"
+
+    study_pk = 1
+    study_name = Study.objects.get(id=study_pk).name
+    sub_qs = Sample.objects.select_related("animal").filter(
+        animal__id__in=Animal.objects.values_list("id").filter(studies__id=study_pk)
+    )
+    sample_set = sub_qs.values_list("name")
+    # print(sample_set[0])
+    # sample_count = sub_qs.count()
+    qs = (
+        PeakData.objects.select_related("peak_group")
+        .filter(peak_group__ms_run__sample__name__in=sample_set)
+        .all()
+    )
+
+    print(qs.count())
+
+    context = {"study": study_name, "selected_data_list": qs}
+    return render(request, template_name, context)
+
+
+def selected_t1(request):
+    context = {}
+    template_name = "DataRepo/selected_data_t1.html"
+
+    study_pk = 1
+    study_name = Study.objects.get(id=study_pk).name
+    sub_qs = Sample.objects.select_related("animal").filter(
+        animal__id__in=Animal.objects.values_list("id").filter(studies__id=study_pk)
+    )
+    sample_set = sub_qs.values_list("name")
+    # print(sample_set[0])
+    # sample_count = sub_qs.count()
+    qs = (
+        PeakData.objects.select_related("peak_group")
+        .filter(peak_group__ms_run__sample__name__in=sample_set)
+        .all()
+    )
+
+    print(qs.count())
+
+    context = {"study": study_name, "selected_data_t1": qs}
+    return render(request, template_name, context)
+
+
+def selected_t2(request):
+    context = {}
+    template_name = "DataRepo/selected_data_t2.html"
+
+    study_pk = 1
+    study_name = Study.objects.get(id=study_pk).name
+    sub_qs = Sample.objects.select_related("animal").filter(
+        animal__id__in=Animal.objects.values_list("id").filter(studies__id=study_pk)
+    )
+    sample_set = sub_qs.values_list("name")
+    # print(sample_set[0])
+    # sample_count = sub_qs.count()
+    qs = (
+        PeakData.objects.select_related("peak_group")
+        .filter(peak_group__ms_run__sample__name__in=sample_set)
+        .all()
+    )
+
+    fields = [
+        "peak_group",
+        "peak_group__name",
+        "labeled_element",
+        "labeled_count",
+        "peak_group__ms_run__sample__animal__name",
+        "peak_group__ms_run__sample__tissue__name",
+        "peak_group__ms_run__sample__name",
+        "peak_group__ms_run__sample__animal__feeding_status",
+        "peak_group__ms_run__sample__animal__tracer_infusion_rate",
+        "peak_group__ms_run__sample__animal__tracer_infusion_concentration",
+        "peak_group__ms_run__sample__animal__tracer_compound__name",
+    ]
+
+    # qs = qs.values_list(*fields)
+    qs = qs.values(*fields)
+    print(qs.count())
+
+    context = {"study": study_name, "selected_data_t2": qs}
+    return render(request, template_name, context)

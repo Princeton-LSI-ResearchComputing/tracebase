@@ -44,4 +44,7 @@ urlpatterns = [
         name="peakgroup_detail",
     ),
     path("peakdata/", views.PeakDataListView.as_view(), name="peakdata_list"),
+    path("selected_data/", views.selected_data, name="selected_data"),
+    path("selected_t1/", views.selected_t1, name="selected_t1"),
+    path("selected_t2/", views.selected_t2, name="selected_t2"),
 ]
