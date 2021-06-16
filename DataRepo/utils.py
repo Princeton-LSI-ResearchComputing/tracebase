@@ -156,8 +156,12 @@ class SampleTableLoader:
                 animal.sex = animal_sex
             if self.headers.ANIMAL_TREATMENT:
                 # Animal Treatments are optional protocols
+                protocol_input = None
                 try:
                     protocol_input = row[self.headers.ANIMAL_TREATMENT]
+                except KeyError:
+                    print("No animal treatment found.")
+                else:
                     category = Protocol.ANIMAL_TREATMENT
                     researcher = row[self.headers.SAMPLE_RESEARCHER]
                     print(
@@ -174,9 +178,6 @@ class SampleTableLoader:
                         action = "Created"
                         feedback += f" '{animal.treatment.description}'"
                     print(f"{action} {feedback}")
-
-                except KeyError:
-                    print("No recorded treatment.")
 
             if self.headers.TRACER_COMPOUND_NAME:
                 try:

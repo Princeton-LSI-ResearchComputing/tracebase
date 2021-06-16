@@ -99,7 +99,7 @@ class Protocol(models.Model):
 
     @classmethod
     def retrieve_or_create_protocol(
-        cls, protocol_input, category, provisional_description
+        cls, protocol_input, category=None, provisional_description=None
     ):
         """
         retrieve or create a protocol, based on input.
@@ -124,9 +124,10 @@ class Protocol(models.Model):
                         protocol.full_clean()
                         protocol.save()
 
-            except Exception as e:
-                print(f"Failed to get or create {category} protocol {protocol_input}")
-                raise e
+            except Protocol.DoesNotExist as e:
+                raise Protocol.DoesNotExist(
+                    f"Protocol ID {protocol_input} does not exist."
+                ) from e
 
         except Protocol.DoesNotExist as e:
             # protocol_input was an integer, but was not found

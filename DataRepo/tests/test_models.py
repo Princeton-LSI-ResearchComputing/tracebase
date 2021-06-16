@@ -276,11 +276,7 @@ class ProtocolTests(TestCase):
 
     def test_retrieve_protocol_by_id(self):
         p = Protocol.objects.filter(name="Protocol 1").get()
-        ptest, created = Protocol.retrieve_or_create_protocol(
-            p.id,
-            Protocol.MSRUN_PROTOCOL,
-            "Description",
-        )
+        ptest, created = Protocol.retrieve_or_create_protocol(p.id)
         self.assertEqual(self.p1, ptest)
 
     def test_retrieve_protocol_by_name(self):
