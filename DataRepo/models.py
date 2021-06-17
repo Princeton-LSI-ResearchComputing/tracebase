@@ -224,13 +224,6 @@ class Animal(models.Model, TracerLabeledClass):
         unique=True,
         help_text="A unique name or lab identifier of the source animal for a series of studied samples.",
     )
-    state = models.CharField(
-        max_length=256,
-        null=True,
-        blank=True,
-        help_text="A laboratory's standardized code used to indicate the state of the studied animal "
-        '(e.g. "fasted").',
-    )
     tracer_compound = models.ForeignKey(
         Compound,
         on_delete=models.RESTRICT,
@@ -300,7 +293,8 @@ class Animal(models.Model, TracerLabeledClass):
         max_length=256,
         null=True,
         blank=True,
-        help_text='The laboratory coded dietary state for the animal (e.g. "fasted").',
+        help_text="The laboratory coded dietary state for the animal, "
+        'also referred to as "Animal State" (e.g. "fasted").',
     )
     studies = models.ManyToManyField(
         Study,

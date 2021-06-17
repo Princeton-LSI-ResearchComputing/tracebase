@@ -115,7 +115,7 @@ class StudyTests(TestCase, ExampleDataConsumer):
         )
         self.animal = Animal.objects.create(
             name=first["Animal ID"],
-            state=first["Animal State"],
+            feeding_status=first["Animal State"],
             body_weight=first["Animal Body Weight"],
             genotype=first["Animal Genotype"],
             tracer_compound=self.tracer,
