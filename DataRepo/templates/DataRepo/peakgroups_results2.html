@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load static %}
+{% load advsrch_tags %}
 
 {% block head_extras %}
     {{ block.super }}
@@ -48,7 +49,13 @@
     <hr>
     <div>
         <h3>Peak Group Results</h3>
-        {% if res %}
+        <!-- Populate the initial (pre-filter/search) view with all records -->
+        {% if not res and form.0.val != "" and not form.0.val.errors %}
+            {% populatePeakGroups res as cur_res %}
+        {% else %}
+            {% define res as cur_res %}
+        {% endif %}
+        {% if cur_res %}
             <table class="table table-success table-hover table-striped table-bordered">
                 <tr>
                     <th>Compound</th>
@@ -66,7 +73,7 @@
                     <th>[Infusate]</th>
                 </tr>
 
-                {% for pd in res.all %}
+                {% for pd in cur_res.all %}
                     {% for study in pd.peak_group.ms_run.sample.animal.studies.all %}
                         <tr>
                             <!-- Compound -->
