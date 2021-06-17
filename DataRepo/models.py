@@ -3,6 +3,7 @@ from datetime import date, timedelta
 
 from chempy import Substance
 from chempy.util.periodic import atomic_number
+from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
@@ -280,6 +281,38 @@ class Animal(models.Model, TracerLabeledClass):
         help_text="The laboratory controlled label of the actions taken on an animal.",
     )
 
+    @cached_property
+    def final_serum_peak_group(self):
+        """
+        The PeakGroup corresponding to the to the the tracer compound from the
+        final serum timepoint.
+        """
+
+        try:
+            final_serum_sample = (
+                Sample.objects.filter(animal_id=self.id)
+                .filter(tissue__name=Tissue.SERUM_TISSUE_NAME)
+                .latest("time_collected")
+            )
+            final_serum_peak_group = (
+                PeakGroup.objects.filter(ms_run__sample_id=final_serum_sample.id)
+                .filter(compounds__id=self.tracer_compound.id)
+                .get()
+            )
+        except Sample.DoesNotExist:
+            warnings.warn(f"Unable to find final serum sample for {self}")
+            final_serum_peak_group = None
+
+        except PeakGroup.DoesNotExist:
+            warnings.warn(
+                "Unable to find the PeakGroup for the tracer compound "
+                f"{self.tracer_compound} for the final serum sample for "
+                f"{self}, PeakGroup for associated 'Serum' sample not found."
+            )
+            final_serum_peak_group = None
+
+        return final_serum_peak_group
+
     class Meta:
         verbose_name = "animal"
         verbose_name_plural = "animals"
@@ -515,15 +548,12 @@ class PeakGroup(models.Model):
                     peak_data.fraction * peak_data.labeled_count
                 )
 
-            compound = self.compounds.first()
-            atom_count = compound.atom_count(peak_data.labeled_element)
+            atom_count = self.atom_count(peak_data.labeled_element)
 
             enrichment_fraction = enrichment_sum / atom_count
 
         except (AttributeError, TypeError):
-            if compound is not None:
-                msg = "no compounds were associated with PeakGroup"
-            elif peak_data.labeled_count is None:
+            if peak_data.labeled_count is None:
                 msg = "labeled_count missing from PeakData"
             elif peak_data.labeled_element is None:
                 msg = "labeld_element missing from PeakData"
@@ -554,36 +584,34 @@ class PeakGroup(models.Model):
         ThisPeakGroup.enrichment_fraction / SerumTracerPeakGroup.enrichment_fraction
         """
 
-        try:
-            final_serum_sample = (
-                Sample.objects.filter(animal_id=self.ms_run.sample.animal.id)
-                .filter(tissue__name=Tissue.SERUM_TISSUE_NAME)
-                .latest("time_collected")
-            )
-            serum_peak_group = (
-                PeakGroup.objects.filter(ms_run__sample_id=final_serum_sample.id)
-                .filter(compounds__id=self.ms_run.sample.animal.tracer_compound.id)
-                .get()
-            )
-            normalized_labeling = (
-                self.enrichment_fraction / serum_peak_group.enrichment_fraction
-            )
+        # Cache the enrichment_fraction for each animal
+        cache_key = f"serum_enrichment_fraction_{self.ms_run.sample.animal.id}"
+        serum_enrichment_fraction = cache.get(cache_key)
+        if serum_enrichment_fraction is None:
+            serum_peak_group = self.ms_run.sample.animal.final_serum_peak_group
+            try:
+                serum_enrichment_fraction = (
+                    self.ms_run.sample.animal.final_serum_peak_group.enrichment_fraction
+                )
+                cache.set(cache_key, serum_enrichment_fraction)
+            except AttributeError:
+                warnings.warn(
+                    "Unable to compute normalized_labeling for "
+                    f"{self.ms_run.sample}:{self}, the enrichment fraction for "
+                    "the final serum PeakGroup could not be calculated for "
+                    f"{self.ms_run.sample.animal}"
+                )
+                normalized_labeling = None
 
-        except Sample.DoesNotExist:
+        if serum_enrichment_fraction is None:
             warnings.warn(
                 "Unable to compute normalized_labeling for "
-                f"{self.ms_run.sample}:{self}, "
-                "associated 'Serum' sample not found."
+                f"{self.ms_run.sample}:{self}, the final serum PeakGroup "
+                f"could not be found for {self.ms_run.sample.animal}"
             )
             normalized_labeling = None
-
-        except PeakGroup.DoesNotExist:
-            warnings.warn(
-                "Unable to compute normalized_labeling for "
-                f"{self.ms_run.sample}:{self}, "
-                "PeakGroup for associated 'Serum' sample not found."
-            )
-            normalized_labeling = None
+        else:
+            normalized_labeling = self.enrichment_fraction / serum_enrichment_fraction
 
         return normalized_labeling
 
@@ -660,7 +688,15 @@ class PeakData(models.Model, TracerLabeledClass):
         labeling".
 
         """
-        return self.corrected_abundance / self.peak_group.total_abundance
+
+        # Cache the total_abundance for each peak_group
+        cache_key = f"total_abundance_{self.peak_group.id}"
+        total_abundance = cache.get(cache_key)
+        if total_abundance is None:
+            total_abundance = self.peak_group.total_abundance
+            cache.set(cache_key, total_abundance)
+        return self.corrected_abundance / total_abundance
+        # return self.corrected_abundance / self.peak_group.total_abundance
 
     class Meta:
         verbose_name = "peak data"

@@ -1,11 +1,12 @@
 from datetime import datetime, timedelta
 
 import pandas as pd
+from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.core.management import call_command
 from django.db import IntegrityError
 from django.db.models.deletion import RestrictedError
-from django.test import TestCase
+from django.test import TestCase, tag
 
 from DataRepo.models import (
     Animal,
@@ -413,17 +414,20 @@ class DataLoadingTests(TestCase):
         self.assertAlmostEqual(peak_group.enrichment_abundance, 45658.53687, places=5)
         self.assertAlmostEqual(peak_group.normalized_labeling, 1)
 
-    def test_enrichment_fraction_missing_compounds(self):
+    def test_enrichment_fraction_missing_formula(self):
+        cache.clear()
         peak_group = (
             PeakGroup.objects.filter(compounds__name="lysine")
             .filter(ms_run__sample__name="serum-xz971")
             .get()
         )
         peak_group.compounds.clear()
+        peak_group.formula = None
         with self.assertWarns(UserWarning):
             self.assertIsNone(peak_group.enrichment_fraction)
 
     def test_enrichment_fraction_missing_labeled_element(self):
+        cache.clear()
         peak_group = (
             PeakGroup.objects.filter(compounds__name="lysine")
             .filter(ms_run__sample__name="serum-xz971")
@@ -438,6 +442,7 @@ class DataLoadingTests(TestCase):
             self.assertIsNone(peak_group.enrichment_fraction)
 
     def test_normalized_labeling_latest_serum(self):
+        cache.clear()
         peak_group = (
             PeakGroup.objects.filter(compounds__name="glucose")
             .filter(ms_run__sample__name="BAT-xz971")
@@ -491,6 +496,7 @@ class DataLoadingTests(TestCase):
         self.assertAlmostEqual(peak_group.normalized_labeling, 3.455355083)
 
     def test_normalized_labeling_missing_serum_peak_group(self):
+        cache.clear()
         peak_group = (
             PeakGroup.objects.filter(compounds__name="glucose")
             .filter(ms_run__sample__name="BAT-xz971")
@@ -508,6 +514,7 @@ class DataLoadingTests(TestCase):
             self.assertIsNone(peak_group.normalized_labeling)
 
     def test_normalized_labeling_missing_serum_sample(self):
+        cache.clear()
         peak_group = (
             PeakGroup.objects.filter(compounds__name="glucose")
             .filter(ms_run__sample__name="BAT-xz971")
@@ -523,6 +530,7 @@ class DataLoadingTests(TestCase):
             self.assertIsNone(peak_group.normalized_labeling)
 
     def test_peak_data_fraction(self):
+        cache.clear()
         peak_data = (
             PeakGroup.objects.filter(compounds__name="glucose")
             .filter(ms_run__sample__name="BAT-xz971")
@@ -531,6 +539,36 @@ class DataLoadingTests(TestCase):
             .get()
         )
         self.assertAlmostEqual(peak_data.fraction, 0.9952169753)
+
+    @tag("test")
+    def test_final_serum_peak_group(self):
+        peak_group_serum = (
+            PeakGroup.objects.filter(compounds__name="lysine")
+            .filter(ms_run__sample__name="serum-xz971")
+            .get()
+        )
+        animal = Animal.objects.filter(name="971").get()
+        self.assertEqual(animal.final_serum_peak_group.id, peak_group_serum.id)
+
+    @tag("speed")
+    def test_normalized_labeling_speed(self):
+        start = datetime.now()
+        for peak_group in PeakGroup.objects.all():
+            peak_group.normalized_labeling
+        end = datetime.now()
+        duration = end - start
+        print(f"Normalized Labeling Duration: {duration}")
+        self.assertLess(duration, timedelta(seconds=2.25))
+
+    @tag("speed")
+    def test_fraction_speed(self):
+        start = datetime.now()
+        for peak_data in PeakData.objects.all():
+            peak_data.fraction
+        end = datetime.now()
+        duration = end - start
+        print(f"Peak Data Fraction Duration: {duration}")
+        self.assertLess(duration, timedelta(seconds=2))
 
 
 class AccuCorDataLoaderTests(TestCase):
