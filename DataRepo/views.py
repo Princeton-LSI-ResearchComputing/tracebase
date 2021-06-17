@@ -162,11 +162,16 @@ class AdvSearchPeakGroupsFmtView(FormView):
             else:
                 criteria.append(~Q(**q))
 
+        # If there was no search criteria, show all records
         if len(criteria) == 0:
-            form = formset_factory(AdvSearchPeakGroupsForm)
             res = PeakData.objects.all().prefetch_related(
                 "peak_group__ms_run__sample__animal__studies"
             )
+
+            # The form factory works by cloning, thus for new formsets to be
+            # created when no forms were submitted, we need to produce a new
+            # form from the factory
+            form = formset_factory(AdvSearchPeakGroupsForm)
         else:
             res = PeakData.objects.filter(*criteria).prefetch_related(
                 "peak_group__ms_run__sample__animal__studies"
