@@ -7,7 +7,7 @@
     <script src="{% static 'js/django-dynamic-formset-1.2.2/jquery.formset.js' %}"></script>
     <script>
         $(function() {
-            $('#advsrchpg tr').formset({
+            $('#advsrchpg li').formset({
                 addText: '<img src="{% static "images/plus.png" %}" />',
                 deleteText: '<img src="{% static "images/minus.png" %}" />'
             });
@@ -23,31 +23,19 @@
             <table>
                 <tr>
                     <td>
-                        <table id="advsrchpg">
+                        <!-- Changed to an unordered list to try and prepare for nested groups -->
+                        <ul id="advsrchpg">
                             {% for f in form %}
-                                <tr>
-                                    <td>
-                                        <div>
-                                            {{ f.fld }}
-                                            <label class="error">{{ f.fld.errors }}</label>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <div>
-                                            {{ f.ncmp }}
-                                            <label class="error">{{ f.ncmp.errors }}</label>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <div>
-                                            {{ f.val }}
-                                            <label class="error">{{ f.val.errors }}</label>
-                                        </div>
-                                    </td>
-                                    <td></td>
-                                </tr>
+                                <li class="list-unstyled">
+                                    {{ f.fld }}
+                                    {{ f.ncmp }}
+                                    {{ f.val }}
+                                    <label class="text-danger"> {{ f.val.errors }} </label>
+                                </li>
                             {% endfor %}
-                        </table>
+                            <!-- This keeps the form looking nice if there's an error -->
+                            <li class="list-unstyled"></li>
+                        </ul>
                     </td>
                     <td class="align-bottom ps-5">
                         {{ form.management_form }}
