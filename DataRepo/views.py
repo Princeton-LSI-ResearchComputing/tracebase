@@ -163,6 +163,7 @@ class AdvSearchPeakGroupsFmtView(FormView):
                 criteria.append(~Q(**q))
 
         if len(criteria) == 0:
+            form = formset_factory(AdvSearchPeakGroupsForm)
             res = PeakData.objects.all().prefetch_related(
                 "peak_group__ms_run__sample__animal__studies"
             )
