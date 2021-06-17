@@ -174,6 +174,13 @@ class AdvSearchPeakGroupsFmtView(FormView):
         return self.render_to_response(self.get_context_data(res=res, form=form))
 
 
+# used by templatetags/advsrch_tags.py
+def getAllPeakGroupsFmtData():
+    return PeakData.objects.all().prefetch_related(
+        "peak_group__ms_run__sample__animal__studies"
+    )
+
+
 class ProtocolListView(ListView):
     """Generic class-based view for aa list of protocols"""
 
