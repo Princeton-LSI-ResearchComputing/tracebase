@@ -44,7 +44,6 @@ class SampleTableLoader:
             "ANIMAL_GENOTYPE",
             "ANIMAL_FEEDING_STATUS",
             "ANIMAL_DIET",
-            "ANIMAL_STATE",
             "ANIMAL_TREATMENT",
             "TRACER_COMPOUND_NAME",
             "TRACER_LABELED_ELEMENT",
@@ -69,7 +68,6 @@ class SampleTableLoader:
         ANIMAL_GENOTYPE="ANIMAL_GENOTYPE",
         ANIMAL_FEEDING_STATUS="ANIMAL_FEEDING_STATUS",
         ANIMAL_DIET="ANIMAL_DIET",
-        ANIMAL_STATE="ANIMAL_STATE",
         ANIMAL_TREATMENT="ANIMAL_TREATMENT",
         TRACER_COMPOUND_NAME="TRACER_COMPOUND_NAME",
         TRACER_LABELED_ELEMENT="TRACER_LABELED_ELEMENT",
@@ -143,8 +141,6 @@ class SampleTableLoader:
                 animal.age = row[self.headers.ANIMAL_AGE]
             if self.headers.ANIMAL_DIET:
                 animal.diet = row[self.headers.ANIMAL_DIET]
-            if self.headers.ANIMAL_STATE:
-                animal.state = row[self.headers.ANIMAL_STATE]
             if self.headers.ANIMAL_SEX:
                 animal_sex_string = row[self.headers.ANIMAL_SEX]
                 if animal_sex_string in animal.SEX_CHOICES:
