@@ -488,7 +488,7 @@ class PeakGroup(models.Model):
         max_length=256,
         help_text='The molecular formula of the compound (e.g. "C6H12O6").',
     )
-    ms_run = models.ForeignKey(
+    msrun = models.ForeignKey(
         MSRun,
         on_delete=models.CASCADE,
         null=False,
@@ -562,7 +562,7 @@ class PeakGroup(models.Model):
                 msg = "unknown error occurred"
             warnings.warn(
                 "Unable to compute enrichment_fraction for "
-                f"{self.ms_run.sample}:{self}, {msg}."
+                f"{self.msrun.sample}:{self}, {msg}."
             )
 
         return enrichment_fraction
@@ -587,13 +587,13 @@ class PeakGroup(models.Model):
 
         try:
             final_serum_sample = (
-                Sample.objects.filter(animal_id=self.ms_run.sample.animal.id)
+                Sample.objects.filter(animal_id=self.msrun.sample.animal.id)
                 .filter(tissue__name=Tissue.SERUM_TISSUE_NAME)
                 .latest("time_collected")
             )
             serum_peak_group = (
-                PeakGroup.objects.filter(ms_run__sample_id=final_serum_sample.id)
-                .filter(compounds__id=self.ms_run.sample.animal.tracer_compound.id)
+                PeakGroup.objects.filter(msrun__sample_id=final_serum_sample.id)
+                .filter(compounds__id=self.msrun.sample.animal.tracer_compound.id)
                 .get()
             )
             normalized_labeling = (
@@ -603,7 +603,7 @@ class PeakGroup(models.Model):
         except Sample.DoesNotExist:
             warnings.warn(
                 "Unable to compute normalized_labeling for "
-                f"{self.ms_run.sample}:{self}, "
+                f"{self.msrun.sample}:{self}, "
                 "associated 'Serum' sample not found."
             )
             normalized_labeling = None
@@ -611,7 +611,7 @@ class PeakGroup(models.Model):
         except PeakGroup.DoesNotExist:
             warnings.warn(
                 "Unable to compute normalized_labeling for "
-                f"{self.ms_run.sample}:{self}, "
+                f"{self.msrun.sample}:{self}, "
                 "PeakGroup for associated 'Serum' sample not found."
             )
             normalized_labeling = None
@@ -625,7 +625,7 @@ class PeakGroup(models.Model):
         # composite key
         constraints = [
             models.UniqueConstraint(
-                fields=["name", "ms_run"],
+                fields=["name", "msrun"],
                 name="unique_peakgroup",
             ),
         ]
