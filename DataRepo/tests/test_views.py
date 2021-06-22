@@ -222,15 +222,15 @@ class ViewTests(TestCase):
 
     def test_peakgroup_list_per_msrun(self):
         ms1 = MSRun.objects.filter(sample__name="BAT-xz971").get()
-        pg1 = PeakGroup.objects.filter(ms_run_id=ms1.id)
-        response = self.client.get("/DataRepo/peakgroups/?ms_run_id=" + str(ms1.pk))
+        pg1 = PeakGroup.objects.filter(msrun_id=ms1.id)
+        response = self.client.get("/DataRepo/peakgroups/?msrun_id=" + str(ms1.pk))
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "DataRepo/peakgroup_list.html")
         self.assertEqual(len(response.context["peakgroup_list"]), pg1.count())
 
     def test_peakgroup_detail(self):
         ms1 = MSRun.objects.filter(sample__name="BAT-xz971").get()
-        pg1 = PeakGroup.objects.filter(ms_run_id=ms1.id).first()
+        pg1 = PeakGroup.objects.filter(msrun_id=ms1.id).first()
         response = self.client.get(reverse("peakgroup_detail", args=[pg1.id]))
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "DataRepo/peakgroup_detail.html")
@@ -253,7 +253,7 @@ class ViewTests(TestCase):
         self.assertEqual(len(response.context["peakdata_list"]), pd.count())
 
     def test_peakdata_list_per_peakgroup(self):
-        pg1 = PeakGroup.objects.filter(ms_run__sample__name="serum-xz971").first()
+        pg1 = PeakGroup.objects.filter(msrun__sample__name="serum-xz971").first()
         pd1 = PeakData.objects.filter(peak_group_id=pg1.pk)
         response = self.client.get("/DataRepo/peakdata/?peak_group_id=" + str(pg1.pk))
         self.assertEqual(response.status_code, 200)

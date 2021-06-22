@@ -70,15 +70,15 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
         fld_cmp = ""
 
         if mdl == "Study":
-            fld_cmp = "peak_group__ms_run__sample__animal__studies__"
+            fld_cmp = "peak_group__msrun__sample__animal__studies__"
         elif mdl == "Animal":
-            fld_cmp = "peak_group__ms_run__sample__animal__"
+            fld_cmp = "peak_group__msrun__sample__animal__"
         elif mdl == "Sample":
-            fld_cmp = "peak_group__ms_run__sample__"
+            fld_cmp = "peak_group__msrun__sample__"
         elif mdl == "Tissue":
-            fld_cmp = "peak_group__ms_run__sample__tissue__"
+            fld_cmp = "peak_group__msrun__sample__tissue__"
         elif mdl == "MSRun":
-            fld_cmp = "peak_group__ms_run__"
+            fld_cmp = "peak_group__msrun__"
         elif mdl == "PeakGroup":
             fld_cmp = "peak_group__"
         elif mdl != "PeakData":
@@ -91,7 +91,7 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
 
         try:
             peakdata = PeakData.objects.filter(**{fld_cmp: val}).prefetch_related(
-                "peak_group__ms_run__sample__animal__studies"
+                "peak_group__msrun__sample__animal__studies"
             )
         except FieldError as fe:
             raise Http404(
@@ -222,17 +222,17 @@ class PeakGroupListView(ListView):
     queryset = PeakGroup.objects.all()
     context_object_name = "peakgroup_list"
     template_name = "DataRepo/peakgroup_list.html"
-    ordering = ["ms_run_id", "peak_group_set_id", "name"]
+    ordering = ["msrun_id", "peak_group_set_id", "name"]
     paginate_by = 50
 
-    # filter the peakgroup_list by ms_run_id
+    # filter the peakgroup_list by msrun_id
     def get_queryset(self):
         queryset = super().get_queryset()
         # get query string from request
-        msrun_pk = self.request.GET.get("ms_run_id", None)
+        msrun_pk = self.request.GET.get("msrun_id", None)
         if msrun_pk is not None:
             self.msrun = get_object_or_404(MSRun, id=msrun_pk)
-            queryset = PeakGroup.objects.filter(ms_run_id=msrun_pk)
+            queryset = PeakGroup.objects.filter(msrun_id=msrun_pk)
         return queryset
 
 

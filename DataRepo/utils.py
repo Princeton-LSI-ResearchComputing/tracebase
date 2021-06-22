@@ -531,7 +531,7 @@ class AccuCorDataLoader:
                     )
                     peak_group_attrs = self.peak_group_dict[peak_group_name]
                     peak_group = PeakGroup(
-                        ms_run=msrun,
+                        msrun=msrun,
                         name=peak_group_attrs["name"],
                         formula=peak_group_attrs["formula"],
                         peak_group_set=self.peak_group_set,

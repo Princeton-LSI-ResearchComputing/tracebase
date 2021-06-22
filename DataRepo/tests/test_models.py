@@ -157,7 +157,7 @@ class StudyTests(TestCase, ExampleDataConsumer):
         self.peak_group = PeakGroup.objects.create(
             name=initial_peak_group["name"],
             formula=initial_peak_group["formula"],
-            ms_run=self.msrun,
+            msrun=self.msrun,
             peak_group_set=self.peak_group_set,
         )
         # actual code would have to more careful in retrieving compounds based
@@ -259,7 +259,7 @@ class StudyTests(TestCase, ExampleDataConsumer):
         self.assertRaises(
             IntegrityError,
             lambda: PeakGroup.objects.create(
-                name=self.peak_group.name, ms_run=self.msrun
+                name=self.peak_group.name, msrun=self.msrun
             ),
         )
 
@@ -448,7 +448,7 @@ class DataLoadingTests(TestCase):
     def test_peak_group_peak_data_1(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="glucose")
-            .filter(ms_run__sample__name="BAT-xz971")
+            .filter(msrun__sample__name="BAT-xz971")
             .get()
         )
         peak_data = peak_group.peak_data.filter(labeled_count=0).get()
@@ -462,7 +462,7 @@ class DataLoadingTests(TestCase):
     def test_peak_group_peak_data_2(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="histidine")
-            .filter(ms_run__sample__name="serum-xz971")
+            .filter(msrun__sample__name="serum-xz971")
             .get()
         )
         # There should be a peak_data for each label count 0-6
@@ -477,7 +477,7 @@ class DataLoadingTests(TestCase):
     def test_peak_group_peak_data_3(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="histidine")
-            .filter(ms_run__sample__name="serum-xz971")
+            .filter(msrun__sample__name="serum-xz971")
             .get()
         )
         peak_data = peak_group.peak_data.filter(labeled_count=5).get()
@@ -487,7 +487,7 @@ class DataLoadingTests(TestCase):
     def test_peak_group_peak_data_serum(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="lysine")
-            .filter(ms_run__sample__name="serum-xz971")
+            .filter(msrun__sample__name="serum-xz971")
             .get()
         )
         peak_data = peak_group.peak_data.filter(labeled_count=0).get()
@@ -501,7 +501,7 @@ class DataLoadingTests(TestCase):
     def test_enrichment_fraction_missing_compounds(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="lysine")
-            .filter(ms_run__sample__name="serum-xz971")
+            .filter(msrun__sample__name="serum-xz971")
             .get()
         )
         peak_group.compounds.clear()
@@ -511,7 +511,7 @@ class DataLoadingTests(TestCase):
     def test_enrichment_fraction_missing_labeled_element(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="lysine")
-            .filter(ms_run__sample__name="serum-xz971")
+            .filter(msrun__sample__name="serum-xz971")
             .get()
         )
 
@@ -525,7 +525,7 @@ class DataLoadingTests(TestCase):
     def test_normalized_labeling_latest_serum(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="glucose")
-            .filter(ms_run__sample__name="BAT-xz971")
+            .filter(msrun__sample__name="BAT-xz971")
             .get()
         )
 
@@ -547,15 +547,15 @@ class DataLoadingTests(TestCase):
         second_serum_peak_group = PeakGroup.objects.create(
             name=peak_group.name,
             formula=peak_group.formula,
-            ms_run=msrun,
+            msrun=msrun,
             peak_group_set=peak_group.peak_group_set,
         )
         second_serum_peak_group.compounds.add(
-            peak_group.ms_run.sample.animal.tracer_compound
+            peak_group.msrun.sample.animal.tracer_compound
         )
         first_serum_peak_group = (
             PeakGroup.objects.filter(compounds__name="lysine")
-            .filter(ms_run__sample__name="serum-xz971")
+            .filter(msrun__sample__name="serum-xz971")
             .get()
         )
         for orig_peak_data in first_serum_peak_group.peak_data.all():
@@ -578,13 +578,13 @@ class DataLoadingTests(TestCase):
     def test_normalized_labeling_missing_serum_peak_group(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="glucose")
-            .filter(ms_run__sample__name="BAT-xz971")
+            .filter(msrun__sample__name="BAT-xz971")
             .get()
         )
 
         peak_group_serum = (
             PeakGroup.objects.filter(compounds__name="lysine")
-            .filter(ms_run__sample__name="serum-xz971")
+            .filter(msrun__sample__name="serum-xz971")
             .get()
         )
         peak_group_serum.delete()
@@ -595,7 +595,7 @@ class DataLoadingTests(TestCase):
     def test_normalized_labeling_missing_serum_sample(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="glucose")
-            .filter(ms_run__sample__name="BAT-xz971")
+            .filter(msrun__sample__name="BAT-xz971")
             .get()
         )
 
@@ -610,7 +610,7 @@ class DataLoadingTests(TestCase):
     def test_peak_data_fraction(self):
         peak_data = (
             PeakGroup.objects.filter(compounds__name="glucose")
-            .filter(ms_run__sample__name="BAT-xz971")
+            .filter(msrun__sample__name="BAT-xz971")
             .get()
             .peak_data.filter(labeled_count=0)
             .get()
