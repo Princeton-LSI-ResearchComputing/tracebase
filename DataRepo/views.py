@@ -1,4 +1,4 @@
-from django.core.exceptions import FieldError
+from django.core.exceptions import FieldError, ValidationError
 from django.http import Http404
 from django.shortcuts import get_object_or_404, render
 from django.views.generic import DetailView, ListView
@@ -178,6 +178,31 @@ class AdvSearchPeakGroupsFmtView(FormView):
             )
 
         return self.render_to_response(self.get_context_data(res=res, form=form))
+
+
+class AdvSearchPeakGroupsFmtViewTMP(FormView):
+    form_class = AdvSearchPeakGroupsForm
+    template_name = 'DataRepo/peakgroups_results3.html'
+    success_url = ''
+
+    def form_valid(self, form):
+        print("This is a test")
+        str = hierQueryToString(form.cleaned_data)
+        print(str)
+        res = {}
+        return self.render_to_response(self.get_context_data(res=res, form=form))
+
+def hierQueryToString(query):
+    if query["type"] == "query":
+        str += " ".join([query["fld"],query["ncmp"],query["val"]])
+    elif query["type"] == "group":
+        if query["val"] == "all":
+            str += " and-group(" + " && ".join(hierQueryToString(query) for subquery in query["queryGroup"]) + ")"
+        else:
+            str += " or-group(" + " || ".join(hierQueryToString(query) for subquery in query["queryGroup"]) + ")"
+    else:
+        raise ValidationError("Unknown node type in hierarchical search query")
+    return str
 
 
 # used by templatetags/advsrch_tags.py

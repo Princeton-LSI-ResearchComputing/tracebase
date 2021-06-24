@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% load static %}
+{% load advsrch_tags %}
+
+{% block head_extras %}
+    {{ block.super }}
+    <link href="{% static 'css/nested_forms.css' %}" rel="stylesheet">
+    <script src="{% static 'js/nested_forms.js' %}"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function(){
+            appendInnerSearchQuery(document.querySelector('.hierarchical_search'), 0, rootGroup);
+        });
+        console.log(rootGroup);
+    </script>
+{% endblock %}
+
+{% block content %}
+    <div>
+        <h3>Advanced Peak Groups Search</h3>
+
+        <!-- Form template from django's forms.py -->
+        <div id="id_empty_form" style="display:none;">
+            {{ form.fld }}
+            {{ form.ncmp }}
+            {{ form.val }}
+        </div>
+
+        <!-- form action="" method="POST" -->
+        <form action="" method="POST">
+            {% csrf_token %}
+            <div class="hierarchical_search"></div>
+            <button type="submit" name="submit" value="submit" class="btn btn-primary">Search</button>
+            {{ form.non_field_errors }}
+            {{ form.management_form }}
+        </form>
+        <div><label id="formerror" class="text-danger temporal-text"></label></div>
+    </div>
+    {% if qry %}
+        Query: {{ qry }}
+    {% else %}
+        Query was empty
+    {% endif %}
+    <hr>
+    <div>
+        <h3>Peak Group Results</h3>
+        <!-- Populate the initial (pre-filter/search) view with all records -->
+        {% if not res and form.0.val != "" and not form.0.val.errors %}
+            {% comment %}
+                {% populatePeakGroups res as cur_res %}
+            {% endcomment %}
+            {% define res as cur_res %}
+        {% else %}
+            {% define res as cur_res %}
+        {% endif %}
+        {% if cur_res %}
+            <table class="table table-success table-hover table-striped table-bordered">
+                <tr>
+                    <th>Compound</th>
+                    <th>Atom:Label</th>
+                    <th>Sample</th>
+                    <th>Fraction</th>
+                    <th>Tissue</th>
+                    <th>Mouse</th>
+                    <th>TIC</th>
+                    <th>NormFraction</th>
+                    <th>Infusate</th>
+                    <th>Experiment</th>
+                    <th>Feeding Status</th>
+                    <th>Infusion Rate</th>
+                    <th>[Infusate]</th>
+                </tr>
+
+                {% for pd in cur_res.all %}
+                    {% for study in pd.peak_group.ms_run.sample.animal.studies.all %}
+                        <tr>
+                            <!-- Compound -->
+                            <td>
+                                <!-- TODO: add the view link here when it is added for this model -->
+                                <a href="{% url 'sample_detail' pd.peak_group.id %}">
+                                    {{ pd.peak_group.name }}
+                                </a>
+                            </td>
+
+                            <!-- Atom Label -->
+                            <td>
+                                {{ pd.labeled_element }}:{{ pd.labeled_count }}
+                            </td>
+
+                            <!-- Sample -->
+                            <td>
+                                <div class="nobr">
+                                    <!-- TODO: add the view link here when it is added for this model -->
+                                    <a href="{% url 'sample_detail' pd.peak_group.ms_run.sample.id %}">
+                                        {{ pd.peak_group.ms_run.sample.name }}
+                                    </a>
+                                </div>
+                            </td>
+
+                            <!-- Fraction -->
+                            <td class="text-end">
+                                <p title="{{ pd.fraction }}">{{ pd.fraction|floatformat:4 }}</p>
+                            </td>
+
+                            <!-- Tissue -->
+                            <td>
+                                {{ pd.peak_group.ms_run.sample.tissue.name }}
+                            </td>
+
+                            <!-- Mouse -->
+                            <td>
+                                <!-- TODO: add the view link here when it is added for this model -->
+                                <a href="{% url 'animal_detail' pd.peak_group.ms_run.sample.animal.id %}">
+                                    {{ pd.peak_group.ms_run.sample.animal.name }}
+                                </a>
+                            </td>
+
+                            <!-- TIC -->
+                            <td class="text-end">
+                                <p title="{{ pd.peak_group.total_abundance }}">{{ pd.peak_group.total_abundance|floatformat:1 }}</p>
+                            </td>
+
+                            <!-- NormFraction -->
+                            <td class="text-end">
+                                <p title="{{ pd.peak_group.normalized_labeling }}">{{ pd.peak_group.normalized_labeling|floatformat:4 }}</p>
+                            </td>
+
+                            <!-- Infusate -->
+                            <td>
+                                {{ pd.peak_group.ms_run.sample.animal.tracer_compound.name }}
+                            </td>
+
+                            <!-- Experiment -->
+                            <td>
+                                <a href="{% url 'study_detail' study.id %}">
+                                    {{ study.name }}
+                                </a>
+                            </td>
+
+                            <!-- Feeding Status -->
+                            <td>
+                                {{ pd.peak_group.ms_run.sample.animal.feeding_status }}
+                            </td>
+
+                            <!-- Infusion Rate -->
+                            <td class="text-end">
+                                {{ pd.peak_group.ms_run.sample.animal.tracer_infusion_rate }}
+                            </td>
+
+                            <!-- [Infusate] -->
+                            <td class="text-end">
+                                {{ pd.peak_group.ms_run.sample.animal.tracer_infusion_concentration }}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                {% endfor %}
+            </table>
+        {% else %}
+            <p>No PeakGroup data found.<!-- where [{{ qry.mdl }}.{{ qry.fld }}] has a
+                match of type [{{ qry.cmp }}] to value [{{ qry.val }}], given the
+                table/fields in the {{ qry.fmt }} format. --></p>
+        {% endif %}
+    </div>
+{% endblock %}
