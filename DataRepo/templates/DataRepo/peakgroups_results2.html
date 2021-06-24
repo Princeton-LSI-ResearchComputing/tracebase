@@ -51,7 +51,10 @@
         <h3>Peak Group Results</h3>
         <!-- Populate the initial (pre-filter/search) view with all records -->
         {% if not res and form.0.val != "" and not form.0.val.errors %}
-            {% populatePeakGroups res as cur_res %}
+            {% comment %}
+                {% populatePeakGroups res as cur_res %}
+            {% endcomment %}
+            {% define res as cur_res %}
         {% else %}
             {% define res as cur_res %}
         {% endif %}

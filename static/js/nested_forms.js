@@ -15,8 +15,9 @@ function appendInnerSearchQuery(element, level, query, parentGroup, afterMode) {
     }
 
     var myDiv = document.createElement("div");
-    myDiv.className = "level-" + level
-  
+    if (level != 0) {
+        myDiv.className = "level-indent"
+    }
   
     if (('' + query.type) === 'group') {
   
@@ -206,6 +207,69 @@ function appendInnerSearchQuery(element, level, query, parentGroup, afterMode) {
       });
       myDiv.appendChild(grpbtn);
 
+    }
+}
+
+function saveSearchQueryHierarchy(divElem) {
+    "use strict";
+
+    //var childElems = divElem.children; // - Doesn't work
+    //var childElems = divElem.querySelectorAll(":scope > input,select,textarea,label,div");
+    var childDivs = divElem.querySelectorAll(":scope > div"); // - results in only 1, even if 2 items added - I think because each input is not wrapped in a div
+
+    // This should only travrse a single iteration (because there's only one level-0
+    for (let i = 0; i < childDivs.length; i++) {
+        //console.log("Child " + i + " of " + divElem.name + " with name " + childElems[i].name + " of type " + childElems[i].type);
+        //console.log("Child " + i + " of " + divElem.name + " at level " + level + ":",childElems[i]);
+
+        saveSearchQueryHierarchyHelper(childDivs[i], "-path0");
+        // Add this row to the HTML form
+        //myDiv.appendChild(clones[i]);
+    }
+}
+
+function saveSearchQueryHierarchyHelper(divElem, path, level) {
+    "use strict";
+
+    console.log("Looking at: ", divElem);
+
+    //var childElems = divElem.children; // - Doesn't work
+    //var childElems = divElem.querySelectorAll(":scope > input,select,textarea,label,div");
+    var childDivs = divElem.querySelectorAll(":scope > div"); // - results in only 1, even if 2 items added - I think because each input is not wrapped in a div
+
+    var numChildren = (childDivs.length - 1);
+    if (numChildren > -1) {
+        console.log("Num children: " + numChildren + ":");
+    }
+
+    if (typeof level !== 'undefined' || level) {
+        path += "." + level;
+    }
+
+    //var childInputs = divElem.querySelectorAll("input,select,textarea");
+    // This gets inputs belonging to the parent
+    var childInputs = divElem.childNodes;
+
+    var position = 0;
+    for (let i = 0; i < (childInputs.length); i++) {
+        if (typeof childInputs[i].name !== 'undefined' && childInputs[i].name) {
+            if (!childInputs[i].name.includes("-path")) {
+                childInputs[i].name += path;
+            }
+            console.log("  Child " + childInputs[i].name + " of type " + childInputs[i].type + " with value: " + childInputs[i].value);
+            position += 1;
+        }
+    }
+
+    // Recurse
+    // Always traverse 1 less, because there's always an empty trailing div tag
+    for (let i = 0; i < (childDivs.length - 1); i++) {
+        //console.log("Recursing to child " + i + ": ", childDivs[i]);
+        //console.log("Child " + i + " of " + divElem.name + " at level " + level + ":",childElems[i]);
+
+        saveSearchQueryHierarchyHelper(childDivs[i], path, i);
+        // Add this row to the HTML form
+        //myDiv.appendChild(clones[i]);
     }
 }
 
