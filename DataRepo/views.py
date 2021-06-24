@@ -152,6 +152,8 @@ class AdvSearchPeakGroupsFmtView(FormView):
     success_url = ''
 
     def form_valid(self, form):
+        print(form.cleaned_data)
+        print(form)
         # Build the query chain
         criteria = []
         for form_query in form.cleaned_data:
@@ -163,19 +165,20 @@ class AdvSearchPeakGroupsFmtView(FormView):
                 criteria.append(~Q(**q))
 
         # If there was no search criteria, show all records
-        if len(criteria) == 0:
-            res = PeakData.objects.all().prefetch_related(
-                "peak_group__ms_run__sample__animal__studies"
-            )
+        #if len(criteria) == 0:
+            #res = PeakData.objects.all().prefetch_related(
+            #    "peak_group__ms_run__sample__animal__studies"
+            #)
 
             # The form factory works by cloning, thus for new formsets to be
             # created when no forms were submitted, we need to produce a new
             # form from the factory
             form = formset_factory(AdvSearchPeakGroupsForm)
-        else:
-            res = PeakData.objects.filter(*criteria).prefetch_related(
-                "peak_group__ms_run__sample__animal__studies"
-            )
+        #else:
+            #res = PeakData.objects.filter(*criteria).prefetch_related(
+            #    "peak_group__ms_run__sample__animal__studies"
+            #)
+        res = {}
 
         return self.render_to_response(self.get_context_data(res=res, form=form))
 
@@ -185,10 +188,21 @@ class AdvSearchPeakGroupsFmtViewTMP(FormView):
     template_name = 'DataRepo/peakgroups_results3.html'
     success_url = ''
 
+    def form_invalid(self, form):
+        print("This is an invalid test")
+        print(form.cleaned_data)
+        str = ""
+        #str = hierQueryToString(form.cleaned_data)
+        #print(str)
+        res = {}
+        return self.render_to_response(self.get_context_data(res=res, form=form))
+
     def form_valid(self, form):
-        print("This is a test")
-        str = hierQueryToString(form.cleaned_data)
-        print(str)
+        print("This is a valid test")
+        print(form.cleaned_data)
+        str = ""
+        #str = hierQueryToString(form.cleaned_data)
+        #print(str)
         res = {}
         return self.render_to_response(self.get_context_data(res=res, form=form))
 

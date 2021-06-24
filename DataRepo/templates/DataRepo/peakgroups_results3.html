@@ -9,8 +9,15 @@
     <script>
         document.addEventListener("DOMContentLoaded", function(){
             appendInnerSearchQuery(document.querySelector('.hierarchical_search'), 0, rootGroup);
+
+            var myform = document.getElementById("hierarchical_search_form");
+            document.getElementById("advanced_search_submit").addEventListener("click", function () {
+                saveSearchQueryHierarchy(document.querySelector('.hierarchical_search'));
+                myform.submit();
+            });
         });
-        console.log(rootGroup);
+        
+        console.log("Ready with rootGroup: ", rootGroup);
     </script>
 {% endblock %}
 
@@ -26,10 +33,11 @@
         </div>
 
         <!-- form action="" method="POST" -->
-        <form action="" method="POST">
-            {% csrf_token %}
+        <!-- form action="" id="hierarchical_search_form" method="POST" -->
+        <form action="" id="hierarchical_search_form" method="POST">
+        {% csrf_token %}
             <div class="hierarchical_search"></div>
-            <button type="submit" name="submit" value="submit" class="btn btn-primary">Search</button>
+            <button type="submit" class="btn btn-primary" id="advanced_search_submit">Search</button>
             {{ form.non_field_errors }}
             {{ form.management_form }}
         </form>
