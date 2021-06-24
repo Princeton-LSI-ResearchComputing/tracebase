@@ -31,7 +31,7 @@ function appendInnerSearchQuery(element, level, query, parentGroup, afterMode) {
           option.text = val;
           select.appendChild(option);
       }
-      query.val = "all"; // Default
+      select.value = query.val;
       select.addEventListener("change", function(event) {
           var label = document.getElementById("formerror");
           label.innerHTML = "";
@@ -44,20 +44,34 @@ function appendInnerSearchQuery(element, level, query, parentGroup, afterMode) {
       myDiv.appendChild(select);
   
     } else if (('' + query.type) === 'query') {
-        var textBox = document.createElement("input");
-        textBox.placeholder = "Search Term";
 
-        textBox.addEventListener("click", function(event) {
-            var label = document.getElementById("formerror");
-            label.innerHTML = "";
+		var templateDiv = document.querySelector('#id_empty_form');
+    	var elements = templateDiv.querySelectorAll("input,select,textarea,label,div");
+        let clones = [];
+        elements.forEach(function(elem) {
+        	clones.push(elem.cloneNode(true));
         });
-
-        textBox.addEventListener("change", function(event) {
-            query.val = event.target.value;
-        });
-        textBox.type = "text";
-        var label = document.createElement("label");
-        myDiv.appendChild(textBox);
+    	
+        for (let i = 0; i < clones.length; i++) {
+        	
+        	// Dismiss any previous error (that was prevented)
+            clones[i].addEventListener("click", function(event) {
+                var label = document.getElementById("formerror");
+                label.innerHTML = "";
+            });
+            
+            // Keep the value up to date
+            clones[i].addEventListener("change", function() {
+            	query[clones[i].name] = event.target.value;
+            });
+            
+            // Initialize the value in the hierarchy with the default
+            query[clones[i].name] = clones[i].value;
+            
+            // Add this row to the HTML form
+            myDiv.appendChild(clones[i]);
+        }
+        
     } else {
         var label = document.getElementById("formerror");
         label.innerHTML = "Error: Unrecognized query type: " + query.type;
@@ -93,6 +107,26 @@ function appendInnerSearchQuery(element, level, query, parentGroup, afterMode) {
   
     if (('' + query.type) === 'group') {
   
+        // Add a couple queries to start off
+        var subQuery = {
+            type: "query",
+            val: ""
+        }
+        query.queryGroup.push(subQuery);
+        appendInnerSearchQuery(myDiv, level + 1, subQuery, query);
+
+        // If this isn't the root level, append a second
+        if (level > 0) {
+            var subQuery2 = {
+                type: "query",
+                val: ""
+            }
+            query.queryGroup.push(subQuery2);
+            appendInnerSearchQuery(myDiv, level + 1, subQuery2, query);
+        }
+        
+        myDiv.append(document.createElement("div"));
+
         if (level > 0) {
 
             // Add query to a group (button)
@@ -123,7 +157,7 @@ function appendInnerSearchQuery(element, level, query, parentGroup, afterMode) {
 
                 var sibGroup = {
                     type: "group",
-                    val: "all",
+                    val: "any",
                     queryGroup: []
                 }
                 var index = parentGroup.queryGroup.indexOf(query);
@@ -133,24 +167,6 @@ function appendInnerSearchQuery(element, level, query, parentGroup, afterMode) {
             });
             myDiv.appendChild(grpbtn);
   		}
-
-        // Add a couple queries to start off
-        var subQuery = {
-            type: "query",
-            val: ""
-        }
-        query.queryGroup.push(subQuery);
-        appendInnerSearchQuery(myDiv, level + 1, subQuery, query);
-
-        // If this isn't the root level, append a second
-        if (level > 0) {
-            var subQuery2 = {
-                type: "query",
-                val: ""
-            }
-            query.queryGroup.push(subQuery2);
-            appendInnerSearchQuery(myDiv, level + 1, subQuery2, query);
-        }
 
     } else {
         // Add query to a group (button)
@@ -192,6 +208,6 @@ function appendInnerSearchQuery(element, level, query, parentGroup, afterMode) {
 
     }
 }
-  
+
 // No parent argument, because this is the root
-appendInnerSearchQuery(document.querySelector('.wrapper'), 0, rootGroup);
+//appendInnerSearchQuery(document.querySelector('.wrapper'), 0, rootGroup);
