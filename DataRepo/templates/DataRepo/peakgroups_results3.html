@@ -6,9 +6,18 @@
     {{ block.super }}
     <link href="{% static 'css/nested_forms.css' %}" rel="stylesheet">
     <script src="{% static 'js/nested_forms.js' %}"></script>
+    {% if qry %}
+        {{ qry|json_script:"initGroup" }}
+    {% endif %}
     <script>
         document.addEventListener("DOMContentLoaded", function(){
-            appendInnerSearchQuery(document.querySelector('.hierarchical_search'), 0, rootGroup);
+
+            {% if qry %}
+                const initGroup = JSON.parse(document.getElementById('initGroup').textContent);
+                initializeExistingSearchQuery(document.querySelector('.hierarchical_search'), initGroup);
+            {% else %}
+                appendInnerSearchQuery(document.querySelector('.hierarchical_search'), rootGroup);
+            {% endif %}
 
             var myform = document.getElementById("hierarchical_search_form");
             document.getElementById("advanced_search_submit").addEventListener("click", function () {
@@ -26,11 +35,14 @@
         <h3>Advanced Peak Groups Search</h3>
 
         <!-- Form template from django's forms.py -->
-        <div id="id_empty_form" style="display:none;">
-            {{ form.fld }}
-            {{ form.ncmp }}
-            {{ form.val }}
-        </div>
+        {% with form.empty_form as f %}
+            <div id="id_empty_form" style="display:none;">
+                {{ f.pos }}
+                {{ f.fld }}
+                {{ f.ncmp }}
+                {{ f.val }}
+            </div>
+        {% endwith %}
 
         <!-- form action="" method="POST" -->
         <!-- form action="" id="hierarchical_search_form" method="POST" -->

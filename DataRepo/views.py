@@ -5,6 +5,7 @@ from django.views.generic import DetailView, ListView
 from django.views.generic.edit import FormView
 from django.db.models import Q
 from django.forms import formset_factory
+import json
 
 from DataRepo.forms import AdvSearchPeakGroupsForm
 
@@ -184,13 +185,13 @@ class AdvSearchPeakGroupsFmtView(FormView):
 
 
 class AdvSearchPeakGroupsFmtViewTMP(FormView):
-    form_class = AdvSearchPeakGroupsForm
+    form_class = formset_factory(AdvSearchPeakGroupsForm)
     template_name = 'DataRepo/peakgroups_results3.html'
     success_url = ''
 
     def form_invalid(self, form):
         print("This is an invalid test")
-        print(form.cleaned_data)
+        print(form)
         str = ""
         #str = hierQueryToString(form.cleaned_data)
         #print(str)
@@ -200,11 +201,55 @@ class AdvSearchPeakGroupsFmtViewTMP(FormView):
     def form_valid(self, form):
         print("This is a valid test")
         print(form.cleaned_data)
+        qry = formsetToHash(form.cleaned_data)
+        print(json.dumps(qry, indent=4))
         str = ""
         #str = hierQueryToString(form.cleaned_data)
         #print(str)
         res = {}
-        return self.render_to_response(self.get_context_data(res=res, form=form))
+        return self.render_to_response(self.get_context_data(res=res, form=form, qry=qry))
+
+def formsetToHash(formset):
+    qry = []
+    for form in formset:
+        curqry = qry
+        path = form["pos"].split(".")
+        for spot in path:
+            pos_gtype = spot.split("-")
+            if len(pos_gtype) == 2:
+                pos = pos_gtype[0]
+                gtype = pos_gtype[1]
+            else:
+                pos = spot
+                gtype = None
+            pos = int(pos)
+            while len(curqry) <= pos:
+                curqry.append({})
+            if gtype is not None:
+                if not curqry[pos]:
+                    # This is a group
+                    curqry[pos]["pos"] = ""
+                    curqry[pos]["type"] = "group"
+                    curqry[pos]["val"] = gtype
+                    curqry[pos]["queryGroup"] = []
+                curqry = curqry[pos]["queryGroup"]
+                print("Setting pointer to",pos,"queryGroup")
+            else:
+                # This is a query
+                print("Setting pos",pos,"type to query")
+                curqry[pos]["type"] = "query"
+                for key in form.keys():
+                    cmpnts = key.split("-")
+                    keyname = cmpnts[-1]
+                    if keyname == "pos":
+                        curqry[pos][key] = ""
+                    elif key not in curqry[pos]:
+                        print("Setting pos",pos,key,"to",form[key])
+                        curqry[pos][key] = form[key]
+                    else:
+                        print("ERROR: NOT setting pos",pos,key,"to",form[key])
+                print()
+    return qry
 
 def hierQueryToString(query):
     if query["type"] == "query":
