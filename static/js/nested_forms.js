@@ -17,13 +17,10 @@ function appendInnerSearchQuery(element, query, copyQuery, parentGroup, afterMod
     }
 
 
-	var append = true;
-    if (typeof afterMode !== 'undefined' || afterMode) {
-        if(afterMode) {
-            append = false;
-        }
+    if (typeof afterMode === 'undefined') {
+        afterMode = false;
     }
-    console.log("Appending to parent? ",append);
+    console.log("Appending after sibling? ", afterMode);
 
     var isRoot = true;
     if (typeof parentGroup !== 'undefined' || parentGroup) {
@@ -128,10 +125,10 @@ function appendInnerSearchQuery(element, query, copyQuery, parentGroup, afterMod
       myDiv.appendChild(rmBtn);
     }
     
-    if (append) {
-	    element.appendChild(myDiv);
-    } else {
+    if (afterMode) {
         element.after(myDiv);
+    } else {
+	    element.appendChild(myDiv);
     }
   
   
@@ -159,7 +156,7 @@ function appendInnerSearchQuery(element, query, copyQuery, parentGroup, afterMod
         
         myDiv.append(document.createElement("div"));
 
-        if (!isRoot) {
+        if (!isRoot && !isInit) {
 
             // Add query to a group (button)
             var termbtn = document.createElement("input");
@@ -254,8 +251,10 @@ function initializeExistingSearchQuery(element, initQuery) {
 }
 
 function initializeExistingSearchQueryHelper(element, copyQueryArray, parentNode) {
+    var undef;
+
     for (let i = 0; i < copyQueryArray.length; i++) {
-        
+
         if (copyQueryArray[i].type === "group") {
             var subGroup = {
                 type: "group",
@@ -266,6 +265,45 @@ function initializeExistingSearchQueryHelper(element, copyQueryArray, parentNode
             var childDiv = appendInnerSearchQuery(element, subGroup, copyQueryArray[i], parentNode, false);
             // Recurse
             initializeExistingSearchQueryHelper(childDiv, copyQueryArray[i].queryGroup, subGroup);
+
+            ///////////////////// I NEED TO FIGURE OUT HOW TO APPEND + AND ++ BUTTONS HERE
+
+            // Add query to a group (button)
+            var termbtn = document.createElement("input");
+            termbtn.type = "button";
+            termbtn.value = "+";
+            termbtn.addEventListener("click", function(event) {
+                var label = document.getElementById("formerror");
+                label.innerHTML = "";
+
+                var sibQuery = {
+                    type: "query",
+                    val: ""
+                }
+                var index = parentNode.queryGroup.indexOf(subGroup);
+                parentNode.queryGroup.splice(index + 1, 0, sibQuery);
+                appendInnerSearchQuery(event.target.parentNode, sibQuery, undef, parentNode, true);
+            });
+            childDiv.appendChild(termbtn);
+            
+            // Add group to a group (button)
+            var grpbtn = document.createElement("input");
+            grpbtn.type = "button";
+            grpbtn.value = "++";
+            grpbtn.addEventListener("click", function(event) {
+                var label = document.getElementById("formerror");
+                label.innerHTML = "";
+
+                var sibGroup = {
+                    type: "group",
+                    val: "any",
+                    queryGroup: []
+                }
+                var index = parentNode.queryGroup.indexOf(subGroup);
+                parentNode.queryGroup.splice(index + 1, 0, sibGroup);
+                appendInnerSearchQuery(event.target.parentNode, sibGroup, undef, parentNode, true);
+            });
+            childDiv.appendChild(grpbtn);
 
         } else if(copyQueryArray[i].type === "query") {
             var subQuery = {
