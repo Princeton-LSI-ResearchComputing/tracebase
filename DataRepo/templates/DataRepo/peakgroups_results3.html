@@ -15,6 +15,7 @@
             {% if qry %}
                 const initGroup = JSON.parse(document.getElementById('initGroup').textContent);
                 initializeExistingSearchQuery(document.querySelector('.hierarchical_search'), initGroup);
+                console.log("After re-init: ", rootGroup);
             {% else %}
                 appendInnerSearchQuery(document.querySelector('.hierarchical_search'), rootGroup);
             {% endif %}

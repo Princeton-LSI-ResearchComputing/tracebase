@@ -16,7 +16,6 @@ function appendInnerSearchQuery(element, query, copyQuery, parentGroup, afterMod
         isInit = true;
     }
 
-
     if (typeof afterMode === 'undefined') {
         afterMode = false;
     }
@@ -38,6 +37,11 @@ function appendInnerSearchQuery(element, query, copyQuery, parentGroup, afterMod
   
         isGroup = true;
 
+        // Initialize the value in the hierarchy with the default
+        if (isInit) {
+            query.val = copyQuery.val;
+        }
+        
         // Group type select list
         var grouptypes = ["all", "any"];
             var select = document.createElement("select");
@@ -63,6 +67,7 @@ function appendInnerSearchQuery(element, query, copyQuery, parentGroup, afterMod
   
     } else if (('' + query.type) === 'query') {
 
+        // Clone the empty django formset
 		var templateDiv = document.querySelector('#id_empty_form');
     	var elements = templateDiv.querySelectorAll("input,select,textarea,label,div");
         let clones = [];
@@ -70,15 +75,16 @@ function appendInnerSearchQuery(element, query, copyQuery, parentGroup, afterMod
         	clones.push(elem.cloneNode(true));
         });
     	
+        // For each clones input form element
         for (let i = 0; i < clones.length; i++) {
         	
-        	// Dismiss any previous error (that was prevented)
+        	// Dismiss any previous error (that was previously presented and prevented)
             clones[i].addEventListener("click", function(event) {
                 var label = document.getElementById("formerror");
                 label.innerHTML = "";
             });
             
-            // Keep the value up to date
+            // Keep the value of the hierarchy structure up to date when the user changes the form value
             clones[i].addEventListener("change", function() {
             	query[clones[i].name] = event.target.value;
             });
@@ -122,7 +128,7 @@ function appendInnerSearchQuery(element, query, copyQuery, parentGroup, afterMod
                 parentGroup.queryGroup.splice(index, 1);
             }
         });
-      myDiv.appendChild(rmBtn);
+        myDiv.appendChild(rmBtn);
     }
     
     if (afterMode) {
@@ -134,6 +140,7 @@ function appendInnerSearchQuery(element, query, copyQuery, parentGroup, afterMod
   
     if (isGroup) {
 
+        // Initialization using a copied rootgroup adds items one at a time, so don't pre-add empties.
         if (!isInit) {
             // Add a couple queries to start off
             var subQuery = {
@@ -152,10 +159,12 @@ function appendInnerSearchQuery(element, query, copyQuery, parentGroup, afterMod
                 query.queryGroup.push(subQuery2);
                 appendInnerSearchQuery(myDiv, subQuery2, undef, query);
             }
+
+            // Not exactly sure why, but after adding inner elements to a group, an empty div is needed to make future dynamically-added form elements to be correctly created.  I did this based on the template post I followed that had a static empty div just inside where the dynamic content was being created, when stuff I was adding wasn't working right and it seems to have fixed it.
+            myDiv.append(document.createElement("div"));
         }
         
-        myDiv.append(document.createElement("div"));
-
+        // Initialization using a copied rootgroup adds items one at a time, so don't add the follow-up + and ++ buttons.  This way, the individually eppended inner forms don't go under these buttons.  This means that the initializing function must add these manually.
         if (!isRoot && !isInit) {
 
             // Add query to a group (button)
@@ -247,7 +256,11 @@ function initializeExistingSearchQuery(element, initQuery) {
 
     // Create the root object
     var childDiv = appendInnerSearchQuery(element, rootGroup, initQuery[0]);
+
     initializeExistingSearchQueryHelper(childDiv, initQuery[0].queryGroup, rootGroup);
+
+    // Not exactly sure why, but after adding inner elements to a group, an empty div is needed to make future dynamically-added form elements to be correctly created.  I did this based on the template post I followed that had a static empty div just inside where the dynamic content was being created, when stuff I was adding wasn't working right and it seems to have fixed it.
+    childDiv.append(document.createElement("div"));
 }
 
 function initializeExistingSearchQueryHelper(element, copyQueryArray, parentNode) {
@@ -267,6 +280,9 @@ function initializeExistingSearchQueryHelper(element, copyQueryArray, parentNode
             initializeExistingSearchQueryHelper(childDiv, copyQueryArray[i].queryGroup, subGroup);
 
             ///////////////////// I NEED TO FIGURE OUT HOW TO APPEND + AND ++ BUTTONS HERE
+
+            // Not exactly sure why, but after adding inner elements to a group, an empty div is needed to make future dynamically-added form elements to be correctly created.  I did this based on the template post I followed that had a static empty div just inside where the dynamic content was being created, when stuff I was adding wasn't working right and it seems to have fixed it.
+            childDiv.append(document.createElement("div"));
 
             // Add query to a group (button)
             var termbtn = document.createElement("input");
@@ -313,7 +329,7 @@ function initializeExistingSearchQueryHelper(element, copyQueryArray, parentNode
             appendInnerSearchQuery(element, subQuery, copyQueryArray[i], parentNode, false);
 
         } else {
-            console.error("Unknown node type: ", copyQueryArray[i].type);
+            console.error("Unknown node type at index " + i + ": ", copyQueryArray[i].type);
         }
     }
 }
@@ -352,6 +368,7 @@ function saveSearchQueryHierarchyHelper(divElem, path, count, idx) {
     //var childElems = divElem.querySelectorAll(":scope > input,select,textarea,label,div");
     var childDivs = divElem.querySelectorAll(":scope > div"); // - results in only 1, even if 2 items added - I think because each input is not wrapped in a div
 
+    // Always traverse 1 less, because there's always an empty trailing div tag
     var numChildren = (childDivs.length - 1);
     if (numChildren > -1) {
         console.log("Num children: " + numChildren + ":");
@@ -416,7 +433,7 @@ function saveSearchQueryHierarchyHelper(divElem, path, count, idx) {
 
     // Recurse
     // Always traverse 1 less, because there's always an empty trailing div tag
-    for (let i = 0; i < (childDivs.length - 1); i++) {
+    for (let i = 0; i < numChildren; i++) {
         console.log("Recursing to child " + i + ": ", childDivs[i]);
         //console.log("Child " + i + " of " + divElem.name + " at index " + idx + ":",childElems[i]);
 
