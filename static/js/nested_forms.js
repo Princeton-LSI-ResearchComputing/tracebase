@@ -67,12 +67,12 @@ function appendInnerSearchQuery(element, query, copyQuery, parentGroup, afterMod
   
     } else if (('' + query.type) === 'query') {
 
-        // Clone the empty django formset
+        // Clone the empty django formset - just the form inputs, so we can restore the values entered
 		var templateDiv = document.querySelector('#id_empty_form');
-    	var elements = templateDiv.querySelectorAll("input,select,textarea,label,div");
+    	var elements = templateDiv.querySelectorAll("input,select,textarea");
         let clones = [];
         elements.forEach(function(elem) {
-        	clones.push(elem.cloneNode(true));
+            clones.push(elem.cloneNode(true));
         });
     	
         // For each clones input form element

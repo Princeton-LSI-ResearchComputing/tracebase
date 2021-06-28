@@ -57,3 +57,8 @@ class AdvSearchPeakGroupsForm(forms.Form):
 
     # TODO: Currently, I am only providing this one field type.  Eventually, I will work out a way to dynamically update this based on the model's field type
     val = forms.CharField(widget=forms.TextInput())
+
+    def clean(self):
+        """This override of super.clean is so we can reconstruct the search inputs upon form_invalid in views.py"""
+        self.saved_data=self.cleaned_data
+        return self.cleaned_data

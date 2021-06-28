@@ -190,28 +190,38 @@ class AdvSearchPeakGroupsFmtViewTMP(FormView):
     success_url = ''
 
     def form_invalid(self, form):
-        print("This is an invalid test")
+        print("The form was invalid")
         print(form)
-        str = ""
-        #str = hierQueryToString(form.cleaned_data)
-        #print(str)
-        res = {}
-        return self.render_to_response(self.get_context_data(res=res, form=form))
-
-    def form_valid(self, form):
-        print("This is a valid test")
-        print(form.cleaned_data)
-        qry = formsetToHash(form.cleaned_data)
-        print(json.dumps(qry, indent=4))
-        str = ""
-        #str = hierQueryToString(form.cleaned_data)
-        #print(str)
+        qry = formsetToHash(form,AdvSearchPeakGroupsForm.base_fields.keys())
         res = {}
         return self.render_to_response(self.get_context_data(res=res, form=form, qry=qry))
 
-def formsetToHash(formset):
+    def form_valid(self, form):
+        print("The form was valid")
+        print(form.cleaned_data)
+        qry = formsetToHash(form,AdvSearchPeakGroupsForm.base_fields.keys())
+        print(json.dumps(qry, indent=4))
+        str = ""
+        res = {}
+        return self.render_to_response(self.get_context_data(res=res, form=form, qry=qry))
+
+def formsetToHash(rawformset, form_fields):
     qry = []
-    for form in formset:
+
+    isRaw = False
+    try:
+        formset = rawformset.cleaned_data
+    except:
+        isRaw = True
+        formset = rawformset
+
+    for rawform in formset:
+
+        if isRaw:
+            form = rawform.saved_data
+        else:
+            form = rawform
+
         curqry = qry
         path = form["pos"].split(".")
         for spot in path:
@@ -237,10 +247,18 @@ def formsetToHash(formset):
             else:
                 # This is a query
                 print("Setting pos",pos,"type to query")
+
+                # Keep track of keys encountered
+                keys_seen = {}
+                for key in form_fields:
+                    keys_seen[key] = 0
+                cmpnts = []
+
                 curqry[pos]["type"] = "query"
                 for key in form.keys():
                     cmpnts = key.split("-")
                     keyname = cmpnts[-1]
+                    keys_seen[key] = 1
                     if keyname == "pos":
                         curqry[pos][key] = ""
                     elif key not in curqry[pos]:
@@ -248,20 +266,15 @@ def formsetToHash(formset):
                         curqry[pos][key] = form[key]
                     else:
                         print("ERROR: NOT setting pos",pos,key,"to",form[key])
+
+                # Now initialize anything missing a value to an empty string
+                # This is to be able to correctly reconstruct the user's query upon form_invalid
+                for key in form_fields:
+                    if keys_seen[key] == 0:
+                        curqry[pos][key] = ""
+
                 print()
     return qry
-
-def hierQueryToString(query):
-    if query["type"] == "query":
-        str += " ".join([query["fld"],query["ncmp"],query["val"]])
-    elif query["type"] == "group":
-        if query["val"] == "all":
-            str += " and-group(" + " && ".join(hierQueryToString(query) for subquery in query["queryGroup"]) + ")"
-        else:
-            str += " or-group(" + " || ".join(hierQueryToString(query) for subquery in query["queryGroup"]) + ")"
-    else:
-        raise ValidationError("Unknown node type in hierarchical search query")
-    return str
 
 
 # used by templatetags/advsrch_tags.py
