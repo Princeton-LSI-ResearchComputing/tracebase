@@ -67,9 +67,8 @@ function appendInnerSearchQuery(element, query, copyQuery, parentGroup, afterMod
   
     } else if (('' + query.type) === 'query') {
 
-        // Clone the empty django formset - just the form inputs, so we can restore the values entered
 		var templateDiv = document.querySelector('#id_empty_form');
-    	var elements = templateDiv.querySelectorAll("input,select,textarea");
+    	var elements = templateDiv.querySelectorAll("input,select,textarea,label,div,ul");
         let clones = [];
         elements.forEach(function(elem) {
             clones.push(elem.cloneNode(true));
@@ -78,25 +77,30 @@ function appendInnerSearchQuery(element, query, copyQuery, parentGroup, afterMod
         // For each clones input form element
         for (let i = 0; i < clones.length; i++) {
         	
-        	// Dismiss any previous error (that was previously presented and prevented)
-            clones[i].addEventListener("click", function(event) {
-                var label = document.getElementById("formerror");
-                label.innerHTML = "";
-            });
-            
-            // Keep the value of the hierarchy structure up to date when the user changes the form value
-            clones[i].addEventListener("change", function() {
-            	query[clones[i].name] = event.target.value;
-            });
-            
-            // Initialize the value in the hierarchy with the default
-            if (isInit) {
-                var keyname = clones[i].name.split("-").pop();
-                query[keyname] = copyQuery[keyname];
-                clones[i].value = copyQuery[keyname];
-                console.log("Converted long key name ",clones[i].name," to ",keyname," to obtain previous value: ",copyQuery[keyname]," and produced DOM element: ",clones[i]," with value: ",clones[i].value);
-            } else {
-                query[clones[i].name] = clones[i].value;
+            // If this is a form field
+            if (clones[i].type === "input" || clones[i].type === "select" || clones[i].type === "textarea") {
+                // Dismiss any previous error (that was previously presented and prevented)
+                clones[i].addEventListener("click", function(event) {
+                    var label = document.getElementById("formerror");
+                    label.innerHTML = "";
+                });
+                
+                // Keep the value of the hierarchy structure up to date when the user changes the form value
+                clones[i].addEventListener("change", function() {
+                    query[clones[i].name] = event.target.value;
+                });
+                
+                // Initialize the value in the hierarchy with the default
+                if (isInit) {
+                    var keyname = clones[i].name.split("-").pop();
+                    query[keyname] = copyQuery[keyname];
+                    clones[i].value = copyQuery[keyname];
+                    console.log("Converted long key name ",clones[i].name," to ",keyname," to obtain previous value: ",copyQuery[keyname]," and produced DOM element: ",clones[i]," with value: ",clones[i].value);
+                } else {
+                    query[clones[i].name] = clones[i].value;
+                }
+            } else if(clones[i].type === "ul") {
+                clones[i].appendChild(clones[i].querySelectorAll("li"));
             }
             
             // Add this row to the HTML form
