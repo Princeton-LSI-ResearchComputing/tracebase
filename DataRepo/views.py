@@ -201,7 +201,6 @@ class AdvSearchPeakGroupsFmtViewTMP(FormView):
         print(form.cleaned_data)
         qry = formsetToHash(form,AdvSearchPeakGroupsForm.base_fields.keys())
         print(json.dumps(qry, indent=4))
-        str = ""
         res = {}
         return self.render_to_response(self.get_context_data(res=res, form=form, qry=qry))
 

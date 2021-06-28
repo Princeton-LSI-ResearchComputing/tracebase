@@ -53,7 +53,7 @@
         {% csrf_token %}
             <div class="hierarchical_search"></div>
             <button type="submit" class="btn btn-primary" id="advanced_search_submit">Search</button>
-            {{ form.errors.val }}{% comment %}{% endcomment %}
+            {{ form.errors.val }}
             {{ form.management_form }}
         </form>
         <div><label id="formerror" class="text-danger temporal-text"></label></div>
