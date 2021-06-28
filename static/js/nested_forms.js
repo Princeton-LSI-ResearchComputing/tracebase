@@ -279,8 +279,6 @@ function initializeExistingSearchQueryHelper(element, copyQueryArray, parentNode
             // Recurse
             initializeExistingSearchQueryHelper(childDiv, copyQueryArray[i].queryGroup, subGroup);
 
-            ///////////////////// I NEED TO FIGURE OUT HOW TO APPEND + AND ++ BUTTONS HERE
-
             // Not exactly sure why, but after adding inner elements to a group, an empty div is needed to make future dynamically-added form elements to be correctly created.  I did this based on the template post I followed that had a static empty div just inside where the dynamic content was being created, when stuff I was adding wasn't working right and it seems to have fixed it.
             childDiv.append(document.createElement("div"));
 
@@ -445,5 +443,5 @@ function saveSearchQueryHierarchyHelper(divElem, path, count, idx) {
     return count;
 }
 
-// No parent argument, because this is the root
+// This is now called in a separate script after the DOM content has loaded
 //appendInnerSearchQuery(document.querySelector('.wrapper'), rootGroup);

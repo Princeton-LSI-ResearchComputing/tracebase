@@ -12,6 +12,7 @@
     <script>
         document.addEventListener("DOMContentLoaded", function(){
 
+            // If a search has been performed, restore the form
             {% if qry %}
                 const initGroup = JSON.parse(document.getElementById('initGroup').textContent);
                 initializeExistingSearchQuery(document.querySelector('.hierarchical_search'), initGroup);
