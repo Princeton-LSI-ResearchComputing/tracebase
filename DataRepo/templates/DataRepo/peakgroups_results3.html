@@ -43,7 +43,7 @@
                 {{ f.fld }}
                 {{ f.ncmp }}
                 {{ f.val }}
-                <label name="valerr" class="text-danger"> {{ f.val.errors }} </label>
+                <label class="text-danger"> {{ f.val.errors }} </label>
             </div>
         {% endwith %}
 
@@ -53,7 +53,7 @@
         {% csrf_token %}
             <div class="hierarchical_search"></div>
             <button type="submit" class="btn btn-primary" id="advanced_search_submit">Search</button>
-            {{ form.errors }}
+            {{ form.errors.val }}{% comment %}{% endcomment %}
             {{ form.management_form }}
         </form>
         <div><label id="formerror" class="text-danger temporal-text"></label></div>
