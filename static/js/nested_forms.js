@@ -68,43 +68,56 @@ function appendInnerSearchQuery(element, query, copyQuery, parentGroup, afterMod
     } else if (('' + query.type) === 'query') {
 
 		var templateDiv = document.querySelector('#id_empty_form');
-    	var elements = templateDiv.querySelectorAll("input,select,textarea,label,div,ul");
+    	var elements = templateDiv.querySelectorAll("input,select,textarea");
         let clones = [];
         elements.forEach(function(elem) {
             clones.push(elem.cloneNode(true));
         });
     	
+        var errors = [];
         // For each clones input form element
         for (let i = 0; i < clones.length; i++) {
         	
-            // If this is a form field
-            if (clones[i].type === "input" || clones[i].type === "select" || clones[i].type === "textarea") {
-                // Dismiss any previous error (that was previously presented and prevented)
-                clones[i].addEventListener("click", function(event) {
-                    var label = document.getElementById("formerror");
-                    label.innerHTML = "";
-                });
-                
-                // Keep the value of the hierarchy structure up to date when the user changes the form value
-                clones[i].addEventListener("change", function() {
-                    query[clones[i].name] = event.target.value;
-                });
-                
-                // Initialize the value in the hierarchy with the default
-                if (isInit) {
-                    var keyname = clones[i].name.split("-").pop();
-                    query[keyname] = copyQuery[keyname];
-                    clones[i].value = copyQuery[keyname];
-                    console.log("Converted long key name ",clones[i].name," to ",keyname," to obtain previous value: ",copyQuery[keyname]," and produced DOM element: ",clones[i]," with value: ",clones[i].value);
-                } else {
-                    query[clones[i].name] = clones[i].value;
+            // Dismiss any previous error (that was previously presented and prevented)
+            clones[i].addEventListener("click", function(event) {
+                var label = document.getElementById("formerror");
+                label.innerHTML = "";
+            });
+            
+            // Keep the value of the hierarchy structure up to date when the user changes the form value
+            clones[i].addEventListener("change", function() {
+                query[clones[i].name] = event.target.value;
+            });
+            
+            // Initialize the value in the hierarchy with the default
+            if (isInit) {
+                var keyname = clones[i].name.split("-").pop();
+                query[keyname] = copyQuery[keyname];
+                clones[i].value = copyQuery[keyname];
+                console.log("Converted long key name ",clones[i].name," to ",keyname," to obtain previous value: ",copyQuery[keyname]," and produced DOM element: ",clones[i]," with value: ",clones[i].value);
+
+                // If this isn't the hidden pos field and there is no value, push an error
+                if (keyname !== "pos" && copyQuery[keyname] === "") {
+                    errors.push(" * This is a required field.");
                 }
-            } else if(clones[i].type === "ul") {
-                clones[i].appendChild(clones[i].querySelectorAll("li"));
+            } else {
+                query[clones[i].name] = clones[i].value;
             }
             
             // Add this row to the HTML form
             myDiv.appendChild(clones[i]);
+
+            // If there were any errors, create an error label
+            // For some reason, this was a nice tooltip in an earlier version (f9c2cac151f9909380022cea8b7a40a5f0e72a4e), but doesn't work automatically in the latest version
+            if (errors.length > 0) {
+                var errlabel = document.createElement("label");
+                errlabel.className = "text-danger";
+                errlabel.innerHTML = "";
+                for (let j = 0; j < errors.length; j++) {
+                    errlabel.innerHTML += errors[j] + " ";
+                }
+                myDiv.appendChild(errlabel);
+            }
         }
 
         console.log("Added div leaf with data: ", myDiv);
