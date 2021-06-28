@@ -128,10 +128,15 @@ function appendInnerSearchQuery(element, query, copyQuery, parentGroup, afterMod
     }
   
     if (!isRoot) {
-        var rmBtn = document.createElement("input");
-        rmBtn.type = "button";
-        rmBtn.value = "-";
-        rmBtn.addEventListener("click", function(event) {
+        // var rmBtn = document.createElement("input");
+        // rmBtn.type = "button";
+        // rmBtn.value = "-";
+        var rmBtn = document.createElement("a");
+        rmBtn.href = "javascript:void(0)";
+        var btnImg = document.createElement("img");
+        btnImg.src = "/static/images/minus.png";
+        rmBtn.appendChild(btnImg);
+                rmBtn.addEventListener("click", function(event) {
             var label = document.getElementById("formerror");
             label.innerHTML = "";
 
@@ -140,11 +145,13 @@ function appendInnerSearchQuery(element, query, copyQuery, parentGroup, afterMod
                 var label = document.getElementById("formerror");
                 label.innerHTML = "A group must have at least 1 query.";
             } else {
-                event.target.parentNode.remove();
+                //event.target.parentNode.remove();
+                event.target.parentNode.parentNode.remove();
                 var index = parentGroup.queryGroup.indexOf(query);
                 parentGroup.queryGroup.splice(index, 1);
             }
         });
+        myDiv.appendChild(document.createTextNode(" "));
         myDiv.appendChild(rmBtn);
     }
     
@@ -185,9 +192,14 @@ function appendInnerSearchQuery(element, query, copyQuery, parentGroup, afterMod
         if (!isRoot && !isInit) {
 
             // Add query to a group (button)
-            var termbtn = document.createElement("input");
-            termbtn.type = "button";
-            termbtn.value = "+";
+            // var termbtn = document.createElement("input");
+            // termbtn.type = "button";
+            // termbtn.value = "+";
+            var termbtn = document.createElement("a");
+            termbtn.href = "javascript:void(0)";
+            var btnImg = document.createElement("img");
+            btnImg.src = "/static/images/plus.png";
+            termbtn.appendChild(btnImg);
             termbtn.addEventListener("click", function(event) {
                 var label = document.getElementById("formerror");
                 label.innerHTML = "";
@@ -198,14 +210,22 @@ function appendInnerSearchQuery(element, query, copyQuery, parentGroup, afterMod
                 }
                 var index = parentGroup.queryGroup.indexOf(query);
                 parentGroup.queryGroup.splice(index + 1, 0, sibQuery);
-                appendInnerSearchQuery(event.target.parentNode, sibQuery, undef, parentGroup, true);
+                //appendInnerSearchQuery(event.target.parentNode, sibQuery, undef, parentGroup, true);
+                // The clicked item is the image, so to get the eclosing div, we need the grandparent
+                appendInnerSearchQuery(event.target.parentNode.parentNode, sibQuery, undef, parentGroup, true);
             });
+            myDiv.appendChild(document.createTextNode(" "));
             myDiv.appendChild(termbtn);
 
             // Add group to a group (button)
-            var grpbtn = document.createElement("input");
-            grpbtn.type = "button";
-            grpbtn.value = "++";
+            // var grpbtn = document.createElement("input");
+            // grpbtn.type = "button";
+            // grpbtn.value = "++";
+            var grpbtn = document.createElement("a");
+            grpbtn.href = "javascript:void(0)";
+            var btnImg = document.createElement("img");
+            btnImg.src = "/static/images/plusplus.png";
+            grpbtn.appendChild(btnImg);
             grpbtn.addEventListener("click", function(event) {
                 var label = document.getElementById("formerror");
                 label.innerHTML = "";
@@ -217,17 +237,24 @@ function appendInnerSearchQuery(element, query, copyQuery, parentGroup, afterMod
                 }
                 var index = parentGroup.queryGroup.indexOf(query);
                 parentGroup.queryGroup.splice(index + 1, 0, sibGroup);
-                appendInnerSearchQuery(event.target.parentNode, sibGroup, undef, parentGroup, true);
+                //appendInnerSearchQuery(event.target.parentNode, sibGroup, undef, parentGroup, true);
+                appendInnerSearchQuery(event.target.parentNode.parentNode, sibGroup, undef, parentGroup, true);
 
             });
+            myDiv.appendChild(document.createTextNode(" "));
             myDiv.appendChild(grpbtn);
   		}
 
     } else {
         // Add query to a group (button)
-        var termbtn = document.createElement("input");
-        termbtn.type = "button";
-        termbtn.value = "+";
+        // var termbtn = document.createElement("input");
+        // termbtn.type = "button";
+        // termbtn.value = "+";
+        var termbtn = document.createElement("a");
+        termbtn.href = "javascript:void(0)";
+        var btnImg = document.createElement("img");
+        btnImg.src = "/static/images/plus.png";
+        termbtn.appendChild(btnImg);
         termbtn.addEventListener("click", function(event) {
             var label = document.getElementById("formerror");
             label.innerHTML = "";
@@ -238,28 +265,39 @@ function appendInnerSearchQuery(element, query, copyQuery, parentGroup, afterMod
             }
             var index = parentGroup.queryGroup.indexOf(query);
             parentGroup.queryGroup.splice(index + 1, 0, sibQuery);
-            appendInnerSearchQuery(event.target.parentNode, sibQuery, undef, parentGroup, true);
+            //appendInnerSearchQuery(event.target.parentNode, sibQuery, undef, parentGroup, true);
+            // The clicked item is the image, so to get the eclosing div, we need the grandparent
+            appendInnerSearchQuery(event.target.parentNode.parentNode, sibQuery, undef, parentGroup, true);
         });
+        myDiv.appendChild(document.createTextNode(" "));
         myDiv.appendChild(termbtn);
   
-      // Add group to a group (button)
-      var grpbtn = document.createElement("input");
-      grpbtn.type = "button";
-      grpbtn.value = "++";
-      grpbtn.addEventListener("click", function(event) {
-          var label = document.getElementById("formerror");
-          label.innerHTML = "";
+        // Add group to a group (button)
+        // var grpbtn = document.createElement("input");
+        // grpbtn.type = "button";
+        // grpbtn.value = "++";
+        var grpbtn = document.createElement("a");
+        grpbtn.href = "javascript:void(0)";
+        var btnImg = document.createElement("img");
+        btnImg.src = "/static/images/plusplus.png";
+        grpbtn.appendChild(btnImg);
+        grpbtn.addEventListener("click", function(event) {
+            var label = document.getElementById("formerror");
+            label.innerHTML = "";
 
-          var sibGroup = {
-              type: "group",
-              val: "any",
-              queryGroup: []
-          }
-          var index = parentGroup.queryGroup.indexOf(query);
-          parentGroup.queryGroup.splice(index + 1, 0, sibGroup);
-          appendInnerSearchQuery(event.target.parentNode, sibGroup, undef, parentGroup, true);
-      });
-      myDiv.appendChild(grpbtn);
+            var sibGroup = {
+                type: "group",
+                val: "any",
+                queryGroup: []
+            }
+            var index = parentGroup.queryGroup.indexOf(query);
+            parentGroup.queryGroup.splice(index + 1, 0, sibGroup);
+            //appendInnerSearchQuery(event.target.parentNode, sibGroup, undef, parentGroup, true);
+            // The clicked item is the image, so to get the eclosing div, we need the grandparent
+            appendInnerSearchQuery(event.target.parentNode.parentNode, sibGroup, undef, parentGroup, true);
+        });
+        myDiv.appendChild(document.createTextNode(" "));
+        myDiv.appendChild(grpbtn);
     }
     console.log("Updated data structure: ",rootGroup);
 
@@ -300,9 +338,14 @@ function initializeExistingSearchQueryHelper(element, copyQueryArray, parentNode
             childDiv.append(document.createElement("div"));
 
             // Add query to a group (button)
-            var termbtn = document.createElement("input");
-            termbtn.type = "button";
-            termbtn.value = "+";
+            // var termbtn = document.createElement("input");
+            // termbtn.type = "button";
+            // termbtn.value = "+";
+            var termbtn = document.createElement("a");
+            termbtn.href = "javascript:void(0)";
+            var btnImg = document.createElement("img");
+            btnImg.src = "/static/images/plus.png";
+            termbtn.appendChild(btnImg);
             termbtn.addEventListener("click", function(event) {
                 var label = document.getElementById("formerror");
                 label.innerHTML = "";
@@ -313,14 +356,22 @@ function initializeExistingSearchQueryHelper(element, copyQueryArray, parentNode
                 }
                 var index = parentNode.queryGroup.indexOf(subGroup);
                 parentNode.queryGroup.splice(index + 1, 0, sibQuery);
-                appendInnerSearchQuery(event.target.parentNode, sibQuery, undef, parentNode, true);
+                //appendInnerSearchQuery(event.target.parentNode, sibQuery, undef, parentNode, true);
+                // The clicked item is the image, so to get the eclosing div, we need the grandparent
+                appendInnerSearchQuery(event.target.parentNode.parentNode, sibQuery, undef, parentNode, true);
             });
+            childDiv.appendChild(document.createTextNode(" "));
             childDiv.appendChild(termbtn);
             
             // Add group to a group (button)
-            var grpbtn = document.createElement("input");
-            grpbtn.type = "button";
-            grpbtn.value = "++";
+            // var grpbtn = document.createElement("input");
+            // grpbtn.type = "button";
+            // grpbtn.value = "++";
+            var grpbtn = document.createElement("a");
+            grpbtn.href = "javascript:void(0)";
+            var btnImg = document.createElement("img");
+            btnImg.src = "/static/images/plusplus.png";
+            grpbtn.appendChild(btnImg);
             grpbtn.addEventListener("click", function(event) {
                 var label = document.getElementById("formerror");
                 label.innerHTML = "";
@@ -332,8 +383,11 @@ function initializeExistingSearchQueryHelper(element, copyQueryArray, parentNode
                 }
                 var index = parentNode.queryGroup.indexOf(subGroup);
                 parentNode.queryGroup.splice(index + 1, 0, sibGroup);
-                appendInnerSearchQuery(event.target.parentNode, sibGroup, undef, parentNode, true);
+                // appendInnerSearchQuery(event.target.parentNode, sibGroup, undef, parentNode, true);
+                // The clicked item is the image, so to get the eclosing div, we need the grandparent
+                appendInnerSearchQuery(event.target.parentNode.parentNode, sibGroup, undef, parentNode, true);
             });
+            childDiv.appendChild(document.createTextNode(" "));
             childDiv.appendChild(grpbtn);
 
         } else if(copyQueryArray[i].type === "query") {
