@@ -48,7 +48,6 @@
         {% endwith %}
 
         <!-- form action="" method="POST" -->
-        <!-- form action="" id="hierarchical_search_form" method="POST" -->
         <form action="" id="hierarchical_search_form" method="POST">
         {% csrf_token %}
             <div class="hierarchical_search"></div>
@@ -98,7 +97,6 @@
                         <tr>
                             <!-- Compound -->
                             <td>
-                                <!-- TODO: add the view link here when it is added for this model -->
                                 <a href="{% url 'sample_detail' pd.peak_group.id %}">
                                     {{ pd.peak_group.name }}
                                 </a>
@@ -112,7 +110,6 @@
                             <!-- Sample -->
                             <td>
                                 <div class="nobr">
-                                    <!-- TODO: add the view link here when it is added for this model -->
                                     <a href="{% url 'sample_detail' pd.peak_group.ms_run.sample.id %}">
                                         {{ pd.peak_group.ms_run.sample.name }}
                                     </a>
@@ -131,7 +128,6 @@
 
                             <!-- Mouse -->
                             <td>
-                                <!-- TODO: add the view link here when it is added for this model -->
                                 <a href="{% url 'animal_detail' pd.peak_group.ms_run.sample.animal.id %}">
                                     {{ pd.peak_group.ms_run.sample.animal.name }}
                                 </a>

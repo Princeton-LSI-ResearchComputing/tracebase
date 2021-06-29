@@ -202,7 +202,52 @@ class AdvSearchPeakGroupsFmtViewTMP(FormView):
         qry = formsetToHash(form,AdvSearchPeakGroupsForm.base_fields.keys())
         print(json.dumps(qry, indent=4))
         res = {}
+        if len(qry) == 1:
+            q_exp = constructAdvancedQuery(qry[0])
+            print("Query expression: ",q_exp)
+            res = PeakData.objects.filter(q_exp).prefetch_related(
+                "peak_group__ms_run__sample__animal__studies"
+            )
+        elif len(qry) == 0:
+            print("Empty query")
+        else:
+            print("Invalid query root")
         return self.render_to_response(self.get_context_data(res=res, form=form, qry=qry))
+
+
+def constructAdvancedQuery(qry):
+    curqry = qry
+    if qry['type'] == "query":
+        cmp = qry['ncmp'].replace("not_", "", 1)
+        criteria = {'{0}__{1}'.format(qry['fld'], cmp): qry['val']}
+        if cmp == qry['ncmp']:
+            return Q(**criteria)
+        else:
+            return ~Q(**criteria)
+    elif qry['type'] == "group":
+        q = Q()
+        gotone = False
+        for elem in qry['queryGroup']:
+            gotone = True
+            if qry['val'] == "all":
+                nq = constructAdvancedQuery(elem)
+                if nq is None:
+                    return None
+                else:
+                    q &= nq
+            elif qry['val'] == "any":
+                nq = constructAdvancedQuery(elem)
+                if nq is None:
+                    return None
+                else:
+                    q |= nq
+            else:
+                return None
+        if not gotone or q is None:
+            return None
+        else:
+            return q
+    return None
 
 def formsetToHash(rawformset, form_fields):
     qry = []
