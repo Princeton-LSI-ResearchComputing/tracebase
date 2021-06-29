@@ -128,9 +128,6 @@ function appendInnerSearchQuery(element, query, copyQuery, parentGroup, afterMod
     }
   
     if (!isRoot) {
-        // var rmBtn = document.createElement("input");
-        // rmBtn.type = "button";
-        // rmBtn.value = "-";
         var rmBtn = document.createElement("a");
         rmBtn.href = "javascript:void(0)";
         var btnImg = document.createElement("img");
@@ -145,7 +142,6 @@ function appendInnerSearchQuery(element, query, copyQuery, parentGroup, afterMod
                 var label = document.getElementById("formerror");
                 label.innerHTML = "A group must have at least 1 query.";
             } else {
-                //event.target.parentNode.remove();
                 event.target.parentNode.parentNode.remove();
                 var index = parentGroup.queryGroup.indexOf(query);
                 parentGroup.queryGroup.splice(index, 1);
@@ -192,9 +188,6 @@ function appendInnerSearchQuery(element, query, copyQuery, parentGroup, afterMod
         if (!isRoot && !isInit) {
 
             // Add query to a group (button)
-            // var termbtn = document.createElement("input");
-            // termbtn.type = "button";
-            // termbtn.value = "+";
             var termbtn = document.createElement("a");
             termbtn.href = "javascript:void(0)";
             var btnImg = document.createElement("img");
@@ -210,7 +203,6 @@ function appendInnerSearchQuery(element, query, copyQuery, parentGroup, afterMod
                 }
                 var index = parentGroup.queryGroup.indexOf(query);
                 parentGroup.queryGroup.splice(index + 1, 0, sibQuery);
-                //appendInnerSearchQuery(event.target.parentNode, sibQuery, undef, parentGroup, true);
                 // The clicked item is the image, so to get the eclosing div, we need the grandparent
                 appendInnerSearchQuery(event.target.parentNode.parentNode, sibQuery, undef, parentGroup, true);
             });
@@ -218,9 +210,6 @@ function appendInnerSearchQuery(element, query, copyQuery, parentGroup, afterMod
             myDiv.appendChild(termbtn);
 
             // Add group to a group (button)
-            // var grpbtn = document.createElement("input");
-            // grpbtn.type = "button";
-            // grpbtn.value = "++";
             var grpbtn = document.createElement("a");
             grpbtn.href = "javascript:void(0)";
             var btnImg = document.createElement("img");
@@ -237,7 +226,7 @@ function appendInnerSearchQuery(element, query, copyQuery, parentGroup, afterMod
                 }
                 var index = parentGroup.queryGroup.indexOf(query);
                 parentGroup.queryGroup.splice(index + 1, 0, sibGroup);
-                //appendInnerSearchQuery(event.target.parentNode, sibGroup, undef, parentGroup, true);
+                // The clicked item is the image, so to get the eclosing div, we need the grandparent
                 appendInnerSearchQuery(event.target.parentNode.parentNode, sibGroup, undef, parentGroup, true);
 
             });
@@ -247,9 +236,6 @@ function appendInnerSearchQuery(element, query, copyQuery, parentGroup, afterMod
 
     } else {
         // Add query to a group (button)
-        // var termbtn = document.createElement("input");
-        // termbtn.type = "button";
-        // termbtn.value = "+";
         var termbtn = document.createElement("a");
         termbtn.href = "javascript:void(0)";
         var btnImg = document.createElement("img");
@@ -265,7 +251,6 @@ function appendInnerSearchQuery(element, query, copyQuery, parentGroup, afterMod
             }
             var index = parentGroup.queryGroup.indexOf(query);
             parentGroup.queryGroup.splice(index + 1, 0, sibQuery);
-            //appendInnerSearchQuery(event.target.parentNode, sibQuery, undef, parentGroup, true);
             // The clicked item is the image, so to get the eclosing div, we need the grandparent
             appendInnerSearchQuery(event.target.parentNode.parentNode, sibQuery, undef, parentGroup, true);
         });
@@ -273,9 +258,6 @@ function appendInnerSearchQuery(element, query, copyQuery, parentGroup, afterMod
         myDiv.appendChild(termbtn);
   
         // Add group to a group (button)
-        // var grpbtn = document.createElement("input");
-        // grpbtn.type = "button";
-        // grpbtn.value = "++";
         var grpbtn = document.createElement("a");
         grpbtn.href = "javascript:void(0)";
         var btnImg = document.createElement("img");
@@ -292,7 +274,6 @@ function appendInnerSearchQuery(element, query, copyQuery, parentGroup, afterMod
             }
             var index = parentGroup.queryGroup.indexOf(query);
             parentGroup.queryGroup.splice(index + 1, 0, sibGroup);
-            //appendInnerSearchQuery(event.target.parentNode, sibGroup, undef, parentGroup, true);
             // The clicked item is the image, so to get the eclosing div, we need the grandparent
             appendInnerSearchQuery(event.target.parentNode.parentNode, sibGroup, undef, parentGroup, true);
         });
@@ -306,6 +287,8 @@ function appendInnerSearchQuery(element, query, copyQuery, parentGroup, afterMod
 }
 
 function initializeExistingSearchQuery(element, initQuery) {
+    "use strict";
+
     console.log("Initial query: ", initQuery);
     console.log("Root group: ", rootGroup);
 
@@ -319,6 +302,8 @@ function initializeExistingSearchQuery(element, initQuery) {
 }
 
 function initializeExistingSearchQueryHelper(element, copyQueryArray, parentNode) {
+    "use strict";
+
     var undef;
 
     for (let i = 0; i < copyQueryArray.length; i++) {
@@ -338,9 +323,6 @@ function initializeExistingSearchQueryHelper(element, copyQueryArray, parentNode
             childDiv.append(document.createElement("div"));
 
             // Add query to a group (button)
-            // var termbtn = document.createElement("input");
-            // termbtn.type = "button";
-            // termbtn.value = "+";
             var termbtn = document.createElement("a");
             termbtn.href = "javascript:void(0)";
             var btnImg = document.createElement("img");
@@ -356,7 +338,6 @@ function initializeExistingSearchQueryHelper(element, copyQueryArray, parentNode
                 }
                 var index = parentNode.queryGroup.indexOf(subGroup);
                 parentNode.queryGroup.splice(index + 1, 0, sibQuery);
-                //appendInnerSearchQuery(event.target.parentNode, sibQuery, undef, parentNode, true);
                 // The clicked item is the image, so to get the eclosing div, we need the grandparent
                 appendInnerSearchQuery(event.target.parentNode.parentNode, sibQuery, undef, parentNode, true);
             });
@@ -364,9 +345,6 @@ function initializeExistingSearchQueryHelper(element, copyQueryArray, parentNode
             childDiv.appendChild(termbtn);
             
             // Add group to a group (button)
-            // var grpbtn = document.createElement("input");
-            // grpbtn.type = "button";
-            // grpbtn.value = "++";
             var grpbtn = document.createElement("a");
             grpbtn.href = "javascript:void(0)";
             var btnImg = document.createElement("img");
@@ -383,7 +361,6 @@ function initializeExistingSearchQueryHelper(element, copyQueryArray, parentNode
                 }
                 var index = parentNode.queryGroup.indexOf(subGroup);
                 parentNode.queryGroup.splice(index + 1, 0, sibGroup);
-                // appendInnerSearchQuery(event.target.parentNode, sibGroup, undef, parentNode, true);
                 // The clicked item is the image, so to get the eclosing div, we need the grandparent
                 appendInnerSearchQuery(event.target.parentNode.parentNode, sibGroup, undef, parentNode, true);
             });
@@ -406,7 +383,6 @@ function initializeExistingSearchQueryHelper(element, copyQueryArray, parentNode
 function saveSearchQueryHierarchy(divElem) {
     "use strict";
 
-    //var childElems = divElem.children; // - Doesn't work
     //var childElems = divElem.querySelectorAll(":scope > input,select,textarea,label,div");
     var childDivs = divElem.querySelectorAll(":scope > div"); // - results in only 1, even if 2 items added - I think because each input is not wrapped in a div
 
@@ -418,8 +394,6 @@ function saveSearchQueryHierarchy(divElem) {
         //console.log("Child " + i + " of " + divElem.name + " at index " + 0 + ":",childElems[i]);
 
         total = saveSearchQueryHierarchyHelper(childDivs[i], "", 0, 0);
-        // Add this row to the HTML form
-        //myDiv.appendChild(clones[i]);
     }
 
     console.log("New Div Structure: ",divElem);
@@ -433,7 +407,6 @@ function saveSearchQueryHierarchyHelper(divElem, path, count, idx) {
 
     console.log("Looking at: ", divElem);
 
-    //var childElems = divElem.children; // - Doesn't work
     //var childElems = divElem.querySelectorAll(":scope > input,select,textarea,label,div");
     var childDivs = divElem.querySelectorAll(":scope > div"); // - results in only 1, even if 2 items added - I think because each input is not wrapped in a div
 
@@ -504,15 +477,9 @@ function saveSearchQueryHierarchyHelper(divElem, path, count, idx) {
     // Always traverse 1 less, because there's always an empty trailing div tag
     for (let i = 0; i < numChildren; i++) {
         console.log("Recursing to child " + i + ": ", childDivs[i]);
-        //console.log("Child " + i + " of " + divElem.name + " at index " + idx + ":",childElems[i]);
 
         count = saveSearchQueryHierarchyHelper(childDivs[i], path, count, i);
-        // Add this row to the HTML form
-        //myDiv.appendChild(clones[i]);
     }
 
     return count;
 }
-
-// This is now called in a separate script after the DOM content has loaded
-//appendInnerSearchQuery(document.querySelector('.wrapper'), rootGroup);
