@@ -10,8 +10,7 @@ urlpatterns = [
         views.search_basic,
         name="search_basic",
     ),
-    path("search_peakgroups/", views.AdvSearchPeakGroupsFmtView.as_view(), name="search_peakgroups"),
-    path("search_peakgroups_tmp/", views.AdvSearchPeakGroupsFmtViewTMP.as_view(), name="search_peakgroups_tmp"),
+    path("search_peakgroups/", views.AdvSearchPeakGroupsView.as_view(), name="search_peakgroups"),
 
     path("compounds/", views.CompoundListView.as_view(), name="compound_list"),
     path(

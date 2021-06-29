@@ -1,4 +1,4 @@
-from django.core.exceptions import FieldError, ValidationError
+from django.core.exceptions import FieldError
 from django.http import Http404
 from django.shortcuts import get_object_or_404, render
 from django.views.generic import DetailView, ListView
@@ -18,9 +18,11 @@ from DataRepo.models import (
     PeakGroupSet,
     Protocol,
     Sample,
-    Study,
-#    TracerLabeledClass,
+    Study
 )
+
+
+debug = False
 
 
 def home(request):
@@ -119,82 +121,28 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
     return res
 
 
-#def search_advanced_start(request):
-#    text_cmps = [
-#        {"show":"is","cmp":"iexact"},
-#        {"show":"is not","cmp":"not_iexact"},
-#        {"show":"starts with","cmp":"istartswith"},
-#        {"show":"doesn't start with","cmp":"not_istartswith"},
-#        {"show":"contains","cmp":"icontains"},
-#        {"show":"doesn't contain","cmp":"not_icontains"},
-#        {"show":"ends with","cmp":"iendswith"},
-#        {"show":"doesn't end with","cmp":"not_iendswith"}
-#    ]
-#    searchables = {}
-#    searchables["fmt"] = {}
-#    searchables["fmt"]["peakgroups"] = {
-#        "Compound": {
-#            "entry_type": "textbox",
-#            "comparators": text_cmps,
-#            "field": "peak_group__name"
-#        },
-#        "Atom": {
-#            "entry_type": "select",
-#            "options": TracerLabeledClass.tracer_labeled_elements_list(),
-#            "field": "labeled_element"
-#        }
-#    }
-#    return render(request, "search_advanced.html", {"searchables": searchables})
-
-
-class AdvSearchPeakGroupsFmtView(FormView):
+class AdvSearchPeakGroupsView(FormView):
     form_class = formset_factory(AdvSearchPeakGroupsForm)
-    template_name = 'DataRepo/peakgroups_results2.html'
+    template_name = 'DataRepo/search_peakgroups.html'
     success_url = ''
 
-    def form_valid(self, form):
-        print(form.cleaned_data)
-        print(form)
-        # Build the query chain
-        criteria = []
-        for form_query in form.cleaned_data:
-            cmp = form_query['ncmp'].replace("not_", "", 1)
-            q = {'{0}__{1}'.format(form_query['fld'], cmp): form_query['val']}
-            if cmp == form_query['ncmp']:
-                criteria.append(Q(**q))
-            else:
-                criteria.append(~Q(**q))
-
-        # If there was no search criteria, show all records
-        #if len(criteria) == 0:
-            #res = PeakData.objects.all().prefetch_related(
-            #    "peak_group__ms_run__sample__animal__studies"
-            #)
-
-            # The form factory works by cloning, thus for new formsets to be
-            # created when no forms were submitted, we need to produce a new
-            # form from the factory
-            form = formset_factory(AdvSearchPeakGroupsForm)
-        #else:
-            #res = PeakData.objects.filter(*criteria).prefetch_related(
-            #    "peak_group__ms_run__sample__animal__studies"
-            #)
-        res = {}
-
-        return self.render_to_response(self.get_context_data(res=res, form=form))
-
-
-class AdvSearchPeakGroupsFmtViewTMP(FormView):
-    form_class = formset_factory(AdvSearchPeakGroupsForm)
-    template_name = 'DataRepo/peakgroups_results3.html'
-    success_url = ''
+    # Override get_context_data to retrieve mode from the query string
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Optional url parameter should now be in self, so add it to the context
+        mode = self.request.GET.get('mode', 'search')
+        if mode != 'browse' and mode != 'search':
+            mode = 'search'
+            print("Invalid mode: ",mode)
+        context['mode'] = mode
+        return context
 
     def form_invalid(self, form):
         print("The form was invalid")
         print(form)
         qry = formsetToHash(form,AdvSearchPeakGroupsForm.base_fields.keys())
         res = {}
-        return self.render_to_response(self.get_context_data(res=res, form=form, qry=qry))
+        return self.render_to_response(self.get_context_data(res=res, form=form, qry=qry, debug=debug))
 
     def form_valid(self, form):
         print("The form was valid")
@@ -210,9 +158,18 @@ class AdvSearchPeakGroupsFmtViewTMP(FormView):
             )
         elif len(qry) == 0:
             print("Empty query")
+            if mode == "browse":
+                res = PeakData.objects.all().prefetch_related(
+                    "peak_group__ms_run__sample__animal__studies"
+                )
+
+                # The form factory works by cloning, thus for new formsets to be
+                # created when no forms were submitted, we need to produce a new
+                # form from the factory
+                form = formset_factory(AdvSearchPeakGroupsForm)
         else:
             print("Invalid query root")
-        return self.render_to_response(self.get_context_data(res=res, form=form, qry=qry))
+        return self.render_to_response(self.get_context_data(res=res, form=form, qry=qry, debug=debug))
 
 
 def constructAdvancedQuery(qry):
@@ -252,6 +209,7 @@ def constructAdvancedQuery(qry):
 def formsetToHash(rawformset, form_fields):
     qry = []
 
+    # We take a raw form instead of cleaned_data so that form_invalid will repopulate the bad form as-is
     isRaw = False
     try:
         formset = rawformset.cleaned_data
@@ -321,7 +279,7 @@ def formsetToHash(rawformset, form_fields):
     return qry
 
 
-# used by templatetags/advsrch_tags.py
+# used by templatetags/advsrch_tags.py to pre-populate search results in browse mode
 def getAllPeakGroupsFmtData():
     return PeakData.objects.all().prefetch_related(
         "peak_group__ms_run__sample__animal__studies"

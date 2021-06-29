@@ -4,60 +4,104 @@
 
 {% block head_extras %}
     {{ block.super }}
-    <script src="{% static 'js/jquery-3.6.0.js' %}"></script>
-    <script src="{% static 'js/django-dynamic-formset-1.2.2/jquery.formset.js' %}"></script>
+
+    <!-- The nested_forms items were inspired by both:
+
+        - https://github.com/elo80ka/django-dynamic-formset/
+        - https://stackoverflow.com/questions/50736373/html-unlimited-hierarchy-input-to-form
+
+        The 2 were incompatible, so the result is a re-implementation of the stack one to add to the first one in pure javascript.
+    
+    -->
+
+    <link href="{% static 'css/nested_forms.css' %}" rel="stylesheet">
+    <link href="{% static 'css/extras.css' %}" rel="stylesheet">
+    <script src="{% static 'js/nested_forms.js' %}"></script>
+
+    {% if qry %}
+        {# This turns the qry dict/object (containing the previous query - if there was one) into a json-ized HTML object that is consumed by javascript in a pair of script tags inserted here.  It can be injested via JSON.parse. #}
+        {{ qry|json_script:"initGroup" }}
+    {% endif %}
+
     <script>
-        $(function() {
-            $('#advsrchpg li').formset({
-                addText: '<img src="{% static "images/plus.png" %}" />',
-                deleteText: '<img src="{% static "images/minus.png" %}" />'
+        document.addEventListener("DOMContentLoaded", function(){
+
+            // If a search has been performed, restore the form
+            {% if qry %}
+                const initGroup = JSON.parse(document.getElementById('initGroup').textContent);
+                initializeExistingSearchQuery(document.querySelector('.hierarchical_search'), initGroup);
+                console.log("After re-init: ", rootGroup);
+            {% else %}
+                appendInnerSearchQuery(document.querySelector('.hierarchical_search'), rootGroup);
+            {% endif %}
+
+            var myform = document.getElementById("hierarchical_search_form");
+            document.getElementById("advanced_search_submit").addEventListener("click", function () {
+                saveSearchQueryHierarchy(document.querySelector('.hierarchical_search'));
+                myform.submit();
             });
-        })
+        });
+        
+        console.log("Ready with rootGroup: ", rootGroup);
     </script>
+
 {% endblock %}
 
 {% block content %}
     <div>
-        <h3>Advanced Peak Groups Search</h3>
-        <form action="" method="POST">
-            {% csrf_token %}
-            <table>
-                <tr>
-                    <td>
-                        <!-- Changed to an unordered list to try and prepare for nested groups -->
-                        <ul id="advsrchpg">
-                            {% for f in form %}
-                                <li class="list-unstyled">
-                                    {{ f.fld }}
-                                    {{ f.ncmp }}
-                                    {{ f.val }}
-                                    <label class="text-danger"> {{ f.val.errors }} </label>
-                                </li>
-                            {% endfor %}
-                            <!-- This keeps the form looking nice if there's an error -->
-                            <li class="list-unstyled"></li>
-                        </ul>
-                    </td>
-                    <td class="align-bottom ps-5">
-                        {{ form.management_form }}
-                        <button type="submit" class="btn btn-primary">Search</button>
-                    </td>
-                </tr>
-            </table>
+        <h3>Search Peak Groups</h3>
+
+        <!-- Form template from django's forms.py -->
+        {% with form.empty_form as f %}
+            <div id="id_empty_form" style="display:none;">
+                {{ f.pos }}
+                {{ f.fld }}
+                {{ f.ncmp }}
+                {{ f.val }}
+                <label class="text-danger"> {{ f.val.errors }} </label>
+            </div>
+        {% endwith %}
+
+        <!-- form action="" method="POST" -->
+        <form action="" id="hierarchical_search_form" method="POST">
+        {% csrf_token %}
+            <div class="hierarchical_search"></div>
+            <button type="submit" class="btn btn-primary" id="advanced_search_submit">Search</button>
+            {{ form.errors.val }}
+            {{ form.management_form }}
+            <label id="formerror" class="text-danger temporal-text"></label>
         </form>
+        {% if mode == "search" %}
+            <a href="{% url 'search_peakgroups' %}?mode=browse" class="tiny">Browse All</a>
+        {% endif %}
     </div>
-    <hr>
+
+    {% if debug %}
+        {% if qry %}
+            Query: {{ qry }}
+        {% else %}
+            Query was empty
+        {% endif %}
+    {% endif %}
+
     <div>
-        <h3>Peak Group Results</h3>
-        <!-- Populate the initial (pre-filter/search) view with all records -->
-        {% if not res and form.0.val != "" and not form.0.val.errors %}
-            {% comment %}
-                {% populatePeakGroups res as cur_res %}
-            {% endcomment %}
-            {% define res as cur_res %}
+        <!-- Pre-populate the initial view with all records if no results, no errors, and in browse mode -->
+        {% if not res and not qry and form.0.val != "" and not form.0.val.errors and mode == "browse" %}
+            {% populatePeakGroups res as cur_res %}
         {% else %}
             {% define res as cur_res %}
         {% endif %}
+
+        {% if mode == "search" %}
+            {% if qry and form.0.val != "" and not form.0.val.errors %}
+                <hr>
+                <h3>Results ({{ cur_res.count|default:"0" }})</h3>
+            {% endif %}
+        {% else %}
+            <hr>
+            <h3>{{ cur_res.count|default:"0" }} Records</h3>
+        {% endif %}
+
         {% if cur_res %}
             <table class="table table-success table-hover table-striped table-bordered">
                 <tr>
@@ -81,7 +125,6 @@
                         <tr>
                             <!-- Compound -->
                             <td>
-                                <!-- TODO: add the view link here when it is added for this model -->
                                 <a href="{% url 'sample_detail' pd.peak_group.id %}">
                                     {{ pd.peak_group.name }}
                                 </a>
@@ -95,7 +138,6 @@
                             <!-- Sample -->
                             <td>
                                 <div class="nobr">
-                                    <!-- TODO: add the view link here when it is added for this model -->
                                     <a href="{% url 'sample_detail' pd.peak_group.ms_run.sample.id %}">
                                         {{ pd.peak_group.ms_run.sample.name }}
                                     </a>
@@ -114,7 +156,6 @@
 
                             <!-- Mouse -->
                             <td>
-                                <!-- TODO: add the view link here when it is added for this model -->
                                 <a href="{% url 'animal_detail' pd.peak_group.ms_run.sample.animal.id %}">
                                     {{ pd.peak_group.ms_run.sample.animal.name }}
                                 </a>
@@ -161,9 +202,11 @@
                 {% endfor %}
             </table>
         {% else %}
-            <p>No PeakGroup data found.<!-- where [{{ qry.mdl }}.{{ qry.fld }}] has a
-                match of type [{{ qry.cmp }}] to value [{{ qry.val }}], given the
-                table/fields in the {{ qry.fmt }} format. --></p>
+            {% if qry and form.0.val != "" and not form.0.val.errors %}
+                <p>No PeakGroup data found.</p>
+            {% elif mode == "browse" %}
+                <p>No PeakGroup data found.</p>
+            {% endif %}
         {% endif %}
     </div>
 {% endblock %}
