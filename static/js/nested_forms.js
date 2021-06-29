@@ -82,6 +82,7 @@ function appendInnerSearchQuery(element, query, copyQuery, parentGroup, afterMod
             clones[i].addEventListener("click", function(event) {
                 var label = document.getElementById("formerror");
                 label.innerHTML = "";
+                console.log("Click field 1");
             });
             
             // Keep the value of the hierarchy structure up to date when the user changes the form value
@@ -133,14 +134,15 @@ function appendInnerSearchQuery(element, query, copyQuery, parentGroup, afterMod
         var btnImg = document.createElement("img");
         btnImg.src = "/static/images/minus.png";
         rmBtn.appendChild(btnImg);
-                rmBtn.addEventListener("click", function(event) {
+        rmBtn.addEventListener("click", function(event) {
             var label = document.getElementById("formerror");
             label.innerHTML = "";
+            console.log("Click field 2");
 
             var size = parentGroup.queryGroup.length;
             if (size <= 1) {
                 var label = document.getElementById("formerror");
-                label.innerHTML = "A group must have at least 1 query.";
+                label.innerHTML = "A match group must have at least 1 query.";
             } else {
                 event.target.parentNode.parentNode.remove();
                 var index = parentGroup.queryGroup.indexOf(query);
@@ -196,6 +198,7 @@ function appendInnerSearchQuery(element, query, copyQuery, parentGroup, afterMod
             termbtn.addEventListener("click", function(event) {
                 var label = document.getElementById("formerror");
                 label.innerHTML = "";
+                console.log("Click field 3");
 
                 var sibQuery = {
                     type: "query",
@@ -218,6 +221,7 @@ function appendInnerSearchQuery(element, query, copyQuery, parentGroup, afterMod
             grpbtn.addEventListener("click", function(event) {
                 var label = document.getElementById("formerror");
                 label.innerHTML = "";
+                console.log("Click field 4");
 
                 var sibGroup = {
                     type: "group",
@@ -244,6 +248,7 @@ function appendInnerSearchQuery(element, query, copyQuery, parentGroup, afterMod
         termbtn.addEventListener("click", function(event) {
             var label = document.getElementById("formerror");
             label.innerHTML = "";
+            console.log("Click field 5");
 
             var sibQuery = {
                 type: "query",
@@ -266,6 +271,7 @@ function appendInnerSearchQuery(element, query, copyQuery, parentGroup, afterMod
         grpbtn.addEventListener("click", function(event) {
             var label = document.getElementById("formerror");
             label.innerHTML = "";
+            console.log("Click field 6");
 
             var sibGroup = {
                 type: "group",
@@ -331,6 +337,7 @@ function initializeExistingSearchQueryHelper(element, copyQueryArray, parentNode
             termbtn.addEventListener("click", function(event) {
                 var label = document.getElementById("formerror");
                 label.innerHTML = "";
+                console.log("Click field 7");
 
                 var sibQuery = {
                     type: "query",
@@ -353,6 +360,7 @@ function initializeExistingSearchQueryHelper(element, copyQueryArray, parentNode
             grpbtn.addEventListener("click", function(event) {
                 var label = document.getElementById("formerror");
                 label.innerHTML = "";
+                console.log("Click field 8");
 
                 var sibGroup = {
                     type: "group",
