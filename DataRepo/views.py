@@ -1,14 +1,14 @@
+import json
+
 from django.core.exceptions import FieldError
+from django.db.models import Q
+from django.forms import formset_factory
 from django.http import Http404
 from django.shortcuts import get_object_or_404, render
 from django.views.generic import DetailView, ListView
 from django.views.generic.edit import FormView
-from django.db.models import Q
-from django.forms import formset_factory
-import json
 
 from DataRepo.forms import AdvSearchPeakGroupsForm
-
 from DataRepo.models import (
     Animal,
     Compound,
@@ -18,9 +18,8 @@ from DataRepo.models import (
     PeakGroupSet,
     Protocol,
     Sample,
-    Study
+    Study,
 )
-
 
 debug = False
 
@@ -123,41 +122,45 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
 
 class AdvSearchPeakGroupsView(FormView):
     form_class = formset_factory(AdvSearchPeakGroupsForm)
-    template_name = 'DataRepo/search_peakgroups.html'
-    success_url = ''
+    template_name = "DataRepo/search_peakgroups.html"
+    success_url = ""
 
     # Override get_context_data to retrieve mode from the query string
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         # Optional url parameter should now be in self, so add it to the context
-        mode = self.request.GET.get('mode', 'search')
-        if mode != 'browse' and mode != 'search':
-            mode = 'search'
-            print("Invalid mode: ",mode)
-        context['mode'] = mode
+        mode = self.request.GET.get("mode", "search")
+        if mode != "browse" and mode != "search":
+            mode = "search"
+            print("Invalid mode: ", mode)
+        context["mode"] = mode
         return context
 
     def form_invalid(self, form):
         print("The form was invalid")
         print(form)
-        qry = formsetToHash(form,AdvSearchPeakGroupsForm.base_fields.keys())
+        qry = formsetToHash(form, AdvSearchPeakGroupsForm.base_fields.keys())
         res = {}
-        return self.render_to_response(self.get_context_data(res=res, form=form, qry=qry, debug=debug))
+        return self.render_to_response(
+            self.get_context_data(res=res, form=form, qry=qry, debug=debug)
+        )
 
     def form_valid(self, form):
         print("The form was valid")
         print(form.cleaned_data)
-        qry = formsetToHash(form,AdvSearchPeakGroupsForm.base_fields.keys())
+        qry = formsetToHash(form, AdvSearchPeakGroupsForm.base_fields.keys())
         print(json.dumps(qry, indent=4))
         res = {}
         if len(qry) == 1:
             q_exp = constructAdvancedQuery(qry[0])
-            print("Query expression: ",q_exp)
+            print("Query expression: ", q_exp)
             res = PeakData.objects.filter(q_exp).prefetch_related(
                 "peak_group__ms_run__sample__animal__studies"
             )
         elif len(qry) == 0:
             print("Empty query")
+            # Optional url parameter should now be in self, so add it to the context
+            mode = self.request.GET.get("mode", "search")
             if mode == "browse":
                 res = PeakData.objects.all().prefetch_related(
                     "peak_group__ms_run__sample__animal__studies"
@@ -169,41 +172,42 @@ class AdvSearchPeakGroupsView(FormView):
                 form = formset_factory(AdvSearchPeakGroupsForm)
         else:
             print("Invalid query root")
-        return self.render_to_response(self.get_context_data(res=res, form=form, qry=qry, debug=debug))
+        return self.render_to_response(
+            self.get_context_data(res=res, form=form, qry=qry, debug=debug)
+        )
 
 
 def constructAdvancedQuery(qry):
-    curqry = qry
-    if qry['type'] == "query":
-        cmp = qry['ncmp'].replace("not_", "", 1)
-        negate = (cmp != qry['ncmp'])
+    if qry["type"] == "query":
+        cmp = qry["ncmp"].replace("not_", "", 1)
+        negate = cmp != qry["ncmp"]
 
         # Special case for isnull (ignores qry['val'])
         if cmp == "isnull":
             if negate:
                 negate = False
-                qry['val'] = False
+                qry["val"] = False
             else:
-                qry['val'] = True
+                qry["val"] = True
 
-        criteria = {'{0}__{1}'.format(qry['fld'], cmp): qry['val']}
-        if negate == False:
+        criteria = {"{0}__{1}".format(qry["fld"], cmp): qry["val"]}
+        if negate is False:
             return Q(**criteria)
         else:
             return ~Q(**criteria)
 
-    elif qry['type'] == "group":
+    elif qry["type"] == "group":
         q = Q()
         gotone = False
-        for elem in qry['queryGroup']:
+        for elem in qry["queryGroup"]:
             gotone = True
-            if qry['val'] == "all":
+            if qry["val"] == "all":
                 nq = constructAdvancedQuery(elem)
                 if nq is None:
                     return None
                 else:
                     q &= nq
-            elif qry['val'] == "any":
+            elif qry["val"] == "any":
                 nq = constructAdvancedQuery(elem)
                 if nq is None:
                     return None
@@ -217,6 +221,7 @@ def constructAdvancedQuery(qry):
             return q
     return None
 
+
 def formsetToHash(rawformset, form_fields):
     qry = []
 
@@ -224,7 +229,7 @@ def formsetToHash(rawformset, form_fields):
     isRaw = False
     try:
         formset = rawformset.cleaned_data
-    except:
+    except AttributeError:
         isRaw = True
         formset = rawformset
 
@@ -256,10 +261,10 @@ def formsetToHash(rawformset, form_fields):
                     curqry[pos]["val"] = gtype
                     curqry[pos]["queryGroup"] = []
                 curqry = curqry[pos]["queryGroup"]
-                print("Setting pointer to",pos,"queryGroup")
+                print("Setting pointer to", pos, "queryGroup")
             else:
                 # This is a query
-                print("Setting pos",pos,"type to query")
+                print("Setting pos", pos, "type to query")
 
                 # Keep track of keys encountered
                 keys_seen = {}
@@ -275,10 +280,10 @@ def formsetToHash(rawformset, form_fields):
                     if keyname == "pos":
                         curqry[pos][key] = ""
                     elif key not in curqry[pos]:
-                        print("Setting pos",pos,key,"to",form[key])
+                        print("Setting pos", pos, key, "to", form[key])
                         curqry[pos][key] = form[key]
                     else:
-                        print("ERROR: NOT setting pos",pos,key,"to",form[key])
+                        print("ERROR: NOT setting pos", pos, key, "to", form[key])
 
                 # Now initialize anything missing a value to an empty string
                 # This is to be able to correctly reconstruct the user's query upon form_invalid
