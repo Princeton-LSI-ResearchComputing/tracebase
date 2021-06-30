@@ -176,11 +176,22 @@ def constructAdvancedQuery(qry):
     curqry = qry
     if qry['type'] == "query":
         cmp = qry['ncmp'].replace("not_", "", 1)
+        negate = (cmp != qry['ncmp'])
+
+        # Special case for isnull (ignores qry['val'])
+        if cmp == "isnull":
+            if negate:
+                negate = False
+                qry['val'] = False
+            else:
+                qry['val'] = True
+
         criteria = {'{0}__{1}'.format(qry['fld'], cmp): qry['val']}
-        if cmp == qry['ncmp']:
+        if negate == False:
             return Q(**criteria)
         else:
             return ~Q(**criteria)
+
     elif qry['type'] == "group":
         q = Q()
         gotone = False
