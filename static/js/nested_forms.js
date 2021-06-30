@@ -1,11 +1,16 @@
-// Developing this in jsfiddle: http://jsfiddle.net/bqk6pmjg/
-
+// This is the default root of the form hierarchy
 var rootGroup = {
     type: "group",
     val: "all",
     queryGroup: []
 };
-  
+
+// This method dynamically adds a child form to the hierarchical form structure.
+//   element [required] is an existing DOM object.
+//   query [required] is either an child object node that is being added to a data structure that tracks the hierarchy, or it is an existing sibling node after which a sibling is being added (depending on the value of 'afterMode').
+//   copyQuery [optional] (if defined) is a node object used to reconstruct the form hierarchy when results are loaded.
+//   parentGroup [optional] is the parent object node of the hierarchy-tracking data structure used to determine where a sibling is to be inserted or a child node is to be appended (depending on the value of 'afterMode').  Root is assumed if not supplied.
+//   afterMode [optional] determines whether a sibling will be created & inserted after query (if true) or if query will be appended as a child to parentGroup (if false).  Default = false.
 function appendInnerSearchQuery(element, query, copyQuery, parentGroup, afterMode) {
     "use strict";
 
@@ -292,6 +297,9 @@ function appendInnerSearchQuery(element, query, copyQuery, parentGroup, afterMod
     return myDiv;
 }
 
+// This method is for reconstructing the hierarchical forms on the results page
+//   element is the DOM object to which the forms will be added
+//   initQuery is the hierarchical form data structure that the reconstruction is based on.
 function initializeExistingSearchQuery(element, initQuery) {
     "use strict";
 
@@ -307,6 +315,9 @@ function initializeExistingSearchQuery(element, initQuery) {
     childDiv.append(document.createElement("div"));
 }
 
+// This is a recursive method called by initializeExistingSearchQuery.  It traverses the copyQueryArray data structure.  Recursion happens on inner nodes of the hierarchical data structure.
+//   copyQueryArray is a sub-tree of the hierarchical form data structure.
+//   parentNode is a reference to the parent of the current copyQueryArray object.
 function initializeExistingSearchQueryHelper(element, copyQueryArray, parentNode) {
     "use strict";
 
@@ -388,6 +399,10 @@ function initializeExistingSearchQueryHelper(element, copyQueryArray, parentNode
     }
 }
 
+// This method has 2 functions:
+//   1. It renames DOM object IDs of the input form elements to indicate a serial form number in the format Django expects.  It also updates 1 meta form element that indicates the total number of forms.
+//   2. If saves each leaf's hierarchical path in a hidden input element named "pos".  The path is in the form of index.index.index... where <index> is the child index.  The single value (all or any) of inner nodes is saved in the pathin the form index-all.index-any.index, e.g. "0-all-0-any.0".
+// This method takes the outer DOM object that contains all the forms
 function saveSearchQueryHierarchy(divElem) {
     "use strict";
 
@@ -410,6 +425,11 @@ function saveSearchQueryHierarchy(divElem) {
     console.log("Setting total " + total + " for id_form-TOTAL_FORMS: ",formInput);
 }
 
+// This is a recursive helper method to saveSearchQueryHierarchy.  It takes:
+//   divElem - The DOM object that contains forms.
+//   path - a running path string to be stored in a leaf form's hidden 'pos' field.
+//   count - The serial form number used to set the form element ID to what Django expects.
+//   idx - The hierarchical node index, relative to the parent's child node array.
 function saveSearchQueryHierarchyHelper(divElem, path, count, idx) {
     "use strict";
 
@@ -457,7 +477,7 @@ function saveSearchQueryHierarchyHelper(divElem, path, count, idx) {
         for (let i = 0; i < childInputs.length; i++) {
             if (typeof childInputs[i].name !== 'undefined' && childInputs[i].name) {
                 console.log("  Old attributes: ", childInputs[i]);
-                // Replace (e.g. "form-0-val") with "form-<count>-val"
+                // Replace (e.g. "form-0-val" or "form-__prefix__-val") with "form-<count>-val"
                 let re = /-0-|-__prefix__-/;
                 let replacement = '-' + (count - 1) + '-';
                 console.log("Replacing -0- with " + replacement);
