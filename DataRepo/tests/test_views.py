@@ -282,16 +282,16 @@ class ViewTests(TestCase):
         """
         Do a simple advanced search and make sure the results are correct
         """
-        qs = PeakData.objects.filter(peak_group__ms_run__sample__tissue__name__iexact="Brain").prefetch_related(
-            "peak_group__ms_run__sample__animal__studies"
-        )
+        qs = PeakData.objects.filter(
+            peak_group__ms_run__sample__tissue__name__iexact="Brain"
+        ).prefetch_related("peak_group__ms_run__sample__animal__studies")
         filledform = {
-            'form-TOTAL_FORMS': '1',
-            'form-INITIAL_FORMS': '0',
-            'form-0-pos': '0-all.0',
-            'form-0-fld': 'peak_group__ms_run__sample__tissue__name',
-            'form-0-ncmp': 'iexact',
-            'form-0-val': 'Brain'
+            "form-TOTAL_FORMS": "1",
+            "form-INITIAL_FORMS": "0",
+            "form-0-pos": "0-all.0",
+            "form-0-fld": "peak_group__ms_run__sample__tissue__name",
+            "form-0-ncmp": "iexact",
+            "form-0-val": "Brain",
         }
         qry = [
             {
@@ -304,9 +304,9 @@ class ViewTests(TestCase):
                         "pos": "",
                         "fld": "peak_group__ms_run__sample__tissue__name",
                         "ncmp": "iexact",
-                        "val": "Brain"
+                        "val": "Brain",
                     }
-                ]
+                ],
             }
         ]
         response = self.client.post("/DataRepo/search_peakgroups/", filledform)
@@ -320,12 +320,12 @@ class ViewTests(TestCase):
         Do a simple advanced search and make sure the results are correct
         """
         filledform = {
-            'form-TOTAL_FORMS': '1',
-            'form-INITIAL_FORMS': '0',
-            'form-0-pos': '0-all.0',
-            'form-0-fld': 'peak_group__ms_run__sample__tissue__name',
-            'form-0-ncmp': 'iexact',
-            'form-0-val': ''
+            "form-TOTAL_FORMS": "1",
+            "form-INITIAL_FORMS": "0",
+            "form-0-pos": "0-all.0",
+            "form-0-fld": "peak_group__ms_run__sample__tissue__name",
+            "form-0-ncmp": "iexact",
+            "form-0-val": "",
         }
         qry = [
             {
@@ -338,9 +338,9 @@ class ViewTests(TestCase):
                         "pos": "",
                         "fld": "peak_group__ms_run__sample__tissue__name",
                         "ncmp": "iexact",
-                        "val": ""
+                        "val": "",
                     }
-                ]
+                ],
             }
         ]
         response = self.client.post("/DataRepo/search_peakgroups/", filledform)
