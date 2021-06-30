@@ -259,3 +259,92 @@ class ViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "DataRepo/peakdata_list.html")
         self.assertEqual(len(response.context["peakdata_list"]), pd1.count())
+
+    def test_search_peakgroups_browse(self):
+        """
+        Load the advanced search page in browse mode and make sure the mode is added to the context data
+        """
+        response = self.client.get("/DataRepo/search_peakgroups/?mode=browse")
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "DataRepo/search_peakgroups.html")
+        self.assertEqual(response.context["mode"], "browse")
+
+    def test_search_peakgroups_search(self):
+        """
+        Load the advanced search page in the default search mode and make sure the mode is added to the context data
+        """
+        response = self.client.get("/DataRepo/search_peakgroups/")
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "DataRepo/search_peakgroups.html")
+        self.assertEqual(response.context["mode"], "search")
+
+    def test_search_peakgroups_valid(self):
+        """
+        Do a simple advanced search and make sure the results are correct
+        """
+        qs = PeakData.objects.filter(peak_group__ms_run__sample__tissue__name__iexact="Brain").prefetch_related(
+            "peak_group__ms_run__sample__animal__studies"
+        )
+        filledform = {
+            'form-TOTAL_FORMS': '1',
+            'form-INITIAL_FORMS': '0',
+            'form-0-pos': '0-all.0',
+            'form-0-fld': 'peak_group__ms_run__sample__tissue__name',
+            'form-0-ncmp': 'iexact',
+            'form-0-val': 'Brain'
+        }
+        qry = [
+            {
+                "pos": "",
+                "type": "group",
+                "val": "all",
+                "queryGroup": [
+                    {
+                        "type": "query",
+                        "pos": "",
+                        "fld": "peak_group__ms_run__sample__tissue__name",
+                        "ncmp": "iexact",
+                        "val": "Brain"
+                    }
+                ]
+            }
+        ]
+        response = self.client.post("/DataRepo/search_peakgroups/", filledform)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "DataRepo/search_peakgroups.html")
+        self.assertEqual(len(response.context["res"]), qs.count())
+        self.assertEqual(response.context["qry"], qry)
+
+    def test_search_peakgroups_invalid(self):
+        """
+        Do a simple advanced search and make sure the results are correct
+        """
+        filledform = {
+            'form-TOTAL_FORMS': '1',
+            'form-INITIAL_FORMS': '0',
+            'form-0-pos': '0-all.0',
+            'form-0-fld': 'peak_group__ms_run__sample__tissue__name',
+            'form-0-ncmp': 'iexact',
+            'form-0-val': ''
+        }
+        qry = [
+            {
+                "pos": "",
+                "type": "group",
+                "val": "all",
+                "queryGroup": [
+                    {
+                        "type": "query",
+                        "pos": "",
+                        "fld": "peak_group__ms_run__sample__tissue__name",
+                        "ncmp": "iexact",
+                        "val": ""
+                    }
+                ]
+            }
+        ]
+        response = self.client.post("/DataRepo/search_peakgroups/", filledform)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "DataRepo/search_peakgroups.html")
+        self.assertEqual(len(response.context["res"]), 0)
+        self.assertEqual(response.context["qry"], qry)
