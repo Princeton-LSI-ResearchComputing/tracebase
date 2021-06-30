@@ -1,3 +1,11 @@
+/* Exported functions:
+ *   saveSearchQueryHierarchy
+ *   initializeExistingSearchQuery
+ * These methods must be called from javascript in a template after DOM content has loaded.
+ * initializeExistingSearchQuery should be conditionally called based on the existence of a previous search.
+ * saveSearchQueryHierarchy should be called upon submit.
+ */
+
 // This is the default root of the form hierarchy
 const rootGroup = {
   type: 'group',
