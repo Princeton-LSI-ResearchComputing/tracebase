@@ -11,7 +11,7 @@
         - https://stackoverflow.com/questions/50736373/html-unlimited-hierarchy-input-to-form
 
         The 2 were incompatible, so the result is a re-implementation of the stack one to add to the first one in pure javascript.
-    
+
     -->
 
     <link href="{% static 'css/nested_forms.css' %}" rel="stylesheet">
@@ -29,19 +29,19 @@
             // If a search has been performed, restore the form
             {% if qry %}
                 const initGroup = JSON.parse(document.getElementById('initGroup').textContent);
-                initializeExistingSearchQuery(document.querySelector('.hierarchical_search'), initGroup);
+                initializeExistingSearchQuery(document.querySelector('.hierarchical-search'), initGroup);
                 console.log("After re-init: ", rootGroup);
             {% else %}
-                appendInnerSearchQuery(document.querySelector('.hierarchical_search'), rootGroup);
+                appendInnerSearchQuery(document.querySelector('.hierarchical-search'), rootGroup);
             {% endif %}
 
-            var myform = document.getElementById("hierarchical_search_form");
-            document.getElementById("advanced_search_submit").addEventListener("click", function () {
-                saveSearchQueryHierarchy(document.querySelector('.hierarchical_search'));
+            var myform = document.getElementById("hierarchical-search-form");
+            document.getElementById("advanced-search-submit").addEventListener("click", function () {
+                saveSearchQueryHierarchy(document.querySelector('.hierarchical-search'));
                 myform.submit();
             });
         });
-        
+
         console.log("Ready with rootGroup: ", rootGroup);
     </script>
 
@@ -53,7 +53,7 @@
 
         <!-- Form template from django's forms.py -->
         {% with form.empty_form as f %}
-            <div id="id_empty_form" style="display:none;">
+            <div id="id-empty-form" style="display:none;">
                 {{ f.pos }}
                 {{ f.fld }}
                 {{ f.ncmp }}
@@ -63,10 +63,10 @@
         {% endwith %}
 
         <!-- form action="" method="POST" -->
-        <form action="" id="hierarchical_search_form" method="POST">
+        <form action="" id="hierarchical-search-form" method="POST">
         {% csrf_token %}
-            <div class="hierarchical_search"></div>
-            <button type="submit" class="btn btn-primary" id="advanced_search_submit">Search</button>
+            <div class="hierarchical-search"></div>
+            <button type="submit" class="btn btn-primary" id="advanced-search-submit">Search</button>
             {{ form.errors.val }}
             {{ form.management_form }}
             <label id="formerror" class="text-danger temporal-text"></label>

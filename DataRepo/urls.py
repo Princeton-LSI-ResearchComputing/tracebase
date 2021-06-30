@@ -4,14 +4,16 @@ from . import views
 
 urlpatterns = [
     path("", views.home, name="home"),
-
     path(
         "search_basic/<str:mdl>/<str:fld>/<str:cmp>/<str:val>/<str:fmt>/",
         views.search_basic,
         name="search_basic",
     ),
-    path("search_peakgroups/", views.AdvSearchPeakGroupsView.as_view(), name="search_peakgroups"),
-
+    path(
+        "search_peakgroups/",
+        views.AdvSearchPeakGroupsView.as_view(),
+        name="search_peakgroups",
+    ),
     path("compounds/", views.CompoundListView.as_view(), name="compound_list"),
     path(
         "compounds/<int:pk>/",
