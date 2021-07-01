@@ -327,20 +327,22 @@ class ViewTests(TestCase):
             "form-0-ncmp": "iexact",
             "form-0-val": "",
         }
-        qry = [{
-            "pos": "",
-            "type": "group",
-            "val": "all",
-            "queryGroup": [
-                {
-                    "type": "query",
-                    "pos": "",
-                    "fld": "peak_group__ms_run__sample__tissue__name",
-                    "ncmp": "iexact",
-                    "val": "",
-                }
-            ]
-        }]
+        qry = [
+            {
+                "pos": "",
+                "type": "group",
+                "val": "all",
+                "queryGroup": [
+                    {
+                        "type": "query",
+                        "pos": "",
+                        "fld": "peak_group__ms_run__sample__tissue__name",
+                        "ncmp": "iexact",
+                        "val": "",
+                    }
+                ],
+            }
+        ]
         response = self.client.post("/DataRepo/search_peakgroups/", invalidform)
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "DataRepo/search_peakgroups.html")
