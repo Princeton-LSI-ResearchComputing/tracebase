@@ -19,8 +19,12 @@
     <script src="{% static 'js/nested_forms.js' %}"></script>
 
     {% if qry %}
-        {# This turns the qry dict/object (containing the previous query - if there was one) into a json-ized HTML object that is consumed by javascript in a pair of script tags inserted here.  It can be injested via JSON.parse. #}
+        <!-- qry has a value when search results are being loaded.  It is used to recnstruct the search form, so the user
+            can tweak their search.  This tag (json_script) turns the qry dict into a json-ized HTML object that is
+            consumed by javascript below, which is injests via JSON.parse. -->
+
         {{ qry|json_script:"initGroup" }}
+
     {% endif %}
 
     <script>
@@ -41,8 +45,6 @@
                 myform.submit();
             });
         });
-
-        console.log("Ready with rootGroup: ", rootGroup);
     </script>
 
 {% endblock %}
@@ -62,9 +64,8 @@
             </div>
         {% endwith %}
 
-        <!-- form action="" method="POST" -->
         <form action="" id="hierarchical-search-form" method="POST">
-        {% csrf_token %}
+            {% csrf_token %}
             <div class="hierarchical-search"></div>
             <button type="submit" class="btn btn-primary" id="advanced-search-submit">Search</button>
             {{ form.errors.val }}
@@ -77,6 +78,7 @@
     </div>
 
     {% if debug %}
+        The following only prints in DEBUG mode, controlled by settings.DEBUG:<br>
         {% if qry %}
             Query: {{ qry }}
         {% else %}
@@ -202,9 +204,7 @@
                 {% endfor %}
             </table>
         {% else %}
-            {% if qry and form.0.val != "" and not form.0.val.errors %}
-                <p>No PeakGroup data found.</p>
-            {% elif mode == "browse" %}
+            {% if mode == "browse" or qry and form.0.val != "" and not form.0.val.errors %}
                 <p>No PeakGroup data found.</p>
             {% endif %}
         {% endif %}

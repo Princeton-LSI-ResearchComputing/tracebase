@@ -1,5 +1,4 @@
-import json
-
+from django.conf import settings
 from django.core.exceptions import FieldError
 from django.db.models import Q
 from django.forms import formset_factory
@@ -20,8 +19,6 @@ from DataRepo.models import (
     Sample,
     Study,
 )
-
-debug = False
 
 
 def home(request):
@@ -136,29 +133,22 @@ class AdvSearchPeakGroupsView(FormView):
         context["mode"] = mode
         return context
 
-    def form_invalid(self, form):
-        print("The form was invalid")
-        print(form)
-        qry = formsetToHash(form, AdvSearchPeakGroupsForm.base_fields.keys())
+    def form_invalid(self, formset):
+        qry = formsetToHash(formset, AdvSearchPeakGroupsForm.base_fields.keys())
         res = {}
         return self.render_to_response(
-            self.get_context_data(res=res, form=form, qry=qry, debug=debug)
+            self.get_context_data(res=res, form=formset, qry=qry, debug=settings.DEBUG)
         )
 
-    def form_valid(self, form):
-        print("The form was valid")
-        print(form.cleaned_data)
-        qry = formsetToHash(form, AdvSearchPeakGroupsForm.base_fields.keys())
-        print(json.dumps(qry, indent=4))
+    def form_valid(self, formset):
+        qry = formsetToHash(formset, AdvSearchPeakGroupsForm.base_fields.keys())
         res = {}
         if len(qry) == 1:
             q_exp = constructAdvancedQuery(qry[0])
-            print("Query expression: ", q_exp)
             res = PeakData.objects.filter(q_exp).prefetch_related(
                 "peak_group__ms_run__sample__animal__studies"
             )
         elif len(qry) == 0:
-            print("Empty query")
             # Optional url parameter should now be in self, so add it to the context
             mode = self.request.GET.get("mode", "search")
             if mode == "browse":
@@ -169,11 +159,12 @@ class AdvSearchPeakGroupsView(FormView):
                 # The form factory works by cloning, thus for new formsets to be
                 # created when no forms were submitted, we need to produce a new
                 # form from the factory
-                form = formset_factory(AdvSearchPeakGroupsForm)
+                formset = formset_factory(AdvSearchPeakGroupsForm)
         else:
-            print("Invalid query root")
+            # Log a warning
+            print("WARNING: Invalid query root")
         return self.render_to_response(
-            self.get_context_data(res=res, form=form, qry=qry, debug=debug)
+            self.get_context_data(res=res, form=formset, qry=qry, debug=settings.DEBUG)
         )
 
 
@@ -254,17 +245,19 @@ def formsetToHash(rawformset, form_fields):
             while len(curqry) <= pos:
                 curqry.append({})
             if gtype is not None:
+                # This is a group
+
+                # If the inner node was not already set
                 if not curqry[pos]:
-                    # This is a group
                     curqry[pos]["pos"] = ""
                     curqry[pos]["type"] = "group"
                     curqry[pos]["val"] = gtype
                     curqry[pos]["queryGroup"] = []
+
+                # Move on to the next node in the path
                 curqry = curqry[pos]["queryGroup"]
-                print("Setting pointer to", pos, "queryGroup")
             else:
                 # This is a query
-                print("Setting pos", pos, "type to query")
 
                 # Keep track of keys encountered
                 keys_seen = {}
@@ -273,25 +266,33 @@ def formsetToHash(rawformset, form_fields):
                 cmpnts = []
 
                 curqry[pos]["type"] = "query"
+
+                # Set the form values in the query based on the form elements
                 for key in form.keys():
+                    # Remove "form-#-" from the form element ID
                     cmpnts = key.split("-")
                     keyname = cmpnts[-1]
                     keys_seen[key] = 1
                     if keyname == "pos":
                         curqry[pos][key] = ""
                     elif key not in curqry[pos]:
-                        print("Setting pos", pos, key, "to", form[key])
                         curqry[pos][key] = form[key]
                     else:
-                        print("ERROR: NOT setting pos", pos, key, "to", form[key])
+                        # Log a warning
+                        print(
+                            "WARNING: Unrecognized form element not set at pos",
+                            pos,
+                            ":",
+                            key,
+                            "to",
+                            form[key],
+                        )
 
                 # Now initialize anything missing a value to an empty string
-                # This is to be able to correctly reconstruct the user's query upon form_invalid
+                # This is used to correctly reconstruct the user's query upon form_invalid
                 for key in form_fields:
                     if keys_seen[key] == 0:
                         curqry[pos][key] = ""
-
-                print()
     return qry
 
 

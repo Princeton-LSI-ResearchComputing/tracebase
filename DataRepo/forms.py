@@ -6,13 +6,13 @@ class AdvSearchPeakGroupsForm(forms.Form):
     Advanced search form for the peakgroups output format that will be used inside a formset.
     """
 
-    # This keeps track of a form's hierarchical position, managed in javascript
-    # ################# IMPORTANT #################
-    # ## POS MUST BE THE FIRST FIELD IN THE FORM ##
-    # ################# IMPORTANT #################
-    # It embeds grouptypes as "any" or "all", indicating whether the members are joined with a logical "or" or "and"
+    # "pos" keeps track of a form's hierarchical position, managed in javascript
+    # It encodes grouptypes as "any" or "all", indicating whether the members are joined with a logical "or" or "and"
     # Example: "all0.0" indicates the (first group (type "and")) . (first form), i.e. "0.0" where the first 0 is an
     # "and" group
+    # IMPORTANT: If the field name ("pos") is changed, it must be updated in the javascript code which uses the field
+    # name to know when to increnemt the formset index in the saveSearchQueryHierarchyHelper function using the
+    # variable "count".
     pos = forms.CharField(widget=forms.HiddenInput())
 
     fld = forms.ChoiceField(
@@ -51,8 +51,6 @@ class AdvSearchPeakGroupsForm(forms.Form):
         widget=forms.Select(),
     )
 
-    # TODO: Currently, I am only providing these 2 options.  Eventually, I will work out a way to dynamically update
-    # this based on the model's field type
     ncmp = forms.ChoiceField(
         choices=(
             ("iexact", "is"),

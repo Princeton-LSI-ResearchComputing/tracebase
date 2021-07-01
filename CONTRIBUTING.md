@@ -163,7 +163,6 @@ editor. Some linters that may be useful to install locally include:
   * [jscpd](https://github.com/kucherenko/jscpd) - Copy/paste detector for
     programming source code
   * [standard](https://standardjs.com) - Javascript linting
-  * [jscpd](https://github.com/kucherenko/jscpd#readme) - Copy paste detector
 
 It is recommended to run superlinter (described below) routinely or
 automatically before submitting a PR, but if you want a quick check while
