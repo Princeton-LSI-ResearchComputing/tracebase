@@ -319,7 +319,7 @@ class ViewTests(TestCase):
         """
         Do a simple advanced search and make sure the results are correct
         """
-        filledform = {
+        invalidform = {
             "form-TOTAL_FORMS": "1",
             "form-INITIAL_FORMS": "0",
             "form-0-pos": "0-all.0",
@@ -327,23 +327,21 @@ class ViewTests(TestCase):
             "form-0-ncmp": "iexact",
             "form-0-val": "",
         }
-        qry = [
-            {
-                "pos": "",
-                "type": "group",
-                "val": "all",
-                "queryGroup": [
-                    {
-                        "type": "query",
-                        "pos": "",
-                        "fld": "peak_group__ms_run__sample__tissue__name",
-                        "ncmp": "iexact",
-                        "val": "",
-                    }
-                ],
-            }
-        ]
-        response = self.client.post("/DataRepo/search_peakgroups/", filledform)
+        qry = [{
+            "pos": "",
+            "type": "group",
+            "val": "all",
+            "queryGroup": [
+                {
+                    "type": "query",
+                    "pos": "",
+                    "fld": "peak_group__ms_run__sample__tissue__name",
+                    "ncmp": "iexact",
+                    "val": "",
+                }
+            ]
+        }]
+        response = self.client.post("/DataRepo/search_peakgroups/", invalidform)
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "DataRepo/search_peakgroups.html")
         self.assertEqual(len(response.context["res"]), 0)
