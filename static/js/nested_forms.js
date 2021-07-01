@@ -6,6 +6,10 @@
  * saveSearchQueryHierarchy should be called upon submit.
  */
 
+// Globals
+const minuspngpath = '/static/images/minus.png'
+const pluspngpath = '/static/images/plus.png'
+const pluspluspngpath = '/static/images/plusplus.png'
 // This is the default root of the form hierarchy
 const rootGroup = {
   type: 'group',
@@ -32,7 +36,6 @@ function appendInnerSearchQuery (element, query, copyQuery, parentGroup, afterMo
   if (typeof afterMode === 'undefined') {
     afterMode = false
   }
-  console.log('Appending after sibling? ', afterMode)
 
   let isRoot = true
   if (typeof parentGroup !== 'undefined' || parentGroup) {
@@ -49,112 +52,16 @@ function appendInnerSearchQuery (element, query, copyQuery, parentGroup, afterMo
   if (('' + query.type) === 'group') {
     isGroup = true
 
-    // Initialize the value in the hierarchy with the default
-    if (isInit) {
-      query.val = copyQuery.val
-    }
-
-    // Group type select list
-    const grouptypes = ['all', 'any']
-    const select = document.createElement('select')
-    select.name = 'grouptype'
-    for (const val of grouptypes) {
-      const option = document.createElement('option')
-      option.value = val
-      option.text = val
-      select.appendChild(option)
-    }
-    select.value = query.val
-    select.addEventListener('change', function (event) {
-      const label = document.getElementById('formerror')
-      label.innerHTML = ''
-      query.val = event.target.value
-    })
-    const label1 = document.createElement('label')
-    label1.innerHTML = 'Match '
-    label1.htmlFor = 'grouptype'
-    myDiv.appendChild(label1)
-    myDiv.appendChild(select)
+    addGroupSelectList(myDiv, query, copyQuery, isInit)
   } else if (('' + query.type) === 'query') {
-    const templateDiv = document.querySelector('#id-empty-form')
-    const elements = templateDiv.querySelectorAll('input,select,textarea')
-    const clones = []
-    elements.forEach(function (elem) {
-      clones.push(elem.cloneNode(true))
-    })
-
-    const errors = []
-    // For each clones input form element
-    for (let i = 0; i < clones.length; i++) {
-      // Dismiss any previous error (that was previously presented and prevented)
-      clones[i].addEventListener('click', function (event) {
-        const label = document.getElementById('formerror')
-        label.innerHTML = ''
-      })
-
-      // Keep the value of the hierarchy structure up to date when the user changes the form value
-      clones[i].addEventListener('change', function (event) {
-        query[clones[i].name] = event.target.value
-      })
-
-      // Initialize the value in the hierarchy with the default
-      if (isInit) {
-        const keyname = clones[i].name.split('-').pop()
-        query[keyname] = copyQuery[keyname]
-        clones[i].value = copyQuery[keyname]
-        console.log('Converted long key name ', clones[i].name, ' to ', keyname, ' to obtain previous value: ', copyQuery[keyname], ' and produced DOM element: ', clones[i], ' with value: ', clones[i].value)
-
-        // If this isn't the hidden pos field and there is no value, push an error
-        if (keyname !== 'pos' && copyQuery[keyname] === '') {
-          errors.push(' * This is a required field.')
-        }
-      } else {
-        query[clones[i].name] = clones[i].value
-      }
-
-      // Add this row to the HTML form
-      myDiv.appendChild(clones[i])
-
-      // If there were any errors, create an error label
-      // For some reason, this was a nice tooltip in an earlier version (f9c2cac151f9909380022cea8b7a40a5f0e72a4e), but doesn't work automatically in the latest version
-      if (errors.length > 0) {
-        const errlabel = document.createElement('label')
-        errlabel.className = 'text-danger'
-        errlabel.innerHTML = ''
-        for (let j = 0; j < errors.length; j++) {
-          errlabel.innerHTML += errors[j] + ' '
-        }
-        myDiv.appendChild(errlabel)
-      }
-    }
-
-    console.log('Added div leaf with data: ', myDiv)
+    addSearchFieldForm(myDiv, query, copyQuery, isInit)
   } else {
     const label = document.getElementById('formerror')
     label.innerHTML = 'Error: Unrecognized query type: ' + query.type
   }
 
   if (!isRoot) {
-    const rmBtn = document.createElement('a')
-    rmBtn.href = 'javascript:void(0)'
-    const btnImg = document.createElement('img')
-    btnImg.src = '/static/images/minus.png'
-    rmBtn.appendChild(btnImg)
-    rmBtn.addEventListener('click', function (event) {
-      const label = document.getElementById('formerror')
-      label.innerHTML = ''
-
-      const size = parentGroup.queryGroup.length
-      if (size <= 1) {
-        label.innerHTML = 'A match group must have at least 1 query.'
-      } else {
-        event.target.parentNode.parentNode.remove()
-        const index = parentGroup.queryGroup.indexOf(query)
-        parentGroup.queryGroup.splice(index, 1)
-      }
-    })
-    myDiv.appendChild(document.createTextNode(' '))
-    myDiv.appendChild(rmBtn)
+    addRemoveButton(myDiv, query, parentGroup)
   }
 
   if (afterMode) {
@@ -190,25 +97,138 @@ function appendInnerSearchQuery (element, query, copyQuery, parentGroup, afterMo
 
     // Initialization using a copied rootgroup adds items one at a time, so don't add the follow-up + and ++ buttons.  This way, the individually eppended inner forms don't go under these buttons.  This means that the initializing function must add these manually.
     if (!isRoot && !isInit) {
-      addQueryAndGroupButtons(myDiv, query, parentGroup)
+      addQueryAndGroupAddButtons(myDiv, query, parentGroup)
     }
   } else {
-    addQueryAndGroupButtons(myDiv, query, parentGroup)
+    addQueryAndGroupAddButtons(myDiv, query, parentGroup)
   }
-  console.log('Updated data structure: ', rootGroup)
 
   // Return the div that was created
   return myDiv
 }
 
-function addQueryAndGroupButtons (myDiv, query, parentGroup) {
+function addSearchFieldForm (myDiv, query, copyQuery, isInit) {
+  // Clone the form template
+  const templateDiv = document.querySelector('#id-empty-form')
+  const elements = templateDiv.querySelectorAll('input,select,textarea')
+  const clones = []
+  elements.forEach(function (elem) {
+    clones.push(elem.cloneNode(true))
+  })
+
+  // For each clones input form element
+  for (let i = 0; i < clones.length; i++) {
+    // If an invalid form was previously submitted, we will need to present errors
+    const errors = []
+
+    // Dismiss any previous error (that was previously presented and prevented)
+    clones[i].addEventListener('click', function (event) {
+      const label = document.getElementById('formerror')
+      label.innerHTML = ''
+    })
+
+    // Keep the value of the hierarchy structure up to date when the user changes the form value
+    clones[i].addEventListener('change', function (event) {
+      query[clones[i].name] = event.target.value
+    })
+
+    // Initialize the value in the hierarchy with the default
+    if (isInit) {
+      const keyname = clones[i].name.split('-').pop()
+      query[keyname] = copyQuery[keyname]
+      clones[i].value = copyQuery[keyname]
+
+      // If this isn't the hidden pos field and there is no value, push an error
+      if (keyname !== 'pos' && copyQuery[keyname] === '') {
+        errors.push(' * This is a required field.')
+      }
+    } else {
+      query[clones[i].name] = clones[i].value
+    }
+
+    // Add this row to the HTML form
+    myDiv.appendChild(clones[i])
+
+    // If there were any errors, create an error label
+    // For some reason, this was a nice tooltip in an earlier version (f9c2cac151f9909380022cea8b7a40a5f0e72a4e), but doesn't work automatically in the latest version
+    if (errors.length > 0) {
+      const errlabel = document.createElement('label')
+      errlabel.className = 'text-danger'
+      errlabel.innerHTML = ''
+      for (let j = 0; j < errors.length; j++) {
+        errlabel.innerHTML += errors[j] + ' '
+      }
+      myDiv.appendChild(errlabel)
+    }
+  }
+}
+
+function addGroupSelectList (myDiv, query, copyQuery, isInit) {
+  // Initialize the value in the hierarchy with the default
+  if (isInit) {
+    query.val = copyQuery.val
+  }
+
+  // Create a group type select list
+  const grouptypes = ['all', 'any']
+  const select = document.createElement('select')
+  select.name = 'grouptype'
+  for (const val of grouptypes) {
+    const option = document.createElement('option')
+    option.value = val
+    option.text = val
+    select.appendChild(option)
+  }
+  select.value = query.val
+
+  // Use a change as an opportunity to dismiss previous errors
+  select.addEventListener('change', function (event) {
+    const label = document.getElementById('formerror')
+    label.innerHTML = ''
+    query.val = event.target.value
+  })
+
+  // Put descriptive text in front of the select list
+  const label1 = document.createElement('label')
+  label1.innerHTML = 'Match '
+  label1.htmlFor = 'grouptype'
+
+  // Add the group select list to the DOM
+  myDiv.appendChild(label1)
+  myDiv.appendChild(select)
+}
+
+function addRemoveButton (myDiv, query, parentGroup) {
+  const rmBtn = document.createElement('a')
+  rmBtn.href = 'javascript:void(0)'
+  const btnImg = document.createElement('img')
+  btnImg.src = minuspngpath
+  rmBtn.appendChild(btnImg)
+  rmBtn.addEventListener('click', function (event) {
+    const label = document.getElementById('formerror')
+    label.innerHTML = ''
+
+    const size = parentGroup.queryGroup.length
+    if (size <= 1) {
+      label.innerHTML = 'A match group must have at least 1 query.'
+    } else {
+      event.target.parentNode.parentNode.remove()
+      const index = parentGroup.queryGroup.indexOf(query)
+      parentGroup.queryGroup.splice(index, 1)
+    }
+  })
+  myDiv.appendChild(document.createTextNode(' '))
+  myDiv.appendChild(rmBtn)
+}
+
+function addQueryAndGroupAddButtons (myDiv, query, parentGroup) {
   let undef
 
   // Add query to a group (button)
   const termbtn = document.createElement('a')
   termbtn.href = 'javascript:void(0)'
   const pBtnImg = document.createElement('img')
-  pBtnImg.src = '/static/images/plus.png'
+  pBtnImg.src = pluspngpath
   termbtn.appendChild(pBtnImg)
   termbtn.addEventListener('click', function (event) {
     const label = document.getElementById('formerror')
@@ -230,7 +250,7 @@ function addQueryAndGroupButtons (myDiv, query, parentGroup) {
   const grpbtn = document.createElement('a')
   grpbtn.href = 'javascript:void(0)'
   const ppBtnImg = document.createElement('img')
-  ppBtnImg.src = '/static/images/plusplus.png'
+  ppBtnImg.src = pluspluspngpath
   grpbtn.appendChild(ppBtnImg)
   grpbtn.addEventListener('click', function (event) {
     const label = document.getElementById('formerror')
@@ -255,9 +275,6 @@ function addQueryAndGroupButtons (myDiv, query, parentGroup) {
 //   initQuery is the hierarchical form data structure that the reconstruction is based on.
 function initializeExistingSearchQuery (element, initQuery) { // eslint-disable-line no-unused-vars
   'use strict'
-
-  console.log('Initial query: ', initQuery)
-  console.log('Root group: ', rootGroup)
 
   // Create the root object
   const childDiv = appendInnerSearchQuery(element, rootGroup, initQuery[0])
@@ -289,7 +306,7 @@ function initializeExistingSearchQueryHelper (element, copyQueryArray, parentNod
       // Not exactly sure why, but after adding inner elements to a group, an empty div is needed to make future dynamically-added form elements to be correctly created.  I did this based on the template post I followed that had a static empty div just inside where the dynamic content was being created, when stuff I was adding wasn't working right and it seems to have fixed it.
       childDiv.append(document.createElement('div'))
 
-      addQueryAndGroupButtons(childDiv, subGroup, parentNode)
+      addQueryAndGroupAddButtons(childDiv, subGroup, parentNode)
     } else if (copyQueryArray[i].type === 'query') {
       const subQuery = {
         type: 'query'
@@ -309,23 +326,17 @@ function initializeExistingSearchQueryHelper (element, copyQueryArray, parentNod
 function saveSearchQueryHierarchy (divElem) { // eslint-disable-line no-unused-vars
   'use strict'
 
-  // var childElems = divElem.querySelectorAll(":scope > input,select,textarea,label,div");
   const childDivs = divElem.querySelectorAll(':scope > div') // - results in only 1, even if 2 items added - I think because each input is not wrapped in a div
 
   let total = 0
 
   // This should only traverse a single iteration (because there's only one root)
   for (let i = 0; i < childDivs.length; i++) {
-    // console.log("Child " + i + " of " + divElem.name + " with name " + childElems[i].name + " of type " + childElems[i].type);
-    // console.log("Child " + i + " of " + divElem.name + " at index " + 0 + ":",childElems[i]);
-
     total = saveSearchQueryHierarchyHelper(childDivs[i], '', 0, 0)
   }
 
-  console.log('New Div Structure: ', divElem)
   const formInput = document.getElementById('id_form-TOTAL_FORMS')
   formInput.value = total
-  console.log('Setting total ' + total + ' for id_form-TOTAL_FORMS: ', formInput)
 }
 
 // This is a recursive helper method to saveSearchQueryHierarchy.  It takes:
@@ -336,16 +347,11 @@ function saveSearchQueryHierarchy (divElem) { // eslint-disable-line no-unused-v
 function saveSearchQueryHierarchyHelper (divElem, path, count, idx) {
   'use strict'
 
-  console.log('Looking at: ', divElem)
-
   // var childElems = divElem.querySelectorAll(":scope > input,select,textarea,label,div");
   const childDivs = divElem.querySelectorAll(':scope > div') // - results in only 1, even if 2 items added - I think because each input is not wrapped in a div
 
   // Always traverse 1 less, because there's always an empty trailing div tag
   const numChildren = (childDivs.length - 1)
-  if (numChildren > -1) {
-    console.log('Num children: ' + numChildren + ':')
-  }
 
   if (path === '') {
     path += idx
@@ -365,25 +371,19 @@ function saveSearchQueryHierarchyHelper (divElem, path, count, idx) {
         childInputs[i].value = path
         isForm = true
         count++
-        console.log('Found form.  Incremented count to: ' + count)
       } else if (childInputs[i].name.includes('grouptype') && childInputs[i].value === 'any') {
         isAll = false
       }
-      console.log('  Child ' + childInputs[i].name + ' of type ' + childInputs[i].type + ' with value: ' + childInputs[i].value)
     }
   }
-
-  console.log('isForm: ', isForm)
 
   // If this is a form from Django formset form (otherwise it's a hierarchy control level)
   if (isForm) {
     for (let i = 0; i < childInputs.length; i++) {
       if (typeof childInputs[i].name !== 'undefined' && childInputs[i].name) {
-        console.log('  Old attributes: ', childInputs[i])
         // Replace (e.g. "form-0-val" or "form-__prefix__-val") with "form-<count>-val"
         const re = /-0-|-__prefix__-/
         const replacement = '-' + (count - 1) + '-'
-        console.log('Replacing -0- with ' + replacement)
         if (childInputs[i].for) childInputs[i].for = childInputs[i].for.replace(re, replacement)
         if (childInputs[i].id) {
           const tmp = childInputs[i].id
@@ -391,7 +391,6 @@ function saveSearchQueryHierarchyHelper (divElem, path, count, idx) {
           childInputs[i].id = newid
         }
         if (childInputs[i].name) childInputs[i].name = childInputs[i].name.replace(re, replacement)
-        console.log('  New attributes: ', childInputs[i])
       }
     }
   } else {
@@ -405,8 +404,6 @@ function saveSearchQueryHierarchyHelper (divElem, path, count, idx) {
   // Recurse
   // Always traverse 1 less, because there's always an empty trailing div tag
   for (let i = 0; i < numChildren; i++) {
-    console.log('Recursing to child ' + i + ': ', childDivs[i])
-
     count = saveSearchQueryHierarchyHelper(childDivs[i], path, count, i)
   }
 
