@@ -283,22 +283,13 @@ class ViewTests(TestCase):
         Do a simple advanced search and make sure the results are correct
         """
         qs = PeakData.objects.filter(
-<<<<<<< HEAD
             peak_group__msrun__sample__tissue__name__iexact="Brain"
         ).prefetch_related("peak_group__msrun__sample__animal__studies")
-=======
-            peak_group__ms_run__sample__tissue__name__iexact="Brain"
-        ).prefetch_related("peak_group__ms_run__sample__animal__studies")
->>>>>>> 74942d5a81109c89571e63d0d2494fe878e05827
         filledform = {
             "form-TOTAL_FORMS": "1",
             "form-INITIAL_FORMS": "0",
             "form-0-pos": "0-all.0",
-<<<<<<< HEAD
             "form-0-fld": "peak_group__msrun__sample__tissue__name",
-=======
-            "form-0-fld": "peak_group__ms_run__sample__tissue__name",
->>>>>>> 74942d5a81109c89571e63d0d2494fe878e05827
             "form-0-ncmp": "iexact",
             "form-0-val": "Brain",
         }
@@ -311,11 +302,7 @@ class ViewTests(TestCase):
                     {
                         "type": "query",
                         "pos": "",
-<<<<<<< HEAD
                         "fld": "peak_group__msrun__sample__tissue__name",
-=======
-                        "fld": "peak_group__ms_run__sample__tissue__name",
->>>>>>> 74942d5a81109c89571e63d0d2494fe878e05827
                         "ncmp": "iexact",
                         "val": "Brain",
                     }
@@ -336,11 +323,7 @@ class ViewTests(TestCase):
             "form-TOTAL_FORMS": "1",
             "form-INITIAL_FORMS": "0",
             "form-0-pos": "0-all.0",
-<<<<<<< HEAD
             "form-0-fld": "peak_group__msrun__sample__tissue__name",
-=======
-            "form-0-fld": "peak_group__ms_run__sample__tissue__name",
->>>>>>> 74942d5a81109c89571e63d0d2494fe878e05827
             "form-0-ncmp": "iexact",
             "form-0-val": "",
         }
@@ -353,11 +336,7 @@ class ViewTests(TestCase):
                     {
                         "type": "query",
                         "pos": "",
-<<<<<<< HEAD
                         "fld": "peak_group__msrun__sample__tissue__name",
-=======
-                        "fld": "peak_group__ms_run__sample__tissue__name",
->>>>>>> 74942d5a81109c89571e63d0d2494fe878e05827
                         "ncmp": "iexact",
                         "val": "",
                     }

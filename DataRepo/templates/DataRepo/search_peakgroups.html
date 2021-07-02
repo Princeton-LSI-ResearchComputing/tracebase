@@ -123,11 +123,7 @@
                 </tr>
 
                 {% for pd in cur_res.all %}
-<<<<<<< HEAD
                     {% for study in pd.peak_group.msrun.sample.animal.studies.all %}
-=======
-                    {% for study in pd.peak_group.ms_run.sample.animal.studies.all %}
->>>>>>> 74942d5a81109c89571e63d0d2494fe878e05827
                         <tr>
                             <!-- Compound -->
                             <td>
@@ -144,13 +140,8 @@
                             <!-- Sample -->
                             <td>
                                 <div class="nobr">
-<<<<<<< HEAD
                                     <a href="{% url 'sample_detail' pd.peak_group.msrun.sample.id %}">
                                         {{ pd.peak_group.msrun.sample.name }}
-=======
-                                    <a href="{% url 'sample_detail' pd.peak_group.ms_run.sample.id %}">
-                                        {{ pd.peak_group.ms_run.sample.name }}
->>>>>>> 74942d5a81109c89571e63d0d2494fe878e05827
                                     </a>
                                 </div>
                             </td>
@@ -162,22 +153,13 @@
 
                             <!-- Tissue -->
                             <td>
-<<<<<<< HEAD
                                 {{ pd.peak_group.msrun.sample.tissue.name }}
-=======
-                                {{ pd.peak_group.ms_run.sample.tissue.name }}
->>>>>>> 74942d5a81109c89571e63d0d2494fe878e05827
                             </td>
 
                             <!-- Mouse -->
                             <td>
-<<<<<<< HEAD
                                 <a href="{% url 'animal_detail' pd.peak_group.msrun.sample.animal.id %}">
                                     {{ pd.peak_group.msrun.sample.animal.name }}
-=======
-                                <a href="{% url 'animal_detail' pd.peak_group.ms_run.sample.animal.id %}">
-                                    {{ pd.peak_group.ms_run.sample.animal.name }}
->>>>>>> 74942d5a81109c89571e63d0d2494fe878e05827
                                 </a>
                             </td>
 
@@ -193,11 +175,7 @@
 
                             <!-- Infusate -->
                             <td>
-<<<<<<< HEAD
                                 {{ pd.peak_group.msrun.sample.animal.tracer_compound.name }}
-=======
-                                {{ pd.peak_group.ms_run.sample.animal.tracer_compound.name }}
->>>>>>> 74942d5a81109c89571e63d0d2494fe878e05827
                             </td>
 
                             <!-- Experiment -->
@@ -209,29 +187,17 @@
 
                             <!-- Feeding Status -->
                             <td>
-<<<<<<< HEAD
                                 {{ pd.peak_group.msrun.sample.animal.feeding_status }}
-=======
-                                {{ pd.peak_group.ms_run.sample.animal.feeding_status }}
->>>>>>> 74942d5a81109c89571e63d0d2494fe878e05827
                             </td>
 
                             <!-- Infusion Rate -->
                             <td class="text-end">
-<<<<<<< HEAD
                                 {{ pd.peak_group.msrun.sample.animal.tracer_infusion_rate }}
-=======
-                                {{ pd.peak_group.ms_run.sample.animal.tracer_infusion_rate }}
->>>>>>> 74942d5a81109c89571e63d0d2494fe878e05827
                             </td>
 
                             <!-- [Infusate] -->
                             <td class="text-end">
-<<<<<<< HEAD
                                 {{ pd.peak_group.msrun.sample.animal.tracer_infusion_concentration }}
-=======
-                                {{ pd.peak_group.ms_run.sample.animal.tracer_infusion_concentration }}
->>>>>>> 74942d5a81109c89571e63d0d2494fe878e05827
                             </td>
                         </tr>
                     {% endfor %}
