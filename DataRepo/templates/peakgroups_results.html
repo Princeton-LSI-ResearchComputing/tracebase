@@ -26,7 +26,7 @@
                         <!-- Compound -->
                         <td>
                             <!-- TODO: add the view link here when it is added for this model -->
-                            <a href="#">
+                            <a href="{% url 'sample_detail' pd.peak_group.id %}">
                                 {{ pd.peak_group.name }}
                             </a>
                         </td>
@@ -40,8 +40,8 @@
                         <td>
                             <div class="nobr">
                                 <!-- TODO: add the view link here when it is added for this model -->
-                                <a href="#">
-                                    {{ pd.peak_group.msrun.sample.name }}
+                                <a href="{% url 'sample_detail' pd.peak_group.msrun.sample.id %}">
+                                    {{ pd.peak_group.ms_run.sample.name }}
                                 </a>
                             </div>
                         </td>
@@ -59,8 +59,8 @@
                         <!-- Mouse -->
                         <td>
                             <!-- TODO: add the view link here when it is added for this model -->
-                            <a href="#">
-                                {{ pd.peak_group.msrun.sample.animal.name }}
+                            <a href="{% url 'animal_detail' pd.peak_group.msrun.sample.animal.id %}">
+                                {{ pd.peak_group.ms_run.sample.animal.name }}
                             </a>
                         </td>
 

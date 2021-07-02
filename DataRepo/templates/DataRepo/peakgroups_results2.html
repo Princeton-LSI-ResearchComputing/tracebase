@@ -1,12 +1,27 @@
 {% extends "base.html" %}
+{% load static %}
+
 {% block content %}
+<script src="{% static 'js/jquery-3.6.0.js' %}"></script>
+<script src="{% static 'js/django-dynamic-formset-1.2.2/jquery.formset.js' %}"></script>
+<script>
+    $(function() {
+        $('#advsrchpg tbody tr').formset({
+            addText: '<img src="{% static "images/plus.png" %}" />',
+            deleteText: '<img src="{% static "images/minus.png" %}" />'
+        });
+    })
+</script>
+
 <div>
     <h3>Advanced Peak Groups Search</h3>
     <form action="" method="POST">
+        {% csrf_token %}
         <table>
             <tr>
                 <td>
-                    <table>
+                    <table id="advsrchpg">
+                        <tbody>
                         {% for f in form %}
                             <tr>
                                 <td>
@@ -27,13 +42,15 @@
                                         <label class="error">{{ f.val.errors }}</label>
                                     </div>
                                 </td>
+                                <td></td>
                             </tr>
                         {% endfor %}
+                        </tbody>
                     </table>
                 </td>
-                <td>
-                    <button type="submit" class="btn btn-primary">Search</button>
+                <td class="align-bottom ps-5">
                     {{ form.management_form }}
+                    <button type="submit" class="btn btn-primary">Search</button>
                 </td>
             </tr>
         </table>
@@ -66,7 +83,7 @@
                         <!-- Compound -->
                         <td>
                             <!-- TODO: add the view link here when it is added for this model -->
-                            <a href="#">
+                            <a href="{% url 'sample_detail' pd.peak_group.id %}">
                                 {{ pd.peak_group.name }}
                             </a>
                         </td>
@@ -80,7 +97,7 @@
                         <td>
                             <div class="nobr">
                                 <!-- TODO: add the view link here when it is added for this model -->
-                                <a href="#">
+                                <a href="{% url 'sample_detail' pd.peak_group.ms_run.sample.id %}">
                                     {{ pd.peak_group.ms_run.sample.name }}
                                 </a>
                             </div>
@@ -99,7 +116,7 @@
                         <!-- Mouse -->
                         <td>
                             <!-- TODO: add the view link here when it is added for this model -->
-                            <a href="#">
+                            <a href="{% url 'animal_detail' pd.peak_group.ms_run.sample.animal.id %}">
                                 {{ pd.peak_group.ms_run.sample.animal.name }}
                             </a>
                         </td>
