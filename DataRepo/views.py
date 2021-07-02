@@ -146,14 +146,14 @@ class AdvSearchPeakGroupsView(FormView):
         if len(qry) == 1:
             q_exp = constructAdvancedQuery(qry[0])
             res = PeakData.objects.filter(q_exp).prefetch_related(
-                "peak_group__ms_run__sample__animal__studies"
+                "peak_group__msrun__sample__animal__studies"
             )
         elif len(qry) == 0:
             # Optional url parameter should now be in self, so add it to the context
             mode = self.request.GET.get("mode", "search")
             if mode == "browse":
                 res = PeakData.objects.all().prefetch_related(
-                    "peak_group__ms_run__sample__animal__studies"
+                    "peak_group__msrun__sample__animal__studies"
                 )
 
                 # The form factory works by cloning, thus for new formsets to be
@@ -299,7 +299,7 @@ def formsetToHash(rawformset, form_fields):
 # used by templatetags/advsrch_tags.py to pre-populate search results in browse mode
 def getAllPeakGroupsFmtData():
     return PeakData.objects.all().prefetch_related(
-        "peak_group__ms_run__sample__animal__studies"
+        "peak_group__msrun__sample__animal__studies"
     )
 
 

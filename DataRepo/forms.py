@@ -26,27 +26,27 @@ class AdvSearchPeakGroupsForm(forms.Form):
             ("peak_group__total_abundance", "TIC"),
             ("peak_group__normalized_labeling", "Norm Fraction"),
             # PeakData Searchable Fields in the PeakGroups Output Format
-            ("peak_group__ms_run__sample__name", "Sample"),
+            ("peak_group__msrun__sample__name", "Sample"),
             # PeakData Searchable Fields in the PeakGroups Output Format
-            ("peak_group__ms_run__sample__tissue__name", "Tissue"),
+            ("peak_group__msrun__sample__tissue__name", "Tissue"),
             # PeakData Searchable Fields in the PeakGroups Output Format
-            ("peak_group__ms_run__sample__animal__name", "Animal"),
-            ("peak_group__ms_run__sample__animal__feeding_status", "Feeding Status"),
+            ("peak_group__msrun__sample__animal__name", "Animal"),
+            ("peak_group__msrun__sample__animal__feeding_status", "Feeding Status"),
             (
-                "peak_group__ms_run__sample__animal__tracer_infusion_rate",
+                "peak_group__msrun__sample__animal__tracer_infusion_rate",
                 "Infusion Rate",
             ),
             (
-                "peak_group__ms_run__sample__animal__tracer_infusion_concentration",
+                "peak_group__msrun__sample__animal__tracer_infusion_concentration",
                 "[Infusion]",
             ),
             # PeakData Searchable Fields in the PeakGroups Output Format
             (
-                "peak_group__ms_run__sample__animal__tracer_compound__name",
+                "peak_group__msrun__sample__animal__tracer_compound__name",
                 "Input Compound",
             ),
             # PeakData Searchable Fields in the PeakGroups Output Format
-            ("peak_group__ms_run__sample__animal__studies__name", "Study"),
+            ("peak_group__msrun__sample__animal__studies__name", "Study"),
         ),
         widget=forms.Select(),
     )

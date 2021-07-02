@@ -283,13 +283,13 @@ class ViewTests(TestCase):
         Do a simple advanced search and make sure the results are correct
         """
         qs = PeakData.objects.filter(
-            peak_group__ms_run__sample__tissue__name__iexact="Brain"
-        ).prefetch_related("peak_group__ms_run__sample__animal__studies")
+            peak_group__msrun__sample__tissue__name__iexact="Brain"
+        ).prefetch_related("peak_group__msrun__sample__animal__studies")
         filledform = {
             "form-TOTAL_FORMS": "1",
             "form-INITIAL_FORMS": "0",
             "form-0-pos": "0-all.0",
-            "form-0-fld": "peak_group__ms_run__sample__tissue__name",
+            "form-0-fld": "peak_group__msrun__sample__tissue__name",
             "form-0-ncmp": "iexact",
             "form-0-val": "Brain",
         }
@@ -302,7 +302,7 @@ class ViewTests(TestCase):
                     {
                         "type": "query",
                         "pos": "",
-                        "fld": "peak_group__ms_run__sample__tissue__name",
+                        "fld": "peak_group__msrun__sample__tissue__name",
                         "ncmp": "iexact",
                         "val": "Brain",
                     }
@@ -323,7 +323,7 @@ class ViewTests(TestCase):
             "form-TOTAL_FORMS": "1",
             "form-INITIAL_FORMS": "0",
             "form-0-pos": "0-all.0",
-            "form-0-fld": "peak_group__ms_run__sample__tissue__name",
+            "form-0-fld": "peak_group__msrun__sample__tissue__name",
             "form-0-ncmp": "iexact",
             "form-0-val": "",
         }
@@ -336,7 +336,7 @@ class ViewTests(TestCase):
                     {
                         "type": "query",
                         "pos": "",
-                        "fld": "peak_group__ms_run__sample__tissue__name",
+                        "fld": "peak_group__msrun__sample__tissue__name",
                         "ncmp": "iexact",
                         "val": "",
                     }
