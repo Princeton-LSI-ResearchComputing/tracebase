@@ -7,7 +7,7 @@ from django.shortcuts import get_object_or_404, render
 from django.views.generic import DetailView, ListView
 from django.views.generic.edit import FormView
 
-from DataRepo.forms import AdvSearchPeakGroupsForm
+from DataRepo.forms import (AdvSearchPeakGroupsForm, AdvSearchPeakDataForm)
 from DataRepo.models import (
     Animal,
     Compound,
@@ -19,6 +19,7 @@ from DataRepo.models import (
     Sample,
     Study,
 )
+from DataRepo.multiforms import MultiFormsView
 
 
 def home(request):
@@ -144,7 +145,7 @@ class AdvSearchPeakGroupsView(FormView):
         qry = formsetToHash(formset, AdvSearchPeakGroupsForm.base_fields.keys())
         res = {}
         if len(qry) == 1:
-            q_exp = constructAdvancedQuery(qry[0])
+            q_exp = constructAdvancedQueryHelper(qry[0])
             res = PeakData.objects.filter(q_exp).prefetch_related(
                 "peak_group__msrun__sample__animal__studies"
             )
@@ -168,7 +169,73 @@ class AdvSearchPeakGroupsView(FormView):
         )
 
 
-def constructAdvancedQuery(qry):
+# Based on:
+#   https://stackoverflow.com/questions/15497693/django-can-class-based-views-accept-two-forms-at-a-time
+class AdvancedSearchView(MultiFormsView):
+    template_name = "DataRepo/search_advanced.html"
+    form_classes = {
+        'pgtemplate': formset_factory(AdvSearchPeakGroupsForm),
+        'pdtemplate': formset_factory(AdvSearchPeakDataForm)
+    }
+    success_url = ""
+
+    # Override get_context_data to retrieve mode from the query string
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Optional url parameter should now be in self, so add it to the context
+        mode = self.request.GET.get("mode", "search")
+        if mode != "browse" and mode != "search":
+            mode = "search"
+            print("Invalid mode: ", mode)
+        context["mode"] = mode
+        return context
+
+    def form_invalid(self, formset):
+        qry = formsetsToDict(formset, {
+            'pgtemplate': [AdvSearchPeakGroupsForm.base_fields.keys()],
+            'pdtemplate': [AdvSearchPeakDataForm.base_fields.keys()]
+        })
+        res = {}
+        return self.render_to_response(
+            self.get_context_data(res=res, form=self.form_classes, qry=qry, debug=settings.DEBUG)
+        )
+
+    def form_valid(self, formset):
+        qry = formsetsToDict(formset, {
+            'pgtemplate': [AdvSearchPeakGroupsForm.base_fields.keys()],
+            'pdtemplate': [AdvSearchPeakDataForm.base_fields.keys()]
+        })
+        res = {}
+        if len(qry) == 1:
+            q_exp = constructAdvancedQuery(qry)
+            if qry['selectedtemplate'] == "pgtemplate":
+                res = PeakData.objects.filter(q_exp).prefetch_related(
+                    "peak_group__msrun__sample__animal__studies"
+                )
+            elif qry['selectedtemplate'] == "pdtemplate":
+                res = PeakData.objects.filter(q_exp).prefetch_related(
+                    "peak_group__msrun__sample__animal"
+                )
+        elif len(qry) == 0:
+            # There was no search, so pre-populate with the default format if in browse mode
+            # Optional url parameter should now be in self, so add it to the context
+            mode = self.request.GET.get("mode", "search")
+            if mode == "browse":
+                res = PeakData.objects.all().prefetch_related(
+                    "peak_group__msrun__sample__animal__studies"
+                )
+        else:
+            # Log a warning
+            print("WARNING: Invalid query root")
+        return self.render_to_response(
+            self.get_context_data(res=res, formsets=self.form_classes, qry=qry, debug=settings.DEBUG)
+        )
+
+
+def constructAdvancedQuery(qryRoot):
+    return constructAdvancedQueryHelper([qryRoot['searches'][qryRoot['selectedtemplate']]])
+
+def constructAdvancedQueryHelper(qry):
     if qry["type"] == "query":
         cmp = qry["ncmp"].replace("not_", "", 1)
         negate = cmp != qry["ncmp"]
@@ -193,13 +260,13 @@ def constructAdvancedQuery(qry):
         for elem in qry["queryGroup"]:
             gotone = True
             if qry["val"] == "all":
-                nq = constructAdvancedQuery(elem)
+                nq = constructAdvancedQueryHelper(elem)
                 if nq is None:
                     return None
                 else:
                     q &= nq
             elif qry["val"] == "any":
-                nq = constructAdvancedQuery(elem)
+                nq = constructAdvancedQueryHelper(elem)
                 if nq is None:
                     return None
                 else:
@@ -211,6 +278,40 @@ def constructAdvancedQuery(qry):
         else:
             return q
     return None
+
+
+def formsetsToDict(rawformset, form_fields_dict):
+    print("Raw pgtemplate Formset: ",rawformset["pgtemplate"],"Raw pdtemplate Formset: ",rawformset["pdtemplate"])
+    # There will be a single select list for the search output format
+    selectedtemplate = rawformset["fmt"]
+    qry = {'selectedtemplate': selectedtemplate}
+    qry['searches'] = formsetsToDictHelper(rawformset, form_fields_dict)
+    return qry
+
+
+def formsetsToDictHelper(rawformset, form_fields_dict):
+    qry = []
+
+    # We take a raw form instead of cleaned_data so that form_invalid will repopulate the bad form as-is
+    isRaw = False
+    try:
+        formset = rawformset.cleaned_data
+    except AttributeError:
+        isRaw = True
+        formset = rawformset
+
+    for rawform in formset:
+
+        if isRaw:
+            form = rawform.saved_data
+        else:
+            form = rawform
+        
+        print("Form IDs obtained: ",','.join(form.keys()))
+
+        ##### I'll include the rest of the code after I've gotten a look at how to forms are structured...
+
+    return qry
 
 
 def formsetToHash(rawformset, form_fields):
