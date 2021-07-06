@@ -192,21 +192,22 @@ class AdvancedSearchView(MultiFormsView):
 
     def form_invalid(self, formset):
         qry = formsetsToDict(formset, {
-            'pgtemplate': [AdvSearchPeakGroupsForm.base_fields.keys()],
-            'pdtemplate': [AdvSearchPeakDataForm.base_fields.keys()]
+            'pgtemplate': AdvSearchPeakGroupsForm.base_fields.keys(),
+            'pdtemplate': AdvSearchPeakDataForm.base_fields.keys()
         })
         res = {}
+        print("form_invalid called")
         return self.render_to_response(
             self.get_context_data(res=res, form=self.form_classes, qry=qry, debug=settings.DEBUG)
         )
 
     def form_valid(self, formset):
         qry = formsetsToDict(formset, {
-            'pgtemplate': [AdvSearchPeakGroupsForm.base_fields.keys()],
-            'pdtemplate': [AdvSearchPeakDataForm.base_fields.keys()]
+            'pgtemplate': AdvSearchPeakGroupsForm.base_fields.keys(),
+            'pdtemplate': AdvSearchPeakDataForm.base_fields.keys()
         })
         res = {}
-        if len(qry) == 1:
+        if len(qry.keys()) == 2:
             q_exp = constructAdvancedQuery(qry)
             if qry['selectedtemplate'] == "pgtemplate":
                 res = PeakData.objects.filter(q_exp).prefetch_related(
@@ -216,7 +217,7 @@ class AdvancedSearchView(MultiFormsView):
                 res = PeakData.objects.filter(q_exp).prefetch_related(
                     "peak_group__msrun__sample__animal"
                 )
-        elif len(qry) == 0:
+        elif len(qry.keys()) == 0:
             # There was no search, so pre-populate with the default format if in browse mode
             # Optional url parameter should now be in self, so add it to the context
             mode = self.request.GET.get("mode", "search")
@@ -233,7 +234,7 @@ class AdvancedSearchView(MultiFormsView):
 
 
 def constructAdvancedQuery(qryRoot):
-    return constructAdvancedQueryHelper([qryRoot['searches'][qryRoot['selectedtemplate']]])
+    return constructAdvancedQueryHelper(qryRoot['searches'][qryRoot['selectedtemplate']]['tree'])
 
 def constructAdvancedQueryHelper(qry):
     if qry["type"] == "query":
@@ -281,22 +282,24 @@ def constructAdvancedQueryHelper(qry):
 
 
 def formsetsToDict(rawformset, form_fields_dict):
-    print("Raw pgtemplate Formset: ",rawformset["pgtemplate"],"Raw pdtemplate Formset: ",rawformset["pdtemplate"])
-    # There will be a single select list for the search output format
-    selectedtemplate = rawformset["fmt"]
-    qry = {'selectedtemplate': selectedtemplate}
-    qry['searches'] = formsetsToDictHelper(rawformset, form_fields_dict)
-    return qry
+    # All forms of each type are all submitted together in a single submission and are duplicated in the rawformset dict.  We only need 1 copy to get all the data, so we will arbitrarily us the first one
+    skeletonkey = list(rawformset.keys())[0]
+    return formsetToDict(rawformset[skeletonkey], form_fields_dict)
 
 
-def formsetsToDictHelper(rawformset, form_fields_dict):
-    qry = []
+def formsetToDict(rawformset, form_fields_dict):
+    search = {"selectedtemplate": "", "searches": {}}
+    qry = {}
+    for key in form_fields_dict.keys():
+        qry[key] = []
 
     # We take a raw form instead of cleaned_data so that form_invalid will repopulate the bad form as-is
     isRaw = False
     try:
         formset = rawformset.cleaned_data
+        print("FORM IS CLEAN")
     except AttributeError:
+        print("FORM IS RAW")
         isRaw = True
         formset = rawformset
 
@@ -306,12 +309,102 @@ def formsetsToDictHelper(rawformset, form_fields_dict):
             form = rawform.saved_data
         else:
             form = rawform
-        
-        print("Form IDs obtained: ",','.join(form.keys()))
 
-        ##### I'll include the rest of the code after I've gotten a look at how to forms are structured...
+        print("Splitting pos value on .: ",form["pos"])
+        path = form["pos"].split(".")
+        [format, formatName, selected] = rootToFormatInfo(path.pop(0))
+        print()
+        if format not in search["searches"]:
+            search["searches"][format] = {}
+            search["searches"][format]["tree"] = {}
+            search["searches"][format]["name"] = formatName
+            curqry = qry[format]
+        if selected is True:
+            search["selectedtemplate"] = format
 
-    return qry
+        for spot in path:
+            print("spot's search:",search,"curqry:",curqry,"spot:",spot)
+            pos_gtype = spot.split("-")
+            if len(pos_gtype) == 2:
+                pos = pos_gtype[0]
+                gtype = pos_gtype[1]
+            else:
+                pos = spot
+                gtype = None
+            pos = int(pos)
+            while len(curqry) <= pos:
+                curqry.append({})
+            if gtype is not None:
+                # This is a group
+                print("Adding group " + gtype)
+                # If the inner node was not already set
+                if not curqry[pos]:
+                    print("Creating group")
+                    curqry[pos]["pos"] = ""
+                    curqry[pos]["type"] = "group"
+                    curqry[pos]["val"] = gtype
+                    curqry[pos]["queryGroup"] = []
+                else:
+                    print("Navigating group")
+                # Move on to the next node in the path
+                curqry = curqry[pos]["queryGroup"]
+            else:
+                # This is a query
+
+                # Keep track of keys encountered
+                keys_seen = {}
+                for key in form_fields_dict[format]:
+                    keys_seen[key] = 0
+                cmpnts = []
+
+                curqry[pos]["type"] = "query"
+
+                # Set the form values in the query based on the form elements
+                for key in form.keys():
+                    # Remove "form-#-" from the form element ID
+                    cmpnts = key.split("-")
+                    keyname = cmpnts[-1]
+                    keys_seen[key] = 1
+                    if keyname == "pos":
+                        curqry[pos][key] = ""
+                    elif key not in curqry[pos]:
+                        curqry[pos][key] = form[key]
+                    else:
+                        # Log a warning
+                        print(
+                            "WARNING: Unrecognized form element not set at pos",
+                            pos,
+                            ":",
+                            key,
+                            "to",
+                            form[key],
+                        )
+
+                # Now initialize anything missing a value to an empty string
+                # This is used to correctly reconstruct the user's query upon form_invalid
+                for key in form_fields_dict[format]:
+                    if keys_seen[key] == 0:
+                        curqry[pos][key] = ""
+        search["searches"][format]["tree"] = qry[format][0]
+    return search
+
+def rootToFormatInfo(rootInfo):
+    val_name_sel = rootInfo.split("-")
+    sel = False
+    name = ""
+    if len(val_name_sel) == 3:
+        val = val_name_sel[0]
+        name = val_name_sel[1]
+        if val_name_sel[2] == "selected":
+            sel = True
+    elif len(val_name_sel) == 2:
+        val = val_name_sel[0]
+        name = val_name_sel[1]
+    else:
+        print("WARNING: Unable to parse format name from submitted form data.")
+        val = val_name_sel
+        name = val_name_sel
+    return [val, name, sel]
 
 
 def formsetToHash(rawformset, form_fields):
@@ -321,7 +414,9 @@ def formsetToHash(rawformset, form_fields):
     isRaw = False
     try:
         formset = rawformset.cleaned_data
+        print("FORM IS CLEAN")
     except AttributeError:
+        print("FORM IS RAW")
         isRaw = True
         formset = rawformset
 

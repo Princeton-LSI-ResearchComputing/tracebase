@@ -16,7 +16,7 @@ class MultiFormMixin(ContextMixin):
     initial = {}
     prefix = None
     success_url = None
-     
+
     def get_form_classes(self):
         return self.form_classes
      
@@ -35,22 +35,28 @@ class MultiFormMixin(ContextMixin):
         return kwargs
     
     def forms_valid(self, forms):
-        num_validated = 0
-        valid = True
+        num_valid_calls = 0
         for form_name in forms.keys():
             form_valid_method = '%s_form_valid' % form_name
             if hasattr(self, form_valid_method):
-                tmpvalid = getattr(self, form_valid_method)(forms[form_name])
-                num_validated += 1
-                if not tmpvalid:
-                    valid = False
-        if num_validated == 0:
+                getattr(self, form_valid_method)(forms[form_name])
+                num_valid_calls += 1
+        if num_valid_calls == 0:
             return self.form_valid(forms)
         else:
             return HttpResponseRedirect(self.get_success_url(form_name))
      
     def forms_invalid(self, forms):
-        return self.render_to_response(self.get_context_data(forms=forms))
+        num_invalid_calls = 0
+        for form_name in forms.keys():
+            form_invalid_method = '%s_form_valid' % form_name
+            if hasattr(self, form_invalid_method):
+                getattr(self, form_invalid_method)(forms[form_name])
+                num_invalid_calls += 1
+        if num_invalid_calls == 0:
+            return self.form_invalid(forms)
+        else:
+            return self.render_to_response(self.get_context_data(forms=forms))
     
     def get_initial(self, form_name):
         initial_method = 'get_%s_initial' % form_name
@@ -71,6 +77,7 @@ class MultiFormMixin(ContextMixin):
         if hasattr(self, form_create_method):
             form = getattr(self, form_create_method)(**form_kwargs)
         else:
+            print("kwargs from _create_form: ",form_kwargs)
             form = klass(**form_kwargs)
         return form
            
@@ -82,7 +89,7 @@ class MultiFormMixin(ContextMixin):
 
 
 class ProcessMultipleFormsView(ProcessFormView):
-    
+
     def get(self, request, *args, **kwargs):
         form_classes = self.get_form_classes()
         forms = self.get_forms(form_classes)
@@ -91,6 +98,7 @@ class ProcessMultipleFormsView(ProcessFormView):
     def post(self, request, *args, **kwargs):
         form_classes = self.get_form_classes()
         form_name = request.POST.get('action')
+        print("FORM NAME: ",form_name)
         if self._individual_exists(form_name):
             return self._process_individual_form(form_name, form_classes)
         elif self._group_exists(form_name):
@@ -103,7 +111,7 @@ class ProcessMultipleFormsView(ProcessFormView):
     
     def _group_exists(self, group_name):
         return group_name in self.grouped_forms
-              
+
     def _process_individual_form(self, form_name, form_classes):
         forms = self.get_forms(form_classes, (form_name,))
         form = forms.get(form_name)

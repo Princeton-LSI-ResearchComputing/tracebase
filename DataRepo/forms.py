@@ -87,6 +87,15 @@ class AdvSearchPeakGroupsForm(forms.Form):
         self.saved_data = self.cleaned_data
         return self.cleaned_data
 
+    def is_valid(self):
+        data = self.cleaned_data
+        print("AdvSearchPeakGroupsForm.is_valid() called from object: ",data)
+        for field in self.base_fields.keys():
+            if field not in data:
+                print("Form invalid")
+                return False
+        return True
+
 
 class AdvSearchPeakDataForm(forms.Form):
     """
@@ -151,3 +160,12 @@ class AdvSearchPeakDataForm(forms.Form):
         """This override of super.clean is so we can reconstruct the search inputs upon form_invalid in views.py"""
         self.saved_data = self.cleaned_data
         return self.cleaned_data
+
+    def is_valid(self):
+        data = self.cleaned_data
+        print("AdvSearchPeakDataForm.is_valid() called from object: ",data)
+        for field in self.base_fields.keys():
+            if field not in data:
+                print("Form invalid")
+                return False
+        return True

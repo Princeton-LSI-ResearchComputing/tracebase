@@ -411,10 +411,15 @@ function saveSearchQueryHierarchy (divElem) { // eslint-disable-line no-unused-v
 
   // This will traverse a a hierarchy for each possible output format
   for (let i = 1; i < childDivs.length; i++) {
-    console.log("Counting form div: ",childDivs[i])
-    total += saveSearchQueryHierarchyHelper(childDivs[i], '', 0, 0, selectedformat)
+    console.log("Counting form div " + total + ": ",childDivs[i])
+    total = saveSearchQueryHierarchyHelper(childDivs[i], '', total, 0, selectedformat)
   }
   console.log("Number of forms: " + total)
+
+
+  ////////// I'm setting the correct number of forms and setting the correct form indexes and correct form values for a single form submission, but the python code (probably in multiforms.py) is smashing them together.  The indexes and values are wrong.  I also have too many form management things...
+
+
   const formInput = document.getElementById('id_form-TOTAL_FORMS')
   formInput.value = total
 }
@@ -434,6 +439,14 @@ function getSelectedFormat(divElem) {
     console.error("Could not get selected format")
   }
   return selectedformat
+}
+
+function getFormatName (fmt) {
+  let formatName = rootGroup.searches[fmt].name
+  if (formatName.includes('-') || formatName.includes('.')) {
+    console.error("Format name",formatName,"is not allowed to contain dots or dashes.")
+  }
+  return(formatName)
 }
 
 // This is a recursive helper method to saveSearchQueryHierarchy.  It takes:
@@ -477,9 +490,12 @@ function saveSearchQueryHierarchyHelper (divElem, path, count, idx, selectedform
   let isRoot = false
   if (path === '') {
     isRoot = true
+    let formatName = getFormatName(fmt)
     // Set up the root of the path to indicate the output format
     if (selectedformat === fmt) {
-      fmt += "-selected"
+      fmt += "-" + formatName + "-selected"
+    } else {
+      fmt += "-" + formatName
     }
     path += fmt + '.' + idx
     console.log("Setting root path to: " + path + " from format " + fmt + " and selected format " + selectedformat + " div elem: ",divElem)
