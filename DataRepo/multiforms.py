@@ -8,10 +8,16 @@ from django.http.response import HttpResponseRedirect, HttpResponseForbidden
 
 class MultiFormMixin(ContextMixin):
 
-    form_classes = {} 
+    form_classes = {}
     prefixes = {}
     success_urls = {}
     grouped_forms = {}
+
+    # A mixed form is a form submission containing any number of forms (i.e. formsets) and form types
+    # Only 1 form type (based on a selected form field) will be validated
+    mixedform_prefixes = {} # A dict keyed on the same keys as form_classes
+    mixedform_selected_formtype = "" # This is a form field superficially added (e.g. via javascript) that contains a prefix of the form classes the user has selected from the mixed forms
+    mixedform_prefix_field = "" # This is a form field included in each of the form_classes whose value will start with one of the mixedform_prefixes
     
     initial = {}
     prefix = None
@@ -77,7 +83,7 @@ class MultiFormMixin(ContextMixin):
         if hasattr(self, form_create_method):
             form = getattr(self, form_create_method)(**form_kwargs)
         else:
-            print("kwargs from _create_form: ",form_kwargs)
+            print("kwargs from _create_form(",form_name,",",bind_form,"): ",form_kwargs)
             form = klass(**form_kwargs)
         return form
            
@@ -103,6 +109,8 @@ class ProcessMultipleFormsView(ProcessFormView):
             return self._process_individual_form(form_name, form_classes)
         elif self._group_exists(form_name):
             return self._process_grouped_forms(form_name, form_classes)
+        elif self._mixed_exists():
+            return self._process_mixed_forms(form_classes)
         else:
             return self._process_all_forms(form_classes)
         
@@ -111,6 +119,9 @@ class ProcessMultipleFormsView(ProcessFormView):
     
     def _group_exists(self, group_name):
         return group_name in self.grouped_forms
+
+    def _mixed_exists(self):
+        return self.mixedform_prefixes and self.mixedform_selected_formtype
 
     def _process_individual_form(self, form_name, form_classes):
         forms = self.get_forms(form_classes, (form_name,))
@@ -129,6 +140,25 @@ class ProcessMultipleFormsView(ProcessFormView):
             return self.forms_valid(forms)
         else:
             return self.forms_invalid(forms)
+        
+    def _process_mixed_forms(self, form_classes):
+        # Get the selected form type using the mixedform_selected_formtype
+        form_kwargs = self.get_form_kwargs("", True)
+        selected_formtype = form_kwargs['data'][self.mixedform_selected_formtype]
+        print("SELECTED FORMTYPE:",selected_formtype)
+        
+        formsets = self.get_forms(form_classes, selected_formtype, False)
+
+        print("FORMSETS:",formsets)
+        print("SELF IS: ",self)
+
+        # Only validate the selected form type
+        if all([form.is_valid() for form in formsets.values()]):
+            print("Calling forms_valid from mixed_forms with: ",formsets)
+            return self.forms_valid(formsets)
+        else:
+            print("Calling forms_invalid from mixed_forms with: ",formsets)
+            return self.forms_invalid(formsets)
         
     def _process_all_forms(self, form_classes):
         forms = self.get_forms(form_classes, None, True)

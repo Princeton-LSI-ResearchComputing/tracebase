@@ -14,6 +14,7 @@ const pluspluspngpath = '/static/images/plusplus.png'
 // This is the default root of the form hierarchy
 const rootGroup = {
   selectedtemplate: 'pgtemplate',
+  formname: 'hiersearch',
   searches: {
     pgtemplate: {
       name: 'PeakGroups',
@@ -419,9 +420,17 @@ function saveSearchQueryHierarchy (divElem) { // eslint-disable-line no-unused-v
 
   ////////// I'm setting the correct number of forms and setting the correct form indexes and correct form values for a single form submission, but the python code (probably in multiforms.py) is smashing them together.  The indexes and values are wrong.  I also have too many form management things...
 
-
-  const formInput = document.getElementById('id_form-TOTAL_FORMS')
-  formInput.value = total
+  // Only 1 form needs to have the total set, but depending on how the form was initialized, it could be any of these, so attempt to set them all
+  let prefixes = ['form', rootGroup.formname]
+  for (const prefix of Object.keys(rootGroup.searches)) {
+    prefixes.push(prefix)
+  }
+  for (const prefix of prefixes) {
+    const formInput = document.getElementById('id_' + prefix + '-TOTAL_FORMS')
+    if (typeof formInput !== 'undefined' && formInput) {
+      formInput.value = total
+    }
+  }
 }
 
 function getSelectedFormat(divElem) {
@@ -500,6 +509,7 @@ function saveSearchQueryHierarchyHelper (divElem, path, count, idx, selectedform
     path += fmt + '.' + idx
     console.log("Setting root path to: " + path + " from format " + fmt + " and selected format " + selectedformat + " div elem: ",divElem)
   } else {
+    console.log("Appending to: " + path + ": ." + fmt + " div elem: ",divElem)
     path += '.' + idx
   }
 

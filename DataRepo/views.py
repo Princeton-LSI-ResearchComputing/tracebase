@@ -178,6 +178,10 @@ class AdvancedSearchView(MultiFormsView):
         'pdtemplate': formset_factory(AdvSearchPeakDataForm)
     }
     success_url = ""
+    mixedform_prefixes = {'pgtemplate': "pgtemplate", 'pdtemplate': "pdtemplate"}
+    mixedform_selected_formtype = "fmt"
+    mixedform_prefix_field = "pos"
+    prefix = "hiersearch"
 
     # Override get_context_data to retrieve mode from the query string
     def get_context_data(self, **kwargs):
@@ -283,15 +287,28 @@ def constructAdvancedQueryHelper(qry):
 
 def formsetsToDict(rawformset, form_fields_dict):
     # All forms of each type are all submitted together in a single submission and are duplicated in the rawformset dict.  We only need 1 copy to get all the data, so we will arbitrarily us the first one
-    skeletonkey = list(rawformset.keys())[0]
-    return formsetToDict(rawformset[skeletonkey], form_fields_dict)
+    #print("rawformset of pgtemplate 0:",rawformset["pgtemplate"][0])
+    #print("rawformset of pdtemplate 0:",rawformset["pdtemplate"][0])
+
+    # Figure out which form class processed the forms (inferred by the presence of 'saved_data' - this is also the selected format)
+    processed_formkey = None
+    for key in rawformset.keys():
+        #print("Looking at ",key," form:",rawformset[key][0].__dict__)
+        if "saved_data" in rawformset[key][0].__dict__:
+            processed_formkey = key
+            break
+
+    # If we were unable to locate the selected output format (i.e. the copy of the formsets that were processed)
+    if processed_formkey is None:
+        raise Http404(
+            "Unable to find selected output format."
+        )
+
+    return formsetToDict(rawformset[processed_formkey], form_fields_dict)
 
 
 def formsetToDict(rawformset, form_fields_dict):
     search = {"selectedtemplate": "", "searches": {}}
-    qry = {}
-    for key in form_fields_dict.keys():
-        qry[key] = []
 
     # We take a raw form instead of cleaned_data so that form_invalid will repopulate the bad form as-is
     isRaw = False
@@ -313,25 +330,32 @@ def formsetToDict(rawformset, form_fields_dict):
         print("Splitting pos value on .: ",form["pos"])
         path = form["pos"].split(".")
         [format, formatName, selected] = rootToFormatInfo(path.pop(0))
+        rootinfo = path.pop(0)
+
         print()
         if format not in search["searches"]:
             search["searches"][format] = {}
             search["searches"][format]["tree"] = {}
             search["searches"][format]["name"] = formatName
-            curqry = qry[format]
+
+            # Initialize the root of the tree
+            [pos, gtype] = pathStepToPosGroupType(rootinfo)
+            aroot = search["searches"][format]["tree"]
+            aroot["pos"] = ""
+            aroot["type"] = "group"
+            aroot["val"] = gtype
+            aroot["queryGroup"] = []
+            curqry = aroot["queryGroup"]
+        else:
+            # The root already exists, so go directly to its child list
+            curqry = search["searches"][format]["tree"]["queryGroup"]
+
         if selected is True:
             search["selectedtemplate"] = format
 
         for spot in path:
             print("spot's search:",search,"curqry:",curqry,"spot:",spot)
-            pos_gtype = spot.split("-")
-            if len(pos_gtype) == 2:
-                pos = pos_gtype[0]
-                gtype = pos_gtype[1]
-            else:
-                pos = spot
-                gtype = None
-            pos = int(pos)
+            [pos, gtype] = pathStepToPosGroupType(spot)
             while len(curqry) <= pos:
                 curqry.append({})
             if gtype is not None:
@@ -344,8 +368,7 @@ def formsetToDict(rawformset, form_fields_dict):
                     curqry[pos]["type"] = "group"
                     curqry[pos]["val"] = gtype
                     curqry[pos]["queryGroup"] = []
-                else:
-                    print("Navigating group")
+                print("Navigating group:",curqry)
                 # Move on to the next node in the path
                 curqry = curqry[pos]["queryGroup"]
             else:
@@ -385,8 +408,19 @@ def formsetToDict(rawformset, form_fields_dict):
                 for key in form_fields_dict[format]:
                     if keys_seen[key] == 0:
                         curqry[pos][key] = ""
-        search["searches"][format]["tree"] = qry[format][0]
     return search
+
+def pathStepToPosGroupType(spot):
+    pos_gtype = spot.split("-")
+    if len(pos_gtype) == 2:
+        pos = pos_gtype[0]
+        gtype = pos_gtype[1]
+    else:
+        pos = spot
+        gtype = None
+    pos = int(pos)
+    return [pos, gtype]
+
 
 def rootToFormatInfo(rootInfo):
     val_name_sel = rootInfo.split("-")
