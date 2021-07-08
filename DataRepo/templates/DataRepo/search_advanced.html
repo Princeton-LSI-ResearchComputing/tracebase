@@ -53,7 +53,7 @@
 
 {% block content %}
     <div>
-        <h3>Search Peak Groups</h3>
+        <h3>Advanced Search</h3>
 
         <!-- Form template for the PeakGroups output format from django's forms.py -->
         {% with forms.pgtemplate.empty_form as f %}
@@ -112,7 +112,11 @@
         {% if mode == "search" %}
             {% if qry and formsets.pg.0.val != "" and not formsets.pg.0.val.errors and formsets.pd.0.val != "" and not formsets.pd.0.val.errors %}
                 <hr>
-                <h3>Results ({{ cur_res.count|default:"0" }})</h3>
+                {% if qry.selectedtemplate == "pgtemplate" %}
+                    <h3>Peak Groups Results ({{ cur_res.count|default:"0" }})</h3>
+                {% elif qry.selectedtemplate == "pdtemplate" %}
+                    <h3>Peak Data Results ({{ cur_res.count|default:"0" }})</h3>
+                {% endif %}
             {% endif %}
         {% else %}
             <hr>

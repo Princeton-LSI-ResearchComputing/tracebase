@@ -26,11 +26,8 @@ class AdvSearchPeakGroupsForm(forms.Form):
             # PeakData Searchable Fields in the PeakGroups Output Format
             ("labeled_element", "Atom"),
             ("labeled_count", "Label Count"),
-            ("fraction", "Fraction"),
             # PeakData Searchable Fields in the PeakGroups Output Format
             ("peak_group__name", "Presumed Output Compound"),
-            ("peak_group__total_abundance", "TIC"),
-            ("peak_group__normalized_labeling", "Norm Fraction"),
             # PeakData Searchable Fields in the PeakGroups Output Format
             ("peak_group__msrun__sample__name", "Sample"),
             # PeakData Searchable Fields in the PeakGroups Output Format
@@ -123,7 +120,6 @@ class AdvSearchPeakDataForm(forms.Form):
             # PeakData Searchable Fields in the PeakGroups Output Format
             ("labeled_element", "Atom"),
             ("labeled_count", "Label Count"),
-            ("fraction", "Fraction"),
             ("corrected_abundance", "Corrected Abundance"),
             # PeakData Searchable Fields in the PeakGroups Output Format
             ("peak_group__name", "Presumed Output Compound"),
