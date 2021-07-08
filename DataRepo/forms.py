@@ -112,6 +112,7 @@ class AdvSearchPeakDataForm(forms.Form):
     Advanced search form for the peakdata output format that will be used inside a formset.
     """
 
+    # This is modified
     posprefix = 'pdtemplate'
 
     # See important note about the pos field above
@@ -179,6 +180,7 @@ class AdvSearchPeakDataForm(forms.Form):
         fields = self.base_fields.keys()
         # Only validate if the pos field contains the prefix - otherwise, it belongs to a different form class
         if 'pos' in data and self.posprefix in data["pos"]:
+            print("pos in data and has prefix:",self.posprefix)
             self.selected = True
             for field in fields:
                 if field not in data:

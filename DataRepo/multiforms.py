@@ -146,18 +146,24 @@ class ProcessMultipleFormsView(ProcessFormView):
         form_kwargs = self.get_form_kwargs("", True)
         selected_formtype = form_kwargs['data'][self.mixedform_selected_formtype]
         print("SELECTED FORMTYPE:",selected_formtype)
-        
-        formsets = self.get_forms(form_classes, selected_formtype, False)
+
+        # I only want to get the forms in the context of the selected formtype.  That is managed by the content of the dict passed to get_forms.  And I want that form data to be bound to kwargs.  That is accomplished by supplying the desired key in the second argument to get_forms.
+        # These 2 together should result in a call to forms_valid with all the form data (including the not-selected form data - which is what we want, so that the user's entered searches are retained.
+        selected_form_classes = {}
+        selected_form_classes[selected_formtype] = form_classes[selected_formtype]
+        formsets = self.get_forms(selected_form_classes, [selected_formtype])
 
         print("FORMSETS:",formsets)
         print("SELF IS: ",self)
 
         # Only validate the selected form type
-        if all([form.is_valid() for form in formsets.values()]):
+        myall = [form.is_valid() for form in formsets.values()]
+        myallall = all(myall)
+        if myallall:
             print("Calling forms_valid from mixed_forms with: ",formsets)
             return self.forms_valid(formsets)
         else:
-            print("Calling forms_invalid from mixed_forms with: ",formsets)
+            print("Calling forms_invalid from mixed_forms because myall is [",myall,"] with: ",formsets)
             return self.forms_invalid(formsets)
         
     def _process_all_forms(self, form_classes):

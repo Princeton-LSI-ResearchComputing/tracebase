@@ -181,7 +181,7 @@ class AdvancedSearchView(MultiFormsView):
     mixedform_prefixes = {'pgtemplate': "pgtemplate", 'pdtemplate': "pdtemplate"}
     mixedform_selected_formtype = "fmt"
     mixedform_prefix_field = "pos"
-    prefix = "hiersearch"
+    prefix = "form" # Tried a custom prefix, but the forms were not getting the prefix on the results pages.  I changed it back to this default of "form", and it all worked.  I forget why I'd added this, but if I try and strip this out (which I intend to do in the cleanup phase, I might find out why I added it to begin with)
 
     # Override get_context_data to retrieve mode from the query string
     def get_context_data(self, **kwargs):
@@ -200,9 +200,9 @@ class AdvancedSearchView(MultiFormsView):
             'pdtemplate': AdvSearchPeakDataForm.base_fields.keys()
         })
         res = {}
-        print("form_invalid called")
+        print("Returning from form_invalid...")
         return self.render_to_response(
-            self.get_context_data(res=res, form=self.form_classes, qry=qry, debug=settings.DEBUG)
+            self.get_context_data(res=res, forms=self.form_classes, qry=qry, debug=settings.DEBUG)
         )
 
     def form_valid(self, formset):
@@ -211,7 +211,7 @@ class AdvancedSearchView(MultiFormsView):
             'pdtemplate': AdvSearchPeakDataForm.base_fields.keys()
         })
         res = {}
-        if len(qry.keys()) == 2:
+        if len(qry.keys()) == 3:
             q_exp = constructAdvancedQuery(qry)
             if qry['selectedtemplate'] == "pgtemplate":
                 res = PeakData.objects.filter(q_exp).prefetch_related(
@@ -231,9 +231,11 @@ class AdvancedSearchView(MultiFormsView):
                 )
         else:
             # Log a warning
-            print("WARNING: Invalid query root")
+            print("WARNING: Invalid query root:",qry)
+        print("Returning from form_valid...")
+        print("Form_valid qry:",qry)
         return self.render_to_response(
-            self.get_context_data(res=res, formsets=self.form_classes, qry=qry, debug=settings.DEBUG)
+            self.get_context_data(res=res, forms=self.form_classes, qry=qry, debug=settings.DEBUG)
         )
 
 

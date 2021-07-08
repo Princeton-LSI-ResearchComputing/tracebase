@@ -14,7 +14,7 @@ const pluspluspngpath = '/static/images/plusplus.png'
 // This is the default root of the form hierarchy
 const rootGroup = {
   selectedtemplate: 'pgtemplate',
-  formname: 'hiersearch',
+  formname: 'form', // Tried a custom prefix, but the forms were not getting the prefix on the results pages.  I changed it back to this default of "form", and it all worked.  I forget why I'd added this, but if I try and strip this out (which I intend to do in the cleanup phase, I might find out why I added it to begin with)
   searches: {
     pgtemplate: {
       name: 'PeakGroups',
@@ -44,7 +44,7 @@ function appendSearchQuery (element, query) {
 
   for (const templateId of Object.keys(query.searches)) {
 
-    /////// THIS NEEDS TO hidden/show forms based on query.selectedtemplate - FOR NOW I WILL SHOW THEM ALL
+    /////// THIS NEEDS TO hide/show forms based on query.selectedtemplate - FOR NOW I WILL SHOW THEM ALL
 
     //let shwon = templateId === query.selectedtemplate
 
@@ -209,6 +209,7 @@ function addFormatSelectList (myDiv, query, copyQuery) {
   // Initialize the value in the hierarchy with the default
   if (typeof copyQuery !== 'undefined' || copyQuery) {
     query.selectedtemplate = copyQuery.selectedtemplate
+    query.formname = copyQuery.formname
   }
 
   // Create a group type select list
@@ -353,19 +354,32 @@ function addQueryAndGroupAddButtons (myDiv, query, parentGroup, templateId) {
 function initializeExistingSearchQuery (element, initQuery) { // eslint-disable-line no-unused-vars
   'use strict'
 
-  // Create the root object
-  const childDiv = appendInnerSearchQuery(element, templateId, rootGroup, initQuery[0])
+  const myDiv = document.createElement('div')
+  addFormatSelectList(myDiv, initQuery)
+  element.appendChild(myDiv)
 
-  initializeExistingSearchQueryHelper(childDiv, initQuery[0].queryGroup, rootGroup)
+  rootGroup.formname = initQuery.formname
 
-  // Not exactly sure why, but after adding inner elements to a group, an empty div is needed to make future dynamically-added form elements to be correctly created.  I did this based on the template post I followed that had a static empty div just inside where the dynamic content was being created, when stuff I was adding wasn't working right and it seems to have fixed it.
-  childDiv.append(document.createElement('div'))
+  for (const templateId of Object.keys(initQuery.searches)) {
+
+    /////// THIS NEEDS TO hide/show forms based on query.selectedtemplate - FOR NOW I WILL SHOW THEM ALL
+
+    //let shwon = templateId === query.selectedtemplate
+
+    // Create the root object
+    const childDiv = appendInnerSearchQuery(element, templateId, rootGroup.searches[templateId].tree, initQuery.searches[templateId].tree)
+
+    initializeExistingSearchQueryHelper(childDiv, templateId, rootGroup.searches[templateId].tree, initQuery.searches[templateId].tree.queryGroup)
+
+    // Not exactly sure why, but after adding inner elements to a group, an empty div is needed to make future dynamically-added form elements to be correctly created.  I did this based on the template post I followed that had a static empty div just inside where the dynamic content was being created, when stuff I was adding wasn't working right and it seems to have fixed it.
+    childDiv.append(document.createElement('div'))
+  }
 }
 
 // This is a recursive method called by initializeExistingSearchQuery.  It traverses the copyQueryArray data structure.  Recursion happens on inner nodes of the hierarchical data structure.
 //   copyQueryArray is a sub-tree of the hierarchical form data structure.
 //   parentNode is a reference to the parent of the current copyQueryArray object.
-function initializeExistingSearchQueryHelper (element, copyQueryArray, parentNode) {
+function initializeExistingSearchQueryHelper (element, templateId, parentNode, copyQueryArray) {
   'use strict'
 
   for (let i = 0; i < copyQueryArray.length; i++) {
@@ -378,7 +392,7 @@ function initializeExistingSearchQueryHelper (element, copyQueryArray, parentNod
       parentNode.queryGroup.push(subGroup)
       const childDiv = appendInnerSearchQuery(element, templateId, subGroup, copyQueryArray[i], parentNode, false)
       // Recurse
-      initializeExistingSearchQueryHelper(childDiv, copyQueryArray[i].queryGroup, subGroup)
+      initializeExistingSearchQueryHelper(childDiv, templateId, subGroup, copyQueryArray[i].queryGroup)
 
       // Not exactly sure why, but after adding inner elements to a group, an empty div is needed to make future dynamically-added form elements to be correctly created.  I did this based on the template post I followed that had a static empty div just inside where the dynamic content was being created, when stuff I was adding wasn't working right and it seems to have fixed it.
       childDiv.append(document.createElement('div'))
@@ -389,6 +403,7 @@ function initializeExistingSearchQueryHelper (element, copyQueryArray, parentNod
         type: 'query'
       }
       parentNode.queryGroup.push(subQuery)
+      console.log("Appending query form:",copyQueryArray[i])
       appendInnerSearchQuery(element, templateId, subQuery, copyQueryArray[i], parentNode, false)
     } else {
       console.error('Unknown node type at index ' + i + ': ', copyQueryArray[i].type)
@@ -509,14 +524,15 @@ function saveSearchQueryHierarchyHelper (divElem, path, count, idx, selectedform
     path += fmt + '.' + idx
     console.log("Setting root path to: " + path + " from format " + fmt + " and selected format " + selectedformat + " div elem: ",divElem)
   } else {
-    console.log("Appending to: " + path + ": ." + fmt + " div elem: ",divElem)
+    console.log("Appending to: " + path + ": ." + idx + " div elem: ",divElem)
     path += '.' + idx
   }
 
 
-  // If this is a form from Django formset form (otherwise it's a hierarchy control level)
+  // If this is a form from a Django formset (otherwise it's a hierarchy control level)
   if (isForm) {
-    posElem.value += path
+    posElem.value = path
+    console.log("New pos path is: " + posElem.value)
     for (let i = 0; i < childInputs.length; i++) {
       if (typeof childInputs[i].name !== 'undefined' && childInputs[i].name) {
         // Replace (e.g. "form-0-val" or "form-__prefix__-val") with "form-<count>-val"
