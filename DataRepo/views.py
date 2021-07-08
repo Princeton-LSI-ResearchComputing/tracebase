@@ -188,10 +188,12 @@ class AdvancedSearchView(MultiFormsView):
         context = super().get_context_data(**kwargs)
         # Optional url parameter should now be in self, so add it to the context
         mode = self.request.GET.get("mode", "search")
+        format = self.request.GET.get("format", "pgtemplate")
         if mode != "browse" and mode != "search":
             mode = "search"
             print("Invalid mode: ", mode)
         context["mode"] = mode
+        context["format"] = format
         return context
 
     def form_invalid(self, formset):
@@ -225,10 +227,16 @@ class AdvancedSearchView(MultiFormsView):
             # There was no search, so pre-populate with the default format if in browse mode
             # Optional url parameter should now be in self, so add it to the context
             mode = self.request.GET.get("mode", "search")
+            format = self.request.GET.get("format", "pgtemplate")
             if mode == "browse":
-                res = PeakData.objects.all().prefetch_related(
-                    "peak_group__msrun__sample__animal__studies"
-                )
+                if format == "pdtemplate":
+                    res = PeakData.objects.all().prefetch_related(
+                        "peak_group__msrun__sample__animal"
+                    )
+                else:
+                    res = PeakData.objects.all().prefetch_related(
+                        "peak_group__msrun__sample__animal__studies"
+                    )
         else:
             # Log a warning
             print("WARNING: Invalid query root:",qry)

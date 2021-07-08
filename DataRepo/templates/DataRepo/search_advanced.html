@@ -29,6 +29,10 @@
 
     <script>
         document.addEventListener("DOMContentLoaded", function(){
+            {% if format and mode and mode == "browse" and not qry %}
+                console.log("Setting selected template to {{ format }}")
+                rootGroup.selectedtemplate = "{{ format }}"
+            {% endif %}
 
             // If a search has been performed, restore the form
             {% if qry %}
@@ -86,9 +90,7 @@
             {{ forms.pgtemplate.management_form }}
             <label id="formerror" class="text-danger temporal-text"></label>
         </form>
-        {% if mode == "search" %}
-            <a href="{% url 'search_advanced' %}?mode=browse" class="tiny">Browse All</a>
-        {% endif %}
+        <a id="browselink" href="{% url 'search_advanced' %}?mode=browse" class="tiny">Browse All</a>
     </div>
 
     {% if debug %}
@@ -125,7 +127,7 @@
 
         {% if cur_res %}
             <table class="table table-success table-hover table-striped table-bordered">
-                {% if qry.selectedtemplate == "pgtemplate" %}
+                {% if qry.selectedtemplate == "pgtemplate" or format == "pgtemplate" %}
                     <tr>
                         <th>Compound</th>
                         <th>Atom:Label</th>
@@ -222,7 +224,7 @@
                             </tr>
                         {% endfor %}
                     {% endfor %}
-                {% elif qry.selectedtemplate == "pdtemplate" %}
+                {% elif qry.selectedtemplate == "pdtemplate" or format == "pdtemplate" %}
                     <tr>
                         <th>Sample</th>
                         <th>Tissue</th>

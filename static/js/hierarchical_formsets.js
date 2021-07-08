@@ -226,12 +226,28 @@ function addSearchFieldForm (myDiv, query, copyQuery, isInit, templateId) {
   }
 }
 
+function updateBrowseLink(templateId) {
+  let blink = document.getElementById('browselink')
+  // There is no browse link when in browse mode
+  if (typeof blink !== 'undefined' && blink) {
+    const regex = /format=[^;&]+/i;
+    newhref = blink.href.replace(regex, 'format=' + templateId)
+    if (newhref === blink.href) {
+      newhref += "&format=" + templateId
+    }
+    blink.href = newhref
+    blink.innerHTML = "Browse All " + rootGroup.searches[templateId].name
+  }
+}
+
 function addFormatSelectList (myDiv, query, copyQuery) {
   // Initialize the value in the hierarchy with the default
   if (typeof copyQuery !== 'undefined' || copyQuery) {
     query.selectedtemplate = copyQuery.selectedtemplate
     query.formname = copyQuery.formname
   }
+
+  updateBrowseLink(query.selectedtemplate)
 
   // Create a group type select list
   const select = document.createElement('select')
@@ -252,6 +268,7 @@ function addFormatSelectList (myDiv, query, copyQuery) {
     label.innerHTML = ''
     query.selectedtemplate = event.target.value
     showOutputFormatSearch(query.selectedtemplate)
+    updateBrowseLink(query.selectedtemplate)
   })
 
   // Put descriptive text in front of the select list
