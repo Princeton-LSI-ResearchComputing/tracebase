@@ -195,7 +195,7 @@ class AdvancedSearchView(MultiFormsView):
         return context
 
     def form_invalid(self, formset):
-        qry = formsetsToDict(formset, {
+        qry = formsetsToDict(formset, self.prefix, {
             'pgtemplate': AdvSearchPeakGroupsForm.base_fields.keys(),
             'pdtemplate': AdvSearchPeakDataForm.base_fields.keys()
         })
@@ -206,7 +206,7 @@ class AdvancedSearchView(MultiFormsView):
         )
 
     def form_valid(self, formset):
-        qry = formsetsToDict(formset, {
+        qry = formsetsToDict(formset, self.prefix, {
             'pgtemplate': AdvSearchPeakGroupsForm.base_fields.keys(),
             'pdtemplate': AdvSearchPeakDataForm.base_fields.keys()
         })
@@ -285,7 +285,7 @@ def constructAdvancedQueryHelper(qry):
     return None
 
 
-def formsetsToDict(rawformset, form_fields_dict):
+def formsetsToDict(rawformset, formprefix, form_fields_dict):
     # All forms of each type are all submitted together in a single submission and are duplicated in the rawformset dict.  We only need 1 copy to get all the data, so we will arbitrarily us the first one
     #print("rawformset of pgtemplate 0:",rawformset["pgtemplate"][0])
     #print("rawformset of pdtemplate 0:",rawformset["pdtemplate"][0])
@@ -304,11 +304,11 @@ def formsetsToDict(rawformset, form_fields_dict):
             "Unable to find selected output format."
         )
 
-    return formsetToDict(rawformset[processed_formkey], form_fields_dict)
+    return formsetToDict(rawformset[processed_formkey], formprefix, form_fields_dict)
 
 
-def formsetToDict(rawformset, form_fields_dict):
-    search = {"selectedtemplate": "", "searches": {}}
+def formsetToDict(rawformset, formprefix, form_fields_dict):
+    search = {"selectedtemplate": "", "formname": formprefix, "searches": {}}
 
     # We take a raw form instead of cleaned_data so that form_invalid will repopulate the bad form as-is
     isRaw = False
