@@ -52,6 +52,19 @@ function appendSearchQuery (element, query) {
   }
 }
 
+function showOutputFormatSearch(shownTemplateId) {
+  let shownHierarchyId = shownTemplateId + '-hierarchy'
+  for (const templateId of Object.keys(rootGroup.searches)) {
+    let hierarchyId = templateId + '-hierarchy'
+    const hierDiv = document.getElementById(hierarchyId)
+    if (shownHierarchyId === hierarchyId) {
+      hierDiv.style = ''
+    } else {
+      hierDiv.style = 'display:none;'
+    }
+  }
+}
+
 // This method dynamically adds a child form to the hierarchical form structure.
 //   element [required] is an existing DOM object.
 //   query [required] is either an child object node that is being added to a data structure that tracks the hierarchy, or it is an existing sibling node after which a sibling is being added (depending on the value of 'afterMode').
@@ -73,8 +86,13 @@ function appendInnerSearchQuery (element, templateId, query, copyQuery, parentGr
   }
 
   let isRoot = true
+  let isHidden = false
   if (typeof parentGroup !== 'undefined' || parentGroup) {
     isRoot = false
+  } else {
+    if (rootGroup.selectedtemplate !== templateId) {
+      isHidden = true
+    }
   }
 
   const myDiv = document.createElement('div')
@@ -83,6 +101,9 @@ function appendInnerSearchQuery (element, templateId, query, copyQuery, parentGr
   } else {
     let templatename = templateId + "-hierarchy"
     myDiv.id = templatename
+    if (isHidden) {
+      myDiv.style = 'display:none;'
+    }
     myDiv.appendChild(document.createTextNode('DEBUG(' + templateId + '): '))
     console.log("Hierarchy root div after setting id to " + templatename + ": ",myDiv)
   }
@@ -230,6 +251,7 @@ function addFormatSelectList (myDiv, query, copyQuery) {
     const label = document.getElementById('formerror')
     label.innerHTML = ''
     query.selectedtemplate = event.target.value
+    showOutputFormatSearch(query.selectedtemplate)
   })
 
   // Put descriptive text in front of the select list
@@ -355,7 +377,7 @@ function initializeExistingSearchQuery (element, initQuery) { // eslint-disable-
   'use strict'
 
   const myDiv = document.createElement('div')
-  addFormatSelectList(myDiv, initQuery)
+  addFormatSelectList(myDiv, rootGroup, initQuery)
   element.appendChild(myDiv)
 
   rootGroup.formname = initQuery.formname
