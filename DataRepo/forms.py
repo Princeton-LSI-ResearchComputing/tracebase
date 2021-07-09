@@ -88,19 +88,13 @@ class AdvSearchPeakGroupsForm(forms.Form):
 
     def is_valid(self):
         data = self.cleaned_data
-        print("AdvSearchPeakGroupsForm.is_valid() called from object: ",data)
         fields = self.base_fields.keys()
         # Only validate if the pos field contains the posprefix - otherwise, it belongs to a different form class
         if 'pos' in data and self.posprefix in data["pos"]:
             self.selected = True
-            print("pos in data and has prefix:",self.posprefix)
             for field in fields:
                 if field not in data:
-                    print("Form invalid")
                     return False
-        else:
-            print("pos not in data or does not have prefix:",self.posprefix)
-        print("Form valid")
         return True
 
 
@@ -172,15 +166,11 @@ class AdvSearchPeakDataForm(forms.Form):
 
     def is_valid(self):
         data = self.cleaned_data
-        print("AdvSearchPeakDataForm.is_valid() called from object: ",data)
         fields = self.base_fields.keys()
         # Only validate if the pos field contains the prefix - otherwise, it belongs to a different form class
         if 'pos' in data and self.posprefix in data["pos"]:
-            print("pos in data and has prefix:",self.posprefix)
             self.selected = True
             for field in fields:
                 if field not in data:
-                    print("Form invalid")
                     return False
-        print("Form valid")
         return True

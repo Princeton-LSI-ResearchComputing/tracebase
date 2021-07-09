@@ -287,6 +287,7 @@ class ViewTests(TestCase):
             peak_group__msrun__sample__tissue__name__iexact="Brain"
         ).prefetch_related("peak_group__msrun__sample__animal__studies")
         filledform = {
+            "fmt": "pgtemplate",
             "form-TOTAL_FORMS": "2",
             "form-INITIAL_FORMS": "0",
             "form-0-pos": "pgtemplate-PeakGroups-selected.0-all.0",
@@ -347,6 +348,7 @@ class ViewTests(TestCase):
         Do a simple advanced search and make sure the results are correct
         """
         invalidform = {
+            "fmt": "pgtemplate",
             "form-TOTAL_FORMS": "2",
             "form-INITIAL_FORMS": "0",
             "form-0-pos": "pgtemplate-PeakGroups-selected.0-all.0",
