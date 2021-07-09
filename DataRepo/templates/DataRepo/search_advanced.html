@@ -5,7 +5,7 @@
 {% block head_extras %}
     {{ block.super }}
 
-    <!-- The nested_forms items were inspired by both:
+    <!-- The hierarchical_formsets items were inspired by both:
 
         - https://github.com/elo80ka/django-dynamic-formset/
         - https://stackoverflow.com/questions/50736373/html-unlimited-hierarchy-input-to-form
@@ -14,8 +14,8 @@
 
     -->
 
-    <link href="{% static 'css/nested_forms.css' %}" rel="stylesheet">
     <link href="{% static 'css/extras.css' %}" rel="stylesheet">
+    <link href="{% static 'css/hierarchical_formsets.css' %}" rel="stylesheet">
     <script src="{% static 'js/hierarchical_formsets.js' %}"></script>
 
     {% if qry %}

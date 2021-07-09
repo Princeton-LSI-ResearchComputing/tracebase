@@ -2,7 +2,7 @@ from django import forms
 
 
 # IMPORTANT NOTE ABOUT THE pos FIELD IN EACH AdvSearch...Form CLASS:
-# "pos" keeps track of a form's hierarchical position, managed in javascript (see static/js/nested_forms.js)
+# "pos" keeps track of a form's hierarchical position, managed in javascript (see static/js/hierarchical_formsets.js)
 # In each form, it encodes grouptypes as "any" or "all", indicating whether the members are joined with a logical "or"
 # or "and"
 # Example: "all0.0" indicates the (first group (type "and")) . (first form), i.e. "0.0" where the first 0 is an
