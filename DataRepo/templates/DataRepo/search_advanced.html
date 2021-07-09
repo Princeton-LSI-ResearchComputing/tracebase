@@ -127,7 +127,7 @@
 
         {% if cur_res %}
             <table class="table table-success table-hover table-striped table-bordered">
-                {% if qry.selectedtemplate == "pgtemplate" or format == "pgtemplate" %}
+                {% if qry.selectedtemplate == "pgtemplate" or mode == "browse" and format == "pgtemplate" %}
                     <tr>
                         <th>Compound</th>
                         <th>Atom:Label</th>
@@ -224,7 +224,7 @@
                             </tr>
                         {% endfor %}
                     {% endfor %}
-                {% elif qry.selectedtemplate == "pdtemplate" or format == "pdtemplate" %}
+                {% elif qry.selectedtemplate == "pdtemplate" or mode == "browse" and format == "pdtemplate" %}
                     <tr>
                         <th>Sample</th>
                         <th>Tissue</th>
