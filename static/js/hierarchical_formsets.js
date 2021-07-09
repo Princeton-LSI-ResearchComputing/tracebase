@@ -105,17 +105,14 @@ function appendInnerSearchQuery (element, templateId, query, copyQuery, parentGr
       myDiv.style = 'display:none;'
     }
     myDiv.appendChild(document.createTextNode('DEBUG(' + templateId + '): '))
-    console.log("Hierarchy root div after setting id to " + templatename + ": ",myDiv)
   }
 
   let isGroup = false
 
   if (('' + query.type) === 'group') {
     isGroup = true
-    console.log("Appending inner group")
     addGroupSelectList(myDiv, query, copyQuery, isInit)
   } else if (('' + query.type) === 'query') {
-    console.log("Appending inner query")
     addSearchFieldForm(myDiv, query, copyQuery, isInit, templateId)
   } else {
     const label = document.getElementById('formerror')
@@ -172,7 +169,6 @@ function appendInnerSearchQuery (element, templateId, query, copyQuery, parentGr
 function addSearchFieldForm (myDiv, query, copyQuery, isInit, templateId) {
   // Clone the form template
   const templateDiv = document.querySelector('#' + templateId)
-  console.log("Template of " + templateId,templateDiv)
   const elements = templateDiv.querySelectorAll('input,select,textarea')
   const clones = []
   elements.forEach(function (elem) {
@@ -442,7 +438,6 @@ function initializeExistingSearchQueryHelper (element, templateId, parentNode, c
         type: 'query'
       }
       parentNode.queryGroup.push(subQuery)
-      console.log("Appending query form:",copyQueryArray[i])
       appendInnerSearchQuery(element, templateId, subQuery, copyQueryArray[i], parentNode, false)
     } else {
       console.error('Unknown node type at index ' + i + ': ', copyQueryArray[i].type)
@@ -457,7 +452,6 @@ function initializeExistingSearchQueryHelper (element, templateId, parentNode, c
 function saveSearchQueryHierarchy (divElem) { // eslint-disable-line no-unused-vars
   'use strict'
 
-  console.log("Counting forms...")
   const childDivs = divElem.querySelectorAll(':scope > div') // - results in only 1, even if 2 items added - I think because each input is not wrapped in a div
 
   let selectedformat = getSelectedFormat(childDivs[0])
@@ -466,10 +460,8 @@ function saveSearchQueryHierarchy (divElem) { // eslint-disable-line no-unused-v
 
   // This will traverse a a hierarchy for each possible output format
   for (let i = 1; i < childDivs.length; i++) {
-    console.log("Counting form div " + total + ": ",childDivs[i])
     total = saveSearchQueryHierarchyHelper(childDivs[i], '', total, 0, selectedformat)
   }
-  console.log("Number of forms: " + total)
 
 
   ////////// I'm setting the correct number of forms and setting the correct form indexes and correct form values for a single form submission, but the python code (probably in multiforms.py) is smashing them together.  The indexes and values are wrong.  I also have too many form management things...
@@ -493,7 +485,6 @@ function getSelectedFormat(divElem) {
   for (let i = 0; i < childInputs.length; i++) {
     if (typeof childInputs[i].name !== 'undefined' && childInputs[i].name) {
       if (childInputs[i].name.includes('fmt')) {
-        console.log("Setting selected format to ",childInputs[i].value," from: ",childInputs[i])
         selectedformat = '' + childInputs[i].value
       }
     }
@@ -539,7 +530,6 @@ function saveSearchQueryHierarchyHelper (divElem, path, count, idx, selectedform
   let posElem
   for (let i = 0; i < childInputs.length; i++) {
     if (typeof childInputs[i].name !== 'undefined' && childInputs[i].name) {
-      console.log("Looking for pos/grouptype/fmt elements. Next: ",childInputs[i])
       if (childInputs[i].name.includes('-pos')) {
         isForm = true
         count++
@@ -561,9 +551,7 @@ function saveSearchQueryHierarchyHelper (divElem, path, count, idx, selectedform
       fmt += "-" + formatName
     }
     path += fmt + '.' + idx
-    console.log("Setting root path to: " + path + " from format " + fmt + " and selected format " + selectedformat + " div elem: ",divElem)
   } else {
-    console.log("Appending to: " + path + ": ." + idx + " div elem: ",divElem)
     path += '.' + idx
   }
 
@@ -571,7 +559,6 @@ function saveSearchQueryHierarchyHelper (divElem, path, count, idx, selectedform
   // If this is a form from a Django formset (otherwise it's a hierarchy control level)
   if (isForm) {
     posElem.value = path
-    console.log("New pos path is: " + posElem.value)
     for (let i = 0; i < childInputs.length; i++) {
       if (typeof childInputs[i].name !== 'undefined' && childInputs[i].name) {
         // Replace (e.g. "form-0-val" or "form-__prefix__-val") with "form-<count>-val"

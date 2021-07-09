@@ -150,7 +150,6 @@ class AdvancedSearchView(MultiFormsView):
             'pdtemplate': AdvSearchPeakDataForm.base_fields.keys()
         })
         res = {}
-        print("Returning from form_invalid...")
         return self.render_to_response(
             self.get_context_data(res=res, forms=self.form_classes, qry=qry, debug=settings.DEBUG)
         )
@@ -188,8 +187,6 @@ class AdvancedSearchView(MultiFormsView):
         else:
             # Log a warning
             print("WARNING: Invalid query root:",qry)
-        print("Returning from form_valid...")
-        print("Form_valid qry:",qry)
         return self.render_to_response(
             self.get_context_data(res=res, forms=self.form_classes, qry=qry, debug=settings.DEBUG)
         )
@@ -245,13 +242,10 @@ def constructAdvancedQueryHelper(qry):
 
 def formsetsToDict(rawformset, formprefix, form_fields_dict):
     # All forms of each type are all submitted together in a single submission and are duplicated in the rawformset dict.  We only need 1 copy to get all the data, so we will arbitrarily us the first one
-    #print("rawformset of pgtemplate 0:",rawformset["pgtemplate"][0])
-    #print("rawformset of pdtemplate 0:",rawformset["pdtemplate"][0])
 
     # Figure out which form class processed the forms (inferred by the presence of 'saved_data' - this is also the selected format)
     processed_formkey = None
     for key in rawformset.keys():
-        #print("Looking at ",key," form:",rawformset[key][0].__dict__)
         if "saved_data" in rawformset[key][0].__dict__:
             processed_formkey = key
             break
@@ -272,9 +266,7 @@ def formsetToDict(rawformset, formprefix, form_fields_dict):
     isRaw = False
     try:
         formset = rawformset.cleaned_data
-        print("FORM IS CLEAN")
     except AttributeError:
-        print("FORM IS RAW")
         isRaw = True
         formset = rawformset
 
@@ -285,12 +277,10 @@ def formsetToDict(rawformset, formprefix, form_fields_dict):
         else:
             form = rawform
 
-        print("Splitting pos value on .: ",form["pos"])
         path = form["pos"].split(".")
         [format, formatName, selected] = rootToFormatInfo(path.pop(0))
         rootinfo = path.pop(0)
 
-        print()
         if format not in search["searches"]:
             search["searches"][format] = {}
             search["searches"][format]["tree"] = {}
@@ -312,21 +302,17 @@ def formsetToDict(rawformset, formprefix, form_fields_dict):
             search["selectedtemplate"] = format
 
         for spot in path:
-            print("spot's search:",search,"curqry:",curqry,"spot:",spot)
             [pos, gtype] = pathStepToPosGroupType(spot)
             while len(curqry) <= pos:
                 curqry.append({})
             if gtype is not None:
                 # This is a group
-                print("Adding group " + gtype)
                 # If the inner node was not already set
                 if not curqry[pos]:
-                    print("Creating group")
                     curqry[pos]["pos"] = ""
                     curqry[pos]["type"] = "group"
                     curqry[pos]["val"] = gtype
                     curqry[pos]["queryGroup"] = []
-                print("Navigating group:",curqry)
                 # Move on to the next node in the path
                 curqry = curqry[pos]["queryGroup"]
             else:

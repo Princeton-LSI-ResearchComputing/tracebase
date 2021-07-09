@@ -30,19 +30,16 @@
     <script>
         document.addEventListener("DOMContentLoaded", function(){
             {% if format and mode and mode == "browse" and not qry %}
-                console.log("Setting selected template to {{ format }}")
                 rootGroup.selectedtemplate = "{{ format }}"
             {% endif %}
 
             // If a search has been performed, restore the form
             {% if qry %}
                 const initGroup = JSON.parse(document.getElementById('initGroup').textContent);
-                console.log("Initializing existing query")
                 initializeExistingSearchQuery(document.querySelector('.hierarchical-search'), initGroup);
             {% else %}
                 const allforms = document.querySelector('.hierarchical-search')
                 appendSearchQuery(allforms, rootGroup)
-                console.log("Initialized form elements: ",allforms)
             {% endif %}
 
             var myform = document.getElementById("hierarchical-search-form");
