@@ -85,7 +85,7 @@
             {% csrf_token %}
             <div class="hierarchical-search"></div>
             <button type="submit" class="btn btn-primary" id="advanced-search-submit">Search</button>
-            <!-- There are multiple form types, but we only need one set of form management inputs. We can get away with this because all the fields are of the same type. -->
+            <!-- There are multiple form types, but we only need one set of form management inputs. We can get away with this because all the fields are the same. -->
             {{ forms.pgtemplate.errors.val }}
             {{ forms.pgtemplate.management_form }}
             <label id="formerror" class="text-danger temporal-text"></label>
