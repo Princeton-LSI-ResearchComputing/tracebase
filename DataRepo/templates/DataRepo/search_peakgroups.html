@@ -39,6 +39,9 @@
                 appendInnerSearchQuery(document.querySelector('.hierarchical-search'), rootGroup);
             {% endif %}
 
+            var srchbtn = document.getElementById("advanced-search-submit");
+            srchbtn.style = ""
+
             var myform = document.getElementById("hierarchical-search-form");
             document.getElementById("advanced-search-submit").addEventListener("click", function () {
                 saveSearchQueryHierarchy(document.querySelector('.hierarchical-search'));
@@ -67,7 +70,7 @@
         <form action="" id="hierarchical-search-form" method="POST">
             {% csrf_token %}
             <div class="hierarchical-search"></div>
-            <button type="submit" class="btn btn-primary" id="advanced-search-submit">Search</button>
+            <button type="submit" style="display:none;" class="btn btn-primary" id="advanced-search-submit">Search</button>
             {{ form.errors.val }}
             {{ form.management_form }}
             <label id="formerror" class="text-danger temporal-text"></label>

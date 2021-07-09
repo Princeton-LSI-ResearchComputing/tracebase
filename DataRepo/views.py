@@ -178,7 +178,6 @@ class AdvancedSearchView(MultiFormsView):
         'pdtemplate': formset_factory(AdvSearchPeakDataForm)
     }
     success_url = ""
-    mixedform_prefixes = {'pgtemplate': "pgtemplate", 'pdtemplate': "pdtemplate"}
     mixedform_selected_formtype = "fmt"
     mixedform_prefix_field = "pos"
     prefix = "form" # Tried a custom prefix, but the forms were not getting the prefix on the results pages.  I changed it back to this default of "form", and it all worked.  I forget why I'd added this, but if I try and strip this out (which I intend to do in the cleanup phase, I might find out why I added it to begin with)
@@ -561,7 +560,7 @@ class ProtocolDetailView(DetailView):
 
 
 class AnimalListView(ListView):
-    """Generic class-based view for aa list of animals"""
+    """Generic class-based view for a list of animals"""
 
     model = Animal
     context_object_name = "animal_list"
