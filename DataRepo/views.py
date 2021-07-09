@@ -304,7 +304,7 @@ def getAllPeakGroupsFmtData():
 
 
 class ProtocolListView(ListView):
-    """Generic class-based view for aa list of protocols"""
+    """Generic class-based view for a list of protocols"""
 
     model = Protocol
     context_object_name = "protocol_list"
