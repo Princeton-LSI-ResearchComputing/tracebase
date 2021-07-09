@@ -299,7 +299,6 @@ class ViewTests(TestCase):
         }
         qry = {
             "selectedtemplate": "pgtemplate",
-            "formname": "form",
             "searches": {
                 "pgtemplate": {
                     "tree": {
@@ -359,7 +358,6 @@ class ViewTests(TestCase):
         }
         qry = {
             "selectedtemplate": "pgtemplate",
-            "formname": "form",
             "searches": {
                 "pgtemplate": {
                     "tree": {

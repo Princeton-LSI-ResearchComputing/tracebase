@@ -17,7 +17,7 @@ class MultiFormMixin(ContextMixin):
     #   number (>1) of types
     # Only 1 formset type (based on a selected form field) will be validated
     # To use a mixed form, the following must have values: form_classes, mixedform_selected_formtype,
-    #   mixedform_prefix_field, prefix
+    #   mixedform_prefix_field
 
     # mixedform_selected_formtype defines the name of a form field (added e.g. via javascript) whose
     # value upon submit contains a value indicating the selected form type to be validated (e.g. a key

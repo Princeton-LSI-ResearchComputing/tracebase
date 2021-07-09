@@ -129,7 +129,6 @@ class AdvancedSearchView(MultiFormsView):
     success_url = ""
     mixedform_selected_formtype = "fmt"
     mixedform_prefix_field = "pos"
-    prefix = "form" # Tried a custom prefix, but the forms were not getting the prefix on the results pages.  I changed it back to this default of "form", and it all worked.  I forget why I'd added this, but if I try and strip this out (which I intend to do in the cleanup phase, I might find out why I added it to begin with)
 
     # Override get_context_data to retrieve mode from the query string
     def get_context_data(self, **kwargs):
@@ -145,7 +144,7 @@ class AdvancedSearchView(MultiFormsView):
         return context
 
     def form_invalid(self, formset):
-        qry = formsetsToDict(formset, self.prefix, {
+        qry = formsetsToDict(formset, {
             'pgtemplate': AdvSearchPeakGroupsForm.base_fields.keys(),
             'pdtemplate': AdvSearchPeakDataForm.base_fields.keys()
         })
@@ -155,12 +154,12 @@ class AdvancedSearchView(MultiFormsView):
         )
 
     def form_valid(self, formset):
-        qry = formsetsToDict(formset, self.prefix, {
+        qry = formsetsToDict(formset, {
             'pgtemplate': AdvSearchPeakGroupsForm.base_fields.keys(),
             'pdtemplate': AdvSearchPeakDataForm.base_fields.keys()
         })
         res = {}
-        if len(qry.keys()) == 3:
+        if len(qry.keys()) == 2:
             q_exp = constructAdvancedQuery(qry)
             if qry['selectedtemplate'] == "pgtemplate":
                 res = PeakData.objects.filter(q_exp).prefetch_related(
@@ -240,7 +239,7 @@ def constructAdvancedQueryHelper(qry):
     return None
 
 
-def formsetsToDict(rawformset, formprefix, form_fields_dict):
+def formsetsToDict(rawformset, form_fields_dict):
     # All forms of each type are all submitted together in a single submission and are duplicated in the rawformset dict.  We only need 1 copy to get all the data, so we will arbitrarily us the first one
 
     # Figure out which form class processed the forms (inferred by the presence of 'saved_data' - this is also the selected format)
@@ -256,11 +255,11 @@ def formsetsToDict(rawformset, formprefix, form_fields_dict):
             "Unable to find selected output format."
         )
 
-    return formsetToDict(rawformset[processed_formkey], formprefix, form_fields_dict)
+    return formsetToDict(rawformset[processed_formkey], form_fields_dict)
 
 
-def formsetToDict(rawformset, formprefix, form_fields_dict):
-    search = {"selectedtemplate": "", "formname": formprefix, "searches": {}}
+def formsetToDict(rawformset, form_fields_dict):
+    search = {"selectedtemplate": "", "searches": {}}
 
     # We take a raw form instead of cleaned_data so that form_invalid will repopulate the bad form as-is
     isRaw = False

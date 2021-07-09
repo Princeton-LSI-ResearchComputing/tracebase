@@ -14,7 +14,6 @@ const pluspluspngpath = '/static/images/plusplus.png'
 // This is the default root of the form hierarchy
 const rootGroup = {
   selectedtemplate: 'pgtemplate',
-  formname: 'form', // Tried a custom prefix, but the forms were not getting the prefix on the results pages.  I changed it back to this default of "form", and it all worked.  I forget why I'd added this, but if I try and strip this out (which I intend to do in the cleanup phase, I might find out why I added it to begin with)
   searches: {
     pgtemplate: {
       name: 'PeakGroups',
@@ -240,7 +239,6 @@ function addFormatSelectList (myDiv, query, copyQuery) {
   // Initialize the value in the hierarchy with the default
   if (typeof copyQuery !== 'undefined' || copyQuery) {
     query.selectedtemplate = copyQuery.selectedtemplate
-    query.formname = copyQuery.formname
   }
 
   updateBrowseLink(query.selectedtemplate)
@@ -393,8 +391,6 @@ function initializeExistingSearchQuery (element, initQuery) { // eslint-disable-
   addFormatSelectList(myDiv, rootGroup, initQuery)
   element.appendChild(myDiv)
 
-  rootGroup.formname = initQuery.formname
-
   for (const templateId of Object.keys(initQuery.searches)) {
 
     /////// THIS NEEDS TO hide/show forms based on query.selectedtemplate - FOR NOW I WILL SHOW THEM ALL
@@ -467,7 +463,7 @@ function saveSearchQueryHierarchy (divElem) { // eslint-disable-line no-unused-v
   ////////// I'm setting the correct number of forms and setting the correct form indexes and correct form values for a single form submission, but the python code (probably in multiforms.py) is smashing them together.  The indexes and values are wrong.  I also have too many form management things...
 
   // Only 1 form needs to have the total set, but depending on how the form was initialized, it could be any of these, so attempt to set them all
-  let prefixes = ['form', rootGroup.formname]
+  let prefixes = ['form']
   for (const prefix of Object.keys(rootGroup.searches)) {
     prefixes.push(prefix)
   }
