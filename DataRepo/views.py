@@ -5,9 +5,8 @@ from django.forms import formset_factory
 from django.http import Http404
 from django.shortcuts import get_object_or_404, render
 from django.views.generic import DetailView, ListView
-from django.views.generic.edit import FormView
 
-from DataRepo.forms import (AdvSearchPeakGroupsForm, AdvSearchPeakDataForm)
+from DataRepo.forms import AdvSearchPeakDataForm, AdvSearchPeakGroupsForm
 from DataRepo.models import (
     Animal,
     Compound,
@@ -123,8 +122,8 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
 class AdvancedSearchView(MultiFormsView):
     template_name = "DataRepo/search_advanced.html"
     form_classes = {
-        'pgtemplate': formset_factory(AdvSearchPeakGroupsForm),
-        'pdtemplate': formset_factory(AdvSearchPeakDataForm)
+        "pgtemplate": formset_factory(AdvSearchPeakGroupsForm),
+        "pdtemplate": formset_factory(AdvSearchPeakDataForm),
     }
     success_url = ""
     mixedform_selected_formtype = "fmt"
@@ -144,28 +143,36 @@ class AdvancedSearchView(MultiFormsView):
         return context
 
     def form_invalid(self, formset):
-        qry = formsetsToDict(formset, {
-            'pgtemplate': AdvSearchPeakGroupsForm.base_fields.keys(),
-            'pdtemplate': AdvSearchPeakDataForm.base_fields.keys()
-        })
+        qry = formsetsToDict(
+            formset,
+            {
+                "pgtemplate": AdvSearchPeakGroupsForm.base_fields.keys(),
+                "pdtemplate": AdvSearchPeakDataForm.base_fields.keys(),
+            },
+        )
         res = {}
         return self.render_to_response(
-            self.get_context_data(res=res, forms=self.form_classes, qry=qry, debug=settings.DEBUG)
+            self.get_context_data(
+                res=res, forms=self.form_classes, qry=qry, debug=settings.DEBUG
+            )
         )
 
     def form_valid(self, formset):
-        qry = formsetsToDict(formset, {
-            'pgtemplate': AdvSearchPeakGroupsForm.base_fields.keys(),
-            'pdtemplate': AdvSearchPeakDataForm.base_fields.keys()
-        })
+        qry = formsetsToDict(
+            formset,
+            {
+                "pgtemplate": AdvSearchPeakGroupsForm.base_fields.keys(),
+                "pdtemplate": AdvSearchPeakDataForm.base_fields.keys(),
+            },
+        )
         res = {}
         if len(qry.keys()) == 2:
             q_exp = constructAdvancedQuery(qry)
-            if qry['selectedtemplate'] == "pgtemplate":
+            if qry["selectedtemplate"] == "pgtemplate":
                 res = PeakData.objects.filter(q_exp).prefetch_related(
                     "peak_group__msrun__sample__animal__studies"
                 )
-            elif qry['selectedtemplate'] == "pdtemplate":
+            elif qry["selectedtemplate"] == "pdtemplate":
                 res = PeakData.objects.filter(q_exp).prefetch_related(
                     "peak_group__msrun__sample__animal"
                 )
@@ -185,14 +192,19 @@ class AdvancedSearchView(MultiFormsView):
                     )
         else:
             # Log a warning
-            print("WARNING: Invalid query root:",qry)
+            print("WARNING: Invalid query root:", qry)
         return self.render_to_response(
-            self.get_context_data(res=res, forms=self.form_classes, qry=qry, debug=settings.DEBUG)
+            self.get_context_data(
+                res=res, forms=self.form_classes, qry=qry, debug=settings.DEBUG
+            )
         )
 
 
 def constructAdvancedQuery(qryRoot):
-    return constructAdvancedQueryHelper(qryRoot['searches'][qryRoot['selectedtemplate']]['tree'])
+    return constructAdvancedQueryHelper(
+        qryRoot["searches"][qryRoot["selectedtemplate"]]["tree"]
+    )
+
 
 def constructAdvancedQueryHelper(qry):
     if qry["type"] == "query":
@@ -240,9 +252,11 @@ def constructAdvancedQueryHelper(qry):
 
 
 def formsetsToDict(rawformset, form_fields_dict):
-    # All forms of each type are all submitted together in a single submission and are duplicated in the rawformset dict.  We only need 1 copy to get all the data, so we will arbitrarily us the first one
+    # All forms of each type are all submitted together in a single submission and are duplicated in the rawformset
+    # dict.  We only need 1 copy to get all the data, so we will arbitrarily us the first one
 
-    # Figure out which form class processed the forms (inferred by the presence of 'saved_data' - this is also the selected format)
+    # Figure out which form class processed the forms (inferred by the presence of 'saved_data' - this is also the
+    # selected format)
     processed_formkey = None
     for key in rawformset.keys():
         if "saved_data" in rawformset[key][0].__dict__:
@@ -251,9 +265,7 @@ def formsetsToDict(rawformset, form_fields_dict):
 
     # If we were unable to locate the selected output format (i.e. the copy of the formsets that were processed)
     if processed_formkey is None:
-        raise Http404(
-            "Unable to find selected output format."
-        )
+        raise Http404("Unable to find selected output format.")
 
     return formsetToDict(rawformset[processed_formkey], form_fields_dict)
 
@@ -352,6 +364,7 @@ def formsetToDict(rawformset, form_fields_dict):
                     if keys_seen[key] == 0:
                         curqry[pos][key] = ""
     return search
+
 
 def pathStepToPosGroupType(spot):
     pos_gtype = spot.split("-")

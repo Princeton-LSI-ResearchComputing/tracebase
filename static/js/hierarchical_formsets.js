@@ -1,4 +1,5 @@
 /* Exported functions:
+ *   appendSearchQuery
  *   saveSearchQueryHierarchy
  *   initializeExistingSearchQuery
  * These methods must be called from javascript in a template after DOM content has loaded.
@@ -34,7 +35,7 @@ const rootGroup = {
   }
 }
 
-function appendSearchQuery (element, query) {
+function appendSearchQuery (element, query) { // eslint-disable-line no-unused-vars
   'use strict'
 
   const myDiv = document.createElement('div')
@@ -42,19 +43,14 @@ function appendSearchQuery (element, query) {
   element.appendChild(myDiv)
 
   for (const templateId of Object.keys(query.searches)) {
-
-    /////// THIS NEEDS TO hide/show forms based on query.selectedtemplate - FOR NOW I WILL SHOW THEM ALL
-
-    //let shwon = templateId === query.selectedtemplate
-
     appendInnerSearchQuery(element, templateId, query.searches[templateId].tree)
   }
 }
 
-function showOutputFormatSearch(shownTemplateId) {
-  let shownHierarchyId = shownTemplateId + '-hierarchy'
+function showOutputFormatSearch (shownTemplateId) {
+  const shownHierarchyId = shownTemplateId + '-hierarchy'
   for (const templateId of Object.keys(rootGroup.searches)) {
-    let hierarchyId = templateId + '-hierarchy'
+    const hierarchyId = templateId + '-hierarchy'
     const hierDiv = document.getElementById(hierarchyId)
     if (shownHierarchyId === hierarchyId) {
       hierDiv.style = ''
@@ -98,7 +94,7 @@ function appendInnerSearchQuery (element, templateId, query, copyQuery, parentGr
   if (!isRoot) {
     myDiv.className = 'level-indent'
   } else {
-    let templatename = templateId + "-hierarchy"
+    const templatename = templateId + '-hierarchy'
     myDiv.id = templatename
     if (isHidden) {
       myDiv.style = 'display:none;'
@@ -221,17 +217,17 @@ function addSearchFieldForm (myDiv, query, copyQuery, isInit, templateId) {
   }
 }
 
-function updateBrowseLink(templateId) {
-  let blink = document.getElementById('browselink')
+function updateBrowseLink (templateId) {
+  const blink = document.getElementById('browselink')
   // There is no browse link when in browse mode
   if (typeof blink !== 'undefined' && blink) {
-    const regex = /format=[^;&]+/i;
-    newhref = blink.href.replace(regex, 'format=' + templateId)
+    const regex = /format=[^;&]+/i
+    let newhref = blink.href.replace(regex, 'format=' + templateId)
     if (newhref === blink.href) {
-      newhref += "&format=" + templateId
+      newhref += '&format=' + templateId
     }
     blink.href = newhref
-    blink.innerHTML = "Browse All " + rootGroup.searches[templateId].name
+    blink.innerHTML = 'Browse All ' + rootGroup.searches[templateId].name
   }
 }
 
@@ -256,7 +252,6 @@ function addFormatSelectList (myDiv, query, copyQuery) {
 
   // Use a change as an opportunity to dismiss previous errors
   // And keep the selected value up to date in the object
-  ////////////////// This should also be used to hide all form elements except the ones associated with the selected format
   select.addEventListener('change', function (event) {
     const label = document.getElementById('formerror')
     label.innerHTML = ''
@@ -392,11 +387,6 @@ function initializeExistingSearchQuery (element, initQuery) { // eslint-disable-
   element.appendChild(myDiv)
 
   for (const templateId of Object.keys(initQuery.searches)) {
-
-    /////// THIS NEEDS TO hide/show forms based on query.selectedtemplate - FOR NOW I WILL SHOW THEM ALL
-
-    //let shwon = templateId === query.selectedtemplate
-
     // Create the root object
     const childDiv = appendInnerSearchQuery(element, templateId, rootGroup.searches[templateId].tree, initQuery.searches[templateId].tree)
 
@@ -450,7 +440,7 @@ function saveSearchQueryHierarchy (divElem) { // eslint-disable-line no-unused-v
 
   const childDivs = divElem.querySelectorAll(':scope > div') // - results in only 1, even if 2 items added - I think because each input is not wrapped in a div
 
-  let selectedformat = getSelectedFormat(childDivs[0])
+  const selectedformat = getSelectedFormat(childDivs[0])
 
   let total = 0
 
@@ -459,11 +449,8 @@ function saveSearchQueryHierarchy (divElem) { // eslint-disable-line no-unused-v
     total = saveSearchQueryHierarchyHelper(childDivs[i], '', total, 0, selectedformat)
   }
 
-
-  ////////// I'm setting the correct number of forms and setting the correct form indexes and correct form values for a single form submission, but the python code (probably in multiforms.py) is smashing them together.  The indexes and values are wrong.  I also have too many form management things...
-
   // Only 1 form needs to have the total set, but depending on how the form was initialized, it could be any of these, so attempt to set them all
-  let prefixes = ['form']
+  const prefixes = ['form']
   for (const prefix of Object.keys(rootGroup.searches)) {
     prefixes.push(prefix)
   }
@@ -475,7 +462,7 @@ function saveSearchQueryHierarchy (divElem) { // eslint-disable-line no-unused-v
   }
 }
 
-function getSelectedFormat(divElem) {
+function getSelectedFormat (divElem) {
   let selectedformat = 'none'
   const childInputs = divElem.childNodes
   for (let i = 0; i < childInputs.length; i++) {
@@ -485,18 +472,18 @@ function getSelectedFormat(divElem) {
       }
     }
   }
-  if (selectedformat === "none") {
-    console.error("Could not get selected format")
+  if (selectedformat === 'none') {
+    console.error('Could not get selected format')
   }
   return selectedformat
 }
 
 function getFormatName (fmt) {
-  let formatName = rootGroup.searches[fmt].name
+  const formatName = rootGroup.searches[fmt].name
   if (formatName.includes('-') || formatName.includes('.')) {
-    console.error("Format name",formatName,"is not allowed to contain dots or dashes.")
+    console.error('Format name', formatName, 'is not allowed to contain dots or dashes.')
   }
-  return(formatName)
+  return formatName
 }
 
 // This is a recursive helper method to saveSearchQueryHierarchy.  It takes:
@@ -536,21 +523,18 @@ function saveSearchQueryHierarchyHelper (divElem, path, count, idx, selectedform
     }
   }
 
-  let isRoot = false
   if (path === '') {
-    isRoot = true
-    let formatName = getFormatName(fmt)
+    const formatName = getFormatName(fmt)
     // Set up the root of the path to indicate the output format
     if (selectedformat === fmt) {
-      fmt += "-" + formatName + "-selected"
+      fmt += '-' + formatName + '-selected'
     } else {
-      fmt += "-" + formatName
+      fmt += '-' + formatName
     }
     path += fmt + '.' + idx
   } else {
     path += '.' + idx
   }
-
 
   // If this is a form from a Django formset (otherwise it's a hierarchy control level)
   if (isForm) {

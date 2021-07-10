@@ -1,17 +1,18 @@
+from django.http.response import HttpResponseForbidden, HttpResponseRedirect
 from django.views.generic.base import ContextMixin, TemplateResponseMixin
 from django.views.generic.edit import ProcessFormView
-from django.http.response import HttpResponseRedirect, HttpResponseForbidden
 
 # Based on:
 #   https://stackoverflow.com/questions/15497693/django-can-class-based-views-accept-two-forms-at-a-time
 #   https://gist.github.com/jamesbrobb/748c47f46b9bd224b07f
 
+
 class MultiFormMixin(ContextMixin):
 
-    form_classes = {}
-    prefixes = {}
-    success_urls = {}
-    grouped_forms = {}
+    form_classes = {}  # type: ignore
+    prefixes = {}  # type: ignore
+    success_urls = {}  # type: ignore
+    grouped_forms = {}  # type: ignore
 
     # The mixed form type is a single form submission containing any number (>0) of formsets of any
     #   number (>1) of types
@@ -27,22 +28,31 @@ class MultiFormMixin(ContextMixin):
     # the value found in the mixedform_selected_formtype field.  Only forms with this match will be
     # validated (though all forms' values will be submitted).
     mixedform_prefix_field = ""
-    
-    initial = {}
-    prefix = None
-    success_url = None
+
+    initial = {}  # type: ignore
+    prefix = None  # type: str
+    success_url = None  # type: str
 
     def get_form_classes(self):
         return self.form_classes
 
     def get_forms(self, form_classes, form_names=None, bind_all=False):
-        return dict([(key, self._create_form(key, klass, (form_names and key in form_names) or bind_all)) \
-            for key, klass in form_classes.items()])
+        return dict(
+            [
+                (
+                    key,
+                    self._create_form(
+                        key, klass, (form_names and key in form_names) or bind_all
+                    ),
+                )
+                for key, klass in form_classes.items()
+            ]
+        )
 
     def get_form_kwargs(self, form_name, bind_form=False):
         kwargs = {}
-        kwargs.update({'initial':self.get_initial(form_name)})
-        kwargs.update({'prefix':self.get_prefix(form_name)})
+        kwargs.update({"initial": self.get_initial(form_name)})
+        kwargs.update({"prefix": self.get_prefix(form_name)})
 
         if bind_form:
             kwargs.update(self._bind_form_data())
@@ -52,7 +62,7 @@ class MultiFormMixin(ContextMixin):
     def forms_valid(self, forms):
         num_valid_calls = 0
         for form_name in forms.keys():
-            form_valid_method = '%s_form_valid' % form_name
+            form_valid_method = "%s_form_valid" % form_name
             if hasattr(self, form_valid_method):
                 getattr(self, form_valid_method)(forms[form_name])
                 num_valid_calls += 1
@@ -64,7 +74,7 @@ class MultiFormMixin(ContextMixin):
     def forms_invalid(self, forms):
         num_invalid_calls = 0
         for form_name in forms.keys():
-            form_invalid_method = '%s_form_valid' % form_name
+            form_invalid_method = "%s_form_valid" % form_name
             if hasattr(self, form_invalid_method):
                 getattr(self, form_invalid_method)(forms[form_name])
                 num_invalid_calls += 1
@@ -74,7 +84,7 @@ class MultiFormMixin(ContextMixin):
             return self.render_to_response(self.get_context_data(forms=forms))
 
     def get_initial(self, form_name):
-        initial_method = 'get_%s_initial' % form_name
+        initial_method = "get_%s_initial" % form_name
         if hasattr(self, initial_method):
             return getattr(self, initial_method)()
         else:
@@ -88,7 +98,7 @@ class MultiFormMixin(ContextMixin):
 
     def _create_form(self, form_name, klass, bind_form):
         form_kwargs = self.get_form_kwargs(form_name, bind_form)
-        form_create_method = 'create_%s_form' % form_name
+        form_create_method = "create_%s_form" % form_name
         if hasattr(self, form_create_method):
             form = getattr(self, form_create_method)(**form_kwargs)
         else:
@@ -96,14 +106,15 @@ class MultiFormMixin(ContextMixin):
         return form
 
     def _bind_form_data(self):
-        if self.request.method in ('POST', 'PUT'):
-            return{'data': self.request.POST,
-                   'files': self.request.FILES,}
+        if self.request.method in ("POST", "PUT"):
+            return {
+                "data": self.request.POST,
+                "files": self.request.FILES,
+            }
         return {}
 
 
 class ProcessMultipleFormsView(ProcessFormView):
-
     def get(self, request, *args, **kwargs):
         form_classes = self.get_form_classes()
         forms = self.get_forms(form_classes)
@@ -111,7 +122,7 @@ class ProcessMultipleFormsView(ProcessFormView):
 
     def post(self, request, *args, **kwargs):
         form_classes = self.get_form_classes()
-        form_name = request.POST.get('action')
+        form_name = request.POST.get("action")
         if self._individual_exists(form_name) and not self._mixed_exists():
             return self._process_individual_form(form_name, form_classes)
         elif self._group_exists(form_name) and not self._mixed_exists():
@@ -130,10 +141,24 @@ class ProcessMultipleFormsView(ProcessFormView):
     def _mixed_exists(self):
         if self.mixedform_prefix_field or self.mixedform_selected_formtype:
             if not self.mixedform_prefix_field or not self.mixedform_selected_formtype:
-                print("ERROR: Both mixedform_prefix_field and mixedform_selected_formtype must be set to used mixed forms.  The value of the form field defined by mixedform_selected_formtype must be contained in the value of the form field defined by mixedform_prefix_field.")
-        elif self.mixedform_prefix_field and self.mixedform_selected_formtype and len(self.form_classes.keys()) < 2:
-            print("ERROR: form_classes must contain at least 2 form classes to used the mixed form type.")
-        return len(self.form_classes.keys()) > 1 and self.mixedform_prefix_field and self.mixedform_selected_formtype
+                print(
+                    "ERROR: Both mixedform_prefix_field and mixedform_selected_formtype must be set to used mixed ",
+                    "forms.  The value of the form field defined by mixedform_selected_formtype must be contained in ",
+                    "the value of the form field defined by mixedform_prefix_field.",
+                )
+        elif (
+            self.mixedform_prefix_field
+            and self.mixedform_selected_formtype
+            and len(self.form_classes.keys()) < 2
+        ):
+            print(
+                "ERROR: form_classes must contain at least 2 form classes to used the mixed form type."
+            )
+        return (
+            len(self.form_classes.keys()) > 1
+            and self.mixedform_prefix_field
+            and self.mixedform_selected_formtype
+        )
 
     def _process_individual_form(self, form_name, form_classes):
         forms = self.get_forms(form_classes, (form_name,))
@@ -156,7 +181,7 @@ class ProcessMultipleFormsView(ProcessFormView):
     def _process_mixed_forms(self, form_classes):
         # Get the selected form type using the mixedform_selected_formtype
         form_kwargs = self.get_form_kwargs("", True)
-        selected_formtype = form_kwargs['data'][self.mixedform_selected_formtype]
+        selected_formtype = form_kwargs["data"][self.mixedform_selected_formtype]
 
         # I only want to get the forms in the context of the selected formtype.  That is managed by the content
         #   of the dict passed to get_forms.  And I want that form data to be bound to kwargs.  That is
@@ -187,6 +212,7 @@ class BaseMultipleFormsView(MultiFormMixin, ProcessMultipleFormsView):
     """
     A base view for displaying several forms.
     """
+
 
 class MultiFormsView(TemplateResponseMixin, BaseMultipleFormsView):
     """

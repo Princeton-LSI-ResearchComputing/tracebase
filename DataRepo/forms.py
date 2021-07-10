@@ -1,6 +1,5 @@
 from django import forms
 
-
 # IMPORTANT NOTE ABOUT THE pos FIELD IN EACH AdvSearch...Form CLASS:
 # "pos" keeps track of a form's hierarchical position, managed in javascript (see static/js/hierarchical_formsets.js)
 # In each form, it encodes grouptypes as "any" or "all", indicating whether the members are joined with a logical "or"
@@ -11,12 +10,16 @@ from django import forms
 # all other AdvSearch...Form classes and it must be updated in the javascript code which uses the field name to know
 # when to increnemt the formset index in the saveSearchQueryHierarchyHelper function using the variable "count".
 
+# These classes have very similar content, so to not trip jscpd...
+# jscpd:ignore-start
+
+
 class AdvSearchPeakGroupsForm(forms.Form):
     """
     Advanced search form for the peakgroups output format that will be used inside a formset.
     """
 
-    posprefix = 'pgtemplate'
+    posprefix = "pgtemplate"
 
     # See important note about the pos field above
     pos = forms.CharField(widget=forms.HiddenInput())
@@ -90,7 +93,7 @@ class AdvSearchPeakGroupsForm(forms.Form):
         data = self.cleaned_data
         fields = self.base_fields.keys()
         # Only validate if the pos field contains the posprefix - otherwise, it belongs to a different form class
-        if 'pos' in data and self.posprefix in data["pos"]:
+        if "pos" in data and self.posprefix in data["pos"]:
             self.selected = True
             for field in fields:
                 if field not in data:
@@ -104,7 +107,7 @@ class AdvSearchPeakDataForm(forms.Form):
     """
 
     # This is modified
-    posprefix = 'pdtemplate'
+    posprefix = "pdtemplate"
 
     # See important note about the pos field above
     pos = forms.CharField(widget=forms.HiddenInput())
@@ -127,7 +130,7 @@ class AdvSearchPeakDataForm(forms.Form):
             (
                 "peak_group__msrun__sample__animal__tracer_compound__name",
                 "Input Compound",
-            )
+            ),
         ),
         widget=forms.Select(),
     )
@@ -168,9 +171,12 @@ class AdvSearchPeakDataForm(forms.Form):
         data = self.cleaned_data
         fields = self.base_fields.keys()
         # Only validate if the pos field contains the prefix - otherwise, it belongs to a different form class
-        if 'pos' in data and self.posprefix in data["pos"]:
+        if "pos" in data and self.posprefix in data["pos"]:
             self.selected = True
             for field in fields:
                 if field not in data:
                     return False
         return True
+
+
+# jscpd:ignore-end
