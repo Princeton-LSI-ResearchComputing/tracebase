@@ -281,7 +281,7 @@ def selected_data(request):
     # sample_count = sub_qs.count()
     qs = (
         PeakData.objects.select_related("peak_group")
-        .filter(peak_group__ms_run__sample__name__in=sample_set)
+        .filter(peak_group__msrun__sample__name__in=sample_set)
         .all()
     )
 
@@ -305,7 +305,7 @@ def selected_t1(request):
     # sample_count = sub_qs.count()
     qs = (
         PeakData.objects.select_related("peak_group")
-        .filter(peak_group__ms_run__sample__name__in=sample_set)
+        .filter(peak_group__msrun__sample__name__in=sample_set)
         .all()
     )
 
@@ -329,7 +329,7 @@ def selected_t2(request):
     # sample_count = sub_qs.count()
     qs = (
         PeakData.objects.select_related("peak_group")
-        .filter(peak_group__ms_run__sample__name__in=sample_set)
+        .filter(peak_group__msrun__sample__name__in=sample_set)
         .all()
     )
 
@@ -338,13 +338,13 @@ def selected_t2(request):
         "peak_group__name",
         "labeled_element",
         "labeled_count",
-        "peak_group__ms_run__sample__animal__name",
-        "peak_group__ms_run__sample__tissue__name",
-        "peak_group__ms_run__sample__name",
-        "peak_group__ms_run__sample__animal__feeding_status",
-        "peak_group__ms_run__sample__animal__tracer_infusion_rate",
-        "peak_group__ms_run__sample__animal__tracer_infusion_concentration",
-        "peak_group__ms_run__sample__animal__tracer_compound__name",
+        "peak_group__msrun__sample__animal__name",
+        "peak_group__msrun__sample__tissue__name",
+        "peak_group__msrun__sample__name",
+        "peak_group__msrun__sample__animal__feeding_status",
+        "peak_group__msrun__sample__animal__tracer_infusion_rate",
+        "peak_group__msrun__sample__animal__tracer_infusion_concentration",
+        "peak_group__msrun__sample__animal__tracer_compound__name",
     ]
 
     # qs = qs.values_list(*fields)

@@ -28,15 +28,15 @@
             <td>{{ item.labeled_element }}:{{ item.labeled_count }}</td>
             <td>{{ item.peak_group.ms_run.sample }}</td>
             <td>{{ item.fraction }}</td>
-            <td>{{ item.peak_group.ms_run.sample.tissue }}</td>
-            <td>{{ item.peak_group.ms_run.sample.animal }}</td>
+            <td>{{ item.peak_group.msrun.sample.tissue }}</td>
+            <td>{{ item.peak_group.msrun.sample.animal }}</td>
             <td>{{ item.peak_group.total_abundance }}</td>
             <td>{{ item.peak_group.normalized_labeling }}</td>
-            <td>{{ item.peak_group.ms_run.sample.animal.tracer_compound.name }}</td>
+            <td>{{ item.peak_group.msrun.sample.animal.tracer_compound.name }}</td>
             <td>{{ study }}</td>
-            <td>{{ item.peak_group.ms_run.sample.animal.feeding_status }}</td>
-            <td>{{ item.peak_group.ms_run.sample.animal.tracer_infusion_rate }}</td>
-            <td>{{ item.peak_group.ms_run.sample.animal.tracer_infusion_concentration }}</td>          
+            <td>{{ item.peak_group.msrun.sample.animal.feeding_status }}</td>
+            <td>{{ item.peak_group.msrun.sample.animal.tracer_infusion_rate }}</td>
+            <td>{{ item.peak_group.msrun.sample.animal.tracer_infusion_concentration }}</td>          
         </tr> 
     {% endfor %}
 </table>

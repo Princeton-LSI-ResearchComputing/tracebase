@@ -26,17 +26,17 @@
         <tr>
             <td>{{ item.peak_group__name }}</td>
             <td>{{ item.labeled_element }}:{{ item.labeled_count }}</td>
-            <td>{{ item.peak_group.ms_run.sample }}</td>
+            <td>{{ item.peak_group.msrun.sample }}</td>
             <!--td>{{ item.fraction }}</td-->
-            <td>{{ item.peak_group__ms_run__sample__tissue__name }}</td>
-            <td>{{ item.peak_group__ms_run__sample__animal__name }}</td>
+            <td>{{ item.peak_group__msrun__sample__tissue__name }}</td>
+            <td>{{ item.peak_group__msrun__sample__animal__name }}</td>
             <!--td>{{ item.peak_group.total_abundance }}</td-->
             <!--td>{{ item.peak_group.normalized_labeling }}</td-->
-            <td>{{ item.peak_group__ms_run__sample__animal__tracer_compound__name }}</td>
+            <td>{{ item.peak_group__msrun__sample__animal__tracer_compound__name }}</td>
             <td>{{ study }}</td>
-            <td>{{ item.peak_group__ms_run__sample__animal__feeding_status }}</td>
-            <td>{{ item.peak_group__ms_run__sample__animal__tracer_infusion_rate}}</td>
-            <td>{{ item.peak_group__ms_run__sample__animal__tracer_infusion_concentration }}</td>          
+            <td>{{ item.peak_group__msrun__sample__animal__feeding_status }}</td>
+            <td>{{ item.peak_group__msrun__sample__animal__tracer_infusion_rate}}</td>
+            <td>{{ item.peak_group__msrun__sample__animal__tracer_infusion_concentration }}</td>          
         </tr> 
     {% endfor %}
 </table>
