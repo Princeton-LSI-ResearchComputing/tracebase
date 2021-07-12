@@ -2,13 +2,13 @@
 {% block content %}
 <div>
     <h3>Peak Group Results</h3>
-    {% if pds %}
+    {% if pgs %}
         <table class="table table-success table-hover table-striped table-bordered">
             <tr>
                 <th>Compound</th>
-                <th>Atom:Label</th>
+                <th>Atom</th>
                 <th>Sample</th>
-                <th>Fraction</th>
+                <th>Enrichment Fraction</th>
                 <th>Tissue</th>
                 <th>Mouse</th>
                 <th>TIC</th>
@@ -20,63 +20,63 @@
                 <th>[Infusate]</th>
             </tr>
 
-            {% for pd in pds.all %}
-                {% for study in pd.peak_group.msrun.sample.animal.studies.all %}
+            {% for pg in pgs.all %}
+                {% for study in pg.msrun.sample.animal.studies.all %}
                     <tr>
                         <!-- Compound -->
                         <td>
                             <!-- TODO: add the view link here when it is added for this model -->
-                            <a href="{% url 'sample_detail' pd.peak_group.id %}">
-                                {{ pd.peak_group.name }}
+                            <a href="{% url 'sample_detail' pg.id %}">
+                                {{ pg.name }}
                             </a>
                         </td>
 
-                        <!-- Atom Label -->
+                        <!-- Atom -->
                         <td>
-                            {{ pd.labeled_element }}:{{ pd.labeled_count }}
+                            {{ pg.msrun.sample.animal.tracer_labeled_atom }}
                         </td>
 
                         <!-- Sample -->
                         <td>
                             <div class="nobr">
                                 <!-- TODO: add the view link here when it is added for this model -->
-                                <a href="{% url 'sample_detail' pd.peak_group.msrun.sample.id %}">
-                                    {{ pd.peak_group.msrun.sample.name }}
+                                <a href="{% url 'sample_detail' pg.msrun.sample.id %}">
+                                    {{ pg.msrun.sample.name }}
                                 </a>
                             </div>
                         </td>
 
-                        <!-- Fraction -->
+                        <!-- Enrichment Fraction -->
                         <td class="text-end">
-                            <p title="{{ pd.fraction }}">{{ pd.fraction|floatformat:4 }}</p>
+                            <p title="{{ pg.enrichment_fraction }}">{{ pg.enrichment_fraction|floatformat:4 }}</p>
                         </td>
 
                         <!-- Tissue -->
                         <td>
-                            {{ pd.peak_group.msrun.sample.tissue.name }}
+                            {{ pg.msrun.sample.tissue.name }}
                         </td>
 
                         <!-- Mouse -->
                         <td>
                             <!-- TODO: add the view link here when it is added for this model -->
-                            <a href="{% url 'animal_detail' pd.peak_group.msrun.sample.animal.id %}">
-                                {{ pd.peak_group.msrun.sample.animal.name }}
+                            <a href="{% url 'animal_detail' pg.msrun.sample.animal.id %}">
+                                {{ pg.msrun.sample.animal.name }}
                             </a>
                         </td>
 
                         <!-- TIC -->
                         <td class="text-end">
-                            <p title="{{ pd.peak_group.total_abundance }}">{{ pd.peak_group.total_abundance|floatformat:1 }}</p>
+                            <p title="{{ pg.total_abundance }}">{{ pg.total_abundance|floatformat:1 }}</p>
                         </td>
 
                         <!-- NormFraction -->
                         <td class="text-end">
-                            <p title="{{ pd.peak_group.normalized_labeling }}">{{ pd.peak_group.normalized_labeling|floatformat:4 }}</p>
+                            <p title="{{ pg.normalized_labeling }}">{{ pg.normalized_labeling|floatformat:4 }}</p>
                         </td>
 
                         <!-- Infusate -->
                         <td>
-                            {{ pd.peak_group.msrun.sample.animal.tracer_compound.name }}
+                            {{ pg.msrun.sample.animal.tracer_compound.name }}
                         </td>
 
                         <!-- Experiment -->
@@ -88,17 +88,17 @@
 
                         <!-- Feeding Status -->
                         <td>
-                            {{ pd.peak_group.msrun.sample.animal.feeding_status }}
+                            {{ pg.msrun.sample.animal.feeding_status }}
                         </td>
 
                         <!-- Infusion Rate -->
                         <td class="text-end">
-                            {{ pd.peak_group.msrun.sample.animal.tracer_infusion_rate }}
+                            {{ pg.msrun.sample.animal.tracer_infusion_rate }}
                         </td>
 
                         <!-- [Infusate] -->
                         <td class="text-end">
-                            {{ pd.peak_group.msrun.sample.animal.tracer_infusion_concentration }}
+                            {{ pg.msrun.sample.animal.tracer_infusion_concentration }}
                         </td>
                     </tr>
                 {% endfor %}

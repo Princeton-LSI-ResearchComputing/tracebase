@@ -1,3 +1,6 @@
+from typing import Dict, Optional
+
+from django import forms
 from django.http.response import HttpResponseForbidden, HttpResponseRedirect
 from django.views.generic.base import ContextMixin, TemplateResponseMixin
 from django.views.generic.edit import ProcessFormView
@@ -9,10 +12,10 @@ from django.views.generic.edit import ProcessFormView
 
 class MultiFormMixin(ContextMixin):
 
-    form_classes = {}  # type: ignore
-    prefixes = {}  # type: ignore
-    success_urls = {}  # type: ignore
-    grouped_forms = {}  # type: ignore
+    form_classes: Dict[str, forms.Form] = {}
+    prefixes: Dict[str, str] = {}
+    success_urls: Dict[str, str] = {}
+    grouped_forms: Dict[str, str] = {}
 
     # The mixed form type is a single form submission containing any number (>0) of formsets of any
     #   number (>1) of types
@@ -29,9 +32,11 @@ class MultiFormMixin(ContextMixin):
     # validated (though all forms' values will be submitted).
     mixedform_prefix_field = ""
 
+    # I know that initial is Dict[str, function], but I don't know what the initial function takes or
+    # returns, as I don't use it, so I'm leaving it as ignore.
     initial = {}  # type: ignore
-    prefix = None  # type: str
-    success_url = None  # type: str
+    prefix: Optional[str] = None
+    success_url: Optional[str] = None
 
     def get_form_classes(self):
         return self.form_classes
@@ -66,7 +71,7 @@ class MultiFormMixin(ContextMixin):
             if hasattr(self, form_valid_method):
                 getattr(self, form_valid_method)(forms[form_name])
                 num_valid_calls += 1
-        if num_valid_calls == 0:
+        if self._mixed_exists() and num_valid_calls == 0:
             return self.form_valid(forms)
         else:
             return HttpResponseRedirect(self.get_success_url(form_name))
@@ -78,7 +83,7 @@ class MultiFormMixin(ContextMixin):
             if hasattr(self, form_invalid_method):
                 getattr(self, form_invalid_method)(forms[form_name])
                 num_invalid_calls += 1
-        if num_invalid_calls == 0:
+        if self._mixed_exists() and num_invalid_calls == 0:
             return self.form_invalid(forms)
         else:
             return self.render_to_response(self.get_context_data(forms=forms))
@@ -113,6 +118,28 @@ class MultiFormMixin(ContextMixin):
             }
         return {}
 
+    def _mixed_exists(self):
+        if self.mixedform_prefix_field or self.mixedform_selected_formtype:
+            if not self.mixedform_prefix_field or not self.mixedform_selected_formtype:
+                print(
+                    "ERROR: Both mixedform_prefix_field and mixedform_selected_formtype must be set to used mixed ",
+                    "forms.  The value of the form field defined by mixedform_selected_formtype must be contained in ",
+                    "the value of the form field defined by mixedform_prefix_field.",
+                )
+        elif (
+            self.mixedform_prefix_field
+            and self.mixedform_selected_formtype
+            and len(self.form_classes.keys()) < 2
+        ):
+            print(
+                "ERROR: form_classes must contain at least 2 form classes to used the mixed form type."
+            )
+        return (
+            len(self.form_classes.keys()) > 1
+            and self.mixedform_prefix_field
+            and self.mixedform_selected_formtype
+        )
+
 
 class ProcessMultipleFormsView(ProcessFormView):
     def get(self, request, *args, **kwargs):
@@ -137,28 +164,6 @@ class ProcessMultipleFormsView(ProcessFormView):
 
     def _group_exists(self, group_name):
         return group_name in self.grouped_forms
-
-    def _mixed_exists(self):
-        if self.mixedform_prefix_field or self.mixedform_selected_formtype:
-            if not self.mixedform_prefix_field or not self.mixedform_selected_formtype:
-                print(
-                    "ERROR: Both mixedform_prefix_field and mixedform_selected_formtype must be set to used mixed ",
-                    "forms.  The value of the form field defined by mixedform_selected_formtype must be contained in ",
-                    "the value of the form field defined by mixedform_prefix_field.",
-                )
-        elif (
-            self.mixedform_prefix_field
-            and self.mixedform_selected_formtype
-            and len(self.form_classes.keys()) < 2
-        ):
-            print(
-                "ERROR: form_classes must contain at least 2 form classes to used the mixed form type."
-            )
-        return (
-            len(self.form_classes.keys()) > 1
-            and self.mixedform_prefix_field
-            and self.mixedform_selected_formtype
-        )
 
     def _process_individual_form(self, form_name, form_classes):
         forms = self.get_forms(form_classes, (form_name,))

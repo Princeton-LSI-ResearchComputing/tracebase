@@ -13,6 +13,7 @@ from DataRepo.models import (
     Sample,
     Study,
 )
+from DataRepo.views import pathStepToPosGroupType, rootToFormatInfo
 
 
 class ViewTests(TestCase):
@@ -288,7 +289,7 @@ class ViewTests(TestCase):
                 "form-TOTAL_FORMS": "2",
                 "form-INITIAL_FORMS": "0",
                 "form-0-pos": "pgtemplate-PeakGroups-selected.0-all.0",
-                "form-0-fld": "peak_group__msrun__sample__tissue__name",
+                "form-0-fld": "msrun__sample__tissue__name",
                 "form-0-ncmp": "iexact",
                 "form-0-val": "Brain",
                 "form-1-pos": "pdtemplate-PeakData.0-all.0",
@@ -307,13 +308,13 @@ class ViewTests(TestCase):
                                 {
                                     "type": "query",
                                     "pos": "",
-                                    "fld": "peak_group__msrun__sample__tissue__name",
                                     "ncmp": "iexact",
                                     "val": "Brain",
+                                    "fld": "msrun__sample__tissue__name"
                                 }
-                            ],
+                            ]
                         },
-                        "name": "PeakGroups",
+                        "name": "PeakGroups"
                     },
                     "pdtemplate": {
                         "tree": {
@@ -324,15 +325,15 @@ class ViewTests(TestCase):
                                 {
                                     "type": "query",
                                     "pos": "",
-                                    "fld": "labeled_element",
                                     "ncmp": "iexact",
                                     "val": "",
+                                    "fld": ""
                                 }
-                            ],
+                            ]
                         },
-                        "name": "PeakData",
-                    },
-                },
+                        "name": "PeakData"
+                    }
+                }
             },
         ]
 
@@ -340,9 +341,9 @@ class ViewTests(TestCase):
         """
         Do a simple advanced search and make sure the results are correct
         """
-        qs = PeakData.objects.filter(
-            peak_group__msrun__sample__tissue__name__iexact="Brain"
-        ).prefetch_related("peak_group__msrun__sample__animal__studies")
+        qs = PeakGroup.objects.filter(
+            msrun__sample__tissue__name__iexact="Brain"
+        ).prefetch_related("msrun__sample__animal__studies")
         [filledform, qry] = self.get_advanced_search_inputs()
         response = self.client.post("/DataRepo/search_advanced/", filledform)
         self.assertEqual(response.status_code, 200)
@@ -364,3 +365,37 @@ class ViewTests(TestCase):
         self.assertTemplateUsed(response, "DataRepo/search_advanced.html")
         self.assertEqual(len(response.context["res"]), 0)
         self.assertEqual(response.context["qry"], qry)
+
+    def test_pathStepToPosGroupType_inner_node(self):
+        """
+        Convert "0-all" to [0, "all"]
+        """
+        [pos, gtype] = pathStepToPosGroupType("0-all")
+        self.assertEqual(pos, 0)
+        self.assertEqual(gtype, "all")
+
+    def test_pathStepToPosGroupType_leaf_node(self):
+        """
+        Convert "0" to [0, None]
+        """
+        [pos, gtype] = pathStepToPosGroupType("0")
+        self.assertEqual(pos, 0)
+        self.assertEqual(gtype, None)
+
+    def test_rootToFormatInfo_selected(self):
+        """
+        Convert "pgtemplate-PeakGroups-selected" to ["pgtemplate", "PeakGroups", True]
+        """
+        [format, name, sel] = rootToFormatInfo("pgtemplate-PeakGroups-selected")
+        self.assertEqual(format, "pgtemplate")
+        self.assertEqual(name, "PeakGroups")
+        self.assertEqual(sel, True)
+
+    def test_rootToFormatInfo_unselected(self):
+        """
+        Convert "pdtemplate-PeakData" to ["pdtemplate", "PeakData", False]
+        """
+        [format, name, sel] = rootToFormatInfo("pdtemplate-PeakData")
+        self.assertEqual(format, "pdtemplate")
+        self.assertEqual(name, "PeakData")
+        self.assertEqual(sel, False)

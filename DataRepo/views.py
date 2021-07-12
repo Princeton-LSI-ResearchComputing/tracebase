@@ -75,18 +75,16 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
         fld_cmp = ""
 
         if mdl == "Study":
-            fld_cmp = "peak_group__msrun__sample__animal__studies__"
+            fld_cmp = "msrun__sample__animal__studies__"
         elif mdl == "Animal":
-            fld_cmp = "peak_group__msrun__sample__animal__"
+            fld_cmp = "msrun__sample__animal__"
         elif mdl == "Sample":
-            fld_cmp = "peak_group__msrun__sample__"
+            fld_cmp = "msrun__sample__"
         elif mdl == "Tissue":
-            fld_cmp = "peak_group__msrun__sample__tissue__"
+            fld_cmp = "msrun__sample__tissue__"
         elif mdl == "MSRun":
-            fld_cmp = "peak_group__msrun__"
-        elif mdl == "PeakGroup":
-            fld_cmp = "peak_group__"
-        elif mdl != "PeakData":
+            fld_cmp = "msrun__"
+        elif mdl != "PeakGroup":
             raise Http404(
                 "Table [" + mdl + "] is not searchable in the [" + fmt + "] "
                 "results format."
@@ -95,8 +93,8 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
         fld_cmp += fld + "__" + cmp
 
         try:
-            peakdata = PeakData.objects.filter(**{fld_cmp: val}).prefetch_related(
-                "peak_group__msrun__sample__animal__studies"
+            peakgroups = PeakGroup.objects.filter(**{fld_cmp: val}).prefetch_related(
+                "msrun__sample__animal__studies"
             )
         except FieldError as fe:
             raise Http404(
@@ -110,7 +108,7 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
                 + "]."
             )
 
-        res = render(request, format_template, {"qry": qry, "pds": peakdata})
+        res = render(request, format_template, {"qry": qry, "pgs": peakgroups})
     else:
         raise Http404("Results format [" + fmt + "] page not found")
 
@@ -120,6 +118,7 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
 # Based on:
 #   https://stackoverflow.com/questions/15497693/django-can-class-based-views-accept-two-forms-at-a-time
 class AdvancedSearchView(MultiFormsView):
+    # MultiFormView class vars
     template_name = "DataRepo/search_advanced.html"
     form_classes = {
         "pgtemplate": formset_factory(AdvSearchPeakGroupsForm),
@@ -128,28 +127,37 @@ class AdvancedSearchView(MultiFormsView):
     success_url = ""
     mixedform_selected_formtype = "fmt"
     mixedform_prefix_field = "pos"
+    # Local class vars
+    modes = ["search", "browse"]
+    default_mode = "search"
+    form_class_info = {
+        "fields": {
+            "pgtemplate": AdvSearchPeakGroupsForm.base_fields.keys(),
+            "pdtemplate": AdvSearchPeakDataForm.base_fields.keys(),
+        },
+        "prefetches": {
+            "pgtemplate": "msrun__sample__animal__studies",
+            "pdtemplate": "peak_group__msrun__sample__animal",
+        },
+    }
+    default_class = "pgtemplate"
 
     # Override get_context_data to retrieve mode from the query string
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         # Optional url parameter should now be in self, so add it to the context
-        mode = self.request.GET.get("mode", "search")
-        format = self.request.GET.get("format", "pgtemplate")
-        if mode != "browse" and mode != "search":
-            mode = "search"
+        mode = self.request.GET.get("mode", self.default_mode)
+        format = self.request.GET.get("format", self.default_class)
+        if mode not in self.modes:
+            mode = self.default_mode
             print("Invalid mode: ", mode)
         context["mode"] = mode
         context["format"] = format
+        context["default_format"] = self.default_class
         return context
 
     def form_invalid(self, formset):
-        qry = formsetsToDict(
-            formset,
-            {
-                "pgtemplate": AdvSearchPeakGroupsForm.base_fields.keys(),
-                "pdtemplate": AdvSearchPeakDataForm.base_fields.keys(),
-            },
-        )
+        qry = formsetsToDict(formset, self.form_class_info["fields"])
         res = {}
         return self.render_to_response(
             self.get_context_data(
@@ -158,38 +166,21 @@ class AdvancedSearchView(MultiFormsView):
         )
 
     def form_valid(self, formset):
-        qry = formsetsToDict(
-            formset,
-            {
-                "pgtemplate": AdvSearchPeakGroupsForm.base_fields.keys(),
-                "pdtemplate": AdvSearchPeakDataForm.base_fields.keys(),
-            },
-        )
+        qry = formsetsToDict(formset, self.form_class_info["fields"])
         res = {}
-        if len(qry.keys()) == 2:
+        if isQryObjValid(qry, self.form_classes):
             q_exp = constructAdvancedQuery(qry)
             if qry["selectedtemplate"] == "pgtemplate":
-                res = PeakData.objects.filter(q_exp).prefetch_related(
-                    "peak_group__msrun__sample__animal__studies"
+                res = PeakGroup.objects.filter(q_exp).prefetch_related(
+                    self.form_class_info["prefetches"][qry["selectedtemplate"]]
                 )
             elif qry["selectedtemplate"] == "pdtemplate":
                 res = PeakData.objects.filter(q_exp).prefetch_related(
-                    "peak_group__msrun__sample__animal"
+                    self.form_class_info["prefetches"][qry["selectedtemplate"]]
                 )
-        elif len(qry.keys()) == 0:
-            # There was no search, so pre-populate with the default format if in browse mode
-            # Optional url parameter should now be in self, so add it to the context
-            mode = self.request.GET.get("mode", "search")
-            format = self.request.GET.get("format", "pgtemplate")
-            if mode == "browse":
-                if format == "pdtemplate":
-                    res = PeakData.objects.all().prefetch_related(
-                        "peak_group__msrun__sample__animal"
-                    )
-                else:
-                    res = PeakData.objects.all().prefetch_related(
-                        "peak_group__msrun__sample__animal__studies"
-                    )
+            else:
+                # Log a warning
+                print("WARNING: Invalid selected format:", qry["selectedtemplate"])
         else:
             # Log a warning
             print("WARNING: Invalid query root:", qry)
@@ -200,13 +191,42 @@ class AdvancedSearchView(MultiFormsView):
         )
 
 
+def isQryObjValid(qry, form_classes):
+    """
+    Determines if a qry object was properly constructed/populated (only at the root).
+    """
+    if (
+        type(qry) is dict
+        and "selectedtemplate" in qry
+        and "searches" in qry
+        and len(form_classes.keys()) == len(qry["searches"].keys())
+    ):
+        for key in form_classes:
+            if (
+                key not in qry["searches"]
+                or type(qry["searches"][key]) is not dict
+                or "tree" not in qry["searches"][key]
+                or "name" not in qry["searches"][key]
+            ):
+                return False
+        return True
+    else:
+        return False
+
+
 def constructAdvancedQuery(qryRoot):
+    """
+    Turns a qry object into a complex Q object by calling its helper and supplying the selected format's tree.
+    """
     return constructAdvancedQueryHelper(
         qryRoot["searches"][qryRoot["selectedtemplate"]]["tree"]
     )
 
 
 def constructAdvancedQueryHelper(qry):
+    """
+    Recursively build a complex Q object based on a hierarchical tree defining the search terms.
+    """
     if qry["type"] == "query":
         cmp = qry["ncmp"].replace("not_", "", 1)
         negate = cmp != qry["ncmp"]
@@ -252,8 +272,11 @@ def constructAdvancedQueryHelper(qry):
 
 
 def formsetsToDict(rawformset, form_fields_dict):
+    """
+    Takes a series of forms and a list of form fields and uses the pos field to construct a hierarchical qry tree.
+    """
     # All forms of each type are all submitted together in a single submission and are duplicated in the rawformset
-    # dict.  We only need 1 copy to get all the data, so we will arbitrarily us the first one
+    # dict.  We only need 1 copy to get all the data, so we will arbitrarily use the first one
 
     # Figure out which form class processed the forms (inferred by the presence of 'saved_data' - this is also the
     # selected format)
@@ -292,6 +315,7 @@ def formsetToDict(rawformset, form_fields_dict):
         [format, formatName, selected] = rootToFormatInfo(path.pop(0))
         rootinfo = path.pop(0)
 
+        # If this format has not yet been initialized
         if format not in search["searches"]:
             search["searches"][format] = {}
             search["searches"][format]["tree"] = {}
@@ -367,6 +391,10 @@ def formsetToDict(rawformset, form_fields_dict):
 
 
 def pathStepToPosGroupType(spot):
+    """
+    Takes a substring from a pos field defining a single tree node and returns its position and group type (if it's an
+    inner node).  E.g. "0-all"
+    """
     pos_gtype = spot.split("-")
     if len(pos_gtype) == 2:
         pos = pos_gtype[0]
@@ -379,6 +407,10 @@ def pathStepToPosGroupType(spot):
 
 
 def rootToFormatInfo(rootInfo):
+    """
+    Takes the first substring from a pos field defining the root node and returns the format code, format name, and
+    whether it is the selected format.
+    """
     val_name_sel = rootInfo.split("-")
     sel = False
     name = ""
@@ -398,10 +430,18 @@ def rootToFormatInfo(rootInfo):
 
 
 # used by templatetags/advsrch_tags.py to pre-populate search results in browse mode
-def getAllPeakGroupsFmtData():
-    return PeakData.objects.all().prefetch_related(
-        "peak_group__msrun__sample__animal__studies"
-    )
+def getAllBrowseData(format):
+    if format == "pgtemplate":
+        return PeakGroup.objects.all().prefetch_related(
+            "msrun__sample__animal__studies"
+        )
+    elif format == "pdtemplate":
+        return PeakData.objects.all().prefetch_related(
+            "peak_group__msrun__sample__animal__studies"
+        )
+    else:
+        # Log a warning
+        print("WARNING: Unknown format: " + format)
 
 
 class ProtocolListView(ListView):

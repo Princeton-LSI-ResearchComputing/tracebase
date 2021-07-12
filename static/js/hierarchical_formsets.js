@@ -62,6 +62,7 @@ function showOutputFormatSearch (shownTemplateId) {
 
 // This method dynamically adds a child form to the hierarchical form structure.
 //   element [required] is an existing DOM object.
+//   templateId indicates the hierarchy to which a search query is being added.
 //   query [required] is either an child object node that is being added to a data structure that tracks the hierarchy, or it is an existing sibling node after which a sibling is being added (depending on the value of 'afterMode').
 //   copyQuery [optional] (if defined) is a node object used to reconstruct the form hierarchy when results are loaded.
 //   parentGroup [optional] is the parent object node of the hierarchy-tracking data structure used to determine where a sibling is to be inserted or a child node is to be appended (depending on the value of 'afterMode').  Root is assumed if not supplied.
@@ -398,8 +399,10 @@ function initializeExistingSearchQuery (element, initQuery) { // eslint-disable-
 }
 
 // This is a recursive method called by initializeExistingSearchQuery.  It traverses the copyQueryArray data structure.  Recursion happens on inner nodes of the hierarchical data structure.
-//   copyQueryArray is a sub-tree of the hierarchical form data structure.
+//   element is the DOM object to which the forms will be added
+//   templateId indicates the hierarchy to which a search query is being added.
 //   parentNode is a reference to the parent of the current copyQueryArray object.
+//   copyQueryArray is a sub-tree of the hierarchical form data structure.
 function initializeExistingSearchQueryHelper (element, templateId, parentNode, copyQueryArray) {
   'use strict'
 
@@ -491,6 +494,7 @@ function getFormatName (fmt) {
 //   path - a running path string to be stored in a leaf form's hidden 'pos' field.
 //   count - The serial form number used to set the form element ID to what Django expects.
 //   idx - The hierarchical node index, relative to the parent's child node array.
+//   selectedformat - The selected item in the fmt select list
 function saveSearchQueryHierarchyHelper (divElem, path, count, idx, selectedformat) {
   'use strict'
 
