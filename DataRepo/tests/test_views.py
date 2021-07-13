@@ -310,11 +310,11 @@ class ViewTests(TestCase):
                                     "pos": "",
                                     "ncmp": "iexact",
                                     "val": "Brain",
-                                    "fld": "msrun__sample__tissue__name"
+                                    "fld": "msrun__sample__tissue__name",
                                 }
-                            ]
+                            ],
                         },
-                        "name": "PeakGroups"
+                        "name": "PeakGroups",
                     },
                     "pdtemplate": {
                         "tree": {
@@ -327,13 +327,13 @@ class ViewTests(TestCase):
                                     "pos": "",
                                     "ncmp": "iexact",
                                     "val": "",
-                                    "fld": ""
+                                    "fld": "",
                                 }
-                            ]
+                            ],
                         },
-                        "name": "PeakData"
-                    }
-                }
+                        "name": "PeakData",
+                    },
+                },
             },
         ]
 
