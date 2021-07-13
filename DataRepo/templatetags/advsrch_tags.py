@@ -1,6 +1,6 @@
 from django import template
 
-from DataRepo.views import getAllPeakGroupsFmtData
+from DataRepo.views import getAllBrowseData
 
 register = template.Library()
 
@@ -11,5 +11,5 @@ def define(the_val):
 
 
 @register.simple_tag
-def populatePeakGroups(queryset):
-    return getAllPeakGroupsFmtData()
+def populateAllBrowseData(format):
+    return getAllBrowseData(format)

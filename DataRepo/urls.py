@@ -10,9 +10,9 @@ urlpatterns = [
         name="search_basic",
     ),
     path(
-        "search_peakgroups/",
-        views.AdvSearchPeakGroupsView.as_view(),
-        name="search_peakgroups",
+        "search_advanced/",
+        views.AdvancedSearchView.as_view(),
+        name="search_advanced",
     ),
     path("compounds/", views.CompoundListView.as_view(), name="compound_list"),
     path(
