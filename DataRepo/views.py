@@ -266,7 +266,7 @@ def addInitialContext(context, form_class_info):
         else:
             qry = context["qry"]
         if mode == "browse":
-            context["download_form"] = AdvSearchDownloadForm(initial={'qryjson': qry})
+            context["download_form"] = AdvSearchDownloadForm(initial={'qryjson': json.dumps(qry)})
             res = getAllBrowseData(qry["selectedtemplate"], form_class_info["prefetches"])
             context["res"] = res
     elif "qry" in context and len(context["qry"]["searches"][context["qry"]["selectedtemplate"]]["tree"]["queryGroup"]) > 0 and ("res" not in context or len(context["res"]) == 0):
@@ -284,7 +284,7 @@ def createNewQuery(form_class_info, context):
         qry["selectedtemplate"] = context["format"]
     else:
         qry["selectedtemplate"] = form_class_info["default_class"]
-    for format, formatName in enumerate(form_class_info["names"]):
+    for format, formatName in form_class_info["names"].items():
         qry["searches"][format] = {}
         qry["searches"][format]["name"] = formatName
         qry["searches"][format]["tree"] = {}
@@ -381,6 +381,8 @@ class AdvancedSearchTSVView(FormView):
 
     def form_valid(self, form):
         cform = form.cleaned_data
+        print("Cleaned data: ",cform)
+        print("Should be qry json: It is of type ",type(cform["qryjson"]),":",cform["qryjson"])
         qry = json.loads(cform["qryjson"])
         if not isQryObjValid(qry, self.prefetches.keys()):
             raise Http404("Invalid json")
@@ -388,7 +390,7 @@ class AdvancedSearchTSVView(FormView):
 
         now = datetime.now()
         dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
-        filename = now.strftime("%d.%m.%Y.%H.%M.%S") + "_" + qry["searches"][qry["selectedtemplate"]]["name"] + ".tsv"
+        filename = qry["searches"][qry["selectedtemplate"]]["name"] + '_' + now.strftime("%d.%m.%Y.%H.%M.%S") + ".tsv"
 
         if isValidQryObjPopulated(qry):
             q_exp = constructAdvancedQuery(qry)

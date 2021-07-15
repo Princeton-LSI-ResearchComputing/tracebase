@@ -49,10 +49,12 @@
             })
 
             var dlform = document.getElementById("advanced-search-download-form")
-            dlform.submit(function (event) {
-                // Stop form from submitting normally
-                event.preventDefault();
-                console.log("Downloading advanced search")
+            document.getElementById("advanced-download-submit").addEventListener("click", function () {
+                dlform.submit(function (event) {
+                    // Stop form from submitting normally
+                    event.preventDefault();
+                    console.log("Downloading advanced search")
+                })
             })
         })
     </script>
