@@ -113,7 +113,6 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
                 "PeakData": {
                     "labeled_element": "labeled_element",
                     "corrected_abundance": "corrected_abundance",
-                    "fraction": "fraction",
                 },
                 "PeakGroup": {
                     "id": "peak_group__id", # Used in link
