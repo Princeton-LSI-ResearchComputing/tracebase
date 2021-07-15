@@ -1,6 +1,5 @@
 {% extends "base.html" %}
 {% load static %}
-{% load advsrch_tags %}
 
 {% block head_extras %}
     {{ block.super }}
@@ -35,19 +34,27 @@
 
             // If a search has been performed, restore the form
             {% if qry %}
-                const initGroup = JSON.parse(document.getElementById('initGroup').textContent);
-                initializeExistingSearchQuery(document.querySelector('.hierarchical-search'), initGroup);
+                const initGroup = JSON.parse(document.getElementById('initGroup').textContent)
+                initializeExistingSearchQuery(document.querySelector('.hierarchical-search'), initGroup)
             {% else %}
                 const allforms = document.querySelector('.hierarchical-search')
                 appendSearchQuery(allforms, rootGroup)
             {% endif %}
 
-            var myform = document.getElementById("hierarchical-search-form");
+            var myform = document.getElementById("hierarchical-search-form")
             document.getElementById("advanced-search-submit").addEventListener("click", function () {
-                saveSearchQueryHierarchy(document.querySelector('.hierarchical-search'));
+                saveSearchQueryHierarchy(document.querySelector('.hierarchical-search'))
+                console.log("Submitting advanced search")
                 myform.submit();
-            });
-        });
+            })
+
+            var dlform = document.getElementById("advanced-search-download-form")
+            dlform.submit(function (event) {
+                // Stop form from submitting normally
+                event.preventDefault();
+                console.log("Downloading advanced search")
+            })
+        })
     </script>
 
 {% endblock %}
@@ -78,7 +85,7 @@
             </div>
         {% endwith %}
 
-        <form action="" id="hierarchical-search-form" method="POST">
+        <form action="/DataRepo/search_advanced/" id="hierarchical-search-form" method="POST">
             {% csrf_token %}
             <div class="hierarchical-search"></div>
             <button type="submit" class="btn btn-primary" id="advanced-search-submit">Search</button>
@@ -100,32 +107,31 @@
     {% endif %}
 
     <div>
-        <!-- Pre-populate the initial view with all records if no results, no errors, and in browse mode -->
-        {% if not res and not qry and formsets.pg.0.val != "" and not formsets.pg.0.val.errors and formsets.pd.0.val != "" and not formsets.pd.0.val.errors and mode == "browse" %}
-            {% if format %}
-                {% populateAllBrowseData format as cur_res %}
-            {% else %}
-                {% populateAllBrowseData default_format as cur_res %}
-            {% endif %}
-        {% else %}
-            {% define res as cur_res %}
-        {% endif %}
-
         {% if mode == "search" %}
             {% if qry and formsets.pg.0.val != "" and not formsets.pg.0.val.errors and formsets.pd.0.val != "" and not formsets.pd.0.val.errors %}
                 <hr>
                 {% if qry.selectedtemplate == "pgtemplate" %}
-                    <h3>Peak Groups Results ({{ cur_res.count|default:"0" }})</h3>
+                    <h3 style="margin: 0; display: inline-block;">Peak Groups Results ({{ res.count|default:"0" }})</h3>
                 {% elif qry.selectedtemplate == "pdtemplate" %}
-                    <h3>Peak Data Results ({{ cur_res.count|default:"0" }})</h3>
+                    <h3 style="margin: 0; display: inline-block;">Peak Data Results ({{ res.count|default:"0" }})</h3>
                 {% endif %}
             {% endif %}
         {% else %}
             <hr>
-            <h3>{{ cur_res.count|default:"0" }} Records</h3>
+            <h3 style="margin: 0; display: inline-block;">{{ res.count|default:"0" }} Records</h3>
         {% endif %}
 
-        {% if cur_res %}
+        {% if res %}
+            <div style="float: right;">
+                <form action="/DataRepo/search_advanced_tsv/" id="advanced-search-download-form" method="POST">
+                    {% csrf_token %}
+                    {{ download_form.qryjson }}
+                    <button type="submit" class="btn btn-primary mb-2" id="advanced-download-submit">Download</button>
+                    <!-- There are multiple form types, but we only need one set of form management inputs. We can get away with this because all the fields are the same. -->
+                    {{ download_form.management_form }}
+                </form>
+            </div>
+
             <table class="table table-success table-hover table-striped table-bordered">
                 {% if qry.selectedtemplate == "pgtemplate" or mode == "browse" and format == "pgtemplate" %}
                     <tr>
@@ -144,7 +150,7 @@
                         <th>[Infusate]</th>
                     </tr>
 
-                    {% for pg in cur_res.all %}
+                    {% for pg in res.all %}
                         {% for study in pg.msrun.sample.animal.studies.all %}
                             <tr>
                                 <!-- Compound -->
@@ -236,58 +242,56 @@
                         <th>Fraction</th>
                     </tr>
 
-                    {% for pd in cur_res.all %}
-                        {% for study in pd.peak_group.msrun.sample.animal.studies.all %}
-                            <tr>
-                                <!-- Sample -->
-                                <td>
-                                    <div class="nobr">
-                                        <a href="{% url 'sample_detail' pd.peak_group.msrun.sample.id %}">
-                                            {{ pd.peak_group.msrun.sample.name }}
-                                        </a>
-                                    </div>
-                                </td>
-
-                                <!-- Tissue -->
-                                <td>
-                                    {{ pd.peak_group.msrun.sample.tissue.name }}
-                                </td>
-
-                                <!-- Animal -->
-                                <td>
-                                    <a href="{% url 'animal_detail' pd.peak_group.msrun.sample.animal.id %}">
-                                        {{ pd.peak_group.msrun.sample.animal.name }}
+                    {% for pd in res.all %}
+                        <tr>
+                            <!-- Sample -->
+                            <td>
+                                <div class="nobr">
+                                    <a href="{% url 'sample_detail' pd.peak_group.msrun.sample.id %}">
+                                        {{ pd.peak_group.msrun.sample.name }}
                                     </a>
-                                </td>
+                                </div>
+                            </td>
 
-                                <!-- Infusate -->
-                                <td>
-                                    {{ pd.peak_group.msrun.sample.animal.tracer_compound.name }}
-                                </td>
+                            <!-- Tissue -->
+                            <td>
+                                {{ pd.peak_group.msrun.sample.tissue.name }}
+                            </td>
 
-                                <!-- Compound -->
-                                <td>
-                                    <a href="{% url 'sample_detail' pd.peak_group.id %}">
-                                        {{ pd.peak_group.name }}
-                                    </a>
-                                </td>
+                            <!-- Animal -->
+                            <td>
+                                <a href="{% url 'animal_detail' pd.peak_group.msrun.sample.animal.id %}">
+                                    {{ pd.peak_group.msrun.sample.animal.name }}
+                                </a>
+                            </td>
 
-                                <!-- Atom Label -->
-                                <td>
-                                    {{ pd.labeled_element }}:{{ pd.labeled_count }}
-                                </td>
+                            <!-- Infusate -->
+                            <td>
+                                {{ pd.peak_group.msrun.sample.animal.tracer_compound.name }}
+                            </td>
 
-                                <!-- Corrected Abundance -->
-                                <td class="text-end">
-                                    <p title="{{ pd.corrected_abundance }}">{{ pd.corrected_abundance|floatformat:1 }}</p>
-                                </td>
+                            <!-- Compound -->
+                            <td>
+                                <a href="{% url 'sample_detail' pd.peak_group.id %}">
+                                    {{ pd.peak_group.name }}
+                                </a>
+                            </td>
 
-                                <!-- Fraction -->
-                                <td class="text-end">
-                                    <p title="{{ pd.fraction }}">{{ pd.fraction|floatformat:4 }}</p>
-                                </td>
-                            </tr>
-                        {% endfor %}
+                            <!-- Atom Label -->
+                            <td>
+                                {{ pd.labeled_element }}:{{ pd.labeled_count }}
+                            </td>
+
+                            <!-- Corrected Abundance -->
+                            <td class="text-end">
+                                <p title="{{ pd.corrected_abundance }}">{{ pd.corrected_abundance|floatformat:1 }}</p>
+                            </td>
+
+                            <!-- Fraction -->
+                            <td class="text-end">
+                                <p title="{{ pd.fraction }}">{{ pd.fraction|floatformat:4 }}</p>
+                            </td>
+                        </tr>
                     {% endfor %}
                 {% endif %}
             </table>

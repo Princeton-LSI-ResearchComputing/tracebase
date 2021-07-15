@@ -87,12 +87,14 @@ class AdvSearchPeakGroupsForm(AdvSearchForm):
             # PeakGroup Searchable Fields
             ("name", "Output Compound"),
             # Sample Searchable Fields
-            ("msrun__sample__name", "Sample"),
+            ("msrun__sample__name", "Sample Name"),
+            ("msrun__sample__id", "Sample ID"),
             # Tissue Searchable Fields
             ("msrun__sample__tissue__name", "Tissue"),
             # Animal Searchable Fields
+            ("msrun__sample__animal__id", "Animal ID"),
             ("msrun__sample__animal__tracer_labeled_atom", "Atom"),
-            ("msrun__sample__animal__name", "Animal"),
+            ("msrun__sample__animal__name", "Animal Name"),
             ("msrun__sample__animal__feeding_status", "Feeding Status"),
             (
                 "msrun__sample__animal__tracer_infusion_rate",
@@ -107,7 +109,8 @@ class AdvSearchPeakGroupsForm(AdvSearchForm):
                 "Input Compound",
             ),
             # Study Searchable Fields
-            ("msrun__sample__animal__studies__name", "Study"),
+            ("msrun__sample__animal__studies__name", "Study Name"),
+            ("msrun__sample__animal__studies__id", "Study ID"),
         ),
         widget=forms.Select(),
     )
@@ -128,13 +131,16 @@ class AdvSearchPeakDataForm(AdvSearchForm):
             ("labeled_count", "Label Count"),
             ("corrected_abundance", "Corrected Abundance"),
             # PeakGroup Searchable Fields
+            ("peak_group__id", "PeakGroup ID"),
             ("peak_group__name", "Output Compound"),
             # Sample Searchable Fields
-            ("peak_group__msrun__sample__name", "Sample"),
+            ("peak_group__msrun__sample__id", "Sample ID"),
+            ("peak_group__msrun__sample__name", "Sample Name"),
             # Tissue Searchable Fields
             ("peak_group__msrun__sample__tissue__name", "Tissue"),
             # Animal Searchable Fields
-            ("peak_group__msrun__sample__animal__name", "Animal"),
+            ("peak_group__msrun__sample__animal__id", "Animal ID"),
+            ("peak_group__msrun__sample__animal__name", "Animal Name"),
             (
                 "peak_group__msrun__sample__animal__tracer_compound__name",
                 "Input Compound",
@@ -142,3 +148,16 @@ class AdvSearchPeakDataForm(AdvSearchForm):
         ),
         widget=forms.Select(),
     )
+
+
+class AdvSearchDownloadForm(forms.Form):
+    """
+    Advanced search download form for any advanced search data.
+    """
+
+    qryjson = forms.JSONField(widget=forms.HiddenInput())
+
+    def clean(self):
+        """This override of super.clean is so we can reconstruct the search inputs upon form_invalid in views.py"""
+        self.saved_data = self.cleaned_data
+        return self.cleaned_data
