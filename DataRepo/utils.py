@@ -393,6 +393,7 @@ class AccuCorDataLoader:
             "ppmDiff",
             "parent",
             "Compound",
+            "adductName",
         ]
 
         # append the *_Label columns of the corrected dataframe
