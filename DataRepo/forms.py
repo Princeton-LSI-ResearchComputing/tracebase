@@ -1,4 +1,6 @@
+from typing import Optional
 from django import forms
+from DataRepo.compositeviews import PeakDataSearchView, PeakGroupsSearchView
 
 # IMPORTANT NOTE ABOUT THE pos & posprefix FIELDS IN EACH AdvSearch FORM CLASSES:
 
@@ -21,21 +23,19 @@ from django import forms
 # mixed-form environment.
 
 
-def with_searchdata(cls):
-   cls.setChoices()
-   return cls
-
-
-@with_searchdata
 class AdvSearchForm(forms.Form):
     """
     Advanced search form base class that will be used inside a formset.
     """
 
+    # This is the class used to populate posprefix and fld = set in derived class
+    composite_view_class = None # type: ignore
+
     # See important note above about the pos & posprefix fields above
+    posprefix: Optional[str] = None
     pos = forms.CharField(widget=forms.HiddenInput())
 
-    fld = None
+    fld = forms.ChoiceField(required=True, widget=forms.Select())
 
     ncmp = forms.ChoiceField(
         choices=(
@@ -79,223 +79,11 @@ class AdvSearchForm(forms.Form):
                 if field not in data:
                     return False
         return True
-    
-    search_data = {
-        "modes": {
-            "list": ["search", "browse"],
-            "default": "search",
-        },
-        "default_format": "pgtemplate",
-        "formats": {
-            "pgtemplate": {
-                "name": "PeakGroups",
-                "prefetches": ["msrun__sample__animal__studies"],
-                "modeldata": {
-                    "PeakGroups": {
-                        "path": "",
-                        "fields": {
-                            "name": {
-                                "displayname": "Output Compound",
-                                "searchable": True,
-                                "displayed": True,
-                            },
-                            "enrichment_fraction": {
-                                "displayname": "Enrichment Fraction",
-                                "searchable": False, #Cannot search cached property
-                                "displayed": True,
-                            },
-                            "total_abundance": {
-                                "displayname": "TIC",
-                                "searchable": False, #Cannot search cached property
-                                "displayed": True,
-                            },
-                            "normalized_labeling": {
-                                "displayname": "NormFraction",
-                                "searchable": False, #Cannot search cached property
-                                "displayed": True,
-                            },
-                        },
-                    },
-                    "Sample": {
-                        "path": "msrun__sample",
-                        "fields": {
-                            "id": {
-                                "displayname": "(Internal) Sample Index",
-                                "searchable": True,
-                                "displayed": False, # Used in link
-                            },
-                            "name": {
-                                "displayname": "Sample",
-                                "searchable": True,
-                                "displayed": True,
-                            },
-                        },
-                    },
-                    "Tissue": {
-                        "path": "msrun__sample__tissue",
-                        "fields": {
-                            "name": {
-                                "displayname": "Tissue",
-                                "searchable": True,
-                                "displayed": True,
-                            },
-                        },
-                    },
-                    "Animal": {
-                        "path": "msrun__sample__animal",
-                        "fields": {
-                            "tracer_labeled_atom": {
-                                "displayname": "Atom",
-                                "searchable": True,
-                                "displayed": True,
-                            },
-                            "id": {
-                                "displayname": "(Internal) Animal Index",
-                                "searchable": True,
-                                "displayed": False, # Used in link
-                            },
-                            "name": {
-                                "displayname": "Animal",
-                                "searchable": True,
-                                "displayed": True,
-                            },
-                            "feeding_status": {
-                                "displayname": "Feeding Status",
-                                "searchable": True,
-                                "displayed": True,
-                            },
-                            "tracer_infusion_rate": {
-                                "displayname": "Infusion Rate",
-                                "searchable": True,
-                                "displayed": True,
-                            },
-                            "tracer_infusion_concentration": {
-                                "displayname": "[Infusion]",
-                                "searchable": True,
-                                "displayed": True,
-                            },
-                        },
-                    },
-                    "Compound": {
-                        "path": "msrun__sample__animal__tracer_compound",
-                        "fields": {
-                            "name": {
-                                "displayname": "Input Compound",
-                                "searchable": True,
-                                "displayed": True,
-                            },
-                        },
-                    },
-                    "Study": {
-                        "path": "msrun__sample__animal__studies",
-                        "fields": {
-                            "id": {
-                                "displayname": "(Internal) Study Index",
-                                "searchable": True,
-                                "displayed": False, # Used in link
-                            },
-                            "name": {
-                                "displayname": "Study",
-                                "searchable": True,
-                                "displayed": True,
-                            },
-                        },
-                    },
-                },
-            },
-            "pdtemplate": {
-                "name": "PeakData",
-                "prefetches": ["peak_group__msrun__sample__animal"],
-                "searchables": {
-                    "PeakData": {
-                        "path": "",
-                        "fields": {
-                            "labeled_element": {
-                                "displayname": "Atom",
-                                "searchable": True,
-                                "displayed": True,
-                            },
-                            "corrected_abundance": {
-                                "displayname": "Corrected Abundance",
-                                "searchable": True,
-                                "displayed": True,
-                            },
-                        },
-                    },
-                    "PeakGroup": {
-                        "path": "peak_group",
-                        "fields": {
-                            "id": {
-                                "displayname": "(Internal) PeakGroup Index", # Used in link
-                                "searchable": True,
-                                "displayed": False,
-                            },
-                            "name": {
-                                "displayname": "Output Compound",
-                                "searchable": True,
-                                "displayed": True,
-                            },
-                        },
-                    },
-                    "Sample": {
-                        "path": "peak_group__msrun__sample",
-                        "fields": {
-                            "id": {
-                                "displayname": "(Internal) Sample Index", # Used in link
-                                "searchable": True,
-                                "displayed": True,
-                            },
-                            "name": {
-                                "displayname": "Sample",
-                                "searchable": True,
-                                "displayed": True,
-                            },
-                        },
-                    },
-                    "Tissue": {
-                        "path": "peak_group__msrun__sample__tissue",
-                        "fields": {
-                            "name": {
-                                "displayname": "Tissue",
-                                "searchable": True,
-                                "displayed": True,
-                            },
-                        },
-                    },
-                    "Animal": {
-                        "path": "peak_group__msrun__sample__animal",
-                        "fields": {
-                            "id": {
-                                "displayname": "(Internal) Animal Index", # Used in link
-                                "searchable": True,
-                                "displayed": False,
-                            },
-                            "name": {
-                                "displayname": "Animal",
-                                "searchable": True,
-                                "displayed": True,
-                            },
-                        },
-                    },
-                    "Compund": {
-                        "path": "peak_group__msrun__sample__animal__tracer_compound",
-                        "fields": {
-                            "name": {
-                                "displayname": "Input Compound",
-                                "searchable": True,
-                                "displayed": True,
-                            },
-                        },
-                    },
-                },
-            },
-        },
-    }
 
-    @classmethod
-    def setChoices(cls):
-
-
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.posprefix = self.composite_view_class.id
+        self.fields['fld'].choices = self.composite_view_class.getSearchFieldChoices()
 
 
 class AdvSearchPeakGroupsForm(AdvSearchForm):
@@ -303,40 +91,7 @@ class AdvSearchPeakGroupsForm(AdvSearchForm):
     Advanced search form for the peakgroups output format that will be used inside a formset.
     """
 
-    posprefix = "pgtemplate"
-
-    fld = forms.ChoiceField(
-        choices=(
-            # PeakGroup Searchable Fields
-            ("name", "Output Compound"),
-            # Sample Searchable Fields
-            ("msrun__sample__name", "Sample Name"),
-            ("msrun__sample__id", "Sample ID"),
-            # Tissue Searchable Fields
-            ("msrun__sample__tissue__name", "Tissue"),
-            # Animal Searchable Fields
-            ("msrun__sample__animal__id", "Animal ID"),
-            ("msrun__sample__animal__tracer_labeled_atom", "Atom"),
-            ("msrun__sample__animal__name", "Animal Name"),
-            ("msrun__sample__animal__feeding_status", "Feeding Status"),
-            (
-                "msrun__sample__animal__tracer_infusion_rate",
-                "Infusion Rate",
-            ),
-            (
-                "msrun__sample__animal__tracer_infusion_concentration",
-                "[Infusion]",
-            ),
-            (
-                "msrun__sample__animal__tracer_compound__name",
-                "Input Compound",
-            ),
-            # Study Searchable Fields
-            ("msrun__sample__animal__studies__name", "Study Name"),
-            ("msrun__sample__animal__studies__id", "Study ID"),
-        ),
-        widget=forms.Select(),
-    )
+    composite_view_class = PeakGroupsSearchView()
 
 
 class AdvSearchPeakDataForm(AdvSearchForm):
@@ -344,33 +99,7 @@ class AdvSearchPeakDataForm(AdvSearchForm):
     Advanced search form for the peakdata output format that will be used inside a formset.
     """
 
-    # See important note above about the pos & posprefix fields above
-    posprefix = "pdtemplate"
-
-    fld = forms.ChoiceField(
-        choices=(
-            # PeakData Searchable Fields
-            ("labeled_element", "Atom"),
-            ("labeled_count", "Label Count"),
-            ("corrected_abundance", "Corrected Abundance"),
-            # PeakGroup Searchable Fields
-            ("peak_group__id", "PeakGroup ID"),
-            ("peak_group__name", "Output Compound"),
-            # Sample Searchable Fields
-            ("peak_group__msrun__sample__id", "Sample ID"),
-            ("peak_group__msrun__sample__name", "Sample Name"),
-            # Tissue Searchable Fields
-            ("peak_group__msrun__sample__tissue__name", "Tissue"),
-            # Animal Searchable Fields
-            ("peak_group__msrun__sample__animal__id", "Animal ID"),
-            ("peak_group__msrun__sample__animal__name", "Animal Name"),
-            (
-                "peak_group__msrun__sample__animal__tracer_compound__name",
-                "Input Compound",
-            ),
-        ),
-        widget=forms.Select(),
-    )
+    composite_view_class = PeakDataSearchView()
 
 
 class AdvSearchDownloadForm(forms.Form):

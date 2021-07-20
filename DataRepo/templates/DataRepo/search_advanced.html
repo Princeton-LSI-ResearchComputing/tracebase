@@ -48,14 +48,16 @@
                 myform.submit();
             })
 
-            var dlform = document.getElementById("advanced-search-download-form")
-            document.getElementById("advanced-download-submit").addEventListener("click", function () {
-                dlform.submit(function (event) {
-                    // Stop form from submitting normally
-                    event.preventDefault();
-                    console.log("Downloading advanced search")
+            {% if res %}
+                var dlform = document.getElementById("advanced-search-download-form")
+                document.getElementById("advanced-download-submit").addEventListener("click", function () {
+                    dlform.submit(function (event) {
+                        // Stop form from submitting normally
+                        event.preventDefault();
+                        console.log("Downloading advanced search")
+                    })
                 })
-            })
+            {% endif %}
         })
     </script>
 

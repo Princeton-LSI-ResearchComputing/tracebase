@@ -34,7 +34,7 @@ class MultiFormMixin(ContextMixin):
 
     # I know that initial is Dict[str, function], but I don't know what the initial function takes or
     # returns, as I don't use it, so I'm leaving it as ignore.
-    initial = {}  # type: ignore
+    initial = {} # type: ignore
     prefix: Optional[str] = None
     success_url: Optional[str] = None
 
