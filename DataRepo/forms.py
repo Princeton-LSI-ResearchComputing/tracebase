@@ -1,5 +1,7 @@
 from typing import Optional
+
 from django import forms
+
 from DataRepo.compositeviews import PeakDataSearchView, PeakGroupsSearchView
 
 # IMPORTANT NOTE ABOUT THE pos & posprefix FIELDS IN EACH AdvSearch FORM CLASSES:
@@ -29,7 +31,7 @@ class AdvSearchForm(forms.Form):
     """
 
     # This is the class used to populate posprefix and fld = set in derived class
-    composite_view_class = None # type: ignore
+    composite_view_class = None  # type: ignore
 
     # See important note above about the pos & posprefix fields above
     posprefix: Optional[str] = None
@@ -83,7 +85,7 @@ class AdvSearchForm(forms.Form):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.posprefix = self.composite_view_class.id
-        self.fields['fld'].choices = self.composite_view_class.getSearchFieldChoices()
+        self.fields["fld"].choices = self.composite_view_class.getSearchFieldChoices()
 
 
 class AdvSearchPeakGroupsForm(AdvSearchForm):
@@ -91,7 +93,7 @@ class AdvSearchPeakGroupsForm(AdvSearchForm):
     Advanced search form for the peakgroups output format that will be used inside a formset.
     """
 
-    composite_view_class = PeakGroupsSearchView()
+    composite_view_class = PeakGroupsSearchView()  # type: ignore
 
 
 class AdvSearchPeakDataForm(AdvSearchForm):
@@ -99,7 +101,7 @@ class AdvSearchPeakDataForm(AdvSearchForm):
     Advanced search form for the peakdata output format that will be used inside a formset.
     """
 
-    composite_view_class = PeakDataSearchView()
+    composite_view_class = PeakDataSearchView()  # type: ignore
 
 
 class AdvSearchDownloadForm(forms.Form):

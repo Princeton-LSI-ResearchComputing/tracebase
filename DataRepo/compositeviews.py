@@ -1,6 +1,10 @@
-class BaseSearchView():
+from typing import List
+
+
+class BaseSearchView:
     name = ""
-    models = {} # type: ignore
+    models = {}  # type: ignore
+    prefetches: List[str] = []  # type: ignore
 
     @classmethod
     def getSearchFieldChoices(self):
@@ -9,7 +13,10 @@ class BaseSearchView():
             mpath = self.models[mkey]["path"]
             for fkey in self.models[mkey]["fields"].keys():
                 # We only want it in the select list if it is both searchable and displayed
-                if self.models[mkey]["fields"][fkey]["searchable"] is True and self.models[mkey]["fields"][fkey]["displayed"] is True:
+                if (
+                    self.models[mkey]["fields"][fkey]["searchable"] is True
+                    and self.models[mkey]["fields"][fkey]["displayed"] is True
+                ):
                     fpath = ""
                     if mpath != "":
                         fpath = mpath + "__"
@@ -17,10 +24,10 @@ class BaseSearchView():
                     fname = self.models[mkey]["fields"][fkey]["displayname"]
                     choices = choices + ((fpath, fname),)
         return choices
-    
+
     def getKeyPathList(self, mdl):
         return self.models[mdl]["path"].split("__")
-    
+
     def getPrefetches(self):
         return self.prefetches
 
@@ -66,17 +73,17 @@ class PeakGroupsSearchView(BaseSearchView):
                 },
                 "enrichment_fraction": {
                     "displayname": "Enrichment Fraction",
-                    "searchable": False, #Cannot search cached property
+                    "searchable": False,  # Cannot search cached property
                     "displayed": True,
                 },
                 "total_abundance": {
                     "displayname": "TIC",
-                    "searchable": False, #Cannot search cached property
+                    "searchable": False,  # Cannot search cached property
                     "displayed": True,
                 },
                 "normalized_labeling": {
                     "displayname": "NormFraction",
-                    "searchable": False, #Cannot search cached property
+                    "searchable": False,  # Cannot search cached property
                     "displayed": True,
                 },
             },
@@ -87,8 +94,8 @@ class PeakGroupsSearchView(BaseSearchView):
                 "id": {
                     "displayname": "(Internal) Sample Index",
                     "searchable": True,
-                    "displayed": False, # Used in link
-                    "handoff": "name", # This is the field that will be loaded in the advanced search form
+                    "displayed": False,  # Used in link
+                    "handoff": "name",  # This is the field that will be loaded in the advanced search form
                 },
                 "name": {
                     "displayname": "Sample",
@@ -118,8 +125,8 @@ class PeakGroupsSearchView(BaseSearchView):
                 "id": {
                     "displayname": "(Internal) Animal Index",
                     "searchable": True,
-                    "displayed": False, # Used in link
-                    "handoff": "name", # This is the field that will be loaded in the advanced search form
+                    "displayed": False,  # Used in link
+                    "handoff": "name",  # This is the field that will be loaded in the advanced search form
                 },
                 "name": {
                     "displayname": "Animal",
@@ -159,8 +166,8 @@ class PeakGroupsSearchView(BaseSearchView):
                 "id": {
                     "displayname": "(Internal) Study Index",
                     "searchable": True,
-                    "displayed": False, # Used in link
-                    "handoff": "name", # This is the field that will be loaded in the advanced search form
+                    "displayed": False,  # Used in link
+                    "handoff": "name",  # This is the field that will be loaded in the advanced search form
                 },
                 "name": {
                     "displayname": "Study",
@@ -199,10 +206,10 @@ class PeakDataSearchView(BaseSearchView):
             "path": "peak_group",
             "fields": {
                 "id": {
-                    "displayname": "(Internal) PeakGroup Index", # Used in link
+                    "displayname": "(Internal) PeakGroup Index",  # Used in link
                     "searchable": True,
                     "displayed": False,
-                    "handoff": "name", # This is the field that will be loaded in the advanced search form
+                    "handoff": "name",  # This is the field that will be loaded in the advanced search form
                 },
                 "name": {
                     "displayname": "Output Compound",
@@ -215,7 +222,7 @@ class PeakDataSearchView(BaseSearchView):
             "path": "peak_group__msrun__sample",
             "fields": {
                 "id": {
-                    "displayname": "(Internal) Sample Index", # Used in link
+                    "displayname": "(Internal) Sample Index",  # Used in link
                     "searchable": True,
                     "displayed": False,
                 },
@@ -240,10 +247,10 @@ class PeakDataSearchView(BaseSearchView):
             "path": "peak_group__msrun__sample__animal",
             "fields": {
                 "id": {
-                    "displayname": "(Internal) Animal Index", # Used in link
+                    "displayname": "(Internal) Animal Index",  # Used in link
                     "searchable": True,
                     "displayed": False,
-                    "handoff": "name", # This is the field that will be loaded in the advanced search form
+                    "handoff": "name",  # This is the field that will be loaded in the advanced search form
                 },
                 "name": {
                     "displayname": "Animal",
@@ -265,17 +272,17 @@ class PeakDataSearchView(BaseSearchView):
     }
 
 
-class BaseAdvancedSearchView():
+class BaseAdvancedSearchView:
     modes = ["search", "browse"]
     default_mode = "search"
     default_format = ""
-    modeldata = {} # type: ignore
+    modeldata = {}  # type: ignore
 
     def __init__(self):
         for cls in (PeakGroupsSearchView(), PeakDataSearchView()):
             self.modeldata[cls.id] = cls
         self.default_format = PeakGroupsSearchView.id
-    
+
     def getPrefetches(self, format):
         return self.modeldata[format].getPrefetches()
 
@@ -294,7 +301,7 @@ class BaseAdvancedSearchView():
     def getSearchFields(self, fmt, mdl):
         """Takes a format key and model and returns a dict of searchable field name -> field key path"""
         return self.modeldata[fmt].getSearchFields(mdl)
-    
+
     def getDisplayFields(self, fmt, mdl):
         """
         Takes a format key and model and returns a dict of field name -> display field name (if there exists a handoff

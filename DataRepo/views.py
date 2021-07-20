@@ -1,15 +1,20 @@
+import json
+from datetime import datetime
+
 from django.conf import settings
-from django.core.exceptions import FieldError
 from django.db.models import Q
 from django.forms import formset_factory
 from django.http import Http404
 from django.shortcuts import get_object_or_404, render
 from django.views.generic import DetailView, ListView
 from django.views.generic.edit import FormView
-import json
-from datetime import datetime
 
-from DataRepo.forms import AdvSearchPeakDataForm, AdvSearchPeakGroupsForm, AdvSearchDownloadForm
+from DataRepo.compositeviews import BaseAdvancedSearchView
+from DataRepo.forms import (
+    AdvSearchDownloadForm,
+    AdvSearchPeakDataForm,
+    AdvSearchPeakGroupsForm,
+)
 from DataRepo.models import (
     Animal,
     Compound,
@@ -22,7 +27,6 @@ from DataRepo.models import (
     Study,
 )
 from DataRepo.multiforms import MultiFormsView
-from DataRepo.compositeviews import BaseAdvancedSearchView
 
 
 def home(request):
@@ -78,13 +82,25 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
     fmtkey = basv_metadata.formatNameOrKeyToKey(fmt)
     if fmtkey is None:
         names = basv_metadata.getFormatNames()
-        raise Http404("Invalid format [" + fmt + "].  Must be one of: [" + ",".join(names.keys()) + "," + ",".join(names.values()) + "]")
+        raise Http404(
+            "Invalid format ["
+            + fmt
+            + "].  Must be one of: ["
+            + ",".join(names.keys())
+            + ","
+            + ",".join(names.values())
+            + "]"
+        )
 
     qry = createNewBasicQuery(basv_metadata, mdl, fld, cmp, val, fmtkey)
     q_exp = constructAdvancedQuery(qry)
     res = performQuery(qry, q_exp, basv_metadata.getPrefetches(fmtkey))
 
-    return render(request, format_template, {"forms": form_classes, "qry": qry, "res": res, "debug": settings.DEBUG})
+    return render(
+        request,
+        format_template,
+        {"forms": form_classes, "qry": qry, "res": res, "debug": settings.DEBUG},
+    )
 
 
 # Based on:
@@ -152,16 +168,22 @@ class AdvancedSearchView(MultiFormsView):
         download_form = {}
 
         if isQryObjValid(qry, self.form_classes.keys()):
-            download_form = AdvSearchDownloadForm(initial={'qryjson': json.dumps(qry)})
+            download_form = AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
             q_exp = constructAdvancedQuery(qry)
-            performQuery(qry, q_exp, self.basv_metadata.getPrefetches(qry["selectedtemplate"]))
+            performQuery(
+                qry, q_exp, self.basv_metadata.getPrefetches(qry["selectedtemplate"])
+            )
         else:
             # Log a warning
             print("WARNING: Invalid query root:", qry)
 
         return self.render_to_response(
             self.get_context_data(
-                res=res, forms=self.form_classes, qry=qry, download_form=download_form, debug=settings.DEBUG
+                res=res,
+                forms=self.form_classes,
+                qry=qry,
+                download_form=download_form,
+                debug=settings.DEBUG,
             )
         )
 
@@ -169,42 +191,50 @@ class AdvancedSearchView(MultiFormsView):
         """
         Prepares context data for the initial page load.
         """
-        
+
         mode = self.basv_metadata.default_mode
         if "mode" in context and context["mode"] == "browse":
             mode = "browse"
         context["mode"] = mode
 
-        if "qry" not in context or (mode == "browse" and not isValidQryObjPopulated(context["qry"])):
+        if "qry" not in context or (
+            mode == "browse" and not isValidQryObjPopulated(context["qry"])
+        ):
             if "qry" not in context:
                 qry = createNewAdvancedQuery(self.basv_metadata, context)
             else:
                 qry = context["qry"]
 
             if mode == "browse":
-                context["download_form"] = AdvSearchDownloadForm(initial={'qryjson': json.dumps(qry)})
+                context["download_form"] = AdvSearchDownloadForm(
+                    initial={"qryjson": json.dumps(qry)}
+                )
                 prefetches = self.basv_metadata.getPrefetches(qry["selectedtemplate"])
                 context["res"] = getAllBrowseData(qry["selectedtemplate"], prefetches)
 
-        elif "qry" in context and isValidQryObjPopulated(context["qry"]) and (
-            "res" not in context or len(context["res"]) == 0
+        elif (
+            "qry" in context
+            and isValidQryObjPopulated(context["qry"])
+            and ("res" not in context or len(context["res"]) == 0)
         ):
             qry = context["qry"]
-            context["download_form"] = AdvSearchDownloadForm(initial={'qryjson': json.dumps(qry)})
+            context["download_form"] = AdvSearchDownloadForm(
+                initial={"qryjson": json.dumps(qry)}
+            )
             q_exp = constructAdvancedQuery(qry)
             prefetches = self.basv_metadata.getPrefetches(qry["selectedtemplate"])
             context["res"] = performQuery(qry, q_exp, prefetches)
 
 
-# Based on: https://stackoverflow.com/questions/29672477/django-export-current-queryset-to-csv-by-button-click-in-browser
+# Basis: https://stackoverflow.com/questions/29672477/django-export-current-queryset-to-csv-by-button-click-in-browser
 class AdvancedSearchTSVView(FormView):
     """
     This is the download view for the advanced search page.
     """
 
     form_class = AdvSearchDownloadForm
-    template_name = 'DataRepo/search_advanced.tsv'
-    content_type = 'application/text'
+    template_name = "DataRepo/search_advanced.tsv"
+    content_type = "application/text"
     success_url = ""
     basv_metadata = BaseAdvancedSearchView()
 
@@ -213,9 +243,7 @@ class AdvancedSearchTSVView(FormView):
         qry = json.loads(saved_form["qryjson"])
         res = {}
         return self.render_to_response(
-            self.get_context_data(
-                res=res, qry=qry, debug=settings.DEBUG
-            )
+            self.get_context_data(res=res, qry=qry, debug=settings.DEBUG)
         )
 
     def form_valid(self, form):
@@ -226,16 +254,25 @@ class AdvancedSearchTSVView(FormView):
 
         now = datetime.now()
         dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
-        filename = qry["searches"][qry["selectedtemplate"]]["name"] + '_' + now.strftime("%d.%m.%Y.%H.%M.%S") + ".tsv"
+        filename = (
+            qry["searches"][qry["selectedtemplate"]]["name"]
+            + "_"
+            + now.strftime("%d.%m.%Y.%H.%M.%S")
+            + ".tsv"
+        )
 
         if isValidQryObjPopulated(qry):
             q_exp = constructAdvancedQuery(qry)
-            res = performQuery(qry, q_exp, self.basv_metadata.getPrefetches(qry["selectedtemplate"]))
+            res = performQuery(
+                qry, q_exp, self.basv_metadata.getPrefetches(qry["selectedtemplate"])
+            )
         else:
             fmt = qry["selectedtemplate"]
             res = getAllBrowseData(fmt, self.basv_metadata.getPrefetches(fmt))
 
-        response = self.render_to_response(self.get_context_data(res=res, qry=qry, dt=dt_string, debug=settings.DEBUG))
+        response = self.render_to_response(
+            self.get_context_data(res=res, qry=qry, dt=dt_string, debug=settings.DEBUG)
+        )
         response["Content-Disposition"] = "attachment; filename={}".format(filename)
 
         return response
@@ -261,14 +298,23 @@ def createNewAdvancedQuery(basv_metadata, context):
     Constructs an empty qry for the advanced search interface.
     """
 
-    qry = {}
-    qry["searches"] = {}
     if "format" in context:
-        qry["selectedtemplate"] = context["format"]
+        selfmt = context["format"]
     else:
-        qry["selectedtemplate"] = basv_metadata.default_format
-    
-    for format, formatName in basv_metadata.getFormatNames().items():
+        selfmt = basv_metadata.default_format
+
+    fmt_name_dict = basv_metadata.getFormatNames()
+
+    qry = createNewQueryRoot(fmt_name_dict, selfmt)
+
+    return qry
+
+
+def createNewQueryRoot(fmt_name_dict, selfmt):
+    qry = {}
+    qry["selectedtemplate"] = selfmt
+    qry["searches"] = {}
+    for format, formatName in fmt_name_dict.items():
         qry["searches"][format] = {}
         qry["searches"][format]["name"] = formatName
         qry["searches"][format]["tree"] = {}
@@ -276,41 +322,34 @@ def createNewAdvancedQuery(basv_metadata, context):
         qry["searches"][format]["tree"]["type"] = "group"
         qry["searches"][format]["tree"]["val"] = "all"
         qry["searches"][format]["tree"]["queryGroup"] = []
-    
     return qry
 
 
-# This uses the new compositeviews code
 def createNewBasicQuery(basv_metadata, mdl, fld, cmp, val, fmt):
     """
     Constructs a new qry object for an advanced search from basic search input.
     """
 
-    names = basv_metadata.getFormatNames()
-
-    qry = {}
-    qry["selectedtemplate"] = fmt
-    qry["searches"] = {}
-
-    for format in names:
-        qry["searches"][format] = {}
-        qry["searches"][format]["name"] = names[format]
-        qry["searches"][format]["tree"] = {}
-        qry["searches"][format]["tree"]["pos"] = ""
-        qry["searches"][format]["tree"]["type"] = "group"
-        qry["searches"][format]["tree"]["val"] = "all"
-        qry["searches"][format]["tree"]["queryGroup"] = []
+    qry = createNewQueryRoot(basv_metadata.getFormatNames(), fmt)
 
     models = basv_metadata.getModels(fmt)
 
     if mdl not in models:
-        raise Http404("Invalid model [" + mdl + "].  Must be one of [" + ",".join(models) + "].")
+        raise Http404(
+            "Invalid model [" + mdl + "].  Must be one of [" + ",".join(models) + "]."
+        )
 
     sfields = basv_metadata.getSearchFields(fmt, mdl)
 
     if fld not in sfields:
-        raise Http404("Field [" + fld + "] is not searchable.  Must be one of [" + ",".join(sfields.keys()) + "].")
-    
+        raise Http404(
+            "Field ["
+            + fld
+            + "] is not searchable.  Must be one of ["
+            + ",".join(sfields.keys())
+            + "]."
+        )
+
     qry["searches"][fmt]["tree"]["queryGroup"].append({})
     qry["searches"][fmt]["tree"]["queryGroup"][0]["type"] = "query"
     qry["searches"][fmt]["tree"]["queryGroup"][0]["pos"] = ""
@@ -320,7 +359,7 @@ def createNewBasicQuery(basv_metadata, mdl, fld, cmp, val, fmt):
 
     dfld, dval = searchFieldToDisplayField(basv_metadata, mdl, fld, val, fmt, qry)
     # Set the field path for the display field
-    qry["searches"][fmt]["tree"]["queryGroup"][0]["fld"] = dfld
+    qry["searches"][fmt]["tree"]["queryGroup"][0]["fld"] = sfields[dfld]
     qry["searches"][fmt]["tree"]["queryGroup"][0]["val"] = dval
 
     return qry
@@ -330,7 +369,7 @@ def searchFieldToDisplayField(basv_metadata, mdl, fld, val, fmt, qry):
     """
     Takes a field from a basic search and converts it to a non-hidden field for an advanced search select list.
     """
-    
+
     dfld = fld
     dval = val
     dfields = basv_metadata.getDisplayFields(fmt, mdl)
@@ -341,9 +380,9 @@ def searchFieldToDisplayField(basv_metadata, mdl, fld, val, fmt, qry):
         if len(recs) == 0:
             raise Http404("Records not found for field [" + mdl + "." + fld + "].")
         # Set the field path for the display field
-        dfld = sfields[dfields[fld]]
+        dfld = dfields[fld]
         dval = getJoinedRecFieldValue(recs, basv_metadata, fmt, mdl, dfields[fld])
-    
+
     return dfld, dval
 
 
@@ -351,10 +390,10 @@ def getJoinedRecFieldValue(recs, basv_metadata, fmt, mdl, fld):
     """
     Takes a queryset object and a model.field and returns its value.
     """
-    
+
     if len(recs) == 0:
         raise Http404("Records not found.")
-    
+
     kpl = basv_metadata.getKeyPathList(fmt, mdl)
     kpl.append(fld)
     ptr = recs[0]
@@ -364,12 +403,24 @@ def getJoinedRecFieldValue(recs, basv_metadata, fmt, mdl, fld):
             tmprecs = ptr.all()
             if len(tmprecs) != 1:
                 # Log an error
-                print("ERROR: Handoff to " + mdl + "." + fld + " failed.  Check the AdvSearch class handoffs.")
-                raise Http404("ERROR: Unable to find a single value for [" + mdl + "." + fld + "].")
+                print(
+                    "ERROR: Handoff to "
+                    + mdl
+                    + "."
+                    + fld
+                    + " failed.  Check the AdvSearch class handoffs."
+                )
+                raise Http404(
+                    "ERROR: Unable to find a single value for ["
+                    + mdl
+                    + "."
+                    + fld
+                    + "]."
+                )
             ptr = getattr(tmprecs[0], key)
         else:
             ptr = getattr(ptr, key)
-    
+
     return ptr
 
 
@@ -422,7 +473,7 @@ def isValidQryObjPopulated(qry):
     """
     Checks whether a query object is fully populated with at least 1 search term.
     """
-    
+
     selfmt = qry["selectedtemplate"]
     return len(qry["searches"][selfmt]["tree"]["queryGroup"]) > 0
 

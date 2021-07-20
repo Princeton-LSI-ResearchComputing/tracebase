@@ -163,6 +163,8 @@ editor. Some linters that may be useful to install locally include:
   * [jscpd](https://github.com/kucherenko/jscpd) - Copy/paste detector for
     programming source code
   * [standard](https://standardjs.com) - Javascript linting
+  * [editorconfig-checker](https://www.npmjs.com/package/editorconfig-checker)
+    \- Config linting
 
 It is recommended to run superlinter (described below) routinely or
 automatically before submitting a PR, but if you want a quick check while
@@ -173,11 +175,14 @@ developing, you can run these example linting commands on the command line:
     markdownlint .
     flake8 .
     pylint TraceBase DataRepo *.py
+    mypy .
     dotenv-linter TraceBase DataRepo
     find . \( ! -iname "*bootstrap*" -not -path '*/\.*' -iname "*.js" \) \
         -exec standard --fix --verbose {} \;
     find . \( -type f -not -path '*/\.*' -not -path "*bootstrap*" \
         -not -path "*__pycache__*" \) -exec jscpd {} \;
+    find . \( -type f -not -path '*/\.*' -not -path "*bootstrap*" \
+        -not -path "*__pycache__*" \) -exec editorconfig-checker {} \;
 
 ##### Superlinter
 
