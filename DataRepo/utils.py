@@ -3,7 +3,7 @@ import re
 from collections import namedtuple
 from datetime import datetime, timedelta
 
-import dateutil.parser
+import dateutil.parser  # type: ignore
 from django.db import transaction
 
 from DataRepo.models import (
