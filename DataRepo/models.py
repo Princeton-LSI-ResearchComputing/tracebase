@@ -266,22 +266,27 @@ class Animal(models.Model, TracerLabeledClass):
         validators=[MinValueValidator(0)],
         help_text="The millimolar concentration of the tracer in the solution that was infused (mM).",
     )
-    genotype = models.CharField(max_length=256)
+    genotype = models.CharField(
+        max_length=256, help_text="The laboratory standardized genotype of the animal."
+    )
     body_weight = models.FloatField(
-        null=True, blank=True, validators=[MinValueValidator(0)]
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(0)],
+        help_text="The weight (in grams) of the animal at the time of sample collection.",
     )
     age = models.DurationField(
         null=True,
         blank=True,
         validators=[MinValueValidator(0)],
-        help_text="The age of the animal at the time the samples were collected (weeks).",
+        help_text="The age of the animal at the time of samples collection.",
     )
     sex = models.CharField(
         max_length=1,
         null=True,
         blank=True,
         choices=SEX_CHOICES,
-        help_text='The sex of the animal (e.g. "M", "F").',
+        help_text='The sex of the animal ("male" or "female").',
     )
     diet = models.CharField(
         max_length=256,
@@ -356,7 +361,9 @@ class Sample(models.Model):
         unique=True,
         help_text="The unique name of the biological sample.",
     )
-    date = models.DateField(default=date.today)
+    date = models.DateField(
+        default=date.today, help_text="The date the sample was collected."
+    )
     researcher = models.CharField(
         max_length=256,
         help_text='The name of the researcher who prepared the sample (e.g. "Alex Medina").',
@@ -387,8 +394,8 @@ class Sample(models.Model):
             MinValueValidator(MINIMUM_VALID_TIME_COLLECTED),
             MaxValueValidator(MAXIMUM_VALID_TIME_COLLECTED),
         ],
-        help_text="The time, in minutes relative to an infusion timepoint, "
-        "that a sample was extracted from a animal",
+        help_text="The time, relative to an infusion timepoint, "
+        "that a sample was extracted from an animal.",
     )
 
     class Meta:
@@ -518,8 +525,7 @@ class PeakGroup(models.Model):
 
         Accucor provides this in the tab "pool size".
 
-        Calculated by summing the corrected_abundance of all PeakData for
-        this PeakGroup.
+        Sum of the corrected_abundance of all PeakData for this PeakGroup.
 
         """
         return self.peak_data.all().aggregate(
@@ -532,7 +538,7 @@ class PeakGroup(models.Model):
         A weighted average of the fraction of labeled atoms for this PeakGroup
         in this sample.
 
-        i.e. "What fraction of carbons are labeled in this compound"
+        i.e. The fraction of carbons that are labeled in this compound
 
         Sum of all (PeakData.fraction * PeakData.labeled_count) /
             PeakGroup.Compound.num_atoms(PeakData.labeled_element)
@@ -579,8 +585,8 @@ class PeakGroup(models.Model):
     @cached_property
     def normalized_labeling(self):
         """
-        The enrichment in this compound normalized to the
-        enrichment in the tracer compound from the final serum timepoint.
+        The enrichment in this compound normalized to the enrichment in the
+        tracer compound from the final serum timepoint.
 
         ThisPeakGroup.enrichment_fraction / SerumTracerPeakGroup.enrichment_fraction
         """
@@ -664,7 +670,7 @@ class PeakData(models.Model, TracerLabeledClass):
     )
     raw_abundance = models.FloatField(
         validators=[MinValueValidator(0)],
-        help_text='The ion count of this observation, also referred to as "raw abundance".',
+        help_text="The ion count of this observation.",
     )
     corrected_abundance = models.FloatField(
         validators=[MinValueValidator(0)],
