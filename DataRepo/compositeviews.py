@@ -1,10 +1,10 @@
-from typing import List
+from typing import Dict, List
 
 
 class BaseSearchView:
     name = ""
-    models = {}  # type: ignore
-    prefetches: List[str] = []  # type: ignore
+    models: Dict[str, Dict] = {}
+    prefetches: List[str] = []
 
     @classmethod
     def getSearchFieldChoices(self):
@@ -276,7 +276,7 @@ class BaseAdvancedSearchView:
     modes = ["search", "browse"]
     default_mode = "search"
     default_format = ""
-    modeldata = {}  # type: ignore
+    modeldata: Dict[int, BaseSearchView] = {}
 
     def __init__(self):
         for cls in (PeakGroupsSearchView(), PeakDataSearchView()):
