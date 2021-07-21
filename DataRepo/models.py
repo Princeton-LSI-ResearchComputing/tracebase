@@ -279,7 +279,7 @@ class Animal(models.Model, TracerLabeledClass):
         null=True,
         blank=True,
         validators=[MinValueValidator(0)],
-        help_text="The age of the animal at the time of samples collection.",
+        help_text="The age of the animal at the time of sample collection.",
     )
     sex = models.CharField(
         max_length=1,
@@ -538,7 +538,7 @@ class PeakGroup(models.Model):
         A weighted average of the fraction of labeled atoms for this PeakGroup
         in this sample.
 
-        i.e. The fraction of carbons that are labeled in this compound
+        i.e. The fraction of carbons that are labeled in this PeakGroup compound
 
         Sum of all (PeakData.fraction * PeakData.labeled_count) /
             PeakGroup.Compound.num_atoms(PeakData.labeled_element)
