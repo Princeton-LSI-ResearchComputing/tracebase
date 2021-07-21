@@ -93,13 +93,20 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
         )
 
     qry = createNewBasicQuery(basv_metadata, mdl, fld, cmp, val, fmtkey)
+    download_form = AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
     q_exp = constructAdvancedQuery(qry)
     res = performQuery(qry, q_exp, basv_metadata.getPrefetches(fmtkey))
 
     return render(
         request,
         format_template,
-        {"forms": form_classes, "qry": qry, "res": res, "debug": settings.DEBUG},
+        {
+            "forms": form_classes,
+            "qry": qry,
+            "res": res,
+            "download_form": download_form,
+            "debug": settings.DEBUG,
+        },
     )
 
 
