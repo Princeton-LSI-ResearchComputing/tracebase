@@ -50,6 +50,7 @@
 
             {% if res %}
                 var dlform = document.getElementById("advanced-search-download-form")
+                console.log(dlform)
                 document.getElementById("advanced-download-submit").addEventListener("click", function () {
                     dlform.submit(function (event) {
                         // Stop form from submitting normally

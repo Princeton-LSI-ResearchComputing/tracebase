@@ -240,15 +240,26 @@ class AdvancedSearchTSVView(FormView):
 
     def form_invalid(self, form):
         saved_form = form.saved_data
-        qry = json.loads(saved_form["qryjson"])
+        qry = {}
+        if "qryjson" in saved_form:
+            # Discovered this can cause a KeyError during testing, so...
+            qry = json.loads(saved_form["qryjson"])
+        else:
+            print("ERROR: qryjson hidden input not in saved form.")
+        now = datetime.now()
+        dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
         res = {}
         return self.render_to_response(
-            self.get_context_data(res=res, qry=qry, debug=settings.DEBUG)
+            self.get_context_data(res=res, qry=qry, dt=dt_string, debug=settings.DEBUG)
         )
 
     def form_valid(self, form):
         cform = form.cleaned_data
-        qry = json.loads(cform["qryjson"])
+        try:
+            qry = json.loads(cform["qryjson"])
+            # Apparently this causes a TypeError exception in test_views. Could not figure out why, so...
+        except TypeError:
+            qry = cform["qryjson"]
         if not isQryObjValid(qry, self.basv_metadata.getFormatNames().keys()):
             raise Http404("Invalid json")
 
