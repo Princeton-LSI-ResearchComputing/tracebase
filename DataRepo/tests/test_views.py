@@ -427,6 +427,7 @@ class ViewTests(TestCase):
             msrun__sample__tissue__name__iexact="Brain"
         ).prefetch_related("msrun__sample__animal__studies")
         expected_newline_count = qs.count() + 5
+        expected_tab_count = qs.count() * 12 + 12
         [filledform, qry, dlform] = self.get_advanced_search_inputs()
         response = self.client.post("/DataRepo/search_advanced_tsv/", dlform)
 
@@ -441,6 +442,7 @@ class ViewTests(TestCase):
         self.assertTrue(".tsv" in contentdisp)
         # Line count
         self.assertContains(response, "\n", count=expected_newline_count)
+        self.assertContains(response, "\t", count=expected_tab_count)
         # Header tests
         self.assertContains(response, "# Download Time: ", count=1)
         self.assertContains(response, "# Advanced Search Query: {", count=1)
