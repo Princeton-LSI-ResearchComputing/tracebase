@@ -17,7 +17,7 @@ class Command(BaseCommand):
         "Loads data from animal and sample tables into the database. "
         "Rows where 'Tissue' is empty will be skipped "
         "(assumed to be blank samples). "
-        f"Example usage : manage.py load_animal_and_sample_tables --sample-table-filename {example_samples}"
+        f"Example usage : manage.py load_animals_and_samples --sample-table-filename {example_samples}"
         f" --animal-table-filename {example_animals} --table-headers {example_yaml}"
     )
 

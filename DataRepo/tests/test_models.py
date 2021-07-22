@@ -326,7 +326,7 @@ class DataLoadingTests(TestCase):
         cls.ALL_STUDIES_COUNT = 0
 
         call_command(
-            "load_animal_and_sample_tables",
+            "load_animals_and_samples",
             sample_table_filename="DataRepo/example_data/obob_samples_table.tsv",
             animal_table_filename="DataRepo/example_data/obob_animals_table.tsv",
             table_headers="DataRepo/example_data/sample_and_animal_tables_headers.yaml",
