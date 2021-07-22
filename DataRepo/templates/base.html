@@ -15,10 +15,13 @@
         <link href="{% static 'css/sidebar.css' %}" rel="stylesheet">
         <link href="{% static 'css/extras.css' %}" rel="stylesheet">
 
-        <title>{% block title %}TraceBase{% endblock %}</title>
-      </head>
+        {% block head_extras %}
+        {% endblock %}
 
-      <body>
+        <title>{% block title %}TraceBase{% endblock %}</title>
+    </head>
+
+    <body>
 
         {% include 'navbar.html' %}
 
@@ -51,5 +54,5 @@
 
         <!-- Use Bootstrap JS -->
         <script src="{% static 'bootstrap-5.0.1-dist/js/bootstrap.bundle.min.js' %}"></script>
-      </body>
-    </html>
+    </body>
+</html>

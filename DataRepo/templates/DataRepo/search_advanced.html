@@ -1,0 +1,300 @@
+{% extends "base.html" %}
+{% load static %}
+{% load advsrch_tags %}
+
+{% block head_extras %}
+    {{ block.super }}
+
+    <!-- The hierarchical_formsets items were inspired by both:
+
+        - https://github.com/elo80ka/django-dynamic-formset/
+        - https://stackoverflow.com/questions/50736373/html-unlimited-hierarchy-input-to-form
+
+        The 2 were incompatible, so the result is a re-implementation of the stack one to add to the first one in pure javascript.
+
+    -->
+
+    <link href="{% static 'css/extras.css' %}" rel="stylesheet">
+    <link href="{% static 'css/hierarchical_formsets.css' %}" rel="stylesheet">
+    <script src="{% static 'js/hierarchical_formsets.js' %}"></script>
+
+    {% if qry %}
+        <!-- qry has a value when search results are being loaded.  It is used to reconstruct the search form, so the user
+            can tweak their search.  This tag (json_script) turns the qry dict into a json-ized HTML object that is
+            consumed by javascript below, which is injests via JSON.parse. -->
+
+        {{ qry|json_script:"initGroup" }}
+
+    {% endif %}
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function(){
+            {% if format and mode and mode == "browse" and not qry %}
+                rootGroup.selectedtemplate = "{{ format }}"
+            {% endif %}
+
+            // If a search has been performed, restore the form
+            {% if qry %}
+                const initGroup = JSON.parse(document.getElementById('initGroup').textContent);
+                initializeExistingSearchQuery(document.querySelector('.hierarchical-search'), initGroup);
+            {% else %}
+                const allforms = document.querySelector('.hierarchical-search')
+                appendSearchQuery(allforms, rootGroup)
+            {% endif %}
+
+            var myform = document.getElementById("hierarchical-search-form");
+            document.getElementById("advanced-search-submit").addEventListener("click", function () {
+                saveSearchQueryHierarchy(document.querySelector('.hierarchical-search'));
+                myform.submit();
+            });
+        });
+    </script>
+
+{% endblock %}
+
+{% block content %}
+    <div>
+        <h3>Advanced Search</h3>
+
+        <!-- Form template for the PeakGroups output format from django's forms.py -->
+        {% with forms.pgtemplate.empty_form as f %}
+            <div id="pgtemplate" style="display:none;">
+                {{ f.pos }}
+                {{ f.fld }}
+                {{ f.ncmp }}
+                {{ f.val }}
+                <label class="text-danger"> {{ f.val.errors }} </label>
+            </div>
+        {% endwith %}
+
+        <!-- Form template for the PeakData output format from django's forms.py -->
+        {% with forms.pdtemplate.empty_form as f %}
+            <div id="pdtemplate" style="display:none;">
+                {{ f.pos }}
+                {{ f.fld }}
+                {{ f.ncmp }}
+                {{ f.val }}
+                <label class="text-danger"> {{ f.val.errors }} </label>
+            </div>
+        {% endwith %}
+
+        <form action="" id="hierarchical-search-form" method="POST">
+            {% csrf_token %}
+            <div class="hierarchical-search"></div>
+            <button type="submit" class="btn btn-primary" id="advanced-search-submit">Search</button>
+            <!-- There are multiple form types, but we only need one set of form management inputs. We can get away with this because all the fields are the same. -->
+            {{ forms.pgtemplate.errors.val }}
+            {{ forms.pgtemplate.management_form }}
+            <label id="formerror" class="text-danger temporal-text"></label>
+        </form>
+        <a id="browselink" href="{% url 'search_advanced' %}?mode=browse" class="tiny">Browse All</a>
+    </div>
+
+    {% if debug %}
+        The following only prints in DEBUG mode, controlled by settings.DEBUG:<br>
+        {% if qry %}
+            Query: {{ qry }}
+        {% else %}
+            Query was empty
+        {% endif %}
+    {% endif %}
+
+    <div>
+        <!-- Pre-populate the initial view with all records if no results, no errors, and in browse mode -->
+        {% if not res and not qry and formsets.pg.0.val != "" and not formsets.pg.0.val.errors and formsets.pd.0.val != "" and not formsets.pd.0.val.errors and mode == "browse" %}
+            {% if format %}
+                {% populateAllBrowseData format as cur_res %}
+            {% else %}
+                {% populateAllBrowseData default_format as cur_res %}
+            {% endif %}
+        {% else %}
+            {% define res as cur_res %}
+        {% endif %}
+
+        {% if mode == "search" %}
+            {% if qry and formsets.pg.0.val != "" and not formsets.pg.0.val.errors and formsets.pd.0.val != "" and not formsets.pd.0.val.errors %}
+                <hr>
+                {% if qry.selectedtemplate == "pgtemplate" %}
+                    <h3>Peak Groups Results ({{ cur_res.count|default:"0" }})</h3>
+                {% elif qry.selectedtemplate == "pdtemplate" %}
+                    <h3>Peak Data Results ({{ cur_res.count|default:"0" }})</h3>
+                {% endif %}
+            {% endif %}
+        {% else %}
+            <hr>
+            <h3>{{ cur_res.count|default:"0" }} Records</h3>
+        {% endif %}
+
+        {% if cur_res %}
+            <table class="table table-success table-hover table-striped table-bordered">
+                {% if qry.selectedtemplate == "pgtemplate" or mode == "browse" and format == "pgtemplate" %}
+                    <tr>
+                        <th>Compound</th>
+                        <th>Atom</th>
+                        <th>Sample</th>
+                        <th>Enrichment Fraction</th>
+                        <th>Tissue</th>
+                        <th>Mouse</th>
+                        <th>TIC</th>
+                        <th>NormFraction</th>
+                        <th>Infusate</th>
+                        <th>Experiment</th>
+                        <th>Feeding Status</th>
+                        <th>Infusion Rate</th>
+                        <th>[Infusate]</th>
+                    </tr>
+
+                    {% for pg in cur_res.all %}
+                        {% for study in pg.msrun.sample.animal.studies.all %}
+                            <tr>
+                                <!-- Compound -->
+                                <td>
+                                    <a href="{% url 'sample_detail' pg.id %}">
+                                        {{ pg.name }}
+                                    </a>
+                                </td>
+
+                                <!-- Atom -->
+                                <td>
+                                    {{ pg.msrun.sample.animal.tracer_labeled_atom }}
+                                </td>
+
+                                <!-- Sample -->
+                                <td>
+                                    <div class="nobr">
+                                        <a href="{% url 'sample_detail' pg.msrun.sample.id %}">
+                                            {{ pg.msrun.sample.name }}
+                                        </a>
+                                    </div>
+                                </td>
+
+                                <!-- Enrichment Fraction -->
+                                <td class="text-end">
+                                    <p title="{{ pg.enrichment_fraction }}">{{ pg.enrichment_fraction|floatformat:4 }}</p>
+                                </td>
+
+                                <!-- Tissue -->
+                                <td>
+                                    {{ pg.msrun.sample.tissue.name }}
+                                </td>
+
+                                <!-- Mouse -->
+                                <td>
+                                    <a href="{% url 'animal_detail' pg.msrun.sample.animal.id %}">
+                                        {{ pg.msrun.sample.animal.name }}
+                                    </a>
+                                </td>
+
+                                <!-- TIC -->
+                                <td class="text-end">
+                                    <p title="{{ pg.total_abundance }}">{{ pg.total_abundance|floatformat:1 }}</p>
+                                </td>
+
+                                <!-- NormFraction -->
+                                <td class="text-end">
+                                    <p title="{{ pg.normalized_labeling }}">{{ pg.normalized_labeling|floatformat:4 }}</p>
+                                </td>
+
+                                <!-- Infusate -->
+                                <td>
+                                    {{ pg.msrun.sample.animal.tracer_compound.name }}
+                                </td>
+
+                                <!-- Experiment -->
+                                <td>
+                                    <a href="{% url 'study_detail' study.id %}">
+                                        {{ study.name }}
+                                    </a>
+                                </td>
+
+                                <!-- Feeding Status -->
+                                <td>
+                                    {{ pg.msrun.sample.animal.feeding_status }}
+                                </td>
+
+                                <!-- Infusion Rate -->
+                                <td class="text-end">
+                                    {{ pg.msrun.sample.animal.tracer_infusion_rate }}
+                                </td>
+
+                                <!-- [Infusate] -->
+                                <td class="text-end">
+                                    {{ pg.msrun.sample.animal.tracer_infusion_concentration }}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    {% endfor %}
+                {% elif qry.selectedtemplate == "pdtemplate" or mode == "browse" and format == "pdtemplate" %}
+                    <tr>
+                        <th>Sample</th>
+                        <th>Tissue</th>
+                        <th>Animal</th>
+                        <th>Infusate</th>
+                        <th>Compound</th>
+                        <th>Atom:Label</th>
+                        <th>Corrected Abundance</th>
+                        <th>Fraction</th>
+                    </tr>
+
+                    {% for pd in cur_res.all %}
+                        {% for study in pd.peak_group.msrun.sample.animal.studies.all %}
+                            <tr>
+                                <!-- Sample -->
+                                <td>
+                                    <div class="nobr">
+                                        <a href="{% url 'sample_detail' pd.peak_group.msrun.sample.id %}">
+                                            {{ pd.peak_group.msrun.sample.name }}
+                                        </a>
+                                    </div>
+                                </td>
+
+                                <!-- Tissue -->
+                                <td>
+                                    {{ pd.peak_group.msrun.sample.tissue.name }}
+                                </td>
+
+                                <!-- Animal -->
+                                <td>
+                                    <a href="{% url 'animal_detail' pd.peak_group.msrun.sample.animal.id %}">
+                                        {{ pd.peak_group.msrun.sample.animal.name }}
+                                    </a>
+                                </td>
+
+                                <!-- Infusate -->
+                                <td>
+                                    {{ pd.peak_group.msrun.sample.animal.tracer_compound.name }}
+                                </td>
+
+                                <!-- Compound -->
+                                <td>
+                                    <a href="{% url 'sample_detail' pd.peak_group.id %}">
+                                        {{ pd.peak_group.name }}
+                                    </a>
+                                </td>
+
+                                <!-- Atom Label -->
+                                <td>
+                                    {{ pd.labeled_element }}:{{ pd.labeled_count }}
+                                </td>
+
+                                <!-- Corrected Abundance -->
+                                <td class="text-end">
+                                    <p title="{{ pd.corrected_abundance }}">{{ pd.corrected_abundance|floatformat:1 }}</p>
+                                </td>
+
+                                <!-- Fraction -->
+                                <td class="text-end">
+                                    <p title="{{ pd.fraction }}">{{ pd.fraction|floatformat:4 }}</p>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    {% endfor %}
+                {% endif %}
+            </table>
+        {% else %}
+            {% if mode == "browse" or qry and formsets.pg.0.val != "" and not formsets.pg.0.val.errors and formsets.pd.0.val != "" and not formsets.pd.0.val.errors %}
+                <p>No matching records found.</p>
+            {% endif %}
+        {% endif %}
+    </div>
+{% endblock %}
