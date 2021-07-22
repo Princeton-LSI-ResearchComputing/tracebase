@@ -1,7 +1,10 @@
+import json
+
 from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
 
+from DataRepo.compositeviews import BaseAdvancedSearchView
 from DataRepo.models import (
     Animal,
     Compound,
@@ -13,7 +16,19 @@ from DataRepo.models import (
     Sample,
     Study,
 )
-from DataRepo.views import pathStepToPosGroupType, rootToFormatInfo
+from DataRepo.views import (
+    constructAdvancedQuery,
+    createNewAdvancedQuery,
+    createNewBasicQuery,
+    createNewQueryRoot,
+    getAllBrowseData,
+    getJoinedRecFieldValue,
+    isQryObjValid,
+    pathStepToPosGroupType,
+    performQuery,
+    rootToFormatInfo,
+    searchFieldToDisplayField,
+)
 
 
 class ViewTests(TestCase):
@@ -283,59 +298,63 @@ class ViewTests(TestCase):
         self.assertEqual(response.context["mode"], "search")
 
     def get_advanced_search_inputs(self):
-        return [
-            {
-                "fmt": "pgtemplate",
-                "form-TOTAL_FORMS": "2",
-                "form-INITIAL_FORMS": "0",
-                "form-0-pos": "pgtemplate-PeakGroups-selected.0-all.0",
-                "form-0-fld": "msrun__sample__tissue__name",
-                "form-0-ncmp": "iexact",
-                "form-0-val": "Brain",
-                "form-1-pos": "pdtemplate-PeakData.0-all.0",
-                "form-1-fld": "labeled_element",
-                "form-1-ncmp": "iexact",
-            },
-            {
-                "selectedtemplate": "pgtemplate",
-                "searches": {
-                    "pgtemplate": {
-                        "tree": {
-                            "pos": "",
-                            "type": "group",
-                            "val": "all",
-                            "queryGroup": [
-                                {
-                                    "type": "query",
-                                    "pos": "",
-                                    "ncmp": "iexact",
-                                    "val": "Brain",
-                                    "fld": "msrun__sample__tissue__name",
-                                }
-                            ],
-                        },
-                        "name": "PeakGroups",
+        asform = {
+            "fmt": "pgtemplate",
+            "form-TOTAL_FORMS": "2",
+            "form-INITIAL_FORMS": "0",
+            "form-0-pos": "pgtemplate-PeakGroups-selected.0-all.0",
+            "form-0-fld": "msrun__sample__tissue__name",
+            "form-0-ncmp": "iexact",
+            "form-0-val": "Brain",
+            "form-1-pos": "pdtemplate-PeakData.0-all.0",
+            "form-1-fld": "labeled_element",
+            "form-1-ncmp": "iexact",
+        }
+        qry = {
+            "selectedtemplate": "pgtemplate",
+            "searches": {
+                "pgtemplate": {
+                    "tree": {
+                        "pos": "",
+                        "type": "group",
+                        "val": "all",
+                        "queryGroup": [
+                            {
+                                "type": "query",
+                                "pos": "",
+                                "ncmp": "iexact",
+                                "val": "Brain",
+                                "fld": "msrun__sample__tissue__name",
+                            }
+                        ],
                     },
-                    "pdtemplate": {
-                        "tree": {
-                            "pos": "",
-                            "type": "group",
-                            "val": "all",
-                            "queryGroup": [
-                                {
-                                    "type": "query",
-                                    "pos": "",
-                                    "ncmp": "iexact",
-                                    "val": "",
-                                    "fld": "",
-                                }
-                            ],
-                        },
-                        "name": "PeakData",
+                    "name": "PeakGroups",
+                },
+                "pdtemplate": {
+                    "tree": {
+                        "pos": "",
+                        "type": "group",
+                        "val": "all",
+                        "queryGroup": [
+                            {
+                                "type": "query",
+                                "pos": "",
+                                "ncmp": "iexact",
+                                "val": "",
+                                "fld": "",
+                            }
+                        ],
                     },
+                    "name": "PeakData",
                 },
             },
-        ]
+        }
+        dlform = {
+            "form-TOTAL_FORMS": "1",
+            "form-INITIAL_FORMS": "0",
+            "qryjson": json.dumps(qry),
+        }
+        return [asform, qry, dlform]
 
     def test_search_advanced_valid(self):
         """
@@ -344,7 +363,7 @@ class ViewTests(TestCase):
         qs = PeakGroup.objects.filter(
             msrun__sample__tissue__name__iexact="Brain"
         ).prefetch_related("msrun__sample__animal__studies")
-        [filledform, qry] = self.get_advanced_search_inputs()
+        [filledform, qry, ignore] = self.get_advanced_search_inputs()
         response = self.client.post("/DataRepo/search_advanced/", filledform)
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "DataRepo/search_advanced.html")
@@ -355,7 +374,7 @@ class ViewTests(TestCase):
         """
         Do a simple advanced search and make sure the results are correct
         """
-        [invalidform, qry] = self.get_advanced_search_inputs()
+        [invalidform, qry, ignore] = self.get_advanced_search_inputs()
         # Make the form invalid
         invalidform.pop("form-0-val", None)
         # Expected response difference:
@@ -399,3 +418,311 @@ class ViewTests(TestCase):
         self.assertEqual(format, "pdtemplate")
         self.assertEqual(name, "PeakData")
         self.assertEqual(sel, False)
+
+    def test_search_advanced_tsv(self):
+        """
+        Download a simple advanced search and make sure the results are correct
+        """
+        qs = PeakGroup.objects.filter(
+            msrun__sample__tissue__name__iexact="Brain"
+        ).prefetch_related("msrun__sample__animal__studies")
+        expected_newline_count = qs.count() + 5
+        expected_tab_count = qs.count() * 12 + 12
+        [filledform, qry, dlform] = self.get_advanced_search_inputs()
+        response = self.client.post("/DataRepo/search_advanced_tsv/", dlform)
+
+        # Response content settings
+        self.assertTemplateUsed(response, "DataRepo/search_advanced.tsv")
+        self.assertEqual(response.get("Content-Type"), "application/text")
+        self.assertEqual(response.status_code, 200)
+        # Cannot use assertContains here for non-http response - it will complain about a missing status_code
+        contentdisp = response.get("Content-Disposition")
+        self.assertTrue("attachment" in contentdisp)
+        self.assertTrue("PeakGroups" in contentdisp)
+        self.assertTrue(".tsv" in contentdisp)
+        # Line count
+        self.assertContains(response, "\n", count=expected_newline_count)
+        self.assertContains(response, "\t", count=expected_tab_count)
+        # Header tests
+        self.assertContains(response, "# Download Time: ", count=1)
+        self.assertContains(response, "# Advanced Search Query: {", count=1)
+        self.assertContains(response, "'ncmp': 'iexact', 'val': 'Brain'", count=1)
+        self.assertContains(response, "#Compound", count=1)
+        # qry sent to the downloaded file header is correct
+        self.assertEqual(response.context["qry"], qry)
+
+    def test_getAllBrowseData(self):
+        """
+        Test that test_getAllBrowseData returns all data for the selected format.
+        """
+        pf = "msrun__sample__animal__studies"
+        qs = PeakGroup.objects.all().prefetch_related(pf)
+        res = getAllBrowseData("pgtemplate", [pf])
+        self.assertEqual(res.count(), qs.count())
+
+    def test_createNewAdvancedQuery(self):
+        """
+        Test createNewAdvancedQuery sets the selectedtemplate correctly
+        """
+        basv_metadata = BaseAdvancedSearchView()
+        newqry = createNewAdvancedQuery(basv_metadata, {})
+        self.assertEqual(newqry["selectedtemplate"], "pgtemplate")
+        context = {"format": "pdtemplate"}
+        newqry = createNewAdvancedQuery(basv_metadata, context)
+        self.assertEqual(newqry["selectedtemplate"], "pdtemplate")
+
+    def test_createNewQueryRoot(self):
+        """
+        Test createNewQueryRoot creates a correct qry root
+        """
+        selfmt = "pgtemplate"
+        fmt_name_dict = {"pgtemplate": "PeakGroups", "pdtemplate": "PeakData"}
+        newqry = createNewQueryRoot(fmt_name_dict, selfmt)
+        self.assertEqual(newqry["selectedtemplate"], "pgtemplate")
+
+        self.assertEqual(len(newqry["searches"]["pgtemplate"].keys()), 2)
+        self.assertEqual(newqry["searches"]["pgtemplate"]["name"], "PeakGroups")
+        self.assertEqual(len(newqry["searches"]["pgtemplate"]["tree"].keys()), 4)
+        self.assertEqual(newqry["searches"]["pgtemplate"]["tree"]["pos"], "")
+        self.assertEqual(newqry["searches"]["pgtemplate"]["tree"]["type"], "group")
+        self.assertEqual(newqry["searches"]["pgtemplate"]["tree"]["val"], "all")
+        self.assertEqual(len(newqry["searches"]["pgtemplate"]["tree"]["queryGroup"]), 0)
+
+        self.assertEqual(len(newqry["searches"]["pdtemplate"].keys()), 2)
+        self.assertEqual(newqry["searches"]["pdtemplate"]["name"], "PeakData")
+        self.assertEqual(len(newqry["searches"]["pdtemplate"]["tree"].keys()), 4)
+        self.assertEqual(newqry["searches"]["pdtemplate"]["tree"]["pos"], "")
+        self.assertEqual(newqry["searches"]["pdtemplate"]["tree"]["type"], "group")
+        self.assertEqual(newqry["searches"]["pdtemplate"]["tree"]["val"], "all")
+        self.assertEqual(len(newqry["searches"]["pdtemplate"]["tree"]["queryGroup"]), 0)
+        self.assertEqual(len(newqry["searches"].keys()), 2)
+
+    def get_basic_qry_inputs(self):
+        qs = PeakGroup.objects.all().prefetch_related("msrun__sample__animal__studies")
+        tval = str(qs[0].msrun.sample.animal.studies.all()[0].id)
+        qry = {
+            "selectedtemplate": "pgtemplate",
+            "searches": {
+                "pgtemplate": {
+                    "name": "PeakGroups",
+                    "tree": {
+                        "pos": "",
+                        "type": "group",
+                        "val": "all",
+                        "queryGroup": [
+                            {
+                                "type": "query",
+                                "pos": "",
+                                "fld": "msrun__sample__animal__studies__name",
+                                "ncmp": "iexact",
+                                "val": "obob_fasted",
+                            }
+                        ],
+                    },
+                },
+                "pdtemplate": {
+                    "name": "PeakData",
+                    "tree": {
+                        "pos": "",
+                        "type": "group",
+                        "val": "all",
+                        "queryGroup": [],
+                    },
+                },
+            },
+        }
+        return tval, qry
+
+    def test_createNewBasicQuery(self):
+        """
+        Test createNewBasicQuery creates a correct qry
+        """
+        tval, qry = self.get_basic_qry_inputs()
+        basv_metadata = BaseAdvancedSearchView()
+        mdl = "Study"
+        fld = "id"
+        cmp = "iexact"
+        val = tval
+        fmt = "pgtemplate"
+        newqry = createNewBasicQuery(basv_metadata, mdl, fld, cmp, val, fmt)
+        self.assertEqual(newqry, qry)
+
+    def test_searchFieldToDisplayField(self):
+        """
+        Test that searchFieldToDisplayField converts Study.id to Study.name
+        """
+        [tval, qry] = self.get_basic_qry_inputs()
+        qry["searches"]["pgtemplate"]["tree"]["queryGroup"][0][
+            "fld"
+        ] = "msrun__sample__animal__studies__id"
+        qry["searches"]["pgtemplate"]["tree"]["queryGroup"][0]["val"] = tval
+        basv_metadata = BaseAdvancedSearchView()
+        mdl = "Study"
+        fld = "id"
+        val = tval
+        fmt = "pgtemplate"
+        dfld, dval = searchFieldToDisplayField(basv_metadata, mdl, fld, val, fmt, qry)
+        self.assertEqual(dfld, "name")
+        self.assertEqual(dval, "obob_fasted")
+
+    def test_getJoinedRecFieldValue(self):
+        """
+        Test that getJoinedRecFieldValue gets a value from a joined table
+        """
+        basv_metadata = BaseAdvancedSearchView()
+        fmt = "pgtemplate"
+        mdl = "Animal"
+        fld = "feeding_status"
+        pf = "msrun__sample__animal__studies"
+        recs = PeakGroup.objects.all().prefetch_related(pf)
+        val = getJoinedRecFieldValue(recs, basv_metadata, fmt, mdl, fld)
+        self.assertEqual(val, "Fasted")
+
+    def test_constructAdvancedQuery_performQuery(self):
+        """
+        Test that performQuery returns a correct queryset
+        """
+        [ignoreas, qry, ignoredl] = self.get_advanced_search_inputs()
+        q_exp = constructAdvancedQuery(qry)
+        pf = [
+            "msrun__sample__tissue",
+            "msrun__sample__animal__tracer_compound",
+            "msrun__sample__animal__studies",
+        ]
+        res = performQuery(qry, q_exp, pf)
+        qs = PeakGroup.objects.filter(
+            msrun__sample__tissue__name__iexact="Brain"
+        ).prefetch_related(*pf)
+        self.assertEqual(res.count(), qs.count())
+
+    def test_isQryObjValid(self):
+        """
+        Test that isQryObjValid correctly validates an object.
+        """
+        [ignoreas, qry, ignoredl] = self.get_advanced_search_inputs()
+        basv_metadata = BaseAdvancedSearchView()
+        valid = isQryObjValid(qry, basv_metadata.getFormatNames().keys())
+        self.assertEqual(valid, True)
+        qry.pop("selectedtemplate")
+        invalid = isQryObjValid(qry, basv_metadata.getFormatNames().keys())
+        self.assertEqual(invalid, False)
+
+    def test_cv_getSearchFieldChoices(self):
+        """
+        Test getSearchFieldChoices
+        """
+        basv_metadata = BaseAdvancedSearchView()
+        fmt = "pgtemplate"
+        res = basv_metadata.getSearchFieldChoices(fmt)
+        choices = (
+            ("name", "Output Compound"),
+            ("msrun__sample__name", "Sample"),
+            ("msrun__sample__tissue__name", "Tissue"),
+            ("msrun__sample__animal__tracer_labeled_atom", "Atom"),
+            ("msrun__sample__animal__name", "Animal"),
+            ("msrun__sample__animal__feeding_status", "Feeding Status"),
+            (
+                "msrun__sample__animal__tracer_infusion_rate",
+                "Infusion Rate",
+            ),
+            (
+                "msrun__sample__animal__tracer_infusion_concentration",
+                "[Infusion]",
+            ),
+            (
+                "msrun__sample__animal__tracer_compound__name",
+                "Input Compound",
+            ),
+            ("msrun__sample__animal__studies__name", "Study"),
+        )
+        self.assertEqual(res, choices)
+
+    def test_cv_getKeyPathList(self):
+        """
+        Test getKeyPathList
+        """
+        basv_metadata = BaseAdvancedSearchView()
+        fmt = "pgtemplate"
+        mdl = "Animal"
+        res = basv_metadata.getKeyPathList(fmt, mdl)
+        kpl = ["msrun", "sample", "animal"]
+        self.assertEqual(res, kpl)
+
+    def test_cv_getPrefetches(self):
+        """
+        Test getPrefetches
+        """
+        basv_metadata = BaseAdvancedSearchView()
+        fmt = "pgtemplate"
+        res = basv_metadata.getPrefetches(fmt)
+        pfl = [
+            "msrun__sample__tissue",
+            "msrun__sample__animal__tracer_compound",
+            "msrun__sample__animal__studies",
+        ]
+        self.assertEqual(res, pfl)
+
+    def test_cv_getModels(self):
+        """
+        Test getModels
+        """
+        basv_metadata = BaseAdvancedSearchView()
+        fmt = "pgtemplate"
+        res = basv_metadata.getModels(fmt)
+        ml = ["PeakGroup", "Sample", "Tissue", "Animal", "Compound", "Study"]
+        self.assertEqual(res, ml)
+
+    def test_cv_getSearchFields(self):
+        """
+        Test getSearchFields
+        """
+        basv_metadata = BaseAdvancedSearchView()
+        fmt = "pgtemplate"
+        mdl = "Animal"
+        res = basv_metadata.getSearchFields(fmt, mdl)
+        sfd = {
+            "tracer_labeled_atom": "msrun__sample__animal__tracer_labeled_atom",
+            "id": "msrun__sample__animal__id",
+            "name": "msrun__sample__animal__name",
+            "feeding_status": "msrun__sample__animal__feeding_status",
+            "tracer_infusion_rate": "msrun__sample__animal__tracer_infusion_rate",
+            "tracer_infusion_concentration": "msrun__sample__animal__tracer_infusion_concentration",
+        }
+        self.assertEqual(res, sfd)
+
+    def test_cv_getDisplayFields(self):
+        """
+        Test getDisplayFields
+        """
+        basv_metadata = BaseAdvancedSearchView()
+        fmt = "pgtemplate"
+        mdl = "Animal"
+        res = basv_metadata.getDisplayFields(fmt, mdl)
+        # Note the difference with the 'id' field - which is not a displayed field
+        dfd = {
+            "tracer_labeled_atom": "tracer_labeled_atom",
+            "id": "name",
+            "name": "name",
+            "feeding_status": "feeding_status",
+            "tracer_infusion_rate": "tracer_infusion_rate",
+            "tracer_infusion_concentration": "tracer_infusion_concentration",
+        }
+        self.assertEqual(res, dfd)
+
+    def test_cv_getFormatNames(self):
+        """
+        Test getFormatNames
+        """
+        basv_metadata = BaseAdvancedSearchView()
+        res = basv_metadata.getFormatNames()
+        fnd = {"pgtemplate": "PeakGroups", "pdtemplate": "PeakData"}
+        self.assertEqual(res, fnd)
+
+    def test_cv_formatNameOrKeyToKey(self):
+        """
+        Test formatNameOrKeyToKey
+        """
+        basv_metadata = BaseAdvancedSearchView()
+        fmt = "PeakGroups"
+        res = basv_metadata.formatNameOrKeyToKey(fmt)
+        self.assertEqual(res, "pgtemplate")

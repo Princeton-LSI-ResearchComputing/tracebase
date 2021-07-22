@@ -1,4 +1,12 @@
+from typing import Optional
+
 from django import forms
+
+from DataRepo.compositeviews import (
+    BaseSearchView,
+    PeakDataSearchView,
+    PeakGroupsSearchView,
+)
 
 # IMPORTANT NOTE ABOUT THE pos & posprefix FIELDS IN EACH AdvSearch FORM CLASSES:
 
@@ -26,10 +34,14 @@ class AdvSearchForm(forms.Form):
     Advanced search form base class that will be used inside a formset.
     """
 
+    # This is the class used to populate posprefix and fld = set in derived class
+    composite_view_class: BaseSearchView
+
     # See important note above about the pos & posprefix fields above
+    posprefix: Optional[str] = None
     pos = forms.CharField(widget=forms.HiddenInput())
 
-    fld = None
+    fld = forms.ChoiceField(required=True, widget=forms.Select())
 
     ncmp = forms.ChoiceField(
         choices=(
@@ -74,43 +86,18 @@ class AdvSearchForm(forms.Form):
                     return False
         return True
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.posprefix = self.composite_view_class.id
+        self.fields["fld"].choices = self.composite_view_class.getSearchFieldChoices()
+
 
 class AdvSearchPeakGroupsForm(AdvSearchForm):
     """
     Advanced search form for the peakgroups output format that will be used inside a formset.
     """
 
-    posprefix = "pgtemplate"
-
-    fld = forms.ChoiceField(
-        choices=(
-            # PeakGroup Searchable Fields
-            ("name", "Output Compound"),
-            # Sample Searchable Fields
-            ("msrun__sample__name", "Sample"),
-            # Tissue Searchable Fields
-            ("msrun__sample__tissue__name", "Tissue"),
-            # Animal Searchable Fields
-            ("msrun__sample__animal__tracer_labeled_atom", "Atom"),
-            ("msrun__sample__animal__name", "Animal"),
-            ("msrun__sample__animal__feeding_status", "Feeding Status"),
-            (
-                "msrun__sample__animal__tracer_infusion_rate",
-                "Infusion Rate",
-            ),
-            (
-                "msrun__sample__animal__tracer_infusion_concentration",
-                "[Infusion]",
-            ),
-            (
-                "msrun__sample__animal__tracer_compound__name",
-                "Input Compound",
-            ),
-            # Study Searchable Fields
-            ("msrun__sample__animal__studies__name", "Study"),
-        ),
-        widget=forms.Select(),
-    )
+    composite_view_class = PeakGroupsSearchView()
 
 
 class AdvSearchPeakDataForm(AdvSearchForm):
@@ -118,27 +105,17 @@ class AdvSearchPeakDataForm(AdvSearchForm):
     Advanced search form for the peakdata output format that will be used inside a formset.
     """
 
-    # See important note above about the pos & posprefix fields above
-    posprefix = "pdtemplate"
+    composite_view_class = PeakDataSearchView()
 
-    fld = forms.ChoiceField(
-        choices=(
-            # PeakData Searchable Fields
-            ("labeled_element", "Atom"),
-            ("labeled_count", "Label Count"),
-            ("corrected_abundance", "Corrected Abundance"),
-            # PeakGroup Searchable Fields
-            ("peak_group__name", "Output Compound"),
-            # Sample Searchable Fields
-            ("peak_group__msrun__sample__name", "Sample"),
-            # Tissue Searchable Fields
-            ("peak_group__msrun__sample__tissue__name", "Tissue"),
-            # Animal Searchable Fields
-            ("peak_group__msrun__sample__animal__name", "Animal"),
-            (
-                "peak_group__msrun__sample__animal__tracer_compound__name",
-                "Input Compound",
-            ),
-        ),
-        widget=forms.Select(),
-    )
+
+class AdvSearchDownloadForm(forms.Form):
+    """
+    Advanced search download form for any advanced search data.
+    """
+
+    qryjson = forms.JSONField(widget=forms.HiddenInput())
+
+    def clean(self):
+        """This override of super.clean is so we can reconstruct the search inputs upon form_invalid in views.py"""
+        self.saved_data = self.cleaned_data
+        return self.cleaned_data

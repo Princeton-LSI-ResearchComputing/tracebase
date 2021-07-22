@@ -1,12 +1,20 @@
+import json
+from datetime import datetime
+
 from django.conf import settings
-from django.core.exceptions import FieldError
 from django.db.models import Q
 from django.forms import formset_factory
 from django.http import Http404
 from django.shortcuts import get_object_or_404, render
 from django.views.generic import DetailView, ListView
+from django.views.generic.edit import FormView
 
-from DataRepo.forms import AdvSearchPeakDataForm, AdvSearchPeakGroupsForm
+from DataRepo.compositeviews import BaseAdvancedSearchView
+from DataRepo.forms import (
+    AdvSearchDownloadForm,
+    AdvSearchPeakDataForm,
+    AdvSearchPeakGroupsForm,
+)
 from DataRepo.models import (
     Animal,
     Compound,
@@ -62,62 +70,53 @@ class StudyDetailView(DetailView):
 def search_basic(request, mdl, fld, cmp, val, fmt):
     """Generic function-based view for a basic search."""
 
-    qry = {}
-    qry["mdl"] = mdl
-    qry["fld"] = fld
-    qry["cmp"] = cmp
-    qry["val"] = val
-    qry["fmt"] = fmt
+    form_classes = {
+        "pgtemplate": formset_factory(AdvSearchPeakGroupsForm),
+        "pdtemplate": formset_factory(AdvSearchPeakDataForm),
+    }
 
-    format_template = ""
-    if fmt == "peakgroups":
-        format_template = "peakgroups_results.html"
-        fld_cmp = ""
+    # Base Advanced Search View Metadata
+    basv_metadata = BaseAdvancedSearchView()
 
-        if mdl == "Study":
-            fld_cmp = "msrun__sample__animal__studies__"
-        elif mdl == "Animal":
-            fld_cmp = "msrun__sample__animal__"
-        elif mdl == "Sample":
-            fld_cmp = "msrun__sample__"
-        elif mdl == "Tissue":
-            fld_cmp = "msrun__sample__tissue__"
-        elif mdl == "MSRun":
-            fld_cmp = "msrun__"
-        elif mdl != "PeakGroup":
-            raise Http404(
-                "Table [" + mdl + "] is not searchable in the [" + fmt + "] "
-                "results format."
-            )
+    format_template = "DataRepo/search_advanced.html"
+    fmtkey = basv_metadata.formatNameOrKeyToKey(fmt)
+    if fmtkey is None:
+        names = basv_metadata.getFormatNames()
+        raise Http404(
+            "Invalid format ["
+            + fmt
+            + "].  Must be one of: ["
+            + ",".join(names.keys())
+            + ","
+            + ",".join(names.values())
+            + "]"
+        )
 
-        fld_cmp += fld + "__" + cmp
+    qry = createNewBasicQuery(basv_metadata, mdl, fld, cmp, val, fmtkey)
+    download_form = AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
+    q_exp = constructAdvancedQuery(qry)
+    res = performQuery(qry, q_exp, basv_metadata.getPrefetches(fmtkey))
 
-        try:
-            peakgroups = PeakGroup.objects.filter(**{fld_cmp: val}).prefetch_related(
-                "msrun__sample__animal__studies"
-            )
-        except FieldError as fe:
-            raise Http404(
-                "Table ["
-                + mdl
-                + "] either does not contain a field named ["
-                + fld
-                + "] or that field is not searchable.  Note, none of "
-                "the cached property fields are searchable.  The error was: ["
-                + str(fe)
-                + "]."
-            )
-
-        res = render(request, format_template, {"qry": qry, "pgs": peakgroups})
-    else:
-        raise Http404("Results format [" + fmt + "] page not found")
-
-    return res
+    return render(
+        request,
+        format_template,
+        {
+            "forms": form_classes,
+            "qry": qry,
+            "res": res,
+            "download_form": download_form,
+            "debug": settings.DEBUG,
+        },
+    )
 
 
 # Based on:
 #   https://stackoverflow.com/questions/15497693/django-can-class-based-views-accept-two-forms-at-a-time
 class AdvancedSearchView(MultiFormsView):
+    """
+    This is the view for the advanced search page.
+    """
+
     # MultiFormView class vars
     template_name = "DataRepo/search_advanced.html"
     form_classes = {
@@ -127,81 +126,355 @@ class AdvancedSearchView(MultiFormsView):
     success_url = ""
     mixedform_selected_formtype = "fmt"
     mixedform_prefix_field = "pos"
-    # Local class vars
-    modes = ["search", "browse"]
-    default_mode = "search"
-    form_class_info = {
-        "fields": {
-            "pgtemplate": AdvSearchPeakGroupsForm.base_fields.keys(),
-            "pdtemplate": AdvSearchPeakDataForm.base_fields.keys(),
-        },
-        "prefetches": {
-            "pgtemplate": "msrun__sample__animal__studies",
-            "pdtemplate": "peak_group__msrun__sample__animal",
-        },
-    }
-    default_class = "pgtemplate"
+    basv_metadata = BaseAdvancedSearchView()
+    download_form = AdvSearchDownloadForm()
 
     # Override get_context_data to retrieve mode from the query string
     def get_context_data(self, **kwargs):
+        """
+        Retrieves page context data.
+        """
+
         context = super().get_context_data(**kwargs)
+
         # Optional url parameter should now be in self, so add it to the context
-        mode = self.request.GET.get("mode", self.default_mode)
-        format = self.request.GET.get("format", self.default_class)
-        if mode not in self.modes:
-            mode = self.default_mode
-            print("Invalid mode: ", mode)
+        mode = self.request.GET.get("mode", self.basv_metadata.default_mode)
+        format = self.request.GET.get("format", self.basv_metadata.default_format)
+        if mode not in self.basv_metadata.modes:
+            mode = self.basv_metadata.default_mode
+            # Log a warning
+            print("WARNING: Invalid mode: ", mode)
+
         context["mode"] = mode
         context["format"] = format
-        context["default_format"] = self.default_class
+        context["default_format"] = self.basv_metadata.default_format
+        self.addInitialContext(context)
+
         return context
 
     def form_invalid(self, formset):
-        qry = formsetsToDict(formset, self.form_class_info["fields"])
-        res = {}
+        """
+        Upon invalid advanced search form submission, rescues the query to add back to the context.
+        """
+
+        qry = formsetsToDict(formset, self.form_classes)
+
         return self.render_to_response(
             self.get_context_data(
-                res=res, forms=self.form_classes, qry=qry, debug=settings.DEBUG
+                res={}, forms=self.form_classes, qry=qry, debug=settings.DEBUG
             )
         )
 
     def form_valid(self, formset):
-        qry = formsetsToDict(formset, self.form_class_info["fields"])
+        """
+        Upon valid advanced search form submission, adds results (& query) to the context of the search page.
+        """
+
+        qry = formsetsToDict(formset, self.form_classes)
         res = {}
-        if isQryObjValid(qry, self.form_classes):
+        download_form = {}
+
+        if isQryObjValid(qry, self.form_classes.keys()):
+            download_form = AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
             q_exp = constructAdvancedQuery(qry)
-            if qry["selectedtemplate"] == "pgtemplate":
-                res = PeakGroup.objects.filter(q_exp).prefetch_related(
-                    self.form_class_info["prefetches"][qry["selectedtemplate"]]
-                )
-            elif qry["selectedtemplate"] == "pdtemplate":
-                res = PeakData.objects.filter(q_exp).prefetch_related(
-                    self.form_class_info["prefetches"][qry["selectedtemplate"]]
-                )
-            else:
-                # Log a warning
-                print("WARNING: Invalid selected format:", qry["selectedtemplate"])
+            performQuery(
+                qry, q_exp, self.basv_metadata.getPrefetches(qry["selectedtemplate"])
+            )
         else:
             # Log a warning
             print("WARNING: Invalid query root:", qry)
+
         return self.render_to_response(
             self.get_context_data(
-                res=res, forms=self.form_classes, qry=qry, debug=settings.DEBUG
+                res=res,
+                forms=self.form_classes,
+                qry=qry,
+                download_form=download_form,
+                debug=settings.DEBUG,
             )
         )
 
+    def addInitialContext(self, context):
+        """
+        Prepares context data for the initial page load.
+        """
 
-def isQryObjValid(qry, form_classes):
+        mode = self.basv_metadata.default_mode
+        if "mode" in context and context["mode"] == "browse":
+            mode = "browse"
+        context["mode"] = mode
+
+        if "qry" not in context or (
+            mode == "browse" and not isValidQryObjPopulated(context["qry"])
+        ):
+            if "qry" not in context:
+                qry = createNewAdvancedQuery(self.basv_metadata, context)
+            else:
+                qry = context["qry"]
+
+            if mode == "browse":
+                context["download_form"] = AdvSearchDownloadForm(
+                    initial={"qryjson": json.dumps(qry)}
+                )
+                prefetches = self.basv_metadata.getPrefetches(qry["selectedtemplate"])
+                context["res"] = getAllBrowseData(qry["selectedtemplate"], prefetches)
+
+        elif (
+            "qry" in context
+            and isValidQryObjPopulated(context["qry"])
+            and ("res" not in context or len(context["res"]) == 0)
+        ):
+            qry = context["qry"]
+            context["download_form"] = AdvSearchDownloadForm(
+                initial={"qryjson": json.dumps(qry)}
+            )
+            q_exp = constructAdvancedQuery(qry)
+            prefetches = self.basv_metadata.getPrefetches(qry["selectedtemplate"])
+            context["res"] = performQuery(qry, q_exp, prefetches)
+
+
+# Basis: https://stackoverflow.com/questions/29672477/django-export-current-queryset-to-csv-by-button-click-in-browser
+class AdvancedSearchTSVView(FormView):
     """
-    Determines if a qry object was properly constructed/populated (only at the root).
+    This is the download view for the advanced search page.
     """
+
+    form_class = AdvSearchDownloadForm
+    template_name = "DataRepo/search_advanced.tsv"
+    content_type = "application/text"
+    success_url = ""
+    basv_metadata = BaseAdvancedSearchView()
+
+    def form_invalid(self, form):
+        saved_form = form.saved_data
+        qry = {}
+        if "qryjson" in saved_form:
+            # Discovered this can cause a KeyError during testing, so...
+            qry = json.loads(saved_form["qryjson"])
+        else:
+            print("ERROR: qryjson hidden input not in saved form.")
+        now = datetime.now()
+        dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
+        res = {}
+        return self.render_to_response(
+            self.get_context_data(res=res, qry=qry, dt=dt_string, debug=settings.DEBUG)
+        )
+
+    def form_valid(self, form):
+        cform = form.cleaned_data
+        try:
+            qry = json.loads(cform["qryjson"])
+            # Apparently this causes a TypeError exception in test_views. Could not figure out why, so...
+        except TypeError:
+            qry = cform["qryjson"]
+        if not isQryObjValid(qry, self.basv_metadata.getFormatNames().keys()):
+            raise Http404("Invalid json")
+
+        now = datetime.now()
+        dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
+        filename = (
+            qry["searches"][qry["selectedtemplate"]]["name"]
+            + "_"
+            + now.strftime("%d.%m.%Y.%H.%M.%S")
+            + ".tsv"
+        )
+
+        if isValidQryObjPopulated(qry):
+            q_exp = constructAdvancedQuery(qry)
+            res = performQuery(
+                qry, q_exp, self.basv_metadata.getPrefetches(qry["selectedtemplate"])
+            )
+        else:
+            fmt = qry["selectedtemplate"]
+            res = getAllBrowseData(fmt, self.basv_metadata.getPrefetches(fmt))
+
+        response = self.render_to_response(
+            self.get_context_data(res=res, qry=qry, dt=dt_string, debug=settings.DEBUG)
+        )
+        response["Content-Disposition"] = "attachment; filename={}".format(filename)
+
+        return response
+
+
+def getAllBrowseData(format, prefetches):
+    """
+    Grabs all data without a filtering match for browsing.
+    """
+
+    if format == "pgtemplate":
+        return PeakGroup.objects.all().prefetch_related(*prefetches)
+    elif format == "pdtemplate":
+        return PeakData.objects.all().prefetch_related(*prefetches)
+    else:
+        # Log a warning
+        print("WARNING: Unknown format: " + format)
+        return {}
+
+
+def createNewAdvancedQuery(basv_metadata, context):
+    """
+    Constructs an empty qry for the advanced search interface.
+    """
+
+    if "format" in context:
+        selfmt = context["format"]
+    else:
+        selfmt = basv_metadata.default_format
+
+    fmt_name_dict = basv_metadata.getFormatNames()
+
+    qry = createNewQueryRoot(fmt_name_dict, selfmt)
+
+    return qry
+
+
+def createNewQueryRoot(fmt_name_dict, selfmt):
+    qry = {}
+    qry["selectedtemplate"] = selfmt
+    qry["searches"] = {}
+    for format, formatName in fmt_name_dict.items():
+        qry["searches"][format] = {}
+        qry["searches"][format]["name"] = formatName
+        qry["searches"][format]["tree"] = {}
+        qry["searches"][format]["tree"]["pos"] = ""
+        qry["searches"][format]["tree"]["type"] = "group"
+        qry["searches"][format]["tree"]["val"] = "all"
+        qry["searches"][format]["tree"]["queryGroup"] = []
+    return qry
+
+
+def createNewBasicQuery(basv_metadata, mdl, fld, cmp, val, fmt):
+    """
+    Constructs a new qry object for an advanced search from basic search input.
+    """
+
+    qry = createNewQueryRoot(basv_metadata.getFormatNames(), fmt)
+
+    models = basv_metadata.getModels(fmt)
+
+    if mdl not in models:
+        raise Http404(
+            "Invalid model [" + mdl + "].  Must be one of [" + ",".join(models) + "]."
+        )
+
+    sfields = basv_metadata.getSearchFields(fmt, mdl)
+
+    if fld not in sfields:
+        raise Http404(
+            "Field ["
+            + fld
+            + "] is not searchable.  Must be one of ["
+            + ",".join(sfields.keys())
+            + "]."
+        )
+
+    qry["searches"][fmt]["tree"]["queryGroup"].append({})
+    qry["searches"][fmt]["tree"]["queryGroup"][0]["type"] = "query"
+    qry["searches"][fmt]["tree"]["queryGroup"][0]["pos"] = ""
+    qry["searches"][fmt]["tree"]["queryGroup"][0]["fld"] = sfields[fld]
+    qry["searches"][fmt]["tree"]["queryGroup"][0]["ncmp"] = cmp
+    qry["searches"][fmt]["tree"]["queryGroup"][0]["val"] = val
+
+    dfld, dval = searchFieldToDisplayField(basv_metadata, mdl, fld, val, fmt, qry)
+    # Set the field path for the display field
+    qry["searches"][fmt]["tree"]["queryGroup"][0]["fld"] = sfields[dfld]
+    qry["searches"][fmt]["tree"]["queryGroup"][0]["val"] = dval
+
+    return qry
+
+
+def searchFieldToDisplayField(basv_metadata, mdl, fld, val, fmt, qry):
+    """
+    Takes a field from a basic search and converts it to a non-hidden field for an advanced search select list.
+    """
+
+    dfld = fld
+    dval = val
+    dfields = basv_metadata.getDisplayFields(fmt, mdl)
+    if dfields[fld] != fld:
+        # If fld is not a displayed field, perform a query to convert the undisplayed field query to a displayed query
+        q_exp = constructAdvancedQuery(qry)
+        recs = performQuery(qry, q_exp, basv_metadata.getPrefetches(fmt))
+        if len(recs) == 0:
+            raise Http404("Records not found for field [" + mdl + "." + fld + "].")
+        # Set the field path for the display field
+        dfld = dfields[fld]
+        dval = getJoinedRecFieldValue(recs, basv_metadata, fmt, mdl, dfields[fld])
+
+    return dfld, dval
+
+
+def getJoinedRecFieldValue(recs, basv_metadata, fmt, mdl, fld):
+    """
+    Takes a queryset object and a model.field and returns its value.
+    """
+
+    if len(recs) == 0:
+        raise Http404("Records not found.")
+
+    kpl = basv_metadata.getKeyPathList(fmt, mdl)
+    kpl.append(fld)
+    ptr = recs[0]
+    for key in kpl:
+        # If this is a many-to-many
+        if ptr.__class__.__name__ == "ManyRelatedManager":
+            tmprecs = ptr.all()
+            if len(tmprecs) != 1:
+                # Log an error
+                print(
+                    "ERROR: Handoff to "
+                    + mdl
+                    + "."
+                    + fld
+                    + " failed.  Check the AdvSearch class handoffs."
+                )
+                raise Http404(
+                    "ERROR: Unable to find a single value for ["
+                    + mdl
+                    + "."
+                    + fld
+                    + "]."
+                )
+            ptr = getattr(tmprecs[0], key)
+        else:
+            ptr = getattr(ptr, key)
+
+    return ptr
+
+
+def performQuery(qry, q_exp, prefetches):
+    """
+    Executes an advanced search query.
+    """
+
+    res = {}
+    if qry["selectedtemplate"] == "pgtemplate":
+        res = PeakGroup.objects.filter(q_exp)
+    elif qry["selectedtemplate"] == "pdtemplate":
+        res = PeakData.objects.filter(q_exp)
+    else:
+        # Log a warning
+        print("WARNING: Invalid selected format:", qry["selectedtemplate"])
+    if prefetches is not None:
+        res2 = res.prefetch_related(*prefetches)
+    else:
+        res2 = res
+
+    return res2
+
+
+def isQryObjValid(qry, form_class_list):
+    """
+    Determines if an advanced search qry object was properly constructed/populated (only at the root).
+    """
+
     if (
         type(qry) is dict
         and "selectedtemplate" in qry
         and "searches" in qry
-        and len(form_classes.keys()) == len(qry["searches"].keys())
+        and len(form_class_list) == len(qry["searches"].keys())
     ):
-        for key in form_classes:
+        for key in form_class_list:
             if (
                 key not in qry["searches"]
                 or type(qry["searches"][key]) is not dict
@@ -214,10 +487,20 @@ def isQryObjValid(qry, form_classes):
         return False
 
 
+def isValidQryObjPopulated(qry):
+    """
+    Checks whether a query object is fully populated with at least 1 search term.
+    """
+
+    selfmt = qry["selectedtemplate"]
+    return len(qry["searches"][selfmt]["tree"]["queryGroup"]) > 0
+
+
 def constructAdvancedQuery(qryRoot):
     """
     Turns a qry object into a complex Q object by calling its helper and supplying the selected format's tree.
     """
+
     return constructAdvancedQueryHelper(
         qryRoot["searches"][qryRoot["selectedtemplate"]]["tree"]
     )
@@ -227,6 +510,7 @@ def constructAdvancedQueryHelper(qry):
     """
     Recursively build a complex Q object based on a hierarchical tree defining the search terms.
     """
+
     if qry["type"] == "query":
         cmp = qry["ncmp"].replace("not_", "", 1)
         negate = cmp != qry["ncmp"]
@@ -271,10 +555,11 @@ def constructAdvancedQueryHelper(qry):
     return None
 
 
-def formsetsToDict(rawformset, form_fields_dict):
+def formsetsToDict(rawformset, form_classes):
     """
     Takes a series of forms and a list of form fields and uses the pos field to construct a hierarchical qry tree.
     """
+
     # All forms of each type are all submitted together in a single submission and are duplicated in the rawformset
     # dict.  We only need 1 copy to get all the data, so we will arbitrarily use the first one
 
@@ -282,6 +567,9 @@ def formsetsToDict(rawformset, form_fields_dict):
     # selected format)
     processed_formkey = None
     for key in rawformset.keys():
+        # We need to identify the form class that processed the form to infer the selected output format.  We do that
+        # by checking the dictionary of each form class's first form for evidence that it processed the forms, i.e. the
+        # presence of the "saved_data" class data member which is created upon processing.
         if "saved_data" in rawformset[key][0].__dict__:
             processed_formkey = key
             break
@@ -290,10 +578,14 @@ def formsetsToDict(rawformset, form_fields_dict):
     if processed_formkey is None:
         raise Http404("Unable to find selected output format.")
 
-    return formsetToDict(rawformset[processed_formkey], form_fields_dict)
+    return formsetToDict(rawformset[processed_formkey], form_classes)
 
 
-def formsetToDict(rawformset, form_fields_dict):
+def formsetToDict(rawformset, form_classes):
+    """
+    Helper for formsetsToDict that handles only the forms belonging to the selected output format.
+    """
+
     search = {"selectedtemplate": "", "searches": {}}
 
     # We take a raw form instead of cleaned_data so that form_invalid will repopulate the bad form as-is
@@ -355,7 +647,7 @@ def formsetToDict(rawformset, form_fields_dict):
 
                 # Keep track of keys encountered
                 keys_seen = {}
-                for key in form_fields_dict[format]:
+                for key in form_classes[format].form.base_fields.keys():
                     keys_seen[key] = 0
                 cmpnts = []
 
@@ -384,7 +676,7 @@ def formsetToDict(rawformset, form_fields_dict):
 
                 # Now initialize anything missing a value to an empty string
                 # This is used to correctly reconstruct the user's query upon form_invalid
-                for key in form_fields_dict[format]:
+                for key in form_classes[format].form.base_fields.keys():
                     if keys_seen[key] == 0:
                         curqry[pos][key] = ""
     return search
@@ -395,6 +687,7 @@ def pathStepToPosGroupType(spot):
     Takes a substring from a pos field defining a single tree node and returns its position and group type (if it's an
     inner node).  E.g. "0-all"
     """
+
     pos_gtype = spot.split("-")
     if len(pos_gtype) == 2:
         pos = pos_gtype[0]
@@ -411,6 +704,7 @@ def rootToFormatInfo(rootInfo):
     Takes the first substring from a pos field defining the root node and returns the format code, format name, and
     whether it is the selected format.
     """
+
     val_name_sel = rootInfo.split("-")
     sel = False
     name = ""
@@ -427,21 +721,6 @@ def rootToFormatInfo(rootInfo):
         val = val_name_sel
         name = val_name_sel
     return [val, name, sel]
-
-
-# used by templatetags/advsrch_tags.py to pre-populate search results in browse mode
-def getAllBrowseData(format):
-    if format == "pgtemplate":
-        return PeakGroup.objects.all().prefetch_related(
-            "msrun__sample__animal__studies"
-        )
-    elif format == "pdtemplate":
-        return PeakData.objects.all().prefetch_related(
-            "peak_group__msrun__sample__animal__studies"
-        )
-    else:
-        # Log a warning
-        print("WARNING: Unknown format: " + format)
 
 
 class ProtocolListView(ListView):
