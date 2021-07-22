@@ -4,6 +4,7 @@ from collections import namedtuple
 from datetime import datetime, timedelta
 
 import dateutil.parser  # type: ignore
+import pandas as pd
 from django.db import transaction
 
 from DataRepo.models import (
@@ -155,8 +156,12 @@ class SampleTableLoader:
                 protocol_input = None
                 try:
                     protocol_input = row[self.headers.ANIMAL_TREATMENT]
+                    assert protocol_input != ""
+                    assert protocol_input != pd.isnull(protocol_input)
                 except KeyError:
                     print("No animal treatment found.")
+                except AssertionError:
+                    print("No animal treatments with empty/null values.")
                 else:
                     category = Protocol.ANIMAL_TREATMENT
                     researcher = row[self.headers.SAMPLE_RESEARCHER]
