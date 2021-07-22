@@ -6,11 +6,19 @@ from DataRepo.utils import SampleTableLoader
 
 
 class Command(BaseCommand):
+
+    examples_dir = "DataRepo/example_data/"
+    example_animals = examples_dir + "obob_animals_table.tsv"
+    example_samples = examples_dir + "obob_samples_table.tsv"
+    example_yaml = examples_dir + "sample_and_animal_tables_headers.yaml"
+
     # Show this when the user types help
     help = (
-        "Loads data from a sample table into the database."
+        "Loads data from animal and sample tables into the database. "
         "Rows where 'Tissue' is empty will be skipped "
-        "(assumed to be blank samples)."
+        "(assumed to be blank samples). "
+        f"Example usage : manage.py load_animal_and_sample_tables --sample-table-filename {example_samples}"
+        f" --animal-table-filename {example_animals} --table-headers {example_yaml}"
     )
 
     def add_arguments(self, parser):
@@ -18,18 +26,18 @@ class Command(BaseCommand):
             "--sample-table-filename",
             required=True,
             type=str,
-            help="file containing the sample-specific annotations",
+            help=f"file containing the sample-specific annotations, for example : {self.example_samples}",
         )
         parser.add_argument(
             "--animal-table-filename",
             required=True,
             type=str,
-            help="file containing the animal-specific annotations",
+            help=f"file containing the animal-specific annotations, for example : {self.example_animals}",
         )
         parser.add_argument(
             "--table-headers",
             type=str,
-            help="YAML file defining headers to be used",
+            help=f"YAML file defining headers to be used, for example : {self.example_yaml}",
         )
 
     def handle(self, *args, **options):
