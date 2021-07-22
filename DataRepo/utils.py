@@ -181,7 +181,8 @@ class SampleTableLoader:
                             f"For protocol's full text, please consult {researcher}.",
                         )
                         action = "Found"
-                        feedback = f"{animal.treatment.category} protocol {animal.treatment.id} '{animal.treatment.name}'"
+                        feedback = f"{animal.treatment.category} protocol "
+                        f"{animal.treatment.id} '{animal.treatment.name}'"
                         if created:
                             action = "Created"
                             feedback += f" '{animal.treatment.description}'"
