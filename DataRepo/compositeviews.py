@@ -2,12 +2,20 @@ from typing import List
 
 
 class BaseSearchView:
+    """
+    This class holds common data/functions for search output formats.
+    """
+
     name = ""
     models = {}  # type: ignore
     prefetches: List[str] = []  # type: ignore
 
     @classmethod
     def getSearchFieldChoices(self):
+        """
+        This generates the tuple to populate the select list choices for the AdvSearchForm fld field.
+        """
+
         choices = ()
         for mkey in self.models.keys():
             mpath = self.models[mkey]["path"]
@@ -26,15 +34,31 @@ class BaseSearchView:
         return choices
 
     def getKeyPathList(self, mdl):
+        """
+        Returns a list of foreign key names for a composite view from the root table to the supplied table.
+        """
         return self.models[mdl]["path"].split("__")
 
     def getPrefetches(self):
+        """
+        Returns a list of prefetch strings for a composite view from the root table to the supplied table.  It includes
+        a unique set of "foreign key paths" that encompass all tables.
+        """
         return self.prefetches
 
     def getModels(self):
-        return self.models.keys()
+        """
+        Returns a list of all tables containing fields that are in an output format.  It does not include intermediate
+        tables in key paths that do not have visibl;e fields in the composite view.
+        """
+        return list(self.models.keys())
 
     def getSearchFields(self, mdl):
+        """
+        Returns a dict of searchable fields for a given model/table whose keys are the field names and whose values are
+        strings of the full foreign key path (delimited by dunderscores).
+        """
+
         fielddict = {}
         path = self.models[mdl]["path"]
         if path != "":
@@ -45,6 +69,14 @@ class BaseSearchView:
         return fielddict
 
     def getDisplayFields(self, mdl):
+        """
+        Returns a dict of displayed fields for a given model/table whose keys are the field names and whose values are
+        searchable field names in the same model/table that should be displayed in their stead.  The values of the
+        fields in the dict values returned must have the same relation requirements as the field in the dict key.  E.g.
+        If a non-displayed dict key field is unique, the displayed field dict value must also be unique.  I.e. A search
+        using the dict key field and the dict value field must return the same records.
+        """
+
         fielddict = {}
         for field in self.models[mdl]["fields"].keys():
             if self.models[mdl]["fields"][field]["displayed"] is False:
@@ -55,6 +87,10 @@ class BaseSearchView:
 
 
 class PeakGroupsSearchView(BaseSearchView):
+    """
+    This class encapsulates all the metadata of a single search output format, which includes multiple tables/fields.
+    """
+
     id = "pgtemplate"
     name = "PeakGroups"
     prefetches = [
@@ -95,7 +131,7 @@ class PeakGroupsSearchView(BaseSearchView):
                     "displayname": "(Internal) Sample Index",
                     "searchable": True,
                     "displayed": False,  # Used in link
-                    "handoff": "name",  # This is the field that will be loaded in the advanced search form
+                    "handoff": "name",  # This is the field that will be loaded in the search form
                 },
                 "name": {
                     "displayname": "Sample",
@@ -126,7 +162,7 @@ class PeakGroupsSearchView(BaseSearchView):
                     "displayname": "(Internal) Animal Index",
                     "searchable": True,
                     "displayed": False,  # Used in link
-                    "handoff": "name",  # This is the field that will be loaded in the advanced search form
+                    "handoff": "name",  # This is the field that will be loaded in the search form
                 },
                 "name": {
                     "displayname": "Animal",
@@ -167,7 +203,7 @@ class PeakGroupsSearchView(BaseSearchView):
                     "displayname": "(Internal) Study Index",
                     "searchable": True,
                     "displayed": False,  # Used in link
-                    "handoff": "name",  # This is the field that will be loaded in the advanced search form
+                    "handoff": "name",  # This is the field that will be loaded in the search form
                 },
                 "name": {
                     "displayname": "Study",
@@ -180,6 +216,10 @@ class PeakGroupsSearchView(BaseSearchView):
 
 
 class PeakDataSearchView(BaseSearchView):
+    """
+    This class encapsulates all the metadata of a single search output format, which includes multiple tables/fields.
+    """
+
     id = "pdtemplate"
     name = "PeakData"
     prefetches = [
@@ -209,7 +249,7 @@ class PeakDataSearchView(BaseSearchView):
                     "displayname": "(Internal) PeakGroup Index",  # Used in link
                     "searchable": True,
                     "displayed": False,
-                    "handoff": "name",  # This is the field that will be loaded in the advanced search form
+                    "handoff": "name",  # This is the field that will be loaded in the search form
                 },
                 "name": {
                     "displayname": "Output Compound",
@@ -250,7 +290,7 @@ class PeakDataSearchView(BaseSearchView):
                     "displayname": "(Internal) Animal Index",  # Used in link
                     "searchable": True,
                     "displayed": False,
-                    "handoff": "name",  # This is the field that will be loaded in the advanced search form
+                    "handoff": "name",  # This is the field that will be loaded in the search form
                 },
                 "name": {
                     "displayname": "Animal",
@@ -273,33 +313,59 @@ class PeakDataSearchView(BaseSearchView):
 
 
 class BaseAdvancedSearchView:
+    """
+    This class groups all search output formats in a single class and adds metadata that applies to all
+    search output formats as a whole.  It includes all derived classes of BasSearchView.  BaseSearchView
+    differs from this class in that BaseSearchView has an instance for each search output format class and
+    this class has a single instance for all search view output format classes.
+    """
+
     modes = ["search", "browse"]
     default_mode = "search"
     default_format = ""
     modeldata = {}  # type: ignore
 
     def __init__(self):
+        """
+        This is a constructor that adds all search output format classes to modeldata, keyed on their IDs.
+        """
+
         for cls in (PeakGroupsSearchView(), PeakDataSearchView()):
             self.modeldata[cls.id] = cls
         self.default_format = PeakGroupsSearchView.id
 
     def getPrefetches(self, format):
+        """
+        Calls getPrefetches of the supplied ID of the search output format class.
+        """
         return self.modeldata[format].getPrefetches()
 
     def getSearchFieldChoices(self, format):
+        """
+        Calls getSearchFieldChoices of the supplied ID of the search output format class.
+        """
         return self.modeldata[format].getSearchFieldChoices()
 
     def getModels(self, format):
+        """
+        Calls getModels of the supplied ID of the search output format class.
+        """
         return self.modeldata[format].getModels()
 
     def getFormatNames(self):
+        """
+        Returns a dict of search output format class IDs to their user-facing names.
+        """
+
         namedict = {}
         for fmtid in self.modeldata.keys():
             namedict[fmtid] = str(self.modeldata[fmtid].name)
         return namedict
 
     def getSearchFields(self, fmt, mdl):
-        """Takes a format key and model and returns a dict of searchable field name -> field key path"""
+        """
+        Takes a format key and model and returns a dict of searchable field name -> field key path
+        """
         return self.modeldata[fmt].getSearchFields(mdl)
 
     def getDisplayFields(self, fmt, mdl):
@@ -310,9 +376,17 @@ class BaseAdvancedSearchView:
         return self.modeldata[fmt].getDisplayFields(mdl)
 
     def getKeyPathList(self, fmt, mdl):
+        """
+        Calls getKeyPathList of the supplied ID of the search output format class.
+        """
         return self.modeldata[fmt].getKeyPathList(mdl)
 
     def formatNameOrKeyToKey(self, fmtsubmitted):
+        """
+        Takes a search output format ID or name and returns the corresponding search output format
+        ID.  This method exists to facilitate the usage of (case-insensitive) format names in search_basic URLs.
+        """
+
         fmtkey = fmtsubmitted
         names = self.getFormatNames()
         foundit = False

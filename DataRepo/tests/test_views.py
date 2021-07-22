@@ -670,7 +670,7 @@ class ViewTests(TestCase):
         fmt = "pgtemplate"
         res = basv_metadata.getModels(fmt)
         ml = ["PeakGroup", "Sample", "Tissue", "Animal", "Compound", "Study"]
-        self.assertEqual(list(res), ml)
+        self.assertEqual(res, ml)
 
     def test_cv_getSearchFields(self):
         """

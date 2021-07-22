@@ -174,7 +174,7 @@ developing, you can run these example linting commands on the command line:
     isort .
     markdownlint .
     flake8 .
-    pylint TraceBase DataRepo *.py
+    pylint -d E1101 TraceBase DataRepo *.py
     mypy .
     dotenv-linter TraceBase DataRepo
     find . \( ! -iname "*bootstrap*" -not -path '*/\.*' -iname "*.js" \) \
