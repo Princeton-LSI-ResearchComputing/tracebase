@@ -130,88 +130,98 @@ class SampleTableLoader:
                 print("Adding animal to the study...")
                 study.animals.add(animal)
 
+            """
+            created block contains all the animal attribute updates if the
+            animal was newly created
+            """
             if created:
                 print(f"Created new record: Animal:{animal}")
-            if self.headers.ANIMAL_GENOTYPE:
-                animal.genotype = row[self.headers.ANIMAL_GENOTYPE]
-            if self.headers.ANIMAL_WEIGHT:
-                animal.body_weight = row[self.headers.ANIMAL_WEIGHT]
-            if self.headers.ANIMAL_FEEDING_STATUS:
-                animal.feeding_status = row[self.headers.ANIMAL_FEEDING_STATUS]
-            if self.headers.ANIMAL_AGE:
-                animal.age = row[self.headers.ANIMAL_AGE]
-            if self.headers.ANIMAL_DIET:
-                animal.diet = row[self.headers.ANIMAL_DIET]
-            if self.headers.ANIMAL_SEX:
-                animal_sex_string = row[self.headers.ANIMAL_SEX]
-                if animal_sex_string in animal.SEX_CHOICES:
-                    animal_sex = animal_sex_string
-                else:
-                    animal_sex = value_from_choices_label(
-                        animal_sex_string, animal.SEX_CHOICES
-                    )
-                animal.sex = animal_sex
-            if self.headers.ANIMAL_TREATMENT:
-                # Animal Treatments are optional protocols
-                protocol_input = None
-                try:
-                    protocol_input = row[self.headers.ANIMAL_TREATMENT]
-                    assert protocol_input != ""
-                    assert protocol_input != pd.isnull(protocol_input)
-                except KeyError:
-                    print("No animal treatment found.")
-                except AssertionError:
-                    print("No animal treatments with empty/null values.")
-                else:
-                    category = Protocol.ANIMAL_TREATMENT
-                    researcher = row[self.headers.SAMPLE_RESEARCHER]
-                    print(
-                        f"Finding or inserting {category} protocol for '{protocol_input}'..."
-                    )
-                    animal.treatment, created = Protocol.retrieve_or_create_protocol(
-                        protocol_input,
-                        category,
-                        f"For protocol's full text, please consult {researcher}.",
-                    )
-                    action = "Found"
-                    feedback = f"{animal.treatment.category} protocol {animal.treatment.id} '{animal.treatment.name}'"
-                    if created:
-                        action = "Created"
-                        feedback += f" '{animal.treatment.description}'"
-                    print(f"{action} {feedback}")
+                if self.headers.ANIMAL_GENOTYPE:
+                    animal.genotype = row[self.headers.ANIMAL_GENOTYPE]
+                if self.headers.ANIMAL_WEIGHT:
+                    animal.body_weight = row[self.headers.ANIMAL_WEIGHT]
+                if self.headers.ANIMAL_FEEDING_STATUS:
+                    animal.feeding_status = row[self.headers.ANIMAL_FEEDING_STATUS]
+                if self.headers.ANIMAL_AGE:
+                    animal.age = row[self.headers.ANIMAL_AGE]
+                if self.headers.ANIMAL_DIET:
+                    animal.diet = row[self.headers.ANIMAL_DIET]
+                if self.headers.ANIMAL_SEX:
+                    animal_sex_string = row[self.headers.ANIMAL_SEX]
+                    if animal_sex_string in animal.SEX_CHOICES:
+                        animal_sex = animal_sex_string
+                    else:
+                        animal_sex = value_from_choices_label(
+                            animal_sex_string, animal.SEX_CHOICES
+                        )
+                    animal.sex = animal_sex
+                if self.headers.ANIMAL_TREATMENT:
+                    # Animal Treatments are optional protocols
+                    protocol_input = None
+                    try:
+                        protocol_input = row[self.headers.ANIMAL_TREATMENT]
+                        assert protocol_input != ""
+                        assert protocol_input != pd.isnull(protocol_input)
+                    except KeyError:
+                        print("No animal treatment found.")
+                    except AssertionError:
+                        print("No animal treatments with empty/null values.")
+                    else:
+                        category = Protocol.ANIMAL_TREATMENT
+                        researcher = row[self.headers.SAMPLE_RESEARCHER]
+                        print(
+                            f"Finding or inserting {category} protocol for '{protocol_input}'..."
+                        )
+                        (
+                            animal.treatment,
+                            created,
+                        ) = Protocol.retrieve_or_create_protocol(
+                            protocol_input,
+                            category,
+                            f"For protocol's full text, please consult {researcher}.",
+                        )
+                        action = "Found"
+                        feedback = f"{animal.treatment.category} protocol "
+                        f"{animal.treatment.id} '{animal.treatment.name}'"
+                        if created:
+                            action = "Created"
+                            feedback += f" '{animal.treatment.description}'"
+                        print(f"{action} {feedback}")
 
-            if self.headers.TRACER_COMPOUND_NAME:
-                try:
-                    tracer_compound_name = row[self.headers.TRACER_COMPOUND_NAME]
-                    tracer_compound = Compound.objects.get(name=tracer_compound_name)
-                    animal.tracer_compound = tracer_compound
-                except Compound.DoesNotExist as e:
-                    print(
-                        f"ERROR: {self.headers.TRACER_COMPOUND_NAME} not found: Compound:{tracer_compound_name}"
+                if self.headers.TRACER_COMPOUND_NAME:
+                    try:
+                        tracer_compound_name = row[self.headers.TRACER_COMPOUND_NAME]
+                        tracer_compound = Compound.objects.get(
+                            name=tracer_compound_name
+                        )
+                        animal.tracer_compound = tracer_compound
+                    except Compound.DoesNotExist as e:
+                        print(
+                            f"ERROR: {self.headers.TRACER_COMPOUND_NAME} not found: Compound:{tracer_compound_name}"
+                        )
+                        raise (e)
+                if self.headers.TRACER_LABELED_ELEMENT:
+                    tracer_labeled_atom = value_from_choices_label(
+                        row[self.headers.TRACER_LABELED_ELEMENT],
+                        animal.TRACER_LABELED_ELEMENT_CHOICES,
                     )
+                    animal.tracer_labeled_atom = tracer_labeled_atom
+                if self.headers.TRACER_LABELED_COUNT:
+                    animal.tracer_labeled_count = int(
+                        row[self.headers.TRACER_LABELED_COUNT]
+                    )
+                if self.headers.TRACER_INFUSION_RATE:
+                    animal.tracer_infusion_rate = row[self.headers.TRACER_INFUSION_RATE]
+                if self.headers.TRACER_INFUSION_CONCENTRATION:
+                    animal.tracer_infusion_concentration = row[
+                        self.headers.TRACER_INFUSION_CONCENTRATION
+                    ]
+                try:
+                    animal.full_clean()
+                    animal.save()
+                except Exception as e:
+                    print(f"Error saving record: Animal:{animal}")
                     raise (e)
-            if self.headers.TRACER_LABELED_ELEMENT:
-                tracer_labeled_atom = value_from_choices_label(
-                    row[self.headers.TRACER_LABELED_ELEMENT],
-                    animal.TRACER_LABELED_ELEMENT_CHOICES,
-                )
-                animal.tracer_labeled_atom = tracer_labeled_atom
-            if self.headers.TRACER_LABELED_COUNT:
-                animal.tracer_labeled_count = int(
-                    row[self.headers.TRACER_LABELED_COUNT]
-                )
-            if self.headers.TRACER_INFUSION_RATE:
-                animal.tracer_infusion_rate = row[self.headers.TRACER_INFUSION_RATE]
-            if self.headers.TRACER_INFUSION_CONCENTRATION:
-                animal.tracer_infusion_concentration = row[
-                    self.headers.TRACER_INFUSION_CONCENTRATION
-                ]
-            try:
-                animal.full_clean()
-                animal.save()
-            except Exception as e:
-                print(f"Error saving record: Animal:{animal}")
-                raise (e)
 
             # Sample
             sample_name = row[self.headers.SAMPLE_NAME]
