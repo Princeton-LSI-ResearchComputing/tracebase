@@ -1,5 +1,7 @@
 from typing import Dict, List
 
+from DataRepo.models import PeakData, PeakGroup
+
 
 class BaseSearchView:
     """
@@ -98,6 +100,7 @@ class PeakGroupsSearchView(BaseSearchView):
         "msrun__sample__animal__tracer_compound",
         "msrun__sample__animal__studies",
     ]
+    rootmodel = PeakGroup()
     models = {
         "PeakGroup": {
             "path": "",
@@ -226,6 +229,7 @@ class PeakDataSearchView(BaseSearchView):
         "peak_group__msrun__sample__tissue",
         "peak_group__msrun__sample__animal__tracer_compound",
     ]
+    rootmodel = PeakData()
     models = {
         "PeakData": {
             "path": "",

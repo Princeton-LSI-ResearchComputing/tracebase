@@ -1,6 +1,7 @@
-from typing import Optional
+from typing import Dict, Optional
 
 from django import forms
+from django.forms import formset_factory
 
 from DataRepo.compositeviews import (
     BaseSearchView,
@@ -29,7 +30,7 @@ from DataRepo.compositeviews import (
 # mixed-form environment.
 
 
-class AdvSearchForm(forms.Form):
+class BaseAdvSearchForm(forms.Form):
     """
     Advanced search form base class that will be used inside a formset.
     """
@@ -92,7 +93,7 @@ class AdvSearchForm(forms.Form):
         self.fields["fld"].choices = self.composite_view_class.getSearchFieldChoices()
 
 
-class AdvSearchPeakGroupsForm(AdvSearchForm):
+class AdvSearchPeakGroupsForm(BaseAdvSearchForm):
     """
     Advanced search form for the peakgroups output format that will be used inside a formset.
     """
@@ -100,12 +101,28 @@ class AdvSearchPeakGroupsForm(AdvSearchForm):
     composite_view_class = PeakGroupsSearchView()
 
 
-class AdvSearchPeakDataForm(AdvSearchForm):
+class AdvSearchPeakDataForm(BaseAdvSearchForm):
     """
     Advanced search form for the peakdata output format that will be used inside a formset.
     """
 
     composite_view_class = PeakDataSearchView()
+
+
+class AdvSearchForm:
+    """
+    A group of advanced search form classes
+    """
+
+    form_classes: Dict[str, BaseAdvSearchForm] = {}
+    # These form field elements are actually (currently) created in javascript.
+    format_select_list_name = "fmt"
+    hierarchy_path_field_name = "pos"
+
+    def __init__(self, *args, **kwargs):
+        for form_class in (AdvSearchPeakGroupsForm(), AdvSearchPeakDataForm()):
+            id = form_class.composite_view_class.id
+            self.form_classes[id] = formset_factory(form_class.__class__)
 
 
 class AdvSearchDownloadForm(forms.Form):

@@ -3,18 +3,13 @@ from datetime import datetime
 
 from django.conf import settings
 from django.db.models import Q
-from django.forms import formset_factory
 from django.http import Http404
 from django.shortcuts import get_object_or_404, render
 from django.views.generic import DetailView, ListView
 from django.views.generic.edit import FormView
 
 from DataRepo.compositeviews import BaseAdvancedSearchView
-from DataRepo.forms import (
-    AdvSearchDownloadForm,
-    AdvSearchPeakDataForm,
-    AdvSearchPeakGroupsForm,
-)
+from DataRepo.forms import AdvSearchDownloadForm, AdvSearchForm
 from DataRepo.models import (
     Animal,
     Compound,
@@ -70,13 +65,11 @@ class StudyDetailView(DetailView):
 def search_basic(request, mdl, fld, cmp, val, fmt):
     """Generic function-based view for a basic search."""
 
-    form_classes = {
-        "pgtemplate": formset_factory(AdvSearchPeakGroupsForm),
-        "pdtemplate": formset_factory(AdvSearchPeakDataForm),
-    }
-
     # Base Advanced Search View Metadata
     basv_metadata = BaseAdvancedSearchView()
+
+    # Base Advanced Search Form
+    basf = AdvSearchForm()
 
     format_template = "DataRepo/search_advanced.html"
     fmtkey = basv_metadata.formatNameOrKeyToKey(fmt)
@@ -95,13 +88,13 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
     qry = createNewBasicQuery(basv_metadata, mdl, fld, cmp, val, fmtkey)
     download_form = AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
     q_exp = constructAdvancedQuery(qry)
-    res = performQuery(qry, q_exp, basv_metadata.getPrefetches(fmtkey))
+    res = performQuery(q_exp, fmtkey, basv_metadata)
 
     return render(
         request,
         format_template,
         {
-            "forms": form_classes,
+            "forms": basf.form_classes,
             "qry": qry,
             "res": res,
             "download_form": download_form,
@@ -117,17 +110,21 @@ class AdvancedSearchView(MultiFormsView):
     This is the view for the advanced search page.
     """
 
+    # Base Advanced Search View
+    basv_metadata = BaseAdvancedSearchView()
+
+    # Base Advanced Search Form
+    basf = AdvSearchForm()
+
+    # Advanced search download form
+    download_form = AdvSearchDownloadForm()
+
     # MultiFormView class vars
     template_name = "DataRepo/search_advanced.html"
-    form_classes = {
-        "pgtemplate": formset_factory(AdvSearchPeakGroupsForm),
-        "pdtemplate": formset_factory(AdvSearchPeakDataForm),
-    }
+    form_classes = basf.form_classes
     success_url = ""
-    mixedform_selected_formtype = "fmt"
-    mixedform_prefix_field = "pos"
-    basv_metadata = BaseAdvancedSearchView()
-    download_form = AdvSearchDownloadForm()
+    mixedform_selected_formtype = basf.format_select_list_name
+    mixedform_prefix_field = basf.hierarchy_path_field_name
 
     # Override get_context_data to retrieve mode from the query string
     def get_context_data(self, **kwargs):
@@ -177,9 +174,7 @@ class AdvancedSearchView(MultiFormsView):
         if isQryObjValid(qry, self.form_classes.keys()):
             download_form = AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
             q_exp = constructAdvancedQuery(qry)
-            performQuery(
-                qry, q_exp, self.basv_metadata.getPrefetches(qry["selectedtemplate"])
-            )
+            performQuery(q_exp, qry["selectedtemplate"], self.basv_metadata)
         else:
             # Log a warning
             print("WARNING: Invalid query root:", qry)
@@ -216,8 +211,9 @@ class AdvancedSearchView(MultiFormsView):
                 context["download_form"] = AdvSearchDownloadForm(
                     initial={"qryjson": json.dumps(qry)}
                 )
-                prefetches = self.basv_metadata.getPrefetches(qry["selectedtemplate"])
-                context["res"] = getAllBrowseData(qry["selectedtemplate"], prefetches)
+                context["res"] = getAllBrowseData(
+                    qry["selectedtemplate"], self.basv_metadata
+                )
 
         elif (
             "qry" in context
@@ -229,8 +225,9 @@ class AdvancedSearchView(MultiFormsView):
                 initial={"qryjson": json.dumps(qry)}
             )
             q_exp = constructAdvancedQuery(qry)
-            prefetches = self.basv_metadata.getPrefetches(qry["selectedtemplate"])
-            context["res"] = performQuery(qry, q_exp, prefetches)
+            context["res"] = performQuery(
+                q_exp, qry["selectedtemplate"], self.basv_metadata
+            )
 
 
 # Basis: https://stackoverflow.com/questions/29672477/django-export-current-queryset-to-csv-by-button-click-in-browser
@@ -281,12 +278,9 @@ class AdvancedSearchTSVView(FormView):
 
         if isValidQryObjPopulated(qry):
             q_exp = constructAdvancedQuery(qry)
-            res = performQuery(
-                qry, q_exp, self.basv_metadata.getPrefetches(qry["selectedtemplate"])
-            )
+            res = performQuery(q_exp, qry["selectedtemplate"], self.basv_metadata)
         else:
-            fmt = qry["selectedtemplate"]
-            res = getAllBrowseData(fmt, self.basv_metadata.getPrefetches(fmt))
+            res = getAllBrowseData(qry["selectedtemplate"], self.basv_metadata)
 
         response = self.render_to_response(
             self.get_context_data(res=res, qry=qry, dt=dt_string, debug=settings.DEBUG)
@@ -296,19 +290,26 @@ class AdvancedSearchTSVView(FormView):
         return response
 
 
-def getAllBrowseData(format, prefetches):
+def getAllBrowseData(format, basv):
     """
     Grabs all data without a filtering match for browsing.
     """
 
-    if format == "pgtemplate":
-        return PeakGroup.objects.all().prefetch_related(*prefetches)
-    elif format == "pdtemplate":
-        return PeakData.objects.all().prefetch_related(*prefetches)
+    if format in basv.getFormatNames().keys():
+        model = basv.modeldata[format].rootmodel.__class__
+        res = model.objects.all()
     else:
         # Log a warning
         print("WARNING: Unknown format: " + format)
         return {}
+
+    prefetches = basv.getPrefetches(format)
+    if prefetches is not None:
+        res2 = res.prefetch_related(*prefetches)
+    else:
+        res2 = res
+
+    return res2
 
 
 def createNewAdvancedQuery(basv_metadata, context):
@@ -394,7 +395,7 @@ def searchFieldToDisplayField(basv_metadata, mdl, fld, val, fmt, qry):
     if dfields[fld] != fld:
         # If fld is not a displayed field, perform a query to convert the undisplayed field query to a displayed query
         q_exp = constructAdvancedQuery(qry)
-        recs = performQuery(qry, q_exp, basv_metadata.getPrefetches(fmt))
+        recs = performQuery(q_exp, fmt, basv_metadata)
         if len(recs) == 0:
             raise Http404("Records not found for field [" + mdl + "." + fld + "].")
         # Set the field path for the display field
@@ -442,19 +443,20 @@ def getJoinedRecFieldValue(recs, basv_metadata, fmt, mdl, fld):
     return ptr
 
 
-def performQuery(qry, q_exp, prefetches):
+def performQuery(q_exp, fmt, basv):
     """
     Executes an advanced search query.
     """
 
     res = {}
-    if qry["selectedtemplate"] == "pgtemplate":
-        res = PeakGroup.objects.filter(q_exp)
-    elif qry["selectedtemplate"] == "pdtemplate":
-        res = PeakData.objects.filter(q_exp)
+    if fmt in basv.getFormatNames().keys():
+        model = basv.modeldata[fmt].rootmodel.__class__
+        res = model.objects.filter(q_exp)
     else:
         # Log a warning
-        print("WARNING: Invalid selected format:", qry["selectedtemplate"])
+        print("WARNING: Invalid selected format:", fmt)
+
+    prefetches = basv.getPrefetches(fmt)
     if prefetches is not None:
         res2 = res.prefetch_related(*prefetches)
     else:

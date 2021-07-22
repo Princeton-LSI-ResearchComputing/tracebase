@@ -455,9 +455,10 @@ class ViewTests(TestCase):
         """
         Test that test_getAllBrowseData returns all data for the selected format.
         """
+        basv_metadata = BaseAdvancedSearchView()
         pf = "msrun__sample__animal__studies"
         qs = PeakGroup.objects.all().prefetch_related(pf)
-        res = getAllBrowseData("pgtemplate", [pf])
+        res = getAllBrowseData("pgtemplate", basv_metadata)
         self.assertEqual(res.count(), qs.count())
 
     def test_createNewAdvancedQuery(self):
@@ -584,12 +585,13 @@ class ViewTests(TestCase):
         """
         [ignoreas, qry, ignoredl] = self.get_advanced_search_inputs()
         q_exp = constructAdvancedQuery(qry)
+        basv_metadata = BaseAdvancedSearchView()
         pf = [
             "msrun__sample__tissue",
             "msrun__sample__animal__tracer_compound",
             "msrun__sample__animal__studies",
         ]
-        res = performQuery(qry, q_exp, pf)
+        res = performQuery(q_exp, "pgtemplate", basv_metadata)
         qs = PeakGroup.objects.filter(
             msrun__sample__tissue__name__iexact="Brain"
         ).prefetch_related(*pf)
