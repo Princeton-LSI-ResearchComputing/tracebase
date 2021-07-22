@@ -1,5 +1,5 @@
 import pandas as pd
-import yaml
+import yaml  # type: ignore
 from django.core.management import BaseCommand
 
 from DataRepo.utils import SampleTableLoader

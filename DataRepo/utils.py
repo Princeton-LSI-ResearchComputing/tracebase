@@ -5,7 +5,6 @@ from datetime import datetime, timedelta
 
 import dateutil.parser  # type: ignore
 import pandas as pd
-
 from django.db import transaction
 
 from DataRepo.models import (
