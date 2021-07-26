@@ -89,6 +89,7 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
     download_form = AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
     q_exp = constructAdvancedQuery(qry)
     res = performQuery(q_exp, fmtkey, basv_metadata)
+    root_group = createNewAdvancedQuery(basv_metadata, {})
 
     return render(
         request,
@@ -99,6 +100,7 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
             "res": res,
             "download_form": download_form,
             "debug": settings.DEBUG,
+            "root_group": root_group,
         },
     )
 
@@ -156,9 +158,15 @@ class AdvancedSearchView(MultiFormsView):
 
         qry = formsetsToDict(formset, self.form_classes)
 
+        root_group = createNewAdvancedQuery(self.basv_metadata, {})
+
         return self.render_to_response(
             self.get_context_data(
-                res={}, forms=self.form_classes, qry=qry, debug=settings.DEBUG
+                res={},
+                forms=self.form_classes,
+                qry=qry,
+                debug=settings.DEBUG,
+                root_group=root_group,
             )
         )
 
@@ -179,6 +187,8 @@ class AdvancedSearchView(MultiFormsView):
             # Log a warning
             print("WARNING: Invalid query root:", qry)
 
+        root_group = createNewAdvancedQuery(self.basv_metadata, {})
+
         return self.render_to_response(
             self.get_context_data(
                 res=res,
@@ -186,6 +196,7 @@ class AdvancedSearchView(MultiFormsView):
                 qry=qry,
                 download_form=download_form,
                 debug=settings.DEBUG,
+                root_group=root_group,
             )
         )
 
@@ -198,6 +209,8 @@ class AdvancedSearchView(MultiFormsView):
         if "mode" in context and context["mode"] == "browse":
             mode = "browse"
         context["mode"] = mode
+
+        context["root_group"] = createNewAdvancedQuery(self.basv_metadata, {})
 
         if "qry" not in context or (
             mode == "browse" and not isValidQryObjPopulated(context["qry"])

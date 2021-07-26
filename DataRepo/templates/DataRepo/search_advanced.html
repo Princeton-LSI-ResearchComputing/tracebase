@@ -17,6 +17,8 @@
     <link href="{% static 'css/hierarchical_formsets.css' %}" rel="stylesheet">
     <script src="{% static 'js/hierarchical_formsets.js' %}"></script>
 
+    {{ root_group|json_script:"root_group" }}
+
     {% if qry %}
         <!-- qry has a value when search results are being loaded.  It is used to reconstruct the search form, so the user
             can tweak their search.  This tag (json_script) turns the qry dict into a json-ized HTML object that is
@@ -28,6 +30,8 @@
 
     <script>
         document.addEventListener("DOMContentLoaded", function(){
+            init(JSON.parse(document.getElementById('root_group').textContent))
+
             {% if format and mode and mode == "browse" and not qry %}
                 rootGroup.selectedtemplate = "{{ format }}"
             {% endif %}

@@ -2,6 +2,7 @@
  *   appendSearchQuery
  *   saveSearchQueryHierarchy
  *   initializeExistingSearchQuery
+ *   init
  * These methods must be called from javascript in a template after DOM content has loaded.
  * initializeExistingSearchQuery should be conditionally called based on the existence of a previous search.
  * saveSearchQueryHierarchy should be called upon submit.
@@ -12,27 +13,28 @@ const minuspngpath = '/static/images/minus.png'
 const pluspngpath = '/static/images/plus.png'
 const pluspluspngpath = '/static/images/plusplus.png'
 
-// This is the default root of the form hierarchy
-const rootGroup = {
-  selectedtemplate: 'pgtemplate',
-  searches: {
-    pgtemplate: {
-      name: 'PeakGroups',
-      tree: {
-        type: 'group',
-        val: 'all',
-        queryGroup: []
-      }
-    },
-    pdtemplate: {
-      name: 'PeakData',
-      tree: {
-        type: 'group',
-        val: 'all',
-        queryGroup: []
-      }
-    }
-  }
+// This is the default root of the form hierarchy.
+// It should be initialized in the template.
+// Provided here for structure reference.
+// const rootGroup = {
+//   selectedtemplate: 'pgtemplate',
+//   searches: {
+//     pgtemplate: {
+//       name: 'PeakGroups',
+//       tree: {
+//         type: 'group',
+//         val: 'all',
+//         queryGroup: []
+//       }
+//     },
+//     ...
+//   }
+// }
+// Linting is disabled for the disallowance of 'no-var' because let and const don't work here
+var rootGroup = {} // eslint-disable-line no-var
+
+function init (rootGroup) { // eslint-disable-line no-unused-vars
+  globalThis.rootGroup = rootGroup
 }
 
 function appendSearchQuery (element, query) { // eslint-disable-line no-unused-vars
