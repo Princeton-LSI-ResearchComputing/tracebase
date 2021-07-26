@@ -71,7 +71,7 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
     # Base Advanced Search Form
     basf = AdvSearchForm()
 
-    format_template = "DataRepo/search_advanced.html"
+    format_template = "DataRepo/search/query.html"
     fmtkey = basv_metadata.formatNameOrKeyToKey(fmt)
     if fmtkey is None:
         names = basv_metadata.getFormatNames()
@@ -122,7 +122,7 @@ class AdvancedSearchView(MultiFormsView):
     download_form = AdvSearchDownloadForm()
 
     # MultiFormView class vars
-    template_name = "DataRepo/search_advanced.html"
+    template_name = "DataRepo/search/query.html"
     form_classes = basf.form_classes
     success_url = ""
     mixedform_selected_formtype = basf.format_select_list_name
@@ -250,7 +250,7 @@ class AdvancedSearchTSVView(FormView):
     """
 
     form_class = AdvSearchDownloadForm
-    template_name = "DataRepo/search_advanced.tsv"
+    template_name = "DataRepo/search/downloads/download.tsv"
     content_type = "application/text"
     success_url = ""
     basv_metadata = BaseAdvancedSearchView()

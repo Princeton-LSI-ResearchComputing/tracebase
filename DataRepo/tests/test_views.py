@@ -284,7 +284,7 @@ class ViewTests(TestCase):
             "/DataRepo/search_advanced/?mode=browse&format=pdtemplate"
         )
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "DataRepo/search_advanced.html")
+        self.assertTemplateUsed(response, "DataRepo/search/query.html")
         self.assertEqual(response.context["mode"], "browse")
         self.assertEqual(response.context["format"], "pdtemplate")
 
@@ -294,7 +294,7 @@ class ViewTests(TestCase):
         """
         response = self.client.get("/DataRepo/search_advanced/")
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "DataRepo/search_advanced.html")
+        self.assertTemplateUsed(response, "DataRepo/search/query.html")
         self.assertEqual(response.context["mode"], "search")
 
     def get_advanced_search_inputs(self):
@@ -366,7 +366,7 @@ class ViewTests(TestCase):
         [filledform, qry, ignore] = self.get_advanced_search_inputs()
         response = self.client.post("/DataRepo/search_advanced/", filledform)
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "DataRepo/search_advanced.html")
+        self.assertTemplateUsed(response, "DataRepo/search/query.html")
         self.assertEqual(len(response.context["res"]), qs.count())
         self.assertEqual(response.context["qry"], qry)
 
@@ -381,7 +381,7 @@ class ViewTests(TestCase):
         qry["searches"]["pgtemplate"]["tree"]["queryGroup"][0]["val"] = ""
         response = self.client.post("/DataRepo/search_advanced/", invalidform)
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "DataRepo/search_advanced.html")
+        self.assertTemplateUsed(response, "DataRepo/search/query.html")
         self.assertEqual(len(response.context["res"]), 0)
         self.assertEqual(response.context["qry"], qry)
 
@@ -432,7 +432,8 @@ class ViewTests(TestCase):
         response = self.client.post("/DataRepo/search_advanced_tsv/", dlform)
 
         # Response content settings
-        self.assertTemplateUsed(response, "DataRepo/search_advanced.tsv")
+        self.assertTemplateUsed(response, "DataRepo/search/downloads/download.tsv")
+        self.assertTemplateUsed(response, "DataRepo/search/downloads/peakgroups.tsv")
         self.assertEqual(response.get("Content-Type"), "application/text")
         self.assertEqual(response.status_code, 200)
         # Cannot use assertContains here for non-http response - it will complain about a missing status_code

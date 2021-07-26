@@ -1,0 +1,68 @@
+{% block content %}
+    <table class="table table-success table-hover table-striped table-bordered">
+        <tr>
+            <th>Sample</th>
+            <th>Tissue</th>
+            <th>Animal</th>
+            <th>Infusate</th>
+            <th>Compound</th>
+            <th>Atom:Label</th>
+            <th>Corrected Abundance</th>
+            <th>Fraction</th>
+        </tr>
+
+        {% for pd in res.all %}
+            <tr>
+                <!-- Sample -->
+                <td>
+                    <div class="nobr">
+                        <a href="{% url 'sample_detail' pd.peak_group.msrun.sample.id %}">
+                            {{ pd.peak_group.msrun.sample.name }}
+                        </a>
+                    </div>
+                </td>
+
+                <!-- Tissue -->
+                <td>
+                    {{ pd.peak_group.msrun.sample.tissue.name }}
+                </td>
+
+                <!-- Animal -->
+                <td>
+                    <a href="{% url 'animal_detail' pd.peak_group.msrun.sample.animal.id %}">
+                        {{ pd.peak_group.msrun.sample.animal.name }}
+                    </a>
+                </td>
+
+                <!-- Infusate -->
+                <td>
+                    <a href="{% url 'compound_detail' pd.peak_group.msrun.sample.animal.tracer_compound.id %}">
+                        {{ pd.peak_group.msrun.sample.animal.tracer_compound.name }}
+                    </a>
+                </td>
+
+                <!-- Compound -->
+                <td>
+                    <a href="{% url 'peakgroup_detail' pd.peak_group.id %}">
+                        {{ pd.peak_group.name }}
+                    </a>
+                </td>
+
+                <!-- Atom Label -->
+                <td>
+                    {{ pd.labeled_element }}:{{ pd.labeled_count }}
+                </td>
+
+                <!-- Corrected Abundance -->
+                <td class="text-end">
+                    <p title="{{ pd.corrected_abundance }}">{{ pd.corrected_abundance|floatformat:1 }}</p>
+                </td>
+
+                <!-- Fraction -->
+                <td class="text-end">
+                    <p title="{{ pd.fraction }}">{{ pd.fraction|floatformat:4 }}</p>
+                </td>
+            </tr>
+        {% endfor %}
+    </table>
+{% endblock %}

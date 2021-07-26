@@ -1,0 +1,38 @@
+{% load customtags %}
+{% block content %}
+    <div>
+        {% if mode == "search" %}
+            {% if qry and formsets.pg.0.val != "" and not formsets.pg.0.val.errors and formsets.pd.0.val != "" and not formsets.pd.0.val.errors %}
+                <hr>
+                <h3 style="margin: 0; display: inline-block;">{{ qry|getFormatName:qry.selectedtemplate }} Results ({{ res.count|default:"0" }})</h3>
+            {% endif %}
+        {% else %}
+            <hr>
+            <h3 style="margin: 0; display: inline-block;">{{ res.count|default:"0" }} Records</h3>
+        {% endif %}
+
+        {% if res %}
+            <div style="float: right;">
+                <form action="/DataRepo/search_advanced_tsv/" id="advanced-search-download-form" method="POST">
+                    {% csrf_token %}
+                    {{ download_form.qryjson }}
+                    <button type="submit" class="btn btn-primary mb-2" id="advanced-download-submit">Download</button>
+                    <!-- There are multiple form types, but we only need one set of form management inputs. We can get away with this because all the fields are the same. -->
+                    {{ download_form.management_form }}
+                </form>
+            </div>
+
+            {% if qry.selectedtemplate == "pgtemplate" or mode == "browse" and format == "pgtemplate" %}
+                {% include "DataRepo/search/results/peakgroups.html" %}
+            {% elif qry.selectedtemplate == "pdtemplate" or mode == "browse" and format == "pdtemplate" %}
+                {% include "DataRepo/search/results/peakdata.html" %}
+            {% endif %}
+
+        {% else %}
+            {% if mode == "browse" or qry and formsets.pg.0.val != "" and not formsets.pg.0.val.errors and formsets.pd.0.val != "" and not formsets.pd.0.val.errors %}
+                <p>No matching records found.</p>
+            {% endif %}
+        {% endif %}
+    </div>
+
+{% endblock %}
