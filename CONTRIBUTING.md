@@ -170,8 +170,9 @@ It is recommended to run superlinter (described below) routinely or
 automatically before submitting a PR, but if you want a quick check while
 developing, you can run these example linting commands on the command line:
 
-    black .
-    isort .
+    black --exclude '\.git|__pycache__|migrations|\.venv' .
+    find . \( -type f -not -path '*/\.*' -not -path "*migrations*" \
+        -not -path "*__pycache__*" \) -exec isort {} \;
     markdownlint .
     flake8 .
     pylint -d E1101 TraceBase DataRepo *.py
