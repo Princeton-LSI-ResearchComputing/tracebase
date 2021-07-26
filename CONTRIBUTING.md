@@ -171,7 +171,7 @@ automatically before submitting a PR, but if you want a quick check while
 developing, you can run these example linting commands on the command line:
 
     black --exclude '\.git|__pycache__|migrations|\.venv' .
-    isort Tracebase/*.py DataRepo/*.py DataRepo/tests/*.py *.py
+    isort --skip migrations --skip .venv .
     markdownlint .
     flake8 .
     pylint -d E1101 TraceBase DataRepo *.py
