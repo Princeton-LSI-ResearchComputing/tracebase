@@ -1,0 +1,3 @@
+#Compound	Atom	Sample	Enrichment Fraction	Tissue	Mouse	TIC	NormFraction	Infusate	Experiment	Feeding Status	Infusion Rate	[Infusate]
+{% for pg in res.all %}{% for study in pg.msrun.sample.animal.studies.all %}{{ pg.name }}	{{ pg.msrun.sample.animal.tracer_labeled_atom }}	{{ pg.msrun.sample.name }}	{{ pg.enrichment_fraction }}	{{ pg.msrun.sample.tissue.name }}	{{ pg.msrun.sample.animal.name }}	{{ pg.total_abundance }}	{{ pg.normalized_labeling }}	{{ pg.msrun.sample.animal.tracer_compound.name }}	{{ study.name }}	{{ pg.msrun.sample.animal.feeding_status }}	{{ pg.msrun.sample.animal.tracer_infusion_rate }}	{{ pg.msrun.sample.animal.tracer_infusion_concentration }}
+{% endfor %}{% endfor %}
