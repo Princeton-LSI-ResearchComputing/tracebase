@@ -426,7 +426,7 @@ class ViewTests(TestCase):
         qs = PeakGroup.objects.filter(
             msrun__sample__tissue__name__iexact="Brain"
         ).prefetch_related("msrun__sample__animal__studies")
-        expected_newline_count = qs.count() + 5
+        expected_newline_count = qs.count() + 6
         expected_tab_count = qs.count() * 12 + 12
         [filledform, qry, dlform] = self.get_advanced_search_inputs()
         response = self.client.post("/DataRepo/search_advanced_tsv/", dlform)
