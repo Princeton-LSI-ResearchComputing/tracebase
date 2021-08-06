@@ -619,6 +619,36 @@ class DataLoadingTests(TestCase):
         self.assertAlmostEqual(peak_data.fraction, 0.9952169753)
 
 
+class AnimalAndSampleLoadingTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        call_command("load_compounds", "DataRepo/example_data/obob_compounds.tsv")
+        cls.ALL_COMPOUNDS_COUNT = 32
+
+    def test_animal_and_sample_load_xlsx(self):
+
+        # initialize some sample-table-dependent counters
+        SAMPLES_COUNT = 15
+        ANIMALS_COUNT = 1
+        STUDIES_COUNT = 1
+
+        call_command(
+            "load_animals_and_samples",
+            animal_and_sample_table_filename=(
+                "DataRepo/example_data/small_dataset/"
+                "small_obob_animal_and_sample_table.xlsx"
+            ),
+            table_headers="DataRepo/example_data/sample_and_animal_tables_headers.yaml",
+        )
+
+        self.assertEqual(Sample.objects.all().count(), SAMPLES_COUNT)
+        self.assertEqual(Animal.objects.all().count(), ANIMALS_COUNT)
+        self.assertEqual(Study.objects.all().count(), STUDIES_COUNT)
+
+        study = Study.objects.get(name="Small OBOB")
+        self.assertEqual(study.animals.count(), ANIMALS_COUNT)
+
+
 class AccuCorDataLoaderTests(TestCase):
     def test_parse_parent_isotope_label(self):
         self.assertEqual(

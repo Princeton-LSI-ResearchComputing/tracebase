@@ -55,26 +55,26 @@ class SampleTableLoader:
     )
 
     DefaultSampleTableHeaders = SampleTableHeaders(
-        SAMPLE_NAME="SAMPLE_NAME",
-        SAMPLE_DATE="SAMPLE_DATE",
-        SAMPLE_RESEARCHER="SAMPLE_RESEARCHER",
-        TISSUE_NAME="TISSUE_NAME",
-        STUDY_NAME="STUDY_NAME",
-        TIME_COLLECTED="TIME_COLLECTED",
-        STUDY_DESCRIPTION="STUDY_DESCRIPTION",
-        ANIMAL_NAME="ANIMAL_NAME",
-        ANIMAL_WEIGHT="ANIMAL_WEIGHT",
-        ANIMAL_AGE="ANIMAL_AGE",
-        ANIMAL_SEX="ANIMAL_SEX",
-        ANIMAL_GENOTYPE="ANIMAL_GENOTYPE",
-        ANIMAL_FEEDING_STATUS="ANIMAL_FEEDING_STATUS",
-        ANIMAL_DIET="ANIMAL_DIET",
-        ANIMAL_TREATMENT="ANIMAL_TREATMENT",
-        TRACER_COMPOUND_NAME="TRACER_COMPOUND_NAME",
-        TRACER_LABELED_ELEMENT="TRACER_LABELED_ELEMENT",
-        TRACER_LABELED_COUNT="TRACER_LABELED_COUNT",
-        TRACER_INFUSION_RATE="TRACER_INFUSION_RATE",
-        TRACER_INFUSION_CONCENTRATION="TRACER_INFUSION_CONCENTRATION",
+        SAMPLE_NAME="Sample Name",
+        SAMPLE_DATE="Date Collected",
+        SAMPLE_RESEARCHER="Researcher Name",
+        TISSUE_NAME="Tissue",
+        TIME_COLLECTED="Collection Time",
+        STUDY_NAME="Study Name",
+        STUDY_DESCRIPTION="Study Description",
+        ANIMAL_NAME="Animal ID",
+        ANIMAL_WEIGHT="Animal Body Weight",
+        ANIMAL_AGE="Age",
+        ANIMAL_SEX="Sex",
+        ANIMAL_GENOTYPE="Animal Genotype",
+        ANIMAL_FEEDING_STATUS="Feeding Status",
+        ANIMAL_DIET="Diet",
+        ANIMAL_TREATMENT="Animal Treatment",
+        TRACER_COMPOUND_NAME="Tracer Compound",
+        TRACER_LABELED_ELEMENT="Tracer Labeled Element",
+        TRACER_LABELED_COUNT="Tracer Label Atom Count",
+        TRACER_INFUSION_RATE="Infusion Rate",
+        TRACER_INFUSION_CONCENTRATION="Tracer Concentration",
     )
 
     def __init__(self, sample_table_headers=DefaultSampleTableHeaders):
@@ -239,8 +239,12 @@ class SampleTableLoader:
                     tissue=tissue,
                 )
                 if self.headers.SAMPLE_DATE:
-                    sample_date_str = row[self.headers.SAMPLE_DATE]
-                    sample_date = dateutil.parser.parse(sample_date_str)
+                    sample_date_value = row[self.headers.SAMPLE_DATE]
+                    # Pandas may have already parsed the date
+                    try:
+                        sample_date = dateutil.parser.parse(sample_date_value)
+                    except TypeError:
+                        sample_date = sample_date_value
                     sample.date = sample_date
             try:
                 sample.full_clean()

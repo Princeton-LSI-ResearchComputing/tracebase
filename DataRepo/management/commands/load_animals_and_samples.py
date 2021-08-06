@@ -1,6 +1,8 @@
+import pathlib
+
 import pandas as pd
 import yaml  # type: ignore
-from django.core.management import BaseCommand
+from django.core.management import BaseCommand, CommandError
 
 from DataRepo.utils import SampleTableLoader
 
@@ -23,14 +25,20 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument(
+            "--animal-and-sample-table-filename",
+            required=False,
+            type=str,
+            help=f"file containing the sample-specific annotations, for example : {self.example_samples}",
+        )
+        parser.add_argument(
             "--sample-table-filename",
-            required=True,
+            required=False,
             type=str,
             help=f"file containing the sample-specific annotations, for example : {self.example_samples}",
         )
         parser.add_argument(
             "--animal-table-filename",
-            required=True,
+            required=False,
             type=str,
             help=f"file containing the animal-specific annotations, for example : {self.example_animals}",
         )
@@ -41,33 +49,83 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        print("Reading header definition")
+
+        self.stdout.write(self.style.MIGRATE_HEADING("Reading header definition..."))
         if options["table_headers"]:
             with open(options["table_headers"]) as headers_file:
                 header_def = yaml.safe_load(headers_file)
                 headers = SampleTableLoader.SampleTableHeaders(**header_def)
         else:
             headers = SampleTableLoader.DefaultSampleTableHeaders
-        print(f"{headers}")
+        self.stdout.write(yaml.dump(dict(headers._asdict()), explicit_start=True))
 
-        print("Merging animal and samples tables...")
-        samples = pd.read_table(
-            options["sample_table_filename"],
-            dtype={headers.ANIMAL_NAME: str},
-            keep_default_na=False,
+        if options["animal_and_sample_table_filename"]:
+            sample_table_filename = options["animal_and_sample_table_filename"]
+            animal_table_filename = options["animal_and_sample_table_filename"]
+        elif options["sample_table_filename"] and options["animal_table_filename"]:
+            sample_table_filename = options["sample_table_filename"]
+            animal_table_filename = options["animal_table_filename"]
+        else:
+            raise CommandError(
+                "You must specify either:\n"
+                "\t--animal-and-sample-table-filename or\n"
+                "\t --animal-table-filename and --sample-table-filename"
+            )
+
+        self.stdout.write(self.style.MIGRATE_HEADING("Loading animals..."))
+        animals = read_from_file(
+            animal_table_filename,
+            dtype={headers.ANIMAL_NAME: str, headers.ANIMAL_TREATMENT: str},
+            sheet="Animals",
         )
 
-        animals = pd.read_table(
-            options["animal_table_filename"],
-            dtype={headers.ANIMAL_NAME: str, headers.ANIMAL_TREATMENT: str},
-            keep_default_na=False,
+        self.stdout.write(self.style.MIGRATE_HEADING("Loading samples..."))
+        samples = read_from_file(
+            filename=sample_table_filename,
+            dtype={headers.ANIMAL_NAME: str},
+            sheet="Samples",
         )
 
         # merge the two files/dataframes together on Animal ID
+        self.stdout.write(
+            self.style.MIGRATE_HEADING("Merging animal and samples tables...")
+        )
         merged = pd.merge(left=samples, right=animals, on=headers.ANIMAL_NAME)
 
-        print("Loading sample table")
+        self.stdout.write(
+            self.style.MIGRATE_HEADING("Importing animals and samples...")
+        )
         loader = SampleTableLoader(sample_table_headers=headers)
         loader.load_sample_table(merged.to_dict("records"))
 
-        print("Done loading sample table")
+        self.stdout.write(self.style.SUCCESS("Done loading sample table"))
+
+
+def read_from_file(filename, dtype, format=None, sheet=0):
+    """
+    Read sample data from a file and return a pandas dataframe
+    """
+    format_choices = ("tsv", "xlsx")
+    if format is None:
+        format = pathlib.Path(filename).suffix.strip(".")
+    if format == "tsv":
+        sample_data = pd.read_table(
+            filename,
+            dtype=dtype,
+            keep_default_na=False,
+        )
+    elif format == "xlsx":
+        sample_data = pd.read_excel(
+            filename,
+            sheet_name=sheet,
+            dtype=dtype,
+            keep_default_na=False,
+            engine="openpyxl",
+        )
+    else:
+        raise CommandError(
+            'Invalid file format reading samples: "%s", expected one of %s',
+            format_choices,
+            format,
+        )
+    return sample_data
