@@ -38,6 +38,13 @@ class Command(BaseCommand):
             help="Database name or ID of the researcher",
             required=True,
         )
+        parser.add_argument(
+            "--skip-samples",
+            type=str,
+            nargs="+",
+            help="List of sample names to skip loading (useful for blank samples)",
+            required=False,
+        )
         # optional debug argument
         parser.add_argument(
             "--debug",
@@ -67,6 +74,7 @@ class Command(BaseCommand):
             protocol_input=options["protocol"],
             researcher=options["researcher"],
             peak_group_set_filename=pgs_filename,
+            skip_samples=options["skip_samples"],
             debug=options["debug"],
         )
 

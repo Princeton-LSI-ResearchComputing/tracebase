@@ -260,18 +260,28 @@ class AccuCorDataLoader:
     Load the Protocol, MsRun, PeakGroup, and PeakData tables
     """
 
-    def __init__(self, **kwargs):
-        self.accucor_original_df = kwargs.get("accucor_original_df")
-        self.accucor_corrected_df = kwargs.get("accucor_corrected_df")
-        self.date_input = kwargs.get("date").strip()
-        self.protocol_input = kwargs.get("protocol_input").strip()
-        self.researcher = kwargs.get("researcher").strip()
-        self.peak_group_set_filename_input = kwargs.get(
-            "peak_group_set_filename"
-        ).strip()
-        self.debug = False
-        if kwargs.get("debug"):
-            self.debug = kwargs.get("debug")
+    def __init__(
+        self,
+        accucor_original_df,
+        accucor_corrected_df,
+        date,
+        protocol_input,
+        researcher,
+        peak_group_set_filename,
+        skip_samples=None,
+        debug=False,
+    ):
+        self.accucor_original_df = accucor_original_df
+        self.accucor_corrected_df = accucor_corrected_df
+        self.date_input = date.strip()
+        self.protocol_input = protocol_input.strip()
+        self.researcher = researcher.strip()
+        self.peak_group_set_filename_input = peak_group_set_filename.strip()
+        if skip_samples is None:
+            self.skip_samples = []
+        else:
+            self.skip_samples = skip_samples
+        self.debug = debug
 
     def validate_data(self):
         """
@@ -326,11 +336,17 @@ class AccuCorDataLoader:
         [all columns]
         """
 
-        original_samples = list(self.accucor_original_df)[
-            original_minimum_sample_index:
+        original_samples = [
+            sample
+            for sample in list(self.accucor_original_df)[original_minimum_sample_index:]
+            if sample not in self.skip_samples
         ]
-        corrected_samples = list(self.accucor_corrected_df)[
-            corrected_minimum_sample_index:
+        corrected_samples = [
+            sample
+            for sample in list(self.accucor_corrected_df)[
+                corrected_minimum_sample_index:
+            ]
+            if sample not in self.skip_samples
         ]
         err_msg = "Samples are not equivalent in the original and corrected data"
         assert collections.Counter(original_samples) == collections.Counter(
