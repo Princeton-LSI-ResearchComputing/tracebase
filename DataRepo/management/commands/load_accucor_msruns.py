@@ -1,6 +1,8 @@
 import os.path
 
+import numpy
 import pandas as pd
+from django.core.exceptions import ValidationError
 from django.core.management import BaseCommand
 
 from DataRepo.utils import AccuCorDataLoader
@@ -49,10 +51,50 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         print("Reading accucor file: " + options["accucor_file"])
+
+        # Note, setting `mangle_dupe_cols=False` results in `Setting mangle_dupe_cols=False is not supported yet`, so
+        # the following is to catch duplicate headers
+        orig_heads = pd.read_excel(
+            options["accucor_file"],
+            nrows=1,
+            header=None,
+            sheet_name=0,
+            engine="openpyxl",
+        )
+        num_uniq_orig_heads = len(numpy.unique(orig_heads))
+        num_orig_heads = orig_heads.shape[1]
+        if num_uniq_orig_heads != num_orig_heads:
+            raise ValidationError(
+                "Column headers in Original data sheet are not unique. There are "
+                + str(num_orig_heads)
+                + " columns and "
+                + str(num_uniq_orig_heads)
+                + " unique values"
+            )
+
+        corr_heads = pd.read_excel(
+            options["accucor_file"],
+            nrows=1,
+            header=None,
+            sheet_name=1,
+            engine="openpyxl",
+        )
+        num_uniq_corr_heads = len(numpy.unique(corr_heads))
+        num_corr_heads = corr_heads.shape[1]
+        if num_uniq_corr_heads != num_corr_heads:
+            raise ValidationError(
+                "Column headers in Corrected data sheet are not unique. There are "
+                + str(num_corr_heads)
+                + " columns and "
+                + str(num_uniq_corr_heads)
+                + " unique values"
+            )
+
         # get the first 2 sheets as the original and corrected data
         original = pd.read_excel(
             options["accucor_file"], sheet_name=0, engine="openpyxl"
         ).dropna(axis=0, how="all")
+
         corrected = pd.read_excel(
             options["accucor_file"], sheet_name=1, engine="openpyxl"
         ).dropna(axis=0, how="all")

@@ -618,6 +618,30 @@ class DataLoadingTests(TestCase):
         )
         self.assertAlmostEqual(peak_data.fraction, 0.9952169753)
 
+    def test_dupe_sample_load_fails(self):
+        # Insert the dupe sample.  Samples are required to pre-exist for the accucor loader.
+        sample = Sample(
+            name="tst-dupe1",
+            researcher="Michael",
+            time_collected=timedelta(minutes=5),
+            animal=Animal.objects.all()[0],
+            tissue=Tissue.objects.all()[0],
+        )
+        sample.full_clean()
+        sample.save()
+
+        with self.assertRaises(ValidationError):
+            call_command(
+                "load_accucor_msruns",
+                protocol="Default",
+                accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_sample_dupe.xlsx",
+                date="2021-08-20",
+                researcher="Michael",
+            )
+
+    def test_dupe_samples_not_loaded(self):
+        self.assertEqual(Sample.objects.filter(name__exact="tst-dupe1").count(), 0)
+
 
 class AnimalAndSampleLoadingTests(TestCase):
     @classmethod
