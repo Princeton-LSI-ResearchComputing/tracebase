@@ -340,6 +340,8 @@ class AccuCorDataLoader:
 
         self.validate_researcher()
 
+        self.validate_compounds()
+
     def validate_researcher(self):
         researchers = get_researchers()
         nl = "\n"
@@ -433,6 +435,35 @@ class AccuCorDataLoader:
         )
         assert orig_iter == corr_iter, err_msg
         self.original_samples = original_samples
+
+    def validate_compounds(self):
+        compound_dict = {}
+        dupe_dict = {}
+
+        for index, row in self.accucor_original_df.iterrows():
+            if row["compound"] not in compound_dict:
+                compound_dict[row["compound"]] = {}
+                compound_dict[row["compound"]][row["isotopeLabel"]] = {}
+            elif row["isotopeLabel"] not in compound_dict[row["compound"]]:
+                compound_dict[row["compound"]][row["isotopeLabel"]] = {}
+            else:
+                dupe_dict[row["compound"] + " & " + row["isotopeLabel"]] = (
+                    ",".join(
+                        compound_dict[row["compound"]][row["isotopeLabel"]].values()
+                    )
+                    + ","
+                    + str(index + 1)
+                )
+            compound_dict[row["compound"]][row["isotopeLabel"]][index] = str(index + 1)
+
+        err_msg = (
+            "The following duplicate compound/isotope pairs were found in the original data: ["
+            + "; ".join(
+                list(map(lambda c: c + " on rows: " + dupe_dict[c], dupe_dict.keys()))
+            )
+            + "]"
+        )
+        assert len(dupe_dict.keys()) == 0, err_msg
 
     def corrected_file_tracer_labeled_column_regex(self):
         regex_pattern = ""

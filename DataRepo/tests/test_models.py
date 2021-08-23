@@ -770,6 +770,12 @@ class AccuCorDataLoadingTests(TestCase):
     def setUpTestData(cls):
         call_command("load_compounds", "DataRepo/example_data/obob_compounds.tsv")
 
+        #call_command(
+        #    "load_samples",
+        #    "DataRepo/example_data/small_dataset/small_obob_sample_table.tsv",
+        #    sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
+        #)
+
         call_command(
             "load_animals_and_samples",
             animal_and_sample_table_filename=(
@@ -832,3 +838,24 @@ class ParseIsotopeLabelTests(TestCase):
     def test_parse_isotope_label_none(self):
         with self.assertRaises(TypeError):
             AccuCorDataLoader.parse_isotope_label(None)
+
+    def test_dupe_compound_isotope_pairs(self):
+        fails = False
+        msg = ""
+        try:
+            call_command(
+                "load_accucor_msruns",
+                protocol="Default",
+                accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_dupes.xlsx",
+                date="2021-06-03",
+                researcher="Michael",
+            )
+        except Exception as e:
+            fails = True
+            msg = str(e)
+        self.assertTrue(fails)
+        self.assertTrue("glucose & C12 PARENT on rows: 1,2" in msg)
+        self.assertTrue("lactate & C12 PARENT on rows: 3,4" in msg)
+        # Data was not loaded
+        self.assertEqual(PeakGroup.objects.filter(name__exact="glucose").count(), 0)
+        self.assertEqual(PeakGroup.objects.filter(name__exact="lactate").count(), 0)
