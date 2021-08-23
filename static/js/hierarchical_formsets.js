@@ -32,9 +32,11 @@ const pluspluspngpath = '/static/images/plusplus.png'
 // }
 // Linting is disabled for the disallowance of 'no-var' because let and const don't work here
 var rootGroup = {} // eslint-disable-line no-var
+var formErrLabel // eslint-disable-line no-var
 
 function init (rootGroup) { // eslint-disable-line no-unused-vars
   globalThis.rootGroup = rootGroup
+  globalThis.formErrLabel = document.getElementById('formerror')
 }
 
 function appendSearchQuery (element, query) { // eslint-disable-line no-unused-vars
@@ -113,8 +115,7 @@ function appendInnerSearchQuery (element, templateId, query, copyQuery, parentGr
   } else if (('' + query.type) === 'query') {
     addSearchFieldForm(myDiv, query, copyQuery, isInit, templateId)
   } else {
-    const label = document.getElementById('formerror')
-    label.innerHTML = 'Error: Unrecognized query type: ' + query.type
+    formErrLabel.innerHTML = 'Error: Unrecognized query type: ' + query.type
   }
 
   if (!isRoot) {
@@ -180,8 +181,7 @@ function addSearchFieldForm (myDiv, query, copyQuery, isInit, templateId) {
 
     // Dismiss any previous error (that was previously presented and prevented)
     clones[i].addEventListener('click', function (event) {
-      const label = document.getElementById('formerror')
-      label.innerHTML = ''
+      formErrLabel.innerHTML = ''
     })
 
     // Keep the value of the hierarchy structure up to date when the user changes the form value
@@ -256,8 +256,7 @@ function addFormatSelectList (myDiv, query, copyQuery) {
   // Use a change as an opportunity to dismiss previous errors
   // And keep the selected value up to date in the object
   select.addEventListener('change', function (event) {
-    const label = document.getElementById('formerror')
-    label.innerHTML = ''
+    formErrLabel.innerHTML = ''
     query.selectedtemplate = event.target.value
     showOutputFormatSearch(query.selectedtemplate)
     updateBrowseLink(query.selectedtemplate)
@@ -292,8 +291,7 @@ function addGroupSelectList (myDiv, query, copyQuery, isInit) {
 
   // Use a change as an opportunity to dismiss previous errors
   select.addEventListener('change', function (event) {
-    const label = document.getElementById('formerror')
-    label.innerHTML = ''
+    formErrLabel.innerHTML = ''
     query.val = event.target.value
   })
 
@@ -314,12 +312,11 @@ function addRemoveButton (myDiv, query, parentGroup) {
   btnImg.src = minuspngpath
   rmBtn.appendChild(btnImg)
   rmBtn.addEventListener('click', function (event) {
-    const label = document.getElementById('formerror')
-    label.innerHTML = ''
+    formErrLabel.innerHTML = ''
 
     const size = parentGroup.queryGroup.length
     if (size <= 1) {
-      label.innerHTML = 'A match group must have at least 1 query.'
+      formErrLabel.innerHTML = 'A match group must have at least 1 query.'
     } else {
       event.target.parentNode.parentNode.remove()
       const index = parentGroup.queryGroup.indexOf(query)
@@ -340,8 +337,7 @@ function addQueryAndGroupAddButtons (myDiv, query, parentGroup, templateId) {
   pBtnImg.src = pluspngpath
   termbtn.appendChild(pBtnImg)
   termbtn.addEventListener('click', function (event) {
-    const label = document.getElementById('formerror')
-    label.innerHTML = ''
+    formErrLabel.innerHTML = ''
 
     const sibQuery = {
       type: 'query',
@@ -362,8 +358,7 @@ function addQueryAndGroupAddButtons (myDiv, query, parentGroup, templateId) {
   ppBtnImg.src = pluspluspngpath
   grpbtn.appendChild(ppBtnImg)
   grpbtn.addEventListener('click', function (event) {
-    const label = document.getElementById('formerror')
-    label.innerHTML = ''
+    formErrLabel.innerHTML = ''
 
     const sibGroup = {
       type: 'group',
