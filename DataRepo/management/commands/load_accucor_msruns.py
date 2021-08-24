@@ -1,6 +1,5 @@
 import os.path
 
-import numpy
 import pandas as pd
 from django.core.exceptions import ValidationError
 from django.core.management import BaseCommand
@@ -60,9 +59,10 @@ class Command(BaseCommand):
             header=None,
             sheet_name=0,
             engine="openpyxl",
-        )
-        num_uniq_orig_heads = len(numpy.unique(orig_heads))
-        num_orig_heads = orig_heads.shape[1]
+            squeeze=True,
+        ).iloc[0]
+        num_uniq_orig_heads = len(pd.unique(orig_heads))
+        num_orig_heads = len(orig_heads)
         if num_uniq_orig_heads != num_orig_heads:
             raise ValidationError(
                 "Column headers in Original data sheet are not unique. There are "
@@ -78,9 +78,10 @@ class Command(BaseCommand):
             header=None,
             sheet_name=1,
             engine="openpyxl",
-        )
-        num_uniq_corr_heads = len(numpy.unique(corr_heads))
-        num_corr_heads = corr_heads.shape[1]
+            squeeze=True,
+        ).iloc[0]
+        num_uniq_corr_heads = len(pd.unique(corr_heads))
+        num_corr_heads = len(corr_heads)
         if num_uniq_corr_heads != num_corr_heads:
             raise ValidationError(
                 "Column headers in Corrected data sheet are not unique. There are "
