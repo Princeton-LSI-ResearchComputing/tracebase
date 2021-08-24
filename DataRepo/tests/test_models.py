@@ -649,7 +649,8 @@ class AnimalAndSampleLoadingTests(TestCase):
         self.assertEqual(study.animals.count(), ANIMALS_COUNT)
 
 
-class AccuCorrDataLoadingTests(TestCase):
+@tag("test")
+class AccuCorDataLoadingTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         call_command("load_compounds", "DataRepo/example_data/obob_compounds.tsv")
@@ -682,7 +683,14 @@ class AccuCorrDataLoadingTests(TestCase):
             date="2021-04-29",
             researcher="Michael",
         )
-        # TODO Add assertion on number of peak_data
+        COMPOUNDS_COUNT = 2
+        SAMPLES_COUNT = 14
+        PEAKDATA_ROWS = 11
+        PEAKGROUP_COUNT = COMPOUNDS_COUNT * SAMPLES_COUNT
+        PEAKDATA_COUNT = PEAKDATA_ROWS * SAMPLES_COUNT
+
+        self.assertEqual(PeakGroup.objects.all().count(), PEAKGROUP_COUNT)
+        self.assertEqual(PeakData.objects.all().count(), PEAKDATA_COUNT)
 
 
 class ParseIsotopeLabelTests(TestCase):
