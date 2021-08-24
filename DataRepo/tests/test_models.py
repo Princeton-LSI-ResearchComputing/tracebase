@@ -649,7 +649,51 @@ class AnimalAndSampleLoadingTests(TestCase):
         self.assertEqual(study.animals.count(), ANIMALS_COUNT)
 
 
-class AccuCorDataLoaderTests(TestCase):
+@tag("test")
+class AccuCorDataLoadingTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        call_command("load_compounds", "DataRepo/example_data/obob_compounds.tsv")
+
+        call_command(
+            "load_animals_and_samples",
+            animal_and_sample_table_filename=(
+                "DataRepo/example_data/small_dataset/"
+                "small_obob_animal_and_sample_table.xlsx"
+            ),
+            table_headers="DataRepo/example_data/sample_and_animal_tables_headers.yaml",
+        )
+
+    def test_accucor_load_blank_fail(self):
+        with self.assertRaises(AssertionError, msg="1 samples are missing."):
+            call_command(
+                "load_accucor_msruns",
+                accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_blank_sample.xlsx",
+                protocol="Default",
+                date="2021-04-29",
+                researcher="Michael",
+            )
+
+    def test_accucor_load_blank_skip(self):
+        call_command(
+            "load_accucor_msruns",
+            accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_blank_sample.xlsx",
+            skip_samples=("blank"),
+            protocol="Default",
+            date="2021-04-29",
+            researcher="Michael",
+        )
+        COMPOUNDS_COUNT = 2
+        SAMPLES_COUNT = 14
+        PEAKDATA_ROWS = 11
+        PEAKGROUP_COUNT = COMPOUNDS_COUNT * SAMPLES_COUNT
+        PEAKDATA_COUNT = PEAKDATA_ROWS * SAMPLES_COUNT
+
+        self.assertEqual(PeakGroup.objects.all().count(), PEAKGROUP_COUNT)
+        self.assertEqual(PeakData.objects.all().count(), PEAKDATA_COUNT)
+
+
+class ParseIsotopeLabelTests(TestCase):
     def test_parse_parent_isotope_label(self):
         self.assertEqual(
             AccuCorDataLoader.parse_isotope_label("C12 PARENT"), ("C12", 0)
