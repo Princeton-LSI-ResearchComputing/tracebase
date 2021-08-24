@@ -365,11 +365,8 @@ class AccuCorDataLoader:
 
         # Make sure that the sheets have the same number of sample columns
         err_msg = (
-            "Number of samples in the original and corrected sheets differ. Original: ["
-            + orig_iter_err
-            + "] Corrected: ["
-            + corr_iter_err
-            + "]."
+            f"Number of samples in the original and corrected sheets differ. Original: [{orig_iter_err}] Corrected: "
+            "[{corr_iter_err}]."
         )
         assert orig_iter == corr_iter, err_msg
         self.original_samples = original_samples
