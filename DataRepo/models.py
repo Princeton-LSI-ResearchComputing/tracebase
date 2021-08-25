@@ -122,7 +122,6 @@ def get_researchers():
             )
         )
     unique_researchers = list(pd.unique(researchers))
-    print(f"Existing db researchers: [{','.join(unique_researchers)}]")
     return unique_researchers
 
 
