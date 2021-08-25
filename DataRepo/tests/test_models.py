@@ -786,7 +786,8 @@ class AccuCorDataLoadingTests(TestCase):
                 accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_blank_sample.xlsx",
                 protocol="Default",
                 date="2021-04-29",
-                researcher="Michael",
+                researcher="Michael Neinast",
+                new_researcher=True,
             )
 
     def test_accucor_load_blank_skip(self):
@@ -796,7 +797,8 @@ class AccuCorDataLoadingTests(TestCase):
             skip_samples=("blank"),
             protocol="Default",
             date="2021-04-29",
-            researcher="Michael",
+            researcher="Michael Neinast",
+            new_researcher=True,
         )
         COMPOUNDS_COUNT = 2
         SAMPLES_COUNT = 14
