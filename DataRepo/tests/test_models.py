@@ -343,6 +343,7 @@ class DataLoadingTests(TestCase):
             "load_samples",
             "DataRepo/example_data/serum_lactate_timecourse_treatment.tsv",
             sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
+            skip_researcher_check=True,
         )
         # from DataRepo/example_data/serum_lactate_timecourse_treatment.tsv, not counting the header
         cls.ALL_SAMPLES_COUNT += 24
@@ -355,7 +356,7 @@ class DataLoadingTests(TestCase):
             protocol="Default",
             accucor_file="DataRepo/example_data/obob_maven_6eaas_inf.xlsx",
             date="2021-04-29",
-            researcher="Michael",
+            researcher="Michael Neinast",
         )
         cls.INF_COMPOUNDS_COUNT = 7
         cls.INF_SAMPLES_COUNT = 56
@@ -366,7 +367,7 @@ class DataLoadingTests(TestCase):
             protocol="Default",
             accucor_file="DataRepo/example_data/obob_maven_6eaas_serum.xlsx",
             date="2021-04-29",
-            researcher="Michael",
+            researcher="Michael Neinast",
         )
         cls.SERUM_COMPOUNDS_COUNT = 13
         cls.SERUM_SAMPLES_COUNT = 4
@@ -641,6 +642,96 @@ class DataLoadingTests(TestCase):
 
     def test_dupe_samples_not_loaded(self):
         self.assertEqual(Sample.objects.filter(name__exact="tst-dupe1").count(), 0)
+
+    def test_adl_existing_researcher(self):
+        call_command(
+            "load_accucor_msruns",
+            protocol="Default",
+            accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_new_researcher_err.xlsx",
+            date="2021-04-30",
+            researcher="Michael Neinast",
+            new_researcher=False,
+        )
+        # Test that basically, no exception occurred
+        self.assertTrue(True)
+
+    def test_adl_new_researcher(self):
+        # Now load with a new researcher (and no --new-researcher flag)
+        msg = ""
+        try:
+            call_command(
+                "load_accucor_msruns",
+                protocol="Default",
+                accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_new_researcher_err2.xlsx",
+                date="2021-04-30",
+                researcher="Luke Skywalker",
+            )
+        except Exception as e:
+            msg = str(e)
+        # The new researcher is in the error
+        self.assertTrue("Luke Skywalker" in msg)
+        # Hidden flag is suggested
+        self.assertTrue("--new-researcher" in msg)
+        # Existing researchers are shown
+        self.assertTrue("Michael Neinast" in msg)
+
+    def test_adl_new_researcher_confirmed(self):
+        call_command(
+            "load_accucor_msruns",
+            protocol="Default",
+            accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_new_researcher_err2.xlsx",
+            date="2021-04-30",
+            researcher="Luke Skywalker",
+            new_researcher=True,
+        )
+        # Test that basically, no exception occurred
+        self.assertTrue(True)
+
+    def test_adl_existing_researcher_marked_new(self):
+        msg = ""
+        try:
+            call_command(
+                "load_accucor_msruns",
+                protocol="Default",
+                accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_new_researcher_err2.xlsx",
+                date="2021-04-30",
+                researcher="Michael Neinast",
+                new_researcher=True,
+            )
+        except Exception as e:
+            msg = str(e)
+        # The new researcher is in the error
+        self.assertTrue("Michael Neinast" in msg)
+        # Hidden flag is suggested
+        self.assertTrue("--new-researcher" in msg)
+        # Existing researchers are shown
+        self.assertTrue("Xianfeng Zhang" in msg)
+
+    def test_ls_new_researcher(self):
+        try:
+            call_command(
+                "load_samples",
+                "DataRepo/example_data/serum_lactate_timecourse_treatment_new_researcher.tsv",
+                sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
+            )
+        except Exception as e:
+            msg = str(e)
+        # The new researcher is in the error
+        self.assertTrue("Han Solo" in msg)
+        # Hidden flag is suggested
+        self.assertTrue("--skip-researcher-check" in msg)
+        # Existing researchers are shown
+        self.assertTrue("Michael Neinast" in msg)
+
+    def test_ls_new_researcher_confirmed(self):
+        call_command(
+            "load_samples",
+            "DataRepo/example_data/serum_lactate_timecourse_treatment_new_researcher.tsv",
+            sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
+            skip_researcher_check=True,
+        )
+        # Test that basically, no exception occurred
+        self.assertTrue(True)
 
 
 class AnimalAndSampleLoadingTests(TestCase):

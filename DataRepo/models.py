@@ -1,8 +1,10 @@
 import warnings
 from datetime import date, timedelta
 
+import pandas as pd
 from chempy import Substance
 from chempy.util.periodic import atomic_number
+from django.apps import apps
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
@@ -68,6 +70,60 @@ def atom_count_in_formula(formula, atom):
             # Valid atom, but not in formula
             count = 0
     return count
+
+
+def get_all_models():
+    """
+    Retrieves all models from DataRepo and returns them as a list
+    """
+    return list(apps.all_models["DataRepo"].values())
+
+
+def get_model_fields(model):
+    """
+    Retrieves all non-auto- and non-relation- fields from the supplied model and returns as a list
+    """
+    return list(
+        filter(
+            lambda x: x.get_internal_type() != "AutoField"
+            and not getattr(x, "is_relation"),
+            model._meta.get_fields(),
+        )
+    )
+
+
+def get_all_fields_named(target_field):
+    """
+    Dynamically retrieves all fields from any model with a specific name
+    """
+    models = get_all_models()
+    found_fields = []
+    for model in models:
+        fields = list(get_model_fields(model))
+        for field in fields:
+            if field.name == target_field:
+                found_fields.append([model, field])
+    return found_fields
+
+
+def get_researchers():
+    """
+    Get a list of distinct researcher names that is the union of values in researcher fields from any model
+    """
+    target_field = "researcher"
+    researchers = []
+    # Get researcher names from any model containing a "researcher" field
+    fields = get_all_fields_named(target_field)
+    for field_info in fields:
+        model = field_info[0]
+        researchers += list(
+            map(
+                lambda x: x[target_field], model.objects.values(target_field).distinct()
+            )
+        )
+    unique_researchers = list(pd.unique(researchers))
+    print(f"Existing db researchers: [{','.join(unique_researchers)}]")
+    return unique_researchers
 
 
 class Protocol(models.Model):

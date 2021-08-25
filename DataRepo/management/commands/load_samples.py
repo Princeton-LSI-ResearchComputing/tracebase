@@ -1,3 +1,4 @@
+import argparse
 from csv import DictReader
 
 import yaml  # type: ignore
@@ -21,6 +22,14 @@ class Command(BaseCommand):
             type=str,
             help="YAML file defining headers to be used",
         )
+        # optional skip researcher check argument.  Since a file can have multiple researchers, you can't check the
+        # opposite way unless we added an option that takes a list of new researchers.
+        parser.add_argument(
+            "--skip-researcher-check",
+            action="store_true",
+            default=False,
+            help=argparse.SUPPRESS,
+        )
 
     def handle(self, *args, **options):
         print("Reading header definition")
@@ -37,6 +46,7 @@ class Command(BaseCommand):
             DictReader(
                 open(options["sample_table_filename"]),
                 dialect="excel-tab",
-            )
+            ),
+            options["skip_researcher_check"],
         )
         print("Done loading sample table")

@@ -55,7 +55,8 @@ class ViewTests(TestCase):
             protocol="Default",
             accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf.xlsx",
             date="2021-06-03",
-            researcher="Michael",
+            researcher="Michael Neinast",
+            new_researcher=True,
         )
         cls.INF_COMPOUNDS_COUNT = 2
         cls.INF_SAMPLES_COUNT = 14
@@ -67,7 +68,8 @@ class ViewTests(TestCase):
             protocol="Default",
             accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_serum.xlsx",
             date="2021-06-03",
-            researcher="Michael",
+            researcher="Michael Neinast",
+            new_researcher=False,
         )
         cls.SERUM_COMPOUNDS_COUNT = 3
         cls.SERUM_SAMPLES_COUNT = 1

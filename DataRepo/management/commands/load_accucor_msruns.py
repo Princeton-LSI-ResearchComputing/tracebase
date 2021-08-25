@@ -1,3 +1,4 @@
+import argparse
 import os.path
 
 import pandas as pd
@@ -53,6 +54,13 @@ class Command(BaseCommand):
             default=False,
             # This issues a "debug-only" error, to abort the transaction
             help="Debug mode. Will not change the database.",
+        )
+        # optional new researcher argument (circumvents existing researcher check)
+        parser.add_argument(
+            "--new-researcher",
+            action="store_true",
+            default=False,
+            help=argparse.SUPPRESS,
         )
 
     def handle(self, *args, **options):
@@ -116,6 +124,7 @@ class Command(BaseCommand):
             peak_group_set_filename=pgs_filename,
             skip_samples=options["skip_samples"],
             debug=options["debug"],
+            new_researcher=options["new_researcher"],
         )
 
         loader.load_accucor_data()

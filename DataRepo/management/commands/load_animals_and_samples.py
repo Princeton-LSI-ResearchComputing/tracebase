@@ -1,3 +1,4 @@
+import argparse
 import pathlib
 
 import pandas as pd
@@ -46,6 +47,14 @@ class Command(BaseCommand):
             "--table-headers",
             type=str,
             help=f"YAML file defining headers to be used, for example : {self.example_yaml}",
+        )
+        # optional skip researcher check argument.  Since a file can have multiple researchers, you can't check the
+        # opposite way unless we added an option that takes a list of new researchers.
+        parser.add_argument(
+            "--skip-researcher-check",
+            action="store_true",
+            default=False,
+            help=argparse.SUPPRESS,
         )
 
     def handle(self, *args, **options):
@@ -96,7 +105,10 @@ class Command(BaseCommand):
             self.style.MIGRATE_HEADING("Importing animals and samples...")
         )
         loader = SampleTableLoader(sample_table_headers=headers)
-        loader.load_sample_table(merged.to_dict("records"))
+        loader.load_sample_table(
+            merged.to_dict("records"),
+            options["skip_researcher_check"],
+        )
 
         self.stdout.write(self.style.SUCCESS("Done loading sample table"))
 
