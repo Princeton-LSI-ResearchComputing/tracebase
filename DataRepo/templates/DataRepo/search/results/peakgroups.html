@@ -1,36 +1,33 @@
 {% block content %}
     <table class="table table-success table-hover table-striped table-bordered">
         <tr>
-            <th>Compound</th>
-            <th>Atom</th>
             <th>Sample</th>
-            <th>Enrichment Fraction</th>
             <th>Tissue</th>
-            <th>Mouse</th>
-            <th>TIC</th>
-            <th>NormFraction</th>
-            <th>Infusate</th>
-            <th>Experiment</th>
+            <th>Peak Group</th>
+            <th>Formula</th>
+            <th>Labeled Element</th>
+            <th>Total Abundance</th>
+            <th>Enrichment Fraction</th>
+            <th>Enrichment Abundance</th>
+            <th>Normalized Labeling</th>
+            <th>Peak Group Set Filename</th>
+            <th>Animal</th>
+            <th>Genotype</th>
+            <th>Body Weight (g)</th>
+            <th>Age</th>
+            <th>Sex</th>
+            <th>Diet</th>
             <th>Feeding Status</th>
-            <th>Infusion Rate</th>
-            <th>[Infusate]</th>
+            <th>Treatment</th>
+            <th>Tracer Compound</th>
+            <th>Tracer Infusion Rate</th>
+            <th>Tracer Infusion Concentration</th>
+            <th>Study</th>
         </tr>
 
         {% for pg in res.all %}
             {% for study in pg.msrun.sample.animal.studies.all %}
                 <tr>
-                    <!-- Compound -->
-                    <td>
-                        <a href="{% url 'peakgroup_detail' pg.id %}">
-                            {{ pg.name }}
-                        </a>
-                    </td>
-
-                    <!-- Atom -->
-                    <td>
-                        {{ pg.msrun.sample.animal.tracer_labeled_atom }}
-                    </td>
-
                     <!-- Sample -->
                     <td>
                         <div class="nobr">
@@ -40,45 +37,83 @@
                         </div>
                     </td>
 
-                    <!-- Enrichment Fraction -->
-                    <td class="text-end">
-                        <p title="{{ pg.enrichment_fraction }}">{{ pg.enrichment_fraction|floatformat:4 }}</p>
-                    </td>
-
                     <!-- Tissue -->
                     <td>
                         {{ pg.msrun.sample.tissue.name }}
                     </td>
 
-                    <!-- Mouse -->
+                    <!-- Peak Group -->
+                    <td>
+                        <a href="{% url 'peakgroup_detail' pg.id %}">
+                            {{ pg.name }}
+                        </a>
+                    </td>
+
+                    <!-- Formula -->
+                    <td>
+                        {{ pg.formula }}
+                    </td>
+
+                    <!-- Labeled Element -->
+                    <td>
+                        {{ pg.msrun.sample.animal.tracer_labeled_atom }}
+                    </td>
+
+                    <!-- Total Abundance -->
+                    <td class="text-end">
+                        <p title="{{ pg.total_abundance }}">{{ pg.total_abundance|floatformat:1 }}</p>
+                    </td>
+
+                    <!-- Enrichment Fraction -->
+                    <td class="text-end">
+                        <p title="{{ pg.enrichment_fraction }}">{{ pg.enrichment_fraction|floatformat:4 }}</p>
+                    </td>
+
+                    <!-- Enrichment Abundance -->
+                    <td class="text-end">
+                        <p title="{{ pg.enrichment_abundance }}">{{ pg.enrichment_abundance|floatformat:4 }}</p>
+                    </td>
+
+                    <!-- Normalized Labeling -->
+                    <td class="text-end">
+                        <p title="{{ pg.normalized_labeling }}">{{ pg.normalized_labeling|floatformat:4 }}</p>
+                    </td>
+
+                    <!-- Peak Group Set Filename -->
+                    <td>
+                        {{ pg.peak_group_set.filename }}
+                    </td>
+
+                    <!-- Animal -->
                     <td>
                         <a href="{% url 'animal_detail' pg.msrun.sample.animal.id %}">
                             {{ pg.msrun.sample.animal.name }}
                         </a>
                     </td>
 
-                    <!-- TIC -->
-                    <td class="text-end">
-                        <p title="{{ pg.total_abundance }}">{{ pg.total_abundance|floatformat:1 }}</p>
-                    </td>
-
-                    <!-- NormFraction -->
-                    <td class="text-end">
-                        <p title="{{ pg.normalized_labeling }}">{{ pg.normalized_labeling|floatformat:4 }}</p>
-                    </td>
-
-                    <!-- Infusate -->
+                    <!-- Genotype -->
                     <td>
-                        <a href="{% url 'compound_detail' pg.msrun.sample.animal.tracer_compound.id %}">
-                            {{ pg.msrun.sample.animal.tracer_compound.name }}
-                        </a>
+                        {{ pg.msrun.sample.animal.genotype }}
                     </td>
 
-                    <!-- Experiment -->
+                    <!-- Body Weight (g) -->
                     <td>
-                        <a href="{% url 'study_detail' study.id %}">
-                            {{ study.name }}
-                        </a>
+                        {{ pg.msrun.sample.animal.body_weight }}
+                    </td>
+
+                    <!-- Age -->
+                    <td>
+                        {{ pg.msrun.sample.animal.age }}
+                    </td>
+
+                    <!-- Sex -->
+                    <td>
+                        {{ pg.msrun.sample.animal.sex }}
+                    </td>
+
+                    <!-- Diet -->
+                    <td>
+                        {{ pg.msrun.sample.animal.diet }}
                     </td>
 
                     <!-- Feeding Status -->
@@ -86,14 +121,33 @@
                         {{ pg.msrun.sample.animal.feeding_status }}
                     </td>
 
-                    <!-- Infusion Rate -->
+                    <!-- Treatment -->
+                    <td>
+                        {{ pg.msrun.treatment.name }}
+                    </td>
+
+                    <!-- Tracer Compound -->
+                    <td>
+                        <a href="{% url 'compound_detail' pg.msrun.sample.animal.tracer_compound.id %}">
+                            {{ pg.msrun.sample.animal.tracer_compound.name }}
+                        </a>
+                    </td>
+
+                    <!-- Tracer Infusion Rate -->
                     <td class="text-end">
                         {{ pg.msrun.sample.animal.tracer_infusion_rate }}
                     </td>
 
-                    <!-- [Infusate] -->
+                    <!-- Tracer Infusion Concentration -->
                     <td class="text-end">
                         {{ pg.msrun.sample.animal.tracer_infusion_concentration }}
+                    </td>
+
+                    <!-- Study -->
+                    <td>
+                        <a href="{% url 'study_detail' study.id %}">
+                            {{ study.name }}
+                        </a>
                     </td>
                 </tr>
             {% endfor %}
