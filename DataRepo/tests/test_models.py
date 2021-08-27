@@ -343,6 +343,7 @@ class DataLoadingTests(TestCase):
             "load_samples",
             "DataRepo/example_data/serum_lactate_timecourse_treatment.tsv",
             sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
+            skip_researcher_check=True,
         )
         # from DataRepo/example_data/serum_lactate_timecourse_treatment.tsv, not counting the header
         cls.ALL_SAMPLES_COUNT += 24
@@ -355,7 +356,7 @@ class DataLoadingTests(TestCase):
             protocol="Default",
             accucor_file="DataRepo/example_data/obob_maven_6eaas_inf.xlsx",
             date="2021-04-29",
-            researcher="Michael",
+            researcher="Michael Neinast",
         )
         cls.INF_COMPOUNDS_COUNT = 7
         cls.INF_SAMPLES_COUNT = 56
@@ -366,7 +367,7 @@ class DataLoadingTests(TestCase):
             protocol="Default",
             accucor_file="DataRepo/example_data/obob_maven_6eaas_serum.xlsx",
             date="2021-04-29",
-            researcher="Michael",
+            researcher="Michael Neinast",
         )
         cls.SERUM_COMPOUNDS_COUNT = 13
         cls.SERUM_SAMPLES_COUNT = 4
@@ -642,6 +643,96 @@ class DataLoadingTests(TestCase):
     def test_dupe_samples_not_loaded(self):
         self.assertEqual(Sample.objects.filter(name__exact="tst-dupe1").count(), 0)
 
+    def test_adl_existing_researcher(self):
+        call_command(
+            "load_accucor_msruns",
+            protocol="Default",
+            accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_new_researcher_err.xlsx",
+            date="2021-04-30",
+            researcher="Michael Neinast",
+            new_researcher=False,
+        )
+        # Test that basically, no exception occurred
+        self.assertTrue(True)
+
+    def test_adl_new_researcher(self):
+        # The error string must include:
+        #   The new researcher is in the error
+        #   Hidden flag is suggested
+        #   Existing researchers are shown
+        exp_err = (
+            "Researcher [Luke Skywalker] does not exist.  Please either choose from the following researchers, or if "
+            "this is a new researcher, add --new-researcher to your command (leaving `--researcher Luke Skywalker` "
+            "as-is).  Current researchers are:\nMichael Neinast\nXianfeng Zhang"
+        )
+        with self.assertRaises(Exception, msg=exp_err):
+            # Now load with a new researcher (and no --new-researcher flag)
+            call_command(
+                "load_accucor_msruns",
+                protocol="Default",
+                accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_new_researcher_err2.xlsx",
+                date="2021-04-30",
+                researcher="Luke Skywalker",
+            )
+
+    def test_adl_new_researcher_confirmed(self):
+        call_command(
+            "load_accucor_msruns",
+            protocol="Default",
+            accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_new_researcher_err2.xlsx",
+            date="2021-04-30",
+            researcher="Luke Skywalker",
+            new_researcher=True,
+        )
+        # Test that basically, no exception occurred
+        self.assertTrue(True)
+
+    def test_adl_existing_researcher_marked_new(self):
+        # The error string must include:
+        #   The new researcher is in the error
+        #   Hidden flag is suggested
+        #   Existing researchers are shown
+        exp_err = (
+            "Researcher [Michael Neinast] exists.  --new-researcher cannot be used for existing researchers.  Current "
+            "researchers are:\nMichael Neinast\nXianfeng Zhang"
+        )
+        with self.assertRaises(Exception, msg=exp_err):
+            call_command(
+                "load_accucor_msruns",
+                protocol="Default",
+                accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_new_researcher_err2.xlsx",
+                date="2021-04-30",
+                researcher="Michael Neinast",
+                new_researcher=True,
+            )
+
+    def test_ls_new_researcher(self):
+        # The error string must include:
+        #   The new researcher is in the error
+        #   Hidden flag is suggested
+        #   Existing researchers are shown
+        exp_err = (
+            "1 researchers from the sample file: [Han Solo] out of 1 researchers do not exist in the database.  "
+            "Please ensure they are not variants of existing researchers in the database:\nMichael Neinast\nXianfeng "
+            "Zhang\nIf all researchers are valid new researchers, add --skip-researcher-check to your command."
+        )
+        with self.assertRaises(Exception, msg=exp_err):
+            call_command(
+                "load_samples",
+                "DataRepo/example_data/serum_lactate_timecourse_treatment_new_researcher.tsv",
+                sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
+            )
+
+    def test_ls_new_researcher_confirmed(self):
+        call_command(
+            "load_samples",
+            "DataRepo/example_data/serum_lactate_timecourse_treatment_new_researcher.tsv",
+            sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
+            skip_researcher_check=True,
+        )
+        # Test that basically, no exception occurred
+        self.assertTrue(True)
+
 
 class AnimalAndSampleLoadingTests(TestCase):
     @classmethod
@@ -695,7 +786,8 @@ class AccuCorDataLoadingTests(TestCase):
                 accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_blank_sample.xlsx",
                 protocol="Default",
                 date="2021-04-29",
-                researcher="Michael",
+                researcher="Michael Neinast",
+                new_researcher=True,
             )
 
     def test_accucor_load_blank_skip(self):
@@ -705,7 +797,8 @@ class AccuCorDataLoadingTests(TestCase):
             skip_samples=("blank"),
             protocol="Default",
             date="2021-04-29",
-            researcher="Michael",
+            researcher="Michael Neinast",
+            new_researcher=True,
         )
         COMPOUNDS_COUNT = 2
         SAMPLES_COUNT = 14

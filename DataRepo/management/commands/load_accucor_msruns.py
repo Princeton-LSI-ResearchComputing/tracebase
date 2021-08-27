@@ -1,3 +1,4 @@
+import argparse
 import os.path
 
 import pandas as pd
@@ -54,12 +55,19 @@ class Command(BaseCommand):
             # This issues a "debug-only" error, to abort the transaction
             help="Debug mode. Will not change the database.",
         )
+        # optional new researcher argument (circumvents existing researcher check)
+        parser.add_argument(
+            "--new-researcher",
+            action="store_true",
+            default=False,
+            help=argparse.SUPPRESS,
+        )
 
     def handle(self, *args, **options):
         print("Reading accucor file: " + options["accucor_file"])
 
-        # Note, setting `mangle_dupe_cols=False` results in `Setting mangle_dupe_cols=False is not supported yet`, so
-        # the following is to catch duplicate headers
+        # Note, setting `mangle_dupe_cols=False` would overwrite duplicates instead of raise an exception, so we're
+        # checking for duplicate headers manually here.
         orig_heads = pd.read_excel(
             options["accucor_file"],
             nrows=1,
@@ -116,6 +124,7 @@ class Command(BaseCommand):
             peak_group_set_filename=pgs_filename,
             skip_samples=options["skip_samples"],
             debug=options["debug"],
+            new_researcher=options["new_researcher"],
         )
 
         loader.load_accucor_data()

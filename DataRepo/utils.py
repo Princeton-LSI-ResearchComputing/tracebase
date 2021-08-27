@@ -20,6 +20,7 @@ from DataRepo.models import (
     Study,
     Tissue,
     TracerLabeledClass,
+    get_researchers,
     value_from_choices_label,
 )
 
@@ -82,7 +83,39 @@ class SampleTableLoader:
         self.headers = sample_table_headers
         self.blank = ""
 
-    def load_sample_table(self, data):
+    def validate_sample_table(self, data, skip_researcher_check):
+        """
+        Validates the data in the input file, unless the check is indicated to be skipped.
+        """
+        if skip_researcher_check is False:
+            self.validate_researcher(data)
+
+    def validate_researcher(self, data):
+        """
+        Gets a unique list of researchers from the file being loaded and ensures the researchers already exist in the
+        database
+        """
+        db_researchers = get_researchers()
+        if len(db_researchers) != 0:
+            researcher_header = self.headers.SAMPLE_RESEARCHER
+            input_researchers = []
+            new_researchers = []
+            for row in data:
+                if row[researcher_header] not in input_researchers:
+                    input_researchers.append(row[researcher_header])
+                    if row[researcher_header] not in db_researchers:
+                        new_researchers.append(row[researcher_header])
+            nl = "\n"
+            err_msg = (
+                f"{len(new_researchers)} researchers from the sample file: [{','.join(sorted(new_researchers))}] out "
+                f"of {len(input_researchers)} researchers do not exist in the database.  Please ensure they are not "
+                f"variants of existing researchers in the database:{nl}{nl.join(sorted(db_researchers))}{nl}If all "
+                f"researchers are valid new researchers, add --skip-researcher-check to your command."
+            )
+            assert len(new_researchers) == 0, err_msg
+
+    def load_sample_table(self, data, skip_researcher_check):
+        self.validate_sample_table(data, skip_researcher_check)
         for row in data:
 
             # Skip BLANK rows
@@ -271,6 +304,7 @@ class AccuCorDataLoader:
         peak_group_set_filename,
         skip_samples=None,
         debug=False,
+        new_researcher=False,
     ):
         self.accucor_original_df = accucor_original_df
         self.accucor_corrected_df = accucor_corrected_df
@@ -283,6 +317,7 @@ class AccuCorDataLoader:
         else:
             self.skip_samples = skip_samples
         self.debug = debug
+        self.new_researcher = new_researcher
 
     def validate_data(self):
         """
@@ -302,6 +337,25 @@ class AccuCorDataLoader:
 
         # cross validate peak_groups/compounds in database
         self.validate_peak_groups()
+
+        self.validate_researcher()
+
+    def validate_researcher(self):
+        researchers = get_researchers()
+        nl = "\n"
+        if self.new_researcher is True:
+            err_msg = (
+                f"Researcher [{self.researcher}] exists.  --new-researcher cannot be used for existing researchers.  "
+                f"Current researchers are:{nl}{nl.join(sorted(researchers))}"
+            )
+            assert self.researcher not in researchers, err_msg
+        elif len(researchers) != 0:
+            err_msg = (
+                f"Researcher [{self.researcher}] does not exist.  Please either choose from the following "
+                f"researchers, or if this is a new researcher, add --new-researcher to your command (leaving "
+                f"`--researcher {self.researcher}` as-is).  Current researchers are:{nl}{nl.join(sorted(researchers))}"
+            )
+            assert self.researcher in researchers, err_msg
 
     def validate_dataframes(self):
 
