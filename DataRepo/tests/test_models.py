@@ -844,9 +844,14 @@ class ParseIsotopeLabelTests(TestCase):
             AccuCorDataLoader.parse_isotope_label(None)
 
     def test_dupe_compound_isotope_pairs(self):
-        fails = False
-        msg = ""
-        try:
+        # Error must contain:
+        #   all compound/isotope pairs that were dupes
+        #   all line numbers the dupes were on
+        exp_err = (
+            "The following duplicate compound/isotope pairs were found in the original data: [glucose & C12 PARENT on "
+            "rows: 1,2; lactate & C12 PARENT on rows: 3,4]"
+        )
+        with self.assertRaises(Exception, msg=exp_err):
             call_command(
                 "load_accucor_msruns",
                 protocol="Default",
@@ -854,12 +859,6 @@ class ParseIsotopeLabelTests(TestCase):
                 date="2021-06-03",
                 researcher="Michael",
             )
-        except Exception as e:
-            fails = True
-            msg = str(e)
-        self.assertTrue(fails)
-        self.assertTrue("glucose & C12 PARENT on rows: 1,2" in msg)
-        self.assertTrue("lactate & C12 PARENT on rows: 3,4" in msg)
         # Data was not loaded
         self.assertEqual(PeakGroup.objects.filter(name__exact="glucose").count(), 0)
         self.assertEqual(PeakGroup.objects.filter(name__exact="lactate").count(), 0)

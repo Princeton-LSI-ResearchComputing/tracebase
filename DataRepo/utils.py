@@ -437,31 +437,23 @@ class AccuCorDataLoader:
         self.original_samples = original_samples
 
     def validate_compounds(self):
-        compound_dict = {}
         dupe_dict = {}
 
-        for index, row in self.accucor_original_df.iterrows():
-            if row["compound"] not in compound_dict:
-                compound_dict[row["compound"]] = {}
-                compound_dict[row["compound"]][row["isotopeLabel"]] = {}
-            elif row["isotopeLabel"] not in compound_dict[row["compound"]]:
-                compound_dict[row["compound"]][row["isotopeLabel"]] = {}
+        # for index, row in self.accucor_original_df.iterrows():
+        for index, row in self.accucor_original_df[
+            self.accucor_original_df.duplicated(
+                subset=["compound", "isotopeLabel"], keep=False
+            )
+        ].iterrows():
+            dupe_key = row["compound"] + " & " + row["isotopeLabel"]
+            if dupe_key not in dupe_dict:
+                dupe_dict[dupe_key] = str(index + 1)
             else:
-                dupe_dict[row["compound"] + " & " + row["isotopeLabel"]] = (
-                    ",".join(
-                        compound_dict[row["compound"]][row["isotopeLabel"]].values()
-                    )
-                    + ","
-                    + str(index + 1)
-                )
-            compound_dict[row["compound"]][row["isotopeLabel"]][index] = str(index + 1)
+                dupe_dict[dupe_key] += "," + str(index + 1)
 
         err_msg = (
-            "The following duplicate compound/isotope pairs were found in the original data: ["
-            + "; ".join(
-                list(map(lambda c: c + " on rows: " + dupe_dict[c], dupe_dict.keys()))
-            )
-            + "]"
+            f"The following duplicate compound/isotope pairs were found in the original data: ["
+            f"{'; '.join(list(map(lambda c: c + ' on rows: ' + dupe_dict[c], dupe_dict.keys())))}]"
         )
         assert len(dupe_dict.keys()) == 0, err_msg
 
