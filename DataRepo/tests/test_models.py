@@ -770,12 +770,6 @@ class AccuCorDataLoadingTests(TestCase):
     def setUpTestData(cls):
         call_command("load_compounds", "DataRepo/example_data/obob_compounds.tsv")
 
-        #call_command(
-        #    "load_samples",
-        #    "DataRepo/example_data/small_dataset/small_obob_sample_table.tsv",
-        #    sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
-        #)
-
         call_command(
             "load_animals_and_samples",
             animal_and_sample_table_filename=(
@@ -817,6 +811,16 @@ class AccuCorDataLoadingTests(TestCase):
 
 
 class ParseIsotopeLabelTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        call_command("load_compounds", "DataRepo/example_data/obob_compounds.tsv")
+
+        call_command(
+            "load_samples",
+            "DataRepo/example_data/small_dataset/small_obob_sample_table.tsv",
+            sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
+        )
+
     def test_parse_parent_isotope_label(self):
         self.assertEqual(
             AccuCorDataLoader.parse_isotope_label("C12 PARENT"), ("C12", 0)
