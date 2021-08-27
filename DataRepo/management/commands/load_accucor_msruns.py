@@ -65,11 +65,8 @@ class Command(BaseCommand):
         num_orig_heads = len(orig_heads)
         if num_uniq_orig_heads != num_orig_heads:
             raise ValidationError(
-                "Column headers in Original data sheet are not unique. There are "
-                + str(num_orig_heads)
-                + " columns and "
-                + str(num_uniq_orig_heads)
-                + " unique values"
+                f"Column headers in Original data sheet are not unique. There are {num_orig_heads} columns and "
+                f"{num_uniq_orig_heads} unique values"
             )
 
         corr_heads = pd.read_excel(

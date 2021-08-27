@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 import dateutil.parser  # type: ignore
 import pandas as pd
 from django.db import transaction
+from pandas.errors import EmptyDataError
 
 from DataRepo.models import (
     Animal,
@@ -103,17 +104,9 @@ class SampleTableLoader:
                 raise (e)
 
             # Study
-            try:
-                study, created = Study.objects.get_or_create(
-                    name=row[self.headers.STUDY_NAME]
-                )
-            except KeyError as ke:
-                print(
-                    f"The column {self.headers.STUDY_NAME} was not found in the load file.  Columns supplied are: ["
-                    + ",".join(row.keys())
-                    + "]."
-                )
-                raise (ke)
+            study, created = Study.objects.get_or_create(
+                name=row[self.headers.STUDY_NAME]
+            )
             if created:
                 if self.headers.STUDY_DESCRIPTION:
                     study.description = row[self.headers.STUDY_DESCRIPTION]
@@ -346,7 +339,7 @@ class AccuCorDataLoader:
         orig_iter_err = ""
         for k, v in orig_iter.items():
             if k.startswith("Unnamed: "):
-                raise Exception(
+                raise EmptyDataError(
                     "Sample columns missing headers found in the Original data sheet. You have "
                     + str(len(self.accucor_original_df.columns))
                     + " columns. Be sure to delete any unused columns."
