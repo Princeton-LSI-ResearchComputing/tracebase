@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 import dateutil.parser  # type: ignore
 import pandas as pd
 from django.db import transaction
+from pandas.errors import EmptyDataError
 
 from DataRepo.models import (
     Animal,
@@ -348,10 +349,35 @@ class AccuCorDataLoader:
             ]
             if sample not in self.skip_samples
         ]
-        err_msg = "Samples are not equivalent in the original and corrected data"
-        assert collections.Counter(original_samples) == collections.Counter(
-            corrected_samples
-        ), err_msg
+
+        # Make sure all sample columns have names
+        orig_iter = collections.Counter(original_samples)
+        orig_iter_err = ""
+        for k, v in orig_iter.items():
+            if k.startswith("Unnamed: "):
+                raise EmptyDataError(
+                    "Sample columns missing headers found in the Original data sheet. You have "
+                    + str(len(self.accucor_original_df.columns))
+                    + " columns. Be sure to delete any unused columns."
+                )
+            orig_iter_err += '"' + str(k) + '":' + str(v) + '",'
+        corr_iter = collections.Counter(corrected_samples)
+        corr_iter_err = ""
+        for k, v in corr_iter.items():
+            if k.startswith("Unnamed: "):
+                raise Exception(
+                    "Sample columns missing headers found in the Corrected data sheet. You have "
+                    + str(len(self.accucor_corrected_df.columns))
+                    + " columns."
+                )
+            corr_iter_err += '"' + str(k) + '":"' + str(v) + '",'
+
+        # Make sure that the sheets have the same number of sample columns
+        err_msg = (
+            f"Number of samples in the original and corrected sheets differ. Original: [{orig_iter_err}] Corrected: "
+            "[{corr_iter_err}]."
+        )
+        assert orig_iter == corr_iter, err_msg
         self.original_samples = original_samples
 
     def corrected_file_tracer_labeled_column_regex(self):
@@ -402,7 +428,9 @@ class AccuCorDataLoader:
             except Sample.DoesNotExist:
                 missing_samples += 1
                 print(f"Could not find sample {original_sample_name} in the database.")
-        assert missing_samples == 0, f"{missing_samples} samples are missing."
+        assert (
+            missing_samples == 0
+        ), f"{missing_samples} samples are missing. See noted sample names above."
 
     def get_first_sample_column_index(self, df):
 
