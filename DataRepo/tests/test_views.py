@@ -427,7 +427,8 @@ class ViewTests(TestCase):
             msrun__sample__tissue__name__iexact="Brain"
         ).prefetch_related("msrun__sample__animal__studies")
         expected_newline_count = qs.count() + 6
-        expected_tab_count = qs.count() * 12 + 12
+        # This query returns 2 rows and the tsv has 21 tabs. We add 21 more for the header
+        expected_tab_count = qs.count() * 21 + 21
         [filledform, qry, dlform] = self.get_advanced_search_inputs()
         response = self.client.post("/DataRepo/search_advanced_tsv/", dlform)
 
@@ -448,7 +449,8 @@ class ViewTests(TestCase):
         self.assertContains(response, "# Download Time: ", count=1)
         self.assertContains(response, "# Advanced Search Query: {", count=1)
         self.assertContains(response, "'ncmp': 'iexact', 'val': 'Brain'", count=1)
-        self.assertContains(response, "#Compound", count=1)
+        # Header row starts with the sample column
+        self.assertContains(response, "#Sample", count=1)
         # qry sent to the downloaded file header is correct
         self.assertEqual(response.context["qry"], qry)
 
@@ -618,25 +620,25 @@ class ViewTests(TestCase):
         fmt = "pgtemplate"
         res = basv_metadata.getSearchFieldChoices(fmt)
         choices = (
-            ("name", "Output Compound"),
-            ("msrun__sample__name", "Sample"),
-            ("msrun__sample__tissue__name", "Tissue"),
-            ("msrun__sample__animal__tracer_labeled_atom", "Atom"),
+            ("msrun__sample__animal__age", "Age"),
             ("msrun__sample__animal__name", "Animal"),
+            ("msrun__sample__animal__body_weight", "Body Weight (g)"),
+            ("msrun__sample__animal__diet", "Diet"),
             ("msrun__sample__animal__feeding_status", "Feeding Status"),
-            (
-                "msrun__sample__animal__tracer_infusion_rate",
-                "Infusion Rate",
-            ),
+            ("name", "Peak Group"),
+            ("peak_group_set__filename", "Peak Group Set Filename"),
+            ("msrun__sample__name", "Sample"),
+            ("msrun__sample__animal__sex", "Sex"),
+            ("msrun__sample__animal__studies__name", "Study"),
+            ("msrun__sample__tissue__name", "Tissue"),
+            ("msrun__sample__animal__tracer_compound__name", "Tracer Compound"),
             (
                 "msrun__sample__animal__tracer_infusion_concentration",
-                "[Infusion]",
+                "Tracer Infusion Concentration",
             ),
-            (
-                "msrun__sample__animal__tracer_compound__name",
-                "Input Compound",
-            ),
-            ("msrun__sample__animal__studies__name", "Study"),
+            ("msrun__sample__animal__tracer_infusion_rate", "Tracer Infusion Rate"),
+            ("msrun__sample__animal__tracer_labeled_atom", "Tracer Labeled Element"),
+            ("msrun__sample__animal__treatment__name", "Treatment"),
         )
         self.assertEqual(res, choices)
 
@@ -659,7 +661,9 @@ class ViewTests(TestCase):
         fmt = "pgtemplate"
         res = basv_metadata.getPrefetches(fmt)
         pfl = [
+            "peak_group_set",
             "msrun__sample__tissue",
+            "msrun__sample__animal__treatment",
             "msrun__sample__animal__tracer_compound",
             "msrun__sample__animal__studies",
         ]
@@ -672,7 +676,16 @@ class ViewTests(TestCase):
         basv_metadata = BaseAdvancedSearchView()
         fmt = "pgtemplate"
         res = basv_metadata.getModels(fmt)
-        ml = ["PeakGroup", "Sample", "Tissue", "Animal", "Compound", "Study"]
+        ml = [
+            "PeakGroupSet",
+            "PeakGroup",
+            "Protocol",
+            "Sample",
+            "Tissue",
+            "Animal",
+            "Compound",
+            "Study",
+        ]
         self.assertEqual(res, ml)
 
     def test_cv_getSearchFields(self):
@@ -687,6 +700,10 @@ class ViewTests(TestCase):
             "tracer_labeled_atom": "msrun__sample__animal__tracer_labeled_atom",
             "id": "msrun__sample__animal__id",
             "name": "msrun__sample__animal__name",
+            "body_weight": "msrun__sample__animal__body_weight",
+            "age": "msrun__sample__animal__age",
+            "sex": "msrun__sample__animal__sex",
+            "diet": "msrun__sample__animal__diet",
             "feeding_status": "msrun__sample__animal__feeding_status",
             "tracer_infusion_rate": "msrun__sample__animal__tracer_infusion_rate",
             "tracer_infusion_concentration": "msrun__sample__animal__tracer_infusion_concentration",
@@ -706,6 +723,10 @@ class ViewTests(TestCase):
             "tracer_labeled_atom": "tracer_labeled_atom",
             "id": "name",
             "name": "name",
+            "body_weight": "body_weight",
+            "age": "age",
+            "sex": "sex",
+            "diet": "diet",
             "feeding_status": "feeding_status",
             "tracer_infusion_rate": "tracer_infusion_rate",
             "tracer_infusion_concentration": "tracer_infusion_concentration",

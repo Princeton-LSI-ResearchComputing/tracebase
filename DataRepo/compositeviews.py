@@ -33,7 +33,7 @@ class BaseSearchView:
                     fpath += fkey
                     fname = self.models[mkey]["fields"][fkey]["displayname"]
                     choices = choices + ((fpath, fname),)
-        return choices
+        return tuple(sorted(choices, key=lambda x: x[1]))
 
     def getKeyPathList(self, mdl):
         """
@@ -96,17 +96,35 @@ class PeakGroupsSearchView(BaseSearchView):
     id = "pgtemplate"
     name = "PeakGroups"
     prefetches = [
+        "peak_group_set",
         "msrun__sample__tissue",
+        "msrun__sample__animal__treatment",
         "msrun__sample__animal__tracer_compound",
         "msrun__sample__animal__studies",
     ]
     rootmodel = PeakGroup()
     models = {
+        "PeakGroupSet": {
+            "path": "peak_group_set",
+            "fields": {
+                "id": {
+                    "displayname": "(Internal) Peak Group Set Index",
+                    "searchable": True,
+                    "displayed": False,  # Used in link
+                    "handoff": "filename",  # This is the field that will be loaded in the search form
+                },
+                "filename": {
+                    "displayname": "Peak Group Set Filename",
+                    "searchable": True,
+                    "displayed": True,
+                },
+            },
+        },
         "PeakGroup": {
             "path": "",
             "fields": {
                 "name": {
-                    "displayname": "Output Compound",
+                    "displayname": "Peak Group",
                     "searchable": True,
                     "displayed": True,
                 },
@@ -116,13 +134,29 @@ class PeakGroupsSearchView(BaseSearchView):
                     "displayed": True,
                 },
                 "total_abundance": {
-                    "displayname": "TIC",
+                    "displayname": "Total Abundance",
                     "searchable": False,  # Cannot search cached property
                     "displayed": True,
                 },
                 "normalized_labeling": {
-                    "displayname": "NormFraction",
+                    "displayname": "Normalized Labeling",
                     "searchable": False,  # Cannot search cached property
+                    "displayed": True,
+                },
+            },
+        },
+        "Protocol": {
+            "path": "msrun__sample__animal__treatment",
+            "fields": {
+                "id": {
+                    "displayname": "(Internal) Protocol Index",
+                    "searchable": True,
+                    "displayed": False,  # Used in link
+                    "handoff": "name",  # This is the field that will be loaded in the search form
+                },
+                "name": {
+                    "displayname": "Treatment",
+                    "searchable": True,
                     "displayed": True,
                 },
             },
@@ -146,6 +180,12 @@ class PeakGroupsSearchView(BaseSearchView):
         "Tissue": {
             "path": "msrun__sample__tissue",
             "fields": {
+                "id": {
+                    "displayname": "(Internal) Tissue Index",
+                    "searchable": True,
+                    "displayed": False,  # Used in link
+                    "handoff": "name",  # This is the field that will be loaded in the search form
+                },
                 "name": {
                     "displayname": "Tissue",
                     "searchable": True,
@@ -157,7 +197,7 @@ class PeakGroupsSearchView(BaseSearchView):
             "path": "msrun__sample__animal",
             "fields": {
                 "tracer_labeled_atom": {
-                    "displayname": "Atom",
+                    "displayname": "Tracer Labeled Element",
                     "searchable": True,
                     "displayed": True,
                 },
@@ -172,18 +212,38 @@ class PeakGroupsSearchView(BaseSearchView):
                     "searchable": True,
                     "displayed": True,
                 },
+                "body_weight": {
+                    "displayname": "Body Weight (g)",
+                    "searchable": True,
+                    "displayed": True,
+                },
+                "age": {
+                    "displayname": "Age",
+                    "searchable": True,
+                    "displayed": True,
+                },
+                "sex": {
+                    "displayname": "Sex",
+                    "searchable": True,
+                    "displayed": True,
+                },
+                "diet": {
+                    "displayname": "Diet",
+                    "searchable": True,
+                    "displayed": True,
+                },
                 "feeding_status": {
                     "displayname": "Feeding Status",
                     "searchable": True,
                     "displayed": True,
                 },
                 "tracer_infusion_rate": {
-                    "displayname": "Infusion Rate",
+                    "displayname": "Tracer Infusion Rate",
                     "searchable": True,
                     "displayed": True,
                 },
                 "tracer_infusion_concentration": {
-                    "displayname": "[Infusion]",
+                    "displayname": "Tracer Infusion Concentration",
                     "searchable": True,
                     "displayed": True,
                 },
@@ -193,7 +253,7 @@ class PeakGroupsSearchView(BaseSearchView):
             "path": "msrun__sample__animal__tracer_compound",
             "fields": {
                 "name": {
-                    "displayname": "Input Compound",
+                    "displayname": "Tracer Compound",
                     "searchable": True,
                     "displayed": True,
                 },

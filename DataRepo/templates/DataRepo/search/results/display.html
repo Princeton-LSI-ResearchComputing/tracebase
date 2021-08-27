@@ -2,7 +2,7 @@
 {% block content %}
     <div>
         {% if mode == "search" %}
-            {% if qry and formsets.pg.0.val != "" and not formsets.pg.0.val.errors and formsets.pd.0.val != "" and not formsets.pd.0.val.errors %}
+            {% if qry and formsets.pgtemplate.0.val != "" and not formsets.pgtemplate.0.val.errors and formsets.pdtemplate.0.val != "" and not formsets.pdtemplate.0.val.errors %}
                 <hr>
                 <h3 style="margin: 0; display: inline-block;">{{ qry|getFormatName:qry.selectedtemplate }} Results ({{ res.count|default:"0" }})</h3>
             {% endif %}
@@ -29,7 +29,7 @@
             {% endif %}
 
         {% else %}
-            {% if mode == "browse" or qry and formsets.pg.0.val != "" and not formsets.pg.0.val.errors and formsets.pd.0.val != "" and not formsets.pd.0.val.errors %}
+            {% if mode == "browse" or qry and formsets.pgtemplate.0.val != "" and not formsets.pgtemplate.0.val.errors and formsets.pdtemplate.0.val != "" and not formsets.pdtemplate.0.val.errors %}
                 <p>No matching records found.</p>
             {% endif %}
         {% endif %}
