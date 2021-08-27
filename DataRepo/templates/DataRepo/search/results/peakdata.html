@@ -3,66 +3,162 @@
         <tr>
             <th>Sample</th>
             <th>Tissue</th>
-            <th>Animal</th>
-            <th>Infusate</th>
-            <th>Compound</th>
-            <th>Atom:Label</th>
+            <th>Peak Group</th>
+            <th>Formula</th>
+            <th>Labeled Element:Count</th>
+            <th>Raw Abundance</th>
             <th>Corrected Abundance</th>
             <th>Fraction</th>
+            <th>Median M/Z</th>
+            <th>Median RT</th>
+            <th>Peak Group Set Filename</th>
+            <th>Animal</th>
+            <th>Genotype</th>
+            <th>Body Weight (g)</th>
+            <th>Age</th>
+            <th>Sex</th>
+            <th>Diet</th>
+            <th>Feeding Status</th>
+            <th>Treatment</th>
+            <th>Tracer Compound</th>
+            <th>Tracer Infusion Rate</th>
+            <th>Tracer Infusion Concentration</th>
+            <th>Study</th>
         </tr>
 
         {% for pd in res.all %}
-            <tr>
-                <!-- Sample -->
-                <td>
-                    <div class="nobr">
-                        <a href="{% url 'sample_detail' pd.peak_group.msrun.sample.id %}">
-                            {{ pd.peak_group.msrun.sample.name }}
+            {% for study in pd.peak_group.msrun.sample.animal.studies.all %}
+                <tr>
+                    <!-- Sample -->
+                    <td>
+                        <div class="nobr">
+                            <a href="{% url 'sample_detail' pd.peak_group.msrun.sample.id %}">
+                                {{ pd.peak_group.msrun.sample.name }}
+                            </a>
+                        </div>
+                    </td>
+
+                    <!-- Tissue -->
+                    <td>
+                        {{ pd.peak_group.msrun.sample.tissue.name }}
+                    </td>
+
+                    <!-- Peak Group -->
+                    <td>
+                        <a href="{% url 'peakgroup_detail' pd.peak_group.id %}">
+                            {{ pd.peak_group.name }}
                         </a>
-                    </div>
-                </td>
+                    </td>
 
-                <!-- Tissue -->
-                <td>
-                    {{ pd.peak_group.msrun.sample.tissue.name }}
-                </td>
+                    <!-- Formula -->
+                    <td>
+                        {{ pd.peak_group.formula }}
+                    </td>
 
-                <!-- Animal -->
-                <td>
-                    <a href="{% url 'animal_detail' pd.peak_group.msrun.sample.animal.id %}">
-                        {{ pd.peak_group.msrun.sample.animal.name }}
-                    </a>
-                </td>
+                    <!-- Labeled Element:Count -->
+                    <td>
+                        {{ pd.labeled_element }}:{{ pd.labeled_count }}
+                    </td>
 
-                <!-- Infusate -->
-                <td>
-                    <a href="{% url 'compound_detail' pd.peak_group.msrun.sample.animal.tracer_compound.id %}">
-                        {{ pd.peak_group.msrun.sample.animal.tracer_compound.name }}
-                    </a>
-                </td>
+                    <!-- Raw Abundance -->
+                    <td class="text-end">
+                        <p title="{{ pd.raw_abundance }}">{{ pd.raw_abundance|floatformat:1 }}</p>
+                    </td>
 
-                <!-- Compound -->
-                <td>
-                    <a href="{% url 'peakgroup_detail' pd.peak_group.id %}">
-                        {{ pd.peak_group.name }}
-                    </a>
-                </td>
+                    <!-- Corrected Abundance -->
+                    <td class="text-end">
+                        <p title="{{ pd.corrected_abundance }}">{{ pd.corrected_abundance|floatformat:1 }}</p>
+                    </td>
 
-                <!-- Atom Label -->
-                <td>
-                    {{ pd.labeled_element }}:{{ pd.labeled_count }}
-                </td>
+                    <!-- Fraction -->
+                    <td class="text-end">
+                        <p title="{{ pd.fraction }}">{{ pd.fraction|floatformat:4 }}</p>
+                    </td>
 
-                <!-- Corrected Abundance -->
-                <td class="text-end">
-                    <p title="{{ pd.corrected_abundance }}">{{ pd.corrected_abundance|floatformat:1 }}</p>
-                </td>
+                    <!-- Median M/Z -->
+                    <td class="text-end">
+                        <p title="{{ pd.med_mz }}">{{ pd.med_mz|floatformat:1 }}</p>
+                    </td>
 
-                <!-- Fraction -->
-                <td class="text-end">
-                    <p title="{{ pd.fraction }}">{{ pd.fraction|floatformat:4 }}</p>
-                </td>
-            </tr>
+                    <!-- Median RT -->
+                    <td class="text-end">
+                        <p title="{{ pd.med_rt }}">{{ pd.med_rt|floatformat:1 }}</p>
+                    </td>
+
+                    <!-- Peak Group Set Filename -->
+                    <td>
+                        <a href="{% url 'peakgroupset_detail' pd.peak_group.peak_group_set.id %}">
+                            {{ pd.peak_group.peak_group_set.filename }}
+                        </a>
+                    </td>
+
+                    <!-- Animal -->
+                    <td>
+                        <a href="{% url 'animal_detail' pd.peak_group.msrun.sample.animal.id %}">
+                            {{ pd.peak_group.msrun.sample.animal.name }}
+                        </a>
+                    </td>
+
+                    <!-- Genotype -->
+                    <td>
+                        {{ pd.peak_group.msrun.sample.animal.genotype }}
+                    </td>
+
+                    <!-- Body Weight (g) -->
+                    <td>
+                        {{ pd.peak_group.msrun.sample.animal.body_weight }}
+                    </td>
+
+                    <!-- Age -->
+                    <td class="text-end">
+                        {{ pd.peak_group.msrun.sample.animal.age }}
+                    </td>
+
+                    <!-- Sex -->
+                    <td>
+                        {{ pd.peak_group.msrun.sample.animal.sex }}
+                    </td>
+
+                    <!-- Diet -->
+                    <td>
+                        {{ pd.peak_group.msrun.sample.animal.diet }}
+                    </td>
+
+                    <!-- Feeding Status -->
+                    <td>
+                        {{ pd.peak_group.msrun.sample.animal.feeding_status }}
+                    </td>
+
+                    <!-- Treatment -->
+                    <td>
+                        {{ pd.peak_group.msrun.treatment.name }}
+                    </td>
+
+                    <!-- Tracer Compound -->
+                    <td>
+                        <a href="{% url 'compound_detail' pd.peak_group.msrun.sample.animal.tracer_compound.id %}">
+                            {{ pd.peak_group.msrun.sample.animal.tracer_compound.name }}
+                        </a>
+                    </td>
+
+                    <!-- Tracer Infusion Rate -->
+                    <td class="text-end">
+                        {{ pd.peak_group.msrun.sample.animal.tracer_infusion_rate }}
+                    </td>
+
+                    <!-- Tracer Infusion Concentration -->
+                    <td class="text-end">
+                        {{ pd.peak_group.msrun.sample.animal.tracer_infusion_concentration }}
+                    </td>
+
+                    <!-- Study -->
+                    <td>
+                        <a href="{% url 'study_detail' study.id %}">
+                            {{ study.name }}
+                        </a>
+                    </td>
+                </tr>
+            {% endfor %}
         {% endfor %}
     </table>
 {% endblock %}

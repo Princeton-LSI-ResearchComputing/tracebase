@@ -212,6 +212,11 @@ class PeakGroupsSearchView(BaseSearchView):
                     "searchable": True,
                     "displayed": True,
                 },
+                "genotype": {
+                    "displayname": "Genotype",
+                    "searchable": True,
+                    "displayed": True,
+                },
                 "body_weight": {
                     "displayname": "Body Weight (g)",
                     "searchable": True,
@@ -286,8 +291,11 @@ class PeakDataSearchView(BaseSearchView):
     id = "pdtemplate"
     name = "PeakData"
     prefetches = [
+        "peak_group__peak_group_set",
         "peak_group__msrun__sample__tissue",
         "peak_group__msrun__sample__animal__tracer_compound",
+        "peak_group__msrun__sample__animal__treatment",
+        "peak_group__msrun__sample__animal__studies",
     ]
     rootmodel = PeakData()
     models = {
@@ -295,12 +303,37 @@ class PeakDataSearchView(BaseSearchView):
             "path": "",
             "fields": {
                 "labeled_element": {
-                    "displayname": "Atom",
+                    "displayname": "Labeled Element",
+                    "searchable": True,
+                    "displayed": True,
+                },
+                "labeled_count": {
+                    "displayname": "Labeled Count",
+                    "searchable": True,
+                    "displayed": True,
+                },
+                "raw_abundance": {
+                    "displayname": "Raw Abundance",
                     "searchable": True,
                     "displayed": True,
                 },
                 "corrected_abundance": {
                     "displayname": "Corrected Abundance",
+                    "searchable": True,
+                    "displayed": True,
+                },
+                "fraction": {
+                    "displayname": "Fraction",
+                    "searchable": True,
+                    "displayed": True,
+                },
+                "med_mz": {
+                    "displayname": "Median M/Z",
+                    "searchable": True,
+                    "displayed": True,
+                },
+                "med_rt": {
+                    "displayname": "Median RT",
                     "searchable": True,
                     "displayed": True,
                 },
@@ -310,13 +343,34 @@ class PeakDataSearchView(BaseSearchView):
             "path": "peak_group",
             "fields": {
                 "id": {
-                    "displayname": "(Internal) PeakGroup Index",  # Used in link
+                    "displayname": "(Internal) Peak Group Index",  # Used in link
                     "searchable": True,
                     "displayed": False,
                     "handoff": "name",  # This is the field that will be loaded in the search form
                 },
                 "name": {
-                    "displayname": "Output Compound",
+                    "displayname": "Peak Group",
+                    "searchable": True,
+                    "displayed": True,
+                },
+                "formula": {
+                    "displayname": "Formula",
+                    "searchable": True,
+                    "displayed": True,
+                },
+            },
+        },
+        "PeakGroupSet": {
+            "path": "peak_group__peak_group_set",
+            "fields": {
+                "id": {
+                    "displayname": "(Internal) Peak Group Set Index",  # Used in link
+                    "searchable": True,
+                    "displayed": False,
+                    "handoff": "filename",  # This is the field that will be loaded in the search form
+                },
+                "filename": {
+                    "displayname": "Peak Group Set Filename",
                     "searchable": True,
                     "displayed": True,
                 },
@@ -340,6 +394,11 @@ class PeakDataSearchView(BaseSearchView):
         "Tissue": {
             "path": "peak_group__msrun__sample__tissue",
             "fields": {
+                "id": {
+                    "displayname": "Tissue",
+                    "searchable": True,
+                    "displayed": False,
+                },
                 "name": {
                     "displayname": "Tissue",
                     "searchable": True,
@@ -350,14 +409,70 @@ class PeakDataSearchView(BaseSearchView):
         "Animal": {
             "path": "peak_group__msrun__sample__animal",
             "fields": {
+                "name": {
+                    "displayname": "Animal",
+                    "searchable": True,
+                    "displayed": True,
+                },
                 "id": {
                     "displayname": "(Internal) Animal Index",  # Used in link
                     "searchable": True,
                     "displayed": False,
                     "handoff": "name",  # This is the field that will be loaded in the search form
                 },
+                "body_weight": {
+                    "displayname": "Body Weight (g)",
+                    "searchable": True,
+                    "displayed": True,
+                },
+                "genotype": {
+                    "displayname": "Genotype",
+                    "searchable": True,
+                    "displayed": True,
+                },
+                "sex": {
+                    "displayname": "Sex",
+                    "searchable": True,
+                    "displayed": True,
+                },
+                "age": {
+                    "displayname": "Age",
+                    "searchable": True,
+                    "displayed": True,
+                },
+                "feeding_status": {
+                    "displayname": "Feeding Status",
+                    "searchable": True,
+                    "displayed": True,
+                },
+                "diet": {
+                    "displayname": "Diet",
+                    "searchable": True,
+                    "displayed": True,
+                },
+                "tracer_infusion_concentration": {
+                    "displayname": "Tracer Infusion Concentration",
+                    "searchable": True,
+                    "displayed": True,
+                },
+                "tracer_infusion_rate": {
+                    "displayname": "Tracer Infusion Rate",
+                    "searchable": True,
+                    "displayed": True,
+                },
+            },
+        },
+        "Protocol": {
+            "path": "peak_group__msrun__sample__animal__treatment",
+            "fields": {
+                "id": {
+                    "displayname": "(Internal) Protocol Index",
+                    "searchable": True,
+                    "displayed": False,  # Used in link
+                    "handoff": "name",  # This is the field that will be loaded in the search form
+                },
                 "name": {
-                    "displayname": "Animal",
+                    "displayname": "Treatment",
                     "searchable": True,
                     "displayed": True,
                 },
@@ -370,6 +485,22 @@ class PeakDataSearchView(BaseSearchView):
                     "displayname": "Input Compound",
                     "searchable": True,
                     "displayed": True,
+                },
+            },
+        },
+        "Study": {
+            "path": "peak_group__msrun__sample__animal__studies",
+            "fields": {
+                "name": {
+                    "displayname": "Study",
+                    "searchable": True,
+                    "displayed": True,
+                },
+                "id": {
+                    "displayname": "(Internal) Study Index",
+                    "searchable": True,
+                    "displayed": False,  # Used in link
+                    "handoff": "name",  # This is the field that will be loaded in the search form
                 },
             },
         },
