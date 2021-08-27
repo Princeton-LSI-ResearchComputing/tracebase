@@ -656,9 +656,17 @@ class DataLoadingTests(TestCase):
         self.assertTrue(True)
 
     def test_adl_new_researcher(self):
-        # Now load with a new researcher (and no --new-researcher flag)
-        msg = ""
-        try:
+        # The error string must include:
+        #   The new researcher is in the error
+        #   Hidden flag is suggested
+        #   Existing researchers are shown
+        exp_err = (
+            "Researcher [Luke Skywalker] does not exist.  Please either choose from the following researchers, or if "
+            "this is a new researcher, add --new-researcher to your command (leaving `--researcher Luke Skywalker` "
+            "as-is).  Current researchers are:\nMichael Neinast\nXianfeng Zhang"
+        )
+        with self.assertRaises(Exception, msg=exp_err):
+            # Now load with a new researcher (and no --new-researcher flag)
             call_command(
                 "load_accucor_msruns",
                 protocol="Default",
@@ -666,14 +674,6 @@ class DataLoadingTests(TestCase):
                 date="2021-04-30",
                 researcher="Luke Skywalker",
             )
-        except Exception as e:
-            msg = str(e)
-        # The new researcher is in the error
-        self.assertTrue("Luke Skywalker" in msg)
-        # Hidden flag is suggested
-        self.assertTrue("--new-researcher" in msg)
-        # Existing researchers are shown
-        self.assertTrue("Michael Neinast" in msg)
 
     def test_adl_new_researcher_confirmed(self):
         call_command(
@@ -688,8 +688,15 @@ class DataLoadingTests(TestCase):
         self.assertTrue(True)
 
     def test_adl_existing_researcher_marked_new(self):
-        msg = ""
-        try:
+        # The error string must include:
+        #   The new researcher is in the error
+        #   Hidden flag is suggested
+        #   Existing researchers are shown
+        exp_err = (
+            "Researcher [Michael Neinast] exists.  --new-researcher cannot be used for existing researchers.  Current "
+            "researchers are:\nMichael Neinast\nXianfeng Zhang"
+        )
+        with self.assertRaises(Exception, msg=exp_err):
             call_command(
                 "load_accucor_msruns",
                 protocol="Default",
@@ -698,30 +705,23 @@ class DataLoadingTests(TestCase):
                 researcher="Michael Neinast",
                 new_researcher=True,
             )
-        except Exception as e:
-            msg = str(e)
-        # The new researcher is in the error
-        self.assertTrue("Michael Neinast" in msg)
-        # Hidden flag is suggested
-        self.assertTrue("--new-researcher" in msg)
-        # Existing researchers are shown
-        self.assertTrue("Xianfeng Zhang" in msg)
 
     def test_ls_new_researcher(self):
-        try:
+        # The error string must include:
+        #   The new researcher is in the error
+        #   Hidden flag is suggested
+        #   Existing researchers are shown
+        exp_err = (
+            "1 researchers from the sample file: [Han Solo] out of 1 researchers do not exist in the database.  "
+            "Please ensure they are not variants of existing researchers in the database:\nMichael Neinast\nXianfeng "
+            "Zhang\nIf all researchers are valid new researchers, add --skip-researcher-check to your command."
+        )
+        with self.assertRaises(Exception, msg=exp_err):
             call_command(
                 "load_samples",
                 "DataRepo/example_data/serum_lactate_timecourse_treatment_new_researcher.tsv",
                 sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
             )
-        except Exception as e:
-            msg = str(e)
-        # The new researcher is in the error
-        self.assertTrue("Han Solo" in msg)
-        # Hidden flag is suggested
-        self.assertTrue("--skip-researcher-check" in msg)
-        # Existing researchers are shown
-        self.assertTrue("Michael Neinast" in msg)
 
     def test_ls_new_researcher_confirmed(self):
         call_command(

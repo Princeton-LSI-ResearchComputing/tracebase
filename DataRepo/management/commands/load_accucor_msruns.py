@@ -66,8 +66,8 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         print("Reading accucor file: " + options["accucor_file"])
 
-        # Note, setting `mangle_dupe_cols=False` results in `Setting mangle_dupe_cols=False is not supported yet`, so
-        # the following is to catch duplicate headers
+        # Note, setting `mangle_dupe_cols=False` would overwrite duplicates instead of raise an exception, so we're
+        # checking for duplicate headers manually here.
         orig_heads = pd.read_excel(
             options["accucor_file"],
             nrows=1,
