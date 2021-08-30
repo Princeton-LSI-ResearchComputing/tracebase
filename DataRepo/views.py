@@ -167,6 +167,7 @@ class AdvancedSearchView(MultiFormsView):
                 qry=qry,
                 debug=settings.DEBUG,
                 root_group=root_group,
+                default_format=self.basv_metadata.default_format,
             )
         )
 
@@ -197,6 +198,7 @@ class AdvancedSearchView(MultiFormsView):
                 download_form=download_form,
                 debug=settings.DEBUG,
                 root_group=root_group,
+                default_format=self.basv_metadata.default_format,
             )
         )
 

@@ -205,6 +205,7 @@ function addSearchFieldForm (myDiv, query, copyQuery, isInit, templateId) {
 
     // Add this row to the HTML form
     myDiv.appendChild(clones[i])
+    myDiv.appendChild(document.createTextNode(' '))
 
     // If there were any errors, create an error label
     // For some reason, this was a nice tooltip in an earlier version (f9c2cac151f9909380022cea8b7a40a5f0e72a4e), but doesn't work automatically in the latest version
@@ -264,10 +265,11 @@ function addFormatSelectList (myDiv, query, copyQuery) {
 
   // Put descriptive text in front of the select list
   const label1 = document.createElement('label')
-  label1.innerHTML = 'Output Format '
+  label1.innerHTML = 'Output Format: '
 
   // Add the group select list to the DOM
   myDiv.appendChild(label1)
+  myDiv.appendChild(document.createTextNode(' '))
   myDiv.appendChild(select)
 }
 
@@ -302,6 +304,7 @@ function addGroupSelectList (myDiv, query, copyQuery, isInit) {
 
   // Add the group select list to the DOM
   myDiv.appendChild(label1)
+  myDiv.appendChild(document.createTextNode(' '))
   myDiv.appendChild(select)
 }
 

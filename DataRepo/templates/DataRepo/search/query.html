@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load customtags %}
 {% load static %}
 
 {% block head_extras %}
@@ -69,35 +70,31 @@
     <div>
         <h3>Advanced Search</h3>
 
-        <!-- Form template for the PeakGroups output format from django's forms.py -->
-        {% with forms.pgtemplate.empty_form as f %}
-            <div id="pgtemplate" style="display:none;">
-                {{ f.pos }}
-                {{ f.fld }}
-                {{ f.ncmp }}
-                {{ f.val }}
-                <label class="text-danger"> {{ f.val.errors }} </label>
-            </div>
-        {% endwith %}
-
-        <!-- Form template for the PeakData output format from django's forms.py -->
-        {% with forms.pdtemplate.empty_form as f %}
-            <div id="pdtemplate" style="display:none;">
-                {{ f.pos }}
-                {{ f.fld }}
-                {{ f.ncmp }}
-                {{ f.val }}
-                <label class="text-danger"> {{ f.val.errors }} </label>
-            </div>
-        {% endwith %}
+        {% for template_key in forms.keys %}
+            {% with forms|index:template_key as frm %}
+                <!-- Form template for the given output format from django's forms.py -->
+                {% with frm.empty_form as f %}
+                    <!--htmlhint disable-next-line -->
+                    <div id="{{ template_key }}" style="display:none;">
+                        {{ f.pos }}
+                        {{ f.fld }}
+                        {{ f.ncmp }}
+                        {{ f.val }}
+                        <label class="text-danger"> {{ f.val.errors }} </label>
+                    </div>
+                {% endwith %}
+            {% endwith %}
+        {% endfor %}
 
         <form action="/DataRepo/search_advanced/" id="hierarchical-search-form" method="POST">
             {% csrf_token %}
             <div class="hierarchical-search"></div>
             <button type="submit" class="btn btn-primary" id="advanced-search-submit">Search</button>
             <!-- There are multiple form types, but we only need one set of form management inputs. We can get away with this because all the fields are the same. -->
-            {{ forms.pgtemplate.errors.val }}
-            {{ forms.pgtemplate.management_form }}
+            {% with forms|index:default_format as managing_form %}
+                {{ managing_form.errors.val }}
+                {{ managing_form.management_form }}
+            {% endwith %}
             <label id="formerror" class="text-danger temporal-text"></label>
         </form>
         <a id="browselink" href="{% url 'search_advanced' %}?mode=browse" class="tiny">Browse All</a>

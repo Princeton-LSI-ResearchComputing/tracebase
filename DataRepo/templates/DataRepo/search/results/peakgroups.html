@@ -124,7 +124,11 @@
 
                     <!-- Treatment -->
                     <td>
-                        {{ pg.msrun.treatment.name }}
+                        {% if pg.msrun.sample.animal.treatment is None %}
+                            None
+                        {% else %}
+                            {{ pg.msrun.sample.animal.treatment.name }}
+                        {% endif %}
                     </td>
 
                     <!-- Tracer Compound -->
