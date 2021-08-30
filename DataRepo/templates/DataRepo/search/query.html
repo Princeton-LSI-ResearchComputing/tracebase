@@ -74,7 +74,6 @@
             {% with forms|index:template_key as frm %}
                 <!-- Form template for the given output format from django's forms.py -->
                 {% with frm.empty_form as f %}
-                    <!-- htmlhint disable-next-line -->
                     <div id="{{ template_key }}" style="display:none;">
                         {{ f.pos }}
                         {{ f.fld }}
