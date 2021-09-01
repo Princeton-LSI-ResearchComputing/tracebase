@@ -27,7 +27,7 @@
             {% if valid_search %}
                 <h3 style="margin: 0; display: inline-block;">{{ res.count|default:"0" }} Records</h3>
             {% else %}
-                <label class="text-danger">Invalid format: {{ selfmt }}</label>
+                <label class="text-danger">Invalid format[1]: {{ selfmt }}</label>
             {% endif %}
         {% endif %}
 
@@ -44,10 +44,12 @@
                 </div>
             {% endif %}
 
-            {% if selfmt in forms.keys %}
-                {% include "DataRepo/search/results/results.html" %}
+            {% if qry.selectedtemplate == "pgtemplate" or mode == "browse" and format == "pgtemplate" %}
+                {% include "DataRepo/search/results/peakgroups.html" %}
+            {% elif qry.selectedtemplate == "pdtemplate" or mode == "browse" and format == "pdtemplate" %}
+                {% include "DataRepo/search/results/peakdata.html" %}
             {% else %}
-                <label class="text-danger">Invalid format: {{ selfmt }}</label>
+                <label class="text-danger">Invalid format[2]: {{ selfmt }}</label>
             {% endif %}
 
         {% else %}

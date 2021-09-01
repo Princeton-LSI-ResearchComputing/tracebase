@@ -76,13 +76,7 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
     if fmtkey is None:
         names = basv_metadata.getFormatNames()
         raise Http404(
-            "Invalid format ["
-            + fmt
-            + "].  Must be one of: ["
-            + ",".join(names.keys())
-            + ","
-            + ",".join(names.values())
-            + "]"
+            f"Invalid format [{fmt}].  Must be one of: [{','.join(names.keys())},{','.join(names.values())}]"
         )
 
     qry = createNewBasicQuery(basv_metadata, mdl, fld, cmp, val, fmtkey)
@@ -101,6 +95,8 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
             "download_form": download_form,
             "debug": settings.DEBUG,
             "root_group": root_group,
+            "mode": "search",
+            "default_format": basv_metadata.default_format,
         },
     )
 
@@ -199,8 +195,6 @@ class AdvancedSearchView(MultiFormsView):
                 debug=settings.DEBUG,
                 root_group=root_group,
                 default_format=self.basv_metadata.default_format,
-                order=self.basv_metadata.getFieldOrder(qry["selectedtemplate"]),
-                modeldata=self.basv_metadata.getModelData(qry["selectedtemplate"]),
             )
         )
 
