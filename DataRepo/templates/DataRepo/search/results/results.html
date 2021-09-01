@@ -1,0 +1,11 @@
+{% load customtags %}
+{% block content %}
+    <table class="table table-success table-hover table-striped table-bordered">
+        <tr>
+            {% for resfld in order %}
+                <th>{{ modeldata|index:resfld.0|index:'fields'|index:resfld.1|index:'displayname' }}</th>
+            {% endfor %}
+        </tr>
+
+    </table>
+{% endblock %}

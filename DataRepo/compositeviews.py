@@ -11,6 +11,7 @@ class BaseSearchView:
     name = ""
     models: Dict[str, Dict] = {}
     prefetches: List[str] = []
+    order: List[str] = []
 
     @classmethod
     def getSearchFieldChoices(self):
@@ -48,12 +49,25 @@ class BaseSearchView:
         """
         return self.prefetches
 
+    def getFieldOrder(self):
+        """
+        Returns a list of prefetch strings for a composite view from the root table to the supplied table.  It includes
+        a unique set of "foreign key paths" that encompass all tables.
+        """
+        return self.order
+
     def getModels(self):
         """
         Returns a list of all tables containing fields that are in an output format.  It does not include intermediate
         tables in key paths that do not have visibl;e fields in the composite view.
         """
         return list(self.models.keys())
+
+    def getModelData(self):
+        """
+        Returns all the model metadata for the given format
+        """
+        return self.models
 
     def getSearchFields(self, mdl):
         """
@@ -102,6 +116,40 @@ class PeakGroupsSearchView(BaseSearchView):
         "msrun__sample__animal__tracer_compound",
         "msrun__sample__animal__studies",
     ]
+    order = [
+        ["Sample", "name"],
+        ["Tissue", "name"],
+        ["PeakGroup", "name"],
+        ["PeakGroup", "formula"],
+        ["Animal", "tracer_labeled_atom"],
+        ["PeakGroup", "total_abundance"],
+        ["PeakGroup", "enrichment_fraction"],
+        ["PeakGroup", "enrichment_abundance"],
+        ["PeakGroup", "normalized_labeling"],
+        ["PeakGroupSet", "filename"],
+        ["Animal", "name"],
+        ["Animal", "genotype"],
+        ["Animal", "body_weight"],
+        ["Animal", "age"],
+        ["Animal", "sex"],
+        ["Animal", "diet"],
+        ["Animal", "feeding_status"],
+        ["Protocol", "name"],
+        ["Animal", "tracer_compound"],
+        ["Animal", "tracer_infusion_rate"],
+        ["Animal", "tracer_infusion_concentration"],
+        ["Study", "name"],
+    ]
+    # This is for many-to-many relationships when looping over records/rows
+    # Each inner array is a series of keys to be used to index the queryset record, and to which ".all" will be
+    # appended in the inner loop in the template.  E.g.:
+    #   {% for rec in res.all %}
+    #     {% for study in rec.msrun.sample.animal.studies.all %}
+    # Note that each inner array will use the object returned from the one above, e.g. the next inner array would
+    # index a "study" record
+    nested_record_loops = [
+        ["msrun","sample","animal","studies"],
+    ]
     rootmodel = PeakGroup()
     models = {
         "PeakGroupSet": {
@@ -128,8 +176,18 @@ class PeakGroupsSearchView(BaseSearchView):
                     "searchable": True,
                     "displayed": True,
                 },
+                "formula": {
+                    "displayname": "Formula",
+                    "searchable": True,
+                    "displayed": True,
+                },
                 "enrichment_fraction": {
                     "displayname": "Enrichment Fraction",
+                    "searchable": False,  # Cannot search cached property
+                    "displayed": True,
+                },
+                "enrichment_abundance": {
+                    "displayname": "Enrichment Abundance",
                     "searchable": False,  # Cannot search cached property
                     "displayed": True,
                 },
@@ -196,11 +254,6 @@ class PeakGroupsSearchView(BaseSearchView):
         "Animal": {
             "path": "msrun__sample__animal",
             "fields": {
-                "tracer_labeled_atom": {
-                    "displayname": "Tracer Labeled Element",
-                    "searchable": True,
-                    "displayed": True,
-                },
                 "id": {
                     "displayname": "(Internal) Animal Index",
                     "searchable": True,
@@ -239,6 +292,16 @@ class PeakGroupsSearchView(BaseSearchView):
                 },
                 "feeding_status": {
                     "displayname": "Feeding Status",
+                    "searchable": True,
+                    "displayed": True,
+                },
+                "tracer_labeled_atom": {
+                    "displayname": "Tracer Labeled Element",
+                    "searchable": True,
+                    "displayed": True,
+                },
+                "tracer_compound": {
+                    "displayname": "Tracer Compound",
                     "searchable": True,
                     "displayed": True,
                 },
@@ -297,7 +360,23 @@ class PeakDataSearchView(BaseSearchView):
         "peak_group__msrun__sample__animal__treatment",
         "peak_group__msrun__sample__animal__studies",
     ]
+    # This is for many-to-many relationships when looping over records/rows
+    # Each inner array is a series of keys to be used to index the queryset record, and to which ".all" will be
+    # appended in the inner loop in the template.  E.g.:
+    # {% for row in res.all %}
+    #     {% for study in row.msrun.sample.animal.studies.all %}
+    nested_record_loops = []
     rootmodel = PeakData()
+    order = [
+        ["Sample", "name"],
+        ["Tissue", "name"],
+        ["Animal", "name"],
+        ["Animal", "tracer_compound"],
+        ["Animal", "tracer_labeled_atom"],
+        ["Animal", "tracer_labeled_count"],
+        ["PeakData", "corrected_abundance"],
+        ["PeakData", "fraction"],
+    ]
     models = {
         "PeakData": {
             "path": "",
@@ -535,6 +614,12 @@ class BaseAdvancedSearchView:
         """
         return self.modeldata[format].getPrefetches()
 
+    def getFieldOrder(self, format):
+        """
+        Calls getFieldOrder of the supplied ID of the search output format class.
+        """
+        return self.modeldata[format].getFieldOrder()
+
     def getSearchFieldChoices(self, format):
         """
         Calls getSearchFieldChoices of the supplied ID of the search output format class.
@@ -546,6 +631,12 @@ class BaseAdvancedSearchView:
         Calls getModels of the supplied ID of the search output format class.
         """
         return self.modeldata[format].getModels()
+
+    def getModelData(self, format):
+        """
+        Calls getModelData of the supplied ID of the search output format class.
+        """
+        return self.modeldata[format].getModelData()
 
     def getFormatNames(self):
         """

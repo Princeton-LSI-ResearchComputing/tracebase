@@ -34,7 +34,11 @@
             init(JSON.parse(document.getElementById('root_group').textContent))
 
             {% if format and mode and mode == "browse" and not qry %}
-                rootGroup.selectedtemplate = "{{ format }}"
+                {% if format not in forms.keys %}
+                    rootGroup.selectedtemplate = "{{ default_format }}"
+                {% else %}
+                    rootGroup.selectedtemplate = "{{ format }}"
+                {% endif %}
             {% endif %}
 
             // If a search has been performed, restore the form

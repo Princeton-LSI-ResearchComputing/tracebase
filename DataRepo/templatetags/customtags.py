@@ -17,7 +17,6 @@ def durationToWeeks(td):
         return None
     return td.total_seconds() // 604800
 
-
 @register.filter
 def decimalPlaces(number, places):
     if number is None:
@@ -28,3 +27,7 @@ def decimalPlaces(number, places):
 @register.filter
 def index(indexable, i):
     return indexable[i]
+
+@register.simple_tag
+def define(the_val):
+    return the_val

@@ -199,6 +199,8 @@ class AdvancedSearchView(MultiFormsView):
                 debug=settings.DEBUG,
                 root_group=root_group,
                 default_format=self.basv_metadata.default_format,
+                order=self.basv_metadata.getFieldOrder(qry["selectedtemplate"]),
+                modeldata=self.basv_metadata.getModelData(qry["selectedtemplate"]),
             )
         )
 
