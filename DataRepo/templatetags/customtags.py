@@ -28,6 +28,7 @@ def decimalPlaces(number, places):
 def index(indexable, i):
     return indexable[i]
 
+
 @register.simple_tag
 def define(the_val):
     return the_val
