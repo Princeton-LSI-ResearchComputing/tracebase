@@ -223,8 +223,8 @@ class PeakGroupsSearchView(BaseSearchView):
                     "displayed": True,
                 },
                 "age": {
-                    "displayname": "Age",
-                    "searchable": True,
+                    "displayname": "Age (weeks)",
+                    "searchable": False,
                     "displayed": True,
                 },
                 "sex": {
@@ -243,12 +243,12 @@ class PeakGroupsSearchView(BaseSearchView):
                     "displayed": True,
                 },
                 "tracer_infusion_rate": {
-                    "displayname": "Tracer Infusion Rate",
+                    "displayname": "Tracer Infusion Rate (ul/min/g)",
                     "searchable": True,
                     "displayed": True,
                 },
                 "tracer_infusion_concentration": {
-                    "displayname": "Tracer Infusion Concentration",
+                    "displayname": "Tracer Infusion Concentration (mM)",
                     "searchable": True,
                     "displayed": True,
                 },
@@ -436,8 +436,8 @@ class PeakDataSearchView(BaseSearchView):
                     "displayed": True,
                 },
                 "age": {
-                    "displayname": "Age",
-                    "searchable": True,
+                    "displayname": "Age (weeks)",
+                    "searchable": False,
                     "displayed": True,
                 },
                 "feeding_status": {
@@ -451,12 +451,12 @@ class PeakDataSearchView(BaseSearchView):
                     "displayed": True,
                 },
                 "tracer_infusion_concentration": {
-                    "displayname": "Tracer Infusion Concentration",
+                    "displayname": "Tracer Infusion Concentration (mM)",
                     "searchable": True,
                     "displayed": True,
                 },
                 "tracer_infusion_rate": {
-                    "displayname": "Tracer Infusion Rate",
+                    "displayname": "Tracer Infusion Rate (ul/min/g)",
                     "searchable": True,
                     "displayed": True,
                 },

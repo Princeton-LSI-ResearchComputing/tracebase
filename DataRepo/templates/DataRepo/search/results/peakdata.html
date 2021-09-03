@@ -1,3 +1,4 @@
+{% load customtags %}
 {% block content %}
     <table class="table table-success table-hover table-striped table-bordered">
         <tr>
@@ -15,14 +16,14 @@
             <th>Animal</th>
             <th>Genotype</th>
             <th>Body Weight (g)</th>
-            <th>Age</th>
+            <th>Age (weeks)</th>
             <th>Sex</th>
             <th>Diet</th>
             <th>Feeding Status</th>
             <th>Treatment</th>
             <th>Tracer Compound</th>
-            <th>Tracer Infusion Rate</th>
-            <th>Tracer Infusion Concentration</th>
+            <th>Tracer Infusion Rate (ul/min/g)</th>
+            <th>Tracer Infusion Concentration (mM)</th>
             <th>Study</th>
         </tr>
 
@@ -109,9 +110,9 @@
                         {{ pd.peak_group.msrun.sample.animal.body_weight }}
                     </td>
 
-                    <!-- Age -->
+                    <!-- Age (weeks) -->
                     <td class="text-end">
-                        {{ pd.peak_group.msrun.sample.animal.age }}
+                        <p title="{{ pd.peak_group.msrun.sample.animal.age }}">{{ pd.peak_group.msrun.sample.animal.age|durationToWeeks|decimalPlaces:2 }}</p>
                     </td>
 
                     <!-- Sex -->
@@ -141,12 +142,12 @@
                         </a>
                     </td>
 
-                    <!-- Tracer Infusion Rate -->
+                    <!-- Tracer Infusion Rate (ul/min/g) -->
                     <td class="text-end">
                         {{ pd.peak_group.msrun.sample.animal.tracer_infusion_rate }}
                     </td>
 
-                    <!-- Tracer Infusion Concentration -->
+                    <!-- Tracer Infusion Concentration (mM) -->
                     <td class="text-end">
                         {{ pd.peak_group.msrun.sample.animal.tracer_infusion_concentration }}
                     </td>
