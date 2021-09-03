@@ -224,7 +224,7 @@ class PeakGroupsSearchView(BaseSearchView):
                 },
                 "age": {
                     "displayname": "Age (weeks)",
-                    "searchable": True,
+                    "searchable": False,
                     "displayed": True,
                 },
                 "sex": {
@@ -437,7 +437,7 @@ class PeakDataSearchView(BaseSearchView):
                 },
                 "age": {
                     "displayname": "Age (weeks)",
-                    "searchable": True,
+                    "searchable": False,
                     "displayed": True,
                 },
                 "feeding_status": {

@@ -622,7 +622,6 @@ class ViewTests(TestCase):
         fmt = "pgtemplate"
         res = basv_metadata.getSearchFieldChoices(fmt)
         choices = (
-            ("msrun__sample__animal__age", "Age (weeks)"),
             ("msrun__sample__animal__name", "Animal"),
             ("msrun__sample__animal__body_weight", "Body Weight (g)"),
             ("msrun__sample__animal__diet", "Diet"),
@@ -708,7 +707,6 @@ class ViewTests(TestCase):
             "name": "msrun__sample__animal__name",
             "genotype": "msrun__sample__animal__genotype",
             "body_weight": "msrun__sample__animal__body_weight",
-            "age": "msrun__sample__animal__age",
             "sex": "msrun__sample__animal__sex",
             "diet": "msrun__sample__animal__diet",
             "feeding_status": "msrun__sample__animal__feeding_status",
