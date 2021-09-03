@@ -622,7 +622,7 @@ class ViewTests(TestCase):
         fmt = "pgtemplate"
         res = basv_metadata.getSearchFieldChoices(fmt)
         choices = (
-            ("msrun__sample__animal__age", "Age"),
+            ("msrun__sample__animal__age", "Age (weeks)"),
             ("msrun__sample__animal__name", "Animal"),
             ("msrun__sample__animal__body_weight", "Body Weight (g)"),
             ("msrun__sample__animal__diet", "Diet"),
@@ -637,9 +637,9 @@ class ViewTests(TestCase):
             ("msrun__sample__animal__tracer_compound__name", "Tracer Compound"),
             (
                 "msrun__sample__animal__tracer_infusion_concentration",
-                "Tracer Infusion Concentration",
+                "Tracer Infusion Concentration (mM)",
             ),
-            ("msrun__sample__animal__tracer_infusion_rate", "Tracer Infusion Rate"),
+            ("msrun__sample__animal__tracer_infusion_rate", "Tracer Infusion Rate (ul/min/g)"),
             ("msrun__sample__animal__tracer_labeled_atom", "Tracer Labeled Element"),
             ("msrun__sample__animal__treatment__name", "Treatment"),
         )

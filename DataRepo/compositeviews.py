@@ -243,12 +243,12 @@ class PeakGroupsSearchView(BaseSearchView):
                     "displayed": True,
                 },
                 "tracer_infusion_rate": {
-                    "displayname": "Tracer Infusion Rate (mM)",
+                    "displayname": "Tracer Infusion Rate (ul/min/g)",
                     "searchable": True,
                     "displayed": True,
                 },
                 "tracer_infusion_concentration": {
-                    "displayname": "Tracer Infusion Concentration (ul/min/g)",
+                    "displayname": "Tracer Infusion Concentration (mM)",
                     "searchable": True,
                     "displayed": True,
                 },
