@@ -8,7 +8,7 @@ This document will serve to guide developers on implementing new code.
 
 1. `DataRepo/compositeviews.py`
    - Copy and rename PeakGroupsSearchView and make the following edits
-      - Set a new ID an name
+      - Set a new ID and name
       - Determine the root model
       - Fill in all the prefetch paths from (but not including) the root model to every model leaf.  The path strings are the foreign key field names in the parent model.
       - Fill in the models data: every model, it's path (from the prefetches, the root model will be an empty string), and all its fields.
