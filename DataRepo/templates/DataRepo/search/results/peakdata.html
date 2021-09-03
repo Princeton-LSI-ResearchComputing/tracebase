@@ -1,3 +1,4 @@
+{% load customtags %}
 {% block content %}
     <table class="table table-success table-hover table-striped table-bordered">
         <tr>
@@ -111,7 +112,7 @@
 
                     <!-- Age (weeks) -->
                     <td class="text-end">
-                        {{ pd.peak_group.msrun.sample.animal.age }}
+                        <p title="{{ pd.peak_group.msrun.sample.animal.age }}">{{ pd.peak_group.msrun.sample.animal.age|durationToWeeks|decimalPlaces:2 }}</p>
                     </td>
 
                     <!-- Sex -->
