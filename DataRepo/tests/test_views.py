@@ -639,7 +639,10 @@ class ViewTests(TestCase):
                 "msrun__sample__animal__tracer_infusion_concentration",
                 "Tracer Infusion Concentration (mM)",
             ),
-            ("msrun__sample__animal__tracer_infusion_rate", "Tracer Infusion Rate (ul/min/g)"),
+            (
+                "msrun__sample__animal__tracer_infusion_rate",
+                "Tracer Infusion Rate (ul/min/g)",
+            ),
             ("msrun__sample__animal__tracer_labeled_atom", "Tracer Labeled Element"),
             ("msrun__sample__animal__treatment__name", "Treatment"),
         )
