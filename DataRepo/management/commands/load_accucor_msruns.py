@@ -31,7 +31,7 @@ class Command(BaseCommand):
         parser.add_argument(
             "--date",
             type=str,
-            help="Date MSRun was performed",
+            help="Date MSRun was performed, formatted as YYYY-MM-DD",
             required=True,
         )
         parser.add_argument(
