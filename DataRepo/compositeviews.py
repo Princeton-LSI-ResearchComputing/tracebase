@@ -252,11 +252,6 @@ class PeakGroupsSearchView(BaseSearchView):
                     "searchable": True,
                     "displayed": True,
                 },
-                "tracer_compound": {
-                    "displayname": "Tracer Compound",
-                    "searchable": True,
-                    "displayed": True,
-                },
                 "tracer_infusion_rate": {
                     "displayname": "Tracer Infusion Rate (ul/min/g)",
                     "searchable": True,
