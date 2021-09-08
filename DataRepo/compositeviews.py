@@ -95,6 +95,7 @@ class PeakGroupsSearchView(BaseSearchView):
 
     id = "pgtemplate"
     name = "PeakGroups"
+    rootmodel = PeakGroup()
     prefetches = [
         "peak_group_set",
         "msrun__sample__tissue",
@@ -102,7 +103,6 @@ class PeakGroupsSearchView(BaseSearchView):
         "msrun__sample__animal__tracer_compound",
         "msrun__sample__animal__studies",
     ]
-    rootmodel = PeakGroup()
     models = {
         "PeakGroupSet": {
             "path": "peak_group_set",
@@ -128,8 +128,18 @@ class PeakGroupsSearchView(BaseSearchView):
                     "searchable": True,
                     "displayed": True,
                 },
+                "formula": {
+                    "displayname": "Formula",
+                    "searchable": True,
+                    "displayed": True,
+                },
                 "enrichment_fraction": {
                     "displayname": "Enrichment Fraction",
+                    "searchable": False,  # Cannot search cached property
+                    "displayed": True,
+                },
+                "enrichment_abundance": {
+                    "displayname": "Enrichment Abundance",
                     "searchable": False,  # Cannot search cached property
                     "displayed": True,
                 },
@@ -196,11 +206,6 @@ class PeakGroupsSearchView(BaseSearchView):
         "Animal": {
             "path": "msrun__sample__animal",
             "fields": {
-                "tracer_labeled_atom": {
-                    "displayname": "Tracer Labeled Element",
-                    "searchable": True,
-                    "displayed": True,
-                },
                 "id": {
                     "displayname": "(Internal) Animal Index",
                     "searchable": True,
@@ -239,6 +244,16 @@ class PeakGroupsSearchView(BaseSearchView):
                 },
                 "feeding_status": {
                     "displayname": "Feeding Status",
+                    "searchable": True,
+                    "displayed": True,
+                },
+                "tracer_labeled_atom": {
+                    "displayname": "Tracer Labeled Element",
+                    "searchable": True,
+                    "displayed": True,
+                },
+                "tracer_compound": {
+                    "displayname": "Tracer Compound",
                     "searchable": True,
                     "displayed": True,
                 },
@@ -290,6 +305,7 @@ class PeakDataSearchView(BaseSearchView):
 
     id = "pdtemplate"
     name = "PeakData"
+    rootmodel = PeakData()
     prefetches = [
         "peak_group__peak_group_set",
         "peak_group__msrun__sample__tissue",
@@ -297,7 +313,6 @@ class PeakDataSearchView(BaseSearchView):
         "peak_group__msrun__sample__animal__treatment",
         "peak_group__msrun__sample__animal__studies",
     ]
-    rootmodel = PeakData()
     models = {
         "PeakData": {
             "path": "",

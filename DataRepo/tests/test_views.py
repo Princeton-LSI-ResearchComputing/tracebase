@@ -626,6 +626,7 @@ class ViewTests(TestCase):
             ("msrun__sample__animal__body_weight", "Body Weight (g)"),
             ("msrun__sample__animal__diet", "Diet"),
             ("msrun__sample__animal__feeding_status", "Feeding Status"),
+            ("formula", "Formula"),
             ("msrun__sample__animal__genotype", "Genotype"),
             ("name", "Peak Group"),
             ("peak_group_set__filename", "Peak Group Set Filename"),
@@ -633,6 +634,7 @@ class ViewTests(TestCase):
             ("msrun__sample__animal__sex", "Sex"),
             ("msrun__sample__animal__studies__name", "Study"),
             ("msrun__sample__tissue__name", "Tissue"),
+            ("msrun__sample__animal__tracer_compound", "Tracer Compound"),
             ("msrun__sample__animal__tracer_compound__name", "Tracer Compound"),
             (
                 "msrun__sample__animal__tracer_infusion_concentration",
@@ -702,7 +704,6 @@ class ViewTests(TestCase):
         mdl = "Animal"
         res = basv_metadata.getSearchFields(fmt, mdl)
         sfd = {
-            "tracer_labeled_atom": "msrun__sample__animal__tracer_labeled_atom",
             "id": "msrun__sample__animal__id",
             "name": "msrun__sample__animal__name",
             "genotype": "msrun__sample__animal__genotype",
@@ -710,9 +711,12 @@ class ViewTests(TestCase):
             "sex": "msrun__sample__animal__sex",
             "diet": "msrun__sample__animal__diet",
             "feeding_status": "msrun__sample__animal__feeding_status",
+            "tracer_labeled_atom": "msrun__sample__animal__tracer_labeled_atom",
+            "tracer_compound": "msrun__sample__animal__tracer_compound",
             "tracer_infusion_rate": "msrun__sample__animal__tracer_infusion_rate",
             "tracer_infusion_concentration": "msrun__sample__animal__tracer_infusion_concentration",
         }
+        print(res)
         self.assertEqual(res, sfd)
 
     def test_cv_getDisplayFields(self):
@@ -725,7 +729,6 @@ class ViewTests(TestCase):
         res = basv_metadata.getDisplayFields(fmt, mdl)
         # Note the difference with the 'id' field - which is not a displayed field
         dfd = {
-            "tracer_labeled_atom": "tracer_labeled_atom",
             "id": "name",
             "name": "name",
             "genotype": "genotype",
@@ -734,6 +737,8 @@ class ViewTests(TestCase):
             "sex": "sex",
             "diet": "diet",
             "feeding_status": "feeding_status",
+            "tracer_labeled_atom": "tracer_labeled_atom",
+            "tracer_compound": "tracer_compound",
             "tracer_infusion_rate": "tracer_infusion_rate",
             "tracer_infusion_concentration": "tracer_infusion_concentration",
         }

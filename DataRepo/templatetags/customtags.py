@@ -24,3 +24,14 @@ def decimalPlaces(number, places):
     if number is None:
         return None
     return floatformat(number, places)
+
+
+# This allows indexing a list or dict
+@register.filter
+def index(indexable, i):
+    return indexable[i]
+
+
+@register.simple_tag
+def define(the_val):
+    return the_val

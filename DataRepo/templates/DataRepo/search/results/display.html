@@ -1,35 +1,59 @@
 {% load customtags %}
 {% block content %}
     <div>
+        {% define True as valid_search %}
         {% if mode == "search" %}
-            {% if qry and formsets.pgtemplate.0.val != "" and not formsets.pgtemplate.0.val.errors and formsets.pdtemplate.0.val != "" and not formsets.pdtemplate.0.val.errors %}
-                <hr>
-                <h3 style="margin: 0; display: inline-block;">{{ qry|getFormatName:qry.selectedtemplate }} Results ({{ res.count|default:"0" }})</h3>
+            {% if qry %}
+                {% define qry.selectedtemplate as selfmt %}
+                {% if selfmt not in forms.keys %}
+                    {% define False as valid_search %}
+                {% endif %}
+                {% define forms|index:selfmt as selfrm %}
+                {% if valid_search and selfrm.0.val != "" and not selfrm.0.val.errors %}
+                    <hr>
+                    <h3 style="margin: 0; display: inline-block;">{{ qry|getFormatName:qry.selectedtemplate }} Results ({{ res.count|default:"0" }})</h3>
+                {% else %}
+                    {% define False as valid_search %}
+                {% endif %}
+            {% else %}
+                {% define default_format as selfmt %}
             {% endif %}
         {% else %}
+            {% define format as selfmt %}
+            {% if selfmt not in forms.keys %}
+                {% define False as valid_search %}
+            {% endif %}
             <hr>
-            <h3 style="margin: 0; display: inline-block;">{{ res.count|default:"0" }} Records</h3>
+            {% if valid_search %}
+                <h3 style="margin: 0; display: inline-block;">{{ res.count|default:"0" }} Records</h3>
+            {% else %}
+                <label class="text-danger">Invalid format[1]: {{ selfmt }}</label>
+            {% endif %}
         {% endif %}
 
         {% if res %}
-            <div style="float: right;">
-                <form action="/DataRepo/search_advanced_tsv/" id="advanced-search-download-form" method="POST">
-                    {% csrf_token %}
-                    {{ download_form.qryjson }}
-                    <button type="submit" class="btn btn-primary mb-2" id="advanced-download-submit">Download</button>
-                    <!-- There are multiple form types, but we only need one set of form management inputs. We can get away with this because all the fields are the same. -->
-                    {{ download_form.management_form }}
-                </form>
-            </div>
+            {% if valid_search %}
+                <div style="float: right;">
+                    <form action="/DataRepo/search_advanced_tsv/" id="advanced-search-download-form" method="POST">
+                        {% csrf_token %}
+                        {{ download_form.qryjson }}
+                        <button type="submit" class="btn btn-primary mb-2" id="advanced-download-submit">Download</button>
+                        <!-- There are multiple form types, but we only need one set of form management inputs. We can get away with this because all the fields are the same. -->
+                        {{ download_form.management_form }}
+                    </form>
+                </div>
+            {% endif %}
 
             {% if qry.selectedtemplate == "pgtemplate" or mode == "browse" and format == "pgtemplate" %}
                 {% include "DataRepo/search/results/peakgroups.html" %}
             {% elif qry.selectedtemplate == "pdtemplate" or mode == "browse" and format == "pdtemplate" %}
                 {% include "DataRepo/search/results/peakdata.html" %}
+            {% else %}
+                <label class="text-danger">Invalid format[2]: {{ selfmt }}</label>
             {% endif %}
 
         {% else %}
-            {% if mode == "browse" or qry and formsets.pgtemplate.0.val != "" and not formsets.pgtemplate.0.val.errors and formsets.pdtemplate.0.val != "" and not formsets.pdtemplate.0.val.errors %}
+            {% if valid_search and mode == "browse" or qry %}
                 <p>No matching records found.</p>
             {% endif %}
         {% endif %}
