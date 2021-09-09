@@ -20,7 +20,6 @@ from DataRepo.models import (
     Tissue,
     TracerLabeledClass,
 )
-from DataRepo.utils import AccuCorDataLoader
 
 
 class ExampleDataConsumer:
@@ -743,7 +742,7 @@ class AnimalAndSampleLoadingTests(TestCase):
     def test_animal_and_sample_load_xlsx(self):
 
         # initialize some sample-table-dependent counters
-        SAMPLES_COUNT = 15
+        SAMPLES_COUNT = 16
         ANIMALS_COUNT = 1
         STUDIES_COUNT = 1
 
@@ -764,7 +763,6 @@ class AnimalAndSampleLoadingTests(TestCase):
         self.assertEqual(study.animals.count(), ANIMALS_COUNT)
 
 
-@tag("test")
 class AccuCorDataLoadingTests(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -778,6 +776,7 @@ class AccuCorDataLoadingTests(TestCase):
             ),
             table_headers="DataRepo/example_data/sample_and_animal_tables_headers.yaml",
         )
+        cls.COMPOUNDS_COUNT = 2
 
     def test_accucor_load_blank_fail(self):
         with self.assertRaises(AssertionError, msg="1 samples are missing."):
@@ -800,65 +799,41 @@ class AccuCorDataLoadingTests(TestCase):
             researcher="Michael Neinast",
             new_researcher=True,
         )
-        COMPOUNDS_COUNT = 2
         SAMPLES_COUNT = 14
         PEAKDATA_ROWS = 11
-        PEAKGROUP_COUNT = COMPOUNDS_COUNT * SAMPLES_COUNT
-        PEAKDATA_COUNT = PEAKDATA_ROWS * SAMPLES_COUNT
 
-        self.assertEqual(PeakGroup.objects.all().count(), PEAKGROUP_COUNT)
-        self.assertEqual(PeakData.objects.all().count(), PEAKDATA_COUNT)
+        self.assertEqual(
+            PeakGroup.objects.all().count(), self.COMPOUNDS_COUNT * SAMPLES_COUNT
+        )
+        self.assertEqual(PeakData.objects.all().count(), PEAKDATA_ROWS * SAMPLES_COUNT)
 
-
-class ParseIsotopeLabelTests(TestCase):
-    @classmethod
-    def setUpTestData(cls):
-        call_command("load_compounds", "DataRepo/example_data/obob_compounds.tsv")
-
+    def test_accucor_load_sample_prefix(self):
         call_command(
-            "load_samples",
-            "DataRepo/example_data/small_dataset/small_obob_sample_table.tsv",
-            sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
+            "load_accucor_msruns",
+            accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_req_prefix.xlsx",
+            sample_name_prefix="PREFIX_",
+            skip_samples=("blank"),
+            protocol="Default",
+            date="2021-04-29",
+            researcher="Michael Neinast",
+            new_researcher=True,
         )
+        SAMPLES_COUNT = 1
+        PEAKDATA_ROWS = 11
 
-    def test_parse_parent_isotope_label(self):
         self.assertEqual(
-            AccuCorDataLoader.parse_isotope_label("C12 PARENT"), ("C12", 0)
+            PeakGroup.objects.all().count(), self.COMPOUNDS_COUNT * SAMPLES_COUNT
         )
+        self.assertEqual(PeakData.objects.all().count(), PEAKDATA_ROWS * SAMPLES_COUNT)
 
-    def test_parse_isotope_label(self):
-        self.assertEqual(
-            AccuCorDataLoader.parse_isotope_label("C13-label-5"), ("C13", 5)
-        )
-
-    def test_parse_isotope_label_bad(self):
-        with self.assertRaises(ValueError):
-            AccuCorDataLoader.parse_isotope_label("label-5")
-
-    def test_parse_isotope_label_empty(self):
-        with self.assertRaises(ValueError):
-            AccuCorDataLoader.parse_isotope_label("")
-
-    def test_parse_isotope_label_none(self):
-        with self.assertRaises(TypeError):
-            AccuCorDataLoader.parse_isotope_label(None)
-
-    def test_dupe_compound_isotope_pairs(self):
-        # Error must contain:
-        #   all compound/isotope pairs that were dupes
-        #   all line numbers the dupes were on
-        exp_err = (
-            "The following duplicate compound/isotope pairs were found in the original data: [glucose & C12 PARENT on "
-            "rows: 1,2; lactate & C12 PARENT on rows: 3,4]"
-        )
-        with self.assertRaises(Exception, msg=exp_err):
+    def test_accucor_load_sample_prefix_missing(self):
+        with self.assertRaises(AssertionError, msg="1 samples are missing."):
             call_command(
                 "load_accucor_msruns",
+                accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_req_prefix.xlsx",
+                skip_samples=("blank"),
                 protocol="Default",
-                accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_dupes.xlsx",
-                date="2021-06-03",
-                researcher="Michael",
+                date="2021-04-29",
+                researcher="Michael Neinast",
+                new_researcher=True,
             )
-        # Data was not loaded
-        self.assertEqual(PeakGroup.objects.filter(name__exact="glucose").count(), 0)
-        self.assertEqual(PeakGroup.objects.filter(name__exact="lactate").count(), 0)

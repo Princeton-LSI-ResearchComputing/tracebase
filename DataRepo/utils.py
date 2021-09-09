@@ -261,6 +261,7 @@ class SampleTableLoader:
             sample_name = row[self.headers.SAMPLE_NAME]
             try:
                 sample = Sample.objects.get(name=sample_name)
+                print(f"SKIPPING existing record: Sample:{sample_name}")
             except Sample.DoesNotExist:
                 print(f"Creating new record: Sample:{sample_name}")
                 sample = Sample(
@@ -280,12 +281,12 @@ class SampleTableLoader:
                     except TypeError:
                         sample_date = sample_date_value
                     sample.date = sample_date
-            try:
-                sample.full_clean()
-                sample.save()
-            except Exception as e:
-                print(f"Error saving record: Sample:{sample}")
-                raise (e)
+                try:
+                    sample.full_clean()
+                    sample.save()
+                except Exception as e:
+                    print(f"Error saving record: Sample:{sample}")
+                    raise (e)
 
 
 class AccuCorDataLoader:
@@ -303,6 +304,7 @@ class AccuCorDataLoader:
         researcher,
         peak_group_set_filename,
         skip_samples=None,
+        sample_name_prefix=None,
         debug=False,
         new_researcher=False,
     ):
@@ -316,6 +318,9 @@ class AccuCorDataLoader:
             self.skip_samples = []
         else:
             self.skip_samples = skip_samples
+        if sample_name_prefix is None:
+            sample_name_prefix = ""
+        self.sample_name_prefix = sample_name_prefix
         self.debug = debug
         self.new_researcher = new_researcher
 
@@ -497,10 +502,11 @@ class AccuCorDataLoader:
         # cross validate in database
         self.sample_dict = {}
         for original_sample_name in self.original_samples:
+            prefix_sample_name = f"{self.sample_name_prefix}{original_sample_name}"
             try:
                 # cached it for later
                 self.sample_dict[original_sample_name] = Sample.objects.get(
-                    name=original_sample_name
+                    name=prefix_sample_name
                 )
             except Sample.DoesNotExist:
                 missing_samples += 1
