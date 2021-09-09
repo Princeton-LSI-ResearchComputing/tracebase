@@ -1,22 +1,18 @@
 {% extends "base.html" %}
 
-{% block title %}MS Run Details{% endblock %}
+{% block title %}MS Run Record - {{ msrun.researcher }}, {{ msrun.date }}{% endblock %}
 
 {% block content %}
 <div>
-    <h4>MS Run Details:</h4>
+    <h4>MS Run Record - {{ msrun.researcher }}, {{ msrun.date }}</h4>
     <br>
     <table class="table  table-bordered table-hover w-auto mw-100">
         <tr>
-            <td>MS Run ID</td>
-            <td>{{ msrun.id }}</td>
-        </tr>
-        <tr>
-            <td>Sample Name</td>
+            <td>Sample</td>
             <td><a href="{% url 'sample_detail' msrun.sample.id %}">{{ msrun.sample.name }}</a></td>
         </tr>
         <tr>
-            <td>Protocol Name</td>
+            <td>Protocol</td>
             <td><a href="{% url 'protocol_detail' msrun.protocol.id %}">{{ msrun.protocol.name }}</a></td>
         </tr>
         <tr>
