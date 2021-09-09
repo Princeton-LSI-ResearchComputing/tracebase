@@ -421,6 +421,37 @@ class DataLoadingTests(TestCase):
             "For protocol's full text, please consult Michael Neinast.",
         )
 
+    def test_sample_peak_data_queryset(self):
+        animal = Animal.objects.get(name="971")
+        serum_samples = animal.all_serum_samples()
+        final_serum_sample = animal.final_serum_sample()
+        self.assertEqual(final_serum_sample.name, "serum-xz971")
+        peakdata = final_serum_sample.peak_data_queryset()
+        # ALL the sample's peakdata objects total 85
+        self.assertEqual(peakdata.count(), 85)
+        # but if limited to only the tracer's data, it is just 7 objects
+        peakdata = final_serum_sample.peak_data_queryset(animal.tracer_compound)
+        self.assertEqual(peakdata.count(), 7)
+        peakdata2 = animal.final_serum_sample_tracer_peak_data_queryset()
+        self.assertEqual(peakdata.count(), peakdata2.count())
+        self.assertQuerysetEqual(peakdata, peakdata2)
+        # do some deletion tests
+        serum_sample_msrun = MSRun.objects.filter(
+            sample__name=final_serum_sample.name
+        ).get()
+        serum_sample_msrun.delete()
+        # with the msrun deleted, the 7 rows of prior peak data are now 0/gone
+        peakdata = final_serum_sample.peak_data_queryset(animal.tracer_compound)
+        self.assertEqual(peakdata.count(), 0)
+        final_serum_sample.delete()
+        # with the sample deleted, there are no more serum records...
+        serum_samples = animal.all_serum_samples()
+        # soe zero length list
+        self.assertEqual(serum_samples.count(), 0)
+        with self.assertWarns(UserWarning):
+            # and None for final
+            self.assertIsNone(animal.final_serum_sample())
+
     def test_restricted_animal_treatment_deletion(self):
         treatment = Animal.objects.get(name="exp024f_M2").treatment
         with self.assertRaises(RestrictedError):
@@ -540,6 +571,14 @@ class DataLoadingTests(TestCase):
             tissue=first_serum_sample.tissue,
             time_collected=first_serum_sample.time_collected + timedelta(minutes=1),
         )
+
+        serum_samples = first_serum_sample.animal.all_serum_samples()
+        # there should now be 2 serum samples for this animal
+        self.assertEqual(serum_samples.count(), 2)
+        final_serum_sample = first_serum_sample.animal.final_serum_sample()
+        # and the final one should now be the second one (just created)
+        self.assertEqual(final_serum_sample.name, second_serum_sample.name)
+
         msrun = MSRun.objects.create(
             researcher="John Doe",
             date=datetime.now(),

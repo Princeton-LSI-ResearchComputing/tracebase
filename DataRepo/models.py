@@ -371,6 +371,21 @@ class Animal(models.Model, TracerLabeledClass):
         help_text="The laboratory controlled label of the actions taken on an animal.",
     )
 
+    def all_serum_samples(self):
+        return self.samples.filter(tissue__name=Tissue.SERUM_TISSUE_NAME).all()
+
+    def final_serum_sample(self):
+        try:
+            return self.samples.filter(tissue__name=Tissue.SERUM_TISSUE_NAME).latest(
+                "time_collected"
+            )
+        except Sample.DoesNotExist:
+            warnings.warn(f"Animal {self.name} has no 'Serum' samples.")
+            return None
+
+    def final_serum_sample_tracer_peak_data_queryset(self):
+        return self.final_serum_sample().peak_data_queryset(self.tracer_compound)
+
     class Meta:
         verbose_name = "animal"
         verbose_name_plural = "animals"
@@ -452,6 +467,31 @@ class Sample(models.Model):
         help_text="The time, relative to an infusion timepoint, "
         "that a sample was extracted from an animal.",
     )
+
+    """
+    Retrieve a list of peakdata objects for a sample instance.  If an optional
+    compound is passed (e.g. animal.tracer_compound), then is it used to filter
+    the peakdata queryset to a specific peakgroup.
+    """
+
+    def peak_data_queryset(self, compound=None):
+
+        try:
+
+            peakdata_queryset = PeakData.objects.filter(
+                peak_group__msrun__sample_id=self.id
+            )
+
+            if compound:
+                peakdata_queryset = peakdata_queryset.filter(
+                    peak_group__compounds__id=compound.id
+                )
+
+            return peakdata_queryset.all()
+
+        except Exception as e:
+            print("Unexpected error:")
+            raise e
 
     class Meta:
         verbose_name = "sample"
