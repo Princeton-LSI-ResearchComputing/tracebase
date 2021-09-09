@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 
-{% block title %}Animal Details{% endblock %}
+{% block title %}Animal Record - {{ animal.name }}{% endblock %}
 
 {% block content %}
 <div>
-    <h4>Animal Details:</h4>
+    <h4>Animal Record - {{ animal.name }}</h4>
     <p>Name: {{ animal.name }}</p>
     <p>
         <a href="{% url 'sample_list' %}?animal_id={{ animal.id }}">
@@ -14,7 +14,7 @@
     <h5>Tracer Information:</h5>
     <table class="table table-bordered table-hover w-auto mw-100">
         <tr>
-            <td>Compound Name</td>
+            <td>Compound</td>
             <td>
                 <a href="{% url 'compound_detail' animal.tracer_compound.id %}">
                     {{ animal.tracer_compound.name }}

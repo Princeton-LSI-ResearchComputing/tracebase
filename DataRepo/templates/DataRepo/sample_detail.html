@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 
-{% block title %}Sample Details{% endblock %}
+{% block title %}Sample Record - {{ sample.name }}{% endblock %}
 
 {% block content %}
 <div>
-    <h4>Sample Details</h4>
+    <h4>Sample Record - {{ sample.name }}</h4>
     <br>
     <table class="table  table-bordered table-hover w-auto mw-100">
         <tr>
@@ -20,11 +20,11 @@
             <td>{{ sample.researcher }}</td>
         </tr>
         <tr>
-            <td>Animal Name</td>
+            <td>Animal</td>
             <td><a href="{% url 'animal_detail' sample.animal.id %}">{{ sample.animal.name }}</a></td>
         </tr>
         <tr>
-            <td>Tissue Name</td>
+            <td>Tissue</td>
             <td>{{ sample.tissue}}</td>
         </tr>
         <tr>

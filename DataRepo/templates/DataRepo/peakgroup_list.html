@@ -11,11 +11,11 @@
         <br>
         <table class="table table-sm table-hover table-bordered table-responsive table-striped w-auto mw-100">
             <tr>
-            <th>Peak Group Name</th>
+            <th>Peak Group</th>
             <th>Formula</th>
-            <th>MS Run Sample Name</th>
-            <th>MS Run ID</th>
-            <th>AccuCor File Name</th>
+            <th>Sample</th>
+            <th>MS Run</th>
+            <th>AccuCor File</th>
             </tr>
             {% for peakgroup in peakgroup_list %}
             <tr>
@@ -26,7 +26,7 @@
                     {{ peakgroup.msrun.sample.name }}
                 </a>
             </td>
-            <td><a href="{% url 'msrun_detail' peakgroup.msrun.id %}">{{ peakgroup.msrun.id }}</a></td>
+            <td><a href="{% url 'msrun_detail' peakgroup.msrun.id %}">{{ peakgroup.msrun.researcher }}, {{ peakgroup.msrun.date }}</a></td>
             <td>
                 <a href="{% url 'peakgroupset_detail' peakgroup.peak_group_set.id %}">
                     {{ peakgroup.peak_group_set.filename }}

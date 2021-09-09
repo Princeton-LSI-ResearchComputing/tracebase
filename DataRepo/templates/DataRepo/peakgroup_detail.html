@@ -1,14 +1,14 @@
 {% extends "base.html" %}
 
-{% block title %}Peak Group Details{% endblock %}
+{% block title %}Peak Group Record - {{ peakgroup.name }}{% endblock %}
 
 {% block content %}
 <div>
-    <h4>Peak Group Details:</h4>
+    <h4>Peak Group Record - {{ peakgroup.name }}</h4>
     <br>
     <table class="table table-bordered table-hover w-auto mw-100">
         <tr>
-            <td>Peak Group Name</td>
+            <td>Name</td>
             <td>{{ peakgroup.name }}</td>
         </tr>
         <tr>
@@ -16,7 +16,7 @@
             <td>{{ peakgroup.formula }}</td>
         </tr>
         <tr>
-            <td>Peak Group Set (Accucor File Name)</td>
+            <td>Peak Group Set (Accucor File)</td>
             <td>
                 <a href="{% url 'peakgroupset_detail' peakgroup.peak_group_set.id %}">
                     {{ peakgroup.peak_group_set.filename }}
@@ -24,11 +24,11 @@
             </td>
         </tr>
         <tr>
-            <td>MS Run ID</td>
-            <td><a href="{% url 'msrun_detail' peakgroup.msrun.id %}">{{ peakgroup.msrun.id }}</a></td>
+            <td>MS Run</td>
+            <td><a href="{% url 'msrun_detail' peakgroup.msrun.id %}">{{ peakgroup.msrun.researcher }}, {{ peakgroup.msrun.date }}</a></td>
         </tr>
         <tr>
-            <td>MS Run Sample Name</td>
+            <td>Sample</td>
             <td>
                 <a href="{% url 'sample_detail' peakgroup.msrun.sample.id %}">
                     {{ peakgroup.msrun.sample.name }}
