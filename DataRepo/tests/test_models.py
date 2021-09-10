@@ -446,7 +446,7 @@ class DataLoadingTests(TestCase):
         final_serum_sample.delete()
         # with the sample deleted, there are no more serum records...
         serum_samples = animal.all_serum_samples()
-        # soe zero length list
+        # so zero length list
         self.assertEqual(serum_samples.count(), 0)
         with self.assertWarns(UserWarning):
             # and None for final
