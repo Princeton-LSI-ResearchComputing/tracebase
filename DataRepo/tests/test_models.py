@@ -20,6 +20,7 @@ from DataRepo.models import (
     Tissue,
     TracerLabeledClass,
 )
+from DataRepo.utils import AccuCorDataLoader
 
 
 class ExampleDataConsumer:
@@ -837,3 +838,57 @@ class AccuCorDataLoadingTests(TestCase):
                 researcher="Michael Neinast",
                 new_researcher=True,
             )
+
+
+class ParseIsotopeLabelTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        call_command("load_compounds", "DataRepo/example_data/obob_compounds.tsv")
+
+        call_command(
+            "load_samples",
+            "DataRepo/example_data/small_dataset/small_obob_sample_table.tsv",
+            sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
+        )
+
+    def test_parse_parent_isotope_label(self):
+        self.assertEqual(
+            AccuCorDataLoader.parse_isotope_label("C12 PARENT"), ("C12", 0)
+        )
+
+    def test_parse_isotope_label(self):
+        self.assertEqual(
+            AccuCorDataLoader.parse_isotope_label("C13-label-5"), ("C13", 5)
+        )
+
+    def test_parse_isotope_label_bad(self):
+        with self.assertRaises(ValueError):
+            AccuCorDataLoader.parse_isotope_label("label-5")
+
+    def test_parse_isotope_label_empty(self):
+        with self.assertRaises(ValueError):
+            AccuCorDataLoader.parse_isotope_label("")
+
+    def test_parse_isotope_label_none(self):
+        with self.assertRaises(TypeError):
+            AccuCorDataLoader.parse_isotope_label(None)
+
+    def test_dupe_compound_isotope_pairs(self):
+        # Error must contain:
+        #   all compound/isotope pairs that were dupes
+        #   all line numbers the dupes were on
+        exp_err = (
+            "The following duplicate compound/isotope pairs were found in the original data: [glucose & C12 PARENT on "
+            "rows: 1,2; lactate & C12 PARENT on rows: 3,4]"
+        )
+        with self.assertRaises(Exception, msg=exp_err):
+            call_command(
+                "load_accucor_msruns",
+                protocol="Default",
+                accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_dupes.xlsx",
+                date="2021-06-03",
+                researcher="Michael",
+            )
+        # Data was not loaded
+        self.assertEqual(PeakGroup.objects.filter(name__exact="glucose").count(), 0)
+        self.assertEqual(PeakGroup.objects.filter(name__exact="lactate").count(), 0)
