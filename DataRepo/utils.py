@@ -114,7 +114,7 @@ class SampleTableLoader:
             )
             assert len(new_researchers) == 0, err_msg
 
-    def load_sample_table(self, data, skip_researcher_check):
+    def load_sample_table(self, data, skip_researcher_check, debug):
         self.validate_sample_table(data, skip_researcher_check)
         for row in data:
 
@@ -287,6 +287,8 @@ class SampleTableLoader:
                 except Exception as e:
                     print(f"Error saving record: Sample:{sample}")
                     raise (e)
+
+        assert not debug, "Debugging..."
 
 
 class AccuCorDataLoader:

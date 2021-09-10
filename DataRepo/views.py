@@ -9,7 +9,7 @@ from django.views.generic import DetailView, ListView
 from django.views.generic.edit import FormView
 
 from DataRepo.compositeviews import BaseAdvancedSearchView
-from DataRepo.forms import AdvSearchDownloadForm, AdvSearchForm
+from DataRepo.forms import AdvSearchDownloadForm, AdvSearchForm, DataSubmissionValidationForm
 from DataRepo.models import (
     Animal,
     Compound,
@@ -26,6 +26,10 @@ from DataRepo.multiforms import MultiFormsView
 
 def home(request):
     return render(request, "home.html")
+
+
+def upload(request):
+    return render(request, "upload.html")
 
 
 class CompoundListView(ListView):
@@ -889,3 +893,47 @@ class PeakDataListView(ListView):
             self.peakgroup = get_object_or_404(PeakGroup, id=peakgroup_pk)
             queryset = PeakData.objects.filter(peak_group_id=peakgroup_pk)
         return queryset
+
+class DataValidationView(FormView):
+    form_class = DataSubmissionValidationForm
+    template_name = "DataRepo/validate_submission.html"
+    success_url = ""
+    accucor_files = []
+    animal_sample_file = None
+
+    def post(self, request, *args, **kwargs):
+        form_class = self.get_form_class()
+        form = self.get_form(form_class)
+        self.accucor_files = request.FILES.getlist('accucor_files')
+        self.animal_sample_file = request.FILES['animal_sample_table']
+        if form.is_valid():
+            return self.form_valid(form)
+        else:
+            return self.form_invalid(form)
+
+    def form_valid(self, form):
+        """
+        Upon valid file submission, adds validation messages to the context of the validation page.
+        """
+
+        errors = []
+        debug = "untouched"
+        valid = False
+        try:
+            debug = f"asf: {self.animal_sample_file} num afs: {len(self.accucor_files)}"
+            # Load the animal and sample table in debug mode
+
+            # Load the animal and sample data into a test database, so the data is available for the accucor file validation
+
+            # Load the accucor file into the test database in debug mode
+        except Exception as e:
+            errors.append(str(e))
+
+        return self.render_to_response(
+            self.get_context_data(
+                debug=debug,
+                valid=valid,
+                form=form,
+                errors=errors,
+            )
+        )

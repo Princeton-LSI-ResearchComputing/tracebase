@@ -137,3 +137,12 @@ class AdvSearchDownloadForm(forms.Form):
         """This override of super.clean is so we can reconstruct the search inputs upon form_invalid in views.py"""
         self.saved_data = self.cleaned_data
         return self.cleaned_data
+
+
+class DataSubmissionValidationForm(forms.Form):
+    """
+    Form for users to validate their Animal and Sample Table with Accucor files
+    """
+
+    animal_sample_table = forms.FileField(widget=forms.ClearableFileInput(attrs={'multiple': False}))
+    accucor_files = forms.FileField(widget=forms.ClearableFileInput(attrs={'multiple': True}))

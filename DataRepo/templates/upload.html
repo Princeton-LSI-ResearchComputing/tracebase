@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% load static %}
+{% block content %}
+<div>
+    <h4>Animal, Sample, & Accucor Data Submission Process</h4>
+    <hr />
+    <ol>
+        <li>
+            <h5>Prepare your data</h5>
+            <ul>
+                <li>Create a (Google Sheet or Excel) copy of the <a href="https://docs.google.com/spreadsheets/d/1To3495KxJkAtnAD9KVdzc162zKbNiYuPEVyPseQPjMQ/edit?usp=sharing">Tracebase Animal and Sample Table Template</a></li>
+                <li>Ensure that the sample names of the above file are consistent with your Accucor file</li>
+            </ul>
+        </li>
+        <li>
+            <h5><a href="{% url 'validate' %}">Validate</a> your data</h5>
+            In order to expedite the loading process, you can check your data submission to resolve simple discrepancies by running your files through our automated validation script.
+        </li>
+        <li>
+            <h5>Upload your data using the <a href="https://forms.gle/Jyp94aiGmhBNLZh6A">submission form</a></h5>
+            Submitting this form will do a few things:
+            <ol>
+                <li>Submitting the form will record your entries in a google spreadsheet and store your file uploads in google drive</li>
+                <li>The submission will notify the Tracebase curators responsible for manually loading your submission into the database.</li>
+                <li>You will receive an email confirming your data submission.</li>
+            </ol>
+            You can check what you submitted by going to the google spreadsheet.  If you have edit permission on the spreadsheet, you can alter any values that may need editing.
+        </li>
+        <li>
+            <h5>What happens next</h5>
+            <ul>
+                <li>
+                    A Tracebase curator will load your files into Tracebase.
+                </li>
+                <li>
+                    You can expect to receive an email from the curator who loads your data with an update on the status of your submission.  If there were any problems with the load, you will be advised on how to resolve the issues.
+                </li>
+                <li>
+                    If, after your submission, you need to followup or would like to check-in on the upload status, send an email to:<br>
+                    <a href="mailto:csgenome@princeton.edu?subject=Tracebase curator inquiry&body=Dear Tracebase Curators, ">Tracebase Curators</a>
+                </li>
+            </ul>
+        </li>
+    </ol>
+</div>
+{% endblock %}

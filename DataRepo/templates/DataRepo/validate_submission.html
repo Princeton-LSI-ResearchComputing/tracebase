@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+    <div>
+        <form action="/DataRepo/validate/" id="submission-validation" method="POST">
+            {% csrf_token %}
+            <label>Animal and Sample Table</label>{{ form.animal_sample_table }}<br>
+            <label>Accucor files</label>{{ form.accucor_files }}<br>
+            <button type="submit" class="btn btn-primary" id="validate">Validate</button>
+            {{ form.errors.val }}
+            {{ form.management_form }}
+        </form>
+    </div>
+
+    {% if debug %}
+        Valid: {{ valid }}
+        Debug: {{ debug }}
+
+        {% for error in errors %}
+            {{ error }}
+        {% endfor %}
+    {% endif %}
+
+{% endblock %}
