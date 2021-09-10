@@ -47,6 +47,13 @@ class Command(BaseCommand):
             help="List of sample names to skip loading (useful for blank samples)",
             required=False,
         )
+        parser.add_argument(
+            "--sample-name-prefix",
+            type=str,
+            help="Sample name prefix",
+            default=None,
+            required=False,
+        )
         # optional debug argument
         parser.add_argument(
             "--debug",
@@ -123,6 +130,7 @@ class Command(BaseCommand):
             researcher=options["researcher"],
             peak_group_set_filename=pgs_filename,
             skip_samples=options["skip_samples"],
+            sample_name_prefix=options["sample_name_prefix"],
             debug=options["debug"],
             new_researcher=options["new_researcher"],
         )

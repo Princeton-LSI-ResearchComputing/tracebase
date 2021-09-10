@@ -743,7 +743,7 @@ class AnimalAndSampleLoadingTests(TestCase):
     def test_animal_and_sample_load_xlsx(self):
 
         # initialize some sample-table-dependent counters
-        SAMPLES_COUNT = 15
+        SAMPLES_COUNT = 16
         ANIMALS_COUNT = 1
         STUDIES_COUNT = 1
 
@@ -764,7 +764,6 @@ class AnimalAndSampleLoadingTests(TestCase):
         self.assertEqual(study.animals.count(), ANIMALS_COUNT)
 
 
-@tag("test")
 class AccuCorDataLoadingTests(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -778,6 +777,7 @@ class AccuCorDataLoadingTests(TestCase):
             ),
             table_headers="DataRepo/example_data/sample_and_animal_tables_headers.yaml",
         )
+        cls.COMPOUNDS_COUNT = 2
 
     def test_accucor_load_blank_fail(self):
         with self.assertRaises(AssertionError, msg="1 samples are missing."):
@@ -800,14 +800,44 @@ class AccuCorDataLoadingTests(TestCase):
             researcher="Michael Neinast",
             new_researcher=True,
         )
-        COMPOUNDS_COUNT = 2
         SAMPLES_COUNT = 14
         PEAKDATA_ROWS = 11
-        PEAKGROUP_COUNT = COMPOUNDS_COUNT * SAMPLES_COUNT
-        PEAKDATA_COUNT = PEAKDATA_ROWS * SAMPLES_COUNT
 
-        self.assertEqual(PeakGroup.objects.all().count(), PEAKGROUP_COUNT)
-        self.assertEqual(PeakData.objects.all().count(), PEAKDATA_COUNT)
+        self.assertEqual(
+            PeakGroup.objects.all().count(), self.COMPOUNDS_COUNT * SAMPLES_COUNT
+        )
+        self.assertEqual(PeakData.objects.all().count(), PEAKDATA_ROWS * SAMPLES_COUNT)
+
+    def test_accucor_load_sample_prefix(self):
+        call_command(
+            "load_accucor_msruns",
+            accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_req_prefix.xlsx",
+            sample_name_prefix="PREFIX_",
+            skip_samples=("blank"),
+            protocol="Default",
+            date="2021-04-29",
+            researcher="Michael Neinast",
+            new_researcher=True,
+        )
+        SAMPLES_COUNT = 1
+        PEAKDATA_ROWS = 11
+
+        self.assertEqual(
+            PeakGroup.objects.all().count(), self.COMPOUNDS_COUNT * SAMPLES_COUNT
+        )
+        self.assertEqual(PeakData.objects.all().count(), PEAKDATA_ROWS * SAMPLES_COUNT)
+
+    def test_accucor_load_sample_prefix_missing(self):
+        with self.assertRaises(AssertionError, msg="1 samples are missing."):
+            call_command(
+                "load_accucor_msruns",
+                accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_req_prefix.xlsx",
+                skip_samples=("blank"),
+                protocol="Default",
+                date="2021-04-29",
+                researcher="Michael Neinast",
+                new_researcher=True,
+            )
 
 
 class ParseIsotopeLabelTests(TestCase):
