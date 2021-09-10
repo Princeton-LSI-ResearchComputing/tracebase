@@ -840,6 +840,23 @@ class AccuCorDataLoadingTests(TestCase):
             )
 
 
+@tag("load_study")
+class StudyLoadingTests(TestCase):
+    def test_load_small_obob_study(self):
+        call_command(
+            "load_study",
+            "DataRepo/example_data/small_dataset/small_obob_study_params.yaml",
+        )
+        COMPOUNDS_COUNT = 2
+        SAMPLES_COUNT = 14
+        PEAKDATA_ROWS = 11
+
+        self.assertEqual(
+            PeakGroup.objects.all().count(), COMPOUNDS_COUNT * SAMPLES_COUNT
+        )
+        self.assertEqual(PeakData.objects.all().count(), PEAKDATA_ROWS * SAMPLES_COUNT)
+
+
 class ParseIsotopeLabelTests(TestCase):
     @classmethod
     def setUpTestData(cls):
