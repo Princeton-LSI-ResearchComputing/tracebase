@@ -1,5 +1,6 @@
 import json
 from datetime import datetime
+import os.path
 
 from django.conf import settings
 from django.db.models import Q
@@ -7,6 +8,7 @@ from django.http import Http404
 from django.shortcuts import get_object_or_404, render
 from django.views.generic import DetailView, ListView
 from django.views.generic.edit import FormView
+from django.core.management import call_command
 
 from DataRepo.compositeviews import BaseAdvancedSearchView
 from DataRepo.forms import AdvSearchDownloadForm, AdvSearchForm, DataSubmissionValidationForm
@@ -22,6 +24,7 @@ from DataRepo.models import (
     Study,
 )
 from DataRepo.multiforms import MultiFormsView
+
 
 
 def home(request):
@@ -900,6 +903,7 @@ class DataValidationView(FormView):
     success_url = ""
     accucor_files = []
     animal_sample_file = None
+    submission_url = "https://forms.gle/Jyp94aiGmhBNLZh6A"
 
     def post(self, request, *args, **kwargs):
         form_class = self.get_form_class()
@@ -921,19 +925,32 @@ class DataValidationView(FormView):
         valid = False
         try:
             debug = f"asf: {self.animal_sample_file} num afs: {len(self.accucor_files)}"
-            # Load the animal and sample table in debug mode
+
+            try:
+                # Load the animal and sample table in debug mode
+                call_command(
+                    "load_animals_and_samples",
+                    animal_and_sample_table_filename=self.animal_sample_file.temporary_file_path(),
+                    table_headers="DataRepo/example_data/sample_and_animal_tables_headers.yaml",
+                )
+                valid = True
+            except Exception as e:
+                errors.append(str(e))
 
             # Load the animal and sample data into a test database, so the data is available for the accucor file validation
 
             # Load the accucor file into the test database in debug mode
         except Exception as e:
             errors.append(str(e))
+            raise(e)
 
         return self.render_to_response(
             self.get_context_data(
+                results="present",
                 debug=debug,
                 valid=valid,
                 form=form,
                 errors=errors,
+                submission_url=self.submission_url,
             )
         )

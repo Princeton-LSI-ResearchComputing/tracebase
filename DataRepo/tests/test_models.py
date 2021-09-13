@@ -754,6 +754,7 @@ class AnimalAndSampleLoadingTests(TestCase):
                 "small_obob_animal_and_sample_table.xlsx"
             ),
             table_headers="DataRepo/example_data/sample_and_animal_tables_headers.yaml",
+            debug=True,
         )
 
         self.assertEqual(Sample.objects.all().count(), SAMPLES_COUNT)

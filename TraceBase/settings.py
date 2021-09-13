@@ -131,6 +131,10 @@ STATIC_URL = "/static/"
 
 STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")]
 
+# https://stackoverflow.com/questions/38345977/filefield-force-using-temporaryuploadedfile
+# Added to make the validate_submission.html form work.  Could not figure out how to specify this handler for individual fields.  This avoids files using the InMemoryUploadedFile, which the load script complains about.
+FILE_UPLOAD_HANDLERS = ['django.core.files.uploadhandler.TemporaryFileUploadHandler',]
+
 # LOGGING = {
 #    "version": 1,
 #    "filters": {

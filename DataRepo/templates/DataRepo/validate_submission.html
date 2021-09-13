@@ -1,23 +1,43 @@
 {% extends "base.html" %}
 {% block content %}
     <div>
-        <form action="/DataRepo/validate/" id="submission-validation" method="POST">
+        <h3>Validate Animal/Sample and Accucor Files for Submission</h3>
+        <form action="{% url 'validate' %}" id="submission-validation" method="POST" enctype="multipart/form-data">
             {% csrf_token %}
-            <label>Animal and Sample Table</label>{{ form.animal_sample_table }}<br>
-            <label>Accucor files</label>{{ form.accucor_files }}<br>
+            <label for="animal_sample_table" class="form-label">Animal and Sample Table:</label>{{ form.animal_sample_table }}<br>
+            <label for="accucor_files" class="form-label">Accucor files:</label>{{ form.accucor_files }}<br>
             <button type="submit" class="btn btn-primary" id="validate">Validate</button>
             {{ form.errors.val }}
             {{ form.management_form }}
         </form>
+        <br>
+        <div class="text-muted">
+            Note, you do not have to resolve all issues with the files before submission.  This is just a quick optional check to catch simple mistakes.<br>
+            Once you have resolved any issues that you know how to fix (leaving any issues you do not know how to resolve), you may move on to the <a href="{{ submission_url }}">submission form</a>.
+        </div>
     </div>
 
     {% if debug %}
         Valid: {{ valid }}
         Debug: {{ debug }}
+    {% endif %}
 
-        {% for error in errors %}
-            {{ error }}
-        {% endfor %}
+    {% if results %}
+        {% if not valid %}
+            <br>
+            <br>
+            <h5 class="text-danger">The following issue(s) with the file(s) were found:</h5>
+            <ul class="text-danger">
+                {% for error in errors %}
+                    <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+            Please address the above issues in your file and try again.  If it is not clear what the issue is, you may proceed to the <a href="{{ submission_url }}">submission form</a> and a curator will attempt to resolve the issue.
+        {% else %}
+            <br>
+            <br>
+            <h5 class="text-success">Success!  No issues found.  Please proceed to the <a href="{{ submission_url }}">submission form</a>.</h5>
+        {% endif %}
     {% endif %}
 
 {% endblock %}

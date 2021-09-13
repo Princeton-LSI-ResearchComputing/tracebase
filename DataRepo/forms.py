@@ -144,5 +144,11 @@ class DataSubmissionValidationForm(forms.Form):
     Form for users to validate their Animal and Sample Table with Accucor files
     """
 
-    animal_sample_table = forms.FileField(widget=forms.ClearableFileInput(attrs={'multiple': False}))
-    accucor_files = forms.FileField(widget=forms.ClearableFileInput(attrs={'multiple': True}))
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for visible in self.visible_fields():
+            visible.field.widget.attrs['class'] = 'form-control'
+
+
+    animal_sample_table = forms.FileField(required=False, widget=forms.ClearableFileInput(attrs={'multiple': False}))
+    accucor_files = forms.FileField(required=False, widget=forms.ClearableFileInput(attrs={'multiple': True}))
