@@ -82,6 +82,8 @@ class SampleTableLoader:
     def __init__(self, sample_table_headers=DefaultSampleTableHeaders):
         self.headers = sample_table_headers
         self.blank = ""
+        self.errors = []
+        self.debug = False
 
     def validate_sample_table(self, data, skip_researcher_check):
         """
@@ -112,9 +114,16 @@ class SampleTableLoader:
                 f"variants of existing researchers in the database:{nl}{nl.join(sorted(db_researchers))}{nl}If all "
                 f"researchers are valid new researchers, add --skip-researcher-check to your command."
             )
-            assert len(new_researchers) == 0, err_msg
+            try:
+                assert len(new_researchers) == 0, err_msg
+            except Exception as e:
+                if self.debug is True:
+                    self.errors.append(str(e))
+                else:
+                    raise(e)
 
     def load_sample_table(self, data, skip_researcher_check, debug):
+        self.debug = True
         self.validate_sample_table(data, skip_researcher_check)
         for row in data:
 
@@ -803,6 +812,8 @@ class AccuCorDataLoader:
 
         with transaction.atomic():
             self.validate_data()
+            if len(self.errors) > 0:
+                raise(Exception("\n".join(self.errors)))
             self.load_data()
 
 class HeaderError(Exception):

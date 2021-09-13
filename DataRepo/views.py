@@ -923,6 +923,7 @@ class DataValidationView(FormView):
         errors = []
         debug = "untouched"
         valid = False
+        results = {}
         try:
             debug = f"asf: {self.animal_sample_file} num afs: {len(self.accucor_files)}"
 
@@ -934,7 +935,9 @@ class DataValidationView(FormView):
                     table_headers="DataRepo/example_data/sample_and_animal_tables_headers.yaml",
                 )
                 valid = True
+                results[str(self.animal_sample_file)] = "valid"
             except Exception as e:
+                results[str(self.animal_sample_file)] = "invalid"
                 errors.append(str(e))
 
             # Load the animal and sample data into a test database, so the data is available for the accucor file validation
@@ -946,7 +949,7 @@ class DataValidationView(FormView):
 
         return self.render_to_response(
             self.get_context_data(
-                results="present",
+                results=results,
                 debug=debug,
                 valid=valid,
                 form=form,

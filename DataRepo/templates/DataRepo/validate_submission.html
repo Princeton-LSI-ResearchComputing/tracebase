@@ -37,6 +37,9 @@
             <br>
             <br>
             <h5 class="text-success">Success!  No issues found.  Please proceed to the <a href="{{ submission_url }}">submission form</a>.</h5>
+            {% for fn in results.keys %}
+                <li class="text-success">PASSED: {{ fn }}</li>
+            {% endfor %}
         {% endif %}
     {% endif %}
 
