@@ -150,5 +150,5 @@ class DataSubmissionValidationForm(forms.Form):
             visible.field.widget.attrs['class'] = 'form-control'
 
 
-    animal_sample_table = forms.FileField(required=False, widget=forms.ClearableFileInput(attrs={'multiple': False}))
+    animal_sample_table = forms.FileField(required=True, widget=forms.ClearableFileInput(attrs={'multiple': False}))
     accucor_files = forms.FileField(required=False, widget=forms.ClearableFileInput(attrs={'multiple': True}))

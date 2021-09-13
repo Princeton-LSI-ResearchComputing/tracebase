@@ -529,7 +529,7 @@ class AccuCorDataLoader:
 
     def retrieve_samples(self):
 
-        missing_samples = 0
+        missing_samples = []
 
         print("Checking samples...")
         # cross validate in database
@@ -542,11 +542,10 @@ class AccuCorDataLoader:
                     name=prefix_sample_name
                 )
             except Sample.DoesNotExist:
-                missing_samples += 1
-                print(f"Could not find sample {original_sample_name} in the database.")
+                missing_samples.append(original_sample_name)
         assert (
-            missing_samples == 0
-        ), f"{missing_samples} samples are missing. See noted sample names above."
+            len(missing_samples) == 0
+        ), f"{len(missing_samples)} samples are missing: {', '.join(missing_samples)}"
 
     def get_first_sample_column_index(self, df):
 

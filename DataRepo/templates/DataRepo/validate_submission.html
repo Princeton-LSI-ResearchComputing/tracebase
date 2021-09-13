@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load customtags %}
 {% block content %}
     <div>
         <h3>Validate Animal/Sample and Accucor Files for Submission</h3>
@@ -12,7 +13,7 @@
         </form>
         <br>
         <div class="text-muted">
-            Note, you do not have to resolve all issues with the files before submission.  This is just a quick optional check to catch simple mistakes.<br>
+            Note, you do not have to resolve all issues with the files before submission.  Do not manually edit your accucor files.  This is just a quick optional check to catch simple mistakes.<br>
             Once you have resolved any issues that you know how to fix (leaving any issues you do not know how to resolve), you may move on to the <a href="{{ submission_url }}">submission form</a>.
         </div>
     </div>
@@ -27,20 +28,24 @@
             <br>
             <br>
             <h5 class="text-danger">The following issue(s) with the file(s) were found:</h5>
-            <ul class="text-danger">
-                {% for error in errors %}
-                    <li>{{ error }}</li>
-                {% endfor %}
-            </ul>
             Please address the above issues in your file and try again.  If it is not clear what the issue is, you may proceed to the <a href="{{ submission_url }}">submission form</a> and a curator will attempt to resolve the issue.
         {% else %}
             <br>
             <br>
             <h5 class="text-success">Success!  No issues found.  Please proceed to the <a href="{{ submission_url }}">submission form</a>.</h5>
-            {% for fn in results.keys %}
-                <li class="text-success">PASSED: {{ fn }}</li>
-            {% endfor %}
         {% endif %}
+        {% for fn, state in results.items %}
+            <li class="{% if state != 'FAILED' %}text-success{% else %}text-danger{% endif %}">
+                {{ state }}: {{ fn }}
+                {% if state == 'FAILED' %}
+                    <ul class="text-danger">
+                        {% for error in errors|index:fn %}
+                            <li>{{ error }}</li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+            </li>
+        {% endfor %}
     {% endif %}
 
 {% endblock %}
