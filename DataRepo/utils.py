@@ -99,6 +99,7 @@ class SampleTableLoader:
         """
         db_researchers = get_researchers()
         if len(db_researchers) != 0:
+            print("Checking researchers...")
             researcher_header = self.headers.SAMPLE_RESEARCHER
             input_researchers = []
             new_researchers = []
@@ -114,16 +115,11 @@ class SampleTableLoader:
                 f"variants of existing researchers in the database:{nl}{nl.join(sorted(db_researchers))}{nl}If all "
                 f"researchers are valid new researchers, add --skip-researcher-check to your command."
             )
-            try:
-                assert len(new_researchers) == 0, err_msg
-            except Exception as e:
-                if self.debug is True:
-                    self.errors.append(str(e))
-                else:
-                    raise(e)
+            if len(new_researchers) > 0:
+                self.errors.append(err_msg)
 
     def load_sample_table(self, data, skip_researcher_check, debug):
-        self.debug = True
+        self.debug = debug
         self.validate_sample_table(data, skip_researcher_check)
         for row in data:
 
@@ -318,6 +314,11 @@ class SampleTableLoader:
                 except Exception as e:
                     print(f"Error saving record: Sample:{sample}")
                     raise (e)
+
+        # Check researchers last so that other errors can be dealt with by users during validation
+        # Users cannot resolve new researcher errors if they really are new
+        if len(self.errors) > 0:
+            raise ResearcherError("\n".join(self.errors))
 
         assert not debug, "Debugging..."
 
@@ -811,11 +812,12 @@ class AccuCorDataLoader:
 
         with transaction.atomic():
             self.validate_data()
-            if len(self.errors) > 0:
-                raise(Exception("\n".join(self.errors)))
             self.load_data()
 
 class HeaderError(Exception):
     def __init__(self, message):            
         # Call the base class constructor with the parameters it needs
         super().__init__(f"The following column header was missing in your file: {message}")
+
+class ResearcherError(Exception):
+    pass

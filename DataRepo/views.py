@@ -1,6 +1,5 @@
 import json
 from datetime import datetime
-import os.path
 
 from django.conf import settings
 from django.db.models import Q
@@ -10,6 +9,7 @@ from django.views.generic import DetailView, ListView
 from django.views.generic.edit import FormView
 from django.core.management import call_command
 from django.test import TestCase
+from django.test.utils import setup_test_environment
 
 from DataRepo.compositeviews import BaseAdvancedSearchView
 from DataRepo.forms import AdvSearchDownloadForm, AdvSearchForm, DataSubmissionValidationForm
@@ -25,6 +25,7 @@ from DataRepo.models import (
     Study,
 )
 from DataRepo.multiforms import MultiFormsView
+from DataRepo.utils import ResearcherError
 
 
 
@@ -933,39 +934,59 @@ class DataValidationView(FormView):
 
         debug = f"asf: {self.animal_sample_file} num afs: {len(self.accucor_files)}"
 
+        # Load the animal and sample table in debug mode to check the researcher and sample name uniqueness
+        new_researcher = False
+        try:
+            call_command(
+                "load_animals_and_samples",
+                animal_and_sample_table_filename=self.animal_sample_file.temporary_file_path(),
+                table_headers="DataRepo/example_data/sample_and_animal_tables_headers.yaml",
+                debug=True,
+            )
+            results[str(self.animal_sample_file)] = "PASSED"
+        except Exception as e:
+            valid = False
+            errors[str(self.animal_sample_file)] = []
+            errors[str(self.animal_sample_file)].append(str(self.animal_sample_file) + ": " + str(e))
+            if type(e).__name__ == "ResearcherError":
+                new_researcher = True
+            results[str(self.animal_sample_file)] = "FAILED"
+
         # Load the animal and sample data into a test database, so the data is available for the accucor file validation
         validation_test = self.ValidationTest()
+        can_proceed = False
         try:
             validation_test.validate_animal_sample_table(
                 self.animal_sample_file.temporary_file_path(),
                 ash_yaml,
+                new_researcher,
             )
-            results[str(self.animal_sample_file)] = "PASSED"
+            can_proceed = True
         except Exception as e:
-            if "Debugging" not in str(e):
-                valid = False
-                results[str(self.animal_sample_file)] = "FAILED"
-                errors[str(self.animal_sample_file)] = []
-                errors[str(self.animal_sample_file)].append(str(self.animal_sample_file) + ": " + str(e))
+            can_proceed = False
 
         # Load the accucor file into a temporary test database in debug mode
         for af in self.accucor_files:
-            try:
-                validation_test.validate_accucor(
-                    af.temporary_file_path(),
-                )
-                results[str(af)] = "PASSED"
-            except Exception as e:
-                estr = str(e)
-                if "Debugging" not in estr and "blank" not in estr:
-                    valid = False
-                    results[str(af)] = "FAILED"
-                    errors[str(af)] = []
-                    errors[str(af)].append(estr)
-                elif "blank" in estr:
-                    results[str(af)] = "INCOMPLETE CHECK"
-                else:
+            if can_proceed is True:
+                try:
+                    validation_test.validate_accucor(
+                        af.temporary_file_path(),
+                    )
                     results[str(af)] = "PASSED"
+                except Exception as e:
+                    estr = str(e)
+                    if "Debugging" not in estr and "blank" not in estr:
+                        valid = False
+                        results[str(af)] = "FAILED"
+                        errors[str(af)] = []
+                        errors[str(af)].append(estr)
+                    elif "blank" in estr:
+                        results[str(af)] = "INCOMPLETE CHECK"
+                    else:
+                        results[str(af)] = "PASSED"
+            else:
+                # Cannot check because the samples did not load
+                results[str(af)] = "UNABLE TO CHECK"
 
         return self.render_to_response(
             self.get_context_data(
@@ -981,13 +1002,15 @@ class DataValidationView(FormView):
     class ValidationTest(TestCase):
         @classmethod
         def setUpTestData(cls):
+            setup_test_environment()
             call_command("load_compounds", "DataRepo/example_data/obob_compounds.tsv")
         
-        def validate_animal_sample_table(self, animal_sample_file, table_headers):
+        def validate_animal_sample_table(self, animal_sample_file, table_headers, new_researcher):
             call_command(
                     "load_animals_and_samples",
                     animal_and_sample_table_filename=animal_sample_file,
                     table_headers=table_headers,
+                    skip_researcher_check=new_researcher,
                 )
 
         def validate_accucor(self, accucor_file):
@@ -996,6 +1019,6 @@ class DataValidationView(FormView):
                 protocol="Default",
                 accucor_file=accucor_file,
                 date="2021-09-13",
-                researcher="Michael",
+                researcher="Michael Neinast",
                 debug=False,
             )
