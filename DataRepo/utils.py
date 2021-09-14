@@ -267,7 +267,9 @@ class SampleTableLoader:
                             row[self.headers.TRACER_LABELED_COUNT]
                         )
                     if self.headers.TRACER_INFUSION_RATE:
-                        animal.tracer_infusion_rate = row[self.headers.TRACER_INFUSION_RATE]
+                        animal.tracer_infusion_rate = row[
+                            self.headers.TRACER_INFUSION_RATE
+                        ]
                     if self.headers.TRACER_INFUSION_CONCENTRATION:
                         animal.tracer_infusion_concentration = row[
                             self.headers.TRACER_INFUSION_CONCENTRATION
@@ -814,10 +816,14 @@ class AccuCorDataLoader:
             self.validate_data()
             self.load_data()
 
+
 class HeaderError(Exception):
-    def __init__(self, message):            
+    def __init__(self, message):
         # Call the base class constructor with the parameters it needs
-        super().__init__(f"The following column header was missing in your file: {message}")
+        super().__init__(
+            f"The following column header was missing in your file: {message}"
+        )
+
 
 class ResearcherError(Exception):
     pass

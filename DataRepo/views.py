@@ -1,18 +1,23 @@
 import json
 from datetime import datetime
+from typing import List
 
 from django.conf import settings
+from django.core.management import call_command
 from django.db.models import Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404, render
-from django.views.generic import DetailView, ListView
-from django.views.generic.edit import FormView
-from django.core.management import call_command
 from django.test import TestCase
 from django.test.utils import setup_test_environment
+from django.views.generic import DetailView, ListView
+from django.views.generic.edit import FormView
 
 from DataRepo.compositeviews import BaseAdvancedSearchView
-from DataRepo.forms import AdvSearchDownloadForm, AdvSearchForm, DataSubmissionValidationForm
+from DataRepo.forms import (
+    AdvSearchDownloadForm,
+    AdvSearchForm,
+    DataSubmissionValidationForm,
+)
 from DataRepo.models import (
     Animal,
     Compound,
@@ -25,8 +30,6 @@ from DataRepo.models import (
     Study,
 )
 from DataRepo.multiforms import MultiFormsView
-from DataRepo.utils import ResearcherError
-
 
 
 def home(request):
@@ -899,20 +902,21 @@ class PeakDataListView(ListView):
             queryset = PeakData.objects.filter(peak_group_id=peakgroup_pk)
         return queryset
 
+
 class DataValidationView(FormView):
     form_class = DataSubmissionValidationForm
     template_name = "DataRepo/validate_submission.html"
     success_url = ""
-    accucor_files = []
+    accucor_files: List[str] = []
     animal_sample_file = None
     submission_url = "https://forms.gle/Jyp94aiGmhBNLZh6A"
 
     def post(self, request, *args, **kwargs):
         form_class = self.get_form_class()
         form = self.get_form(form_class)
-        self.accucor_files = request.FILES.getlist('accucor_files')
+        self.accucor_files = request.FILES.getlist("accucor_files")
         try:
-            self.animal_sample_file = request.FILES['animal_sample_table']
+            self.animal_sample_file = request.FILES["animal_sample_table"]
         except Exception:
             # Ignore missing accucor files
             print("No accucor file")
@@ -947,7 +951,9 @@ class DataValidationView(FormView):
         except Exception as e:
             valid = False
             errors[str(self.animal_sample_file)] = []
-            errors[str(self.animal_sample_file)].append(str(self.animal_sample_file) + ": " + str(e))
+            errors[str(self.animal_sample_file)].append(
+                str(self.animal_sample_file) + ": " + str(e)
+            )
             if type(e).__name__ == "ResearcherError":
                 new_researcher = True
             results[str(self.animal_sample_file)] = "FAILED"
@@ -962,7 +968,7 @@ class DataValidationView(FormView):
                 new_researcher,
             )
             can_proceed = True
-        except Exception as e:
+        except Exception:
             can_proceed = False
 
         # Load the accucor file into a temporary test database in debug mode
@@ -1004,14 +1010,16 @@ class DataValidationView(FormView):
         def setUpTestData(cls):
             setup_test_environment()
             call_command("load_compounds", "DataRepo/example_data/obob_compounds.tsv")
-        
-        def validate_animal_sample_table(self, animal_sample_file, table_headers, new_researcher):
+
+        def validate_animal_sample_table(
+            self, animal_sample_file, table_headers, new_researcher
+        ):
             call_command(
-                    "load_animals_and_samples",
-                    animal_and_sample_table_filename=animal_sample_file,
-                    table_headers=table_headers,
-                    skip_researcher_check=new_researcher,
-                )
+                "load_animals_and_samples",
+                animal_and_sample_table_filename=animal_sample_file,
+                table_headers=table_headers,
+                skip_researcher_check=new_researcher,
+            )
 
         def validate_accucor(self, accucor_file):
             call_command(

@@ -48,5 +48,6 @@ class Command(BaseCommand):
                 dialect="excel-tab",
             ),
             options["skip_researcher_check"],
+            False,
         )
         print("Done loading sample table")

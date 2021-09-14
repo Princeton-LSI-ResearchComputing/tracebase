@@ -147,8 +147,11 @@ class DataSubmissionValidationForm(forms.Form):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         for visible in self.visible_fields():
-            visible.field.widget.attrs['class'] = 'form-control'
+            visible.field.widget.attrs["class"] = "form-control"
 
-
-    animal_sample_table = forms.FileField(required=True, widget=forms.ClearableFileInput(attrs={'multiple': False}))
-    accucor_files = forms.FileField(required=False, widget=forms.ClearableFileInput(attrs={'multiple': True}))
+    animal_sample_table = forms.FileField(
+        required=True, widget=forms.ClearableFileInput(attrs={"multiple": False})
+    )
+    accucor_files = forms.FileField(
+        required=False, widget=forms.ClearableFileInput(attrs={"multiple": True})
+    )
