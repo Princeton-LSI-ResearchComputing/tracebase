@@ -546,9 +546,13 @@ class AccuCorDataLoader:
                 )
             except Sample.DoesNotExist:
                 missing_samples.append(original_sample_name)
-        assert (
-            len(missing_samples) == 0
-        ), f"{len(missing_samples)} samples are missing: {', '.join(missing_samples)}"
+        if len(missing_samples) != 0:
+            raise (
+                MissingSamplesError(
+                    f"{len(missing_samples)} samples are missing: {', '.join(missing_samples)}",
+                    missing_samples,
+                )
+            )
 
     def get_first_sample_column_index(self, df):
 
@@ -628,7 +632,9 @@ class AccuCorDataLoader:
                         }
 
                         # peaks can contain more than 1 compound
-                        mapped_compound = Compound.objects.get(name=compound_input)
+                        mapped_compound = Compound.objects.get(
+                            name__iexact=compound_input
+                        )
                         if "compounds" in self.peak_group_dict[peak_group_name]:
                             self.peak_group_dict[peak_group_name]["compounds"].append(
                                 mapped_compound
@@ -827,3 +833,9 @@ class HeaderError(Exception):
 
 class ResearcherError(Exception):
     pass
+
+
+class MissingSamplesError(Exception):
+    def __init__(self, message, samples):
+        super().__init__(message)
+        self.sample_list = samples

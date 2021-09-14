@@ -8,7 +8,7 @@ from django.db.models import Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404, render
 from django.test import TestCase
-from django.test.utils import setup_test_environment
+from django.test.utils import setup_databases, setup_test_environment
 from django.views.generic import DetailView, ListView
 from django.views.generic.edit import FormView
 
@@ -30,6 +30,7 @@ from DataRepo.models import (
     Study,
 )
 from DataRepo.multiforms import MultiFormsView
+from DataRepo.utils import MissingSamplesError, ResearcherError
 
 
 def home(request):
@@ -939,7 +940,8 @@ class DataValidationView(FormView):
         debug = f"asf: {self.animal_sample_file} num afs: {len(self.accucor_files)}"
 
         # Load the animal and sample table in debug mode to check the researcher and sample name uniqueness
-        new_researcher = False
+        errors[str(self.animal_sample_file)] = []
+        results[str(self.animal_sample_file)] = ""
         try:
             call_command(
                 "load_animals_and_samples",
@@ -948,14 +950,19 @@ class DataValidationView(FormView):
                 debug=True,
             )
             results[str(self.animal_sample_file)] = "PASSED"
+        except ResearcherError as re:
+            valid = False
+            errors[str(self.animal_sample_file)].append(
+                "[The following error about a new researcher name should only be addressed if the name already exists "
+                "in the database as a variation.  If this is a truly new researcher name in the database, it may be "
+                f"ignored.]\n{str(self.animal_sample_file)}: {str(re)}"
+            )
+            results[str(self.animal_sample_file)] = "WARNING"
         except Exception as e:
             valid = False
-            errors[str(self.animal_sample_file)] = []
             errors[str(self.animal_sample_file)].append(
                 str(self.animal_sample_file) + ": " + str(e)
             )
-            if type(e).__name__ == "ResearcherError":
-                new_researcher = True
             results[str(self.animal_sample_file)] = "FAILED"
 
         # Load the animal and sample data into a test database, so the data is available for the accucor file validation
@@ -965,34 +972,71 @@ class DataValidationView(FormView):
             validation_test.validate_animal_sample_table(
                 self.animal_sample_file.temporary_file_path(),
                 ash_yaml,
-                new_researcher,
             )
             can_proceed = True
-        except Exception:
+        except Exception as e:
+            errors[str(self.animal_sample_file)].append(
+                str(self.animal_sample_file) + ": " + str(e)
+            )
             can_proceed = False
 
         # Load the accucor file into a temporary test database in debug mode
         for af in self.accucor_files:
+            errors[str(af)] = []
             if can_proceed is True:
                 try:
                     validation_test.validate_accucor(
                         af.temporary_file_path(),
+                        [],
                     )
                     results[str(af)] = "PASSED"
-                except Exception as e:
-                    estr = str(e)
-                    if "Debugging" not in estr and "blank" not in estr:
+                except MissingSamplesError as mse:
+                    blank_samples = []
+                    real_samples = []
+
+                    # Determine whether all the missing samples are blank samples
+                    for sample in mse.sample_list:
+                        if "blank" in sample:
+                            blank_samples.append(sample)
+                        else:
+                            real_samples.append(sample)
+
+                    # Rerun ignoring blanks if all were blank samples, so we can check everything else
+                    if len(blank_samples) > 0 and len(blank_samples) == len(
+                        mse.sample_list
+                    ):
+                        try:
+                            validation_test.validate_accucor(
+                                af.temporary_file_path(),
+                                blank_samples,
+                            )
+                            results[str(af)] = "PASSED"
+                        except Exception as e:
+                            estr = str(e)
+                            if "Debugging" not in estr:
+                                valid = False
+                                results[str(af)] = "FAILED"
+                                errors[str(af)].append(estr)
+                            else:
+                                results[str(af)] = "PASSED"
+                    else:
                         valid = False
                         results[str(af)] = "FAILED"
-                        errors[str(af)] = []
+                        errors[str(af)].append(
+                            "Samples in the accucor file are missing in the animal and sample table: "
+                            ", ".join(real_samples)
+                        )
+                except Exception as e:
+                    estr = str(e)
+                    if "Debugging" not in estr:
+                        valid = False
+                        results[str(af)] = "FAILED"
                         errors[str(af)].append(estr)
-                    elif "blank" in estr:
-                        results[str(af)] = "INCOMPLETE CHECK"
                     else:
                         results[str(af)] = "PASSED"
             else:
                 # Cannot check because the samples did not load
-                results[str(af)] = "UNABLE TO CHECK"
+                results[str(af)] = "UNCHECKED"
 
         return self.render_to_response(
             self.get_context_data(
@@ -1008,25 +1052,35 @@ class DataValidationView(FormView):
     class ValidationTest(TestCase):
         @classmethod
         def setUpTestData(cls):
+            setup_databases(keepdb=False)
             setup_test_environment()
             call_command("load_compounds", "DataRepo/example_data/obob_compounds.tsv")
 
-        def validate_animal_sample_table(
-            self, animal_sample_file, table_headers, new_researcher
-        ):
+        def validate_animal_sample_table(self, animal_sample_file, table_headers):
             call_command(
                 "load_animals_and_samples",
                 animal_and_sample_table_filename=animal_sample_file,
                 table_headers=table_headers,
-                skip_researcher_check=new_researcher,
+                skip_researcher_check=True,
             )
 
-        def validate_accucor(self, accucor_file):
-            call_command(
-                "load_accucor_msruns",
-                protocol="Default",
-                accucor_file=accucor_file,
-                date="2021-09-13",
-                researcher="Michael Neinast",
-                debug=False,
-            )
+        def validate_accucor(self, accucor_file, skip_samples):
+            if len(skip_samples) > 0:
+                call_command(
+                    "load_accucor_msruns",
+                    protocol="Default",
+                    accucor_file=accucor_file,
+                    date="2021-09-14",
+                    researcher="Michael Neinast",
+                    debug=True,
+                    skip_samples=skip_samples,
+                )
+            else:
+                call_command(
+                    "load_accucor_msruns",
+                    protocol="Default",
+                    accucor_file=accucor_file,
+                    date="2021-09-13",
+                    researcher="Michael Neinast",
+                    debug=True,
+                )

@@ -35,3 +35,19 @@ def index(indexable, i):
 @register.simple_tag
 def define(the_val):
     return the_val
+
+
+@register.filter
+def getClass(state):
+    styleclass = ""
+    if state is None:
+        return ""
+    elif state == "FAILED":
+        styleclass = "text-danger"
+    elif state == "WARNING":
+        styleclass = "text-warning"
+    elif state == "PASSED":
+        styleclass = "text-success"
+    else:
+        styleclass = "text-info"
+    return styleclass

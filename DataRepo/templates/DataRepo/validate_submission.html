@@ -35,16 +35,18 @@
             <h5 class="text-success">Success!  No issues found.  Please proceed to the <a href="{{ submission_url }}">submission form</a>.</h5>
         {% endif %}
         {% for fn, state in results.items %}
-            <li class="{% if state != 'FAILED' %}text-success{% else %}text-danger{% endif %}">
-                {{ state }}: {{ fn }}
-                {% if state == 'FAILED' %}
-                    <ul class="text-danger">
-                        {% for error in errors|index:fn %}
-                            <li>{{ error }}</li>
-                        {% endfor %}
-                    </ul>
-                {% endif %}
-            </li>
+            {% with state|getClass as state_class %}
+                <li class="{{ state_class }}">
+                    {{ state }}: {{ fn }}
+                    {% if errors|index:fn %}
+                        <ul class="{{ state_class }}">
+                            {% for error in errors|index:fn %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+                </li>
+            {% endwith %}
         {% endfor %}
     {% endif %}
 

@@ -20,7 +20,7 @@ from DataRepo.models import (
     Tissue,
     TracerLabeledClass,
 )
-from DataRepo.utils import AccuCorDataLoader
+from DataRepo.utils import AccuCorDataLoader, MissingSamplesError
 
 
 class ExampleDataConsumer:
@@ -781,7 +781,7 @@ class AccuCorDataLoadingTests(TestCase):
         cls.COMPOUNDS_COUNT = 2
 
     def test_accucor_load_blank_fail(self):
-        with self.assertRaises(AssertionError, msg="1 samples are missing."):
+        with self.assertRaises(MissingSamplesError, msg="1 samples are missing."):
             call_command(
                 "load_accucor_msruns",
                 accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_blank_sample.xlsx",
