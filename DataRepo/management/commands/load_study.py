@@ -9,22 +9,40 @@ from django.core.management import BaseCommand, call_command
 
 class Command(BaseCommand):
 
+    # Path to example config file
+    example_configfile = os.path.relpath(
+        os.path.join(
+            apps.get_app_config("DataRepo").path,
+            "example_data" "small_dataset" "small_obob_study_params.yaml",
+        )
+    )
+
+    # Path to config file schema
+    schema_path = os.path.relpath(
+        os.path.join(
+            apps.get_app_config("DataRepo").path,
+            "schemas",
+            "load_study.yaml",
+        )
+    )
+
     # Show this when the user types help
     help = (
         "Loads compounds, animals, samples, and accucor data using a YAML "
-        "file to specify parameters."
-        "Example usage : manage.py load_study my_study/my_study.yaml"
+        "file to specify parameters. "
+        "Example usage: manage.py load_study config_file.yaml "
     )
 
     def add_arguments(self, parser):
         parser.add_argument(
             "study_params",
             type=argparse.FileType("r"),
-            help="file containing the parameters used to load the study data.",
+            help=(
+                "File containing parameters used to load study data "
+                f"EXAMPLE {self.example_configfile} : "
+                f"SCHEMA {self.schema_path}"
+            ),
         )
-
-    def get_current_app_path(self):
-        return apps.get_app_config("DataRepo").path
 
     def handle(self, *args, **options):
 
@@ -32,11 +50,7 @@ class Command(BaseCommand):
         study_params = yaml.safe_load(options["study_params"])
         study_dir = os.path.dirname(os.path.realpath(options["study_params"].name))
 
-        # Read load study config schema
-        app_path = self.get_current_app_path()
-        schema_path = os.path.join(app_path, "schemas", "load_study.yaml")
-
-        with open(schema_path, "r") as stream:
+        with open(self.schema_path, "r") as stream:
             schema = yaml.safe_load(stream)
 
         # Validate the configuration
