@@ -372,19 +372,33 @@ class Animal(models.Model, TracerLabeledClass):
     )
 
     def all_serum_samples(self):
-        return self.samples.filter(tissue__name=Tissue.SERUM_TISSUE_NAME).all()
+        return (
+            self.samples.filter(tissue__name=Tissue.SERUM_TISSUE_NAME)
+            .order_by("time_collected")
+            .all()
+        )
 
     def final_serum_sample(self):
-        try:
-            return self.samples.filter(tissue__name=Tissue.SERUM_TISSUE_NAME).latest(
-                "time_collected"
-            )
-        except Sample.DoesNotExist:
-            warnings.warn(f"Animal {self.name} has no 'Serum' samples.")
-            return None
 
-    def final_serum_sample_tracer_peak_data_queryset(self):
-        return self.final_serum_sample().peak_data_queryset(self.tracer_compound)
+        final_serum_sample = (
+            self.samples.filter(tissue__name=Tissue.SERUM_TISSUE_NAME)
+            .order_by("time_collected")
+            .last()
+        )
+
+        if final_serum_sample is None:
+            warnings.warn(f"Animal {self.name} has no 'Serum' samples.")
+
+        if final_serum_sample and not final_serum_sample.time_collected:
+            warnings.warn(
+                f"The Final serum sample {final_serum_sample.name} for"
+                f"Animal {self.name} is missing a time_collected value."
+            )
+
+        return final_serum_sample
+
+    def final_serum_sample_tracer_peak_data(self):
+        return self.final_serum_sample().peak_data(self.tracer_compound)
 
     class Meta:
         verbose_name = "animal"
@@ -474,24 +488,14 @@ class Sample(models.Model):
     the peakdata queryset to a specific peakgroup.
     """
 
-    def peak_data_queryset(self, compound=None):
+    def peak_data(self, compound=None):
 
-        try:
+        peakdata = PeakData.objects.filter(peak_group__msrun__sample_id=self.id)
 
-            peakdata_queryset = PeakData.objects.filter(
-                peak_group__msrun__sample_id=self.id
-            )
+        if compound:
+            peakdata = peakdata.filter(peak_group__compounds__id=compound.id)
 
-            if compound:
-                peakdata_queryset = peakdata_queryset.filter(
-                    peak_group__compounds__id=compound.id
-                )
-
-            return peakdata_queryset.all()
-
-        except Exception as e:
-            print("Unexpected error:")
-            raise e
+        return peakdata.all()
 
     class Meta:
         verbose_name = "sample"
