@@ -193,6 +193,7 @@ class Protocol(models.Model):
     class Meta:
         verbose_name = "protocol"
         verbose_name_plural = "protocols"
+        ordering = ["name"]
 
     def __str__(self):
         return str(self.name)
@@ -374,6 +375,7 @@ class Animal(models.Model, TracerLabeledClass):
     class Meta:
         verbose_name = "animal"
         verbose_name_plural = "animals"
+        ordering = ["name"]
 
     def __str__(self):
         return str(self.name)
@@ -401,6 +403,7 @@ class Tissue(models.Model):
     class Meta:
         verbose_name = "tissue"
         verbose_name_plural = "tissues"
+        ordering = ["name"]
 
     SERUM_TISSUE_NAME = "Serum"
 
@@ -490,6 +493,7 @@ class MSRun(models.Model):
     class Meta:
         verbose_name = "mass spectrometry run"
         verbose_name_plural = "mass spectrometry runs"
+        ordering = ["date", "researcher", "sample__name", "protocol__name"]
 
         """
         MS runs that share researcher, date, protocol, and sample would be
@@ -535,6 +539,7 @@ class PeakGroupSet(models.Model):
     class Meta:
         verbose_name = "peak group set"
         verbose_name_plural = "peak group sets"
+        ordering = ["filename"]
 
     def __str__(self):
         return str(f"{self.filename} at {self.imported_timestamp}")
@@ -682,6 +687,7 @@ class PeakGroup(models.Model):
     class Meta:
         verbose_name = "peak group"
         verbose_name_plural = "peak groups"
+        ordering = ["name"]
 
         # composite key
         constraints = [
