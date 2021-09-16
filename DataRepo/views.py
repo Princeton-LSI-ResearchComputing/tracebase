@@ -965,20 +965,22 @@ class DataValidationView(FormView):
             )
             results[str(self.animal_sample_file)] = "FAILED"
 
-        # Load the animal and sample data into a test database, so the data is available for the accucor file validation
-        validation_test = self.ValidationTest()
         can_proceed = False
-        try:
-            validation_test.validate_animal_sample_table(
-                self.animal_sample_file.temporary_file_path(),
-                ash_yaml,
-            )
-            can_proceed = True
-        except Exception as e:
-            errors[str(self.animal_sample_file)].append(
-                str(self.animal_sample_file) + ": " + str(e)
-            )
-            can_proceed = False
+        if results[str(self.animal_sample_file)] != "FAILED":
+            # Load the animal and sample data into a test database, so the data is available for the accucor file
+            # validation
+            validation_test = self.ValidationTest()
+            try:
+                validation_test.validate_animal_sample_table(
+                    self.animal_sample_file.temporary_file_path(),
+                    ash_yaml,
+                )
+                can_proceed = True
+            except Exception as e:
+                errors[str(self.animal_sample_file)].append(
+                    str(self.animal_sample_file) + ": " + str(e)
+                )
+                can_proceed = False
 
         # Load the accucor file into a temporary test database in debug mode
         for af in self.accucor_files:

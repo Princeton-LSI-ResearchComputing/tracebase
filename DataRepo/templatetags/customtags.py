@@ -39,9 +39,9 @@ def define(the_val):
 
 @register.filter
 def getClass(state):
-    styleclass = ""
+    styleclass = None
     if state is None:
-        return ""
+        styleclass = ""
     elif state == "FAILED":
         styleclass = "text-danger"
     elif state == "WARNING":

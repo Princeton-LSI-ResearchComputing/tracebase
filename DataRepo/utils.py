@@ -121,6 +121,8 @@ class SampleTableLoader:
     def load_sample_table(self, data, skip_researcher_check, debug):
         self.debug = debug
         self.validate_sample_table(data, skip_researcher_check)
+        missing_headers = []
+        first_loop = True
         for row in data:
 
             # Skip BLANK rows
@@ -134,33 +136,53 @@ class SampleTableLoader:
                     name=row[self.headers.TISSUE_NAME]
                 )
             except KeyError as ke:
-                raise HeaderError(str(ke))
+                if self.headers.TISSUE_NAME in str(ke):
+                    if first_loop:
+                        missing_headers.append(self.headers.TISSUE_NAME)
+                    created = False
+                else:
+                    raise (ke)
             if created:
                 print(f"Created new record: Tissue:{tissue}")
-            try:
-                tissue.full_clean()
-                tissue.save()
-            except Exception as e:
-                print(f"Error saving record: Tissue:{tissue}")
-                raise (e)
+                try:
+                    tissue.full_clean()
+                    tissue.save()
+                except Exception as e:
+                    print(f"Error saving record: Tissue:{tissue}")
+                    raise (e)
 
             # Study
             try:
+                study_exists = False
                 study, created = Study.objects.get_or_create(
                     name=row[self.headers.STUDY_NAME]
                 )
+                study_exists = True
             except KeyError as ke:
-                raise HeaderError(str(ke))
+                if self.headers.STUDY_NAME in str(ke):
+                    if first_loop:
+                        missing_headers.append(self.headers.STUDY_NAME)
+                    created = False
+                else:
+                    raise (ke)
             if created:
                 if self.headers.STUDY_DESCRIPTION:
-                    study.description = row[self.headers.STUDY_DESCRIPTION]
+                    try:
+                        study.description = row[self.headers.STUDY_DESCRIPTION]
+                    except KeyError as ke:
+                        if self.headers.STUDY_DESCRIPTION in str(ke):
+                            if first_loop:
+                                missing_headers.append(self.headers.STUDY_DESCRIPTION)
+                            created = False
+                        else:
+                            raise (ke)
                 print(f"Created new record: Study:{study}")
-            try:
-                study.full_clean()
-                study.save()
-            except Exception as e:
-                print(f"Error saving record: Study:{study}")
-                raise (e)
+                try:
+                    study.full_clean()
+                    study.save()
+                except Exception as e:
+                    print(f"Error saving record: Study:{study}")
+                    raise (e)
 
             # Animal
             try:
@@ -168,12 +190,17 @@ class SampleTableLoader:
                     name=row[self.headers.ANIMAL_NAME]
                 )
             except KeyError as ke:
-                raise HeaderError(str(ke))
+                if self.headers.ANIMAL_NAME in str(ke):
+                    if first_loop:
+                        missing_headers.append(self.headers.ANIMAL_NAME)
+                    created = False
+                else:
+                    raise (ke)
             """
             We do this here, and not in the "created" block below, in case the
             researcher is creating a new study from previously-loaded animals
             """
-            if animal not in study.animals.all():
+            if study_exists and animal not in study.animals.all():
                 print("Adding animal to the study...")
                 study.animals.add(animal)
 
@@ -183,19 +210,65 @@ class SampleTableLoader:
             """
             if created:
                 print(f"Created new record: Animal:{animal}")
-                try:
-                    if self.headers.ANIMAL_GENOTYPE:
+                if self.headers.ANIMAL_GENOTYPE:
+                    try:
                         animal.genotype = row[self.headers.ANIMAL_GENOTYPE]
-                    if self.headers.ANIMAL_WEIGHT:
+                    except KeyError as ke:
+                        if self.headers.ANIMAL_GENOTYPE in str(ke):
+                            if first_loop:
+                                missing_headers.append(self.headers.ANIMAL_GENOTYPE)
+                        else:
+                            raise (ke)
+                if self.headers.ANIMAL_WEIGHT:
+                    try:
                         animal.body_weight = row[self.headers.ANIMAL_WEIGHT]
-                    if self.headers.ANIMAL_FEEDING_STATUS:
+                    except KeyError as ke:
+                        if self.headers.ANIMAL_WEIGHT in str(ke):
+                            if first_loop:
+                                missing_headers.append(self.headers.ANIMAL_WEIGHT)
+                        else:
+                            raise (ke)
+                if self.headers.ANIMAL_FEEDING_STATUS:
+                    try:
                         animal.feeding_status = row[self.headers.ANIMAL_FEEDING_STATUS]
-                    if self.headers.ANIMAL_AGE:
+                    except KeyError as ke:
+                        if self.headers.ANIMAL_FEEDING_STATUS in str(ke):
+                            if first_loop:
+                                missing_headers.append(
+                                    self.headers.ANIMAL_FEEDING_STATUS
+                                )
+                        else:
+                            raise (ke)
+                if self.headers.ANIMAL_AGE:
+                    try:
                         animal.age = row[self.headers.ANIMAL_AGE]
-                    if self.headers.ANIMAL_DIET:
+                    except KeyError as ke:
+                        if self.headers.ANIMAL_AGE in str(ke):
+                            if first_loop:
+                                missing_headers.append(self.headers.ANIMAL_AGE)
+                        else:
+                            raise (ke)
+                if self.headers.ANIMAL_DIET:
+                    try:
                         animal.diet = row[self.headers.ANIMAL_DIET]
-                    if self.headers.ANIMAL_SEX:
+                    except KeyError as ke:
+                        if self.headers.ANIMAL_DIET in str(ke):
+                            if first_loop:
+                                missing_headers.append(self.headers.ANIMAL_DIET)
+                        else:
+                            raise (ke)
+                if self.headers.ANIMAL_SEX:
+                    try:
                         animal_sex_string = row[self.headers.ANIMAL_SEX]
+                        keyed = True
+                    except KeyError as ke:
+                        if self.headers.ANIMAL_SEX in str(ke):
+                            if first_loop:
+                                missing_headers.append(self.headers.ANIMAL_SEX)
+                            keyed = False
+                        else:
+                            raise (ke)
+                    if keyed:
                         if animal_sex_string in animal.SEX_CHOICES:
                             animal_sex = animal_sex_string
                         else:
@@ -203,8 +276,6 @@ class SampleTableLoader:
                                 animal_sex_string, animal.SEX_CHOICES
                             )
                         animal.sex = animal_sex
-                except KeyError as ke:
-                    raise HeaderError(str(ke))
                 if self.headers.ANIMAL_TREATMENT:
                     # Animal Treatments are optional protocols
                     protocol_input = None
@@ -214,68 +285,123 @@ class SampleTableLoader:
                         assert protocol_input != pd.isnull(protocol_input)
                     except KeyError:
                         print("No animal treatment found.")
+                        # The animal treatment column is allowed to be absent
                     except AssertionError:
                         print("No animal treatments with empty/null values.")
                     else:
                         category = Protocol.ANIMAL_TREATMENT
                         try:
                             researcher = row[self.headers.SAMPLE_RESEARCHER]
+                            researcher_keyed = True
                         except KeyError as ke:
-                            raise HeaderError(str(ke))
-                        print(
-                            f"Finding or inserting {category} protocol for '{protocol_input}'..."
-                        )
-                        (
-                            animal.treatment,
-                            created,
-                        ) = Protocol.retrieve_or_create_protocol(
-                            protocol_input,
-                            category,
-                            f"For protocol's full text, please consult {researcher}.",
-                        )
-                        action = "Found"
-                        feedback = f"{animal.treatment.category} protocol "
-                        f"{animal.treatment.id} '{animal.treatment.name}'"
-                        if created:
-                            action = "Created"
-                            feedback += f" '{animal.treatment.description}'"
-                        print(f"{action} {feedback}")
+                            if self.headers.SAMPLE_RESEARCHER in str(ke):
+                                if first_loop:
+                                    missing_headers.append(
+                                        self.headers.SAMPLE_RESEARCHER
+                                    )
+                                researcher_keyed = False
+                            else:
+                                raise (ke)
+                        if researcher_keyed:
+                            print(
+                                f"Finding or inserting {category} protocol for '{protocol_input}'..."
+                            )
+                            (
+                                animal.treatment,
+                                created,
+                            ) = Protocol.retrieve_or_create_protocol(
+                                protocol_input,
+                                category,
+                                f"For protocol's full text, please consult {researcher}.",
+                            )
+                            action = "Found"
+                            feedback = f"{animal.treatment.category} protocol "
+                            f"{animal.treatment.id} '{animal.treatment.name}'"
+                            if created:
+                                action = "Created"
+                                feedback += f" '{animal.treatment.description}'"
+                            print(f"{action} {feedback}")
 
                 if self.headers.TRACER_COMPOUND_NAME:
                     try:
-                        tracer_compound_name = row[self.headers.TRACER_COMPOUND_NAME]
-                        tracer_compound = Compound.objects.get(
-                            name=tracer_compound_name
-                        )
-                        animal.tracer_compound = tracer_compound
+                        try:
+                            tracer_compound_name = row[
+                                self.headers.TRACER_COMPOUND_NAME
+                            ]
+                            keyed = True
+                        except KeyError as ke:
+                            if self.headers.TRACER_COMPOUND_NAME in str(ke):
+                                if first_loop:
+                                    missing_headers.append(
+                                        self.headers.TRACER_COMPOUND_NAME
+                                    )
+                                keyed = False
+                            else:
+                                raise (ke)
+                        if keyed:
+                            tracer_compound = Compound.objects.get(
+                                name=tracer_compound_name
+                            )
+                            animal.tracer_compound = tracer_compound
                     except Compound.DoesNotExist as e:
                         print(
                             f"ERROR: {self.headers.TRACER_COMPOUND_NAME} not found: Compound:{tracer_compound_name}"
                         )
                         raise (e)
-                    except KeyError as ke:
-                        raise HeaderError(str(ke))
-                try:
-                    if self.headers.TRACER_LABELED_ELEMENT:
+                if self.headers.TRACER_LABELED_ELEMENT:
+                    try:
                         tracer_labeled_atom = value_from_choices_label(
                             row[self.headers.TRACER_LABELED_ELEMENT],
                             animal.TRACER_LABELED_ELEMENT_CHOICES,
                         )
                         animal.tracer_labeled_atom = tracer_labeled_atom
-                    if self.headers.TRACER_LABELED_COUNT:
+                    except KeyError as ke:
+                        if self.headers.TRACER_LABELED_ELEMENT in str(ke):
+                            if first_loop:
+                                missing_headers.append(
+                                    self.headers.TRACER_LABELED_ELEMENT
+                                )
+                        else:
+                            raise (ke)
+                if self.headers.TRACER_LABELED_COUNT:
+                    try:
                         animal.tracer_labeled_count = int(
                             row[self.headers.TRACER_LABELED_COUNT]
                         )
-                    if self.headers.TRACER_INFUSION_RATE:
+                    except KeyError as ke:
+                        if self.headers.TRACER_LABELED_COUNT in str(ke):
+                            if first_loop:
+                                missing_headers.append(
+                                    self.headers.TRACER_LABELED_COUNT
+                                )
+                        else:
+                            raise (ke)
+                if self.headers.TRACER_INFUSION_RATE:
+                    try:
                         animal.tracer_infusion_rate = row[
                             self.headers.TRACER_INFUSION_RATE
                         ]
-                    if self.headers.TRACER_INFUSION_CONCENTRATION:
+                    except KeyError as ke:
+                        if self.headers.TRACER_INFUSION_RATE in str(ke):
+                            if first_loop:
+                                missing_headers.append(
+                                    self.headers.TRACER_INFUSION_RATE
+                                )
+                        else:
+                            raise (ke)
+                if self.headers.TRACER_INFUSION_CONCENTRATION:
+                    try:
                         animal.tracer_infusion_concentration = row[
                             self.headers.TRACER_INFUSION_CONCENTRATION
                         ]
-                except KeyError as ke:
-                    raise HeaderError(str(ke))
+                    except KeyError as ke:
+                        if self.headers.TRACER_INFUSION_CONCENTRATION in str(ke):
+                            if first_loop:
+                                missing_headers.append(
+                                    self.headers.TRACER_INFUSION_CONCENTRATION
+                                )
+                        else:
+                            raise (ke)
                 try:
                     animal.full_clean()
                     animal.save()
@@ -287,7 +413,11 @@ class SampleTableLoader:
             try:
                 sample_name = row[self.headers.SAMPLE_NAME]
             except KeyError as ke:
-                raise HeaderError(str(ke))
+                if self.headers.SAMPLE_NAME in str(ke):
+                    if first_loop:
+                        missing_headers.append(self.headers.SAMPLE_NAME)
+                else:
+                    raise (ke)
             try:
                 sample = Sample.objects.get(name=sample_name)
                 print(f"SKIPPING existing record: Sample:{sample_name}")
@@ -316,6 +446,15 @@ class SampleTableLoader:
                 except Exception as e:
                     print(f"Error saving record: Sample:{sample}")
                     raise (e)
+            first_loop = False
+
+        if len(missing_headers) > 0:
+            raise (
+                HeaderError(
+                    f"The following column headers were missing: {', '.join(missing_headers)}",
+                    missing_headers,
+                )
+            )
 
         # Check researchers last so that other errors can be dealt with by users during validation
         # Users cannot resolve new researcher errors if they really are new
@@ -824,11 +963,9 @@ class AccuCorDataLoader:
 
 
 class HeaderError(Exception):
-    def __init__(self, message):
-        # Call the base class constructor with the parameters it needs
-        super().__init__(
-            f"The following column header was missing in your file: {message}"
-        )
+    def __init__(self, message, headers):
+        super().__init__(message)
+        self.header_list = headers
 
 
 class ResearcherError(Exception):

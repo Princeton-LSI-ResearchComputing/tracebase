@@ -829,7 +829,7 @@ class AccuCorDataLoadingTests(TestCase):
         self.assertEqual(PeakData.objects.all().count(), PEAKDATA_ROWS * SAMPLES_COUNT)
 
     def test_accucor_load_sample_prefix_missing(self):
-        with self.assertRaises(AssertionError, msg="1 samples are missing."):
+        with self.assertRaises(MissingSamplesError, msg="1 samples are missing."):
             call_command(
                 "load_accucor_msruns",
                 accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_req_prefix.xlsx",
