@@ -372,6 +372,13 @@ class Animal(models.Model, TracerLabeledClass):
     )
 
     def all_serum_samples(self):
+        """
+        all_serum_samples() in an instance method that returns all the serum
+        samples removed from the calling animal object, ordered by the time they
+        were collected from the animal, which is recorded as the time
+        elapsed/duration from the initiation of infusion or treatment,
+        typically.
+        """
         return (
             self.samples.filter(tissue__name=Tissue.SERUM_TISSUE_NAME)
             .order_by("time_collected")
@@ -379,6 +386,13 @@ class Animal(models.Model, TracerLabeledClass):
         )
 
     def final_serum_sample(self):
+        """
+        final_serum_sample() in an instance method that returns the last single
+        serum sample removed from the animal, based on the time elapsed/duration
+        from the initiation of infusion or treatment, typically.  If the animal
+        has no serum samples or if the retrieved serum sample has no annotated
+        time_collected, a warning will be issued.
+        """
 
         final_serum_sample = (
             self.samples.filter(tissue__name=Tissue.SERUM_TISSUE_NAME)
