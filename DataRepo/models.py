@@ -372,6 +372,49 @@ class Animal(models.Model, TracerLabeledClass):
         help_text="The laboratory controlled label of the actions taken on an animal.",
     )
 
+    def all_serum_samples(self):
+        """
+        all_serum_samples() in an instance method that returns all the serum
+        samples removed from the calling animal object, ordered by the time they
+        were collected from the animal, which is recorded as the time
+        elapsed/duration from the initiation of infusion or treatment,
+        typically.
+        """
+        return (
+            self.samples.filter(tissue__name=Tissue.SERUM_TISSUE_NAME)
+            .order_by("time_collected")
+            .all()
+        )
+
+    def final_serum_sample(self):
+        """
+        final_serum_sample() in an instance method that returns the last single
+        serum sample removed from the animal, based on the time elapsed/duration
+        from the initiation of infusion or treatment, typically.  If the animal
+        has no serum samples or if the retrieved serum sample has no annotated
+        time_collected, a warning will be issued.
+        """
+
+        final_serum_sample = (
+            self.samples.filter(tissue__name=Tissue.SERUM_TISSUE_NAME)
+            .order_by("time_collected")
+            .last()
+        )
+
+        if final_serum_sample is None:
+            warnings.warn(f"Animal {self.name} has no 'Serum' samples.")
+
+        if final_serum_sample and not final_serum_sample.time_collected:
+            warnings.warn(
+                f"The Final serum sample {final_serum_sample.name} for"
+                f"Animal {self.name} is missing a time_collected value."
+            )
+
+        return final_serum_sample
+
+    def final_serum_sample_tracer_peak_data(self):
+        return self.final_serum_sample().peak_data(self.tracer_compound)
+
     class Meta:
         verbose_name = "animal"
         verbose_name_plural = "animals"
@@ -455,6 +498,21 @@ class Sample(models.Model):
         help_text="The time, relative to an infusion timepoint, "
         "that a sample was extracted from an animal.",
     )
+
+    """
+    Retrieve a list of peakdata objects for a sample instance.  If an optional
+    compound is passed (e.g. animal.tracer_compound), then is it used to filter
+    the peakdata queryset to a specific peakgroup.
+    """
+
+    def peak_data(self, compound=None):
+
+        peakdata = PeakData.objects.filter(peak_group__msrun__sample_id=self.id)
+
+        if compound:
+            peakdata = peakdata.filter(peak_group__compounds__id=compound.id)
+
+        return peakdata.all()
 
     class Meta:
         verbose_name = "sample"

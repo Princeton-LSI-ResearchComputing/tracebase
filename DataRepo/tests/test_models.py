@@ -373,6 +373,9 @@ class DataLoadingTests(TestCase):
         cls.SERUM_SAMPLES_COUNT = 4
         cls.SERUM_PEAKDATA_ROWS = 85
 
+        # defining a primary animal object for repeated tests
+        cls.MAIN_SERUM_ANIMAL = Animal.objects.get(name="971")
+
     def test_compounds_loaded(self):
         self.assertEqual(Compound.objects.all().count(), self.ALL_COMPOUNDS_COUNT)
 
@@ -420,6 +423,59 @@ class DataLoadingTests(TestCase):
             a.treatment.description,
             "For protocol's full text, please consult Michael Neinast.",
         )
+
+    def test_animal_serum_sample_methods(self):
+        animal = self.MAIN_SERUM_ANIMAL
+        serum_samples = animal.all_serum_samples()
+        self.assertEqual(serum_samples.count(), 1)
+        final_serum_sample = animal.final_serum_sample()
+        self.assertEqual(final_serum_sample.name, "serum-xz971")
+        self.assertEqual(final_serum_sample.name, serum_samples.last().name)
+
+    def test_sample_peak_data(self):
+        animal = self.MAIN_SERUM_ANIMAL
+        final_serum_sample = animal.final_serum_sample()
+        peakdata = final_serum_sample.peak_data()
+        # ALL the sample's peakdata objects total 85
+        self.assertEqual(peakdata.count(), self.SERUM_PEAKDATA_ROWS)
+        # but if limited to only the tracer's data, it is just 7 objects
+        peakdata = final_serum_sample.peak_data(animal.tracer_compound)
+        self.assertEqual(peakdata.count(), 7)
+        # and test that the Animal convenience method is equivalent to the above
+        peakdata2 = animal.final_serum_sample_tracer_peak_data()
+        self.assertEqual(peakdata.count(), peakdata2.count())
+        self.assertQuerysetEqual(peakdata, peakdata2)
+
+    def test_missing_time_collected_warning(self):
+        final_serum_sample = self.MAIN_SERUM_ANIMAL.final_serum_sample()
+        # pretend the time_collected did not exist
+        final_serum_sample.time_collected = None
+        final_serum_sample.save()
+        with self.assertWarns(UserWarning):
+            final_serum_sample = self.MAIN_SERUM_ANIMAL.final_serum_sample()
+
+    def test_missing_serum_sample_peak_data(self):
+        animal = self.MAIN_SERUM_ANIMAL
+        final_serum_sample = animal.final_serum_sample()
+        # do some deletion tests
+        serum_sample_msrun = MSRun.objects.filter(
+            sample__name=final_serum_sample.name
+        ).get()
+        serum_sample_msrun.delete()
+        """
+        with the msrun deleted, the 7 rows of prior peak data
+        (test_sample_peak_data, above) are now 0/gone
+        """
+        peakdata = final_serum_sample.peak_data(animal.tracer_compound)
+        self.assertEqual(peakdata.count(), 0)
+        animal.final_serum_sample().delete()
+        # with the sample deleted, there are no more serum records...
+        serum_samples = animal.all_serum_samples()
+        # so zero length list
+        self.assertEqual(serum_samples.count(), 0)
+        with self.assertWarns(UserWarning):
+            # and attempts to retrieve the final_serum_sample get None
+            self.assertIsNone(animal.final_serum_sample())
 
     def test_restricted_animal_treatment_deletion(self):
         treatment = Animal.objects.get(name="exp024f_M2").treatment
@@ -540,6 +596,14 @@ class DataLoadingTests(TestCase):
             tissue=first_serum_sample.tissue,
             time_collected=first_serum_sample.time_collected + timedelta(minutes=1),
         )
+
+        serum_samples = first_serum_sample.animal.all_serum_samples()
+        # there should now be 2 serum samples for this animal
+        self.assertEqual(serum_samples.count(), 2)
+        final_serum_sample = first_serum_sample.animal.final_serum_sample()
+        # and the final one should now be the second one (just created)
+        self.assertEqual(final_serum_sample.name, second_serum_sample.name)
+
         msrun = MSRun.objects.create(
             researcher="John Doe",
             date=datetime.now(),
