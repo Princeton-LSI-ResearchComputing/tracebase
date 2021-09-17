@@ -1,0 +1,73 @@
+$schema: "https://json-schema.org/draft-06/schema#"
+description: dataset loading parameters
+properties:
+  compounds:
+    type: string
+    description: filename for compounds to load
+  animals_samples_treatments:
+    type: object
+    description: animals, samples, and treatments table as well as header definitions
+    properties:
+      table:
+        type: string
+        description: filename of Excel file with animals, samples, treatments worksheets
+      headers:
+        type: string
+        description: filename of yaml file defining headers for Excel worksheets
+    required:
+      - table
+  accucor_data:
+    type: object
+    properties:
+      accucor_files:
+        type: array
+        description: list of accucor filenames and parameters specific to that file
+        items:
+          type: object
+          properties:
+            name:
+              type: string
+              description: accucor filename
+            sample_name_prefix:
+              type: string
+            msrun_protocol:
+              type: string
+            date:
+              type: string
+            researcher:
+              type: string
+            new_researcher:
+              type: boolean
+              default: False
+            skip_samples:
+              type: array
+              items:
+                type: string
+          required:
+            - name
+    msrun_protocol:
+      type: string
+      description: name of ms run protocol
+    date:
+      type: string
+      description: date of ms run
+    researcher:
+      type: string
+      description: name of resercher who performed ms run
+    new_researcher:
+      type: boolean
+      default: False
+      description: flag to indiciate the researcher should be added
+    skip_samples:
+      type: array
+      description: list of sample names to skip when loading
+      items:
+        type: string
+    sample_name_prefix:
+      type: string
+      description: prefix to append to sample names prior to searching
+    required:
+      - accucor_files
+      - msrun_protocol
+      - date
+      - researcher
