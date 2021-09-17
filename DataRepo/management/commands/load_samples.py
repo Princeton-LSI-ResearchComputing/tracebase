@@ -47,7 +47,6 @@ class Command(BaseCommand):
                 open(options["sample_table_filename"]),
                 dialect="excel-tab",
             ),
-            options["skip_researcher_check"],
-            False,
+            skip_researcher_check=options["skip_researcher_check"],
         )
         print("Done loading sample table")

@@ -87,7 +87,7 @@ class SampleTableLoader:
         self.missing_headers = []
         self.debug = False
 
-    def validate_sample_table(self, data, skip_researcher_check):
+    def validate_sample_table(self, data, skip_researcher_check=False):
         """
         Validates the data in the input file, unless the check is indicated to be skipped.
         """
@@ -118,9 +118,9 @@ class SampleTableLoader:
                 }
                 self.researcher_errors.append(error)
 
-    def load_sample_table(self, data, skip_researcher_check, debug):
+    def load_sample_table(self, data, skip_researcher_check=False, debug=False):
         self.debug = debug
-        self.validate_sample_table(data, skip_researcher_check)
+        self.validate_sample_table(data, skip_researcher_check=skip_researcher_check)
         for row in data:
 
             name = self.getRowVal(row, self.headers.TISSUE_NAME)
