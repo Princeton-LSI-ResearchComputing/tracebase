@@ -21,7 +21,7 @@
             </ul>
         </li>
         <li>
-            <h5>Upload your data using the <a href="https://forms.gle/Jyp94aiGmhBNLZh6A" target="_blank">submission form</a></h5>
+            <h5>Upload your data using the <a href="{{ data_submission_url }}" target="_blank">submission form</a></h5>
             Submitting this form will do a few things:
             <ol>
                 <li>Submitting the form will record your entries in a google spreadsheet and store your file uploads in google drive</li>
@@ -41,7 +41,7 @@
                 </li>
                 <li>
                     If, after your submission, you need to followup or would like to check-in on the upload status, send an email to:<br>
-                    <a href="mailto:csgenome@princeton.edu?subject=Tracebase curator inquiry&body=Dear Tracebase Curators, ">Tracebase Curators</a>
+                    <a href="mailto:{{ data_submission_email }}?subject=TraceBase curator inquiry&body=Dear Tracebase Curators, ">Tracebase Curators</a>
                 </li>
             </ul>
         </li>

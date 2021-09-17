@@ -38,7 +38,11 @@ def home(request):
 
 
 def upload(request):
-    return render(request, "upload.html")
+    context = {
+        'data_submission_email': settings.DATA_SUBMISSION_EMAIL,
+        'data_submission_url': settings.DATA_SUBMISSION_URL,
+    }
+    return render(request, "upload.html", context)
 
 
 class CompoundListView(ListView):
@@ -910,7 +914,7 @@ class DataValidationView(FormView):
     success_url = ""
     accucor_files: List[str] = []
     animal_sample_file = None
-    submission_url = "https://forms.gle/Jyp94aiGmhBNLZh6A"
+    submission_url = settings.DATA_SUBMISSION_URL
 
     def post(self, request, *args, **kwargs):
         form_class = self.get_form_class()
