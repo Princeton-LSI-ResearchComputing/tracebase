@@ -776,8 +776,7 @@ class ViewTests(TestCase):
 
         # Files/inputs we will test
         animal_sample_dict = {
-            "data_submission_animal_sample_table.xlsx":
-            "DataRepo/example_data/data_submission_animal_sample_table.xlsx",
+            "data_submission_animal_sample_table.xlsx": "DataRepo/example_data/data_submission_animal_sample_table.xlsx",
         }
         yaml_file = "DataRepo/example_data/sample_and_animal_tables_headers.yaml"
         accucor_dict = {
