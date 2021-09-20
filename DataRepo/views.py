@@ -1,15 +1,23 @@
 import json
 from datetime import datetime
+from typing import List
 
 from django.conf import settings
+from django.core.management import call_command
 from django.db.models import Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404, render
+from django.test import TestCase
+from django.test.utils import setup_databases, setup_test_environment
 from django.views.generic import DetailView, ListView
 from django.views.generic.edit import FormView
 
 from DataRepo.compositeviews import BaseAdvancedSearchView
-from DataRepo.forms import AdvSearchDownloadForm, AdvSearchForm
+from DataRepo.forms import (
+    AdvSearchDownloadForm,
+    AdvSearchForm,
+    DataSubmissionValidationForm,
+)
 from DataRepo.models import (
     Animal,
     Compound,
@@ -22,10 +30,19 @@ from DataRepo.models import (
     Study,
 )
 from DataRepo.multiforms import MultiFormsView
+from DataRepo.utils import MissingSamplesError, ResearcherError
 
 
 def home(request):
     return render(request, "home.html")
+
+
+def upload(request):
+    context = {
+        "data_submission_email": settings.DATA_SUBMISSION_EMAIL,
+        "data_submission_url": settings.DATA_SUBMISSION_URL,
+    }
+    return render(request, "upload.html", context)
 
 
 class CompoundListView(ListView):
@@ -889,3 +906,205 @@ class PeakDataListView(ListView):
             self.peakgroup = get_object_or_404(PeakGroup, id=peakgroup_pk)
             queryset = PeakData.objects.filter(peak_group_id=peakgroup_pk)
         return queryset
+
+
+class DataValidationView(FormView):
+    form_class = DataSubmissionValidationForm
+    template_name = "DataRepo/validate_submission.html"
+    success_url = ""
+    accucor_files: List[str] = []
+    animal_sample_file = None
+    submission_url = settings.DATA_SUBMISSION_URL
+
+    def post(self, request, *args, **kwargs):
+        form_class = self.get_form_class()
+        form = self.get_form(form_class)
+        self.accucor_files = request.FILES.getlist("accucor_files")
+        try:
+            self.animal_sample_file = request.FILES["animal_sample_table"]
+        except Exception:
+            # Ignore missing accucor files
+            print("No accucor file")
+        if form.is_valid():
+            return self.form_valid(form)
+        else:
+            return self.form_invalid(form)
+
+    def form_valid(self, form):
+        """
+        Upon valid file submission, adds validation messages to the context of the validation page.
+        """
+
+        errors = {}
+        debug = "untouched"
+        valid = True
+        results = {}
+        ash_yaml = "DataRepo/example_data/sample_and_animal_tables_headers.yaml"
+
+        debug = f"asf: {self.animal_sample_file} num afs: {len(self.accucor_files)}"
+
+        animal_sample_dict = {
+            str(self.animal_sample_file): self.animal_sample_file.temporary_file_path(),
+        }
+        accucor_dict = dict(
+            map(lambda x: (str(x), x.temporary_file_path()), self.accucor_files)
+        )
+
+        [results, valid, errors] = self.validate_load_files(
+            animal_sample_dict, accucor_dict, ash_yaml
+        )
+
+        return self.render_to_response(
+            self.get_context_data(
+                results=results,
+                debug=debug,
+                valid=valid,
+                form=form,
+                errors=errors,
+                submission_url=self.submission_url,
+            )
+        )
+
+    def validate_load_files(self, animal_sample_dict, accucor_dict, ash_yaml):
+        errors = {}
+        valid = True
+        results = {}
+        animal_sample_name = list(animal_sample_dict.keys())[0]
+
+        # Load the animal and sample table in debug mode to check the researcher and sample name uniqueness
+        errors[animal_sample_name] = []
+        results[animal_sample_name] = ""
+        try:
+            call_command(
+                "load_animals_and_samples",
+                animal_and_sample_table_filename=animal_sample_dict[animal_sample_name],
+                table_headers=ash_yaml,
+                debug=True,
+            )
+            results[animal_sample_name] = "PASSED"
+        except ResearcherError as re:
+            valid = False
+            errors[animal_sample_name].append(
+                "[The following error about a new researcher name should only be addressed if the name already exists "
+                "in the database as a variation.  If this is a truly new researcher name in the database, it may be "
+                f"ignored.]\n{animal_sample_name}: {str(re)}"
+            )
+            results[animal_sample_name] = "WARNING"
+        except Exception as e:
+            valid = False
+            errors[animal_sample_name].append(f"{animal_sample_name}: {str(e)}")
+            results[animal_sample_name] = "FAILED"
+
+        can_proceed = False
+        if results[animal_sample_name] != "FAILED":
+            # Load the animal and sample data into a test database, so the data is available for the accucor file
+            # validation
+            validation_test = self.ValidationTest()
+            try:
+                validation_test.validate_animal_sample_table(
+                    animal_sample_dict[animal_sample_name],
+                    ash_yaml,
+                )
+                can_proceed = True
+            except Exception as e:
+                errors[animal_sample_name].append(f"{animal_sample_name}: {str(e)}")
+                can_proceed = False
+
+        # Load the accucor file into a temporary test database in debug mode
+        for af, afp in accucor_dict.items():
+            errors[af] = []
+            if can_proceed is True:
+                try:
+                    validation_test.validate_accucor(
+                        afp,
+                        [],
+                    )
+                    results[af] = "PASSED"
+                except MissingSamplesError as mse:
+                    blank_samples = []
+                    real_samples = []
+
+                    # Determine whether all the missing samples are blank samples
+                    for sample in mse.sample_list:
+                        if "blank" in sample:
+                            blank_samples.append(sample)
+                        else:
+                            real_samples.append(sample)
+
+                    # Rerun ignoring blanks if all were blank samples, so we can check everything else
+                    if len(blank_samples) > 0 and len(blank_samples) == len(
+                        mse.sample_list
+                    ):
+                        try:
+                            validation_test.validate_accucor(
+                                afp,
+                                blank_samples,
+                            )
+                            results[af] = "PASSED"
+                        except Exception as e:
+                            estr = str(e)
+                            if "Debugging" not in estr:
+                                valid = False
+                                results[af] = "FAILED"
+                                errors[af].append(estr)
+                            else:
+                                results[af] = "PASSED"
+                    else:
+                        valid = False
+                        results[af] = "FAILED"
+                        errors[af].append(
+                            "Samples in the accucor file are missing in the animal and sample table: "
+                            ", ".join(real_samples)
+                        )
+                except Exception as e:
+                    estr = str(e)
+                    if "Debugging" not in estr:
+                        valid = False
+                        results[af] = "FAILED"
+                        errors[af].append(estr)
+                    else:
+                        results[af] = "PASSED"
+            else:
+                # Cannot check because the samples did not load
+                results[af] = "UNCHECKED"
+        return [
+            results,
+            valid,
+            errors,
+        ]
+
+    class ValidationTest(TestCase):
+        @classmethod
+        def setUpTestData(cls):
+            setup_databases(keepdb=False)
+            setup_test_environment()
+            call_command("load_compounds", "DataRepo/example_data/obob_compounds.tsv")
+
+        def validate_animal_sample_table(self, animal_sample_file, table_headers):
+            call_command(
+                "load_animals_and_samples",
+                animal_and_sample_table_filename=animal_sample_file,
+                table_headers=table_headers,
+                skip_researcher_check=True,
+            )
+
+        def validate_accucor(self, accucor_file, skip_samples):
+            if len(skip_samples) > 0:
+                call_command(
+                    "load_accucor_msruns",
+                    protocol="Default",
+                    accucor_file=accucor_file,
+                    date="2021-09-14",
+                    researcher="Michael Neinast",
+                    debug=True,
+                    skip_samples=skip_samples,
+                )
+            else:
+                call_command(
+                    "load_accucor_msruns",
+                    protocol="Default",
+                    accucor_file=accucor_file,
+                    date="2021-09-13",
+                    researcher="Michael Neinast",
+                    debug=True,
+                )

@@ -56,6 +56,13 @@ class Command(BaseCommand):
             default=False,
             help=argparse.SUPPRESS,
         )
+        parser.add_argument(
+            "--debug",
+            action="store_true",
+            default=False,
+            # This issues a "debug-only" error, to abort the transaction
+            help="Debug mode. Will not change the database.",
+        )
 
     def handle(self, *args, **options):
 
@@ -108,6 +115,7 @@ class Command(BaseCommand):
         loader.load_sample_table(
             merged.to_dict("records"),
             options["skip_researcher_check"],
+            options["debug"],
         )
 
         self.stdout.write(self.style.SUCCESS("Done loading sample table"))

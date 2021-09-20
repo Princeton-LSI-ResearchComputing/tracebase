@@ -121,6 +121,14 @@ Then go to this site in your web browser:
 
     http://127.0.0.1:8000/
 
+### Create an Admin User
+
+To be able to access the admin page, on the command line, run:
+
+    python manage.py createsuperuser
+
+and supply your desired account credentials for testing.
+
 ## Pull Requests
 
 ### Code Formatting Standards

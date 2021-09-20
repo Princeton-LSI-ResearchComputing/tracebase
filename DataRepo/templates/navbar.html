@@ -1,7 +1,7 @@
 {% load static %}
 
 <!-- Navbar -->
-<!--ref:  https://getbootstrap.com/docs/5.0/components/navbar/-->
+<!-- ref: https://getbootstrap.com/docs/5.0/components/navbar/ -->
 <nav class="navbar navbar-expand-md navbar-light" style="background-color: #d5f5e3;">
     <div class="container-fluid">
         <a class="navbar-brand" href="{% url 'home' %}">
@@ -17,38 +17,44 @@
                 <a class="nav-link" href="{% url 'admin:index' %}">Admin</a>
             </li>
             <li class="nav-item dropdown">
-                <a class="nav-link dropdown-toggle" href="#" id="dropdown-list-data" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                    List Data
-                </a>
-                <ul class="dropdown-menu" aria-labelledby="dropdown-list-data">
-                    <li><a class="dropdown-item" href="{% url 'compound_list' %}">Compounds</a></li>
-                    <li><hr class="dropdown-divider"></li>
-                    <li><a class="dropdown-item" href="{% url 'study_list' %}">Studies</a></li>
-                    <li><a class="dropdown-item" href="{% url 'animal_list' %}">Animals</a></li>
-                    <li><a class="dropdown-item" href="{% url 'sample_list' %}">Samples</a></li>
-                </ul>
-            </li>
-            <li class="nav-item dropdown">
                 <a class="nav-link dropdown-toggle" href="#" id="dropdown-download-data" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                    Download Data
+                    Download
                 </a>
                 <ul class="dropdown-menu" aria-labelledby="dropdown-download-data">
-                    <li><a class="dropdown-item" href="#">Compounds</a></li>
-                    <li><a class="dropdown-item" href="#">Studies</a></li>
+                    <li>
+                        <form action="/DataRepo/search_advanced_tsv/" method="POST">
+                            {% csrf_token %}
+                            <input type="hidden" name="qryjson" value="&quot;{\&quot;selectedtemplate\&quot;: \&quot;pgtemplate\&quot;, \&quot;searches\&quot;: {\&quot;pgtemplate\&quot;: {\&quot;name\&quot;: \&quot;PeakGroups\&quot;, \&quot;tree\&quot;: {\&quot;pos\&quot;: \&quot;\&quot;, \&quot;type\&quot;: \&quot;group\&quot;, \&quot;val\&quot;: \&quot;all\&quot;, \&quot;queryGroup\&quot;: []}}, \&quot;pdtemplate\&quot;: {\&quot;name\&quot;: \&quot;PeakData\&quot;, \&quot;tree\&quot;: {\&quot;pos\&quot;: \&quot;\&quot;, \&quot;type\&quot;: \&quot;group\&quot;, \&quot;val\&quot;: \&quot;all\&quot;, \&quot;queryGroup\&quot;: []}}}}&quot;">
+                            <button type="submit" class="dropdown-item">All Peak Groups</button>
+                        </form>
+                    </li>
+                    <li>
+                        <form action="/DataRepo/search_advanced_tsv/" method="POST">
+                            {% csrf_token %}
+                            <input type="hidden" name="qryjson" value="&quot;{\&quot;selectedtemplate\&quot;: \&quot;pdtemplate\&quot;, \&quot;searches\&quot;: {\&quot;pgtemplate\&quot;: {\&quot;name\&quot;: \&quot;PeakGroups\&quot;, \&quot;tree\&quot;: {\&quot;pos\&quot;: \&quot;\&quot;, \&quot;type\&quot;: \&quot;group\&quot;, \&quot;val\&quot;: \&quot;all\&quot;, \&quot;queryGroup\&quot;: []}}, \&quot;pdtemplate\&quot;: {\&quot;name\&quot;: \&quot;PeakData\&quot;, \&quot;tree\&quot;: {\&quot;pos\&quot;: \&quot;\&quot;, \&quot;type\&quot;: \&quot;group\&quot;, \&quot;val\&quot;: \&quot;all\&quot;, \&quot;queryGroup\&quot;: []}}}}&quot;">
+                            <button type="submit" class="dropdown-item">All Peak Data</button>
+                        </form>
+                    </li>
                 </ul>
             </li>
+            <!-- Commenting to leave as a placeholder until this is implemented.
             <li class="nav-item dropdown">
                 <a class="nav-link dropdown-toggle" href="#" id="dropdown-help" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                     Help
                 </a>
             </li>
+            -->
+            <li class="nav-item">
+                <a class="nav-link" href="{% url 'upload' %}">Upload</a>
+            </li>
         </ul>
 
+        <!-- Commenting to leave as a placeholder until this is implemented.
         <form class="d-flex">
             <input class="form-control me-2" type="search" placeholder="Text Search" aria-label="Search">
             <button class="btn btn-outline-success me-2" type="submit">Search</button>
-            <a role="button" class="btn btn-outline-success nobr" href="{% url 'search_advanced' %}">Advanced Search</a>
         </form>
-
+        -->
+        <a role="button" class="btn btn-outline-success nobr" href="{% url 'search_advanced' %}">Advanced Search</a>
     </div>
 </nav>

@@ -2,32 +2,11 @@
 {% load static %}
 {% block content %}
 <div>
-    <h3>TraceBase Dashboard</h3>
-    <br>
     <img src="{% static 'images/header.jpg' %}" alt="TraceBase" width="800" height="200">
     <br>
     <br>
-    <h5>Note: placeholder; will decide the content on this page later</h5>
+    <h3>TraceBase Home</h3>
     <br>
-    <ul>
-        <a href="{% url 'compound_list' %}" role="button" class="btn btn-primary w-80 mb-2">All Compounds</a>
-        <br>
-        <a href="{% url 'study_list' %}" role="button" class="btn btn-primary w-80 mb-2">All Studies</a>
-        <br>
-        <a href="{% url 'protocol_list' %}" role="button" class="btn btn-primary w-80 mb-2">All Protocols</a>
-        <br>
-        <a href="{% url 'animal_list' %}" role="button" class="btn btn-primary w-80 mb-2">All Animals</a>
-        <br>
-        <a href="{% url 'sample_list' %}" role="button" class="btn btn-primary w-80 mb-2">All Samples</a>
-        <br>
-        <a href="{% url 'msrun_list' %}" role="button" class="btn btn-primary w-80 mb-2">All MS Runs</a>
-        <br>
-        <a href="{% url 'peakgroupset_list' %}" role="button" class="btn btn-primary w-80 mb-2">All PeakGroup Sets</a>
-        <br>
-        <a href="{% url 'peakgroup_list' %}" role="button" class="btn btn-primary w-80 mb-2">All Peak Groups</a>
-        <br>
-        <a href="{% url 'peakdata_list' %}" role="button" class="btn btn-primary w-80 mb-2">All Peak AccuCor Data</a>
-        <br>
-    </ul>
+    <h5>Welcome to TraceBase</h5>
 </div>
 {% endblock %}

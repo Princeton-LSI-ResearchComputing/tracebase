@@ -131,6 +131,24 @@ STATIC_URL = "/static/"
 
 STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")]
 
+
+# Data submission and validation settings
+
+# https://stackoverflow.com/questions/38345977/filefield-force-using-temporaryuploadedfile
+# Added to make the validate_submission.html form work.  Could not figure out how to specify this handler for
+# individual fields.  This avoids files using the InMemoryUploadedFile, which the load script complains about.
+FILE_UPLOAD_HANDLERS = [
+    "django.core.files.uploadhandler.TemporaryFileUploadHandler",
+]
+DATA_SUBMISSION_URL = "https://forms.gle/Jyp94aiGmhBNLZh6A"
+DATA_SUBMISSION_EMAIL = "csgenome@princeton.edu"
+
+
+# Logging settings
+# This logging level was added to show the number of SQL queries in the server console
+# Left this commented code here to prompt a conversation about how we should control this debug mode activation
+# - probably via an environment setting
+
 # LOGGING = {
 #    "version": 1,
 #    "filters": {
