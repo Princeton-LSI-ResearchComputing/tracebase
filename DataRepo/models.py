@@ -404,7 +404,7 @@ class Animal(models.Model, TracerLabeledClass):
         )
 
         if final_serum_sample is None:
-            warnings.warn(f"Animal {self.name} has no 'Serum' samples.")
+            warnings.warn(f"Animal {self.name} has no 'serum' samples.")
 
         if final_serum_sample and not final_serum_sample.time_collected:
             warnings.warn(
@@ -624,13 +624,17 @@ class Tissue(models.Model):
         unique=True,
         help_text='The laboratory standardized name for this tissue type (e.g. "serum", "brain", "liver").',
     )
+    description = models.TextField(
+        blank=True,
+        help_text="Description of this tissue type.",
+    )
 
     class Meta:
         verbose_name = "tissue"
         verbose_name_plural = "tissues"
         ordering = ["name"]
 
-    SERUM_TISSUE_NAME = "Serum"
+    SERUM_TISSUE_NAME = "serum"
 
     def __str__(self):
         return str(self.name)
@@ -935,7 +939,7 @@ class PeakGroup(models.Model):
             warnings.warn(
                 "Unable to compute normalized_labeling for "
                 f"{self.msrun.sample}:{self}, "
-                "associated 'Serum' sample not found."
+                "associated 'serum' sample not found."
             )
             normalized_labeling = None
 
@@ -943,7 +947,7 @@ class PeakGroup(models.Model):
             warnings.warn(
                 "Unable to compute normalized_labeling for "
                 f"{self.msrun.sample}:{self}, "
-                "PeakGroup for associated 'Serum' sample not found."
+                "PeakGroup for associated 'serum' sample not found."
             )
             normalized_labeling = None
 

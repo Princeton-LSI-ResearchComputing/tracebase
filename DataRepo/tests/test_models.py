@@ -317,6 +317,7 @@ class ProtocolTests(TestCase):
 class DataLoadingTests(TestCase):
     @classmethod
     def setUpTestData(cls):
+        call_command("loaddata", "tissues.yaml")
         call_command("load_compounds", "DataRepo/example_data/obob_compounds.tsv")
         cls.ALL_COMPOUNDS_COUNT = 32
 
@@ -1139,6 +1140,7 @@ class TracerRateTests(TestCase):
 class AnimalAndSampleLoadingTests(TestCase):
     @classmethod
     def setUpTestData(cls):
+        call_command("loaddata", "tissues.yaml")
         call_command("load_compounds", "DataRepo/example_data/obob_compounds.tsv")
         cls.ALL_COMPOUNDS_COUNT = 32
 
@@ -1170,6 +1172,7 @@ class AnimalAndSampleLoadingTests(TestCase):
 class AccuCorDataLoadingTests(TestCase):
     @classmethod
     def setUpTestData(cls):
+        call_command("loaddata", "tissues.yaml")
         call_command("load_compounds", "DataRepo/example_data/obob_compounds.tsv")
 
         call_command(
@@ -1246,6 +1249,7 @@ class AccuCorDataLoadingTests(TestCase):
 @tag("load_study")
 class StudyLoadingTests(TestCase):
     def test_load_small_obob_study(self):
+        call_command("loaddata", "tissues.yaml")
         call_command(
             "load_study",
             "DataRepo/example_data/small_dataset/small_obob_study_params.yaml",
@@ -1263,6 +1267,7 @@ class StudyLoadingTests(TestCase):
 class ParseIsotopeLabelTests(TestCase):
     @classmethod
     def setUpTestData(cls):
+        call_command("loaddata", "tissues.yaml")
         call_command("load_compounds", "DataRepo/example_data/obob_compounds.tsv")
 
         call_command(

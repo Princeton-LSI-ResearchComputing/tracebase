@@ -45,6 +45,9 @@ jobs:
       run: python manage.py test
     - name: Run migrations
       run: python manage.py migrate
+    - name: Load initial tissue records
+      run: |
+        python manage.py loaddata "tissues.yaml"
     - name: Load example compounds
       run: |
         python manage.py load_compounds \

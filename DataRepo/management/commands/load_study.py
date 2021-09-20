@@ -124,6 +124,7 @@ class Command(BaseCommand):
                     skip_samples = accucor_file["skip_samples"]
                 if "sample_name_prefix" in accucor_file:
                     sample_name_prefix = accucor_file["sample_name_prefix"]
+                    print(f"PREFIX: {sample_name_prefix}")
 
                 call_command(
                     "load_accucor_msruns",
