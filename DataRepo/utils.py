@@ -112,9 +112,9 @@ class SampleTableLoader:
                         new_researchers.append(researcher)
             if len(new_researchers) > 0:
                 error = {
-                    'input_researchers': input_researchers,
-                    'new_researchers': new_researchers,
-                    'db_researchers': db_researchers,
+                    "input_researchers": input_researchers,
+                    "new_researchers": new_researchers,
+                    "db_researchers": db_researchers,
                 }
                 self.researcher_errors.append(error)
 
@@ -151,7 +151,12 @@ class SampleTableLoader:
                 study, created = Study.objects.get_or_create(name=name)
                 study_exists = True
             if created:
-                description = self.getRowVal(row, self.headers.STUDY_DESCRIPTION, hdr_required=False)
+                description = self.getRowVal(
+                    row,
+                    self.headers.STUDY_DESCRIPTION,
+                    hdr_required=False,
+                    val_required=False,
+                )
                 if description is not None:
                     study.description = description
                 print(f"Created new record: Study:{study}")
@@ -181,13 +186,19 @@ class SampleTableLoader:
             """
             if created:
                 print(f"Created new record: Animal:{animal}")
-                genotype = self.getRowVal(row, self.headers.ANIMAL_GENOTYPE, hdr_required=False)
+                genotype = self.getRowVal(
+                    row, self.headers.ANIMAL_GENOTYPE, hdr_required=False
+                )
                 if genotype is not None:
                     animal.genotype = genotype
-                weight = self.getRowVal(row, self.headers.ANIMAL_WEIGHT, hdr_required=False)
+                weight = self.getRowVal(
+                    row, self.headers.ANIMAL_WEIGHT, hdr_required=False
+                )
                 if weight is not None:
                     animal.body_weight = weight
-                feedstatus = self.getRowVal(row, self.headers.ANIMAL_FEEDING_STATUS, hdr_required=False)
+                feedstatus = self.getRowVal(
+                    row, self.headers.ANIMAL_FEEDING_STATUS, hdr_required=False
+                )
                 if feedstatus is not None:
                     animal.feeding_status = feedstatus
                 age = self.getRowVal(row, self.headers.ANIMAL_AGE, hdr_required=False)
@@ -196,7 +207,9 @@ class SampleTableLoader:
                 diet = self.getRowVal(row, self.headers.ANIMAL_DIET, hdr_required=False)
                 if diet is not None:
                     animal.diet = diet
-                animal_sex_string = self.getRowVal(row, self.headers.ANIMAL_SEX, hdr_required=False)
+                animal_sex_string = self.getRowVal(
+                    row, self.headers.ANIMAL_SEX, hdr_required=False
+                )
                 if animal_sex_string is not None:
                     if animal_sex_string in animal.SEX_CHOICES:
                         animal_sex = animal_sex_string
@@ -205,7 +218,12 @@ class SampleTableLoader:
                             animal_sex_string, animal.SEX_CHOICES
                         )
                     animal.sex = animal_sex
-                treatment = self.getRowVal(row, self.headers.ANIMAL_TREATMENT, hdr_required=False, val_required=False)
+                treatment = self.getRowVal(
+                    row,
+                    self.headers.ANIMAL_TREATMENT,
+                    hdr_required=False,
+                    val_required=False,
+                )
                 if treatment is None:
                     print("No animal treatment found.")
                 else:
@@ -239,7 +257,9 @@ class SampleTableLoader:
                                 feedback += f" '{animal.treatment.description}'"
                             print(f"{action} {feedback}")
 
-                tracer_compound_name = self.getRowVal(row, self.headers.TRACER_COMPOUND_NAME, hdr_required=False)
+                tracer_compound_name = self.getRowVal(
+                    row, self.headers.TRACER_COMPOUND_NAME, hdr_required=False
+                )
                 if tracer_compound_name is not None:
                     try:
                         tracer_compound = Compound.objects.get(
@@ -251,20 +271,28 @@ class SampleTableLoader:
                             f"ERROR: {self.headers.TRACER_COMPOUND_NAME} not found: Compound:{tracer_compound_name}"
                         )
                         raise (e)
-                tracer_labeled_elem = self.getRowVal(row, self.headers.TRACER_LABELED_ELEMENT, hdr_required=False)
+                tracer_labeled_elem = self.getRowVal(
+                    row, self.headers.TRACER_LABELED_ELEMENT, hdr_required=False
+                )
                 if tracer_labeled_elem is not None:
                     tracer_labeled_atom = value_from_choices_label(
                         tracer_labeled_elem,
                         animal.TRACER_LABELED_ELEMENT_CHOICES,
                     )
                     animal.tracer_labeled_atom = tracer_labeled_atom
-                tlc = self.getRowVal(row, self.headers.TRACER_LABELED_COUNT, hdr_required=False)
+                tlc = self.getRowVal(
+                    row, self.headers.TRACER_LABELED_COUNT, hdr_required=False
+                )
                 if tlc is not None:
                     animal.tracer_labeled_count = int(tlc)
-                tir = self.getRowVal(row, self.headers.TRACER_INFUSION_RATE, hdr_required=False)
+                tir = self.getRowVal(
+                    row, self.headers.TRACER_INFUSION_RATE, hdr_required=False
+                )
                 if tir is not None:
                     animal.tracer_infusion_rate = tir
-                tic = self.getRowVal(row, self.headers.TRACER_INFUSION_CONCENTRATION, hdr_required=False)
+                tic = self.getRowVal(
+                    row, self.headers.TRACER_INFUSION_CONCENTRATION, hdr_required=False
+                )
                 if tic is not None:
                     animal.tracer_infusion_concentration = tic
                 try:
@@ -288,13 +316,13 @@ class SampleTableLoader:
                         sample = Sample(
                             name=sample_name,
                             researcher=researcher,
-                            time_collected=timedelta(
-                                minutes=float(tc)
-                            ),
+                            time_collected=timedelta(minutes=float(tc)),
                             animal=animal,
                             tissue=tissue,
                         )
-                    sd = self.getRowVal(row, self.headers.SAMPLE_DATE, hdr_required=False)
+                    sd = self.getRowVal(
+                        row, self.headers.SAMPLE_DATE, hdr_required=False
+                    )
                     if sd is not None:
                         sample_date_value = sd
                         # Pandas may have already parsed the date
@@ -332,10 +360,10 @@ class SampleTableLoader:
                     f"researchers, add --skip-researcher-check to your command."
                 )
                 all_researcher_error_strs.append(err_msg)
-            raise ResearcherError("\n".join(self.researcher_errors))
+            raise ResearcherError("\n".join(all_researcher_error_strs))
 
         assert not debug, "Debugging..."
-    
+
     def getRowVal(self, row, header, hdr_required=True, val_required=True):
         """
         Gets a value from the row, indexed by the column header.  If the header is not required but the header key is

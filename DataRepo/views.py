@@ -39,8 +39,8 @@ def home(request):
 
 def upload(request):
     context = {
-        'data_submission_email': settings.DATA_SUBMISSION_EMAIL,
-        'data_submission_url': settings.DATA_SUBMISSION_URL,
+        "data_submission_email": settings.DATA_SUBMISSION_EMAIL,
+        "data_submission_url": settings.DATA_SUBMISSION_URL,
     }
     return render(request, "upload.html", context)
 
@@ -943,59 +943,86 @@ class DataValidationView(FormView):
 
         debug = f"asf: {self.animal_sample_file} num afs: {len(self.accucor_files)}"
 
+        animal_sample_path = [
+            str(self.animal_sample_file),
+            self.animal_sample_file.temporary_file_path(),
+        ]
+        accucor_paths = list(
+            map(lambda x: [str(x), x.temporary_file_path()], self.accucor_files)
+        )
+
+        [results, valid, errors] = self.validate_load_files(
+            animal_sample_path, accucor_paths, ash_yaml
+        )
+
+        return self.render_to_response(
+            self.get_context_data(
+                results=results,
+                debug=debug,
+                valid=valid,
+                form=form,
+                errors=errors,
+                submission_url=self.submission_url,
+            )
+        )
+
+    def validate_load_files(self, animal_sample_path, accucor_paths, ash_yaml):
+        errors = {}
+        valid = True
+        results = {}
+        animal_sample_name = animal_sample_path[0]
+
         # Load the animal and sample table in debug mode to check the researcher and sample name uniqueness
-        errors[str(self.animal_sample_file)] = []
-        results[str(self.animal_sample_file)] = ""
+        errors[animal_sample_name] = []
+        results[animal_sample_name] = ""
         try:
             call_command(
                 "load_animals_and_samples",
-                animal_and_sample_table_filename=self.animal_sample_file.temporary_file_path(),
-                table_headers="DataRepo/example_data/sample_and_animal_tables_headers.yaml",
+                animal_and_sample_table_filename=animal_sample_path[1],
+                table_headers=ash_yaml,
                 debug=True,
             )
-            results[str(self.animal_sample_file)] = "PASSED"
+            results[animal_sample_name] = "PASSED"
         except ResearcherError as re:
             valid = False
-            errors[str(self.animal_sample_file)].append(
+            errors[animal_sample_name].append(
                 "[The following error about a new researcher name should only be addressed if the name already exists "
                 "in the database as a variation.  If this is a truly new researcher name in the database, it may be "
-                f"ignored.]\n{str(self.animal_sample_file)}: {str(re)}"
+                f"ignored.]\n{animal_sample_name}: {str(re)}"
             )
-            results[str(self.animal_sample_file)] = "WARNING"
+            results[animal_sample_name] = "WARNING"
         except Exception as e:
             valid = False
-            errors[str(self.animal_sample_file)].append(
-                str(self.animal_sample_file) + ": " + str(e)
-            )
-            results[str(self.animal_sample_file)] = "FAILED"
+            errors[animal_sample_name].append(f"{animal_sample_name}: {str(e)}")
+            results[animal_sample_name] = "FAILED"
 
         can_proceed = False
-        if results[str(self.animal_sample_file)] != "FAILED":
+        if results[animal_sample_name] != "FAILED":
             # Load the animal and sample data into a test database, so the data is available for the accucor file
             # validation
             validation_test = self.ValidationTest()
             try:
                 validation_test.validate_animal_sample_table(
-                    self.animal_sample_file.temporary_file_path(),
+                    animal_sample_path[1],
                     ash_yaml,
                 )
                 can_proceed = True
             except Exception as e:
-                errors[str(self.animal_sample_file)].append(
-                    str(self.animal_sample_file) + ": " + str(e)
-                )
+                errors[animal_sample_name].append(f"{animal_sample_name}: {str(e)}")
                 can_proceed = False
 
         # Load the accucor file into a temporary test database in debug mode
-        for af in self.accucor_files:
-            errors[str(af)] = []
+        for afl in accucor_paths:
+            af = afl[0]
+            afp = afl[1]
+            errors[af] = []
             if can_proceed is True:
                 try:
                     validation_test.validate_accucor(
-                        af.temporary_file_path(),
+                        afp,
                         [],
                     )
-                    results[str(af)] = "PASSED"
+                    results[af] = "PASSED"
                 except MissingSamplesError as mse:
                     blank_samples = []
                     real_samples = []
@@ -1013,22 +1040,22 @@ class DataValidationView(FormView):
                     ):
                         try:
                             validation_test.validate_accucor(
-                                af.temporary_file_path(),
+                                afp,
                                 blank_samples,
                             )
-                            results[str(af)] = "PASSED"
+                            results[af] = "PASSED"
                         except Exception as e:
                             estr = str(e)
                             if "Debugging" not in estr:
                                 valid = False
-                                results[str(af)] = "FAILED"
-                                errors[str(af)].append(estr)
+                                results[af] = "FAILED"
+                                errors[af].append(estr)
                             else:
-                                results[str(af)] = "PASSED"
+                                results[af] = "PASSED"
                     else:
                         valid = False
-                        results[str(af)] = "FAILED"
-                        errors[str(af)].append(
+                        results[af] = "FAILED"
+                        errors[af].append(
                             "Samples in the accucor file are missing in the animal and sample table: "
                             ", ".join(real_samples)
                         )
@@ -1036,24 +1063,18 @@ class DataValidationView(FormView):
                     estr = str(e)
                     if "Debugging" not in estr:
                         valid = False
-                        results[str(af)] = "FAILED"
-                        errors[str(af)].append(estr)
+                        results[af] = "FAILED"
+                        errors[af].append(estr)
                     else:
-                        results[str(af)] = "PASSED"
+                        results[af] = "PASSED"
             else:
                 # Cannot check because the samples did not load
-                results[str(af)] = "UNCHECKED"
-
-        return self.render_to_response(
-            self.get_context_data(
-                results=results,
-                debug=debug,
-                valid=valid,
-                form=form,
-                errors=errors,
-                submission_url=self.submission_url,
-            )
-        )
+                results[af] = "UNCHECKED"
+        return [
+            results,
+            valid,
+            errors,
+        ]
 
     class ValidationTest(TestCase):
         @classmethod
