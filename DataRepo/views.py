@@ -943,16 +943,15 @@ class DataValidationView(FormView):
 
         debug = f"asf: {self.animal_sample_file} num afs: {len(self.accucor_files)}"
 
-        animal_sample_path = [
-            str(self.animal_sample_file),
-            self.animal_sample_file.temporary_file_path(),
-        ]
-        accucor_paths = list(
-            map(lambda x: [str(x), x.temporary_file_path()], self.accucor_files)
+        animal_sample_dict = {
+            str(self.animal_sample_file): self.animal_sample_file.temporary_file_path(),
+        }
+        accucor_dict = dict(
+            map(lambda x: (str(x), x.temporary_file_path()), self.accucor_files)
         )
 
         [results, valid, errors] = self.validate_load_files(
-            animal_sample_path, accucor_paths, ash_yaml
+            animal_sample_dict, accucor_dict, ash_yaml
         )
 
         return self.render_to_response(
@@ -966,11 +965,11 @@ class DataValidationView(FormView):
             )
         )
 
-    def validate_load_files(self, animal_sample_path, accucor_paths, ash_yaml):
+    def validate_load_files(self, animal_sample_dict, accucor_dict, ash_yaml):
         errors = {}
         valid = True
         results = {}
-        animal_sample_name = animal_sample_path[0]
+        animal_sample_name = list(animal_sample_dict.keys())[0]
 
         # Load the animal and sample table in debug mode to check the researcher and sample name uniqueness
         errors[animal_sample_name] = []
@@ -978,7 +977,7 @@ class DataValidationView(FormView):
         try:
             call_command(
                 "load_animals_and_samples",
-                animal_and_sample_table_filename=animal_sample_path[1],
+                animal_and_sample_table_filename=animal_sample_dict[animal_sample_name],
                 table_headers=ash_yaml,
                 debug=True,
             )
@@ -1003,7 +1002,7 @@ class DataValidationView(FormView):
             validation_test = self.ValidationTest()
             try:
                 validation_test.validate_animal_sample_table(
-                    animal_sample_path[1],
+                    animal_sample_dict[animal_sample_name],
                     ash_yaml,
                 )
                 can_proceed = True
@@ -1012,9 +1011,7 @@ class DataValidationView(FormView):
                 can_proceed = False
 
         # Load the accucor file into a temporary test database in debug mode
-        for afl in accucor_paths:
-            af = afl[0]
-            afp = afl[1]
+        for af, afp in accucor_dict.items():
             errors[af] = []
             if can_proceed is True:
                 try:
