@@ -775,9 +775,10 @@ class ViewTests(TestCase):
         call_command("load_compounds", "DataRepo/example_data/obob_compounds.tsv")
 
         # Files/inputs we will test
-        animal_sample_dict = {
-            "data_submission_animal_sample_table.xlsx": "DataRepo/example_data/data_submission_animal_sample_table.xlsx",
-        }
+        animal_sample_dict = {}
+        animal_sample_dict[
+            "data_submission_animal_sample_table.xlsx"
+        ] = "DataRepo/example_data/data_submission_animal_sample_table.xlsx"
         yaml_file = "DataRepo/example_data/sample_and_animal_tables_headers.yaml"
         accucor_dict = {
             "data_submission_accucor1.xlsx": "DataRepo/example_data/data_submission_accucor1.xlsx",
