@@ -415,6 +415,226 @@ class Animal(models.Model, TracerLabeledClass):
     def final_serum_sample_tracer_peak_data(self):
         return self.final_serum_sample().peak_data(self.tracer_compound)
 
+    def intact_tracer_peak_data(self):
+        """
+        intact_tracer_peak_data is a instance method that returns the peak data
+        matching the intact tracer (labeled_count filtered)
+        """
+        if not self.tracer_labeled_count:
+            warnings.warn(f"Animal {self.name} has no annotated tracer_labeled_count")
+            return None
+        return (
+            self.final_serum_sample_tracer_peak_data()
+            .filter(labeled_count=self.tracer_labeled_count)
+            .get()
+        )
+
+    def final_serum_sample_tracer_peak_group(self):
+        """
+        final_serum_sample_tracer_peak_data is a instance method that returns
+        the peak group encompassing the final serum sample's peak data
+        """
+        return self.final_serum_sample_tracer_peak_data().first().peak_group
+
+    @cached_property
+    def tracer_Rd_intact_g(self):
+        """Rate of Disappearance (intact)"""
+        return (
+            self.tracer_infusion_rate
+            * self.tracer_infusion_concentration
+            / self.intact_tracer_peak_data().fraction
+        )
+
+    @cached_property
+    def tracer_Ra_intact_g(self):
+        """Rate of Appearance (intact)"""
+        return (
+            self.tracer_Rd_intact_g
+            - self.tracer_infusion_rate * self.tracer_infusion_concentration
+        )
+
+    @cached_property
+    def tracer_Rd_intact(self):
+        """Rate of Disappearance (intact), normalized by body weight"""
+        try:
+            return self.tracer_Rd_intact_g * self.body_weight
+        except Exception as e:
+            estr = str(e)
+            if "unsupported operand type(s) for *: 'float' and 'NoneType'" in estr:
+                warnings.warn(f"Animal {self.name} has no annotated body_weight.")
+                return None
+            else:
+                raise (e)
+
+    @cached_property
+    def tracer_Ra_intact(self):
+        """Rate of Appearance (intact), normalized by body weight"""
+        try:
+            return self.tracer_Ra_intact_g * self.body_weight
+        except Exception as e:
+            estr = str(e)
+            if "unsupported operand type(s) for *: 'float' and 'NoneType'" in estr:
+                warnings.warn(f"Animal {self.name} has no annotated body_weight.")
+                return None
+            else:
+                raise (e)
+
+    @cached_property
+    def tracer_Rd_avg_g(self):
+        """
+        Rd_avg_g = [Infusate] * 'Infusion Rate' / 'Enrichment Fraction'
+        in nmol/min/g
+        """
+        tracer_peak_group = self.final_serum_sample_tracer_peak_group()
+        return (
+            self.tracer_infusion_concentration
+            * self.tracer_infusion_rate
+            / tracer_peak_group.enrichment_fraction
+        )
+
+    @cached_property
+    def tracer_Ra_avg_g(self):
+        """
+        Ra_avg_g = Rd_avg_g - [Infusate] * 'Infusion Rate' in nmol/min/g
+        """
+        return (
+            self.tracer_Rd_avg_g
+            - self.tracer_infusion_concentration * self.tracer_infusion_rate
+        )
+
+    @cached_property
+    def tracer_Rd_avg(self):
+        """
+        Rate of Disappearance (avg)
+        Rd_avg = Rd_avg_g * 'Body Weight' in nmol/min
+        """
+        try:
+            return self.tracer_Rd_avg_g * self.body_weight
+        except Exception as e:
+            estr = str(e)
+            if "unsupported operand type(s) for *: 'float' and 'NoneType'" in estr:
+                warnings.warn(f"Animal {self.name} has no annotated body_weight.")
+                return None
+            else:
+                raise (e)
+
+    @cached_property
+    def tracer_Ra_avg(self):
+        """
+        Rate of Appearance (avg)
+        Ra_avg = Ra_avg_g * 'Body Weight'' in nmol/min
+        """
+        try:
+            return self.tracer_Ra_avg_g * self.body_weight
+        except Exception as e:
+            estr = str(e)
+            if "unsupported operand type(s) for *: 'float' and 'NoneType'" in estr:
+                warnings.warn(f"Animal {self.name} has no annotated body_weight.")
+                return None
+            else:
+                raise (e)
+
+    @cached_property
+    def tracer_Fcirc_intact(self):
+        """
+        tracer_Fcirc_intact - turnover of the tracer compound for this animal, as
+        rate of appearance of any modified form of the tracer compound (nmol/min/gram
+        body weight) = calculated using the infusion rate of tracer in this animal and
+        the labeling in the tracer compound from the final serum timepoint =
+        (Animal:tracer_infusion_rate * Animal:tracer_infusion_concentration) /
+        (PeakData:fraction) - (Animal:tracer_infusion_rate *
+        Animal:tracer_infusion_concentration)
+        """
+        try:
+            intact_tracer_peak_data = self.intact_tracer_peak_data()
+            return (
+                self.tracer_infusion_rate * self.tracer_infusion_concentration
+            ) / intact_tracer_peak_data.fraction - (
+                self.tracer_infusion_rate * self.tracer_infusion_concentration
+            )
+        except Exception as e:
+            estr = str(e)
+            if "PeakData matching query does not exist" in estr:
+                warnings.warn(f"Animal {self.name} has no serum sample data.")
+                return None
+            else:
+                raise (e)
+
+    @cached_property
+    def tracer_Fcirc_avg(self):
+        """
+        tracer_Fcirc_avg - turnover of the tracer compound for this animal, as the rate
+        of appearance of unlabeled atoms in the tracer compound = calculated using the
+        infusion rate of tracer in this animal and the labeling in the tracer compound
+        from the final serum timepoint. = (Animal:tracer_infusion_rate *
+        Animal:tracer_infusion_concentration) / (PeakGroup:enrichment_fraction) -
+        (Animal:infusion_rate * Animal:infusion_concentration)
+        """
+        try:
+            tracer_peak_group = self.final_serum_sample_tracer_peak_group()
+            return (
+                self.tracer_infusion_rate * self.tracer_infusion_concentration
+            ) / tracer_peak_group.enrichment_fraction - (
+                self.tracer_infusion_rate * self.tracer_infusion_concentration
+            )
+        except Exception as e:
+            estr = str(e)
+            if "'NoneType' object has no attribute 'peak_group'" in estr:
+                warnings.warn(f"Animal {self.name} has no serum sample data.")
+                return None
+            else:
+                raise (e)
+
+    @cached_property
+    def tracer_Fcirc_intact_per_mouse(self):
+        """
+        tracer_Fcirc_intact_per_mouse - tracer_Fcirc_intact * Animal:body_weight =
+        nmol/min/mouse
+        """
+        try:
+            return self.tracer_Fcirc_intact * self.body_weight
+        except Exception as e:
+            estr = str(e)
+            if "unsupported operand type(s) for *: 'float' and 'NoneType'" in estr:
+                warnings.warn(f"Animal {self.name} has no annotated body_weight.")
+                return None
+            else:
+                raise (e)
+
+    @cached_property
+    def tracer_Fcirc_avg_per_mouse(self):
+        """
+        tracer_Fcirc_avg_per_mouse - tracer_Fcirc_avg * Animal:body_weight =
+        nmol/min/mouse
+        """
+        try:
+            return self.tracer_Fcirc_avg * self.body_weight
+        except Exception as e:
+            estr = str(e)
+            if "unsupported operand type(s) for *: 'float' and 'NoneType'" in estr:
+                warnings.warn(f"Animal {self.name} has no annotated body_weight.")
+                return None
+            else:
+                raise (e)
+
+    @cached_property
+    def tracer_Fcirc_avg_atom(self):
+        """
+        tracer_Fcirc_avg_atom - tracer_Fcirc_avg * PeakData:label_count = nmol atom / min /
+        gram = turnover of atoms in this compound = "nmol carbon / min / g
+        """
+        try:
+            return self.tracer_Fcirc_avg * self.tracer_labeled_count
+        except Exception as e:
+            estr = str(e)
+            if "unsupported operand type(s) for *: 'float' and 'NoneType'" in estr:
+                warnings.warn(
+                    f"Animal {self.name} has no annotated tracer_labeled_count."
+                )
+                return None
+            else:
+                raise (e)
+
     class Meta:
         verbose_name = "animal"
         verbose_name_plural = "animals"
@@ -482,6 +702,7 @@ class Sample(models.Model):
         null=False,
         help_text="The tissue type this sample was taken from.",
     )
+
     """
     researchers have advised that samples might have a time_collected up to a
     day prior-to and a week after infusion
