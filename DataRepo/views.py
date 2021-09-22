@@ -181,6 +181,8 @@ class AdvancedSearchView(MultiFormsView):
                 debug=settings.DEBUG,
                 root_group=root_group,
                 default_format=self.basv_metadata.default_format,
+                ncmp_choices=self.basv_metadata.ncmp_choices,
+                fld_types=self.basv_metadata.getFieldTypes(),
             )
         )
 
@@ -212,6 +214,8 @@ class AdvancedSearchView(MultiFormsView):
                 debug=settings.DEBUG,
                 root_group=root_group,
                 default_format=self.basv_metadata.default_format,
+                ncmp_choices=self.basv_metadata.ncmp_choices,
+                fld_types=self.basv_metadata.getFieldTypes(),
             )
         )
 
@@ -226,6 +230,8 @@ class AdvancedSearchView(MultiFormsView):
         context["mode"] = mode
 
         context["root_group"] = createNewAdvancedQuery(self.basv_metadata, {})
+        context["ncmp_choices"] = self.basv_metadata.ncmp_choices
+        context["fld_types"] = self.basv_metadata.getFieldTypes()
 
         if "qry" not in context or (
             mode == "browse" and not isValidQryObjPopulated(context["qry"])

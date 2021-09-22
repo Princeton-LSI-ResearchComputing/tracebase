@@ -1,6 +1,6 @@
 from typing import Dict, List
 
-from DataRepo.models import PeakData, PeakGroup
+from DataRepo.models import PeakData, PeakGroup, Animal, TracerLabeledClass
 
 
 class BaseSearchView:
@@ -54,6 +54,30 @@ class BaseSearchView:
         tables in key paths that do not have visibl;e fields in the composite view.
         """
         return list(self.models.keys())
+    
+    def getFieldTypes(self):
+        """
+        Returns a dict of path__field -> {type -> field_type (number, string, enumeration), choices -> list of tuples}.
+        """
+
+        typedict = {}
+        for mdl in self.models.keys():
+            
+            path = self.models[mdl]["path"]
+            if path != "":
+                path += "__"
+            for fld in self.models[mdl]["fields"].keys():
+                fldkey = path + fld
+                typedict[fldkey] = {}
+                typedict[fldkey]["type"] = self.models[mdl]["fields"][fld]["type"]
+                if "choices" in self.models[mdl]["fields"][fld].keys():
+                    typedict[fldkey]["choices"] = (
+                        self.models[mdl]["fields"][fld]["choices"]
+                    )
+                else:
+                    typedict[fldkey]["choices"] = []
+        return typedict
+
 
     def getSearchFields(self, mdl):
         """
@@ -112,11 +136,13 @@ class PeakGroupsSearchView(BaseSearchView):
                     "searchable": True,
                     "displayed": False,  # Used in link
                     "handoff": "filename",  # This is the field that will be loaded in the search form
+                    "type": "number",
                 },
                 "filename": {
                     "displayname": "Peak Group Set Filename",
                     "searchable": True,
                     "displayed": True,
+                    "type": "string",
                 },
             },
         },
@@ -127,31 +153,37 @@ class PeakGroupsSearchView(BaseSearchView):
                     "displayname": "Peak Group",
                     "searchable": True,
                     "displayed": True,
+                    "type": "string",
                 },
                 "formula": {
                     "displayname": "Formula",
                     "searchable": True,
                     "displayed": True,
+                    "type": "string",
                 },
                 "enrichment_fraction": {
                     "displayname": "Enrichment Fraction",
                     "searchable": False,  # Cannot search cached property
                     "displayed": True,
+                    "type": "number",
                 },
                 "enrichment_abundance": {
                     "displayname": "Enrichment Abundance",
                     "searchable": False,  # Cannot search cached property
                     "displayed": True,
+                    "type": "number",
                 },
                 "total_abundance": {
                     "displayname": "Total Abundance",
                     "searchable": False,  # Cannot search cached property
                     "displayed": True,
+                    "type": "number",
                 },
                 "normalized_labeling": {
                     "displayname": "Normalized Labeling",
                     "searchable": False,  # Cannot search cached property
                     "displayed": True,
+                    "type": "number",
                 },
             },
         },
@@ -163,11 +195,13 @@ class PeakGroupsSearchView(BaseSearchView):
                     "searchable": True,
                     "displayed": False,  # Used in link
                     "handoff": "name",  # This is the field that will be loaded in the search form
+                    "type": "number",
                 },
                 "name": {
                     "displayname": "Treatment",
                     "searchable": True,
                     "displayed": True,
+                    "type": "string",
                 },
             },
         },
@@ -179,11 +213,13 @@ class PeakGroupsSearchView(BaseSearchView):
                     "searchable": True,
                     "displayed": False,  # Used in link
                     "handoff": "name",  # This is the field that will be loaded in the search form
+                    "type": "number",
                 },
                 "name": {
                     "displayname": "Sample",
                     "searchable": True,
                     "displayed": True,
+                    "type": "string",
                 },
             },
         },
@@ -195,11 +231,13 @@ class PeakGroupsSearchView(BaseSearchView):
                     "searchable": True,
                     "displayed": False,  # Used in link
                     "handoff": "name",  # This is the field that will be loaded in the search form
+                    "type": "number",
                 },
                 "name": {
                     "displayname": "Tissue",
                     "searchable": True,
                     "displayed": True,
+                    "type": "string",
                 },
             },
         },
@@ -211,56 +249,69 @@ class PeakGroupsSearchView(BaseSearchView):
                     "searchable": True,
                     "displayed": False,  # Used in link
                     "handoff": "name",  # This is the field that will be loaded in the search form
+                    "type": "number",
                 },
                 "name": {
                     "displayname": "Animal",
                     "searchable": True,
                     "displayed": True,
+                    "type": "string",
                 },
                 "genotype": {
                     "displayname": "Genotype",
                     "searchable": True,
                     "displayed": True,
+                    "type": "string",
                 },
                 "body_weight": {
                     "displayname": "Body Weight (g)",
                     "searchable": True,
                     "displayed": True,
+                    "type": "number",
                 },
                 "age": {
                     "displayname": "Age (weeks)",
                     "searchable": False,
                     "displayed": True,
+                    "type": "number",
                 },
                 "sex": {
                     "displayname": "Sex",
                     "searchable": True,
                     "displayed": True,
+                    "type": "enumeration",
+                    "choices": Animal.SEX_CHOICES,
                 },
                 "diet": {
                     "displayname": "Diet",
                     "searchable": True,
                     "displayed": True,
+                    "type": "string",
                 },
                 "feeding_status": {
                     "displayname": "Feeding Status",
                     "searchable": True,
                     "displayed": True,
+                    "type": "string",
                 },
                 "tracer_labeled_atom": {
                     "displayname": "Tracer Labeled Element",
                     "searchable": True,
                     "displayed": True,
+                    "type": "enumeration",
+                    "choices": TracerLabeledClass.TRACER_LABELED_ELEMENT_CHOICES,
                 },
                 "tracer_infusion_rate": {
                     "displayname": "Tracer Infusion Rate (ul/min/g)",
                     "searchable": True,
                     "displayed": True,
+                    "type": "number",
                 },
                 "tracer_infusion_concentration": {
                     "displayname": "Tracer Infusion Concentration (mM)",
                     "searchable": True,
                     "displayed": True,
+                    "type": "number",
                 },
             },
         },
@@ -271,6 +322,7 @@ class PeakGroupsSearchView(BaseSearchView):
                     "displayname": "Tracer Compound",
                     "searchable": True,
                     "displayed": True,
+                    "type": "string",
                 },
             },
         },
@@ -282,11 +334,13 @@ class PeakGroupsSearchView(BaseSearchView):
                     "searchable": True,
                     "displayed": False,  # Used in link
                     "handoff": "name",  # This is the field that will be loaded in the search form
+                    "type": "number",
                 },
                 "name": {
                     "displayname": "Study",
                     "searchable": True,
                     "displayed": True,
+                    "type": "string",
                 },
             },
         },
@@ -316,36 +370,44 @@ class PeakDataSearchView(BaseSearchView):
                     "displayname": "Labeled Element",
                     "searchable": True,
                     "displayed": True,
+                    "type": "enumeration",
+                    "choices": TracerLabeledClass.TRACER_LABELED_ELEMENT_CHOICES,
                 },
                 "labeled_count": {
                     "displayname": "Labeled Count",
                     "searchable": True,
                     "displayed": True,
+                    "type": "number",
                 },
                 "raw_abundance": {
                     "displayname": "Raw Abundance",
                     "searchable": True,
                     "displayed": True,
+                    "type": "number",
                 },
                 "corrected_abundance": {
                     "displayname": "Corrected Abundance",
                     "searchable": True,
                     "displayed": True,
+                    "type": "number",
                 },
                 "fraction": {
                     "displayname": "Fraction",
                     "searchable": True,
                     "displayed": True,
+                    "type": "number",
                 },
                 "med_mz": {
                     "displayname": "Median M/Z",
                     "searchable": True,
                     "displayed": True,
+                    "type": "number",
                 },
                 "med_rt": {
                     "displayname": "Median RT",
                     "searchable": True,
                     "displayed": True,
+                    "type": "number",
                 },
             },
         },
@@ -357,16 +419,19 @@ class PeakDataSearchView(BaseSearchView):
                     "searchable": True,
                     "displayed": False,
                     "handoff": "name",  # This is the field that will be loaded in the search form
+                    "type": "number",
                 },
                 "name": {
                     "displayname": "Peak Group",
                     "searchable": True,
                     "displayed": True,
+                    "type": "string",
                 },
                 "formula": {
                     "displayname": "Formula",
                     "searchable": True,
                     "displayed": True,
+                    "type": "string",
                 },
             },
         },
@@ -378,11 +443,13 @@ class PeakDataSearchView(BaseSearchView):
                     "searchable": True,
                     "displayed": False,
                     "handoff": "filename",  # This is the field that will be loaded in the search form
+                    "type": "number",
                 },
                 "filename": {
                     "displayname": "Peak Group Set Filename",
                     "searchable": True,
                     "displayed": True,
+                    "type": "string",
                 },
             },
         },
@@ -393,11 +460,13 @@ class PeakDataSearchView(BaseSearchView):
                     "displayname": "(Internal) Sample Index",  # Used in link
                     "searchable": True,
                     "displayed": False,
+                    "type": "number",
                 },
                 "name": {
                     "displayname": "Sample",
                     "searchable": True,
                     "displayed": True,
+                    "type": "string",
                 },
             },
         },
@@ -408,11 +477,13 @@ class PeakDataSearchView(BaseSearchView):
                     "displayname": "Tissue",
                     "searchable": True,
                     "displayed": False,
+                    "type": "number",
                 },
                 "name": {
                     "displayname": "Tissue",
                     "searchable": True,
                     "displayed": True,
+                    "type": "string",
                 },
             },
         },
@@ -423,52 +494,63 @@ class PeakDataSearchView(BaseSearchView):
                     "displayname": "Animal",
                     "searchable": True,
                     "displayed": True,
+                    "type": "string",
                 },
                 "id": {
                     "displayname": "(Internal) Animal Index",  # Used in link
                     "searchable": True,
                     "displayed": False,
                     "handoff": "name",  # This is the field that will be loaded in the search form
+                    "type": "number",
                 },
                 "body_weight": {
                     "displayname": "Body Weight (g)",
                     "searchable": True,
                     "displayed": True,
+                    "type": "number",
                 },
                 "genotype": {
                     "displayname": "Genotype",
                     "searchable": True,
                     "displayed": True,
+                    "type": "string",
                 },
                 "sex": {
                     "displayname": "Sex",
                     "searchable": True,
                     "displayed": True,
+                    "type": "enumeration",
+                    "choices": Animal.SEX_CHOICES,
                 },
                 "age": {
                     "displayname": "Age (weeks)",
                     "searchable": False,
                     "displayed": True,
+                    "type": "number",
                 },
                 "feeding_status": {
                     "displayname": "Feeding Status",
                     "searchable": True,
                     "displayed": True,
+                    "type": "string",
                 },
                 "diet": {
                     "displayname": "Diet",
                     "searchable": True,
                     "displayed": True,
+                    "type": "string",
                 },
                 "tracer_infusion_concentration": {
                     "displayname": "Tracer Infusion Concentration (mM)",
                     "searchable": True,
                     "displayed": True,
+                    "type": "number",
                 },
                 "tracer_infusion_rate": {
                     "displayname": "Tracer Infusion Rate (ul/min/g)",
                     "searchable": True,
                     "displayed": True,
+                    "type": "number",
                 },
             },
         },
@@ -480,11 +562,13 @@ class PeakDataSearchView(BaseSearchView):
                     "searchable": True,
                     "displayed": False,  # Used in link
                     "handoff": "name",  # This is the field that will be loaded in the search form
+                    "type": "number",
                 },
                 "name": {
                     "displayname": "Treatment",
                     "searchable": True,
                     "displayed": True,
+                    "type": "string",
                 },
             },
         },
@@ -495,6 +579,7 @@ class PeakDataSearchView(BaseSearchView):
                     "displayname": "Input Compound",
                     "searchable": True,
                     "displayed": True,
+                    "type": "string",
                 },
             },
         },
@@ -505,12 +590,14 @@ class PeakDataSearchView(BaseSearchView):
                     "displayname": "Study",
                     "searchable": True,
                     "displayed": True,
+                    "type": "string",
                 },
                 "id": {
                     "displayname": "(Internal) Study Index",
                     "searchable": True,
                     "displayed": False,  # Used in link
                     "handoff": "name",  # This is the field that will be loaded in the search form
+                    "type": "number",
                 },
             },
         },
@@ -529,6 +616,40 @@ class BaseAdvancedSearchView:
     default_mode = "search"
     default_format = ""
     modeldata: Dict[int, BaseSearchView] = {}
+    ncmp_choices = {
+        "number": [
+            ('iexact', 'is'),
+            ('not_iexact', 'is not'),
+            ('lt', '<'),
+            ('lte', '<='),
+            ('gt', '>'),
+            ('gte', '>='),
+            ('not_isnull', 'has a value'),
+            ('isnull', 'does not have a value'),
+        ],
+        "string": [
+            ('iexact', 'is'),
+            ('not_iexact', 'is not'),
+            ('icontains', 'contains'),
+            ('not_icontains', 'does not contain'),
+            ('istartswith', 'starts with'),
+            ('not_istartswith', 'does not start with'),
+            ('iendswith', 'ends with'),
+            ('not_iendswith', 'does not end with'),
+            ('lt', '<'),
+            ('lte', '<='),
+            ('gt', '>'),
+            ('gte', '>='),
+            ('not_isnull', 'has a value'),
+            ('isnull', 'does not have a value'),
+        ],
+        "enumeration": [
+            ('iexact', 'is',),
+            ('not_iexact', 'is not',),
+            ('not_isnull', 'has a value',),
+            ('isnull', 'does not have a value'),
+        ],
+    }
 
     def __init__(self):
         """
@@ -566,6 +687,17 @@ class BaseAdvancedSearchView:
         for fmtid in self.modeldata.keys():
             namedict[fmtid] = str(self.modeldata[fmtid].name)
         return namedict
+
+    def getFieldTypes(self):
+        """
+        Returns a dict of fmt -> path__field -> {type -> field_type (number, string, enumeration), choices -> list of
+        tuples}.
+        """
+
+        typedict = {}
+        for fmtid in self.modeldata.keys():
+            typedict[fmtid] = self.modeldata[fmtid].getFieldTypes()
+        return typedict
 
     def getSearchFields(self, fmt, mdl):
         """

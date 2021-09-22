@@ -32,10 +32,14 @@ const pluspluspngpath = '/static/images/plusplus.png'
 // }
 // Linting is disabled for the disallowance of 'no-var' because let and const don't work here
 var rootGroup = {} // eslint-disable-line no-var
+var ncmpChoices = {} // eslint-disable-line no-var
+var fldTypes = {}
 var formErrLabel // eslint-disable-line no-var
 
-function init (rootGroup) { // eslint-disable-line no-unused-vars
+function init (rootGroup, ncmpChoices, fldTypes) { // eslint-disable-line no-unused-vars
   globalThis.rootGroup = rootGroup
+  globalThis.ncmpChoices = ncmpChoices
+  globalThis.fldTypes = fldTypes
   globalThis.formErrLabel = document.getElementById('formerror')
 }
 
@@ -175,6 +179,8 @@ function addSearchFieldForm (myDiv, query, copyQuery, isInit, templateId) {
   })
 
   // For each clones input form element
+  var fldClone
+  var ncmpClone
   for (let i = 0; i < clones.length; i++) {
     // If an invalid form was previously submitted, we will need to present errors
     const errors = []
@@ -190,8 +196,8 @@ function addSearchFieldForm (myDiv, query, copyQuery, isInit, templateId) {
     })
 
     // Initialize the value in the hierarchy with the default
+    const keyname = clones[i].name.split('-').pop()
     if (isInit) {
-      const keyname = clones[i].name.split('-').pop()
       query[keyname] = copyQuery[keyname]
       clones[i].value = copyQuery[keyname]
 
@@ -201,6 +207,12 @@ function addSearchFieldForm (myDiv, query, copyQuery, isInit, templateId) {
       }
     } else {
       query[clones[i].name] = clones[i].value
+    }
+
+    if (keyname === 'fld') {
+      fldClone = clones[i]
+    } else if (keyname === 'ncmp') {
+      ncmpClone = clones[i]
     }
 
     // Add this row to the HTML form
@@ -219,6 +231,15 @@ function addSearchFieldForm (myDiv, query, copyQuery, isInit, templateId) {
       myDiv.appendChild(errlabel)
     }
   }
+
+  // Keep the ncmp select list choices accurate to the fld
+  fldClone.addEventListener('change', function (event) {
+    updateNcmpChoices(event.target.value, ncmpClone)
+  })  
+}
+
+function updateNcmpChoices(fldval, ncmpSelectElem) {
+
 }
 
 function updateBrowseLink (templateId) {

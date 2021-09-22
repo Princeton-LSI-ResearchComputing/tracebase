@@ -18,20 +18,24 @@
     <link href="{% static 'css/hierarchical_formsets.css' %}" rel="stylesheet">
     <script src="{% static 'js/hierarchical_formsets.js' %}"></script>
 
-    {{ root_group|json_script:"root_group" }}
+    {{ root_group|json_script:"root_group" }} <!-- unpopulated qry object -->
+    {{ ncmp_choices|json_script:"ncmp_choices" }} <!-- dynamic ncmp select list population -->
+    {{ fld_types|json_script:"fld_types" }} <!-- dynamic ncmp select list population -->
 
     {% if qry %}
         <!-- qry has a value when search results are being loaded.  It is used to reconstruct the search form, so the user
             can tweak their search.  This tag (json_script) turns the qry dict into a json-ized HTML object that is
             consumed by javascript below, which is injests via JSON.parse. -->
 
-        {{ qry|json_script:"initGroup" }}
+        {{ qry|json_script:"initGroup" }} <!-- previous/executed qry object -->
 
     {% endif %}
 
     <script>
         document.addEventListener("DOMContentLoaded", function(){
-            init(JSON.parse(document.getElementById('root_group').textContent))
+            init(JSON.parse(document.getElementById('root_group').textContent),
+                JSON.parse(document.getElementById('ncmp_choices').textContent),
+                JSON.parse(document.getElementById('fld_types').textContent))
 
             {% if format and mode and mode == "browse" and not qry %}
                 {% if format not in forms.keys %}

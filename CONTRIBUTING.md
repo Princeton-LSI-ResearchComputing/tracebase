@@ -85,7 +85,7 @@ Django:
     python
     > import django
     > print(django.get_version())
-    3.1.6
+    3.2.4
 
 ### Configure TraceBase
 
@@ -106,6 +106,13 @@ Copy the TraceBase environment example:
 
 Update the .env file to reflect the new secret key and the database credentials
 you used when setting up Postgres.
+
+### (Optional) Load Some Example Data
+
+    python manage.py load_compounds DataRepo/example_data/obob_compounds.tsv
+    python manage.py load_animals_and_samples --animal-and-sample-table-filename DataRepo/example_data/small_dataset/small_obob_animal_and_sample_table.xlsx --table-headers DataRepo/example_data/sample_and_animal_tables_headers.yaml
+    python manage.py load_animals_and_samples --sample-table-filename DataRepo/example_data/obob_samples_table.tsv --animal-table-filename DataRepo/example_data/obob_animals_table.tsv --table-headers DataRepo/example_data/sample_and_animal_tables_headers.yaml
+    python manage.py load_accucor_msruns --protocol Default --accucor-file DataRepo/example_data/obob_maven_6eaas_inf.xlsx --date 2021-04-29 --researcher "Anon" --new-researcher
 
 ### Start TraceBase
 
@@ -233,7 +240,7 @@ See these resources for help implementing tests:
 
 All pull requests must pass all previous and new tests:
 
-    python3 manage.py test
+    python manage.py test
 
 #### Quality Control
 
