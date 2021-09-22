@@ -417,7 +417,7 @@ class Animal(models.Model, TracerLabeledClass):
 
     def intact_tracer_peak_data(self):
         """
-        intact_tracer_peak_data is a instance method that returns the peak data
+        intact_tracer_peak_data is an instance method that returns the peak data
         matching the intact tracer (labeled_count filtered)
         """
         if not self.tracer_labeled_count:
@@ -431,7 +431,7 @@ class Animal(models.Model, TracerLabeledClass):
 
     def final_serum_sample_tracer_peak_group(self):
         """
-        final_serum_sample_tracer_peak_data is a instance method that returns
+        final_serum_sample_tracer_peak_data is an instance method that returns
         the peak group encompassing the final serum sample's peak data
         """
         return self.final_serum_sample_tracer_peak_data().first().peak_group
@@ -564,9 +564,9 @@ class Animal(models.Model, TracerLabeledClass):
     def tracer_Fcirc_avg(self):
         """
         tracer_Fcirc_avg - turnover of the tracer compound for this animal, as the rate
-        of appearance of unlabeled atoms in the tracer compound = calculated using the
+        of appearance of unlabeled atoms in the tracer compound calculated using the
         infusion rate of tracer in this animal and the labeling in the tracer compound
-        from the final serum timepoint. = (Animal:tracer_infusion_rate *
+        from the final serum timepoint. (Animal:tracer_infusion_rate *
         Animal:tracer_infusion_concentration) / (PeakGroup:enrichment_fraction) -
         (Animal:infusion_rate * Animal:infusion_concentration)
         """
@@ -621,7 +621,7 @@ class Animal(models.Model, TracerLabeledClass):
     def tracer_Fcirc_avg_atom(self):
         """
         tracer_Fcirc_avg_atom - tracer_Fcirc_avg * PeakData:label_count = nmol atom / min /
-        gram = turnover of atoms in this compound = "nmol carbon / min / g
+        gram = turnover of atoms in this compound, e.g. "nmol carbon / min / g"
         """
         try:
             return self.tracer_Fcirc_avg * self.tracer_labeled_count
