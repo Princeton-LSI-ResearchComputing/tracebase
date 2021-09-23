@@ -1,6 +1,6 @@
 from typing import Dict, List
 
-from DataRepo.models import PeakData, PeakGroup, Animal, TracerLabeledClass
+from DataRepo.models import Animal, PeakData, PeakGroup, TracerLabeledClass
 
 
 class BaseSearchView:
@@ -54,7 +54,7 @@ class BaseSearchView:
         tables in key paths that do not have visibl;e fields in the composite view.
         """
         return list(self.models.keys())
-    
+
     def getFieldTypes(self):
         """
         Returns a dict of path__field -> {type -> field_type (number, string, enumeration), choices -> list of tuples}.
@@ -62,7 +62,7 @@ class BaseSearchView:
 
         typedict = {}
         for mdl in self.models.keys():
-            
+
             path = self.models[mdl]["path"]
             if path != "":
                 path += "__"
@@ -71,13 +71,12 @@ class BaseSearchView:
                 typedict[fldkey] = {}
                 typedict[fldkey]["type"] = self.models[mdl]["fields"][fld]["type"]
                 if "choices" in self.models[mdl]["fields"][fld].keys():
-                    typedict[fldkey]["choices"] = (
-                        self.models[mdl]["fields"][fld]["choices"]
-                    )
+                    typedict[fldkey]["choices"] = self.models[mdl]["fields"][fld][
+                        "choices"
+                    ]
                 else:
                     typedict[fldkey]["choices"] = []
         return typedict
-
 
     def getSearchFields(self, mdl):
         """
@@ -557,18 +556,18 @@ class PeakDataSearchView(BaseSearchView):
         "Protocol": {
             "path": "peak_group__msrun__sample__animal__treatment",
             "fields": {
+                "name": {
+                    "displayname": "Treatment",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "string",
+                },
                 "id": {
                     "displayname": "(Internal) Protocol Index",
                     "searchable": True,
                     "displayed": False,  # Used in link
                     "handoff": "name",  # This is the field that will be loaded in the search form
                     "type": "number",
-                },
-                "name": {
-                    "displayname": "Treatment",
-                    "searchable": True,
-                    "displayed": True,
-                    "type": "string",
                 },
             },
         },
@@ -618,36 +617,45 @@ class BaseAdvancedSearchView:
     modeldata: Dict[int, BaseSearchView] = {}
     ncmp_choices = {
         "number": [
-            ('iexact', 'is'),
-            ('not_iexact', 'is not'),
-            ('lt', '<'),
-            ('lte', '<='),
-            ('gt', '>'),
-            ('gte', '>='),
-            ('not_isnull', 'has a value'),
-            ('isnull', 'does not have a value'),
+            ("iexact", "is"),
+            ("not_iexact", "is not"),
+            ("lt", "<"),
+            ("lte", "<="),
+            ("gt", ">"),
+            ("gte", ">="),
+            ("not_isnull", "has a value"),
+            ("isnull", "does not have a value"),
         ],
         "string": [
-            ('iexact', 'is'),
-            ('not_iexact', 'is not'),
-            ('icontains', 'contains'),
-            ('not_icontains', 'does not contain'),
-            ('istartswith', 'starts with'),
-            ('not_istartswith', 'does not start with'),
-            ('iendswith', 'ends with'),
-            ('not_iendswith', 'does not end with'),
-            ('lt', '<'),
-            ('lte', '<='),
-            ('gt', '>'),
-            ('gte', '>='),
-            ('not_isnull', 'has a value'),
-            ('isnull', 'does not have a value'),
+            ("iexact", "is"),
+            ("not_iexact", "is not"),
+            ("icontains", "contains"),
+            ("not_icontains", "does not contain"),
+            ("istartswith", "starts with"),
+            ("not_istartswith", "does not start with"),
+            ("iendswith", "ends with"),
+            ("not_iendswith", "does not end with"),
+            ("lt", "<"),
+            ("lte", "<="),
+            ("gt", ">"),
+            ("gte", ">="),
+            ("not_isnull", "has a value"),
+            ("isnull", "does not have a value"),
         ],
         "enumeration": [
-            ('iexact', 'is',),
-            ('not_iexact', 'is not',),
-            ('not_isnull', 'has a value',),
-            ('isnull', 'does not have a value'),
+            (
+                "iexact",
+                "is",
+            ),
+            (
+                "not_iexact",
+                "is not",
+            ),
+            (
+                "not_isnull",
+                "has a value",
+            ),
+            ("isnull", "does not have a value"),
         ],
     }
 

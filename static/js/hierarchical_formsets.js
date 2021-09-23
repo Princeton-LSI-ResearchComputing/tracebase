@@ -33,7 +33,7 @@ const pluspluspngpath = '/static/images/plusplus.png'
 // Linting is disabled for the disallowance of 'no-var' because let and const don't work here
 var rootGroup = {} // eslint-disable-line no-var
 var ncmpChoices = {} // eslint-disable-line no-var
-var fldTypes = {}
+var fldTypes = {} // eslint-disable-line no-var
 var formErrLabel // eslint-disable-line no-var
 
 function init (rootGroup, ncmpChoices, fldTypes) { // eslint-disable-line no-unused-vars
@@ -179,8 +179,8 @@ function addSearchFieldForm (myDiv, query, copyQuery, isInit, templateId) {
   })
 
   // For each clones input form element
-  var fldClone
-  var ncmpClone
+  var fldClone // eslint-disable-line no-var
+  var ncmpClone // eslint-disable-line no-var
   for (let i = 0; i < clones.length; i++) {
     // If an invalid form was previously submitted, we will need to present errors
     const errors = []
@@ -234,37 +234,38 @@ function addSearchFieldForm (myDiv, query, copyQuery, isInit, templateId) {
 
   // Keep the ncmp select list choices accurate to the fld
   fldClone.addEventListener('change', function (event) {
-    updateNcmpChoices(event.target.value, ncmpClone)
-  })  
+    updateNcmpChoices(event.target.value, ncmpClone, rootGroup.selectedtemplate)
+  })
+  updateNcmpChoices(fldClone[0].value, ncmpClone, templateId)
 }
 
-function updateNcmpChoices(fldVal, ncmpSelectElem) {
-  var fldtype
-  var choices
-  if (typeof fldTypes[rootGroup.selectedtemplate] !== 'undefined' && fldTypes[rootGroup.selectedtemplate]) {
-    if (typeof fldTypes[rootGroup.selectedtemplate][fldVal] !== 'undefined' && fldTypes[rootGroup.selectedtemplate][fldVal]) {
-      if (typeof fldTypes[rootGroup.selectedtemplate][fldVal].type !== 'undefined' && fldTypes[rootGroup.selectedtemplate][fldVal].type) {
-        fldtype = fldTypes[rootGroup.selectedtemplate][fldVal].type
+function updateNcmpChoices (fldVal, ncmpSelectElem, templateId) {
+  let fldtype = ''
+  let choices = []
+  if (typeof fldTypes[templateId] !== 'undefined' && fldTypes[templateId]) {
+    if (typeof fldTypes[templateId][fldVal] !== 'undefined' && fldTypes[templateId][fldVal]) {
+      if (typeof fldTypes[templateId][fldVal].type !== 'undefined' && fldTypes[templateId][fldVal].type) {
+        fldtype = fldTypes[templateId][fldVal].type
         if (typeof ncmpChoices[fldtype] !== 'undefined' && ncmpChoices[fldtype]) {
           choices = ncmpChoices[fldtype]
         } else {
-          console.error('Type', fldtype, 'for field', fldVal, 'in field type lookup for template', rootGroup.selectedtemplate, 'does not have select list values defined in ncmpChoices.')
+          console.error('Type', fldtype, 'for field', fldVal, 'in field type lookup for template', templateId, 'does not have select list values defined in ncmpChoices.')
         }
       } else {
-        console.error('Type not defined for selected field', fldVal, 'in field type lookup for template', rootGroup.selectedtemplate)
+        console.error('Type not defined for selected field', fldVal, 'in field type lookup for template', templateId)
       }
     } else {
-      console.error('Selected field', fldVal, 'not in field type lookup for template', rootGroup.selectedtemplate)
+      console.error('Selected field', fldVal, 'not in field type lookup for template', templateId)
     }
   } else {
-    console.error('Template', rootGroup.selectedtemplate, 'not in field type lookup.')
+    console.error('Template', templateId, 'not in field type lookup.')
   }
 
-  if (choices) {
-    console.log("Changing ncmp selections for type:", fldtype)
-    var arrOptions = [];
+  if (choices.length > 0) {
+    console.log('Changing ncmp selections for type:', fldtype)
+    const arrOptions = []
     for (let i = 0; i < choices.length; i++) {
-      arrOptions.push("<option value='" + choices[i][0] + "'>" + choices[i][1] + "</option>");
+      arrOptions.push('<option value="' + choices[i][0] + '">' + choices[i][1] + '</option>')
     }
     ncmpSelectElem.innerHTML = arrOptions.join()
   }
