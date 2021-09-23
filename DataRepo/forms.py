@@ -44,15 +44,7 @@ class BaseAdvSearchForm(forms.Form):
 
     fld = forms.ChoiceField(required=True, widget=forms.Select())
 
-    ncmp = forms.ChoiceField(
-        choices=(
-            ("iexact", "is"),
-            ("not_iexact", "is not"),
-            # The above are just placeholders. Content is controlled by javascript.
-            # See DataRepo/static/js/hierarchical_formsets.js:updateNcmpChoices
-        ),
-        widget=forms.Select(),
-    )
+    ncmp = forms.ChoiceField(required=True, widget=forms.Select())
 
     # TODO: Currently, I am only providing this one field type.  Eventually, I will work out a way to dynamically
     # update this based on the model's field type
@@ -79,6 +71,9 @@ class BaseAdvSearchForm(forms.Form):
         super().__init__(*args, **kwargs)
         self.posprefix = self.composite_view_class.id
         self.fields["fld"].choices = self.composite_view_class.getSearchFieldChoices()
+        self.fields[
+            "ncmp"
+        ].choices = self.composite_view_class.getAllComparisonChoices()
 
 
 class AdvSearchPeakGroupsForm(BaseAdvSearchForm):

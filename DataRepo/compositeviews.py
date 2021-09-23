@@ -11,6 +11,40 @@ class BaseSearchView:
     name = ""
     models: Dict[str, Dict] = {}
     prefetches: List[str] = []
+    ncmp_choices = {
+        "number": [
+            ("iexact", "is"),
+            ("not_iexact", "is not"),
+            ("lt", "<"),
+            ("lte", "<="),
+            ("gt", ">"),
+            ("gte", ">="),
+            ("not_isnull", "has a value"),
+            ("isnull", "does not have a value"),
+        ],
+        "string": [
+            ("iexact", "is"),
+            ("not_iexact", "is not"),
+            ("icontains", "contains"),
+            ("not_icontains", "does not contain"),
+            ("istartswith", "starts with"),
+            ("not_istartswith", "does not start with"),
+            ("iendswith", "ends with"),
+            ("not_iendswith", "does not end with"),
+            ("lt", "<"),
+            ("lte", "<="),
+            ("gt", ">"),
+            ("gte", ">="),
+            ("not_isnull", "has a value"),
+            ("isnull", "does not have a value"),
+        ],
+        "enumeration": [
+            ("iexact", "is"),
+            ("not_iexact", "is not"),
+            ("not_isnull", "has a value"),
+            ("isnull", "does not have a value"),
+        ],
+    }
 
     @classmethod
     def getSearchFieldChoices(self):
@@ -34,6 +68,27 @@ class BaseSearchView:
                     fname = self.models[mkey]["fields"][fkey]["displayname"]
                     choices = choices + ((fpath, fname),)
         return tuple(sorted(choices, key=lambda x: x[1]))
+
+    def getComparisonChoices(self):
+        """
+        Returns ncmp_choices (same for all derived classes)
+        """
+        return self.ncmp_choices
+
+    def getAllComparisonChoices(self):
+        """
+        Returns the union of all ncmp_choices, ignoring differences in the second value. This is mainly only for form
+        validation because it only validates known values (the first value in each tuple) regardless of the particular
+        sub-population controlled by javascript in the advanced search form.
+        """
+        all_ncmp_choices = ()
+        seen = []
+        for fldtype in self.ncmp_choices.keys():
+            for opt in self.ncmp_choices[fldtype]:
+                if opt[0] not in seen:
+                    seen.append(opt[0])
+                    all_ncmp_choices = all_ncmp_choices + ((opt[0], opt[1]),)
+        return all_ncmp_choices
 
     def getKeyPathList(self, mdl):
         """
@@ -615,49 +670,6 @@ class BaseAdvancedSearchView:
     default_mode = "search"
     default_format = ""
     modeldata: Dict[int, BaseSearchView] = {}
-    ncmp_choices = {
-        "number": [
-            ("iexact", "is"),
-            ("not_iexact", "is not"),
-            ("lt", "<"),
-            ("lte", "<="),
-            ("gt", ">"),
-            ("gte", ">="),
-            ("not_isnull", "has a value"),
-            ("isnull", "does not have a value"),
-        ],
-        "string": [
-            ("iexact", "is"),
-            ("not_iexact", "is not"),
-            ("icontains", "contains"),
-            ("not_icontains", "does not contain"),
-            ("istartswith", "starts with"),
-            ("not_istartswith", "does not start with"),
-            ("iendswith", "ends with"),
-            ("not_iendswith", "does not end with"),
-            ("lt", "<"),
-            ("lte", "<="),
-            ("gt", ">"),
-            ("gte", ">="),
-            ("not_isnull", "has a value"),
-            ("isnull", "does not have a value"),
-        ],
-        "enumeration": [
-            (
-                "iexact",
-                "is",
-            ),
-            (
-                "not_iexact",
-                "is not",
-            ),
-            (
-                "not_isnull",
-                "has a value",
-            ),
-            ("isnull", "does not have a value"),
-        ],
-    }
 
     def __init__(self):
         """
@@ -679,6 +691,18 @@ class BaseAdvancedSearchView:
         Calls getSearchFieldChoices of the supplied ID of the search output format class.
         """
         return self.modeldata[format].getSearchFieldChoices()
+
+    def getComparisonChoices(self):
+        """
+        Calls getComparisonChoices of the default output format class.
+        """
+        return self.modeldata[self.default_format].getComparisonChoices()
+
+    def getAllComparisonChoices(self):
+        """
+        Calls getAllComparisonChoices of the default output format class.
+        """
+        return self.modeldata[self.default_format].getAllComparisonChoices()
 
     def getModels(self, format):
         """

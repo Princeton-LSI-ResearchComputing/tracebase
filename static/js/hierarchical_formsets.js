@@ -180,7 +180,9 @@ function addSearchFieldForm (myDiv, query, copyQuery, isInit, templateId) {
 
   // For each clones input form element
   var fldClone // eslint-disable-line no-var
+  let fldInitVal = ''
   var ncmpClone // eslint-disable-line no-var
+  let ncmpInitVal = ''
   for (let i = 0; i < clones.length; i++) {
     // If an invalid form was previously submitted, we will need to present errors
     const errors = []
@@ -205,8 +207,20 @@ function addSearchFieldForm (myDiv, query, copyQuery, isInit, templateId) {
       if (keyname !== 'pos' && copyQuery[keyname] === '') {
         errors.push(' * This is a required field.')
       }
+
+      if (keyname === 'fld') {
+        fldInitVal = clones[i].value
+      } else if (keyname === 'ncmp') {
+        ncmpInitVal = clones[i].value
+      }
     } else {
       query[clones[i].name] = clones[i].value
+
+      if (keyname === 'fld') {
+        fldInitVal = clones[i][0].value
+      } else if (keyname === 'ncmp') {
+        ncmpInitVal = clones[i].value
+      }
     }
 
     if (keyname === 'fld') {
@@ -236,7 +250,14 @@ function addSearchFieldForm (myDiv, query, copyQuery, isInit, templateId) {
   fldClone.addEventListener('change', function (event) {
     updateNcmpChoices(event.target.value, ncmpClone, rootGroup.selectedtemplate)
   })
-  updateNcmpChoices(fldClone[0].value, ncmpClone, templateId)
+  // fldInitVal and/or ncmpInitVal can be empty for the unused template(s), so check and initialize to the first value
+  // if empty
+  if (fldInitVal === '') {
+    fldInitVal = fldClone[0].value
+    ncmpInitVal = ncmpClone[0].value
+  }
+  updateNcmpChoices(fldInitVal, ncmpClone, templateId)
+  ncmpClone.value = ncmpInitVal
 }
 
 function updateNcmpChoices (fldVal, ncmpSelectElem, templateId) {
@@ -262,12 +283,12 @@ function updateNcmpChoices (fldVal, ncmpSelectElem, templateId) {
   }
 
   if (choices.length > 0) {
-    console.log('Changing ncmp selections for type:', fldtype)
     const arrOptions = []
     for (let i = 0; i < choices.length; i++) {
       arrOptions.push('<option value="' + choices[i][0] + '">' + choices[i][1] + '</option>')
     }
-    ncmpSelectElem.innerHTML = arrOptions.join()
+    ncmpSelectElem.innerHTML = arrOptions.join('')
+    ncmpSelectElem.value = choices[0][0]
   }
 }
 
