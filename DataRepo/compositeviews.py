@@ -393,7 +393,7 @@ class PeakDataSearchView(BaseSearchView):
                 },
                 "fraction": {
                     "displayname": "Fraction",
-                    "searchable": True,
+                    "searchable": False,
                     "displayed": True,
                     "type": "number",
                 },
