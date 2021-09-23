@@ -386,9 +386,10 @@ class Animal(models.Model, TracerLabeledClass):
             .all()
         )
 
+    @cached_property
     def final_serum_sample(self):
         """
-        final_serum_sample() in an instance method that returns the last single
+        final_serum_sample in an instance method that returns the last single
         serum sample removed from the animal, based on the time elapsed/duration
         from the initiation of infusion or treatment, typically.  If the animal
         has no serum samples or if the retrieved serum sample has no annotated
@@ -412,8 +413,28 @@ class Animal(models.Model, TracerLabeledClass):
 
         return final_serum_sample
 
+    def all_serum_samples_tracer_peak_groups(self):
+        """
+        Instance method that returns a list of all measured peak groups assayed
+        from all serum samples on an animal
+        """
+        all_serum_samples_tracer_peak_groups = []
+        for serum_sample in self.all_serum_samples():
+            # extend the peak_groups list belonging to then animal's serum samples
+            all_serum_samples_tracer_peak_groups.extend(
+                list(serum_sample.peak_groups(self.tracer_compound))
+            )
+        return all_serum_samples_tracer_peak_groups
+
+    def final_serum_sample_tracer_peak_groups(self):
+        """
+        final_serum_sample_tracer_peak_groups is an instance method that returns
+        the peak group encompassing the final serum sample's peak data
+        """
+        return self.final_serum_sample.peak_groups(self.tracer_compound)
+
     def final_serum_sample_tracer_peak_data(self):
-        return self.final_serum_sample().peak_data(self.tracer_compound)
+        return self.final_serum_sample.peak_data(self.tracer_compound)
 
     def intact_tracer_peak_data(self):
         """
@@ -428,13 +449,6 @@ class Animal(models.Model, TracerLabeledClass):
             .filter(labeled_count=self.tracer_labeled_count)
             .get()
         )
-
-    def final_serum_sample_tracer_peak_group(self):
-        """
-        final_serum_sample_tracer_peak_data is an instance method that returns
-        the peak group encompassing the final serum sample's peak data
-        """
-        return self.final_serum_sample_tracer_peak_data().first().peak_group
 
     @cached_property
     def tracer_Rd_intact_g(self):
@@ -482,14 +496,16 @@ class Animal(models.Model, TracerLabeledClass):
     @cached_property
     def tracer_Rd_avg_g(self):
         """
-        Rd_avg_g = [Infusate] * 'Infusion Rate' / 'Enrichment Fraction'
-        in nmol/min/g
+        Rd_avg_g = [Infusate] * 'Infusion Rate' / 'Enrichment Fraction' in
+        nmol/min/g
+        Calculated for the last serum sample collected, for the last tracer
+        peakgroup analyzed.
         """
-        tracer_peak_group = self.final_serum_sample_tracer_peak_group()
+        tracer_peak_groups = self.final_serum_sample_tracer_peak_groups()
         return (
             self.tracer_infusion_concentration
             * self.tracer_infusion_rate
-            / tracer_peak_group.enrichment_fraction
+            / tracer_peak_groups.last().enrichment_fraction
         )
 
     @cached_property
@@ -570,20 +586,16 @@ class Animal(models.Model, TracerLabeledClass):
         Animal:tracer_infusion_concentration) / (PeakGroup:enrichment_fraction) -
         (Animal:infusion_rate * Animal:infusion_concentration)
         """
-        try:
-            tracer_peak_group = self.final_serum_sample_tracer_peak_group()
-            return (
-                self.tracer_infusion_rate * self.tracer_infusion_concentration
-            ) / tracer_peak_group.enrichment_fraction - (
-                self.tracer_infusion_rate * self.tracer_infusion_concentration
-            )
-        except Exception as e:
-            estr = str(e)
-            if "'NoneType' object has no attribute 'peak_group'" in estr:
-                warnings.warn(f"Animal {self.name} has no serum sample data.")
-                return None
-            else:
-                raise (e)
+
+        last_tracer_peak_group = self.final_serum_sample_tracer_peak_groups().last()
+        if not last_tracer_peak_group:
+            warnings.warn(f"Animal {self.name} has no serum sample data.")
+            return None
+        return (
+            self.tracer_infusion_rate * self.tracer_infusion_concentration
+        ) / last_tracer_peak_group.enrichment_fraction - (
+            self.tracer_infusion_rate * self.tracer_infusion_concentration
+        )
 
     @cached_property
     def tracer_Fcirc_intact_per_mouse(self):
@@ -721,9 +733,23 @@ class Sample(models.Model):
     )
 
     """
-    Retrieve a list of peakdata objects for a sample instance.  If an optional
+    Retrieve a list of PeakGroup objects for a sample instance.  If an optional
     compound is passed (e.g. animal.tracer_compound), then is it used to filter
-    the peakdata queryset to a specific peakgroup.
+    the PeakGroup queryset to a specific compound's peakgroup(s) [if multiple
+    PeakGrouSets exist].
+    """
+
+    def peak_groups(self, compound=None):
+
+        peak_groups = PeakGroup.objects.filter(msrun__sample_id=self.id)
+        if compound:
+            peak_groups = peak_groups.filter(compounds__id=compound.id)
+        return peak_groups.all()
+
+    """
+    Retrieve a list of PeakData objects for a sample instance.  If an optional
+    compound is passed (e.g. animal.tracer_compound), then is it used to filter
+    the PeakData queryset to a specific peakgroup.
     """
 
     def peak_data(self, compound=None):
@@ -962,6 +988,220 @@ class PeakGroup(models.Model):
             normalized_labeling = None
 
         return normalized_labeling
+
+    @cached_property
+    def animal(self):
+        """Convenient instance method to cache the animal this PeakGroup came from"""
+        return self.msrun.sample.animal
+
+    @cached_property
+    def is_tracer_compound_group(self):
+        """
+        Instance method which returns True if a compound it is associated with
+        is also the tracer compound for the animal it came from.  This is
+        primarily a check to prevent tracer appearance/disappearance
+        calculations from returning values from non-tracer compounds. Uncertain
+        whether this is a true concern.
+        """
+        if self.animal.tracer_compound in self.compounds.all():
+            return True
+        else:
+            warnings.warn(
+                f"{self.name} is not the designated tracer for Animal {self.animal.name}."
+            )
+            return False
+
+    @cached_property
+    def can_compute_tracer_rates(self):
+        """
+        Instance method which returns True if a peak_group can (feasibly)
+        calculate rates of appearance and dissapearance of a tracer group
+        """
+        if not self.is_tracer_compound_group:
+            warnings.warn(
+                f"{self.name} is not the designated tracer for Animal {self.animal.name}."
+            )
+            return False
+        if not self.animal.tracer_infusion_concentration:
+            warnings.warn(
+                f"Animal {self.animal.name} has no annotated tracer_concentration."
+            )
+            return False
+        if not self.animal.tracer_infusion_rate:
+            warnings.warn(
+                f"Animal {self.animal.name} has no annotated tracer_infusion_rate."
+            )
+            return False
+        return True
+
+    @cached_property
+    def can_compute_normalized_tracer_rates(self):
+        """
+        Instance method which returns True if a peak_group rate metric can be
+        normalized by animal.body_weight
+        """
+        if not self.animal.body_weight:
+            warnings.warn(f"Animal {self.animal.name} has no annotated body_weight.")
+            return False
+        return True
+
+    @cached_property
+    def can_compute_intact_tracer_rates(self):
+        """
+        Instance method which returns True if a peak_group rate metric can be
+        calculated using fully-labeled/intact measurements of a tracer's
+        peakdata.  Returns the peakdata.fraction, if it exists and is greater
+        than zero.
+        """
+        if not self.can_compute_tracer_rates:
+            warnings.warn(f"{self.name} cannot compute tracer rates.")
+            return False
+
+        intact_peakdata = self.peak_data.filter(
+            labeled_count=self.animal.tracer_labeled_count
+        ).get()
+
+        if (
+            intact_peakdata
+            and intact_peakdata.fraction
+            and intact_peakdata.fraction > 0
+        ):
+            return intact_peakdata.fraction
+        else:
+            warnings.warn(
+                f"PeakGroup {self.name} has no fully labeled/intact peakdata."
+            )
+            return False
+
+    @cached_property
+    def can_compute_average_tracer_rates(self):
+        """
+        Instance method which returns True if a peak_group rate metric can be
+        calculated using averaged enrichment measurements of a tracer's
+        peakdata.  Returns the peakgroup.enrichment, if it exists and is greater
+        than zero.
+        """
+        if not self.can_compute_tracer_rates:
+            warnings.warn(f"{self.name} cannot compute tracer rates.")
+            return False
+
+        if self.enrichment_fraction and self.enrichment_fraction > 0:
+            return self.enrichment_fraction
+        else:
+            warnings.warn(f"PeakGroup {self.name} has no enrichment_fraction.")
+            return False
+
+    @cached_property
+    def rate_disappearance_intact_per_gram(self):
+        """Rate of Disappearance (intact)"""
+
+        fraction = self.can_compute_intact_tracer_rates
+
+        if not fraction:
+            warnings.warn(f"{self.name} cannot compute intact tracer rate.")
+            return None
+
+        return (
+            self.animal.tracer_infusion_rate
+            * self.animal.tracer_infusion_concentration
+            / fraction
+        )
+
+    @cached_property
+    def rate_appearance_intact_per_gram(self):
+        """Rate of Appearance (intact)"""
+
+        if not self.can_compute_intact_tracer_rates:
+            warnings.warn(f"{self.name} cannot compute intact tracer rate.")
+            return None
+
+        return (
+            self.rate_disappearance_intact_per_gram
+            - self.animal.tracer_infusion_rate
+            * self.animal.tracer_infusion_concentration
+        )
+
+    @cached_property
+    def rate_disappearance_intact_normalized(self):
+        """Rate of Disappearance (intact), normalized by body weight"""
+        if not self.can_compute_intact_tracer_rates:
+            warnings.warn(f"{self.name} cannot compute intact tracer rate.")
+            return None
+        if not self.can_compute_normalized_tracer_rates:
+            warnings.warn(f"{self.name} cannot normalized tracer rate.")
+            return None
+        return self.rate_disappearance_intact_per_gram * self.animal.body_weight
+
+    @cached_property
+    def rate_appearance_intact_normalized(self):
+        """Rate of Appearance (intact), normalized by body weight"""
+        if not self.can_compute_intact_tracer_rates:
+            warnings.warn(f"{self.name} cannot compute intact tracer rate.")
+            return None
+        if not self.can_compute_normalized_tracer_rates:
+            warnings.warn(f"{self.name} cannot normalized tracer rate.")
+            return None
+        return self.rate_appearance_intact_per_gram * self.animal.body_weight
+
+    @cached_property
+    def rate_disappearance_average_per_gram(self):
+        """
+        Rd_avg_g = [Infusate] * 'Infusion Rate' / 'Enrichment Fraction'
+        in nmol/min/g
+        """
+        enrichment_fraction = self.can_compute_average_tracer_rates
+        if not enrichment_fraction:
+            warnings.warn(f"{self.name} cannot compute average tracer rate.")
+            return None
+        return (
+            self.animal.tracer_infusion_concentration
+            * self.animal.tracer_infusion_rate
+            / enrichment_fraction
+        )
+
+    @cached_property
+    def rate_appearance_average_per_gram(self):
+        """
+        Ra_avg_g = Rd_avg_g - [Infusate] * 'Infusion Rate' in nmol/min/g
+        """
+        if not self.can_compute_average_tracer_rates:
+            warnings.warn(f"{self.name} cannot compute average tracer rate.")
+            return None
+        return (
+            self.rate_disappearance_average_per_gram
+            - self.animal.tracer_infusion_concentration
+            * self.animal.tracer_infusion_rate
+        )
+
+    @cached_property
+    def rate_disappearance_average_normalized(self):
+        """
+        Rate of Disappearance (avg)
+        Rd_avg = Rd_avg_g * 'Body Weight' in nmol/min
+        """
+        if not self.can_compute_average_tracer_rates:
+            warnings.warn(f"{self.name} cannot compute average tracer rate.")
+            return None
+        if not self.can_compute_normalized_tracer_rates:
+            warnings.warn(f"{self.name} cannot normalized tracer rate.")
+            return None
+
+        return self.rate_disappearance_average_per_gram * self.animal.body_weight
+
+    @cached_property
+    def rate_appearance_average_normalized(self):
+        """
+        Rate of Appearance (avg)
+        Ra_avg = Ra_avg_g * 'Body Weight'' in nmol/min
+        """
+        if not self.can_compute_average_tracer_rates:
+            warnings.warn(f"{self.name} cannot compute average tracer rate.")
+            return None
+        if not self.can_compute_normalized_tracer_rates:
+            warnings.warn(f"{self.name} cannot normalized tracer rate.")
+            return None
+
+        return self.rate_appearance_average_per_gram * self.animal.body_weight
 
     class Meta:
         verbose_name = "peak group"

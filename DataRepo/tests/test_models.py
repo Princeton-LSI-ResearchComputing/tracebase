@@ -428,13 +428,31 @@ class DataLoadingTests(TestCase):
         animal = self.MAIN_SERUM_ANIMAL
         serum_samples = animal.all_serum_samples()
         self.assertEqual(serum_samples.count(), 1)
-        final_serum_sample = animal.final_serum_sample()
+        final_serum_sample = animal.final_serum_sample
         self.assertEqual(final_serum_sample.name, "serum-xz971")
         self.assertEqual(final_serum_sample.name, serum_samples.last().name)
 
+    def test_sample_peak_groups(self):
+        animal = self.MAIN_SERUM_ANIMAL
+        final_serum_sample = animal.final_serum_sample
+        peak_groups = final_serum_sample.peak_groups()
+        # ALL the sample's groupgroup/compound objects total 13
+        self.assertEqual(peak_groups.count(), self.SERUM_COMPOUNDS_COUNT)
+        # but if limited to only the tracer, it is just 1 objects
+        sample_tracer_peak_groups = final_serum_sample.peak_groups(
+            animal.tracer_compound
+        )
+        self.assertEqual(sample_tracer_peak_groups.count(), 1)
+        # and test that the Animal convenience method is equivalent to the above
+        animal_tracer_peak_groups = animal.final_serum_sample_tracer_peak_groups()
+        self.assertEqual(
+            sample_tracer_peak_groups.count(), animal_tracer_peak_groups.count()
+        )
+        self.assertQuerysetEqual(sample_tracer_peak_groups, animal_tracer_peak_groups)
+
     def test_sample_peak_data(self):
         animal = self.MAIN_SERUM_ANIMAL
-        final_serum_sample = animal.final_serum_sample()
+        final_serum_sample = animal.final_serum_sample
         peakdata = final_serum_sample.peak_data()
         # ALL the sample's peakdata objects total 85
         self.assertEqual(peakdata.count(), self.SERUM_PEAKDATA_ROWS)
@@ -447,16 +465,18 @@ class DataLoadingTests(TestCase):
         self.assertQuerysetEqual(peakdata, peakdata2)
 
     def test_missing_time_collected_warning(self):
-        final_serum_sample = self.MAIN_SERUM_ANIMAL.final_serum_sample()
+        final_serum_sample = self.MAIN_SERUM_ANIMAL.final_serum_sample
         # pretend the time_collected did not exist
         final_serum_sample.time_collected = None
         final_serum_sample.save()
+        # so if we refresh, with no cached final serum values...
+        refeshed_animal = Animal.objects.get(name="971")
         with self.assertWarns(UserWarning):
-            final_serum_sample = self.MAIN_SERUM_ANIMAL.final_serum_sample()
+            final_serum_sample = refeshed_animal.final_serum_sample
 
     def test_missing_serum_sample_peak_data(self):
         animal = self.MAIN_SERUM_ANIMAL
-        final_serum_sample = animal.final_serum_sample()
+        final_serum_sample = animal.final_serum_sample
         # do some deletion tests
         serum_sample_msrun = MSRun.objects.filter(
             sample__name=final_serum_sample.name
@@ -468,14 +488,77 @@ class DataLoadingTests(TestCase):
         """
         peakdata = final_serum_sample.peak_data(animal.tracer_compound)
         self.assertEqual(peakdata.count(), 0)
-        animal.final_serum_sample().delete()
+        animal.final_serum_sample.delete()
         # with the sample deleted, there are no more serum records...
-        serum_samples = animal.all_serum_samples()
+        # so if we refresh, with no cached final serum values...
+        refeshed_animal = Animal.objects.get(name="971")
+        serum_samples = refeshed_animal.all_serum_samples()
         # so zero length list
         self.assertEqual(serum_samples.count(), 0)
         with self.assertWarns(UserWarning):
             # and attempts to retrieve the final_serum_sample get None
-            self.assertIsNone(animal.final_serum_sample())
+            self.assertIsNone(refeshed_animal.final_serum_sample)
+
+    @tag("pg_fcirc")
+    def test_nontracer_peakgroup_calculation_attempts(self):
+        animal = self.MAIN_SERUM_ANIMAL
+        nontracer_compound = Compound.objects.get(name="tryptophan")
+        # but let's get a peakgroup for a compound we know is not the tracer
+        pgs = animal.final_serum_sample.peak_groups(nontracer_compound)
+        # should only be one in this specific case
+        non_tracer_pg = pgs[0]
+        with self.assertWarns(UserWarning):
+            # tryptophan is not the tracer
+            self.assertFalse(non_tracer_pg.is_tracer_compound_group)
+        # and none of these should return a value
+        with self.assertWarns(UserWarning):
+            self.assertIsNone(non_tracer_pg.rate_disappearance_intact_per_gram)
+        with self.assertWarns(UserWarning):
+            self.assertIsNone(non_tracer_pg.rate_appearance_intact_per_gram)
+        with self.assertWarns(UserWarning):
+            self.assertIsNone(non_tracer_pg.rate_disappearance_intact_normalized)
+        with self.assertWarns(UserWarning):
+            self.assertIsNone(non_tracer_pg.rate_appearance_intact_normalized)
+        with self.assertWarns(UserWarning):
+            self.assertIsNone(non_tracer_pg.rate_disappearance_average_per_gram)
+        with self.assertWarns(UserWarning):
+            self.assertIsNone(non_tracer_pg.rate_appearance_average_per_gram)
+        with self.assertWarns(UserWarning):
+            self.assertIsNone(non_tracer_pg.rate_disappearance_average_normalized)
+        with self.assertWarns(UserWarning):
+            self.assertIsNone(non_tracer_pg.rate_appearance_average_normalized)
+
+    @tag("pg_fcirc")
+    def test_tracer_peakgroup_calc_equivalence(self):
+        animal = self.MAIN_SERUM_ANIMAL
+        tracer_peak_groups = animal.all_serum_samples_tracer_peak_groups()
+        # lets just try computational equivalence of the previous
+        # implementation, for now
+        last_pg = tracer_peak_groups[-1]
+        self.assertEqual(
+            last_pg.rate_disappearance_intact_per_gram, animal.tracer_Rd_intact_g
+        )
+        self.assertEqual(
+            last_pg.rate_appearance_intact_per_gram, animal.tracer_Ra_intact_g
+        )
+        self.assertEqual(
+            last_pg.rate_disappearance_intact_normalized, animal.tracer_Rd_intact
+        )
+        self.assertEqual(
+            last_pg.rate_appearance_intact_normalized, animal.tracer_Ra_intact
+        )
+        self.assertEqual(
+            last_pg.rate_disappearance_average_per_gram, animal.tracer_Rd_avg_g
+        )
+        self.assertEqual(
+            last_pg.rate_appearance_average_per_gram, animal.tracer_Ra_avg_g
+        )
+        self.assertEqual(
+            last_pg.rate_disappearance_average_normalized, animal.tracer_Rd_avg
+        )
+        self.assertEqual(
+            last_pg.rate_appearance_average_normalized, animal.tracer_Ra_avg
+        )
 
     @tag("fcirc")
     def test_tracer_Rd_intact_g(self):
@@ -711,7 +794,7 @@ class DataLoadingTests(TestCase):
         serum_samples = first_serum_sample.animal.all_serum_samples()
         # there should now be 2 serum samples for this animal
         self.assertEqual(serum_samples.count(), 2)
-        final_serum_sample = first_serum_sample.animal.final_serum_sample()
+        final_serum_sample = first_serum_sample.animal.final_serum_sample
         # and the final one should now be the second one (just created)
         self.assertEqual(final_serum_sample.name, second_serum_sample.name)
 
