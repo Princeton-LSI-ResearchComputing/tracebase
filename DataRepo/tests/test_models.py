@@ -400,6 +400,12 @@ class DataLoadingTests(TestCase):
         self.assertEqual(sample.animal.name, "969")
         self.assertEqual(sample.tissue.name, "BAT")
 
+    def test_sample_is_serum(self):
+        serum = Sample.objects.get(name="serum-xz971")
+        self.assertTrue(serum.is_serum_sample)
+        nonserum = Sample.objects.get(name="bat-xz969")
+        self.assertTrue(nonserum.is_serum_sample)
+
     def test_peak_groups_set_loaded(self):
 
         # 2 peak group sets , 1 for each call to load_accucor_msruns

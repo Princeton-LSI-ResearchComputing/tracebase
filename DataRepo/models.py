@@ -761,6 +761,15 @@ class Sample(models.Model):
 
         return peakdata.all()
 
+    def is_serum_sample(self):
+        """returns True is the sample is flagged as a "serum" sample"""
+
+        # NOTE: this logic may have to change in the future
+        if self.tissue.name is Tissue.SERUM_TISSUE_NAME:
+            return True
+        else:
+            return False
+
     class Meta:
         verbose_name = "sample"
         verbose_name_plural = "samples"
@@ -1012,6 +1021,18 @@ class PeakGroup(models.Model):
             return False
 
     @cached_property
+    def from_serum_sample(self):
+        """
+        Instance method which returns True if a peakgroup was obtained from a
+        msrun of a serum sample. Uncertain whether this is a true concern.
+        """
+        if self.msrun.sample.is_serum_sample:
+            return True
+        else:
+            warnings.warn(f"{self.name} is not from a serum sample msrun.")
+            return False
+
+    @cached_property
     def can_compute_tracer_rates(self):
         """
         Instance method which returns True if a peak_group can (feasibly)
@@ -1021,6 +1042,9 @@ class PeakGroup(models.Model):
             warnings.warn(
                 f"{self.name} is not the designated tracer for Animal {self.animal.name}."
             )
+            return False
+        if not self.from_serum_sample:
+            warnings.warn(f"{self.name} is not from a serum sample msrun.")
             return False
         if not self.animal.tracer_infusion_concentration:
             warnings.warn(
