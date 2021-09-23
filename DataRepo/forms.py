@@ -48,21 +48,8 @@ class BaseAdvSearchForm(forms.Form):
         choices=(
             ("iexact", "is"),
             ("not_iexact", "is not"),
-            ("icontains", "contains"),
-            ("not_icontains", "does not contain"),
-            ("istartswith", "starts with"),
-            ("not_istartswith", "does not start with"),
-            ("iendswith", "ends with"),
-            ("not_iendswith", "does not end with"),
-            ("gt", ">"),
-            ("gte", ">="),
-            ("lt", "<"),
-            ("lte", "<="),
-            ("not_isnull", "has a value *"),
-            ("isnull", "does not have a value *"),
-            # ToDo: This is a placeholder until dynamic form updating & validation is implemented
-            ("* - Ignores text field", ()),
-            ("* - but must enter any value", ()),
+            # The above are just placeholders. Content is controlled by javascript.
+            # See DataRepo/static/js/hierarchical_formsets.js:updateNcmpChoices
         ),
         widget=forms.Select(),
     )
