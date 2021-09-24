@@ -1,10 +1,10 @@
 import json
 
 from django.core.management import call_command
-from django.test import TestCase
+from django.test import TestCase, tag
 from django.urls import reverse
 
-from DataRepo.compositeviews import BaseAdvancedSearchView
+from DataRepo.compositeviews import BaseAdvancedSearchView, BaseSearchView
 from DataRepo.models import (
     Animal,
     Compound,
@@ -818,3 +818,27 @@ class ViewTests(TestCase):
         self.assertTrue(len(errors["data_submission_accucor2.xlsx"]) == 0)
         self.assertEqual(results["data_submission_accucor1.xlsx"], "PASSED")
         self.assertEqual(results["data_submission_accucor2.xlsx"], "PASSED")
+
+
+@tag("search_choices")
+class SearchFieldChoicesTests(TestCase):
+    def test_get_all_comparison_choices(self):
+        base_search_view = BaseSearchView()
+
+        all_ncmp_choices = (
+            ("iexact", "is"),
+            ("not_iexact", "is not"),
+            ("lt", "<"),
+            ("lte", "<="),
+            ("gt", ">"),
+            ("gte", ">="),
+            ("not_isnull", "has a value"),
+            ("isnull", "does not have a value"),
+            ("icontains", "contains"),
+            ("not_icontains", "does not contain"),
+            ("istartswith", "starts with"),
+            ("not_istartswith", "does not start with"),
+            ("iendswith", "ends with"),
+            ("not_iendswith", "does not end with"),
+        )
+        self.assertEqual(base_search_view.getAllComparisonChoices(), all_ncmp_choices)
