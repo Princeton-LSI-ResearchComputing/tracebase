@@ -635,7 +635,7 @@ class PeakDataSearchView(BaseSearchView):
             "path": "peak_group__msrun__sample__animal__tracer_compound",
             "fields": {
                 "name": {
-                    "displayname": "Input Compound",
+                    "displayname": "Tracer Compound",
                     "searchable": True,
                     "displayed": True,
                     "type": "string",
