@@ -116,14 +116,19 @@ class BaseSearchView:
         """
 
         typedict = {}
+        # For each model
         for mdl in self.models.keys():
-
+            # Grab the path
             path = self.models[mdl]["path"]
+            # If the path has a value (i.e. it's not the root table), append the Q object separator
             if path != "":
                 path += "__"
+            # For each field
             for fld in self.models[mdl]["fields"].keys():
+                # Create the field key (mimmicking the keys in the fld select list - but containing ALL fields)
                 fldkey = path + fld
                 typedict[fldkey] = {}
+                # Save a dict with values for type and choices (if present)
                 typedict[fldkey]["type"] = self.models[mdl]["fields"][fld]["type"]
                 if "choices" in self.models[mdl]["fields"][fld].keys():
                     typedict[fldkey]["choices"] = self.models[mdl]["fields"][fld][
