@@ -183,6 +183,8 @@ function addSearchFieldForm (myDiv, query, copyQuery, isInit, templateId) {
   let fldInitVal = ''
   var ncmpClone // eslint-disable-line no-var
   let ncmpInitVal = ''
+  var valClone // eslint-disable-line no-var
+  let valInitVal = ''
   for (let i = 0; i < clones.length; i++) {
     // If an invalid form was previously submitted, we will need to present errors
     const errors = []
@@ -209,9 +211,11 @@ function addSearchFieldForm (myDiv, query, copyQuery, isInit, templateId) {
       }
 
       if (keyname === 'fld') {
-        fldInitVal = clones[i].value
+        fldInitVal = copyQuery[keyname]
       } else if (keyname === 'ncmp') {
-        ncmpInitVal = clones[i].value
+        ncmpInitVal = copyQuery[keyname]
+      } else if (keyname === 'val') {
+        valInitVal = copyQuery[keyname]
       }
     } else {
       query[clones[i].name] = clones[i].value
@@ -219,7 +223,9 @@ function addSearchFieldForm (myDiv, query, copyQuery, isInit, templateId) {
       if (keyname === 'fld') {
         fldInitVal = clones[i][0].value
       } else if (keyname === 'ncmp') {
-        ncmpInitVal = clones[i].value
+        ncmpInitVal = clones[i][0].value
+      } else if (keyname === 'val') {
+        valInitVal = clones[i].value
       }
     }
 
@@ -227,6 +233,8 @@ function addSearchFieldForm (myDiv, query, copyQuery, isInit, templateId) {
       fldClone = clones[i]
     } else if (keyname === 'ncmp') {
       ncmpClone = clones[i]
+    } else if (keyname === 'val') {
+      valClone = clones[i]
     }
 
     // Add this row to the HTML form
@@ -246,18 +254,63 @@ function addSearchFieldForm (myDiv, query, copyQuery, isInit, templateId) {
     }
   }
 
-  // Keep the ncmp select list choices accurate to the fld
-  fldClone.addEventListener('change', function (event) {
-    updateNcmpChoices(event.target.value, ncmpClone, rootGroup.selectedtemplate)
-  })
-  // fldInitVal and/or ncmpInitVal can be empty for the unused template(s), so check and initialize to the first value
-  // if empty
+  // If fldInitVal is an empty string (which is true for template(s) that are not currently selected in the fmt select
+  // list), check and initialize arbitrarily to the first value in each select list
   if (fldInitVal === '') {
     fldInitVal = fldClone[0].value
     ncmpInitVal = ncmpClone[0].value
   }
+
+  // Initialize the ncmp choices and val field(s)
   updateNcmpChoices(fldInitVal, ncmpClone, templateId)
   ncmpClone.value = ncmpInitVal
+  valTextBox = updateValFields(fldInitVal, ncmpInitVal, valClone, myDiv, templateId)
+
+  // Keep the ncmp select list choices updated to reflect the fld value
+  fldClone.addEventListener('change', function (event) {
+    updateNcmpChoices(event.target.value, ncmpClone, rootGroup.selectedtemplate)
+    updateValFields(event.target.value, ncmpClone.value, valClone, myDiv, rootGroup.selectedtemplate, valTextBox)
+  })
+
+  // Keep the val fields updated to also reflect the ncmp value (currently only affected by values isnull and not_isnull)
+  ncmpClone.addEventListener('change', function (event) {
+    updateValFields(fldClone.value, event.target.value, valClone, myDiv, rootGroup.selectedtemplate, valTextBox)
+  })
+}
+
+function updateValFields (fldInitVal, ncmpInitVal, valClone, myDiv, templateId, valTextBox) {
+  let dbFieldType = getDBFieldType(templateId, fldInitVal)
+  if (ncmpInitVal === 'isnull' || ncmpInitVal === 'not_isnull') {
+    console.log("Not creating hidden field for null comparison")
+  } else if (dbFieldType === 'string' || dbFieldType === 'number') {
+    let isAddMode = false
+    // Create custom field for the val input, to be shown/hidden based on the other select-list selections
+    if (typeof valTextBox === 'undefined' || !valTextBox) {
+      isAddMode = true
+      valTextBox = document.createElement('input')
+    }
+    valTextBox.placeholder = valClone.placeholder
+    valTextBox.value = valClone.value
+    valTextBox.addEventListener('change', function (event) {
+      valClone.value = event.target.value
+    })
+    if (isAddMode) {
+      myDiv.appendChild(valTextBox)
+      myDiv.appendChild(document.createTextNode(' '))
+      console.log("Created visible field for type:", dbFieldType)
+    } else {
+      console.log("Updated visible field for type:", dbFieldType)
+    }
+  } else if (dbFieldType === 'enumeration') {
+    console.log("Not creating select list for enumeration yet")
+  } else {
+    console.error("Undetermined database field type for template/field-path:", templateId, fldInitVal, "Unable to determine val form field type.")
+  }
+  return valTextBox
+}
+
+function getDBFieldType (templateId, fldInitVal) {
+  return fldTypes[templateId][fldInitVal].type
 }
 
 function updateNcmpChoices (fldVal, ncmpSelectElem, templateId) {
