@@ -453,6 +453,7 @@ class Animal(models.Model, TracerLabeledClass):
             return None
         return final_peak_group.peak_data
 
+    @cached_property
     def intact_tracer_peak_data(self):
         """
         intact_tracer_peak_data is an instance method that returns the peak data
@@ -544,7 +545,7 @@ class Animal(models.Model, TracerLabeledClass):
         (PeakData:fraction) - (Animal:tracer_infusion_rate *
         Animal:tracer_infusion_concentration)
         """
-        intact_tracer_peak_data = self.intact_tracer_peak_data()
+        intact_tracer_peak_data = self.intact_tracer_peak_data
         if not intact_tracer_peak_data:
             warnings.warn(f"Animal {self.name} has no fully labeled serum sample data.")
             return None

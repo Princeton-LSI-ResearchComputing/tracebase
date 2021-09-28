@@ -1162,7 +1162,7 @@ class TracerRateTests(TestCase):
         labelless_animal.tracer_labeled_count = None
         # we won't save this edit back to the database
         with self.assertWarns(UserWarning):
-            self.assertIsNone(labelless_animal.intact_tracer_peak_data())
+            self.assertIsNone(labelless_animal.intact_tracer_peak_data)
             self.assertIsNone(labelless_animal.tracer_Fcirc_avg_atom)
 
 
