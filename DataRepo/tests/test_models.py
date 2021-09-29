@@ -1,5 +1,4 @@
 from datetime import datetime, timedelta
-from unittest import skip
 
 import pandas as pd
 from django.core.exceptions import ValidationError
@@ -1031,139 +1030,77 @@ class TracerRateTests(TestCase):
             self.assertIsNone(non_tracer_pg.rate_appearance_average_weight_normalized)
 
     @tag("fcirc")
-    def test_tracer_Rd_intact_g(self):
+    def test_final_serum_tracer_rate_disappearance_intact_per_gram(self):
         animal = self.MAIN_SERUM_ANIMAL
-        self.assertAlmostEqual(animal.tracer_Rd_intact_g, 38.83966501, places=2)
+        self.assertAlmostEqual(
+            animal.final_serum_tracer_rate_disappearance_intact_per_gram,
+            38.83966501,
+            places=2,
+        )
 
     @tag("fcirc")
-    def test_tracer_Ra_intact_g(self):
+    def test_final_serum_tracer_rate_appearance_intact_per_gram(self):
         animal = self.MAIN_SERUM_ANIMAL
-        self.assertAlmostEqual(animal.tracer_Ra_intact_g, 34.35966501, places=2)
+        self.assertAlmostEqual(
+            animal.final_serum_tracer_rate_appearance_intact_per_gram,
+            34.35966501,
+            places=2,
+        )
 
     @tag("fcirc")
-    def test_tracer_Rd_intact(self):
+    def test_final_serum_tracer_rate_disappearance_intact_weight_normalized(self):
         animal = self.MAIN_SERUM_ANIMAL
-        self.assertAlmostEqual(animal.tracer_Rd_intact, 1040.903022, places=2)
+        self.assertAlmostEqual(
+            animal.final_serum_tracer_rate_disappearance_intact_weight_normalized,
+            1040.903022,
+            places=2,
+        )
 
     @tag("fcirc")
-    def test_tracer_Ra_intact(self):
+    def test_final_serum_tracer_rate_appearance_intact_weight_normalized(self):
         animal = self.MAIN_SERUM_ANIMAL
-        self.assertAlmostEqual(animal.tracer_Ra_intact, 920.8390222, places=2)
+        self.assertAlmostEqual(
+            animal.final_serum_tracer_rate_appearance_intact_weight_normalized,
+            920.8390222,
+            places=2,
+        )
 
     @tag("fcirc")
-    def test_tracer_Rd_avg_g(self):
+    def test_final_serum_tracer_rate_disappearance_average_per_gram(self):
         animal = self.MAIN_SERUM_ANIMAL
-        self.assertAlmostEqual(animal.tracer_Rd_avg_g, 37.36671487, places=2)
+        self.assertAlmostEqual(
+            animal.final_serum_tracer_rate_disappearance_average_per_gram,
+            37.36671487,
+            places=2,
+        )
 
     @tag("fcirc")
-    def test_tracer_Ra_avg_g(self):
+    def test_final_serum_tracer_rate_appearance_average_per_gram(self):
         animal = self.MAIN_SERUM_ANIMAL
-        self.assertAlmostEqual(animal.tracer_Ra_avg_g, 32.88671487, places=2)
+        self.assertAlmostEqual(
+            animal.final_serum_tracer_rate_appearance_average_per_gram,
+            32.88671487,
+            places=2,
+        )
 
     @tag("fcirc")
-    def test_tracer_Rd_avg(self):
+    def test_final_serum_tracer_rate_disappearance_average_weight_normalized(self):
         animal = self.MAIN_SERUM_ANIMAL
         # doublecheck weight, because test is not exact but test_tracer_Rd_avg_g was fine
-        self.assertAlmostEqual(animal.tracer_Rd_avg, 1001.427958, places=2)
+        self.assertAlmostEqual(
+            animal.final_serum_tracer_rate_disappearance_average_weight_normalized,
+            1001.427958,
+            places=2,
+        )
 
     @tag("fcirc")
-    def test_tracer_Ra_avg(self):
+    def test_final_serum_tracer_rate_appearance_average_weight_normalized(self):
         animal = self.MAIN_SERUM_ANIMAL
-        self.assertAlmostEqual(animal.tracer_Ra_avg, 881.3639585, places=2)
-
-    @tag("fcirc")
-    @skip(
-        "No independent calculation of Fcirc variant values provided. Skipping for now..."
-    )
-    def test_tracer_Fcirc_intact(self):
-        """
-        The test load file DataRepo/example_data/obob_maven_c160_serum.xlsx only
-        has serum sample data for serum-xz969, serum-xz970, (from
-        MAIN_SERUM_ANIMAL), serum-xz979 (so those are the only
-        animals(969,970,979) and samples we can test, here)
-        """
-        animal = self.MAIN_SERUM_ANIMAL
-        self.assertAlmostEqual(animal.tracer_Fcirc_intact, 34.36, places=2)
-
-    @tag("fcirc")
-    @skip(
-        "No independent calculation of Fcirc variant values provided. Skipping for now..."
-    )
-    def test_tracer_Fcirc_avg(self):
-        animal = self.MAIN_SERUM_ANIMAL
-        self.assertAlmostEqual(animal.tracer_Fcirc_avg, 32.89, places=2)
-
-    @tag("fcirc")
-    @skip(
-        "No independent calculation of Fcirc variant values provided. Skipping for now..."
-    )
-    def test_tracer_Fcirc_intact_per_mouse(self):
-        animal = self.MAIN_SERUM_ANIMAL
-        self.assertAlmostEqual(animal.tracer_Fcirc_intact_per_mouse, 920.84, places=2)
-
-    @tag("fcirc")
-    @skip(
-        "No independent calculation of Fcirc variant values provided. Skipping for now..."
-    )
-    def test_tracer_Fcirc_avg_per_mouse(self):
-        animal = self.MAIN_SERUM_ANIMAL
-        self.assertAlmostEqual(animal.tracer_Fcirc_avg_per_mouse, 881.36, places=2)
-
-    @tag("fcirc")
-    @skip(
-        "No independent calculation of Fcirc variant values provided. Skipping for now..."
-    )
-    def test_tracer_Fcirc_avg_atom(self):
-        animal = self.MAIN_SERUM_ANIMAL
-        self.assertAlmostEqual(animal.tracer_Fcirc_avg_atom, 526.19, places=2)
-
-    @tag("fcirc")
-    def test_animal_tracer_Fcirc_intact_missing_serum(self):
-        """
-        The test load file DataRepo/example_data/obob_maven_c160_serum.xlsx only
-        has serum sample data for serum-xz969  serum-xz970 serum-xz979 (so those
-        are the only animals(969,970,979) and samples we can test, here)
-        """
-        animal = Animal.objects.get(name="971")
-        with self.assertWarns(UserWarning):
-            self.assertIsNone(animal.tracer_Fcirc_intact)
-
-    @tag("fcirc")
-    def test_animal_tracer_Fcirc_avg_missing_serum(self):
-        animal = Animal.objects.get(name="971")
-        with self.assertWarns(UserWarning):
-            self.assertIsNone(animal.tracer_Fcirc_avg)
-
-    @tag("fcirc")
-    def test_animal_tracer_Fcirc_missing_body_weight(self):
-        weightless_animal = self.MAIN_SERUM_ANIMAL
-        revert_weight = weightless_animal.body_weight
-        weightless_animal.body_weight = None
-        weightless_animal.save()
-        with self.assertWarns(UserWarning):
-            self.assertIsNone(weightless_animal.tracer_Rd_avg)
-        with self.assertWarns(UserWarning):
-            self.assertIsNone(weightless_animal.tracer_Ra_avg)
-        with self.assertWarns(UserWarning):
-            self.assertIsNone(weightless_animal.tracer_Rd_intact)
-        with self.assertWarns(UserWarning):
-            self.assertIsNone(weightless_animal.tracer_Ra_intact)
-        with self.assertWarns(UserWarning):
-            self.assertIsNone(weightless_animal.tracer_Fcirc_intact_per_mouse)
-        with self.assertWarns(UserWarning):
-            self.assertIsNone(weightless_animal.tracer_Fcirc_avg_per_mouse)
-        # revert this change
-        weightless_animal.body_weight = revert_weight
-        weightless_animal.save()
-
-    @tag("fcirc")
-    def test_animal_tracer_Fcirc_missing_labeled_count(self):
-        labelless_animal = self.MAIN_SERUM_ANIMAL
-        labelless_animal.tracer_labeled_count = None
-        # we won't save this edit back to the database
-        with self.assertWarns(UserWarning):
-            self.assertIsNone(labelless_animal.intact_tracer_peak_data)
-            self.assertIsNone(labelless_animal.tracer_Fcirc_avg_atom)
+        self.assertAlmostEqual(
+            animal.final_serum_tracer_rate_appearance_average_weight_normalized,
+            881.3639585,
+            places=2,
+        )
 
 
 class AnimalAndSampleLoadingTests(TestCase):

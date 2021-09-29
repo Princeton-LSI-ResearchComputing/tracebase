@@ -468,35 +468,50 @@ class Animal(models.Model, TracerLabeledClass):
         return final_peak_data.filter(labeled_count=self.tracer_labeled_count).get()
 
     @cached_property
-    def tracer_Rd_intact_g(self):
-        """Rate of Disappearance (intact)"""
+    def final_serum_tracer_rate_disappearance_intact_per_gram(self):
+        """
+        Rate of Disappearance (intact), also referred to as Rd_intact_g. This is
+        calculated on the Animal's final serum sample tracer's PeakGroup.
+        """
         return (
             self.final_serum_sample_tracer_peak_group.rate_disappearance_intact_per_gram
         )
 
     @cached_property
-    def tracer_Ra_intact_g(self):
-        """Rate of Appearance (intact)"""
+    def final_serum_tracer_rate_appearance_intact_per_gram(self):
+        """
+        Rate of Appearance (intact), also referred to as Ra_intact_g, or
+        sometimes Fcirc_intact. This is calculated on the Animal's
+        final serum sample tracer's PeakGroup.
+        """
         return self.final_serum_sample_tracer_peak_group.rate_appearance_intact_per_gram
 
     @cached_property
-    def tracer_Rd_intact(self):
-        """Rate of Disappearance (intact), normalized by body weight"""
+    def final_serum_tracer_rate_disappearance_intact_weight_normalized(self):
+        """
+        Rate of Disappearance (intact), normalized by body weight, also referred
+        to as Rd_intact. This is calculated on the Animal's final
+        serum sample tracer's PeakGroup.
+        """
         return (
             self.final_serum_sample_tracer_peak_group.rate_disappearance_intact_weight_normalized
         )
 
     @cached_property
-    def tracer_Ra_intact(self):
-        """Rate of Appearance (intact), normalized by body weight"""
+    def final_serum_tracer_rate_appearance_intact_weight_normalized(self):
+        """
+        Rate of Appearance (intact), normalized by body weight, also referred to
+        as Ra_intact, or sometimes Fcirc_intact_per_mouse. This is calculated on
+        the Animal's final serum sample tracer's PeakGroup.
+        """
         return (
             self.final_serum_sample_tracer_peak_group.rate_appearance_intact_weight_normalized
         )
 
     @cached_property
-    def tracer_Rd_avg_g(self):
+    def final_serum_tracer_rate_disappearance_average_per_gram(self):
         """
-        Rd_avg_g = [Infusate] * 'Infusion Rate' / 'Enrichment Fraction' in
+        Also referred to as Rd_avg_g = [Infusate] * 'Infusion Rate' / 'Enrichment Fraction' in
         nmol/min/g
         Calculated for the last serum sample collected, for the last tracer
         peakgroup analyzed.
@@ -506,117 +521,40 @@ class Animal(models.Model, TracerLabeledClass):
         )
 
     @cached_property
-    def tracer_Ra_avg_g(self):
+    def final_serum_tracer_rate_appearance_average_per_gram(self):
         """
-        Ra_avg_g = Rd_avg_g - [Infusate] * 'Infusion Rate' in nmol/min/g
+        Also referred to as Ra_avg_g, and sometimes referred to as Fcirc_avg.
+        Equivalent to Rd_avg_g - [Infusate] * 'Infusion Rate' in nmol/min/g
+        Calculated for the last serum sample collected, for the last tracer
+        peakgroup analyzed.
         """
         return (
             self.final_serum_sample_tracer_peak_group.rate_appearance_average_per_gram
         )
 
     @cached_property
-    def tracer_Rd_avg(self):
+    def final_serum_tracer_rate_disappearance_average_weight_normalized(self):
         """
-        Rate of Disappearance (avg)
+        Rate of Disappearance (avg), also referred to as Rd_avg
         Rd_avg = Rd_avg_g * 'Body Weight' in nmol/min
+        Calculated for the last serum sample collected, for the last tracer
+        peakgroup analyzed.
         """
         return (
             self.final_serum_sample_tracer_peak_group.rate_disappearance_average_weight_normalized
         )
 
     @cached_property
-    def tracer_Ra_avg(self):
+    def final_serum_tracer_rate_appearance_average_weight_normalized(self):
         """
-        Rate of Appearance (avg)
-        Ra_avg = Ra_avg_g * 'Body Weight'' in nmol/min
+        Rate of Appearance (avg), also referred to as Ra_avg or sometimes
+        Fcirc_avg_per_mouse. Ra_avg = Ra_avg_g * 'Body Weight'' in nmol/min
+        Calculated for the last serum sample collected, for the last tracer
+        peakgroup analyzed.
         """
         return (
             self.final_serum_sample_tracer_peak_group.rate_appearance_average_weight_normalized
         )
-
-    @cached_property
-    def tracer_Fcirc_intact(self):
-        """
-        tracer_Fcirc_intact - turnover of the tracer compound for this animal, as
-        rate of appearance of any modified form of the tracer compound (nmol/min/gram
-        body weight) = calculated using the infusion rate of tracer in this animal and
-        the labeling in the tracer compound from the final serum timepoint =
-        (Animal:tracer_infusion_rate * Animal:tracer_infusion_concentration) /
-        (PeakData:fraction) - (Animal:tracer_infusion_rate *
-        Animal:tracer_infusion_concentration)
-        """
-        intact_tracer_peak_data = self.intact_tracer_peak_data
-        if not intact_tracer_peak_data:
-            warnings.warn(f"Animal {self.name} has no fully labeled serum sample data.")
-            return None
-
-        if (
-            self.tracer_infusion_rate
-            and self.tracer_infusion_concentration
-            and intact_tracer_peak_data.fraction
-            and intact_tracer_peak_data.fraction > 0
-        ):
-            return (
-                self.tracer_infusion_rate * self.tracer_infusion_concentration
-            ) / intact_tracer_peak_data.fraction - (
-                self.tracer_infusion_rate * self.tracer_infusion_concentration
-            )
-        else:
-            warnings.warn("Cannot calculate tracer_Fcirc_intact.")
-            return None
-
-    @cached_property
-    def tracer_Fcirc_avg(self):
-        """
-        tracer_Fcirc_avg - turnover of the tracer compound for this animal, as the rate
-        of appearance of unlabeled atoms in the tracer compound calculated using the
-        infusion rate of tracer in this animal and the labeling in the tracer compound
-        from the final serum timepoint. (Animal:tracer_infusion_rate *
-        Animal:tracer_infusion_concentration) / (PeakGroup:enrichment_fraction) -
-        (Animal:infusion_rate * Animal:infusion_concentration)
-        """
-
-        last_tracer_peak_group = self.final_serum_sample_tracer_peak_group
-        if not last_tracer_peak_group:
-            warnings.warn(f"Animal {self.name} has no serum sample data.")
-            return None
-        return (
-            self.tracer_infusion_rate * self.tracer_infusion_concentration
-        ) / last_tracer_peak_group.enrichment_fraction - (
-            self.tracer_infusion_rate * self.tracer_infusion_concentration
-        )
-
-    @cached_property
-    def tracer_Fcirc_intact_per_mouse(self):
-        """
-        tracer_Fcirc_intact_per_mouse - tracer_Fcirc_intact * Animal:body_weight =
-        nmol/min/mouse
-        """
-        try:
-            return self.tracer_Fcirc_intact * self.body_weight
-        except Exception as e:
-            estr = str(e)
-            if "unsupported operand type(s) for *: 'float' and 'NoneType'" in estr:
-                warnings.warn(f"Animal {self.name} has no annotated body_weight.")
-                return None
-            else:
-                raise (e)
-
-    @cached_property
-    def tracer_Fcirc_avg_per_mouse(self):
-        """
-        tracer_Fcirc_avg_per_mouse - tracer_Fcirc_avg * Animal:body_weight =
-        nmol/min/mouse
-        """
-        try:
-            return self.tracer_Fcirc_avg * self.body_weight
-        except Exception as e:
-            estr = str(e)
-            if "unsupported operand type(s) for *: 'float' and 'NoneType'" in estr:
-                warnings.warn(f"Animal {self.name} has no annotated body_weight.")
-                return None
-            else:
-                raise (e)
 
     @cached_property
     def tracer_Fcirc_avg_atom(self):
