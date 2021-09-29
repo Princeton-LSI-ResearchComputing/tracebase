@@ -479,6 +479,7 @@ class DataLoadingTests(TestCase):
         with self.assertWarns(UserWarning):
             final_serum_sample = refeshed_animal.final_serum_sample
 
+    @tag("fcirc")
     def test_missing_serum_sample_peak_data(self):
         animal = self.MAIN_SERUM_ANIMAL
         final_serum_sample = animal.final_serum_sample
@@ -503,6 +504,38 @@ class DataLoadingTests(TestCase):
         with self.assertWarns(UserWarning):
             # and attempts to retrieve the final_serum_sample get None
             self.assertIsNone(refeshed_animal.final_serum_sample)
+        with self.assertWarns(UserWarning):
+            self.assertIsNone(
+                refeshed_animal.final_serum_tracer_rate_disappearance_intact_per_gram
+            )
+        with self.assertWarns(UserWarning):
+            self.assertIsNone(
+                refeshed_animal.final_serum_tracer_rate_appearance_intact_per_gram
+            )
+        with self.assertWarns(UserWarning):
+            self.assertIsNone(
+                refeshed_animal.final_serum_tracer_rate_disappearance_intact_weight_normalized
+            )
+        with self.assertWarns(UserWarning):
+            self.assertIsNone(
+                refeshed_animal.final_serum_tracer_rate_appearance_intact_weight_normalized
+            )
+        with self.assertWarns(UserWarning):
+            self.assertIsNone(
+                refeshed_animal.final_serum_tracer_rate_disappearance_average_per_gram
+            )
+        with self.assertWarns(UserWarning):
+            self.assertIsNone(
+                refeshed_animal.final_serum_tracer_rate_appearance_average_per_gram
+            )
+        with self.assertWarns(UserWarning):
+            self.assertIsNone(
+                refeshed_animal.final_serum_tracer_rate_disappearance_average_weight_normalized
+            )
+        with self.assertWarns(UserWarning):
+            self.assertIsNone(
+                refeshed_animal.final_serum_tracer_rate_appearance_average_weight_normalized
+            )
 
     def test_restricted_animal_treatment_deletion(self):
         treatment = Animal.objects.get(name="exp024f_M2").treatment

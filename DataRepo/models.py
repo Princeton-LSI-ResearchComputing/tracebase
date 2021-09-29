@@ -435,6 +435,9 @@ class Animal(models.Model, TracerLabeledClass):
         the very last recorded PeakGroup obtained from the Animal's final serum
         sample from the last date it was measured/assayed
         """
+        if not self.final_serum_sample:
+            warnings.warn(f"Animal {self.name} has no final serum sample.")
+            return None
         return (
             self.final_serum_sample.peak_groups(self.tracer_compound)
             .order_by("msrun__date")
@@ -473,6 +476,9 @@ class Animal(models.Model, TracerLabeledClass):
         Rate of Disappearance (intact), also referred to as Rd_intact_g. This is
         calculated on the Animal's final serum sample tracer's PeakGroup.
         """
+        if not self.final_serum_sample_tracer_peak_group:
+            warnings.warn(f"Animal {self.name} has no final serum sample peak group.")
+            return None
         return (
             self.final_serum_sample_tracer_peak_group.rate_disappearance_intact_per_gram
         )
@@ -484,6 +490,9 @@ class Animal(models.Model, TracerLabeledClass):
         sometimes Fcirc_intact. This is calculated on the Animal's
         final serum sample tracer's PeakGroup.
         """
+        if not self.final_serum_sample_tracer_peak_group:
+            warnings.warn(f"Animal {self.name} has no final serum sample peak group.")
+            return None
         return self.final_serum_sample_tracer_peak_group.rate_appearance_intact_per_gram
 
     @cached_property
@@ -493,6 +502,9 @@ class Animal(models.Model, TracerLabeledClass):
         to as Rd_intact. This is calculated on the Animal's final
         serum sample tracer's PeakGroup.
         """
+        if not self.final_serum_sample_tracer_peak_group:
+            warnings.warn(f"Animal {self.name} has no final serum sample peak group.")
+            return None
         return (
             self.final_serum_sample_tracer_peak_group.rate_disappearance_intact_weight_normalized
         )
@@ -504,6 +516,9 @@ class Animal(models.Model, TracerLabeledClass):
         as Ra_intact, or sometimes Fcirc_intact_per_mouse. This is calculated on
         the Animal's final serum sample tracer's PeakGroup.
         """
+        if not self.final_serum_sample_tracer_peak_group:
+            warnings.warn(f"Animal {self.name} has no final serum sample peak group.")
+            return None
         return (
             self.final_serum_sample_tracer_peak_group.rate_appearance_intact_weight_normalized
         )
@@ -516,6 +531,9 @@ class Animal(models.Model, TracerLabeledClass):
         Calculated for the last serum sample collected, for the last tracer
         peakgroup analyzed.
         """
+        if not self.final_serum_sample_tracer_peak_group:
+            warnings.warn(f"Animal {self.name} has no final serum sample peak group.")
+            return None
         return (
             self.final_serum_sample_tracer_peak_group.rate_disappearance_average_per_gram
         )
@@ -528,6 +546,9 @@ class Animal(models.Model, TracerLabeledClass):
         Calculated for the last serum sample collected, for the last tracer
         peakgroup analyzed.
         """
+        if not self.final_serum_sample_tracer_peak_group:
+            warnings.warn(f"Animal {self.name} has no final serum sample peak group.")
+            return None
         return (
             self.final_serum_sample_tracer_peak_group.rate_appearance_average_per_gram
         )
@@ -540,6 +561,9 @@ class Animal(models.Model, TracerLabeledClass):
         Calculated for the last serum sample collected, for the last tracer
         peakgroup analyzed.
         """
+        if not self.final_serum_sample_tracer_peak_group:
+            warnings.warn(f"Animal {self.name} has no final serum sample peak group.")
+            return None
         return (
             self.final_serum_sample_tracer_peak_group.rate_disappearance_average_weight_normalized
         )
@@ -552,27 +576,26 @@ class Animal(models.Model, TracerLabeledClass):
         Calculated for the last serum sample collected, for the last tracer
         peakgroup analyzed.
         """
+        if not self.final_serum_sample_tracer_peak_group:
+            warnings.warn(f"Animal {self.name} has no final serum sample peak group.")
+            return None
         return (
             self.final_serum_sample_tracer_peak_group.rate_appearance_average_weight_normalized
         )
 
     @cached_property
-    def tracer_Fcirc_avg_atom(self):
+    def final_serum_tracer_rate_appearance_average_atom_turnover(self):
         """
-        tracer_Fcirc_avg_atom - tracer_Fcirc_avg * PeakData:label_count = nmol atom / min /
-        gram = turnover of atoms in this compound, e.g. "nmol carbon / min / g"
+        also referred to as Fcirc_avg_atom.  Originally defined as
+        Fcirc_avg * PeakData:label_count in nmol atom / min / gram
+        turnover of atoms in this compound, e.g. "nmol carbon / min / g"
         """
-        try:
-            return self.tracer_Fcirc_avg * self.tracer_labeled_count
-        except Exception as e:
-            estr = str(e)
-            if "unsupported operand type(s) for *: 'float' and 'NoneType'" in estr:
-                warnings.warn(
-                    f"Animal {self.name} has no annotated tracer_labeled_count."
-                )
-                return None
-            else:
-                raise (e)
+        if not self.final_serum_sample_tracer_peak_group:
+            warnings.warn(f"Animal {self.name} has no final serum sample peak group.")
+            return None
+        return (
+            self.final_serum_sample_tracer_peak_group.rate_appearance_average_atom_turnover
+        )
 
     class Meta:
         verbose_name = "animal"
@@ -1160,6 +1183,21 @@ class PeakGroup(models.Model):
             return None
 
         return self.rate_appearance_average_per_gram * self.animal.body_weight
+
+    @cached_property
+    def rate_appearance_average_atom_turnover(self):
+        """
+        turnover of atoms in this compound in nmol atom / min / gram
+        """
+        if (
+            not self.can_compute_average_tracer_rates
+            or not self.animal.tracer_labeled_count
+        ):
+            warnings.warn(
+                f"{self.name} cannot compute average tracer turnover of atoms."
+            )
+            return None
+        return self.rate_appearance_average_per_gram * self.animal.tracer_labeled_count
 
     class Meta:
         verbose_name = "peak group"
