@@ -400,6 +400,12 @@ class DataLoadingTests(TestCase):
         self.assertEqual(sample.animal.name, "969")
         self.assertEqual(sample.tissue.name, "BAT")
 
+    def test_sample_is_serum(self):
+        serum = Sample.objects.get(name="serum-xz971")
+        self.assertTrue(serum.is_serum_sample)
+        nonserum = Sample.objects.get(name="bat-xz969")
+        self.assertFalse(nonserum.is_serum_sample)
+
     def test_peak_groups_set_loaded(self):
 
         # 2 peak group sets , 1 for each call to load_accucor_msruns
@@ -426,7 +432,7 @@ class DataLoadingTests(TestCase):
 
     def test_animal_serum_sample_methods(self):
         animal = self.MAIN_SERUM_ANIMAL
-        serum_samples = animal.all_serum_samples()
+        serum_samples = animal.all_serum_samples
         self.assertEqual(serum_samples.count(), 1)
         final_serum_sample = animal.final_serum_sample
         self.assertEqual(final_serum_sample.name, "serum-xz971")
@@ -436,19 +442,19 @@ class DataLoadingTests(TestCase):
         animal = self.MAIN_SERUM_ANIMAL
         final_serum_sample = animal.final_serum_sample
         peak_groups = final_serum_sample.peak_groups()
-        # ALL the sample's groupgroup/compound objects total 13
+        # ALL the sample's PeakGroup objects in the QuerySet total 13
         self.assertEqual(peak_groups.count(), self.SERUM_COMPOUNDS_COUNT)
-        # but if limited to only the tracer, it is just 1 objects
+        # but if limited to only the tracer, it is just 1 object in the QuerySet
         sample_tracer_peak_groups = final_serum_sample.peak_groups(
             animal.tracer_compound
         )
         self.assertEqual(sample_tracer_peak_groups.count(), 1)
-        # and test that the Animal convenience method is equivalent to the above
-        animal_tracer_peak_groups = animal.final_serum_sample_tracer_peak_groups()
+        # and test that the Animal convenience method is equivalent for this
+        # particular sample/animal
+        animal_tracer_peak_group = animal.final_serum_sample_tracer_peak_group
         self.assertEqual(
-            sample_tracer_peak_groups.count(), animal_tracer_peak_groups.count()
+            sample_tracer_peak_groups.get().id, animal_tracer_peak_group.id
         )
-        self.assertQuerysetEqual(sample_tracer_peak_groups, animal_tracer_peak_groups)
 
     def test_sample_peak_data(self):
         animal = self.MAIN_SERUM_ANIMAL
@@ -460,9 +466,8 @@ class DataLoadingTests(TestCase):
         peakdata = final_serum_sample.peak_data(animal.tracer_compound)
         self.assertEqual(peakdata.count(), 7)
         # and test that the Animal convenience method is equivalent to the above
-        peakdata2 = animal.final_serum_sample_tracer_peak_data()
-        self.assertEqual(peakdata.count(), peakdata2.count())
-        self.assertQuerysetEqual(peakdata, peakdata2)
+        peakdata2 = animal.final_serum_sample_tracer_peak_data
+        self.assertEqual(peakdata.last().id, peakdata2.last().id)
 
     def test_missing_time_collected_warning(self):
         final_serum_sample = self.MAIN_SERUM_ANIMAL.final_serum_sample
@@ -474,6 +479,7 @@ class DataLoadingTests(TestCase):
         with self.assertWarns(UserWarning):
             final_serum_sample = refeshed_animal.final_serum_sample
 
+    @tag("fcirc")
     def test_missing_serum_sample_peak_data(self):
         animal = self.MAIN_SERUM_ANIMAL
         final_serum_sample = animal.final_serum_sample
@@ -492,184 +498,44 @@ class DataLoadingTests(TestCase):
         # with the sample deleted, there are no more serum records...
         # so if we refresh, with no cached final serum values...
         refeshed_animal = Animal.objects.get(name="971")
-        serum_samples = refeshed_animal.all_serum_samples()
+        serum_samples = refeshed_animal.all_serum_samples
         # so zero length list
         self.assertEqual(serum_samples.count(), 0)
         with self.assertWarns(UserWarning):
             # and attempts to retrieve the final_serum_sample get None
             self.assertIsNone(refeshed_animal.final_serum_sample)
-
-    @tag("pg_fcirc")
-    def test_nontracer_peakgroup_calculation_attempts(self):
-        animal = self.MAIN_SERUM_ANIMAL
-        nontracer_compound = Compound.objects.get(name="tryptophan")
-        # but let's get a peakgroup for a compound we know is not the tracer
-        pgs = animal.final_serum_sample.peak_groups(nontracer_compound)
-        # should only be one in this specific case
-        non_tracer_pg = pgs[0]
         with self.assertWarns(UserWarning):
-            # tryptophan is not the tracer
-            self.assertFalse(non_tracer_pg.is_tracer_compound_group)
-        # and none of these should return a value
+            self.assertIsNone(
+                refeshed_animal.final_serum_tracer_rate_disappearance_intact_per_gram
+            )
         with self.assertWarns(UserWarning):
-            self.assertIsNone(non_tracer_pg.rate_disappearance_intact_per_gram)
+            self.assertIsNone(
+                refeshed_animal.final_serum_tracer_rate_appearance_intact_per_gram
+            )
         with self.assertWarns(UserWarning):
-            self.assertIsNone(non_tracer_pg.rate_appearance_intact_per_gram)
+            self.assertIsNone(
+                refeshed_animal.final_serum_tracer_rate_disappearance_intact_weight_normalized
+            )
         with self.assertWarns(UserWarning):
-            self.assertIsNone(non_tracer_pg.rate_disappearance_intact_normalized)
+            self.assertIsNone(
+                refeshed_animal.final_serum_tracer_rate_appearance_intact_weight_normalized
+            )
         with self.assertWarns(UserWarning):
-            self.assertIsNone(non_tracer_pg.rate_appearance_intact_normalized)
+            self.assertIsNone(
+                refeshed_animal.final_serum_tracer_rate_disappearance_average_per_gram
+            )
         with self.assertWarns(UserWarning):
-            self.assertIsNone(non_tracer_pg.rate_disappearance_average_per_gram)
+            self.assertIsNone(
+                refeshed_animal.final_serum_tracer_rate_appearance_average_per_gram
+            )
         with self.assertWarns(UserWarning):
-            self.assertIsNone(non_tracer_pg.rate_appearance_average_per_gram)
+            self.assertIsNone(
+                refeshed_animal.final_serum_tracer_rate_disappearance_average_weight_normalized
+            )
         with self.assertWarns(UserWarning):
-            self.assertIsNone(non_tracer_pg.rate_disappearance_average_normalized)
-        with self.assertWarns(UserWarning):
-            self.assertIsNone(non_tracer_pg.rate_appearance_average_normalized)
-
-    @tag("pg_fcirc")
-    def test_tracer_peakgroup_calc_equivalence(self):
-        animal = self.MAIN_SERUM_ANIMAL
-        tracer_peak_groups = animal.all_serum_samples_tracer_peak_groups()
-        # lets just try computational equivalence of the previous
-        # implementation, for now
-        last_pg = tracer_peak_groups[-1]
-        self.assertEqual(
-            last_pg.rate_disappearance_intact_per_gram, animal.tracer_Rd_intact_g
-        )
-        self.assertEqual(
-            last_pg.rate_appearance_intact_per_gram, animal.tracer_Ra_intact_g
-        )
-        self.assertEqual(
-            last_pg.rate_disappearance_intact_normalized, animal.tracer_Rd_intact
-        )
-        self.assertEqual(
-            last_pg.rate_appearance_intact_normalized, animal.tracer_Ra_intact
-        )
-        self.assertEqual(
-            last_pg.rate_disappearance_average_per_gram, animal.tracer_Rd_avg_g
-        )
-        self.assertEqual(
-            last_pg.rate_appearance_average_per_gram, animal.tracer_Ra_avg_g
-        )
-        self.assertEqual(
-            last_pg.rate_disappearance_average_normalized, animal.tracer_Rd_avg
-        )
-        self.assertEqual(
-            last_pg.rate_appearance_average_normalized, animal.tracer_Ra_avg
-        )
-
-    @tag("fcirc")
-    def test_tracer_Rd_intact_g(self):
-        animal = self.MAIN_SERUM_ANIMAL
-        self.assertAlmostEqual(animal.tracer_Rd_intact_g, 14.96, places=2)
-
-    @tag("fcirc")
-    def test_tracer_Ra_intact_g(self):
-        animal = self.MAIN_SERUM_ANIMAL
-        self.assertAlmostEqual(animal.tracer_Ra_intact_g, 12.41, places=2)
-
-    @tag("fcirc")
-    def test_tracer_Rd_intact(self):
-        animal = self.MAIN_SERUM_ANIMAL
-        self.assertAlmostEqual(animal.tracer_Rd_intact, 393.50, places=2)
-
-    @tag("fcirc")
-    def test_tracer_Ra_intact(self):
-        animal = self.MAIN_SERUM_ANIMAL
-        self.assertAlmostEqual(animal.tracer_Ra_intact, 326.38, places=2)
-
-    @tag("fcirc")
-    def test_tracer_Rd_avg_g(self):
-        animal = self.MAIN_SERUM_ANIMAL
-        self.assertAlmostEqual(animal.tracer_Rd_avg_g, 14.96, places=2)
-
-    @tag("fcirc")
-    def test_tracer_Ra_avg_g(self):
-        animal = self.MAIN_SERUM_ANIMAL
-        self.assertAlmostEqual(animal.tracer_Ra_avg_g, 12.41, places=2)
-
-    @tag("fcirc")
-    def test_tracer_Rd_avg(self):
-        animal = self.MAIN_SERUM_ANIMAL
-        self.assertAlmostEqual(animal.tracer_Rd_avg, 393.50, places=2)
-
-    @tag("fcirc")
-    def test_tracer_Ra_avg(self):
-        animal = self.MAIN_SERUM_ANIMAL
-        self.assertAlmostEqual(animal.tracer_Ra_avg, 326.38, places=2)
-
-    @tag("fcirc")
-    def test_tracer_Fcirc_intact(self):
-        """
-        The test load file DataRepo/example_data/obob_maven_6eaas_serum.xlsx
-        only has serum sample data for serum-xz971 (i.e. MAIN_SERUM_ANIMAL),
-        serum-xz972, serum-xz981, serum-xz982 (so those are the only animals
-        (971,972,981,982)/samples we can test, here)
-        """
-        animal = self.MAIN_SERUM_ANIMAL
-        self.assertAlmostEqual(animal.tracer_Fcirc_intact, 12.41, places=2)
-
-    @tag("fcirc")
-    def test_tracer_Fcirc_avg(self):
-        animal = self.MAIN_SERUM_ANIMAL
-        self.assertAlmostEqual(animal.tracer_Fcirc_avg, 12.41, places=2)
-
-    @tag("fcirc")
-    def test_tracer_Fcirc_intact_per_mouse(self):
-        animal = self.MAIN_SERUM_ANIMAL
-        self.assertAlmostEqual(animal.tracer_Fcirc_intact_per_mouse, 326.38, places=2)
-
-    @tag("fcirc")
-    def test_tracer_Fcirc_avg_per_mouse(self):
-        animal = self.MAIN_SERUM_ANIMAL
-        self.assertAlmostEqual(animal.tracer_Fcirc_avg_per_mouse, 326.38, places=2)
-
-    @tag("fcirc")
-    def test_tracer_Fcirc_avg_atom(self):
-        animal = self.MAIN_SERUM_ANIMAL
-        self.assertAlmostEqual(animal.tracer_Fcirc_avg_atom, 74.46, places=2)
-
-    @tag("fcirc")
-    def test_animal_tracer_Fcirc_intact_missing_serum(self):
-        """
-        The test load file DataRepo/example_data/obob_maven_6eaas_serum.xlsx
-        only has serum sample data for serum-xz971, serum-xz972, serum-xz981,
-        serum-xz982 (so those are the only animals (971,972,981,982)/samples we
-        can test, here)
-        """
-        animal = Animal.objects.get(name="970")
-        with self.assertWarns(UserWarning):
-            self.assertIsNone(animal.tracer_Fcirc_intact)
-
-    @tag("fcirc")
-    def test_animal_tracer_Fcirc_avg_missing_serum(self):
-        animal = Animal.objects.get(name="970")
-        with self.assertWarns(UserWarning):
-            self.assertIsNone(animal.tracer_Fcirc_avg)
-
-    @tag("fcirc")
-    def test_animal_tracer_Fcirc_missing_body_weight(self):
-        weightless_animal = self.MAIN_SERUM_ANIMAL
-        weightless_animal.body_weight = None
-        # we won't save this edit back to the database
-        with self.assertWarns(UserWarning):
-            self.assertIsNone(weightless_animal.tracer_Rd_avg)
-            self.assertIsNone(weightless_animal.tracer_Ra_avg)
-            self.assertIsNone(weightless_animal.tracer_Rd_intact)
-            self.assertIsNone(weightless_animal.tracer_Ra_intact)
-            self.assertIsNone(weightless_animal.tracer_Fcirc_intact_per_mouse)
-            self.assertIsNone(weightless_animal.tracer_Fcirc_avg_per_mouse)
-
-    @tag("fcirc")
-    def test_animal_tracer_Fcirc_missing_labeled_count(self):
-        labelless_animal = self.MAIN_SERUM_ANIMAL
-        labelless_animal.tracer_labeled_count = None
-        # we won't save this edit back to the database
-        with self.assertWarns(UserWarning):
-            self.assertIsNone(labelless_animal.intact_tracer_peak_data())
-            self.assertIsNone(labelless_animal.tracer_Fcirc_avg_atom)
+            self.assertIsNone(
+                refeshed_animal.final_serum_tracer_rate_appearance_average_weight_normalized
+            )
 
     def test_restricted_animal_treatment_deletion(self):
         treatment = Animal.objects.get(name="exp024f_M2").treatment
@@ -791,7 +657,7 @@ class DataLoadingTests(TestCase):
             time_collected=first_serum_sample.time_collected + timedelta(minutes=1),
         )
 
-        serum_samples = first_serum_sample.animal.all_serum_samples()
+        serum_samples = first_serum_sample.animal.all_serum_samples
         # there should now be 2 serum samples for this animal
         self.assertEqual(serum_samples.count(), 2)
         final_serum_sample = first_serum_sample.animal.final_serum_sample
@@ -990,6 +856,284 @@ class DataLoadingTests(TestCase):
         )
         # Test that basically, no exception occurred
         self.assertTrue(True)
+
+    @tag("fcirc")
+    def test_peakgroup_is_tracer_compound_group_false(self):
+        # get a non tracer compound from a serum sample
+        compound = Compound.objects.get(name="tryptophan")
+        sample = Sample.objects.get(name="serum-xz971")
+        pg = sample.peak_groups(compound).last()
+        with self.assertWarns(UserWarning):
+            self.assertFalse(pg.is_tracer_compound_group)
+
+    @tag("fcirc")
+    def test_peakgroup_from_serum_sample_false(self):
+        # get a tracer compound from a non-serum sample
+        compound = Compound.objects.get(name="glucose")
+        sample = Sample.objects.get(name="Liv-xz982")
+        pg = sample.peak_groups(compound).last()
+        with self.assertWarns(UserWarning):
+            self.assertFalse(pg.from_serum_sample)
+
+    @tag("fcirc")
+    def test_peakgroup_can_compute_tracer_rates_true(self):
+        # get a tracer compound from a  sample
+        compound = Compound.objects.get(name="lysine")
+        sample = Sample.objects.get(name="serum-xz971")
+        pg = sample.peak_groups(compound).last()
+        self.assertTrue(pg.can_compute_tracer_rates)
+
+    @tag("fcirc")
+    def test_peakgroup_can_compute_tracer_rates_false_no_rate(self):
+        # get a tracer compound from a  sample
+        compound = Compound.objects.get(name="lysine")
+        sample = Sample.objects.get(name="serum-xz971")
+        pg = sample.peak_groups(compound).last()
+        animal = pg.animal
+        # but if the animal tracer_infusion_rate is not defined...
+        orig_tir = animal.tracer_infusion_rate
+        animal.tracer_infusion_rate = None
+        animal.save()
+        pgf = animal.final_serum_sample_tracer_peak_group
+        with self.assertWarns(UserWarning):
+            self.assertFalse(pgf.can_compute_tracer_rates)
+        # revert
+        animal.tracer_infusion_rate = orig_tir
+        animal.save()
+
+    @tag("fcirc")
+    def test_peakgroup_can_compute_tracer_rates_false_no_conc(self):
+        # get a tracer compound from a sample
+        compound = Compound.objects.get(name="lysine")
+        sample = Sample.objects.get(name="serum-xz971")
+        pg = sample.peak_groups(compound).last()
+        animal = pg.animal
+        # but if the animal tracer_infusion_concentration is not defined...
+        orig_tic = animal.tracer_infusion_concentration
+        animal.tracer_infusion_concentration = None
+        animal.save()
+        pgf = animal.final_serum_sample_tracer_peak_group
+        with self.assertWarns(UserWarning):
+            self.assertFalse(pgf.can_compute_tracer_rates)
+        # revert
+        animal.tracer_infusion_concentration = orig_tic
+        animal.save()
+
+    @tag("fcirc")
+    def test_peakgroup_can_compute_weight_normalized_tracer_rates_true(self):
+        animal = self.MAIN_SERUM_ANIMAL
+        pg = animal.final_serum_sample_tracer_peak_group
+        self.assertTrue(pg.can_compute_weight_normalized_tracer_rates)
+
+    @tag("fcirc")
+    def test_peakgroup_can_compute_weight_normalized_tracer_rates_false(self):
+        animal = self.MAIN_SERUM_ANIMAL
+        orig_bw = animal.body_weight
+        animal.body_weight = None
+        animal.save()
+        pg = animal.final_serum_sample_tracer_peak_group
+        with self.assertWarns(UserWarning):
+            self.assertFalse(pg.can_compute_weight_normalized_tracer_rates)
+        # revert
+        animal.body_weight = orig_bw
+        animal.save()
+
+    @tag("fcirc")
+    def test_peakgroup_can_compute_intact_tracer_rates_true(self):
+        pg = self.MAIN_SERUM_ANIMAL.final_serum_sample_tracer_peak_group
+        self.assertTrue(pg.can_compute_intact_tracer_rates)
+
+    @tag("fcirc")
+    def test_peakgroup_can_compute_intact_tracer_rates_false(self):
+        pg = self.MAIN_SERUM_ANIMAL.final_serum_sample_tracer_peak_group
+        pgid = pg.id
+        intact_peakdata = pg.peak_data.filter(
+            labeled_count=self.MAIN_SERUM_ANIMAL.tracer_labeled_count
+        ).get()
+        orig_lc = intact_peakdata.labeled_count
+        # set to something crazy, or None
+        intact_peakdata.labeled_count = 42
+        intact_peakdata.save()
+        pgf = PeakGroup.objects.get(id=pgid)
+        with self.assertWarns(UserWarning):
+            self.assertFalse(pgf.can_compute_intact_tracer_rates)
+        # revert
+        intact_peakdata.labeled_count = orig_lc
+        intact_peakdata.save()
+
+    @tag("fcirc")
+    def test_peakgroup_can_compute_average_tracer_rates_true(self):
+        pg = self.MAIN_SERUM_ANIMAL.final_serum_sample_tracer_peak_group
+        self.assertTrue(pg.can_compute_average_tracer_rates)
+
+    @tag("fcirc")
+    def test_peakgroup_can_compute_average_tracer_rates_false(self):
+        # need to invalidate the computed/cached enrichment_fraction, somehow
+        pg = self.MAIN_SERUM_ANIMAL.final_serum_sample_tracer_peak_group
+        # simplest way?
+        pg.enrichment_fraction = None
+        with self.assertWarns(UserWarning):
+            self.assertFalse(pg.can_compute_average_tracer_rates)
+
+
+class TracerRateTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        call_command("load_compounds", "DataRepo/example_data/obob_compounds.tsv")
+
+        call_command(
+            "load_animals_and_samples",
+            sample_table_filename="DataRepo/example_data/obob_samples_table.tsv",
+            animal_table_filename="DataRepo/example_data/obob_animals_table.tsv",
+            table_headers="DataRepo/example_data/sample_and_animal_tables_headers.yaml",
+        )
+
+        # for the fcirc and rate-calculation tests
+        call_command(
+            "load_accucor_msruns",
+            protocol="Default",
+            accucor_file="DataRepo/example_data/obob_maven_c160_serum.xlsx",
+            date="2021-04-29",
+            researcher="Xianfeng Zhang",
+        )
+
+        # defining a primary animal object for repeated tests
+        cls.MAIN_SERUM_ANIMAL = Animal.objects.get(name="970")
+
+    @tag("fcirc")
+    def test_peakgroup_is_tracer_compound_group(self):
+        pg = self.MAIN_SERUM_ANIMAL.final_serum_sample_tracer_peak_group
+        self.assertTrue(pg.is_tracer_compound_group)
+        self.assertEqual(pg.name, "C16:0")
+
+    @tag("fcirc")
+    def test_peakgroup_from_serum_sample(self):
+        pg = self.MAIN_SERUM_ANIMAL.final_serum_sample_tracer_peak_group
+        self.assertTrue(pg.from_serum_sample)
+
+    @tag("fcirc")
+    def test_peakgroup_can_compute_tracer_rates(self):
+        pg = self.MAIN_SERUM_ANIMAL.final_serum_sample_tracer_peak_group
+        self.assertTrue(pg.can_compute_tracer_rates)
+
+    @tag("fcirc")
+    def test_peakgroup_can_compute_weight_normalized_tracer_rates(self):
+        pg = self.MAIN_SERUM_ANIMAL.final_serum_sample_tracer_peak_group
+        self.assertTrue(pg.can_compute_weight_normalized_tracer_rates)
+
+    @tag("fcirc")
+    def test_peakgroup_can_compute_intact_tracer_rates(self):
+        pg = self.MAIN_SERUM_ANIMAL.final_serum_sample_tracer_peak_group
+        self.assertTrue(pg.can_compute_intact_tracer_rates)
+
+    @tag("fcirc")
+    def test_peakgroup_can_compute_average_tracer_rates(self):
+        pg = self.MAIN_SERUM_ANIMAL.final_serum_sample_tracer_peak_group
+        self.assertTrue(pg.can_compute_average_tracer_rates)
+
+    @tag("fcirc")
+    def test_nontracer_peakgroup_calculation_attempts(self):
+        animal = self.MAIN_SERUM_ANIMAL
+        nontracer_compound = Compound.objects.get(name="succinate")
+        # but let's get a peakgroup for a compound we know is not the tracer
+        pgs = animal.final_serum_sample.peak_groups(nontracer_compound)
+        # should only be one in this specific case
+        non_tracer_pg = pgs[0]
+        with self.assertWarns(UserWarning):
+            # tryptophan is not the tracer
+            self.assertFalse(non_tracer_pg.is_tracer_compound_group)
+        # and none of these should return a value
+        with self.assertWarns(UserWarning):
+            self.assertIsNone(non_tracer_pg.rate_disappearance_intact_per_gram)
+        with self.assertWarns(UserWarning):
+            self.assertIsNone(non_tracer_pg.rate_appearance_intact_per_gram)
+        with self.assertWarns(UserWarning):
+            self.assertIsNone(non_tracer_pg.rate_disappearance_intact_weight_normalized)
+        with self.assertWarns(UserWarning):
+            self.assertIsNone(non_tracer_pg.rate_appearance_intact_weight_normalized)
+        with self.assertWarns(UserWarning):
+            self.assertIsNone(non_tracer_pg.rate_disappearance_average_per_gram)
+        with self.assertWarns(UserWarning):
+            self.assertIsNone(non_tracer_pg.rate_appearance_average_per_gram)
+        with self.assertWarns(UserWarning):
+            self.assertIsNone(
+                non_tracer_pg.rate_disappearance_average_weight_normalized
+            )
+        with self.assertWarns(UserWarning):
+            self.assertIsNone(non_tracer_pg.rate_appearance_average_weight_normalized)
+
+    @tag("fcirc")
+    def test_final_serum_tracer_rate_disappearance_intact_per_gram(self):
+        animal = self.MAIN_SERUM_ANIMAL
+        self.assertAlmostEqual(
+            animal.final_serum_tracer_rate_disappearance_intact_per_gram,
+            38.83966501,
+            places=2,
+        )
+
+    @tag("fcirc")
+    def test_final_serum_tracer_rate_appearance_intact_per_gram(self):
+        animal = self.MAIN_SERUM_ANIMAL
+        self.assertAlmostEqual(
+            animal.final_serum_tracer_rate_appearance_intact_per_gram,
+            34.35966501,
+            places=2,
+        )
+
+    @tag("fcirc")
+    def test_final_serum_tracer_rate_disappearance_intact_weight_normalized(self):
+        animal = self.MAIN_SERUM_ANIMAL
+        self.assertAlmostEqual(
+            animal.final_serum_tracer_rate_disappearance_intact_weight_normalized,
+            1040.903022,
+            places=2,
+        )
+
+    @tag("fcirc")
+    def test_final_serum_tracer_rate_appearance_intact_weight_normalized(self):
+        animal = self.MAIN_SERUM_ANIMAL
+        self.assertAlmostEqual(
+            animal.final_serum_tracer_rate_appearance_intact_weight_normalized,
+            920.8390222,
+            places=2,
+        )
+
+    @tag("fcirc")
+    def test_final_serum_tracer_rate_disappearance_average_per_gram(self):
+        animal = self.MAIN_SERUM_ANIMAL
+        self.assertAlmostEqual(
+            animal.final_serum_tracer_rate_disappearance_average_per_gram,
+            37.36671487,
+            places=2,
+        )
+
+    @tag("fcirc")
+    def test_final_serum_tracer_rate_appearance_average_per_gram(self):
+        animal = self.MAIN_SERUM_ANIMAL
+        self.assertAlmostEqual(
+            animal.final_serum_tracer_rate_appearance_average_per_gram,
+            32.88671487,
+            places=2,
+        )
+
+    @tag("fcirc")
+    def test_final_serum_tracer_rate_disappearance_average_weight_normalized(self):
+        animal = self.MAIN_SERUM_ANIMAL
+        # doublecheck weight, because test is not exact but test_tracer_Rd_avg_g was fine
+        self.assertAlmostEqual(
+            animal.final_serum_tracer_rate_disappearance_average_weight_normalized,
+            1001.427958,
+            places=2,
+        )
+
+    @tag("fcirc")
+    def test_final_serum_tracer_rate_appearance_average_weight_normalized(self):
+        animal = self.MAIN_SERUM_ANIMAL
+        self.assertAlmostEqual(
+            animal.final_serum_tracer_rate_appearance_average_weight_normalized,
+            881.3639585,
+            places=2,
+        )
 
 
 class AnimalAndSampleLoadingTests(TestCase):

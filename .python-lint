@@ -227,6 +227,7 @@ generated-members=
     self.final_serum_sample,
     self.animal
 
+
 # Tells whether missing members accessed in mixin class should be ignored. A
 # mixin class is detected if its name ends with "mixin" (case insensitive).
 ignore-mixin-members=yes
