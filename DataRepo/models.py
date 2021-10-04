@@ -1047,7 +1047,7 @@ class PeakGroup(models.Model):
             and intact_peakdata.fraction
             and intact_peakdata.fraction > 0
         ):
-            return intact_peakdata.fraction
+            return True
         else:
             warnings.warn(
                 f"PeakGroup {self.name} has no fully labeled/intact peakdata."
@@ -1059,15 +1059,14 @@ class PeakGroup(models.Model):
         """
         Instance method which returns True if a peak_group rate metric can be
         calculated using averaged enrichment measurements of a tracer's
-        peakdata.  Returns the peakgroup.enrichment, if it exists and is greater
-        than zero.
+        peakdata.
         """
         if not self.can_compute_tracer_rates:
             warnings.warn(f"{self.name} cannot compute tracer rates.")
             return False
 
         if self.enrichment_fraction and self.enrichment_fraction > 0:
-            return self.enrichment_fraction
+            return True
         else:
             warnings.warn(f"PeakGroup {self.name} has no enrichment_fraction.")
             return False
@@ -1075,12 +1074,15 @@ class PeakGroup(models.Model):
     @cached_property
     def rate_disappearance_intact_per_gram(self):
         """Rate of Disappearance (intact)"""
-
-        fraction = self.can_compute_intact_tracer_rates
-
-        if not fraction:
+        if not self.can_compute_intact_tracer_rates:
             warnings.warn(f"{self.name} cannot compute intact tracer rate.")
             return None
+
+        fraction = (
+            self.peak_data.filter(labeled_count=self.animal.tracer_labeled_count)
+            .get()
+            .fraction
+        )
 
         return (
             self.animal.tracer_infusion_rate
@@ -1130,14 +1132,13 @@ class PeakGroup(models.Model):
         Rd_avg_g = [Infusate] * 'Infusion Rate' / 'Enrichment Fraction'
         in nmol/min/g
         """
-        enrichment_fraction = self.can_compute_average_tracer_rates
-        if not enrichment_fraction:
+        if not self.can_compute_average_tracer_rates:
             warnings.warn(f"{self.name} cannot compute average tracer rate.")
             return None
         return (
             self.animal.tracer_infusion_concentration
             * self.animal.tracer_infusion_rate
-            / enrichment_fraction
+            / self.enrichment_fraction
         )
 
     @cached_property
