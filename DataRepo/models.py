@@ -382,7 +382,7 @@ class Animal(models.Model, TracerLabeledClass):
         typically.
         """
         return (
-            self.samples.filter(tissue__name=Tissue.SERUM_TISSUE_NAME)
+            self.samples.filter(tissue__name__startswith=Tissue.SERUM_TISSUE_PREFIX)
             .order_by("time_collected")
             .all()
         )
@@ -398,7 +398,7 @@ class Animal(models.Model, TracerLabeledClass):
         """
 
         final_serum_sample = (
-            self.samples.filter(tissue__name=Tissue.SERUM_TISSUE_NAME)
+            self.samples.filter(tissue__name__startswith=Tissue.SERUM_TISSUE_PREFIX)
             .order_by("time_collected")
             .last()
         )
@@ -634,7 +634,7 @@ class Tissue(models.Model):
         verbose_name_plural = "tissues"
         ordering = ["name"]
 
-    SERUM_TISSUE_NAME = "serum"
+    SERUM_TISSUE_PREFIX = "serum_plasma"
 
     def __str__(self):
         return str(self.name)
@@ -720,7 +720,9 @@ class Sample(models.Model):
         """returns True is the sample is flagged as a "serum" sample"""
 
         # NOTE: this logic may have to change in the future
-        if self.tissue.name == Tissue.SERUM_TISSUE_NAME:
+        if self.tissue in Tissue.objects.filter(
+            name__startswith=Tissue.SERUM_TISSUE_PREFIX
+        ):
             return True
         else:
             return False
@@ -923,7 +925,7 @@ class PeakGroup(models.Model):
         try:
             final_serum_sample = (
                 Sample.objects.filter(animal_id=self.msrun.sample.animal.id)
-                .filter(tissue__name=Tissue.SERUM_TISSUE_NAME)
+                .filter(tissue__name__startswith=Tissue.SERUM_TISSUE_PREFIX)
                 .latest("time_collected")
             )
             serum_peak_group = (
