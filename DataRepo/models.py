@@ -1007,7 +1007,7 @@ class PeakGroup(models.Model):
     @cached_property
     def can_compute_body_weight_tracer_rates(self):
         """
-        Instance method which returns True if a peak_group rate metric can utili
+        Instance method which returns True if a peak_group rate metric can utilize
         the associated animal.body_weight
         """
         if not self.animal.body_weight:
