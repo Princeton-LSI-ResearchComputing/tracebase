@@ -5,7 +5,7 @@ from typing import List
 from django.conf import settings
 from django.core.management import call_command
 from django.db.models import Q
-from django.http import Http404
+from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.test import TestCase
 from django.test.utils import setup_databases, setup_test_environment
@@ -35,6 +35,13 @@ from DataRepo.utils import MissingSamplesError, ResearcherError
 
 def home(request):
     return render(request, "home.html")
+
+
+def index(request):
+    if request.user.is_authenticated:
+        return HttpResponse('<p>Welcome to <a href="https://djangocas.dev">django-cas-ng</a>.</p><p>You logged in as <strong>%s</strong>.</p><p><a href="/accounts/logout">Logout</a></p>' % request.user)
+    else:
+        return HttpResponse('<p>Welcome to <a href="https://djangocas.dev">django-cas-ng</a>.</p><p><a href="/accounts/login">Login</a></p>')
 
 
 def upload(request):

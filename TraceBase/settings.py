@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    'django_cas_ng',
 ]
 
 MIDDLEWARE = [
@@ -53,7 +54,13 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    'django_cas_ng.middleware.CASMiddleware',
 ]
+
+AUTHENTICATION_BACKENDS = (
+    'django.contrib.auth.backends.ModelBackend',
+    'django_cas_ng.backends.CASBackend',
+)
 
 ROOT_URLCONF = "TraceBase.urls"
 
@@ -143,6 +150,12 @@ FILE_UPLOAD_HANDLERS = [
 DATA_SUBMISSION_URL = "https://forms.gle/Jyp94aiGmhBNLZh6A"
 DATA_SUBMISSION_EMAIL = "csgenome@princeton.edu"
 
+# https://sp2016.princeton.edu/oit/eis/iam/authentication/CAS/CAS%20Developer%20KB.aspx
+CAS_SERVER_URL = "https://fed.princeton.edu/cas/login"
+CAS_VERSION = 3
+CAS_CREATE_USER = False
+
+DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
 
 # Logging settings
 # This logging level was added to show the number of SQL queries in the server console
