@@ -123,25 +123,20 @@ class SampleTableLoader:
         self.validate_sample_table(data, skip_researcher_check=skip_researcher_check)
         for row in data:
 
-            name = self.getRowVal(row, self.headers.TISSUE_NAME)
+            tissue_name = self.getRowVal(row, self.headers.TISSUE_NAME)
 
             # Skip BLANK rows
-            if name == self.blank:
+            if tissue_name == self.blank:
                 print("Skipping row: Tissue field is empty, assuming blank sample")
                 continue
 
             # Tissue
-            created = False
-            if name is not None:
-                tissue, created = Tissue.objects.get_or_create(name=name)
-            if created:
-                print(f"Created new record: Tissue:{tissue}")
-                try:
-                    tissue.full_clean()
-                    tissue.save()
-                except Exception as e:
-                    print(f"Error saving record: Tissue:{tissue}")
-                    raise (e)
+            try:
+                tissue = Tissue.objects.get(name=tissue_name)
+            except Tissue.DoesNotExist as e:
+                raise Tissue.DoesNotExist(
+                    f"Invalid tissue type specified: '{tissue_name}'"
+                ) from e
 
             # Study
             study_exists = False

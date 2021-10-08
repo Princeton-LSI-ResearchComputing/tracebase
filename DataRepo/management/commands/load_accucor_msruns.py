@@ -72,6 +72,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         print("Reading accucor file: " + options["accucor_file"])
+        print(f"LOADING WITH PREFIX: {options['sample_name_prefix']}")
 
         # Note, setting `mangle_dupe_cols=False` would overwrite duplicates instead of raise an exception, so we're
         # checking for duplicate headers manually here.

@@ -35,6 +35,7 @@ from DataRepo.views import (
 class ViewTests(TestCase):
     @classmethod
     def setUpTestData(cls):
+        call_command("loaddata", "tissues.yaml")
         call_command(
             "load_compounds",
             "DataRepo/example_data/small_dataset/small_obob_compounds.tsv",

@@ -317,6 +317,7 @@ class ProtocolTests(TestCase):
 class DataLoadingTests(TestCase):
     @classmethod
     def setUpTestData(cls):
+        call_command("loaddata", "tissues.yaml")
         call_command("load_compounds", "DataRepo/example_data/obob_compounds.tsv")
         cls.ALL_COMPOUNDS_COUNT = 32
 
@@ -398,8 +399,9 @@ class DataLoadingTests(TestCase):
         self.assertEqual(sample.time_collected, timedelta(minutes=150))
         self.assertEqual(sample.researcher, "Xianfeng Zhang")
         self.assertEqual(sample.animal.name, "969")
-        self.assertEqual(sample.tissue.name, "BAT")
+        self.assertEqual(sample.tissue.name, "brown_adipose_tissue")
 
+    @tag("serum")
     def test_sample_is_serum(self):
         serum = Sample.objects.get(name="serum-xz971")
         self.assertTrue(serum.is_serum_sample)
@@ -430,6 +432,7 @@ class DataLoadingTests(TestCase):
             "For protocol's full text, please consult Michael Neinast.",
         )
 
+    @tag("serum")
     def test_animal_serum_sample_methods(self):
         animal = self.MAIN_SERUM_ANIMAL
         serum_samples = animal.all_serum_samples
@@ -438,6 +441,7 @@ class DataLoadingTests(TestCase):
         self.assertEqual(final_serum_sample.name, "serum-xz971")
         self.assertEqual(final_serum_sample.name, serum_samples.last().name)
 
+    @tag("serum")
     def test_sample_peak_groups(self):
         animal = self.MAIN_SERUM_ANIMAL
         final_serum_sample = animal.final_serum_sample
@@ -456,6 +460,7 @@ class DataLoadingTests(TestCase):
             sample_tracer_peak_groups.get().id, animal_tracer_peak_group.id
         )
 
+    @tag("serum")
     def test_sample_peak_data(self):
         animal = self.MAIN_SERUM_ANIMAL
         final_serum_sample = animal.final_serum_sample
@@ -469,6 +474,7 @@ class DataLoadingTests(TestCase):
         peakdata2 = animal.final_serum_sample_tracer_peak_data
         self.assertEqual(peakdata.last().id, peakdata2.last().id)
 
+    @tag("serum")
     def test_missing_time_collected_warning(self):
         final_serum_sample = self.MAIN_SERUM_ANIMAL.final_serum_sample
         # pretend the time_collected did not exist
@@ -479,7 +485,7 @@ class DataLoadingTests(TestCase):
         with self.assertWarns(UserWarning):
             final_serum_sample = refeshed_animal.final_serum_sample
 
-    @tag("fcirc")
+    @tag("fcirc", "serum")
     def test_missing_serum_sample_peak_data(self):
         animal = self.MAIN_SERUM_ANIMAL
         final_serum_sample = animal.final_serum_sample
@@ -979,6 +985,7 @@ class DataLoadingTests(TestCase):
 class TracerRateTests(TestCase):
     @classmethod
     def setUpTestData(cls):
+        call_command("loaddata", "tissues.yaml")
         call_command("load_compounds", "DataRepo/example_data/obob_compounds.tsv")
 
         call_command(
@@ -1139,6 +1146,7 @@ class TracerRateTests(TestCase):
 class AnimalAndSampleLoadingTests(TestCase):
     @classmethod
     def setUpTestData(cls):
+        call_command("loaddata", "tissues.yaml")
         call_command("load_compounds", "DataRepo/example_data/obob_compounds.tsv")
         cls.ALL_COMPOUNDS_COUNT = 32
 
@@ -1170,6 +1178,7 @@ class AnimalAndSampleLoadingTests(TestCase):
 class AccuCorDataLoadingTests(TestCase):
     @classmethod
     def setUpTestData(cls):
+        call_command("loaddata", "tissues.yaml")
         call_command("load_compounds", "DataRepo/example_data/obob_compounds.tsv")
 
         call_command(
@@ -1246,6 +1255,7 @@ class AccuCorDataLoadingTests(TestCase):
 @tag("load_study")
 class StudyLoadingTests(TestCase):
     def test_load_small_obob_study(self):
+        call_command("loaddata", "tissues.yaml")
         call_command(
             "load_study",
             "DataRepo/example_data/small_dataset/small_obob_study_params.yaml",
@@ -1263,6 +1273,7 @@ class StudyLoadingTests(TestCase):
 class ParseIsotopeLabelTests(TestCase):
     @classmethod
     def setUpTestData(cls):
+        call_command("loaddata", "tissues.yaml")
         call_command("load_compounds", "DataRepo/example_data/obob_compounds.tsv")
 
         call_command(

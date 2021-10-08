@@ -1,0 +1,175 @@
+- model: DataRepo.tissue
+  pk: 1
+  fields:
+    name: brown_adipose_tissue
+    description: brown adipose tissue
+- model: DataRepo.tissue
+  pk: 2
+  fields:
+    name: brain
+    description: whole brain
+- model: DataRepo.tissue
+  pk: 3
+  fields:
+    name: diaphragm
+    description: diaphragm muscle
+- model: DataRepo.tissue
+  pk: 4
+  fields:
+    name: gastrocnemius
+    description: gastrocnemius muscle
+- model: DataRepo.tissue
+  pk: 5
+  fields:
+    name: white_adipose_tissue_gonadal
+    description: gonadal white adipose tissue
+- model: DataRepo.tissue
+  pk: 6
+  fields:
+    name: heart
+    description: heart muscle (ventricle)
+- model: DataRepo.tissue
+  pk: 7
+  fields:
+    name: kidney
+    description: kidney
+- model: DataRepo.tissue
+  pk: 8
+  fields:
+    name: liver
+    description: liver
+- model: DataRepo.tissue
+  pk: 9
+  fields:
+    name: lung
+    description: lung
+- model: DataRepo.tissue
+  pk: 10
+  fields:
+    name: pancreas
+    description: pancreas
+- model: DataRepo.tissue
+  pk: 11
+  fields:
+    name: quadricep
+    description: quadricep muscle
+- model: DataRepo.tissue
+  pk: 12
+  fields:
+    name: serum_plasma_unspecified_location
+    description: serum or plasma - only use when the source is unknown
+- model: DataRepo.tissue
+  pk: 13
+  fields:
+    name: small_intestine
+    description: small intestine
+- model: DataRepo.tissue
+  pk: 14
+  fields:
+    name: soleus
+    description: soleus
+- model: DataRepo.tissue
+  pk: 15
+  fields:
+    name: skeletal_muscle_unspecified_location
+    description: unspecified skeletal muscle - only use this if source muscle is unknown
+- model: DataRepo.tissue
+  pk: 16
+  fields:
+    name: colon
+    description: colon
+- model: DataRepo.tissue
+  pk: 17
+  fields:
+    name: white_adipose_tissue_inguinal
+    description: inguinal white adipose tissue
+- model: DataRepo.tissue
+  pk: 18
+  fields:
+    name: white_adipose_tissue_unspecified_location
+    description: unspecified white adipose tissue - only use this if source fat depot is unknown
+- model: DataRepo.tissue
+  pk: 19
+  fields:
+    name: spleen
+    description: spleen
+- model: DataRepo.tissue
+  pk: 20
+  fields:
+    name: serum_plasma_tail
+    description: serum or plasma collected from tail snip
+- model: DataRepo.tissue
+  pk: 21
+  fields:
+    name: serum_plasma_artery
+    description: serum or plasma collected from any artery
+- model: DataRepo.tissue
+  pk: 22
+  fields:
+    name: serum_plasma_portal
+    description: serum or plasma collected from portal vein
+- model: DataRepo.tissue
+  pk: 23
+  fields:
+    name: thymus
+    description: thymus
+- model: DataRepo.tissue
+  pk: 24
+  fields:
+    name: ear
+    description: outer ear, usually collected as a representative skin sample
+- model: DataRepo.tissue
+  pk: 25
+  fields:
+    name: skin
+    description: unspecified source of skin - only use this if source of skin is unknown
+- model: DataRepo.tissue
+  pk: 26
+  fields:
+    name: stomach
+    description: stomach
+- model: DataRepo.tissue
+  pk: 27
+  fields:
+    name: cecum
+    description: cecum
+- model: DataRepo.tissue
+  pk: 28
+  fields:
+    name: cecum_contents
+    description: cecum contents
+- model: DataRepo.tissue
+  pk: 29
+  fields:
+    name: tibialus_anterior
+    description: tibialus anterior muscle
+- model: DataRepo.tissue
+  pk: 30
+  fields:
+    name: eye
+    description: eyeball
+- model: DataRepo.tissue
+  pk: 31
+  fields:
+    name: testicle
+    description: testicle
+- model: DataRepo.tissue
+  pk: 32
+  fields:
+    name: ovary
+    description: ovary
+- model: DataRepo.tissue
+  pk: 33
+  fields:
+    name: uterus
+    description: uterus
+- model: DataRepo.tissue
+  pk: 34
+  fields:
+    name: tumor_nonspecific
+    description: unspecified tumor - only use this if other information is unknown
+- model: DataRepo.tissue
+  pk: 35
+  fields:
+    name: tumor_HCT116
+    description: xenograft tumor of HCT116 cells
