@@ -520,11 +520,11 @@ class DataLoadingTests(TestCase):
             )
         with self.assertWarns(UserWarning):
             self.assertIsNone(
-                refeshed_animal.final_serum_tracer_rate_disappearance_intact_weight_normalized
+                refeshed_animal.final_serum_tracer_rate_disappearance_intact_per_animal
             )
         with self.assertWarns(UserWarning):
             self.assertIsNone(
-                refeshed_animal.final_serum_tracer_rate_appearance_intact_weight_normalized
+                refeshed_animal.final_serum_tracer_rate_appearance_intact_per_animal
             )
         with self.assertWarns(UserWarning):
             self.assertIsNone(
@@ -536,11 +536,11 @@ class DataLoadingTests(TestCase):
             )
         with self.assertWarns(UserWarning):
             self.assertIsNone(
-                refeshed_animal.final_serum_tracer_rate_disappearance_average_weight_normalized
+                refeshed_animal.final_serum_tracer_rate_disappearance_average_per_animal
             )
         with self.assertWarns(UserWarning):
             self.assertIsNone(
-                refeshed_animal.final_serum_tracer_rate_appearance_average_weight_normalized
+                refeshed_animal.final_serum_tracer_rate_appearance_average_per_animal
             )
 
     def test_restricted_animal_treatment_deletion(self):
@@ -926,20 +926,20 @@ class DataLoadingTests(TestCase):
         animal.save()
 
     @tag("fcirc")
-    def test_peakgroup_can_compute_weight_normalized_tracer_rates_true(self):
+    def test_peakgroup_can_compute_body_weight_tracer_rates_true(self):
         animal = self.MAIN_SERUM_ANIMAL
         pg = animal.final_serum_sample_tracer_peak_group
-        self.assertTrue(pg.can_compute_weight_normalized_tracer_rates)
+        self.assertTrue(pg.can_compute_body_weight_tracer_rates)
 
     @tag("fcirc")
-    def test_peakgroup_can_compute_weight_normalized_tracer_rates_false(self):
+    def test_peakgroup_can_compute_body_weight_tracer_rates_false(self):
         animal = self.MAIN_SERUM_ANIMAL
         orig_bw = animal.body_weight
         animal.body_weight = None
         animal.save()
         pg = animal.final_serum_sample_tracer_peak_group
         with self.assertWarns(UserWarning):
-            self.assertFalse(pg.can_compute_weight_normalized_tracer_rates)
+            self.assertFalse(pg.can_compute_body_weight_tracer_rates)
         # revert
         animal.body_weight = orig_bw
         animal.save()
@@ -1024,9 +1024,9 @@ class TracerRateTests(TestCase):
         self.assertTrue(pg.can_compute_tracer_rates)
 
     @tag("fcirc")
-    def test_peakgroup_can_compute_weight_normalized_tracer_rates(self):
+    def test_peakgroup_can_compute_body_weight_tracer_rates(self):
         pg = self.MAIN_SERUM_ANIMAL.final_serum_sample_tracer_peak_group
-        self.assertTrue(pg.can_compute_weight_normalized_tracer_rates)
+        self.assertTrue(pg.can_compute_body_weight_tracer_rates)
 
     @tag("fcirc")
     def test_peakgroup_can_compute_intact_tracer_rates(self):
@@ -1055,19 +1055,17 @@ class TracerRateTests(TestCase):
         with self.assertWarns(UserWarning):
             self.assertIsNone(non_tracer_pg.rate_appearance_intact_per_gram)
         with self.assertWarns(UserWarning):
-            self.assertIsNone(non_tracer_pg.rate_disappearance_intact_weight_normalized)
+            self.assertIsNone(non_tracer_pg.rate_disappearance_intact_per_animal)
         with self.assertWarns(UserWarning):
-            self.assertIsNone(non_tracer_pg.rate_appearance_intact_weight_normalized)
+            self.assertIsNone(non_tracer_pg.rate_appearance_intact_per_animal)
         with self.assertWarns(UserWarning):
             self.assertIsNone(non_tracer_pg.rate_disappearance_average_per_gram)
         with self.assertWarns(UserWarning):
             self.assertIsNone(non_tracer_pg.rate_appearance_average_per_gram)
         with self.assertWarns(UserWarning):
-            self.assertIsNone(
-                non_tracer_pg.rate_disappearance_average_weight_normalized
-            )
+            self.assertIsNone(non_tracer_pg.rate_disappearance_average_per_animal)
         with self.assertWarns(UserWarning):
-            self.assertIsNone(non_tracer_pg.rate_appearance_average_weight_normalized)
+            self.assertIsNone(non_tracer_pg.rate_appearance_average_per_animal)
 
     @tag("fcirc")
     def test_final_serum_tracer_rate_disappearance_intact_per_gram(self):
@@ -1088,19 +1086,19 @@ class TracerRateTests(TestCase):
         )
 
     @tag("fcirc")
-    def test_final_serum_tracer_rate_disappearance_intact_weight_normalized(self):
+    def test_final_serum_tracer_rate_disappearance_intact_per_animal(self):
         animal = self.MAIN_SERUM_ANIMAL
         self.assertAlmostEqual(
-            animal.final_serum_tracer_rate_disappearance_intact_weight_normalized,
+            animal.final_serum_tracer_rate_disappearance_intact_per_animal,
             1040.903022,
             places=2,
         )
 
     @tag("fcirc")
-    def test_final_serum_tracer_rate_appearance_intact_weight_normalized(self):
+    def test_final_serum_tracer_rate_appearance_intact_per_animal(self):
         animal = self.MAIN_SERUM_ANIMAL
         self.assertAlmostEqual(
-            animal.final_serum_tracer_rate_appearance_intact_weight_normalized,
+            animal.final_serum_tracer_rate_appearance_intact_per_animal,
             920.8390222,
             places=2,
         )
@@ -1124,20 +1122,20 @@ class TracerRateTests(TestCase):
         )
 
     @tag("fcirc")
-    def test_final_serum_tracer_rate_disappearance_average_weight_normalized(self):
+    def test_final_serum_tracer_rate_disappearance_average_per_animal(self):
         animal = self.MAIN_SERUM_ANIMAL
         # doublecheck weight, because test is not exact but test_tracer_Rd_avg_g was fine
         self.assertAlmostEqual(
-            animal.final_serum_tracer_rate_disappearance_average_weight_normalized,
+            animal.final_serum_tracer_rate_disappearance_average_per_animal,
             1001.427958,
             places=2,
         )
 
     @tag("fcirc")
-    def test_final_serum_tracer_rate_appearance_average_weight_normalized(self):
+    def test_final_serum_tracer_rate_appearance_average_per_animal(self):
         animal = self.MAIN_SERUM_ANIMAL
         self.assertAlmostEqual(
-            animal.final_serum_tracer_rate_appearance_average_weight_normalized,
+            animal.final_serum_tracer_rate_appearance_average_per_animal,
             881.3639585,
             places=2,
         )
