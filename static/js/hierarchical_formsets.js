@@ -183,6 +183,7 @@ function addSearchFieldForm (myDiv, query, copyQuery, isInit, templateId) {
   let fldInitVal = ''
   var ncmpClone // eslint-disable-line no-var
   let ncmpInitVal = ''
+  var valClone // eslint-disable-line no-var
   for (let i = 0; i < clones.length; i++) {
     // If an invalid form was previously submitted, we will need to present errors
     const errors = []
@@ -209,9 +210,9 @@ function addSearchFieldForm (myDiv, query, copyQuery, isInit, templateId) {
       }
 
       if (keyname === 'fld') {
-        fldInitVal = clones[i].value
+        fldInitVal = copyQuery[keyname]
       } else if (keyname === 'ncmp') {
-        ncmpInitVal = clones[i].value
+        ncmpInitVal = copyQuery[keyname]
       }
     } else {
       query[clones[i].name] = clones[i].value
@@ -219,7 +220,7 @@ function addSearchFieldForm (myDiv, query, copyQuery, isInit, templateId) {
       if (keyname === 'fld') {
         fldInitVal = clones[i][0].value
       } else if (keyname === 'ncmp') {
-        ncmpInitVal = clones[i].value
+        ncmpInitVal = clones[i][0].value
       }
     }
 
@@ -227,6 +228,10 @@ function addSearchFieldForm (myDiv, query, copyQuery, isInit, templateId) {
       fldClone = clones[i]
     } else if (keyname === 'ncmp') {
       ncmpClone = clones[i]
+    } else if (keyname === 'val') {
+      valClone = clones[i]
+      // Hide the val text field
+      clones[i].style = 'display:none;'
     }
 
     // Add this row to the HTML form
@@ -246,18 +251,145 @@ function addSearchFieldForm (myDiv, query, copyQuery, isInit, templateId) {
     }
   }
 
-  // Keep the ncmp select list choices accurate to the fld
-  fldClone.addEventListener('change', function (event) {
-    updateNcmpChoices(event.target.value, ncmpClone, rootGroup.selectedtemplate)
-  })
-  // fldInitVal and/or ncmpInitVal can be empty for the unused template(s), so check and initialize to the first value
-  // if empty
+  // If fldInitVal is an empty string (which is true for template(s) that are not currently selected in the fmt select
+  // list), check and initialize arbitrarily to the first value in each select list
   if (fldInitVal === '') {
     fldInitVal = fldClone[0].value
     ncmpInitVal = ncmpClone[0].value
   }
+
+  // Initialize the ncmp choices and val field(s)
   updateNcmpChoices(fldInitVal, ncmpClone, templateId)
   ncmpClone.value = ncmpInitVal
+  const valFields = updateValFields(fldInitVal, ncmpInitVal, valClone, myDiv, templateId)
+
+  // Keep the ncmp select list choices updated to reflect the fld value
+  fldClone.addEventListener('change', function (event) {
+    updateNcmpChoices(event.target.value, ncmpClone, rootGroup.selectedtemplate)
+    updateValFields(event.target.value, ncmpClone.value, valClone, myDiv, rootGroup.selectedtemplate, valFields)
+  })
+
+  // Keep the val fields updated to also reflect the ncmp value (currently only affected by values isnull and not_isnull)
+  ncmpClone.addEventListener('change', function (event) {
+    updateValFields(fldClone.value, event.target.value, valClone, myDiv, rootGroup.selectedtemplate, valFields)
+  })
+}
+
+function updateValFields (fldInitVal, ncmpInitVal, valClone, myDiv, templateId, valFields) {
+  const dbFieldType = getDBFieldType(templateId, fldInitVal)
+  const dbFieldChoices = getDBEnumFieldChoices(templateId, fldInitVal)
+
+  let isAddMode = false
+  // Create custom field for the val input, to be shown/hidden based on the other select-list selections
+  if (typeof valFields === 'undefined' || !valFields) {
+    isAddMode = true
+    valFields = {}
+
+    // For string and number fld types when ncmp is not (isnull or not_isnull)
+    valFields.valTextBox = document.createElement('input')
+    valFields.valTextBox.placeholder = valClone.placeholder
+    valFields.valTextBox.value = valClone.value
+
+    // For string, number, and enumeration fld types when ncmp is (isnull or not_isnull)
+    valFields.valHiddenBox = document.createElement('input')
+    valFields.valHiddenBox.style = 'display:none;'
+    valFields.valHiddenBox.placeholder = valClone.placeholder
+    valFields.valHiddenBox.value = 'dummy'
+    // No listener needed for the hidden dummy field
+
+    // For enumeration fld types when ncmp is not (isnull or not_isnull)
+    valFields.valSelectList = document.createElement('select')
+    updateValEnumSelectList(valFields.valSelectList, dbFieldChoices)
+
+    valFields.valTextBox.addEventListener('change', function (event) {
+      valClone.value = event.target.value
+    })
+    valFields.valSelectList.addEventListener('change', function (event) {
+      valClone.value = event.target.value
+    })
+  }
+
+  if (ncmpInitVal === 'isnull' || ncmpInitVal === 'not_isnull') {
+    valClone.value = valFields.valHiddenBox.value
+    console.log('Hiding all (but hidden field) for null comparison ncmp')
+    valFields.valTextBox.style = 'display:none;'
+    valFields.valSelectList.style = 'display:none;'
+  } else if (dbFieldType === 'string' || dbFieldType === 'number') {
+    valClone.value = valFields.valTextBox.value
+    console.log('Hiding all but text box field for string/number fld type')
+    valFields.valTextBox.style = ''
+    valFields.valSelectList.style = 'display:none;'
+    if (dbFieldType === 'string') {
+      valFields.valTextBox.placeholder = 'search term'
+    } else {
+      valFields.valTextBox.placeholder = 'search value'
+    }
+  } else if (dbFieldType === 'enumeration') {
+    updateValEnumSelectList(valFields.valSelectList, dbFieldChoices)
+    valClone.value = valFields.valSelectList.value
+    console.log('Hiding all but select list for enumeration fld type')
+    valFields.valTextBox.style = 'display:none;'
+    valFields.valSelectList.style = ''
+  } else {
+    console.error('Undetermined database field type for template/field-path:', templateId, fldInitVal, 'Unable to determine val form field type.')
+    valFields.valTextBox.style = ''
+    valFields.valSelectList.style = ''
+  }
+
+  if (isAddMode) {
+    myDiv.appendChild(valFields.valTextBox)
+    myDiv.appendChild(valFields.valHiddenBox)
+    myDiv.appendChild(valFields.valSelectList)
+    console.log('Created visible val fields for type:', dbFieldType)
+  } else {
+    console.log('Updated visible val fields for type:', dbFieldType)
+  }
+
+  return valFields
+}
+
+function updateValEnumSelectList (valSelectList, dbFieldChoices) {
+  const arrOptions = []
+  for (let i = 0; i < dbFieldChoices.length; i++) {
+    arrOptions.push('<option value="' + dbFieldChoices[i][0] + '">' + dbFieldChoices[i][1] + '</option>')
+  }
+  const theSame = isValEnumSelectListTheSame(valSelectList, dbFieldChoices)
+  if (!theSame) {
+    if (dbFieldChoices.length > 0) {
+      valSelectList.innerHTML = arrOptions.join('')
+      valSelectList.value = dbFieldChoices[0][0]
+    } else {
+      valSelectList.innerHTML = ''
+    }
+  }
+}
+
+// The purpose of this is to re-use the enumeration's select list if the user has switched away from an enumeration
+// field and then back to the same enumeration field.  This preserves the previous selection.  One limitation of this
+// approach is that it doesn't preserve selections when switching between different enumeration fields (but string/
+// number values aren't preserved either, so NBD).
+function isValEnumSelectListTheSame (valSelectList, dbFieldChoices) {
+  let theSame = true
+  if (valSelectList.length === 0 || valSelectList.length !== dbFieldChoices.length) {
+    theSame = false
+  } else {
+    const opts = valSelectList.options
+    for (let i = 0; i < dbFieldChoices.length; i++) {
+      if (opts[i].value !== dbFieldChoices[i][0] || opts[i].innerHTML !== dbFieldChoices[i][1]) {
+        theSame = false
+        break
+      }
+    }
+  }
+  return theSame
+}
+
+function getDBFieldType (templateId, fldInitVal) {
+  return fldTypes[templateId][fldInitVal].type
+}
+
+function getDBEnumFieldChoices (templateId, fldInitVal) {
+  return fldTypes[templateId][fldInitVal].choices
 }
 
 function updateNcmpChoices (fldVal, ncmpSelectElem, templateId) {
