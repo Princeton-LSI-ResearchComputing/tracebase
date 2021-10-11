@@ -157,6 +157,8 @@ CAS_CREATE_USER = False
 
 DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
 
+ALLOWED_HOSTS = ['localhost.princeton.edu']
+
 # Logging settings
 # This logging level was added to show the number of SQL queries in the server console
 # Left this commented code here to prompt a conversation about how we should control this debug mode activation
