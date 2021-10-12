@@ -43,7 +43,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    'django_cas_ng',
+    "django_cas_ng",
 ]
 
 MIDDLEWARE = [
@@ -54,12 +54,12 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    'django_cas_ng.middleware.CASMiddleware',
+    "django_cas_ng.middleware.CASMiddleware",
 ]
 
 AUTHENTICATION_BACKENDS = (
-    'django.contrib.auth.backends.ModelBackend',
-    'django_cas_ng.backends.CASBackend',
+    "django.contrib.auth.backends.ModelBackend",
+    "django_cas_ng.backends.CASBackend",
 )
 
 ROOT_URLCONF = "TraceBase.urls"
@@ -155,14 +155,14 @@ CAS_SERVER_URL = "https://fed.princeton.edu/cas/login"
 CAS_VERSION = 3
 CAS_CREATE_USER = False
 
-DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
+DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
 
-ALLOWED_HOSTS = ['localhost.princeton.edu']
+ALLOWED_HOSTS = ["localhost.princeton.edu"]
 
 """
 Logging settings
 This logging level was added to show the number of SQL queries in the server
-console Left this commented code here toprompt a conversation about how we 
+console Left this commented code here toprompt a conversation about how we
 should control this debug mode activation - probably via an environment setting
 """
 """
