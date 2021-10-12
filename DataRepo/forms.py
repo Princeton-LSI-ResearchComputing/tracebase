@@ -44,28 +44,7 @@ class BaseAdvSearchForm(forms.Form):
 
     fld = forms.ChoiceField(required=True, widget=forms.Select())
 
-    ncmp = forms.ChoiceField(
-        choices=(
-            ("iexact", "is"),
-            ("not_iexact", "is not"),
-            ("icontains", "contains"),
-            ("not_icontains", "does not contain"),
-            ("istartswith", "starts with"),
-            ("not_istartswith", "does not start with"),
-            ("iendswith", "ends with"),
-            ("not_iendswith", "does not end with"),
-            ("gt", ">"),
-            ("gte", ">="),
-            ("lt", "<"),
-            ("lte", "<="),
-            ("not_isnull", "has a value *"),
-            ("isnull", "does not have a value *"),
-            # ToDo: This is a placeholder until dynamic form updating & validation is implemented
-            ("* - Ignores text field", ()),
-            ("* - but must enter any value", ()),
-        ),
-        widget=forms.Select(),
-    )
+    ncmp = forms.ChoiceField(required=True, widget=forms.Select())
 
     # TODO: Currently, I am only providing this one field type.  Eventually, I will work out a way to dynamically
     # update this based on the model's field type
@@ -92,6 +71,9 @@ class BaseAdvSearchForm(forms.Form):
         super().__init__(*args, **kwargs)
         self.posprefix = self.composite_view_class.id
         self.fields["fld"].choices = self.composite_view_class.getSearchFieldChoices()
+        self.fields[
+            "ncmp"
+        ].choices = self.composite_view_class.getAllComparisonChoices()
 
 
 class AdvSearchPeakGroupsForm(BaseAdvSearchForm):

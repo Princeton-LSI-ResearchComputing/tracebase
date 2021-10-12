@@ -181,6 +181,8 @@ class AdvancedSearchView(MultiFormsView):
                 debug=settings.DEBUG,
                 root_group=root_group,
                 default_format=self.basv_metadata.default_format,
+                ncmp_choices=self.basv_metadata.getComparisonChoices(),
+                fld_types=self.basv_metadata.getFieldTypes(),
             )
         )
 
@@ -212,6 +214,8 @@ class AdvancedSearchView(MultiFormsView):
                 debug=settings.DEBUG,
                 root_group=root_group,
                 default_format=self.basv_metadata.default_format,
+                ncmp_choices=self.basv_metadata.getComparisonChoices(),
+                fld_types=self.basv_metadata.getFieldTypes(),
             )
         )
 
@@ -226,6 +230,8 @@ class AdvancedSearchView(MultiFormsView):
         context["mode"] = mode
 
         context["root_group"] = createNewAdvancedQuery(self.basv_metadata, {})
+        context["ncmp_choices"] = self.basv_metadata.getComparisonChoices()
+        context["fld_types"] = self.basv_metadata.getFieldTypes()
 
         if "qry" not in context or (
             mode == "browse" and not isValidQryObjPopulated(context["qry"])
@@ -451,18 +457,10 @@ def getJoinedRecFieldValue(recs, basv_metadata, fmt, mdl, fld):
             if len(tmprecs) != 1:
                 # Log an error
                 print(
-                    "ERROR: Handoff to "
-                    + mdl
-                    + "."
-                    + fld
-                    + " failed.  Check the AdvSearch class handoffs."
+                    f"ERROR: Handoff to {mdl}.{fld} failed.  Check the AdvSearch class handoffs."
                 )
                 raise Http404(
-                    "ERROR: Unable to find a single value for ["
-                    + mdl
-                    + "."
-                    + fld
-                    + "]."
+                    f"ERROR: Unable to find a single value for [{mdl}.{fld}]."
                 )
             ptr = getattr(tmprecs[0], key)
         else:
