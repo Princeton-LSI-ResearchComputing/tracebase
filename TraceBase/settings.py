@@ -159,29 +159,32 @@ DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
 
 ALLOWED_HOSTS = ['localhost.princeton.edu']
 
-# Logging settings
-# This logging level was added to show the number of SQL queries in the server console
-# Left this commented code here to prompt a conversation about how we should control this debug mode activation
-# - probably via an environment setting
-
-# LOGGING = {
-#    "version": 1,
-#    "filters": {
-#        "require_debug_true": {
-#            "()": "django.utils.log.RequireDebugTrue",
-#        }
-#    },
-#    "handlers": {
-#        "console": {
-#            "level": "DEBUG",
-#            "filters": ["require_debug_true"],
-#            "class": "logging.StreamHandler",
-#        }
-#    },
-#    "loggers": {
-#        "django.db.backends": {
-#            "level": "DEBUG",
-#            "handlers": ["console"],
-#        }
-#    },
-# }
+"""
+Logging settings
+This logging level was added to show the number of SQL queries in the server
+console Left this commented code here toprompt a conversation about how we 
+should control this debug mode activation - probably via an environment setting
+"""
+"""
+LOGGING = {
+    "version": 1,
+    "filters": {
+        "require_debug_true": {
+            "()": "django.utils.log.RequireDebugTrue",
+        }
+    },
+    "handlers": {
+        "console": {
+            "level": "DEBUG",
+            "filters": ["require_debug_true"],
+            "class": "logging.StreamHandler",
+        }
+    },
+    "loggers": {
+        "django.db.backends": {
+            "level": "DEBUG",
+            "handlers": ["console"],
+        }
+    },
+}
+ """
