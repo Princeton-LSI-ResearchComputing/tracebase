@@ -9,7 +9,11 @@
     <table class="table table-bordered table-hover w-auto mw-100">
         <tr>
             <td>Name</td>
-            <td>{{ peakgroup.name }}</td>
+            <td>
+                {% autoescape off %}
+                {{ peakgroup.peakgroup_name_with_link }}
+                {% endautoescape %}
+            </td>
         </tr>
         <tr>
             <td>Formula</td>

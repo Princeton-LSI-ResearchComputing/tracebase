@@ -6,6 +6,7 @@ from django.core.management import call_command
 from django.db import IntegrityError
 from django.db.models.deletion import RestrictedError
 from django.test import TestCase, tag
+from django.urls import reverse
 
 from DataRepo.models import (
     Animal,
@@ -262,6 +263,16 @@ class StudyTests(TestCase, ExampleDataConsumer):
                 name=self.peak_group.name, msrun=self.msrun
             ),
         )
+
+    @tag("pg_name_with_link")
+    def test_peak_group_name_with_link(self):
+        """PeakGroup name with hyperlink to compound"""
+        pg_name = self.peak_group.name
+        t_peak_group = PeakGroup.objects.get(name=pg_name)
+        comp_id = Compound.objects.get(name=pg_name).id
+        html_link_str = reverse("compound_detail", args=[str(comp_id)])
+        expected_html = f'<a href="{html_link_str}">{pg_name}</a>'
+        self.assertEqual(t_peak_group.peakgroup_name_with_link, expected_html)
 
 
 @tag("protocol")
