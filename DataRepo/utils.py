@@ -667,35 +667,29 @@ class AccuCorDataLoader:
             peak_group_formula = row["formula"]
             if peak_group_name not in self.peak_group_dict:
 
+                # cache it for later; note, if the first row encountered
+                # is missing a formula, there will be issues later
+                self.peak_group_dict[peak_group_name] = {
+                    "name": peak_group_name,
+                    "formula": peak_group_formula,
+                }
+
                 """
                 cross validate in database;  this is a mapping of peak group
                 name to one or more compounds. peak groups sometimes detect
                 multiple compounds delimited by slash
                 """
 
+                self.peak_group_dict[peak_group_name]["compounds"] = []
                 compounds_input = peak_group_name.split("/")
-
                 for compound_input in compounds_input:
                     try:
-                        # cache it for later; note, if the first row encountered
-                        # is missing a formula, there will be issues later
-                        self.peak_group_dict[peak_group_name] = {
-                            "name": peak_group_name,
-                            "formula": peak_group_formula,
-                        }
-
-                        # peaks can contain more than 1 compound
                         mapped_compound = Compound.objects.get(
                             name__iexact=compound_input
                         )
-                        if "compounds" in self.peak_group_dict[peak_group_name]:
-                            self.peak_group_dict[peak_group_name]["compounds"].append(
-                                mapped_compound
-                            )
-                        else:
-                            self.peak_group_dict[peak_group_name]["compounds"] = [
-                                mapped_compound
-                            ]
+                        self.peak_group_dict[peak_group_name]["compounds"].append(
+                            mapped_compound
+                        )
                     except Compound.DoesNotExist:
                         missing_compounds += 1
                         print(f"Could not find compound {compound_input}")
