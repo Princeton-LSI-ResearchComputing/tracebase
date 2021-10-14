@@ -9,7 +9,12 @@
     <table class="table table-bordered table-hover w-auto mw-100">
         <tr>
             <td>Name</td>
-            <td>{{ peakgroup.name }}</td>
+            <td>
+                {% for compound in peakgroup.compounds.all %}
+                    <a href="{% url 'compound_detail' compound.id %}">{{ compound.name }}</a>
+                        {% if not forloop.last %} / {% endif %}
+                {% endfor %}
+            </td>
         </tr>
         <tr>
             <td>Formula</td>
