@@ -7,6 +7,7 @@ from DataRepo.compositeviews import (
     BaseSearchView,
     PeakDataSearchView,
     PeakGroupsSearchView,
+    FluxCircSearchView,
 )
 
 # IMPORTANT NOTE ABOUT THE pos & posprefix FIELDS IN EACH AdvSearch FORM CLASSES:
@@ -90,6 +91,14 @@ class AdvSearchPeakDataForm(BaseAdvSearchForm):
     """
 
     composite_view_class = PeakDataSearchView()
+
+
+class AdvSearchFluxCircForm(BaseAdvSearchForm):
+    """
+    Advanced search form for the fcirc output format that will be used inside a formset.
+    """
+
+    composite_view_class = FluxCircSearchView()
 
 
 class AdvSearchForm:

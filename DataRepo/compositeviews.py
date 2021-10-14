@@ -1,6 +1,6 @@
 from typing import Dict, List
 
-from DataRepo.models import Animal, PeakData, PeakGroup, TracerLabeledClass
+from DataRepo.models import Animal, PeakData, PeakGroup, TracerLabeledClass, Tissue
 
 
 class BaseSearchView:
@@ -44,6 +44,12 @@ class BaseSearchView:
             ("not_isnull", "has a value (ie. is not None)"),
             ("isnull", "does not have a value (ie. is None)"),
         ],
+    }
+    static_filter: Dict[str, List] = {  # Same as qry['tree']
+        "type": "group",
+        "val": "all",
+        "queryGroup": [],
+        # 'static' not present = assumed false
     }
 
     @classmethod
@@ -165,7 +171,9 @@ class BaseSearchView:
         fielddict = {}
         for field in self.models[mdl]["fields"].keys():
             if self.models[mdl]["fields"][field]["displayed"] is False:
-                fielddict[field] = self.models[mdl]["fields"][field]["handoff"]
+                if "handoff" in self.models[mdl]["fields"][field].keys():
+                    fielddict[field] = self.models[mdl]["fields"][field]["handoff"]
+                # Nothing if a handoff is not present
             else:
                 fielddict[field] = field
         return fielddict
@@ -452,7 +460,7 @@ class PeakDataSearchView(BaseSearchView):
                 },
                 "fraction": {
                     "displayname": "Fraction",
-                    "searchable": False,
+                    "searchable": False,  # Cannot search cached property
                     "displayed": True,
                     "type": "number",
                 },
@@ -520,6 +528,7 @@ class PeakDataSearchView(BaseSearchView):
                     "searchable": True,
                     "displayed": False,
                     "type": "number",
+                    "handoff": "name",
                 },
                 "name": {
                     "displayname": "Sample",
@@ -537,6 +546,7 @@ class PeakDataSearchView(BaseSearchView):
                     "searchable": True,
                     "displayed": False,
                     "type": "number",
+                    "handoff": "name",
                 },
                 "name": {
                     "displayname": "Tissue",
@@ -663,6 +673,224 @@ class PeakDataSearchView(BaseSearchView):
     }
 
 
+class FluxCircSearchView(BaseSearchView):
+    """
+    This class encapsulates all the metadata of a single search output format, which includes multiple tables/fields.
+    """
+
+    id = "fctemplate"
+    name = "Fcirc"
+    rootmodel = PeakGroup()
+    prefetches = [
+        "peak_group__msrun__sample__animal__tracer_compound",
+        "peak_group__msrun__sample__animal__treatment",
+        "peak_group__msrun__sample__animal__studies",
+        "peak_group__msrun__sample__tissue",
+    ]
+    static_filter = {
+        "type": "group",
+        "val": "all",
+        "static": True,
+        "queryGroup": [
+            {
+                'type': 'query',
+                'pos': '',
+                'ncmp': 'istartswith',
+                'fld': 'peak_group__msrun__sample__tissue',
+                'val': Tissue.SERUM_TISSUE_PREFIX,
+                'static': True,
+            },
+            {
+                'type': 'group',
+                'val': 'all',
+                "queryGroup": [
+                    {
+                        'type': 'query',
+                        'pos': '',
+                        'ncmp': '',
+                        'fld': '',
+                        'val': '',
+                    },
+                ],
+            },
+        ]
+    }
+    models = {
+        "PeakGroup": {
+            "path": "peak_group",
+            "fields": {
+                "rate_disappearance_average_per_gram": {
+                    "displayname": "Average Rd (nmol/min/g)",
+                    "searchable": False,  # Cannot search cached property
+                    "displayed": True,
+                    "type": "number",
+                },
+                "rate_appearance_average_per_gram": {
+                    "displayname": "Average Ra (nmol/min/g)",
+                    "searchable": False,  # Cannot search cached property
+                    "displayed": True,
+                    "type": "number",
+                },
+                "rate_disappearance_average_weight_normalized": {
+                    "displayname": "Average Rd (nmol/min)",
+                    "searchable": False,  # Cannot search cached property
+                    "displayed": True,
+                    "type": "number",
+                },
+                "rate_appearance_average_weight_normalized": {
+                    "displayname": "Average Ra (nmol/min)",
+                    "searchable": False,  # Cannot search cached property
+                    "displayed": True,
+                    "type": "number",
+                },
+                "rate_disappearance_intact_per_gram": {
+                    "displayname": "Intact Rd (nmol/min/g)",
+                    "searchable": False,  # Cannot search cached property
+                    "displayed": True,
+                    "type": "number",
+                },
+                "rate_appearance_intact_per_gram": {
+                    "displayname": "Intact Ra (nmol/min/g)",
+                    "searchable": False,  # Cannot search cached property
+                    "displayed": True,
+                    "type": "number",
+                },
+                "rate_disappearance_intact_weight_normalized": {
+                    "displayname": "Intact Rd (nmol/min)",
+                    "searchable": False,  # Cannot search cached property
+                    "displayed": True,
+                    "type": "number",
+                },
+                "rate_appearance_intact_weight_normalized": {
+                    "displayname": "Intact Ra (nmol/min/g)",
+                    "searchable": False,  # Cannot search cached property
+                    "displayed": True,
+                    "type": "number",
+                },
+            },
+        },
+        "Tissue": {
+            "path": "peak_group__msrun__sample__tissue",
+            "fields": {
+                "id": {
+                    "displayname": "Tissue",
+                    "searchable": True,
+                    "displayed": False,
+                    # No handoff when displayed=false means it will be displayed but grayed out
+                    "type": "number",
+                },
+                "name": {
+                    "displayname": "Tissue",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "string",
+                },
+            },
+        },
+        "Protocol": {
+            "path": "peak_group__msrun__sample__animal__treatment",
+            "fields": {
+                "id": {
+                    "displayname": "(Internal) Protocol Index",
+                    "searchable": True,
+                    "displayed": False,  # Used in link
+                    "handoff": "name",  # This is the field that will be loaded in the search form
+                    "type": "number",
+                },
+                "name": {
+                    "displayname": "Treatment",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "string",
+                },
+            },
+        },
+        "Animal": {
+            "path": "peak_group__msrun__sample__animal",
+            "fields": {
+                "id": {
+                    "displayname": "(Internal) Animal Index",
+                    "searchable": True,
+                    "displayed": False,  # Used in link
+                    "handoff": "name",  # This is the field that will be loaded in the search form
+                    "type": "number",
+                },
+                "name": {
+                    "displayname": "Animal",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "string",
+                },
+                "tracer_infusion_rate": {
+                    "displayname": "Tracer Infusion Rate (ul/min/g)",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "number",
+                },
+                "tracer_infusion_concentration": {
+                    "displayname": "Tracer Infusion Concentration (mM)",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "number",
+                },
+                "final_serum_sample_time_collected": {
+                    "displayname": "Time Collected (mins)",
+                    "searchable": False,  # Cannot search cached property
+                    "displayed": True,
+                    "type": "number",
+                },
+            },
+        },
+        "Sample": {
+            "path": "peak_group__msrun__sample",
+            "fields": {
+                "time_collected": {
+                    "displayname": "Time Collected (mins)",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "number",
+                },
+            },
+        },
+        "Compound": {
+            "path": "peak_group__msrun__sample__animal__tracer_compound",
+            "fields": {
+                "name": {
+                    "displayname": "Tracer Compound",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "string",
+                },
+                "id": {
+                    "displayname": "(Internal) Tracer Index",
+                    "searchable": True,
+                    "displayed": False,  # Used in link
+                    "handoff": "name",  # This is the field that will be loaded in the search form
+                    "type": "number",
+                },
+            },
+        },
+        "Study": {
+            "path": "peak_group__msrun__sample__animal__studies",
+            "fields": {
+                "name": {
+                    "displayname": "Study",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "string",
+                },
+                "id": {
+                    "displayname": "(Internal) Study Index",
+                    "searchable": True,
+                    "displayed": False,  # Used in link
+                    "handoff": "name",  # This is the field that will be loaded in the search form
+                    "type": "number",
+                },
+            },
+        },
+    }
+
+
 class BaseAdvancedSearchView:
     """
     This class groups all search output formats in a single class and adds metadata that applies to all
@@ -681,9 +909,23 @@ class BaseAdvancedSearchView:
         This is a constructor that adds all search output format classes to modeldata, keyed on their IDs.
         """
 
-        for cls in (PeakGroupsSearchView(), PeakDataSearchView()):
+        for cls in (PeakGroupsSearchView(), PeakDataSearchView(), FluxCircSearchView()):
             self.modeldata[cls.id] = cls
         self.default_format = PeakGroupsSearchView.id
+    
+    def getRootGroup(self, selfmt=default_format):
+        if selfmt not in self.modeldata.keys():
+            print(f"WARNING: Unknown format: [{selfmt}]. Falling back to default format: [{self.default_format}]")
+            selfmt = self.default_format
+        rootGroup = {
+            'selectedtemplate': selfmt,
+            'searches': {},
+        }
+        for format in self.modeldata.keys():
+            rootGroup['searches'][format] = {}
+            rootGroup['searches'][format]['name'] = self.modeldata[format].name
+            rootGroup['searches'][format]['tree'] = self.modeldata[format].static_filter
+        return rootGroup
 
     def getPrefetches(self, format):
         """

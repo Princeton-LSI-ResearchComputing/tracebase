@@ -100,7 +100,7 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
     download_form = AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
     q_exp = constructAdvancedQuery(qry)
     res = performQuery(q_exp, fmtkey, basv_metadata)
-    root_group = createNewAdvancedQuery(basv_metadata, {})
+    root_group = basv_metadata.getRootGroup()
 
     return render(
         request,
@@ -171,7 +171,7 @@ class AdvancedSearchView(MultiFormsView):
 
         qry = formsetsToDict(formset, self.form_classes)
 
-        root_group = createNewAdvancedQuery(self.basv_metadata, {})
+        root_group = self.basv_metadata.getRootGroup()
 
         return self.render_to_response(
             self.get_context_data(
@@ -203,7 +203,7 @@ class AdvancedSearchView(MultiFormsView):
             # Log a warning
             print("WARNING: Invalid query root:", qry)
 
-        root_group = createNewAdvancedQuery(self.basv_metadata, {})
+        root_group = self.basv_metadata.getRootGroup()
 
         return self.render_to_response(
             self.get_context_data(
@@ -229,7 +229,7 @@ class AdvancedSearchView(MultiFormsView):
             mode = "browse"
         context["mode"] = mode
 
-        context["root_group"] = createNewAdvancedQuery(self.basv_metadata, {})
+        context["root_group"] = self.basv_metadata.getRootGroup()
         context["ncmp_choices"] = self.basv_metadata.getComparisonChoices()
         context["fld_types"] = self.basv_metadata.getFieldTypes()
 
@@ -237,7 +237,10 @@ class AdvancedSearchView(MultiFormsView):
             mode == "browse" and not isValidQryObjPopulated(context["qry"])
         ):
             if "qry" not in context:
-                qry = createNewAdvancedQuery(self.basv_metadata, context)
+                if "format" in context:
+                    qry = self.basv_metadata.getRootGroup(context["format"])
+                else:
+                    qry = self.basv_metadata.getRootGroup()
             else:
                 qry = context["qry"]
 
@@ -352,29 +355,10 @@ def createNewAdvancedQuery(basv_metadata, context):
     """
 
     if "format" in context:
-        selfmt = context["format"]
+        qry = basv_metadata.getRootGroup(context["format"])
     else:
-        selfmt = basv_metadata.default_format
+        qry = basv_metadata.getRootGroup()
 
-    fmt_name_dict = basv_metadata.getFormatNames()
-
-    qry = createNewQueryRoot(fmt_name_dict, selfmt)
-
-    return qry
-
-
-def createNewQueryRoot(fmt_name_dict, selfmt):
-    qry = {}
-    qry["selectedtemplate"] = selfmt
-    qry["searches"] = {}
-    for format, formatName in fmt_name_dict.items():
-        qry["searches"][format] = {}
-        qry["searches"][format]["name"] = formatName
-        qry["searches"][format]["tree"] = {}
-        qry["searches"][format]["tree"]["pos"] = ""
-        qry["searches"][format]["tree"]["type"] = "group"
-        qry["searches"][format]["tree"]["val"] = "all"
-        qry["searches"][format]["tree"]["queryGroup"] = []
     return qry
 
 
@@ -383,7 +367,7 @@ def createNewBasicQuery(basv_metadata, mdl, fld, cmp, val, fmt):
     Constructs a new qry object for an advanced search from basic search input.
     """
 
-    qry = createNewQueryRoot(basv_metadata.getFormatNames(), fmt)
+    qry = basv_metadata.getRootGroup(fmt)
 
     models = basv_metadata.getModels(fmt)
 
@@ -396,11 +380,7 @@ def createNewBasicQuery(basv_metadata, mdl, fld, cmp, val, fmt):
 
     if fld not in sfields:
         raise Http404(
-            "Field ["
-            + fld
-            + "] is not searchable.  Must be one of ["
-            + ",".join(sfields.keys())
-            + "]."
+            f"Field [{fld}] is not searchable.  Must be one of [{','.join(sfields.keys())}]."
         )
 
     qry["searches"][fmt]["tree"]["queryGroup"].append({})
@@ -426,7 +406,7 @@ def searchFieldToDisplayField(basv_metadata, mdl, fld, val, fmt, qry):
     dfld = fld
     dval = val
     dfields = basv_metadata.getDisplayFields(fmt, mdl)
-    if dfields[fld] != fld:
+    if fld in dfields.keys() and dfields[fld] != fld:
         # If fld is not a displayed field, perform a query to convert the undisplayed field query to a displayed query
         q_exp = constructAdvancedQuery(qry)
         recs = performQuery(q_exp, fmt, basv_metadata)
@@ -457,11 +437,10 @@ def getJoinedRecFieldValue(recs, basv_metadata, fmt, mdl, fld):
             if len(tmprecs) != 1:
                 # Log an error
                 print(
-                    f"ERROR: Handoff to {mdl}.{fld} failed.  Check the AdvSearch class handoffs."
+                    f"ERROR: Handoff to {mdl}.{fld} failed.  Too many records returned.  Expected 1.  Check the "
+                    "AdvSearch class handoffs."
                 )
-                raise Http404(
-                    f"ERROR: Unable to find a single value for [{mdl}.{fld}]."
-                )
+                raise Http404(f"ERROR: Unable to find a single value for [{mdl}.{fld}].")
             ptr = getattr(tmprecs[0], key)
         else:
             ptr = getattr(ptr, key)
@@ -604,7 +583,7 @@ def formsetsToDict(rawformset, form_classes):
 
     # If we were unable to locate the selected output format (i.e. the copy of the formsets that were processed)
     if processed_formkey is None:
-        raise Http404("Unable to find selected output format.")
+        raise Http404(f"Unable to find selected output format: [{processed_formkey}].")
 
     return formsetToDict(rawformset[processed_formkey], form_classes)
 

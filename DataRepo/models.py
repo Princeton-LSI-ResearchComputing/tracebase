@@ -415,6 +415,22 @@ class Animal(models.Model, TracerLabeledClass):
         return final_serum_sample
 
     @cached_property
+    def final_serum_sample_id(self):
+        """
+        final_serum_sample_time_collected in an instance method that returns the time_collected of the last single
+        serum sample removed from the animal, based on the time elapsed/duration from the initiation of infusion or
+        treatment.  If the animal has no serum samples or if the retrieved serum sample has no annotated
+        time_collected, a warning will be issued.
+        """
+
+        fss = self.final_serum_sample()
+        id = None
+        if final_serum_sample and final_serum_sample.time_collected:
+            id = final_serum_sample.id
+
+        return id
+
+    @cached_property
     def all_serum_samples_tracer_peak_groups(self):
         """
         Instance method that returns a list of all peak groups assayed from all

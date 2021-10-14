@@ -32,7 +32,9 @@
     {% endif %}
 
     <script>
+        console.error("Sanity check")
         document.addEventListener("DOMContentLoaded", function(){
+            console.error("Sanity check 2")
             init(JSON.parse(document.getElementById('root_group').textContent),
                 JSON.parse(document.getElementById('ncmp_choices').textContent),
                 JSON.parse(document.getElementById('fld_types').textContent))
@@ -47,11 +49,12 @@
 
             // If a search has been performed, restore the form
             {% if qry %}
+                console.error("Sanity check 3")
                 const initGroup = JSON.parse(document.getElementById('initGroup').textContent)
                 initializeExistingSearchQuery(document.querySelector('.hierarchical-search'), initGroup)
             {% else %}
                 const allforms = document.querySelector('.hierarchical-search')
-                appendSearchQuery(allforms, rootGroup)
+                initializeRootSearchQuery(allforms)
             {% endif %}
 
             var myform = document.getElementById("hierarchical-search-form")

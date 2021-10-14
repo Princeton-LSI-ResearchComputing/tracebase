@@ -20,6 +20,13 @@ def durationToWeeks(td):
 
 
 @register.filter
+def durationToMins(td):
+    if td is None:
+        return None
+    return td.total_seconds() // 60
+
+
+@register.filter
 def decimalPlaces(number, places):
     if number is None:
         return None

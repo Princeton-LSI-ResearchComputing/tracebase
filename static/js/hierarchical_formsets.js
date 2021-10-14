@@ -24,6 +24,7 @@ const pluspluspngpath = '/static/images/plusplus.png'
 //       tree: {
 //         type: 'group',
 //         val: 'all',
+//         static: false,
 //         queryGroup: []
 //       }
 //     },
@@ -51,7 +52,12 @@ function appendSearchQuery (element, query) { // eslint-disable-line no-unused-v
   element.appendChild(myDiv)
 
   for (const templateId of Object.keys(query.searches)) {
-    appendInnerSearchQuery(element, templateId, query.searches[templateId].tree)
+    if (query.searches[templateId].tree.static) {
+      //appendInnerSearchQuery(element, templateId, query.searches[templateId].tree, rootGroup.searches[templateId].tree)
+      initializeExistingSearchQuery (element, rootGroup)
+    } else {
+      appendInnerSearchQuery(element, templateId, query.searches[templateId].tree)
+    }
   }
 }
 
@@ -122,7 +128,7 @@ function appendInnerSearchQuery (element, templateId, query, copyQuery, parentGr
     formErrLabel.innerHTML = 'Error: Unrecognized query type: ' + query.type
   }
 
-  if (!isRoot) {
+  if (!isRoot && !query.static) {
     addRemoveButton(myDiv, query, parentGroup)
   }
 
@@ -203,6 +209,9 @@ function addSearchFieldForm (myDiv, query, copyQuery, isInit, templateId) {
     if (isInit) {
       query[keyname] = copyQuery[keyname]
       clones[i].value = copyQuery[keyname]
+      if (copyQuery.static) {
+        clones[i].static = copyQuery.static
+      }
 
       // If this isn't the hidden pos field and there is no value, push an error
       if (keyname !== 'pos' && copyQuery[keyname] === '') {
@@ -493,6 +502,9 @@ function addGroupSelectList (myDiv, query, copyQuery, isInit) {
     select.appendChild(option)
   }
   select.value = query.val
+  if (query.static || ((typeof copyQuery !== 'undefined' || copyQuery) && copyQuery.static)) {
+    select.disabled = true
+  }
 
   // Use a change as an opportunity to dismiss previous errors
   select.addEventListener('change', function (event) {
@@ -616,6 +628,9 @@ function initializeExistingSearchQueryHelper (element, templateId, parentNode, c
         val: copyQueryArray[i].val,
         queryGroup: []
       }
+      if (copyQueryArray[i].static) {
+        subGroup.static = copyQueryArray[i].static
+      }
       parentNode.queryGroup.push(subGroup)
       const childDiv = appendInnerSearchQuery(element, templateId, subGroup, copyQueryArray[i], parentNode, false)
       // Recurse
@@ -629,10 +644,66 @@ function initializeExistingSearchQueryHelper (element, templateId, parentNode, c
       const subQuery = {
         type: 'query'
       }
+      if (copyQueryArray[i].static) {
+        subQuery.static = copyQueryArray[i].static
+      }
       parentNode.queryGroup.push(subQuery)
       appendInnerSearchQuery(element, templateId, subQuery, copyQueryArray[i], parentNode, false)
     } else {
       console.error('Unknown node type at index ' + i + ': ', copyQueryArray[i].type)
+    }
+  }
+}
+
+function initializeRootSearchQuery (element) { // eslint-disable-line no-unused-vars
+  'use strict'
+
+  let undef
+
+  const myDiv = document.createElement('div')
+  console.error("Making format...")
+  addFormatSelectList(myDiv, rootGroup)
+  console.error("Moving on...")
+  element.appendChild(myDiv)
+
+  for (const templateId of Object.keys(rootGroup.searches)) {
+    // Create the root object
+    const childDiv = appendInnerSearchQuery(element, templateId, rootGroup.searches[templateId].tree)
+
+    initializeRootSearchQueryHelper(childDiv, templateId, rootGroup.searches[templateId].tree)
+
+    const subQuery = {
+      type: 'query'
+    }
+
+    console.error("Going in...")
+    appendInnerSearchQuery(childDiv, templateId, subQuery, undef, rootGroup.searches[templateId].tree, true)
+    console.error("Got past")
+
+    // Not exactly sure why, but after adding inner elements to a group, an empty div is needed to make future dynamically-added form elements to be correctly created.  I did this based on the template post I followed that had a static empty div just inside where the dynamic content was being created, when stuff I was adding wasn't working right and it seems to have fixed it.
+    childDiv.append(document.createElement('div'))
+  }
+}
+
+function initializeRootSearchQueryHelper (element, templateId, parentNode) {
+  'use strict'
+
+  let undef
+
+  for (let i = 0; i < parentNode.length; i++) {
+    if (parentNode[i].type === 'group') {
+      const childDiv = appendInnerSearchQuery(element, templateId, subGroup, undef, parentNode, false)
+      // Recurse
+      initializeRootSearchQueryHelper(childDiv, templateId, subGroup)
+
+      // Not exactly sure why, but after adding inner elements to a group, an empty div is needed to make future dynamically-added form elements to be correctly created.  I did this based on the template post I followed that had a static empty div just inside where the dynamic content was being created, when stuff I was adding wasn't working right and it seems to have fixed it.
+      childDiv.append(document.createElement('div'))
+
+      addQueryAndGroupAddButtons(childDiv, subGroup, parentNode, templateId)
+    } else if (parentNode[i].type === 'query') {
+      appendInnerSearchQuery(element, templateId, subQuery, undef, parentNode, false)
+    } else {
+      console.error('Unknown node type at index ' + i + ': ', parentNode[i].type)
     }
   }
 }
