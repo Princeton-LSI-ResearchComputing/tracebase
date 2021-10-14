@@ -455,10 +455,11 @@ class AccuCorDataLoader:
 
         print("Validating data...")
 
-        # column index of the first predicted sample for the original data
-        original_minimum_sample_index = self.get_first_sample_column_index(
-            self.accucor_original_df
-        )
+        if self.accucor_original_df is not None:
+            # column index of the first predicted sample for the original data
+            original_minimum_sample_index = self.get_first_sample_column_index(
+                self.accucor_original_df
+            )
         # column index of the first predicted sample for the corrected data
         corrected_minimum_sample_index = self.get_first_sample_column_index(
             self.accucor_corrected_df
@@ -468,14 +469,16 @@ class AccuCorDataLoader:
         strip any leading and trailing spaces from the headers and some
         columns, just to normalize
         """
-        self.accucor_original_df.rename(columns=lambda x: x.strip())
+        if self.accucor_original_df is not None:
+            self.accucor_original_df.rename(columns=lambda x: x.strip())
+            self.accucor_original_df["compound"] = self.accucor_original_df[
+                "compound"
+            ].str.strip()
+            self.accucor_original_df["formula"] = self.accucor_original_df[
+                "formula"
+            ].str.strip()
+
         self.accucor_corrected_df.rename(columns=lambda x: x.strip())
-        self.accucor_original_df["compound"] = self.accucor_original_df[
-            "compound"
-        ].str.strip()
-        self.accucor_original_df["formula"] = self.accucor_original_df[
-            "formula"
-        ].str.strip()
         self.accucor_corrected_df["Compound"] = self.accucor_corrected_df[
             "Compound"
         ].str.strip()
@@ -484,12 +487,13 @@ class AccuCorDataLoader:
         Validate sample headers. Get the sample names from the original header
         [all columns]
         """
-
-        original_samples = [
-            sample
-            for sample in list(self.accucor_original_df)[original_minimum_sample_index:]
-            if sample not in self.skip_samples
-        ]
+        original_samples = None
+        if self.accucor_original_df is not None:
+            original_samples = [
+                sample
+                for sample in list(self.accucor_original_df)[original_minimum_sample_index:]
+                if sample not in self.skip_samples
+            ]
         corrected_samples = [
             sample
             for sample in list(self.accucor_corrected_df)[
@@ -499,16 +503,18 @@ class AccuCorDataLoader:
         ]
 
         # Make sure all sample columns have names
-        orig_iter = collections.Counter(original_samples)
-        orig_iter_err = ""
-        for k, v in orig_iter.items():
-            if k.startswith("Unnamed: "):
-                raise EmptyDataError(
-                    "Sample columns missing headers found in the Original data sheet. You have "
-                    + str(len(self.accucor_original_df.columns))
-                    + " columns. Be sure to delete any unused columns."
-                )
-            orig_iter_err += '"' + str(k) + '":' + str(v) + '",'
+        if original_samples:
+            orig_iter = collections.Counter(original_samples)
+            orig_iter_err = ""
+            for k, v in orig_iter.items():
+                if k.startswith("Unnamed: "):
+                    raise EmptyDataError(
+                        "Sample columns missing headers found in the Original data sheet. You have "
+                        + str(len(self.accucor_original_df.columns))
+                        + " columns. Be sure to delete any unused columns."
+                    )
+                orig_iter_err += '"' + str(k) + '":' + str(v) + '",'
+
         corr_iter = collections.Counter(corrected_samples)
         corr_iter_err = ""
         for k, v in corr_iter.items():
@@ -526,25 +532,48 @@ class AccuCorDataLoader:
             "[{corr_iter_err}]."
         )
         assert orig_iter == corr_iter, err_msg
+        # these could be None, if there was no original dataframe
         self.original_samples = original_samples
+        # but the corrected list should have something we can rely on
+        self.corrected_samples = corrected_samples
+
 
     def validate_compounds(self):
-        dupe_dict = {}
+        
+        if self.accucor_original_df is not None:
+            dupe_dict = {}
+            for index, row in self.accucor_original_df[
+                self.accucor_original_df.duplicated(
+                    subset=["compound", "isotopeLabel"], keep=False
+                )
+            ].iterrows():
+                dupe_key = row["compound"] + " & " + row["isotopeLabel"]
+                if dupe_key not in dupe_dict:
+                    dupe_dict[dupe_key] = str(index + 1)
+                else:
+                    dupe_dict[dupe_key] += "," + str(index + 1)
 
-        # for index, row in self.accucor_original_df.iterrows():
-        for index, row in self.accucor_original_df[
-            self.accucor_original_df.duplicated(
-                subset=["compound", "isotopeLabel"], keep=False
+            err_msg = (
+                f"The following duplicate compound/isotope pairs were found in the original data: ["
+                f"{'; '.join(list(map(lambda c: c + ' on rows: ' + dupe_dict[c], dupe_dict.keys())))}]"
+            )
+            assert len(dupe_dict.keys()) == 0, err_msg
+
+        # do it again for the corrected
+        dupe_dict = {}
+        for index, row in self.accucor_corrected_df[
+            self.accucor_corrected_df.duplicated(
+                subset=["Compound", self.labeled_element_header], keep=False
             )
         ].iterrows():
-            dupe_key = row["compound"] + " & " + row["isotopeLabel"]
+            dupe_key = row["Compound"] + " & " + row[self.labeled_element_header]
             if dupe_key not in dupe_dict:
                 dupe_dict[dupe_key] = str(index + 1)
             else:
                 dupe_dict[dupe_key] += "," + str(index + 1)
 
         err_msg = (
-            f"The following duplicate compound/isotope pairs were found in the original data: ["
+            f"The following duplicate Compound/Label pairs were found in the corrected data: ["
             f"{'; '.join(list(map(lambda c: c + ' on rows: ' + dupe_dict[c], dupe_dict.keys())))}]"
         )
         assert len(dupe_dict.keys()) == 0, err_msg
@@ -589,15 +618,19 @@ class AccuCorDataLoader:
 
         # cross validate in database
         self.sample_dict = {}
-        for original_sample_name in self.original_samples:
-            prefix_sample_name = f"{self.sample_name_prefix}{original_sample_name}"
+        """
+        Because the original dataframe might be None, here, we rely on the
+        corrected sample list as being authoritative
+        """
+        for sample_name in self.corrected_samples:
+            prefix_sample_name = f"{self.sample_name_prefix}{sample_name}"
             try:
                 # cached it for later
-                self.sample_dict[original_sample_name] = Sample.objects.get(
+                self.sample_dict[sample_name] = Sample.objects.get(
                     name=prefix_sample_name
                 )
             except Sample.DoesNotExist:
-                missing_samples.append(original_sample_name)
+                missing_samples.append(sample_name)
 
         if len(missing_samples) != 0:
             raise (
@@ -660,11 +693,22 @@ class AccuCorDataLoader:
 
         self.peak_group_dict = {}
         missing_compounds = 0
+        reference_dataframe = self.accucor_corrected_df
+        peak_group_name_key = "Compound"
+        # corrected data does not have a formula column
+        peak_group_formula_key = None
+        if self.accucor_original_df is not None:
+            reference_dataframe = self.accucor_original_df
+            peak_group_name_key = "compound"
+            # original data has a formula column
+            peak_group_formula_key = "formula"
 
-        for index, row in self.accucor_original_df.iterrows():
+        for index, row in reference_dataframe.iterrows():
             # uniquely record the group, by name
-            peak_group_name = row["compound"]
-            peak_group_formula = row["formula"]
+            peak_group_name = row[peak_group_name_key]
+            peak_group_formula = None
+            if peak_group_formula_key:
+                peak_group_formula = row[peak_group_formula_key]
             if peak_group_name not in self.peak_group_dict:
 
                 # cache it for later; note, if the first row encountered
@@ -690,6 +734,13 @@ class AccuCorDataLoader:
                         self.peak_group_dict[peak_group_name]["compounds"].append(
                             mapped_compound
                         )
+                        """
+                        If the formula was previously None because we were
+                        working with corrected data (missing column), supplement
+                        it with the mapped database compound's formula
+                        """
+                        if not self.peak_group_dict[peak_group_name]["formula"]:
+                            self.peak_group_dict[peak_group_name]["formula"] = mapped_compound.formula
                     except Compound.DoesNotExist:
                         missing_compounds += 1
                         print(f"Could not find compound {compound_input}")
@@ -732,37 +783,38 @@ class AccuCorDataLoader:
         self.sample_run_dict = {}
 
         # each sample gets its own msrun
-        for original_sample_name in self.sample_dict.keys():
+        for sample_name in self.sample_dict.keys():
 
             # each msrun/sample has its own set of peak groups
             inserted_peak_group_dict = {}
 
-            print(f"Inserting msrun for {original_sample_name}")
+            print(f"Inserting msrun for {sample_name}")
             msrun = MSRun(
                 date=self.date,
                 researcher=self.researcher,
                 protocol=self.protocol,
-                sample=self.sample_dict[original_sample_name],
+                sample=self.sample_dict[sample_name],
             )
             msrun.full_clean()
             msrun.save()
-            self.sample_run_dict[original_sample_name] = msrun
+            self.sample_run_dict[sample_name] = msrun
 
             # Create all PeakGroups
-            for index, row in self.accucor_original_df.iterrows():
-                isotope, labeled_count = self.parse_isotope_label(row["isotopeLabel"])
+            for index, row in self.accucor_corrected_df.iterrows():
+                labeled_count = row[self.labeled_element_header]
                 if labeled_count == 0:
 
                     """
                     Here we insert PeakGroup, by name (only once per file).
-                    NOTE: if the C12 PARENT row encountered has any issues (for
-                    example, a null formula), then this block will fail
+                    NOTE: if the C12 PARENT/0-Labeled row encountered has any
+                    issues (for example, a null formula), then this block will
+                    fail
                     """
 
-                    peak_group_name = row["compound"]
+                    peak_group_name = row["Compound"]
                     print(
                         f"\tInserting {peak_group_name} peak group for sample "
-                        f"{original_sample_name}"
+                        f"{sample_name}"
                     )
                     peak_group_attrs = self.peak_group_dict[peak_group_name]
                     peak_group = PeakGroup(
@@ -815,7 +867,7 @@ class AccuCorDataLoader:
                             self.accucor_corrected_df[self.labeled_element_header]
                             == labeled_count
                         )
-                    ][original_sample_name]
+                    ][sample_name]
 
                     if row is None:
                         # No row for this labeled_count
@@ -824,13 +876,13 @@ class AccuCorDataLoader:
                         med_rt = 0
                     else:
                         # We have a matching row, use it and increment row_idx
-                        raw_abundance = row[original_sample_name]
+                        raw_abundance = row[sample_name]
                         med_mz = row["medMz"]
                         med_rt = row["medRt"]
                         row_idx = row_idx + 1
                     print(
                         f"\t\tInserting peak data for {peak_group_name}:label-{labeled_count} "
-                        f"for sample {original_sample_name}"
+                        f"for sample {sample_name}"
                     )
                     peak_data = PeakData(
                         peak_group=peak_group,

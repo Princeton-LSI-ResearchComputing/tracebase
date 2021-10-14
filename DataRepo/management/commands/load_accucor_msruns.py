@@ -153,7 +153,8 @@ class Command(BaseCommand):
 
         print("TRYING CSV")
         self.original = None
-        self.corrected = None
+        self.corrected = pd.read_csv(options["accucor_file"]).dropna(axis=0, how="all")
+
         
 
     def headers_are_not_unique(self, headers):
