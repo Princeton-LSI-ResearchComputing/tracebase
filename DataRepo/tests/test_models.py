@@ -415,6 +415,16 @@ class DataLoadingTests(TestCase):
         pgs = PeakGroupSet.objects.all().first()
         self.assertEqual(pgs.filename, "obob_maven_6eaas_inf.xlsx")
 
+    def test_peak_groups_multiple_compounds(self):
+        """
+        Test that a peakgroup that is named with two compounds separated by a
+        slash ("/") is properly associated with two compounds
+        """
+        pg = PeakGroup.objects.filter(name="citrate/isocitrate").first()
+        self.assertEqual(pg.compounds.count(), 2)
+        self.assertEqual(pg.compounds.first().name, "citrate")
+        self.assertEqual(pg.compounds.last().name, "isocitrate")
+
     def test_animal_tracers(self):
         a = Animal.objects.get(name="969")
         c = Compound.objects.get(name="C16:0")
