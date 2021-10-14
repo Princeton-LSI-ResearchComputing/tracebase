@@ -10,9 +10,10 @@
         <tr>
             <td>Name</td>
             <td>
-                {% autoescape off %}
-                {{ peakgroup.peakgroup_name_with_link }}
-                {% endautoescape %}
+                {% for compound in peakgroup.compounds.all %}
+                    <a href="{% url 'compound_detail' compound.id %}">{{ compound.name }}</a>
+                        {% if not forloop.last %} / {% endif %}
+                {% endfor %}
             </td>
         </tr>
         <tr>

@@ -9,9 +9,7 @@ from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import Sum
-from django.urls import reverse
 from django.utils.functional import cached_property
-from django.utils.html import format_html_join
 
 
 def value_from_choices_label(label, choices):
@@ -1210,30 +1208,6 @@ class PeakGroup(models.Model):
             )
             return None
         return self.rate_appearance_average_per_gram * self.animal.tracer_labeled_count
-
-    @cached_property
-    def peakgroup_name_with_link(self):
-        """
-        format peakgroup name in html with <a ref> tag for each compound
-        #TODO#
-        due to data loading issue for citrate/isocitrate case, use comp_qs
-        instead of calling self.compounds.all()
-        """
-        try:
-            comp_qs = Compound.objects.filter(name__in=list(self.name.split("/")))
-            pg_name_format_html = format_html_join(
-                "/",
-                '<a href="{}">{}</a>',
-                [
-                    (reverse("compound_detail", args=[str(c.id)]), c.name)
-                    for c in comp_qs
-                ],
-            )
-        except Exception:
-            raise ValueError(
-                f"failed to get hyperlink for peak group name {self.name}."
-            )
-        return pg_name_format_html
 
     class Meta:
         verbose_name = "peak group"
