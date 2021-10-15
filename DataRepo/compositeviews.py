@@ -691,10 +691,10 @@ class FluxCircSearchView(BaseSearchView):
     name = "Fcirc"
     rootmodel = PeakGroup()
     prefetches = [
-        "peak_group__msrun__sample__animal__tracer_compound",
-        "peak_group__msrun__sample__animal__treatment",
-        "peak_group__msrun__sample__animal__studies",
-        "peak_group__msrun__sample__tissue",
+        "msrun__sample__animal__tracer_compound",
+        "msrun__sample__animal__treatment",
+        "msrun__sample__animal__studies",
+        "msrun__sample__tissue",
     ]
     static_filter = {
         "type": "group",
@@ -705,7 +705,7 @@ class FluxCircSearchView(BaseSearchView):
                 'type': 'query',
                 'pos': '',
                 'ncmp': 'istartswith',
-                'fld': 'peak_group__msrun__sample__tissue',
+                'fld': 'msrun__sample__tissue__name',
                 'val': Tissue.SERUM_TISSUE_PREFIX,
                 'static': True,
             },
@@ -726,7 +726,7 @@ class FluxCircSearchView(BaseSearchView):
     }
     models = {
         "PeakGroup": {
-            "path": "peak_group",
+            "path": "",
             "fields": {
                 "rate_disappearance_average_per_gram": {
                     "displayname": "Average Rd (nmol/min/g)",
@@ -779,7 +779,7 @@ class FluxCircSearchView(BaseSearchView):
             },
         },
         "Tissue": {
-            "path": "peak_group__msrun__sample__tissue",
+            "path": "msrun__sample__tissue",
             "fields": {
                 "id": {
                     "displayname": "Tissue",
@@ -798,7 +798,7 @@ class FluxCircSearchView(BaseSearchView):
             },
         },
         "Protocol": {
-            "path": "peak_group__msrun__sample__animal__treatment",
+            "path": "msrun__sample__animal__treatment",
             "fields": {
                 "id": {
                     "displayname": "(Internal) Protocol Index",
@@ -816,7 +816,7 @@ class FluxCircSearchView(BaseSearchView):
             },
         },
         "Animal": {
-            "path": "peak_group__msrun__sample__animal",
+            "path": "msrun__sample__animal",
             "fields": {
                 "id": {
                     "displayname": "(Internal) Animal Index",
@@ -852,7 +852,7 @@ class FluxCircSearchView(BaseSearchView):
             },
         },
         "Sample": {
-            "path": "peak_group__msrun__sample",
+            "path": "msrun__sample",
             "fields": {
                 "time_collected": {
                     "displayname": "Time Collected (mins)",
@@ -863,7 +863,7 @@ class FluxCircSearchView(BaseSearchView):
             },
         },
         "Compound": {
-            "path": "peak_group__msrun__sample__animal__tracer_compound",
+            "path": "msrun__sample__animal__tracer_compound",
             "fields": {
                 "name": {
                     "displayname": "Tracer Compound",
@@ -881,7 +881,7 @@ class FluxCircSearchView(BaseSearchView):
             },
         },
         "Study": {
-            "path": "peak_group__msrun__sample__animal__studies",
+            "path": "msrun__sample__animal__studies",
             "fields": {
                 "name": {
                     "displayname": "Study",
@@ -923,7 +923,9 @@ class BaseAdvancedSearchView:
             self.modeldata[cls.id] = cls
         self.default_format = PeakGroupsSearchView.id
     
-    def getRootGroup(self, selfmt=default_format):
+    def getRootGroup(self, selfmt=None):
+        if selfmt is None:
+            selfmt = self.default_format
         if selfmt not in self.modeldata.keys():
             print(f"WARNING: Unknown format: [{selfmt}]. Falling back to default format: [{self.default_format}]")
             selfmt = self.default_format

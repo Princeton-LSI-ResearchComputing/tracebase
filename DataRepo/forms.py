@@ -43,6 +43,9 @@ class BaseAdvSearchForm(forms.Form):
     posprefix: Optional[str] = None
     pos = forms.CharField(widget=forms.HiddenInput())
 
+    # Saves whether this is a static search form or not (for uneditable queries prepended to searches (see fctemplate))
+    static = forms.CharField(widget=forms.HiddenInput())
+
     fld = forms.ChoiceField(required=True, widget=forms.Select())
 
     ncmp = forms.ChoiceField(required=True, widget=forms.Select())
@@ -66,7 +69,12 @@ class BaseAdvSearchForm(forms.Form):
             self.selected = True
             for field in fields:
                 if field not in data:
+                    print("Form data was INvalid 1:", data)
                     return False
+        else:
+            print("Form data was INvalid 2:", data)
+            return False
+        print("Form data was valid:", data)
         return True
 
     def __init__(self, *args, **kwargs):

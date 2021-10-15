@@ -56,7 +56,8 @@ function appendSearchQuery (element, query) { // eslint-disable-line no-unused-v
       //appendInnerSearchQuery(element, templateId, query.searches[templateId].tree, rootGroup.searches[templateId].tree)
       initializeExistingSearchQuery (element, rootGroup)
     } else {
-      appendInnerSearchQuery(element, templateId, query.searches[templateId].tree)
+      initializeRootSearchQueryHelper(element, templateId, rootGroup.searches[templateId].tree, rootGroup.searches[templateId].tree.queryGroup)
+      // appendInnerSearchQuery(element, templateId, query.searches[templateId].tree)
     }
   }
 }
@@ -225,8 +226,10 @@ function addSearchFieldForm (myDiv, query, copyQuery, isInit, templateId) {
       }
     } else {
       if (typeof query[keyname] !== 'undefined' && query[keyname]) {
+        console.log("Initializing search form value for field: ", keyname,":", query[keyname])
         clones[i].value = query[keyname]
       } else {
+        console.log("Storing search form value for field: ", keyname,": as:", query[keyname], "into the qry object")
         query[clones[i].name] = clones[i].value
       }
       if (query.static) {
@@ -717,6 +720,9 @@ function initializeRootSearchQueryHelper (element, templateId, parentNode, query
       console.log("Recursing for template", templateId)
       initializeRootSearchQueryHelper(groupDiv, templateId, queryGroup[i], queryGroup[i].queryGroup)
 
+      // Not exactly sure why, but after adding inner elements to a group, an empty div is needed so that future dynamically-added form elements are correctly created.  I did this based on the template post I followed that had a static empty div just inside where the dynamic content was being created, when stuff I was adding wasn't working right and it seems to have fixed it.
+      groupDiv.append(document.createElement('div'))
+
       if (!parentNode.static) {
         addQueryAndGroupAddButtons(groupDiv, queryGroup[i], parentNode, templateId)
       }
@@ -738,37 +744,6 @@ function initializeRootSearchQueryHelper (element, templateId, parentNode, query
       element.appendChild(queryDiv)
     } else {
       console.error('Unknown node type at index ' + i + ': ', queryGroup[i].type)
-    }
-  }
-}
-
-// This method has 2 functions:
-//   1. It renames DOM object IDs of the input form elements to indicate a serial form number in the format Django expects.  It also updates 1 meta form element that indicates the total number of forms.
-//   2. If saves each leaf's hierarchical path in a hidden input element named "pos".  The path is in the form of index.index.index... where <index> is the child index.  The single value (all or any) of inner nodes is saved in the pathin the form index-all.index-any.index, e.g. "0-all-0-any.0".
-// This method takes the outer DOM object that contains all the forms
-function saveSearchQueryHierarchy (divElem) { // eslint-disable-line no-unused-vars
-  'use strict'
-
-  const childDivs = divElem.querySelectorAll(':scope > div') // - results in only 1, even if 2 items added - I think because each input is not wrapped in a div
-
-  const selectedformat = getSelectedFormat(childDivs[0])
-
-  let total = 0
-
-  // This will traverse a hierarchy for each possible output format
-  for (let i = 1; i < childDivs.length; i++) {
-    total = saveSearchQueryHierarchyHelper(childDivs[i], '', total, 0, selectedformat)
-  }
-
-  // Only 1 form needs to have the total set, but depending on how the form was initialized, it could be any of these, so attempt to set them all
-  const prefixes = ['form']
-  for (const prefix of Object.keys(rootGroup.searches)) {
-    prefixes.push(prefix)
-  }
-  for (const prefix of prefixes) {
-    const formInput = document.getElementById('id_' + prefix + '-TOTAL_FORMS')
-    if (typeof formInput !== 'undefined' && formInput) {
-      formInput.value = total
     }
   }
 }
@@ -797,6 +772,37 @@ function getFormatName (fmt) {
   return formatName
 }
 
+// This method has 2 functions:
+//   1. It renames DOM object IDs of the input form elements to indicate a serial form number in the format Django expects.  It also updates 1 meta form element that indicates the total number of forms.
+//   2. It saves each leaf's hierarchical path in a hidden input element named "pos".  The path is in the form of index.index.index... where <index> is the child index.  The single value (all or any) of inner nodes is saved in the pathin the form index-all.index-any.index, e.g. "0-all-0-any.0".
+// This method takes the outer DOM object that contains all the forms
+function saveSearchQueryHierarchy (divElem) { // eslint-disable-line no-unused-vars
+  'use strict'
+
+  const childDivs = divElem.querySelectorAll(':scope > div') // - results in only 1, even if 2 items added - I think because each input is not wrapped in a div
+
+  const selectedformat = getSelectedFormat(childDivs[0])
+
+  let total = 0
+
+  // This will traverse a hierarchy for each possible output format
+  for (let i = 1; i < childDivs.length; i++) {
+    total = saveSearchQueryHierarchyHelper(childDivs[i], '', total, 0, selectedformat)
+  }
+
+  // Only 1 form needs to have the total set, but depending on how the form was initialized, it could be any of these, so attempt to set them all
+  const prefixes = ['form']
+  for (const prefix of Object.keys(rootGroup.searches)) {
+    prefixes.push(prefix)
+  }
+  for (const prefix of prefixes) {
+    const formInput = document.getElementById('id_' + prefix + '-TOTAL_FORMS')
+    if (typeof formInput !== 'undefined' && formInput) {
+      formInput.value = total
+    }
+  }
+}
+
 // This is a recursive helper method to saveSearchQueryHierarchy.  It takes:
 //   divElem - The DOM object that contains forms.
 //   path - a running path string to be stored in a leaf form's hidden 'pos' field.
@@ -822,8 +828,15 @@ function saveSearchQueryHierarchyHelper (divElem, path, count, idx, selectedform
 
   let isForm = false
   let isAll = true
+  let isStatic = false
   let posElem
   for (let i = 0; i < childInputs.length; i++) {
+    if (childInputs[i].disabled) {
+      // Remove the disabled attribute so that the data submits
+      childInputs[i].removeAttribute('disabled')
+      // Infer static form by presence of disabled attribute
+      isStatic = true
+    }
     if (typeof childInputs[i].name !== 'undefined' && childInputs[i].name) {
       if (childInputs[i].name.includes('-pos')) {
         isForm = true
@@ -832,7 +845,13 @@ function saveSearchQueryHierarchyHelper (divElem, path, count, idx, selectedform
       } else if (childInputs[i].name.includes('grouptype') && childInputs[i].value === 'any') {
         isAll = false
       }
+      if (isStatic) {
+        if (childInputs[i].name.includes('-static')) {
+          childInputs[i].value = 'true'
+        }
+      }
     }
+    console.log("Saving template:",selectedformat,"Input:",childInputs[i].name,"Value:",childInputs[i].value)
   }
 
   if (path === '') {
@@ -856,13 +875,17 @@ function saveSearchQueryHierarchyHelper (divElem, path, count, idx, selectedform
         // Replace (e.g. "form-0-val" or "form-__prefix__-val") with "form-<count>-val"
         const re = /-0-|-__prefix__-/
         const replacement = '-' + (count - 1) + '-'
-        if (childInputs[i].for) childInputs[i].for = childInputs[i].for.replace(re, replacement)
+        if (childInputs[i].for) {
+          childInputs[i].for = childInputs[i].for.replace(re, replacement)
+        }
         if (childInputs[i].id) {
           const tmp = childInputs[i].id
           const newid = tmp.replace(re, replacement)
           childInputs[i].id = newid
         }
-        if (childInputs[i].name) childInputs[i].name = childInputs[i].name.replace(re, replacement)
+        if (childInputs[i].name) {
+          childInputs[i].name = childInputs[i].name.replace(re, replacement)
+        }
       }
     }
   } else {

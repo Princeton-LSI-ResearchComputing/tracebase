@@ -578,6 +578,8 @@ def formsetsToDict(rawformset, form_classes):
         # by checking the dictionary of each form class's first form for evidence that it processed the forms, i.e. the
         # presence of the "saved_data" class data member which is created upon processing.
         print(f"Looking for 'saved_data' in formset for {key}: {','.join(rawformset[key][0].__dict__.keys())}")
+        print("rawformset for ", key, ": ", rawformset[key])
+        print("cleaned_data for ", key, ": ", rawformset[key][0].__dict__["cleaned_data"])
         if "saved_data" in rawformset[key][0].__dict__:
             processed_formkey = key
             break
@@ -672,6 +674,8 @@ def formsetToDict(rawformset, form_classes):
                     keys_seen[key] = 1
                     if keyname == "pos":
                         curqry[pos][key] = ""
+                    elif keyname == "static" and form[key] == "true":
+                        curqry[pos][key] = True
                     elif key not in curqry[pos]:
                         curqry[pos][key] = form[key]
                     else:
