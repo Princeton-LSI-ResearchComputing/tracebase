@@ -359,6 +359,7 @@ class DataLoadingTests(TestCase):
             date="2021-04-29",
             researcher="Michael Neinast",
         )
+        cls.ALL_PEAKGROUPSETS_COUNT = 1
         cls.INF_COMPOUNDS_COUNT = 7
         cls.INF_SAMPLES_COUNT = 56
         cls.INF_PEAKDATA_ROWS = 38
@@ -370,9 +371,23 @@ class DataLoadingTests(TestCase):
             date="2021-04-29",
             researcher="Michael Neinast",
         )
+        cls.ALL_PEAKGROUPSETS_COUNT += 1
         cls.SERUM_COMPOUNDS_COUNT = 13
         cls.SERUM_SAMPLES_COUNT = 4
         cls.SERUM_PEAKDATA_ROWS = 85
+
+        # test load CSV file of corrected data, with no "original counterpart"
+        call_command(
+            "load_accucor_msruns",
+            protocol="Default",
+            accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_corrected.csv",
+            date="2021-10-14",
+            researcher="Michael Neinast",
+        )
+        cls.ALL_PEAKGROUPSETS_COUNT += 1
+        cls.NULL_ORIG_COMPOUNDS_COUNT = 7
+        cls.NULL_ORIG_SAMPLES_COUNT = 56
+        cls.NULL_ORIG_PEAKDATA_ROWS = 38
 
         # defining a primary animal object for repeated tests
         cls.MAIN_SERUM_ANIMAL = Animal.objects.get(name="971")
@@ -391,7 +406,11 @@ class DataLoadingTests(TestCase):
         self.assertEqual(study.animals.count(), self.ALL_OBOB_ANIMALS_COUNT)
 
         # MsRun should be equivalent to the samples
-        MSRUN_COUNT = self.INF_SAMPLES_COUNT + self.SERUM_SAMPLES_COUNT
+        MSRUN_COUNT = (
+            self.INF_SAMPLES_COUNT
+            + self.SERUM_SAMPLES_COUNT
+            + self.NULL_ORIG_SAMPLES_COUNT
+        )
         self.assertEqual(MSRun.objects.all().count(), MSRUN_COUNT)
 
     def test_sample_data(self):
@@ -411,7 +430,9 @@ class DataLoadingTests(TestCase):
     def test_peak_groups_set_loaded(self):
 
         # 2 peak group sets , 1 for each call to load_accucor_msruns
-        self.assertEqual(PeakGroupSet.objects.all().count(), 2)
+        self.assertEqual(
+            PeakGroupSet.objects.all().count(), self.ALL_PEAKGROUPSETS_COUNT
+        )
         pgs = PeakGroupSet.objects.all().first()
         self.assertEqual(pgs.filename, "obob_maven_6eaas_inf.xlsx")
 
@@ -564,9 +585,14 @@ class DataLoadingTests(TestCase):
         INF_PEAKGROUP_COUNT = self.INF_COMPOUNDS_COUNT * self.INF_SAMPLES_COUNT
         # serum data file: compounds * samples
         SERUM_PEAKGROUP_COUNT = self.SERUM_COMPOUNDS_COUNT * self.SERUM_SAMPLES_COUNT
+        # null original data file: compounds * samples
+        NULL_ORIG_PEAKGROUP_COUNT = (
+            self.NULL_ORIG_COMPOUNDS_COUNT * self.NULL_ORIG_SAMPLES_COUNT
+        )
 
         self.assertEqual(
-            PeakGroup.objects.all().count(), INF_PEAKGROUP_COUNT + SERUM_PEAKGROUP_COUNT
+            PeakGroup.objects.all().count(),
+            INF_PEAKGROUP_COUNT + SERUM_PEAKGROUP_COUNT + NULL_ORIG_PEAKGROUP_COUNT,
         )
 
     def test_peak_data_loaded(self):
@@ -574,15 +600,21 @@ class DataLoadingTests(TestCase):
         INF_PEAKDATA_COUNT = self.INF_PEAKDATA_ROWS * self.INF_SAMPLES_COUNT
         # serum data file: PeakData rows * samples
         SERUM_PEAKDATA_COUNT = self.SERUM_PEAKDATA_ROWS * self.SERUM_SAMPLES_COUNT
+        # null original version of INF data
+        NULL_ORIG_PEAKDATA_COUNT = (
+            self.NULL_ORIG_PEAKDATA_ROWS * self.NULL_ORIG_SAMPLES_COUNT
+        )
 
         self.assertEqual(
-            PeakData.objects.all().count(), INF_PEAKDATA_COUNT + SERUM_PEAKDATA_COUNT
+            PeakData.objects.all().count(),
+            INF_PEAKDATA_COUNT + SERUM_PEAKDATA_COUNT + NULL_ORIG_PEAKDATA_COUNT,
         )
 
     def test_peak_group_peak_data_1(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="glucose")
             .filter(msrun__sample__name="BAT-xz971")
+            .filter(peak_group_set__filename="obob_maven_6eaas_inf.xlsx")
             .get()
         )
         peak_data = peak_group.peak_data.filter(labeled_count=0).get()
@@ -617,6 +649,26 @@ class DataLoadingTests(TestCase):
         peak_data = peak_group.peak_data.filter(labeled_count=5).get()
         self.assertAlmostEqual(peak_data.raw_abundance, 1356.587)
         self.assertEqual(peak_data.corrected_abundance, 0)
+
+    def test_peak_group_peak_data_4(self):
+        # null original data
+        peak_group = (
+            PeakGroup.objects.filter(compounds__name="glucose")
+            .filter(msrun__sample__name="BAT-xz971")
+            .filter(peak_group_set__filename="obob_maven_6eaas_inf_corrected.csv")
+            .get()
+        )
+        peak_data = peak_group.peak_data.filter(labeled_count=0).get()
+        # so some data is unavialable
+        self.assertIsNone(peak_data.raw_abundance)
+        self.assertIsNone(peak_data.med_mz)
+        self.assertIsNone(peak_data.med_rt)
+        # but presumably these are all computed from the corrected data
+        self.assertAlmostEqual(peak_data.corrected_abundance, 9553199.89089051)
+        self.assertAlmostEqual(peak_group.total_abundance, 9599112.684, places=3)
+        self.assertAlmostEqual(peak_group.enrichment_fraction, 0.001555566789)
+        self.assertAlmostEqual(peak_group.enrichment_abundance, 14932.06089, places=5)
+        self.assertAlmostEqual(peak_group.normalized_labeling, 0.009119978074)
 
     def test_peak_group_peak_data_serum(self):
         peak_group = (
@@ -660,6 +712,7 @@ class DataLoadingTests(TestCase):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="glucose")
             .filter(msrun__sample__name="BAT-xz971")
+            .filter(peak_group_set__filename="obob_maven_6eaas_inf.xlsx")
             .get()
         )
 
@@ -721,6 +774,7 @@ class DataLoadingTests(TestCase):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="glucose")
             .filter(msrun__sample__name="BAT-xz971")
+            .filter(peak_group_set__filename="obob_maven_6eaas_inf.xlsx")
             .get()
         )
 
@@ -738,6 +792,7 @@ class DataLoadingTests(TestCase):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="glucose")
             .filter(msrun__sample__name="BAT-xz971")
+            .filter(peak_group_set__filename="obob_maven_6eaas_inf.xlsx")
             .get()
         )
 
@@ -753,6 +808,7 @@ class DataLoadingTests(TestCase):
         peak_data = (
             PeakGroup.objects.filter(compounds__name="glucose")
             .filter(msrun__sample__name="BAT-xz971")
+            .filter(peak_group_set__filename="obob_maven_6eaas_inf.xlsx")
             .get()
             .peak_data.filter(labeled_count=0)
             .get()

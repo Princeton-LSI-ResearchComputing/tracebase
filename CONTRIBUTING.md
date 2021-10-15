@@ -23,7 +23,7 @@ Test to make sure that the `python` command now shows your latest python install
 
 Install Postgres via package installer from
 [https://www.postgresql.org](https://www.postgresql.org).  Be sure to make note
-of where it installs the `psql` command line utility, so you can add it to your
+of where it installs the `psql` command-line utility, so you can add it to your
 PATH, e.g. if you see:
 
     Command Line Tools Installation Directory: /Library/PostgreSQL/13
@@ -94,11 +94,11 @@ Create a new secret:
     python -c "import secrets; print(secrets.token_urlsafe())"
 
 Database and secret key information should not be stored directly in settings
-that are published to the repo.  We use environment variables to store
+that are published to the repository.  We use environment variables to store
 configuration data.  This makes it possible to easily change between
 environments of a deployed application (see [The Twelve-Factor
 App](https://www.12factor.net/config)).  The .env file you create here is pre-
-configured to be ignored by the repo, so do not explicitly check it in.
+configured to be ignored by the repository, so do not explicitly check it in.
 
 Copy the TraceBase environment example:
 
@@ -130,7 +130,7 @@ Then go to this site in your web browser:
 
 ### Create an Admin User
 
-To be able to access the admin page, on the command line, run:
+To be able to access the admin page, on the command-line, run:
 
     python manage.py createsuperuser
 
@@ -154,7 +154,7 @@ linting on developers machines. These include:
 
 #### Linting
 
-Linting for this project runs automatically on github when a PR is submitted,
+Linting for this project runs automatically on GitHub when a PR is submitted,
 but this section describes how to lint your changes locally.
 
 ##### Individual linters
@@ -177,13 +177,13 @@ editor. Some linters that may be useful to install locally include:
 * General
   * [jscpd](https://github.com/kucherenko/jscpd) - Copy/paste detector for
     programming source code
-  * [standard](https://standardjs.com) - Javascript linting
+  * [standard](https://standardjs.com) - JavaScript linting
   * [editorconfig-checker](https://www.npmjs.com/package/editorconfig-checker)
     \- Config linting
 
 It is recommended to run superlinter (described below) routinely or
 automatically before submitting a PR, but if you want a quick check while
-developing, you can run these example linting commands on the command line:
+developing, you can run these example linting commands on the command-line:
 
     black --exclude 'migrations|.venv' .
     isort --skip migrations --skip .venv .
@@ -205,8 +205,8 @@ In addition to linting files as you write them, developers may wish to [run
 Superlinter on the entire repository
 locally](https://github.com/github/super-linter/blob/master/docs/run-linter-locally.md).
 This is most easily accomplished using [Docker](https://docs.docker.com/get-docker/)].
-Create a script outside of the repo that runs superlinter via docker and run it
-from the repo root directory. Example script:
+Create a script outside of the repository that runs superlinter via docker and run it
+from the repository root directory. Example script:
 
     #!/usr/bin/env sh
     docker pull github/super-linter:latest

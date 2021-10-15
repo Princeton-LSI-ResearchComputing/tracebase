@@ -491,7 +491,9 @@ class AccuCorDataLoader:
         if self.accucor_original_df is not None:
             original_samples = [
                 sample
-                for sample in list(self.accucor_original_df)[original_minimum_sample_index:]
+                for sample in list(self.accucor_original_df)[
+                    original_minimum_sample_index:
+                ]
                 if sample not in self.skip_samples
             ]
         corrected_samples = [
@@ -502,19 +504,12 @@ class AccuCorDataLoader:
             if sample not in self.skip_samples
         ]
 
-        # Make sure all sample columns have names
-        if original_samples:
-            orig_iter = collections.Counter(original_samples)
-            orig_iter_err = ""
-            for k, v in orig_iter.items():
-                if k.startswith("Unnamed: "):
-                    raise EmptyDataError(
-                        "Sample columns missing headers found in the Original data sheet. You have "
-                        + str(len(self.accucor_original_df.columns))
-                        + " columns. Be sure to delete any unused columns."
-                    )
-                orig_iter_err += '"' + str(k) + '":' + str(v) + '",'
+        # these could be None, if there was no original dataframe
+        self.original_samples = original_samples
+        # but the corrected list should have something we can rely on
+        self.corrected_samples = corrected_samples
 
+        # Make sure all sample columns have names
         corr_iter = collections.Counter(corrected_samples)
         corr_iter_err = ""
         for k, v in corr_iter.items():
@@ -526,20 +521,28 @@ class AccuCorDataLoader:
                 )
             corr_iter_err += '"' + str(k) + '":"' + str(v) + '",'
 
-        # Make sure that the sheets have the same number of sample columns
-        err_msg = (
-            f"Number of samples in the original and corrected sheets differ. Original: [{orig_iter_err}] Corrected: "
-            "[{corr_iter_err}]."
-        )
-        assert orig_iter == corr_iter, err_msg
-        # these could be None, if there was no original dataframe
-        self.original_samples = original_samples
-        # but the corrected list should have something we can rely on
-        self.corrected_samples = corrected_samples
+        if original_samples:
+            # Make sure all sample columns have names
+            orig_iter = collections.Counter(original_samples)
+            orig_iter_err = ""
+            for k, v in orig_iter.items():
+                if k.startswith("Unnamed: "):
+                    raise EmptyDataError(
+                        "Sample columns missing headers found in the Original data sheet. You have "
+                        + str(len(self.accucor_original_df.columns))
+                        + " columns. Be sure to delete any unused columns."
+                    )
+                orig_iter_err += '"' + str(k) + '":' + str(v) + '",'
 
+            # Make sure that the sheets have the same number of sample columns
+            err_msg = (
+                "Number of samples in the original and corrected sheets differ."
+                f"Original: [{orig_iter_err}] Corrected: [{corr_iter_err}]."
+            )
+            assert orig_iter == corr_iter, err_msg
 
     def validate_compounds(self):
-        
+
         if self.accucor_original_df is not None:
             dupe_dict = {}
             for index, row in self.accucor_original_df[
@@ -740,7 +743,9 @@ class AccuCorDataLoader:
                         it with the mapped database compound's formula
                         """
                         if not self.peak_group_dict[peak_group_name]["formula"]:
-                            self.peak_group_dict[peak_group_name]["formula"] = mapped_compound.formula
+                            self.peak_group_dict[peak_group_name][
+                                "formula"
+                            ] = mapped_compound.formula
                     except Compound.DoesNotExist:
                         missing_compounds += 1
                         print(f"Could not find compound {compound_input}")
@@ -841,61 +846,94 @@ class AccuCorDataLoader:
                 # we should have a cached PeakGroup now
                 peak_group = inserted_peak_group_dict[peak_group_name]
 
-                peak_group_original_data = self.accucor_original_df.loc[
-                    self.accucor_original_df["compound"] == peak_group_name
-                ]
-                # get next row from original data
-                row_idx = 0
-                for labeled_count in range(
-                    0, peak_group.atom_count(self.labeled_element) + 1
-                ):
-                    try:
-                        row = peak_group_original_data.iloc[row_idx]
-                        _atom, row_labeled_count = self.parse_isotope_label(
-                            row["isotopeLabel"]
-                        )
-                        # Not a matching row
-                        if row_labeled_count != labeled_count:
+                if self.accucor_original_df is not None:
+                    peak_group_original_data = self.accucor_original_df.loc[
+                        self.accucor_original_df["compound"] == peak_group_name
+                    ]
+                    # get next row from original data
+                    row_idx = 0
+                    for labeled_count in range(
+                        0, peak_group.atom_count(self.labeled_element) + 1
+                    ):
+                        try:
+                            row = peak_group_original_data.iloc[row_idx]
+                            _atom, row_labeled_count = self.parse_isotope_label(
+                                row["isotopeLabel"]
+                            )
+                            # Not a matching row
+                            if row_labeled_count != labeled_count:
+                                row = None
+                        except IndexError:
+                            # later rows are missing
                             row = None
-                    except IndexError:
-                        # later rows are missing
-                        row = None
-                    # Lookup corrected abundance by compound and label
-                    corrected_abundance = self.accucor_corrected_df.loc[
-                        (self.accucor_corrected_df["Compound"] == peak_group_name)
-                        & (
-                            self.accucor_corrected_df[self.labeled_element_header]
-                            == labeled_count
+                        # Lookup corrected abundance by compound and label
+                        corrected_abundance = self.accucor_corrected_df.loc[
+                            (self.accucor_corrected_df["Compound"] == peak_group_name)
+                            & (
+                                self.accucor_corrected_df[self.labeled_element_header]
+                                == labeled_count
+                            )
+                        ][sample_name]
+
+                        if row is None:
+                            # No row for this labeled_count
+                            raw_abundance = 0
+                            med_mz = 0
+                            med_rt = 0
+                        else:
+                            # We have a matching row, use it and increment row_idx
+                            raw_abundance = row[sample_name]
+                            med_mz = row["medMz"]
+                            med_rt = row["medRt"]
+                            row_idx = row_idx + 1
+
+                        print(
+                            f"\t\tInserting peak data for {peak_group_name}:label-{labeled_count} "
+                            f"for sample {sample_name}"
                         )
-                    ][sample_name]
+                        peak_data = PeakData(
+                            peak_group=peak_group,
+                            labeled_element=self.labeled_element,
+                            labeled_count=labeled_count,
+                            raw_abundance=raw_abundance,
+                            corrected_abundance=corrected_abundance,
+                            med_mz=med_mz,
+                            med_rt=med_rt,
+                        )
 
-                    if row is None:
-                        # No row for this labeled_count
-                        raw_abundance = 0
-                        med_mz = 0
-                        med_rt = 0
-                    else:
-                        # We have a matching row, use it and increment row_idx
-                        raw_abundance = row[sample_name]
-                        med_mz = row["medMz"]
-                        med_rt = row["medRt"]
-                        row_idx = row_idx + 1
-                    print(
-                        f"\t\tInserting peak data for {peak_group_name}:label-{labeled_count} "
-                        f"for sample {sample_name}"
-                    )
-                    peak_data = PeakData(
-                        peak_group=peak_group,
-                        labeled_element=self.labeled_element,
-                        labeled_count=labeled_count,
-                        raw_abundance=raw_abundance,
-                        corrected_abundance=corrected_abundance,
-                        med_mz=med_mz,
-                        med_rt=med_rt,
-                    )
+                        peak_data.full_clean()
+                        peak_data.save()
 
-                    peak_data.full_clean()
-                    peak_data.save()
+                else:
+                    peak_group_corrected_df = self.accucor_corrected_df[
+                        self.accucor_corrected_df["Compound"] == peak_group_name
+                    ]
+
+                    for _index, row in peak_group_corrected_df.iterrows():
+
+                        corrected_abundance_for_sample = row[sample_name]
+                        labeled_count = row[self.labeled_element_header]
+                        # No original dataframe, no raw_abundance, med_mz, or med_rt
+                        raw_abundance = None
+                        med_mz = None
+                        med_rt = None
+
+                        print(
+                            f"\t\tInserting peak data for {peak_group_name}:label-{labeled_count} "
+                            f"for sample {sample_name}"
+                        )
+                        peak_data = PeakData(
+                            peak_group=peak_group,
+                            labeled_element=self.labeled_element,
+                            labeled_count=labeled_count,
+                            raw_abundance=raw_abundance,
+                            corrected_abundance=corrected_abundance_for_sample,
+                            med_mz=med_mz,
+                            med_rt=med_rt,
+                        )
+
+                        peak_data.full_clean()
+                        peak_data.save()
 
         assert not self.debug, "Debugging..."
 

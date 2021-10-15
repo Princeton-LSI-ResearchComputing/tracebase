@@ -106,7 +106,6 @@ class Command(BaseCommand):
 
     def extract_dataframes_from_accucor_xlsx(self, options):
 
-        print("TRYING XLSX")
         # Note, setting `mangle_dupe_cols=False` would overwrite duplicates instead of raise an exception, so we're
         # checking for duplicate headers manually here.
         orig_heads = pd.read_excel(
@@ -151,11 +150,23 @@ class Command(BaseCommand):
 
     def extract_dataframes_from_csv(self, options):
 
-        print("TRYING CSV")
+        corr_heads = pd.read_csv(
+            options["accucor_file"],
+            nrows=1,
+            header=None,
+            squeeze=True,
+        ).iloc[0]
+        if self.headers_are_not_unique(corr_heads):
+            raise ValidationError(
+                "Column headers in Corrected data sheet are not unique. There are "
+                + str(self.num_heads)
+                + " columns and "
+                + str(self.num_uniq_heads)
+                + " unique values"
+            )
+
         self.original = None
         self.corrected = pd.read_csv(options["accucor_file"]).dropna(axis=0, how="all")
-
-        
 
     def headers_are_not_unique(self, headers):
         self.num_uniq_heads = len(pd.unique(headers))
