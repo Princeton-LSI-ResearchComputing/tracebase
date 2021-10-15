@@ -433,7 +433,7 @@ class DataLoadingTests(TestCase):
         self.assertEqual(
             PeakGroupSet.objects.all().count(), self.ALL_PEAKGROUPSETS_COUNT
         )
-        pgs = PeakGroupSet.objects.all().first()
+        pgs = PeakGroupSet.objects.all().order_by("filename").first()
         self.assertEqual(pgs.filename, "obob_maven_6eaas_inf.xlsx")
 
     def test_peak_groups_multiple_compounds(self):
