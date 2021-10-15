@@ -48,8 +48,17 @@ class BaseSearchView:
     static_filter: Dict[str, List] = {  # Same as qry['tree']
         "type": "group",
         "val": "all",
-        "queryGroup": [],
+        "queryGroup": [
+            {
+                'type': 'query',
+                'pos': '',
+                'ncmp': '',
+                'fld': '',
+                'val': '',
+            },
+        ],
         # 'static' not present = assumed false
+        # Note an empty search form will be presented for each 'query' type on initial page load
     }
 
     @classmethod
@@ -778,6 +787,7 @@ class FluxCircSearchView(BaseSearchView):
                     "displayed": False,
                     # No handoff when displayed=false means it will be displayed but grayed out
                     "type": "number",
+                    "handoff": "name",
                 },
                 "name": {
                     "displayname": "Tissue",

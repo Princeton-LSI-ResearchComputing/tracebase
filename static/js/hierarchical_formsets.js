@@ -224,7 +224,14 @@ function addSearchFieldForm (myDiv, query, copyQuery, isInit, templateId) {
         ncmpInitVal = copyQuery[keyname]
       }
     } else {
-      query[clones[i].name] = clones[i].value
+      if (typeof query[keyname] !== 'undefined' && query[keyname]) {
+        clones[i].value = query[keyname]
+      } else {
+        query[clones[i].name] = clones[i].value
+      }
+      if (query.static) {
+        clones[i].disabled = true
+      }
 
       if (keyname === 'fld') {
         fldInitVal = clones[i][0].value
@@ -532,7 +539,12 @@ function addRemoveButton (myDiv, query, parentGroup) {
   rmBtn.addEventListener('click', function (event) {
     formErrLabel.innerHTML = ''
 
-    const size = parentGroup.queryGroup.length
+    var size = 0
+    for (let i = 0; i < parentGroup.queryGroup.length; i++) {
+      if (!parentGroup.queryGroup[i].static) {
+        size++
+      }
+    }
     if (size <= 1) {
       formErrLabel.innerHTML = 'A match group must have at least 1 query.'
     } else {
@@ -661,49 +673,71 @@ function initializeRootSearchQuery (element) { // eslint-disable-line no-unused-
   let undef
 
   const myDiv = document.createElement('div')
-  console.error("Making format...")
   addFormatSelectList(myDiv, rootGroup)
-  console.error("Moving on...")
   element.appendChild(myDiv)
 
   for (const templateId of Object.keys(rootGroup.searches)) {
-    // Create the root object
-    const childDiv = appendInnerSearchQuery(element, templateId, rootGroup.searches[templateId].tree)
-
-    initializeRootSearchQueryHelper(childDiv, templateId, rootGroup.searches[templateId].tree)
-
-    const subQuery = {
-      type: 'query'
+    let isHidden = false
+    if (rootGroup.selectedtemplate !== templateId) {
+      isHidden = true
     }
 
-    console.error("Going in...")
-    appendInnerSearchQuery(childDiv, templateId, subQuery, undef, rootGroup.searches[templateId].tree, true)
-    console.error("Got past")
+    // Create the group select list
+    const groupDiv = document.createElement('div')
+    const templatename = templateId + '-hierarchy'
+    groupDiv.id = templatename
+    if (isHidden) {
+      groupDiv.style = 'display:none;'
+    }
+    addGroupSelectList(groupDiv, rootGroup.searches[templateId].tree, undef, false)
 
+    initializeRootSearchQueryHelper(groupDiv, templateId, rootGroup.searches[templateId].tree, rootGroup.searches[templateId].tree.queryGroup)
+
+    element.appendChild(groupDiv)
     // Not exactly sure why, but after adding inner elements to a group, an empty div is needed to make future dynamically-added form elements to be correctly created.  I did this based on the template post I followed that had a static empty div just inside where the dynamic content was being created, when stuff I was adding wasn't working right and it seems to have fixed it.
-    childDiv.append(document.createElement('div'))
+    groupDiv.append(document.createElement('div'))
   }
 }
 
-function initializeRootSearchQueryHelper (element, templateId, parentNode) {
+function initializeRootSearchQueryHelper (element, templateId, parentNode, queryGroup) {
   'use strict'
 
   let undef
 
-  for (let i = 0; i < parentNode.length; i++) {
-    if (parentNode[i].type === 'group') {
-      const childDiv = appendInnerSearchQuery(element, templateId, subGroup, undef, parentNode, false)
-      // Recurse
-      initializeRootSearchQueryHelper(childDiv, templateId, subGroup)
+  for (let i = 0; i < queryGroup.length; i++) {
+    if (queryGroup[i].type === 'group') {
+      // Create the group select list
+      const groupDiv = document.createElement('div')
+      groupDiv.className = 'level-indent'
+      addGroupSelectList(groupDiv, queryGroup[i], undef, false)
 
-      // Not exactly sure why, but after adding inner elements to a group, an empty div is needed to make future dynamically-added form elements to be correctly created.  I did this based on the template post I followed that had a static empty div just inside where the dynamic content was being created, when stuff I was adding wasn't working right and it seems to have fixed it.
-      childDiv.append(document.createElement('div'))
+      if (!queryGroup[i].static && !parentNode.static) {
+        addRemoveButton(groupDiv, queryGroup[i], parentNode)
+      }
+      console.log("Recursing for template", templateId)
+      initializeRootSearchQueryHelper(groupDiv, templateId, queryGroup[i], queryGroup[i].queryGroup)
 
-      addQueryAndGroupAddButtons(childDiv, subGroup, parentNode, templateId)
-    } else if (parentNode[i].type === 'query') {
-      appendInnerSearchQuery(element, templateId, subQuery, undef, parentNode, false)
+      if (!parentNode.static) {
+        addQueryAndGroupAddButtons(groupDiv, queryGroup[i], parentNode, templateId)
+      }
+
+      element.appendChild(groupDiv)
+    } else if (queryGroup[i].type === 'query') {
+      const queryDiv = document.createElement('div')
+      queryDiv.className = 'level-indent'
+      addSearchFieldForm(queryDiv, queryGroup[i], undef, false, templateId)
+
+      if (!queryGroup[i].static) {
+        addRemoveButton(queryDiv, queryGroup[i], parentNode)
+      }
+
+      if (!parentNode.static) {
+        addQueryAndGroupAddButtons(queryDiv, queryGroup[i], parentNode, templateId)
+      }
+
+      element.appendChild(queryDiv)
     } else {
-      console.error('Unknown node type at index ' + i + ': ', parentNode[i].type)
+      console.error('Unknown node type at index ' + i + ': ', queryGroup[i].type)
     }
   }
 }
@@ -721,7 +755,7 @@ function saveSearchQueryHierarchy (divElem) { // eslint-disable-line no-unused-v
 
   let total = 0
 
-  // This will traverse a a hierarchy for each possible output format
+  // This will traverse a hierarchy for each possible output format
   for (let i = 1; i < childDivs.length; i++) {
     total = saveSearchQueryHierarchyHelper(childDivs[i], '', total, 0, selectedformat)
   }

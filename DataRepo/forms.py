@@ -54,6 +54,7 @@ class BaseAdvSearchForm(forms.Form):
 
     def clean(self):
         """This override of super.clean is so we can reconstruct the search inputs upon form_invalid in views.py"""
+        print("CLEAN CALLED")
         self.saved_data = self.cleaned_data
         return self.cleaned_data
 
@@ -112,7 +113,7 @@ class AdvSearchForm:
     hierarchy_path_field_name = "pos"
 
     def __init__(self, *args, **kwargs):
-        for form_class in (AdvSearchPeakGroupsForm(), AdvSearchPeakDataForm()):
+        for form_class in (AdvSearchPeakGroupsForm(), AdvSearchPeakDataForm(), AdvSearchFluxCircForm()):
             id = form_class.composite_view_class.id
             self.form_classes[id] = formset_factory(form_class.__class__)
 

@@ -577,13 +577,14 @@ def formsetsToDict(rawformset, form_classes):
         # We need to identify the form class that processed the form to infer the selected output format.  We do that
         # by checking the dictionary of each form class's first form for evidence that it processed the forms, i.e. the
         # presence of the "saved_data" class data member which is created upon processing.
+        print(f"Looking for 'saved_data' in formset for {key}: {','.join(rawformset[key][0].__dict__.keys())}")
         if "saved_data" in rawformset[key][0].__dict__:
             processed_formkey = key
             break
 
     # If we were unable to locate the selected output format (i.e. the copy of the formsets that were processed)
     if processed_formkey is None:
-        raise Http404(f"Unable to find selected output format: [{processed_formkey}].")
+        raise Http404(f"Unable to find the saved form-processed data among formats: {','.join(rawformset.keys())}.")
 
     return formsetToDict(rawformset[processed_formkey], form_classes)
 
@@ -607,10 +608,13 @@ def formsetToDict(rawformset, form_classes):
 
         if isRaw:
             form = rawform.saved_data
+            print('form was raw')
         else:
             form = rawform
-
+            print('form was clean')
+        print(form)
         path = form["pos"].split(".")
+        print('pos was split')
         [format, formatName, selected] = rootToFormatInfo(path.pop(0))
         rootinfo = path.pop(0)
 

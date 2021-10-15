@@ -22,6 +22,7 @@ This document will serve to guide developers on implementing new code.
    - Add an import at the top of the class created in step 1 above
    - Copy and rename AdvSearchPeakGroupsForm and:
       - Set the data member `composite_view_class` to the class from step 1
+      - Add the new the new class to the loop in the __init__ function of the AdvSearchForm class.
 
 3. `DataRepo/templates/results/<format name>.html`
    - Copy `DataRepo/templates/results/peakgroups.html` to a new file with a name that indicates the format and edit as you wish, following these guidelines:
