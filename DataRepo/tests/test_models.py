@@ -434,7 +434,9 @@ class DataLoadingTests(TestCase):
             PeakGroupSet.objects.all().count(), self.ALL_PEAKGROUPSETS_COUNT
         )
         pgs = PeakGroupSet.objects.all().order_by("filename").first()
-        self.assertEqual(pgs.filename, "obob_maven_6eaas_inf.xlsx")
+        self.assertTrue(PeakGroupSet.objects.filter(filename="obob_maven_6eaas_inf.xlsx").exists())
+        self.assertTrue(PeakGroupSet.objects.filter(filename="obob_maven_6eaas_serum.xlsx").exists())
+        self.assertTrue(PeakGroupSet.objects.filter(filename="obob_maven_6eaas_inf_corrected.csv").exists())
 
     def test_peak_groups_multiple_compounds(self):
         """
