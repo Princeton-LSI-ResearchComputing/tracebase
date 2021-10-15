@@ -34,26 +34,41 @@
     <script>
         document.addEventListener("DOMContentLoaded", function(){
             console.log("Sanity check")
-            init(JSON.parse(document.getElementById('root_group').textContent),
-                JSON.parse(document.getElementById('ncmp_choices').textContent),
-                JSON.parse(document.getElementById('fld_types').textContent))
+            // init(JSON.parse(document.getElementById('root_group').textContent),
+            //     JSON.parse(document.getElementById('ncmp_choices').textContent),
+            //     JSON.parse(document.getElementById('fld_types').textContent))
 
-            {% if format and mode and mode == "browse" and not qry %}
-                {% if format not in forms.keys %}
-                    rootGroup.selectedtemplate = "{{ default_format }}"
-                {% else %}
-                    rootGroup.selectedtemplate = "{{ format }}"
-                {% endif %}
-            {% endif %}
+            // {% if format and mode and mode == "browse" and not qry %}
+            //     {% if format not in forms.keys %}
+            //         rootGroup.selectedtemplate = "{{ default_format }}"
+            //     {% else %}
+            //         rootGroup.selectedtemplate = "{{ format }}"
+            //     {% endif %}
+            // {% endif %}
 
             // If a search has been performed, restore the form
             {% if qry %}
-                const initGroup = JSON.parse(document.getElementById('initGroup').textContent)
-                initializeExistingSearchQuery(document.querySelector('.hierarchical-search'), initGroup)
+                // const initGroup = JSON.parse(document.getElementById('initGroup').textContent)
+                // initializeExistingSearchQuery(document.querySelector('.hierarchical-search'), initGroup)
+                init(JSON.parse(document.getElementById('initGroup').textContent),
+                    JSON.parse(document.getElementById('ncmp_choices').textContent),
+                    JSON.parse(document.getElementById('fld_types').textContent))
             {% else %}
-                const allforms = document.querySelector('.hierarchical-search')
-                initializeRootSearchQuery(allforms)
+                // const allforms = document.querySelector('.hierarchical-search')
+                // initializeRootSearchQuery(allforms)
+                init(JSON.parse(document.getElementById('root_group').textContent),
+                    JSON.parse(document.getElementById('ncmp_choices').textContent),
+                    JSON.parse(document.getElementById('fld_types').textContent))
+                {% if format and mode and mode == "browse" and not qry %}
+                    {% if format not in forms.keys %}
+                        rootGroup.selectedtemplate = "{{ default_format }}"
+                    {% else %}
+                        rootGroup.selectedtemplate = "{{ format }}"
+                    {% endif %}
+                {% endif %}
             {% endif %}
+            const allforms = document.querySelector('.hierarchical-search')
+            initializeRootSearchQuery(allforms)
 
             var myform = document.getElementById("hierarchical-search-form")
             document.getElementById("advanced-search-submit").addEventListener("click", function () {
@@ -85,6 +100,7 @@
                 {% with frm.empty_form as f %}
                     <div id="{{ template_key }}" style="display:none;">
                         {{ f.pos }}
+                        {{ f.static }}
                         {{ f.fld }}
                         {{ f.ncmp }}
                         {{ f.val }}

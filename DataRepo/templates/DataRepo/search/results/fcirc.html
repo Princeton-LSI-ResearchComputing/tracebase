@@ -1,37 +1,22 @@
 {% load customtags %}
 {% block content %}
-    <table class="table table-success table-hover table-bordered">
+    <table>
         <tr>
-            <th>Serum Sample Color Legend</th>
-        </tr>
-        <tr class="tr-normal">
-            <td>
-                Previous serum sample
-            </td>
-        </tr>
-        <tr class="tr-highlighted">
-            <td>
-                Last serum sample
-            </td>
-        </tr>
-    </table>
-    <table class="table table-success table-hover table-bordered">
-        <tr>
-            <th>Animal</th>
-            <th>Study</th>
-            <th>Treatment</th>
-            <th>Tracer Compound</th>
-            <th>Tracer Infusion Rate (ul/min/g)</th>
-            <th>Tracer Infusion Concentration (mM)</th>
-            <th>Time Collected (mins)</th>
-            <th>Average Ra (nmol/min/g)</th>
-            <th>Average Rd (nmol/min/g)</th>
-            <th>Average Ra (nmol/min)</th>
-            <th>Average Rd (nmol/min)</th>
-            <th>Intact Ra (nmol/min/g)</th>
-            <th>Intact Rd (nmol/min/g)</th>
-            <th>Intact Ra (nmol/min)</th>
-            <th>Intact Rd (nmol/min)</th>
+            <th class="tr-highlighted">Animal</th>
+            <th class="tr-highlighted">Study</th>
+            <th class="tr-highlighted">Treatment</th>
+            <th class="tr-highlighted">Tracer Compound</th>
+            <th class="tr-highlighted">Tracer Infusion Rate (ul/min/g)</th>
+            <th class="tr-highlighted">Tracer Infusion Concentration (mM)</th>
+            <th class="tr-highlighted">Time Collected (mins)</th>
+            <th class="tr-highlighted">Average Ra (nmol/min/g)</th>
+            <th class="tr-highlighted">Average Rd (nmol/min/g)</th>
+            <th class="tr-highlighted">Average Ra (nmol/min)</th>
+            <th class="tr-highlighted">Average Rd (nmol/min)</th>
+            <th class="tr-highlighted">Intact Ra (nmol/min/g)</th>
+            <th class="tr-highlighted">Intact Rd (nmol/min/g)</th>
+            <th class="tr-highlighted">Intact Ra (nmol/min)</th>
+            <th class="tr-highlighted">Intact Rd (nmol/min)</th>
         </tr>
 
         {% for pg in res.all %}
@@ -86,45 +71,93 @@
 
                     <!-- Average Ra (nmol/min/g) -->
                     <td class="text-end">
-                        <p title="{{ pg.rate_appearance_average_per_gram }}">{{ pg.rate_appearance_average_per_gram|floatformat:2 }}</p>
+                        {% if pg.rate_appearance_average_per_gram is None %}
+                            None
+                        {% else %}
+                            <p title="{{ pg.rate_appearance_average_per_gram }}">{{ pg.rate_appearance_average_per_gram|floatformat:2 }}</p>
+                        {% endif %}
                     </td>
 
                     <!-- Average Rd (nmol/min/g) -->
                     <td class="text-end">
-                        <p title="{{ pg.rate_disappearance_average_per_gram }}">{{ pg.rate_disappearance_average_per_gram|floatformat:2 }}</p>
+                        {% if pg.rate_disappearance_average_per_gram is None %}
+                            None
+                        {% else %}
+                            <p title="{{ pg.rate_disappearance_average_per_gram }}">{{ pg.rate_disappearance_average_per_gram|floatformat:2 }}</p>
+                        {% endif %}
                     </td>
 
                     <!-- Average Ra (nmol/min) -->
                     <td class="text-end">
-                        <p title="{{ pg.rate_appearance_average_weight_normalized }}">{{ pg.rate_appearance_average_weight_normalized|floatformat:2 }}</p>
+                        {% if pg.rate_appearance_average_weight_normalized is None %}
+                            None
+                        {% else %}
+                            <p title="{{ pg.rate_appearance_average_weight_normalized }}">{{ pg.rate_appearance_average_weight_normalized|floatformat:2 }}</p>
+                        {% endif %}
                     </td>
 
                     <!-- Average Rd (nmol/min) -->
                     <td class="text-end">
-                        <p title="{{ pg.rate_disappearance_average_weight_normalized }}">{{ pg.rate_disappearance_average_weight_normalized|floatformat:2 }}</p>
+                        {% if pg.rate_disappearance_average_weight_normalized is None %}
+                            None
+                        {% else %}
+                            <p title="{{ pg.rate_disappearance_average_weight_normalized }}">{{ pg.rate_disappearance_average_weight_normalized|floatformat:2 }}</p>
+                        {% endif %}
                     </td>
 
                     <!-- Average Ra (nmol/min/g) -->
                     <td class="text-end">
-                        <p title="{{ pg.rate_appearance_intact_per_gram }}">{{ pg.rate_appearance_intact_per_gram|floatformat:2 }}</p>
+                        {% if pg.rate_appearance_intact_per_gram is None %}
+                            None
+                        {% else %}
+                            <p title="{{ pg.rate_appearance_intact_per_gram }}">{{ pg.rate_appearance_intact_per_gram|floatformat:2 }}</p>
+                        {% endif %}
                     </td>
 
                     <!-- Average Rd (nmol/min/g) -->
                     <td class="text-end">
-                        <p title="{{ pg.rate_disappearance_intact_per_gram }}">{{ pg.rate_disappearance_intact_per_gram|floatformat:2 }}</p>
+                        {% if pg.rate_disappearance_intact_per_gram is None %}
+                            None
+                        {% else %}
+                            <p title="{{ pg.rate_disappearance_intact_per_gram }}">{{ pg.rate_disappearance_intact_per_gram|floatformat:2 }}</p>
+                        {% endif %}
                     </td>
 
                     <!-- Average Ra (nmol/min) -->
                     <td class="text-end">
-                        <p title="{{ pg.rate_appearance_intact_weight_normalized }}">{{ pg.rate_appearance_intact_weight_normalized|floatformat:2 }}</p>
+                        {% if pg.rate_appearance_intact_weight_normalized is None %}
+                            None
+                        {% else %}
+                            <p title="{{ pg.rate_appearance_intact_weight_normalized }}">{{ pg.rate_appearance_intact_weight_normalized|floatformat:2 }}</p>
+                        {% endif %}
                     </td>
 
                     <!-- Average Rd (nmol/min) -->
                     <td class="text-end">
-                        <p title="{{ pg.rate_disappearance_intact_weight_normalized }}">{{ pg.rate_disappearance_intact_weight_normalized|floatformat:2 }}</p>
+                        {% if pg.rate_disappearance_intact_weight_normalized is None %}
+                            None
+                        {% else %}
+                            <p title="{{ pg.rate_disappearance_intact_weight_normalized }}">{{ pg.rate_disappearance_intact_weight_normalized|floatformat:2 }}</p>
+                        {% endif %}
                     </td>
                 </tr>
             {% endfor %}
         {% endfor %}
+    </table>
+    <br>
+    <table class="table-bordered">
+        <tr>
+            <th class="tr-highlighted">Serum Sample Color Legend</th>
+        </tr>
+        <tr class="tr-normal">
+            <td>
+                Previous serum sample
+            </td>
+        </tr>
+        <tr class="tr-highlighted">
+            <td>
+                Last serum sample
+            </td>
+        </tr>
     </table>
 {% endblock %}

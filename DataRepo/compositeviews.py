@@ -48,17 +48,17 @@ class BaseSearchView:
     static_filter: Dict[str, List] = {  # Same as qry['tree']
         "type": "group",
         "val": "all",
+        "static": False,
         "queryGroup": [
             {
                 'type': 'query',
                 'pos': '',
+                "static": False,
                 'ncmp': '',
                 'fld': '',
                 'val': '',
             },
         ],
-        # 'static' not present = assumed false
-        # Note an empty search form will be presented for each 'query' type on initial page load
     }
 
     @classmethod
@@ -716,6 +716,7 @@ class FluxCircSearchView(BaseSearchView):
                     {
                         'type': 'query',
                         'pos': '',
+                        "static": False,
                         'ncmp': '',
                         'fld': '',
                         'val': '',

@@ -69,9 +69,9 @@ class BaseAdvSearchForm(forms.Form):
             self.selected = True
             for field in fields:
                 if field not in data:
-                    print("Form data was INvalid 1:", data)
+                    print(f"Form was INvalid because field: {field} was not in data:", data)
                     return False
-        else:
+        elif len(data.keys()) == 0:
             print("Form data was INvalid 2:", data)
             return False
         print("Form data was valid:", data)

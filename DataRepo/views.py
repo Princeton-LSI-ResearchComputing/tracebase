@@ -627,11 +627,13 @@ def formsetToDict(rawformset, form_classes):
             search["searches"][format]["name"] = formatName
 
             # Initialize the root of the tree
-            [pos, gtype] = pathStepToPosGroupType(rootinfo)
+            [pos, gtype, static] = pathStepToPosGroupType(rootinfo)
             aroot = search["searches"][format]["tree"]
             aroot["pos"] = ""
             aroot["type"] = "group"
             aroot["val"] = gtype
+            aroot["static"] = static
+            print(f"Setting static root group to boolean {static}")
             aroot["queryGroup"] = []
             curqry = aroot["queryGroup"]
         else:
@@ -642,7 +644,7 @@ def formsetToDict(rawformset, form_classes):
             search["selectedtemplate"] = format
 
         for spot in path:
-            [pos, gtype] = pathStepToPosGroupType(spot)
+            [pos, gtype, static] = pathStepToPosGroupType(spot)
             while len(curqry) <= pos:
                 curqry.append({})
             if gtype is not None:
@@ -652,6 +654,8 @@ def formsetToDict(rawformset, form_classes):
                     curqry[pos]["pos"] = ""
                     curqry[pos]["type"] = "group"
                     curqry[pos]["val"] = gtype
+                    curqry[pos]["static"] = static
+                    print(f"Setting static group to boolean {static}")
                     curqry[pos]["queryGroup"] = []
                 # Move on to the next node in the path
                 curqry = curqry[pos]["queryGroup"]
@@ -674,20 +678,18 @@ def formsetToDict(rawformset, form_classes):
                     keys_seen[key] = 1
                     if keyname == "pos":
                         curqry[pos][key] = ""
-                    elif keyname == "static" and form[key] == "true":
-                        curqry[pos][key] = True
+                    elif keyname == "static":
+                        if form[key] == "true":
+                            curqry[pos][key] = True
+                            print("Setting static form elem to boolean true")
+                        else:
+                            curqry[pos][key] = False
+                            print("Setting static form elem to boolean false")
                     elif key not in curqry[pos]:
                         curqry[pos][key] = form[key]
                     else:
                         # Log a warning
-                        print(
-                            "WARNING: Unrecognized form element not set at pos",
-                            pos,
-                            ":",
-                            key,
-                            "to",
-                            form[key],
-                        )
+                        print(f"WARNING: Unrecognized form element not set at pos {pos}: {key} to {form[key]}")
 
                 # Now initialize anything missing a value to an empty string
                 # This is used to correctly reconstruct the user's query upon form_invalid
@@ -703,15 +705,24 @@ def pathStepToPosGroupType(spot):
     inner node).  E.g. "0-all"
     """
 
-    pos_gtype = spot.split("-")
-    if len(pos_gtype) == 2:
-        pos = pos_gtype[0]
-        gtype = pos_gtype[1]
+    pos_gtype_stc = spot.split("-")
+    if len(pos_gtype_stc) == 3:
+        pos = pos_gtype_stc[0]
+        gtype = pos_gtype_stc[1]
+        if pos_gtype_stc[2] == 'true':
+            static = True
+        else:
+            static = False
+    elif len(pos_gtype_stc) == 2:
+        pos = pos_gtype_stc[0]
+        gtype = pos_gtype_stc[1]
+        static = False
     else:
         pos = spot
         gtype = None
+        static = False
     pos = int(pos)
-    return [pos, gtype]
+    return [pos, gtype, static]
 
 
 def rootToFormatInfo(rootInfo):

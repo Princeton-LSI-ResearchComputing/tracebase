@@ -1,5 +1,4 @@
 /* Exported functions:
- *   appendSearchQuery
  *   saveSearchQueryHierarchy
  *   initializeExistingSearchQuery
  *   init
@@ -42,24 +41,6 @@ function init (rootGroup, ncmpChoices, fldTypes) { // eslint-disable-line no-unu
   globalThis.ncmpChoices = ncmpChoices
   globalThis.fldTypes = fldTypes
   globalThis.formErrLabel = document.getElementById('formerror')
-}
-
-function appendSearchQuery (element, query) { // eslint-disable-line no-unused-vars
-  'use strict'
-
-  const myDiv = document.createElement('div')
-  addFormatSelectList(myDiv, query)
-  element.appendChild(myDiv)
-
-  for (const templateId of Object.keys(query.searches)) {
-    if (query.searches[templateId].tree.static) {
-      //appendInnerSearchQuery(element, templateId, query.searches[templateId].tree, rootGroup.searches[templateId].tree)
-      initializeExistingSearchQuery (element, rootGroup)
-    } else {
-      initializeRootSearchQueryHelper(element, templateId, rootGroup.searches[templateId].tree, rootGroup.searches[templateId].tree.queryGroup)
-      // appendInnerSearchQuery(element, templateId, query.searches[templateId].tree)
-    }
-  }
 }
 
 function showOutputFormatSearch (shownTemplateId) {
@@ -210,9 +191,7 @@ function addSearchFieldForm (myDiv, query, copyQuery, isInit, templateId) {
     if (isInit) {
       query[keyname] = copyQuery[keyname]
       clones[i].value = copyQuery[keyname]
-      if (copyQuery.static) {
-        clones[i].static = copyQuery.static
-      }
+      iclones[i].static = copyQuery.static
 
       // If this isn't the hidden pos field and there is no value, push an error
       if (keyname !== 'pos' && copyQuery[keyname] === '') {
@@ -514,6 +493,8 @@ function addGroupSelectList (myDiv, query, copyQuery, isInit) {
   select.value = query.val
   if (query.static || ((typeof copyQuery !== 'undefined' || copyQuery) && copyQuery.static)) {
     select.disabled = true
+  } else {
+    console.warn("Group",query.val,"was not static:", query.static)
   }
 
   // Use a change as an opportunity to dismiss previous errors
@@ -643,9 +624,7 @@ function initializeExistingSearchQueryHelper (element, templateId, parentNode, c
         val: copyQueryArray[i].val,
         queryGroup: []
       }
-      if (copyQueryArray[i].static) {
-        subGroup.static = copyQueryArray[i].static
-      }
+      subGroup.static = copyQueryArray[i].static
       parentNode.queryGroup.push(subGroup)
       const childDiv = appendInnerSearchQuery(element, templateId, subGroup, copyQueryArray[i], parentNode, false)
       // Recurse
@@ -659,9 +638,7 @@ function initializeExistingSearchQueryHelper (element, templateId, parentNode, c
       const subQuery = {
         type: 'query'
       }
-      if (copyQueryArray[i].static) {
-        subQuery.static = copyQueryArray[i].static
-      }
+      subQuery.static = copyQueryArray[i].static
       parentNode.queryGroup.push(subQuery)
       appendInnerSearchQuery(element, templateId, subQuery, copyQueryArray[i], parentNode, false)
     } else {
@@ -828,29 +805,35 @@ function saveSearchQueryHierarchyHelper (divElem, path, count, idx, selectedform
 
   let isForm = false
   let isAll = true
-  let isStatic = false
+  let staticForm = false
+  let staticGroup = false
   let posElem
+  let stcElem
   for (let i = 0; i < childInputs.length; i++) {
-    if (childInputs[i].disabled) {
-      // Remove the disabled attribute so that the data submits
-      childInputs[i].removeAttribute('disabled')
-      // Infer static form by presence of disabled attribute
-      isStatic = true
-    }
     if (typeof childInputs[i].name !== 'undefined' && childInputs[i].name) {
       if (childInputs[i].name.includes('-pos')) {
         isForm = true
         count++
         posElem = childInputs[i]
-      } else if (childInputs[i].name.includes('grouptype') && childInputs[i].value === 'any') {
-        isAll = false
-      }
-      if (isStatic) {
-        if (childInputs[i].name.includes('-static')) {
-          childInputs[i].value = 'true'
+      } else if (childInputs[i].name.includes('grouptype')) {
+        if (childInputs[i].value === 'any') {
+          isAll = false
         }
+        if (childInputs[i].disabled) {
+          // Infer static form by presence of disabled attribute
+          staticGroup = true
+        }
+      } else if (childInputs[i].name.includes('-static')) {
+        stcElem = childInputs[i]
+      } else if (childInputs[i].disabled) {
+        // Infer static search form if any other form element is disabled
+        staticForm = true
       }
-    }
+      if (childInputs[i].disabled) {
+        // Remove the disabled attribute so that the data submits
+        childInputs[i].removeAttribute('disabled')
+      }
+  }
     console.log("Saving template:",selectedformat,"Input:",childInputs[i].name,"Value:",childInputs[i].value)
   }
 
@@ -870,6 +853,14 @@ function saveSearchQueryHierarchyHelper (divElem, path, count, idx, selectedform
   // If this is a form from a Django formset (otherwise it's a hierarchy control level)
   if (isForm) {
     posElem.value = path
+
+    // Infer the static value based on whether any search field form field (not pos or grouptype) was disabled
+    if (staticForm) {
+      stcElem.value = 'true'
+    } else {
+      stcElem.value = 'false'
+    }
+
     for (let i = 0; i < childInputs.length; i++) {
       if (typeof childInputs[i].name !== 'undefined' && childInputs[i].name) {
         // Replace (e.g. "form-0-val" or "form-__prefix__-val") with "form-<count>-val"
@@ -893,6 +884,11 @@ function saveSearchQueryHierarchyHelper (divElem, path, count, idx, selectedform
       path += '-all'
     } else {
       path += '-any'
+    }
+    if (staticGroup) {
+      path += '-true'
+    } else {
+      path += '-false'
     }
   }
 
