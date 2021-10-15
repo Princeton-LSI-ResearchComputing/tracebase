@@ -579,7 +579,7 @@ def formsetsToDict(rawformset, form_classes):
         # presence of the "saved_data" class data member which is created upon processing.
         print(f"Looking for 'saved_data' in formset for {key}: {','.join(rawformset[key][0].__dict__.keys())}")
         print("rawformset for ", key, ": ", rawformset[key])
-        print("cleaned_data for ", key, ": ", rawformset[key][0].__dict__["cleaned_data"])
+        print("cleaned_data for ", key, ": ", rawformset[key][0].__dict__["saved_data"])
         if "saved_data" in rawformset[key][0].__dict__:
             processed_formkey = key
             break

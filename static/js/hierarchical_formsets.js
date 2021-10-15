@@ -208,7 +208,7 @@ function addSearchFieldForm (myDiv, query, copyQuery, isInit, templateId) {
         console.log("Initializing search form value for field: ", keyname,":", query[keyname])
         clones[i].value = query[keyname]
       } else {
-        console.log("Storing search form value for field: ", keyname,": as:", query[keyname], "into the qry object")
+        console.log("Storing search form value for field: ", keyname,": as:", clones[i].value, "into the qry object")
         query[clones[i].name] = clones[i].value
       }
       if (query.static) {
