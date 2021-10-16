@@ -216,9 +216,11 @@ function addSearchFieldForm (myDiv, query, copyQuery, isInit, templateId) {
       }
 
       if (keyname === 'fld') {
-        fldInitVal = clones[i][0].value
+        // fldInitVal = clones[i][0].value
+        fldInitVal = clones[i].value
       } else if (keyname === 'ncmp') {
-        ncmpInitVal = clones[i][0].value
+        // ncmpInitVal = clones[i][0].value
+        ncmpInitVal = clones[i].value
       }
     }
 
@@ -341,6 +343,11 @@ function updateValFields (fldInitVal, ncmpInitVal, valClone, myDiv, templateId, 
     console.log('Created visible val fields for type:', dbFieldType)
   } else {
     console.log('Updated visible val fields for type:', dbFieldType)
+  }
+
+  if (valClone.disabled) {
+    valFields.valTextBox.disabled = true
+    valFields.valSelectList.disabled = true
   }
 
   return valFields
