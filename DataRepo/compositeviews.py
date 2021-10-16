@@ -782,14 +782,6 @@ class FluxCircSearchView(BaseSearchView):
         "Tissue": {
             "path": "msrun__sample__tissue",
             "fields": {
-                "id": {
-                    "displayname": "Tissue",
-                    "searchable": True,
-                    "displayed": False,
-                    # No handoff when displayed=false means it will be displayed but grayed out
-                    "type": "number",
-                    "handoff": "name",
-                },
                 "name": {
                     "displayname": "Tissue",
                     "searchable": True,

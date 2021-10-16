@@ -191,7 +191,7 @@ function addSearchFieldForm (myDiv, query, copyQuery, isInit, templateId) {
     if (isInit) {
       query[keyname] = copyQuery[keyname]
       clones[i].value = copyQuery[keyname]
-      iclones[i].static = copyQuery.static
+      clones[i].static = copyQuery.static
 
       // If this isn't the hidden pos field and there is no value, push an error
       if (keyname !== 'pos' && copyQuery[keyname] === '') {
