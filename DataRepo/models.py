@@ -398,7 +398,7 @@ class Animal(models.Model, TracerLabeledClass):
         """
 
         final_serum_sample = (
-            self.samples.filter(tissue__name__startswith=Tissue.SERUM_TISSUE_PREFIX)
+            self.samples.filter(tissue__name__istartswith=Tissue.SERUM_TISSUE_PREFIX)
             .order_by("time_collected")
             .last()
         )
@@ -408,7 +408,7 @@ class Animal(models.Model, TracerLabeledClass):
 
         if final_serum_sample and not final_serum_sample.time_collected:
             warnings.warn(
-                f"The Final serum sample {final_serum_sample.name} for"
+                f"The Final serum sample {final_serum_sample.name} for "
                 f"Animal {self.name} is missing a time_collected value."
             )
 
@@ -417,16 +417,15 @@ class Animal(models.Model, TracerLabeledClass):
     @cached_property
     def final_serum_sample_id(self):
         """
-        final_serum_sample_time_collected in an instance method that returns the time_collected of the last single
+        final_serum_sample_id in an instance method that returns the id of the last single
         serum sample removed from the animal, based on the time elapsed/duration from the initiation of infusion or
-        treatment.  If the animal has no serum samples or if the retrieved serum sample has no annotated
-        time_collected, a warning will be issued.
+        treatment.  If the animal has no serum samples, a warning will be issued.
         """
 
-        fss = self.final_serum_sample()
+        fss = self.final_serum_sample
         id = None
-        if final_serum_sample and final_serum_sample.time_collected:
-            id = final_serum_sample.id
+        if fss and fss.id:
+            id = fss.id
 
         return id
 

@@ -11,7 +11,6 @@
                 {% define forms|index:selfmt as selfrm %}
                 {% if valid_search and selfrm.0.val != "" and not selfrm.0.val.errors %}
                     <hr>
-                    <h3 style="margin: 0; display: inline-block;">{{ qry|getFormatName:qry.selectedtemplate }} Results ({{ res.count|default:"0" }})</h3>
                 {% else %}
                     {% define False as valid_search %}
                 {% endif %}
@@ -24,9 +23,7 @@
                 {% define False as valid_search %}
             {% endif %}
             <hr>
-            {% if valid_search %}
-                <h3 style="margin: 0; display: inline-block;">{{ res.count|default:"0" }} Records</h3>
-            {% else %}
+            {% if not valid_search %}
                 <label class="text-danger">Invalid format[1]: {{ selfmt }}</label>
             {% endif %}
         {% endif %}
@@ -45,11 +42,11 @@
             {% endif %}
 
             {% if qry.selectedtemplate == "pgtemplate" or mode == "browse" and format == "pgtemplate" %}
-                {% include "DataRepo/search/results/peakgroups.html" %}
+                {% include "DataRepo/search/results/peakgroups.html" with valid_search=valid_search %}
             {% elif qry.selectedtemplate == "pdtemplate" or mode == "browse" and format == "pdtemplate" %}
-                {% include "DataRepo/search/results/peakdata.html" %}
+                {% include "DataRepo/search/results/peakdata.html" with valid_search=valid_search %}
             {% elif qry.selectedtemplate == "fctemplate" or mode == "browse" and format == "fctemplate" %}
-                {% include "DataRepo/search/results/fcirc.html" %}
+                {% include "DataRepo/search/results/fcirc.html" with valid_search=valid_search %}
             {% else %}
                 <label class="text-danger">Invalid format[2]: {{ selfmt }}</label>
             {% endif %}

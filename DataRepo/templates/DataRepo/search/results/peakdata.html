@@ -1,5 +1,19 @@
 {% load customtags %}
 {% block content %}
+    <div>
+        {% if mode == "search" %}
+            {% if qry %}
+                {% if valid_search and selfrm.0.val != "" and not selfrm.0.val.errors %}
+                    <h3 style="margin: 0; display: inline-block;">{{ qry|getFormatName:qry.selectedtemplate }} Results ({{ res.count|default:"0" }})</h3>
+                {% endif %}
+            {% endif %}
+        {% else %}
+            {% if valid_search %}
+                <h3 style="margin: 0; display: inline-block;">{{ res.count|default:"0" }} Records</h3>
+            {% endif %}
+        {% endif %}
+    </div>
+
     <table class="table table-success table-hover table-striped table-bordered">
         <tr>
             <th>Sample</th>
