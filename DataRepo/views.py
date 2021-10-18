@@ -797,7 +797,7 @@ class SampleListView(ListView):
     context_object_name = "sample_list"
     template_name = "DataRepo/sample_list.html"
     ordering = ["animal_id", "name"]
-    paginate_by = 20
+    # paginate_by = 20
 
     # filter sample list by animal_id
     def get_queryset(self):
