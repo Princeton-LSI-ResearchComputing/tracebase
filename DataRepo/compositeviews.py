@@ -346,7 +346,7 @@ class PeakGroupsSearchView(BaseSearchView):
                     "type": "number",
                 },
                 "age": {
-                    "displayname": "Age (seconds)",
+                    "displayname": "Age (d-hh:mm:ss)",
                     "searchable": False,
                     "displayed": True,
                     "type": "number",
@@ -601,7 +601,7 @@ class PeakDataSearchView(BaseSearchView):
                     "choices": Animal.SEX_CHOICES,
                 },
                 "age": {
-                    "displayname": "Age (seconds)",
+                    "displayname": "Age (d-hh:mm:ss)",
                     "searchable": False,
                     "displayed": True,
                     "type": "number",
@@ -830,7 +830,7 @@ class FluxCircSearchView(BaseSearchView):
             "path": "msrun__sample",
             "fields": {
                 "time_collected": {
-                    "displayname": "Time Collected (seconds since infusion)",
+                    "displayname": "Time Collected (hh:mm:ss since infusion)",
                     "searchable": True,
                     "displayed": True,
                     "type": "number",
