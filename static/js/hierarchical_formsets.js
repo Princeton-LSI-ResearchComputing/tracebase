@@ -1,10 +1,7 @@
 /* Exported functions:
  *   saveSearchQueryHierarchy
- *   initializeExistingSearchQuery
  *   init
  * These methods must be called from javascript in a template after DOM content has loaded.
- * initializeExistingSearchQuery should be conditionally called based on the existence of a previous search.
- * saveSearchQueryHierarchy should be called upon submit.
  */
 
 // Globals
@@ -60,18 +57,12 @@ function showOutputFormatSearch (shownTemplateId) {
 //   element [required] is an existing DOM object.
 //   templateId indicates the hierarchy to which a search query is being added.
 //   query [required] is either an child object node that is being added to a data structure that tracks the hierarchy, or it is an existing sibling node after which a sibling is being added (depending on the value of 'afterMode').
-//   copyQuery [optional] (if defined) is a node object used to reconstruct the form hierarchy when results are loaded.
 //   parentGroup [optional] is the parent object node of the hierarchy-tracking data structure used to determine where a sibling is to be inserted or a child node is to be appended (depending on the value of 'afterMode').  Root is assumed if not supplied.
 //   afterMode [optional] determines whether a sibling will be created & inserted after query (if true) or if query will be appended as a child to parentGroup (if false).  Default = false.
-function appendInnerSearchQuery (element, templateId, query, copyQuery, parentGroup, afterMode) {
+function appendInnerSearchQuery (element, templateId, query, parentGroup, afterMode) {
   'use strict'
 
   let undef
-
-  let isInit = false
-  if (typeof copyQuery !== 'undefined' || copyQuery) {
-    isInit = true
-  }
 
   if (typeof afterMode === 'undefined') {
     afterMode = false
@@ -103,9 +94,9 @@ function appendInnerSearchQuery (element, templateId, query, copyQuery, parentGr
 
   if (('' + query.type) === 'group') {
     isGroup = true
-    addGroupSelectList(myDiv, query, copyQuery, isInit)
+    addGroupSelectList(myDiv, query)
   } else if (('' + query.type) === 'query') {
-    addSearchFieldForm(myDiv, query, copyQuery, isInit, templateId)
+    addSearchFieldForm(myDiv, query, templateId)
   } else {
     formErrLabel.innerHTML = 'Error: Unrecognized query type: ' + query.type
   }
@@ -121,32 +112,29 @@ function appendInnerSearchQuery (element, templateId, query, copyQuery, parentGr
   }
 
   if (isGroup) {
-    // Initialization using a copied rootgroup adds items one at a time, so don't pre-add empties.
-    if (!isInit) {
-      // Add a couple queries to start off
-      const subQuery = {
+    // Add a couple queries to start off
+    const subQuery = {
+      type: 'query',
+      val: ''
+    }
+    query.queryGroup.push(subQuery)
+    appendInnerSearchQuery(myDiv, templateId, subQuery, query)
+
+    // If this isn't the root, append a second query form
+    if (!isRoot) {
+      const subQuery2 = {
         type: 'query',
         val: ''
       }
-      query.queryGroup.push(subQuery)
-      appendInnerSearchQuery(myDiv, templateId, subQuery, undef, query)
-
-      // If this isn't the root, append a second query form
-      if (!isRoot) {
-        const subQuery2 = {
-          type: 'query',
-          val: ''
-        }
-        query.queryGroup.push(subQuery2)
-        appendInnerSearchQuery(myDiv, templateId, subQuery2, undef, query)
-      }
-
-      // Not exactly sure why, but after adding inner elements to a group, an empty div is needed to make future dynamically-added form elements to be correctly created.  I did this based on the template post I followed that had a static empty div just inside where the dynamic content was being created, when stuff I was adding wasn't working right and it seems to have fixed it.
-      myDiv.append(document.createElement('div'))
+      query.queryGroup.push(subQuery2)
+      appendInnerSearchQuery(myDiv, templateId, subQuery2, query)
     }
 
+    // Not exactly sure why, but after adding inner elements to a group, an empty div is needed to make future dynamically-added form elements to be correctly created.  I did this based on the template post I followed that had a static empty div just inside where the dynamic content was being created, when stuff I was adding wasn't working right and it seems to have fixed it.
+    myDiv.append(document.createElement('div'))
+
     // Initialization using a copied rootgroup adds items one at a time, so don't add the follow-up + and ++ buttons.  This way, the individually eppended inner forms don't go under these buttons.  This means that the initializing function must add these manually.
-    if (!isRoot && !isInit) {
+    if (!isRoot) {
       addQueryAndGroupAddButtons(myDiv, query, parentGroup, templateId)
     }
   } else {
@@ -157,7 +145,7 @@ function appendInnerSearchQuery (element, templateId, query, copyQuery, parentGr
   return myDiv
 }
 
-function addSearchFieldForm (myDiv, query, copyQuery, isInit, templateId) {
+function addSearchFieldForm (myDiv, query, templateId) {
   // Clone the form template
   const templateDiv = document.querySelector('#' + templateId)
   const elements = templateDiv.querySelectorAll('input,select,textarea')
@@ -188,40 +176,23 @@ function addSearchFieldForm (myDiv, query, copyQuery, isInit, templateId) {
 
     // Initialize the value in the hierarchy with the default
     const keyname = clones[i].name.split('-').pop()
-    if (isInit) {
-      query[keyname] = copyQuery[keyname]
-      clones[i].value = copyQuery[keyname]
-      clones[i].static = copyQuery.static
-
-      // If this isn't the hidden pos field and there is no value, push an error
-      if (keyname !== 'pos' && copyQuery[keyname] === '') {
-        errors.push(' * This is a required field.')
-      }
-
-      if (keyname === 'fld') {
-        fldInitVal = copyQuery[keyname]
-      } else if (keyname === 'ncmp') {
-        ncmpInitVal = copyQuery[keyname]
-      }
+    if (typeof query[keyname] !== 'undefined' && query[keyname]) {
+      console.log("Initializing search form value for field: ", keyname,":", query[keyname])
+      clones[i].value = query[keyname]
     } else {
-      if (typeof query[keyname] !== 'undefined' && query[keyname]) {
-        console.log("Initializing search form value for field: ", keyname,":", query[keyname])
-        clones[i].value = query[keyname]
-      } else {
-        console.log("Storing search form value for field: ", keyname,": as:", clones[i].value, "into the qry object")
-        query[clones[i].name] = clones[i].value
-      }
-      if (query.static) {
-        clones[i].disabled = true
-      }
+      console.log("Storing search form value for field: ", keyname,": as:", clones[i].value, "into the qry object")
+      query[clones[i].name] = clones[i].value
+    }
+    if (query.static) {
+      clones[i].disabled = true
+    }
 
-      if (keyname === 'fld') {
-        // fldInitVal = clones[i][0].value
-        fldInitVal = clones[i].value
-      } else if (keyname === 'ncmp') {
-        // ncmpInitVal = clones[i][0].value
-        ncmpInitVal = clones[i].value
-      }
+    if (keyname === 'fld') {
+      // fldInitVal = clones[i][0].value
+      fldInitVal = clones[i].value
+    } else if (keyname === 'ncmp') {
+      // ncmpInitVal = clones[i][0].value
+      ncmpInitVal = clones[i].value
     }
 
     if (keyname === 'fld') {
@@ -443,12 +414,7 @@ function updateBrowseLink (templateId) {
   }
 }
 
-function addFormatSelectList (myDiv, query, copyQuery) {
-  // Initialize the value in the hierarchy with the default
-  if (typeof copyQuery !== 'undefined' || copyQuery) {
-    query.selectedtemplate = copyQuery.selectedtemplate
-  }
-
+function addFormatSelectList (myDiv, query) {
   updateBrowseLink(query.selectedtemplate)
 
   // Create a group type select list
@@ -481,12 +447,7 @@ function addFormatSelectList (myDiv, query, copyQuery) {
   myDiv.appendChild(select)
 }
 
-function addGroupSelectList (myDiv, query, copyQuery, isInit) {
-  // Initialize the value in the hierarchy with the default
-  if (isInit) {
-    query.val = copyQuery.val
-  }
-
+function addGroupSelectList (myDiv, query) {
   // Create a group type select list
   const grouptypes = ['all', 'any']
   const select = document.createElement('select')
@@ -498,7 +459,7 @@ function addGroupSelectList (myDiv, query, copyQuery, isInit) {
     select.appendChild(option)
   }
   select.value = query.val
-  if (query.static || ((typeof copyQuery !== 'undefined' || copyQuery) && copyQuery.static)) {
+  if (query.static) {
     select.disabled = true
   } else {
     console.warn("Group",query.val,"was not static:", query.static)
@@ -567,7 +528,7 @@ function addQueryAndGroupAddButtons (myDiv, query, parentGroup, templateId) {
     const index = parentGroup.queryGroup.indexOf(query)
     parentGroup.queryGroup.splice(index + 1, 0, sibQuery)
     // The clicked item is the image, so to get the eclosing div, we need the grandparent
-    appendInnerSearchQuery(event.target.parentNode.parentNode, templateId, sibQuery, undef, parentGroup, true)
+    appendInnerSearchQuery(event.target.parentNode.parentNode, templateId, sibQuery, parentGroup, true)
   })
   myDiv.appendChild(document.createTextNode(' '))
   myDiv.appendChild(termbtn)
@@ -589,71 +550,14 @@ function addQueryAndGroupAddButtons (myDiv, query, parentGroup, templateId) {
     const index = parentGroup.queryGroup.indexOf(query)
     parentGroup.queryGroup.splice(index + 1, 0, sibGroup)
     // The clicked item is the image, so to get the eclosing div, we need the grandparent
-    appendInnerSearchQuery(event.target.parentNode.parentNode, templateId, sibGroup, undef, parentGroup, true)
+    appendInnerSearchQuery(event.target.parentNode.parentNode, templateId, sibGroup, parentGroup, true)
   })
   myDiv.appendChild(document.createTextNode(' '))
   myDiv.appendChild(grpbtn)
 }
 
-// This method is for reconstructing the hierarchical forms on the results page
+// This method is for building the hierarchical forms on the results page from the global rootGroup
 //   element is the DOM object to which the forms will be added
-//   initQuery is the hierarchical form data structure that the reconstruction is based on.
-function initializeExistingSearchQuery (element, initQuery) { // eslint-disable-line no-unused-vars
-  'use strict'
-
-  const myDiv = document.createElement('div')
-  addFormatSelectList(myDiv, rootGroup, initQuery)
-  element.appendChild(myDiv)
-
-  for (const templateId of Object.keys(initQuery.searches)) {
-    // Create the root object
-    const childDiv = appendInnerSearchQuery(element, templateId, rootGroup.searches[templateId].tree, initQuery.searches[templateId].tree)
-
-    initializeExistingSearchQueryHelper(childDiv, templateId, rootGroup.searches[templateId].tree, initQuery.searches[templateId].tree.queryGroup)
-
-    // Not exactly sure why, but after adding inner elements to a group, an empty div is needed to make future dynamically-added form elements to be correctly created.  I did this based on the template post I followed that had a static empty div just inside where the dynamic content was being created, when stuff I was adding wasn't working right and it seems to have fixed it.
-    childDiv.append(document.createElement('div'))
-  }
-}
-
-// This is a recursive method called by initializeExistingSearchQuery.  It traverses the copyQueryArray data structure.  Recursion happens on inner nodes of the hierarchical data structure.
-//   element is the DOM object to which the forms will be added
-//   templateId indicates the hierarchy to which a search query is being added.
-//   parentNode is a reference to the parent of the current copyQueryArray object.
-//   copyQueryArray is a sub-tree of the hierarchical form data structure.
-function initializeExistingSearchQueryHelper (element, templateId, parentNode, copyQueryArray) {
-  'use strict'
-
-  for (let i = 0; i < copyQueryArray.length; i++) {
-    if (copyQueryArray[i].type === 'group') {
-      const subGroup = {
-        type: 'group',
-        val: copyQueryArray[i].val,
-        queryGroup: []
-      }
-      subGroup.static = copyQueryArray[i].static
-      parentNode.queryGroup.push(subGroup)
-      const childDiv = appendInnerSearchQuery(element, templateId, subGroup, copyQueryArray[i], parentNode, false)
-      // Recurse
-      initializeExistingSearchQueryHelper(childDiv, templateId, subGroup, copyQueryArray[i].queryGroup)
-
-      // Not exactly sure why, but after adding inner elements to a group, an empty div is needed to make future dynamically-added form elements to be correctly created.  I did this based on the template post I followed that had a static empty div just inside where the dynamic content was being created, when stuff I was adding wasn't working right and it seems to have fixed it.
-      childDiv.append(document.createElement('div'))
-
-      addQueryAndGroupAddButtons(childDiv, subGroup, parentNode, templateId)
-    } else if (copyQueryArray[i].type === 'query') {
-      const subQuery = {
-        type: 'query'
-      }
-      subQuery.static = copyQueryArray[i].static
-      parentNode.queryGroup.push(subQuery)
-      appendInnerSearchQuery(element, templateId, subQuery, copyQueryArray[i], parentNode, false)
-    } else {
-      console.error('Unknown node type at index ' + i + ': ', copyQueryArray[i].type)
-    }
-  }
-}
-
 function initializeRootSearchQuery (element) { // eslint-disable-line no-unused-vars
   'use strict'
 
@@ -676,7 +580,7 @@ function initializeRootSearchQuery (element) { // eslint-disable-line no-unused-
     if (isHidden) {
       groupDiv.style = 'display:none;'
     }
-    addGroupSelectList(groupDiv, rootGroup.searches[templateId].tree, undef, false)
+    addGroupSelectList(groupDiv, rootGroup.searches[templateId].tree)
 
     initializeRootSearchQueryHelper(groupDiv, templateId, rootGroup.searches[templateId].tree, rootGroup.searches[templateId].tree.queryGroup)
 
@@ -686,6 +590,11 @@ function initializeRootSearchQuery (element) { // eslint-disable-line no-unused-
   }
 }
 
+// This is a recursive method called by initializeRootSearchQuery.  It traverses the global rootGroup data structure to build the search forms.
+//   element is the DOM object to which the forms will be added
+//   templateId indicates the hierarchy to which a search query is being added.
+//   parentNode is a reference to the parent of the current position in the rootGroup object.
+//   queryGroup is the parentNode's list of children of the hierarchical form data structure.
 function initializeRootSearchQueryHelper (element, templateId, parentNode, queryGroup) {
   'use strict'
 
@@ -696,7 +605,7 @@ function initializeRootSearchQueryHelper (element, templateId, parentNode, query
       // Create the group select list
       const groupDiv = document.createElement('div')
       groupDiv.className = 'level-indent'
-      addGroupSelectList(groupDiv, queryGroup[i], undef, false)
+      addGroupSelectList(groupDiv, queryGroup[i])
 
       if (!queryGroup[i].static && !parentNode.static) {
         addRemoveButton(groupDiv, queryGroup[i], parentNode)
@@ -715,7 +624,7 @@ function initializeRootSearchQueryHelper (element, templateId, parentNode, query
     } else if (queryGroup[i].type === 'query') {
       const queryDiv = document.createElement('div')
       queryDiv.className = 'level-indent'
-      addSearchFieldForm(queryDiv, queryGroup[i], undef, false, templateId)
+      addSearchFieldForm(queryDiv, queryGroup[i], templateId)
 
       if (!queryGroup[i].static) {
         addRemoveButton(queryDiv, queryGroup[i], parentNode)
@@ -756,7 +665,7 @@ function getFormatName (fmt) {
   return formatName
 }
 
-// This method has 2 functions:
+// saveSearchQueryHierarchy has 2 purposes:
 //   1. It renames DOM object IDs of the input form elements to indicate a serial form number in the format Django expects.  It also updates 1 meta form element that indicates the total number of forms.
 //   2. It saves each leaf's hierarchical path in a hidden input element named "pos".  The path is in the form of index.index.index... where <index> is the child index.  The single value (all or any) of inner nodes is saved in the pathin the form index-all.index-any.index, e.g. "0-all-0-any.0".
 // This method takes the outer DOM object that contains all the forms
@@ -787,7 +696,7 @@ function saveSearchQueryHierarchy (divElem) { // eslint-disable-line no-unused-v
   }
 }
 
-// This is a recursive helper method to saveSearchQueryHierarchy.  It takes:
+// saveSearchQueryHierarchyHelper is a recursive helper method to saveSearchQueryHierarchy.  It takes:
 //   divElem - The DOM object that contains forms.
 //   path - a running path string to be stored in a leaf form's hidden 'pos' field.
 //   count - The serial form number used to set the form element ID to what Django expects.

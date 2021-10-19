@@ -648,8 +648,6 @@ class Tissue(models.Model):
         verbose_name_plural = "tissues"
         ordering = ["name"]
 
-    # I'm changing this from "serum_plasma" to "serum" for testing with my current database.  Please create a review
-    # issue if I have forgotten to change it back.
     SERUM_TISSUE_PREFIX = "serum"
 
     def __str__(self):

@@ -302,7 +302,7 @@ class AdvancedSearchTSVView(FormView):
         except TypeError:
             qry = cform["qryjson"]
         if not isQryObjValid(qry, self.basv_metadata.getFormatNames().keys()):
-            print("Invalid qry object: ", qry)
+            print("ERROR: Invalid qry object: ", qry)
             raise Http404("Invalid json")
 
         now = datetime.now()

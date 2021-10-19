@@ -45,7 +45,7 @@ class BaseSearchView:
             ("isnull", "does not have a value (ie. is None)"),
         ],
     }
-    static_filter: Dict[str, List] = {  # Same as qry['tree']
+    static_filter = {  # Same as qry['tree']
         "type": "group",
         "val": "all",
         "static": False,
@@ -60,6 +60,40 @@ class BaseSearchView:
             },
         ],
     }
+
+    # static_filter example WITH static=True (below).  Note that a non-static empty query must be present in a non-
+    # static queryGroup because that is where the user is prompted to add their search.  When static is True, the user
+    # will not be allowed to edit that portion of the search form.
+    #
+    # static_filter = {
+    #     "type": "group",
+    #     "val": "all",
+    #     "static": True,
+    #     "queryGroup": [
+    #         {
+    #             'type': 'query',
+    #             'pos': '',
+    #             'ncmp': 'istartswith',
+    #             'fld': 'msrun__sample__tissue__name',
+    #             'val': Tissue.SERUM_TISSUE_PREFIX,
+    #             'static': True,
+    #         },
+    #         {
+    #             'type': 'group',
+    #             'val': 'all',
+    #             "queryGroup": [
+    #                 {
+    #                     'type': 'query',
+    #                     'pos': '',
+    #                     "static": False,
+    #                     'ncmp': '',
+    #                     'fld': '',
+    #                     'val': '',
+    #                 },
+    #             ],
+    #         },
+    #     ]
+    # }
 
     @classmethod
     def getSearchFieldChoices(self):
@@ -695,35 +729,6 @@ class FluxCircSearchView(BaseSearchView):
         "msrun__sample__animal__treatment",
         "msrun__sample__animal__studies",
     ]
-    # static_filter = {
-    #     "type": "group",
-    #     "val": "all",
-    #     "static": True,
-    #     "queryGroup": [
-    #         {
-    #             'type': 'query',
-    #             'pos': '',
-    #             'ncmp': 'istartswith',
-    #             'fld': 'msrun__sample__tissue__name',
-    #             'val': Tissue.SERUM_TISSUE_PREFIX,
-    #             'static': True,
-    #         },
-    #         {
-    #             'type': 'group',
-    #             'val': 'all',
-    #             "queryGroup": [
-    #                 {
-    #                     'type': 'query',
-    #                     'pos': '',
-    #                     "static": False,
-    #                     'ncmp': '',
-    #                     'fld': '',
-    #                     'val': '',
-    #                 },
-    #             ],
-    #         },
-    #     ]
-    # }
     models = {
         "PeakGroup": {
             "path": "",
@@ -885,7 +890,7 @@ class FluxCircSearchView(BaseSearchView):
         for pg in PeakGroup.objects.filter(msrun__sample__tissue__name__istartswith=Tissue.SERUM_TISSUE_PREFIX):
             if pg.is_tracer_compound_group:
                 serum_tracer_peakgroups.add(pg.id)
-        return PeakGroup.objects.filter(id__in=serum_tracer_peakgroups)        
+        return PeakGroup.objects.filter(id__in=serum_tracer_peakgroups)
 
 
 class BaseAdvancedSearchView:
@@ -909,7 +914,7 @@ class BaseAdvancedSearchView:
         for cls in (PeakGroupsSearchView(), PeakDataSearchView(), FluxCircSearchView()):
             self.modeldata[cls.id] = cls
         self.default_format = PeakGroupsSearchView.id
-    
+
     def getRootGroup(self, selfmt=None):
         if selfmt is None:
             selfmt = self.default_format
