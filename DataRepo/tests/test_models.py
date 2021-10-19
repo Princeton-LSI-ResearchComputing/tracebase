@@ -944,8 +944,7 @@ class DataLoadingTests(TestCase):
         compound = Compound.objects.get(name="tryptophan")
         sample = Sample.objects.get(name="serum-xz971")
         pg = sample.peak_groups(compound).last()
-        with self.assertWarns(UserWarning):
-            self.assertFalse(pg.is_tracer_compound_group)
+        self.assertFalse(pg.is_tracer_compound_group)
 
     @tag("fcirc")
     def test_peakgroup_from_serum_sample_false(self):
@@ -1121,9 +1120,8 @@ class TracerRateTests(TestCase):
         pgs = animal.final_serum_sample.peak_groups(nontracer_compound)
         # should only be one in this specific case
         non_tracer_pg = pgs[0]
-        with self.assertWarns(UserWarning):
-            # tryptophan is not the tracer
-            self.assertFalse(non_tracer_pg.is_tracer_compound_group)
+        # tryptophan is not the tracer
+        self.assertFalse(non_tracer_pg.is_tracer_compound_group)
         # and none of these should return a value
         with self.assertWarns(UserWarning):
             self.assertIsNone(non_tracer_pg.rate_disappearance_intact_per_gram)

@@ -915,7 +915,7 @@ class BaseAdvancedSearchView:
             self.modeldata[cls.id] = cls
         self.default_format = PeakGroupsSearchView.id
 
-    def getRootGroup(self, selfmt=None):
+    def getRootGroup(self, selfmt=None, empty=False):
         if selfmt is None:
             selfmt = self.default_format
         if selfmt not in self.modeldata.keys():
@@ -928,7 +928,21 @@ class BaseAdvancedSearchView:
         for format in self.modeldata.keys():
             rootGroup['searches'][format] = {}
             rootGroup['searches'][format]['name'] = self.modeldata[format].name
-            rootGroup['searches'][format]['tree'] = self.modeldata[format].static_filter
+            if empty:
+                rootGroup["searches"][format]['tree'] = {}
+                rootGroup["searches"][format]["tree"]["pos"] = ""
+                rootGroup["searches"][format]["tree"]["static"] = False
+                rootGroup["searches"][format]["tree"]["type"] = "group"
+                rootGroup["searches"][format]["tree"]["val"] = "all"
+                rootGroup["searches"][format]["tree"]["queryGroup"] = [{
+                    "type": "query",
+                    "pos": "",
+                    "static": False,
+                    "ncmp": "",
+                    "val": "",
+                }]
+            else:
+                rootGroup['searches'][format]['tree'] = self.modeldata[format].static_filter
         return rootGroup
 
     def getPrefetches(self, format):

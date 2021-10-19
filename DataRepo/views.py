@@ -114,6 +114,8 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
             "root_group": root_group,
             "mode": "search",
             "default_format": basv_metadata.default_format,
+            "ncmp_choices": basv_metadata.getComparisonChoices(),
+            "fld_types": basv_metadata.getFieldTypes(),
         },
     )
 
@@ -349,25 +351,12 @@ def getAllBrowseData(format, basv):
     return res2
 
 
-def createNewAdvancedQuery(basv_metadata, context):
-    """
-    Constructs an empty qry for the advanced search interface.
-    """
-
-    if "format" in context:
-        qry = basv_metadata.getRootGroup(context["format"])
-    else:
-        qry = basv_metadata.getRootGroup()
-
-    return qry
-
-
 def createNewBasicQuery(basv_metadata, mdl, fld, cmp, val, fmt):
     """
     Constructs a new qry object for an advanced search from basic search input.
     """
 
-    qry = basv_metadata.getRootGroup(fmt)
+    qry = basv_metadata.getRootGroup(fmt, True)
 
     models = basv_metadata.getModels(fmt)
 
@@ -383,9 +372,9 @@ def createNewBasicQuery(basv_metadata, mdl, fld, cmp, val, fmt):
             f"Field [{fld}] is not searchable.  Must be one of [{','.join(sfields.keys())}]."
         )
 
-    qry["searches"][fmt]["tree"]["queryGroup"].append({})
     qry["searches"][fmt]["tree"]["queryGroup"][0]["type"] = "query"
     qry["searches"][fmt]["tree"]["queryGroup"][0]["pos"] = ""
+    qry["searches"][fmt]["tree"]["queryGroup"][0]["static"] = False
     qry["searches"][fmt]["tree"]["queryGroup"][0]["fld"] = sfields[fld]
     qry["searches"][fmt]["tree"]["queryGroup"][0]["ncmp"] = cmp
     qry["searches"][fmt]["tree"]["queryGroup"][0]["val"] = val
@@ -408,18 +397,20 @@ def searchFieldToDisplayField(basv_metadata, mdl, fld, val, fmt, qry):
     dfields = basv_metadata.getDisplayFields(fmt, mdl)
     if fld in dfields.keys() and dfields[fld] != fld:
         # If fld is not a displayed field, perform a query to convert the undisplayed field query to a displayed query
+        print("Searching before handoff with qry:", qry)
         q_exp = constructAdvancedQuery(qry)
+        print("Q Expression: ", q_exp, " fmt: ", fmt)
         recs = performQuery(q_exp, fmt, basv_metadata)
         if len(recs) == 0:
             raise Http404("Records not found for field [" + mdl + "." + fld + "].")
         # Set the field path for the display field
         dfld = dfields[fld]
-        dval = getJoinedRecFieldValue(recs, basv_metadata, fmt, mdl, dfields[fld])
+        dval = getJoinedRecFieldValue(recs, basv_metadata, fmt, mdl, dfields[fld], fld)
 
     return dfld, dval
 
 
-def getJoinedRecFieldValue(recs, basv_metadata, fmt, mdl, fld):
+def getJoinedRecFieldValue(recs, basv_metadata, fmt, mdl, fld, fromfld):
     """
     Takes a queryset object and a model.field and returns its value.
     """
@@ -434,11 +425,19 @@ def getJoinedRecFieldValue(recs, basv_metadata, fmt, mdl, fld):
         # If this is a many-to-many
         if ptr.__class__.__name__ == "ManyRelatedManager":
             tmprecs = ptr.all()
-            if len(tmprecs) != 1:
+            if len(tmprecs) > 1:
                 # Log an error
                 print(
-                    f"ERROR: Handoff to {mdl}.{fld} failed.  Too many records returned.  Expected 1.  Check the "
-                    "AdvSearch class handoffs."
+                    f"ERROR: Handoff from {mdl}.{fromfld} to {mdl}.{fld} failed.  Too many records returned.  "
+                    f"Expected 1.  Got [{len(tmprecs)}].  Check the AdvSearch class handoffs."
+                )
+                print(f"Records returned: {tmprecs}")
+                raise Http404(f"ERROR: Unable to find a single value for [{mdl}.{fld}].")
+            elif len(tmprecs) == 0:
+                # Log an error
+                print(
+                    f"ERROR: Handoff from {mdl}.{fromfld} to {mdl}.{fld} failed.  No records returned.  Expected 1.  "
+                    "Check the AdvSearch class handoffs."
                 )
                 raise Http404(f"ERROR: Unable to find a single value for [{mdl}.{fld}].")
             ptr = getattr(tmprecs[0], key)
@@ -487,11 +486,9 @@ def isQryObjValid(qry, form_class_list):
                 or "tree" not in qry["searches"][key]
                 or "name" not in qry["searches"][key]
             ):
-                print("qry is either missing keys 'tree' and/or 'name', or searches is not a dict")
                 return False
         return True
     else:
-        print("qry is either missing keys 'selectedtemplate', 'searches', or one of the template keys in searches")
         return False
 
 
@@ -521,7 +518,6 @@ def isValidQryObjPopulatedHelper(group):
     return True
 
 
-
 def constructAdvancedQuery(qryRoot):
     """
     Turns a qry object into a complex Q object by calling its helper and supplying the selected format's tree.
@@ -537,6 +533,8 @@ def constructAdvancedQueryHelper(qry):
     Recursively build a complex Q object based on a hierarchical tree defining the search terms.
     """
 
+    if "type" not in qry:
+        print("ERROR: type missing from qry object: ",qry)
     if qry["type"] == "query":
         cmp = qry["ncmp"].replace("not_", "", 1)
         negate = cmp != qry["ncmp"]
