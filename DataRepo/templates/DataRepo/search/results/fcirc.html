@@ -23,12 +23,12 @@
         </tr>
         <tr class="bg-highlighted">
             <th>Animal</th>
-            <th>Study</th>
+            <th>Studies</th>
             <th>Treatment</th>
             <th>Tracer Compound</th>
-            <th>Tracer Infusion Rate (ul/min/g)</th>
+            <th>Tracer Infusion Rate (ul/m/g)</th>
             <th>Tracer Infusion Concentration (mM)</th>
-            <th>Time Collected (mins)</th>
+            <th>Time Collected (m)</th>
             <th>Ra</th>
             <th>Rd</th>
             <th>Ra</th>
@@ -57,11 +57,8 @@
 
                     <!-- Studies -->
                     <td>
-                        {% for study in pg.msrun.sample.animal.studies.all %}
-                            <a href="{% url 'study_detail' study.id %}">
-                                {{ study.name }}
-                            </a><br>
-                        {% endfor %}
+                        {# All on 1 line to avoid space preceding commas #}
+                        {% for study in pg.msrun.sample.animal.studies.all %}{% if not forloop.first %},<br>{% endif%}<a href="{% url 'study_detail' study.id %}">{{ study.name }}</a>{% endfor %}
                     </td>
 
                     <!-- Treatment -->
@@ -82,7 +79,7 @@
                         </a>
                     </td>
 
-                    <!-- Tracer Infusion Rate (ul/min/g) -->
+                    <!-- Tracer Infusion Rate (ul/m/g) -->
                     <td class="text-end">
                         {{ pg.msrun.sample.animal.tracer_infusion_rate }}
                     </td>
@@ -92,12 +89,12 @@
                         {{ pg.msrun.sample.animal.tracer_infusion_concentration }}
                     </td>
 
-                    <!-- Time Collected (mins) -->
+                    <!-- Time Collected (m) -->
                     <td class="text-end">
                         <p title="{{ pg.msrun.sample.time_collected }}">{{ pg.msrun.sample.time_collected|durationToMins|decimalPlaces:2 }}</p>
                     </td>
 
-                    <!-- Average Ra (nmol/min/g) -->
+                    <!-- Average Ra (nM/m/g) -->
                     <td class="text-end">
                         {% if pg.rate_appearance_average_per_gram is None %}
                             None
@@ -106,7 +103,7 @@
                         {% endif %}
                     </td>
 
-                    <!-- Average Rd (nmol/min/g) -->
+                    <!-- Average Rd (nM/m/g) -->
                     <td class="text-end">
                         {% if pg.rate_disappearance_average_per_gram is None %}
                             None
@@ -115,7 +112,7 @@
                         {% endif %}
                     </td>
 
-                    <!-- Average Ra (nmol/min) -->
+                    <!-- Average Ra (nM/m) -->
                     <td class="text-end">
                         {% if pg.rate_appearance_average_per_animal is None %}
                             None
@@ -124,7 +121,7 @@
                         {% endif %}
                     </td>
 
-                    <!-- Average Rd (nmol/min) -->
+                    <!-- Average Rd (nM/m) -->
                     <td class="text-end">
                         {% if pg.rate_disappearance_average_per_animal is None %}
                             None
@@ -133,7 +130,7 @@
                         {% endif %}
                     </td>
 
-                    <!-- Intact Ra (nmol/min/g) -->
+                    <!-- Intact Ra (nM/m/g) -->
                     <td class="text-end">
                         {% if pg.rate_appearance_intact_per_gram is None %}
                             None
@@ -142,7 +139,7 @@
                         {% endif %}
                     </td>
 
-                    <!-- Intact Rd (nmol/min/g) -->
+                    <!-- Intact Rd (nM/m/g) -->
                     <td class="text-end">
                         {% if pg.rate_disappearance_intact_per_gram is None %}
                             None
@@ -151,7 +148,7 @@
                         {% endif %}
                     </td>
 
-                    <!-- Intact Ra (nmol/min) -->
+                    <!-- Intact Ra (nM/m) -->
                     <td class="text-end">
                         {% if pg.rate_appearance_intact_per_animal is None %}
                             None
@@ -160,7 +157,7 @@
                         {% endif %}
                     </td>
 
-                    <!-- Intact Rd (nmol/min) -->
+                    <!-- Intact Rd (nM/m) -->
                     <td class="text-end">
                         {% if pg.rate_disappearance_intact_per_animal is None %}
                             None

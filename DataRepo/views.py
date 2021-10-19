@@ -302,6 +302,7 @@ class AdvancedSearchTSVView(FormView):
         except TypeError:
             qry = cform["qryjson"]
         if not isQryObjValid(qry, self.basv_metadata.getFormatNames().keys()):
+            print("Invalid qry object: ", qry)
             raise Http404("Invalid json")
 
         now = datetime.now()
@@ -486,9 +487,11 @@ def isQryObjValid(qry, form_class_list):
                 or "tree" not in qry["searches"][key]
                 or "name" not in qry["searches"][key]
             ):
+                print("qry is either missing keys 'tree' and/or 'name', or searches is not a dict")
                 return False
         return True
     else:
+        print("qry is either missing keys 'selectedtemplate', 'searches', or one of the template keys in searches")
         return False
 
 
@@ -496,9 +499,27 @@ def isValidQryObjPopulated(qry):
     """
     Checks whether a query object is fully populated with at least 1 search term.
     """
-
     selfmt = qry["selectedtemplate"]
-    return len(qry["searches"][selfmt]["tree"]["queryGroup"]) > 0
+    if len(qry["searches"][selfmt]["tree"]["queryGroup"]) == 0:
+        return False
+    else:
+        return isValidQryObjPopulatedHelper(qry["searches"][selfmt]["tree"]["queryGroup"])
+
+
+def isValidQryObjPopulatedHelper(group):
+    for query in group:
+        if query["type"] == "query":
+            if not query["val"] or query["val"] == "":
+                return False
+        elif query["type"] == "group":
+            if len(group["queryGroup"]) == 0:
+                return False
+            else:
+                tmp_populated = isValidQryObjPopulatedHelper(group["queryGroup"])
+                if not tmp_populated:
+                    return False
+    return True
+
 
 
 def constructAdvancedQuery(qryRoot):

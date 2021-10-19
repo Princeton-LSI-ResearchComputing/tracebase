@@ -66,3 +66,7 @@ def count_tracer_groups(res):
         if pg.is_tracer_compound_group:
             cnt = cnt + 1
     return cnt
+
+@register.filter
+def joinStudyNames(delimiter, recs):
+    return delimiter.join(list(map(lambda studyrec: studyrec['name'], recs.values('name'))))

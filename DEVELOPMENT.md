@@ -8,14 +8,15 @@ This document will serve to guide developers on implementing new code.
 
 1. `DataRepo/compositeviews.py`
    - Copy and rename PeakGroupsSearchView and make the following edits
-      - Set a new ID and name
-      - Determine the root model
+      - Set a new ID and name.
+      - Determine the root queryset, e.g. PeakData.objects.  If a filter is required, set rootmodel to `None` and add an __init__ constructor that implements the filter.  See FluxCircSearchView for an example.
+         - Note that if you want to pre-filter to be transparent to the user, you can override the base class's value for `static_filter`.  Any searches you set there will show in the hierarchical search form, but will not be editable to the user.
       - Fill in all the prefetch paths from (but not including) the root model to every model leaf.  The path strings are the foreign key field names in the parent model.
       - Fill in the models data: every model, it's path (from the prefetches, the root model will be an empty string), and all its fields.
-         - Cached properties should not be searchable
-         - AutoFields (like IDs) should not be displayed (because they can change depending on how the data is loaded from scratch, thus, they should be obfuscated from the user)
+         - Cached properties should not be searchable.
+         - AutoFields (like IDs) should not be displayed (because they can change depending on how the data is loaded from scratch, thus, they should be obfuscated from the user).
          - If `displayed` is False, set a `handoff` key whose value is a unique field (e.g. `name`).  See any `id` field in the copied class's models data.
-   - If not already there, add the root model to the DataRepo.models import at the top of the file
+   - If not already there, add the root model to the DataRepo.models import at the top of the file.
    - Add the new class to the for loop in BaseAdvancedSearchView.__init__
 
 2. `DataRepo/forms.py`
@@ -46,8 +47,14 @@ This document will serve to guide developers on implementing new code.
    - Copy the `elif`:
      `{% elif qry.selectedtemplate == "pdtemplate" %}{% include "DataRepo/search/downloads/peakdata.tsv" %}`
      Paste it before the `endif` and make the following edits:
-      - Replace both occurrences of `pdtemplate` with the ID you assigned at the top of step 1
-      - Replace the filename on the include line with the file created in step 4 above
+      - Replace `pdtemplate` with the ID you assigned at the top of step 1
+      - Replace the file name on the include line with the file created in step 4 above
+
+7. `DataRepo/templates/navbar.html`
+   - For each item in the download `dropdown-menu`, edit the `qryjson` value to add the entry for the new format template.  Basically, you need to append an edited version of "`, \&quot;fctemplate\&quot;: {\&quot;name\&quot;: \&quot;FCirc\&quot;, \&quot;tree\&quot;: {\&quot;pos\&quot;: \&quot;\&quot;, \&quot;type\&quot;: \&quot;group\&quot;, \&quot;val\&quot;: \&quot;all\&quot;, \&quot;queryGroup\&quot;: []}}`" just before "`}}&quot;`" at the end of the value string.  `fctemplate` and `FCirc` of the above string must be changed to the template ID and name used in step 1.
+   - Copy the entire last item of the same `dropdown-menu` (from `<li>` to `</li>`), paste it at the end of the list, and...
+      - Change the `selectedtemplate` in the `qryjson` value to the template ID used in step 1.
+      - Change the submit button text for the new format.  E.g. change `All FCirc Data` to use the name set in step 1.
 
 ### Notes
 

@@ -1,4 +1,4 @@
 # Download Time: {{ dt }}
 # Advanced Search Query: {% autoescape off %}{{ qry }}{% endautoescape %}
 #
-{% if qry.selectedtemplate == "pgtemplate" %}{% include "DataRepo/search/downloads/peakgroups.tsv" %}{% elif qry.selectedtemplate == "pdtemplate" %}{% include "DataRepo/search/downloads/peakdata.tsv" %}{% endif %}
+{% if qry.selectedtemplate == "pgtemplate" %}{% include "DataRepo/search/downloads/peakgroups.tsv" %}{% elif qry.selectedtemplate == "pdtemplate" %}{% include "DataRepo/search/downloads/peakdata.tsv" %}{% elif qry.selectedtemplate == "fctemplate" %}{% include "DataRepo/search/downloads/fcirc.tsv" %}{% endif %}
