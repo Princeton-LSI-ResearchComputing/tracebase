@@ -983,11 +983,7 @@ class PeakGroup(models.Model):
         """
         if self.animal.tracer_compound in self.compounds.all():
             return True
-        else:
-            warnings.warn(
-                f"{self.name} is not the designated tracer for Animal {self.animal.name}."
-            )
-            return False
+        return False
 
     @cached_property
     def from_serum_sample(self):
