@@ -733,7 +733,7 @@ class Sample(models.Model):
 
         # NOTE: this logic may have to change in the future
         if self.tissue in Tissue.objects.filter(
-            name__startswith=Tissue.SERUM_TISSUE_PREFIX
+            name__istartswith=Tissue.SERUM_TISSUE_PREFIX
         ):
             return True
         else:

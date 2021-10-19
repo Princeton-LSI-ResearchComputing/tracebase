@@ -195,7 +195,7 @@ class PeakGroupsSearchView(BaseSearchView):
 
     id = "pgtemplate"
     name = "PeakGroups"
-    rootmodel = PeakGroup()
+    rootqs = PeakGroup.objects
     prefetches = [
         "peak_group_set",
         "msrun__sample__tissue",
@@ -430,7 +430,7 @@ class PeakDataSearchView(BaseSearchView):
 
     id = "pdtemplate"
     name = "PeakData"
-    rootmodel = PeakData()
+    rootqs = PeakData.objects
     prefetches = [
         "peak_group__peak_group_set",
         "peak_group__msrun__sample__tissue",
@@ -689,42 +689,41 @@ class FluxCircSearchView(BaseSearchView):
 
     id = "fctemplate"
     name = "Fcirc"
-    rootmodel = PeakGroup()
+    rootqs = None
     prefetches = [
         "msrun__sample__animal__tracer_compound",
         "msrun__sample__animal__treatment",
         "msrun__sample__animal__studies",
-        "msrun__sample__tissue",
     ]
-    static_filter = {
-        "type": "group",
-        "val": "all",
-        "static": True,
-        "queryGroup": [
-            {
-                'type': 'query',
-                'pos': '',
-                'ncmp': 'istartswith',
-                'fld': 'msrun__sample__tissue__name',
-                'val': Tissue.SERUM_TISSUE_PREFIX,
-                'static': True,
-            },
-            {
-                'type': 'group',
-                'val': 'all',
-                "queryGroup": [
-                    {
-                        'type': 'query',
-                        'pos': '',
-                        "static": False,
-                        'ncmp': '',
-                        'fld': '',
-                        'val': '',
-                    },
-                ],
-            },
-        ]
-    }
+    # static_filter = {
+    #     "type": "group",
+    #     "val": "all",
+    #     "static": True,
+    #     "queryGroup": [
+    #         {
+    #             'type': 'query',
+    #             'pos': '',
+    #             'ncmp': 'istartswith',
+    #             'fld': 'msrun__sample__tissue__name',
+    #             'val': Tissue.SERUM_TISSUE_PREFIX,
+    #             'static': True,
+    #         },
+    #         {
+    #             'type': 'group',
+    #             'val': 'all',
+    #             "queryGroup": [
+    #                 {
+    #                     'type': 'query',
+    #                     'pos': '',
+    #                     "static": False,
+    #                     'ncmp': '',
+    #                     'fld': '',
+    #                     'val': '',
+    #                 },
+    #             ],
+    #         },
+    #     ]
+    # }
     models = {
         "PeakGroup": {
             "path": "",
@@ -776,17 +775,6 @@ class FluxCircSearchView(BaseSearchView):
                     "searchable": False,  # Cannot search cached property
                     "displayed": True,
                     "type": "number",
-                },
-            },
-        },
-        "Tissue": {
-            "path": "msrun__sample__tissue",
-            "fields": {
-                "name": {
-                    "displayname": "Tissue",
-                    "searchable": True,
-                    "displayed": True,
-                    "type": "string",
                 },
             },
         },
@@ -892,6 +880,18 @@ class FluxCircSearchView(BaseSearchView):
             },
         },
     }
+
+    def __init__(self):
+        self.rootqs = self.getRootQuerySet()
+
+    @classmethod
+    def getRootQuerySet(self):
+        # https://stackoverflow.com/questions/3397437/manually-create-a-django-queryset-or-rather-manually-add-objects-to-a-queryset
+        serum_tracer_peakgroups = set()
+        for pg in PeakGroup.objects.filter(msrun__sample__tissue__name__istartswith=Tissue.SERUM_TISSUE_PREFIX):
+            if pg.is_tracer_compound_group:
+                serum_tracer_peakgroups.add(pg.id)
+        return PeakGroup.objects.filter(id__in=serum_tracer_peakgroups)        
 
 
 class BaseAdvancedSearchView:

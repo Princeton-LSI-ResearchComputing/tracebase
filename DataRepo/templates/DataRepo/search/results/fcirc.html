@@ -1,28 +1,17 @@
 {% load customtags %}
-{% load static %}
 {% block content %}
-    <div>
-        {% with res|count_tracer_groups as cnt %}
-            {% if mode == "search" %}
-                {% if qry %}
-                    {% if valid_search and selfrm.0.val != "" and not selfrm.0.val.errors %}
-                        <h3 style="margin: 0; display: inline-block;">{{ qry|getFormatName:qry.selectedtemplate }} Results ({{ cnt }})</h3>
-                    {% endif %}
-                {% endif %}
-            {% else %}
-                {% if valid_search %}
-                    <h3 style="margin: 0; display: inline-block;">{{ cnt }} Records</h3>
-                {% endif %}
-            {% endif %}
-        {% endwith %}
-    </div>
-
+    {# local_debug=False overrides settings.debug sent in as 'debug'.  Effective_debug will only be true if both local and global are true #}
+    {% define False as local_debug %}
+    {% define False as effective_debug %}
+    {% if local_debug %}
+        {% define debug as effective_debug %}
+    {% endif %}
     <table class="table table-highlighted table-hover table-bordered">
         <tr class="bg-highlighted">
             <th colspan="7" rowspan="2"></th>
             <th colspan="4">Average</th>
             <th colspan="4">Intact</th>
-            {% if debug %}
+            {% if effective_debug %}
                 <th colspan="4" rowspan="2" class="align-bottom">Debug Mode Columns</th>
             {% endif %}
         </tr>
@@ -48,7 +37,7 @@
             <th>Rd</th>
             <th>Ra</th>
             <th>Rd</th>
-            {% if debug %}
+            {% if effective_debug %}
                 <th>PeakGroup</th>
                 <th>Tissue</th>
                 <th>Sample</th>
@@ -128,23 +117,23 @@
 
                     <!-- Average Ra (nmol/min) -->
                     <td class="text-end">
-                        {% if pg.rate_appearance_average_weight_normalized is None %}
+                        {% if pg.rate_appearance_average_per_animal is None %}
                             None
                         {% else %}
-                            <p title="{{ pg.rate_appearance_average_weight_normalized }}">{{ pg.rate_appearance_average_weight_normalized|floatformat:2 }}</p>
+                            <p title="{{ pg.rate_appearance_average_per_animal }}">{{ pg.rate_appearance_average_per_animal|floatformat:2 }}</p>
                         {% endif %}
                     </td>
 
                     <!-- Average Rd (nmol/min) -->
                     <td class="text-end">
-                        {% if pg.rate_disappearance_average_weight_normalized is None %}
+                        {% if pg.rate_disappearance_average_per_animal is None %}
                             None
                         {% else %}
-                            <p title="{{ pg.rate_disappearance_average_weight_normalized }}">{{ pg.rate_disappearance_average_weight_normalized|floatformat:2 }}</p>
+                            <p title="{{ pg.rate_disappearance_average_per_animal }}">{{ pg.rate_disappearance_average_per_animal|floatformat:2 }}</p>
                         {% endif %}
                     </td>
 
-                    <!-- Average Ra (nmol/min/g) -->
+                    <!-- Intact Ra (nmol/min/g) -->
                     <td class="text-end">
                         {% if pg.rate_appearance_intact_per_gram is None %}
                             None
@@ -153,7 +142,7 @@
                         {% endif %}
                     </td>
 
-                    <!-- Average Rd (nmol/min/g) -->
+                    <!-- Intact Rd (nmol/min/g) -->
                     <td class="text-end">
                         {% if pg.rate_disappearance_intact_per_gram is None %}
                             None
@@ -162,25 +151,25 @@
                         {% endif %}
                     </td>
 
-                    <!-- Average Ra (nmol/min) -->
+                    <!-- Intact Ra (nmol/min) -->
                     <td class="text-end">
-                        {% if pg.rate_appearance_intact_weight_normalized is None %}
+                        {% if pg.rate_appearance_intact_per_animal is None %}
                             None
                         {% else %}
-                            <p title="{{ pg.rate_appearance_intact_weight_normalized }}">{{ pg.rate_appearance_intact_weight_normalized|floatformat:2 }}</p>
+                            <p title="{{ pg.rate_appearance_intact_per_animal }}">{{ pg.rate_appearance_intact_per_animal|floatformat:2 }}</p>
                         {% endif %}
                     </td>
 
-                    <!-- Average Rd (nmol/min) -->
+                    <!-- Intact Rd (nmol/min) -->
                     <td class="text-end">
-                        {% if pg.rate_disappearance_intact_weight_normalized is None %}
+                        {% if pg.rate_disappearance_intact_per_animal is None %}
                             None
                         {% else %}
-                            <p title="{{ pg.rate_disappearance_intact_weight_normalized }}">{{ pg.rate_disappearance_intact_weight_normalized|floatformat:2 }}</p>
+                            <p title="{{ pg.rate_disappearance_intact_per_animal }}">{{ pg.rate_disappearance_intact_per_animal|floatformat:2 }}</p>
                         {% endif %}
                     </td>
 
-                    {% if debug %}
+                    {% if effective_debug %}
                         <td>
                             {{ pg.name }} (Tracer cmpd ID {{ pg.msrun.sample.animal.tracer_compound.id }}) in? PeakGroup cmpds: [
                             {% for cmpd in pg.compounds.all %}
@@ -211,7 +200,7 @@
     <br>
     <table class="table table-highlighted-legend table-hover table-bordered">
         <tr class="bg-highlighted">
-            <th>Serum Sample Color Legend</th>
+            <th>Color Legend</th>
         </tr>
         <tr>
             <td>Previous (or no) serum sample</td>

@@ -57,9 +57,7 @@ class BaseAdvSearchForm(forms.Form):
 
     def clean(self):
         """This override of super.clean is so we can reconstruct the search inputs upon form_invalid in views.py"""
-        print("CLEAN CALLED ", self)
         self.saved_data = self.cleaned_data
-        print("SAVED DATA: ", self.saved_data)
         return self.cleaned_data
 
     def is_valid(self):
@@ -70,12 +68,9 @@ class BaseAdvSearchForm(forms.Form):
             self.selected = True
             for field in fields:
                 if field not in data:
-                    print(f"Form was INvalid because field: {field} was not in data:", data)
                     return False
         elif len(data.keys()) == 0:
-            print("Form data was INvalid 2:", data)
             return False
-        print("Form data was valid:", data)
         return True
 
     def __init__(self, *args, **kwargs):

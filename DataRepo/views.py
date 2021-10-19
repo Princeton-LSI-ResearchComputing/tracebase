@@ -333,8 +333,7 @@ def getAllBrowseData(format, basv):
     """
 
     if format in basv.getFormatNames().keys():
-        model = basv.modeldata[format].rootmodel.__class__
-        res = model.objects.all()
+        res = basv.modeldata[format].rootqs.all()
     else:
         # Log a warning
         print("WARNING: Unknown format: " + format)
@@ -455,8 +454,7 @@ def performQuery(q_exp, fmt, basv):
 
     res = {}
     if fmt in basv.getFormatNames().keys():
-        model = basv.modeldata[fmt].rootmodel.__class__
-        res = model.objects.filter(q_exp)
+        res = basv.modeldata[fmt].rootqs.filter(q_exp)
     else:
         # Log a warning
         print("WARNING: Invalid selected format:", fmt)
@@ -577,9 +575,6 @@ def formsetsToDict(rawformset, form_classes):
         # We need to identify the form class that processed the form to infer the selected output format.  We do that
         # by checking the dictionary of each form class's first form for evidence that it processed the forms, i.e. the
         # presence of the "saved_data" class data member which is created upon processing.
-        print(f"Looking for 'saved_data' in formset for {key}: {','.join(rawformset[key][0].__dict__.keys())}")
-        print("rawformset for ", key, ": ", rawformset[key])
-        print("cleaned_data for ", key, ": ", rawformset[key][0].__dict__["saved_data"])
         if "saved_data" in rawformset[key][0].__dict__:
             processed_formkey = key
             break
@@ -610,13 +605,11 @@ def formsetToDict(rawformset, form_classes):
 
         if isRaw:
             form = rawform.saved_data
-            print('form was raw')
         else:
             form = rawform
-            print('form was clean')
-        print(form)
+
         path = form["pos"].split(".")
-        print('pos was split')
+
         [format, formatName, selected] = rootToFormatInfo(path.pop(0))
         rootinfo = path.pop(0)
 
@@ -633,7 +626,6 @@ def formsetToDict(rawformset, form_classes):
             aroot["type"] = "group"
             aroot["val"] = gtype
             aroot["static"] = static
-            print(f"Setting static root group to boolean {static}")
             aroot["queryGroup"] = []
             curqry = aroot["queryGroup"]
         else:
@@ -655,7 +647,6 @@ def formsetToDict(rawformset, form_classes):
                     curqry[pos]["type"] = "group"
                     curqry[pos]["val"] = gtype
                     curqry[pos]["static"] = static
-                    print(f"Setting static group to boolean {static}")
                     curqry[pos]["queryGroup"] = []
                 # Move on to the next node in the path
                 curqry = curqry[pos]["queryGroup"]
@@ -681,10 +672,8 @@ def formsetToDict(rawformset, form_classes):
                     elif keyname == "static":
                         if form[key] == "true":
                             curqry[pos][key] = True
-                            print("Setting static form elem to boolean true")
                         else:
                             curqry[pos][key] = False
-                            print("Setting static form elem to boolean false")
                     elif key not in curqry[pos]:
                         curqry[pos][key] = form[key]
                     else:
