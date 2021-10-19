@@ -346,7 +346,7 @@ class PeakGroupsSearchView(BaseSearchView):
                     "type": "number",
                 },
                 "age": {
-                    "displayname": "Age (weeks)",
+                    "displayname": "Age (seconds)",
                     "searchable": False,
                     "displayed": True,
                     "type": "number",
@@ -601,7 +601,7 @@ class PeakDataSearchView(BaseSearchView):
                     "choices": Animal.SEX_CHOICES,
                 },
                 "age": {
-                    "displayname": "Age (weeks)",
+                    "displayname": "Age (seconds)",
                     "searchable": False,
                     "displayed": True,
                     "type": "number",
@@ -824,19 +824,13 @@ class FluxCircSearchView(BaseSearchView):
                     "displayed": True,
                     "type": "number",
                 },
-                "final_serum_sample_time_collected": {
-                    "displayname": "Time Collected (mins)",
-                    "searchable": False,  # Cannot search cached property
-                    "displayed": True,
-                    "type": "number",
-                },
             },
         },
         "Sample": {
             "path": "msrun__sample",
             "fields": {
                 "time_collected": {
-                    "displayname": "Time Collected (mins)",
+                    "displayname": "Time Collected (seconds since infusion)",
                     "searchable": True,
                     "displayed": True,
                     "type": "number",
