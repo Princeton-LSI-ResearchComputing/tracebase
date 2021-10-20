@@ -410,6 +410,9 @@ def searchFieldToDisplayField(basv_metadata, mdl, fld, val, fmt, qry):
     return dfld, dval
 
 
+# Warning, the code in this method would potentially mot work in cases where multiple search terms (including a term
+# from a m:m related table) were or'ed together.  This cannot happen currently because this is only utilized for
+# handoff fields from search_basic, so the first record is guaranteed to have a matching value from the search term.
 def getJoinedRecFieldValue(recs, basv_metadata, fmt, mdl, dfld, sfld, sval):
     """
     Takes a queryset object and a model.field and returns its value.
