@@ -593,7 +593,7 @@ class ViewTests(TestCase):
         fld = "feeding_status"
         pf = "msrun__sample__animal__studies"
         recs = PeakGroup.objects.all().prefetch_related(pf)
-        val = getJoinedRecFieldValue(recs, basv_metadata, fmt, mdl, fld)
+        val = getJoinedRecFieldValue(recs, basv_metadata, fmt, mdl, fld, fld, "Fasted")
         self.assertEqual(val, "Fasted")
 
     def test_constructAdvancedQuery_performQuery(self):
