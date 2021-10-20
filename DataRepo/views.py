@@ -200,7 +200,7 @@ class AdvancedSearchView(MultiFormsView):
         if isQryObjValid(qry, self.form_classes.keys()):
             download_form = AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
             q_exp = constructAdvancedQuery(qry)
-            performQuery(q_exp, qry["selectedtemplate"], self.basv_metadata)
+            res = performQuery(q_exp, qry["selectedtemplate"], self.basv_metadata)
         else:
             # Log a warning
             print("WARNING: Invalid query root:", qry)
@@ -405,12 +405,12 @@ def searchFieldToDisplayField(basv_metadata, mdl, fld, val, fmt, qry):
             raise Http404("Records not found for field [" + mdl + "." + fld + "].")
         # Set the field path for the display field
         dfld = dfields[fld]
-        dval = getJoinedRecFieldValue(recs, basv_metadata, fmt, mdl, dfields[fld], fld)
+        dval = getJoinedRecFieldValue(recs, basv_metadata, fmt, mdl, dfields[fld], fld, val)
 
     return dfld, dval
 
 
-def getJoinedRecFieldValue(recs, basv_metadata, fmt, mdl, fld, fromfld):
+def getJoinedRecFieldValue(recs, basv_metadata, fmt, mdl, dfld, sfld, sval):
     """
     Takes a queryset object and a model.field and returns its value.
     """
@@ -419,32 +419,39 @@ def getJoinedRecFieldValue(recs, basv_metadata, fmt, mdl, fld, fromfld):
         raise Http404("Records not found.")
 
     kpl = basv_metadata.getKeyPathList(fmt, mdl)
-    kpl.append(fld)
     ptr = recs[0]
+    # This loop climbs through each key in the key path, maintaining a pointer to the current model
     for key in kpl:
-        # If this is a many-to-many
+        # If this is a many-to-many model
         if ptr.__class__.__name__ == "ManyRelatedManager":
             tmprecs = ptr.all()
-            if len(tmprecs) > 1:
-                # Log an error
-                print(
-                    f"ERROR: Handoff from {mdl}.{fromfld} to {mdl}.{fld} failed.  Too many records returned.  "
-                    f"Expected 1.  Got [{len(tmprecs)}].  Check the AdvSearch class handoffs."
-                )
-                print(f"Records returned: {tmprecs}")
-                raise Http404(f"ERROR: Unable to find a single value for [{mdl}.{fld}].")
-            elif len(tmprecs) == 0:
-                # Log an error
-                print(
-                    f"ERROR: Handoff from {mdl}.{fromfld} to {mdl}.{fld} failed.  No records returned.  Expected 1.  "
-                    "Check the AdvSearch class handoffs."
-                )
-                raise Http404(f"ERROR: Unable to find a single value for [{mdl}.{fld}].")
             ptr = getattr(tmprecs[0], key)
         else:
             ptr = getattr(ptr, key)
 
-    return ptr
+    # Now find the value of the display field that corresponds to the value of the search field
+    gotit = True
+    if ptr.__class__.__name__ == "ManyRelatedManager":
+        tmprecs = ptr.all()
+        gotit = False
+        for tmprec in tmprecs:
+            # If the value of this record for the searched field matches the search term
+            tsval = getattr(tmprec, sfld)
+            if str(tsval) == str(sval):
+                # Return the value of the display field
+                dval = getattr(tmprec, dfld)
+                gotit = True
+    else:
+        dval = getattr(ptr, dfld)
+
+    if not gotit:
+        print(f"Values retrieved for search field {mdl}.{sfld} using search term: {sval} did not match.")
+        raise Http404(
+            f"ERROR: Unable to find a value for [{mdl}.{sfld}] that matches the search term.  Unable to "
+            f"convert to the handoff field {dfld}."
+        )
+
+    return dval
 
 
 def performQuery(q_exp, fmt, basv):
