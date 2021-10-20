@@ -1,6 +1,12 @@
 from typing import Dict, List
 
-from DataRepo.models import Animal, PeakData, PeakGroup, TracerLabeledClass, Tissue
+from DataRepo.models import (
+    Animal,
+    PeakData,
+    PeakGroup,
+    Tissue,
+    TracerLabeledClass,
+)
 
 
 class BaseSearchView:
@@ -51,12 +57,12 @@ class BaseSearchView:
         "static": False,
         "queryGroup": [
             {
-                'type': 'query',
-                'pos': '',
+                "type": "query",
+                "pos": "",
                 "static": False,
-                'ncmp': '',
-                'fld': '',
-                'val': '',
+                "ncmp": "",
+                "fld": "",
+                "val": "",
             },
         ],
     }
@@ -887,7 +893,9 @@ class FluxCircSearchView(BaseSearchView):
     def getRootQuerySet(self):
         # https://stackoverflow.com/questions/3397437/manually-create-a-django-queryset-or-rather-manually-add-objects-to-a-queryset
         serum_tracer_peakgroups = set()
-        for pg in PeakGroup.objects.filter(msrun__sample__tissue__name__istartswith=Tissue.SERUM_TISSUE_PREFIX):
+        for pg in PeakGroup.objects.filter(
+            msrun__sample__tissue__name__istartswith=Tissue.SERUM_TISSUE_PREFIX
+        ):
             if pg.is_tracer_compound_group:
                 serum_tracer_peakgroups.add(pg.id)
         return PeakGroup.objects.filter(id__in=serum_tracer_peakgroups)
@@ -919,30 +927,36 @@ class BaseAdvancedSearchView:
         if selfmt is None:
             selfmt = self.default_format
         if selfmt not in self.modeldata.keys():
-            print(f"WARNING: Unknown format: [{selfmt}]. Falling back to default format: [{self.default_format}]")
+            print(
+                f"WARNING: Unknown format: [{selfmt}]. Falling back to default format: [{self.default_format}]"
+            )
             selfmt = self.default_format
         rootGroup = {
-            'selectedtemplate': selfmt,
-            'searches': {},
+            "selectedtemplate": selfmt,
+            "searches": {},
         }
         for format in self.modeldata.keys():
-            rootGroup['searches'][format] = {}
-            rootGroup['searches'][format]['name'] = self.modeldata[format].name
+            rootGroup["searches"][format] = {}
+            rootGroup["searches"][format]["name"] = self.modeldata[format].name
             if empty:
-                rootGroup["searches"][format]['tree'] = {}
+                rootGroup["searches"][format]["tree"] = {}
                 rootGroup["searches"][format]["tree"]["pos"] = ""
                 rootGroup["searches"][format]["tree"]["static"] = False
                 rootGroup["searches"][format]["tree"]["type"] = "group"
                 rootGroup["searches"][format]["tree"]["val"] = "all"
-                rootGroup["searches"][format]["tree"]["queryGroup"] = [{
-                    "type": "query",
-                    "pos": "",
-                    "static": False,
-                    "ncmp": "",
-                    "val": "",
-                }]
+                rootGroup["searches"][format]["tree"]["queryGroup"] = [
+                    {
+                        "type": "query",
+                        "pos": "",
+                        "static": False,
+                        "ncmp": "",
+                        "val": "",
+                    }
+                ]
             else:
-                rootGroup['searches'][format]['tree'] = self.modeldata[format].static_filter
+                rootGroup["searches"][format]["tree"] = self.modeldata[
+                    format
+                ].static_filter
         return rootGroup
 
     def getPrefetches(self, format):

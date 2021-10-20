@@ -51,7 +51,9 @@ This document will serve to guide developers on implementing new code.
       - Replace the file name on the include line with the file created in step 4 above
 
 7. `DataRepo/templates/navbar.html`
-   - For each item in the download `dropdown-menu`, edit the `qryjson` value to add the entry for the new format template.  Basically, you need to append an edited version of "`, \&quot;fctemplate\&quot;: {\&quot;name\&quot;: \&quot;FCirc\&quot;, \&quot;tree\&quot;: {\&quot;pos\&quot;: \&quot;\&quot;, \&quot;type\&quot;: \&quot;group\&quot;, \&quot;val\&quot;: \&quot;all\&quot;, \&quot;queryGroup\&quot;: []}}`" just before "`}}&quot;`" at the end of the value string.  `fctemplate` and `FCirc` of the above string must be changed to the template ID and name used in step 1.
+   - For each item in the download `dropdown-menu`, edit the `qryjson` value to add the entry for the new format template.  Basically, you need to append an edited version of:
+      `, \&quot;fctemplate\&quot;: {\&quot;name\&quot;: \&quot;FCirc\&quot;, \&quot;tree\&quot;: {\&quot;pos\&quot;: \&quot;\&quot;, \&quot;type\&quot;: \&quot;group\&quot;, \&quot;val\&quot;: \&quot;all\&quot;, \&quot;queryGroup\&quot;: []}}`" just before "`}}&quot;`
+   at the end of the value string.  `fctemplate` and `FCirc` of the above string must be changed to the template ID and name used in step 1.
    - Copy the entire last item of the same `dropdown-menu` (from `<li>` to `</li>`), paste it at the end of the list, and...
       - Change the `selectedtemplate` in the `qryjson` value to the template ID used in step 1.
       - Change the submit button text for the new format.  E.g. change `All FCirc Data` to use the name set in step 1.

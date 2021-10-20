@@ -5,9 +5,9 @@ from django.forms import formset_factory
 
 from DataRepo.compositeviews import (
     BaseSearchView,
+    FluxCircSearchView,
     PeakDataSearchView,
     PeakGroupsSearchView,
-    FluxCircSearchView,
 )
 
 # IMPORTANT NOTE ABOUT THE pos & posprefix FIELDS IN EACH AdvSearch FORM CLASSES:
@@ -117,7 +117,11 @@ class AdvSearchForm:
     hierarchy_path_field_name = "pos"
 
     def __init__(self, *args, **kwargs):
-        for form_class in (AdvSearchPeakGroupsForm(), AdvSearchPeakDataForm(), AdvSearchFluxCircForm()):
+        for form_class in (
+            AdvSearchPeakGroupsForm(),
+            AdvSearchPeakDataForm(),
+            AdvSearchFluxCircForm(),
+        ):
             id = form_class.composite_view_class.id
             self.form_classes[id] = formset_factory(form_class.__class__)
 

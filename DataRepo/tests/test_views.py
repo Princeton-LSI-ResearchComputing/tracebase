@@ -316,60 +316,66 @@ class ViewTests(TestCase):
             "form-2-ncmp": "iexact",
         }
         qry = {
-            'selectedtemplate': 'pgtemplate',
-            'searches': {
-                'pgtemplate': {
-                    'tree': {
-                        'pos': '',
-                        'type': 'group',
-                        'val': 'all',
-                        'static': False,
-                        'queryGroup': [{
-                            'type': 'query',
-                            'pos': '',
-                            'fld': 'msrun__sample__tissue__name',
-                            'ncmp': 'iexact',
-                            'static': '',
-                            'val': 'Brain'
-                        }]
+            "selectedtemplate": "pgtemplate",
+            "searches": {
+                "pgtemplate": {
+                    "tree": {
+                        "pos": "",
+                        "type": "group",
+                        "val": "all",
+                        "static": False,
+                        "queryGroup": [
+                            {
+                                "type": "query",
+                                "pos": "",
+                                "fld": "msrun__sample__tissue__name",
+                                "ncmp": "iexact",
+                                "static": "",
+                                "val": "Brain",
+                            }
+                        ],
                     },
-                    'name': 'PeakGroups'
+                    "name": "PeakGroups",
                 },
-                'pdtemplate': {
-                    'tree': {
-                        'pos': '',
-                        'type': 'group',
-                        'val': 'all',
-                        'static': False,
-                        'queryGroup': [{
-                            'type': 'query',
-                            'pos': '',
-                            'ncmp': 'iexact',
-                            'static': '',
-                            'fld': '',
-                            'val': ''
-                        }]
+                "pdtemplate": {
+                    "tree": {
+                        "pos": "",
+                        "type": "group",
+                        "val": "all",
+                        "static": False,
+                        "queryGroup": [
+                            {
+                                "type": "query",
+                                "pos": "",
+                                "ncmp": "iexact",
+                                "static": "",
+                                "fld": "",
+                                "val": "",
+                            }
+                        ],
                     },
-                    'name': 'PeakData'
+                    "name": "PeakData",
                 },
-                'fctemplate': {
-                    'tree': {
-                        'pos': '',
-                        'type': 'group',
-                        'val': 'all',
-                        'static': False,
-                        'queryGroup': [{
-                            'type': 'query',
-                            'pos': '',
-                            'fld': 'msrun__sample__animal__name',
-                            'ncmp': 'iexact',
-                            'static': '',
-                            'val': ''
-                        }]
+                "fctemplate": {
+                    "tree": {
+                        "pos": "",
+                        "type": "group",
+                        "val": "all",
+                        "static": False,
+                        "queryGroup": [
+                            {
+                                "type": "query",
+                                "pos": "",
+                                "fld": "msrun__sample__animal__name",
+                                "ncmp": "iexact",
+                                "static": "",
+                                "val": "",
+                            }
+                        ],
                     },
-                    'name': 'FCirc'
-                }
-            }
+                    "name": "FCirc",
+                },
+            },
         }
         dlform = {
             "form-TOTAL_FORMS": "1",
@@ -494,59 +500,52 @@ class ViewTests(TestCase):
     def get_basic_qry_inputs(self):
         qs = PeakGroup.objects.all().prefetch_related("msrun__sample__animal__studies")
         tval = str(qs[0].msrun.sample.animal.studies.all()[0].id)
-        qry = {
-            'selectedtemplate': 'pgtemplate',
-            'searches': {
-                'pgtemplate': {
-                    'name': 'PeakGroups',
-                    'tree': {
-                        'pos': '',
-                        'static': False,
-                        'type': 'group',
-                        'val': 'all',
-                        'queryGroup': [{
-                            'type': 'query',
-                            'pos': '',
-                            'static': False,
-                            'ncmp': 'iexact',
-                            'val': 'obob_fasted',
-                            'fld': 'msrun__sample__animal__studies__name'
-                        }]
-                    }
-                },
-                'pdtemplate': {
-                    'name': 'PeakData',
-                    'tree': {
-                        'pos': '',
-                        'static': False,
-                        'type': 'group',
-                        'val': 'all',
-                        'queryGroup': [{
-                            'type': 'query',
-                            'pos': '',
-                            'static': False,
-                            'ncmp': '',
-                            'val': ''
-                        }]
-                    }
-                },
-                'fctemplate': {
-                    'name': 'Fcirc',
-                    'tree': {
-                        'pos': '',
-                        'static': False,
-                        'type': 'group',
-                        'val': 'all',
-                        'queryGroup': [{
-                            'type': 'query',
-                            'pos': '',
-                            'static': False,
-                            'ncmp': '',
-                            'val': ''
-                        }]
-                    }
+        empty_tree = {
+            "pos": "",
+            "static": False,
+            "type": "group",
+            "val": "all",
+            "queryGroup": [
+                {
+                    "type": "query",
+                    "pos": "",
+                    "static": False,
+                    "ncmp": "",
+                    "val": "",
                 }
-            }
+            ],
+        }
+        qry = {
+            "selectedtemplate": "pgtemplate",
+            "searches": {
+                "pgtemplate": {
+                    "name": "PeakGroups",
+                    "tree": {
+                        "pos": "",
+                        "static": False,
+                        "type": "group",
+                        "val": "all",
+                        "queryGroup": [
+                            {
+                                "type": "query",
+                                "pos": "",
+                                "static": False,
+                                "ncmp": "iexact",
+                                "val": "obob_fasted",
+                                "fld": "msrun__sample__animal__studies__name",
+                            }
+                        ],
+                    },
+                },
+                "pdtemplate": {
+                    "name": "PeakData",
+                    "tree": empty_tree,
+                },
+                "fctemplate": {
+                    "name": "Fcirc",
+                    "tree": empty_tree,
+                },
+            },
         }
         return tval, qry
 
@@ -758,7 +757,11 @@ class ViewTests(TestCase):
         """
         basv_metadata = BaseAdvancedSearchView()
         res = basv_metadata.getFormatNames()
-        fnd = {"pgtemplate": "PeakGroups", "pdtemplate": "PeakData", "fctemplate": "Fcirc"}
+        fnd = {
+            "pgtemplate": "PeakGroups",
+            "pdtemplate": "PeakData",
+            "fctemplate": "Fcirc",
+        }
         self.assertEqual(res, fnd)
 
     def test_cv_formatNameOrKeyToKey(self):

@@ -5,6 +5,7 @@
  */
 
 // Globals
+
 const minuspngpath = '/static/images/minus.png'
 const pluspngpath = '/static/images/plus.png'
 const pluspluspngpath = '/static/images/plusplus.png'
@@ -28,6 +29,7 @@ const pluspluspngpath = '/static/images/plusplus.png'
 //   }
 // }
 // Linting is disabled for the disallowance of 'no-var' because let and const don't work here
+
 var rootGroup = {} // eslint-disable-line no-var
 var ncmpChoices = {} // eslint-disable-line no-var
 var fldTypes = {} // eslint-disable-line no-var
@@ -61,8 +63,6 @@ function showOutputFormatSearch (shownTemplateId) {
 //   afterMode [optional] determines whether a sibling will be created & inserted after query (if true) or if query will be appended as a child to parentGroup (if false).  Default = false.
 function appendInnerSearchQuery (element, templateId, query, parentGroup, afterMode) {
   'use strict'
-
-  let undef
 
   if (typeof afterMode === 'undefined') {
     afterMode = false
@@ -177,10 +177,10 @@ function addSearchFieldForm (myDiv, query, templateId) {
     // Initialize the value in the hierarchy with the default
     const keyname = clones[i].name.split('-').pop()
     if (typeof query[keyname] !== 'undefined' && query[keyname]) {
-      console.log("Initializing search form value for field: ", keyname,":", query[keyname])
+      console.log('Initializing search form value for field: ', keyname, ':', query[keyname])
       clones[i].value = query[keyname]
     } else {
-      console.log("Storing search form value for field: ", keyname,": as:", clones[i].value, "into the qry object")
+      console.log('Storing search form value for field: ', keyname, ': as:', clones[i].value, 'into the qry object')
       query[clones[i].name] = clones[i].value
     }
     if (query.static) {
@@ -462,7 +462,7 @@ function addGroupSelectList (myDiv, query) {
   if (query.static) {
     select.disabled = true
   } else {
-    console.warn("Group",query.val,"was not static:", query.static)
+    console.warn('Group', query.val, 'was not static:', query.static)
   }
 
   // Use a change as an opportunity to dismiss previous errors
@@ -491,7 +491,7 @@ function addRemoveButton (myDiv, query, parentGroup) {
   rmBtn.addEventListener('click', function (event) {
     formErrLabel.innerHTML = ''
 
-    var size = 0
+    let size = 0
     for (let i = 0; i < parentGroup.queryGroup.length; i++) {
       if (!parentGroup.queryGroup[i].static) {
         size++
@@ -510,8 +510,6 @@ function addRemoveButton (myDiv, query, parentGroup) {
 }
 
 function addQueryAndGroupAddButtons (myDiv, query, parentGroup, templateId) {
-  let undef
-
   // Add query to a group (button)
   const termbtn = document.createElement('a')
   termbtn.href = 'javascript:void(0)'
@@ -561,8 +559,6 @@ function addQueryAndGroupAddButtons (myDiv, query, parentGroup, templateId) {
 function initializeRootSearchQuery (element) { // eslint-disable-line no-unused-vars
   'use strict'
 
-  let undef
-
   const myDiv = document.createElement('div')
   addFormatSelectList(myDiv, rootGroup)
   element.appendChild(myDiv)
@@ -598,8 +594,6 @@ function initializeRootSearchQuery (element) { // eslint-disable-line no-unused-
 function initializeRootSearchQueryHelper (element, templateId, parentNode, queryGroup) {
   'use strict'
 
-  let undef
-
   for (let i = 0; i < queryGroup.length; i++) {
     if (queryGroup[i].type === 'group') {
       // Create the group select list
@@ -610,7 +604,7 @@ function initializeRootSearchQueryHelper (element, templateId, parentNode, query
       if (!queryGroup[i].static && !parentNode.static) {
         addRemoveButton(groupDiv, queryGroup[i], parentNode)
       }
-      console.log("Recursing for template", templateId)
+      console.log('Recursing for template', templateId)
       initializeRootSearchQueryHelper(groupDiv, templateId, queryGroup[i], queryGroup[i].queryGroup)
 
       // Not exactly sure why, but after adding inner elements to a group, an empty div is needed so that future dynamically-added form elements are correctly created.  I did this based on the template post I followed that had a static empty div just inside where the dynamic content was being created, when stuff I was adding wasn't working right and it seems to have fixed it.
@@ -749,8 +743,8 @@ function saveSearchQueryHierarchyHelper (divElem, path, count, idx, selectedform
         // Remove the disabled attribute so that the data submits
         childInputs[i].removeAttribute('disabled')
       }
-  }
-    console.log("Saving template:",selectedformat,"Input:",childInputs[i].name,"Value:",childInputs[i].value)
+    }
+    console.log('Saving template:', selectedformat, 'Input:', childInputs[i].name, 'Value:', childInputs[i].value)
   }
 
   if (path === '') {

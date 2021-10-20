@@ -403,7 +403,9 @@ def searchFieldToDisplayField(basv_metadata, mdl, fld, val, fmt, qry):
             raise Http404("Records not found for field [" + mdl + "." + fld + "].")
         # Set the field path for the display field
         dfld = dfields[fld]
-        dval = getJoinedRecFieldValue(recs, basv_metadata, fmt, mdl, dfields[fld], fld, val)
+        dval = getJoinedRecFieldValue(
+            recs, basv_metadata, fmt, mdl, dfields[fld], fld, val
+        )
 
     return dfld, dval
 
@@ -443,7 +445,9 @@ def getJoinedRecFieldValue(recs, basv_metadata, fmt, mdl, dfld, sfld, sval):
         dval = getattr(ptr, dfld)
 
     if not gotit:
-        print(f"ERROR: Values retrieved for search field {mdl}.{sfld} using search term: {sval} did not match.")
+        print(
+            f"ERROR: Values retrieved for search field {mdl}.{sfld} using search term: {sval} did not match."
+        )
         raise Http404(
             f"ERROR: Unable to find a value for [{mdl}.{sfld}] that matches the search term.  Unable to "
             f"convert to the handoff field {dfld}."
@@ -505,7 +509,9 @@ def isValidQryObjPopulated(qry):
     if len(qry["searches"][selfmt]["tree"]["queryGroup"]) == 0:
         return False
     else:
-        return isValidQryObjPopulatedHelper(qry["searches"][selfmt]["tree"]["queryGroup"])
+        return isValidQryObjPopulatedHelper(
+            qry["searches"][selfmt]["tree"]["queryGroup"]
+        )
 
 
 def isValidQryObjPopulatedHelper(group):
@@ -539,7 +545,7 @@ def constructAdvancedQueryHelper(qry):
     """
 
     if "type" not in qry:
-        print("ERROR: type missing from qry object: ",qry)
+        print("ERROR: type missing from qry object: ", qry)
     if qry["type"] == "query":
         cmp = qry["ncmp"].replace("not_", "", 1)
         negate = cmp != qry["ncmp"]
@@ -605,7 +611,9 @@ def formsetsToDict(rawformset, form_classes):
 
     # If we were unable to locate the selected output format (i.e. the copy of the formsets that were processed)
     if processed_formkey is None:
-        raise Http404(f"Unable to find the saved form-processed data among formats: {','.join(rawformset.keys())}.")
+        raise Http404(
+            f"Unable to find the saved form-processed data among formats: {','.join(rawformset.keys())}."
+        )
 
     return formsetToDict(rawformset[processed_formkey], form_classes)
 
@@ -702,7 +710,9 @@ def formsetToDict(rawformset, form_classes):
                         curqry[pos][key] = form[key]
                     else:
                         # Log a warning
-                        print(f"WARNING: Unrecognized form element not set at pos {pos}: {key} to {form[key]}")
+                        print(
+                            f"WARNING: Unrecognized form element not set at pos {pos}: {key} to {form[key]}"
+                        )
 
                 # Now initialize anything missing a value to an empty string
                 # This is used to correctly reconstruct the user's query upon form_invalid
@@ -722,7 +732,7 @@ def pathStepToPosGroupType(spot):
     if len(pos_gtype_stc) == 3:
         pos = pos_gtype_stc[0]
         gtype = pos_gtype_stc[1]
-        if pos_gtype_stc[2] == 'true':
+        if pos_gtype_stc[2] == "true":
             static = True
         else:
             static = False

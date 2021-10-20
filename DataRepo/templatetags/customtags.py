@@ -59,6 +59,7 @@ def getClass(state):
         styleclass = "text-info"
     return styleclass
 
+
 @register.filter
 def count_tracer_groups(res):
     cnt = 0
@@ -67,6 +68,9 @@ def count_tracer_groups(res):
             cnt = cnt + 1
     return cnt
 
+
 @register.filter
 def joinStudyNames(delimiter, recs):
-    return delimiter.join(list(map(lambda studyrec: studyrec['name'], recs.values('name'))))
+    return delimiter.join(
+        list(map(lambda studyrec: studyrec["name"], recs.values("name")))
+    )

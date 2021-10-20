@@ -47,9 +47,9 @@
 
         {% for pg in res.all %}
             {% if pg.is_tracer_compound_group %}
-                <tr{% if pg.msrun.sample.id == pg.msrun.sample.animal.final_serum_sample_id %} class="bg-highlighted"{% endif %}>
+                <tr class="{% if pg.msrun.sample.id == pg.msrun.sample.animal.final_serum_sample_id %}bg-highlighted{% endif %}">
                     <!-- Animal -->
-                    <td{% if pg.msrun.sample.id == pg.msrun.sample.animal.final_serum_sample_id %} class="bg-highlighted"{% endif %}>
+                    <td>
                         <a href="{% url 'animal_detail' pg.msrun.sample.animal.id %}">
                             {{ pg.msrun.sample.animal.name }}
                         </a>

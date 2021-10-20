@@ -1,10 +1,12 @@
 .level-indent {
   padding-left: 2em;
 }
+
 .bg-highlighted {
   --bs-table-striped-bg: #c7dbd2;
   --bs-table-striped-color: #000;
 }
+
 .table-highlighted {
   --bs-table-bg: #d1e7dd;
   --bs-table-striped-bg: #c7dbd2;
@@ -13,13 +15,17 @@
   --bs-table-active-color: #000;
   --bs-table-hover-bg: #c1d6cc;
   --bs-table-hover-color: #000;
+
   color: #000;
   border-color: #bcd0c7;
 }
+
 .table-highlighted > tbody > .bg-highlighted {
   --bs-table-accent-bg: var(--bs-table-striped-bg);
+
   color: var(--bs-table-striped-color);
 }
+
 .table-highlighted-legend {
   --bs-table-bg: #d1e7dd;
   --bs-table-striped-bg: #c7dbd2;
@@ -28,12 +34,15 @@
   --bs-table-active-color: #000;
   --bs-table-hover-bg: #c1d6cc;
   --bs-table-hover-color: #000;
+
   width: 1%;
   white-space: nowrap;
   color: #000;
   border-color: #bcd0c7;
 }
+
 .table-highlighted-legend > tbody > .bg-highlighted {
   --bs-table-accent-bg: var(--bs-table-striped-bg);
+
   color: var(--bs-table-striped-color);
 }
