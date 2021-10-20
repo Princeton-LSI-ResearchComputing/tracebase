@@ -397,9 +397,7 @@ def searchFieldToDisplayField(basv_metadata, mdl, fld, val, fmt, qry):
     dfields = basv_metadata.getDisplayFields(fmt, mdl)
     if fld in dfields.keys() and dfields[fld] != fld:
         # If fld is not a displayed field, perform a query to convert the undisplayed field query to a displayed query
-        print("Searching before handoff with qry:", qry)
         q_exp = constructAdvancedQuery(qry)
-        print("Q Expression: ", q_exp, " fmt: ", fmt)
         recs = performQuery(q_exp, fmt, basv_metadata)
         if len(recs) == 0:
             raise Http404("Records not found for field [" + mdl + "." + fld + "].")
@@ -445,7 +443,7 @@ def getJoinedRecFieldValue(recs, basv_metadata, fmt, mdl, dfld, sfld, sval):
         dval = getattr(ptr, dfld)
 
     if not gotit:
-        print(f"Values retrieved for search field {mdl}.{sfld} using search term: {sval} did not match.")
+        print(f"ERROR: Values retrieved for search field {mdl}.{sfld} using search term: {sval} did not match.")
         raise Http404(
             f"ERROR: Unable to find a value for [{mdl}.{sfld}] that matches the search term.  Unable to "
             f"convert to the handoff field {dfld}."
@@ -935,7 +933,7 @@ class DataValidationView(FormView):
             self.animal_sample_file = request.FILES["animal_sample_table"]
         except Exception:
             # Ignore missing accucor files
-            print("No accucor file")
+            print("ERROR: No accucor file")
         if form.is_valid():
             return self.form_valid(form)
         else:

@@ -470,11 +470,12 @@ class ViewTests(TestCase):
         self.assertContains(response, "\n", count=expected_newline_count)
         self.assertContains(response, "\t", count=expected_tab_count)
         # Header tests
-        file_content = response
+        # The header includes the download time
         self.assertContains(response, "# Download Time: ", count=1)
+        # The header includes the advanced search qry
         self.assertContains(response, "# Advanced Search Query: {", count=1)
-        print("This response should include: `'ncmp': 'iexact', 'val': 'Brain'`:", str(file_content))
-        self.assertContains(file_content, "'ncmp': 'iexact', 'val': 'Brain'", count=1)
+        # The qry in the header contains the search term and is in json format
+        self.assertContains(response, "'val': 'Brain'", count=1)
         # Header row starts with the sample column
         self.assertContains(response, "#Sample", count=1)
         # qry sent to the downloaded file header is correct
@@ -562,7 +563,6 @@ class ViewTests(TestCase):
         fmt = "pgtemplate"
         newqry = createNewBasicQuery(basv_metadata, mdl, fld, cmp, val, fmt)
         self.maxDiff = None
-        print("newqry: ", newqry, "qry: ", qry)
         self.assertEqual(newqry, qry)
 
     def test_searchFieldToDisplayField(self):
