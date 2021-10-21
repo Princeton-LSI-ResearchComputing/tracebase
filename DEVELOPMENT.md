@@ -9,8 +9,9 @@ This document will serve to guide developers on implementing new code.
 1. `DataRepo/compositeviews.py`
    - Copy and rename PeakGroupsSearchView and make the following edits
       - Set a new ID and name.
-      - Determine the root queryset, e.g. PeakData.objects.  If a filter is required, set rootmodel to `None` and add an __init__ constructor that implements the filter.  See FluxCircSearchView for an example.
-         - Note that if you want to pre-filter to be transparent to the user, you can override the base class's value for `static_filter`.  Any searches you set there will show in the hierarchical search form, but will not be editable to the user.
+      - Set a root model
+      - Determine the root queryset.  If it's not all records of the root model (e.g. PeakData.objects.all()), and a filter is required, add a method to the class called getRootQuerySet() that overrides the base class version, and returns the filtered queryset.  See FluxCircSearchView for an example.
+         - Note that if you want your pre-filter to be transparent to the user, you can alternatively override the base class's value for `static_filter`.  Any searches you set there, as the value of the `tree` member of the qry object (see the static_filter commented example), will show in the hierarchical search form, but will not be editable to the user.
       - Fill in all the prefetch paths from (but not including) the root model to every model leaf.  The path strings are the foreign key field names in the parent model.
       - Fill in the models data: every model, it's path (from the prefetches, the root model will be an empty string), and all its fields.
          - Cached properties should not be searchable.
