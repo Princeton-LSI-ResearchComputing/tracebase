@@ -1,5 +1,7 @@
 from typing import Dict, List
 
+from django.db.models import Model
+
 from DataRepo.models import (
     Animal,
     PeakData,
@@ -17,6 +19,7 @@ class BaseSearchView:
     name = ""
     models: Dict[str, Dict] = {}
     prefetches: List[str] = []
+    rootmodel: Model = None
     ncmp_choices = {
         "number": [
             ("iexact", "is"),
@@ -227,6 +230,12 @@ class BaseSearchView:
                 fielddict[field] = field
         return fielddict
 
+    def getRootQuerySet(self):
+        if self.rootmodel is not None:
+            return self.rootmodel.objects.all()
+        print("ERROR: rootmodel not set.")
+        return None
+
 
 class PeakGroupsSearchView(BaseSearchView):
     """
@@ -235,7 +244,7 @@ class PeakGroupsSearchView(BaseSearchView):
 
     id = "pgtemplate"
     name = "PeakGroups"
-    rootqs = PeakGroup.objects
+    rootmodel = PeakGroup
     prefetches = [
         "peak_group_set",
         "msrun__sample__tissue",
@@ -470,7 +479,7 @@ class PeakDataSearchView(BaseSearchView):
 
     id = "pdtemplate"
     name = "PeakData"
-    rootqs = PeakData.objects
+    rootmodel = PeakData
     prefetches = [
         "peak_group__peak_group_set",
         "peak_group__msrun__sample__tissue",
@@ -729,7 +738,7 @@ class FluxCircSearchView(BaseSearchView):
 
     id = "fctemplate"
     name = "Fcirc"
-    rootqs = None
+    rootmodel = PeakGroup
     prefetches = [
         "msrun__sample__animal__tracer_compound",
         "msrun__sample__animal__treatment",
@@ -886,19 +895,15 @@ class FluxCircSearchView(BaseSearchView):
         },
     }
 
-    def __init__(self):
-        self.rootqs = self.getRootQuerySet()
-
-    @classmethod
     def getRootQuerySet(self):
         # https://stackoverflow.com/questions/3397437/manually-create-a-django-queryset-or-rather-manually-add-objects-to-a-queryset
         serum_tracer_peakgroups = set()
-        for pg in PeakGroup.objects.filter(
+        for pg in self.rootmodel.objects.filter(
             msrun__sample__tissue__name__istartswith=Tissue.SERUM_TISSUE_PREFIX
         ):
             if pg.is_tracer_compound_group:
                 serum_tracer_peakgroups.add(pg.id)
-        return PeakGroup.objects.filter(id__in=serum_tracer_peakgroups)
+        return self.rootmodel.objects.filter(id__in=serum_tracer_peakgroups)
 
 
 class BaseAdvancedSearchView:
@@ -958,6 +963,12 @@ class BaseAdvancedSearchView:
                     format
                 ].static_filter
         return rootGroup
+
+    def getRootQuerySet(self, format):
+        """
+        Calls getRootQuerySet of the supplied format.
+        """
+        return self.modeldata[format].getRootQuerySet()
 
     def getPrefetches(self, format):
         """

@@ -336,7 +336,7 @@ def getAllBrowseData(format, basv):
     """
 
     if format in basv.getFormatNames().keys():
-        res = basv.modeldata[format].rootqs.all()
+        res = basv.getRootQuerySet(format).all()
     else:
         # Log a warning
         print("WARNING: Unknown format: " + format)
@@ -466,7 +466,7 @@ def performQuery(q_exp, fmt, basv):
 
     res = {}
     if fmt in basv.getFormatNames().keys():
-        res = basv.modeldata[fmt].rootqs.filter(q_exp)
+        res = basv.getRootQuerySet(fmt).filter(q_exp)
     else:
         # Log a warning
         print("WARNING: Invalid selected format:", fmt)
