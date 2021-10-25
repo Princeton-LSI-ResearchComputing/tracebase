@@ -12,10 +12,10 @@ from DataRepo.utils import AccuCorDataLoader
 class Command(BaseCommand):
     # Show this when the user supplies -h
     help = (
-        "Loads data from an Accucor excel file"
-        "(e.g. a workbook containing both original and corrected data worksheets), or"
-        "a csv file exported from only the corrected worksheet"
-        "(e.g. no original data available)"
+        "Loads data from an Accucor excel file "
+        "(e.g. a workbook containing both original and corrected data worksheets), or "
+        "a csv file exported from only the corrected worksheet "
+        "(e.g. no original data available) "
         "into Protocol, MsRun, PeakGroupSet, PeakGroup, and PeakData database tables"
     )
 
