@@ -23,7 +23,7 @@ class Command(BaseCommand):
         parser.add_argument(
             "--accucor-file",
             type=str,
-            help="output filepath of either Accucor data xlxs output"
+            help="output filepath of either Accucor data xlxs output "
             "OR a csv export of the corrected data worksheet",
             required=True,
         )
