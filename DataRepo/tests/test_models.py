@@ -10,6 +10,7 @@ from django.test import TestCase, tag
 from DataRepo.models import (
     Animal,
     Compound,
+    CompoundSynonym,
     MSRun,
     PeakData,
     PeakGroup,
@@ -97,6 +98,74 @@ class CompoundTests(TestCase):
         alanine = Compound.objects.get(name="alanine")
         with self.assertWarns(UserWarning):
             self.assertEqual(alanine.atom_count("Abc"), None)
+
+
+class CompoundSynonymTests(TestCase):
+    def setUp(self):
+        self.PRIMARY_COMPOUND = Compound.objects.create(
+            name="hexadecanoic acid", formula="C16H32O2", hmdb_id="HMDB0000220"
+        )
+        aliases = ["palmitic acid", "C16:0"]
+        self.ALIASES_SETUP_COUNT = len(aliases)
+        self.PRIMARY_ALIAS = aliases[0]
+        # make synonyms
+        for alias in aliases:
+            CompoundSynonym.objects.create(name=alias, compound=self.PRIMARY_COMPOUND)
+
+        self.SECONDARY_COMPOUND = Compound.objects.create(
+            name="alanine", formula="C3H7NO2", hmdb_id="HMDB0000161"
+        )
+
+    def test_compound_synonym_insertion1(self):
+        # setup insertions count
+        self.assertEqual(
+            len(self.PRIMARY_COMPOUND.synonyms.all()), self.ALIASES_SETUP_COUNT
+        )
+
+    def test_compound_synonym_insertion2(self):
+        alt_name = "Palmitate"
+        CompoundSynonym.objects.create(name=alt_name, compound=self.PRIMARY_COMPOUND)
+        self.assertTrue(self.PRIMARY_COMPOUND.synonyms.filter(name=alt_name).exists())
+
+    def test_compound_synonym_duplication1(self):
+        # duplicate or ambiguous insertion should fail
+        self.assertRaises(
+            IntegrityError,
+            lambda: CompoundSynonym.objects.create(
+                name=self.PRIMARY_ALIAS, compound=self.PRIMARY_COMPOUND
+            ),
+        )
+
+    def test_compound_synonym_duplication2(self):
+        # duplicate or ambiguous insertion to a different compound should fail
+        self.assertRaises(
+            IntegrityError,
+            lambda: CompoundSynonym.objects.create(
+                name=self.PRIMARY_ALIAS, compound=self.SECONDARY_COMPOUND
+            ),
+        )
+
+    def test_compound_deletion(self):
+        # compound deletion should remove all synonyms
+        c = Compound.objects.create(
+            name="1-Methylhistidine", formula="C7H11N3O2", hmdb_id="HMDB0000001"
+        )
+        alias = "1 methylhistidine"
+        CompoundSynonym.objects.create(name=alias, compound=c)
+        self.assertTrue(CompoundSynonym.objects.filter(name=alias).exists())
+        c.delete()
+        self.assertFalse(CompoundSynonym.objects.filter(name=alias).exists())
+
+    def test_compound_synonym_deletion(self):
+        # synonym deletion does not alter the compound record
+        c = Compound.objects.create(
+            name="1-Methylhistidine", formula="C7H11N3O2", hmdb_id="HMDB0000001"
+        )
+        alias = "1 methylhistidine"
+        cs = CompoundSynonym.objects.create(name=alias, compound=c)
+        self.assertEqual(len(c.synonyms.all()), 1)
+        cs.delete()
+        self.assertTrue(Compound.objects.filter(name="1-Methylhistidine").exists())
 
 
 class StudyTests(TestCase, ExampleDataConsumer):
