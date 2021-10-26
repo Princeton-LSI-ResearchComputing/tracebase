@@ -128,7 +128,7 @@ class CompoundSynonymTests(TestCase):
         self.assertTrue(self.PRIMARY_COMPOUND.synonyms.filter(name=alt_name).exists())
 
     def test_compound_synonym_duplication1(self):
-        # duplicate or ambiguous insertion should fail
+        # test that duplicate insertion fails
         self.assertRaises(
             IntegrityError,
             lambda: CompoundSynonym.objects.create(
@@ -137,7 +137,7 @@ class CompoundSynonymTests(TestCase):
         )
 
     def test_compound_synonym_duplication2(self):
-        # duplicate or ambiguous insertion to a different compound should fail
+        # test that attempting to use the same synonym for multiple compounds fails
         self.assertRaises(
             IntegrityError,
             lambda: CompoundSynonym.objects.create(
