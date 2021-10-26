@@ -39,14 +39,14 @@ This document will serve to guide developers on implementing new code.
 5. `DataRepo/templates/DataRepo/search/results/display.html`
    - Copy the `{% elif qry.selectedtemplate == "pdtemplate"...` line and the include line below it, paste it above the following `else`, and make the following edits:
       - Replace both occurrences of `pdtemplate` with the ID you assigned at the top of step 1
-      - Replace the file name on the include line with the file created in step 3 above
+      - Replace the filename on the include line with the file created in step 3 above
 
 6. `DataRepo/templates/DataRepo/search/downloads/download.tsv`
    - Copy the `elif`:
      `{% elif qry.selectedtemplate == "pdtemplate" %}{% include "DataRepo/search/downloads/peakdata.tsv" %}`
      Paste it before the `endif` and make the following edits:
       - Replace both occurrences of `pdtemplate` with the ID you assigned at the top of step 1
-      - Replace the file name on the include line with the file created in step 4 above
+      - Replace the filename on the include line with the file created in step 4 above
 
 ### Notes
 

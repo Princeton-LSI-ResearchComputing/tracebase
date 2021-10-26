@@ -1255,6 +1255,8 @@ class PeakData(models.Model, TracerLabeledClass):
         "presumed compound referred to in the peak group.",
     )
     raw_abundance = models.FloatField(
+        null=True,
+        blank=True,
         validators=[MinValueValidator(0)],
         help_text="The ion count of this observation.",
     )
@@ -1263,10 +1265,14 @@ class PeakData(models.Model, TracerLabeledClass):
         help_text="The ion counts corrected for natural abundance of isotopomers.",
     )
     med_mz = models.FloatField(
+        null=True,
+        blank=True,
         validators=[MinValueValidator(0)],
         help_text="The median mass/charge value of this measurement.",
     )
     med_rt = models.FloatField(
+        null=True,
+        blank=True,
         validators=[MinValueValidator(0)],
         help_text="The median retention time value of this measurement.",
     )
