@@ -356,7 +356,7 @@ def createNewBasicQuery(basv_metadata, mdl, fld, cmp, val, fmt):
     Constructs a new qry object for an advanced search from basic search input.
     """
 
-    qry = basv_metadata.getRootGroup(fmt, True)
+    qry = basv_metadata.getRootGroup(fmt)
 
     models = basv_metadata.getModels(fmt)
 
@@ -372,19 +372,52 @@ def createNewBasicQuery(basv_metadata, mdl, fld, cmp, val, fmt):
             f"Field [{fld}] is not searchable.  Must be one of [{','.join(sfields.keys())}]."
         )
 
-    qry["searches"][fmt]["tree"]["queryGroup"][0]["type"] = "query"
-    qry["searches"][fmt]["tree"]["queryGroup"][0]["pos"] = ""
-    qry["searches"][fmt]["tree"]["queryGroup"][0]["static"] = False
-    qry["searches"][fmt]["tree"]["queryGroup"][0]["fld"] = sfields[fld]
-    qry["searches"][fmt]["tree"]["queryGroup"][0]["ncmp"] = cmp
-    qry["searches"][fmt]["tree"]["queryGroup"][0]["val"] = val
+    num_empties = basv_metadata.getNumEmptyQueries(qry["searches"][fmt]["tree"])
+    if num_empties > 1:
+        raise Http404(
+            f"The static filter for format {fmt} is improperly configured. It must contain no more than 1 empty query."
+        )
+
+    if num_empties == 1:
+        empty_qry = getFirstEmptyQuery(qry["searches"][fmt]["tree"])
+    else:
+        qry["searches"][fmt]["tree"]["queryGroup"].append({})
+        empty_qry = qry["searches"][fmt]["tree"]["queryGroup"][0]
+
+    empty_qry["type"] = "query"
+    empty_qry["pos"] = ""
+    empty_qry["static"] = False
+    empty_qry["fld"] = sfields[fld]
+    empty_qry["ncmp"] = cmp
+    empty_qry["val"] = val
 
     dfld, dval = searchFieldToDisplayField(basv_metadata, mdl, fld, val, fmt, qry)
-    # Set the field path for the display field
-    qry["searches"][fmt]["tree"]["queryGroup"][0]["fld"] = sfields[dfld]
-    qry["searches"][fmt]["tree"]["queryGroup"][0]["val"] = dval
+
+    if dfld != fld:
+        # Set the field path for the display field
+        empty_qry["fld"] = sfields[dfld]
+        empty_qry["val"] = dval
 
     return qry
+
+
+def getFirstEmptyQuery(qry_ref):
+    """
+    This method takes the "tree" from a qry object (i.e. what you get from basv_metadata.getRootGroup(fmt)) and returns
+    a reference to the single empty item of type query that should be present in a new rootGroup.
+    """
+    if qry_ref["type"] and qry_ref["type"] == "query":
+        if qry_ref["val"] == "":
+            return qry_ref
+        return None
+    elif qry_ref["type"] and qry_ref["type"] == "group":
+        if len(qry_ref["queryGroup"]) > 0:
+            for qry in qry_ref["queryGroup"]:
+                emptyqry = getFirstEmptyQuery(qry)
+                if emptyqry:
+                    return emptyqry
+        return None
+    raise Http404("Type not found.")
 
 
 def searchFieldToDisplayField(basv_metadata, mdl, fld, val, fmt, qry):
@@ -400,7 +433,11 @@ def searchFieldToDisplayField(basv_metadata, mdl, fld, val, fmt, qry):
         q_exp = constructAdvancedQuery(qry)
         recs = performQuery(q_exp, fmt, basv_metadata)
         if len(recs) == 0:
-            raise Http404("Records not found for field [" + mdl + "." + fld + "].")
+            print(
+                f"WARNING: Failed basic/advanced {fmt} search conversion: {qry}. No records found matching {mdl}."
+                f"{fld}='{val}'."
+            )
+            raise Http404(f"No records found matching [{mdl}.{fld}={val}].")
         # Set the field path for the display field
         dfld = dfields[fld]
         dval = getJoinedRecFieldValue(
@@ -410,7 +447,7 @@ def searchFieldToDisplayField(basv_metadata, mdl, fld, val, fmt, qry):
     return dfld, dval
 
 
-# Warning, the code in this method would potentially mot work in cases where multiple search terms (including a term
+# Warning, the code in this method would potentially not work in cases where multiple search terms (including a term
 # from a m:m related table) were or'ed together.  This cannot happen currently because this is only utilized for
 # handoff fields from search_basic, so the first record is guaranteed to have a matching value from the search term.
 def getJoinedRecFieldValue(recs, basv_metadata, fmt, mdl, dfld, sfld, sval):

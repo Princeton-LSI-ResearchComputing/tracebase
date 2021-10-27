@@ -1,3 +1,4 @@
+from copy import deepcopy
 from typing import Dict, List
 
 from django.db.models import Model
@@ -928,7 +929,30 @@ class BaseAdvancedSearchView:
             self.modeldata[cls.id] = cls
         self.default_format = PeakGroupsSearchView.id
 
-    def getRootGroup(self, selfmt=None, empty=False):
+    def getRootGroup(self, selfmt=None):
+        """
+        This method builds a fresh qry object (aka "rootGroup"). This is the object that defines an advanced search and
+        is modified via javascript as the user composes a search.  It is passed back and forth via json.  The starting
+        structure is:
+            rootGroup = {
+              selectedtemplate: 'pgtemplate',
+              searches: {
+                pgtemplate: {
+                  name: 'PeakGroups',
+                  tree: {
+                    type: 'group',
+                    val: 'all',
+                    static: false,
+                    queryGroup: [...]
+                  }
+                },
+                ...
+              }
+            }
+        The value of the tree item is defined by the static_filter in each derived class and that is what must contain
+        an empty query.  At least 1 empty query is required in every item of type group, because the starting search
+        form must contain a spot for the user to enter their search.
+        """
         if selfmt is None:
             selfmt = self.default_format
         if selfmt not in self.modeldata.keys():
@@ -943,26 +967,122 @@ class BaseAdvancedSearchView:
         for format in self.modeldata.keys():
             rootGroup["searches"][format] = {}
             rootGroup["searches"][format]["name"] = self.modeldata[format].name
-            if empty:
-                rootGroup["searches"][format]["tree"] = {}
-                rootGroup["searches"][format]["tree"]["pos"] = ""
-                rootGroup["searches"][format]["tree"]["static"] = False
-                rootGroup["searches"][format]["tree"]["type"] = "group"
-                rootGroup["searches"][format]["tree"]["val"] = "all"
-                rootGroup["searches"][format]["tree"]["queryGroup"] = [
-                    {
-                        "type": "query",
-                        "pos": "",
-                        "static": False,
-                        "ncmp": "",
-                        "val": "",
-                    }
-                ]
+            if self.staticFilterIsValid(self.modeldata[format].static_filter):
+                rootGroup["searches"][format]["tree"] = deepcopy(
+                    self.modeldata[format].static_filter
+                )
             else:
-                rootGroup["searches"][format]["tree"] = self.modeldata[
-                    format
-                ].static_filter
+                print(
+                    f"ERROR: No empty queries in format {format}: ",
+                    self.modeldata[format].static_filter,
+                )
+                raise Exception(
+                    f"Static filter for format {format} must contain at least 1 non-static empty query."
+                )
         return rootGroup
+
+    def staticFilterIsValid(self, filter):
+        """
+        Takes a "tree" value of 1 format from the rootGroup query object and raises an exception for missing keys or
+        invalid values in the root query and calls staticFilterIsValidHelper to recursively validate the treee.
+        """
+
+        if (
+            "type" not in filter
+            or filter["type"] != "group"
+            or "queryGroup" not in filter
+            or len(filter["queryGroup"]) == 0
+        ):
+            raise Exception(
+                "Invalid root query group.  Must be of type 'group' and contain a populated queryGroup array."
+            )
+        else:
+            num_nonstatic = self.getNumNonStaticGroups(filter)
+            if num_nonstatic == 0:
+                raise Exception(
+                    "Invalid root query group.  There must exist at least 1 non-static query group."
+                )
+            return self.staticFilterIsValidHelper(filter)
+
+    def staticFilterIsValidHelper(self, filter):
+        """
+        Raises an exception for missing keys or invalid values and returns true if at least 1 empty query exists among
+        all recursively checked objects of type query.
+        """
+        # Validate the keys present in both query and group types
+        if "type" not in filter or "val" not in filter or "static" not in filter:
+            raise Exception(
+                "Static filter is missing 1 or more required keys: [type, val, static]."
+            )
+        elif filter["type"] == "query":
+            # Validate the keys of the query
+            if "ncmp" not in filter or "pos" not in filter or "fld" not in filter:
+                raise Exception(
+                    "Missing keys in query.  At least 1 of the following keys is missing: [fld, ncmp, pos]."
+                )
+            # If empty (i.e. val holds an empty string), return true
+            if not filter["static"] and filter["val"] == "":
+                return True
+            return False
+        elif filter["type"] == "group":
+            # Validate the keys & values of the group
+            if (
+                "queryGroup" not in filter
+                or len(filter["queryGroup"]) == 0
+                or (filter["val"] != "all" and filter["val"] != "any")
+            ):
+                raise Exception(
+                    "Invalid group.  Must contain a queryGroup key with a populated array and val must be either "
+                    "'all' or 'any'."
+                )
+            empty_exists = False
+            for query in filter["queryGroup"]:
+                if self.staticFilterIsValidHelper(query):
+                    empty_exists = True
+            return empty_exists
+        else:
+            raise Exception(
+                f"Invalid query type {filter['type']}.  Must be either 'query' or 'group'."
+            )
+
+    def getNumEmptyQueries(self, filter):
+        """
+        Takes a "tree" value of 1 format from the rootGroup query object and recursively counts the number of empty
+        queries.
+        """
+        if filter["type"] == "query":
+            # If empty (i.e. val holds an empty string), return 1
+            if not filter["static"] and filter["val"] == "":
+                return 1
+            return 0
+        elif filter["type"] == "group":
+            total_empty = 0
+            for query in filter["queryGroup"]:
+                total_empty += self.getNumEmptyQueries(query)
+            return total_empty
+        else:
+            raise Exception(
+                f"Invalid query type {filter['type']}.  Must be either 'query' or 'group'."
+            )
+
+    def getNumNonStaticGroups(self, filter):
+        """
+        Takes a "tree" value of 1 format from the rootGroup query object and recursively counts the number of nonstatic
+        groups.
+        """
+        if filter["type"] == "query":
+            return 0
+        elif filter["type"] == "group":
+            total_nonstatic = 0
+            if not filter["static"]:
+                total_nonstatic = 1
+            for query in filter["queryGroup"]:
+                total_nonstatic += self.getNumNonStaticGroups(query)
+            return total_nonstatic
+        else:
+            raise Exception(
+                f"Invalid query type {filter['type']}.  Must be either 'query' or 'group'."
+            )
 
     def getRootQuerySet(self, format):
         """

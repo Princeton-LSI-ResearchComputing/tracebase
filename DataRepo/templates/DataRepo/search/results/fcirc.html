@@ -1,19 +1,10 @@
 {% load customtags %}
 {% block content %}
-    {# local_debug=False overrides settings.debug sent in as 'debug'.  Effective_debug will only be true if both local and global are true #}
-    {% define False as local_debug %}
-    {% define False as effective_debug %}
-    {% if local_debug %}
-        {% define debug as effective_debug %}
-    {% endif %}
     <table class="table table-highlighted table-hover table-bordered">
         <tr class="bg-highlighted">
             <th colspan="7" rowspan="2"></th>
             <th colspan="4">Average</th>
             <th colspan="4">Intact</th>
-            {% if effective_debug %}
-                <th colspan="4" rowspan="2" class="align-bottom">Debug Mode Columns</th>
-            {% endif %}
         </tr>
         <tr class="bg-highlighted">
             <th colspan="2">Weight Normalized<small> (nM/m/g)</small></th>
@@ -37,12 +28,6 @@
             <th>Rd</th>
             <th>Ra</th>
             <th>Rd</th>
-            {% if effective_debug %}
-                <th>PeakGroup</th>
-                <th>Tissue</th>
-                <th>Sample</th>
-                <th>Final Serum Sample</th>
-            {% endif %}
         </tr>
 
         {% for pg in res.all %}
@@ -165,30 +150,6 @@
                             <p title="{{ pg.rate_disappearance_intact_per_animal }}">{{ pg.rate_disappearance_intact_per_animal|floatformat:2 }}</p>
                         {% endif %}
                     </td>
-
-                    {% if effective_debug %}
-                        <td>
-                            {{ pg.name }} (Tracer cmpd ID {{ pg.msrun.sample.animal.tracer_compound.id }}) in? PeakGroup cmpds: [
-                            {% for cmpd in pg.compounds.all %}
-                                {{ cmpd.id }}
-                                {% if pg.msrun.sample.animal.tracer_compound.id == cmpd.id %}
-                                    *
-                                {% endif %}
-                            {% endfor %} ]
-                        </td>
-                        <td>
-                            {{ pg.msrun.sample.tissue.name }}
-                        </td>
-                        <td>
-                            <a href="{% url 'sample_detail' pg.msrun.sample.id %}">
-                                {{ pg.msrun.sample.id }}
-                            </a>
-                        </td>
-                        <td>
-                            <a href="{% url 'sample_detail' pg.msrun.sample.animal.final_serum_sample_id %}">
-                                {{ pg.msrun.sample.animal.final_serum_sample_id }}
-                            </a>
-                        </td>
                     {% endif %}
                 </tr>
             {% endif %}

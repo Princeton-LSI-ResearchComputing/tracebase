@@ -501,16 +501,16 @@ class ViewTests(TestCase):
         qs = PeakGroup.objects.all().prefetch_related("msrun__sample__animal__studies")
         tval = str(qs[0].msrun.sample.animal.studies.all()[0].id)
         empty_tree = {
-            "pos": "",
-            "static": False,
             "type": "group",
             "val": "all",
+            "static": False,
             "queryGroup": [
                 {
                     "type": "query",
                     "pos": "",
                     "static": False,
                     "ncmp": "",
+                    "fld": "",
                     "val": "",
                 }
             ],
@@ -521,30 +521,23 @@ class ViewTests(TestCase):
                 "pgtemplate": {
                     "name": "PeakGroups",
                     "tree": {
-                        "pos": "",
-                        "static": False,
                         "type": "group",
                         "val": "all",
+                        "static": False,
                         "queryGroup": [
                             {
                                 "type": "query",
                                 "pos": "",
                                 "static": False,
                                 "ncmp": "iexact",
-                                "val": "obob_fasted",
                                 "fld": "msrun__sample__animal__studies__name",
+                                "val": "obob_fasted",
                             }
                         ],
                     },
                 },
-                "pdtemplate": {
-                    "name": "PeakData",
-                    "tree": empty_tree,
-                },
-                "fctemplate": {
-                    "name": "Fcirc",
-                    "tree": empty_tree,
-                },
+                "pdtemplate": {"name": "PeakData", "tree": empty_tree},
+                "fctemplate": {"name": "Fcirc", "tree": empty_tree},
             },
         }
         return tval, qry
