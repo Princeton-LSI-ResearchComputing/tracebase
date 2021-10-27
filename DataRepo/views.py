@@ -413,7 +413,9 @@ def getFirstEmptyQuery(qry_ref):
                 emptyqry = getFirstEmptyQuery(qry)
                 if emptyqry:
                     if immutable:
-                        raise Http404("Group containing empty query must not be static.")
+                        raise Http404(
+                            "Group containing empty query must not be static."
+                        )
                     return emptyqry
         return None
     raise Http404("Type not found.")
