@@ -373,16 +373,12 @@ def createNewBasicQuery(basv_metadata, mdl, fld, cmp, val, fmt):
         )
 
     num_empties = basv_metadata.getNumEmptyQueries(qry["searches"][fmt]["tree"])
-    if num_empties > 1:
+    if num_empties != 1:
         raise Http404(
-            f"The static filter for format {fmt} is improperly configured. It must contain no more than 1 empty query."
+            f"The static filter for format {fmt} is improperly configured. It must contain exactly 1 empty query."
         )
 
-    if num_empties == 1:
-        empty_qry = getFirstEmptyQuery(qry["searches"][fmt]["tree"])
-    else:
-        qry["searches"][fmt]["tree"]["queryGroup"].append({})
-        empty_qry = qry["searches"][fmt]["tree"]["queryGroup"][0]
+    empty_qry = getFirstEmptyQuery(qry["searches"][fmt]["tree"])
 
     empty_qry["type"] = "query"
     empty_qry["pos"] = ""
