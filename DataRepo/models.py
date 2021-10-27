@@ -422,12 +422,9 @@ class Animal(models.Model, TracerLabeledClass):
         treatment.  If the animal has no serum samples, a warning will be issued.
         """
 
-        # Note: calling self.final_serum_sample here ran into linting issues with `fss.id` not "existing"
-        fss = (
-            self.samples.filter(tissue__name__istartswith=Tissue.SERUM_TISSUE_PREFIX)
-            .order_by("time_collected")
-            .last()
-        )
+        # Note: calling self.final_serum_sample here ran into linting issues with `fss.id` not "existing". Added
+        # fss\..* to this list of generated-members in the pylint config to ignore it.
+        fss = self.final_serum_sample
         id = None
         if fss and fss.id:
             id = fss.id

@@ -225,6 +225,7 @@ generated-members=
     objects,
     DoesNotExist,
     .*\.final_serum_sample,
+    fss\..*,
     .*\.animal,
     .*\.all_serum_samples,
     .*\.peak_data,
