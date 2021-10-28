@@ -937,7 +937,6 @@ class DataValidationView(FormView):
         debug = "untouched"
         valid = True
         results = {}
-        ash_yaml = "DataRepo/example_data/sample_and_animal_tables_headers.yaml"
 
         debug = f"asf: {self.animal_sample_file} num afs: {len(self.accucor_files)}"
 
@@ -949,7 +948,7 @@ class DataValidationView(FormView):
         )
 
         [results, valid, errors] = self.validate_load_files(
-            animal_sample_dict, accucor_dict, ash_yaml
+            animal_sample_dict, accucor_dict
         )
 
         return self.render_to_response(
@@ -963,7 +962,7 @@ class DataValidationView(FormView):
             )
         )
 
-    def validate_load_files(self, animal_sample_dict, accucor_dict, ash_yaml):
+    def validate_load_files(self, animal_sample_dict, accucor_dict):
         errors = {}
         valid = True
         results = {}
@@ -976,7 +975,6 @@ class DataValidationView(FormView):
             call_command(
                 "load_animals_and_samples",
                 animal_and_sample_table_filename=animal_sample_dict[animal_sample_name],
-                table_headers=ash_yaml,
                 debug=True,
             )
             results[animal_sample_name] = "PASSED"
@@ -989,9 +987,15 @@ class DataValidationView(FormView):
             )
             results[animal_sample_name] = "WARNING"
         except Exception as e:
-            valid = False
-            errors[animal_sample_name].append(f"{animal_sample_name}: {str(e)}")
-            results[animal_sample_name] = "FAILED"
+            estr = str(e)
+            # We are using the presence of the string "Debugging..." to infer that it got to the end of the load
+            # without an exception.  If there is no "Debugging" message, then an exception did not occur anyway
+            if "Debugging" not in estr:
+                valid = False
+                errors[animal_sample_name].append(f"{animal_sample_name} {e.__class__.__name__}: {estr}")
+                results[animal_sample_name] = "FAILED"
+            else:
+                results[animal_sample_name] = "PASSED"
 
         can_proceed = False
         if results[animal_sample_name] != "FAILED":
@@ -1001,12 +1005,21 @@ class DataValidationView(FormView):
             try:
                 validation_test.validate_animal_sample_table(
                     animal_sample_dict[animal_sample_name],
-                    ash_yaml,
                 )
                 can_proceed = True
             except Exception as e:
-                errors[animal_sample_name].append(f"{animal_sample_name}: {str(e)}")
-                can_proceed = False
+                estr = str(e)
+                # We are using the presence of the string "Debugging..." to infer that it got to the end of the load
+                # without an exception.  If there is no "Debugging" message, then an exception did not occur anyway
+                if "Debugging" not in estr:
+                    valid = False
+                    errors[animal_sample_name].append(f"{animal_sample_name} {e.__class__.__name__}: {str(e)}")
+                    results[animal_sample_name] = "FAILED"
+                    can_proceed = False
+                else:
+                    results[animal_sample_name] = "PASSED"
+                    can_proceed = True
+
 
         # Load the accucor file into a temporary test database in debug mode
         for af, afp in accucor_dict.items():
@@ -1041,6 +1054,9 @@ class DataValidationView(FormView):
                             results[af] = "PASSED"
                         except Exception as e:
                             estr = str(e)
+                            # We are using the presence of the string "Debugging..." to infer that it got to the end of
+                            # the load without an exception.  If there is no "Debugging" message, then an exception did
+                            # not occur anyway
                             if "Debugging" not in estr:
                                 valid = False
                                 results[af] = "FAILED"
@@ -1056,6 +1072,9 @@ class DataValidationView(FormView):
                         )
                 except Exception as e:
                     estr = str(e)
+                    # We are using the presence of the string "Debugging..." to infer that it got to the end of the
+                    # load without an exception.  If there is no "Debugging" message, then an exception did not occur
+                    # anyway
                     if "Debugging" not in estr:
                         valid = False
                         results[af] = "FAILED"
@@ -1078,11 +1097,10 @@ class DataValidationView(FormView):
             setup_test_environment()
             call_command("load_compounds", "DataRepo/example_data/obob_compounds.tsv")
 
-        def validate_animal_sample_table(self, animal_sample_file, table_headers):
+        def validate_animal_sample_table(self, animal_sample_file):
             call_command(
                 "load_animals_and_samples",
                 animal_and_sample_table_filename=animal_sample_file,
-                table_headers=table_headers,
                 skip_researcher_check=True,
             )
 

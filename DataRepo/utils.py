@@ -357,21 +357,25 @@ class SampleTableLoader:
                 all_researcher_error_strs.append(err_msg)
             raise ResearcherError("\n".join(all_researcher_error_strs))
 
+        # Throw an exception in debug mode to abort the load
         assert not debug, "Debugging..."
 
     def getRowVal(self, row, header, hdr_required=True, val_required=True):
         """
         Gets a value from the row, indexed by the column header.  If the header is not required but the header key is
-        defined, a lookup can still cause a key error and the missing header will be recorded.  If the value is not
-        required, no missing header will be recorded.
+        defined, a lookup will happen, but a missing header will only be recorded if the header is required.
         """
         val = None
         try:
             # If required, always do the lookup.  If not required, only look up the value if the header is defined
             if hdr_required or header:
                 val = row[header]
+            elif hdr_required:
+                raise HeaderConfigError("Header required, but no header string supplied.")
+            if header and val_required and (val == "" or val is None):
+                raise RequiredValueError(f"Values in column {header} are required, but some found missing")
         except KeyError:
-            if val_required and header not in self.missing_headers:
+            if hdr_required and header not in self.missing_headers:
                 self.missing_headers.append(header)
         return val
 
@@ -964,6 +968,14 @@ class HeaderError(Exception):
     def __init__(self, message, headers):
         super().__init__(message)
         self.header_list = headers
+
+
+class HeaderConfigError(Exception):
+    pass
+
+
+class RequiredValueError(Exception):
+    pass
 
 
 class ResearcherError(Exception):
