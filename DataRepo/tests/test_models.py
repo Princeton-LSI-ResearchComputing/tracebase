@@ -129,21 +129,17 @@ class CompoundSynonymTests(TestCase):
 
     def test_compound_synonym_duplication1(self):
         # test that duplicate insertion fails
-        self.assertRaises(
-            IntegrityError,
-            lambda: CompoundSynonym.objects.create(
+        with self.assertRaises(IntegrityError):
+            CompoundSynonym.objects.create(
                 name=self.PRIMARY_ALIAS, compound=self.PRIMARY_COMPOUND
-            ),
-        )
+            )
 
     def test_compound_synonym_duplication2(self):
         # test that attempting to use the same synonym for multiple compounds fails
-        self.assertRaises(
-            IntegrityError,
-            lambda: CompoundSynonym.objects.create(
+        with self.assertRaises(IntegrityError):
+            CompoundSynonym.objects.create(
                 name=self.PRIMARY_ALIAS, compound=self.SECONDARY_COMPOUND
-            ),
-        )
+            )
 
     def test_compound_deletion(self):
         # compound deletion should remove all synonyms
