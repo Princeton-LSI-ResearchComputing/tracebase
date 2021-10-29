@@ -243,6 +243,30 @@ class Compound(models.Model):
         return str(self.name)
 
 
+class CompoundSynonym(models.Model):
+
+    # Instance / model fields
+    name = models.CharField(
+        primary_key=True,
+        max_length=256,
+        unique=True,
+        help_text="A synonymous name for a compound that is commonly used within the laboratory. "
+        '(e.g. "palmitic acid", "hexadecanoic acid", "C16", and "palmitate" '
+        'might also be synonyms for "C16:0").',
+    )
+    compound = models.ForeignKey(
+        Compound, related_name="synonyms", on_delete=models.CASCADE
+    )
+
+    class Meta:
+        verbose_name = "synonym"
+        verbose_name_plural = "synonyms"
+        ordering = ["compound", "name"]
+
+    def __str__(self):
+        return str(self.name)
+
+
 class Study(models.Model):
     # Instance / model fields
     id = models.AutoField(primary_key=True)
