@@ -250,7 +250,7 @@ class CompoundSynonym(models.Model):
         primary_key=True,
         max_length=256,
         unique=True,
-        help_text="A synonymous name for a compound that is a commonly used within the laboratory. "
+        help_text="A synonymous name for a compound that is commonly used within the laboratory. "
         '(e.g. "palmitic acid", "hexadecanoic acid", "C16", and "palmitate" '
         'might also be synonyms for "C16:0").',
     )
