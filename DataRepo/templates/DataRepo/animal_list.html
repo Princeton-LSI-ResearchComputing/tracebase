@@ -9,41 +9,59 @@
 
         {% if animal_list %}
         <br>
-        <table class="table table-sm table-hover table-bordered table-responsive table-striped w-auto mw-100">
-            <tr>
-            <th>Name</th>
-            <th>Tracer(Infusate)</th>
-            <th>Labeled Atom</th>
-            <th>Labeled Count</th>
-            <th>Infusion Rate</th>
-            <th>Infusion Concentration </th>
-            <th>Genotype</th>
-            <th>Body Weight</th>
-            <th>Age</th>
-            <th>Sex</th>
-            <th>Diet</th>
-            <th>Feeding Status</th>
-            </tr>
-            {% for animal in animal_list %}
-            <tr>
-            <td><a href="{% url 'animal_detail' animal.id %}">{{ animal.name }}</a></td>
-            <td>
-                <a href="{% url 'compound_detail' animal.tracer_compound.id %}">
-                    {{ animal.tracer_compound.name }}
-                </a>
-            </td>
-            <td>{{ animal.tracer_labeled_atom }}</td>
-            <td>{{ animal.tracer_labeled_count }}</td>
-            <td>{{ animal.tracer_infusion_rate }}</td>
-            <td>{{ animal.tracer_infusion_concentration }}</td>
-            <td>{{ animal.genotype }}</td>
-            <td>{{ animal.body_weight }}</td>
-            <td>{{ animal.age }}</td>
-            <td>{{ animal.sex }}</td>
-            <td>{{ animal.diet }}</td>
-            <td>{{ animal.feeding_status }}</td>
-            </tr>
-            {% endfor %}
+        <table class="table table-sm table-hover table-bordered table-responsive table-striped w-auto mw-100"
+            id="table"
+            data-toggle="table"
+            data-buttons-class="primary"
+            data-buttons-align="left"
+            data-filter-control="true"
+            data-search="true"
+            data-search-align="left"
+            data-show-search-clear-button="true"
+            data-show-multi-sort="true"
+            data-show-columns="true"
+            data-show-columns-toggle-all="true"
+            data-show-fullscreen="true"
+            data-show-export="true"
+            data-export-types="['csv', 'txt', 'excel']">
+            <thead>
+                <tr>
+                <th data-field="Name" data-filter-control="input" data-sortable="true">Name</th>
+                <th data-field="Tracer" data-filter-control="input" data-sortable="true">Tracer(Infusate)</th>
+                <th data-field="Labeled_Atom" data-filter-control="select" data-sortable="true">Labeled Atom</th>
+                <th data-field="Labeled_Count" data-filter-control="input" data-sortable="true">Labeled Count</th>
+                <th data-field="Infusion_Rate" data-filter-control="input" data-sortable="true">Infusion Rate</th>
+                <th data-field="Infusion_Concentration" data-filter-control="input" data-sortable="true">Infusion Concentration </th>
+                <th data-field="Genotype" data-filter-control="select" data-sortable="true">Genotype</th>
+                <th data-field="Body_Weight" data-filter-control="input" data-sortable="true">Body Weight</th>
+                <th data-field="Age" data-filter-control="input" data-sortable="true">Age</th>
+                <th data-field="Sex" data-filter-control="select" data-sortable="true">Sex</th>
+                <th data-field="Diet" data-filter-control="input" data-sortable="true">Diet</th>
+                <th data-field="Feeding_Status" data-filter-control="input" data-sortable="true">Feeding Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for animal in animal_list %}
+                <tr>
+                    <td><a href="{% url 'animal_detail' animal.id %}">{{ animal.name }}</a></td>
+                    <td>
+                        <a href="{% url 'compound_detail' animal.tracer_compound.id %}">
+                            {{ animal.tracer_compound.name }}
+                        </a>
+                    </td>
+                    <td>{{ animal.tracer_labeled_atom }}</td>
+                    <td>{{ animal.tracer_labeled_count }}</td>
+                    <td>{{ animal.tracer_infusion_rate }}</td>
+                    <td>{{ animal.tracer_infusion_concentration }}</td>
+                    <td>{{ animal.genotype }}</td>
+                    <td>{{ animal.body_weight }}</td>
+                    <td>{{ animal.age }}</td>
+                    <td>{{ animal.sex }}</td>
+                    <td>{{ animal.diet }}</td>
+                    <td>{{ animal.feeding_status }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
         </table>
         {% else %}
         <p>There are no animals.</p>
