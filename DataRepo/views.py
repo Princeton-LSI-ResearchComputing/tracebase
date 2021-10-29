@@ -992,7 +992,9 @@ class DataValidationView(FormView):
             # without an exception.  If there is no "Debugging" message, then an exception did not occur anyway
             if "Debugging" not in estr:
                 valid = False
-                errors[animal_sample_name].append(f"{animal_sample_name} {e.__class__.__name__}: {estr}")
+                errors[animal_sample_name].append(
+                    f"{animal_sample_name} {e.__class__.__name__}: {estr}"
+                )
                 results[animal_sample_name] = "FAILED"
             else:
                 results[animal_sample_name] = "PASSED"
@@ -1013,13 +1015,14 @@ class DataValidationView(FormView):
                 # without an exception.  If there is no "Debugging" message, then an exception did not occur anyway
                 if "Debugging" not in estr:
                     valid = False
-                    errors[animal_sample_name].append(f"{animal_sample_name} {e.__class__.__name__}: {str(e)}")
+                    errors[animal_sample_name].append(
+                        f"{animal_sample_name} {e.__class__.__name__}: {str(e)}"
+                    )
                     results[animal_sample_name] = "FAILED"
                     can_proceed = False
                 else:
                     results[animal_sample_name] = "PASSED"
                     can_proceed = True
-
 
         # Load the accucor file into a temporary test database in debug mode
         for af, afp in accucor_dict.items():

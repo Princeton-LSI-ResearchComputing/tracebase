@@ -371,9 +371,13 @@ class SampleTableLoader:
             if hdr_required or header:
                 val = row[header]
             elif hdr_required:
-                raise HeaderConfigError("Header required, but no header string supplied.")
+                raise HeaderConfigError(
+                    "Header required, but no header string supplied."
+                )
             if header and val_required and (val == "" or val is None):
-                raise RequiredValueError(f"Values in column {header} are required, but some found missing")
+                raise RequiredValueError(
+                    f"Values in column {header} are required, but some found missing"
+                )
         except KeyError:
             if hdr_required and header not in self.missing_headers:
                 self.missing_headers.append(header)
