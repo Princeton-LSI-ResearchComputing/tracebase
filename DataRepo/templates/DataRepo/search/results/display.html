@@ -48,6 +48,8 @@
                 {% include "DataRepo/search/results/peakgroups.html" %}
             {% elif qry.selectedtemplate == "pdtemplate" or mode == "browse" and format == "pdtemplate" %}
                 {% include "DataRepo/search/results/peakdata.html" %}
+            {% elif qry.selectedtemplate == "fctemplate" or mode == "browse" and format == "fctemplate" %}
+                {% include "DataRepo/search/results/fcirc.html" %}
             {% else %}
                 <label class="text-danger">Invalid format[2]: {{ selfmt }}</label>
             {% endif %}

@@ -398,7 +398,7 @@ class Animal(models.Model, TracerLabeledClass):
         """
 
         final_serum_sample = (
-            self.samples.filter(tissue__name__startswith=Tissue.SERUM_TISSUE_PREFIX)
+            self.samples.filter(tissue__name__istartswith=Tissue.SERUM_TISSUE_PREFIX)
             .order_by("time_collected")
             .last()
         )
@@ -408,11 +408,28 @@ class Animal(models.Model, TracerLabeledClass):
 
         if final_serum_sample and not final_serum_sample.time_collected:
             warnings.warn(
-                f"The Final serum sample {final_serum_sample.name} for"
+                f"The Final serum sample {final_serum_sample.name} for "
                 f"Animal {self.name} is missing a time_collected value."
             )
 
         return final_serum_sample
+
+    @cached_property
+    def final_serum_sample_id(self):
+        """
+        final_serum_sample_id in an instance method that returns the id of the last single
+        serum sample removed from the animal, based on the time elapsed/duration from the initiation of infusion or
+        treatment.  If the animal has no serum samples, a warning will be issued.
+        """
+
+        # Note: calling self.final_serum_sample here ran into linting issues with `fss.id` not "existing". Added
+        # fss\..* to this list of generated-members in the pylint config to ignore it.
+        fss = self.final_serum_sample
+        id = None
+        if fss and fss.id:
+            id = fss.id
+
+        return id
 
     @cached_property
     def all_serum_samples_tracer_peak_groups(self):
@@ -633,7 +650,7 @@ class Tissue(models.Model):
         verbose_name_plural = "tissues"
         ordering = ["name"]
 
-    SERUM_TISSUE_PREFIX = "serum_plasma"
+    SERUM_TISSUE_PREFIX = "serum"
 
     def __str__(self):
         return str(self.name)
@@ -716,7 +733,7 @@ class Sample(models.Model):
 
         # NOTE: this logic may have to change in the future
         if self.tissue in Tissue.objects.filter(
-            name__startswith=Tissue.SERUM_TISSUE_PREFIX
+            name__istartswith=Tissue.SERUM_TISSUE_PREFIX
         ):
             return True
         else:
@@ -966,11 +983,7 @@ class PeakGroup(models.Model):
         """
         if self.animal.tracer_compound in self.compounds.all():
             return True
-        else:
-            warnings.warn(
-                f"{self.name} is not the designated tracer for Animal {self.animal.name}."
-            )
-            return False
+        return False
 
     @cached_property
     def from_serum_sample(self):

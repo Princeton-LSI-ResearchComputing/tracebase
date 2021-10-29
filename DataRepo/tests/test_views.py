@@ -19,9 +19,7 @@ from DataRepo.models import (
 from DataRepo.views import (
     DataValidationView,
     constructAdvancedQuery,
-    createNewAdvancedQuery,
     createNewBasicQuery,
-    createNewQueryRoot,
     getAllBrowseData,
     getJoinedRecFieldValue,
     isQryObjValid,
@@ -304,15 +302,18 @@ class ViewTests(TestCase):
     def get_advanced_search_inputs(self):
         asform = {
             "fmt": "pgtemplate",
-            "form-TOTAL_FORMS": "2",
+            "form-TOTAL_FORMS": "3",
             "form-INITIAL_FORMS": "0",
-            "form-0-pos": "pgtemplate-PeakGroups-selected.0-all.0",
+            "form-0-pos": "pgtemplate-PeakGroups-selected.0-all-False.0",
             "form-0-fld": "msrun__sample__tissue__name",
             "form-0-ncmp": "iexact",
             "form-0-val": "Brain",
-            "form-1-pos": "pdtemplate-PeakData.0-all.0",
+            "form-1-pos": "pdtemplate-PeakData.0-all-False.0",
             "form-1-fld": "labeled_element",
             "form-1-ncmp": "iexact",
+            "form-2-pos": "fctemplate-FCirc.0-all-False.0",
+            "form-2-fld": "msrun__sample__animal__name",
+            "form-2-ncmp": "iexact",
         }
         qry = {
             "selectedtemplate": "pgtemplate",
@@ -322,13 +323,15 @@ class ViewTests(TestCase):
                         "pos": "",
                         "type": "group",
                         "val": "all",
+                        "static": False,
                         "queryGroup": [
                             {
                                 "type": "query",
                                 "pos": "",
-                                "ncmp": "iexact",
-                                "val": "Brain",
                                 "fld": "msrun__sample__tissue__name",
+                                "ncmp": "iexact",
+                                "static": "",
+                                "val": "Brain",
                             }
                         ],
                     },
@@ -339,17 +342,38 @@ class ViewTests(TestCase):
                         "pos": "",
                         "type": "group",
                         "val": "all",
+                        "static": False,
                         "queryGroup": [
                             {
                                 "type": "query",
                                 "pos": "",
                                 "ncmp": "iexact",
-                                "val": "",
+                                "static": "",
                                 "fld": "",
+                                "val": "",
                             }
                         ],
                     },
                     "name": "PeakData",
+                },
+                "fctemplate": {
+                    "tree": {
+                        "pos": "",
+                        "type": "group",
+                        "val": "all",
+                        "static": False,
+                        "queryGroup": [
+                            {
+                                "type": "query",
+                                "pos": "",
+                                "fld": "msrun__sample__animal__name",
+                                "ncmp": "iexact",
+                                "static": "",
+                                "val": "",
+                            }
+                        ],
+                    },
+                    "name": "FCirc",
                 },
             },
         }
@@ -393,17 +417,19 @@ class ViewTests(TestCase):
         """
         Convert "0-all" to [0, "all"]
         """
-        [pos, gtype] = pathStepToPosGroupType("0-all")
+        [pos, gtype, static] = pathStepToPosGroupType("0-all-True")
         self.assertEqual(pos, 0)
         self.assertEqual(gtype, "all")
+        self.assertTrue(not static)
 
     def test_pathStepToPosGroupType_leaf_node(self):
         """
         Convert "0" to [0, None]
         """
-        [pos, gtype] = pathStepToPosGroupType("0")
+        [pos, gtype, static] = pathStepToPosGroupType("0")
         self.assertEqual(pos, 0)
         self.assertEqual(gtype, None)
+        self.assertEqual(static, False)
 
     def test_rootToFormatInfo_selected(self):
         """
@@ -450,9 +476,12 @@ class ViewTests(TestCase):
         self.assertContains(response, "\n", count=expected_newline_count)
         self.assertContains(response, "\t", count=expected_tab_count)
         # Header tests
+        # The header includes the download time
         self.assertContains(response, "# Download Time: ", count=1)
+        # The header includes the advanced search qry
         self.assertContains(response, "# Advanced Search Query: {", count=1)
-        self.assertContains(response, "'ncmp': 'iexact', 'val': 'Brain'", count=1)
+        # The qry in the header contains the search term and is in json format
+        self.assertContains(response, "'val': 'Brain'", count=1)
         # Header row starts with the sample column
         self.assertContains(response, "#Sample", count=1)
         # qry sent to the downloaded file header is correct
@@ -468,75 +497,47 @@ class ViewTests(TestCase):
         res = getAllBrowseData("pgtemplate", basv_metadata)
         self.assertEqual(res.count(), qs.count())
 
-    def test_createNewAdvancedQuery(self):
-        """
-        Test createNewAdvancedQuery sets the selectedtemplate correctly
-        """
-        basv_metadata = BaseAdvancedSearchView()
-        newqry = createNewAdvancedQuery(basv_metadata, {})
-        self.assertEqual(newqry["selectedtemplate"], "pgtemplate")
-        context = {"format": "pdtemplate"}
-        newqry = createNewAdvancedQuery(basv_metadata, context)
-        self.assertEqual(newqry["selectedtemplate"], "pdtemplate")
-
-    def test_createNewQueryRoot(self):
-        """
-        Test createNewQueryRoot creates a correct qry root
-        """
-        selfmt = "pgtemplate"
-        fmt_name_dict = {"pgtemplate": "PeakGroups", "pdtemplate": "PeakData"}
-        newqry = createNewQueryRoot(fmt_name_dict, selfmt)
-        self.assertEqual(newqry["selectedtemplate"], "pgtemplate")
-
-        self.assertEqual(len(newqry["searches"]["pgtemplate"].keys()), 2)
-        self.assertEqual(newqry["searches"]["pgtemplate"]["name"], "PeakGroups")
-        self.assertEqual(len(newqry["searches"]["pgtemplate"]["tree"].keys()), 4)
-        self.assertEqual(newqry["searches"]["pgtemplate"]["tree"]["pos"], "")
-        self.assertEqual(newqry["searches"]["pgtemplate"]["tree"]["type"], "group")
-        self.assertEqual(newqry["searches"]["pgtemplate"]["tree"]["val"], "all")
-        self.assertEqual(len(newqry["searches"]["pgtemplate"]["tree"]["queryGroup"]), 0)
-
-        self.assertEqual(len(newqry["searches"]["pdtemplate"].keys()), 2)
-        self.assertEqual(newqry["searches"]["pdtemplate"]["name"], "PeakData")
-        self.assertEqual(len(newqry["searches"]["pdtemplate"]["tree"].keys()), 4)
-        self.assertEqual(newqry["searches"]["pdtemplate"]["tree"]["pos"], "")
-        self.assertEqual(newqry["searches"]["pdtemplate"]["tree"]["type"], "group")
-        self.assertEqual(newqry["searches"]["pdtemplate"]["tree"]["val"], "all")
-        self.assertEqual(len(newqry["searches"]["pdtemplate"]["tree"]["queryGroup"]), 0)
-        self.assertEqual(len(newqry["searches"].keys()), 2)
-
     def get_basic_qry_inputs(self):
         qs = PeakGroup.objects.all().prefetch_related("msrun__sample__animal__studies")
         tval = str(qs[0].msrun.sample.animal.studies.all()[0].id)
+        empty_tree = {
+            "type": "group",
+            "val": "all",
+            "static": False,
+            "queryGroup": [
+                {
+                    "type": "query",
+                    "pos": "",
+                    "static": False,
+                    "ncmp": "",
+                    "fld": "",
+                    "val": "",
+                }
+            ],
+        }
         qry = {
             "selectedtemplate": "pgtemplate",
             "searches": {
                 "pgtemplate": {
                     "name": "PeakGroups",
                     "tree": {
-                        "pos": "",
                         "type": "group",
                         "val": "all",
+                        "static": False,
                         "queryGroup": [
                             {
                                 "type": "query",
                                 "pos": "",
-                                "fld": "msrun__sample__animal__studies__name",
+                                "static": False,
                                 "ncmp": "iexact",
+                                "fld": "msrun__sample__animal__studies__name",
                                 "val": "obob_fasted",
                             }
                         ],
                     },
                 },
-                "pdtemplate": {
-                    "name": "PeakData",
-                    "tree": {
-                        "pos": "",
-                        "type": "group",
-                        "val": "all",
-                        "queryGroup": [],
-                    },
-                },
+                "pdtemplate": {"name": "PeakData", "tree": empty_tree},
+                "fctemplate": {"name": "Fcirc", "tree": empty_tree},
             },
         }
         return tval, qry
@@ -553,6 +554,7 @@ class ViewTests(TestCase):
         val = tval
         fmt = "pgtemplate"
         newqry = createNewBasicQuery(basv_metadata, mdl, fld, cmp, val, fmt)
+        self.maxDiff = None
         self.assertEqual(newqry, qry)
 
     def test_searchFieldToDisplayField(self):
@@ -583,7 +585,7 @@ class ViewTests(TestCase):
         fld = "feeding_status"
         pf = "msrun__sample__animal__studies"
         recs = PeakGroup.objects.all().prefetch_related(pf)
-        val = getJoinedRecFieldValue(recs, basv_metadata, fmt, mdl, fld)
+        val = getJoinedRecFieldValue(recs, basv_metadata, fmt, mdl, fld, fld, "Fasted")
         self.assertEqual(val, "Fasted")
 
     def test_constructAdvancedQuery_performQuery(self):
@@ -748,7 +750,11 @@ class ViewTests(TestCase):
         """
         basv_metadata = BaseAdvancedSearchView()
         res = basv_metadata.getFormatNames()
-        fnd = {"pgtemplate": "PeakGroups", "pdtemplate": "PeakData"}
+        fnd = {
+            "pgtemplate": "PeakGroups",
+            "pdtemplate": "PeakData",
+            "fctemplate": "Fcirc",
+        }
         self.assertEqual(res, fnd)
 
     def test_cv_formatNameOrKeyToKey(self):

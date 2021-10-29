@@ -1,6 +1,15 @@
+from copy import deepcopy
 from typing import Dict, List
 
-from DataRepo.models import Animal, PeakData, PeakGroup, TracerLabeledClass
+from django.db.models import Model
+
+from DataRepo.models import (
+    Animal,
+    PeakData,
+    PeakGroup,
+    Tissue,
+    TracerLabeledClass,
+)
 
 
 class BaseSearchView:
@@ -11,6 +20,7 @@ class BaseSearchView:
     name = ""
     models: Dict[str, Dict] = {}
     prefetches: List[str] = []
+    rootmodel: Model = None
     ncmp_choices = {
         "number": [
             ("iexact", "is"),
@@ -45,6 +55,55 @@ class BaseSearchView:
             ("isnull", "does not have a value (ie. is None)"),
         ],
     }
+    static_filter = {  # Same as qry['tree']
+        "type": "group",
+        "val": "all",
+        "static": False,
+        "queryGroup": [
+            {
+                "type": "query",
+                "pos": "",
+                "static": False,
+                "ncmp": "",
+                "fld": "",
+                "val": "",
+            },
+        ],
+    }
+
+    # static_filter example WITH static=True (below).  Note that a non-static empty query must be present in a non-
+    # static queryGroup because that is where the user is prompted to add their search.  When static is True, the user
+    # will not be allowed to edit that portion of the search form.
+    #
+    # static_filter = {
+    #     "type": "group",
+    #     "val": "all",
+    #     "static": True,
+    #     "queryGroup": [
+    #         {
+    #             'type': 'query',
+    #             'pos': '',
+    #             'ncmp': 'istartswith',
+    #             'fld': 'msrun__sample__tissue__name',
+    #             'val': Tissue.SERUM_TISSUE_PREFIX,
+    #             'static': True,
+    #         },
+    #         {
+    #             'type': 'group',
+    #             'val': 'all',
+    #             "queryGroup": [
+    #                 {
+    #                     'type': 'query',
+    #                     'pos': '',
+    #                     "static": False,
+    #                     'ncmp': '',
+    #                     'fld': '',
+    #                     'val': '',
+    #                 },
+    #             ],
+    #         },
+    #     ]
+    # }
 
     @classmethod
     def getSearchFieldChoices(self):
@@ -165,10 +224,18 @@ class BaseSearchView:
         fielddict = {}
         for field in self.models[mdl]["fields"].keys():
             if self.models[mdl]["fields"][field]["displayed"] is False:
-                fielddict[field] = self.models[mdl]["fields"][field]["handoff"]
+                if "handoff" in self.models[mdl]["fields"][field].keys():
+                    fielddict[field] = self.models[mdl]["fields"][field]["handoff"]
+                # Nothing if a handoff is not present
             else:
                 fielddict[field] = field
         return fielddict
+
+    def getRootQuerySet(self):
+        if self.rootmodel is not None:
+            return self.rootmodel.objects.all()
+        print("ERROR: rootmodel not set.")
+        return None
 
 
 class PeakGroupsSearchView(BaseSearchView):
@@ -178,7 +245,7 @@ class PeakGroupsSearchView(BaseSearchView):
 
     id = "pgtemplate"
     name = "PeakGroups"
-    rootmodel = PeakGroup()
+    rootmodel = PeakGroup
     prefetches = [
         "peak_group_set",
         "msrun__sample__tissue",
@@ -329,7 +396,7 @@ class PeakGroupsSearchView(BaseSearchView):
                     "type": "number",
                 },
                 "age": {
-                    "displayname": "Age (weeks)",
+                    "displayname": "Age (d-hh:mm:ss)",
                     "searchable": False,
                     "displayed": True,
                     "type": "number",
@@ -413,7 +480,7 @@ class PeakDataSearchView(BaseSearchView):
 
     id = "pdtemplate"
     name = "PeakData"
-    rootmodel = PeakData()
+    rootmodel = PeakData
     prefetches = [
         "peak_group__peak_group_set",
         "peak_group__msrun__sample__tissue",
@@ -452,7 +519,7 @@ class PeakDataSearchView(BaseSearchView):
                 },
                 "fraction": {
                     "displayname": "Fraction",
-                    "searchable": False,
+                    "searchable": False,  # Cannot search cached property
                     "displayed": True,
                     "type": "number",
                 },
@@ -520,6 +587,7 @@ class PeakDataSearchView(BaseSearchView):
                     "searchable": True,
                     "displayed": False,
                     "type": "number",
+                    "handoff": "name",
                 },
                 "name": {
                     "displayname": "Sample",
@@ -537,6 +605,7 @@ class PeakDataSearchView(BaseSearchView):
                     "searchable": True,
                     "displayed": False,
                     "type": "number",
+                    "handoff": "name",
                 },
                 "name": {
                     "displayname": "Tissue",
@@ -582,7 +651,7 @@ class PeakDataSearchView(BaseSearchView):
                     "choices": Animal.SEX_CHOICES,
                 },
                 "age": {
-                    "displayname": "Age (weeks)",
+                    "displayname": "Age (d-hh:mm:ss)",
                     "searchable": False,
                     "displayed": True,
                     "type": "number",
@@ -663,6 +732,181 @@ class PeakDataSearchView(BaseSearchView):
     }
 
 
+class FluxCircSearchView(BaseSearchView):
+    """
+    This class encapsulates all the metadata of a single search output format, which includes multiple tables/fields.
+    """
+
+    id = "fctemplate"
+    name = "Fcirc"
+    rootmodel = PeakGroup
+    prefetches = [
+        "msrun__sample__animal__tracer_compound",
+        "msrun__sample__animal__treatment",
+        "msrun__sample__animal__studies",
+    ]
+    models = {
+        "PeakGroup": {
+            "path": "",
+            "fields": {
+                "rate_disappearance_average_per_gram": {
+                    "displayname": "Average Rd (nmol/min/g)",
+                    "searchable": False,  # Cannot search cached property
+                    "displayed": True,
+                    "type": "number",
+                },
+                "rate_appearance_average_per_gram": {
+                    "displayname": "Average Ra (nmol/min/g)",
+                    "searchable": False,  # Cannot search cached property
+                    "displayed": True,
+                    "type": "number",
+                },
+                "rate_disappearance_average_weight_normalized": {
+                    "displayname": "Average Rd (nmol/min)",
+                    "searchable": False,  # Cannot search cached property
+                    "displayed": True,
+                    "type": "number",
+                },
+                "rate_appearance_average_weight_normalized": {
+                    "displayname": "Average Ra (nmol/min)",
+                    "searchable": False,  # Cannot search cached property
+                    "displayed": True,
+                    "type": "number",
+                },
+                "rate_disappearance_intact_per_gram": {
+                    "displayname": "Intact Rd (nmol/min/g)",
+                    "searchable": False,  # Cannot search cached property
+                    "displayed": True,
+                    "type": "number",
+                },
+                "rate_appearance_intact_per_gram": {
+                    "displayname": "Intact Ra (nmol/min/g)",
+                    "searchable": False,  # Cannot search cached property
+                    "displayed": True,
+                    "type": "number",
+                },
+                "rate_disappearance_intact_weight_normalized": {
+                    "displayname": "Intact Rd (nmol/min)",
+                    "searchable": False,  # Cannot search cached property
+                    "displayed": True,
+                    "type": "number",
+                },
+                "rate_appearance_intact_weight_normalized": {
+                    "displayname": "Intact Ra (nmol/min/g)",
+                    "searchable": False,  # Cannot search cached property
+                    "displayed": True,
+                    "type": "number",
+                },
+            },
+        },
+        "Protocol": {
+            "path": "msrun__sample__animal__treatment",
+            "fields": {
+                "id": {
+                    "displayname": "(Internal) Protocol Index",
+                    "searchable": True,
+                    "displayed": False,  # Used in link
+                    "handoff": "name",  # This is the field that will be loaded in the search form
+                    "type": "number",
+                },
+                "name": {
+                    "displayname": "Treatment",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "string",
+                },
+            },
+        },
+        "Animal": {
+            "path": "msrun__sample__animal",
+            "fields": {
+                "id": {
+                    "displayname": "(Internal) Animal Index",
+                    "searchable": True,
+                    "displayed": False,  # Used in link
+                    "handoff": "name",  # This is the field that will be loaded in the search form
+                    "type": "number",
+                },
+                "name": {
+                    "displayname": "Animal",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "string",
+                },
+                "tracer_infusion_rate": {
+                    "displayname": "Tracer Infusion Rate (ul/min/g)",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "number",
+                },
+                "tracer_infusion_concentration": {
+                    "displayname": "Tracer Infusion Concentration (mM)",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "number",
+                },
+            },
+        },
+        "Sample": {
+            "path": "msrun__sample",
+            "fields": {
+                "time_collected": {
+                    "displayname": "Time Collected (hh:mm:ss since infusion)",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "number",
+                },
+            },
+        },
+        "Compound": {
+            "path": "msrun__sample__animal__tracer_compound",
+            "fields": {
+                "name": {
+                    "displayname": "Tracer Compound",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "string",
+                },
+                "id": {
+                    "displayname": "(Internal) Tracer Index",
+                    "searchable": True,
+                    "displayed": False,  # Used in link
+                    "handoff": "name",  # This is the field that will be loaded in the search form
+                    "type": "number",
+                },
+            },
+        },
+        "Study": {
+            "path": "msrun__sample__animal__studies",
+            "fields": {
+                "name": {
+                    "displayname": "Study",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "string",
+                },
+                "id": {
+                    "displayname": "(Internal) Study Index",
+                    "searchable": True,
+                    "displayed": False,  # Used in link
+                    "handoff": "name",  # This is the field that will be loaded in the search form
+                    "type": "number",
+                },
+            },
+        },
+    }
+
+    def getRootQuerySet(self):
+        # https://stackoverflow.com/questions/3397437/manually-create-a-django-queryset-or-rather-manually-add-objects-to-a-queryset
+        serum_tracer_peakgroups = set()
+        for pg in self.rootmodel.objects.filter(
+            msrun__sample__tissue__name__istartswith=Tissue.SERUM_TISSUE_PREFIX
+        ):
+            if pg.is_tracer_compound_group:
+                serum_tracer_peakgroups.add(pg.id)
+        return self.rootmodel.objects.filter(id__in=serum_tracer_peakgroups)
+
+
 class BaseAdvancedSearchView:
     """
     This class groups all search output formats in a single class and adds metadata that applies to all
@@ -681,9 +925,170 @@ class BaseAdvancedSearchView:
         This is a constructor that adds all search output format classes to modeldata, keyed on their IDs.
         """
 
-        for cls in (PeakGroupsSearchView(), PeakDataSearchView()):
+        for cls in (PeakGroupsSearchView(), PeakDataSearchView(), FluxCircSearchView()):
             self.modeldata[cls.id] = cls
         self.default_format = PeakGroupsSearchView.id
+
+    def getRootGroup(self, selfmt=None):
+        """
+        This method builds a fresh qry object (aka "rootGroup"). This is the object that defines an advanced search and
+        is modified via javascript as the user composes a search.  It is passed back and forth via json.  The starting
+        structure is:
+            rootGroup = {
+              selectedtemplate: 'pgtemplate',
+              searches: {
+                pgtemplate: {
+                  name: 'PeakGroups',
+                  tree: {
+                    type: 'group',
+                    val: 'all',
+                    static: false,
+                    queryGroup: [...]
+                  }
+                },
+                ...
+              }
+            }
+        The value of the tree item is defined by the static_filter in each derived class and that is what must contain
+        an empty query.  At least 1 empty query is required in every item of type group, because the starting search
+        form must contain a spot for the user to enter their search.
+        """
+        if selfmt is None:
+            selfmt = self.default_format
+        if selfmt not in self.modeldata.keys():
+            print(
+                f"WARNING: Unknown format: [{selfmt}]. Falling back to default format: [{self.default_format}]"
+            )
+            selfmt = self.default_format
+        rootGroup = {
+            "selectedtemplate": selfmt,
+            "searches": {},
+        }
+        for format in self.modeldata.keys():
+            rootGroup["searches"][format] = {}
+            rootGroup["searches"][format]["name"] = self.modeldata[format].name
+            if self.staticFilterIsValid(self.modeldata[format].static_filter):
+                rootGroup["searches"][format]["tree"] = deepcopy(
+                    self.modeldata[format].static_filter
+                )
+            else:
+                print(
+                    f"ERROR: No empty queries in format {format}: ",
+                    self.modeldata[format].static_filter,
+                )
+                raise Exception(
+                    f"Static filter for format {format} must contain at least 1 non-static empty query."
+                )
+        return rootGroup
+
+    def staticFilterIsValid(self, filter):
+        """
+        Takes a "tree" value of 1 format from the rootGroup query object and raises an exception for missing keys or
+        invalid values in the root query and calls staticFilterIsValidHelper to recursively validate the treee.
+        """
+
+        if (
+            "type" not in filter
+            or filter["type"] != "group"
+            or "queryGroup" not in filter
+            or len(filter["queryGroup"]) == 0
+        ):
+            raise Exception(
+                "Invalid root query group.  Must be of type 'group' and contain a populated queryGroup array."
+            )
+        else:
+            num_nonstatic = self.getNumNonStaticGroups(filter)
+            if num_nonstatic == 0:
+                raise Exception(
+                    "Invalid root query group.  There must exist at least 1 non-static query group."
+                )
+            return self.staticFilterIsValidHelper(filter)
+
+    def staticFilterIsValidHelper(self, filter):
+        """
+        Raises an exception for missing keys or invalid values and returns true if at least 1 empty query exists among
+        all recursively checked objects of type query.
+        """
+        # Validate the keys present in both query and group types
+        if "type" not in filter or "val" not in filter or "static" not in filter:
+            raise Exception(
+                "Static filter is missing 1 or more required keys: [type, val, static]."
+            )
+        elif filter["type"] == "query":
+            # Validate the keys of the query
+            if "ncmp" not in filter or "pos" not in filter or "fld" not in filter:
+                raise Exception(
+                    "Missing keys in query.  At least 1 of the following keys is missing: [fld, ncmp, pos]."
+                )
+            # If empty (i.e. val holds an empty string), return true
+            if not filter["static"] and filter["val"] == "":
+                return True
+            return False
+        elif filter["type"] == "group":
+            # Validate the keys & values of the group
+            if (
+                "queryGroup" not in filter
+                or len(filter["queryGroup"]) == 0
+                or (filter["val"] != "all" and filter["val"] != "any")
+            ):
+                raise Exception(
+                    "Invalid group.  Must contain a queryGroup key with a populated array and val must be either "
+                    "'all' or 'any'."
+                )
+            empty_exists = False
+            for query in filter["queryGroup"]:
+                if self.staticFilterIsValidHelper(query):
+                    empty_exists = True
+            return empty_exists
+        else:
+            raise Exception(
+                f"Invalid query type {filter['type']}.  Must be either 'query' or 'group'."
+            )
+
+    def getNumEmptyQueries(self, filter):
+        """
+        Takes a "tree" value of 1 format from the rootGroup query object and recursively counts the number of empty
+        queries.
+        """
+        if filter["type"] == "query":
+            # If empty (i.e. val holds an empty string), return 1
+            if not filter["static"] and filter["val"] == "":
+                return 1
+            return 0
+        elif filter["type"] == "group":
+            total_empty = 0
+            for query in filter["queryGroup"]:
+                total_empty += self.getNumEmptyQueries(query)
+            return total_empty
+        else:
+            raise Exception(
+                f"Invalid query type {filter['type']}.  Must be either 'query' or 'group'."
+            )
+
+    def getNumNonStaticGroups(self, filter):
+        """
+        Takes a "tree" value of 1 format from the rootGroup query object and recursively counts the number of nonstatic
+        groups.
+        """
+        if filter["type"] == "query":
+            return 0
+        elif filter["type"] == "group":
+            total_nonstatic = 0
+            if not filter["static"]:
+                total_nonstatic = 1
+            for query in filter["queryGroup"]:
+                total_nonstatic += self.getNumNonStaticGroups(query)
+            return total_nonstatic
+        else:
+            raise Exception(
+                f"Invalid query type {filter['type']}.  Must be either 'query' or 'group'."
+            )
+
+    def getRootQuerySet(self, format):
+        """
+        Calls getRootQuerySet of the supplied format.
+        """
+        return self.modeldata[format].getRootQuerySet()
 
     def getPrefetches(self, format):
         """

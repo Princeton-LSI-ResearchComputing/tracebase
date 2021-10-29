@@ -122,7 +122,7 @@ class MultiFormMixin(ContextMixin):
         if self.mixedform_prefix_field or self.mixedform_selected_formtype:
             if not self.mixedform_prefix_field or not self.mixedform_selected_formtype:
                 print(
-                    "ERROR: Both mixedform_prefix_field and mixedform_selected_formtype must be set to used mixed ",
+                    "ERROR: Both mixedform_prefix_field and mixedform_selected_formtype must be set to use mixed ",
                     "forms.  The value of the form field defined by mixedform_selected_formtype must be contained in ",
                     "the value of the form field defined by mixedform_prefix_field.",
                 )
@@ -197,7 +197,7 @@ class ProcessMultipleFormsView(ProcessFormView):
         selected_form_classes[selected_formtype] = form_classes[selected_formtype]
         formsets = self.get_forms(selected_form_classes, [selected_formtype])
 
-        # Only validate the selected form type
+        # Only validate with the selected form type
         myall = [form.is_valid() for form in formsets.values()]
         myallall = all(myall)
         if myallall:

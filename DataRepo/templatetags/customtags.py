@@ -20,6 +20,13 @@ def durationToWeeks(td):
 
 
 @register.filter
+def durationToMins(td):
+    if td is None:
+        return None
+    return td.total_seconds() // 60
+
+
+@register.filter
 def decimalPlaces(number, places):
     if number is None:
         return None
@@ -51,3 +58,19 @@ def getClass(state):
     else:
         styleclass = "text-info"
     return styleclass
+
+
+@register.filter
+def count_tracer_groups(res):
+    cnt = 0
+    for pg in res.all():
+        if pg.is_tracer_compound_group:
+            cnt = cnt + 1
+    return cnt
+
+
+@register.filter
+def joinStudyNames(delimiter, recs):
+    return delimiter.join(
+        list(map(lambda studyrec: studyrec["name"], recs.values("name")))
+    )

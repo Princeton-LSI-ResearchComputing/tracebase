@@ -100,7 +100,7 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
     download_form = AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
     q_exp = constructAdvancedQuery(qry)
     res = performQuery(q_exp, fmtkey, basv_metadata)
-    root_group = createNewAdvancedQuery(basv_metadata, {})
+    root_group = basv_metadata.getRootGroup()
 
     return render(
         request,
@@ -114,6 +114,8 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
             "root_group": root_group,
             "mode": "search",
             "default_format": basv_metadata.default_format,
+            "ncmp_choices": basv_metadata.getComparisonChoices(),
+            "fld_types": basv_metadata.getFieldTypes(),
         },
     )
 
@@ -171,7 +173,7 @@ class AdvancedSearchView(MultiFormsView):
 
         qry = formsetsToDict(formset, self.form_classes)
 
-        root_group = createNewAdvancedQuery(self.basv_metadata, {})
+        root_group = self.basv_metadata.getRootGroup()
 
         return self.render_to_response(
             self.get_context_data(
@@ -198,12 +200,12 @@ class AdvancedSearchView(MultiFormsView):
         if isQryObjValid(qry, self.form_classes.keys()):
             download_form = AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
             q_exp = constructAdvancedQuery(qry)
-            performQuery(q_exp, qry["selectedtemplate"], self.basv_metadata)
+            res = performQuery(q_exp, qry["selectedtemplate"], self.basv_metadata)
         else:
             # Log a warning
             print("WARNING: Invalid query root:", qry)
 
-        root_group = createNewAdvancedQuery(self.basv_metadata, {})
+        root_group = self.basv_metadata.getRootGroup()
 
         return self.render_to_response(
             self.get_context_data(
@@ -229,7 +231,7 @@ class AdvancedSearchView(MultiFormsView):
             mode = "browse"
         context["mode"] = mode
 
-        context["root_group"] = createNewAdvancedQuery(self.basv_metadata, {})
+        context["root_group"] = self.basv_metadata.getRootGroup()
         context["ncmp_choices"] = self.basv_metadata.getComparisonChoices()
         context["fld_types"] = self.basv_metadata.getFieldTypes()
 
@@ -237,7 +239,10 @@ class AdvancedSearchView(MultiFormsView):
             mode == "browse" and not isValidQryObjPopulated(context["qry"])
         ):
             if "qry" not in context:
-                qry = createNewAdvancedQuery(self.basv_metadata, context)
+                if "format" in context:
+                    qry = self.basv_metadata.getRootGroup(context["format"])
+                else:
+                    qry = self.basv_metadata.getRootGroup()
             else:
                 qry = context["qry"]
 
@@ -299,6 +304,7 @@ class AdvancedSearchTSVView(FormView):
         except TypeError:
             qry = cform["qryjson"]
         if not isQryObjValid(qry, self.basv_metadata.getFormatNames().keys()):
+            print("ERROR: Invalid qry object: ", qry)
             raise Http404("Invalid json")
 
         now = datetime.now()
@@ -330,8 +336,7 @@ def getAllBrowseData(format, basv):
     """
 
     if format in basv.getFormatNames().keys():
-        model = basv.modeldata[format].rootmodel.__class__
-        res = model.objects.all()
+        res = basv.getRootQuerySet(format).all()
     else:
         # Log a warning
         print("WARNING: Unknown format: " + format)
@@ -346,44 +351,12 @@ def getAllBrowseData(format, basv):
     return res2
 
 
-def createNewAdvancedQuery(basv_metadata, context):
-    """
-    Constructs an empty qry for the advanced search interface.
-    """
-
-    if "format" in context:
-        selfmt = context["format"]
-    else:
-        selfmt = basv_metadata.default_format
-
-    fmt_name_dict = basv_metadata.getFormatNames()
-
-    qry = createNewQueryRoot(fmt_name_dict, selfmt)
-
-    return qry
-
-
-def createNewQueryRoot(fmt_name_dict, selfmt):
-    qry = {}
-    qry["selectedtemplate"] = selfmt
-    qry["searches"] = {}
-    for format, formatName in fmt_name_dict.items():
-        qry["searches"][format] = {}
-        qry["searches"][format]["name"] = formatName
-        qry["searches"][format]["tree"] = {}
-        qry["searches"][format]["tree"]["pos"] = ""
-        qry["searches"][format]["tree"]["type"] = "group"
-        qry["searches"][format]["tree"]["val"] = "all"
-        qry["searches"][format]["tree"]["queryGroup"] = []
-    return qry
-
-
 def createNewBasicQuery(basv_metadata, mdl, fld, cmp, val, fmt):
     """
     Constructs a new qry object for an advanced search from basic search input.
     """
 
-    qry = createNewQueryRoot(basv_metadata.getFormatNames(), fmt)
+    qry = basv_metadata.getRootGroup(fmt)
 
     models = basv_metadata.getModels(fmt)
 
@@ -396,26 +369,56 @@ def createNewBasicQuery(basv_metadata, mdl, fld, cmp, val, fmt):
 
     if fld not in sfields:
         raise Http404(
-            "Field ["
-            + fld
-            + "] is not searchable.  Must be one of ["
-            + ",".join(sfields.keys())
-            + "]."
+            f"Field [{fld}] is not searchable.  Must be one of [{','.join(sfields.keys())}]."
         )
 
-    qry["searches"][fmt]["tree"]["queryGroup"].append({})
-    qry["searches"][fmt]["tree"]["queryGroup"][0]["type"] = "query"
-    qry["searches"][fmt]["tree"]["queryGroup"][0]["pos"] = ""
-    qry["searches"][fmt]["tree"]["queryGroup"][0]["fld"] = sfields[fld]
-    qry["searches"][fmt]["tree"]["queryGroup"][0]["ncmp"] = cmp
-    qry["searches"][fmt]["tree"]["queryGroup"][0]["val"] = val
+    num_empties = basv_metadata.getNumEmptyQueries(qry["searches"][fmt]["tree"])
+    if num_empties != 1:
+        raise Http404(
+            f"The static filter for format {fmt} is improperly configured. It must contain exactly 1 empty query."
+        )
+
+    empty_qry = getFirstEmptyQuery(qry["searches"][fmt]["tree"])
+
+    empty_qry["type"] = "query"
+    empty_qry["pos"] = ""
+    empty_qry["static"] = False
+    empty_qry["fld"] = sfields[fld]
+    empty_qry["ncmp"] = cmp
+    empty_qry["val"] = val
 
     dfld, dval = searchFieldToDisplayField(basv_metadata, mdl, fld, val, fmt, qry)
-    # Set the field path for the display field
-    qry["searches"][fmt]["tree"]["queryGroup"][0]["fld"] = sfields[dfld]
-    qry["searches"][fmt]["tree"]["queryGroup"][0]["val"] = dval
+
+    if dfld != fld:
+        # Set the field path for the display field
+        empty_qry["fld"] = sfields[dfld]
+        empty_qry["val"] = dval
 
     return qry
+
+
+def getFirstEmptyQuery(qry_ref):
+    """
+    This method takes the "tree" from a qry object (i.e. what you get from basv_metadata.getRootGroup(fmt)) and returns
+    a reference to the single empty item of type query that should be present in a new rootGroup.
+    """
+    if qry_ref["type"] and qry_ref["type"] == "query":
+        if qry_ref["val"] == "":
+            return qry_ref
+        return None
+    elif qry_ref["type"] and qry_ref["type"] == "group":
+        immutable = qry_ref["static"]
+        if len(qry_ref["queryGroup"]) > 0:
+            for qry in qry_ref["queryGroup"]:
+                emptyqry = getFirstEmptyQuery(qry)
+                if emptyqry:
+                    if immutable:
+                        raise Http404(
+                            "Group containing empty query must not be static."
+                        )
+                    return emptyqry
+        return None
+    raise Http404("Type not found.")
 
 
 def searchFieldToDisplayField(basv_metadata, mdl, fld, val, fmt, qry):
@@ -426,20 +429,29 @@ def searchFieldToDisplayField(basv_metadata, mdl, fld, val, fmt, qry):
     dfld = fld
     dval = val
     dfields = basv_metadata.getDisplayFields(fmt, mdl)
-    if dfields[fld] != fld:
+    if fld in dfields.keys() and dfields[fld] != fld:
         # If fld is not a displayed field, perform a query to convert the undisplayed field query to a displayed query
         q_exp = constructAdvancedQuery(qry)
         recs = performQuery(q_exp, fmt, basv_metadata)
         if len(recs) == 0:
-            raise Http404("Records not found for field [" + mdl + "." + fld + "].")
+            print(
+                f"WARNING: Failed basic/advanced {fmt} search conversion: {qry}. No records found matching {mdl}."
+                f"{fld}='{val}'."
+            )
+            raise Http404(f"No records found matching [{mdl}.{fld}={val}].")
         # Set the field path for the display field
         dfld = dfields[fld]
-        dval = getJoinedRecFieldValue(recs, basv_metadata, fmt, mdl, dfields[fld])
+        dval = getJoinedRecFieldValue(
+            recs, basv_metadata, fmt, mdl, dfields[fld], fld, val
+        )
 
     return dfld, dval
 
 
-def getJoinedRecFieldValue(recs, basv_metadata, fmt, mdl, fld):
+# Warning, the code in this method would potentially not work in cases where multiple search terms (including a term
+# from a m:m related table) were or'ed together.  This cannot happen currently because this is only utilized for
+# handoff fields from search_basic, so the first record is guaranteed to have a matching value from the search term.
+def getJoinedRecFieldValue(recs, basv_metadata, fmt, mdl, dfld, sfld, sval):
     """
     Takes a queryset object and a model.field and returns its value.
     """
@@ -448,25 +460,41 @@ def getJoinedRecFieldValue(recs, basv_metadata, fmt, mdl, fld):
         raise Http404("Records not found.")
 
     kpl = basv_metadata.getKeyPathList(fmt, mdl)
-    kpl.append(fld)
     ptr = recs[0]
+    # This loop climbs through each key in the key path, maintaining a pointer to the current model
     for key in kpl:
-        # If this is a many-to-many
+        # If this is a many-to-many model
         if ptr.__class__.__name__ == "ManyRelatedManager":
             tmprecs = ptr.all()
-            if len(tmprecs) != 1:
-                # Log an error
-                print(
-                    f"ERROR: Handoff to {mdl}.{fld} failed.  Check the AdvSearch class handoffs."
-                )
-                raise Http404(
-                    f"ERROR: Unable to find a single value for [{mdl}.{fld}]."
-                )
             ptr = getattr(tmprecs[0], key)
         else:
             ptr = getattr(ptr, key)
 
-    return ptr
+    # Now find the value of the display field that corresponds to the value of the search field
+    gotit = True
+    if ptr.__class__.__name__ == "ManyRelatedManager":
+        tmprecs = ptr.all()
+        gotit = False
+        for tmprec in tmprecs:
+            # If the value of this record for the searched field matches the search term
+            tsval = getattr(tmprec, sfld)
+            if str(tsval) == str(sval):
+                # Return the value of the display field
+                dval = getattr(tmprec, dfld)
+                gotit = True
+    else:
+        dval = getattr(ptr, dfld)
+
+    if not gotit:
+        print(
+            f"ERROR: Values retrieved for search field {mdl}.{sfld} using search term: {sval} did not match."
+        )
+        raise Http404(
+            f"ERROR: Unable to find a value for [{mdl}.{sfld}] that matches the search term.  Unable to "
+            f"convert to the handoff field {dfld}."
+        )
+
+    return dval
 
 
 def performQuery(q_exp, fmt, basv):
@@ -476,8 +504,7 @@ def performQuery(q_exp, fmt, basv):
 
     res = {}
     if fmt in basv.getFormatNames().keys():
-        model = basv.modeldata[fmt].rootmodel.__class__
-        res = model.objects.filter(q_exp)
+        res = basv.getRootQuerySet(fmt).filter(q_exp)
     else:
         # Log a warning
         print("WARNING: Invalid selected format:", fmt)
@@ -519,9 +546,28 @@ def isValidQryObjPopulated(qry):
     """
     Checks whether a query object is fully populated with at least 1 search term.
     """
-
     selfmt = qry["selectedtemplate"]
-    return len(qry["searches"][selfmt]["tree"]["queryGroup"]) > 0
+    if len(qry["searches"][selfmt]["tree"]["queryGroup"]) == 0:
+        return False
+    else:
+        return isValidQryObjPopulatedHelper(
+            qry["searches"][selfmt]["tree"]["queryGroup"]
+        )
+
+
+def isValidQryObjPopulatedHelper(group):
+    for query in group:
+        if query["type"] == "query":
+            if not query["val"] or query["val"] == "":
+                return False
+        elif query["type"] == "group":
+            if len(group["queryGroup"]) == 0:
+                return False
+            else:
+                tmp_populated = isValidQryObjPopulatedHelper(group["queryGroup"])
+                if not tmp_populated:
+                    return False
+    return True
 
 
 def constructAdvancedQuery(qryRoot):
@@ -539,6 +585,8 @@ def constructAdvancedQueryHelper(qry):
     Recursively build a complex Q object based on a hierarchical tree defining the search terms.
     """
 
+    if "type" not in qry:
+        print("ERROR: type missing from qry object: ", qry)
     if qry["type"] == "query":
         cmp = qry["ncmp"].replace("not_", "", 1)
         negate = cmp != qry["ncmp"]
@@ -604,7 +652,9 @@ def formsetsToDict(rawformset, form_classes):
 
     # If we were unable to locate the selected output format (i.e. the copy of the formsets that were processed)
     if processed_formkey is None:
-        raise Http404("Unable to find selected output format.")
+        raise Http404(
+            f"Unable to find the saved form-processed data among formats: {','.join(rawformset.keys())}."
+        )
 
     return formsetToDict(rawformset[processed_formkey], form_classes)
 
@@ -632,6 +682,7 @@ def formsetToDict(rawformset, form_classes):
             form = rawform
 
         path = form["pos"].split(".")
+
         [format, formatName, selected] = rootToFormatInfo(path.pop(0))
         rootinfo = path.pop(0)
 
@@ -642,11 +693,12 @@ def formsetToDict(rawformset, form_classes):
             search["searches"][format]["name"] = formatName
 
             # Initialize the root of the tree
-            [pos, gtype] = pathStepToPosGroupType(rootinfo)
+            [pos, gtype, static] = pathStepToPosGroupType(rootinfo)
             aroot = search["searches"][format]["tree"]
             aroot["pos"] = ""
             aroot["type"] = "group"
             aroot["val"] = gtype
+            aroot["static"] = static
             aroot["queryGroup"] = []
             curqry = aroot["queryGroup"]
         else:
@@ -657,7 +709,7 @@ def formsetToDict(rawformset, form_classes):
             search["selectedtemplate"] = format
 
         for spot in path:
-            [pos, gtype] = pathStepToPosGroupType(spot)
+            [pos, gtype, static] = pathStepToPosGroupType(spot)
             while len(curqry) <= pos:
                 curqry.append({})
             if gtype is not None:
@@ -667,6 +719,7 @@ def formsetToDict(rawformset, form_classes):
                     curqry[pos]["pos"] = ""
                     curqry[pos]["type"] = "group"
                     curqry[pos]["val"] = gtype
+                    curqry[pos]["static"] = static
                     curqry[pos]["queryGroup"] = []
                 # Move on to the next node in the path
                 curqry = curqry[pos]["queryGroup"]
@@ -689,17 +742,17 @@ def formsetToDict(rawformset, form_classes):
                     keys_seen[key] = 1
                     if keyname == "pos":
                         curqry[pos][key] = ""
+                    elif keyname == "static":
+                        if form[key] == "true":
+                            curqry[pos][key] = True
+                        else:
+                            curqry[pos][key] = False
                     elif key not in curqry[pos]:
                         curqry[pos][key] = form[key]
                     else:
                         # Log a warning
                         print(
-                            "WARNING: Unrecognized form element not set at pos",
-                            pos,
-                            ":",
-                            key,
-                            "to",
-                            form[key],
+                            f"WARNING: Unrecognized form element not set at pos {pos}: {key} to {form[key]}"
                         )
 
                 # Now initialize anything missing a value to an empty string
@@ -716,15 +769,24 @@ def pathStepToPosGroupType(spot):
     inner node).  E.g. "0-all"
     """
 
-    pos_gtype = spot.split("-")
-    if len(pos_gtype) == 2:
-        pos = pos_gtype[0]
-        gtype = pos_gtype[1]
+    pos_gtype_stc = spot.split("-")
+    if len(pos_gtype_stc) == 3:
+        pos = pos_gtype_stc[0]
+        gtype = pos_gtype_stc[1]
+        if pos_gtype_stc[2] == "true":
+            static = True
+        else:
+            static = False
+    elif len(pos_gtype_stc) == 2:
+        pos = pos_gtype_stc[0]
+        gtype = pos_gtype_stc[1]
+        static = False
     else:
         pos = spot
         gtype = None
+        static = False
     pos = int(pos)
-    return [pos, gtype]
+    return [pos, gtype, static]
 
 
 def rootToFormatInfo(rootInfo):
@@ -922,7 +984,7 @@ class DataValidationView(FormView):
             self.animal_sample_file = request.FILES["animal_sample_table"]
         except Exception:
             # Ignore missing accucor files
-            print("No accucor file")
+            print("ERROR: No accucor file")
         if form.is_valid():
             return self.form_valid(form)
         else:

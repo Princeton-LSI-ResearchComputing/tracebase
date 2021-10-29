@@ -5,6 +5,7 @@ from django.forms import formset_factory
 
 from DataRepo.compositeviews import (
     BaseSearchView,
+    FluxCircSearchView,
     PeakDataSearchView,
     PeakGroupsSearchView,
 )
@@ -42,6 +43,9 @@ class BaseAdvSearchForm(forms.Form):
     posprefix: Optional[str] = None
     pos = forms.CharField(widget=forms.HiddenInput())
 
+    # Saves whether this is a static search form or not (for uneditable queries prepended to searches (see fctemplate))
+    static = forms.CharField(widget=forms.HiddenInput())
+
     fld = forms.ChoiceField(required=True, widget=forms.Select())
 
     ncmp = forms.ChoiceField(required=True, widget=forms.Select())
@@ -65,6 +69,8 @@ class BaseAdvSearchForm(forms.Form):
             for field in fields:
                 if field not in data:
                     return False
+        elif len(data.keys()) == 0:
+            return False
         return True
 
     def __init__(self, *args, **kwargs):
@@ -92,6 +98,14 @@ class AdvSearchPeakDataForm(BaseAdvSearchForm):
     composite_view_class = PeakDataSearchView()
 
 
+class AdvSearchFluxCircForm(BaseAdvSearchForm):
+    """
+    Advanced search form for the fcirc output format that will be used inside a formset.
+    """
+
+    composite_view_class = FluxCircSearchView()
+
+
 class AdvSearchForm:
     """
     A group of advanced search form classes
@@ -103,7 +117,11 @@ class AdvSearchForm:
     hierarchy_path_field_name = "pos"
 
     def __init__(self, *args, **kwargs):
-        for form_class in (AdvSearchPeakGroupsForm(), AdvSearchPeakDataForm()):
+        for form_class in (
+            AdvSearchPeakGroupsForm(),
+            AdvSearchPeakDataForm(),
+            AdvSearchFluxCircForm(),
+        ):
             id = form_class.composite_view_class.id
             self.form_classes[id] = formset_factory(form_class.__class__)
 

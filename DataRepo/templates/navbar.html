@@ -24,15 +24,22 @@
                     <li>
                         <form action="/DataRepo/search_advanced_tsv/" method="POST">
                             {% csrf_token %}
-                            <input type="hidden" name="qryjson" value="&quot;{\&quot;selectedtemplate\&quot;: \&quot;pgtemplate\&quot;, \&quot;searches\&quot;: {\&quot;pgtemplate\&quot;: {\&quot;name\&quot;: \&quot;PeakGroups\&quot;, \&quot;tree\&quot;: {\&quot;pos\&quot;: \&quot;\&quot;, \&quot;type\&quot;: \&quot;group\&quot;, \&quot;val\&quot;: \&quot;all\&quot;, \&quot;queryGroup\&quot;: []}}, \&quot;pdtemplate\&quot;: {\&quot;name\&quot;: \&quot;PeakData\&quot;, \&quot;tree\&quot;: {\&quot;pos\&quot;: \&quot;\&quot;, \&quot;type\&quot;: \&quot;group\&quot;, \&quot;val\&quot;: \&quot;all\&quot;, \&quot;queryGroup\&quot;: []}}}}&quot;">
+                            <input type="hidden" name="qryjson" value="&quot;{\&quot;selectedtemplate\&quot;: \&quot;pgtemplate\&quot;, \&quot;searches\&quot;: {\&quot;pgtemplate\&quot;: {\&quot;name\&quot;: \&quot;PeakGroups\&quot;, \&quot;tree\&quot;: {\&quot;pos\&quot;: \&quot;\&quot;, \&quot;type\&quot;: \&quot;group\&quot;, \&quot;val\&quot;: \&quot;all\&quot;, \&quot;queryGroup\&quot;: []}}, \&quot;pdtemplate\&quot;: {\&quot;name\&quot;: \&quot;PeakData\&quot;, \&quot;tree\&quot;: {\&quot;pos\&quot;: \&quot;\&quot;, \&quot;type\&quot;: \&quot;group\&quot;, \&quot;val\&quot;: \&quot;all\&quot;, \&quot;queryGroup\&quot;: []}}, \&quot;fctemplate\&quot;: {\&quot;name\&quot;: \&quot;FCirc\&quot;, \&quot;tree\&quot;: {\&quot;pos\&quot;: \&quot;\&quot;, \&quot;type\&quot;: \&quot;group\&quot;, \&quot;val\&quot;: \&quot;all\&quot;, \&quot;queryGroup\&quot;: []}}}}&quot;">
                             <button type="submit" class="dropdown-item">All Peak Groups</button>
                         </form>
                     </li>
                     <li>
                         <form action="/DataRepo/search_advanced_tsv/" method="POST">
                             {% csrf_token %}
-                            <input type="hidden" name="qryjson" value="&quot;{\&quot;selectedtemplate\&quot;: \&quot;pdtemplate\&quot;, \&quot;searches\&quot;: {\&quot;pgtemplate\&quot;: {\&quot;name\&quot;: \&quot;PeakGroups\&quot;, \&quot;tree\&quot;: {\&quot;pos\&quot;: \&quot;\&quot;, \&quot;type\&quot;: \&quot;group\&quot;, \&quot;val\&quot;: \&quot;all\&quot;, \&quot;queryGroup\&quot;: []}}, \&quot;pdtemplate\&quot;: {\&quot;name\&quot;: \&quot;PeakData\&quot;, \&quot;tree\&quot;: {\&quot;pos\&quot;: \&quot;\&quot;, \&quot;type\&quot;: \&quot;group\&quot;, \&quot;val\&quot;: \&quot;all\&quot;, \&quot;queryGroup\&quot;: []}}}}&quot;">
+                            <input name="qryjson" type="hidden" value="&quot;{\&quot;selectedtemplate\&quot;: \&quot;pdtemplate\&quot;, \&quot;searches\&quot;: {\&quot;pgtemplate\&quot;: {\&quot;name\&quot;: \&quot;PeakGroups\&quot;, \&quot;tree\&quot;: {\&quot;pos\&quot;: \&quot;\&quot;, \&quot;type\&quot;: \&quot;group\&quot;, \&quot;val\&quot;: \&quot;all\&quot;, \&quot;queryGroup\&quot;: []}}, \&quot;pdtemplate\&quot;: {\&quot;name\&quot;: \&quot;PeakData\&quot;, \&quot;tree\&quot;: {\&quot;pos\&quot;: \&quot;\&quot;, \&quot;type\&quot;: \&quot;group\&quot;, \&quot;val\&quot;: \&quot;all\&quot;, \&quot;queryGroup\&quot;: []}}}}&quot;">
                             <button type="submit" class="dropdown-item">All Peak Data</button>
+                        </form>
+                    </li>
+                    <li>
+                        <form action="/DataRepo/search_advanced_tsv/" method="POST">
+                            {% csrf_token %}
+                            <input type="hidden" name="qryjson" value="&quot;{\&quot;selectedtemplate\&quot;: \&quot;fctemplate\&quot;, \&quot;searches\&quot;: {\&quot;pgtemplate\&quot;: {\&quot;name\&quot;: \&quot;PeakGroups\&quot;, \&quot;tree\&quot;: {\&quot;pos\&quot;: \&quot;\&quot;, \&quot;type\&quot;: \&quot;group\&quot;, \&quot;val\&quot;: \&quot;all\&quot;, \&quot;queryGroup\&quot;: []}}, \&quot;pdtemplate\&quot;: {\&quot;name\&quot;: \&quot;PeakData\&quot;, \&quot;tree\&quot;: {\&quot;pos\&quot;: \&quot;\&quot;, \&quot;type\&quot;: \&quot;group\&quot;, \&quot;val\&quot;: \&quot;all\&quot;, \&quot;queryGroup\&quot;: []}}}}&quot;">
+                            <button type="submit" class="dropdown-item">All FCirc Data</button>
                         </form>
                     </li>
                 </ul>
