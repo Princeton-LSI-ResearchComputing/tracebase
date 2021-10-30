@@ -1,5 +1,6 @@
 from django import template
 from django.template.defaultfilters import floatformat
+from DataRepo.views import manyToManyFilter
 
 register = template.Library()
 
@@ -74,3 +75,8 @@ def joinStudyNames(delimiter, recs):
     return delimiter.join(
         list(map(lambda studyrec: studyrec["name"], recs.values("name")))
     )
+
+@register.simple_tag
+def queryFilter(rootrec, mm_keypath, mm_rec, qry):
+    print("Sending match result: ", manyToManyFilter(rootrec, mm_keypath, mm_rec, qry))
+    return manyToManyFilter(rootrec, mm_keypath, mm_rec, qry)

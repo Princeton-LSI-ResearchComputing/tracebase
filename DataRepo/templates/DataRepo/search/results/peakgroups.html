@@ -28,133 +28,143 @@
 
         {% for pg in res.all %}
             {% for study in pg.msrun.sample.animal.studies.all %}
-                <tr>
-                    <!-- Sample -->
-                    <td>
-                        <div class="nobr">
-                            <a href="{% url 'sample_detail' pg.msrun.sample.id %}">
-                                {{ pg.msrun.sample.name }}
+
+                {# Determine whether or not to keep or filter out this row due to refiltering #}
+                {% define False as keep %}
+                {% if refilter %}
+                    {% queryFilter pg "msrun__sample__animal__studies" study qry as tmp_keep %}
+                    {% define tmp_keep as keep %}
+                {% endif %}
+
+                {% if not refilter or keep %}
+                    <tr>
+                        <!-- Sample -->
+                        <td>
+                            <div class="nobr">
+                                <a href="{% url 'sample_detail' pg.msrun.sample.id %}">
+                                    {{ pg.msrun.sample.name }}
+                                </a>
+                            </div>
+                        </td>
+
+                        <!-- Tissue -->
+                        <td>
+                            {{ pg.msrun.sample.tissue.name }}
+                        </td>
+
+                        <!-- Peak Group -->
+                        <td>
+                            <a href="{% url 'peakgroup_detail' pg.id %}">
+                                {{ pg.name }}
                             </a>
-                        </div>
-                    </td>
+                        </td>
 
-                    <!-- Tissue -->
-                    <td>
-                        {{ pg.msrun.sample.tissue.name }}
-                    </td>
+                        <!-- Formula -->
+                        <td>
+                            {{ pg.formula }}
+                        </td>
 
-                    <!-- Peak Group -->
-                    <td>
-                        <a href="{% url 'peakgroup_detail' pg.id %}">
-                            {{ pg.name }}
-                        </a>
-                    </td>
+                        <!-- Labeled Element -->
+                        <td>
+                            {{ pg.msrun.sample.animal.tracer_labeled_atom }}
+                        </td>
 
-                    <!-- Formula -->
-                    <td>
-                        {{ pg.formula }}
-                    </td>
+                        <!-- Total Abundance -->
+                        <td class="text-end">
+                            <p title="{{ pg.total_abundance }}">{{ pg.total_abundance|floatformat:1 }}</p>
+                        </td>
 
-                    <!-- Labeled Element -->
-                    <td>
-                        {{ pg.msrun.sample.animal.tracer_labeled_atom }}
-                    </td>
+                        <!-- Enrichment Fraction -->
+                        <td class="text-end">
+                            <p title="{{ pg.enrichment_fraction }}">{{ pg.enrichment_fraction|floatformat:4 }}</p>
+                        </td>
 
-                    <!-- Total Abundance -->
-                    <td class="text-end">
-                        <p title="{{ pg.total_abundance }}">{{ pg.total_abundance|floatformat:1 }}</p>
-                    </td>
+                        <!-- Enrichment Abundance -->
+                        <td class="text-end">
+                            <p title="{{ pg.enrichment_abundance }}">{{ pg.enrichment_abundance|floatformat:4 }}</p>
+                        </td>
 
-                    <!-- Enrichment Fraction -->
-                    <td class="text-end">
-                        <p title="{{ pg.enrichment_fraction }}">{{ pg.enrichment_fraction|floatformat:4 }}</p>
-                    </td>
+                        <!-- Normalized Labeling -->
+                        <td class="text-end">
+                            <p title="{{ pg.normalized_labeling }}">{{ pg.normalized_labeling|floatformat:4 }}</p>
+                        </td>
 
-                    <!-- Enrichment Abundance -->
-                    <td class="text-end">
-                        <p title="{{ pg.enrichment_abundance }}">{{ pg.enrichment_abundance|floatformat:4 }}</p>
-                    </td>
+                        <!-- Peak Group Set Filename -->
+                        <td>
+                            {{ pg.peak_group_set.filename }}
+                        </td>
 
-                    <!-- Normalized Labeling -->
-                    <td class="text-end">
-                        <p title="{{ pg.normalized_labeling }}">{{ pg.normalized_labeling|floatformat:4 }}</p>
-                    </td>
+                        <!-- Animal -->
+                        <td>
+                            <a href="{% url 'animal_detail' pg.msrun.sample.animal.id %}">
+                                {{ pg.msrun.sample.animal.name }}
+                            </a>
+                        </td>
 
-                    <!-- Peak Group Set Filename -->
-                    <td>
-                        {{ pg.peak_group_set.filename }}
-                    </td>
+                        <!-- Genotype -->
+                        <td>
+                            {{ pg.msrun.sample.animal.genotype }}
+                        </td>
 
-                    <!-- Animal -->
-                    <td>
-                        <a href="{% url 'animal_detail' pg.msrun.sample.animal.id %}">
-                            {{ pg.msrun.sample.animal.name }}
-                        </a>
-                    </td>
+                        <!-- Body Weight (g) -->
+                        <td>
+                            {{ pg.msrun.sample.animal.body_weight }}
+                        </td>
 
-                    <!-- Genotype -->
-                    <td>
-                        {{ pg.msrun.sample.animal.genotype }}
-                    </td>
+                        <!-- Age (weeks) -->
+                        <td class="text-end">
+                            <p title="{{ pg.msrun.sample.animal.age }} (d-hh:mm:ss)">{{ pg.msrun.sample.animal.age|durationToWeeks|decimalPlaces:2 }}</p>
+                        </td>
 
-                    <!-- Body Weight (g) -->
-                    <td>
-                        {{ pg.msrun.sample.animal.body_weight }}
-                    </td>
+                        <!-- Sex -->
+                        <td>
+                            {{ pg.msrun.sample.animal.sex }}
+                        </td>
 
-                    <!-- Age (weeks) -->
-                    <td class="text-end">
-                        <p title="{{ pg.msrun.sample.animal.age }} (d-hh:mm:ss)">{{ pg.msrun.sample.animal.age|durationToWeeks|decimalPlaces:2 }}</p>
-                    </td>
+                        <!-- Diet -->
+                        <td>
+                            {{ pg.msrun.sample.animal.diet }}
+                        </td>
 
-                    <!-- Sex -->
-                    <td>
-                        {{ pg.msrun.sample.animal.sex }}
-                    </td>
+                        <!-- Feeding Status -->
+                        <td>
+                            {{ pg.msrun.sample.animal.feeding_status }}
+                        </td>
 
-                    <!-- Diet -->
-                    <td>
-                        {{ pg.msrun.sample.animal.diet }}
-                    </td>
+                        <!-- Treatment -->
+                        <td>
+                            {% if pg.msrun.sample.animal.treatment is None %}
+                                None
+                            {% else %}
+                                {{ pg.msrun.sample.animal.treatment.name }}
+                            {% endif %}
+                        </td>
 
-                    <!-- Feeding Status -->
-                    <td>
-                        {{ pg.msrun.sample.animal.feeding_status }}
-                    </td>
+                        <!-- Tracer Compound -->
+                        <td>
+                            <a href="{% url 'compound_detail' pg.msrun.sample.animal.tracer_compound.id %}">
+                                {{ pg.msrun.sample.animal.tracer_compound.name }}
+                            </a>
+                        </td>
 
-                    <!-- Treatment -->
-                    <td>
-                        {% if pg.msrun.sample.animal.treatment is None %}
-                            None
-                        {% else %}
-                            {{ pg.msrun.sample.animal.treatment.name }}
-                        {% endif %}
-                    </td>
+                        <!-- Tracer Infusion Rate (ul/min/g) -->
+                        <td class="text-end">
+                            {{ pg.msrun.sample.animal.tracer_infusion_rate }}
+                        </td>
 
-                    <!-- Tracer Compound -->
-                    <td>
-                        <a href="{% url 'compound_detail' pg.msrun.sample.animal.tracer_compound.id %}">
-                            {{ pg.msrun.sample.animal.tracer_compound.name }}
-                        </a>
-                    </td>
+                        <!-- Tracer Infusion Concentration (mM) -->
+                        <td class="text-end">
+                            {{ pg.msrun.sample.animal.tracer_infusion_concentration }}
+                        </td>
 
-                    <!-- Tracer Infusion Rate (ul/min/g) -->
-                    <td class="text-end">
-                        {{ pg.msrun.sample.animal.tracer_infusion_rate }}
-                    </td>
-
-                    <!-- Tracer Infusion Concentration (mM) -->
-                    <td class="text-end">
-                        {{ pg.msrun.sample.animal.tracer_infusion_concentration }}
-                    </td>
-
-                    <!-- Study -->
-                    <td>
-                        <a href="{% url 'study_detail' study.id %}">
-                            {{ study.name }}
-                        </a>
-                    </td>
-                </tr>
+                        <!-- Study -->
+                        <td>
+                            <a href="{% url 'study_detail' study.id %}">
+                                {{ study.name }}
+                            </a>
+                        </td>
+                    </tr>
+                {% endif %}
             {% endfor %}
         {% endfor %}
     </table>
