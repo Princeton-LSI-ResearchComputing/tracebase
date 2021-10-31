@@ -77,6 +77,11 @@ def joinStudyNames(delimiter, recs):
     )
 
 @register.simple_tag
-def queryFilter(rootrec, mm_keypath, mm_rec, qry):
-    print("Sending match result: ", manyToManyFilter(rootrec, mm_keypath, mm_rec, qry))
-    return manyToManyFilter(rootrec, mm_keypath, mm_rec, qry)
+def shouldKeepManyToMany(rootrec, mm_keypath, mm_rec, qry, refilter):
+    """
+    If refilter is true, this method calls the views.manyToManyFilter to filter out records that do not match search
+    terms from a many-to-many related table.  Note, this can only handle composite views that contain a single many-to-
+    many relationship.  If there are multiple many-to-many relationships in the composite view, a new method will have
+    to be written.
+    """
+    return not refilter or manyToManyFilter(rootrec, mm_keypath, mm_rec, qry)

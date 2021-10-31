@@ -288,7 +288,6 @@ class BaseSearchView:
         """
         if query["type"] == "query":
             recval = self.getValue(rootrec, query["fld"], mm_rec, mm_keypath)
-            print(f"Comparing {recval} {query['ncmp']} {query['val']}")
             return self.valueMatches(recval, query["ncmp"], query["val"])
         else:
             if query["val"] == "all":
@@ -316,10 +315,8 @@ class BaseSearchView:
             # shift the mm_keypath off the qry_keypath
             qry_keypath_list = qry_keypath_list[len(mm_keypath_list):]
             ptr = mm_rec
-        print(f"Getting value via path: {','.join(qry_keypath_list)} from {ptr.__class__.__name__}")
         for key in qry_keypath_list:
             ptr = getattr(ptr, key)
-        print(f"Value is {ptr}")
         return ptr
     
     def keypathStringToList(self, keypath_str):

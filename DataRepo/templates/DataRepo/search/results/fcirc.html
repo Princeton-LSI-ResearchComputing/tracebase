@@ -42,8 +42,9 @@
 
                     <!-- Studies -->
                     <td>
+                        {% define True as first %}
                         {# All on 1 line to avoid space preceding commas #}
-                        {% for study in pg.msrun.sample.animal.studies.all %}{% if not forloop.first %},<br>{% endif%}<a href="{% url 'study_detail' study.id %}">{{ study.name }}</a>{% endfor %}
+                        {% for study in pg.msrun.sample.animal.studies.all %}{% shouldKeepManyToMany pg "msrun__sample__animal__studies" study qry refilter as keep %}{% if keep %}{% if not first %},<br>{% endif%}<a href="{% url 'study_detail' study.id %}">{{ study.name }}</a>{% endif %}{% define False as first %}{% endfor %}
                     </td>
 
                     <!-- Treatment -->

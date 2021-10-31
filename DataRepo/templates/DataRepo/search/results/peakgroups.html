@@ -29,14 +29,9 @@
         {% for pg in res.all %}
             {% for study in pg.msrun.sample.animal.studies.all %}
 
-                {# Determine whether or not to keep or filter out this row due to refiltering #}
-                {% define False as keep %}
-                {% if refilter %}
-                    {% queryFilter pg "msrun__sample__animal__studies" study qry as tmp_keep %}
-                    {% define tmp_keep as keep %}
-                {% endif %}
+                {% shouldKeepManyToMany pg "msrun__sample__animal__studies" study qry refilter as keep %}
 
-                {% if not refilter or keep %}
+                {% if keep %}
                     <tr>
                         <!-- Sample -->
                         <td>
