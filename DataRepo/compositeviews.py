@@ -384,7 +384,6 @@ class BaseSearchView:
         Note that any changes to ncmp_choices must also be implemented here.
         """
         if condition == "iexact":
-            print("matches?: ", (recval.lower() == searchterm.lower()))
             return recval.lower() == searchterm.lower()
         elif condition == "not_iexact":
             return recval.lower() != searchterm.lower()
@@ -412,6 +411,9 @@ class BaseSearchView:
             return recval.lower().endswith(searchterm.lower())
         elif condition == "not_iendswith":
             return not recval.lower().endswith(searchterm.lower())
+        elif condition == "exact":
+            # For search_basic
+            return recval == searchterm
         else:
             raise UnknownComparison(f"Unrecognized negatable comparison (ncmp) value: {condition}.")
 
