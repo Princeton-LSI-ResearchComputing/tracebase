@@ -830,6 +830,16 @@ def manyToManyFilter(rootrec, mm_keypath, mm_rec, qry):
     return basv_metadata.isAMatch(rootrec, mm_keypath, mm_rec, qry)
 
 
+def manyToManyFilter2(rootrec, mm_lookup, qry):
+    """
+    This method is called by queryFilter in templatetags/customtags.py.  It is designed to determine whether a
+    combination of separate records (one from the root table and the other from a .all query on a many-to-many related
+    table) should be included in the output table or not.
+    """
+    basv_metadata = BaseAdvancedSearchView()
+    return basv_metadata.isAMatch2(rootrec, mm_lookup, qry)
+
+
 class ProtocolListView(ListView):
     """Generic class-based view for a list of protocols"""
 

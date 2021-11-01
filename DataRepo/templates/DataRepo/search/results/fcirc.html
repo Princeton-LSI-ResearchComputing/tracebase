@@ -31,6 +31,10 @@
         </tr>
 
         {% for pg in res.all %}
+
+            {# Initialize a new dict used for many-to-many related table refiltering #}
+            {% createDict as mm_lookup %}
+
             {% if pg.is_tracer_compound_group %}
                 <tr class="{% if pg.msrun.sample.id == pg.msrun.sample.animal.final_serum_sample_id %}bg-highlighted{% endif %}">
                     <!-- Animal -->
@@ -42,9 +46,12 @@
 
                     <!-- Studies -->
                     <td>
-                        {% define True as first %}
                         {# All on 1 line to avoid space preceding commas #}
-                        {% for study in pg.msrun.sample.animal.studies.all %}{% shouldKeepManyToMany pg "msrun__sample__animal__studies" study qry refilter as keep %}{% if keep %}{% if not first %},<br>{% endif%}<a href="{% url 'study_detail' study.id %}">{{ study.name }}</a>{% endif %}{% define False as first %}{% endfor %}
+                        {# We add the M:M model key path as a key pointing to its current record to the mm_lookup dict.  This way of looking up M:M record values is necessary to support multiple M:M related models in a composite view #}
+                        {# At the most nested loop level, we have enough info to refilter for unmatching many-to-many records #}
+
+                        {% define True as first %}
+                        {% for study in pg.msrun.sample.animal.studies.all %}{% addToDict mm_lookup "msrun__sample__animal__studies" study %}{% shouldKeepManyToMany2 pg mm_lookup qry refilter as keep %}{% if keep %}{% if not first %},<br>{% endif%}<a href="{% url 'study_detail' study.id %}">{{ study.name }}</a>{% endif %}{% define False as first %}{% endfor %}
                     </td>
 
                     <!-- Treatment -->
