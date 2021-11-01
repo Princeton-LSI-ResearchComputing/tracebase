@@ -176,7 +176,7 @@ class AdvancedSearchView(MultiFormsView):
         qry = formsetsToDict(formset, self.form_classes)
 
         root_group = self.basv_metadata.getRootGroup()
-
+        print("FORM INVALID:",qry)
         return self.render_to_response(
             self.get_context_data(
                 res={},
@@ -210,6 +210,7 @@ class AdvancedSearchView(MultiFormsView):
 
         root_group = self.basv_metadata.getRootGroup()
 
+        print("FORM VALID:",qry)
         return self.render_to_response(
             self.get_context_data(
                 res=res,
@@ -243,10 +244,15 @@ class AdvancedSearchView(MultiFormsView):
             mode == "browse" and not isValidQryObjPopulated(context["qry"])
         ):
             if "qry" not in context:
+                # Initialize the qry object
                 if "format" in context:
                     qry = self.basv_metadata.getRootGroup(context["format"])
                 else:
                     qry = self.basv_metadata.getRootGroup()
+                # If we're in browse more, put the qry object in context (because that's where the format name is
+                # extracted)
+                if mode == "browse":
+                    context["qry"] = qry
             else:
                 qry = context["qry"]
 
@@ -272,6 +278,7 @@ class AdvancedSearchView(MultiFormsView):
                 q_exp, qry["selectedtemplate"], self.basv_metadata
             )
             context["refilter"] = self.basv_metadata.shouldReFilter(qry)
+            print("addInitialContext:",qry)
 
 
 

@@ -1,5 +1,6 @@
 {% load customtags %}
 {% block content %}
+    <h3 style="margin: 0; display: inline-block;">{{ qry|getFormatName:selfmt }} Results ({{ res.count|default:"0" }} Rows)</h3>
     <table class="table table-success table-hover table-striped table-bordered">
         <tr>
             <th>Sample</th>
