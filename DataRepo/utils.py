@@ -121,17 +121,15 @@ class SampleTableLoader:
     def load_sample_table(self, data, skip_researcher_check=False, debug=False):
         self.debug = debug
 
-        # Create an array to hold the csv reader data so that iterations from validating doesn't leave the csv reader
+        # Create a list to hold the csv reader data so that iterations from validating doesn't leave the csv reader
         # empty/at-the-end upon the import loop
-        array_data = []
-        for row in data:
-            array_data.append(row)
+        sample_table_data = list(data)
 
         self.validate_sample_table(
-            array_data, skip_researcher_check=skip_researcher_check
+            sample_table_data, skip_researcher_check=skip_researcher_check
         )
 
-        for row in array_data:
+        for row in sample_table_data:
 
             tissue_name = self.getRowVal(
                 row,
