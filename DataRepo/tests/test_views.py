@@ -786,7 +786,6 @@ class ViewTests(TestCase):
         animal_sample_dict[
             "data_submission_animal_sample_table.xlsx"
         ] = "DataRepo/example_data/data_submission_animal_sample_table.xlsx"
-        yaml_file = "DataRepo/example_data/sample_and_animal_tables_headers.yaml"
         accucor_dict = {
             "data_submission_accucor1.xlsx": "DataRepo/example_data/data_submission_accucor1.xlsx",
             "data_submission_accucor2.xlsx": "DataRepo/example_data/data_submission_accucor2.xlsx",
@@ -795,7 +794,7 @@ class ViewTests(TestCase):
         # Test the validate_load_files function
         vo = DataValidationView()
         [results, valid, errors] = vo.validate_load_files(
-            animal_sample_dict, accucor_dict, yaml_file
+            animal_sample_dict, accucor_dict
         )
 
         # Note that even though the Study "Notes" header is missing from the input file, we don't expect to encounter
