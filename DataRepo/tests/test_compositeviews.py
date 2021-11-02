@@ -40,6 +40,33 @@ class CompositeViewTests(TestCase):
             new_researcher=False,
         )
 
+    def getQueryObject(self):
+        return {
+            "selectedtemplate": "pgtemplate",
+            "searches": {
+                "pgtemplate": {
+                    "tree": {
+                        "type": "group",
+                        "val": "all",
+                        "static": False,
+                        "queryGroup": [
+                            {
+                                "type": "query",
+                                "pos": "",
+                                "static": False,
+                                "ncmp": "icontains",
+                                "fld": "msrun__sample__animal__studies__name",
+                                "val": "obob_fasted",
+                            }
+                        ],
+                    },
+                    "name": "PeakGroups",
+                },
+                "pdtemplate": {"name": "PeakData", "tree": {}},
+                "fctemplate": {"name": "Fcirc", "tree": {}},
+            },
+        }
+
     def test_getMMKeyPaths(self):
         basv = BaseAdvancedSearchView()
         result = basv.getMMKeyPaths("pdtemplate")
@@ -50,31 +77,7 @@ class CompositeViewTests(TestCase):
         """
         Test that we should refilter if the query includes a term from a M:M related table
         """
-        qry = {
-            "selectedtemplate": "pgtemplate",
-            "searches": {
-                "pgtemplate": {
-                    "tree": {
-                        "type": "group",
-                        "val": "all",
-                        "static": False,
-                        "queryGroup": [
-                            {
-                                "type": "query",
-                                "pos": "",
-                                "static": False,
-                                "ncmp": "icontains",
-                                "fld": "msrun__sample__animal__studies__name",
-                                "val": "obob_fasted",
-                            }
-                        ],
-                    },
-                    "name": "PeakGroups",
-                },
-                "pdtemplate": {"name": "PeakData", "tree": {}},
-                "fctemplate": {"name": "Fcirc", "tree": {}},
-            },
-        }
+        qry = self.getQueryObject()
         basv = BaseAdvancedSearchView()
         result = basv.shouldReFilter(qry)
         self.assertTrue(result)
@@ -83,62 +86,19 @@ class CompositeViewTests(TestCase):
         """
         Test that we should not refilter if the query does not include a term from a M:M related table
         """
-        qry = {
-            "selectedtemplate": "pgtemplate",
-            "searches": {
-                "pgtemplate": {
-                    "tree": {
-                        "type": "group",
-                        "val": "all",
-                        "static": False,
-                        "queryGroup": [
-                            {
-                                "type": "query",
-                                "pos": "",
-                                "static": False,
-                                "ncmp": "icontains",
-                                "fld": "msrun__sample__animal__name",
-                                "val": "anything",
-                            }
-                        ],
-                    },
-                    "name": "PeakGroups",
-                },
-                "pdtemplate": {"name": "PeakData", "tree": {}},
-                "fctemplate": {"name": "Fcirc", "tree": {}},
-            },
-        }
+        qry = self.getQueryObject()
+        qry["searches"]["pgtemplate"]["tree"]["queryGroup"][0]["ncmp"] = "icontains"
+        qry["searches"]["pgtemplate"]["tree"]["queryGroup"][0][
+            "fld"
+        ] = "msrun__sample__animal__name"
+        qry["searches"]["pgtemplate"]["tree"]["queryGroup"][0]["val"] = "anything"
         basv = BaseAdvancedSearchView()
         result = basv.shouldReFilter(qry)
         self.assertTrue(not result)
 
     def test_isAMatch(self):
         basv = BaseAdvancedSearchView()
-        qry = {
-            "selectedtemplate": "pgtemplate",
-            "searches": {
-                "pgtemplate": {
-                    "tree": {
-                        "type": "group",
-                        "val": "all",
-                        "static": False,
-                        "queryGroup": [
-                            {
-                                "type": "query",
-                                "pos": "",
-                                "static": False,
-                                "ncmp": "icontains",
-                                "fld": "msrun__sample__animal__studies__name",
-                                "val": "obob_fasted",
-                            }
-                        ],
-                    },
-                    "name": "PeakGroups",
-                },
-                "pdtemplate": {"name": "PeakData", "tree": {}},
-                "fctemplate": {"name": "Fcirc", "tree": {}},
-            },
-        }
+        qry = self.getQueryObject()
         pgrecs = PeakGroup.objects.filter(
             msrun__sample__animal__studies__name__icontains="obob_fasted"
         )
@@ -151,23 +111,9 @@ class CompositeViewTests(TestCase):
         self.assertTrue(not result)
 
     def test_getFldValues(self):
-        qrytree = {
-            "type": "group",
-            "val": "all",
-            "static": False,
-            "queryGroup": [
-                {
-                    "type": "query",
-                    "pos": "",
-                    "static": False,
-                    "ncmp": "icontains",
-                    "fld": "msrun__sample__animal__studies__name",
-                    "val": "obob_fasted",
-                }
-            ],
-        }
+        qry = self.getQueryObject()
         bsv = BaseSearchView()
-        result = bsv.getFldValues(qrytree)
+        result = bsv.getFldValues(qry["searches"]["pgtemplate"]["tree"])
         self.assertTrue(len(result) == 1)
         self.assertTrue(result[0] == "msrun__sample__animal__studies__name")
 
@@ -182,6 +128,7 @@ class CompositeViewTests(TestCase):
             pgrecs[0], mm_lookup, "msrun__sample__animal__studies__name"
         )
         self.assertTrue(studyrecs[0].name == "obob_fasted")
+        self.assertTrue(result == "obob_fasted")
 
     def test_getMMKeyPathList(self):
         bsv = BaseSearchView()
