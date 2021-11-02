@@ -256,12 +256,10 @@ class BaseSearchView:
         mm_keypaths = self.getMMKeyPaths()
         if len(mm_keypaths) > 0:
             fld_list = self.getFldValues(qrytree)
-            print(f"fld values: {','.join(fld_list)}")
             for mm_keypath in mm_keypaths:
                 for fld in fld_list:
                     if mm_keypath in fld:
                         return True
-        print("Returning should refilter = False")
         return False
 
     # Don't send the root qry. Send this qry["searches"][fmt]["tree"]
@@ -326,7 +324,8 @@ class BaseSearchView:
             if mm_keypath in qry_keypath:
                 mm_keypath_list = self.keypathStringToList(mm_keypath)
                 # shift the mm_keypath off the qry_keypath
-                tmp_qry_keypath_list = qry_keypath_list[len(mm_keypath_list):]
+                start = len(mm_keypath_list)
+                tmp_qry_keypath_list = qry_keypath_list[start:]
                 if len(tmp_qry_keypath_list) == 1:
                     qry_keypath_list = tmp_qry_keypath_list
                     rec = mm_lookup[mm_keypath]
@@ -374,7 +373,9 @@ class BaseSearchView:
             # For search_basic
             return recval == searchterm
         else:
-            raise UnknownComparison(f"Unrecognized negatable comparison (ncmp) value: {condition}.")
+            raise UnknownComparison(
+                f"Unrecognized negatable comparison (ncmp) value: {condition}."
+            )
 
 
 class PeakGroupsSearchView(BaseSearchView):
@@ -1359,7 +1360,7 @@ class BaseAdvancedSearchView:
             raise InvalidQryObject("selectedtemplate key is missing")
         fmt = qry["selectedtemplate"]
         return self.modeldata[fmt].shouldReFilter(qry["searches"][fmt]["tree"])
-    
+
     def isAMatch(self, rootrec, mm_lookup, query):
         """
         Given a pair of records from tables in a many-to-many relationship, the key path of the M:M model, and a qry
@@ -1369,7 +1370,9 @@ class BaseAdvancedSearchView:
         left-joins everything related to the root table records.
         """
         fmt = query["selectedtemplate"]
-        return self.modeldata[fmt].isAMatch(rootrec, mm_lookup, query["searches"][fmt]["tree"])
+        return self.modeldata[fmt].isAMatch(
+            rootrec, mm_lookup, query["searches"][fmt]["tree"]
+        )
 
 
 class UnknownComparison(Exception):

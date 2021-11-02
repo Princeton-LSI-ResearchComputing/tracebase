@@ -1,5 +1,6 @@
 from django import template
 from django.template.defaultfilters import floatformat
+
 from DataRepo.views import manyToManyFilter
 
 register = template.Library()

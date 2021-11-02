@@ -1,15 +1,12 @@
 {% load customtags %}
-<head>
-    {% load static %}
-    <script>
-        document.addEventListener("DOMContentLoaded", function(){
-            const realcntelem = document.getElementById("realcount")
-            const reccnt = realcntelem.innerHTML
-            const reccntelem = document.getElementById("recordcount")
-            reccntelem.innerHTML = reccnt
-        })
-    </script>
-</head>  
+<script>
+    document.addEventListener("DOMContentLoaded", function(){
+        const real_cnt_elem = document.getElementById("realcount")
+        const real_cnt = real_cnt_elem.innerHTML
+        const rec_cnt_elem = document.getElementById("recordcount")
+        rec_cnt_elem.innerHTML = real_cnt
+    })
+</script>
 {% block content %}
     <h3 style="margin: 0; display: inline-block;">{{ qry|getFormatName:selfmt }} Results (<span id="recordcount">{{ res.count|default:"0" }}</span> Rows)</h3>
     <table class="table table-success table-hover table-striped table-bordered">
@@ -38,7 +35,7 @@
             <th>Study</th>
         </tr>
 
-        {% createCounter as reccnt %}
+        {% createCounter as rec_cnt %}
 
         {% for pg in res.all %}
 
@@ -55,7 +52,7 @@
                 {% shouldKeepManyToMany pg mm_lookup qry refilter as keep %}
 
                 {% if keep %}
-                    {% incrementCounter reccnt %}
+                    {% incrementCounter rec_cnt %}
 
                     <tr>
                         <!-- Sample -->
@@ -188,5 +185,5 @@
             {% endfor %}
         {% endfor %}
     </table>
-    <div id="realcount" style="display:none;">{% getCount reccnt %}</div>
+    <div id="realcount" style="display:none;">{% getCount rec_cnt %}</div>
 {% endblock %}

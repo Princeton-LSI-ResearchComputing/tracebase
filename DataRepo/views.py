@@ -176,7 +176,7 @@ class AdvancedSearchView(MultiFormsView):
         qry = formsetsToDict(formset, self.form_classes)
 
         root_group = self.basv_metadata.getRootGroup()
-        print("FORM INVALID:",qry)
+
         return self.render_to_response(
             self.get_context_data(
                 res={},
@@ -210,7 +210,6 @@ class AdvancedSearchView(MultiFormsView):
 
         root_group = self.basv_metadata.getRootGroup()
 
-        print("FORM VALID:",qry)
         return self.render_to_response(
             self.get_context_data(
                 res=res,
@@ -222,7 +221,7 @@ class AdvancedSearchView(MultiFormsView):
                 default_format=self.basv_metadata.default_format,
                 ncmp_choices=self.basv_metadata.getComparisonChoices(),
                 fld_types=self.basv_metadata.getFieldTypes(),
-                refilter=self.basv_metadata.shouldReFilter(qry)
+                refilter=self.basv_metadata.shouldReFilter(qry),
             )
         )
 
@@ -278,8 +277,6 @@ class AdvancedSearchView(MultiFormsView):
                 q_exp, qry["selectedtemplate"], self.basv_metadata
             )
             context["refilter"] = self.basv_metadata.shouldReFilter(qry)
-            print("addInitialContext:",qry)
-
 
 
 # Basis: https://stackoverflow.com/questions/29672477/django-export-current-queryset-to-csv-by-button-click-in-browser
@@ -306,7 +303,9 @@ class AdvancedSearchTSVView(FormView):
         dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
         res = {}
         return self.render_to_response(
-            self.get_context_data(res=res, qry=qry, dt=dt_string, debug=settings.DEBUG, refilter=False)
+            self.get_context_data(
+                res=res, qry=qry, dt=dt_string, debug=settings.DEBUG, refilter=False
+            )
         )
 
     def form_valid(self, form):
@@ -338,7 +337,9 @@ class AdvancedSearchTSVView(FormView):
             res = getAllBrowseData(qry["selectedtemplate"], self.basv_metadata)
 
         response = self.render_to_response(
-            self.get_context_data(res=res, qry=qry, dt=dt_string, debug=settings.DEBUG, refilter=refilter)
+            self.get_context_data(
+                res=res, qry=qry, dt=dt_string, debug=settings.DEBUG, refilter=refilter
+            )
         )
         response["Content-Disposition"] = "attachment; filename={}".format(filename)
 

@@ -23,6 +23,7 @@ from DataRepo.views import (
     getAllBrowseData,
     getJoinedRecFieldValue,
     isQryObjValid,
+    manyToManyFilter,
     pathStepToPosGroupType,
     performQuery,
     rootToFormatInfo,
@@ -824,6 +825,48 @@ class ViewTests(TestCase):
         self.assertTrue(len(errors["data_submission_accucor2.xlsx"]) == 0)
         self.assertEqual(results["data_submission_accucor1.xlsx"], "PASSED")
         self.assertEqual(results["data_submission_accucor2.xlsx"], "PASSED")
+
+    def test_manyToManyFilter(self):
+        call_command(
+            "load_samples",
+            "DataRepo/example_data/small_dataset/small_obob_sample_table_2ndstudy.tsv",
+            sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
+        )
+        qry = {
+            "selectedtemplate": "pgtemplate",
+            "searches": {
+                "pgtemplate": {
+                    "tree": {
+                        "type": "group",
+                        "val": "all",
+                        "static": False,
+                        "queryGroup": [
+                            {
+                                "type": "query",
+                                "pos": "",
+                                "static": False,
+                                "ncmp": "icontains",
+                                "fld": "msrun__sample__animal__studies__name",
+                                "val": "obob_fasted",
+                            }
+                        ],
+                    },
+                    "name": "PeakGroups",
+                },
+                "pdtemplate": {"name": "PeakData", "tree": {}},
+                "fctemplate": {"name": "Fcirc", "tree": {}},
+            },
+        }
+        pgrecs = PeakGroup.objects.filter(
+            msrun__sample__animal__studies__name__icontains="obob_fasted"
+        )
+        studyrecs = pgrecs[0].msrun.sample.animal.studies.all()
+        mm_lookup = {"msrun__sample__animal__studies": studyrecs[0]}
+        result = manyToManyFilter(pgrecs[0], mm_lookup, qry)
+        self.assertTrue(result)
+        mm_lookup = {"msrun__sample__animal__studies": studyrecs[1]}
+        result = manyToManyFilter(pgrecs[0], mm_lookup, qry)
+        self.assertTrue(not result)
 
 
 @tag("search_choices")
