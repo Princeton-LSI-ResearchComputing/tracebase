@@ -103,3 +103,19 @@ def addToDict(theDict, theKey, theVal):
     # We don't need to return the dict, because the one created by createDict is still in memory and will reflect this
     # addition, but we don't want there to be a visible effect in the template either, so return an empty string
     return ""
+
+
+@register.simple_tag
+def createCounter():
+    return {"count": 0}
+
+
+@register.simple_tag
+def incrementCounter(countdict):
+    countdict["count"] += 1
+    return ""
+
+
+@register.simple_tag
+def getCount(countdict):
+    return countdict["count"]
