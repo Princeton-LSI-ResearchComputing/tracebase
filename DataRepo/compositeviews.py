@@ -278,7 +278,7 @@ class BaseSearchView:
                 fld_list += self.getFldValues(subquery)
             return fld_list
 
-    def isAMatch(self, rootrec, mm_keypath, mm_rec, query):
+    def isAMatch(self, rootrec, mm_lookup, query):
         """
         Given a pair of records from tables in a many-to-many relationship, the key path of the M:M model, and a qry
         object's tree of the searched format, this method returns false if the row should be omitted from the table.
@@ -287,62 +287,21 @@ class BaseSearchView:
         left-joins everything related to the root table records.
         """
         if query["type"] == "query":
-            recval = self.getValue(rootrec, query["fld"], mm_rec, mm_keypath)
+            recval = self.getValue(rootrec, mm_lookup, query["fld"])
             return self.valueMatches(recval, query["ncmp"], query["val"])
         else:
             if query["val"] == "all":
                 for subquery in query["queryGroup"]:
-                    if not self.isAMatch(rootrec, mm_keypath, mm_rec, subquery):
+                    if not self.isAMatch(rootrec, mm_lookup, subquery):
                         return False
                 return True
             else:
                 for subquery in query["queryGroup"]:
-                    if self.isAMatch(rootrec, mm_keypath, mm_rec, subquery):
+                    if self.isAMatch(rootrec, mm_lookup, subquery):
                         return True
                 return False
 
-    def isAMatch2(self, rootrec, mm_lookup, query):
-        """
-        Given a pair of records from tables in a many-to-many relationship, the key path of the M:M model, and a qry
-        object's tree of the searched format, this method returns false if the row should be omitted from the table.
-        It basically re-applies the search defined in qry, because when there's a search term from a M:M table,
-        django's join method provides no means to filter out records that do not match those search terms.  It simple
-        left-joins everything related to the root table records.
-        """
-        if query["type"] == "query":
-            recval = self.getValue2(rootrec, mm_lookup, query["fld"])
-            return self.valueMatches(recval, query["ncmp"], query["val"])
-        else:
-            if query["val"] == "all":
-                for subquery in query["queryGroup"]:
-                    if not self.isAMatch2(rootrec, mm_lookup, subquery):
-                        return False
-                return True
-            else:
-                for subquery in query["queryGroup"]:
-                    if self.isAMatch2(rootrec, mm_lookup, subquery):
-                        return True
-                return False
-
-    def getValue(self, rootrec, qry_keypath, mm_rec, mm_keypath):
-        """
-        Given a pair of records from tables in a many-to-many relationship, the key path of the M:M model, and the
-        keypath of a single fld value in the qry search tree, the value of the fld in the record in which it resides
-        (whether it's in the M:M table record or the root table record).  The qry_keypath is assumed to end in a field
-        name, which is used to obtain the value.
-        """
-        qry_keypath_list = self.keypathStringToList(qry_keypath)
-        mm_keypath_list = self.keypathStringToList(mm_keypath)
-        ptr = rootrec
-        if mm_keypath in qry_keypath:
-            # shift the mm_keypath off the qry_keypath
-            qry_keypath_list = qry_keypath_list[len(mm_keypath_list):]
-            ptr = mm_rec
-        for key in qry_keypath_list:
-            ptr = getattr(ptr, key)
-        return ptr
-    
-    def getValue2(self, rootrec, mm_lookup, qry_keypath):
+    def getValue(self, rootrec, mm_lookup, qry_keypath):
         """
         Given a pair of records from tables in a many-to-many relationship, the key path of the M:M model, and the
         keypath of a single fld value in the qry search tree, the value of the fld in the record in which it resides
@@ -1401,7 +1360,7 @@ class BaseAdvancedSearchView:
         fmt = qry["selectedtemplate"]
         return self.modeldata[fmt].shouldReFilter(qry["searches"][fmt]["tree"])
     
-    def isAMatch(self, rootrec, mm_keypath, mm_rec, query):
+    def isAMatch(self, rootrec, mm_lookup, query):
         """
         Given a pair of records from tables in a many-to-many relationship, the key path of the M:M model, and a qry
         object, this method returns false if the row should be omitted from the table.
@@ -1410,19 +1369,7 @@ class BaseAdvancedSearchView:
         left-joins everything related to the root table records.
         """
         fmt = query["selectedtemplate"]
-        return self.modeldata[fmt].isAMatch(rootrec, mm_keypath, mm_rec, query["searches"][fmt]["tree"])
-
-
-    def isAMatch2(self, rootrec, mm_lookup, query):
-        """
-        Given a pair of records from tables in a many-to-many relationship, the key path of the M:M model, and a qry
-        object, this method returns false if the row should be omitted from the table.
-        It basically re-applies the search defined in qry, because when there's a search term from a M:M table,
-        django's join method provides no means to filter out records that do not match those search terms.  It simple
-        left-joins everything related to the root table records.
-        """
-        fmt = query["selectedtemplate"]
-        return self.modeldata[fmt].isAMatch2(rootrec, mm_lookup, query["searches"][fmt]["tree"])
+        return self.modeldata[fmt].isAMatch(rootrec, mm_lookup, query["searches"][fmt]["tree"])
 
 
 class UnknownComparison(Exception):

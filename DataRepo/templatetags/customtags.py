@@ -1,6 +1,6 @@
 from django import template
 from django.template.defaultfilters import floatformat
-from DataRepo.views import manyToManyFilter, manyToManyFilter2
+from DataRepo.views import manyToManyFilter
 
 register = template.Library()
 
@@ -71,17 +71,6 @@ def count_tracer_groups(res):
 
 
 @register.simple_tag
-def shouldKeepManyToMany(rootrec, mm_keypath, mm_rec, qry, refilter):
-    """
-    If refilter is true, this method calls the views.manyToManyFilter to filter out records that do not match search
-    terms from a many-to-many related table.  Note, this can only handle composite views that contain a single many-to-
-    many relationship.  If there are multiple many-to-many relationships in the composite view, a new method will have
-    to be written.
-    """
-    return not refilter or manyToManyFilter(rootrec, mm_keypath, mm_rec, qry)
-
-
-@register.simple_tag
 def shouldKeepManyToMany2(rootrec, mm_lookup, qry, refilter):
     """
     If refilter is true, this method calls the views.manyToManyFilter to filter out records that do not match search
@@ -89,7 +78,7 @@ def shouldKeepManyToMany2(rootrec, mm_lookup, qry, refilter):
     many relationship.  If there are multiple many-to-many relationships in the composite view, a new method will have
     to be written.
     """
-    return not refilter or manyToManyFilter2(rootrec, mm_lookup, qry)
+    return not refilter or manyToManyFilter(rootrec, mm_lookup, qry)
 
 
 @register.simple_tag
