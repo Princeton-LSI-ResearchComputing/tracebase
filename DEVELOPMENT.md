@@ -18,6 +18,7 @@ This document will serve to guide developers on implementing new code.
          - AutoFields (like IDs) should not be displayed (because they can change depending on how the data is loaded from scratch, thus, they should be obfuscated from the user).
          - If `displayed` is False, set a `handoff` key whose value is a unique field (e.g. `name`).  See any `id` field in the copied class's models data.
    - If not already there, add the root model to the DataRepo.models import at the top of the file.
+   - Set each model's many-to-many value based on whether it is in a many-to-many relatioship with the root model.
    - Add the new class to the for loop in BaseAdvancedSearchView.__init__
 
 2. `DataRepo/forms.py`
@@ -28,7 +29,9 @@ This document will serve to guide developers on implementing new code.
 
 3. `DataRepo/templates/results/<format name>.html`
    - Copy `DataRepo/templates/results/peakgroups.html` to a new file with a name that indicates the format and edit as you wish, following these guidelines:
-      - If a field's path includes a many-to-many relationship, e.g. `models.ManyToManyField`, a nested `for` loop will be necessary in the template, e.g. `{% for study in pg.msrun.sample.animal.studies.all %}`.  If there are no M:M relationships, the nested `for` loop in the copied template may be removed.
+      - If a field's path includes a many-to-many relationship, e.g. `models.ManyToManyField`
+         - A nested `for` loop will be necessary in the template, e.g. `{% for study in pg.msrun.sample.animal.studies.all %}`.  If there are no M:M relationships, the nested `for` loop in the copied template may be removed.
+         - The record from the inner loop must be added to the `mm_lookup` dict using addToDict, e.g. `{% addToDict mm_lookup "peak_group__msrun__sample__animal__studies" study %}`.  Here, a "study" record object is added.  The key must be the model's path from compositeviews for the M:M model (e.g. the Study model).
       - Use column headers that match the field's displayname set in step 1 so that they match the field select list.  (A reference to this value may be supplied in the future.)
       - Numeric values should use `<td class="text-end">`
       - Numeric values that have long decimal strings should be formatted with a tooltip like this: `<p title="{{ rec.longval }}">{{ rec.longval|floatformat:4 }}</p>`
@@ -36,11 +39,13 @@ This document will serve to guide developers on implementing new code.
 
 4. `DataRepo/templates/downloads/<format name>.tsv`
    - Copy `DataRepo/templates/downloads/peakgroups.tsv` to a new file with a name that indicates the format (e.g., same name as in step 3 with a different extension) and edit as you wish, following these guidelines:
-      - If a field's path includes a many-to-many relationship, e.g. `models.ManyToManyField`, a nested `for` loop will be necessary in the template, e.g. `{% for study in pg.msrun.sample.animal.studies.all %}`.  If there are no M:M relationships, the nested `for` loop in the copied template may be removed.
+      - If a field's path includes a many-to-many relationship, e.g. `models.ManyToManyField`
+         - A nested `for` loop will be necessary in the template, e.g. `{% for study in pg.msrun.sample.animal.studies.all %}`.  If there are no M:M relationships, the nested `for` loop in the copied template may be removed.
+         - The record from the inner loop must be added to the `mm_lookup` dict using addToDict, e.g. `{% addToDict mm_lookup "peak_group__msrun__sample__animal__studies" study %}`.  Here, a "study" record object is added.  The key must be the model's path from compositeviews for the M:M model (e.g. the Study model).
       - Use column headers that match the field's displayname set in step 1 so that they match the field select list.  (A reference to this value may be supplied in the future.)
 
 5. `DataRepo/templates/DataRepo/search/results/display.html`
-   - Copy the `{% elif qry.selectedtemplate == "pdtemplate"...` line and the include line below it, paste it above the following `else`, and make the following edits:
+   - Copy the `{% elif selfmt == "pdtemplate"...` line and the include line below it, paste it above the following `else`, and make the following edits:
       - Replace both occurrences of `pdtemplate` with the ID you assigned at the top of step 1
       - Replace the filename on the include line with the file created in step 3 above
 
