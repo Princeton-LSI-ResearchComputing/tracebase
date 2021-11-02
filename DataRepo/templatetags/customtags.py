@@ -71,7 +71,7 @@ def count_tracer_groups(res):
 
 
 @register.simple_tag
-def shouldKeepManyToMany2(rootrec, mm_lookup, qry, refilter):
+def shouldKeepManyToMany(rootrec, mm_lookup, qry, refilter):
     """
     If refilter is true, this method calls the views.manyToManyFilter to filter out records that do not match search
     terms from a many-to-many related table.  Note, this can only handle composite views that contain a single many-to-

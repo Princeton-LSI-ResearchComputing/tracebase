@@ -52,7 +52,7 @@
                         {# At the most nested loop level, we have enough info to refilter for unmatching many-to-many records #}
 
                         {% define True as first %}
-                        {% for study in pg.msrun.sample.animal.studies.all %}{% addToDict mm_lookup "msrun__sample__animal__studies" study %}{% shouldKeepManyToMany2 pg mm_lookup qry refilter as keep %}{% if keep %}{% if not first %},<br>{% endif%}<a href="{% url 'study_detail' study.id %}">{{ study.name }}</a>{% endif %}{% define False as first %}{% endfor %}
+                        {% for study in pg.msrun.sample.animal.studies.all %}{% addToDict mm_lookup "msrun__sample__animal__studies" study %}{% shouldKeepManyToMany pg mm_lookup qry refilter as keep %}{% if keep %}{% if not first %},<br>{% endif%}<a href="{% url 'study_detail' study.id %}">{{ study.name }}</a>{% endif %}{% define False as first %}{% endfor %}
                     </td>
 
                     <!-- Treatment -->
