@@ -234,6 +234,25 @@ class Compound(models.Model):
     def atom_count(self, atom):
         return atom_count_in_formula(self.formula, atom)
 
+    def get_or_create_synonym(self, synonym_name=None):
+        if not synonym_name:
+            synonym_name = self.name
+        (compound_synonym, created) = CompoundSynonym.objects.get_or_create(
+            name=synonym_name, compound_id=self.id
+        )
+        return (compound_synonym, created)
+
+    def save(self, *args, **kwargs):
+        """
+        Call the "real" save() method first, to generate the compound_id,
+        because the compound_id is intrinsic to the compound_synonym(s) which we
+        are auto-creating afterwards
+        """
+        super().save(*args, **kwargs)
+        (_primary_synonym, created) = self.get_or_create_synonym()
+        ucfirst_synonym = self.name[0].upper() + self.name[1:]
+        (_secondary_synonym, created) = self.get_or_create_synonym(ucfirst_synonym)
+
     class Meta:
         verbose_name = "compound"
         verbose_name_plural = "compounds"

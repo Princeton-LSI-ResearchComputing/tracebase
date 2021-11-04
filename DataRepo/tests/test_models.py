@@ -105,9 +105,12 @@ class CompoundSynonymTests(TestCase):
         self.PRIMARY_COMPOUND = Compound.objects.create(
             name="hexadecanoic acid", formula="C16H32O2", hmdb_id="HMDB0000220"
         )
+        # just the act of creating a compound (above) creates two synonyms for
+        # it, in this case
+        self.ALIASES_SETUP_COUNT = 2
         aliases = ["palmitic acid", "C16:0"]
-        self.ALIASES_SETUP_COUNT = len(aliases)
-        self.PRIMARY_ALIAS = aliases[0]
+        self.ALIASES_SETUP_COUNT += len(aliases)
+        self.PRIMARY_ALIASES = aliases
         # make synonyms
         for alias in aliases:
             CompoundSynonym.objects.create(name=alias, compound=self.PRIMARY_COMPOUND)
@@ -117,28 +120,44 @@ class CompoundSynonymTests(TestCase):
         )
 
     def test_compound_synonym_insertion1(self):
+        #  validates all the aliases created during setUp
+        self.assertTrue(
+            self.PRIMARY_COMPOUND.synonyms.filter(name="hexadecanoic acid").exists()
+        )
+        self.assertTrue(
+            self.PRIMARY_COMPOUND.synonyms.filter(name="Hexadecanoic acid").exists()
+        )
+        for alias in self.PRIMARY_ALIASES:
+            self.assertTrue(self.PRIMARY_COMPOUND.synonyms.filter(name=alias).exists())
         # setup insertions count
         self.assertEqual(
             len(self.PRIMARY_COMPOUND.synonyms.all()), self.ALIASES_SETUP_COUNT
         )
 
     def test_compound_synonym_insertion2(self):
+        # test CompoundSynonym's intrinsic class creation method
         alt_name = "Palmitate"
         CompoundSynonym.objects.create(name=alt_name, compound=self.PRIMARY_COMPOUND)
+        self.assertTrue(self.PRIMARY_COMPOUND.synonyms.filter(name=alt_name).exists())
+
+    def test_compound_synonym_insertion3(self):
+        # test Compound's utility instance creation method
+        alt_name = "Hexadecanoate"
+        self.PRIMARY_COMPOUND.get_or_create_synonym(alt_name)
         self.assertTrue(self.PRIMARY_COMPOUND.synonyms.filter(name=alt_name).exists())
 
     def test_compound_synonym_duplication1(self):
         # test that duplicate insertion fails
         with self.assertRaises(IntegrityError):
             CompoundSynonym.objects.create(
-                name=self.PRIMARY_ALIAS, compound=self.PRIMARY_COMPOUND
+                name=self.PRIMARY_ALIASES[0], compound=self.PRIMARY_COMPOUND
             )
 
     def test_compound_synonym_duplication2(self):
         # test that attempting to use the same synonym for multiple compounds fails
         with self.assertRaises(IntegrityError):
             CompoundSynonym.objects.create(
-                name=self.PRIMARY_ALIAS, compound=self.SECONDARY_COMPOUND
+                name=self.PRIMARY_ALIASES[0], compound=self.SECONDARY_COMPOUND
             )
 
     def test_compound_deletion(self):
@@ -159,7 +178,6 @@ class CompoundSynonymTests(TestCase):
         )
         alias = "1 methylhistidine"
         cs = CompoundSynonym.objects.create(name=alias, compound=c)
-        self.assertEqual(len(c.synonyms.all()), 1)
         cs.delete()
         self.assertTrue(Compound.objects.filter(name="1-Methylhistidine").exists())
 
