@@ -2,36 +2,31 @@
 {% block content %}
     <div>
         {% define True as valid_search %}
+        {% define default_format as selfmt %}
         {% if mode == "search" %}
             {% if qry %}
-                {% define qry.selectedtemplate as selfmt %}
-                {% if selfmt not in forms.keys %}
-                    {% define False as valid_search %}
-                {% endif %}
-                {% define forms|index:selfmt as selfrm %}
-                {% if valid_search and selfrm.0.val != "" and not selfrm.0.val.errors %}
-                    <hr>
-                    <h3 style="margin: 0; display: inline-block;">{{ qry|getFormatName:qry.selectedtemplate }} Results ({{ res.count|default:"0" }})</h3>
+                {% if qry.selectedtemplate in forms.keys %}
+                    {% define forms|index:qry.selectedtemplate as selfrm %}
+                    {% if not valid_search or selfrm.0.val == "" or selfrm.0.val.errors %}
+                        {% define False as valid_search %}
+                    {% else %}
+                        {% define qry.selectedtemplate as selfmt %}
+                    {% endif %}
                 {% else %}
                     {% define False as valid_search %}
                 {% endif %}
-            {% else %}
-                {% define default_format as selfmt %}
             {% endif %}
         {% else %}
-            {% define format as selfmt %}
-            {% if selfmt not in forms.keys %}
-                {% define False as valid_search %}
-            {% endif %}
-            <hr>
-            {% if valid_search %}
-                <h3 style="margin: 0; display: inline-block;">{{ res.count|default:"0" }} Records</h3>
+            {% if format in forms.keys %}
+                {% define format as selfmt %}
             {% else %}
-                <label class="text-danger">Invalid format[1]: {{ selfmt }}</label>
+                {% define False as valid_search %}
             {% endif %}
         {% endif %}
 
         {% if res %}
+            <hr>
+
             {% if valid_search %}
                 <div style="float: right;">
                     <form action="/DataRepo/search_advanced_tsv/" id="advanced-search-download-form" method="POST">
@@ -42,22 +37,24 @@
                         {{ download_form.management_form }}
                     </form>
                 </div>
-            {% endif %}
 
-            {% if qry.selectedtemplate == "pgtemplate" or mode == "browse" and format == "pgtemplate" %}
-                {% include "DataRepo/search/results/peakgroups.html" %}
-            {% elif qry.selectedtemplate == "pdtemplate" or mode == "browse" and format == "pdtemplate" %}
-                {% include "DataRepo/search/results/peakdata.html" %}
-            {% elif qry.selectedtemplate == "fctemplate" or mode == "browse" and format == "fctemplate" %}
-                {% include "DataRepo/search/results/fcirc.html" %}
+                {% if selfmt == "pgtemplate" %}
+                    {% include "DataRepo/search/results/peakgroups.html" with selfmt=selfmt %}
+                {% elif selfmt == "pdtemplate" %}
+                    {% include "DataRepo/search/results/peakdata.html" with selfmt=selfmt %}
+                {% elif selfmt == "fctemplate" %}
+                    {% include "DataRepo/search/results/fcirc.html" with selfmt=selfmt %}
+                {% endif %}
             {% else %}
-                <label class="text-danger">Invalid format[2]: {{ selfmt }}</label>
+                <label class="text-danger">Invalid format: {{ selfmt }}</label>
             {% endif %}
 
         {% else %}
             {% if valid_search and mode == "browse" or qry %}
+                <hr>
                 <p>No matching records found.</p>
             {% endif %}
+            {# 'else' is just the search forms #}
         {% endif %}
     </div>
 

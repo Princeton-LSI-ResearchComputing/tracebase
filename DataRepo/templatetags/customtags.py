@@ -1,6 +1,8 @@
 from django import template
 from django.template.defaultfilters import floatformat
 
+from DataRepo.views import manyToManyFilter
+
 register = template.Library()
 
 
@@ -69,8 +71,41 @@ def count_tracer_groups(res):
     return cnt
 
 
-@register.filter
-def joinStudyNames(delimiter, recs):
-    return delimiter.join(
-        list(map(lambda studyrec: studyrec["name"], recs.values("name")))
-    )
+@register.simple_tag
+def shouldKeepManyToMany(rootrec, mm_lookup, qry, refilter):
+    """
+    If refilter is true, this method calls the views.manyToManyFilter to filter out records that do not match search
+    terms from a many-to-many related table.  Note, this can only handle composite views that contain a single many-to-
+    many relationship.  If there are multiple many-to-many relationships in the composite view, a new method will have
+    to be written.
+    """
+    return not refilter or manyToManyFilter(rootrec, mm_lookup, qry)
+
+
+@register.simple_tag
+def createDict():
+    return {}
+
+
+@register.simple_tag
+def addToDict(theDict, theKey, theVal):
+    theDict[theKey] = theVal
+    # We don't need to return the dict, because the one created by createDict is still in memory and will reflect this
+    # addition, but we don't want there to be a visible effect in the template either, so return an empty string
+    return ""
+
+
+@register.simple_tag
+def createCounter():
+    return {"count": 0}
+
+
+@register.simple_tag
+def incrementCounter(countdict):
+    countdict["count"] += 1
+    return ""
+
+
+@register.simple_tag
+def getCount(countdict):
+    return countdict["count"]
