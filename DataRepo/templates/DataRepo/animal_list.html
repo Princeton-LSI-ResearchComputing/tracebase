@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load customtags %}
 
 {% block title %}Animals{% endblock %}
 
@@ -68,4 +69,65 @@
         {% endif %}
     </ul>
 </div>
+<br>
+<h5>New Animal Table: </h5>
+<div>
+    {% if df %}
+    <table class="table table-sm table-hover table-bordered table-responsive-xl table-striped"
+        id="table"
+        data-toggle="table"
+        data-buttons-class="primary"
+        data-buttons-align="left"
+        data-filter-control="true"
+        data-search="true"
+        data-search-align="left"
+        data-show-search-clear-button="true"
+        data-show-multi-sort="true"
+        data-show-columns="true"
+        data-show-columns-toggle-all="true"
+        data-show-fullscreen="true"
+        data-show-export="true"
+        data-export-types="['csv', 'txt', 'excel']">
+        <thead>
+            <tr>
+                <th data-field="Study" data-filter-control="input" data-sortable="true">Animal</th>
+                <th data-field="Studies" data-filter-control="input" data-sortable="true">Studies</th>
+                <th data-field="Genotypes" data-filter-control="select" data-sortable="true">Genotypes</th>
+                <th data-field="Tracers" data-filter-control="input" data-sortable="true">Tracers</th>
+                <th data-field="Treatments" data-filter-control="input" data-sortable="true">Treatments</th-->
+                <th data-field="Sample-Owners" data-filter-control="select" data-sortable="true">Sample Owners</th>
+                <th data-field="Total-Tissue" data-filter-control="input" data-sortable="true">Total Tissues</th>
+                <th data-field="Total-Sample" data-filter-control="input" data-sortable="true">Total Samples</th>
+                <th data-field="Total-MSRun" data-filter-control="input" data-sortable="true">Total MSRuns</th>
+
+            </tr>
+        </thead>
+        <tbody>
+            {% for i in df %}
+            <tr>
+                <td><a href="{% url 'animal_detail' i.animal_id %}">{{ i.animal }}</a></td>
+                <td>{{ i.study_id_name_list |obj_hyperlink:"study" }}</a></td>
+                <td>{{ i.genotype }}</td>
+                <td><a href="{% url 'compound_detail' i.tracer_compound_id %}">{{ i.tracer }}</a></td>
+                <td>
+                    {% if i.treatment %}
+                        <a href="{% url 'protocol_detail' i.treatment_id %}">{{ i.treatment }}</a>
+                    {% else %}
+                        {{ i.treatment }}
+                    {% endif %}
+                </td>
+                <td>{{ i.sample_owners  |join:","}}</td>
+                <td>{{ i.total_tissue }}</td>
+                <td>{{ i.total_sample }}</td>
+                <td>{{ i.total_msrun }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+</div>
+<br>
+<h5>
+    <a href="{% url 'study_summary' %}">Summary for all studies, animals, and samples</a>
+</h5>
 {% endblock %}

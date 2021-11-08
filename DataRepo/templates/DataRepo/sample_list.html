@@ -3,10 +3,15 @@
 {% block title %}Samples{% endblock %}
 
 {% block content %}
-<div>
-    <ul>
-        <h4>List of Samples</h4>
 
+<div>
+  
+    <h4>List of Samples</h4>
+    <br>
+    <h5>
+    <a href="{% url 'study_summary' %}">Summary for all studies, animals, and samples</a>
+    </h5>
+    <ul>
         {% if sample_list %}
         <br>
         <table class="table table-sm table-hover table-bordered table-responsive table-striped w-auto mw-100"
@@ -28,7 +33,7 @@
                 <tr>
                     <th data-field="Sample" data-filter-control="input" data-sortable="true">Sample</th>
                     <th data-field="Animal" data-filter-control="input" data-sortable="true">Animal</th>
-                    <th data-field="Tissue" data-filter-control="select" data-sortable="true">Tissue</th>
+                    <th data-field="Tissue" data-filter-control="input" data-sortable="true">Tissue</th>
                     <th data-field="Researcher" data-filter-control="select" data-sortable="true">Researcher</th>
                     <th data-field="Collection_Date" data-filter-control="input" data-sortable="true">Collection Date</th>
                     <th data-field="Time-Collected_After_Infusion" data-filter-control="input" data-sortable="true">Time Collected After Infusion (hh:mm:ss)</th>
@@ -39,7 +44,7 @@
                 <tr>
                     <td><a href="{% url 'sample_detail' sample.id %}">{{sample.name }}</a></td>
                     <td><a href="{% url 'animal_detail' sample.animal.id %}">{{ sample.animal.name }}</a></td>
-                    <td>{{ sample.tissue.name }}</td>
+                    <td><a href="{% url 'tissue_detail' sample.tissue.id %}">{{ sample.tissue }}</a></td>
                     <td>{{ sample.researcher }}</td>
                     <td>{{ sample.date }}</td>
                     <td>{{ sample.time_collected }}</td>

@@ -1,29 +1,64 @@
 {% extends "base.html" %}
+{% load customtags %}
 
 {% block title %}Studies{% endblock %}
 
 {% block content %}
-<div>
-    <ul>
-        <h4>List of Studies</h4>
 
-        {% if study_list %}
-        <br>
-        <table class="table table-sm table-hover table-striped table-bordered">
+<h4>List of Studies</h4>
+
+<div>
+    {% if df %}
+    <table class="table table-sm table-hover table-bordered table-responsive-xl table-striped"
+        id="table"
+        data-toggle="table"
+        data-buttons-class="primary"
+        data-buttons-align="left"
+        data-filter-control="true"
+        data-search="true"
+        data-search-align="left"
+        data-show-search-clear-button="true"
+        data-show-multi-sort="true"
+        data-show-columns="true"
+        data-show-columns-toggle-all="true"
+        data-show-fullscreen="true"
+        data-show-export="true"
+        data-export-types="['csv', 'txt', 'excel']">
+        <thead>
             <tr>
-            <th>Name</th>
-            <th>Description</th>
+                <th data-field="Study" data-filter-control="input" data-sortable="true">Study</th>
+                <th data-field="Study-Description" data-filter-control="input" data-sortable="true">Description</th>
+                <th data-field="Genotypes" data-filter-control="select" data-sortable="true">Genotypes</th>
+                <th data-field="Tracers" data-filter-control="input" data-sortable="true">Tracers</th>
+                <th data-field="Treatments" data-filter-control="input" data-sortable="true">Treatments</th-->
+                <th data-field="Sample-Owners" data-filter-control="select" data-sortable="true">Sample Owners</th>
+                <th data-field="Total-Animal" data-filter-control="input" data-sortable="true">Total Animals</th>
+                <th data-field="Total-Tissue" data-filter-control="input" data-sortable="true">Total Tissues</th>
+                <th data-field="Total-Sample" data-filter-control="input" data-sortable="true">Total Samples</th>
+                <th data-field="Total-MSRun" data-filter-control="input" data-sortable="true">Total MSRuns</th>
             </tr>
-            {% for study in study_list %}
+        </thead>
+        <tbody>
+            {% for i in df %}
             <tr>
-            <td><a href="{% url 'study_detail' study.id %}">{{ study.name }}</a></td>
-            <td>{{ study.description }}</td>
+                <td><a href="{% url 'study_detail' i.study_id %}">{{ i.study }}</a></td>
+                <td>{{ i.study_description }}</td>
+                <td>{{ i.genotypes |join:"," }}</td>
+                <td>{{ i.tracer_id_name_list |obj_hyperlink:"tracer" }}</td>
+                <td>{{ i.treatment_id_name_list |obj_hyperlink:"treatment"}}</td>
+                <td>{{ i.sample_owners  |join:","}}</td>
+                <td>{{ i.total_animal }}</td>
+                <td>{{ i.total_tissue }}</td>
+                <td>{{ i.total_sample }}</td>
+                <td>{{ i.total_msrun }}</td>
             </tr>
             {% endfor %}
-        </table>
-        {% else %}
-        <p>There are no studies.</p>
-        {% endif %}
-    </ul>
+        </tbody>
+    </table>
+    {% endif %}
 </div>
+<br>
+<h5>
+    <a href="{% url 'study_summary' %}">Summary for all studies, animals, and samples</a>
+</h5>
 {% endblock %}

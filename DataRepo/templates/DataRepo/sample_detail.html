@@ -25,7 +25,7 @@
         </tr>
         <tr>
             <td>Tissue</td>
-            <td>{{ sample.tissue}}</td>
+            <td><a href="{% url 'tissue_detail' sample.tissue.id %}">{{ sample.tissue }}</a></td>
         </tr>
         <tr>
             <td>Time Collected After Infusion (hh:mm:ss)</td>

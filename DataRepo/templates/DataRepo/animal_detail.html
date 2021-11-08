@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load customtags %}
 
 {% block title %}Animal Record - {{ animal.name }}{% endblock %}
 
@@ -11,6 +12,11 @@
             View {{ animal.samples.count }} samples
         </a>
     </p>
+
+    <h5><a href="{% url 'search_basic' 'Animal' 'id' 'exact' animal.id 'peakgroups' %}">View Peak Group Data</a></h5>
+    <h5><a href="{% url 'search_basic' 'Animal' 'id' 'exact' animal.id 'peakdata' %}">View Peak Data</a></h5>
+    <h5><a href="{% url 'search_basic' 'Animal' 'id' 'exact' animal.id 'fcirc' %}">View Fcirc Data</a></h5>
+
     <h5>Tracer Information:</h5>
     <table class="table table-bordered table-hover w-auto mw-100">
         <tr>
@@ -66,4 +72,98 @@
         </tr>
     </table>
 </div>
+<br>
+<div>
+    <h5>Sample Data for the Animal:</h5>
+    {% if df %}
+    <div class="table-responsive">
+    <table class="table table-sm table-hover table-bordered table-striped" w-auto mw-100
+        id="table1"
+        data-toggle="table"
+        data-buttons-class="primary"
+        data-buttons-align="left"
+        data-filter-control="true"
+        data-search="true"
+        data-search-align="left"
+        data-show-search-clear-button="true"
+        data-show-fullscreen="true"
+        data-show-multi-sort="true"
+        data-show-columns="true"
+        data-show-columns-toggle-all="true"
+        data-show-export="true"
+        data-export-types="['csv', 'txt', 'excel']">
+        <thead>
+            <tr>
+                <th data-field="Animal" data-filter-control="input" data-sortable="true">Animal</th>
+                <th data-field="Study" data-filter-control="input" data-sortable="true">Studies</th>
+                <th data-field="Genotype" data-filter-control="select" data-sortable="true" data-visible="false"></th>Genotype
+                <th data-field="Body-Weight" data-visible="false">Body Weight (g)</th>
+                <th data-field="Age" data-filter-control="input" data-sortable="true" data-visible="false">Age (weeks)</th>
+                <th data-field="Sex" data-filter-control="select" data-sortable="true" data-visible="false">Sex</th>
+                <th data-field="Diet" data-filter-control="input" data-sortable="true" data-visible="false">Diet</th>
+                <th data-field="Feeding-Status" data-filter-control="select" data-sortable="true" data-visible="false">Feeding Status</th>
+                <th data-field="Treatment" data-filter-control="input" data-sortable="true">Treatment</th>
+                <th data-field="Tracer" data-filter-control="input" data-sortable="true">Tracer</th>
+                <th data-field="Labeled-Atom" data-filter-control="select" data-sortable="true" data-visible="false">Labeled Element</th>
+                <th data-field="Labeled-Count" data-filter-control="input" data-sortable="true" data-visible="false">Labeled Count</th>
+                <th data-field="Tracer-Infusion-Rate" data-filter-control="input" data-sortable="true" data-visible="false">Infusion Rate (ul/min/g)</th>
+                <th data-field="Tracer-Infusion-Concentration" data-filter-control="input" data-sortable="true" data-visible="false">Infusion Concentration (mM)</th>
+                <th data-field="Tissue" data-filter-control="input" data-sortable="true">Tissue</th>
+                <th data-field="Sample" data-filter-control="input" data-sortable="true">Sample</th>
+                <th data-field="Sample-Owner" data-filter-control="select" data-sortable="true">Sample Owner</th>
+                <th data-field="Sample-Date" data-filter-control="input" data-sortable="true">Sample Date</th>
+                <th data-field=Collect-Time-Minites data-filter-control="input" data-sortable="true" data-visible="false">Sample Collect Time(m)</th>
+                <th data-field="MSRun-Detail">MSRun Detail</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for i in df %}
+            <tr>
+                <td><a href="{% url 'animal_detail' i.animal_id %}">{{ i.animal }}</a></td>
+                <td>{{ i.study_id_name_list |obj_hyperlink:"study" }}</a></td>
+                <td>{{ i.genotype }}</td>
+                <td>{{ i.body_weight }}</td>
+                <td>{{ i.age }}</td>
+                <td>{{ i.sex }}</td>
+                <td>{{ i.diet }}</td>
+                <td>{{ i.feeding_status }}</td>
+                <!--handle None value for treatement-->
+                <td>
+                {% if i.treatment %}
+                    <a href="{% url 'protocol_detail' i.treatment_id %}">{{ i.treatment }}</a>
+                {% else %}
+                    {{ i.treatment }}
+                {% endif %}
+                </td>
+                <td><a href="{% url 'compound_detail' i.tracer_compound_id %}">{{ i.tracer }}</a></td>
+                <td>{{ i.tracer_labeled_atom }}</td>
+                <td>{{ i.tracer_labeled_count }}</td>
+                <td>{{ i.tracer_infusion_rate }}</a></td>
+                <td>{{ i.tracer_infusion_concentration }}</a></td>
+                <td><a href="{% url 'tissue_detail' i.tissue_id %}">{{ i.tissue }}</a></td>
+                <td><a href="{% url 'sample_detail' i.sample_id %}">{{ i.sample }}</a></td>
+                <td>{{ i.sample_owner }}</td>
+                <td>{{ i.sample_date }}</td>
+                <td>{{ i.collect_time_in_minutes }}</td>
+                <td><a href="{% url 'msrun_detail' i.msrun_id %}">MSRun Detail</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block js_extras %}
+    {{ block.super }}
+    <script>
+        var $table = $('#table')
+        
+        $.extend($.fn.bootstrapTable.columnDefaults, {
+            valign: "top",
+            width: "2 %"
+        });
+
+        $('#table').bootstrapTable()
+    </script>
 {% endblock %}
