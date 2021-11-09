@@ -1,11 +1,11 @@
 import collections
+import json
 import re
 from collections import namedtuple
 from datetime import datetime, timedelta
 
 import dateutil.parser  # type: ignore
 import pandas as pd
-import json
 from django.db import transaction
 from pandas.errors import EmptyDataError
 
@@ -1351,8 +1351,8 @@ class QuerysetToPandasDataFrame:
         # add a column to join id and name for each tracer
         all_stud_msrun_df["tracer_id_name"] = (
             all_stud_msrun_df["tracer_compound_id"]
-            .astype(str).
-            str.cat(all_stud_msrun_df["tracer"], sep="||")
+            .astype(str)
+            .str.cat(all_stud_msrun_df["tracer"], sep="||")
         )
         # add a column to join treatment_id and treatment
         all_stud_msrun_df["treatment_id_name"] = (

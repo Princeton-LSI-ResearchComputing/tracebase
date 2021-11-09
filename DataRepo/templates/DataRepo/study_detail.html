@@ -50,8 +50,7 @@
 <div>
     <h5>Animal and Sample Data for the Study:</h5>
     {% if df %}
-    <div class="table-responsive">
-    <table class="table table-sm table-hover table-bordered table-striped" w-auto mw-100
+    <table class="table table-sm table-hover table-bordered table-striped table-responsive" w-auto mw-100
         id="table1"
         data-toggle="table"
         data-buttons-class="primary"
@@ -87,7 +86,7 @@
                 <th data-field="Sample" data-filter-control="input" data-sortable="true">Sample</th>
                 <th data-field="Sample-Owner" data-filter-control="select" data-sortable="true">Sample Owner</th>
                 <th data-field="Sample-Date" data-filter-control="input" data-sortable="true">Sample Date</th>
-                <th data-field=Collect-Time-Minites data-filter-control="input" data-sortable="true" data-visible="false">Sample Collect Time(m)</th>
+                <th data-field="Collect-Time-Minutes" data-filter-control="input" data-sortable="true" data-visible="false">Sample Collect Time(m)</th>
                 <th data-field="MSRun-Detail" data-filter-control="input" data-sortable="true" data-visible="false">MSRun Detail</th>
             </tr>
         </thead>
@@ -134,7 +133,7 @@
     {{ block.super }}
     <script>
         var $table = $('#table1')
-       
+
         $.extend($.fn.bootstrapTable.columnDefaults, {
                 valign: "top"
         });

@@ -31,9 +31,9 @@ from DataRepo.models import (
     Tissue,
 )
 from DataRepo.multiforms import MultiFormsView
-from DataRepo.utils import MissingSamplesError, ResearcherError
-import pandas as pd
+from DataRepo.utils import MissingSamplesError
 from DataRepo.utils import QuerysetToPandasDataFrame as qs2df
+from DataRepo.utils import ResearcherError
 
 
 def home(request):
@@ -76,10 +76,8 @@ class StudyListView(ListView):
     def get_context_data(self, **kwargs):
         # Call the base implementation first to get the context
         context = super(StudyListView, self).get_context_data(**kwargs)
-
-	    # add data from the DataFrame to the context
+        # add data from the DataFrame to the context
         stud_list_stats_df = qs2df.get_study_list_stats_df()
-
         # convert DataFrame to a list of dictionary
         data = qs2df.df_to_list_of_dict(stud_list_stats_df)
         context["df"] = data
@@ -927,11 +925,9 @@ class AnimalListView(ListView):
     def get_context_data(self, **kwargs):
         # Call the base implementation first to get the context
         context = super(AnimalListView, self).get_context_data(**kwargs)
-
-	    # add data from the DataFrame to the context
+        # add data from the DataFrame to the context
         anim_list_stats_df = qs2df.get_animal_list_stats_df()
         # print(anim_list_stats_df.columns)
-
         # convert DataFrame to a list of dictionary
         data = qs2df.df_to_list_of_dict(anim_list_stats_df)
         # print(data[0])
@@ -951,7 +947,7 @@ class AnimalDetailView(DetailView):
 
         pk = self.kwargs.get("pk")
         per_anim_msrun_df = qs2df().get_per_animal_msrun_df(pk)
-       
+
         # convert DataFrame to a list of dictionary
         data = qs2df.df_to_list_of_dict(per_anim_msrun_df)
         # print(data[0])
@@ -991,12 +987,10 @@ class SampleListView(ListView):
     def get_context_data(self, **kwargs):
         # Call the base implementation first to get the context
         context = super(SampleListView, self).get_context_data(**kwargs)
-  
-	    #  add data from the DataFrame to the context
+        #  add data from the DataFrame to the context
         all_anim_msrun_df = qs2df.get_animal_msrun_all_df()
-        print(all_anim_msrun_df.columns)
-
-        # convert DataFrame to a list of dictionary
+        # print(all_anim_msrun_df.columns)
+        # # convert DataFrame to a list of dictionary
         data = qs2df.df_to_list_of_dict(all_anim_msrun_df)
         print(data[0])
         context["df"] = data
