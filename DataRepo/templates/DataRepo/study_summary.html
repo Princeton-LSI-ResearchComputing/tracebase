@@ -42,7 +42,7 @@
             <th data-field="Sample" data-filter-control="input" data-sortable="true">Sample</th>
             <th data-field="Sample-Owner" data-filter-control="select" data-sortable="true">Sample Owner</th>
             <th data-field="Sample-Date" data-filter-control="input" data-sortable="true">Sample Date</th>
-            <th data-field=Collect-Time-Minites data-filter-control="input" data-sortable="true" data-visible="false">Sample Collect Time(m)</th>
+            <th data-field="Collect-Time-Minites" data-filter-control="input" data-sortable="true" data-visible="false">Sample Collect Time(m)</th>
             <th data-field="MSRun-Detail" data-filter-control="input" data-sortable="true" data-visible="false">MSRun Detail</th>
         </tr>
     </thead>
@@ -69,8 +69,8 @@
             <td><a href="{% url 'compound_detail' i.tracer_compound_id %}">{{ i.tracer }}</a></td>
             <td>{{ i.tracer_labeled_atom }}</td>
             <td>{{ i.tracer_labeled_count }}</td>
-            <td>{{ i.tracer_infusion_rate }}</a></td>
-            <td>{{ i.tracer_infusion_concentration }}</a></td>
+            <td>{{ i.tracer_infusion_rate }}</td>
+            <td>{{ i.tracer_infusion_concentration }}</td>
             <td><a href="{% url 'tissue_detail' i.tissue_id %}">{{ i.tissue }}</a></td>
             <td><a href="{% url 'sample_detail' i.sample_id %}">{{ i.sample }}</a></td>
             <td>{{ i.sample_owner }}</td>
@@ -89,10 +89,9 @@
     {{ block.super }}
     <script>
         var $table = $('#table')
-        
+   
         $.extend($.fn.bootstrapTable.columnDefaults, {
-            valign: "top",
-            width: "2 %"
+            valign: "top"
         });
 
         $('#table').bootstrapTable()

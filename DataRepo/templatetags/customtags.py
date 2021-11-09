@@ -1,5 +1,7 @@
 from django import template
 from django.template.defaultfilters import floatformat
+from django.utils.html import format_html_join
+from django.urls import reverse
 
 from DataRepo.views import getDownloadQryList, manyToManyFilter
 
@@ -114,3 +116,40 @@ def getCount(countdict):
 @register.simple_tag
 def getDownloadQrys():
     return getDownloadQryList()
+
+
+@register.filter
+def obj_hyperlink(id_name_list, obj):
+    """
+    takes an object list and returns a comma-separated list of hyperlinks.
+    Notes:
+    works for three types of object_list with defined format in Pandas DataFrames:
+        study, tracer, treatment
+        each item of object_list contains id and name seprated by "||"
+    examples:
+        study list:  ['1||obob_fasted']
+        tracer list: ['30||C16:0', '11||lysine']
+        treatment list: [3||Ser/gly-free diet, 2||Control diet]
+    For a study without treament data, value in DataFrame is [nan], which is [None] after converting
+        to json record for rendering templates
+    """
+    if obj == "study":
+        tmplt_name = "study_detail"
+    elif obj == "tracer":
+        tmplt_name = "compound_detail"
+    elif obj == "treatment":
+        tmplt_name = "protocol_detail"
+
+    if id_name_list == [None]:
+        return None
+    else:
+        id_name_dict = dict(x.split("||") for x in id_name_list)
+        obj_format_html = format_html_join(
+            ",",
+            '<a href="{}">{}</a>',
+            [
+                (reverse(tmplt_name, args=[str(id)]), id_name_dict[id])
+                for id in id_name_dict
+            ],
+        )
+        return obj_format_html

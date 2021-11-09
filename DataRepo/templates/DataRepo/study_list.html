@@ -30,7 +30,7 @@
                 <th data-field="Study-Description" data-filter-control="input" data-sortable="true">Description</th>
                 <th data-field="Genotypes" data-filter-control="select" data-sortable="true">Genotypes</th>
                 <th data-field="Tracers" data-filter-control="input" data-sortable="true">Tracers</th>
-                <th data-field="Treatments" data-filter-control="input" data-sortable="true">Treatments</th-->
+                <th data-field="Treatments" data-filter-control="input" data-sortable="true">Treatments</th>
                 <th data-field="Sample-Owners" data-filter-control="select" data-sortable="true">Sample Owners</th>
                 <th data-field="Total-Animal" data-filter-control="input" data-sortable="true">Total Animals</th>
                 <th data-field="Total-Tissue" data-filter-control="input" data-sortable="true">Total Tissues</th>
@@ -58,7 +58,5 @@
     {% endif %}
 </div>
 <br>
-<h5>
-    <a href="{% url 'study_summary' %}">Summary for all studies, animals, and samples</a>
-</h5>
+<h5><a href="{% url 'study_summary' %}">Browse All Studies, Animals, and Samples</a></h5>
 {% endblock %}

@@ -14,7 +14,7 @@
                 <th>Description</th>
                 <th>Genotypes</th>
                 <th>Tracers</th>
-                <th>Treatments
+                <th>Treatments</th>
                 <th>Sample Owners</th>
                 <th>Total Animals</th>
                 <th>Total Tissues</th>
@@ -39,6 +39,8 @@
             {% endfor %}
         </tbody>
     </table>
+</div>
+<div>
     <br>
     <h5><a href="{% url 'search_basic' 'Study' 'id' 'exact' study.id 'peakgroups' %}">View Peak Group Data</a></h5>
     <h5><a href="{% url 'search_basic' 'Study' 'id' 'exact' study.id 'peakdata' %}">View Peak Data</a></h5>
@@ -112,8 +114,8 @@
                 <td><a href="{% url 'compound_detail' i.tracer_compound_id %}">{{ i.tracer }}</a></td>
                 <td>{{ i.tracer_labeled_atom }}</td>
                 <td>{{ i.tracer_labeled_count }}</td>
-                <td>{{ i.tracer_infusion_rate }}</a></td>
-                <td>{{ i.tracer_infusion_concentration }}</a></td>
+                <td>{{ i.tracer_infusion_rate }}</td>
+                <td>{{ i.tracer_infusion_concentration }}</td>
                 <td><a href="{% url 'tissue_detail' i.tissue_id %}">{{ i.tissue }}</a></td>
                 <td><a href="{% url 'sample_detail' i.sample_id %}">{{ i.sample }}</a></td>
                 <td>{{ i.sample_owner }}</td>
@@ -126,22 +128,17 @@
     </table>
     {% endif %}
 </div>
-    
 {% endblock %}
-    
-    {% block js_extras %}
-        {{ block.super }}
-        <script>
-            var $table = $('#table1')
-            
-            $.extend($.fn.bootstrapTable.columnDefaults, {
-                valign: "top",
-                width: "2 %"
-            });
-    
-            $('#table1').bootstrapTable()
+
+{% block js_extras %}
+    {{ block.super }}
+    <script>
+        var $table = $('#table1')
+       
+        $.extend($.fn.bootstrapTable.columnDefaults, {
+                valign: "top"
+        });
+
+        $('#table1').bootstrapTable()
         </script>
-    {% endblock %}
-
-
-
+{% endblock %}

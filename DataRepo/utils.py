@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 
 import dateutil.parser  # type: ignore
 import pandas as pd
+import json
 from django.db import transaction
 from pandas.errors import EmptyDataError
 
@@ -1003,3 +1004,427 @@ class MissingSamplesError(Exception):
     def __init__(self, message, samples):
         super().__init__(message)
         self.sample_list = samples
+
+
+class QuerysetToPandasDataFrame:
+    """
+    convert several querysets to Pandas DataFrames, then create additional
+    DataFrames for study or animal based summary data
+    """
+
+    @staticmethod
+    def qs_to_df(qs, qry_to_df_fields):
+        """
+        convert a queryset to a Pandas DataFrame using defined field names.
+        qry_to_df_fields is a dictionary mapping query fields to column names
+        of the DataFrame
+        """
+        qry_fields = qry_to_df_fields.keys()
+        qs1 = qs.values_list(*qry_fields)
+        df_with_qry_fields = pd.DataFrame.from_records(qs1, columns=qry_fields)
+        # rename columns for df
+        out_df = df_with_qry_fields.rename(columns=qry_to_df_fields)
+        return out_df
+
+    @staticmethod
+    def df_to_list_of_dict(df):
+        """
+        convert Pandas DataFrame into a list of dictionary, each item of the list
+        is a dicitonary converted from a row of the DataFrame (column_name:column_value)
+        The output can be used directly for template rendering
+        """
+        # parsing the DataFrame to JSON records.
+        json_records = df.to_json(orient="records", date_format="iso", date_unit="s")
+        # output to a list of dictionary
+        data = []
+        data = json.loads(json_records)
+        return data
+
+    @classmethod
+    def get_study_list_df(cls):
+        """
+        convert all study records to a DataFrame with defined column names
+        """
+        qs = Study.objects.all()
+        qry_to_df_fields = {
+            "id": "study_id",
+            "name": "study",
+            "description": "study_description",
+        }
+        stud_list_df = cls.qs_to_df(qs, qry_to_df_fields)
+        return stud_list_df
+
+    @classmethod
+    def get_study_animal_all_df(cls):
+        """
+        generate a DataFrame for joining all studies and animals based on
+        many-to-many relationships
+        """
+        qs = Study.objects.all().prefetch_related("animals")
+        qry_to_df_fields = {
+            "id": "study_id",
+            "name": "study",
+            "description": "study_description",
+            "animals__id": "animal_id",
+            "animals__name": "animal",
+        }
+        all_stud_anim_df = cls.qs_to_df(qs, qry_to_df_fields)
+        return all_stud_anim_df
+
+    @classmethod
+    def get_animal_list_df(cls):
+        """
+        get all animal records with related fields for tracer and treatments,
+        convert to a DataFrame with defined column names
+        """
+        qs = Animal.objects.select_related("compound", "protocol").all()
+        qry_to_df_fields = {
+            "id": "animal_id",
+            "name": "animal",
+            "tracer_compound_id": "tracer_compound_id",
+            "tracer_compound__name": "tracer",
+            "tracer_labeled_atom": "tracer_labeled_atom",
+            "tracer_labeled_count": "tracer_labeled_count",
+            "tracer_infusion_rate": "tracer_infusion_rate",
+            "tracer_infusion_concentration": "tracer_infusion_concentration",
+            "genotype": "genotype",
+            "body_weight": "body_weight",
+            "age": "age",
+            "sex": "sex",
+            "diet": "diet",
+            "feeding_status": "feeding_status",
+            "treatment_id": "treatment_id",
+            "treatment__name": "treatment",
+            "treatment__category": "treatment_category",
+        }
+        anim_list_df = cls.qs_to_df(qs, qry_to_df_fields)
+
+        # some animal records have no treatment data, DataFrame converts the dtype from int to float
+        # workaround: set treatment_id to 0 for NaN, and convert dtype back to int
+        anim_list_df["treatment_id"] = (
+            anim_list_df["treatment_id"].fillna(0).astype(int)
+        )
+        return anim_list_df
+
+    @classmethod
+    def get_study_gb_animal_df(cls):
+        """
+        generate a DataFrame for studies grouped by animal_id
+        adding a column named study_id_name_list
+        example for data format: ['1||obob_fasted']
+        """
+        stud_anim_df = cls.get_study_animal_all_df()
+
+        # add a column by joining id and name for each study
+        stud_anim_df["study_id_name"] = (
+            stud_anim_df["study_id"]
+            .astype(str)
+            .str.cat(stud_anim_df["study"], sep="||")
+        )
+
+        # generate DataFrame grouped by animal_id and animal
+        # columns=['animal_id', 'animal', 'studies', 'study_id_name_list']
+        stud_gb_anim_df = (
+            stud_anim_df.groupby(["animal_id", "animal"])
+            .agg(
+                studies=("study", "unique"),
+                study_id_name_list=("study_id_name", "unique"),
+            )
+            .reset_index()
+        )
+        return stud_gb_anim_df
+
+    @classmethod
+    def get_animal_msrun_all_df(cls):
+        """
+        generate a DataFrame for all sample and MSRun records
+        including animal data fields
+        """
+        qs = MSRun.objects.select_related().all()
+        qry_to_df_fields = {
+            "id": "msrun_id",
+            "researcher": "msrun_owner",
+            "date": "msrun_date",
+            "protocol_id": "msrun_protocol_id",
+            "protocol__name": "msrun_protocol",
+            "sample_id": "sample_id",
+            "sample__name": "sample",
+            "sample__researcher": "sample_owner",
+            "sample__date": "sample_date",
+            "sample__time_collected": "sample_time_collected",
+            "sample__tissue__id": "tissue_id",
+            "sample__tissue__name": "tissue",
+            "sample__animal__id": "animal_id",
+            "sample__animal__name": "animal",
+        }
+        all_sam_msrun_df = cls.qs_to_df(qs, qry_to_df_fields)
+
+        # format date columns
+        all_sam_msrun_df["sample_date"] = pd.to_datetime(
+            all_sam_msrun_df["sample_date"], format="%Y-%m-%d"
+        )
+        all_sam_msrun_df["sample_date"] = all_sam_msrun_df["sample_date"].dt.strftime(
+            "%Y-%m-%d"
+        )
+        all_sam_msrun_df["msrun_date"] = pd.to_datetime(
+            all_sam_msrun_df["msrun_date"], format="%Y-%m-%d"
+        )
+        all_sam_msrun_df["msrun_date"] = all_sam_msrun_df["msrun_date"].dt.strftime(
+            "%Y-%m-%d"
+        )
+
+        # add a column for formatting sample_time_collected to minutes
+        # copy first to avoid warning (SettingWithCopyWarning)
+        all_sam_msrun_df = all_sam_msrun_df.copy()
+        all_sam_msrun_df["collect_time_in_minutes"] = (
+            all_sam_msrun_df["sample_time_collected"].dt.total_seconds() // 60
+        )
+
+        anim_list_df = cls.get_animal_list_df()
+        stud_gb_anim_df = cls.get_study_gb_animal_df()
+
+        # merge DataFrames to get animal based summary data
+        all_anim_msrun_df = anim_list_df.merge(
+            all_sam_msrun_df, on=["animal_id", "animal"]
+        ).merge(stud_gb_anim_df, on=["animal_id", "animal"])
+        # reindex with defined column names
+        # re-order columns (animal, tissue, sample, MSrun, studies)
+        column_names = [
+            "animal_id",
+            "animal",
+            "tracer_compound_id",
+            "tracer",
+            "tracer_labeled_atom",
+            "tracer_labeled_count",
+            "tracer_infusion_rate",
+            "tracer_infusion_concentration",
+            "genotype",
+            "body_weight",
+            "age",
+            "sex",
+            "diet",
+            "feeding_status",
+            "treatment_id",
+            "treatment",
+            "treatment_category",
+            "tissue_id",
+            "tissue",
+            "sample_id",
+            "sample",
+            "sample_owner",
+            "sample_date",
+            "sample_time_collected",
+            "collect_time_in_minutes",
+            "msrun_id",
+            "msrun_owner",
+            "msrun_date",
+            "msrun_protocol_id",
+            "msrun_protocol",
+            "studies",
+            "study_id_name_list",
+        ]
+        all_anim_msrun_df = all_anim_msrun_df.reindex(columns=column_names)
+        return all_anim_msrun_df
+
+    @classmethod
+    def get_animal_list_stats_df(cls):
+        """
+        generate a DataFrame by adding columns to animal list, including counts
+            or unique values for selected data fields grouped by an animal
+        """
+        anim_list_df = cls.get_animal_list_df()
+        all_anim_msrun_df = cls.get_animal_msrun_all_df()
+        stud_gb_anim_df = cls.get_study_gb_animal_df()
+
+        # get unique count or values for selected fields grouped by animal_id
+        anim_gb_df = (
+            all_anim_msrun_df.groupby("animal_id")
+            .agg(
+                total_tissue=("tissue", "nunique"),
+                total_sample=("sample_id", "nunique"),
+                total_msrun=("msrun_id", "nunique"),
+                sample_owners=("sample_owner", "unique"),
+            )
+            .reset_index()
+        )
+        # merge DataFrames to add stats and studies to each row of animal list
+        anim_list_stats_df = anim_list_df.merge(anim_gb_df, on="animal_id").merge(
+            stud_gb_anim_df, on=["animal_id", "animal"]
+        )
+
+        # reindex with defined column names
+        column_names = [
+            "animal_id",
+            "animal",
+            "tracer_compound_id",
+            "tracer",
+            "tracer_labeled_atom",
+            "tracer_labeled_count",
+            "tracer_infusion_rate",
+            "tracer_infusion_concentration",
+            "genotype",
+            "body_weight",
+            "age",
+            "sex",
+            "diet",
+            "feeding_status",
+            "treatment_id",
+            "treatment",
+            "treatment_category",
+            "total_tissue",
+            "total_sample",
+            "total_msrun",
+            "sample_owners",
+            "studies",
+            "study_id_name_list",
+        ]
+        anim_list_stats_df = anim_list_stats_df.reindex(columns=column_names)
+        return anim_list_stats_df
+
+    @classmethod
+    def get_study_msrun_all_df(cls):
+        """
+        generate a DataFrame for study based summary data including animal, sample, and MSRun
+        data fields
+        """
+        all_stud_anim_df = cls.get_study_animal_all_df()
+        all_anim_msrun_df = cls.get_animal_msrun_all_df()
+
+        # all_anim_msrun_df contains columns for studies, drop them
+        all_anim_msrun_df1 = all_anim_msrun_df.drop(
+            columns=["studies", "study_id_name_list"]
+        )
+
+        # merge DataFrames to get study based summary data
+        all_stud_msrun_df = all_stud_anim_df.merge(
+            all_anim_msrun_df1, on=["animal_id", "animal"]
+        )
+
+        # reindex with defined column names and column order
+        column_names = [
+            "study_id",
+            "study",
+            "study_description",
+            "animal_id",
+            "animal",
+            "tracer_compound_id",
+            "tracer",
+            "tracer_labeled_atom",
+            "tracer_labeled_count",
+            "tracer_infusion_rate",
+            "tracer_infusion_concentration",
+            "genotype",
+            "body_weight",
+            "age",
+            "sex",
+            "diet",
+            "feeding_status",
+            "treatment_id",
+            "treatment",
+            "treatment_category",
+            "tissue_id",
+            "tissue",
+            "sample_id",
+            "sample",
+            "sample_owner",
+            "sample_date",
+            "sample_time_collected",
+            "collect_time_in_minutes",
+            "msrun_id",
+            "msrun_owner",
+            "msrun_date",
+            "msrun_protocol_id",
+            "msrun_protocol",
+        ]
+        all_stud_msrun_df = all_stud_msrun_df.reindex(columns=column_names)
+        return all_stud_msrun_df
+
+    @classmethod
+    def get_study_list_stats_df(cls):
+        """
+        generate a DataFrame to add columns to study list including counts or unique values
+        for selected data fields grouped by a study
+        """
+        stud_list_df = cls.get_study_list_df()
+        all_stud_msrun_df = cls.get_study_msrun_all_df()
+
+        # add a column to join id and name for each tracer
+        all_stud_msrun_df["tracer_id_name"] = (
+            all_stud_msrun_df["tracer_compound_id"]
+            .astype(str).
+            str.cat(all_stud_msrun_df["tracer"], sep="||")
+        )
+        # add a column to join treatment_id and treatment
+        all_stud_msrun_df["treatment_id_name"] = (
+            all_stud_msrun_df["treatment_id"]
+            .astype(str)
+            .str.cat(all_stud_msrun_df["treatment"], sep="||")
+        )
+        # generate a DataFrame containing stats columns grouped by study_id
+        stud_gb_df = (
+            all_stud_msrun_df.groupby("study_id")
+            .agg(
+                total_animal=("animal_id", "nunique"),
+                total_tissue=("tissue", "nunique"),
+                total_sample=("sample_id", "nunique"),
+                total_msrun=("msrun_id", "nunique"),
+                sample_owners=("sample_owner", "unique"),
+                genotypes=("genotype", "unique"),
+                tracer_id_name_list=("tracer_id_name", "unique"),
+                treatment_id_name_list=("treatment_id_name", "unique"),
+            )
+            .reset_index()
+        )
+        # merge DataFrames to add stats to each row of study list
+        stud_list_stats_df = stud_list_df.merge(stud_gb_df, on="study_id")
+
+        # reindex with defined column names
+        column_names = [
+            "study_id",
+            "study",
+            "study_description",
+            "total_animal",
+            "total_tissue",
+            "total_sample",
+            "total_msrun",
+            "sample_owners",
+            "genotypes",
+            "tracer_id_name_list",
+            "treatment_id_name_list",
+        ]
+        stud_list_stats_df = stud_list_stats_df.reindex(columns=column_names)
+        return stud_list_stats_df
+
+    def get_per_study_msrun_df(self, study_id):
+        """
+        generate a DataFrame for summary data including animal, sample, and MSRun
+        data fields for a study
+        """
+        all_stud_msrun_df = self.get_study_msrun_all_df()
+        self.study_id = study_id
+        per_stud_msrun_df = all_stud_msrun_df[all_stud_msrun_df["study_id"] == study_id]
+        return per_stud_msrun_df
+
+    def get_per_study_stat_df(self, study_id):
+        """
+        generate a DataFrame for summary data including animal, sample, and MSRun
+        counts for a study
+        """
+        stud_list_stats_df = self.get_study_list_stats_df()
+        self.study_id = study_id
+        per_stud_stat_df = stud_list_stats_df[
+            stud_list_stats_df["study_id"] == study_id
+        ]
+        return per_stud_stat_df
+
+    def get_per_animal_msrun_df(self, animal_id):
+        """
+        generate a DataFrame for summary data including animal, sample, and MSRun
+        data fields for an animal
+        """
+        all_anim_msrun_df = self.get_animal_msrun_all_df()
+        self.animal_id = animal_id
+        per_anim_msrun_df = all_anim_msrun_df[
+            all_anim_msrun_df["animal_id"] == animal_id
+        ]
+        return per_anim_msrun_df
