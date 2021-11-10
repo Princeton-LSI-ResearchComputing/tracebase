@@ -54,7 +54,7 @@ This document will serve to guide developers on implementing new code.
      `{% elif qry.selectedtemplate == "pdtemplate" %}{% include "DataRepo/search/downloads/peakdata.tsv" %}`
      Paste it before the `endif` and make the following edits:
       - Replace `pdtemplate` with the ID you assigned at the top of step 1
-      - Replace the file name on the include line with the file created in step 4 above
+      - Replace the filename on the include line with the file created in step 4 above
 
 7. `DataRepo/templates/navbar.html`
    - For each item in the download `dropdown-menu`, edit the `qryjson` value to add the entry for the new format template.  Basically, you need to append an edited version of:
