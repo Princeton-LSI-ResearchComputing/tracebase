@@ -3,21 +3,21 @@
 }
 
 .bg-highlighted {
-  --bs-table-striped-bg: #c7dbd2;
-  --bs-table-striped-color: #000;
+  --bs-table-striped-bg: rgba(0 0 0 5%);
+  --bs-table-striped-color: #212529;
 }
 
 .table-highlighted {
-  --bs-table-bg: #d1e7dd;
-  --bs-table-striped-bg: #c7dbd2;
-  --bs-table-striped-color: #000;
-  --bs-table-active-bg: #bcd0c7;
-  --bs-table-active-color: #000;
-  --bs-table-hover-bg: #c1d6cc;
-  --bs-table-hover-color: #000;
+  --bs-table-bg: transparent;
+  --bs-table-striped-bg: rgba(0 0 0 5%);
+  --bs-table-striped-color: #212529;
+  --bs-table-active-bg: rgba(0 0 0 10%);
+  --bs-table-active-color: #212529;
+  --bs-table-hover-bg: rgba(0 0 0 7.5%);
+  --bs-table-hover-color: #212529;
 
-  color: #000;
-  border-color: #bcd0c7;
+  color: #212529;
+  border-color: #dee2e6;
 }
 
 .table-highlighted > tbody > .bg-highlighted {
@@ -27,18 +27,18 @@
 }
 
 .table-highlighted-legend {
-  --bs-table-bg: #d1e7dd;
-  --bs-table-striped-bg: #c7dbd2;
-  --bs-table-striped-color: #000;
-  --bs-table-active-bg: #bcd0c7;
-  --bs-table-active-color: #000;
-  --bs-table-hover-bg: #c1d6cc;
-  --bs-table-hover-color: #000;
+  --bs-table-bg: transparent;
+  --bs-table-striped-bg: rgba(0 0 0 5%);
+  --bs-table-striped-color: #212529;
+  --bs-table-active-bg: rgba(0 0 0 10%);
+  --bs-table-active-color: #212529;
+  --bs-table-hover-bg: rgba(0 0 0 7.5%);
+  --bs-table-hover-color: #212529;
 
   width: 1%;
   white-space: nowrap;
-  color: #000;
-  border-color: #bcd0c7;
+  color: #212529;
+  border-color: #dee2e6;
 }
 
 .table-highlighted-legend > tbody > .bg-highlighted {
