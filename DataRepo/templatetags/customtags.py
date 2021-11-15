@@ -1,7 +1,7 @@
 from django import template
 from django.template.defaultfilters import floatformat
 
-from DataRepo.views import manyToManyFilter
+from DataRepo.views import getDownloadQryList, manyToManyFilter
 
 register = template.Library()
 
@@ -109,3 +109,8 @@ def incrementCounter(countdict):
 @register.simple_tag
 def getCount(countdict):
     return countdict["count"]
+
+
+@register.simple_tag
+def getDownloadQrys():
+    return getDownloadQryList()

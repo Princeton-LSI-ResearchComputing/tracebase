@@ -838,6 +838,22 @@ def manyToManyFilter(rootrec, mm_lookup, qry):
     return basv_metadata.isAMatch(rootrec, mm_lookup, qry)
 
 
+def getDownloadQryList():
+    """
+    Returns a list of dicts where the keys are name and json and the values are the format name and the json-
+    stringified qry object with the target format selected
+    """
+    basv_metadata = BaseAdvancedSearchView()
+    qry_list = []
+    for format, name in basv_metadata.getFormatNames().items():
+        print(f"format {format} name {name}")
+        qry_list.append(
+            {"name": name, "json": json.dumps(basv_metadata.getRootGroup(format))}
+        )
+    print(qry_list)
+    return qry_list
+
+
 class ProtocolListView(ListView):
     """Generic class-based view for a list of protocols"""
 
