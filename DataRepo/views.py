@@ -92,7 +92,6 @@ def study_summary(request):
     """
 
     all_stud_msrun_df = qs2df.get_study_msrun_all_df()
-    # print (all_stud_msrun_df.columns)
 
     # convert DataFrame to a list of dictionary
     data = qs2df.df_to_list_of_dict(all_stud_msrun_df)
@@ -117,10 +116,10 @@ class StudyDetailView(DetailView):
         # convert DataFrame to a list of dictionary
         data = qs2df.df_to_list_of_dict(per_stud_msrun_df)
         stats_data = qs2df.df_to_list_of_dict(per_stud_stat_df)
-        # print(data[0])
+
         context["df"] = data
         context["stats_df"] = stats_data
-        # print(stats_data[0])
+
         return context
 
 
@@ -927,10 +926,9 @@ class AnimalListView(ListView):
         context = super(AnimalListView, self).get_context_data(**kwargs)
         # add data from the DataFrame to the context
         anim_list_stats_df = qs2df.get_animal_list_stats_df()
-        # print(anim_list_stats_df.columns)
+
         # convert DataFrame to a list of dictionary
         data = qs2df.df_to_list_of_dict(anim_list_stats_df)
-        # print(data[0])
         context["df"] = data
         return context
 
@@ -950,7 +948,6 @@ class AnimalDetailView(DetailView):
 
         # convert DataFrame to a list of dictionary
         data = qs2df.df_to_list_of_dict(per_anim_msrun_df)
-        # print(data[0])
         context["df"] = data
         return context
 
@@ -989,10 +986,10 @@ class SampleListView(ListView):
         context = super(SampleListView, self).get_context_data(**kwargs)
         #  add data from the DataFrame to the context
         all_anim_msrun_df = qs2df.get_animal_msrun_all_df()
-        # print(all_anim_msrun_df.columns)
-        # # convert DataFrame to a list of dictionary
+
+        # convert DataFrame to a list of dictionary
         data = qs2df.df_to_list_of_dict(all_anim_msrun_df)
-        print(data[0])
+
         context["df"] = data
         return context
 

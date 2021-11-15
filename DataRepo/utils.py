@@ -1030,7 +1030,7 @@ class QuerysetToPandasDataFrame:
     def df_to_list_of_dict(df):
         """
         convert Pandas DataFrame into a list of dictionary, each item of the list
-        is a dicitonary converted from a row of the DataFrame (column_name:column_value)
+        is a dictionary converted from a row of the DataFrame (column_name:column_value)
         The output can be used directly for template rendering
         """
         # parsing the DataFrame to JSON records.

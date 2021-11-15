@@ -15,6 +15,7 @@ from DataRepo.models import (
     Protocol,
     Sample,
     Study,
+    Tissue,
 )
 from DataRepo.views import (
     DataValidationView,
@@ -35,6 +36,8 @@ class ViewTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         call_command("loaddata", "tissues.yaml")
+        cls.ALL_TISSUES_COUNT = 35
+
         call_command(
             "load_compounds",
             "DataRepo/example_data/small_dataset/small_obob_compounds.tsv",
@@ -110,19 +113,30 @@ class ViewTests(TestCase):
         response = self.client.get(reverse("compound_detail", args=[c.id + 1]))
         self.assertEqual(response.status_code, 404)
 
+    @tag("study")
     def test_study_list(self):
         response = self.client.get(reverse("study_list"))
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "DataRepo/study_list.html")
         self.assertEqual(len(response.context["study_list"]), 1)
+        self.assertEqual(len(response.context["df"]), 1)
 
+    @tag("study")
+    def test_study_summary(self):
+        response = self.client.get("/DataRepo/studies/study_summary/")
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "DataRepo/study_summary.html")
+
+    @tag("study")
     def test_study_detail(self):
         obob_fasted = Study.objects.filter(name="obob_fasted").get()
         response = self.client.get(reverse("study_detail", args=[obob_fasted.id]))
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "DataRepo/study_detail.html")
         self.assertEqual(response.context["study"].name, "obob_fasted")
+        self.assertEqual(len(response.context["stats_df"]), 1)
 
+    @tag("study")
     def test_study_detail_404(self):
         s = Study.objects.order_by("id").last()
         response = self.client.get(reverse("study_detail", args=[s.id + 1]))
@@ -146,30 +160,59 @@ class ViewTests(TestCase):
         response = self.client.get(reverse("protocol_detail", args=[p.id + 1]))
         self.assertEqual(response.status_code, 404)
 
+    @tag("animal")
     def test_animal_list(self):
         response = self.client.get(reverse("animal_list"))
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "DataRepo/animal_list.html")
         self.assertEqual(len(response.context["animal_list"]), self.ALL_ANIMALS_COUNT)
+        self.assertEqual(len(response.context["df"]), self.ALL_ANIMALS_COUNT)
 
+    @tag("animal")
     def test_animal_detail(self):
         a1 = Animal.objects.filter(name="971").get()
         response = self.client.get(reverse("animal_detail", args=[a1.id]))
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "DataRepo/animal_detail.html")
         self.assertEqual(response.context["animal"].name, "971")
+        self.assertEqual(len(response.context["df"]), self.ALL_SAMPLES_COUNT)
 
+    @tag("animal")
     def test_animal_detail_404(self):
         a = Animal.objects.order_by("id").last()
         response = self.client.get(reverse("animal_detail", args=[a.id + 1]))
         self.assertEqual(response.status_code, 404)
 
+    @tag("tissue")
+    def test_tissue_list(self):
+        response = self.client.get(reverse("tissue_list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "DataRepo/tissue_list.html")
+        self.assertEqual(len(response.context["tissue_list"]), self.ALL_TISSUES_COUNT)
+
+    @tag("tissue")
+    def test_tissue_detail(self):
+        t1 = Tissue.objects.filter(name="brown_adipose_tissue").get()
+        response = self.client.get(reverse("tissue_detail", args=[t1.id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "DataRepo/tissue_detail.html")
+        self.assertEqual(response.context["tissue"].name, "brown_adipose_tissue")
+
+    @tag("tissue")
+    def test_tissue_detail_404(self):
+        t = Tissue.objects.order_by("id").last()
+        response = self.client.get(reverse("tissue_detail", args=[t.id + 1]))
+        self.assertEqual(response.status_code, 404)
+
+    @tag("sample")
     def test_sample_list(self):
         response = self.client.get("/DataRepo/samples/")
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "DataRepo/sample_list.html")
         self.assertEqual(len(response.context["sample_list"]), self.ALL_SAMPLES_COUNT)
+        self.assertEqual(len(response.context["df"]), self.ALL_SAMPLES_COUNT)
 
+    @tag("sample")
     def test_sample_list_per_animal(self):
         a1 = Animal.objects.filter(name="971").get()
         s1 = Sample.objects.filter(animal_id=a1.id)
@@ -177,7 +220,9 @@ class ViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "DataRepo/sample_list.html")
         self.assertEqual(len(response.context["sample_list"]), s1.count())
+        self.assertEqual(len(response.context["df"]), s1.count())
 
+    @tag("sample")
     def test_sample_detail(self):
         s1 = Sample.objects.filter(name="BAT-xz971").get()
         response = self.client.get(reverse("sample_detail", args=[s1.id]))
@@ -185,6 +230,7 @@ class ViewTests(TestCase):
         self.assertTemplateUsed(response, "DataRepo/sample_detail.html")
         self.assertEqual(response.context["sample"].name, "BAT-xz971")
 
+    @tag("sample")
     def test_sample_detail_404(self):
         s = Sample.objects.order_by("id").last()
         response = self.client.get(reverse("sample_detail", args=[s.id + 1]))
