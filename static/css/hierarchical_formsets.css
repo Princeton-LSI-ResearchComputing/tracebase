@@ -3,17 +3,17 @@
 }
 
 .bg-highlighted {
-  --bs-table-striped-bg: rgba(0, 0, 0, 5%);
+  --bs-table-striped-bg: rgba(0 0 0 5%);
   --bs-table-striped-color: #212529;
 }
 
 .table-highlighted {
   --bs-table-bg: transparent;
-  --bs-table-striped-bg: rgba(0, 0, 0, 5%);
+  --bs-table-striped-bg: rgba(0 0 0 5%);
   --bs-table-striped-color: #212529;
-  --bs-table-active-bg: rgba(0, 0, 0, 10%);
+  --bs-table-active-bg: rgba(0 0 0 10%);
   --bs-table-active-color: #212529;
-  --bs-table-hover-bg: rgba(0, 0, 0, 7.5%);
+  --bs-table-hover-bg: rgba(0 0 0 7.5%);
   --bs-table-hover-color: #212529;
 
   color: #212529;
@@ -28,11 +28,11 @@
 
 .table-highlighted-legend {
   --bs-table-bg: transparent;
-  --bs-table-striped-bg: rgba(0, 0, 0, 5%);
+  --bs-table-striped-bg: rgba(0 0 0 5%);
   --bs-table-striped-color: #212529;
-  --bs-table-active-bg: rgba(0, 0, 0, 10%);
+  --bs-table-active-bg: rgba(0 0 0 10%);
   --bs-table-active-color: #212529;
-  --bs-table-hover-bg: rgba(0, 0, 0, 7.5%);
+  --bs-table-hover-bg: rgba(0 0 0 7.5%);
   --bs-table-hover-color: #212529;
 
   width: 1%;
