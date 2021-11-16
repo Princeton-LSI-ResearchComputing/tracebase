@@ -107,16 +107,16 @@
             <label id="formerror" class="text-danger temporal-text"></label>
         </form>
         <a id="browselink" href="{% url 'search_advanced' %}?mode=browse" class="tiny">Browse All</a>
-    </div>
 
-    {% if debug %}
-        The following only prints in DEBUG mode, controlled by settings.DEBUG:<br>
-        {% if qry %}
-            Query: {{ qry }}
-        {% else %}
-            Query was empty
+        {% if debug %}
+            The following only prints in DEBUG mode, controlled by settings.DEBUG:<br>
+            {% if qry %}
+                Query: {{ qry }}
+            {% else %}
+                Query was empty
+            {% endif %}
         {% endif %}
-    {% endif %}
+    </div>
 
     {% include "DataRepo/search/results/display.html" %}
 
