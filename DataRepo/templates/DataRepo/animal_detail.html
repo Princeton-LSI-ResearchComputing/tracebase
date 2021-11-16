@@ -107,7 +107,7 @@
             {% for i in df %}
             <tr>
                 <td><a href="{% url 'animal_detail' i.animal_id %}">{{ i.animal }}</a></td>
-                <td><a>{{ i.study_id_name_list |obj_hyperlink:"study" }}</a></td>
+                <td>{{ i.study_id_name_list |obj_hyperlink:"study" }}</td>
                 <td>{{ i.genotype }}</td>
                 <td>{{ i.body_weight }}</td>
                 <td>{{ i.age }}</td>
