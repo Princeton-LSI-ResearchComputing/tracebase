@@ -11,7 +11,7 @@
 <div>
     {% if df %}
     <table class="table table-sm table-hover table-bordered table-responsive-xl table-striped"
-        id="table"
+        id="animal_list_stats"
         data-toggle="table"
         data-buttons-class="primary"
         data-buttons-align="left"
@@ -34,10 +34,10 @@
                 <th data-field="Treatment" data-filter-control="input" data-sortable="true">Treatment</th>
                 <th data-field="Labeled_Atom" data-filter-control="select" data-sortable="true">Labeled Atom</th>
                 <th data-field="Labeled_Count" data-filter-control="input" data-sortable="true">Labeled Count</th>
-                <th data-field="Infusion_Rate" data-filter-control="input" data-sortable="true">Infusion Rate(ul/min/g)</th>
-                <th data-field="Infusion_Concentration" data-filter-control="input" data-sortable="true">Infusion Concentration(mM)</th>
-                <th data-field="Body_Weight" data-filter-control="input" data-sortable="true" data-visible="false">Body Weight</th>
-                <th data-field="Age" data-filter-control="input" data-sortable="true" data-visible="false">Age</th>
+                <th data-field="Infusion_Rate" data-filter-control="input" data-sortable="true">Infusion Rate (ul/min/g)</th>
+                <th data-field="Infusion_Concentration" data-filter-control="input" data-sortable="true">Infusion Concentration (mM)</th>
+                <th data-field="Body_Weight" data-filter-control="input" data-sortable="true" data-visible="false">Body Weight (g)</th>
+                <th data-field="Age" data-filter-control="input" data-sortable="true" data-visible="false">Age (weeks)</th>
                 <th data-field="Sex" data-filter-control="select" data-sortable="true" data-visible="false">Sex</th>
                 <th data-field="Diet" data-filter-control="input" data-sortable="true" data-visible="false">Diet</th>
                 <th data-field="Feeding_Status" data-filter-control="input" data-sortable="true">Feeding Status</th>
@@ -58,7 +58,7 @@
                     {% if i.treatment %}
                         <a href="{% url 'protocol_detail' i.treatment_id %}">{{ i.treatment }}</a>
                     {% else %}
-                        {{ i.treatment }}
+                        None
                     {% endif %}
                 </td>
                 <td>{{ i.tracer_labeled_atom }}</td>

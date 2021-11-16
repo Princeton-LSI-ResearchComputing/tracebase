@@ -7,7 +7,7 @@
 {% if df %}
 <div class="table-responsive">
 <table class="table table-sm table-hover table-bordered table-striped" w-auto mw-100
-    id="table"
+    id="study_summary"
     data-toggle="table"
     data-buttons-class="primary"
     data-buttons-align="left"
@@ -88,12 +88,12 @@
 {% block js_extras %}
     {{ block.super }}
     <script>
-        var $table = $('#table')
+        var $table = $('#study_summary')
 
         $.extend($.fn.bootstrapTable.columnDefaults, {
             valign: "top"
         });
 
-        $('#table').bootstrapTable()
+        $('#study_summary').bootstrapTable()
     </script>
 {% endblock %}

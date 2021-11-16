@@ -7,7 +7,7 @@
 <div>
     <h4>Animal Record - {{ animal.name }}</h4>
 
-    <table class="table table-sm table-hover table-bordered table-striped" w-auto mw-100>
+    <table id="animal_detail" class="table table-sm table-hover table-bordered table-striped" w-auto mw-100>
         <thead>
             <tr>
                 <th>Name</th>
@@ -16,10 +16,10 @@
                 <th>Treatment</th>
                 <th>Labeled Atom</th>
                 <th>Labeled Count</th>
-                <th>Tracer Infusion Rate(ul/min/g)</th>
-                <th>Tracer Infusion Concentration(mM)</th>
+                <th>Tracer Infusion Rate (ul/min/g)</th>
+                <th>Tracer Infusion Concentration (mM)</th>
                 <th>Body Weight</th>
-                <th>Age</th>
+                <th>Age (weeks)</th>
                 <th>Sex</th>
                 <th>Diet</th>
                 <th>Feeding Status</th>
@@ -65,7 +65,7 @@
     <h5>Sample Data for the Animal:</h5>
     {% if df %}
     <table class="table table-sm table-hover table-bordered table-striped table-responsive" w-auto mw-100
-        id="table1"
+        id="sample_list_per_animal"
         data-toggle="table"
         data-buttons-class="primary"
         data-buttons-align="left"
@@ -99,7 +99,7 @@
                 <th data-field="Sample" data-filter-control="input" data-sortable="true">Sample</th>
                 <th data-field="Sample-Owner" data-filter-control="select" data-sortable="true">Sample Owner</th>
                 <th data-field="Sample-Date" data-filter-control="input" data-sortable="true">Sample Date</th>
-                <th data-field="Collect-Time-Minutes" data-filter-control="input" data-sortable="true" data-visible="false">Sample Collect Time(m)</th>
+                <th data-field="Collect-Time-Minutes" data-filter-control="input" data-sortable="true" data-visible="false">Sample Collect Time (m)</th>
                 <th data-field="MSRun-Detail">MSRun Detail</th>
             </tr>
         </thead>
@@ -144,12 +144,12 @@
 {% block js_extras %}
     {{ block.super }}
     <script>
-        var $table = $('#table')
+        var $table = $('#sample_list_per_animal')
 
         $.extend($.fn.bootstrapTable.columnDefaults, {
             valign: "top"
         });
 
-        $('#table').bootstrapTable()
+        $('#sample_list_per_animal').bootstrapTable()
     </script>
 {% endblock %}

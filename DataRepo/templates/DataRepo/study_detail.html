@@ -7,7 +7,7 @@
 <div>
     <h4>Study Record - {{ study.name }}</h4>
     <br>
-    <table class="table table-bordered table-hover w-auto mw-100">
+    <table id="study_detail_stats" class="table table-bordered table-hover w-auto mw-100">
         <thead>
             <tr>
                 <th>Study</th>
@@ -51,7 +51,7 @@
     <h5>Animal and Sample Data for the Study:</h5>
     {% if df %}
     <table class="table table-sm table-hover table-bordered table-striped table-responsive" w-auto mw-100
-        id="table1"
+        id="animal_sample_per_study"
         data-toggle="table"
         data-buttons-class="primary"
         data-buttons-align="left"
@@ -132,12 +132,12 @@
 {% block js_extras %}
     {{ block.super }}
     <script>
-        var $table = $('#table1')
+        var $table = $('#animal_sample_per_study')
 
         $.extend($.fn.bootstrapTable.columnDefaults, {
                 valign: "top"
         });
 
-        $('#table1').bootstrapTable()
+        $('#animal_sample_per_study').bootstrapTable()
         </script>
 {% endblock %}
