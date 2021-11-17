@@ -257,8 +257,8 @@ class Compound(models.Model):
     def compound_matching_name_or_synonym(cls, name):
         """
         compound_matching_name_or_synonym is a class method that takes a string (name or
-        synonym) and retrieve a distinct compound that match it
-        (case-insensitive), if any. Because we have trieve to enforce unique
+        synonym) and retrieves a distinct compound that matches it
+        (case-insensitive), if any. Because we must enforce unique
         names, synonyms, and compound linkages, if more than 1 compound is found
         matching the query, an error is thrown.
         """
