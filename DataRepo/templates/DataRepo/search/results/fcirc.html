@@ -1,6 +1,127 @@
 {% load customtags %}
+{% block head_extras %}
+    <script>
+        // Correct the row count to account for M:M related tables
+        document.addEventListener("DOMContentLoaded", function(){
+            $("#showaverage").on("click", function(e) {
+                var acbv = $(this).is(":checked")
+                var icbv = $("#showintact").is(":checked")
+
+                if (!acbv && !icbv) {
+                    e.preventDefault()
+                    alert("Too few display columns. At least 1 of Average or Intact must be selected.")
+                    return
+                }
+
+                var awcbv = $("#showweight").is(":checked")
+                var ancbv = $("#shownonorm").is(":checked")
+                $("#advsrchres .average").each(function() {
+                    if( acbv && (($(this).hasClass("weight") && awcbv) || ($(this).hasClass("nonorm") && ancbv) || (!$(this).hasClass("weight") && !$(this).hasClass("nonorm"))) )
+                        {$(this).show()}
+                    else
+                        {$(this).hide()}
+                })
+            })
+
+            $("#showintact").on("click", function(e) {
+                var icbv = $(this).is(":checked")
+                var acbv = $("#showaverage").is(":checked")
+
+                if (!acbv && !icbv) {
+                    e.preventDefault()
+                    alert("Too few display columns. At least 1 of Average or Intact must be selected.")
+                    return
+                }
+
+                var iwcbv = $("#showweight").is(":checked")
+                var incbv = $("#shownonorm").is(":checked")
+                $("#advsrchres .intact").each(function() {
+                    if( icbv && (($(this).hasClass("weight") && iwcbv) || ($(this).hasClass("nonorm") && incbv) || (!$(this).hasClass("weight") && !$(this).hasClass("nonorm"))) )
+                        {$(this).show()}
+                    else
+                        {$(this).hide()}
+                })
+            })
+
+            $("#showweight").on("click", function(e) {
+                var wcbv = $(this).is(":checked")
+                var ncbv = $("#shownonorm").is(":checked")
+
+                if (!ncbv && !wcbv) {
+                    e.preventDefault()
+                    alert("Too few display columns. At least 1 of Weight-normalized or mouse-normalized must be selected.")
+                    return
+                }
+
+                var wacbv = $("#showaverage").is(":checked")
+                var wicbv = $("#showintact").is(":checked")
+                $("#advsrchres .weight").each(function() {
+                    if( wcbv && (($(this).hasClass("average") && wacbv) || ($(this).hasClass("intact") && wicbv) || (!$(this).hasClass("average") && !$(this).hasClass("intact"))) )
+                        {$(this).show()}
+                    else
+                        {$(this).hide()}
+                })
+
+                var parentsize = 0
+                if ( wcbv )
+                    {parentsize += 2}
+                if ( ncbv )
+                    {parentsize += 2}
+                // For each parent
+                $("#advsrchres .average, .intact").not(".weight, .nonorm").each(function() {
+                    if ( parentsize == 0 ) {
+                        $(this).hide()
+                    } else {
+                        $(this).show()
+                        $(this).attr("colspan", parentsize)
+                    }
+                })
+            })
+
+            $("#shownonorm").on("click", function(e) {
+                var ncbv = $(this).is(":checked")
+                var wcbv = $("#showweight").is(":checked")
+
+                if (!ncbv && !wcbv) {
+                    e.preventDefault()
+                    alert("Too few display columns. At least 1 of Weight-normalized or mouse-normalized must be selected.")
+                    return
+                }
+
+                var nacbv = $("#showaverage").is(":checked")
+                var nicbv = $("#showintact").is(":checked")
+                $("#advsrchres .nonorm").each(function() {
+                    if( ncbv && (($(this).hasClass("average") && nacbv) || ($(this).hasClass("intact") && nicbv) || (!$(this).hasClass("average") && !$(this).hasClass("intact"))) )
+                        {$(this).show()}
+                    else
+                        {$(this).hide()}
+                })
+                var parentsize = 0
+                if ( wcbv )
+                    {parentsize += 2}
+                if ( ncbv )
+                    {parentsize += 2}
+                // For each parent
+                $("#advsrchres .average, .intact").not(".weight, .nonorm").each(function() {
+                    if ( parentsize == 0 ) {
+                        $(this).hide()
+                    } else {
+                        $(this).show()
+                        $(this).attr("colspan", parentsize)
+                    }
+                })
+            })
+        })
+    </script>
+{% endblock %}
 {% block content %}
     <div style="float: right; margin-right: 1rem;" class="buttons-toolbar"></div>
+    <!-- <div><input type="checkbox" id="showaverage" checked/>Average</div>
+    <div><input type="checkbox" id="showintact" checked/>Intact</div>
+    <div><input type="checkbox" id="showweight" checked/>Weight-Normalized</div>
+    <div><input type="checkbox" id="shownonorm" checked/>Mouse-Normalized</div>
+    <div><input type="checkbox" id="showra" checked/>Ra</div>
+    <div><input type="checkbox" id="showrd" checked/>Rd</div> -->
     <h3 style="margin: 0; display: inline-block;">{{ qry|getFormatName:selfmt }} Results ({{ res.count|default:"0" }} Rows)</h3>
     <table class="table table-highlighted table-hover table-bordered"
         id="advsrchres"
@@ -19,14 +140,14 @@
         <thead>
             <tr class="bg-highlighted">
                 <th colspan="7" rowspan="2"></th>
-                <th colspan="4">Average</th>
-                <th colspan="4">Intact</th>
+                <th colspan="4" class="average">Average</th>
+                <th colspan="4" class="intact">Intact</th>
             </tr>
             <tr class="bg-highlighted">
-                <th colspan="2">Weight<br>Normalized<br>(nM/m/g)</th>
-                <th colspan="2">Mouse<br>Normalized<br>(nM/m)</th>
-                <th colspan="2">Weight<br>Normalized<br>(nM/m/g)</th>
-                <th colspan="2">Mouse<br>Normalized<br>(nM/m)</th>
+                <th colspan="2" data-valign="top" data-sortable="false" data-switchable="true" data-field="Weight_Normalized" class="average weight">Weight<br>Normalized<br>(nM/m/g)</th>
+                <th colspan="2" data-valign="top" data-sortable="false" data-switchable="true" data-field="Mouse_Normalized" class="average nonorm">Mouse<br>Normalized<br>(nM/m)</th>
+                <th colspan="2" data-valign="top" data-sortable="false" data-switchable="true" data-field="Weight_Normalized2" class="intact weight">Weight<br>Normalized<br>(nM/m/g)</th>
+                <th colspan="2" data-valign="top" data-sortable="false" data-switchable="true" data-field="Mouse_Normalized2" class="intact nonorm">Mouse<br>Normalized<br>(nM/m)</th>
             </tr>
             <tr class="bg-highlighted">
                 <th data-valign="top" data-sortable="true" data-field="Animal">Animal</th>
@@ -36,14 +157,14 @@
                 <th data-valign="top" data-sortable="true" data-field="Tracer_Infusion_Rate">Tracer<br>Infusion<br>Rate<br>(ul/m/g)</th>
                 <th data-valign="top" data-sortable="true" data-field="Tracer_Infusion_Concentration">Tracer Infusion<br>Concentration<br>(mM)</th>
                 <th data-valign="top" data-sortable="true" data-field="Time_Collected">Time<br>Collected<br>(m)</th>
-                <th data-valign="top" data-sortable="true" data-switchable="false" data-field="Average_Weight_Normalized_Ra">Ra</th>
-                <th data-valign="top" data-sortable="true" data-switchable="false" data-field="Average_Weight_Normalized_Rd">Rd</th>
-                <th data-valign="top" data-sortable="true" data-switchable="false" data-field="Average_Mouse_Normalized_Ra">Ra</th>
-                <th data-valign="top" data-sortable="true" data-switchable="false" data-field="Average_Mouse_Normalized_Rd">Rd</th>
-                <th data-valign="top" data-sortable="true" data-switchable="false" data-field="Intact_Weight_Normalized_Ra">Ra</th>
-                <th data-valign="top" data-sortable="true" data-switchable="false" data-field="Intact_Weight_Normalized_Rd">Rd</th>
-                <th data-valign="top" data-sortable="true" data-switchable="false" data-field="Intact_Mouse_Normalized_Ra">Ra</th>
-                <th data-valign="top" data-sortable="true" data-switchable="false" data-field="Intact_Mouse_Normalized_Rd">Rd</th>
+                <th data-valign="top" data-sortable="true" data-switchable="false" data-field="Average_Weight_Normalized_Ra" data-title-tooltip="Average_Weight_Normalized_Ra" class="average weight ra">Ra</th>
+                <th data-valign="top" data-sortable="true" data-switchable="false" data-field="Average_Weight_Normalized_Rd" data-title-tooltip="Average_Weight_Normalized_Rd" class="average weight rd">Rd</th>
+                <th data-valign="top" data-sortable="true" data-switchable="false" data-field="Average_Mouse_Normalized_Ra" data-title-tooltip="Average_Mouse_Normalized_Ra" class="average nonorm ra">Ra</th>
+                <th data-valign="top" data-sortable="true" data-switchable="false" data-field="Average_Mouse_Normalized_Rd" data-title-tooltip="Average_Mouse_Normalized_Rd" class="average nonorm rd">Rd</th>
+                <th data-valign="top" data-sortable="true" data-switchable="false" data-field="Intact_Weight_Normalized_Ra" data-title-tooltip="Intact_Weight_Normalized_Ra" class="intact weight ra">Ra</th>
+                <th data-valign="top" data-sortable="true" data-switchable="false" data-field="Intact_Weight_Normalized_Rd" data-title-tooltip="Intact_Weight_Normalized_Rd" class="intact weight rd">Rd</th>
+                <th data-valign="top" data-sortable="true" data-switchable="false" data-field="Intact_Mouse_Normalized_Ra" data-title-tooltip="Intact_Mouse_Normalized_Ra" class="intact nonorm ra">Ra</th>
+                <th data-valign="top" data-sortable="true" data-switchable="false" data-field="Intact_Mouse_Normalized_Rd" data-title-tooltip="Intact_Mouse_Normalized_Rd" class="intact nonorm rd">Rd</th>
             </tr>
         </thead>
 
@@ -121,7 +242,7 @@
                         </td>
 
                         <!-- Average Ra (nM/m/g) -->
-                        <td class="text-end">
+                        <td class="text-end average weight ra">
                             {% if pg.rate_appearance_average_per_gram is None %}
                                 None
                             {% else %}
@@ -130,7 +251,7 @@
                         </td>
 
                         <!-- Average Rd (nM/m/g) -->
-                        <td class="text-end">
+                        <td class="text-end average weight rd">
                             {% if pg.rate_disappearance_average_per_gram is None %}
                                 None
                             {% else %}
@@ -139,7 +260,7 @@
                         </td>
 
                         <!-- Average Ra (nM/m) -->
-                        <td class="text-end">
+                        <td class="text-end average nonorm ra">
                             {% if pg.rate_appearance_average_per_animal is None %}
                                 None
                             {% else %}
@@ -148,7 +269,7 @@
                         </td>
 
                         <!-- Average Rd (nM/m) -->
-                        <td class="text-end">
+                        <td class="text-end average nonorm rd">
                             {% if pg.rate_disappearance_average_per_animal is None %}
                                 None
                             {% else %}
@@ -157,7 +278,7 @@
                         </td>
 
                         <!-- Intact Ra (nM/m/g) -->
-                        <td class="text-end">
+                        <td class="text-end intact weight ra">
                             {% if pg.rate_appearance_intact_per_gram is None %}
                                 None
                             {% else %}
@@ -166,7 +287,7 @@
                         </td>
 
                         <!-- Intact Rd (nM/m/g) -->
-                        <td class="text-end">
+                        <td class="text-end intact weight rd">
                             {% if pg.rate_disappearance_intact_per_gram is None %}
                                 None
                             {% else %}
@@ -175,7 +296,7 @@
                         </td>
 
                         <!-- Intact Ra (nM/m) -->
-                        <td class="text-end">
+                        <td class="text-end intact nonorm ra">
                             {% if pg.rate_appearance_intact_per_animal is None %}
                                 None
                             {% else %}
@@ -184,7 +305,7 @@
                         </td>
 
                         <!-- Intact Rd (nM/m) -->
-                        <td class="text-end">
+                        <td class="text-end intact nonorm rd">
                             {% if pg.rate_disappearance_intact_per_animal is None %}
                                 None
                             {% else %}
