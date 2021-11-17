@@ -1,4 +1,5 @@
 /* Allows column headers to wrap in bootstrap-table */
+
 /* https://github.com/wenzhixin/bootstrap-table/issues/899 */
 
 .fixed-table-container thead th .th-inner {
