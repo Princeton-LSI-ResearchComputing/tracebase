@@ -1,11 +1,4 @@
-{% load static %}
 {% load customtags %}
-{% block head_extras %}
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-
-    <link href="{% static 'css/bstable_extras.css' %}" rel="stylesheet">
-{% endblock %}
 {% block content %}
     <div style="float: right; margin-right: 1rem;" class="buttons-toolbar"></div>
     <h3 style="margin: 0; display: inline-block;">{{ qry|getFormatName:selfmt }} Results ({{ res.count|default:"0" }} Rows)</h3>
@@ -43,14 +36,14 @@
                 <th data-valign="top" data-sortable="true" data-field="Tracer_Infusion_Rate">Tracer<br>Infusion<br>Rate<br>(ul/m/g)</th>
                 <th data-valign="top" data-sortable="true" data-field="Tracer_Infusion_Concentration">Tracer Infusion<br>Concentration<br>(mM)</th>
                 <th data-valign="top" data-sortable="true" data-field="Time_Collected">Time<br>Collected<br>(m)</th>
-                <th data-valign="top" data-sortable="true" data-field="Average_Weight_Normalized_Ra">Ra</th>
-                <th data-valign="top" data-sortable="true" data-field="Average_Weight_Normalized_Rd">Rd</th>
-                <th data-valign="top" data-sortable="true" data-field="Average_Mouse_Normalized_Ra">Ra</th>
-                <th data-valign="top" data-sortable="true" data-field="Average_Mouse_Normalized_Rd">Rd</th>
-                <th data-valign="top" data-sortable="true" data-field="Intact_Weight_Normalized_Ra">Ra</th>
-                <th data-valign="top" data-sortable="true" data-field="Intact_Weight_Normalized_Rd">Rd</th>
-                <th data-valign="top" data-sortable="true" data-field="Intact_Mouse_Normalized_Ra">Ra</th>
-                <th data-valign="top" data-sortable="true" data-field="Intact_Mouse_Normalized_Rd">Rd</th>
+                <th data-valign="top" data-sortable="true" data-switchable="false" data-field="Average_Weight_Normalized_Ra">Ra</th>
+                <th data-valign="top" data-sortable="true" data-switchable="false" data-field="Average_Weight_Normalized_Rd">Rd</th>
+                <th data-valign="top" data-sortable="true" data-switchable="false" data-field="Average_Mouse_Normalized_Ra">Ra</th>
+                <th data-valign="top" data-sortable="true" data-switchable="false" data-field="Average_Mouse_Normalized_Rd">Rd</th>
+                <th data-valign="top" data-sortable="true" data-switchable="false" data-field="Intact_Weight_Normalized_Ra">Ra</th>
+                <th data-valign="top" data-sortable="true" data-switchable="false" data-field="Intact_Weight_Normalized_Rd">Rd</th>
+                <th data-valign="top" data-sortable="true" data-switchable="false" data-field="Intact_Mouse_Normalized_Ra">Ra</th>
+                <th data-valign="top" data-sortable="true" data-switchable="false" data-field="Intact_Mouse_Normalized_Rd">Rd</th>
             </tr>
         </thead>
 

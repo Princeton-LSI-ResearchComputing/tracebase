@@ -1,12 +1,8 @@
-{% load static %}
 {% load customtags %}
 {% block head_extras %}
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-
-    <link href="{% static 'css/bstable_extras.css' %}" rel="stylesheet">
 
     <script>
+        // Correct the row count to account for M:M related tables
         document.addEventListener("DOMContentLoaded", function(){
             const real_cnt_elem = document.getElementById("realcount")
             const rec_cnt = real_cnt_elem.innerHTML
