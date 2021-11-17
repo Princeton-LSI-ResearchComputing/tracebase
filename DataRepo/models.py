@@ -265,7 +265,7 @@ class Compound(models.Model):
 
         compounds_qry = cls.objects.filter(name__iexact=name)
         synonyms_qry = cls.objects.filter(synonyms__name__iexact=name)
-        # find the dinstinct union of these queries
+        # find the distinct union of these queries
         matching_compounds = compounds_qry | synonyms_qry
         matching_compounds = matching_compounds.distinct()
         if matching_compounds.count() > 1:
