@@ -62,20 +62,7 @@
                         {$(this).hide()}
                 })
 
-                var parentsize = 0
-                if ( wcbv )
-                    {parentsize += 2}
-                if ( ncbv )
-                    {parentsize += 2}
-                // For each parent
-                $("#advsrchres .average, .intact").not(".weight, .nonorm").each(function() {
-                    if ( parentsize == 0 ) {
-                        $(this).hide()
-                    } else {
-                        $(this).show()
-                        $(this).attr("colspan", parentsize)
-                    }
-                })
+                adjustAverageIntact(wcbv, ncbv)
             })
 
             $("#shownonorm").on("click", function(e) {
@@ -96,22 +83,27 @@
                     else
                         {$(this).hide()}
                 })
-                var parentsize = 0
-                if ( wcbv )
-                    {parentsize += 2}
-                if ( ncbv )
-                    {parentsize += 2}
-                // For each parent
-                $("#advsrchres .average, .intact").not(".weight, .nonorm").each(function() {
-                    if ( parentsize == 0 ) {
-                        $(this).hide()
-                    } else {
-                        $(this).show()
-                        $(this).attr("colspan", parentsize)
-                    }
-                })
+
+                adjustAverageIntact(wcbv, ncbv)
             })
         })
+
+        function adjustAverageIntact(wcbv, ncbv) {
+            var parentsize = 0
+            if ( wcbv )
+                {parentsize += 2}
+            if ( ncbv )
+                {parentsize += 2}
+            // For each parent
+            $("#advsrchres .average, .intact").not(".weight, .nonorm").each(function() {
+                if ( parentsize == 0 ) {
+                    $(this).hide()
+                } else {
+                    $(this).show()
+                    $(this).attr("colspan", parentsize)
+                }
+            })
+        }
     </script>
 {% endblock %}
 {% block content %}
