@@ -51,7 +51,8 @@ jobs:
     - name: Load example compounds
       run: |
         python manage.py load_compounds \
-        "DataRepo/example_data/obob_compounds.tsv"
+        --compounds \
+        "DataRepo/example_data/consolidated_tracebase_compound_list.tsv"
     - name: Load example sample table
       run: |
         python manage.py load_samples \

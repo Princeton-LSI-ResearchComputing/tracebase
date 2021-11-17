@@ -253,6 +253,28 @@ class Compound(models.Model):
         ucfirst_synonym = self.name[0].upper() + self.name[1:]
         (_secondary_synonym, created) = self.get_or_create_synonym(ucfirst_synonym)
 
+    @classmethod
+    def compound_matching_name_or_synonym(cls, name):
+        """
+        compound_matching_name_or_synonym is a class method that takes a string (name or
+        synonym) and retrieve a distinct compound that match it
+        (case-insensitive), if any. Because we have trieve to enforce unique
+        names, synonyms, and compound linkages, if more than 1 compound is found
+        matching the query, an error is thrown.
+        """
+
+        compounds_qry = cls.objects.filter(name__iexact=name)
+        synonyms_qry = cls.objects.filter(synonyms__name__iexact=name)
+        # find the dinstinct union of these queries
+        matching_compounds = compounds_qry | synonyms_qry
+        matching_compounds = matching_compounds.distinct()
+        if matching_compounds.count() > 1:
+            raise ValidationError(
+                "compound_matching_name_or_synonym retrieved multiple "
+                f"distinct compounds matching {name} from the database"
+            )
+        return matching_compounds.first()
+
     class Meta:
         verbose_name = "compound"
         verbose_name_plural = "compounds"
