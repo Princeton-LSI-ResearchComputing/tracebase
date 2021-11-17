@@ -1,171 +1,211 @@
+{% load static %}
 {% load customtags %}
+{% block head_extras %}
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <link href="{% static 'css/bstable_extras.css' %}" rel="stylesheet">
+{% endblock %}
 {% block content %}
+    <div style="float: right; margin-right: 1rem;" class="buttons-toolbar"></div>
     <h3 style="margin: 0; display: inline-block;">{{ qry|getFormatName:selfmt }} Results ({{ res.count|default:"0" }} Rows)</h3>
-    <table class="table table-highlighted table-hover table-bordered">
-        <tr class="bg-highlighted">
-            <th colspan="7" rowspan="2"></th>
-            <th colspan="4">Average</th>
-            <th colspan="4">Intact</th>
-        </tr>
-        <tr class="bg-highlighted">
-            <th colspan="2">Weight Normalized<small> (nM/m/g)</small></th>
-            <th colspan="2">Mouse Normalized<small> (nM/m)</small></th>
-            <th colspan="2">Weight Normalized<small> (nM/m/g)</small></th>
-            <th colspan="2">Mouse Normalized<small> (nM/m)</small></th>
-        </tr>
-        <tr class="bg-highlighted">
-            <th>Animal</th>
-            <th>Studies</th>
-            <th>Treatment</th>
-            <th>Tracer Compound</th>
-            <th>Tracer Infusion Rate (ul/m/g)</th>
-            <th>Tracer Infusion Concentration (mM)</th>
-            <th>Time Collected (m)</th>
-            <th>Ra</th>
-            <th>Rd</th>
-            <th>Ra</th>
-            <th>Rd</th>
-            <th>Ra</th>
-            <th>Rd</th>
-            <th>Ra</th>
-            <th>Rd</th>
-        </tr>
+    <table class="table table-highlighted table-hover table-bordered"
+        id="advsrchres"
+        data-toggle="table"
+        data-buttons-toolbar=".buttons-toolbar"
+        data-buttons-class="primary"
+        data-buttons-align="right"
+        data-filter-control="false"
+        data-search="false"
+        data-show-search-clear-button="false"
+        data-show-multi-sort="true"
+        data-show-columns="true"
+        data-show-columns-toggle-all="true"
+        data-show-fullscreen="false"
+        data-show-export="false">
+        <thead>
+            <tr class="bg-highlighted">
+                <th colspan="7" rowspan="2"></th>
+                <th colspan="4">Average</th>
+                <th colspan="4">Intact</th>
+            </tr>
+            <tr class="bg-highlighted">
+                <th colspan="2">Weight<br>Normalized<br>(nM/m/g)</th>
+                <th colspan="2">Mouse<br>Normalized<br>(nM/m)</th>
+                <th colspan="2">Weight<br>Normalized<br>(nM/m/g)</th>
+                <th colspan="2">Mouse<br>Normalized<br>(nM/m)</th>
+            </tr>
+            <tr class="bg-highlighted">
+                <th data-valign="top" data-sortable="true" data-field="Animal">Animal</th>
+                <th data-valign="top" data-sortable="true" data-field="Studies">Studies</th>
+                <th data-valign="top" data-sortable="true" data-field="Treatment">Treatment</th>
+                <th data-valign="top" data-sortable="true" data-field="Tracer_Compound">Tracer<br>Compound</th>
+                <th data-valign="top" data-sortable="true" data-field="Tracer_Infusion_Rate">Tracer<br>Infusion<br>Rate<br>(ul/m/g)</th>
+                <th data-valign="top" data-sortable="true" data-field="Tracer_Infusion_Concentration">Tracer Infusion<br>Concentration<br>(mM)</th>
+                <th data-valign="top" data-sortable="true" data-field="Time_Collected">Time<br>Collected<br>(m)</th>
+                <th data-valign="top" data-sortable="true" data-field="Average_Weight_Normalized_Ra">Ra</th>
+                <th data-valign="top" data-sortable="true" data-field="Average_Weight_Normalized_Rd">Rd</th>
+                <th data-valign="top" data-sortable="true" data-field="Average_Mouse_Normalized_Ra">Ra</th>
+                <th data-valign="top" data-sortable="true" data-field="Average_Mouse_Normalized_Rd">Rd</th>
+                <th data-valign="top" data-sortable="true" data-field="Intact_Weight_Normalized_Ra">Ra</th>
+                <th data-valign="top" data-sortable="true" data-field="Intact_Weight_Normalized_Rd">Rd</th>
+                <th data-valign="top" data-sortable="true" data-field="Intact_Mouse_Normalized_Ra">Ra</th>
+                <th data-valign="top" data-sortable="true" data-field="Intact_Mouse_Normalized_Rd">Rd</th>
+            </tr>
+        </thead>
 
-        {% for pg in res.all %}
+        <tbody>
+            {% for pg in res.all %}
 
-            {# Initialize a new dict used for many-to-many related table refiltering #}
-            {% createDict as mm_lookup %}
+                {# Initialize a new dict used for many-to-many related table refiltering #}
+                {% createDict as mm_lookup %}
 
-            {% if pg.is_tracer_compound_group %}
-                <tr class="{% if pg.msrun.sample.id == pg.msrun.sample.animal.final_serum_sample_id %}bg-highlighted{% endif %}">
-                    <!-- Animal -->
-                    <td>
-                        <a href="{% url 'animal_detail' pg.msrun.sample.animal.id %}">
-                            {{ pg.msrun.sample.animal.name }}
-                        </a>
-                    </td>
+                {% if pg.is_tracer_compound_group %}
+                    <tr class="{% if pg.msrun.sample.id == pg.msrun.sample.animal.final_serum_sample_id %}bg-highlighted{% endif %}">
+                        <!-- Animal -->
+                        <td>
+                            <!-- Put displayed link text first for sorting -->
+                            <div style="display:none;">{{ pg.msrun.sample.animal.name }}</div>
 
-                    <!-- Studies -->
-                    <td>
-                        {# All on 1 line to avoid space preceding commas #}
-                        {# We add the M:M model key path as a key pointing to its current record to the mm_lookup dict.  This way of looking up M:M record values is necessary to support multiple M:M related models in a composite view #}
-                        {# At the most nested loop level, we have enough info to refilter for unmatching many-to-many records #}
-
-                        {% define True as first %}
-                        {% for study in pg.msrun.sample.animal.studies.all %}{% addToDict mm_lookup "msrun__sample__animal__studies" study %}{% shouldKeepManyToMany pg mm_lookup qry refilter as keep %}{% if keep %}{% if not first %},<br>{% endif%}<a href="{% url 'study_detail' study.id %}">{{ study.name }}</a>{% endif %}{% define False as first %}{% endfor %}
-                    </td>
-
-                    <!-- Treatment -->
-                    <td>
-                        {% if pg.msrun.sample.animal.treatment is None %}
-                            None
-                        {% else %}
-                            <a href="{% url 'protocol_detail' pg.msrun.sample.animal.treatment.id %}">
-                                {{ pg.msrun.sample.animal.treatment.name }}
+                            <a href="{% url 'animal_detail' pg.msrun.sample.animal.id %}">
+                                {{ pg.msrun.sample.animal.name }}
                             </a>
-                        {% endif %}
-                    </td>
+                        </td>
 
-                    <!-- Tracer Compound -->
-                    <td>
-                        <a href="{% url 'compound_detail' pg.msrun.sample.animal.tracer_compound.id %}">
-                            {{ pg.msrun.sample.animal.tracer_compound.name }}
-                        </a>
-                    </td>
+                        <!-- Studies -->
+                        <td>
+                            {# All on 1 line to avoid space preceding commas #}
+                            {# We add the M:M model key path as a key pointing to its current record to the mm_lookup dict.  This way of looking up M:M record values is necessary to support multiple M:M related models in a composite view #}
+                            {# At the most nested loop level, we have enough info to refilter for unmatching many-to-many records #}
 
-                    <!-- Tracer Infusion Rate (ul/m/g) -->
-                    <td class="text-end">
-                        {{ pg.msrun.sample.animal.tracer_infusion_rate }}
-                    </td>
+                            <!-- Put displayed link text first for sorting -->
+                            <div style="display:none;">
+                                {% define True as first %}
+                                {% for study in pg.msrun.sample.animal.studies.all %}{% addToDict mm_lookup "msrun__sample__animal__studies" study %}{% shouldKeepManyToMany pg mm_lookup qry refilter as keep %}{% if keep %}{% if not first %},<br>{% endif%}{{ study.name }}{% endif %}{% define False as first %}{% endfor %}
+                            </div>
 
-                    <!-- Tracer Infusion Concentration (mM) -->
-                    <td class="text-end">
-                        {{ pg.msrun.sample.animal.tracer_infusion_concentration }}
-                    </td>
+                            {% define True as first %}
+                            {% for study in pg.msrun.sample.animal.studies.all %}{% addToDict mm_lookup "msrun__sample__animal__studies" study %}{% shouldKeepManyToMany pg mm_lookup qry refilter as keep %}{% if keep %}{% if not first %},<br>{% endif%}<a href="{% url 'study_detail' study.id %}">{{ study.name }}</a>{% endif %}{% define False as first %}{% endfor %}
+                        </td>
 
-                    <!-- Time Collected (m) -->
-                    <td class="text-end">
-                        <p title="{{ pg.msrun.sample.time_collected }} (h:m:s)">{{ pg.msrun.sample.time_collected|durationToMins|decimalPlaces:2 }}</p>
-                    </td>
+                        <!-- Treatment -->
+                        <td>
+                            {% if pg.msrun.sample.animal.treatment is None %}
+                                None
+                            {% else %}
+                                <!-- Put displayed link text first for sorting -->
+                                <div style="display:none;">{{ pg.msrun.sample.animal.treatment.name }}</div>
 
-                    <!-- Average Ra (nM/m/g) -->
-                    <td class="text-end">
-                        {% if pg.rate_appearance_average_per_gram is None %}
-                            None
-                        {% else %}
-                            <p title="{{ pg.rate_appearance_average_per_gram }}">{{ pg.rate_appearance_average_per_gram|floatformat:2 }}</p>
-                        {% endif %}
-                    </td>
+                                <a href="{% url 'protocol_detail' pg.msrun.sample.animal.treatment.id %}">
+                                    {{ pg.msrun.sample.animal.treatment.name }}
+                                </a>
+                            {% endif %}
+                        </td>
 
-                    <!-- Average Rd (nM/m/g) -->
-                    <td class="text-end">
-                        {% if pg.rate_disappearance_average_per_gram is None %}
-                            None
-                        {% else %}
-                            <p title="{{ pg.rate_disappearance_average_per_gram }}">{{ pg.rate_disappearance_average_per_gram|floatformat:2 }}</p>
-                        {% endif %}
-                    </td>
+                        <!-- Tracer Compound -->
+                        <td>
+                            <!-- Put displayed link text first for sorting -->
+                            <div style="display:none;">{{ pg.msrun.sample.animal.tracer_compound.name }}</div>
 
-                    <!-- Average Ra (nM/m) -->
-                    <td class="text-end">
-                        {% if pg.rate_appearance_average_per_animal is None %}
-                            None
-                        {% else %}
-                            <p title="{{ pg.rate_appearance_average_per_animal }}">{{ pg.rate_appearance_average_per_animal|floatformat:2 }}</p>
-                        {% endif %}
-                    </td>
+                            <a href="{% url 'compound_detail' pg.msrun.sample.animal.tracer_compound.id %}">
+                                {{ pg.msrun.sample.animal.tracer_compound.name }}
+                            </a>
+                        </td>
 
-                    <!-- Average Rd (nM/m) -->
-                    <td class="text-end">
-                        {% if pg.rate_disappearance_average_per_animal is None %}
-                            None
-                        {% else %}
-                            <p title="{{ pg.rate_disappearance_average_per_animal }}">{{ pg.rate_disappearance_average_per_animal|floatformat:2 }}</p>
-                        {% endif %}
-                    </td>
+                        <!-- Tracer Infusion Rate (ul/m/g) -->
+                        <td class="text-end">
+                            {{ pg.msrun.sample.animal.tracer_infusion_rate }}
+                        </td>
 
-                    <!-- Intact Ra (nM/m/g) -->
-                    <td class="text-end">
-                        {% if pg.rate_appearance_intact_per_gram is None %}
-                            None
-                        {% else %}
-                            <p title="{{ pg.rate_appearance_intact_per_gram }}">{{ pg.rate_appearance_intact_per_gram|floatformat:2 }}</p>
-                        {% endif %}
-                    </td>
+                        <!-- Tracer Infusion Concentration (mM) -->
+                        <td class="text-end">
+                            {{ pg.msrun.sample.animal.tracer_infusion_concentration }}
+                        </td>
 
-                    <!-- Intact Rd (nM/m/g) -->
-                    <td class="text-end">
-                        {% if pg.rate_disappearance_intact_per_gram is None %}
-                            None
-                        {% else %}
-                            <p title="{{ pg.rate_disappearance_intact_per_gram }}">{{ pg.rate_disappearance_intact_per_gram|floatformat:2 }}</p>
-                        {% endif %}
-                    </td>
+                        <!-- Time Collected (m) -->
+                        <td class="text-end">
+                            <p title="{{ pg.msrun.sample.time_collected }} (h:m:s)">{{ pg.msrun.sample.time_collected|durationToMins|decimalPlaces:2 }}</p>
+                        </td>
 
-                    <!-- Intact Ra (nM/m) -->
-                    <td class="text-end">
-                        {% if pg.rate_appearance_intact_per_animal is None %}
-                            None
-                        {% else %}
-                            <p title="{{ pg.rate_appearance_intact_per_animal }}">{{ pg.rate_appearance_intact_per_animal|floatformat:2 }}</p>
-                        {% endif %}
-                    </td>
+                        <!-- Average Ra (nM/m/g) -->
+                        <td class="text-end">
+                            {% if pg.rate_appearance_average_per_gram is None %}
+                                None
+                            {% else %}
+                                <p title="{{ pg.rate_appearance_average_per_gram }}">{{ pg.rate_appearance_average_per_gram|floatformat:2 }}</p>
+                            {% endif %}
+                        </td>
 
-                    <!-- Intact Rd (nM/m) -->
-                    <td class="text-end">
-                        {% if pg.rate_disappearance_intact_per_animal is None %}
-                            None
-                        {% else %}
-                            <p title="{{ pg.rate_disappearance_intact_per_animal }}">{{ pg.rate_disappearance_intact_per_animal|floatformat:2 }}</p>
-                        {% endif %}
-                    </td>
-                </tr>
-            {% endif %}
-        {% endfor %}
+                        <!-- Average Rd (nM/m/g) -->
+                        <td class="text-end">
+                            {% if pg.rate_disappearance_average_per_gram is None %}
+                                None
+                            {% else %}
+                                <p title="{{ pg.rate_disappearance_average_per_gram }}">{{ pg.rate_disappearance_average_per_gram|floatformat:2 }}</p>
+                            {% endif %}
+                        </td>
+
+                        <!-- Average Ra (nM/m) -->
+                        <td class="text-end">
+                            {% if pg.rate_appearance_average_per_animal is None %}
+                                None
+                            {% else %}
+                                <p title="{{ pg.rate_appearance_average_per_animal }}">{{ pg.rate_appearance_average_per_animal|floatformat:2 }}</p>
+                            {% endif %}
+                        </td>
+
+                        <!-- Average Rd (nM/m) -->
+                        <td class="text-end">
+                            {% if pg.rate_disappearance_average_per_animal is None %}
+                                None
+                            {% else %}
+                                <p title="{{ pg.rate_disappearance_average_per_animal }}">{{ pg.rate_disappearance_average_per_animal|floatformat:2 }}</p>
+                            {% endif %}
+                        </td>
+
+                        <!-- Intact Ra (nM/m/g) -->
+                        <td class="text-end">
+                            {% if pg.rate_appearance_intact_per_gram is None %}
+                                None
+                            {% else %}
+                                <p title="{{ pg.rate_appearance_intact_per_gram }}">{{ pg.rate_appearance_intact_per_gram|floatformat:2 }}</p>
+                            {% endif %}
+                        </td>
+
+                        <!-- Intact Rd (nM/m/g) -->
+                        <td class="text-end">
+                            {% if pg.rate_disappearance_intact_per_gram is None %}
+                                None
+                            {% else %}
+                                <p title="{{ pg.rate_disappearance_intact_per_gram }}">{{ pg.rate_disappearance_intact_per_gram|floatformat:2 }}</p>
+                            {% endif %}
+                        </td>
+
+                        <!-- Intact Ra (nM/m) -->
+                        <td class="text-end">
+                            {% if pg.rate_appearance_intact_per_animal is None %}
+                                None
+                            {% else %}
+                                <p title="{{ pg.rate_appearance_intact_per_animal }}">{{ pg.rate_appearance_intact_per_animal|floatformat:2 }}</p>
+                            {% endif %}
+                        </td>
+
+                        <!-- Intact Rd (nM/m) -->
+                        <td class="text-end">
+                            {% if pg.rate_disappearance_intact_per_animal is None %}
+                                None
+                            {% else %}
+                                <p title="{{ pg.rate_disappearance_intact_per_animal }}">{{ pg.rate_disappearance_intact_per_animal|floatformat:2 }}</p>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endif %}
+            {% endfor %}
+        </tbody>
     </table>
     <br>
     <table class="table table-highlighted-legend table-hover table-bordered">
-        <tr class="bg-highlighted">
+        <tr>
             <th>Color Legend</th>
         </tr>
         <tr>

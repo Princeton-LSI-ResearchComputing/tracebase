@@ -3,20 +3,20 @@
 }
 
 .bg-highlighted {
-  --bs-table-striped-bg: rgba(0 0 0 5%);
-  --bs-table-striped-color: #212529;
+  --bs-table-striped-bg: #f4f4f4;
+  --bs-table-striped-color: #000;
 }
 
 .table-highlighted {
-  --bs-table-bg: transparent;
-  --bs-table-striped-bg: rgba(0 0 0 5%);
-  --bs-table-striped-color: #212529;
-  --bs-table-active-bg: rgba(0 0 0 10%);
-  --bs-table-active-color: #212529;
-  --bs-table-hover-bg: rgba(0 0 0 7.5%);
-  --bs-table-hover-color: #212529;
+  --bs-table-bg: #fff;
+  --bs-table-striped-bg: #f4f4f4;
+  --bs-table-striped-color: #000;
+  --bs-table-active-bg: #bcd0c7;
+  --bs-table-active-color: #000;
+  --bs-table-hover-bg: #eeefee;
+  --bs-table-hover-color: #000;
 
-  color: #212529;
+  color: #000;
   border-color: #dee2e6;
 }
 
@@ -27,17 +27,17 @@
 }
 
 .table-highlighted-legend {
-  --bs-table-bg: transparent;
-  --bs-table-striped-bg: rgba(0 0 0 5%);
-  --bs-table-striped-color: #212529;
-  --bs-table-active-bg: rgba(0 0 0 10%);
-  --bs-table-active-color: #212529;
-  --bs-table-hover-bg: rgba(0 0 0 7.5%);
-  --bs-table-hover-color: #212529;
+  --bs-table-bg: #fff;
+  --bs-table-striped-bg: #f4f4f4;
+  --bs-table-striped-color: #000;
+  --bs-table-active-bg: #bcd0c7;
+  --bs-table-active-color: #000;
+  --bs-table-hover-bg: #eeefee;
+  --bs-table-hover-color: #000;
 
   width: 1%;
   white-space: nowrap;
-  color: #212529;
+  color: #000;
   border-color: #dee2e6;
 }
 

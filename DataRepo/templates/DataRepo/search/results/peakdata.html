@@ -1,7 +1,10 @@
+{% load static %}
 {% load customtags %}
 {% block head_extras %}
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <link href="{% static 'css/bstable_extras.css' %}" rel="stylesheet">
 
     <script>
         document.addEventListener("DOMContentLoaded", function(){
@@ -32,29 +35,29 @@
         data-show-export="false">
         <thead>
             <tr>
-                <th data-field="Sample" data-sortable="true">Sample</th>
-                <th data-field="Tissue" data-sortable="true">Tissue</th>
-                <th data-field="Peak_Group" data-sortable="true">Peak Group</th>
-                <th data-field="Formula" data-sortable="true">Formula</th>
-                <th data-field="Labeled_Element_Count" data-sortable="true">Labeled Element:Count</th>
-                <th data-field="Raw_Abundance" data-sortable="true">Raw Abundance</th>
-                <th data-field="Corrected_Abundance" data-sortable="true">Corrected Abundance</th>
-                <th data-field="Fraction" data-sortable="true">Fraction</th>
-                <th data-field="Median_MZ" data-sortable="true">Median M/Z</th>
-                <th data-field="Median_RT" data-sortable="true">Median RT</th>
-                <th data-field="Peak_Group_Set_Filename" data-sortable="true">Peak Group Set Filename</th>
-                <th data-field="Animal" data-sortable="true">Animal</th>
-                <th data-field="Genotype" data-sortable="true">Genotype</th>
-                <th data-field="Body_Weight" data-sortable="true">Body Weight (g)</th>
-                <th data-field="Age" data-sortable="true">Age (weeks)</th>
-                <th data-field="Sex" data-sortable="true">Sex</th>
-                <th data-field="Diet" data-sortable="true">Diet</th>
-                <th data-field="Feeding_Status" data-sortable="true">Feeding Status</th>
-                <th data-field="Treatment" data-sortable="true">Treatment</th>
-                <th data-field="Tracer_Compound" data-sortable="true">Tracer Compound</th>
-                <th data-field="Tracer_Infusion_Rate" data-sortable="true">Tracer Infusion Rate (ul/min/g)</th>
-                <th data-field="Tracer_Infusion_Concentration" data-sortable="true">Tracer Infusion Concentration (mM)</th>
-                <th data-field="Study" data-sortable="true">Study</th>
+                <th data-valign="top" data-sortable="true" data-field="Sample">Sample</th>
+                <th data-valign="top" data-sortable="true" data-field="Tissue">Tissue</th>
+                <th data-valign="top" data-sortable="true" data-field="Peak_Group">Peak Group</th>
+                <th data-valign="top" data-sortable="true" data-field="Formula">Formula</th>
+                <th data-valign="top" data-sortable="true" data-field="Labeled_Element_Count">Labeled<br>Element:<br>Count</th>
+                <th data-valign="top" data-sortable="true" data-field="Raw_Abundance">Raw<br>Abundance</th>
+                <th data-valign="top" data-sortable="true" data-field="Corrected_Abundance">Corrected<br>Abundance</th>
+                <th data-valign="top" data-sortable="true" data-field="Fraction">Fraction</th>
+                <th data-valign="top" data-sortable="true" data-field="Median_MZ">Median<br>M/Z</th>
+                <th data-valign="top" data-sortable="true" data-field="Median_RT">Median<br>RT</th>
+                <th data-valign="top" data-sortable="true" data-field="Peak_Group_Set_Filename">Peak Group Set Filename</th>
+                <th data-valign="top" data-sortable="true" data-field="Animal">Animal</th>
+                <th data-valign="top" data-sortable="true" data-field="Genotype">Genotype</th>
+                <th data-valign="top" data-sortable="true" data-field="Body_Weight">Body<br>Weight<br>(g)</th>
+                <th data-valign="top" data-sortable="true" data-field="Age">Age<br>(weeks)</th>
+                <th data-valign="top" data-sortable="true" data-field="Sex">Sex</th>
+                <th data-valign="top" data-sortable="true" data-field="Diet">Diet</th>
+                <th data-valign="top" data-sortable="true" data-field="Feeding_Status">Feeding<br>Status</th>
+                <th data-valign="top" data-sortable="true" data-field="Treatment">Treatment</th>
+                <th data-valign="top" data-sortable="true" data-field="Tracer_Compound">Tracer<br>Compound</th>
+                <th data-valign="top" data-sortable="true" data-field="Tracer_Infusion_Rate">Tracer<br>Infusion<br>Rate<br>(ul/min/g)</th>
+                <th data-valign="top" data-sortable="true" data-field="Tracer_Infusion_Concentration">Tracer<br>Infusion<br>Concentration<br>(mM)</th>
+                <th data-valign="top" data-sortable="true" data-field="Study">Study</th>
             </tr>
         </thead>
 
