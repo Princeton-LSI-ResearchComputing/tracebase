@@ -21,7 +21,12 @@ from DataRepo.models import (
     Tissue,
     TracerLabeledClass,
 )
-from DataRepo.utils import AccuCorDataLoader, MissingSamplesError
+from DataRepo.utils import (
+    AccuCorDataLoader,
+    AmbiguousCompoundDefinitionError,
+    CompoundsLoader,
+    MissingSamplesError,
+)
 
 
 class ExampleDataConsumer:
@@ -419,15 +424,29 @@ class CompoundValidationLoadingTests(TestCase):
 class CompoundLoadingTests(TestCase):
     @classmethod
     def setUpTestData(cls):
+
+        primary_compound_file = (
+            "DataRepo/example_data/consolidated_tracebase_compound_list.tsv"
+        )
+
         call_command("loaddata", "tissues.yaml")
         call_command(
             "load_compounds",
-            compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
+            compounds=primary_compound_file,
             verbosity=0,
         )
         cls.ALL_COMPOUNDS_COUNT = 47
 
         cls.COMPOUND_WITH_MANY_NAMES = Compound.objects.get(name="a-ketoglutarate")
+
+        # and do it again, to be able to test the class
+        compounds_df = pd.read_csv(
+            primary_compound_file, sep="\t", keep_default_na=False
+        )
+        cls.LOADER_INSTANCE = CompoundsLoader(
+            compounds_df=compounds_df,
+            validate_only=True,
+        )
 
     def test_compounds_loaded(self):
         self.assertEqual(Compound.objects.all().count(), self.ALL_COMPOUNDS_COUNT)
@@ -457,6 +476,41 @@ class CompoundLoadingTests(TestCase):
     def test_nonsense_synonym_retrieval(self):
         synonymous_compound = Compound.compound_matching_name_or_synonym("nonsense")
         self.assertIsNone(synonymous_compound)
+
+    @tag("compound_for_row")
+    def test_missing_compounds_keys_in_find_compound_for_row(self):
+        # this test used the SetUp-inserted data to retrieve spoofed data with
+        # only synonyms
+        dict = {
+            CompoundsLoader.KEY_COMPOUND_NAME: "nonsense",
+            CompoundsLoader.KEY_FORMULA: "nonsense",
+            CompoundsLoader.KEY_HMDB: "nonsense",
+            CompoundsLoader.KEY_SYNONYMS: "Fructose 1,6-bisphosphate;Fructose-1,6-diphosphate;"
+            "Fructose 1,6-diphosphate;Diphosphofructose",
+        }
+        # create series from dictionary
+        ser = pd.Series(dict)
+        compound = self.LOADER_INSTANCE.find_compound_for_row(ser)
+        self.assertEqual(compound.name, "fructose-1-6-bisphosphate")
+
+    @tag("compound_for_row")
+    def test_ambiguous_synonym_in_find_compound_for_row(self):
+        # this test used the SetUp-inserted data to retrieve spoofed data with
+        # only synonyms
+        dict = {
+            CompoundsLoader.KEY_COMPOUND_NAME: "nonsense",
+            CompoundsLoader.KEY_FORMULA: "nonsense",
+            CompoundsLoader.KEY_HMDB: "nonsense",
+            CompoundsLoader.KEY_SYNONYMS: "Fructose 1,6-bisphosphate;glucose",
+        }
+        # create series from dictionary
+        ser = pd.Series(dict)
+        with self.assertRaises(AmbiguousCompoundDefinitionError):
+            self.LOADER_INSTANCE.find_compound_for_row(ser)
+
+
+# create series from dictionary
+ser = pd.Series(dict)
 
 
 class DataLoadingTests(TestCase):

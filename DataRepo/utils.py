@@ -983,8 +983,15 @@ class CompoundsLoader:
     Load the Compound and CompoundSynonym tables
     """
 
+    # Define the dataframe key names and requirements
+    KEY_COMPOUND_NAME = "Compound"
+    KEY_HMDB = "HMDB ID"
+    KEY_FORMULA = "Formula"
+    KEY_SYNONYMS = "Synonyms"
+    REQUIRED_KEYS = [KEY_COMPOUND_NAME, KEY_FORMULA, KEY_HMDB, KEY_SYNONYMS]
+
     def __init__(
-        self, compounds_df, synonym_separator, validate_only=False, verbosity=0
+        self, compounds_df, synonym_separator=";", validate_only=False, verbosity=0
     ):
         self.compounds_df = compounds_df
         self.synonym_separator = synonym_separator
@@ -995,6 +1002,7 @@ class CompoundsLoader:
         self.summary_messages = []
         self.validated_new_compounds_for_insertion = []
         self.verbosity = verbosity
+        self.missing_headers = []
 
         """
         strip any leading and trailing spaces from the headers and some
@@ -1002,16 +1010,24 @@ class CompoundsLoader:
         """
         if self.compounds_df is not None:
             self.compounds_df.rename(columns=lambda x: x.strip())
-            self.compounds_df["Compound"] = self.compounds_df["Compound"].str.strip()
-            self.compounds_df["Formula"] = self.compounds_df["Formula"].str.strip()
-            self.compounds_df["HMDB ID"] = self.compounds_df["HMDB ID"].str.strip()
-            self.compounds_df["Synonyms"] = self.compounds_df["Synonyms"].str.strip()
+            self.check_required_headers()
+            self.compounds_df[self.KEY_COMPOUND_NAME] = self.compounds_df[
+                self.KEY_COMPOUND_NAME
+            ].str.strip()
+            self.compounds_df[self.KEY_FORMULA] = self.compounds_df[
+                self.KEY_FORMULA
+            ].str.strip()
+            self.compounds_df[self.KEY_HMDB] = self.compounds_df[
+                self.KEY_HMDB
+            ].str.strip()
+            self.compounds_df[self.KEY_SYNONYMS] = self.compounds_df[
+                self.KEY_SYNONYMS
+            ].str.strip()
 
     def validate_data(self):
         # validate the compounds dataframe
-        self.check_required_headers()
-        self.check_for_duplicates("Compound")
-        self.check_for_duplicates("HMDB ID")
+        self.check_for_duplicates(self.KEY_COMPOUND_NAME)
+        self.check_for_duplicates(self.KEY_HMDB)
 
         if self.compounds_df is not None:
             for index, row in self.compounds_df.iterrows():
@@ -1020,19 +1036,26 @@ class CompoundsLoader:
                 if compound is None:
                     # data does not exist in database; record for future insertion
                     new_compound = Compound(
-                        name=row["Compound"],
-                        formula=row["Formula"],
-                        hmdb_id=row["HMDB ID"],
+                        name=row[self.KEY_COMPOUND_NAME],
+                        formula=row[self.KEY_FORMULA],
+                        hmdb_id=row[self.KEY_HMDB],
                     )
                     new_compound.full_clean()
                     self.validated_new_compounds_for_insertion.append(new_compound)
 
     def check_required_headers(self):
-        required = ["Compound", "Formula", "HMDB ID", "Synonyms"]
-        for header in required:
+        for header in self.REQUIRED_KEYS:
             if header not in self.compounds_df.columns:
+                self.missing_headers.append(header)
                 err_msg = f"Could not find the required header '{header}."
                 self.validation_error_messages.append(err_msg)
+        if len(self.missing_headers) > 0:
+            raise (
+                HeaderError(
+                    f"The following column headers were missing: {', '.join(self.missing_headers)}",
+                    self.missing_headers,
+                )
+            )
 
     def check_for_duplicates(self, column_header):
 
@@ -1055,14 +1078,29 @@ class CompoundsLoader:
             self.validation_error_messages.append(err_msg)
 
     def find_compound_for_row(self, row):
+        """
+        This function takes a row (pandas Series) extracted from a pandas
+        dataset and attempts to find a matching database record, primarily using
+        the HMDB ID [since that is the least ambiguous identifier in the row and
+        is currently required].  It also queries for a matching compound by the
+        "primary" name, for validation purposes.  A warning will be recorded if
+        either of these are not found in the database, because either it is a
+        new compound or there is a data inconsistency.  The two will be compared
+        against each other, and if they are not equivalent, an error will be
+        recorded. If the two are both absent/None, then the name + synonyms are
+        compiled into a list and queried, in sequence. If any of these strings
+        returns an existing database compound name or synonym, then the last one
+        found is considered the "one" found.  If multiple distinct compounds are
+        found within the list of possible names, then an error is raised.
+        """
         found_compound = None
         hmdb_compound = None
         named_compound = None
         all_found_compounds = []
         # start with the HMDB_ID
-        hmdb_id = row["HMDB ID"]
-        name = row["Compound"]
-        synonyms_string = row["Synonyms"]
+        hmdb_id = row[self.KEY_HMDB]
+        name = row[self.KEY_COMPOUND_NAME]
+        synonyms_string = row[self.KEY_SYNONYMS]
         try:
             hmdb_compound = Compound.objects.get(hmdb_id=hmdb_id)
             # preferred method of "finding because it is not a potential synonym
@@ -1112,7 +1150,7 @@ class CompoundsLoader:
             # attempt a query by either name or synonym(s)
             names = [name]
             if synonyms_string is not None and synonyms_string != "":
-                synonyms = self.process_synonyms_string(synonyms_string)
+                synonyms = self.parse_synonyms(synonyms_string)
                 names.extend(synonyms)
             for name in names:
                 alt_name_compound = Compound.compound_matching_name_or_synonym(name)
@@ -1121,14 +1159,21 @@ class CompoundsLoader:
                         f"Found {alt_name_compound.name} using {name}"
                     )
                     found_compound = alt_name_compound
+                    if found_compound not in all_found_compounds:
+                        all_found_compounds.append(alt_name_compound)
                 else:
                     self.validation_debug_messages.append(
                         f"Could not find {name} in names or synonyms"
                     )
 
+        if len(all_found_compounds) > 1:
+            err_msg = f"Retrieved multiple ({len(all_found_compounds)}) "
+            err_msg += f"distinct compounds using names {names}"
+            raise AmbiguousCompoundDefinitionError(err_msg)
+
         return found_compound
 
-    def process_synonyms_string(self, synonyms_string):
+    def parse_synonyms(self, synonyms_string: str) -> list:
         synonyms = [
             synonym.strip() for synonym in synonyms_string.split(self.synonym_separator)
         ]
@@ -1178,12 +1223,12 @@ class CompoundsLoader:
         count = 0
         for index, row in self.compounds_df.iterrows():
             # we will use the HMDB ID to retrieve
-            hmdb_id = row["HMDB ID"]
+            hmdb_id = row[self.KEY_HMDB]
             # this name might always be a synonym
-            compound_name_from_file = row["Compound"]
+            compound_name_from_file = row[self.KEY_COMPOUND_NAME]
             hmdb_compound = Compound.objects.get(hmdb_id=hmdb_id)
-            synonyms_string = row["Synonyms"]
-            synonyms = self.process_synonyms_string(synonyms_string)
+            synonyms_string = row[self.KEY_SYNONYMS]
+            synonyms = self.parse_synonyms(synonyms_string)
             if hmdb_compound.name != compound_name_from_file:
                 synonyms.append(compound_name_from_file)
             for synonym in synonyms:
@@ -1237,3 +1282,7 @@ class MissingSamplesError(Exception):
     def __init__(self, message, samples):
         super().__init__(message)
         self.sample_list = samples
+
+
+class AmbiguousCompoundDefinitionError(Exception):
+    pass

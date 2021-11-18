@@ -8,7 +8,7 @@ from django.apps import apps
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
-from django.db.models import Sum
+from django.db.models import Q, Sum
 from django.utils.functional import cached_property
 
 
@@ -263,11 +263,10 @@ class Compound(models.Model):
         matching the query, an error is thrown.
         """
 
-        compounds_qry = cls.objects.filter(name__iexact=name)
-        synonyms_qry = cls.objects.filter(synonyms__name__iexact=name)
         # find the distinct union of these queries
-        matching_compounds = compounds_qry | synonyms_qry
-        matching_compounds = matching_compounds.distinct()
+        matching_compounds = cls.objects.filter(
+            Q(name__iexact=name) | Q(synonyms__name__iexact=name)
+        ).distinct()
         if matching_compounds.count() > 1:
             raise ValidationError(
                 "compound_matching_name_or_synonym retrieved multiple "
