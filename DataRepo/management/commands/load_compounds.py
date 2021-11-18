@@ -20,7 +20,7 @@ class Command(BaseCommand):
         parser.add_argument(
             "--synonym-separator",
             type=str,
-            help="Character separating multiple synonyms in 'Synonyms' column (default '%(default)s'",
+            help="Character separating multiple synonyms in 'Synonyms' column (default '%(default)s')",
             default=";",
             required=False,
         )
