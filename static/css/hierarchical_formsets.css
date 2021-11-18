@@ -41,7 +41,7 @@
   border-color: #dee2e6;
 }
 
-.table-highlighted-legend > tbody > .bg-highlighted {
+.table-highlighted-legend > tbody > tr > .bg-highlighted {
   --bs-table-accent-bg: var(--bs-table-striped-bg);
 
   color: var(--bs-table-striped-color);

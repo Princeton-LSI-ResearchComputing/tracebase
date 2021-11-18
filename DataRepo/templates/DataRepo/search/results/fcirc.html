@@ -64,6 +64,80 @@
                     updateColumnSwitching()
                 }
             })
+
+            $("#showra").on("click", function(e) {
+                var racbv = $(this).is(":checked")
+                var rdcbv = $("#showrd").is(":checked")
+
+                if (!racbv && !rdcbv) {
+                    e.preventDefault()
+                    alert("Too few display columns. At least 1 of Ra or Rd must be selected.")
+                    return
+                }
+
+                updateColumnSwitching()
+            })
+
+            $("#showrd").on("click", function(e) {
+                var rdcbv = $(this).is(":checked")
+                var racbv = $("#showra").is(":checked")
+
+                if (!racbv && !rdcbv) {
+                    e.preventDefault()
+                    alert("Too few display columns. At least 1 of Ra or Rd must be selected.")
+                    return
+                }
+
+                updateColumnSwitching()
+            })
+
+            $("#showlast").on("click", function(e) {
+                var lcbv = $(this).is(":checked")
+                var nlcbv = $("#shownotlast").is(":checked")
+
+                if (!nlcbv && !lcbv) {
+                    e.preventDefault()
+                    alert("Too few display rows. At least 1 of Previous or Last serum samples must be selected.")
+                    return
+                }
+
+                $("#advsrchres .bg-highlighted, bg-normal").each(function() {
+                    if((nlcbv && $(this).hasClass("bg-normal"))
+                        || (lcbv && $(this).hasClass("bg-highlighted"))
+                    )
+                        {$(this).show()}
+                    else
+                        {$(this).hide()}
+                })
+            })
+
+            $("#shownotlast").on("click", function(e) {
+                var nlcbv = $(this).is(":checked")
+                var lcbv = $("#showlast").is(":checked")
+
+                if (!nlcbv && !lcbv) {
+                    e.preventDefault()
+                    alert("Too few display rows. At least 1 of Previous or Last serum samples must be selected.")
+                    return
+                }
+
+                $("#advsrchres .bg-highlighted, bg-normal").each(function() {
+                    if((nlcbv && $(this).hasClass("bg-normal"))
+                        || (lcbv && $(this).hasClass("bg-highlighted"))
+                    )
+                        {$(this).show()}
+                    else
+                        {$(this).hide()}
+                })
+            })
+
+            // https://bootstrap-table.com/docs/api/events/
+            // https://bootstrap-table.com/docs/api/events/#oncolumnswitch
+            $("#advsrchres").bootstrapTable({
+                onColumnSwitch: function() {
+                    updateColumnSwitching()
+                }
+            })
         })
 
         function updateColumnSwitching() {
@@ -71,22 +145,38 @@
             var wcbv = $("#showweight").is(":checked")
             var acbv = $("#showaverage").is(":checked")
             var icbv = $("#showintact").is(":checked")
+            var racbv = $("#showra").is(":checked")
+            var rdcbv = $("#showrd").is(":checked")
 
             // Everything is either average or intact
             $("#advsrchres .average, .intact").each(function() {
                 if(
-                    (
-                        ncbv && $(this).hasClass("nonorm") && (
-                            ($(this).hasClass("average") && acbv)
-                            || ($(this).hasClass("intact") && icbv)
-                            || (!$(this).hasClass("average") && !$(this).hasClass("intact"))
+                    ( // One of each of 3 class in each pair is present (average/intact, weight/nonorm, & ra/rd)
+                        ((acbv && $(this).hasClass("average"))
+                            || (icbv && $(this).hasClass("intact")))
+                        && ((ncbv && $(this).hasClass("nonorm"))
+                            || (wcbv && $(this).hasClass("weight")))
+                        && ((racbv && $(this).hasClass("ra"))
+                            || rdcbv && $(this).hasClass("rd"))
+                    )
+                    || ( // All but ra/rd class present
+                        (($(this).hasClass("average") || $(this).hasClass("intact"))
+                            && ($(this).hasClass("nonorm") || $(this).hasClass("weight"))
+                            && !$(this).hasClass("ra") && !$(this).hasClass("rd"))
+                        && (
+                            ((acbv && $(this).hasClass("average"))
+                                || (icbv && $(this).hasClass("intact")))
+                            && ((ncbv && $(this).hasClass("nonorm"))
+                                || (wcbv && $(this).hasClass("weight")))
                         )
                     )
-                    || (
-                        wcbv && $(this).hasClass("weight") && (
-                            ($(this).hasClass("average") && acbv)
-                            || ($(this).hasClass("intact") && icbv)
-                            || (!$(this).hasClass("average") && !$(this).hasClass("intact"))
+                    || ( // Only Average/intact class present
+                        (($(this).hasClass("average") || $(this).hasClass("intact"))
+                            && !$(this).hasClass("nonorm") && !$(this).hasClass("weight")
+                            && !$(this).hasClass("ra") && !$(this).hasClass("rd"))
+                        && (
+                            (acbv && $(this).hasClass("average"))
+                            || (icbv && $(this).hasClass("intact"))
                         )
                     )
                 )
@@ -95,15 +185,20 @@
                     {$(this).hide()}
             })
 
-            adjustAverageIntact(acbv, icbv, wcbv, ncbv)
+            adjustAverageIntact(acbv, icbv, wcbv, ncbv, racbv, rdcbv)
         }
 
-        function adjustAverageIntact(acbv, icbv, wcbv, ncbv) {
+        function adjustAverageIntact(acbv, icbv, wcbv, ncbv, racbv, rdcbv) {
+            var parentincrement = 0;
+            if ( racbv )
+                {parentincrement += 1}
+            if ( rdcbv )
+                {parentincrement += 1}
             var parentsize = 0
             if ( wcbv )
-                {parentsize += 2}
+                {parentsize += parentincrement}
             if ( ncbv )
-                {parentsize += 2}
+                {parentsize += parentincrement}
             // For each parent
             $("#advsrchres .average").not(".weight, .nonorm").each(function() {
                 if ( !acbv || parentsize == 0 ) {
@@ -121,17 +216,59 @@
                     $(this).attr("colspan", parentsize)
                 }
             })
+            $("#advsrchres .weight").not(".ra, .rd").each(function() {
+                if ( !wcbv || parentincrement == 0
+                    || (!icbv && $(this).hasClass("intact"))
+                    || (!acbv && $(this).hasClass("average"))
+                ) {
+                    $(this).hide()
+                } else {
+                    $(this).show()
+                    $(this).attr("colspan", parentincrement)
+                }
+            })
+            $("#advsrchres .nonorm").not(".ra, .rd").each(function() {
+                if ( !ncbv || parentincrement == 0
+                    || (!icbv && $(this).hasClass("intact"))
+                    || (!acbv && $(this).hasClass("average"))
+                ) {
+                    $(this).hide()
+                } else {
+                    $(this).show()
+                    $(this).attr("colspan", parentincrement)
+                }
+            })
         }
     </script>
 {% endblock %}
 {% block content %}
     <div style="float: right; margin-right: 1rem;" class="buttons-toolbar"></div>
-    <div><input type="checkbox" id="showaverage" checked/>Average</div>
-    <div><input type="checkbox" id="showintact" checked/>Intact</div>
-    <div><input type="checkbox" id="showweight" checked/>Weight-Normalized</div>
-    <div><input type="checkbox" id="shownonorm" checked/>Mouse-Normalized</div>
-    <div><input type="checkbox" id="showra" checked/>Ra</div>
-    <div><input type="checkbox" id="showrd" checked/>Rd</div>
+    <div style="float: right; margin-right: 1rem;">
+        <small>
+            <table class="table table-highlighted-legend table-hover table-bordered">
+                <tr>
+                    <td><strong>Calculation Method</strong></td>
+                    <td><input type="checkbox" id="showaverage" checked/> Average</td>
+                    <td><input type="checkbox" id="showintact" checked/> Intact</td>
+                </tr>
+                <tr>
+                    <td><strong>Normalization Method</strong></td>
+                    <td><input type="checkbox" id="showweight" checked/> Per gram body-weight</td>
+                    <td><input type="checkbox" id="shownonorm" checked/> Per animal</td>
+                </tr>
+                <tr>
+                    <td><strong>Calculation Type</strong></td>
+                    <td><input type="checkbox" id="showrd" checked/> Rd (disappearance rate)</td>
+                    <td><input type="checkbox" id="showra" checked/> Ra (appearance rate)</td>
+                </tr>
+                <tr>
+                    <td><strong>Serum Samples (rows)</strong></td>
+                    <td><input type="checkbox" id="shownotlast" checked/> Previous</td>
+                    <td class="bg-highlighted"><input type="checkbox" id="showlast" checked/> Last</td>
+                </tr>
+            </table>
+        </small>
+    </div>
     <h3 style="margin: 0; display: inline-block;">{{ qry|getFormatName:selfmt }} Results ({{ res.count|default:"0" }} Rows)</h3>
     <table class="table table-highlighted table-hover table-bordered"
         id="advsrchres"
@@ -148,18 +285,18 @@
         data-show-fullscreen="false"
         data-show-export="false">
         <thead>
-            <tr class="bg-highlighted">
+            <tr>
                 <th colspan="7" rowspan="2"></th>
                 <th colspan="4" class="average">Average</th>
                 <th colspan="4" class="intact">Intact</th>
             </tr>
-            <tr class="bg-highlighted">
+            <tr>
                 <th colspan="2" data-valign="top" data-sortable="false" data-switchable="true" data-field="Weight_Normalized" class="average weight">Weight<br>Normalized<br>(nM/m/g)</th>
                 <th colspan="2" data-valign="top" data-sortable="false" data-switchable="true" data-field="Mouse_Normalized" class="average nonorm">Mouse<br>Normalized<br>(nM/m)</th>
                 <th colspan="2" data-valign="top" data-sortable="false" data-switchable="true" data-field="Weight_Normalized2" class="intact weight">Weight<br>Normalized<br>(nM/m/g)</th>
                 <th colspan="2" data-valign="top" data-sortable="false" data-switchable="true" data-field="Mouse_Normalized2" class="intact nonorm">Mouse<br>Normalized<br>(nM/m)</th>
             </tr>
-            <tr class="bg-highlighted">
+            <tr>
                 <th data-valign="top" data-sortable="true" data-field="Animal">Animal</th>
                 <th data-valign="top" data-sortable="true" data-field="Studies">Studies</th>
                 <th data-valign="top" data-sortable="true" data-field="Treatment">Treatment</th>
@@ -185,7 +322,7 @@
                 {% createDict as mm_lookup %}
 
                 {% if pg.is_tracer_compound_group %}
-                    <tr class="{% if pg.msrun.sample.id == pg.msrun.sample.animal.final_serum_sample_id %}bg-highlighted{% endif %}">
+                    <tr class="{% if pg.msrun.sample.id == pg.msrun.sample.animal.final_serum_sample_id %}bg-highlighted{% else %}bg-normal{% endif %}">
                         <!-- Animal -->
                         <td>
                             <!-- Put displayed link text first for sorting -->
@@ -326,17 +463,5 @@
                 {% endif %}
             {% endfor %}
         </tbody>
-    </table>
-    <br>
-    <table class="table table-highlighted-legend table-hover table-bordered">
-        <tr>
-            <th>Color Legend</th>
-        </tr>
-        <tr>
-            <td>Previous (or no) serum sample</td>
-        </tr>
-        <tr class="bg-highlighted">
-            <td>Last serum sample</td>
-        </tr>
     </table>
 {% endblock %}
