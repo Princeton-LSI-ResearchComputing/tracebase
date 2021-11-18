@@ -32,7 +32,7 @@ from DataRepo.utils import (
 @tag("animal")
 class AnimalTests(TestCase):
     def setUp(self):
-        animal = Animal.objects.create(
+        Animal.objects.create(
             name="test_animal",
             age=timedelta(weeks=int(13)),
             sex="M",
@@ -41,6 +41,9 @@ class AnimalTests(TestCase):
             diet="normal",
             feeding_status="fed",
         )
+
+    def test_animal_validation(self):
+        animal = Animal.objects.get(name="test_animal")
         animal.full_clean()
 
     def test_animal_name(self):
