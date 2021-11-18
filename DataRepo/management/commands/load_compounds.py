@@ -12,8 +12,10 @@ class Command(BaseCommand):
         parser.add_argument(
             "--compounds",
             type=str,
-            help="Path to tab-delimited file containing headers of 'Compound','Formula', 'HMDB ID', and 'Synonyms'; "
-            "required.",
+            help=(
+                "Path to tab-delimited file containing headers of "
+                "'Compound','Formula', 'HMDB ID', and 'Synonyms'; required."
+            ),
             required=True,
         )
 
@@ -29,8 +31,10 @@ class Command(BaseCommand):
             "--validate-only",
             action="store_true",
             default=False,
-            help="Validation mode. If specified, command will not change the database, "
-            "but simply report back potential work or issues.",
+            help=(
+                "Validation mode. If specified, command will not change the database, "
+                "but simply report back potential work or issues."
+            ),
         )
 
     def handle(self, *args, **options):
