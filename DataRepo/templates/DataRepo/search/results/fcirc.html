@@ -15,20 +15,7 @@
                     return
                 }
 
-                var wcbv = $("#showweight").is(":checked")
-                var ncbv = $("#shownonorm").is(":checked")
-                $("#advsrchres .average").each(function() {
-                    if(
-                        acbv && (
-                            ($(this).hasClass("weight") && wcbv)
-                            || ($(this).hasClass("nonorm") && ncbv)
-                            || (!$(this).hasClass("weight") && !$(this).hasClass("nonorm"))
-                        )
-                    )
-                        {$(this).show()}
-                    else
-                        {$(this).hide()}
-                })
+                updateColumnSwitching()
             })
 
             $("#showintact").on("click", function(e) {
@@ -41,20 +28,7 @@
                     return
                 }
 
-                var wcbv = $("#showweight").is(":checked")
-                var ncbv = $("#shownonorm").is(":checked")
-                $("#advsrchres .intact").each(function() {
-                    if(
-                        icbv && (
-                            ($(this).hasClass("weight") && wcbv)
-                            || ($(this).hasClass("nonorm") && ncbv)
-                            || (!$(this).hasClass("weight") && !$(this).hasClass("nonorm"))
-                        )
-                    )
-                        {$(this).show()}
-                    else
-                        {$(this).hide()}
-                })
+                updateColumnSwitching()
             })
 
             $("#showweight").on("click", function(e) {
@@ -67,22 +41,7 @@
                     return
                 }
 
-                var acbv = $("#showaverage").is(":checked")
-                var icbv = $("#showintact").is(":checked")
-                $("#advsrchres .weight").each(function() {
-                    if(
-                        wcbv && (
-                            ($(this).hasClass("average") && acbv)
-                            || ($(this).hasClass("intact") && icbv)
-                            || (!$(this).hasClass("average") && !$(this).hasClass("intact"))
-                        )
-                    )
-                        {$(this).show()}
-                    else
-                        {$(this).hide()}
-                })
-
-                adjustAverageIntact(wcbv, ncbv)
+                updateColumnSwitching()
             })
 
             $("#shownonorm").on("click", function(e) {
@@ -95,60 +54,49 @@
                     return
                 }
 
-                var acbv = $("#showaverage").is(":checked")
-                var icbv = $("#showintact").is(":checked")
-                $("#advsrchres .nonorm").each(function() {
-                    if(
-                        ncbv && (
-                            ($(this).hasClass("average") && acbv)
-                            || ($(this).hasClass("intact") && icbv)
-                            || (!$(this).hasClass("average") && !$(this).hasClass("intact"))
-                        )
-                    )
-                        {$(this).show()}
-                    else
-                        {$(this).hide()}
-                })
-
-                adjustAverageIntact(wcbv, ncbv)
+                updateColumnSwitching()
             })
 
             // https://bootstrap-table.com/docs/api/events/
             // https://bootstrap-table.com/docs/api/events/#oncolumnswitch
             $("#advsrchres").bootstrapTable({
                 onColumnSwitch: function() {
-                    var ncbv = $("#shownonorm").is(":checked")
-                    var wcbv = $("#showweight").is(":checked")
-                    var acbv = $("#showaverage").is(":checked")
-                    var icbv = $("#showintact").is(":checked")
-
-                    // Everything is either average or intact
-                    $("#advsrchres .average, .intact").each(function() {
-                        if(
-                            (
-                                ncbv && $(this).hasClass("nonorm") && (
-                                    ($(this).hasClass("average") && acbv)
-                                    || ($(this).hasClass("intact") && icbv)
-                                    || (!$(this).hasClass("average") && !$(this).hasClass("intact"))
-                                )
-                            )
-                            || (
-                                wcbv && $(this).hasClass("weight") && (
-                                    ($(this).hasClass("average") && acbv)
-                                    || ($(this).hasClass("intact") && icbv)
-                                    || (!$(this).hasClass("average") && !$(this).hasClass("intact"))
-                                )
-                            )
-                        )
-                            {$(this).show()}
-                        else
-                            {$(this).hide()}
-                    })
-
-                    adjustAverageIntact(acbv, icbv, wcbv, ncbv)
+                    updateColumnSwitching()
                 }
             })
         })
+
+        function updateColumnSwitching() {
+            var ncbv = $("#shownonorm").is(":checked")
+            var wcbv = $("#showweight").is(":checked")
+            var acbv = $("#showaverage").is(":checked")
+            var icbv = $("#showintact").is(":checked")
+
+            // Everything is either average or intact
+            $("#advsrchres .average, .intact").each(function() {
+                if(
+                    (
+                        ncbv && $(this).hasClass("nonorm") && (
+                            ($(this).hasClass("average") && acbv)
+                            || ($(this).hasClass("intact") && icbv)
+                            || (!$(this).hasClass("average") && !$(this).hasClass("intact"))
+                        )
+                    )
+                    || (
+                        wcbv && $(this).hasClass("weight") && (
+                            ($(this).hasClass("average") && acbv)
+                            || ($(this).hasClass("intact") && icbv)
+                            || (!$(this).hasClass("average") && !$(this).hasClass("intact"))
+                        )
+                    )
+                )
+                    {$(this).show()}
+                else
+                    {$(this).hide()}
+            })
+
+            adjustAverageIntact(acbv, icbv, wcbv, ncbv)
+        }
 
         function adjustAverageIntact(acbv, icbv, wcbv, ncbv) {
             var parentsize = 0
