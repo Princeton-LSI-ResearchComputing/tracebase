@@ -12,7 +12,7 @@ class Command(BaseCommand):
         parser.add_argument(
             "--compounds",
             type=str,
-            help="Path to tab-delimited file containing headers of 'Compound','Formula''HMDB ID', and 'Synonyms'; "
+            help="Path to tab-delimited file containing headers of 'Compound','Formula', 'HMDB ID', and 'Synonyms'; "
             "required.",
             required=True,
         )
@@ -20,7 +20,7 @@ class Command(BaseCommand):
         parser.add_argument(
             "--synonym-separator",
             type=str,
-            help="Character separating multiple synonyms in 'Synonyms' column;  defaults to semi-colon",
+            help="Character separating multiple synonyms in 'Synonyms' column (default '%(default)s'",
             default=";",
             required=False,
         )
