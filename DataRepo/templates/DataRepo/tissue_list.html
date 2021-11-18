@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+
+{% block title %}Tissues{% endblock %}
+
+{% block content %}
+<div>
+    <ul>
+        <h4>List of Tissues</h4>
+
+        {% if tissue_list %}
+        <br>
+        <table class="table table-sm table-hover table-bordered table-responsive table-striped w-auto mw-100"
+            id="table"
+            data-toggle="table"
+            data-buttons-class="primary"
+            data-buttons-align="left"
+            data-filter-control="true"
+            data-search="true"
+            data-search-align="left"
+            data-show-search-clear-button="true"
+            data-show-multi-sort="true"
+            data-show-columns="true"
+            data-show-columns-toggle-all="true"
+            data-show-fullscreen="true"
+            data-show-export="true"
+            data-export-types="['csv', 'txt', 'excel']">
+            <thead>
+            <tr>
+                <th data-field="Tissue" data-filter-control="input" data-sortable="true">Tissue</th>
+                <th data-field="Description" data-filter-control="input" data-sortable="true">Description</th>
+            </tr>
+            </thead>
+            <tbody>
+                {% for tissue in tissue_list %}
+                <tr>
+                <td><a href="{% url 'tissue_detail' tissue.id %}">{{ tissue.name }}</a></td>
+                <td>{{ tissue.description }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p>There are no tissues.</p>
+        {% endif %}
+    </ul>
+</div>
+{% endblock %}

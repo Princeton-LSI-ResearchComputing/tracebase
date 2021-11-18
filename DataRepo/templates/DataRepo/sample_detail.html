@@ -6,7 +6,7 @@
 <div>
     <h4>Sample Record - {{ sample.name }}</h4>
     <br>
-    <table class="table  table-bordered table-hover w-auto mw-100">
+    <table id="sample_detail" class="table  table-bordered table-hover w-auto mw-100">
         <tr>
             <td>Name</td>
             <td>{{ sample.name }}</td>
@@ -25,11 +25,23 @@
         </tr>
         <tr>
             <td>Tissue</td>
-            <td>{{ sample.tissue}}</td>
+            <td><a href="{% url 'tissue_detail' sample.tissue.id %}">{{ sample.tissue.name }}</a></td>
         </tr>
         <tr>
             <td>Time Collected After Infusion (hh:mm:ss)</td>
             <td>{{ sample.time_collected }}</td>
+        </tr>
+        <tr>
+            <td>Tracer</td>
+            <td><a href="{% url 'compound_detail' sample.animal.tracer_compound.id %}">{{ sample.animal.tracer_compound }}</a></td>
+        </tr>
+        <tr>
+            <td>Tracer Infusion Rate (ul/min/g)</td>
+            <td>{{ sample.animal.tracer_infusion_rate }}</td>
+        </tr>
+        <tr>
+            <td>Tracer Infusion Concentration (mM)</td>
+            <td>{{ sample.animal.tracer_infusion_concentration }}</td>
         </tr>
     </table>
 </div>

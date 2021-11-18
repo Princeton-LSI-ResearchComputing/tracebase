@@ -28,9 +28,12 @@ from DataRepo.models import (
     Protocol,
     Sample,
     Study,
+    Tissue,
 )
 from DataRepo.multiforms import MultiFormsView
-from DataRepo.utils import MissingSamplesError, ResearcherError
+from DataRepo.utils import MissingSamplesError
+from DataRepo.utils import QuerysetToPandasDataFrame as qs2df
+from DataRepo.utils import ResearcherError
 
 
 def home(request):
@@ -69,7 +72,31 @@ class StudyListView(ListView):
     context_object_name = "study_list"
     template_name = "DataRepo/study_list.html"
     ordering = ["name"]
-    paginate_by = 20
+
+    def get_context_data(self, **kwargs):
+        # Call the base implementation first to get the context
+        context = super(StudyListView, self).get_context_data(**kwargs)
+        # add data from the DataFrame to the context
+        stud_list_stats_df = qs2df.get_study_list_stats_df()
+        # convert DataFrame to a list of dictionary
+        data = qs2df.df_to_list_of_dict(stud_list_stats_df)
+        context["df"] = data
+        return context
+
+
+def study_summary(request):
+    """
+    function-based view for studies based summary data, including selected
+    data fileds for animal, tissue, sample, and MSRun
+    get DataFrame for summary data, then convert to JSON format
+    """
+
+    all_stud_msrun_df = qs2df.get_study_msrun_all_df()
+
+    # convert DataFrame to a list of dictionary
+    data = qs2df.df_to_list_of_dict(all_stud_msrun_df)
+    context = {"df": data}
+    return render(request, "DataRepo/study_summary.html", context)
 
 
 class StudyDetailView(DetailView):
@@ -77,6 +104,23 @@ class StudyDetailView(DetailView):
 
     model = Study
     template_name = "DataRepo/study_detail.html"
+
+    def get_context_data(self, **kwargs):
+        # Call the base implementation first to get the context
+        context = super(StudyDetailView, self).get_context_data(**kwargs)
+
+        pk = self.kwargs.get("pk")
+        per_stud_msrun_df = qs2df().get_per_study_msrun_df(pk)
+        per_stud_stat_df = qs2df().get_per_study_stat_df(pk)
+
+        # convert DataFrame to a list of dictionary
+        data = qs2df.df_to_list_of_dict(per_stud_msrun_df)
+        stats_data = qs2df.df_to_list_of_dict(per_stud_stat_df)
+
+        context["df"] = data
+        context["stats_df"] = stats_data
+
+        return context
 
 
 def search_basic(request, mdl, fld, cmp, val, fmt):
@@ -876,7 +920,17 @@ class AnimalListView(ListView):
     context_object_name = "animal_list"
     template_name = "DataRepo/animal_list.html"
     ordering = ["name"]
-    paginate_by = 20
+
+    def get_context_data(self, **kwargs):
+        # Call the base implementation first to get the context
+        context = super(AnimalListView, self).get_context_data(**kwargs)
+        # add data from the DataFrame to the context
+        anim_list_stats_df = qs2df.get_animal_list_stats_df()
+
+        # convert DataFrame to a list of dictionary
+        data = qs2df.df_to_list_of_dict(anim_list_stats_df)
+        context["df"] = data
+        return context
 
 
 class AnimalDetailView(DetailView):
@@ -884,6 +938,34 @@ class AnimalDetailView(DetailView):
 
     model = Animal
     template_name = "DataRepo/animal_detail.html"
+
+    def get_context_data(self, **kwargs):
+        # Call the base implementation first to get the context
+        context = super(AnimalDetailView, self).get_context_data(**kwargs)
+
+        pk = self.kwargs.get("pk")
+        per_anim_msrun_df = qs2df().get_per_animal_msrun_df(pk)
+
+        # convert DataFrame to a list of dictionary
+        data = qs2df.df_to_list_of_dict(per_anim_msrun_df)
+        context["df"] = data
+        return context
+
+
+class TissueListView(ListView):
+    """Generic class-based view for a list of tissues"""
+
+    model = Tissue
+    context_object_name = "tissue_list"
+    template_name = "DataRepo/tissue_list.html"
+    ordering = ["name"]
+
+
+class TissueDetailView(DetailView):
+    """Generic class-based detail view for a tissue"""
+
+    model = Tissue
+    template_name = "DataRepo/tissue_detail.html"
 
 
 class SampleListView(ListView):
@@ -898,17 +980,18 @@ class SampleListView(ListView):
     context_object_name = "sample_list"
     template_name = "DataRepo/sample_list.html"
     ordering = ["animal_id", "name"]
-    # paginate_by = 20
 
-    # filter sample list by animal_id
-    def get_queryset(self):
-        queryset = super().get_queryset()
-        # get query string from request
-        animal_pk = self.request.GET.get("animal_id", None)
-        if animal_pk is not None:
-            self.animal = get_object_or_404(Animal, id=animal_pk)
-            queryset = Sample.objects.filter(animal_id=animal_pk)
-        return queryset
+    def get_context_data(self, **kwargs):
+        # Call the base implementation first to get the context
+        context = super(SampleListView, self).get_context_data(**kwargs)
+        #  add data from the DataFrame to the context
+        all_anim_msrun_df = qs2df.get_animal_msrun_all_df()
+
+        # convert DataFrame to a list of dictionary
+        data = qs2df.df_to_list_of_dict(all_anim_msrun_df)
+
+        context["df"] = data
+        return context
 
 
 class SampleDetailView(DetailView):
