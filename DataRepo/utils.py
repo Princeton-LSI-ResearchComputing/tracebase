@@ -5,8 +5,8 @@ from collections import namedtuple
 from datetime import datetime, timedelta
 
 import dateutil.parser
-from django.core.exceptions import ValidationError  # type: ignore
 import pandas as pd
+from django.core.exceptions import ValidationError  # type: ignore
 from django.db import transaction
 from pandas.errors import EmptyDataError
 
