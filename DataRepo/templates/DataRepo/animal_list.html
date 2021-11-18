@@ -1,71 +1,84 @@
 {% extends "base.html" %}
+{% load customtags %}
 
 {% block title %}Animals{% endblock %}
 
 {% block content %}
+<h4>List of Animals</h4>
+<br>
+<h5><a href="{% url 'study_summary' %}">Browse All Studies, Animals, and Samples</a></h5>
+<br>
 <div>
-    <ul>
-        <h4>List of Animals</h4>
-
-        {% if animal_list %}
-        <br>
-        <table class="table table-sm table-hover table-bordered table-responsive table-striped w-auto mw-100"
-            id="table"
-            data-toggle="table"
-            data-buttons-class="primary"
-            data-buttons-align="left"
-            data-filter-control="true"
-            data-search="true"
-            data-search-align="left"
-            data-show-search-clear-button="true"
-            data-show-multi-sort="true"
-            data-show-columns="true"
-            data-show-columns-toggle-all="true"
-            data-show-fullscreen="true"
-            data-show-export="true"
-            data-export-types="['csv', 'txt', 'excel']">
-            <thead>
-                <tr>
-                <th data-field="Name" data-filter-control="input" data-sortable="true">Name</th>
-                <th data-field="Tracer" data-filter-control="input" data-sortable="true">Tracer(Infusate)</th>
+    {% if df %}
+    <table class="table table-sm table-hover table-bordered table-responsive-xl table-striped"
+        id="animal_list_stats"
+        data-toggle="table"
+        data-buttons-class="primary"
+        data-buttons-align="left"
+        data-filter-control="true"
+        data-search="true"
+        data-search-align="left"
+        data-show-search-clear-button="true"
+        data-show-multi-sort="true"
+        data-show-columns="true"
+        data-show-columns-toggle-all="true"
+        data-show-fullscreen="true"
+        data-show-export="true"
+        data-export-types="['csv', 'txt', 'excel']">
+        <thead>
+            <tr>
+                <th data-field="Animal" data-filter-control="input" data-sortable="true">Animal</th>
+                <th data-field="Studies" data-filter-control="input" data-sortable="true">Studies</th>
+                <th data-field="Genotype" data-filter-control="select" data-sortable="true">Genotype</th>
+                <th data-field="Tracer" data-filter-control="input" data-sortable="true">Tracer</th>
+                <th data-field="Treatment" data-filter-control="input" data-sortable="true">Treatment</th>
                 <th data-field="Labeled_Atom" data-filter-control="select" data-sortable="true">Labeled Atom</th>
                 <th data-field="Labeled_Count" data-filter-control="input" data-sortable="true">Labeled Count</th>
-                <th data-field="Infusion_Rate" data-filter-control="input" data-sortable="true">Infusion Rate</th>
-                <th data-field="Infusion_Concentration" data-filter-control="input" data-sortable="true">Infusion Concentration </th>
-                <th data-field="Genotype" data-filter-control="select" data-sortable="true">Genotype</th>
-                <th data-field="Body_Weight" data-filter-control="input" data-sortable="true">Body Weight</th>
-                <th data-field="Age" data-filter-control="input" data-sortable="true">Age</th>
-                <th data-field="Sex" data-filter-control="select" data-sortable="true">Sex</th>
-                <th data-field="Diet" data-filter-control="input" data-sortable="true">Diet</th>
+                <th data-field="Infusion_Rate" data-filter-control="input" data-sortable="true">Infusion Rate (ul/min/g)</th>
+                <th data-field="Infusion_Concentration" data-filter-control="input" data-sortable="true">Infusion Concentration (mM)</th>
+                <th data-field="Body_Weight" data-filter-control="input" data-sortable="true" data-visible="false">Body Weight (g)</th>
+                <th data-field="Age" data-filter-control="input" data-sortable="true" data-visible="false">Age (weeks)</th>
+                <th data-field="Sex" data-filter-control="select" data-sortable="true" data-visible="false">Sex</th>
+                <th data-field="Diet" data-filter-control="input" data-sortable="true" data-visible="false">Diet</th>
                 <th data-field="Feeding_Status" data-filter-control="input" data-sortable="true">Feeding Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for animal in animal_list %}
-                <tr>
-                    <td><a href="{% url 'animal_detail' animal.id %}">{{ animal.name }}</a></td>
-                    <td>
-                        <a href="{% url 'compound_detail' animal.tracer_compound.id %}">
-                            {{ animal.tracer_compound.name }}
-                        </a>
-                    </td>
-                    <td>{{ animal.tracer_labeled_atom }}</td>
-                    <td>{{ animal.tracer_labeled_count }}</td>
-                    <td>{{ animal.tracer_infusion_rate }}</td>
-                    <td>{{ animal.tracer_infusion_concentration }}</td>
-                    <td>{{ animal.genotype }}</td>
-                    <td>{{ animal.body_weight }}</td>
-                    <td>{{ animal.age }}</td>
-                    <td>{{ animal.sex }}</td>
-                    <td>{{ animal.diet }}</td>
-                    <td>{{ animal.feeding_status }}</td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        {% else %}
-        <p>There are no animals.</p>
-        {% endif %}
-    </ul>
+                <th data-field="Sample-Owners" data-filter-control="select" data-sortable="true">Sample Owners</th>
+                <th data-field="Total-Tissue" data-filter-control="input" data-sortable="true">Total Tissues</th>
+                <th data-field="Total-Sample" data-filter-control="input" data-sortable="true">Total Samples</th>
+                <th data-field="Total-MSRun" data-filter-control="input" data-sortable="true">Total MSRuns</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for i in df %}
+            <tr>
+                <td><a href="{% url 'animal_detail' i.animal_id %}">{{ i.animal }}</a></td>
+                <td>{{ i.study_id_name_list |obj_hyperlink:"study" }}</td>
+                <td>{{ i.genotype }}</td>
+                <td><a href="{% url 'compound_detail' i.tracer_compound_id %}">{{ i.tracer }}</a></td>
+                <td>
+                    {% if i.treatment %}
+                        <a href="{% url 'protocol_detail' i.treatment_id %}">{{ i.treatment }}</a>
+                    {% else %}
+                        None
+                    {% endif %}
+                </td>
+                <td>{{ i.tracer_labeled_atom }}</td>
+                <td>{{ i.tracer_labeled_count }}</td>
+                <td>{{ i.tracer_infusion_rate }}</td>
+                <td>{{ i.tracer_infusion_concentration }}</td>
+                <td>{{ i.body_weight }}</td>
+                <td>{{ i.age }}</td>
+                <td>{{ i.sex }}</td>
+                <td>{{ i.diet }}</td>
+                <td>{{ i.feeding_status }}</td>
+                <td>{{ i.sample_owners  |join:","}}</td>
+                <td>{{ i.total_tissue }}</td>
+                <td>{{ i.total_sample }}</td>
+                <td>{{ i.total_msrun }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
 </div>
+
 {% endblock %}

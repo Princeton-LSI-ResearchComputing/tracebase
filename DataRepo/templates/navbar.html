@@ -1,4 +1,5 @@
 {% load static %}
+{% load customtags %}
 
 <!-- Navbar -->
 <!-- ref: https://getbootstrap.com/docs/5.0/components/navbar/ -->
@@ -21,27 +22,16 @@
                     Download
                 </a>
                 <ul class="dropdown-menu" aria-labelledby="dropdown-download-data">
-                    <li>
-                        <form action="/DataRepo/search_advanced_tsv/" method="POST">
-                            {% csrf_token %}
-                            <input type="hidden" name="qryjson" value="&quot;{\&quot;selectedtemplate\&quot;: \&quot;pgtemplate\&quot;, \&quot;searches\&quot;: {\&quot;pgtemplate\&quot;: {\&quot;name\&quot;: \&quot;PeakGroups\&quot;, \&quot;tree\&quot;: {\&quot;pos\&quot;: \&quot;\&quot;, \&quot;type\&quot;: \&quot;group\&quot;, \&quot;val\&quot;: \&quot;all\&quot;, \&quot;queryGroup\&quot;: []}}, \&quot;pdtemplate\&quot;: {\&quot;name\&quot;: \&quot;PeakData\&quot;, \&quot;tree\&quot;: {\&quot;pos\&quot;: \&quot;\&quot;, \&quot;type\&quot;: \&quot;group\&quot;, \&quot;val\&quot;: \&quot;all\&quot;, \&quot;queryGroup\&quot;: []}}, \&quot;fctemplate\&quot;: {\&quot;name\&quot;: \&quot;FCirc\&quot;, \&quot;tree\&quot;: {\&quot;pos\&quot;: \&quot;\&quot;, \&quot;type\&quot;: \&quot;group\&quot;, \&quot;val\&quot;: \&quot;all\&quot;, \&quot;queryGroup\&quot;: []}}}}&quot;">
-                            <button type="submit" class="dropdown-item">All Peak Groups</button>
-                        </form>
-                    </li>
-                    <li>
-                        <form action="/DataRepo/search_advanced_tsv/" method="POST">
-                            {% csrf_token %}
-                            <input name="qryjson" type="hidden" value="&quot;{\&quot;selectedtemplate\&quot;: \&quot;pdtemplate\&quot;, \&quot;searches\&quot;: {\&quot;pgtemplate\&quot;: {\&quot;name\&quot;: \&quot;PeakGroups\&quot;, \&quot;tree\&quot;: {\&quot;pos\&quot;: \&quot;\&quot;, \&quot;type\&quot;: \&quot;group\&quot;, \&quot;val\&quot;: \&quot;all\&quot;, \&quot;queryGroup\&quot;: []}}, \&quot;pdtemplate\&quot;: {\&quot;name\&quot;: \&quot;PeakData\&quot;, \&quot;tree\&quot;: {\&quot;pos\&quot;: \&quot;\&quot;, \&quot;type\&quot;: \&quot;group\&quot;, \&quot;val\&quot;: \&quot;all\&quot;, \&quot;queryGroup\&quot;: []}}}}&quot;">
-                            <button type="submit" class="dropdown-item">All Peak Data</button>
-                        </form>
-                    </li>
-                    <li>
-                        <form action="/DataRepo/search_advanced_tsv/" method="POST">
-                            {% csrf_token %}
-                            <input type="hidden" name="qryjson" value="&quot;{\&quot;selectedtemplate\&quot;: \&quot;fctemplate\&quot;, \&quot;searches\&quot;: {\&quot;pgtemplate\&quot;: {\&quot;name\&quot;: \&quot;PeakGroups\&quot;, \&quot;tree\&quot;: {\&quot;pos\&quot;: \&quot;\&quot;, \&quot;type\&quot;: \&quot;group\&quot;, \&quot;val\&quot;: \&quot;all\&quot;, \&quot;queryGroup\&quot;: []}}, \&quot;pdtemplate\&quot;: {\&quot;name\&quot;: \&quot;PeakData\&quot;, \&quot;tree\&quot;: {\&quot;pos\&quot;: \&quot;\&quot;, \&quot;type\&quot;: \&quot;group\&quot;, \&quot;val\&quot;: \&quot;all\&quot;, \&quot;queryGroup\&quot;: []}}}}&quot;">
-                            <button type="submit" class="dropdown-item">All FCirc Data</button>
-                        </form>
-                    </li>
+                    {% getDownloadQrys as qrys %}
+                    {% for qry in qrys %}
+                        <li>
+                            <form action="/DataRepo/search_advanced_tsv/" method="POST">
+                                {% csrf_token %}
+                                <input type="hidden" name="qryjson" value="{{ qry.json }}">
+                                <button type="submit" class="dropdown-item">All {{ qry.name }} Data</button>
+                            </form>
+                        </li>
+                    {% endfor %}
                 </ul>
             </li>
             <!-- Commenting to leave as a placeholder until this is implemented.

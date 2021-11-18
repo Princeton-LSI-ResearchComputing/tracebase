@@ -29,6 +29,7 @@ urlpatterns = [
     ),
     path("studies/", views.StudyListView.as_view(), name="study_list"),
     path("studies/<int:pk>/", views.StudyDetailView.as_view(), name="study_detail"),
+    path("studies/study_summary/", views.study_summary, name="study_summary"),
     path("protocols/", views.ProtocolListView.as_view(), name="protocol_list"),
     path(
         "protocols/<int:pk>/",
@@ -37,6 +38,8 @@ urlpatterns = [
     ),
     path("animals/", views.AnimalListView.as_view(), name="animal_list"),
     path("animals/<int:pk>/", views.AnimalDetailView.as_view(), name="animal_detail"),
+    path("tissues/", views.TissueListView.as_view(), name="tissue_list"),
+    path("tissues/<int:pk>/", views.TissueDetailView.as_view(), name="tissue_detail"),
     path("samples/", views.SampleListView.as_view(), name="sample_list"),
     path("samples/<int:pk>/", views.SampleDetailView.as_view(), name="sample_detail"),
     path("msruns/", views.MSRunListView.as_view(), name="msrun_list"),

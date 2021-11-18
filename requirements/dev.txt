@@ -7,3 +7,7 @@ isort==5.9.3
 pylint==2.11.1
 mypy==0.910
 mypy-extensions==0.4.3
+
+# Need to keep old version until we move past python 3.6
+# https://github.com/ipython/ipython/issues/12677#issuecomment-826312842
+jedi==0.17.2
