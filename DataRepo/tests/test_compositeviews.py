@@ -11,7 +11,7 @@ class CompositeViewTests(TestCase):
         call_command("loaddata", "tissues.yaml")
         call_command(
             "load_compounds",
-            "DataRepo/example_data/small_dataset/small_obob_compounds.tsv",
+            compounds="DataRepo/example_data/small_dataset/small_obob_compounds.tsv",
         )
         call_command(
             "load_samples",

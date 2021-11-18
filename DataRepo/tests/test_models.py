@@ -21,7 +21,12 @@ from DataRepo.models import (
     Tissue,
     TracerLabeledClass,
 )
-from DataRepo.utils import AccuCorDataLoader, MissingSamplesError
+from DataRepo.utils import (
+    AccuCorDataLoader,
+    AmbiguousCompoundDefinitionError,
+    CompoundsLoader,
+    MissingSamplesError,
+)
 
 
 class ExampleDataConsumer:
@@ -397,12 +402,128 @@ class ProtocolTests(TestCase):
             )
 
 
+@tag("compound_loading")
+class CompoundValidationLoadingTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        call_command("loaddata", "tissues.yaml")
+        call_command(
+            "load_compounds",
+            compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
+            validate_only=True,
+            verbosity=0,
+        )
+        # validate only; nothing gets loaded
+        cls.ALL_COMPOUNDS_COUNT = 0
+
+    def test_compounds_loaded(self):
+        self.assertEqual(Compound.objects.all().count(), self.ALL_COMPOUNDS_COUNT)
+
+
+@tag("compound_loading")
+class CompoundLoadingTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+
+        primary_compound_file = (
+            "DataRepo/example_data/consolidated_tracebase_compound_list.tsv"
+        )
+
+        call_command("loaddata", "tissues.yaml")
+        call_command(
+            "load_compounds",
+            compounds=primary_compound_file,
+            verbosity=0,
+        )
+        cls.ALL_COMPOUNDS_COUNT = 47
+
+        cls.COMPOUND_WITH_MANY_NAMES = Compound.objects.get(name="a-ketoglutarate")
+
+        # and do it again, to be able to test the class
+        compounds_df = pd.read_csv(
+            primary_compound_file, sep="\t", keep_default_na=False
+        )
+        cls.LOADER_INSTANCE = CompoundsLoader(
+            compounds_df=compounds_df,
+            validate_only=True,
+        )
+
+    def test_compounds_loaded(self):
+        self.assertEqual(Compound.objects.all().count(), self.ALL_COMPOUNDS_COUNT)
+
+    def test_compound_loaded(self):
+        self.assertEqual(
+            "HMDB0000208",
+            self.COMPOUND_WITH_MANY_NAMES.hmdb_id,
+        )
+
+    def test_synonym_loaded(self):
+        cs = CompoundSynonym.objects.get(name="oxoglutarate")
+        self.assertEqual(
+            cs.compound,
+            self.COMPOUND_WITH_MANY_NAMES,
+        )
+
+    def test_synonymous_compound_retrieval(self):
+        synonymous_compound = Compound.compound_matching_name_or_synonym(
+            "alpha-ketoglutaric acid"
+        )
+        self.assertEqual(
+            synonymous_compound,
+            self.COMPOUND_WITH_MANY_NAMES,
+        )
+
+    def test_nonsense_synonym_retrieval(self):
+        synonymous_compound = Compound.compound_matching_name_or_synonym("nonsense")
+        self.assertIsNone(synonymous_compound)
+
+    @tag("compound_for_row")
+    def test_missing_compounds_keys_in_find_compound_for_row(self):
+        # this test used the SetUp-inserted data to retrieve spoofed data with
+        # only synonyms
+        dict = {
+            CompoundsLoader.KEY_COMPOUND_NAME: "nonsense",
+            CompoundsLoader.KEY_FORMULA: "nonsense",
+            CompoundsLoader.KEY_HMDB: "nonsense",
+            CompoundsLoader.KEY_SYNONYMS: "Fructose 1,6-bisphosphate;Fructose-1,6-diphosphate;"
+            "Fructose 1,6-diphosphate;Diphosphofructose",
+        }
+        # create series from dictionary
+        ser = pd.Series(dict)
+        compound = self.LOADER_INSTANCE.find_compound_for_row(ser)
+        self.assertEqual(compound.name, "fructose-1-6-bisphosphate")
+
+    @tag("compound_for_row")
+    def test_ambiguous_synonym_in_find_compound_for_row(self):
+        """
+        Test that an exception is raised when synonyms on one row refer to two
+        existing compound records in the database
+        """
+        dict = {
+            CompoundsLoader.KEY_COMPOUND_NAME: "nonsense",
+            CompoundsLoader.KEY_FORMULA: "nonsense",
+            CompoundsLoader.KEY_HMDB: "nonsense",
+            CompoundsLoader.KEY_SYNONYMS: "Fructose 1,6-bisphosphate;glucose",
+        }
+        # create series from dictionary
+        ser = pd.Series(dict)
+        with self.assertRaises(AmbiguousCompoundDefinitionError):
+            self.LOADER_INSTANCE.find_compound_for_row(ser)
+
+
+# create series from dictionary
+ser = pd.Series(dict)
+
+
 class DataLoadingTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         call_command("loaddata", "tissues.yaml")
-        call_command("load_compounds", "DataRepo/example_data/obob_compounds.tsv")
-        cls.ALL_COMPOUNDS_COUNT = 32
+        call_command(
+            "load_compounds",
+            compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
+        )
+        cls.ALL_COMPOUNDS_COUNT = 47
 
         # initialize some sample-table-dependent counters
         cls.ALL_SAMPLES_COUNT = 0
@@ -1143,7 +1264,10 @@ class TracerRateTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         call_command("loaddata", "tissues.yaml")
-        call_command("load_compounds", "DataRepo/example_data/obob_compounds.tsv")
+        call_command(
+            "load_compounds",
+            compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
+        )
 
         call_command(
             "load_animals_and_samples",
@@ -1301,7 +1425,10 @@ class AnimalAndSampleLoadingTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         call_command("loaddata", "tissues.yaml")
-        call_command("load_compounds", "DataRepo/example_data/obob_compounds.tsv")
+        call_command(
+            "load_compounds",
+            compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
+        )
         cls.ALL_COMPOUNDS_COUNT = 32
 
     def test_animal_and_sample_load_xlsx(self):
@@ -1333,7 +1460,10 @@ class AccuCorDataLoadingTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         call_command("loaddata", "tissues.yaml")
-        call_command("load_compounds", "DataRepo/example_data/obob_compounds.tsv")
+        call_command(
+            "load_compounds",
+            compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
+        )
 
         call_command(
             "load_animals_and_samples",
@@ -1428,7 +1558,10 @@ class ParseIsotopeLabelTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         call_command("loaddata", "tissues.yaml")
-        call_command("load_compounds", "DataRepo/example_data/obob_compounds.tsv")
+        call_command(
+            "load_compounds",
+            compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
+        )
 
         call_command(
             "load_samples",

@@ -8,7 +8,7 @@ from django.apps import apps
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
-from django.db.models import Sum
+from django.db.models import Q, Sum
 from django.utils.functional import cached_property
 
 
@@ -252,6 +252,27 @@ class Compound(models.Model):
         (_primary_synonym, created) = self.get_or_create_synonym()
         ucfirst_synonym = self.name[0].upper() + self.name[1:]
         (_secondary_synonym, created) = self.get_or_create_synonym(ucfirst_synonym)
+
+    @classmethod
+    def compound_matching_name_or_synonym(cls, name):
+        """
+        compound_matching_name_or_synonym is a class method that takes a string (name or
+        synonym) and retrieves a distinct compound that matches it
+        (case-insensitive), if any. Because we must enforce unique
+        names, synonyms, and compound linkages, if more than 1 compound is found
+        matching the query, an error is thrown.
+        """
+
+        # find the distinct union of these queries
+        matching_compounds = cls.objects.filter(
+            Q(name__iexact=name) | Q(synonyms__name__iexact=name)
+        ).distinct()
+        if matching_compounds.count() > 1:
+            raise ValidationError(
+                "compound_matching_name_or_synonym retrieved multiple "
+                f"distinct compounds matching {name} from the database"
+            )
+        return matching_compounds.first()
 
     class Meta:
         verbose_name = "compound"

@@ -65,7 +65,7 @@ class Command(BaseCommand):
             self.stdout.write(
                 self.style.MIGRATE_HEADING(f"Loading compounds from {compounds_file}")
             )
-            call_command("load_compounds", compounds_file)
+            call_command("load_compounds", compounds=compounds_file)
 
         if "animals_samples_treatments" in study_params:
             # Read in animals and samples file

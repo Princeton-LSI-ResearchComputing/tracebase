@@ -40,7 +40,7 @@ class ViewTests(TestCase):
 
         call_command(
             "load_compounds",
-            "DataRepo/example_data/small_dataset/small_obob_compounds.tsv",
+            compounds="DataRepo/example_data/small_dataset/small_obob_compounds.tsv",
         )
         cls.ALL_COMPOUNDS_COUNT = 3
 
@@ -826,7 +826,10 @@ class ViewTests(TestCase):
         Do a file validation test
         """
         # Load the necessary compounds for a successful test
-        call_command("load_compounds", "DataRepo/example_data/obob_compounds.tsv")
+        call_command(
+            "load_compounds",
+            compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
+        )
 
         # Files/inputs we will test
         animal_sample_dict = {}
