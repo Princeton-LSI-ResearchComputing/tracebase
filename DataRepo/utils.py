@@ -1012,13 +1012,13 @@ class CompoundsLoader:
         if self.compounds_df is not None:
             self.compounds_df.rename(columns=lambda x: x.strip())
             self.check_required_headers()
-              for col in (
-                  self.KEY_COMPOUND_NAME,
-                  self.KEY_FORMULA,
-                  self.KEY_HMDB,
-                  self.KEY_SYNONYMS,
-              ):
-                  self.compounds_df[col] = self.compounds_df[col].str.strip()
+            for col in (
+                self.KEY_COMPOUND_NAME,
+                self.KEY_FORMULA,
+                self.KEY_HMDB,
+                self.KEY_SYNONYMS,
+            ):
+                self.compounds_df[col] = self.compounds_df[col].str.strip()
 
     def validate_data(self):
         # validate the compounds dataframe
@@ -1074,24 +1074,25 @@ class CompoundsLoader:
             self.validation_error_messages.append(err_msg)
 
     def find_compound_for_row(self, row):
-          """Find single Compound record matching data from the input row.
+        """
+        Find single Compound record matching data from the input row.
 
-          Searches compound records using HMDB ID and name. Appends a warning to
-          `validation_warning_messages` if HMDB ID is not found.  Searches
-          compound records using all synonyms.  If the queries return multiple
-          distinct scompounds, an `AmbiguousCompoundDefinitionError` is raised.
+        Searches compound records using HMDB ID and name. Appends a warning to
+        `validation_warning_messages` if HMDB ID is not found.  Searches
+        compound records using all synonyms.  If the queries return multiple
+        distinct scompounds, an `AmbiguousCompoundDefinitionError` is raised.
 
-          Args:
-              row (Series): Pandas Series representing a potential Compound
-                  record
+        Args:
+            row (Series): Pandas Series representing a potential Compound
+                record
 
-          Returns:
-              compound: A single compound record matching the HMDB, name, and
-                  synonym records in the input row
+        Returns:
+            compound: A single compound record matching the HMDB, name, and
+                synonym records in the input row
 
-          Raises:
-              AmbiguousCompoundDefinitionError: Multiple compounds were found
-          """
+        Raises:
+            AmbiguousCompoundDefinitionError: Multiple compounds were found
+        """
         found_compound = None
         hmdb_compound = None
         named_compound = None
