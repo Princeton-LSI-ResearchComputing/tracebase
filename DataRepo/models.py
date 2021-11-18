@@ -347,6 +347,7 @@ class Animal(models.Model, TracerLabeledClass):
     tracer_compound = models.ForeignKey(
         Compound,
         on_delete=models.RESTRICT,
+        blank=True,
         null=True,
         help_text="The compound which was used as the tracer (i.e. infusate). "
         "The tracer is the labeled compound that is infused into the animal.",
@@ -398,7 +399,7 @@ class Animal(models.Model, TracerLabeledClass):
     age = models.DurationField(
         null=True,
         blank=True,
-        validators=[MinValueValidator(0)],
+        validators=[MinValueValidator(timedelta(seconds=0))],
         help_text="The age of the animal at the time of sample collection.",
     )
     sex = models.CharField(

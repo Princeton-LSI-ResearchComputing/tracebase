@@ -212,7 +212,7 @@ class SampleTableLoader:
                     animal.feeding_status = feedstatus
                 age = self.getRowVal(row, self.headers.ANIMAL_AGE, hdr_required=False)
                 if age is not None:
-                    animal.age = age
+                    animal.age = timedelta(weeks=int(age))
                 diet = self.getRowVal(row, self.headers.ANIMAL_DIET, hdr_required=False)
                 if diet is not None:
                     animal.diet = diet
