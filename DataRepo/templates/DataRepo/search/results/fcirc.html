@@ -145,20 +145,28 @@
                             {$(this).hide()}
                     })
 
-                    adjustAverageIntact(wcbv, ncbv)
+                    adjustAverageIntact(acbv, icbv, wcbv, ncbv)
                 }
             })
         })
 
-        function adjustAverageIntact(wcbv, ncbv) {
+        function adjustAverageIntact(acbv, icbv, wcbv, ncbv) {
             var parentsize = 0
             if ( wcbv )
                 {parentsize += 2}
             if ( ncbv )
                 {parentsize += 2}
             // For each parent
-            $("#advsrchres .average, .intact").not(".weight, .nonorm").each(function() {
-                if ( parentsize == 0 ) {
+            $("#advsrchres .average").not(".weight, .nonorm").each(function() {
+                if ( !acbv || parentsize == 0 ) {
+                    $(this).hide()
+                } else {
+                    $(this).show()
+                    $(this).attr("colspan", parentsize)
+                }
+            })
+            $("#advsrchres .intact").not(".weight, .nonorm").each(function() {
+                if ( !icbv || parentsize == 0 ) {
                     $(this).hide()
                 } else {
                     $(this).show()
