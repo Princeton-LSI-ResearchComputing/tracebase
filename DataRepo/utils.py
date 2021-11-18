@@ -1012,18 +1012,13 @@ class CompoundsLoader:
         if self.compounds_df is not None:
             self.compounds_df.rename(columns=lambda x: x.strip())
             self.check_required_headers()
-            self.compounds_df[self.KEY_COMPOUND_NAME] = self.compounds_df[
-                self.KEY_COMPOUND_NAME
-            ].str.strip()
-            self.compounds_df[self.KEY_FORMULA] = self.compounds_df[
-                self.KEY_FORMULA
-            ].str.strip()
-            self.compounds_df[self.KEY_HMDB] = self.compounds_df[
-                self.KEY_HMDB
-            ].str.strip()
-            self.compounds_df[self.KEY_SYNONYMS] = self.compounds_df[
-                self.KEY_SYNONYMS
-            ].str.strip()
+              for col in (
+                  self.KEY_COMPOUND_NAME,
+                  self.KEY_FORMULA,
+                  self.KEY_HMDB,
+                  self.KEY_SYNONYMS,
+              ):
+                  self.compounds_df[col] = self.compounds_df[col].str.strip()
 
     def validate_data(self):
         # validate the compounds dataframe
@@ -1079,21 +1074,24 @@ class CompoundsLoader:
             self.validation_error_messages.append(err_msg)
 
     def find_compound_for_row(self, row):
-        """
-        This function takes a row (pandas Series) extracted from a pandas
-        dataset and attempts to find a matching database record, primarily using
-        the HMDB ID [since that is the least ambiguous identifier in the row and
-        is currently required].  It also queries for a matching compound by the
-        "primary" name, for validation purposes.  A warning will be recorded if
-        either of these are not found in the database, because either it is a
-        new compound or there is a data inconsistency.  The two will be compared
-        against each other, and if they are not equivalent, an error will be
-        recorded. If the two are both absent/None, then the name + synonyms are
-        compiled into a list and queried, in sequence. If any of these strings
-        returns an existing database compound name or synonym, then the last one
-        found is considered the "one" found.  If multiple distinct compounds are
-        found within the list of possible names, then an error is raised.
-        """
+          """Find single Compound record matching data from the input row.
+
+          Searches compound records using HMDB ID and name. Appends a warning to
+          `validation_warning_messages` if HMDB ID is not found.  Searches
+          compound records using all synonyms.  If the queries return multiple
+          distinct scompounds, an `AmbiguousCompoundDefinitionError` is raised.
+
+          Args:
+              row (Series): Pandas Series representing a potential Compound
+                  record
+
+          Returns:
+              compound: A single compound record matching the HMDB, name, and
+                  synonym records in the input row
+
+          Raises:
+              AmbiguousCompoundDefinitionError: Multiple compounds were found
+          """
         found_compound = None
         hmdb_compound = None
         named_compound = None

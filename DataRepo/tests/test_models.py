@@ -495,8 +495,10 @@ class CompoundLoadingTests(TestCase):
 
     @tag("compound_for_row")
     def test_ambiguous_synonym_in_find_compound_for_row(self):
-        # this test used the SetUp-inserted data to retrieve spoofed data with
-        # only synonyms
+        """
+        Test that an exception is raised when synonyms on one row refer to two
+        existing compound records in the database
+        """
         dict = {
             CompoundsLoader.KEY_COMPOUND_NAME: "nonsense",
             CompoundsLoader.KEY_FORMULA: "nonsense",
