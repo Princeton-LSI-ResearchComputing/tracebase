@@ -1259,6 +1259,40 @@ class DataLoadingTests(TestCase):
         with self.assertWarns(UserWarning):
             self.assertFalse(pg.can_compute_average_tracer_rates)
 
+    @tag("synonym_data_loading")
+    def test_valid_synonym_accucor_load(self):
+        # this file contains 1 valid synonym for glucose, "dextrose"
+        call_command(
+            "load_accucor_msruns",
+            protocol="Default",
+            accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_corrected_valid_syn.csv",
+            date="2021-11-19",
+            researcher="Michael Neinast",
+        )
+
+        self.assertTrue(
+            PeakGroupSet.objects.filter(
+                filename="obob_maven_6eaas_inf_corrected_valid_syn.csv"
+            ).exists()
+        )
+        peak_group = PeakGroup.objects.filter(
+            peak_group_set__filename="obob_maven_6eaas_inf_corrected_valid_syn.csv"
+        ).first()
+        self.assertEqual(peak_group.name, "dextrose")
+        self.assertEqual(peak_group.compounds.first().name, "glucose")
+
+    @tag("synonym_data_loading")
+    def test_invalid_synonym_accucor_load(self):
+        with self.assertRaises(AssertionError, msg="1 compounds are missing."):
+            # this file contains 1 invalid synonym for glucose "table sugar"
+            call_command(
+                "load_accucor_msruns",
+                protocol="Default",
+                accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_corrected_invalid_syn.csv",
+                date="2021-11-18",
+                researcher="Michael Neinast",
+            )
+
 
 class TracerRateTests(TestCase):
     @classmethod
