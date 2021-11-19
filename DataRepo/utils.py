@@ -1386,6 +1386,9 @@ class QuerysetToPandasDataFrame:
         anim_list_df["treatment_id"] = (
             anim_list_df["treatment_id"].fillna(0).astype(int)
         )
+        anim_list_df["tracer_compound_id"] = (
+            anim_list_df["tracer_compound_id"].fillna(0).astype(int)
+        )
         return anim_list_df
 
     @classmethod
@@ -1400,6 +1403,7 @@ class QuerysetToPandasDataFrame:
         # add a column by joining id and name for each study
         stud_anim_df["study_id_name"] = (
             stud_anim_df["study_id"]
+            .astype(int)
             .astype(str)
             .str.cat(stud_anim_df["study"], sep="||")
         )
@@ -1633,12 +1637,14 @@ class QuerysetToPandasDataFrame:
         # add a column to join id and name for each tracer
         all_stud_msrun_df["tracer_id_name"] = (
             all_stud_msrun_df["tracer_compound_id"]
+            .astype(int)
             .astype(str)
             .str.cat(all_stud_msrun_df["tracer"], sep="||")
         )
         # add a column to join treatment_id and treatment
         all_stud_msrun_df["treatment_id_name"] = (
             all_stud_msrun_df["treatment_id"]
+            .astype(int)
             .astype(str)
             .str.cat(all_stud_msrun_df["treatment"], sep="||")
         )
