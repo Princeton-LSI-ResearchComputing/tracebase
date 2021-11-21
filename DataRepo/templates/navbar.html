@@ -11,12 +11,6 @@
         </a>
 
         <ul class="navbar-nav me-auto">
-            <li class="nav-item">
-                <a class="nav-link active" aria-current="page" href="{% url 'home' %}">Home</a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" href="{% url 'admin:index' %}">Admin</a>
-            </li>
             <li class="nav-item dropdown">
                 <a class="nav-link dropdown-toggle" href="#" id="dropdown-download-data" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                     Download
@@ -53,5 +47,10 @@
         </form>
         -->
         <a role="button" class="btn btn-outline-success nobr" href="{% url 'search_advanced' %}">Advanced Search</a>
+        <ul class="navbar-nav mr-auto" style="margin-left: 1rem;">
+            <li class="nav-item mr-auto">
+                <a class="nav-link" href="{% url 'admin:index' %}">Admin</a>
+            </li>
+        </ul>
     </div>
 </nav>

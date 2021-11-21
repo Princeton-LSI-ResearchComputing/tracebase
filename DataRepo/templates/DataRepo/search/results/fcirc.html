@@ -1,178 +1,467 @@
 {% load customtags %}
+{% block head_extras %}
+    <script>
+        // Inspired by: https://stackoverflow.com/questions/12455699/show-hide-table-column-with-colspan-using-jquery
+
+        // Correct the row count to account for M:M related tables
+        document.addEventListener("DOMContentLoaded", function(){
+            $("#showaverage").on("click", function(e) {
+                var acbv = $(this).is(":checked")
+                var icbv = $("#showintact").is(":checked")
+
+                if (!acbv && !icbv) {
+                    e.preventDefault()
+                    alert("Too few display columns. At least 1 of Average or Intact must be selected.")
+                    return
+                }
+
+                updateColumnSwitching()
+            })
+
+            $("#showintact").on("click", function(e) {
+                var icbv = $(this).is(":checked")
+                var acbv = $("#showaverage").is(":checked")
+
+                if (!acbv && !icbv) {
+                    e.preventDefault()
+                    alert("Too few display columns. At least 1 of Average or Intact must be selected.")
+                    return
+                }
+
+                updateColumnSwitching()
+            })
+
+            $("#showweight").on("click", function(e) {
+                var wcbv = $(this).is(":checked")
+                var ncbv = $("#shownonorm").is(":checked")
+
+                if (!ncbv && !wcbv) {
+                    e.preventDefault()
+                    alert("Too few display columns. At least 1 of Weight-normalized or mouse-normalized must be selected.")
+                    return
+                }
+
+                updateColumnSwitching()
+            })
+
+            $("#shownonorm").on("click", function(e) {
+                var ncbv = $(this).is(":checked")
+                var wcbv = $("#showweight").is(":checked")
+
+                if (!ncbv && !wcbv) {
+                    e.preventDefault()
+                    alert("Too few display columns. At least 1 of Weight-normalized or mouse-normalized must be selected.")
+                    return
+                }
+
+                updateColumnSwitching()
+            })
+
+            // https://bootstrap-table.com/docs/api/events/
+            // https://bootstrap-table.com/docs/api/events/#oncolumnswitch
+            $("#advsrchres").bootstrapTable({
+                onColumnSwitch: function() {
+                    updateColumnSwitching()
+                }
+            })
+
+            $("#showra").on("click", function(e) {
+                var racbv = $(this).is(":checked")
+                var rdcbv = $("#showrd").is(":checked")
+
+                if (!racbv && !rdcbv) {
+                    e.preventDefault()
+                    alert("Too few display columns. At least 1 of Ra or Rd must be selected.")
+                    return
+                }
+
+                updateColumnSwitching()
+            })
+
+            $("#showrd").on("click", function(e) {
+                var rdcbv = $(this).is(":checked")
+                var racbv = $("#showra").is(":checked")
+
+                if (!racbv && !rdcbv) {
+                    e.preventDefault()
+                    alert("Too few display columns. At least 1 of Ra or Rd must be selected.")
+                    return
+                }
+
+                updateColumnSwitching()
+            })
+
+            $("#showlast").on("click", function(e) {
+                var lcbv = $(this).is(":checked")
+                var nlcbv = $("#shownotlast").is(":checked")
+
+                if (!nlcbv && !lcbv) {
+                    e.preventDefault()
+                    alert("Too few display rows. At least 1 of Previous or Last serum samples must be selected.")
+                    return
+                }
+
+                $("#advsrchres .bg-highlighted, bg-normal").each(function() {
+                    if((nlcbv && $(this).hasClass("bg-normal"))
+                        || (lcbv && $(this).hasClass("bg-highlighted"))
+                    )
+                        {$(this).show()}
+                    else
+                        {$(this).hide()}
+                })
+            })
+
+            $("#shownotlast").on("click", function(e) {
+                var nlcbv = $(this).is(":checked")
+                var lcbv = $("#showlast").is(":checked")
+
+                if (!nlcbv && !lcbv) {
+                    e.preventDefault()
+                    alert("Too few display rows. At least 1 of Previous or Last serum samples must be selected.")
+                    return
+                }
+
+                $("#advsrchres .bg-highlighted, bg-normal").each(function() {
+                    if((nlcbv && $(this).hasClass("bg-normal"))
+                        || (lcbv && $(this).hasClass("bg-highlighted"))
+                    )
+                        {$(this).show()}
+                    else
+                        {$(this).hide()}
+                })
+            })
+
+            // https://bootstrap-table.com/docs/api/events/
+            // https://bootstrap-table.com/docs/api/events/#oncolumnswitch
+            $("#advsrchres").bootstrapTable({
+                onColumnSwitch: function() {
+                    updateColumnSwitching()
+                }
+            })
+        })
+
+        function updateColumnSwitching() {
+            var ncbv = $("#shownonorm").is(":checked")
+            var wcbv = $("#showweight").is(":checked")
+            var acbv = $("#showaverage").is(":checked")
+            var icbv = $("#showintact").is(":checked")
+            var racbv = $("#showra").is(":checked")
+            var rdcbv = $("#showrd").is(":checked")
+
+            // Everything is either average or intact
+            $("#advsrchres .average, .intact").each(function() {
+                if(
+                    ( // One of each of 3 class in each pair is present (average/intact, weight/nonorm, & ra/rd)
+                        ((acbv && $(this).hasClass("average"))
+                            || (icbv && $(this).hasClass("intact")))
+                        && ((ncbv && $(this).hasClass("nonorm"))
+                            || (wcbv && $(this).hasClass("weight")))
+                        && ((racbv && $(this).hasClass("ra"))
+                            || rdcbv && $(this).hasClass("rd"))
+                    )
+                    || ( // All but ra/rd class present
+                        (($(this).hasClass("average") || $(this).hasClass("intact"))
+                            && ($(this).hasClass("nonorm") || $(this).hasClass("weight"))
+                            && !$(this).hasClass("ra") && !$(this).hasClass("rd"))
+                        && (
+                            ((acbv && $(this).hasClass("average"))
+                                || (icbv && $(this).hasClass("intact")))
+                            && ((ncbv && $(this).hasClass("nonorm"))
+                                || (wcbv && $(this).hasClass("weight")))
+                        )
+                    )
+                    || ( // Only Average/intact class present
+                        (($(this).hasClass("average") || $(this).hasClass("intact"))
+                            && !$(this).hasClass("nonorm") && !$(this).hasClass("weight")
+                            && !$(this).hasClass("ra") && !$(this).hasClass("rd"))
+                        && (
+                            (acbv && $(this).hasClass("average"))
+                            || (icbv && $(this).hasClass("intact"))
+                        )
+                    )
+                )
+                    {$(this).show()}
+                else
+                    {$(this).hide()}
+            })
+
+            adjustAverageIntact(acbv, icbv, wcbv, ncbv, racbv, rdcbv)
+        }
+
+        function adjustAverageIntact(acbv, icbv, wcbv, ncbv, racbv, rdcbv) {
+            var parentincrement = 0;
+            if ( racbv )
+                {parentincrement += 1}
+            if ( rdcbv )
+                {parentincrement += 1}
+            var parentsize = 0
+            if ( wcbv )
+                {parentsize += parentincrement}
+            if ( ncbv )
+                {parentsize += parentincrement}
+            // For each parent
+            $("#advsrchres .average").not(".weight, .nonorm").each(function() {
+                if ( !acbv || parentsize == 0 ) {
+                    $(this).hide()
+                } else {
+                    $(this).show()
+                    $(this).attr("colspan", parentsize)
+                }
+            })
+            $("#advsrchres .intact").not(".weight, .nonorm").each(function() {
+                if ( !icbv || parentsize == 0 ) {
+                    $(this).hide()
+                } else {
+                    $(this).show()
+                    $(this).attr("colspan", parentsize)
+                }
+            })
+            $("#advsrchres .weight").not(".ra, .rd").each(function() {
+                if ( !wcbv || parentincrement == 0
+                    || (!icbv && $(this).hasClass("intact"))
+                    || (!acbv && $(this).hasClass("average"))
+                ) {
+                    $(this).hide()
+                } else {
+                    $(this).show()
+                    $(this).attr("colspan", parentincrement)
+                }
+            })
+            $("#advsrchres .nonorm").not(".ra, .rd").each(function() {
+                if ( !ncbv || parentincrement == 0
+                    || (!icbv && $(this).hasClass("intact"))
+                    || (!acbv && $(this).hasClass("average"))
+                ) {
+                    $(this).hide()
+                } else {
+                    $(this).show()
+                    $(this).attr("colspan", parentincrement)
+                }
+            })
+        }
+    </script>
+{% endblock %}
 {% block content %}
-    <h3 style="margin: 0; display: inline-block;">{{ qry|getFormatName:selfmt }} Results ({{ res.count|default:"0" }} Rows)</h3>
-    <table class="table table-highlighted table-hover table-bordered">
-        <tr class="bg-highlighted">
-            <th colspan="7" rowspan="2"></th>
-            <th colspan="4">Average</th>
-            <th colspan="4">Intact</th>
-        </tr>
-        <tr class="bg-highlighted">
-            <th colspan="2">Weight Normalized<small> (nM/m/g)</small></th>
-            <th colspan="2">Mouse Normalized<small> (nM/m)</small></th>
-            <th colspan="2">Weight Normalized<small> (nM/m/g)</small></th>
-            <th colspan="2">Mouse Normalized<small> (nM/m)</small></th>
-        </tr>
-        <tr class="bg-highlighted">
-            <th>Animal</th>
-            <th>Studies</th>
-            <th>Treatment</th>
-            <th>Tracer Compound</th>
-            <th>Tracer Infusion Rate (ul/m/g)</th>
-            <th>Tracer Infusion Concentration (mM)</th>
-            <th>Time Collected (m)</th>
-            <th>Ra</th>
-            <th>Rd</th>
-            <th>Ra</th>
-            <th>Rd</th>
-            <th>Ra</th>
-            <th>Rd</th>
-            <th>Ra</th>
-            <th>Rd</th>
-        </tr>
-
-        {% for pg in res.all %}
-
-            {# Initialize a new dict used for many-to-many related table refiltering #}
-            {% createDict as mm_lookup %}
-
-            {% if pg.is_tracer_compound_group %}
-                <tr class="{% if pg.msrun.sample.id == pg.msrun.sample.animal.final_serum_sample_id %}bg-highlighted{% endif %}">
-                    <!-- Animal -->
-                    <td>
-                        <a href="{% url 'animal_detail' pg.msrun.sample.animal.id %}">
-                            {{ pg.msrun.sample.animal.name }}
-                        </a>
-                    </td>
-
-                    <!-- Studies -->
-                    <td>
-                        {# All on 1 line to avoid space preceding commas #}
-                        {# We add the M:M model key path as a key pointing to its current record to the mm_lookup dict.  This way of looking up M:M record values is necessary to support multiple M:M related models in a composite view #}
-                        {# At the most nested loop level, we have enough info to refilter for unmatching many-to-many records #}
-
-                        {% define True as first %}
-                        {% for study in pg.msrun.sample.animal.studies.all %}{% addToDict mm_lookup "msrun__sample__animal__studies" study %}{% shouldKeepManyToMany pg mm_lookup qry refilter as keep %}{% if keep %}{% if not first %},<br>{% endif%}<a href="{% url 'study_detail' study.id %}">{{ study.name }}</a>{% endif %}{% define False as first %}{% endfor %}
-                    </td>
-
-                    <!-- Treatment -->
-                    <td>
-                        {% if pg.msrun.sample.animal.treatment is None %}
-                            None
-                        {% else %}
-                            <a href="{% url 'protocol_detail' pg.msrun.sample.animal.treatment.id %}">
-                                {{ pg.msrun.sample.animal.treatment.name }}
-                            </a>
-                        {% endif %}
-                    </td>
-
-                    <!-- Tracer Compound -->
-                    <td>
-                        <a href="{% url 'compound_detail' pg.msrun.sample.animal.tracer_compound.id %}">
-                            {{ pg.msrun.sample.animal.tracer_compound.name }}
-                        </a>
-                    </td>
-
-                    <!-- Tracer Infusion Rate (ul/m/g) -->
-                    <td class="text-end">
-                        {{ pg.msrun.sample.animal.tracer_infusion_rate }}
-                    </td>
-
-                    <!-- Tracer Infusion Concentration (mM) -->
-                    <td class="text-end">
-                        {{ pg.msrun.sample.animal.tracer_infusion_concentration }}
-                    </td>
-
-                    <!-- Time Collected (m) -->
-                    <td class="text-end">
-                        <p title="{{ pg.msrun.sample.time_collected }} (h:m:s)">{{ pg.msrun.sample.time_collected|durationToMins|decimalPlaces:2 }}</p>
-                    </td>
-
-                    <!-- Average Ra (nM/m/g) -->
-                    <td class="text-end">
-                        {% if pg.rate_appearance_average_per_gram is None %}
-                            None
-                        {% else %}
-                            <p title="{{ pg.rate_appearance_average_per_gram }}">{{ pg.rate_appearance_average_per_gram|floatformat:2 }}</p>
-                        {% endif %}
-                    </td>
-
-                    <!-- Average Rd (nM/m/g) -->
-                    <td class="text-end">
-                        {% if pg.rate_disappearance_average_per_gram is None %}
-                            None
-                        {% else %}
-                            <p title="{{ pg.rate_disappearance_average_per_gram }}">{{ pg.rate_disappearance_average_per_gram|floatformat:2 }}</p>
-                        {% endif %}
-                    </td>
-
-                    <!-- Average Ra (nM/m) -->
-                    <td class="text-end">
-                        {% if pg.rate_appearance_average_per_animal is None %}
-                            None
-                        {% else %}
-                            <p title="{{ pg.rate_appearance_average_per_animal }}">{{ pg.rate_appearance_average_per_animal|floatformat:2 }}</p>
-                        {% endif %}
-                    </td>
-
-                    <!-- Average Rd (nM/m) -->
-                    <td class="text-end">
-                        {% if pg.rate_disappearance_average_per_animal is None %}
-                            None
-                        {% else %}
-                            <p title="{{ pg.rate_disappearance_average_per_animal }}">{{ pg.rate_disappearance_average_per_animal|floatformat:2 }}</p>
-                        {% endif %}
-                    </td>
-
-                    <!-- Intact Ra (nM/m/g) -->
-                    <td class="text-end">
-                        {% if pg.rate_appearance_intact_per_gram is None %}
-                            None
-                        {% else %}
-                            <p title="{{ pg.rate_appearance_intact_per_gram }}">{{ pg.rate_appearance_intact_per_gram|floatformat:2 }}</p>
-                        {% endif %}
-                    </td>
-
-                    <!-- Intact Rd (nM/m/g) -->
-                    <td class="text-end">
-                        {% if pg.rate_disappearance_intact_per_gram is None %}
-                            None
-                        {% else %}
-                            <p title="{{ pg.rate_disappearance_intact_per_gram }}">{{ pg.rate_disappearance_intact_per_gram|floatformat:2 }}</p>
-                        {% endif %}
-                    </td>
-
-                    <!-- Intact Ra (nM/m) -->
-                    <td class="text-end">
-                        {% if pg.rate_appearance_intact_per_animal is None %}
-                            None
-                        {% else %}
-                            <p title="{{ pg.rate_appearance_intact_per_animal }}">{{ pg.rate_appearance_intact_per_animal|floatformat:2 }}</p>
-                        {% endif %}
-                    </td>
-
-                    <!-- Intact Rd (nM/m) -->
-                    <td class="text-end">
-                        {% if pg.rate_disappearance_intact_per_animal is None %}
-                            None
-                        {% else %}
-                            <p title="{{ pg.rate_disappearance_intact_per_animal }}">{{ pg.rate_disappearance_intact_per_animal|floatformat:2 }}</p>
-                        {% endif %}
-                    </td>
+    <div style="float: right; margin-right: 1rem;" class="buttons-toolbar"></div>
+    <div style="float: right; margin-right: 1rem;">
+        <small>
+            <table class="table table-highlighted-legend table-hover table-bordered">
+                <tr>
+                    <td><strong>Calculation Method</strong></td>
+                    <td><input type="checkbox" id="showaverage" checked/> Average</td>
+                    <td><input type="checkbox" id="showintact" checked/> Intact</td>
                 </tr>
-            {% endif %}
-        {% endfor %}
-    </table>
-    <br>
-    <table class="table table-highlighted-legend table-hover table-bordered">
-        <tr class="bg-highlighted">
-            <th>Color Legend</th>
-        </tr>
-        <tr>
-            <td>Previous (or no) serum sample</td>
-        </tr>
-        <tr class="bg-highlighted">
-            <td>Last serum sample</td>
-        </tr>
+                <tr>
+                    <td><strong>Normalization Method</strong></td>
+                    <td><input type="checkbox" id="showweight" checked/> Per gram body-weight</td>
+                    <td><input type="checkbox" id="shownonorm" checked/> Per animal</td>
+                </tr>
+                <tr>
+                    <td><strong>Calculation Type</strong></td>
+                    <td><input type="checkbox" id="showrd" checked/> Rd (disappearance rate)</td>
+                    <td><input type="checkbox" id="showra" checked/> Ra (appearance rate)</td>
+                </tr>
+                <tr>
+                    <td><strong>Serum Samples (rows)</strong></td>
+                    <td><input type="checkbox" id="shownotlast" checked/> Previous</td>
+                    <td class="bg-highlighted"><input type="checkbox" id="showlast" checked/> Last</td>
+                </tr>
+            </table>
+        </small>
+    </div>
+    <h3 style="margin: 0; display: inline-block;">{{ qry|getFormatName:selfmt }} Results ({{ res.count|default:"0" }} Rows)</h3>
+    <table class="table table-highlighted table-hover table-bordered"
+        id="advsrchres"
+        data-toggle="table"
+        data-buttons-toolbar=".buttons-toolbar"
+        data-buttons-class="primary"
+        data-buttons-align="right"
+        data-filter-control="false"
+        data-search="false"
+        data-show-search-clear-button="false"
+        data-show-multi-sort="true"
+        data-show-columns="true"
+        data-show-columns-toggle-all="true"
+        data-show-fullscreen="false"
+        data-show-export="false">
+        <thead>
+            <tr>
+                <th colspan="7" rowspan="2"></th>
+                <th colspan="4" class="average">Average</th>
+                <th colspan="4" class="intact">Intact</th>
+            </tr>
+            <tr>
+                <th colspan="2" data-valign="top" data-sortable="false" data-switchable="true" data-field="Weight_Normalized" class="average weight">Weight<br>Normalized<br>(nM/m/g)</th>
+                <th colspan="2" data-valign="top" data-sortable="false" data-switchable="true" data-field="Mouse_Normalized" class="average nonorm">Mouse<br>Normalized<br>(nM/m)</th>
+                <th colspan="2" data-valign="top" data-sortable="false" data-switchable="true" data-field="Weight_Normalized2" class="intact weight">Weight<br>Normalized<br>(nM/m/g)</th>
+                <th colspan="2" data-valign="top" data-sortable="false" data-switchable="true" data-field="Mouse_Normalized2" class="intact nonorm">Mouse<br>Normalized<br>(nM/m)</th>
+            </tr>
+            <tr>
+                <th data-valign="top" data-sortable="true" data-field="Animal">Animal</th>
+                <th data-valign="top" data-sortable="true" data-field="Studies">Studies</th>
+                <th data-valign="top" data-sortable="true" data-field="Treatment">Treatment</th>
+                <th data-valign="top" data-sortable="true" data-field="Tracer_Compound">Tracer<br>Compound</th>
+                <th data-valign="top" data-sortable="true" data-field="Tracer_Infusion_Rate">Tracer<br>Infusion<br>Rate<br>(ul/m/g)</th>
+                <th data-valign="top" data-sortable="true" data-field="Tracer_Infusion_Concentration">Tracer Infusion<br>Concentration<br>(mM)</th>
+                <th data-valign="top" data-sortable="true" data-field="Time_Collected">Time<br>Collected<br>(m)</th>
+                <th data-valign="top" data-sortable="true" data-switchable="false" data-field="Average_Weight_Normalized_Ra" data-title-tooltip="Average_Weight_Normalized_Ra" class="average weight ra">Ra</th>
+                <th data-valign="top" data-sortable="true" data-switchable="false" data-field="Average_Weight_Normalized_Rd" data-title-tooltip="Average_Weight_Normalized_Rd" class="average weight rd">Rd</th>
+                <th data-valign="top" data-sortable="true" data-switchable="false" data-field="Average_Mouse_Normalized_Ra" data-title-tooltip="Average_Mouse_Normalized_Ra" class="average nonorm ra">Ra</th>
+                <th data-valign="top" data-sortable="true" data-switchable="false" data-field="Average_Mouse_Normalized_Rd" data-title-tooltip="Average_Mouse_Normalized_Rd" class="average nonorm rd">Rd</th>
+                <th data-valign="top" data-sortable="true" data-switchable="false" data-field="Intact_Weight_Normalized_Ra" data-title-tooltip="Intact_Weight_Normalized_Ra" class="intact weight ra">Ra</th>
+                <th data-valign="top" data-sortable="true" data-switchable="false" data-field="Intact_Weight_Normalized_Rd" data-title-tooltip="Intact_Weight_Normalized_Rd" class="intact weight rd">Rd</th>
+                <th data-valign="top" data-sortable="true" data-switchable="false" data-field="Intact_Mouse_Normalized_Ra" data-title-tooltip="Intact_Mouse_Normalized_Ra" class="intact nonorm ra">Ra</th>
+                <th data-valign="top" data-sortable="true" data-switchable="false" data-field="Intact_Mouse_Normalized_Rd" data-title-tooltip="Intact_Mouse_Normalized_Rd" class="intact nonorm rd">Rd</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            {% for pg in res.all %}
+
+                {# Initialize a new dict used for many-to-many related table refiltering #}
+                {% createDict as mm_lookup %}
+
+                {% if pg.is_tracer_compound_group %}
+                    <tr class="{% if pg.msrun.sample.id == pg.msrun.sample.animal.final_serum_sample_id %}bg-highlighted{% else %}bg-normal{% endif %}">
+                        <!-- Animal -->
+                        <td>
+                            <!-- Put displayed link text first for sorting -->
+                            <div style="display:none;">{{ pg.msrun.sample.animal.name }}</div>
+
+                            <a href="{% url 'animal_detail' pg.msrun.sample.animal.id %}">
+                                {{ pg.msrun.sample.animal.name }}
+                            </a>
+                        </td>
+
+                        <!-- Studies -->
+                        <td>
+                            {# All on 1 line to avoid space preceding commas #}
+                            {# We add the M:M model key path as a key pointing to its current record to the mm_lookup dict.  This way of looking up M:M record values is necessary to support multiple M:M related models in a composite view #}
+                            {# At the most nested loop level, we have enough info to refilter for unmatching many-to-many records #}
+
+                            <!-- Put displayed link text first for sorting -->
+                            <div style="display:none;">
+                                {% define True as first %}
+                                {% for study in pg.msrun.sample.animal.studies.all %}{% addToDict mm_lookup "msrun__sample__animal__studies" study %}{% shouldKeepManyToMany pg mm_lookup qry refilter as keep %}{% if keep %}{% if not first %},<br>{% endif%}{{ study.name }}{% endif %}{% define False as first %}{% endfor %}
+                            </div>
+
+                            {% define True as first %}
+                            {% for study in pg.msrun.sample.animal.studies.all %}{% addToDict mm_lookup "msrun__sample__animal__studies" study %}{% shouldKeepManyToMany pg mm_lookup qry refilter as keep %}{% if keep %}{% if not first %},<br>{% endif%}<a href="{% url 'study_detail' study.id %}">{{ study.name }}</a>{% endif %}{% define False as first %}{% endfor %}
+                        </td>
+
+                        <!-- Treatment -->
+                        <td>
+                            {% if pg.msrun.sample.animal.treatment is None %}
+                                None
+                            {% else %}
+                                <!-- Put displayed link text first for sorting -->
+                                <div style="display:none;">{{ pg.msrun.sample.animal.treatment.name }}</div>
+
+                                <a href="{% url 'protocol_detail' pg.msrun.sample.animal.treatment.id %}">
+                                    {{ pg.msrun.sample.animal.treatment.name }}
+                                </a>
+                            {% endif %}
+                        </td>
+
+                        <!-- Tracer Compound -->
+                        <td>
+                            <!-- Put displayed link text first for sorting -->
+                            <div style="display:none;">{{ pg.msrun.sample.animal.tracer_compound.name }}</div>
+
+                            <a href="{% url 'compound_detail' pg.msrun.sample.animal.tracer_compound.id %}">
+                                {{ pg.msrun.sample.animal.tracer_compound.name }}
+                            </a>
+                        </td>
+
+                        <!-- Tracer Infusion Rate (ul/m/g) -->
+                        <td class="text-end">
+                            {{ pg.msrun.sample.animal.tracer_infusion_rate }}
+                        </td>
+
+                        <!-- Tracer Infusion Concentration (mM) -->
+                        <td class="text-end">
+                            {{ pg.msrun.sample.animal.tracer_infusion_concentration }}
+                        </td>
+
+                        <!-- Time Collected (m) -->
+                        <td class="text-end">
+                            <p title="{{ pg.msrun.sample.time_collected }} (h:m:s)">{{ pg.msrun.sample.time_collected|durationToMins|decimalPlaces:2 }}</p>
+                        </td>
+
+                        <!-- Average Ra (nM/m/g) -->
+                        <td class="text-end average weight ra">
+                            {% if pg.rate_appearance_average_per_gram is None %}
+                                None
+                            {% else %}
+                                <p title="{{ pg.rate_appearance_average_per_gram }}">{{ pg.rate_appearance_average_per_gram|floatformat:2 }}</p>
+                            {% endif %}
+                        </td>
+
+                        <!-- Average Rd (nM/m/g) -->
+                        <td class="text-end average weight rd">
+                            {% if pg.rate_disappearance_average_per_gram is None %}
+                                None
+                            {% else %}
+                                <p title="{{ pg.rate_disappearance_average_per_gram }}">{{ pg.rate_disappearance_average_per_gram|floatformat:2 }}</p>
+                            {% endif %}
+                        </td>
+
+                        <!-- Average Ra (nM/m) -->
+                        <td class="text-end average nonorm ra">
+                            {% if pg.rate_appearance_average_per_animal is None %}
+                                None
+                            {% else %}
+                                <p title="{{ pg.rate_appearance_average_per_animal }}">{{ pg.rate_appearance_average_per_animal|floatformat:2 }}</p>
+                            {% endif %}
+                        </td>
+
+                        <!-- Average Rd (nM/m) -->
+                        <td class="text-end average nonorm rd">
+                            {% if pg.rate_disappearance_average_per_animal is None %}
+                                None
+                            {% else %}
+                                <p title="{{ pg.rate_disappearance_average_per_animal }}">{{ pg.rate_disappearance_average_per_animal|floatformat:2 }}</p>
+                            {% endif %}
+                        </td>
+
+                        <!-- Intact Ra (nM/m/g) -->
+                        <td class="text-end intact weight ra">
+                            {% if pg.rate_appearance_intact_per_gram is None %}
+                                None
+                            {% else %}
+                                <p title="{{ pg.rate_appearance_intact_per_gram }}">{{ pg.rate_appearance_intact_per_gram|floatformat:2 }}</p>
+                            {% endif %}
+                        </td>
+
+                        <!-- Intact Rd (nM/m/g) -->
+                        <td class="text-end intact weight rd">
+                            {% if pg.rate_disappearance_intact_per_gram is None %}
+                                None
+                            {% else %}
+                                <p title="{{ pg.rate_disappearance_intact_per_gram }}">{{ pg.rate_disappearance_intact_per_gram|floatformat:2 }}</p>
+                            {% endif %}
+                        </td>
+
+                        <!-- Intact Ra (nM/m) -->
+                        <td class="text-end intact nonorm ra">
+                            {% if pg.rate_appearance_intact_per_animal is None %}
+                                None
+                            {% else %}
+                                <p title="{{ pg.rate_appearance_intact_per_animal }}">{{ pg.rate_appearance_intact_per_animal|floatformat:2 }}</p>
+                            {% endif %}
+                        </td>
+
+                        <!-- Intact Rd (nM/m) -->
+                        <td class="text-end intact nonorm rd">
+                            {% if pg.rate_disappearance_intact_per_animal is None %}
+                                None
+                            {% else %}
+                                <p title="{{ pg.rate_disappearance_intact_per_animal }}">{{ pg.rate_disappearance_intact_per_animal|floatformat:2 }}</p>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endif %}
+            {% endfor %}
+        </tbody>
     </table>
 {% endblock %}
