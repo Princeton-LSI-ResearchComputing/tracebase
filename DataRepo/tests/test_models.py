@@ -1051,6 +1051,48 @@ class DataLoadingTests(TestCase):
         )
         self.assertAlmostEqual(peak_data.fraction, 0.9952169753)
 
+    def test_peak_group_total_abundance_zero(self):
+        # Test various calculations do not raise exceptions when total_abundance is zero
+        peak_group = (
+            PeakGroup.objects.filter(compounds__name="glucose")
+            .filter(msrun__sample__name="BAT-xz971")
+            .filter(peak_group_set__filename="obob_maven_6eaas_inf.xlsx")
+            .get()
+        )
+
+        msrun = MSRun.objects.create(
+            researcher="John Doe",
+            date=datetime.now(),
+            protocol=peak_group.msrun.protocol,
+            sample=peak_group.msrun.sample,
+        )
+        peak_group_zero = PeakGroup.objects.create(
+            name=peak_group.name,
+            formula=peak_group.formula,
+            msrun=msrun,
+            peak_group_set=peak_group.peak_group_set,
+        )
+
+        for orig_peak_data in peak_group.peak_data.all():
+            pd = PeakData.objects.create(
+                raw_abundance=0,
+                corrected_abundance=0,
+                labeled_element=orig_peak_data.labeled_element,
+                labeled_count=orig_peak_data.labeled_count,
+                peak_group=peak_group_zero,
+                med_mz=orig_peak_data.med_mz,
+                med_rt=orig_peak_data.med_rt,
+            )
+            # Fraction is not defined when total_abundance is zero
+            self.assertIsNone(pd.fraction)
+
+        with self.assertWarns(UserWarning):
+            self.assertIsNone(peak_group_zero.enrichment_fraction)
+        self.assertIsNone(peak_group_zero.enrichment_abundance)
+        self.assertIsNone(peak_group_zero.normalized_labeling)
+
+        self.assertEqual(peak_group_zero.total_abundance, 0)
+
     def test_dupe_sample_load_fails(self):
         # Insert the dupe sample.  Samples are required to pre-exist for the accucor loader.
         sample = Sample(

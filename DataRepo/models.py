@@ -955,12 +955,12 @@ class PeakGroup(models.Model):
 
         try:
             enrichment_sum = 0.0
+            compound = self.compounds.first()
             for peak_data in self.peak_data.all():
                 enrichment_sum = enrichment_sum + (
                     peak_data.fraction * peak_data.labeled_count
                 )
 
-            compound = self.compounds.first()
             atom_count = compound.atom_count(peak_data.labeled_element)
 
             enrichment_fraction = enrichment_sum / atom_count
@@ -988,7 +988,11 @@ class PeakGroup(models.Model):
 
         PeakGroup.total_abundance * PeakGroup.enrichment_fraction
         """
-        return self.total_abundance * self.enrichment_fraction
+        try:
+            enrichment_abundance = self.total_abundance * self.enrichment_fraction
+        except TypeError:
+            enrichment_abundance = None
+        return enrichment_abundance
 
     @cached_property
     def normalized_labeling(self):
@@ -1028,6 +1032,8 @@ class PeakGroup(models.Model):
                 f"{self.msrun.sample}:{self}, "
                 "PeakGroup for associated 'serum' sample not found."
             )
+            normalized_labeling = None
+        except TypeError:
             normalized_labeling = None
 
         return normalized_labeling
@@ -1367,7 +1373,11 @@ class PeakData(models.Model, TracerLabeledClass):
         labeling".
 
         """
-        return self.corrected_abundance / self.peak_group.total_abundance
+        try:
+            fraction = self.corrected_abundance / self.peak_group.total_abundance
+        except ZeroDivisionError:
+            fraction = None
+        return fraction
 
     class Meta:
         verbose_name = "peak data"
