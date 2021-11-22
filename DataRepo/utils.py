@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 
 import dateutil.parser  # type: ignore
 import pandas as pd
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from pandas.errors import EmptyDataError
 
@@ -751,24 +752,30 @@ class AccuCorDataLoader:
                 compounds_input = peak_group_name.split("/")
                 for compound_input in compounds_input:
                     try:
-                        mapped_compound = Compound.objects.get(
-                            name__iexact=compound_input
+                        mapped_compound = Compound.compound_matching_name_or_synonym(
+                            compound_input
                         )
-                        self.peak_group_dict[peak_group_name]["compounds"].append(
-                            mapped_compound
-                        )
-                        """
-                        If the formula was previously None because we were
-                        working with corrected data (missing column), supplement
-                        it with the mapped database compound's formula
-                        """
-                        if not self.peak_group_dict[peak_group_name]["formula"]:
-                            self.peak_group_dict[peak_group_name][
-                                "formula"
-                            ] = mapped_compound.formula
-                    except Compound.DoesNotExist:
+                        if mapped_compound is not None:
+                            self.peak_group_dict[peak_group_name]["compounds"].append(
+                                mapped_compound
+                            )
+                            """
+                            If the formula was previously None because we were
+                            working with corrected data (missing column), supplement
+                            it with the mapped database compound's formula
+                            """
+                            if not self.peak_group_dict[peak_group_name]["formula"]:
+                                self.peak_group_dict[peak_group_name][
+                                    "formula"
+                                ] = mapped_compound.formula
+                        else:
+                            missing_compounds += 1
+                            print(f"Could not find compound {compound_input}")
+                    except ValidationError:
                         missing_compounds += 1
-                        print(f"Could not find compound {compound_input}")
+                        print(
+                            f"Could not uniquely identify compound using {compound_input}."
+                        )
 
         assert missing_compounds == 0, f"{missing_compounds} compounds are missing."
 
