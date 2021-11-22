@@ -774,7 +774,7 @@ class AccuCorDataLoader:
                     except ValidationError as e:
                         missing_compounds += 1
                         print(
-                            f"Could not uniquely identify compound using {compound_input}. {e}"
+                            f"Could not uniquely identify compound using {compound_input}."
                         )
 
         assert missing_compounds == 0, f"{missing_compounds} compounds are missing."
