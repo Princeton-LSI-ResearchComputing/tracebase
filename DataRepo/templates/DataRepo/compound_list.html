@@ -1,31 +1,50 @@
 {% extends "base.html" %}
+{% load customtags %}
 
 {% block title %}Compounds{% endblock %}
 
 {% block content %}
 <div>
-    <ul>
-        <h4>List of Compounds</h4>
-
-        {% if compound_list %}
-        <br>
-        <table class="table table-sm table-hover table-striped table-bordered">
+    <h4>List of Compounds</h4>
+    {% if df %}
+    <table class="table table-sm table-hover table-bordered table-responsive-xl table-striped"
+        id="comp_tracer_list"
+        data-toggle="table"
+        data-buttons-class="primary"
+        data-buttons-align="left"
+        data-filter-control="true"
+        data-search="true"
+        data-search-align="left"
+        data-show-search-clear-button="true"
+        data-show-multi-sort="true"
+        data-show-columns="true"
+        data-show-columns-toggle-all="true"
+        data-show-fullscreen="true"
+        data-show-export="true"
+        data-export-types="['csv', 'txt', 'excel']">
+        <thead>
             <tr>
-            <th>Name</th>
-            <th>Formula</th>
-            <th>HMDB ID</th>
+                <th data-field="Compound" data-filter-control="input" data-sortable="true">Compound</th>
+                <th data-field="Formula" data-filter-control="input" data-sortable="true">Formula</th>
+                <th data-field="HMDB-ID" data-filter-control="input" data-sortable="true">HMDB ID</th>
+                <th data-field="Synonyms" data-filter-control="input" data-sortable="true">Synonyms</th>
+                <th data-field="Is-Tracer" data-filter-control="select" data-sortable="true">Is Tracer</th>
+                <th data-field="Total-Animal-Groupby-Tracer" data-filter-control="input" data-sortable="true">Total Animal By Tracer</th>
             </tr>
-            {% for compound in compound_list %}
+        </thead>
+        <tbody>
+            {% for i in df %}
             <tr>
-            <td><a href="{% url 'compound_detail' compound.id %}">{{ compound.name }}</a></td>
-            <td>{{ compound.formula }}</td>
-            <td><a href="{{ compound.hmdb_url }}" target="_blank">{{ compound.hmdb_id }}</a></td>
+                <td><a href="{% url 'compound_detail' i.compound_id %}">{{ i.compound_name }}</a></td>
+                <td>{{ i.formula }}</td>
+                <td><a href="{{ i.hmdb_id |hmdb_id_url }}">{{ i.hmdb_id }}</a></td>
+                <td>{{ i.synonyms |join:";" }}</td>
+                <td>{{ i.tracer | yesno:"yes,no" }}</td>
+                <td>{{ i.total_animal_by_tracer }}</td>
             </tr>
             {% endfor %}
-        </table>
-        {% else %}
-        <p>There are no compounds.</p>
-        {% endif %}
-    </ul>
+        </tbody>
+    </table>
+    {% endif %}
 </div>
 {% endblock %}

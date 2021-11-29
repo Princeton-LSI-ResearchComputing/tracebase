@@ -30,9 +30,13 @@
                 <td>{{ animal.name }}</td>
                 <td>{{ animal.genotype }}</td>
                 <td>
+                {% if animal.tracer_compound.name %}
                     <a href="{% url 'compound_detail' animal.tracer_compound.id %}">
                         {{ animal.tracer_compound.name }}
                     </a>
+                {% else %}
+                    None
+                {% endif %}
                 </td>
                 <td>
                     {% if animal.treatment %}
@@ -46,7 +50,7 @@
                 <td>{{ animal.tracer_infusion_rate }}</td>
                 <td>{{ animal.tracer_infusion_concentration }}</td>
                 <td>{{ animal.body_weight }}</td>
-                <td>{{ animal.age }}</td>
+                <td>{{ animal.age |timedelta_ns_to_weeks }}</td>
                 <td>{{ animal.sex }}</td>
                 <td>{{ animal.diet }}</td>
                 <td>{{ animal.feeding_status }}</td>
@@ -56,9 +60,9 @@
 </div>
 <br>
 <div>
-    <h5><a href="{% url 'search_basic' 'Animal' 'id' 'exact' animal.id 'peakgroups' %}">View Peak Group Data</a></h5>
-    <h5><a href="{% url 'search_basic' 'Animal' 'id' 'exact' animal.id 'peakdata' %}">View Peak Data</a></h5>
-    <h5><a href="{% url 'search_basic' 'Animal' 'id' 'exact' animal.id 'fcirc' %}">View Fcirc Data</a></h5>
+    <h5><a href="{% url 'search_basic' 'Animal' 'id' 'iexact' animal.id 'peakgroups' %}">View Peak Group Data</a></h5>
+    <h5><a href="{% url 'search_basic' 'Animal' 'id' 'iexact' animal.id 'peakdata' %}">View Peak Data</a></h5>
+    <h5><a href="{% url 'search_basic' 'Animal' 'id' 'iexact' animal.id 'fcirc' %}">View Fcirc Data</a></h5>
 </div>
 <br>
 <div>
@@ -106,11 +110,11 @@
         <tbody>
             {% for i in df %}
             <tr>
-                <td><a href="{% url 'animal_detail' i.animal_id %}">{{ i.animal }}</a></td>
+                <td>{{ i.animal }}</td>
                 <td>{{ i.study_id_name_list |obj_hyperlink:"study" }}</td>
                 <td>{{ i.genotype }}</td>
                 <td>{{ i.body_weight }}</td>
-                <td>{{ i.age }}</td>
+                <td>{{ i.age |timedelta_ns_to_weeks }}</td>
                 <td>{{ i.sex }}</td>
                 <td>{{ i.diet }}</td>
                 <td>{{ i.feeding_status }}</td>
@@ -119,10 +123,16 @@
                 {% if i.treatment %}
                     <a href="{% url 'protocol_detail' i.treatment_id %}">{{ i.treatment }}</a>
                 {% else %}
-                    {{ i.treatment }}
+                    None
                 {% endif %}
                 </td>
-                <td><a href="{% url 'compound_detail' i.tracer_compound_id %}">{{ i.tracer }}</a></td>
+                <td>
+                {% if i.tracer %}
+                    <a href="{% url 'compound_detail' i.tracer_compound_id %}">{{ i.tracer }}</a>
+                {% else %}
+                    None
+                {% endif %}
+                </td>
                 <td>{{ i.tracer_labeled_atom }}</td>
                 <td>{{ i.tracer_labeled_count }}</td>
                 <td>{{ i.tracer_infusion_rate }}</td>
@@ -130,9 +140,15 @@
                 <td><a href="{% url 'tissue_detail' i.tissue_id %}">{{ i.tissue }}</a></td>
                 <td><a href="{% url 'sample_detail' i.sample_id %}">{{ i.sample }}</a></td>
                 <td>{{ i.sample_owner }}</td>
-                <td>{{ i.sample_date }}</td>
-                <td>{{ i.collect_time_in_minutes }}</td>
-                <td><a href="{% url 'msrun_detail' i.msrun_id %}">MSRun Detail</a></td>
+                <td>{{ i.sample_date |convert_iso_date }}</td>
+                <td>{{ i.sample_time_collected |timedelta_ns_to_mins }}</td>
+                <td>
+                    {% if i.msrun_id %}
+                        <a href="{% url 'msrun_detail' i.msrun_id %}">MSRun Detail</a>
+                    {% else %}
+                        None
+                    {% endif %}
+                </td>
             </tr>
             {% endfor %}
         </tbody>

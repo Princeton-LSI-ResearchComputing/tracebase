@@ -1,0 +1,21 @@
+Sample Name	Date Collected	Researcher Name	Tissue	Time Collected	Animal ID	Animal Genotype	Animal Body Weight	Animal Age	Animal Sex	Infusate Compound	Infusate Labeled Atom	Infusate Label Atom Count	Infusion Rate	Infusate Concentration	Animal State	Animal Diet	Animal Treatment	Experiment Name	Notes
+BAT-xz971	11/19/20	Xianfeng Zhang	brown_adipose_tissue	150	971	WT	26.3			lysine	Carbon	6	0.11	23.2	Fasted			test_data_frames	A study for testing data frame edge cases
+Br-xz971	11/19/20	Xianfeng Zhang	brain	150	971	WT	26.3			lysine	Carbon	6	0.11	23.2	Fasted			test_data_frames	A study for testing data frame edge cases
+Dia-xz971	11/19/20	Xianfeng Zhang	diaphragm	150	971	WT	26.3			lysine	Carbon	6	0.11	23.2	Fasted			test_data_frames	A study for testing data frame edge cases
+gas-xz971	11/19/20	Xianfeng Zhang	gastrocnemius	150	971	WT	26.3			lysine	Carbon	6	0.11	23.2	Fasted			test_data_frames	A study for testing data frame edge cases
+gWAT-xz971	11/19/20	Xianfeng Zhang	white_adipose_tissue_gonadal	150	971	WT	26.3			lysine	Carbon	6	0.11	23.2	Fasted			test_data_frames	A study for testing data frame edge cases
+H-xz971	11/19/20	Xianfeng Zhang	heart	150	971	WT	26.3			lysine	Carbon	6	0.11	23.2	Fasted			test_data_frames	A study for testing data frame edge cases
+Kid-xz971	11/19/20	Xianfeng Zhang	kidney	150	971	WT	26.3			lysine	Carbon	6	0.11	23.2	Fasted			test_data_frames	A study for testing data frame edge cases
+Liv-xz971	11/19/20	Xianfeng Zhang	liver	150	971	WT	26.3			lysine	Carbon	6	0.11	23.2	Fasted			test_data_frames	A study for testing data frame edge cases
+Lu-xz971	11/19/20	Xianfeng Zhang	lung	150	971	WT	26.3			lysine	Carbon	6	0.11	23.2	Fasted			test_data_frames	A study for testing data frame edge cases
+Pc-xz971	11/19/20	Xianfeng Zhang	pancreas	150	971	WT	26.3			lysine	Carbon	6	0.11	23.2	Fasted			test_data_frames	A study for testing data frame edge cases
+Q-xz971	11/19/20	Xianfeng Zhang	quadricep	150	971	WT	26.3			lysine	Carbon	6	0.11	23.2	Fasted			test_data_frames	A study for testing data frame edge cases
+SI-xz971	11/19/20	Xianfeng Zhang	small_intestine	150	971	WT	26.3			lysine	Carbon	6	0.11	23.2	Fasted			test_data_frames	A study for testing data frame edge cases
+Sol-xz971	11/19/20	Xianfeng Zhang	soleus	150	971	WT	26.3			lysine	Carbon	6	0.11	23.2	Fasted			test_data_frames	A study for testing data frame edge cases
+Sp-xz971	11/19/20	Xianfeng Zhang	spleen	150	971	WT	26.3			lysine	Carbon	6	0.11	23.2	Fasted			test_data_frames	A study for testing data frame edge cases
+serum-xz971	11/19/20	Xianfeng Zhang	serum_plasma_unspecified_location	150	971	WT	26.3			lysine	Carbon	6	0.11	23.2	Fasted			test_data_frames	A study for testing data frame edge cases
+Br-t1-no-tracer-age	11/22/21	Matthew McBride	brain	150	t1-no-tracer-age	WT		6	male								Control diet	test_data_frames	A study for testing data frame edge cases
+Liv-t1-no-tracer-age	11/22/21	Matthew McBride	liver	150	t1-no-tracer-age	WT		6	male								Control diet	test_data_frames	A study for testing data frame edge cases
+Lu-t2-no-treatment	11/22/21	Matthew McBride	lung	120	t2-no-treatment	ob/ob	25	2		glucose	Carbon	6	0.22	46.2	Fasted			test_data_frames	A study for testing data frame edge cases
+serum-t2-no-treatment	11/22/21	Matthew McBride	serum_plasma_unspecified_location	120	t2-no-treatment	ob/ob	25	2		glucose	Carbon	6	0.22	46.2	Fasted			test_data_frames	A study for testing data frame edge cases
+H-t2-no-treatment	11/22/21	Matthew McBride	heart	120	t2-no-treatment	ob/ob	25	2		glucose	Carbon	6	0.22	46.2	Fasted			test_data_frames	A study for testing data frame edge cases

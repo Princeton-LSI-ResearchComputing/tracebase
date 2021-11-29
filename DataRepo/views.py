@@ -37,7 +37,25 @@ from DataRepo.utils import ResearcherError
 
 
 def home(request):
-    return render(request, "home.html")
+    # get DataFrame for study summary
+    all_stud_msrun_df = qs2df.get_study_msrun_all_df()
+    # get total unique count for eahc column into a dictionary
+    all_stats_dict = all_stud_msrun_df.nunique().to_dict()
+    # selected columns
+    sel_list = ["study", "animal", "tissue", "sample", "tracer"]
+    sel_stats_dict = dict(
+        (k, all_stats_dict[k]) for k in sel_list if k in all_stats_dict
+    )
+    compound_count = len(Compound.objects.all())
+    protocol_count = len(Protocol.objects.all())
+    file_count = len(PeakGroupSet.objects.all())
+
+    sel_stats_dict["compound"] = compound_count
+    sel_stats_dict["protocol"] = protocol_count
+    sel_stats_dict["accucor_file"] = file_count
+
+    context = sel_stats_dict
+    return render(request, "home.html", context)
 
 
 def upload(request):
@@ -55,7 +73,16 @@ class CompoundListView(ListView):
     context_object_name = "compound_list"
     template_name = "DataRepo/compound_list.html"
     ordering = ["name"]
-    paginate_by = 20
+
+    def get_context_data(self, **kwargs):
+        # Call the base implementation first to get the context
+        context = super(CompoundListView, self).get_context_data(**kwargs)
+        # add data from the DataFrame to the context
+        comp_tracer_list_df = qs2df.get_compound_synonym_list()
+        # convert DataFrame to a list of dictionary
+        data = qs2df.df_to_list_of_dict(comp_tracer_list_df)
+        context["df"] = data
+        return context
 
 
 class CompoundDetailView(DetailView):
@@ -63,6 +90,21 @@ class CompoundDetailView(DetailView):
 
     model = Compound
     template_name = "DataRepo/compound_detail.html"
+
+    def get_context_data(self, **kwargs):
+        # Call the base implementation first to get the context
+        context = super(CompoundDetailView, self).get_context_data(**kwargs)
+        # add data from the DataFrame to the context
+        anim_list_stats_df = qs2df.get_animal_list_stats_df()
+
+        pk = self.kwargs.get("pk")
+        per_tracer_anim_list_stats_df = anim_list_stats_df[
+            anim_list_stats_df["tracer_compound_id"] == pk
+        ]
+        # convert DataFrame to a list of dictionary
+        tracer_data = qs2df.df_to_list_of_dict(per_tracer_anim_list_stats_df)
+        context["tracer_df"] = tracer_data
+        return context
 
 
 class StudyListView(ListView):
@@ -119,7 +161,6 @@ class StudyDetailView(DetailView):
 
         context["df"] = data
         context["stats_df"] = stats_data
-
         return context
 
 

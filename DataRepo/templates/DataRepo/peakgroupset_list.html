@@ -3,27 +3,50 @@
 {% block title %}PeakGroup Sets{% endblock %}
 
 {% block content %}
+<h4>List of Peak Group Sets</h4>
+<br>
 <div>
-    <ul>
-        <h4>List of Peak Group Sets</h4>
-
-        {% if peakgroupset_list %}
-        <br>
-        <table class="table table-sm table-hover table-striped table-bordered">
+    {% if peakgroupset_list %}
+    <table class="table table-sm table-hover table-bordered table-responsive-xl table-striped"
+        id="file_list"
+        data-toggle="table"
+        data-buttons-class="primary"
+        data-buttons-align="left"
+        data-filter-control="true"
+        data-search="true"
+        data-search-align="left"
+        data-show-search-clear-button="true"
+        data-show-multi-sort="true"
+        data-show-columns="true"
+        data-show-columns-toggle-all="true"
+        data-show-fullscreen="true"
+        data-show-export="true"
+        data-export-types="['csv', 'txt', 'excel']">
+        <thead>
             <tr>
-            <th>AccuCor File Name</th>
-            <th>File Import Timestamp</th>
+                <th data-field="AccuCor-File-Name" data-filter-control="input" data-sortable="true">AccuCor File Name</th>
+                <th data-field="File-Import-Timestamp" data-filter-control="input" data-sortable="true">File Import Timestamp</th>
+                <th data-field="PeakGroup-Data" data-valign="top" data-sortable="false">Peak Group Data</th>
+                <th data-field="Peakdata" data-valign="top" data-sortable="false">Peak Data</th>
             </tr>
+        </thead>
+        <tbody>
             {% for peakgroupset in peakgroupset_list %}
-            <tr>
-            <td><a href="{% url 'peakgroupset_detail' peakgroupset.id %}">{{ peakgroupset.filename }}</a></td>
-            <td>{{ peakgroupset.imported_timestamp }}</td>
-            </tr>
+                <tr>
+                <td><a href="{% url 'peakgroupset_detail' peakgroupset.id %}">{{ peakgroupset.filename }}</a></td>
+                <td>{{ peakgroupset.imported_timestamp }}</td>
+                <td>
+                    <a href="{% url 'search_basic' 'PeakGroupSet' 'filename' 'iexact' peakgroupset.filename 'peakgroups' %}">Peak Group Data</a>
+                </td>
+                <td>
+                    <a href="{% url 'search_basic' 'PeakGroupSet' 'filename' 'iexact' peakgroupset.filename 'peakdata' %}">Peak Data</a>
+                </td>
+                </tr>
             {% endfor %}
-        </table>
-        {% else %}
+        </tbody>
+    </table>
+    {% else %}
         <p>There are no PeakGroup Set.</p>
-        {% endif %}
-    </ul>
+    {% endif %}
 </div>
 {% endblock %}

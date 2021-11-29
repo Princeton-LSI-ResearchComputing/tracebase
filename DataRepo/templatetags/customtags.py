@@ -1,6 +1,8 @@
+import numpy as np
 from django import template
 from django.template.defaultfilters import floatformat
 from django.urls import reverse
+from django.utils import dateparse
 from django.utils.html import format_html_join
 
 from DataRepo.views import getDownloadQryList, manyToManyFilter
@@ -157,3 +159,32 @@ def obj_hyperlink(id_name_list, obj):
             ],
         )
         return obj_format_html
+
+
+@register.filter
+def convert_iso_date(value):
+    if value is None:
+        return None
+    return dateparse.parse_datetime(value).strftime("%Y-%m-%d")
+
+
+@register.filter
+def timedelta_ns_to_mins(value):
+    if value is None:
+        return None
+    return np.timedelta64(value, "ns").astype("timedelta64[m]").astype(float)
+
+
+@register.filter
+def timedelta_ns_to_weeks(value):
+    if value is None:
+        return None
+    return np.timedelta64(value, "ns").astype("timedelta64[W]").astype(float)
+
+
+@register.filter
+def hmdb_id_url(hmdb_id):
+    if hmdb_id is None:
+        return None
+    else:
+        return f"https://hmdb.ca/metabolites/{hmdb_id}"
