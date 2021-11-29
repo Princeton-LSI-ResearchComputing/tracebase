@@ -229,16 +229,17 @@ class QuerysetToPandasDataFrameTests(TestCase):
         example_compound_dict = self.get_example_compound_dict()
 
         comp_tracer_list_df = qs2df.get_compound_synonym_list_df()
-        comp1_tracer_list_df = comp_tracer_list_df[comp_tracer_list_df["compound_name"]=="lysine"]
+        comp1_tracer_list_df = comp_tracer_list_df[
+            comp_tracer_list_df["compound_name"] == "lysine"
+        ]
 
         selected_columns = list(example_compound_dict.keys())
         comp1_tracer_dict = comp1_tracer_list_df[selected_columns].iloc[0].to_dict()
 
-        self.assertEqual(comp1_tracer_dict , example_compound_dict)
+        self.assertEqual(comp1_tracer_dict, example_compound_dict)
 
         # check synonym values
         expected_comp_symnonym_list = ["Lysine", "lys", "lysine"]
-        comp_symnonym_in_df =  comp1_tracer_list_df.iloc[0].synonyms.tolist()
+        comp_symnonym_in_df = comp1_tracer_list_df.iloc[0].synonyms.tolist()
         self.assertEqual(len(comp_symnonym_in_df), len(expected_comp_symnonym_list))
         self.assertEqual(any(comp_symnonym_in_df), any(comp_symnonym_in_df))
-

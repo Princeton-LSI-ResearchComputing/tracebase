@@ -1720,7 +1720,8 @@ class QuerysetToPandasDataFrame:
         )
         stud_gb_df1["genotypes"] = stud_gb_df1["genotypes"].apply(lambda x: np.array(x))
         stud_gb_df1["tracer_id_name_list"] = stud_gb_df1["tracer_id_name_list"].apply(
-            lambda x: np.array(x))
+            lambda x: np.array(x)
+        )
         stud_gb_df1["treatment_id_name_list"] = stud_gb_df1[
             "treatment_id_name_list"
         ].apply(lambda x: np.array(x))
