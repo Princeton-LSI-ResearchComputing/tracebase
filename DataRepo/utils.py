@@ -1720,11 +1720,10 @@ class QuerysetToPandasDataFrame:
         )
         stud_gb_df1["genotypes"] = stud_gb_df1["genotypes"].apply(lambda x: np.array(x))
         stud_gb_df1["tracer_id_name_list"] = stud_gb_df1["tracer_id_name_list"].apply(
-            lambda x: np.array(x)
-        )
+            lambda x: np.array(x))
         stud_gb_df1["treatment_id_name_list"] = stud_gb_df1[
             "treatment_id_name_list"
-            ].apply(lambda x: np.array(x))
+        ].apply(lambda x: np.array(x))
 
         stud_gb_df = stud_gb_df1.convert_dtypes()
 
@@ -1800,7 +1799,7 @@ class QuerysetToPandasDataFrame:
         return all_comp_synonym_df
 
     @classmethod
-    def get_compound_synonym_list(cls):
+    def get_compound_synonym_list_df(cls):
         all_comp_synonym_df = cls.get_all_compound_synonym_df()
         anim_list_stats_df = cls.get_animal_list_stats_df()
 
@@ -1820,13 +1819,15 @@ class QuerysetToPandasDataFrame:
         # convert to best possible dtypes
         synonym_gb_comp_df = synonym_gb_comp_df1.convert_dtypes()
 
-        anim_gb_tracer_df = (
+        anim_gb_tracer_df1 = (
             anim_list_stats_df.groupby("tracer")
             .agg(
                 total_animal_by_tracer=("animal", "nunique"),
             )
             .reset_index()
         )
+        # convert to best possible dtypes
+        anim_gb_tracer_df = anim_gb_tracer_df1.convert_dtypes()
 
         comp_tracer_list_df = pd.merge(
             synonym_gb_comp_df,

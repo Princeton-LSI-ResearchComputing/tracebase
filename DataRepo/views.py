@@ -78,7 +78,7 @@ class CompoundListView(ListView):
         # Call the base implementation first to get the context
         context = super(CompoundListView, self).get_context_data(**kwargs)
         # add data from the DataFrame to the context
-        comp_tracer_list_df = qs2df.get_compound_synonym_list()
+        comp_tracer_list_df = qs2df.get_compound_synonym_list_df()
         # convert DataFrame to a list of dictionary
         data = qs2df.df_to_list_of_dict(comp_tracer_list_df)
         context["df"] = data
