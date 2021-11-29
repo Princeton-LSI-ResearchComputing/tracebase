@@ -1714,7 +1714,7 @@ class QuerysetToPandasDataFrame:
             )
             .reset_index()
         )
-        # convert StringArray to string, do one by one, as got error with applying multiple columns
+        # convert StringArray to np.array, do one by one, as got error with applying multiple columns
         stud_gb_df1["sample_owners"] = stud_gb_df1["sample_owners"].apply(
             lambda x: np.array(x)
         )
