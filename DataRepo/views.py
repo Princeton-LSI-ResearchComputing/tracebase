@@ -46,9 +46,9 @@ def home(request):
     sel_stats_dict = dict(
         (k, all_stats_dict[k]) for k in sel_list if k in all_stats_dict
     )
-    compound_count = len(Compound.objects.all())
-    protocol_count = len(Protocol.objects.all())
-    file_count = len(PeakGroupSet.objects.all())
+    compound_count = Compound.objects.all().count()
+    protocol_count = Protocol.objects.all().count()
+    file_count = PeakGroupSet.objects.all().count()
 
     sel_stats_dict["compound"] = compound_count
     sel_stats_dict["protocol"] = protocol_count
