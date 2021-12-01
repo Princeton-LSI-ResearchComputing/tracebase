@@ -55,7 +55,7 @@
             <td><a href="{% url 'animal_detail' i.animal_id %}">{{ i.animal }}</a></td>
             <td>{{ i.genotype }}</td>
             <td>{{ i.body_weight }}</td>
-            <td>{{ i.age |timedelta_ns_to_weeks }}</td>
+            <td>{{ i.age |duration_iso_to_weeks }}</td>
             <td>{{ i.sex }}</td>
             <td>{{ i.diet }}</td>
             <td>{{ i.feeding_status }}</td>
@@ -82,7 +82,7 @@
             <td><a href="{% url 'sample_detail' i.sample_id %}">{{ i.sample }}</a></td>
             <td>{{ i.sample_owner }}</td>
             <td>{{ i.sample_date |convert_iso_date }}</td>
-            <td>{{ i.sample_time_collected |timedelta_ns_to_mins }}</td>
+            <td>{{ i.sample_time_collected |duration_iso_to_mins }}</td>
             <td>
                 {% if i.msrun_id %}
                     <a href="{% url 'msrun_detail' i.msrun_id %}">MSRun Detail</a>

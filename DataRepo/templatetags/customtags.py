@@ -1,4 +1,3 @@
-import numpy as np
 from django import template
 from django.template.defaultfilters import floatformat
 from django.urls import reverse
@@ -169,17 +168,17 @@ def convert_iso_date(value):
 
 
 @register.filter
-def timedelta_ns_to_mins(value):
+def duration_iso_to_mins(value):
     if value is None:
         return None
-    return np.timedelta64(value, "ns").astype("timedelta64[m]").astype(float)
+    return dateparse.parse_duration(value).seconds // 60
 
 
 @register.filter
-def timedelta_ns_to_weeks(value):
+def duration_iso_to_weeks(value):
     if value is None:
         return None
-    return np.timedelta64(value, "ns").astype("timedelta64[W]").astype(float)
+    return dateparse.parse_duration(value).days // 7
 
 
 @register.filter

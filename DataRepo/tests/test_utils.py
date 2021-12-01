@@ -1,7 +1,9 @@
-import numpy as np
+import json
+
 import pandas as pd
 from django.core.management import call_command
 from django.test import TestCase
+from django.utils import dateparse
 
 from DataRepo.utils import QuerysetToPandasDataFrame as qs2df
 
@@ -200,22 +202,39 @@ class QuerysetToPandasDataFrameTests(TestCase):
 
         # test values for age and sample_time_collected
         # expected values
-        sam2_age_week = 6.0
-        same2_time_collected_min = 150.0
-        # verify the values from the Dataframe
-        sam2_age_ns_to_week = (
-            np.timedelta64(sam2_msrun_all_dict["age"], "ns")
-            .astype("timedelta64[W]")
-            .astype(float)
-        )
-        self.assertEqual(sam2_age_ns_to_week, sam2_age_week)
+        expected_sam2_age_week = 6.0
+        expected_sam2_time_collected_mins = 150.0
 
-        sam2_time_collected_ns_to_week = (
-            np.timedelta64(sam2_msrun_all_dict["sample_time_collected"], "ns")
-            .astype("timedelta64[m]")
-            .astype(float)
+        # verify the values from the Dataframe
+        sam2_age_to_week = (sam2_msrun_all_dict["age"]).days // 7
+
+        # age in json format
+        sam2_msrun_df_json = sam2_msrun_df.to_json(
+            orient="records", date_format="iso", date_unit="ns"
         )
-        self.assertEqual(sam2_time_collected_ns_to_week, same2_time_collected_min)
+        sam2_msrun_df_json_data = json.loads(sam2_msrun_df_json)
+        sam2_age_in_json_data = sam2_msrun_df_json_data[0]["age"]
+        sam2_age_in_json_data_to_weeks = (
+            dateparse.parse_duration(sam2_age_in_json_data).days // 7
+        )
+        self.assertEqual(sam2_age_to_week, expected_sam2_age_week)
+        self.assertEqual(sam2_age_in_json_data_to_weeks, expected_sam2_age_week)
+
+        # sample_time_collected in json format
+        sam2_time_collected_to_mins = (
+            sam2_msrun_all_dict["sample_time_collected"]
+        ).seconds // 60
+        sam2_time_collected_in_json_data = sam2_msrun_df_json_data[0][
+            "sample_time_collected"
+        ]
+        sam2_time_collected_in_json_data_to_mins = (
+            dateparse.parse_duration(sam2_time_collected_in_json_data).seconds // 60
+        )
+        self.assertEqual(sam2_time_collected_to_mins, expected_sam2_time_collected_mins)
+        self.assertEqual(
+            sam2_time_collected_in_json_data_to_mins, expected_sam2_time_collected_mins
+        )
+
         # sample2 has no tracer and MSRun data
         self.assertTrue(sam2_msrun_all_dict["tracer"] is pd.NA)
         self.assertTrue(sam2_msrun_all_dict["msrun_id"] is pd.NA)
