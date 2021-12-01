@@ -208,7 +208,7 @@ class QuerysetToPandasDataFrameTests(TestCase):
         # verify the values from the Dataframe
         sam2_age_to_week = (sam2_msrun_all_dict["age"]).days // 7
 
-        # age in json format
+        # age: timedelta64[ns] type in DataFrame vs. isoformat in json output
         sam2_msrun_df_json = sam2_msrun_df.to_json(
             orient="records", date_format="iso", date_unit="ns"
         )
@@ -220,7 +220,7 @@ class QuerysetToPandasDataFrameTests(TestCase):
         self.assertEqual(sam2_age_to_week, expected_sam2_age_week)
         self.assertEqual(sam2_age_in_json_data_to_weeks, expected_sam2_age_week)
 
-        # sample_time_collected in json format
+        # sample_time_collected: timedelta64[ns] type in DataFrame vs. isoformat in json output
         sam2_time_collected_to_mins = (
             sam2_msrun_all_dict["sample_time_collected"]
         ).seconds // 60

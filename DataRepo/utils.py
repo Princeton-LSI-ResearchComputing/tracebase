@@ -1426,8 +1426,8 @@ class QuerysetToPandasDataFrame:
             )
             .reset_index()
         )
-        # convert Pandas StringArray to np.array to avoid error for coverting to json format
-        # have to apply to each column separately, as got error with multiple columns
+        # convert Pandas StringArray to np.array to avoid error for converting to json format
+        # have to apply to each column separately; got error with multiple columns
         stud_gb_anim_df1["studies"] = stud_gb_anim_df1["studies"].apply(
             lambda x: np.array(x)
         )
