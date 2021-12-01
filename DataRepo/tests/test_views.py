@@ -530,7 +530,7 @@ class ViewTests(TestCase):
         # The qry in the header contains the search term and is in json format
         self.assertContains(response, "'val': 'Brain'", count=1)
         # Header row starts with the sample column
-        self.assertContains(response, "#Sample", count=1)
+        self.assertContains(response, "Sample\t", count=1)
         # qry sent to the downloaded file header is correct
         self.assertEqual(response.context["qry"], qry)
 
