@@ -37,7 +37,13 @@
             <tr>
                 <td><a href="{% url 'compound_detail' i.compound_id %}">{{ i.compound_name }}</a></td>
                 <td>{{ i.formula }}</td>
-                <td><a href="{{ i.hmdb_id |hmdb_id_url }}">{{ i.hmdb_id }}</a></td>
+                <td>
+                    {% if i.hmdb_id %}
+                        <a href="{{ i.hmdb_id |hmdb_id_url }}">{{ i.hmdb_id }}</a>
+                    {% else %}
+                        None
+                    {% endif %}
+                </td>
                 <td>{{ i.synonyms |join:";" }}</td>
                 <td>{{ i.tracer | yesno:"yes,no" }}</td>
                 <td>{{ i.total_animal_by_tracer }}</td>
