@@ -388,6 +388,7 @@ class PeakGroupsSearchView(BaseSearchView):
     rootmodel = PeakGroup
     prefetches = [
         "peak_group_set",
+        "compounds__synonyms",
         "msrun__sample__tissue",
         "msrun__sample__animal__treatment",
         "msrun__sample__animal__tracer_compound",
@@ -407,6 +408,18 @@ class PeakGroupsSearchView(BaseSearchView):
                 },
                 "filename": {
                     "displayname": "Peak Group Set Filename",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "string",
+                },
+            },
+        },
+        "CompoundSynonym": {
+            "path": "compounds__synonyms",
+            "manytomany": True,
+            "fields": {
+                "name": {
+                    "displayname": "Measured Compound",
                     "searchable": True,
                     "displayed": True,
                     "type": "string",
