@@ -63,25 +63,24 @@
 
             {% for pg in res.all %}
 
-                {# Initialize a new dict used for many-to-many related table refiltering #}
+                {# Initialize a new dict used for many-to-many related table refiltering. This way of looking up M:M record values is necessary to support multiple M:M related models in a composite view #}
+                {# Add each M:M model key path as a key pointing to its current record to the mm_lookup dict #}
                 {% createDict as mm_lookup %}
+
+                {# Keep track of what record combos we're keeping or refiltering with a dict holding a boolean [keeping.keep] (because a single boolean value has some sort of scoping issue) #}
                 {% createDict as keeping %}
 
                 {% for study in pg.msrun.sample.animal.studies.all %}
 
-                    {# Add the M:M model key path as a key pointing to its current record to the mm_lookup dict #}
-                    {# This way of looking up M:M record values is necessary to support multiple M:M related models in a composite view #}
                     {% addToDict mm_lookup "msrun__sample__animal__studies" study %}
+                    {% addToDict keeping "keep" False %}
 
-                    {% define False as keep %}
                     {% for cs in pg.compounds.all %}
                         {% for ss in cs.synonyms.all %}
 
-                            {# Add the M:M model key path as a key pointing to its current record to the mm_lookup dict #}
-                            {# This way of looking up M:M record values is necessary to support multiple M:M related models in a composite view #}
                             {% addToDict mm_lookup "compounds__synonyms" ss %}
 
-                            {% if not keep %}
+                            {% if not keeping.keep %}
 
                                 {# At the most nested loop level, we have enough info to refilter for unmatching many-to-many records #}
                                 {% shouldKeepManyToMany pg mm_lookup qry refilter as keep %}
@@ -90,13 +89,11 @@
                                 {% addToDict keeping "keep" keep %}
 
                             {% endif %}
+
                         {% endfor %}
                     {% endfor %}
 
-                    {# Update keep with the value from the dict that survives the loop #}
-                    {% define keeping.keep as keep %}
-
-                    {% if keep %}
+                    {% if keeping.keep %}
 
                         {% incrementCounter rec_cnt %}
 
@@ -114,7 +111,11 @@
 
                             <!-- Tissue -->
                             <td>
-                                {{ pg.msrun.sample.tissue.name }}
+                                <!-- Put displayed link text first for sorting -->
+                                <div style="display:none;">{{ pg.msrun.sample.tissue.name }}</div>
+                                <a href="{% url 'tissue_detail' pg.msrun.sample.tissue.id %}">
+                                    {{ pg.msrun.sample.tissue.name }}
+                                </a>
                             </td>
 
                             <!-- Peak Group -->

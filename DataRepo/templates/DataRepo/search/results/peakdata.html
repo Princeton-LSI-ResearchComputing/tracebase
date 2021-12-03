@@ -72,7 +72,7 @@
                     {% addToDict mm_lookup "peak_group__msrun__sample__animal__studies" study %}
 
                     {# At the most nested loop level, we have enough info to refilter for unmatching many-to-many records #}
-                    {% shouldKeepManyToMany pg mm_lookup qry refilter as keep %}
+                    {% shouldKeepManyToMany pd mm_lookup qry refilter as keep %}
 
                     {% if keep %}
                         {% incrementCounter rec_cnt %}

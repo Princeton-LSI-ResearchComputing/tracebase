@@ -533,8 +533,8 @@ class ViewTests(TestCase):
             msrun__sample__tissue__name__iexact="Brain"
         ).prefetch_related("msrun__sample__animal__studies")
         expected_newline_count = qs.count() + 6
-        # This query returns 2 rows and the tsv has 21 tabs. We add 21 more for the header
-        expected_tab_count = qs.count() * 21 + 21
+        # This query returns 2 rows and the tsv has 22 tabs. We add 22 more for the header
+        expected_tab_count = qs.count() * 22 + 22
         [filledform, qry, dlform] = self.get_advanced_search_inputs()
         response = self.client.post("/DataRepo/search_advanced_tsv/", dlform)
 
@@ -708,6 +708,7 @@ class ViewTests(TestCase):
             ("msrun__sample__animal__feeding_status", "Feeding Status"),
             ("formula", "Formula"),
             ("msrun__sample__animal__genotype", "Genotype"),
+            ("compounds__synonyms__name", "Measured Compound"),
             ("name", "Peak Group"),
             ("peak_group_set__filename", "Peak Group Set Filename"),
             ("msrun__sample__name", "Sample"),
@@ -748,6 +749,7 @@ class ViewTests(TestCase):
         res = basv_metadata.getPrefetches(fmt)
         pfl = [
             "peak_group_set",
+            "compounds__synonyms",
             "msrun__sample__tissue",
             "msrun__sample__animal__treatment",
             "msrun__sample__animal__tracer_compound",
@@ -764,6 +766,7 @@ class ViewTests(TestCase):
         res = basv_metadata.getModels(fmt)
         ml = [
             "PeakGroupSet",
+            "CompoundSynonym",
             "PeakGroup",
             "Protocol",
             "Sample",
