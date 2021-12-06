@@ -27,17 +27,17 @@ jobs:
       HMDB_CPD_URL: https://hmdb.ca/metabolites
     steps:
     - uses: actions/checkout@v1
-    - name: Set up Python 3.7
+    - name: Set up Python 3.8
       uses: actions/setup-python@v1
       with:
-        python-version: 3.7
+        python-version: 3.8
     - name: psycopg2 prerequisites
       run: |
         sudo apt-get update
         sudo apt-get install python-dev libpq-dev
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
+        python -m pip install --upgrade pip wheel
         pip install -r requirements.txt
     - name: Check makemigrations are complete
       run: python manage.py makemigrations --check --dry-run
