@@ -53,20 +53,25 @@
                 <td><a href="{% url 'animal_detail' i.animal_id %}">{{ i.animal }}</a></td>
                 <td>{{ i.study_id_name_list |obj_hyperlink:"study" }}</td>
                 <td>{{ i.genotype }}</td>
-                <td><a href="{% url 'compound_detail' i.tracer_compound_id %}">{{ i.tracer }}</a></td>
                 <td>
-                    {% if i.treatment %}
-                        <a href="{% url 'protocol_detail' i.treatment_id %}">{{ i.treatment }}</a>
-                    {% else %}
-                        None
-                    {% endif %}
+                {% if i.tracer %}
+                    <a href="{% url 'compound_detail' i.tracer_compound_id %}">{{ i.tracer }}</a></td>
+                {% else %}
+                    None
+                {% endif %}
+                <td>
+                {% if i.treatment %}
+                     <a href="{% url 'protocol_detail' i.treatment_id %}">{{ i.treatment }}</a>
+                {% else %}
+                    None
+                {% endif %}
                 </td>
                 <td>{{ i.tracer_labeled_atom }}</td>
                 <td>{{ i.tracer_labeled_count }}</td>
                 <td>{{ i.tracer_infusion_rate }}</td>
                 <td>{{ i.tracer_infusion_concentration }}</td>
                 <td>{{ i.body_weight }}</td>
-                <td>{{ i.age }}</td>
+                <td>{{ i.age |duration_iso_to_weeks }}</td>
                 <td>{{ i.sex }}</td>
                 <td>{{ i.diet }}</td>
                 <td>{{ i.feeding_status }}</td>

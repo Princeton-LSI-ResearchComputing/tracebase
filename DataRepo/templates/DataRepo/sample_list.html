@@ -58,7 +58,13 @@
                 <td><a href="{% url 'tissue_detail' i.tissue_id %}">{{ i.tissue }}</a></td>
                 <td><a>{{ i.study_id_name_list |obj_hyperlink:"study" }}</a></td>
                 <td>{{ i.genotype }}</td>
-                <td><a href="{% url 'compound_detail' i.tracer_compound_id %}">{{ i.tracer }}</a></td>
+                <td>
+                    {% if i.tracer_compound_id %}
+                        <a href="{% url 'compound_detail' i.tracer_compound_id %}">{{ i.tracer }}</a>
+                    {% else %}
+                        None
+                    {% endif %}
+                </td>
                 <td>
                     {% if i.treatment %}
                         <a href="{% url 'protocol_detail' i.treatment_id %}">{{ i.treatment }}</a>
@@ -71,16 +77,22 @@
                 <td>{{ i.tracer_infusion_rate }}</td>
                 <td>{{ i.tracer_infusion_concentration }}</td>
                 <td>{{ i.body_weight }}</td>
-                <td>{{ i.age }}</td>
+                <td>{{ i.age |duration_iso_to_weeks }}</td>
                 <td>{{ i.sex }}</td>
                 <td>{{ i.diet }}</td>
                 <td>{{ i.feeding_status }}</td>
                 <td>{{ i.sample_owner }}</td>
-                <td>{{ i.sample_date }}</td>
-                <td>{{ i.collect_time_in_minutes }}</td>
+                <td>{{ i.sample_date |convert_iso_date }}</td>
+                <td>{{ i.sample_time_collected |duration_iso_to_mins }}</td>
                 <td>{{ i.msrun_owner }}</td>
-                <td>{{ i.msrun_date }}</td>
-                <td><a href="{% url 'msrun_detail' i.msrun_id %}">MSRun Detail</a></td>
+                <td>{{ i.msrun_date |convert_iso_date }}</td>
+                <td>
+                    {% if i.msrun_id %}
+                        <a href="{% url 'msrun_detail' i.msrun_id %}">MSRun Detail</a>
+                    {% else %}
+                        None
+                    {% endif %}
+                </td>
             </tr>
             {% endfor %}
         </tbody>

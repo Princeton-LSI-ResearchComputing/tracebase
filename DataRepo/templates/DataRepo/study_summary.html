@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load customtags %}
 
 {% block title %}Study Summary{% endblock %}
 
@@ -54,19 +55,25 @@
             <td><a href="{% url 'animal_detail' i.animal_id %}">{{ i.animal }}</a></td>
             <td>{{ i.genotype }}</td>
             <td>{{ i.body_weight }}</td>
-            <td>{{ i.age }}</td>
+            <td>{{ i.age |duration_iso_to_weeks }}</td>
             <td>{{ i.sex }}</td>
             <td>{{ i.diet }}</td>
             <td>{{ i.feeding_status }}</td>
             <!--handle None value for treatement-->
             <td>
-            {% if i.treatment %}
-                <a href="{% url 'protocol_detail' i.treatment_id %}">{{ i.treatment }}</a>
-            {% else %}
-                {{ i.treatment }}
-            {% endif %}
+                {% if i.treatment %}
+                    <a href="{% url 'protocol_detail' i.treatment_id %}">{{ i.treatment }}</a>
+                {% else %}
+                    None
+                {% endif %}
             </td>
-            <td><a href="{% url 'compound_detail' i.tracer_compound_id %}">{{ i.tracer }}</a></td>
+            <td>
+                {% if i.tracer_compound_id %}
+                    <a href="{% url 'compound_detail' i.tracer_compound_id %}">{{ i.tracer }}</a>
+                {% else %}
+                    None
+                {% endif %}
+            </td>
             <td>{{ i.tracer_labeled_atom }}</td>
             <td>{{ i.tracer_labeled_count }}</td>
             <td>{{ i.tracer_infusion_rate }}</td>
@@ -74,9 +81,15 @@
             <td><a href="{% url 'tissue_detail' i.tissue_id %}">{{ i.tissue }}</a></td>
             <td><a href="{% url 'sample_detail' i.sample_id %}">{{ i.sample }}</a></td>
             <td>{{ i.sample_owner }}</td>
-            <td>{{ i.sample_date }}</td>
-            <td>{{ i.collect_time_in_minutes }}</td>
-            <td><a href="{% url 'msrun_detail' i.msrun_id %}">MSRun Detail</a></td>
+            <td>{{ i.sample_date |convert_iso_date }}</td>
+            <td>{{ i.sample_time_collected |duration_iso_to_mins }}</td>
+            <td>
+                {% if i.msrun_id %}
+                    <a href="{% url 'msrun_detail' i.msrun_id %}">MSRun Detail</a>
+                {% else %}
+                    None
+                {% endif %}
+            </td>
         </tr>
         {% endfor %}
     </tbody>

@@ -1,12 +1,104 @@
 {% extends "base.html" %}
 {% load static %}
+
+{% block head_extras %}
+    {{ block.super }}
+    <style>
+        .bg-card-1 {
+            background-color: #fef5ed;
+        }
+        .bg-card-2 {
+            background-color: #eff3ee;
+        }
+    </style>
+
+    {% endblock %}
+
 {% block content %}
 <div>
-    <img src="{% static 'images/header.jpg' %}" alt="TraceBase" width="800" height="200">
+    <img src="{% static 'images/header.jpg' %}" alt="TraceBase" width="400" height="100">
     <br>
     <br>
-    <h3>TraceBase Home</h3>
+    <h3>TraceBase</h3>
     <br>
-    <h5>Welcome to TraceBase</h5>
+    <h5>TraceBase is a data repository and analysis tool for mass-spectrometry data from isotope tracing studies used to quantify metabolism in vivo. Lab members submit peak data exported from El-Maven and AccuCor along with details about their experiment. TraceBase computes useful metrics such as enrichment, normalized labeling, and estimated FCirc (rate of appearance/disappearance), making it simple to browse, collate, compare, and download the data.
+    </h5>
+</div>
+<br>
+<div class="row">
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card bg-card-1 text-dark">
+            <div class="card-body"><h4>{{ study }} Studies</h4></div>
+            <div class="card-footer d-flex align-items-center justify-content-between">
+                <a class="text-dark stretched-link" href="{% url 'study_list' %}">View Details</a>
+                <div class="text-dark"><i class="fas fa-angle-right"></i></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card bg-card-1 text-dark">
+            <div class="card-body"><h4>{{ animal }} Animals</h4></div>
+            <div class="card-footer d-flex align-items-center justify-content-between">
+                <a class="text-dark stretched-link" href="{% url 'animal_list' %}">View Details</a>
+                <div class="text-dark"><i class="fas fa-angle-right"></i></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card bg-card-1 text-dark">
+            <div class="card-body"><h4>{{ tissue }} Tissues</h4></div>
+            <div class="card-footer d-flex align-items-center justify-content-between">
+                <a class="text-dark stretched-link" href="{% url 'tissue_list' %}">View Details</a>
+                <div class="text-dark"><i class="fas fa-angle-right"></i></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card bg-card-1 text-dark">
+            <div class="card-body"><h4>{{ sample }} Samples</h4></div>
+            <div class="card-footer d-flex align-items-center justify-content-between">
+                <a class="text-dark stretched-link" href="{% url 'sample_list' %}">View Details</a>
+                <div class="text-dark"><i class="fas fa-angle-right"></i></div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="row">
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card bg-card-1 text-dark">
+            <div class="card-body"><h4>{{ accucor_file }} AccuCor Files </h4></div>
+            <div class="card-footer d-flex align-items-center justify-content-between">
+                <a class="text-dark stretched-link" href="{% url 'peakgroupset_list' %}">View Details</a>
+                <div class="text-dark"><i class="fas fa-angle-right"></i></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card bg-card-1 text-dark">
+            <div class="card-body"><h4>{{ compound }} Compounds( {{ tracer }} Tracers )</h4></div>
+            <div class="card-footer d-flex align-items-center justify-content-between">
+                <a class="text-dark stretched-link" href="{% url 'compound_list' %}">View Details</a>
+                <div class="text-dark"><i class="fas fa-angle-right"></i></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card bg-card-1 text-dark">
+            <div class="card-body"><h4>{{ protocol }} Protocols</h4></div>
+            <div class="card-footer d-flex align-items-center justify-content-between">
+                <a class="text-dark stretched-link" href="{% url 'protocol_list' %}">View Details</a>
+                <div class="text-dark"><i class="fas fa-angle-right"></i></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card bg-card-2 text-dark">
+            <div class="card-body"><h4>Advanced Search</h4></div>
+            <div class="card-footer d-flex align-items-center justify-content-between">
+                <a class="text-dark stretched-link" href="{% url 'search_advanced' %}">Search</a>
+                <div class="text-dark"><i class="fas fa-angle-right"></i></div>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}

@@ -17,4 +17,8 @@
         </tr>
     </table>
 </div>
+
+<h5><a href="{% url 'search_basic' 'PeakGroupSet' 'filename' 'iexact' peakgroupset.filename 'peakgroups' %}">View Peak Group Data</a></h5>
+<h5><a href="{% url 'search_basic' 'PeakGroupSet' 'filename' 'iexact' peakgroupset.filename 'peakdata' %}">View Peak Data</a></h5>
+
 {% endblock %}
