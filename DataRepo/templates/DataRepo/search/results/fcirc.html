@@ -60,8 +60,9 @@
             // https://bootstrap-table.com/docs/api/events/
             // https://bootstrap-table.com/docs/api/events/#oncolumnswitch
             $("#advsrchres").bootstrapTable({
-                onColumnSwitch: function() {
+                onAll: function() {
                     updateColumnSwitching()
+                    updateRowSwitching()
                 }
             })
 
@@ -101,14 +102,7 @@
                     return
                 }
 
-                $("#advsrchres .bg-highlighted, .bg-normal").each(function() {
-                    if((nlcbv && $(this).hasClass("bg-normal"))
-                        || (lcbv && $(this).hasClass("bg-highlighted"))
-                    )
-                        {$(this).show()}
-                    else
-                        {$(this).hide()}
-                })
+                updateRowSwitching()
             })
 
             $("#shownotlast").on("click", function(e) {
@@ -121,24 +115,23 @@
                     return
                 }
 
-                $("#advsrchres .bg-highlighted, .bg-normal").each(function() {
-                    if((nlcbv && $(this).hasClass("bg-normal"))
-                        || (lcbv && $(this).hasClass("bg-highlighted"))
-                    )
-                        {$(this).show()}
-                    else
-                        {$(this).hide()}
-                })
-            })
-
-            // https://bootstrap-table.com/docs/api/events/
-            // https://bootstrap-table.com/docs/api/events/#oncolumnswitch
-            $("#advsrchres").bootstrapTable({
-                onColumnSwitch: function() {
-                    updateColumnSwitching()
-                }
+                updateRowSwitching()
             })
         })
+
+        function updateRowSwitching() {
+            var nlcbv = $("#shownotlast").is(":checked")
+            var lcbv = $("#showlast").is(":checked")
+
+            $("#advsrchres .bg-highlighted, .bg-normal").each(function() {
+                if((nlcbv && $(this).hasClass("bg-normal"))
+                    || (lcbv && $(this).hasClass("bg-highlighted"))
+                )
+                    {$(this).show()}
+                else
+                    {$(this).hide()}
+            })
+        }
 
         function updateColumnSwitching() {
             var ncbv = $("#shownonorm").is(":checked")
