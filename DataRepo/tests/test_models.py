@@ -61,7 +61,7 @@ class ExampleDataConsumer:
             {
                 "Sample Name": ["bat-xz969"],
                 "Date Collected": ["2020-11-18"],
-                "Researcher Name": ["Xianfeng Zhang"],
+                "Researcher Name": ["Xianfeng Zeng"],
                 "Tissue": ["BAT"],
                 "Animal ID": ["969"],
                 "Animal Genotype": ["WT"],
@@ -643,7 +643,7 @@ class DataLoadingTests(TestCase):
     def test_sample_data(self):
         sample = Sample.objects.get(name="bat-xz969")
         self.assertEqual(sample.time_collected, timedelta(minutes=150))
-        self.assertEqual(sample.researcher, "Xianfeng Zhang")
+        self.assertEqual(sample.researcher, "Xianfeng Zeng")
         self.assertEqual(sample.animal.name, "969")
         self.assertEqual(sample.tissue.name, "brown_adipose_tissue")
 
@@ -1137,7 +1137,7 @@ class DataLoadingTests(TestCase):
         exp_err = (
             "Researcher [Luke Skywalker] does not exist.  Please either choose from the following researchers, or if "
             "this is a new researcher, add --new-researcher to your command (leaving `--researcher Luke Skywalker` "
-            "as-is).  Current researchers are:\nMichael Neinast\nXianfeng Zhang"
+            "as-is).  Current researchers are:\nMichael Neinast\nXianfeng Zeng"
         )
         with self.assertRaises(Exception, msg=exp_err):
             # Now load with a new researcher (and no --new-researcher flag)
@@ -1168,7 +1168,7 @@ class DataLoadingTests(TestCase):
         #   Existing researchers are shown
         exp_err = (
             "Researcher [Michael Neinast] exists.  --new-researcher cannot be used for existing researchers.  Current "
-            "researchers are:\nMichael Neinast\nXianfeng Zhang"
+            "researchers are:\nMichael Neinast\nXianfeng Zeng"
         )
         with self.assertRaises(Exception, msg=exp_err):
             call_command(
@@ -1188,7 +1188,7 @@ class DataLoadingTests(TestCase):
         exp_err = (
             "1 researchers from the sample file: [Han Solo] out of 1 researchers do not exist in the database.  "
             "Please ensure they are not variants of existing researchers in the database:\nMichael Neinast\nXianfeng "
-            "Zhang\nIf all researchers are valid new researchers, add --skip-researcher-check to your command."
+            "Zeng\nIf all researchers are valid new researchers, add --skip-researcher-check to your command."
         )
         with self.assertRaises(Exception, msg=exp_err):
             call_command(
@@ -1381,7 +1381,7 @@ class TracerRateTests(TestCase):
             protocol="Default",
             accucor_file="DataRepo/example_data/obob_maven_c160_serum.xlsx",
             date="2021-04-29",
-            researcher="Xianfeng Zhang",
+            researcher="Xianfeng Zeng",
         )
 
         # defining a primary animal object for repeated tests
