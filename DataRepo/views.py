@@ -676,7 +676,7 @@ def performQuery(q_exp, fmt, basv):
     """
     res = {}
     if fmt in basv.getFormatNames().keys():
-        res = basv.getRootQuerySet(fmt).filter(q_exp)
+        res = basv.getRootQuerySet(fmt).filter(q_exp).distinct()
     else:
         # Log a warning
         print("WARNING: Invalid selected format:", fmt)
