@@ -5,8 +5,7 @@
   ],
   "ignore": [
     "**/__snapshots__/**",
-    "**/migrations/**",
-    "**/home.html"
+    "**/migrations/**"
   ],
   "absolute": true
 }

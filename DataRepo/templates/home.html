@@ -25,80 +25,21 @@
     </h5>
 </div>
 <br>
-<div class="row">
-    <div class="col-xl-3 col-md-6 mb-4">
-        <div class="card bg-card-1 text-dark">
-            <div class="card-body"><h4>{{ study }} Studies</h4></div>
-            <div class="card-footer d-flex align-items-center justify-content-between">
-                <a class="text-dark stretched-link" href="{% url 'study_list' %}">View Details</a>
-                <div class="text-dark"><i class="fas fa-angle-right"></i></div>
+<div>
+    {% for card_row in card_rows %}
+    <div class="row">
+        {% for i in card_row %}
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card {{ i.card_bg_color }} text-dark">
+                <div class="card-body"><h4>{{ i.card_body_title }}</h4></div>
+                <div class="card-footer d-flex align-items-center justify-content-between">
+                    <a class="text-dark stretched-link" href="{{ i.card_foot_url }}">View Details</a>
+                    <div class="text-dark"><i class="fas fa-angle-right"></i></div>
+                </div>
             </div>
         </div>
+        {% endfor %}
     </div>
-    <div class="col-xl-3 col-md-6 mb-4">
-        <div class="card bg-card-1 text-dark">
-            <div class="card-body"><h4>{{ animal }} Animals</h4></div>
-            <div class="card-footer d-flex align-items-center justify-content-between">
-                <a class="text-dark stretched-link" href="{% url 'animal_list' %}">View Details</a>
-                <div class="text-dark"><i class="fas fa-angle-right"></i></div>
-            </div>
-        </div>
-    </div>
-    <div class="col-xl-3 col-md-6 mb-4">
-        <div class="card bg-card-1 text-dark">
-            <div class="card-body"><h4>{{ tissue }} Tissues</h4></div>
-            <div class="card-footer d-flex align-items-center justify-content-between">
-                <a class="text-dark stretched-link" href="{% url 'tissue_list' %}">View Details</a>
-                <div class="text-dark"><i class="fas fa-angle-right"></i></div>
-            </div>
-        </div>
-    </div>
-    <div class="col-xl-3 col-md-6 mb-4">
-        <div class="card bg-card-1 text-dark">
-            <div class="card-body"><h4>{{ sample }} Samples</h4></div>
-            <div class="card-footer d-flex align-items-center justify-content-between">
-                <a class="text-dark stretched-link" href="{% url 'sample_list' %}">View Details</a>
-                <div class="text-dark"><i class="fas fa-angle-right"></i></div>
-            </div>
-        </div>
-    </div>
-</div>
-<div class="row">
-    <div class="col-xl-3 col-md-6 mb-4">
-        <div class="card bg-card-1 text-dark">
-            <div class="card-body"><h4>{{ accucor_file }} AccuCor Files </h4></div>
-            <div class="card-footer d-flex align-items-center justify-content-between">
-                <a class="text-dark stretched-link" href="{% url 'peakgroupset_list' %}">View Details</a>
-                <div class="text-dark"><i class="fas fa-angle-right"></i></div>
-            </div>
-        </div>
-    </div>
-    <div class="col-xl-3 col-md-6 mb-4">
-        <div class="card bg-card-1 text-dark">
-            <div class="card-body"><h4>{{ compound }} Compounds( {{ tracer }} Tracers )</h4></div>
-            <div class="card-footer d-flex align-items-center justify-content-between">
-                <a class="text-dark stretched-link" href="{% url 'compound_list' %}">View Details</a>
-                <div class="text-dark"><i class="fas fa-angle-right"></i></div>
-            </div>
-        </div>
-    </div>
-    <div class="col-xl-3 col-md-6 mb-4">
-        <div class="card bg-card-1 text-dark">
-            <div class="card-body"><h4>{{ protocol }} Protocols</h4></div>
-            <div class="card-footer d-flex align-items-center justify-content-between">
-                <a class="text-dark stretched-link" href="{% url 'protocol_list' %}">View Details</a>
-                <div class="text-dark"><i class="fas fa-angle-right"></i></div>
-            </div>
-        </div>
-    </div>
-    <div class="col-xl-3 col-md-6 mb-4">
-        <div class="card bg-card-2 text-dark">
-            <div class="card-body"><h4>Advanced Search</h4></div>
-            <div class="card-footer d-flex align-items-center justify-content-between">
-                <a class="text-dark stretched-link" href="{% url 'search_advanced' %}">Search</a>
-                <div class="text-dark"><i class="fas fa-angle-right"></i></div>
-            </div>
-        </div>
-    </div>
+    {% endfor %}
 </div>
 {% endblock %}
