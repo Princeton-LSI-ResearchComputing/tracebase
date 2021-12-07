@@ -9,6 +9,7 @@ from django.http import Http404
 from django.shortcuts import get_object_or_404, render
 from django.test import TestCase
 from django.test.utils import setup_databases, setup_test_environment
+from django.urls import reverse
 from django.views.generic import DetailView, ListView
 from django.views.generic.edit import FormView
 
@@ -37,24 +38,95 @@ from DataRepo.utils import ResearcherError
 
 
 def home(request):
-    # get DataFrame for study summary
-    all_stud_msrun_df = qs2df.get_study_msrun_all_df()
-    # get total unique count for eahc column into a dictionary
-    all_stats_dict = all_stud_msrun_df.nunique().to_dict()
-    # selected columns
-    sel_list = ["study", "animal", "tissue", "sample", "tracer"]
-    sel_stats_dict = dict(
-        (k, all_stats_dict[k]) for k in sel_list if k in all_stats_dict
+    """
+    Home page contains 8 cards for browsing data
+    keep card attributes in two lists for displaying cards in two rows
+    """
+    card_attrs_list1 = []
+    card_attrs_list2 = []
+
+    # first list
+    card_attrs_list1.append(
+        {
+            "card_bg_color": "bg-card-1",
+            "card_body_title": str(Study.objects.all().count()) + " Studies",
+            "card_foot_url": reverse("study_list"),
+        }
     )
-    compound_count = Compound.objects.all().count()
-    protocol_count = Protocol.objects.all().count()
-    file_count = PeakGroupSet.objects.all().count()
 
-    sel_stats_dict["compound"] = compound_count
-    sel_stats_dict["protocol"] = protocol_count
-    sel_stats_dict["accucor_file"] = file_count
+    card_attrs_list1.append(
+        {
+            "card_bg_color": "bg-card-1",
+            "card_body_title": str(Animal.objects.all().count()) + " Animals",
+            "card_foot_url": reverse("animal_list"),
+        }
+    )
 
-    context = sel_stats_dict
+    card_attrs_list1.append(
+        {
+            "card_bg_color": "bg-card-1",
+            "card_body_title": str(Tissue.objects.all().count()) + " Tissues",
+            "card_foot_url": reverse("tissue_list"),
+        }
+    )
+
+    card_attrs_list1.append(
+        {
+            "card_bg_color": "bg-card-1",
+            "card_body_title": str(Sample.objects.all().count()) + " Samples",
+            "card_foot_url": reverse("sample_list"),
+        }
+    )
+
+    # second list
+    card_attrs_list2.append(
+        {
+            "card_bg_color": "bg-card-1",
+            "card_body_title": str(PeakGroupSet.objects.all().count())
+            + " AccuCor Files",
+            "card_foot_url": reverse("peakgroupset_list"),
+        }
+    )
+
+    comp_count = Compound.objects.all().count()
+    tracer_count = (
+        Animal.objects.exclude(tracer_compound_id__isnull=True)
+        .order_by("tracer_compound_id")
+        .values_list("tracer_compound_id")
+        .distinct("tracer_compound_id")
+        .count()
+    )
+
+    card_attrs_list2.append(
+        {
+            "card_bg_color": "bg-card-1",
+            "card_body_title": str(comp_count)
+            + " Compounds ("
+            + str(tracer_count)
+            + " tracers)",
+            "card_foot_url": reverse("compound_list"),
+        }
+    )
+
+    card_attrs_list2.append(
+        {
+            "card_bg_color": "bg-card-1",
+            "card_body_title": str(Protocol.objects.all().count()) + " Protocols",
+            "card_foot_url": reverse("protocol_list"),
+        }
+    )
+
+    card_attrs_list2.append(
+        {
+            "card_bg_color": "bg-card-2",
+            "card_body_title": "Advance Search",
+            "card_foot_url": reverse("search_advanced"),
+        }
+    )
+
+    card_row_list = [card_attrs_list1, card_attrs_list2]
+    context = {}
+    context["card_rows"] = card_row_list
     return render(request, "home.html", context)
 
 

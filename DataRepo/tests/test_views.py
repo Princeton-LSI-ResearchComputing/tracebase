@@ -93,6 +93,35 @@ class ViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "home.html")
 
+    def test_home_card_attr_list(self):
+        # spot check: counts, urls for card attributes
+        animal_count = Animal.objects.all().count()
+        tissue_count = Tissue.objects.all().count()
+        sample_count = Sample.objects.all().count()
+        accucor_file_count = PeakGroupSet.objects.all().count()
+        compound_count = Compound.objects.all().count()
+        tracer_count = (
+            Animal.objects.exclude(tracer_compound_id__isnull=True)
+            .order_by("tracer_compound_id")
+            .values_list("tracer_compound_id")
+            .distinct("tracer_compound_id")
+            .count()
+        )
+        comp_url = reverse("compound_list")
+        accucor_file_url = reverse("peakgroupset_list")
+        advance_search_url = reverse("search_advanced")
+        response = self.client.get(reverse("home"))
+        self.assertEqual(animal_count, self.ALL_ANIMALS_COUNT)
+        self.assertEqual(tissue_count, self.ALL_TISSUES_COUNT)
+        self.assertEqual(sample_count, self.ALL_SAMPLES_COUNT)
+        self.assertEqual(accucor_file_count, 2)
+        self.assertEqual(compound_count, self.ALL_COMPOUNDS_COUNT)
+        self.assertEqual(tracer_count, 1)
+        self.assertEqual(comp_url, "/DataRepo/compounds/")
+        self.assertEqual(accucor_file_url, "/DataRepo/peakgroupsets/")
+        self.assertEqual(advance_search_url, "/DataRepo/search_advanced/")
+        self.assertEqual(len(response.context["card_rows"]), 2)
+
     def test_compound_list(self):
         response = self.client.get(reverse("compound_list"))
         self.assertEqual(response.status_code, 200)
