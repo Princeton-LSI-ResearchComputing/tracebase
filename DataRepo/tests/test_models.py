@@ -1709,3 +1709,54 @@ class ParseIsotopeLabelTests(TestCase):
         # Data was not loaded
         self.assertEqual(PeakGroup.objects.filter(name__exact="glucose").count(), 0)
         self.assertEqual(PeakGroup.objects.filter(name__exact="lactate").count(), 0)
+
+
+@tag("animal")
+@tag("loading")
+class AnimalLoadingTests(TestCase):
+    """Tests parsing various Animal attributes"""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("loaddata", "tissues.yaml")
+        call_command(
+            "load_compounds",
+            compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
+        )
+
+    def testLabeledElementParsing(self):
+        call_command(
+            "load_animals_and_samples",
+            animal_and_sample_table_filename=(
+                "DataRepo/example_data/testing_data/animal_sample_table_labeled_elements.xlsx"
+            ),
+        )
+        self.assertEqual(
+            Animal.objects.get(name="test_animal_1").tracer_labeled_atom, "C"
+        )
+        self.assertEqual(
+            Animal.objects.get(name="test_animal_2").tracer_labeled_atom, "N"
+        )
+        self.assertEqual(
+            Animal.objects.get(name="test_animal_3").tracer_labeled_atom, "H"
+        )
+        self.assertEqual(
+            Animal.objects.get(name="test_animal_4").tracer_labeled_atom, "O"
+        )
+        self.assertEqual(
+            Animal.objects.get(name="test_animal_5").tracer_labeled_atom, "S"
+        )
+        self.assertEqual(
+            Animal.objects.get(name="test_animal_6").tracer_labeled_atom, "C"
+        )
+
+    def testLabeledElementParsingInvalid(self):
+        with self.assertRaisesRegex(
+            ValidationError, ".+ is not a valid selection, must be one of .+"
+        ):
+            call_command(
+                "load_animals_and_samples",
+                animal_and_sample_table_filename=(
+                    "DataRepo/example_data/testing_data/animal_sample_table_labeled_elements_invalid.xlsx"
+                ),
+            )

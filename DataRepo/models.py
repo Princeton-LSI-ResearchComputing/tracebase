@@ -16,11 +16,20 @@ def value_from_choices_label(label, choices):
     """
     Return the choices value for a given label
     """
-    dictionary = {}
-    for choices_value, choices_label in choices:
-        dictionary[choices_label] = choices_value
+    # Search choices by label
     result = None
-    result = dictionary.get(label)
+    for choices_value, choices_label in choices:
+        if label == choices_label:
+            result = choices_value
+    # If search by label failed, check if we already have a valid value
+    if result is None:
+        if label in dict(choices):
+            result = label
+    # If we didn't fine anything, but something was provided it's invalid
+    if label is not None and result is None:
+        raise ValidationError(
+            f"'{label}' is not a valid selection, must be one of {choices}"
+        )
     return result
 
 
