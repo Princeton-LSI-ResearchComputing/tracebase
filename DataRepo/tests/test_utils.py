@@ -71,7 +71,7 @@ class QuerysetToPandasDataFrameTests(TestCase):
             "total_tissue": 15,
             "total_sample": 15,
             "total_msrun": 15,
-            "sample_owners": ["Xianfeng Zhang"],
+            "sample_owners": ["Xianfeng Zeng"],
             "genotypes": ["WT"],
         }
         return exmaple_study_dict
@@ -89,7 +89,7 @@ class QuerysetToPandasDataFrameTests(TestCase):
             "feeding_status": "Fasted",
             "total_tissue": 15,
             "total_sample": 15,
-            "sample_owners": ["Xianfeng Zhang"],
+            "sample_owners": ["Xianfeng Zeng"],
         }
         return exmaple_animal_dict
 
@@ -106,7 +106,7 @@ class QuerysetToPandasDataFrameTests(TestCase):
             "feeding_status": "Fasted",
             "tissue": "brown_adipose_tissue",
             "sample": "BAT-xz971",
-            "sample_owner": "Xianfeng Zhang",
+            "sample_owner": "Xianfeng Zeng",
             "msrun_owner": "Michael Neinast",
             "msrun_protocol": "Default",
         }
