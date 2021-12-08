@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 
 import pandas as pd
 from django.core.exceptions import ValidationError
-from django.core.management import call_command
+from django.core.management import CommandError, call_command
 from django.db import IntegrityError
 from django.db.models.deletion import RestrictedError
 from django.test import TestCase, tag
@@ -466,10 +466,7 @@ class CompoundLoadingTests(TestCase):
         compounds_df = pd.read_csv(
             primary_compound_file, sep="\t", keep_default_na=False
         )
-        cls.LOADER_INSTANCE = CompoundsLoader(
-            compounds_df=compounds_df,
-            validate_only=True,
-        )
+        cls.LOADER_INSTANCE = CompoundsLoader(compounds_df=compounds_df)
 
     def test_compounds_loaded(self):
         self.assertEqual(Compound.objects.all().count(), self.ALL_COMPOUNDS_COUNT)
@@ -532,6 +529,27 @@ class CompoundLoadingTests(TestCase):
         ser = pd.Series(dict)
         with self.assertRaises(AmbiguousCompoundDefinitionError):
             self.LOADER_INSTANCE.find_compound_for_row(ser)
+
+
+@tag("compound_loading")
+class CompoundLoadingTestErrors(TestCase):
+    """Tests loading of Compounds with errors"""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("loaddata", "tissues.yaml")
+
+    def testCompoundLoadingFailure(self):
+        """Test that an error during compound loading doesn't load any compounds"""
+
+        with self.assertRaisesRegex(
+            CommandError, "Validation errors when loading compounds"
+        ):
+            call_command(
+                "load_compounds",
+                compounds="DataRepo/example_data/testing_data/test_study_1/test_study_1_compounds_errors.tsv",
+            )
+        self.assertEqual(Compound.objects.count(), 0)
 
 
 # create series from dictionary
