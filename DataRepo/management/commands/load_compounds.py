@@ -54,16 +54,16 @@ class Command(BaseCommand):
         # Run validation
         loader.validate_data()
 
-        if options["verbosity"] > 1:
+        if options["verbosity"] >= 2:
             for msg in loader.validation_debug_messages:
                 self.stdout.write(self.style.NOTICE(msg))
 
-        if options["verbosity"] > 0:
+        if options["verbosity"] >= 1:
             for msg in loader.validation_warning_messages:
                 self.stdout.write(self.style.WARNING(msg))
 
         # If validation failed, raise an exception
-        if len(loader.validation_error_messages) > 0:
+        if len(loader.validation_error_messages) >= 1:
             # report on what errors were discovered by the loader
             for err_msg in loader.validation_error_messages:
                 self.stdout.write(self.style.ERROR(err_msg))
@@ -79,7 +79,7 @@ class Command(BaseCommand):
                 "will either be found or inserted."
             )
         )
-        if len(loader.validated_new_compounds_for_insertion) > 0:
+        if len(loader.validated_new_compounds_for_insertion) >= 1:
             self.stdout.write(
                 self.style.MIGRATE_HEADING("New compounds to be inserted:")
             )
