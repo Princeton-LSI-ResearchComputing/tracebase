@@ -112,8 +112,8 @@ class Command(BaseCommand):
                     )
                 )
                 # Get parameters specific to each accucor file
-                if "protocol" in accucor_file:
-                    protocol = accucor_file["protocol"]
+                if "msrun_protocol" in accucor_file:
+                    protocol = accucor_file["msrun_protocol"]
                 if "date" in accucor_file:
                     date = accucor_file["date"]
                 if "researcher" in accucor_file:
