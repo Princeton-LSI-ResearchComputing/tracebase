@@ -22,4 +22,4 @@ class CustomTagsTests(TestCase):
         # Expected case insensitive list:  ['D-Glucose', 'glucose', 'glucose-6-phosphate']
         # Input case variant list:  ['D-Glucose', 'Glucose', 'glucose', 'Glucose-6-phosphate', 'glucose-6-phosphate']
         csls = get_case_insensitive_synonyms(csqs)
-        self.assertEqual(len(csls), 3)
+        self.assertListEqual(csls, ["D-Glucose", "glucose", "glucose-6-phosphate"])

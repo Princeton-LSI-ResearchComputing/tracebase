@@ -401,6 +401,9 @@ class ViewTests(TestCase):
         return [asform, qry, dlform]
 
     def get_advanced_qry(self):
+        """
+        Create a simple advanced query
+        """
         return {
             "selectedtemplate": "pgtemplate",
             "searches": {
@@ -465,6 +468,9 @@ class ViewTests(TestCase):
         }
 
     def get_advanced_qry2(self):
+        """
+        Modify the query returned by get_advanced_qry to include search terms on 2 M:M related tables in a sub-group.
+        """
         qry = self.get_advanced_qry()
         qry["searches"]["pgtemplate"]["tree"]["queryGroup"][0][
             "fld"
