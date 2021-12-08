@@ -78,9 +78,7 @@ def count_tracer_groups(res):
 def shouldKeepManyToMany(rootrec, mm_lookup, qry, refilter):
     """
     If refilter is true, this method calls the views.manyToManyFilter to filter out records that do not match search
-    terms from a many-to-many related table.  Note, this can only handle composite views that contain a single many-to-
-    many relationship.  If there are multiple many-to-many relationships in the composite view, a new method will have
-    to be written.
+    terms from a many-to-many related table.
     """
     return not refilter or manyToManyFilter(rootrec, mm_lookup, qry)
 
@@ -187,3 +185,18 @@ def hmdb_id_url(hmdb_id):
         return None
     else:
         return f"https://hmdb.ca/metabolites/{hmdb_id}"
+
+
+@register.simple_tag
+def get_case_insensitive_synonyms(case_qs):
+    # Create a list of the names/synonyms from the queryset
+    case_list = []
+    for rec in list(case_qs.all()):
+        case_list.append(rec.name)
+    case_list.sort()
+    # Sort so that the case returned is predictable
+    case_insensitive_dict = {}
+    for item in case_list:
+        lcitem = item.lower()
+        case_insensitive_dict[lcitem] = item
+    return list(case_insensitive_dict.values())

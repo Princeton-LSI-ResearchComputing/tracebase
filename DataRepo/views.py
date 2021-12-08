@@ -676,7 +676,7 @@ def performQuery(q_exp, fmt, basv):
     """
     res = {}
     if fmt in basv.getFormatNames().keys():
-        res = basv.getRootQuerySet(fmt).filter(q_exp)
+        res = basv.getRootQuerySet(fmt).filter(q_exp).distinct()
     else:
         # Log a warning
         print("WARNING: Invalid selected format:", fmt)
@@ -733,10 +733,10 @@ def isValidQryObjPopulatedHelper(group):
             if not query["val"] or query["val"] == "":
                 return False
         elif query["type"] == "group":
-            if len(group["queryGroup"]) == 0:
+            if len(query["queryGroup"]) == 0:
                 return False
             else:
-                tmp_populated = isValidQryObjPopulatedHelper(group["queryGroup"])
+                tmp_populated = isValidQryObjPopulatedHelper(query["queryGroup"])
                 if not tmp_populated:
                     return False
     return True

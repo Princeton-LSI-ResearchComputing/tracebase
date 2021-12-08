@@ -24,6 +24,7 @@ from DataRepo.views import (
     getAllBrowseData,
     getJoinedRecFieldValue,
     isQryObjValid,
+    isValidQryObjPopulated,
     manyToManyFilter,
     pathStepToPosGroupType,
     performQuery,
@@ -391,7 +392,19 @@ class ViewTests(TestCase):
             "form-2-fld": "msrun__sample__animal__name",
             "form-2-ncmp": "iexact",
         }
-        qry = {
+        qry = self.get_advanced_qry()
+        dlform = {
+            "form-TOTAL_FORMS": "1",
+            "form-INITIAL_FORMS": "0",
+            "qryjson": json.dumps(qry),
+        }
+        return [asform, qry, dlform]
+
+    def get_advanced_qry(self):
+        """
+        Create a simple advanced query
+        """
+        return {
             "selectedtemplate": "pgtemplate",
             "searches": {
                 "pgtemplate": {
@@ -453,12 +466,42 @@ class ViewTests(TestCase):
                 },
             },
         }
-        dlform = {
-            "form-TOTAL_FORMS": "1",
-            "form-INITIAL_FORMS": "0",
-            "qryjson": json.dumps(qry),
-        }
-        return [asform, qry, dlform]
+
+    def get_advanced_qry2(self):
+        """
+        Modify the query returned by get_advanced_qry to include search terms on 2 M:M related tables in a sub-group.
+        """
+        qry = self.get_advanced_qry()
+        qry["searches"]["pgtemplate"]["tree"]["queryGroup"][0][
+            "fld"
+        ] = "msrun__sample__name"
+        qry["searches"]["pgtemplate"]["tree"]["queryGroup"][0]["val"] = "BAT-xz971"
+        qry["searches"]["pgtemplate"]["tree"]["queryGroup"].append(
+            {
+                "type": "group",
+                "val": "all",
+                "static": False,
+                "queryGroup": [
+                    {
+                        "type": "query",
+                        "pos": "",
+                        "static": False,
+                        "ncmp": "iexact",
+                        "fld": "msrun__sample__animal__studies__name",
+                        "val": "obob_fasted",
+                    },
+                    {
+                        "type": "query",
+                        "pos": "",
+                        "static": False,
+                        "ncmp": "iexact",
+                        "fld": "compounds__synonyms__name",
+                        "val": "glucose",
+                    },
+                ],
+            }
+        )
+        return qry
 
     def test_search_advanced_valid(self):
         """
@@ -533,8 +576,8 @@ class ViewTests(TestCase):
             msrun__sample__tissue__name__iexact="Brain"
         ).prefetch_related("msrun__sample__animal__studies")
         expected_newline_count = qs.count() + 6
-        # This query returns 2 rows and the tsv has 21 tabs. We add 21 more for the header
-        expected_tab_count = qs.count() * 21 + 21
+        # This query returns 2 rows and the tsv has 22 tabs. We add 22 more for the header
+        expected_tab_count = qs.count() * 22 + 22
         [filledform, qry, dlform] = self.get_advanced_search_inputs()
         response = self.client.post("/DataRepo/search_advanced_tsv/", dlform)
 
@@ -668,7 +711,7 @@ class ViewTests(TestCase):
         """
         Test that performQuery returns a correct queryset
         """
-        [ignoreas, qry, ignoredl] = self.get_advanced_search_inputs()
+        qry = self.get_advanced_qry()
         q_exp = constructAdvancedQuery(qry)
         basv_metadata = BaseAdvancedSearchView()
         pf = [
@@ -682,17 +725,45 @@ class ViewTests(TestCase):
         ).prefetch_related(*pf)
         self.assertEqual(res.count(), qs.count())
 
+    def test_constructAdvancedQuery_performQuery_distinct(self):
+        """
+        Test that performQuery returns no duplicate root table records when M:M tables queried with multiple matches.
+        """
+        qry = self.get_advanced_qry2()
+        q_exp = constructAdvancedQuery(qry)
+        basv_metadata = BaseAdvancedSearchView()
+        res = performQuery(q_exp, "pgtemplate", basv_metadata)
+        qs = (
+            PeakGroup.objects.filter(msrun__sample__name__iexact="BAT-xz971")
+            .filter(msrun__sample__animal__studies__name__iexact="obob_fasted")
+            .filter(compounds__synonyms__name__iexact="glucose")
+        )
+        # Ensure the test is working by ensuring the number of records without distinct is larger
+        self.assertTrue(res.count() < qs.count())
+        self.assertEqual(res.count(), 1)
+
     def test_isQryObjValid(self):
         """
-        Test that isQryObjValid correctly validates an object.
+        Test that isQryObjValid correctly validates a qry object.
         """
-        [ignoreas, qry, ignoredl] = self.get_advanced_search_inputs()
+        qry = self.get_advanced_qry()
         basv_metadata = BaseAdvancedSearchView()
-        valid = isQryObjValid(qry, basv_metadata.getFormatNames().keys())
-        self.assertEqual(valid, True)
+        isvalid = isQryObjValid(qry, basv_metadata.getFormatNames().keys())
+        self.assertEqual(isvalid, True)
         qry.pop("selectedtemplate")
-        invalid = isQryObjValid(qry, basv_metadata.getFormatNames().keys())
-        self.assertEqual(invalid, False)
+        isvalid = isQryObjValid(qry, basv_metadata.getFormatNames().keys())
+        self.assertEqual(isvalid, False)
+
+    def test_isValidQryObjPopulated(self):
+        """
+        Test that isValidQryObjPopulated correctly interprets the population of a subgroup.
+        """
+        qry = self.get_advanced_qry2()
+        isvalid = isValidQryObjPopulated(qry)
+        self.assertEqual(isvalid, True)
+        qry["searches"]["pgtemplate"]["tree"]["queryGroup"][1]["queryGroup"] = []
+        isvalid = isValidQryObjPopulated(qry)
+        self.assertEqual(isvalid, False)
 
     def test_cv_getSearchFieldChoices(self):
         """
@@ -708,6 +779,7 @@ class ViewTests(TestCase):
             ("msrun__sample__animal__feeding_status", "Feeding Status"),
             ("formula", "Formula"),
             ("msrun__sample__animal__genotype", "Genotype"),
+            ("compounds__synonyms__name", "Measured Compound"),
             ("name", "Peak Group"),
             ("peak_group_set__filename", "Peak Group Set Filename"),
             ("msrun__sample__name", "Sample"),
@@ -748,6 +820,7 @@ class ViewTests(TestCase):
         res = basv_metadata.getPrefetches(fmt)
         pfl = [
             "peak_group_set",
+            "compounds__synonyms",
             "msrun__sample__tissue",
             "msrun__sample__animal__treatment",
             "msrun__sample__animal__tracer_compound",
@@ -764,6 +837,7 @@ class ViewTests(TestCase):
         res = basv_metadata.getModels(fmt)
         ml = [
             "PeakGroupSet",
+            "CompoundSynonym",
             "PeakGroup",
             "Protocol",
             "Sample",

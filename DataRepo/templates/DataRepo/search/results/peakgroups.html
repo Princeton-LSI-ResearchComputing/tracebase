@@ -34,6 +34,7 @@
                 <th data-valign="top" data-sortable="true" data-field="Sample">Sample</th>
                 <th data-valign="top" data-sortable="true" data-field="Tissue">Tissue</th>
                 <th data-valign="top" data-sortable="true" data-field="Peak_Group">Peak Group</th>
+                <th data-valign="top" data-sortable="true" data-field="Compound_Synonym">Measured<br>Compound(s)</th>
                 <th data-valign="top" data-sortable="true" data-field="Formula">Formula</th>
                 <th data-valign="top" data-sortable="true" data-field="Labeled_Element">Labeled<br>Element</th>
                 <th data-valign="top" data-sortable="true" data-field="Total_Abundance">Total<br>Abundance</th>
@@ -62,19 +63,38 @@
 
             {% for pg in res.all %}
 
-                {# Initialize a new dict used for many-to-many related table refiltering #}
+                {# Initialize a new dict used for many-to-many related table refiltering. This way of looking up M:M record values is necessary to support multiple M:M related models in a composite view #}
+                {# Add each M:M model key path as a key pointing to its current record to the mm_lookup dict #}
                 {% createDict as mm_lookup %}
+
+                {# Keep track of what record combos we're keeping or refiltering with a dict holding a boolean [keeping.keep] (because a single boolean value has some sort of scoping issue) #}
+                {% createDict as keeping %}
 
                 {% for study in pg.msrun.sample.animal.studies.all %}
 
-                    {# Add the M:M model key path as a key pointing to its current record to the mm_lookup dict #}
-                    {# This way of looking up M:M record values is necessary to support multiple M:M related models in a composite view #}
                     {% addToDict mm_lookup "msrun__sample__animal__studies" study %}
+                    {% addToDict keeping "keep" False %}
 
-                    {# At the most nested loop level, we have enough info to refilter for unmatching many-to-many records #}
-                    {% shouldKeepManyToMany pg mm_lookup qry refilter as keep %}
+                    {% for cs in pg.compounds.all %}
+                        {% for ss in cs.synonyms.all %}
 
-                    {% if keep %}
+                            {% addToDict mm_lookup "compounds__synonyms" ss %}
+
+                            {% if not keeping.keep %}
+
+                                {# At the most nested loop level, we have enough info to refilter for unmatching many-to-many records #}
+                                {% shouldKeepManyToMany pg mm_lookup qry refilter as keep %}
+
+                                {# I don't know why changes to keep don't make it outside the loop, but saving it in a dict works #}
+                                {% addToDict keeping "keep" keep %}
+
+                            {% endif %}
+
+                        {% endfor %}
+                    {% endfor %}
+
+                    {% if keeping.keep %}
+
                         {% incrementCounter rec_cnt %}
 
                         <tr>
@@ -91,7 +111,11 @@
 
                             <!-- Tissue -->
                             <td>
-                                {{ pg.msrun.sample.tissue.name }}
+                                <!-- Put displayed link text first for sorting -->
+                                <div style="display:none;">{{ pg.msrun.sample.tissue.name }}</div>
+                                <a href="{% url 'tissue_detail' pg.msrun.sample.tissue.id %}">
+                                    {{ pg.msrun.sample.tissue.name }}
+                                </a>
                             </td>
 
                             <!-- Peak Group -->
@@ -101,6 +125,18 @@
                                 <a href="{% url 'peakgroup_detail' pg.id %}">
                                     {{ pg.name }}
                                 </a>
+                            </td>
+
+                            <!-- Measured Compound(s) -->
+                            <td>
+                                <!-- Put displayed link text first for sorting -->
+                                <div style="display:none;">
+                                    {% define True as cpdfirst %}
+                                    {% for mcpd in pg.compounds.all %}{% if not cpdfirst %}; {% endif%}{% define True as synfirst %}{% get_case_insensitive_synonyms mcpd.synonyms as inssyns %}{% for mcpdsyn in inssyns %}{% if not synfirst %}/{% endif%}{{ mcpdsyn }}{% define False as synfirst %}{% endfor %}{% define False as cpdfirst %}{% endfor %}
+                                </div>
+
+                                {% define True as cpdfirst %}
+                                {% for mcpd in pg.compounds.all %}{% if not cpdfirst %}; {% endif%}<a href="{% url 'compound_detail' mcpd.id %}">{% define True as synfirst %}{% get_case_insensitive_synonyms mcpd.synonyms as inssyns %}{% for mcpdsyn in inssyns %}{% if not synfirst %}/{% endif%}{{ mcpdsyn }}{% define False as synfirst %}{% endfor %}</a>{% define False as cpdfirst %}{% endfor %}
                             </td>
 
                             <!-- Formula -->
@@ -130,7 +166,11 @@
 
                             <!-- Normalized Labeling -->
                             <td class="text-end">
-                                <p title="{{ pg.normalized_labeling }}">{{ pg.normalized_labeling|floatformat:4 }}</p>
+                                {% if pg.normalized_labeling is None %}
+                                    <p title="Associated serum sample not found.">None</p>
+                                {% else %}
+                                    <p title="{{ pg.normalized_labeling }}">{{ pg.normalized_labeling|floatformat:4 }}</p>
+                                {% endif %}
                             </td>
 
                             <!-- Peak Group Set Filename -->
