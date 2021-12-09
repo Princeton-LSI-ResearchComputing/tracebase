@@ -1000,18 +1000,14 @@ class CompoundsLoader:
     KEY_SYNONYMS = "Synonyms"
     REQUIRED_KEYS = [KEY_COMPOUND_NAME, KEY_FORMULA, KEY_HMDB, KEY_SYNONYMS]
 
-    def __init__(
-        self, compounds_df, synonym_separator=";", validate_only=False, verbosity=0
-    ):
+    def __init__(self, compounds_df, synonym_separator=";"):
         self.compounds_df = compounds_df
         self.synonym_separator = synonym_separator
-        self.validate_only = validate_only
         self.validation_debug_messages = []
         self.validation_warning_messages = []
         self.validation_error_messages = []
         self.summary_messages = []
         self.validated_new_compounds_for_insertion = []
-        self.verbosity = verbosity
         self.missing_headers = []
 
         """
@@ -1188,35 +1184,6 @@ class CompoundsLoader:
         ]
         return synonyms
 
-    def validation_report(self):
-
-        if self.verbosity > 1:
-            for msg in self.validation_debug_messages:
-                print(msg)
-
-        if self.verbosity > 0:
-            for msg in self.validation_warning_messages:
-                print(msg)
-
-        # report on what errors were discovered by the loader
-        for err_msg in self.validation_error_messages:
-            print(err_msg)
-
-        # report on what what work would be done by the loader
-        print(
-            f"Work to be done: {len(self.validated_new_compounds_for_insertion)} "
-            "new compounds will be inserted and all names/synonyms from the file "
-            "will either be found or inserted."
-        )
-
-        if len(self.validated_new_compounds_for_insertion) > 0:
-            print("New compounds to be inserted:")
-            for compound in self.validated_new_compounds_for_insertion:
-                print(compound)
-
-        if len(self.validation_error_messages) > 0:
-            print("No work will be performed; ERRORS must be fixed, first.")
-
     def load_validated_compounds(self):
         count = 0
         for compound in self.validated_new_compounds_for_insertion:
@@ -1247,26 +1214,6 @@ class CompoundsLoader:
                 if created:
                     count += 1
         self.summary_messages.append(f"{count} additional synonym(s) inserted.")
-
-    def load_data(self):
-        # will not load data without validating first
-        self.validate_data()
-        self.validation_report()
-
-        if self.validate_only:
-            # don't load if only validation was requested
-            return
-
-        if len(self.validation_error_messages) == 0:
-            self.load_validated_compounds()
-            self.load_synonyms()
-            for msg in self.summary_messages:
-                print(msg)
-        else:
-            print("These ERRORS must be fixed before doing any work with the database:")
-            # report on what errors were discovered by the loader
-            for err_msg in self.validation_error_messages:
-                print(err_msg)
 
 
 class HeaderError(Exception):
