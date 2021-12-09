@@ -535,10 +535,6 @@ class CompoundLoadingTests(TestCase):
 class CompoundLoadingTestErrors(TestCase):
     """Tests loading of Compounds with errors"""
 
-    @classmethod
-    def setUpTestData(cls):
-        call_command("loaddata", "tissues.yaml")
-
     def testCompoundLoadingFailure(self):
         """Test that an error during compound loading doesn't load any compounds"""
 
@@ -547,7 +543,7 @@ class CompoundLoadingTestErrors(TestCase):
         ):
             call_command(
                 "load_compounds",
-                compounds="DataRepo/example_data/testing_data/test_study_1/test_study_1_compounds_errors.tsv",
+                compounds="DataRepo/example_data/testing_data/test_study_1/test_study_1_compounds_dupes.tsv",
             )
         self.assertEqual(Compound.objects.count(), 0)
 
