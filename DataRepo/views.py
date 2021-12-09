@@ -119,7 +119,7 @@ def home(request):
     card_attrs_list2.append(
         {
             "card_bg_color": "bg-card-2",
-            "card_body_title": "Advance Search",
+            "card_body_title": "Advanced Search",
             "card_foot_url": reverse("search_advanced"),
         }
     )
