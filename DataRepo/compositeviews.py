@@ -556,7 +556,7 @@ class PeakGroupsSearchView(BaseSearchView):
                 },
                 "age": {
                     "displayname": "Age (d-hh:mm:ss)",
-                    "searchable": False,
+                    "searchable": False,  # currently no data available for testing and a bug: issue #180
                     "displayed": True,
                     "type": "number",
                 },
@@ -970,25 +970,6 @@ class FluxCircSearchView(BaseSearchView):
                 },
             },
         },
-        "Protocol": {
-            "path": "msrun__sample__animal__treatment",
-            "manytomany": False,
-            "fields": {
-                "id": {
-                    "displayname": "(Internal) Protocol Index",
-                    "searchable": True,
-                    "displayed": False,  # Used in link
-                    "handoff": "name",  # This is the field that will be loaded in the search form
-                    "type": "number",
-                },
-                "name": {
-                    "displayname": "Treatment",
-                    "searchable": True,
-                    "displayed": True,
-                    "type": "string",
-                },
-            },
-        },
         "Animal": {
             "path": "msrun__sample__animal",
             "manytomany": False,
@@ -1006,6 +987,50 @@ class FluxCircSearchView(BaseSearchView):
                     "displayed": True,
                     "type": "string",
                 },
+                "genotype": {
+                    "displayname": "Genotype",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "string",
+                },
+                "body_weight": {
+                    "displayname": "Body Weight (g)",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "number",
+                },
+                "age": {
+                    "displayname": "Animal Age (d-hh:mm:ss)",
+                    "searchable": False,  # currently no data available for testing and a bug: issue #180
+                    "displayed": True,
+                    "type": "number",
+                },
+                "sex": {
+                    "displayname": "Sex",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "enumeration",
+                    "choices": Animal.SEX_CHOICES,
+                },
+                "diet": {
+                    "displayname": "Diet",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "string",
+                },
+                "feeding_status": {
+                    "displayname": "Feeding Status",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "string",
+                },
+                "tracer_labeled_atom": {
+                    "displayname": "Tracer Labeled Element",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "enumeration",
+                    "choices": TracerLabeledClass.TRACER_LABELED_ELEMENT_CHOICES,
+                },
                 "tracer_infusion_rate": {
                     "displayname": "Tracer Infusion Rate (ul/min/g)",
                     "searchable": True,
@@ -1016,6 +1041,25 @@ class FluxCircSearchView(BaseSearchView):
                     "displayname": "Tracer Infusion Concentration (mM)",
                     "searchable": True,
                     "displayed": True,
+                    "type": "number",
+                },
+            },
+        },
+        "Protocol": {
+            "path": "msrun__sample__animal__treatment",
+            "manytomany": False,
+            "fields": {
+                "name": {
+                    "displayname": "Treatment",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "string",
+                },
+                "id": {
+                    "displayname": "(Internal) Protocol Index",
+                    "searchable": True,
+                    "displayed": False,  # Used in link
+                    "handoff": "name",  # This is the field that will be loaded in the search form
                     "type": "number",
                 },
             },
