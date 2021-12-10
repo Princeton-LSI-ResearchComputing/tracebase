@@ -95,7 +95,7 @@ Note that currently, a composite view class can only contain each model once, or
             - A "handoff" field that specifies how the search form will be pre-filled out must be added.  The handoff field must be unique (or uniquely correspond to the field that is used in the link).
 
 2. `DataRepo/templates/results/<format name>.html`
-   - Each template is different, but generally, unless the model doesn't already exist in the template, just add a column to the html table.
+   - Each template is different, but generally, unless the model doesn't already exist in the template, just add a column to the HTML table.
    - If a model doesn't already exist in the template and is related to the root model, a nested loop must be added.  All current models have at least 1 such model (e.g. Study).  Follow its example.
    - General guidelines:
       - Number fields should be right-aligned
