@@ -279,7 +279,7 @@
         data-show-export="false">
         <thead>
             <tr>
-                <th colspan="7" rowspan="2"></th>
+                <th colspan="14" rowspan="2"></th>
                 <th colspan="4" class="average">Average</th>
                 <th colspan="4" class="intact">Intact</th>
             </tr>
@@ -292,8 +292,15 @@
             <tr>
                 <th data-valign="top" data-sortable="true" data-field="Animal">Animal</th>
                 <th data-valign="top" data-sortable="true" data-field="Studies">Studies</th>
+                <th data-valign="top" data-sortable="true" data-field="Genotype">Genotype</th>
+                <th data-valign="top" data-sortable="true" data-field="Body_Weight">Body<br>Weight<br>(g)</th>
+                <th data-valign="top" data-sortable="true" data-field="Age">Age<br>(weeks)</th>
+                <th data-valign="top" data-sortable="true" data-field="Sex">Sex</th>
+                <th data-valign="top" data-sortable="true" data-field="Diet">Diet</th>
+                <th data-valign="top" data-sortable="true" data-field="Feeding_Status">Feeding<br>Status</th>
                 <th data-valign="top" data-sortable="true" data-field="Treatment">Treatment</th>
                 <th data-valign="top" data-sortable="true" data-field="Tracer_Compound">Tracer<br>Compound</th>
+                <th data-valign="top" data-sortable="true" data-field="Labeled_Element">Labeled<br>Element</th>
                 <th data-valign="top" data-sortable="true" data-field="Tracer_Infusion_Rate">Tracer<br>Infusion<br>Rate<br>(ul/m/g)</th>
                 <th data-valign="top" data-sortable="true" data-field="Tracer_Infusion_Concentration">Tracer Infusion<br>Concentration<br>(mM)</th>
                 <th data-valign="top" data-sortable="true" data-field="Time_Collected">Time<br>Collected<br>(m)</th>
@@ -342,6 +349,36 @@
                             {% for study in pg.msrun.sample.animal.studies.all %}{% addToDict mm_lookup "msrun__sample__animal__studies" study %}{% shouldKeepManyToMany pg mm_lookup qry refilter as keep %}{% if keep %}{% if not first %},<br>{% endif%}<a href="{% url 'study_detail' study.id %}">{{ study.name }}</a>{% endif %}{% define False as first %}{% endfor %}
                         </td>
 
+                        <!-- Genotype -->
+                        <td>
+                            {{ pg.msrun.sample.animal.genotype }}
+                        </td>
+
+                        <!-- Body Weight (g) -->
+                        <td class="text-end">
+                            {{ pg.msrun.sample.animal.body_weight }}
+                        </td>
+
+                        <!-- Age (weeks) -->
+                        <td class="text-end">
+                            <p title="{{ pg.msrun.sample.animal.age }} (d-hh:mm:ss)">{{ pg.msrun.sample.animal.age|durationToWeeks|decimalPlaces:2 }}</p>
+                        </td>
+
+                        <!-- Sex -->
+                        <td>
+                            {{ pg.msrun.sample.animal.sex }}
+                        </td>
+
+                        <!-- Diet -->
+                        <td>
+                            {{ pg.msrun.sample.animal.diet }}
+                        </td>
+
+                        <!-- Feeding Status -->
+                        <td>
+                            {{ pg.msrun.sample.animal.feeding_status }}
+                        </td>
+
                         <!-- Treatment -->
                         <td>
                             {% if pg.msrun.sample.animal.treatment is None %}
@@ -364,6 +401,11 @@
                             <a href="{% url 'compound_detail' pg.msrun.sample.animal.tracer_compound.id %}">
                                 {{ pg.msrun.sample.animal.tracer_compound.name }}
                             </a>
+                        </td>
+
+                        <!-- Labeled Element -->
+                        <td>
+                            {{ pg.msrun.sample.animal.tracer_labeled_atom }}
                         </td>
 
                         <!-- Tracer Infusion Rate (ul/m/g) -->
