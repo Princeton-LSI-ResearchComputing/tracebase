@@ -18,7 +18,7 @@ class BaseSearchView:
     """
 
     name = ""
-    models: Dict[str, Dict] = {}
+    model_instances: Dict[str, Dict] = {}
     prefetches: List[str] = []
     rootmodel: Model = None
     ncmp_choices = {  # If any values are changed in any category, update valueMatches()
@@ -112,19 +112,19 @@ class BaseSearchView:
         """
 
         choices = ()
-        for mkey in self.models.keys():
-            mpath = self.models[mkey]["path"]
-            for fkey in self.models[mkey]["fields"].keys():
+        for mkey in self.model_instances.keys():
+            mpath = self.model_instances[mkey]["path"]
+            for fkey in self.model_instances[mkey]["fields"].keys():
                 # We only want it in the select list if it is both searchable and displayed
                 if (
-                    self.models[mkey]["fields"][fkey]["searchable"] is True
-                    and self.models[mkey]["fields"][fkey]["displayed"] is True
+                    self.model_instances[mkey]["fields"][fkey]["searchable"] is True
+                    and self.model_instances[mkey]["fields"][fkey]["displayed"] is True
                 ):
                     fpath = ""
                     if mpath != "":
                         fpath = mpath + "__"
                     fpath += fkey
-                    fname = self.models[mkey]["fields"][fkey]["displayname"]
+                    fname = self.model_instances[mkey]["fields"][fkey]["displayname"]
                     choices = choices + ((fpath, fname),)
         return tuple(sorted(choices, key=lambda x: x[1]))
 
@@ -153,7 +153,7 @@ class BaseSearchView:
         """
         Returns a list of foreign key names for a composite view from the root table to the supplied table.
         """
-        return self.models[mdl]["path"].split("__")
+        return self.model_instances[mdl]["path"].split("__")
 
     def getPrefetches(self):
         """
@@ -162,12 +162,42 @@ class BaseSearchView:
         """
         return self.prefetches
 
-    def getModels(self):
+    def getModelInstances(self):
         """
-        Returns a list of all tables containing fields that are in an output format.  It does not include intermediate
-        tables in key paths that do not have visibl;e fields in the composite view.
+        Returns a list of all model instance names (keys of the model_instances datamember) containing fields that are
+        in an output format.  This is generally the model name, but if a model has 2 different links in the composite
+        view, it may have a name different from the model it contains (e.g. MeasuredCompound and TracerCompound in the
+        PeakGroups format).
         """
-        return list(self.models.keys())
+        return list(self.model_instances.keys())
+
+    def getModelInstance(self, mdl):
+        mis = self.getModelInstances()
+        if mdl not in mis:
+            # Look through the actual model names (instead of the instance names) to see if there's a unique match.
+            instances = []
+            for mi in mis:
+                if self.model_instances[mi]["model"] == mdl:
+                    instances.append(mi)
+            if len(instances) == 1:
+                return instances[0]
+            elif len(instances) > 1:
+                raise KeyError(
+                    "Ambigous model instance ["
+                    + mdl
+                    + "].  Must specify one of ["
+                    + ",".join(instances)
+                    + "]."
+                )
+            else:
+                raise KeyError(
+                    "Invalid model instance ["
+                    + mdl
+                    + "].  Must be one of ["
+                    + ",".join(mis)
+                    + "]."
+                )
+        return mdl
 
     def getFieldTypes(self):
         """
@@ -176,23 +206,25 @@ class BaseSearchView:
 
         typedict = {}
         # For each model
-        for mdl in self.models.keys():
+        for mdl in self.model_instances.keys():
             # Grab the path
-            path = self.models[mdl]["path"]
+            path = self.model_instances[mdl]["path"]
             # If the path has a value (i.e. it's not the root table), append the Q object separator
             if path != "":
                 path += "__"
             # For each field
-            for fld in self.models[mdl]["fields"].keys():
+            for fld in self.model_instances[mdl]["fields"].keys():
                 # Create the field key (mimmicking the keys in the fld select list - but containing ALL fields)
                 fldkey = path + fld
                 typedict[fldkey] = {}
                 # Save a dict with values for type and choices (if present)
-                typedict[fldkey]["type"] = self.models[mdl]["fields"][fld]["type"]
-                if "choices" in self.models[mdl]["fields"][fld].keys():
-                    typedict[fldkey]["choices"] = self.models[mdl]["fields"][fld][
-                        "choices"
-                    ]
+                typedict[fldkey]["type"] = self.model_instances[mdl]["fields"][fld][
+                    "type"
+                ]
+                if "choices" in self.model_instances[mdl]["fields"][fld].keys():
+                    typedict[fldkey]["choices"] = self.model_instances[mdl]["fields"][
+                        fld
+                    ]["choices"]
                 else:
                     typedict[fldkey]["choices"] = []
         return typedict
@@ -204,11 +236,11 @@ class BaseSearchView:
         """
 
         fielddict = {}
-        path = self.models[mdl]["path"]
+        path = self.model_instances[mdl]["path"]
         if path != "":
             path += "__"
-        for field in self.models[mdl]["fields"].keys():
-            if self.models[mdl]["fields"][field]["searchable"] is True:
+        for field in self.model_instances[mdl]["fields"].keys():
+            if self.model_instances[mdl]["fields"][field]["searchable"] is True:
                 fielddict[field] = path + field
         return fielddict
 
@@ -222,10 +254,12 @@ class BaseSearchView:
         """
 
         fielddict = {}
-        for field in self.models[mdl]["fields"].keys():
-            if self.models[mdl]["fields"][field]["displayed"] is False:
-                if "handoff" in self.models[mdl]["fields"][field].keys():
-                    fielddict[field] = self.models[mdl]["fields"][field]["handoff"]
+        for field in self.model_instances[mdl]["fields"].keys():
+            if self.model_instances[mdl]["fields"][field]["displayed"] is False:
+                if "handoff" in self.model_instances[mdl]["fields"][field].keys():
+                    fielddict[field] = self.model_instances[mdl]["fields"][field][
+                        "handoff"
+                    ]
                 # Nothing if a handoff is not present
             else:
                 fielddict[field] = field
@@ -242,9 +276,9 @@ class BaseSearchView:
         Gathers and returns all the model key paths that are in a many-to-many relationship
         """
         paths = []
-        for mdl in self.models.keys():
-            if self.models[mdl]["manytomany"]:
-                paths.append(self.models[mdl]["path"])
+        for mdl in self.model_instances.keys():
+            if self.model_instances[mdl]["manytomany"]:
+                paths.append(self.model_instances[mdl]["path"])
         return paths
 
     # Don't send the root qry. Send this: qry["searches"][fmt]["tree"]
@@ -286,6 +320,10 @@ class BaseSearchView:
         """
         if query["type"] == "query":
             recval = self.getValue(rootrec, mm_lookup, query["fld"])
+            if recval is None:
+                raise KeyError(
+                    f"The record lookup dict is missing a many-to-many-related table for key path [{query['fld']}]."
+                )
             return self.valueMatches(recval, query["ncmp"], query["val"])
         else:
             if query["val"] == "all":
@@ -394,8 +432,9 @@ class PeakGroupsSearchView(BaseSearchView):
         "msrun__sample__animal__tracer_compound",
         "msrun__sample__animal__studies",
     ]
-    models = {
+    model_instances = {
         "PeakGroupSet": {
+            "model": "PeakGroupSet",
             "path": "peak_group_set",
             "manytomany": False,
             "fields": {
@@ -415,11 +454,12 @@ class PeakGroupsSearchView(BaseSearchView):
             },
         },
         "CompoundSynonym": {
+            "model": "CompoundSynonym",
             "path": "compounds__synonyms",
             "manytomany": True,
             "fields": {
                 "name": {
-                    "displayname": "Measured Compound",
+                    "displayname": "Measured Compound (Any Synonym)",
                     "searchable": True,
                     "displayed": True,
                     "type": "string",
@@ -427,6 +467,7 @@ class PeakGroupsSearchView(BaseSearchView):
             },
         },
         "PeakGroup": {
+            "model": "PeakGroup",
             "path": "",
             "manytomany": False,
             "fields": {
@@ -469,6 +510,7 @@ class PeakGroupsSearchView(BaseSearchView):
             },
         },
         "Protocol": {
+            "model": "Protocol",
             "path": "msrun__sample__animal__treatment",
             "manytomany": False,
             "fields": {
@@ -488,6 +530,7 @@ class PeakGroupsSearchView(BaseSearchView):
             },
         },
         "Sample": {
+            "model": "Sample",
             "path": "msrun__sample",
             "manytomany": False,
             "fields": {
@@ -507,6 +550,7 @@ class PeakGroupsSearchView(BaseSearchView):
             },
         },
         "Tissue": {
+            "model": "Tissue",
             "path": "msrun__sample__tissue",
             "manytomany": False,
             "fields": {
@@ -526,6 +570,7 @@ class PeakGroupsSearchView(BaseSearchView):
             },
         },
         "Animal": {
+            "model": "Animal",
             "path": "msrun__sample__animal",
             "manytomany": False,
             "fields": {
@@ -600,7 +645,8 @@ class PeakGroupsSearchView(BaseSearchView):
                 },
             },
         },
-        "Compound": {
+        "TracerCompound": {
+            "model": "Compound",
             "path": "msrun__sample__animal__tracer_compound",
             "manytomany": False,
             "fields": {
@@ -612,7 +658,28 @@ class PeakGroupsSearchView(BaseSearchView):
                 },
             },
         },
+        "MeasuredCompound": {
+            "model": "Compound",
+            "path": "compounds",
+            "manytomany": True,
+            "fields": {
+                "id": {
+                    "displayname": "(Internal) Measured Compound Index",
+                    "searchable": True,
+                    "displayed": False,  # Used in link
+                    "handoff": "name",  # This is the field that will be loaded in the search form
+                    "type": "number",
+                },
+                "name": {
+                    "displayname": "Measured Compound (Primary Synonym)",
+                    "searchable": True,
+                    "displayed": True,  # Will display due to the handoff
+                    "type": "string",
+                },
+            },
+        },
         "Study": {
+            "model": "Study",
             "path": "msrun__sample__animal__studies",
             "manytomany": True,
             "fields": {
@@ -649,8 +716,9 @@ class PeakDataSearchView(BaseSearchView):
         "peak_group__msrun__sample__animal__treatment",
         "peak_group__msrun__sample__animal__studies",
     ]
-    models = {
+    model_instances = {
         "PeakData": {
+            "model": "PeakData",
             "path": "",
             "manytomany": False,
             "fields": {
@@ -700,6 +768,7 @@ class PeakDataSearchView(BaseSearchView):
             },
         },
         "PeakGroup": {
+            "model": "PeakGroup",
             "path": "peak_group",
             "manytomany": False,
             "fields": {
@@ -725,6 +794,7 @@ class PeakDataSearchView(BaseSearchView):
             },
         },
         "PeakGroupSet": {
+            "model": "PeakGroupSet",
             "path": "peak_group__peak_group_set",
             "manytomany": False,
             "fields": {
@@ -744,6 +814,7 @@ class PeakDataSearchView(BaseSearchView):
             },
         },
         "Sample": {
+            "model": "Sample",
             "path": "peak_group__msrun__sample",
             "manytomany": False,
             "fields": {
@@ -763,6 +834,7 @@ class PeakDataSearchView(BaseSearchView):
             },
         },
         "Tissue": {
+            "model": "Tissue",
             "path": "peak_group__msrun__sample__tissue",
             "manytomany": False,
             "fields": {
@@ -782,6 +854,7 @@ class PeakDataSearchView(BaseSearchView):
             },
         },
         "Animal": {
+            "model": "Animal",
             "path": "peak_group__msrun__sample__animal",
             "manytomany": False,
             "fields": {
@@ -850,6 +923,7 @@ class PeakDataSearchView(BaseSearchView):
             },
         },
         "Protocol": {
+            "model": "Protocol",
             "path": "peak_group__msrun__sample__animal__treatment",
             "manytomany": False,
             "fields": {
@@ -869,6 +943,7 @@ class PeakDataSearchView(BaseSearchView):
             },
         },
         "Compound": {
+            "model": "Compound",
             "path": "peak_group__msrun__sample__animal__tracer_compound",
             "manytomany": False,
             "fields": {
@@ -881,6 +956,7 @@ class PeakDataSearchView(BaseSearchView):
             },
         },
         "Study": {
+            "model": "Study",
             "path": "peak_group__msrun__sample__animal__studies",
             "manytomany": True,
             "fields": {
@@ -915,8 +991,9 @@ class FluxCircSearchView(BaseSearchView):
         "msrun__sample__animal__treatment",
         "msrun__sample__animal__studies",
     ]
-    models = {
+    model_instances = {
         "PeakGroup": {
+            "model": "PeakGroup",
             "path": "",
             "manytomany": False,
             "fields": {
@@ -971,6 +1048,7 @@ class FluxCircSearchView(BaseSearchView):
             },
         },
         "Animal": {
+            "model": "Animal",
             "path": "msrun__sample__animal",
             "manytomany": False,
             "fields": {
@@ -1046,6 +1124,7 @@ class FluxCircSearchView(BaseSearchView):
             },
         },
         "Protocol": {
+            "model": "Protocol",
             "path": "msrun__sample__animal__treatment",
             "manytomany": False,
             "fields": {
@@ -1065,6 +1144,7 @@ class FluxCircSearchView(BaseSearchView):
             },
         },
         "Sample": {
+            "model": "Sample",
             "path": "msrun__sample",
             "manytomany": False,
             "fields": {
@@ -1077,6 +1157,7 @@ class FluxCircSearchView(BaseSearchView):
             },
         },
         "Compound": {
+            "model": "Compound",
             "path": "msrun__sample__animal__tracer_compound",
             "manytomany": False,
             "fields": {
@@ -1096,6 +1177,7 @@ class FluxCircSearchView(BaseSearchView):
             },
         },
         "Study": {
+            "model": "Study",
             "path": "msrun__sample__animal__studies",
             "manytomany": True,
             "fields": {
@@ -1334,11 +1416,17 @@ class BaseAdvancedSearchView:
         """
         return self.modeldata[self.default_format].getAllComparisonChoices()
 
-    def getModels(self, format):
+    def getModelInstances(self, format):
         """
-        Calls getModels of the supplied ID of the search output format class.
+        Calls getModelInstances of the supplied ID of the search output format class.
         """
-        return self.modeldata[format].getModels()
+        return self.modeldata[format].getModelInstances()
+
+    def getModelInstance(self, format, mdl):
+        """
+        Calls getModelInstance of the supplied ID of the search output format class.
+        """
+        return self.modeldata[format].getModelInstance(mdl)
 
     def getFormatNames(self):
         """

@@ -531,12 +531,10 @@ def createNewBasicQuery(basv_metadata, mdl, fld, cmp, val, fmt):
 
     qry = basv_metadata.getRootGroup(fmt)
 
-    models = basv_metadata.getModels(fmt)
-
-    if mdl not in models:
-        raise Http404(
-            "Invalid model [" + mdl + "].  Must be one of [" + ",".join(models) + "]."
-        )
+    try:
+        mdl = basv_metadata.getModelInstance(fmt, mdl)
+    except KeyError as ke:
+        raise Http404(ke)
 
     sfields = basv_metadata.getSearchFields(fmt, mdl)
 

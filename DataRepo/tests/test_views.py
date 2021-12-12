@@ -779,7 +779,8 @@ class ViewTests(TestCase):
             ("msrun__sample__animal__feeding_status", "Feeding Status"),
             ("formula", "Formula"),
             ("msrun__sample__animal__genotype", "Genotype"),
-            ("compounds__synonyms__name", "Measured Compound"),
+            ("compounds__synonyms__name", "Measured Compound (Any Synonym)"),
+            ("compounds__name", "Measured Compound (Primary Synonym)"),
             ("name", "Peak Group"),
             ("peak_group_set__filename", "Peak Group Set Filename"),
             ("msrun__sample__name", "Sample"),
@@ -828,13 +829,13 @@ class ViewTests(TestCase):
         ]
         self.assertEqual(res, pfl)
 
-    def test_cv_getModels(self):
+    def test_cv_getModelInstances(self):
         """
-        Test getModels
+        Test getModelInstances
         """
         basv_metadata = BaseAdvancedSearchView()
         fmt = "pgtemplate"
-        res = basv_metadata.getModels(fmt)
+        res = basv_metadata.getModelInstances(fmt)
         ml = [
             "PeakGroupSet",
             "CompoundSynonym",
@@ -843,7 +844,8 @@ class ViewTests(TestCase):
             "Sample",
             "Tissue",
             "Animal",
-            "Compound",
+            "TracerCompound",
+            "MeasuredCompound",
             "Study",
         ]
         self.assertEqual(res, ml)
