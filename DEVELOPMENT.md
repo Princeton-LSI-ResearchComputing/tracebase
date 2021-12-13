@@ -81,7 +81,7 @@ Note that currently, a composite view class can only contain each model once, or
       - Else (if the model does not exist in the models datamember)
          - Copy one of the existing models, paste, and edit.
          - Always include the primary key as a searchable field.
-         - Add the path to the prefectes array if it is not contained in an existing path in the array already.
+         - Add the path to the prefetches array if it is not contained in an existing path in the array already.
          - See field editing notes below.
       - Field editing notes:
          - Note that all this class does is add the field to the fld field in the search form.  It does not affect the template.
