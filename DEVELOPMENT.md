@@ -108,4 +108,4 @@ Note that currently, a composite view class can only contain each model once, or
    - General guidelines:
       - Field values should not be manipulated/modified (e.g. do not truncate decimal places) except to match the format supplied by researchers in the loading files (when the stored version in the database differs, e.g. Sample.time_collected or Animal.age, which are saved as time-deltas)
       - None values should be ensured to display as "None" so they can be differentiated from empty string
-      - Headers should show units in parenthases if a value has units
+      - Headers should show units in parentheses if a value has units
