@@ -183,7 +183,7 @@ class BaseSearchView:
                 return instances[0]
             elif len(instances) > 1:
                 raise KeyError(
-                    "Ambigous model instance ["
+                    "Ambiguous model instance ["
                     + mdl
                     + "].  Must specify one of ["
                     + ",".join(instances)
