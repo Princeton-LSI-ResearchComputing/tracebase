@@ -69,5 +69,3 @@ This document will serve to guide developers on implementing new code.
 Changing a format's content should be indicated by a version number specific to that format, added as a header to the format file.  Note that a header will be automatically added to the downloaded .tsv file that contains a timestamp, user info, and the search query.
 
 Be careful that the .tsv file has actual tab characters and note that every newline character in the template will end up in every downloaded file, which is why the lines are so long.
-
-The header line of the .tsv file should be commented.
