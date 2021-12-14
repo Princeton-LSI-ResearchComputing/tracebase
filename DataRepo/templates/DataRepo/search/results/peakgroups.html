@@ -76,6 +76,9 @@
                     {% addToDict keeping "keep" False %}
 
                     {% for cs in pg.compounds.all %}
+
+                        {% addToDict mm_lookup "compounds" cs %}
+
                         {% for ss in cs.synonyms.all %}
 
                             {% addToDict mm_lookup "compounds__synonyms" ss %}
