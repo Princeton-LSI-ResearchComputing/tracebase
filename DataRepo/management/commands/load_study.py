@@ -83,10 +83,14 @@ class Command(BaseCommand):
                 )
             else:
                 headers_file = None
+            skip_researcher_check = study_params["animals_samples_treatments"].get(
+                "skip_researcher_check", False
+            )
             call_command(
                 "load_animals_and_samples",
                 animal_and_sample_table_filename=animals_samples_table_file,
                 table_headers=headers_file,
+                skip_researcher_check=skip_researcher_check,
             )
 
         if "accucor_data" in study_params:

@@ -14,8 +14,13 @@ properties:
       headers:
         type: string
         description: filename of yaml file defining headers for Excel worksheets
+      skip_researcher_check:
+        type: boolean
+        default: false
+        description: do not check that all reseachers already exist
     required:
       - table
+    additionalProperties: false
   accucor_data:
     type: object
     properties:
@@ -45,29 +50,31 @@ properties:
                 type: string
           required:
             - name
-    msrun_protocol:
-      type: string
-      description: name of ms run protocol
-    date:
-      type: string
-      description: date of ms run
-    researcher:
-      type: string
-      description: name of resercher who performed ms run
-    new_researcher:
-      type: boolean
-      default: False
-      description: flag to indiciate the researcher should be added
-    skip_samples:
-      type: array
-      description: list of sample names to skip when loading
-      items:
+          additionalProperties: false
+      msrun_protocol:
         type: string
-    sample_name_prefix:
-      type: string
-      description: prefix to append to sample names prior to searching
+        description: name of ms run protocol
+      date:
+        type: string
+        description: date of ms run
+      researcher:
+        type: string
+        description: name of resercher who performed ms run
+      new_researcher:
+        type: boolean
+        default: False
+        description: flag to indiciate the researcher should be added
+      skip_samples:
+        type: array
+        description: list of sample names to skip when loading
+        items:
+          type: string
+      sample_name_prefix:
+        type: string
+        description: prefix to append to sample names prior to searching
     required:
       - accucor_files
       - msrun_protocol
       - date
       - researcher
+    additionalProperties: false
