@@ -37,7 +37,7 @@ class ViewTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         call_command("loaddata", "tissues.yaml")
-        cls.ALL_TISSUES_COUNT = 35
+        cls.ALL_TISSUES_COUNT = 36
 
         call_command(
             "load_compounds",
