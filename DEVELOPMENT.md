@@ -33,7 +33,7 @@ This document will serve to guide developers on implementing new code.
       - If a field's path includes a many-to-many relationship, e.g. `models.ManyToManyField`
          - A nested `for` loop will be necessary in the template, e.g. `{% for study in pg.msrun.sample.animal.studies.all %}`.
          - Each nested loop must maintain a `keeping` dict and conditionally include a row based on the value of `keeping.keep`.
-         - The record count at the top is updated by javascript using a hidden div element (with the ID `realcount`) at the bottom of the table to accurately reflect the the number of rows in the table.
+         - The record count at the top is updated by JavaScript using a hidden div element (with the ID `realcount`) at the bottom of the table to accurately reflect the the number of rows in the table.
          - The record from the inner loop must be added to the `mm_lookup` dict using addToDict, e.g. `{% addToDict mm_lookup "peak_group__msrun__sample__animal__studies" study %}`.  The key must be the model's path from compositeviews for the M:M model .  A call to the `shouldKeepManyToMany` tag should be made at the inner-most loop after all M:M relationships have been recorded in `mm_lookup`.
       - If there are no M:M relationships, the nested `for` loop in the copied template may be removed.
       - Use column headers that match the field's displayname set in step 1 so that they match the field select list.  (A reference to this value may be supplied in the future.)
