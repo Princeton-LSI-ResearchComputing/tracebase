@@ -172,30 +172,26 @@ class BaseSearchView:
         return list(self.model_instances.keys())
 
     def getModelInstance(self, mdl):
-        mis = self.getModelInstances()
-        if mdl not in mis:
+        """
+        Given a string that is either a model instance name or a model name, return the corresponding model instance
+        name or report an error if it is ambiguous or not found.
+        """
+        mdl_instance_names = self.getModelInstances()
+        if mdl not in mdl_instance_names:
             # Look through the actual model names (instead of the instance names) to see if there's a unique match.
-            instances = []
-            for mi in mis:
-                if self.model_instances[mi]["model"] == mdl:
-                    instances.append(mi)
-            if len(instances) == 1:
-                return instances[0]
-            elif len(instances) > 1:
+            inst_names = []
+            for inst_name in mdl_instance_names:
+                if self.model_instances[inst_name]["model"] == mdl:
+                    inst_names.append(inst_name)
+            if len(inst_names) == 1:
+                return inst_names[0]
+            elif len(inst_names) > 1:
                 raise KeyError(
-                    "Ambiguous model instance ["
-                    + mdl
-                    + "].  Must specify one of ["
-                    + ",".join(instances)
-                    + "]."
+                    f"Ambiguous model instance [{mdl}].  Must specify one of [{','.join(inst_names)}]."
                 )
             else:
                 raise KeyError(
-                    "Invalid model instance ["
-                    + mdl
-                    + "].  Must be one of ["
-                    + ",".join(mis)
-                    + "]."
+                    f"Invalid model instance [{mdl}].  Must be one of [{','.join(mdl_instance_names)}]."
                 )
         return mdl
 

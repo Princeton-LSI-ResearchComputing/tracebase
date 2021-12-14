@@ -10,15 +10,16 @@ This document will serve to guide developers on implementing new code.
    - Copy and rename PeakGroupsSearchView and make the following edits
       - Set a new ID and name.
       - Set a root model
-      - Determine the root queryset.  If it's not all records of the root model (e.g. PeakData.objects.all()), and a filter is required, add a method to the class called getRootQuerySet() that overrides the base class version, and returns the filtered queryset.  See FluxCircSearchView for an example.
+      - Determine the root queryset.  If you don't want the browse functionality to return all records of the root model (e.g. PeakData.objects.all()) (i.e. a filter is required), add a method to the class called getRootQuerySet() that overrides the base class version, and returns the filtered queryset.  See FluxCircSearchView for an example.
          - Note that if you want your pre-filter to be transparent to the user, you can alternatively override the base class's value for `static_filter`.  Any searches you set there, as the value of the `tree` member of the qry object (see the static_filter commented example), will show in the hierarchical search form, but will not be editable to the user.
-      - Fill in all the prefetch paths from (but not including) the root model to every model leaf.  The path strings are the foreign key field names in the parent model.
-      - Fill in the models data: every model, it's path (from the prefetches, the root model will be an empty string), and all its fields.
+      - Fill in all the prefetch paths from (but not including) the root model to every model_instance leaf.  The path strings are the foreign key field names in the parent model.
+      - Fill in the model_instances data: every model, it's path (from the prefetches, the root model will be an empty string), and all its fields.
+         - Note that the model_instances key can be the model name, but if you need 2 instances of the the same model in the composite view (e.g. "Tracer Compound" linked from Animal and "Measured Compund" linked from PeakGroup, a different instance name must be used.  It may contain no spaces, and is what would be used to create a link for the model from `search_basic` to the advanced search.
          - Cached properties should not be searchable.
          - AutoFields (like IDs) should not be displayed (because they can change depending on how the data is loaded from scratch, thus, they should be obfuscated from the user).
          - If `displayed` is False, set a `handoff` key whose value is a unique field (e.g. `name`).  See any `id` field in the copied class's models data.
    - If not already there, add the root model to the DataRepo.models import at the top of the file.
-   - Set each model's many-to-many value based on whether it is in a many-to-many relatioship with the root model.
+   - Set each model's many-to-many value based on whether it is in a many-to-many relatioship with the root model.  Any many-to-many relationship on the key path necessitates a many-to-many status for that model instance.
    - Add the new class to the for loop in BaseAdvancedSearchView.__init__
 
 2. `DataRepo/forms.py`
@@ -30,8 +31,11 @@ This document will serve to guide developers on implementing new code.
 3. `DataRepo/templates/results/<format name>.html`
    - Copy `DataRepo/templates/results/peakgroups.html` to a new file with a name that indicates the format and edit as you wish, following these guidelines:
       - If a field's path includes a many-to-many relationship, e.g. `models.ManyToManyField`
-         - A nested `for` loop will be necessary in the template, e.g. `{% for study in pg.msrun.sample.animal.studies.all %}`.  If there are no M:M relationships, the nested `for` loop in the copied template may be removed.
-         - The record from the inner loop must be added to the `mm_lookup` dict using addToDict, e.g. `{% addToDict mm_lookup "peak_group__msrun__sample__animal__studies" study %}`.  Here, a "study" record object is added.  The key must be the model's path from compositeviews for the M:M model (e.g. the Study model).
+         - A nested `for` loop will be necessary in the template, e.g. `{% for study in pg.msrun.sample.animal.studies.all %}`.
+         - Each nested loop must maintain a `keeping` dict and conditionally include a row based on the value of `keeping.keep`.
+         - The record count at the top is updated by javascript using a hidden div element (with the ID `realcount`) at the bottom of the table to accurately reflect the the number of rows in the table.
+         - The record from the inner loop must be added to the `mm_lookup` dict using addToDict, e.g. `{% addToDict mm_lookup "peak_group__msrun__sample__animal__studies" study %}`.  The key must be the model's path from compositeviews for the M:M model .  A call to the `shouldKeepManyToMany` tag should be made at the inner-most loop after all M:M relationships have been recorded in `mm_lookup`.
+      - If there are no M:M relationships, the nested `for` loop in the copied template may be removed.
       - Use column headers that match the field's displayname set in step 1 so that they match the field select list.  (A reference to this value may be supplied in the future.)
       - Numeric values should use `<td class="text-end">`
       - Numeric values that have long decimal strings should be formatted with a tooltip like this: `<p title="{{ rec.longval }}">{{ rec.longval|floatformat:4 }}</p>`
@@ -40,8 +44,10 @@ This document will serve to guide developers on implementing new code.
 4. `DataRepo/templates/downloads/<format name>.tsv`
    - Copy `DataRepo/templates/downloads/peakgroups.tsv` to a new file with a name that indicates the format (e.g., same name as in step 3 with a different extension) and edit as you wish, following these guidelines:
       - If a field's path includes a many-to-many relationship, e.g. `models.ManyToManyField`
-         - A nested `for` loop will be necessary in the template, e.g. `{% for study in pg.msrun.sample.animal.studies.all %}`.  If there are no M:M relationships, the nested `for` loop in the copied template may be removed.
-         - The record from the inner loop must be added to the `mm_lookup` dict using addToDict, e.g. `{% addToDict mm_lookup "peak_group__msrun__sample__animal__studies" study %}`.  Here, a "study" record object is added.  The key must be the model's path from compositeviews for the M:M model (e.g. the Study model).
+         - A nested `for` loop will be necessary in the template, e.g. `{% for study in pg.msrun.sample.animal.studies.all %}`.
+         - Each nested loop must maintain a `keeping` dict and conditionally include a row based on the value of `keeping.keep`.
+         - The record from the inner loop must be added to the `mm_lookup` dict using addToDict, e.g. `{% addToDict mm_lookup "peak_group__msrun__sample__animal__studies" study %}`.  The key must be the model's path from compositeviews for the M:M model.  A call to the `shouldKeepManyToMany` tag should be made at the inner-most loop after all M:M relationships have been recorded in `mm_lookup`.
+      - If there are no M:M relationships, the nested `for` loop in the copied template may be removed.
       - Use column headers that match the field's displayname set in step 1 so that they match the field select list.  (A reference to this value may be supplied in the future.)
 
 5. `DataRepo/templates/DataRepo/search/results/display.html`
