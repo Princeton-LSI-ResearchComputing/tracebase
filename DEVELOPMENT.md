@@ -69,3 +69,41 @@ This document will serve to guide developers on implementing new code.
 Changing a format's content should be indicated by a version number specific to that format, added as a header to the format file.  Note that a header will be automatically added to the downloaded .tsv file that contains a timestamp, user info, and the search query.
 
 Be careful that the .tsv file has actual tab characters and note that every newline character in the template will end up in every downloaded file, which is why the lines are so long.
+
+## How to add/remove columns to an advanced search output format
+
+1. `DataRepo/compositeviews.py`
+   - Locate the derived class of BaseSearchView for the output format to which you want to add columns and...
+      - If the model exists in the models datamember
+         - Copy one of the existing fields, paste, and edit.  See field editing notes below.
+      - Else (if the model does not exist in the models datamember)
+         - Copy one of the existing models, paste, and edit.
+         - Always include the primary key as a searchable field.
+         - Add the path to the prefetches array if it is not contained in an existing path in the array already.
+         - See field editing notes below.
+      - Field editing notes:
+         - Note that all this class does is add the field to the fld field in the search form.  It does not affect the template.
+         - "searchable" should only be False if it is a cached property.  Every visible column should otherwise be searchable.
+         - Use the same display name as is used in the column header.
+         - If a field is not "displayed"...
+            - it will not appear to the user in the fld select list.
+            - When it also *is* searchable, it means that we use this field to link to the advanced search using a primary key or otherwise obfuscated field value (like auto-generated IDs that may not persist between DB rebuilds).
+            - A "handoff" field that specifies how the search form will be pre-filled out must be added.  The handoff field must be unique (or uniquely correspond to the field that is used in the link).
+
+2. `DataRepo/templates/results/<format name>.html`
+   - Each template is different, but generally, unless the model doesn't already exist in the template, just add a column to the HTML table.
+   - If a model doesn't already exist in the template and is related to the root model, a nested loop must be added.  All current models have at least 1 such model (e.g. Study).  Follow its example.
+   - General guidelines:
+      - Number fields should be right-aligned
+      - Name fields should be linked to the model's detail page
+      - Long decimal values should be shortened/truncated
+      - None values should be ensured to display as "None" so they can be differentiated from empty string
+      - Manipulated values (like truncated decimal values) should have a tooltip that shows the full value
+      - Headers should show units in parenthases if a value has units
+
+3. `DataRepo/templates/downloads/<format name>.tsv`
+   - Each template is different, but generally, unless the model doesn't already exist in the template, just add a column to the tab-delimited table.
+   - General guidelines:
+      - Field values should not be manipulated/modified (e.g. do not truncate decimal places) except to match the format supplied by researchers in the loading files (when the stored version in the database differs, e.g. Sample.time_collected or Animal.age, which are saved as time-deltas)
+      - None values should be ensured to display as "None" so they can be differentiated from empty string
+      - Headers should show units in parentheses if a value has units

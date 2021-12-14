@@ -193,7 +193,7 @@
                             </td>
 
                             <!-- Body Weight (g) -->
-                            <td>
+                            <td class="text-end">
                                 {{ pg.msrun.sample.animal.body_weight }}
                             </td>
 
@@ -222,7 +222,12 @@
                                 {% if pg.msrun.sample.animal.treatment is None %}
                                     None
                                 {% else %}
-                                    {{ pg.msrun.sample.animal.treatment.name }}
+                                    <!-- Put displayed link text first for sorting -->
+                                    <div style="display:none;">{{ pg.msrun.sample.animal.treatment.name }}</div>
+
+                                    <a href="{% url 'protocol_detail' pg.msrun.sample.animal.treatment.id %}">
+                                        {{ pg.msrun.sample.animal.treatment.name }}
+                                    </a>
                                 {% endif %}
                             </td>
 
