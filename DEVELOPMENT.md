@@ -72,8 +72,6 @@ Be careful that the .tsv file has actual tab characters and note that every newl
 
 ## How to add/remove columns to an advanced search output format
 
-Note that currently, a composite view class can only contain each model once, or rather, only one link into the same table is supported.
-
 1. `DataRepo/compositeviews.py`
    - Locate the derived class of BaseSearchView for the output format to which you want to add columns and...
       - If the model exists in the models datamember
