@@ -173,3 +173,8 @@
   fields:
     name: tumor_HCT116
     description: xenograft tumor of HCT116 cells
+- model: DataRepo.tissue
+  pk: 36
+  fields:
+    name: lymph_node
+    description: lymph node
