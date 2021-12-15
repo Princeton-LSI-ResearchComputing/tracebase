@@ -179,7 +179,11 @@
 
                             <!-- Peak Group Set Filename -->
                             <td>
-                                {{ pg.peak_group_set.filename }}
+                                <!-- Put displayed link text first for sorting -->
+                                <div style="display:none;">{{ pg.peak_group_set.filename }}</div>
+                                <a href="{% url 'peakgroupset_detail' pg.peak_group_set.id %}">
+                                    {{ pg.peak_group_set.filename }}
+                                </a>
                             </td>
 
                             <!-- Animal -->

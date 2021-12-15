@@ -787,7 +787,10 @@ class ViewTests(TestCase):
             ("msrun__sample__animal__sex", "Sex"),
             ("msrun__sample__animal__studies__name", "Study"),
             ("msrun__sample__tissue__name", "Tissue"),
-            ("msrun__sample__animal__tracer_compound__name", "Tracer Compound"),
+            (
+                "msrun__sample__animal__tracer_compound__name",
+                "Tracer Compound (Primary Synonym)",
+            ),
             (
                 "msrun__sample__animal__tracer_infusion_concentration",
                 "Tracer Infusion Concentration (mM)",
