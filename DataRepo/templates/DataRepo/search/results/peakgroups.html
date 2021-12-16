@@ -10,6 +10,7 @@
             rec_cnt_elem.innerHTML = real_cnt
         })
     </script>
+    <script src="https://cdn.jsdelivr.net/gh/wenzhixin/bootstrap-table-examples@master/utils/natural-sorting/dist/natural-sorting.js"></script>
 
 {% endblock %}
 {% block content %}
@@ -45,7 +46,7 @@
                 <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-field="Animal">Animal</th>
                 <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-field="Genotype">Genotype</th>
                 <th data-valign="top" data-sortable="true" data-sorter="numericOnly" data-field="Body_Weight">Body<br>Weight<br>(g)</th>
-                <th data-valign="top" data-sortable="true" data-sorter="numericOnly" data-field="Age">Age<br>(weeks)</th>
+                <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-field="Age">Age<br>(weeks)</th>
                 <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-field="Sex">Sex</th>
                 <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-field="Diet">Diet</th>
                 <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-field="Feeding_Status">Feeding<br>Status</th>
@@ -154,17 +155,17 @@
 
                             <!-- Total Abundance -->
                             <td class="text-end">
-                                <p title="{{ pg.total_abundance }}">{{ pg.total_abundance|floatformat:1 }}</p>
+                                <p title="{{ pg.total_abundance|floatformat:10 }}">{{ pg.total_abundance|floatformat:1 }}</p>
                             </td>
 
                             <!-- Enrichment Fraction -->
                             <td class="text-end">
-                                <p title="{{ pg.enrichment_fraction }}">{{ pg.enrichment_fraction|floatformat:4 }}</p>
+                                <p title="{{ pg.enrichment_fraction|floatformat:15 }}">{{ pg.enrichment_fraction|floatformat:4 }}</p>
                             </td>
 
                             <!-- Enrichment Abundance -->
                             <td class="text-end">
-                                <p title="{{ pg.enrichment_abundance }}">{{ pg.enrichment_abundance|floatformat:4 }}</p>
+                                <p title="{{ pg.enrichment_abundance|floatformat:10 }}">{{ pg.enrichment_abundance|floatformat:4 }}</p>
                             </td>
 
                             <!-- Normalized Labeling -->
@@ -172,7 +173,7 @@
                                 {% if pg.normalized_labeling is None %}
                                     <p title="Associated serum sample not found.">None</p>
                                 {% else %}
-                                    <p title="{{ pg.normalized_labeling }}">{{ pg.normalized_labeling|floatformat:4 }}</p>
+                                    <p title="{{ pg.normalized_labeling|floatformat:15 }}">{{ pg.normalized_labeling|floatformat:4 }}</p>
                                 {% endif %}
                             </td>
 

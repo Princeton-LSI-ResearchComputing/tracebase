@@ -10,6 +10,7 @@
             rec_cnt_elem.innerHTML = rec_cnt
         })
     </script>
+    <script src="https://cdn.jsdelivr.net/gh/wenzhixin/bootstrap-table-examples@master/utils/natural-sorting/dist/natural-sorting.js"></script>
 
 {% endblock %}
 {% block content %}
@@ -45,7 +46,7 @@
                 <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-field="Animal">Animal</th>
                 <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-field="Genotype">Genotype</th>
                 <th data-valign="top" data-sortable="true" data-sorter="numericOnly" data-field="Body_Weight">Body<br>Weight<br>(g)</th>
-                <th data-valign="top" data-sortable="true" data-sorter="numericOnly" data-field="Age">Age<br>(weeks)</th>
+                <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-field="Age">Age<br>(weeks)</th>
                 <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-field="Sex">Sex</th>
                 <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-field="Diet">Diet</th>
                 <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-field="Feeding_Status">Feeding<br>Status</th>
@@ -115,27 +116,27 @@
 
                             <!-- Raw Abundance -->
                             <td class="text-end">
-                                <p title="{{ pd.raw_abundance }}">{{ pd.raw_abundance|floatformat:1 }}</p>
+                                <p title="{{ pd.raw_abundance|floatformat:10 }}">{{ pd.raw_abundance|floatformat:1 }}</p>
                             </td>
 
                             <!-- Corrected Abundance -->
                             <td class="text-end">
-                                <p title="{{ pd.corrected_abundance }}">{{ pd.corrected_abundance|floatformat:1 }}</p>
+                                <p title="{{ pd.corrected_abundance|floatformat:10 }}">{{ pd.corrected_abundance|floatformat:1 }}</p>
                             </td>
 
                             <!-- Fraction -->
                             <td class="text-end">
-                                <p title="{{ pd.fraction }}">{{ pd.fraction|floatformat:4 }}</p>
+                                <p title="{{ pd.fraction|floatformat:15 }}">{{ pd.fraction|floatformat:4 }}</p>
                             </td>
 
                             <!-- Median M/Z -->
                             <td class="text-end">
-                                <p title="{{ pd.med_mz }}">{{ pd.med_mz|floatformat:1 }}</p>
+                                <p title="{{ pd.med_mz|floatformat:10 }}">{{ pd.med_mz|floatformat:1 }}</p>
                             </td>
 
                             <!-- Median RT -->
                             <td class="text-end">
-                                <p title="{{ pd.med_rt }}">{{ pd.med_rt|floatformat:1 }}</p>
+                                <p title="{{ pd.med_rt|floatformat:10 }}">{{ pd.med_rt|floatformat:1 }}</p>
                             </td>
 
                             <!-- Peak Group Set Filename -->
