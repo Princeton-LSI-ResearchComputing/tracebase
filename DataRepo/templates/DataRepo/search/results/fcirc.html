@@ -1,5 +1,6 @@
 {% load customtags %}
 {% block head_extras %}
+    <script src="https://cdn.jsdelivr.net/gh/wenzhixin/bootstrap-table-examples@master/utils/natural-sorting/dist/natural-sorting.js"></script>
     <script>
         // Inspired by: https://stackoverflow.com/questions/12455699/show-hide-table-column-with-colspan-using-jquery
 
@@ -290,28 +291,28 @@
                 <th colspan="2" data-valign="top" data-sortable="false" data-switchable="true" data-field="Mouse_Normalized2" class="intact nonorm">Mouse<br>Normalized<br>(nM/m)</th>
             </tr>
             <tr>
-                <th data-valign="top" data-sortable="true" data-visible="true" data-field="Animal">Animal</th>
-                <th data-valign="top" data-sortable="true" data-visible="true" data-field="Studies">Studies</th>
-                <th data-valign="top" data-sortable="true" data-visible="true" data-field="Genotype">Genotype</th>
-                <th data-valign="top" data-sortable="true" data-visible="false" data-field="Body_Weight">Body<br>Weight<br>(g)</th>
-                <th data-valign="top" data-sortable="true" data-visible="false" data-field="Age">Age<br>(weeks)</th>
-                <th data-valign="top" data-sortable="true" data-visible="false" data-field="Sex">Sex</th>
-                <th data-valign="top" data-sortable="true" data-visible="false" data-field="Diet">Diet</th>
-                <th data-valign="top" data-sortable="true" data-visible="true" data-field="Feeding_Status">Feeding<br>Status</th>
-                <th data-valign="top" data-sortable="true" data-visible="true" data-field="Treatment">Treatment</th>
-                <th data-valign="top" data-sortable="true" data-visible="true" data-field="Tracer_Compound">Tracer<br>Compound</th>
-                <th data-valign="top" data-sortable="true" data-visible="false" data-field="Labeled_Element">Labeled<br>Element</th>
-                <th data-valign="top" data-sortable="true" data-visible="true" data-field="Tracer_Infusion_Rate">Tracer<br>Infusion<br>Rate<br>(ul/m/g)</th>
-                <th data-valign="top" data-sortable="true" data-visible="true" data-field="Tracer_Infusion_Concentration">Tracer Infusion<br>Concentration<br>(mM)</th>
-                <th data-valign="top" data-sortable="true" data-visible="true" data-field="Time_Collected">Time<br>Collected<br>(m)</th>
-                <th data-valign="top" data-sortable="true" data-visible="true" data-switchable="false" data-field="Average_Weight_Normalized_Ra" data-title-tooltip="Average_Weight_Normalized_Ra" class="average weight ra">Ra</th>
-                <th data-valign="top" data-sortable="true" data-visible="true" data-switchable="false" data-field="Average_Weight_Normalized_Rd" data-title-tooltip="Average_Weight_Normalized_Rd" class="average weight rd">Rd</th>
-                <th data-valign="top" data-sortable="true" data-visible="true" data-switchable="false" data-field="Average_Mouse_Normalized_Ra" data-title-tooltip="Average_Mouse_Normalized_Ra" class="average nonorm ra">Ra</th>
-                <th data-valign="top" data-sortable="true" data-visible="true" data-switchable="false" data-field="Average_Mouse_Normalized_Rd" data-title-tooltip="Average_Mouse_Normalized_Rd" class="average nonorm rd">Rd</th>
-                <th data-valign="top" data-sortable="true" data-visible="true" data-switchable="false" data-field="Intact_Weight_Normalized_Ra" data-title-tooltip="Intact_Weight_Normalized_Ra" class="intact weight ra">Ra</th>
-                <th data-valign="top" data-sortable="true" data-visible="true" data-switchable="false" data-field="Intact_Weight_Normalized_Rd" data-title-tooltip="Intact_Weight_Normalized_Rd" class="intact weight rd">Rd</th>
-                <th data-valign="top" data-sortable="true" data-visible="true" data-switchable="false" data-field="Intact_Mouse_Normalized_Ra" data-title-tooltip="Intact_Mouse_Normalized_Ra" class="intact nonorm ra">Ra</th>
-                <th data-valign="top" data-sortable="true" data-visible="true" data-switchable="false" data-field="Intact_Mouse_Normalized_Rd" data-title-tooltip="Intact_Mouse_Normalized_Rd" class="intact nonorm rd">Rd</th>
+                <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-visible="true" data-field="Animal">Animal</th>
+                <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-visible="true" data-field="Studies">Studies</th>
+                <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-visible="true" data-field="Genotype">Genotype</th>
+                <th data-valign="top" data-sortable="true" data-sorter="numericOnly" data-visible="false" data-field="Body_Weight">Body<br>Weight<br>(g)</th>
+                <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-visible="false" data-field="Age">Age<br>(weeks)</th>
+                <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-visible="false" data-field="Sex">Sex</th>
+                <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-visible="false" data-field="Diet">Diet</th>
+                <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-visible="true" data-field="Feeding_Status">Feeding<br>Status</th>
+                <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-visible="true" data-field="Treatment">Treatment</th>
+                <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-visible="true" data-field="Tracer_Compound">Tracer<br>Compound</th>
+                <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-visible="false" data-field="Labeled_Element">Labeled<br>Element</th>
+                <th data-valign="top" data-sortable="true" data-sorter="numericOnly" data-visible="true" data-field="Tracer_Infusion_Rate">Tracer<br>Infusion<br>Rate<br>(ul/m/g)</th>
+                <th data-valign="top" data-sortable="true" data-sorter="numericOnly" data-visible="true" data-field="Tracer_Infusion_Concentration">Tracer Infusion<br>Concentration<br>(mM)</th>
+                <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-visible="true" data-field="Time_Collected">Time<br>Collected<br>(m)</th>
+                <th data-valign="top" data-sortable="true" data-sorter="numericOnly" data-visible="true" data-switchable="false" data-field="Average_Weight_Normalized_Ra" data-title-tooltip="Average_Weight_Normalized_Ra" class="average weight ra">Ra</th>
+                <th data-valign="top" data-sortable="true" data-sorter="numericOnly" data-visible="true" data-switchable="false" data-field="Average_Weight_Normalized_Rd" data-title-tooltip="Average_Weight_Normalized_Rd" class="average weight rd">Rd</th>
+                <th data-valign="top" data-sortable="true" data-sorter="numericOnly" data-visible="true" data-switchable="false" data-field="Average_Mouse_Normalized_Ra" data-title-tooltip="Average_Mouse_Normalized_Ra" class="average nonorm ra">Ra</th>
+                <th data-valign="top" data-sortable="true" data-sorter="numericOnly" data-visible="true" data-switchable="false" data-field="Average_Mouse_Normalized_Rd" data-title-tooltip="Average_Mouse_Normalized_Rd" class="average nonorm rd">Rd</th>
+                <th data-valign="top" data-sortable="true" data-sorter="numericOnly" data-visible="true" data-switchable="false" data-field="Intact_Weight_Normalized_Ra" data-title-tooltip="Intact_Weight_Normalized_Ra" class="intact weight ra">Ra</th>
+                <th data-valign="top" data-sortable="true" data-sorter="numericOnly" data-visible="true" data-switchable="false" data-field="Intact_Weight_Normalized_Rd" data-title-tooltip="Intact_Weight_Normalized_Rd" class="intact weight rd">Rd</th>
+                <th data-valign="top" data-sortable="true" data-sorter="numericOnly" data-visible="true" data-switchable="false" data-field="Intact_Mouse_Normalized_Ra" data-title-tooltip="Intact_Mouse_Normalized_Ra" class="intact nonorm ra">Ra</th>
+                <th data-valign="top" data-sortable="true" data-sorter="numericOnly" data-visible="true" data-switchable="false" data-field="Intact_Mouse_Normalized_Rd" data-title-tooltip="Intact_Mouse_Normalized_Rd" class="intact nonorm rd">Rd</th>
             </tr>
         </thead>
 
@@ -428,7 +429,7 @@
                             {% if pg.rate_appearance_average_per_gram is None %}
                                 None
                             {% else %}
-                                <p title="{{ pg.rate_appearance_average_per_gram }}">{{ pg.rate_appearance_average_per_gram|floatformat:2 }}</p>
+                                <p title="{{ pg.rate_appearance_average_per_gram|floatformat:10 }}">{{ pg.rate_appearance_average_per_gram|floatformat:2 }}</p>
                             {% endif %}
                         </td>
 
@@ -437,7 +438,7 @@
                             {% if pg.rate_disappearance_average_per_gram is None %}
                                 None
                             {% else %}
-                                <p title="{{ pg.rate_disappearance_average_per_gram }}">{{ pg.rate_disappearance_average_per_gram|floatformat:2 }}</p>
+                                <p title="{{ pg.rate_disappearance_average_per_gram|floatformat:10 }}">{{ pg.rate_disappearance_average_per_gram|floatformat:2 }}</p>
                             {% endif %}
                         </td>
 
@@ -446,7 +447,7 @@
                             {% if pg.rate_appearance_average_per_animal is None %}
                                 None
                             {% else %}
-                                <p title="{{ pg.rate_appearance_average_per_animal }}">{{ pg.rate_appearance_average_per_animal|floatformat:2 }}</p>
+                                <p title="{{ pg.rate_appearance_average_per_animal|floatformat:10 }}">{{ pg.rate_appearance_average_per_animal|floatformat:2 }}</p>
                             {% endif %}
                         </td>
 
@@ -455,7 +456,7 @@
                             {% if pg.rate_disappearance_average_per_animal is None %}
                                 None
                             {% else %}
-                                <p title="{{ pg.rate_disappearance_average_per_animal }}">{{ pg.rate_disappearance_average_per_animal|floatformat:2 }}</p>
+                                <p title="{{ pg.rate_disappearance_average_per_animal|floatformat:10 }}">{{ pg.rate_disappearance_average_per_animal|floatformat:2 }}</p>
                             {% endif %}
                         </td>
 
@@ -464,7 +465,7 @@
                             {% if pg.rate_appearance_intact_per_gram is None %}
                                 None
                             {% else %}
-                                <p title="{{ pg.rate_appearance_intact_per_gram }}">{{ pg.rate_appearance_intact_per_gram|floatformat:2 }}</p>
+                                <p title="{{ pg.rate_appearance_intact_per_gram|floatformat:10 }}">{{ pg.rate_appearance_intact_per_gram|floatformat:2 }}</p>
                             {% endif %}
                         </td>
 
@@ -473,7 +474,7 @@
                             {% if pg.rate_disappearance_intact_per_gram is None %}
                                 None
                             {% else %}
-                                <p title="{{ pg.rate_disappearance_intact_per_gram }}">{{ pg.rate_disappearance_intact_per_gram|floatformat:2 }}</p>
+                                <p title="{{ pg.rate_disappearance_intact_per_gram|floatformat:10 }}">{{ pg.rate_disappearance_intact_per_gram|floatformat:2 }}</p>
                             {% endif %}
                         </td>
 
@@ -482,7 +483,7 @@
                             {% if pg.rate_appearance_intact_per_animal is None %}
                                 None
                             {% else %}
-                                <p title="{{ pg.rate_appearance_intact_per_animal }}">{{ pg.rate_appearance_intact_per_animal|floatformat:2 }}</p>
+                                <p title="{{ pg.rate_appearance_intact_per_animal|floatformat:10 }}">{{ pg.rate_appearance_intact_per_animal|floatformat:2 }}</p>
                             {% endif %}
                         </td>
 
@@ -491,7 +492,7 @@
                             {% if pg.rate_disappearance_intact_per_animal is None %}
                                 None
                             {% else %}
-                                <p title="{{ pg.rate_disappearance_intact_per_animal }}">{{ pg.rate_disappearance_intact_per_animal|floatformat:2 }}</p>
+                                <p title="{{ pg.rate_disappearance_intact_per_animal|floatformat:10 }}">{{ pg.rate_disappearance_intact_per_animal|floatformat:2 }}</p>
                             {% endif %}
                         </td>
                     </tr>
