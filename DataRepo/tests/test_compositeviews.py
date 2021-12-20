@@ -70,8 +70,13 @@ class CompositeViewTests(TestCase):
     def test_getMMKeyPaths(self):
         basv = BaseAdvancedSearchView()
         result = basv.getMMKeyPaths("pdtemplate")
-        self.assertTrue(len(result) == 1)
-        self.assertTrue(result[0] == "peak_group__msrun__sample__animal__studies")
+        self.assertListEqual(
+            result,
+            [
+                "peak_group__compounds__synonyms",
+                "peak_group__msrun__sample__animal__studies",
+            ],
+        )
 
     def test_shouldReFilter_true(self):
         """

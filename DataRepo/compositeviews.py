@@ -646,8 +646,15 @@ class PeakGroupsSearchView(BaseSearchView):
             "path": "msrun__sample__animal__tracer_compound",
             "manytomany": False,
             "fields": {
+                "id": {
+                    "displayname": "(Internal) Tracer Compound Index",
+                    "searchable": True,
+                    "displayed": False,  # Used in link
+                    "handoff": "name",  # This is the field that will be loaded in the search form
+                    "type": "number",
+                },
                 "name": {
-                    "displayname": "Tracer Compound",
+                    "displayname": "Tracer Compound (Primary Synonym)",
                     "searchable": True,
                     "displayed": True,
                     "type": "string",
@@ -706,6 +713,7 @@ class PeakDataSearchView(BaseSearchView):
     name = "PeakData"
     rootmodel = PeakData
     prefetches = [
+        "peak_group__compounds__synonyms",
         "peak_group__peak_group_set",
         "peak_group__msrun__sample__tissue",
         "peak_group__msrun__sample__animal__tracer_compound",
@@ -783,6 +791,39 @@ class PeakDataSearchView(BaseSearchView):
                 },
                 "formula": {
                     "displayname": "Formula",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "string",
+                },
+            },
+        },
+        "MeasuredCompound": {
+            "model": "Compound",
+            "path": "peak_group__compounds",
+            "manytomany": False,
+            "fields": {
+                "id": {
+                    "displayname": "(Internal) Measured Compound Index",
+                    "searchable": True,
+                    "displayed": False,  # Used in link
+                    "handoff": "name",  # This is the field that will be loaded in the search form
+                    "type": "number",
+                },
+                "name": {
+                    "displayname": "Measured Compound (Primary Synonym)",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "string",
+                },
+            },
+        },
+        "CompoundSynonym": {
+            "model": "CompoundSynonym",
+            "path": "peak_group__compounds__synonyms",
+            "manytomany": True,
+            "fields": {
+                "name": {
+                    "displayname": "Measured Compound (Any Synonym)",
                     "searchable": True,
                     "displayed": True,
                     "type": "string",
@@ -938,13 +979,20 @@ class PeakDataSearchView(BaseSearchView):
                 },
             },
         },
-        "Compound": {
+        "TracerCompound": {
             "model": "Compound",
             "path": "peak_group__msrun__sample__animal__tracer_compound",
             "manytomany": False,
             "fields": {
+                "id": {
+                    "displayname": "(Internal) Tracer Compound Index",
+                    "searchable": True,
+                    "displayed": False,  # Used in link
+                    "handoff": "name",  # This is the field that will be loaded in the search form
+                    "type": "number",
+                },
                 "name": {
-                    "displayname": "Tracer Compound",
+                    "displayname": "Tracer Compound (Primary Synonym)",
                     "searchable": True,
                     "displayed": True,
                     "type": "string",

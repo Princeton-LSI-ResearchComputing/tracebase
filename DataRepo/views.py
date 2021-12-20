@@ -176,6 +176,9 @@ class CompoundDetailView(DetailView):
         # convert DataFrame to a list of dictionary
         tracer_data = qs2df.df_to_list_of_dict(per_tracer_anim_list_stats_df)
         context["tracer_df"] = tracer_data
+        context["measured"] = (
+            PeakGroup.objects.filter(compounds__id__exact=pk).count() > 0
+        )
         return context
 
 
