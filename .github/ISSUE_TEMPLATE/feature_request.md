@@ -12,8 +12,9 @@ assignees: ''
 
 ### Feature Inspiration
 
-A brief description of *why* a new feature is needed, which may be related to an
-existing deficiency or shortcoming, but is not a work-around or bug.
+A brief description of *what prompted/inspired* the feature request.  (This
+should not describe the feature, but rather what demonstrates the *need* for the
+feature.)
 
 ### Feature Description
 
