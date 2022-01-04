@@ -364,7 +364,6 @@ class Animal(models.Model, TracerLabeledClass):
     tracer_labeled_atom = models.CharField(
         max_length=1,
         choices=TracerLabeledClass.TRACER_LABELED_ELEMENT_CHOICES,
-        default=TracerLabeledClass.CARBON,
         help_text="The type of atom that is labeled in the tracer compound "
         '(e.g. "C", "H", "O").',
     )
