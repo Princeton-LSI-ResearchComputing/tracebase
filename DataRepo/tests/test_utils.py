@@ -2,12 +2,13 @@ import json
 
 import pandas as pd
 from django.core.management import call_command
-from django.test import TestCase
+from django.test import TestCase, tag
 from django.utils import dateparse
 
 from DataRepo.utils import QuerysetToPandasDataFrame as qs2df
 
 
+@tag("dataframe")
 class QuerysetToPandasDataFrameTests(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -114,8 +115,8 @@ class QuerysetToPandasDataFrameTests(TestCase):
 
     def get_example_sample2_dict(self):
         example_sample2_dict = {
-            "animal": "t1-no-tracer-age",
-            "sample": "Br-t1-no-tracer-age",
+            "animal": "t1-with-age",
+            "sample": "Br-t1-with-age",
             "sample_owner": "Matthew McBride",
             "treatment": "Control diet",
         }
@@ -127,7 +128,7 @@ class QuerysetToPandasDataFrameTests(TestCase):
             "formula": "C6H14N2O2",
             "hmdb_id": "HMDB0000182",
             "tracer": "lysine",
-            "total_animal_by_tracer": 1,
+            "total_animal_by_tracer": 2,
         }
         return example_compound_dict
 
@@ -193,7 +194,7 @@ class QuerysetToPandasDataFrameTests(TestCase):
         self.assertEqual(any(sam1_studies), any(example_studies))
 
         # sample2 test
-        sam2_msrun_df = anim_msrun_df[anim_msrun_df["sample"] == "Br-t1-no-tracer-age"]
+        sam2_msrun_df = anim_msrun_df[anim_msrun_df["sample"] == "Br-t1-with-age"]
         sam2_columns = list(example_sample2_dict.keys())
         sam2_msrun_sel_dict = sam2_msrun_df[sam2_columns].iloc[0].to_dict()
         sam2_msrun_all_dict = sam2_msrun_df.iloc[0].to_dict()
@@ -236,7 +237,6 @@ class QuerysetToPandasDataFrameTests(TestCase):
         )
 
         # sample2 has no tracer and MSRun data
-        self.assertTrue(sam2_msrun_all_dict["tracer"] is pd.NA)
         self.assertTrue(sam2_msrun_all_dict["msrun_id"] is pd.NA)
         self.assertTrue(sam2_msrun_all_dict["msrun_owner"] is pd.NA)
 

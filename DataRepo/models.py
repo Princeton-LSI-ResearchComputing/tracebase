@@ -356,8 +356,6 @@ class Animal(models.Model, TracerLabeledClass):
     tracer_compound = models.ForeignKey(
         Compound,
         on_delete=models.RESTRICT,
-        blank=True,
-        null=True,
         help_text="The compound which was used as the tracer (i.e. infusate). "
         "The tracer is the labeled compound that is infused into the animal.",
     )
@@ -365,18 +363,14 @@ class Animal(models.Model, TracerLabeledClass):
     # name, as I have seen in some example files
     tracer_labeled_atom = models.CharField(
         max_length=1,
-        null=True,
         choices=TracerLabeledClass.TRACER_LABELED_ELEMENT_CHOICES,
         default=TracerLabeledClass.CARBON,
-        blank=True,
         help_text="The type of atom that is labeled in the tracer compound "
         '(e.g. "C", "H", "O").',
     )
     # NOTE: encoding atom count as an integer, NOT a float, as I have seen in
     # some example files
     tracer_labeled_count = models.PositiveSmallIntegerField(
-        null=True,
-        blank=True,
         validators=[
             MinValueValidator(1),
             MaxValueValidator(TracerLabeledClass.MAX_LABELED_ATOMS),

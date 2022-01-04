@@ -32,6 +32,9 @@ from DataRepo.utils import (
 @tag("animal")
 class AnimalTests(TestCase):
     def setUp(self):
+        compound = Compound.objects.create(
+            name="alanine", formula="C3H7NO2", hmdb_id="HMDB0000161"
+        )
         Animal.objects.create(
             name="test_animal",
             age=timedelta(weeks=int(13)),
@@ -40,16 +43,21 @@ class AnimalTests(TestCase):
             body_weight=200,
             diet="normal",
             feeding_status="fed",
+            tracer_compound=compound,
+            tracer_labeled_atom="C",
+            tracer_labeled_count=6,
         )
 
     def test_animal_validation(self):
         animal = Animal.objects.get(name="test_animal")
         animal.full_clean()
 
-    def test_animal_name(self):
-        """Animal lookup by name"""
+    def test_animal_validation_null_tracer(self):
+        """tracer_compound and tracer_labeled_count cannot be null"""
         animal = Animal.objects.get(name="test_animal")
-        self.assertEqual(animal.name, "test_animal")
+        animal.tracer_compound = None
+        with self.assertRaises(ValidationError):
+            animal.full_clean()
 
 
 class ExampleDataConsumer:

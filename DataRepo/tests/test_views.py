@@ -33,6 +33,7 @@ from DataRepo.views import (
 )
 
 
+@tag("views")
 class ViewTests(TestCase):
     @classmethod
     def setUpTestData(cls):

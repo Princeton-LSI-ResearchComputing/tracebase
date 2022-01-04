@@ -183,7 +183,32 @@ class SampleTableLoader:
             created = False
             name = self.getRowVal(row, self.headers.ANIMAL_NAME)
             if name is not None:
-                animal, created = Animal.objects.get_or_create(name=name)
+                # Tracer is required, get_or_create will fail without it,
+                # raising a psycopg2.errors.NotNullViolation
+                tracer_compound_name = self.getRowVal(
+                    row, self.headers.TRACER_COMPOUND_NAME, hdr_required=False
+                )
+                if tracer_compound_name is not None:
+                    tracer_compound = Compound.objects.get(name=tracer_compound_name)
+                tracer_labeled_elem = self.getRowVal(
+                    row, self.headers.TRACER_LABELED_ELEMENT, hdr_required=False
+                )
+                if tracer_labeled_elem is not None:
+                    tracer_labeled_atom = value_from_choices_label(
+                        tracer_labeled_elem,
+                        Animal.TRACER_LABELED_ELEMENT_CHOICES,
+                    )
+                tracer_labeled_count = self.getRowVal(
+                    row, self.headers.TRACER_LABELED_COUNT, hdr_required=False
+                )
+                if tracer_labeled_count is not None:
+                    tracer_labeled_count = int(tracer_labeled_count)
+                animal, created = Animal.objects.get_or_create(
+                    name=name,
+                    tracer_compound=tracer_compound,
+                    tracer_labeled_atom=tracer_labeled_atom,
+                    tracer_labeled_count=tracer_labeled_count,
+                )
             """
             We do this here, and not in the "created" block below, in case the
             researcher is creating a new study from previously-loaded animals
@@ -192,10 +217,6 @@ class SampleTableLoader:
                 print("Adding animal to the study...")
                 study.animals.add(animal)
 
-            """
-            created block contains all the animal attribute updates if the
-            animal was newly created
-            """
             if created:
                 print(f"Created new record: Animal:{animal}")
                 genotype = self.getRowVal(
@@ -269,34 +290,6 @@ class SampleTableLoader:
                                 feedback += f" '{animal.treatment.description}'"
                             print(f"{action} {feedback}")
 
-                tracer_compound_name = self.getRowVal(
-                    row, self.headers.TRACER_COMPOUND_NAME, hdr_required=False
-                )
-                if tracer_compound_name is not None:
-                    try:
-                        tracer_compound = Compound.objects.get(
-                            name=tracer_compound_name
-                        )
-                        animal.tracer_compound = tracer_compound
-                    except Compound.DoesNotExist as e:
-                        print(
-                            f"ERROR: {self.headers.TRACER_COMPOUND_NAME} not found: Compound:{tracer_compound_name}"
-                        )
-                        raise (e)
-                tracer_labeled_elem = self.getRowVal(
-                    row, self.headers.TRACER_LABELED_ELEMENT, hdr_required=False
-                )
-                if tracer_labeled_elem is not None:
-                    tracer_labeled_atom = value_from_choices_label(
-                        tracer_labeled_elem,
-                        animal.TRACER_LABELED_ELEMENT_CHOICES,
-                    )
-                    animal.tracer_labeled_atom = tracer_labeled_atom
-                tlc = self.getRowVal(
-                    row, self.headers.TRACER_LABELED_COUNT, hdr_required=False
-                )
-                if tlc is not None:
-                    animal.tracer_labeled_count = int(tlc)
                 tir = self.getRowVal(
                     row, self.headers.TRACER_INFUSION_RATE, hdr_required=False
                 )
