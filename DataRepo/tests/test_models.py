@@ -548,10 +548,6 @@ class CompoundLoadingTestErrors(TestCase):
         self.assertEqual(Compound.objects.count(), 0)
 
 
-# create series from dictionary
-ser = pd.Series(dict)
-
-
 class DataLoadingTests(TestCase):
     @classmethod
     def setUpTestData(cls):
