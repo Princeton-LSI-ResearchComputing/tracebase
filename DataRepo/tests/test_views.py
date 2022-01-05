@@ -577,7 +577,7 @@ class ViewTests(TestCase):
         ).prefetch_related("msrun__sample__animal__studies")
         expected_newline_count = qs.count() + 6
         # This query returns 2 rows and the tsv has 22 tabs. We add 22 more for the header
-        expected_tab_count = qs.count() * 22 + 22
+        expected_tab_count = qs.count() * 23 + 23
         [filledform, qry, dlform] = self.get_advanced_search_inputs()
         response = self.client.post("/DataRepo/search_advanced_tsv/", dlform)
 
