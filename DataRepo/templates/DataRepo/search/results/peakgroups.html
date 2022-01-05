@@ -22,7 +22,6 @@
                 var datadata_cnt = 0
                 var metadata_cnt = 0
                 $("#advsrchres th").each(function() {
-                    console.log($(this).attr("data-field") + " Visible? " + $(this).is(":hidden") + " has idgrp class: " + $(this).hasClass("idgrp"))
                     if ($(this).is(":visible")) {
                         if ($(this).hasClass("idgrp")) {
                             identdata_cnt = identdata_cnt + 1
