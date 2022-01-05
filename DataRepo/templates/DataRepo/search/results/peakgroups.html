@@ -232,7 +232,7 @@
                             <!-- Normalized Labeling -->
                             <td class="text-end">
                                 {% if pg.normalized_labeling is None %}
-                                    <p title="Associated serum sample not found.">None</p>
+                                    <p title="PeakGroup, serum sample, or Animal Tracer not found.">None</p>
                                 {% else %}
                                     <p title="{{ pg.normalized_labeling|floatformat:15 }}">{{ pg.normalized_labeling|floatformat:4 }}</p>
                                 {% endif %}
@@ -289,11 +289,17 @@
 
                             <!-- Tracer Compound -->
                             <td>
-                                <!-- Put displayed link text first for sorting -->
-                                <div style="display:none;">{{ pg.msrun.sample.animal.tracer_compound.name }}</div>
-                                <a href="{% url 'compound_detail' pg.msrun.sample.animal.tracer_compound.id %}">
-                                    {{ pg.msrun.sample.animal.tracer_compound.name }}
-                                </a>
+                                {% if pg.msrun.sample.animal.tracer_compound is None %}
+                                    <!-- Put displayed link text first for sorting -->
+                                    <div style="display:none;">None</div>
+                                    <p title="Animal has no tracer.">None</p>
+                                {% else %}
+                                    <!-- Put displayed link text first for sorting -->
+                                    <div style="display:none;">{{ pg.msrun.sample.animal.tracer_compound.name }}</div>
+                                    <a href="{% url 'compound_detail' pg.msrun.sample.animal.tracer_compound.id %}">
+                                        {{ pg.msrun.sample.animal.tracer_compound.name }}
+                                    </a>
+                                {% endif %}
                             </td>
 
                             <!-- Tracer Infusion Rate (ul/min/g) -->

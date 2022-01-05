@@ -1013,20 +1013,29 @@ class PeakGroup(models.Model):
         """
 
         try:
-            final_serum_sample = (
-                Sample.objects.filter(animal_id=self.msrun.sample.animal.id)
-                .filter(tissue__name__startswith=Tissue.SERUM_TISSUE_PREFIX)
-                .latest("time_collected")
-            )
-            serum_peak_group = (
-                PeakGroup.objects.filter(msrun__sample_id=final_serum_sample.id)
-                .filter(compounds__id=self.msrun.sample.animal.tracer_compound.id)
-                .get()
-            )
-            normalized_labeling = (
-                self.enrichment_fraction / serum_peak_group.enrichment_fraction
-            )
-
+            # An animal can have no tracer_compound (#312 & #315)
+            # And without the enrichment_fraction check, deleting a tracer can result in:
+            #   TypeError: unsupported operand type(s) for /: 'NoneType' and 'float'
+            # in test: test_models.DataLoadingTests.test_peak_group_total_abundance_zero
+            if (
+                self.msrun.sample.animal.tracer_compound is not None
+                and self.enrichment_fraction is not None
+            ):
+                final_serum_sample = (
+                    Sample.objects.filter(animal_id=self.msrun.sample.animal.id)
+                    .filter(tissue__name__startswith=Tissue.SERUM_TISSUE_PREFIX)
+                    .latest("time_collected")
+                )
+                serum_peak_group = (
+                    PeakGroup.objects.filter(msrun__sample_id=final_serum_sample.id)
+                    .filter(compounds__id=self.msrun.sample.animal.tracer_compound.id)
+                    .get()
+                )
+                normalized_labeling = (
+                    self.enrichment_fraction / serum_peak_group.enrichment_fraction
+                )
+            else:
+                normalized_labeling = None
         except Sample.DoesNotExist:
             warnings.warn(
                 "Unable to compute normalized_labeling for "
@@ -1041,8 +1050,6 @@ class PeakGroup(models.Model):
                 f"{self.msrun.sample}:{self}, "
                 "PeakGroup for associated 'serum' sample not found."
             )
-            normalized_labeling = None
-        except TypeError:
             normalized_labeling = None
 
         return normalized_labeling
