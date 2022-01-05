@@ -210,7 +210,7 @@ Create a script outside of the repository that runs superlinter via docker and r
 from the repository root directory. Example script:
 
     #!/usr/bin/env sh
-    docker pull github/super-linter:latest
+    docker pull github/super-linter:slim-v4
 
     docker run \
         -e FILTER_REGEX_EXCLUDE="(\.pylintrc|migrations|static\/bootstrap.*)" \
