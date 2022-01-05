@@ -181,6 +181,7 @@ editor. Some linters that may be useful to install locally include:
   * [standard](https://standardjs.com) - JavaScript linting
   * [editorconfig-checker](https://www.npmjs.com/package/editorconfig-checker)
     \- Config linting
+  * [stylelint](https://stylelint.io) - CSS linting
 
 It is recommended to run superlinter (described below) routinely or
 automatically before submitting a PR, but if you want a quick check while
@@ -199,6 +200,7 @@ developing, you can run these example linting commands on the command-line:
         -not -path "*__pycache__*" \) -exec jscpd {} \;
     find . \( -type f -not -path '*/\.*' -not -path "*bootstrap*" \
         -not -path "*__pycache__*" \) -exec editorconfig-checker {} \;
+    npx stylelint **/*.css
 
 ##### Superlinter
 
