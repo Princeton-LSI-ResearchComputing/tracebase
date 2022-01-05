@@ -8,6 +8,34 @@
             const rec_cnt = real_cnt_elem.innerHTML
             const rec_cnt_elem = document.getElementById("recordcount")
             rec_cnt_elem.innerHTML = rec_cnt
+
+            // https://bootstrap-table.com/docs/api/events/
+            // https://bootstrap-table.com/docs/api/events/#oncolumnswitch
+            $("#advsrchres").bootstrapTable({
+                onAll: function() {
+                    updateColumnGroups()
+                }
+            })
+
+            function updateColumnGroups() {
+                var identdata_cnt = 0
+                var datadata_cnt = 0
+                var metadata_cnt = 0
+                $("#advsrchres th").each(function() {
+                    if ($(this).is(":visible")) {
+                        if ($(this).hasClass("idgrp")) {
+                            identdata_cnt = identdata_cnt + 1
+                        } else if ($(this).hasClass("datagrp")) {
+                            datadata_cnt = datadata_cnt + 1
+                        } else if ($(this).hasClass("metagrp")) {
+                            metadata_cnt = metadata_cnt + 1
+                        }
+                    }
+                })
+                $("#advsrchres .identdata").attr("span", identdata_cnt)
+                $("#advsrchres .datadata").attr("span", datadata_cnt)
+                $("#advsrchres .metadata").attr("span", metadata_cnt)
+            }
         })
     </script>
     <script src="https://cdn.jsdelivr.net/gh/wenzhixin/bootstrap-table-examples@master/utils/natural-sorting/dist/natural-sorting.js"></script>
@@ -30,31 +58,40 @@
         data-show-columns-toggle-all="true"
         data-show-fullscreen="false"
         data-show-export="false">
+
+        <colgroup span="8" class="identdata"></colgroup>
+        <colgroup span="5" class="datadata"></colgroup>
+        <colgroup span="12" class="metadata"></colgroup>
+
         <thead>
             <tr>
-                <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-field="Sample">Sample</th>
-                <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-field="Tissue">Tissue</th>
-                <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-field="Peak_Group">Peak Group</th>
-                <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-field="Formula">Formula</th>
-                <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-field="Labeled_Element_Count">Labeled<br>Element:<br>Count</th>
-                <th data-valign="top" data-sortable="true" data-sorter="numericOnly" data-field="Raw_Abundance">Raw<br>Abundance</th>
-                <th data-valign="top" data-sortable="true" data-sorter="numericOnly" data-field="Corrected_Abundance">Corrected<br>Abundance</th>
-                <th data-valign="top" data-sortable="true" data-sorter="numericOnly" data-field="Fraction">Fraction</th>
-                <th data-valign="top" data-sortable="true" data-sorter="numericOnly" data-field="Median_MZ">Median<br>M/Z</th>
-                <th data-valign="top" data-sortable="true" data-sorter="numericOnly" data-field="Median_RT">Median<br>RT</th>
-                <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-field="Peak_Group_Set_Filename">Peak Group Set Filename</th>
-                <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-field="Animal">Animal</th>
-                <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-field="Genotype">Genotype</th>
-                <th data-valign="top" data-sortable="true" data-sorter="numericOnly" data-field="Body_Weight">Body<br>Weight<br>(g)</th>
-                <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-field="Age">Age<br>(weeks)</th>
-                <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-field="Sex">Sex</th>
-                <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-field="Diet">Diet</th>
-                <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-field="Feeding_Status">Feeding<br>Status</th>
-                <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-field="Treatment">Treatment</th>
-                <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-field="Tracer_Compound">Tracer<br>Compound</th>
-                <th data-valign="top" data-sortable="true" data-sorter="numericOnly" data-field="Tracer_Infusion_Rate">Tracer<br>Infusion<br>Rate<br>(ul/min/g)</th>
-                <th data-valign="top" data-sortable="true" data-sorter="numericOnly" data-field="Tracer_Infusion_Concentration">Tracer<br>Infusion<br>Concentration<br>(mM)</th>
-                <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-field="Study">Study</th>
+                <th data-valign="top" data-sortable="true" class="idgrp" data-visible="false" data-sorter="alphanum" data-field="Animal">Animal</th>
+                <th data-valign="top" data-sortable="true" class="idgrp" data-visible="true" data-sorter="alphanum" data-field="Sample" data-switchable="false">Sample</th>
+                <th data-valign="top" data-sortable="true" class="idgrp" data-visible="true" data-sorter="alphanum" data-field="Tissue">Tissue</th>
+                <th data-valign="top" data-sortable="true" class="idgrp" data-visible="false" data-sorter="alphanum" data-field="Peak_Group">Peak Group</th>
+                <th data-valign="top" data-sortable="true" class="idgrp" data-visible="true" data-sorter="alphanum" data-field="Measured_Compounds">Measured<br>Compound(s)</th>
+                <th data-valign="top" data-sortable="true" class="idgrp" data-visible="false" data-sorter="alphanum" data-field="Measured_Compound_Synonyms">Measured<br>Compound<br>Synonym(s)</th>
+                <th data-valign="top" data-sortable="true" class="idgrp" data-visible="true" data-sorter="alphanum" data-field="Labeled_Element_Count">Labeled<br>Element:<br>Count</th>
+                <th data-valign="top" data-sortable="true" class="idgrp" data-visible="false" data-sorter="alphanum" data-field="Peak_Group_Set_Filename">Peak Group Set Filename</th>
+
+                <th data-valign="top" data-sortable="true" class="datagrp" data-visible="false" data-sorter="numericOnly" data-field="Raw_Abundance">Raw<br>Abundance</th>
+                <th data-valign="top" data-sortable="true" class="datagrp" data-visible="true" data-sorter="numericOnly" data-field="Corrected_Abundance">Corrected<br>Abundance</th>
+                <th data-valign="top" data-sortable="true" class="datagrp" data-visible="true" data-sorter="numericOnly" data-field="Fraction" data-switchable="false">Fraction</th>
+                <th data-valign="top" data-sortable="true" class="datagrp" data-visible="false" data-sorter="numericOnly" data-field="Median_MZ">Median<br>M/Z</th>
+                <th data-valign="top" data-sortable="true" class="datagrp" data-visible="false" data-sorter="numericOnly" data-field="Median_RT">Median<br>RT</th>
+
+                <th data-valign="top" data-sortable="true" class="metagrp" data-visible="false" data-sorter="alphanum" data-field="Formula">Formula</th>
+                <th data-valign="top" data-sortable="true" class="metagrp" data-visible="true" data-sorter="alphanum" data-field="Genotype">Genotype</th>
+                <th data-valign="top" data-sortable="true" class="metagrp" data-visible="false" data-sorter="alphanum" data-field="Sex">Sex</th>
+                <th data-valign="top" data-sortable="true" class="metagrp" data-visible="false" data-sorter="alphanum" data-field="Age">Age<br>(weeks)</th>
+                <th data-valign="top" data-sortable="true" class="metagrp" data-visible="false" data-sorter="numericOnly" data-field="Body_Weight">Body<br>Weight<br>(g)</th>
+                <th data-valign="top" data-sortable="true" class="metagrp" data-visible="true" data-sorter="alphanum" data-field="Feeding_Status">Feeding<br>Status</th>
+                <th data-valign="top" data-sortable="true" class="metagrp" data-visible="true" data-sorter="alphanum" data-field="Treatment">Treatment</th>
+                <th data-valign="top" data-sortable="true" class="metagrp" data-visible="false" data-sorter="alphanum" data-field="Diet">Diet</th>
+                <th data-valign="top" data-sortable="true" class="metagrp" data-visible="true" data-sorter="alphanum" data-field="Tracer_Compound" data-switchable="false">Tracer<br>Compound</th>
+                <th data-valign="top" data-sortable="true" class="metagrp" data-visible="false" data-sorter="numericOnly" data-field="Tracer_Infusion_Rate">Tracer<br>Infusion<br>Rate<br>(ul/min/g)</th>
+                <th data-valign="top" data-sortable="true" class="metagrp" data-visible="false" data-sorter="numericOnly" data-field="Tracer_Infusion_Concentration">Tracer<br>Infusion<br>Concentration<br>(mM)</th>
+                <th data-valign="top" data-sortable="true" class="metagrp" data-visible="true" data-sorter="alphanum" data-field="Study">Study</th>
             </tr>
         </thead>
 
@@ -100,6 +137,15 @@
                         {% incrementCounter rec_cnt %}
 
                         <tr>
+                            <!-- Animal -->
+                            <td>
+                                <!-- Put displayed link text first for sorting -->
+                                <div style="display:none;">{{ pd.peak_group.msrun.sample.animal.name }}</div>
+                                <a href="{% url 'animal_detail' pd.peak_group.msrun.sample.animal.id %}">
+                                    {{ pd.peak_group.msrun.sample.animal.name }}
+                                </a>
+                            </td>
+
                             <!-- Sample -->
                             <td>
                                 <!-- Put displayed link text first for sorting -->
@@ -134,6 +180,18 @@
                                 <!-- Put displayed link text first for sorting -->
                                 <div style="display:none;">
                                     {% define True as cpdfirst %}
+                                    {% for mcpd in pd.peak_group.compounds.all %}{% if not cpdfirst %}; {% endif%}{{ mcpd.name }}{% define False as cpdfirst %}{% endfor %}
+                                </div>
+
+                                {% define True as cpdfirst %}
+                                {% for mcpd in pd.peak_group.compounds.all %}{% if not cpdfirst %}; {% endif%}<a href="{% url 'compound_detail' mcpd.id %}">{{ mcpd.name }}</a>{% define False as cpdfirst %}{% endfor %}
+                            </td>
+
+                            <!-- Measured Compound Synonym(s) -->
+                            <td>
+                                <!-- Put displayed link text first for sorting -->
+                                <div style="display:none;">
+                                    {% define True as cpdfirst %}
                                     {% for mcpd in pd.peak_group.compounds.all %}{% if not cpdfirst %}; {% endif%}{% define True as synfirst %}{% get_case_insensitive_synonyms mcpd.synonyms as inssyns %}{% for mcpdsyn in inssyns %}{% if not synfirst %}/{% endif%}{{ mcpdsyn }}{% define False as synfirst %}{% endfor %}{% define False as cpdfirst %}{% endfor %}
                                 </div>
 
@@ -141,14 +199,18 @@
                                 {% for mcpd in pd.peak_group.compounds.all %}{% if not cpdfirst %}; {% endif%}<a href="{% url 'compound_detail' mcpd.id %}">{% define True as synfirst %}{% get_case_insensitive_synonyms mcpd.synonyms as inssyns %}{% for mcpdsyn in inssyns %}{% if not synfirst %}/{% endif%}{{ mcpdsyn }}{% define False as synfirst %}{% endfor %}</a>{% define False as cpdfirst %}{% endfor %}
                             </td>
 
-                            <!-- Formula -->
-                            <td>
-                                {{ pd.peak_group.formula }}
-                            </td>
-
                             <!-- Labeled Element:Count -->
                             <td>
                                 {{ pd.labeled_element }}:{{ pd.labeled_count }}
+                            </td>
+
+                            <!-- Peak Group Set Filename -->
+                            <td>
+                                <!-- Put displayed link text first for sorting -->
+                                <div style="display:none;">{{ pd.peak_group.peak_group_set.filename }}</div>
+                                <a href="{% url 'peakgroupset_detail' pd.peak_group.peak_group_set.id %}">
+                                    {{ pd.peak_group.peak_group_set.filename }}
+                                </a>
                             </td>
 
                             <!-- Raw Abundance -->
@@ -176,22 +238,9 @@
                                 <p title="{{ pd.med_rt|floatformat:10 }}">{{ pd.med_rt|floatformat:1 }}</p>
                             </td>
 
-                            <!-- Peak Group Set Filename -->
+                            <!-- Formula -->
                             <td>
-                                <!-- Put displayed link text first for sorting -->
-                                <div style="display:none;">{{ pd.peak_group.peak_group_set.filename }}</div>
-                                <a href="{% url 'peakgroupset_detail' pd.peak_group.peak_group_set.id %}">
-                                    {{ pd.peak_group.peak_group_set.filename }}
-                                </a>
-                            </td>
-
-                            <!-- Animal -->
-                            <td>
-                                <!-- Put displayed link text first for sorting -->
-                                <div style="display:none;">{{ pd.peak_group.msrun.sample.animal.name }}</div>
-                                <a href="{% url 'animal_detail' pd.peak_group.msrun.sample.animal.id %}">
-                                    {{ pd.peak_group.msrun.sample.animal.name }}
-                                </a>
+                                {{ pd.peak_group.formula }}
                             </td>
 
                             <!-- Genotype -->
@@ -199,24 +248,14 @@
                                 {{ pd.peak_group.msrun.sample.animal.genotype }}
                             </td>
 
-                            <!-- Body Weight (g) -->
-                            <td>
-                                {{ pd.peak_group.msrun.sample.animal.body_weight }}
-                            </td>
-
-                            <!-- Age (weeks) -->
-                            <td class="text-end">
-                                <p title="{{ pd.peak_group.msrun.sample.animal.age }} (d-hh:mm:ss)">{{ pd.peak_group.msrun.sample.animal.age|durationToWeeks|decimalPlaces:2 }}</p>
-                            </td>
-
                             <!-- Sex -->
                             <td>
                                 {{ pd.peak_group.msrun.sample.animal.sex }}
                             </td>
 
-                            <!-- Diet -->
-                            <td>
-                                {{ pd.peak_group.msrun.sample.animal.diet }}
+                            <!-- Age (weeks) -->
+                            <td class="text-end">
+                                <p title="{{ pd.peak_group.msrun.sample.animal.age }} (d-hh:mm:ss)">{{ pd.peak_group.msrun.sample.animal.age|durationToWeeks|decimalPlaces:2 }}</p>
                             </td>
 
                             <!-- Feeding Status -->
@@ -227,6 +266,16 @@
                             <!-- Treatment -->
                             <td>
                                 {{ pd.peak_group.msrun.treatment.name }}
+                            </td>
+
+                            <!-- Diet -->
+                            <td>
+                                {{ pd.peak_group.msrun.sample.animal.diet }}
+                            </td>
+
+                            <!-- Body Weight (g) -->
+                            <td>
+                                {{ pd.peak_group.msrun.sample.animal.body_weight }}
                             </td>
 
                             <!-- Tracer Compound -->
