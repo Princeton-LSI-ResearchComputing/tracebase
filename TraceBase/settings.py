@@ -36,11 +36,11 @@ SECRET_KEY = env("SECRET_KEY", default="unsafe-secret-key")
 #     python manage.py runserver --insecure
 # because runserver will not load static files without it (whereas in a production environment, the web server would
 # serve those files).  See https://stackoverflow.com/a/5836728/2057516
-DEBUG = False
-if env("DEBUG") == "True":
-    DEBUG = True
+DEBUG = env.bool("DEBUG", default=False)
 
-ALLOWED_HOSTS = ["*"]
+ALLOWED_HOSTS =  ['localhost', '127.0.0.1']
+if env("HOST", default=None):
+    ALLOWED_HOSTS.append(env("HOST"))
 
 # Application definition
 
