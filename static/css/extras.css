@@ -5,3 +5,9 @@
 .tiny {
   font-size: 0.6em;
 }
+
+colgroup.identdata,
+colgroup.datadata,
+colgroup.metadata {
+  border: 2px solid black;
+}
