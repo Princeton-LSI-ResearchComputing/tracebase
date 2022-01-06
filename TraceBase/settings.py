@@ -38,7 +38,7 @@ SECRET_KEY = env("SECRET_KEY", default="unsafe-secret-key")
 # serve those files).  See https://stackoverflow.com/a/5836728/2057516
 DEBUG = env.bool("DEBUG", default=False)
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
 if env("HOST", default=None):
     ALLOWED_HOSTS.append(env("HOST"))
 
