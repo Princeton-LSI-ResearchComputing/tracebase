@@ -348,6 +348,7 @@ class AdvancedSearchView(MultiFormsView):
                 ncmp_choices=self.basv_metadata.getComparisonChoices(),
                 fld_types=self.basv_metadata.getFieldTypes(),
                 refilter=False,
+                error="All fields are required",  # Unless hacked, this is the only thing that can go wrong
             )
         )
 

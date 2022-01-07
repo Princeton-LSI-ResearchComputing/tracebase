@@ -55,7 +55,7 @@
             initializeRootSearchQuery(allforms)
 
             var myform = document.getElementById("hierarchical-search-form")
-            myform.addEventListener("submit", function () {
+            myform.addEventListener("submit", function (event) {
                 saveSearchQueryHierarchy(document.querySelector('.hierarchical-search'))
                 myform.submit();
             })
@@ -104,7 +104,7 @@
                 {{ managing_form.errors.val }}
                 {{ managing_form.management_form }}
             {% endwith %}
-            <label id="formerror" class="text-danger temporal-text"></label>
+            <label id="formerror" class="text-danger temporal-text">{{ error }}</label>
         </form>
         <a id="browselink" href="{% url 'search_advanced' %}?mode=browse" class="tiny">Browse All</a>
     </div>
