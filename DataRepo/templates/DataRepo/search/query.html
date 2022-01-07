@@ -55,7 +55,7 @@
             initializeRootSearchQuery(allforms)
 
             var myform = document.getElementById("hierarchical-search-form")
-            myform.addEventListener("submit", function (event) {
+            myform.addEventListener("submit", function () {
                 saveSearchQueryHierarchy(document.querySelector('.hierarchical-search'))
                 myform.submit();
             })
