@@ -8,7 +8,7 @@ class Command(BaseCommand):
 
     # Show this when the user types help
     help = (
-        "Loads a set of study using the load_study command. Input is a file of "
+        "Loads a set of studies using the load_study command. Input is a file of "
         "filenames listing load_study YAML config files, one per line."
         "Example usage: manage.py load_study_set list_of_study_config_files.txt"
     )
