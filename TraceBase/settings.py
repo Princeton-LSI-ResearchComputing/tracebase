@@ -31,7 +31,16 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = env("SECRET_KEY", default="unsafe-secret-key")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# DEBUG=False WARNING: If you want to test what you would see in production when DEBUG=False, you must start the server
+# with:
+#     python manage.py runserver --insecure
+# because runserver will not load static files without it (whereas in a production environment, the web server would
+# serve those files).  See https://stackoverflow.com/a/5836728/2057516
+DEBUG = env.bool("DEBUG", default=False)
+
+ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
+if env("HOST", default=None):
+    ALLOWED_HOSTS.append(env("HOST"))
 
 # Application definition
 
