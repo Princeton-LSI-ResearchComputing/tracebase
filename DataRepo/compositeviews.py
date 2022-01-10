@@ -1448,6 +1448,32 @@ class BaseAdvancedSearchView:
         """
         return self.modeldata[format].getSearchFieldChoices()
 
+    def getSearchFieldChoicesDict(self):
+        """
+        Creates a format-keyed dict of the fld choices tuples.  Used to populate the fld select list to
+        address issue #229 in the same way ncmp_choices is populated and pared down by javascript.
+        """
+        fld_choices = {}
+        for fmtid in self.modeldata.keys():
+            fld_choices[fmtid] = self.modeldata[fmtid].getSearchFieldChoices()
+        return fld_choices
+
+    def getAllSearchFieldChoices(self):
+        """
+        Creates a flat tuple of every field in every model of every derived class.  Used to initially populate the fld
+        select list that is updated by javascript based on the selected format.  This initial population in the form
+        class is important for form validation.  Otherwise, nothing but the selected format will validate, causing
+        issues like the one described in #229.
+        """
+        all_fld_choices = ()
+        seen = []
+        for fmtid in self.modeldata.keys():
+            for opt in self.getSearchFieldChoices(fmtid):
+                if opt[0] not in seen:
+                    seen.append(opt[0])
+                    all_fld_choices = all_fld_choices + ((opt[0], opt[1]),)
+        return all_fld_choices
+
     def getComparisonChoices(self):
         """
         Calls getComparisonChoices of the default output format class.
@@ -1476,7 +1502,6 @@ class BaseAdvancedSearchView:
         """
         Returns a dict of search output format class IDs to their user-facing names.
         """
-
         namedict = {}
         for fmtid in self.modeldata.keys():
             namedict[fmtid] = str(self.modeldata[fmtid].name)
@@ -1487,7 +1512,6 @@ class BaseAdvancedSearchView:
         Returns a dict of fmt -> path__field -> {type -> field_type (number, string, enumeration), choices -> list of
         tuples}.
         """
-
         typedict = {}
         for fmtid in self.modeldata.keys():
             typedict[fmtid] = self.modeldata[fmtid].getFieldTypes()

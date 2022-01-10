@@ -34,11 +34,14 @@ var rootGroup = {} // eslint-disable-line no-var
 var ncmpChoices = {} // eslint-disable-line no-var
 var fldTypes = {} // eslint-disable-line no-var
 var formErrLabel // eslint-disable-line no-var
+var fmtSelectElem // eslint-disable-line no-var
+var fldChoices = {} // eslint-disable-line no-var
 
-function init (rootGroup, ncmpChoices, fldTypes) { // eslint-disable-line no-unused-vars
+function init (rootGroup, ncmpChoices, fldTypes, fldChoices) { // eslint-disable-line no-unused-vars
   globalThis.rootGroup = rootGroup
   globalThis.ncmpChoices = ncmpChoices
   globalThis.fldTypes = fldTypes
+  globalThis.fldChoices = fldChoices
   globalThis.formErrLabel = document.getElementById('formerror')
 }
 
@@ -165,7 +168,7 @@ function addSearchFieldForm (myDiv, query, templateId) {
     const errors = []
 
     // Dismiss any previous error (that was previously presented and prevented)
-    clones[i].addEventListener('click', function (event) {
+    clones[i].addEventListener('click', function () {
       formErrLabel.innerHTML = ''
     })
 
@@ -174,8 +177,15 @@ function addSearchFieldForm (myDiv, query, templateId) {
       query[clones[i].name] = event.target.value
     })
 
-    // Initialize the value in the hierarchy with the default
     const keyname = clones[i].name.split('-').pop()
+
+    // The field choices are static. Once they're set for any added field, they no longer need updating - only hidden
+    // or revealed.  They must be updated before setting the default value.
+    if (keyname === 'fld') {
+      updateFldChoices(templateId, clones[i])
+    }
+
+    // Initialize the value in the hierarchy with the default
     if (typeof query[keyname] !== 'undefined' && query[keyname]) {
       console.log('Initializing search form value for field: ', keyname, ':', query[keyname])
       clones[i].value = query[keyname]
@@ -183,21 +193,13 @@ function addSearchFieldForm (myDiv, query, templateId) {
       console.log('Storing search form value for field: ', keyname, ': as:', clones[i].value, 'into the qry object')
       query[clones[i].name] = clones[i].value
     }
-    if (query.static) {
-      clones[i].disabled = true
-    }
 
+    // Grab a reference to the values needed for inter-dependent dynamic update below
     if (keyname === 'fld') {
-      // fldInitVal = clones[i][0].value
       fldInitVal = clones[i].value
-    } else if (keyname === 'ncmp') {
-      // ncmpInitVal = clones[i][0].value
-      ncmpInitVal = clones[i].value
-    }
-
-    if (keyname === 'fld') {
       fldClone = clones[i]
     } else if (keyname === 'ncmp') {
+      ncmpInitVal = clones[i].value
       ncmpClone = clones[i]
     } else if (keyname === 'val') {
       valClone = clones[i]
@@ -205,12 +207,18 @@ function addSearchFieldForm (myDiv, query, templateId) {
       clones[i].style = 'display:none;'
     }
 
+    // If the query is static (as defined in the compositeviews class), disable its input element
+    if (query.static) {
+      clones[i].disabled = true
+    }
+
     // Add this row to the HTML form
     myDiv.appendChild(clones[i])
     myDiv.appendChild(document.createTextNode(' '))
 
     // If there were any errors, create an error label
-    // For some reason, this was a nice tooltip in an earlier version (f9c2cac151f9909380022cea8b7a40a5f0e72a4e), but doesn't work automatically in the latest version
+    // For some reason, this was a nice tooltip in an earlier version (f9c2cac151f9909380022cea8b7a40a5f0e72a4e), but
+    // doesn't work automatically in the latest version
     if (errors.length > 0) {
       const errlabel = document.createElement('label')
       errlabel.className = 'text-danger'
@@ -390,13 +398,31 @@ function updateNcmpChoices (fldVal, ncmpSelectElem, templateId) {
     console.error('Template', templateId, 'not in field type lookup.')
   }
 
+  createSelectList(choices, ncmpSelectElem)
+}
+
+// The fld choices for every database field select list needs to be pared down from all fields for every format to just
+// the format the database search term field is being added to.  It only needs to happen once - whenever a field select
+// list is created.
+function updateFldChoices (templateId, fldSelectElem) {
+  let choices = []
+  if (typeof fldChoices[templateId] !== 'undefined' && fldChoices[templateId]) {
+    choices = fldChoices[templateId]
+  } else {
+    console.error('Template', templateId, 'not in field choices lookup.')
+  }
+
+  createSelectList(choices, fldSelectElem)
+}
+
+function createSelectList (choices, selectElem) {
   if (choices.length > 0) {
     const arrOptions = []
     for (let i = 0; i < choices.length; i++) {
       arrOptions.push('<option value="' + choices[i][0] + '">' + choices[i][1] + '</option>')
     }
-    ncmpSelectElem.innerHTML = arrOptions.join('')
-    ncmpSelectElem.value = choices[0][0]
+    selectElem.innerHTML = arrOptions.join('')
+    selectElem.value = choices[0][0]
   }
 }
 
@@ -418,19 +444,19 @@ function addFormatSelectList (myDiv, query) {
   updateBrowseLink(query.selectedtemplate)
 
   // Create a group type select list
-  const select = document.createElement('select')
-  select.name = 'fmt'
+  fmtSelectElem = document.createElement('select')
+  fmtSelectElem.name = 'fmt'
   for (const key of Object.keys(query.searches)) {
     const option = document.createElement('option')
     option.value = key
     option.text = query.searches[key].name
-    select.appendChild(option)
+    fmtSelectElem.appendChild(option)
   }
-  select.value = query.selectedtemplate
+  fmtSelectElem.value = query.selectedtemplate
 
   // Use a change as an opportunity to dismiss previous errors
   // And keep the selected value up to date in the object
-  select.addEventListener('change', function (event) {
+  fmtSelectElem.addEventListener('change', function (event) {
     formErrLabel.innerHTML = ''
     query.selectedtemplate = event.target.value
     showOutputFormatSearch(query.selectedtemplate)
@@ -444,7 +470,7 @@ function addFormatSelectList (myDiv, query) {
   // Add the group select list to the DOM
   myDiv.appendChild(label1)
   myDiv.appendChild(document.createTextNode(' '))
-  myDiv.appendChild(select)
+  myDiv.appendChild(fmtSelectElem)
 }
 
 function addGroupSelectList (myDiv, query) {

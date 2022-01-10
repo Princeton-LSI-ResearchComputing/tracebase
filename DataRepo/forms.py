@@ -4,6 +4,7 @@ from django import forms
 from django.forms import formset_factory
 
 from DataRepo.compositeviews import (
+    BaseAdvancedSearchView,
     BaseSearchView,
     FluxCircSearchView,
     PeakDataSearchView,
@@ -36,8 +37,15 @@ class BaseAdvSearchForm(forms.Form):
     Advanced search form base class that will be used inside a formset.
     """
 
-    # This is the class used to populate posprefix and fld = set in derived class
+    # This is the class used to populate posprefix value and the fld choices. composite_view_class is set in the
+    # derived class (not here.  Here, it's just declared for mypy).
     composite_view_class: BaseSearchView
+
+    # This class is used to initialize the fld select list choices to a flat tuple encompassing every format
+    # The format-specific list of fields is pared down by javascript using the composite_view_class above
+    # The initial list needs to be comprehensive for form validation so that unselected formats retain their user-
+    # selections after a search is peformed.  See issue #229.
+    advsrch_view_class = BaseAdvancedSearchView()
 
     # See important note above about the pos & posprefix fields above
     posprefix: Optional[str] = None
@@ -76,7 +84,7 @@ class BaseAdvSearchForm(forms.Form):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.posprefix = self.composite_view_class.id
-        self.fields["fld"].choices = self.composite_view_class.getSearchFieldChoices()
+        self.fields["fld"].choices = self.advsrch_view_class.getAllSearchFieldChoices()
         self.fields[
             "ncmp"
         ].choices = self.composite_view_class.getAllComparisonChoices()

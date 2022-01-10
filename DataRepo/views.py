@@ -278,6 +278,7 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
             "default_format": basv_metadata.default_format,
             "ncmp_choices": basv_metadata.getComparisonChoices(),
             "fld_types": basv_metadata.getFieldTypes(),
+            "fld_choices": basv_metadata.getSearchFieldChoicesDict(),
         },
     )
 
@@ -347,6 +348,7 @@ class AdvancedSearchView(MultiFormsView):
                 default_format=self.basv_metadata.default_format,
                 ncmp_choices=self.basv_metadata.getComparisonChoices(),
                 fld_types=self.basv_metadata.getFieldTypes(),
+                fld_choices=self.basv_metadata.getSearchFieldChoicesDict(),
                 refilter=False,
             )
         )
@@ -381,6 +383,7 @@ class AdvancedSearchView(MultiFormsView):
                 default_format=self.basv_metadata.default_format,
                 ncmp_choices=self.basv_metadata.getComparisonChoices(),
                 fld_types=self.basv_metadata.getFieldTypes(),
+                fld_choices=self.basv_metadata.getSearchFieldChoicesDict(),
                 refilter=self.basv_metadata.shouldReFilter(qry),
             )
         )
@@ -398,6 +401,7 @@ class AdvancedSearchView(MultiFormsView):
         context["root_group"] = self.basv_metadata.getRootGroup()
         context["ncmp_choices"] = self.basv_metadata.getComparisonChoices()
         context["fld_types"] = self.basv_metadata.getFieldTypes()
+        context["fld_choices"] = self.basv_metadata.getSearchFieldChoicesDict()
 
         if "qry" not in context or (
             mode == "browse" and not isValidQryObjPopulated(context["qry"])
