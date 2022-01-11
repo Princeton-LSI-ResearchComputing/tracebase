@@ -42,11 +42,11 @@
     </ol>
     <h2 id="optional-validate-your-data">Optional: Validate your data</h2>
     <p>In order to expedite the loading process, you can check your data submission to
-        resolve simple discrepancies by running your files through our <a href="http://tracebase-dev.princeton.edu/DataRepo/validate">automated
+        resolve simple discrepancies by running your files through our <a href="{% url 'validate' %}">automated
             validation script</a>.</p>
     <ol>
         <li>Download your Animal and Sample Table in Excel format.</li>
-        <li>Submit the Excel file on the <a href="http://tracebase-dev.princeton.edu/DataRepo/validate">TraceBase validation page</a>.</li>
+        <li>Submit the Excel file on the <a href="{% url 'validate' %}">TraceBase validation page</a>.</li>
         <li>Fix any errors reported, re-download the table and validate the new Excel file.</li>
     </ol>
     <p>Notes:</p>
