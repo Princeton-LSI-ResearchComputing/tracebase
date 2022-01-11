@@ -1,50 +1,108 @@
 {% extends "base.html" %}
 {% load static %}
 {% block content %}
-<div>
-    <h4>Animal, Sample, &amp; Accucor Data Submission Process</h4>
-    <hr />
-    <ol>
-        <li>
-            <h5>Prepare your data</h5>
-            <ul>
-                <li>Create a (Google Sheet or Excel) copy of the <a href="https://docs.google.com/spreadsheets/d/1To3495KxJkAtnAD9KVdzc162zKbNiYuPEVyPseQPjMQ/edit?usp=sharing" target="_blank">Tracebase Animal and Sample Table Template</a></li>
-                <li>Ensure that the sample names of the above file are consistent with your Accucor file</li>
-            </ul>
-        </li>
-        <li>
-            <h5>Optional: <a href="{% url 'validate' %}" target="_blank">Validate</a> your data</h5>
-            <ul>
-                <li><strong>DO NOT</strong> edit your accucor files.  Resolve issues by editing your animal and sample table file.</li>
-                <li>In order to expedite the loading process, you can check your data submission to resolve simple discrepancies by running your files through our automated validation script.</li>
-                <li>Note, if you saved your animal and sample table in a google spreadsheet, you must download it as an excel file to supply it to the data validation form.</li>
-            </ul>
-        </li>
-        <li>
-            <h5>Upload your data using the <a href="{{ data_submission_url }}" target="_blank">submission form</a></h5>
-            Submitting this form will do a few things:
-            <ol>
-                <li>Submitting the form will record your entries in a google spreadsheet and store your file uploads in google drive</li>
-                <li>The submission will notify the Tracebase curators responsible for manually loading your submission into the database.</li>
-                <li>You will receive an email confirming your data submission.</li>
+    <div>
+
+        <h1 id="animal-sample-accucor-data-submission-process">Animal, Sample, &amp; Accucor Data Submission Process</h1>
+        <h2 id="create-a-sample-sheet">Create a Sample Sheet</h2>
+        <p>An important part of TraceBase is collecting and maintaining a consistent set of metadata for each sample.</p>
+        <ol>
+            <li>Make a copy of the <a href="https://docs.google.com/spreadsheets/d/1To3495KxJkAtnAD9KVdzc162zKbNiYuPEVyPseQPjMQ/copy">Tracebase Animal and Sample Table Template</a>.
+            </li>
+            <li>Fill in the <em>Animals</em> sheet
+                <ol>
+                    <li>Give each mouse in your study a <em>unique id</em>.</li>
+                    <li>Fill in additional details about each of the mice in your study. Note that
+                        there are comments in the column headers to help describe each of the
+                        fields.
+                    </li>
+                    <li>Pay particular attention to the <em>Tracer Compound</em>, <em>Tracer Labeled
+                        Element</em>, <em>Tracer Label Atom Count</em>, <em>Feeding Status</em>, <em>Treatment</em>, and
+                        <em>Study</em> fields.
+                    </li>
+                </ol>
+            </li>
+            <li>Fill in the <em>Samples</em> sheet.
+                <ol>
+                    <li><em>IMPORTANT</em> - Ensure that the <em>Sample Name</em> column is consistent with the
+                        sample names in your AccuCor files.
+                </li>
+                <li>Fill in additional sample details, making sure that the <em>Tissue</em> values
+                    match one of those in the <em>Tissue</em> sheet and the <em>Animal ID</em> values match
+                    one of those in the <em>Animals</em> sheet.
+                </li>
             </ol>
-            You can check what you submitted by going to the google spreadsheet.  If you have edit permission on the spreadsheet, you can alter any values that may need editing.
         </li>
-        <li>
-            <h5>What happens next</h5>
-            <ul>
-                <li>
-                    A Tracebase curator will load your files into Tracebase.
-                </li>
-                <li>
-                    You can expect to receive an email from the curator who loads your data with an update on the status of your submission.  If there were any problems with the load, you will be advised on how to resolve the issues.
-                </li>
-                <li>
-                    If, after your submission, you need to followup or would like to check-in on the upload status, send an email to:<br>
-                    <a href="mailto:{{ data_submission_email }}?subject=TraceBase curator inquiry&body=Dear Tracebase Curators, ">Tracebase Curators</a>
-                </li>
-            </ul>
+        <li>Optional - Fill in <em>Treatments</em> sheet
+            <ol>
+                <li>Provide a list of treatments used in the study, along with a description
+                    of each.</li>
+            </ol>
         </li>
     </ol>
-</div>
+    <h2 id="optional-validate-your-data">Optional: Validate your data</h2>
+    <p>In order to expedite the loading process, you can check your data submission to
+        resolve simple discrepancies by running your files through our <a href="http://tracebase-dev.princeton.edu/DataRepo/validate">automated
+            validation script</a>.</p>
+    <ol>
+        <li>Download your Animal and Sample Table in Excel format.</li>
+        <li>Submit the Excel file on the <a href="http://tracebase-dev.princeton.edu/DataRepo/validate">TraceBase validation page</a>.</li>
+        <li>Fix any errors reported, re-download the table and validate the new Excel file.</li>
+    </ol>
+    <p>Notes:</p>
+    <ul>
+        <li>In general, you should NOT edit your AccuCor files. It&#39;s simplest and often
+            best to resolve issues by editing your animal and sample table file.
+        </li>
+        <li>If you have any questions about how to format the files or any validation
+            errors, don&#39;t hesitate to <a href="mailto:csgenome@princeton.edu?subject=TraceBase study submission
+                question">contact
+                us</a>.
+        </li>
+    </ul>
+    <h2 id="submit-your-data-on-google-drive">Submit your data on Google Drive</h2>
+    <ol>
+        <li>Navigate to the <a href="https://drive.google.com/drive/folders/1cBy3eezfr_0vmaz8RGodga6A8n3hkm1m?usp=sharing">TraceBase Study Submission
+            folder</a> on Google Drive.
+        </li>
+        <li>Create a folder with your name (if it doesn&#39;t already exist).</li>
+        <li>Create a new folder for this study.</li>
+        <li>Add the following files to the study folder:
+            <ol>
+                <li>TraceBase Animal and Sample spread sheet</li>
+                <li>Any AccuCor files that should be included in the study</li>
+            </ol>
+        </li>
+        <li>Submit the <a href="https://forms.gle/vEfJEfhPbCbkybpE7">TraceBase Study Submission
+            form</a>. It will ask you for the
+            following information:
+            <ol>
+                <li>Study Name</li>
+                <li>Link to Google Drive folder with study submission.</li>
+                <li>Mass Spectrometry Details
+                    <ol>
+                        <li>Mass Spec Run Date</li>
+                        <li>Mass Spec Operator</li>
+                        <li>LC method(s)</li>
+                        <li>MS mode(s)</li>
+                    </ol>
+                </li>
+            </ol>
+        </li>
+    </ol>
+    <h2 id="what-happens-next">What happens next</h2>
+    <ol>
+        <li>We&#39;ll review your study to ensure that everything will load smoothly. If
+            there are any issues, we&#39;ll contact you to sort everything out.
+        </li>
+        <li>The study data will be loaded into TraceBase and we&#39;ll send you an email
+            with a link to view the data to make sure everything looks correct and you
+            can start browsing your data.
+        </li>
+    </ol>
+    <p><a href="https://forms.gle/LNk4kk6RJKZWM6za9">Contact us</a> anytime if you have any
+        questions, concerns, or comments If, after your submission, you need to
+        follow-up or would like to check-in on the upload status, <a href="https://forms.gle/LNk4kk6RJKZWM6za9">let us
+            know</a>.</p>
+    </div>
 {% endblock %}
