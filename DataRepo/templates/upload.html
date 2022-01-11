@@ -3,13 +3,14 @@
 {% block content %}
     <div>
 
-        <h1 id="animal-sample-accucor-data-submission-process">Animal, Sample, &amp; Accucor Data Submission Process</h1>
-        <h2 id="create-a-sample-sheet">Create a Sample Sheet</h2>
+        <h4 id="animal-sample-accucor-data-submission-process">Animal, Sample, &amp; Accucor Data Submission Process</h4>
+        <h5 id="create-a-sample-sheet">Create a Sample Sheet</h5>
         <p>An important part of TraceBase is collecting and maintaining a consistent set of metadata for each sample.</p>
         <ol>
             <li>Make a copy of the <a href="https://docs.google.com/spreadsheets/d/1To3495KxJkAtnAD9KVdzc162zKbNiYuPEVyPseQPjMQ/copy">Tracebase Animal and Sample Table Template</a>.
             </li>
-            <li>Fill in the <em>Animals</em> sheet
+            <li>Fill in the <em>Animals</em> sheet <a class="badge bg-secondary" data-bs-toggle="collapse" data-bs-target="#fill-animals">more info</a>
+                <div id="fill-animals" class="panel-collapse collapse">
                 <ol>
                     <li>Give each mouse in your study a <em>unique id</em>.</li>
                     <li>Fill in additional details about each of the mice in your study. Note that
@@ -21,46 +22,44 @@
                         <em>Study</em> fields.
                     </li>
                 </ol>
+                </div>
             </li>
-            <li>Fill in the <em>Samples</em> sheet.
+            <li>Fill in the <em>Samples</em> sheet <a class="badge bg-secondary" data-bs-toggle="collapse" data-bs-target="#fill-samples">more info</a>
+                <div id="fill-samples" class="panel-collapse collapse">
                 <ol>
-                    <li><em>IMPORTANT</em> - Ensure that the <em>Sample Name</em> column is consistent with the
+                    <li><strong>IMPORTANT</strong> - Ensure that the <em>Sample Name</em> column is consistent with the
                         sample names in your AccuCor files.
                 </li>
                 <li>Fill in additional sample details, making sure that the <em>Tissue</em> values
                     match one of those in the <em>Tissue</em> sheet and the <em>Animal ID</em> values match
                     one of those in the <em>Animals</em> sheet.
                 </li>
-            </ol>
-        </li>
-        <li>Optional - Fill in <em>Treatments</em> sheet
-            <ol>
-                <li>Provide a list of treatments used in the study, along with a description
-                    of each.</li>
-            </ol>
+                </ol>
+                </div>
+            </li>
+            <li>Fill in <em>Treatments</em> sheet (optional) <a class="badge bg-secondary" data-bs-toggle="collapse" data-bs-target="#fill-treatments">more info</a>
+                <div id="fill-treatments" class="panel-collapse collapse">
+                <ol>
+                    <li>Provide a list of treatments used in the study, along with a description
+                        of each.</li>
+                </ol>
+                </div>
         </li>
     </ol>
-    <h2 id="optional-validate-your-data">Optional: Validate your data</h2>
+    <h5 id="optional-validate-your-data">Optional: Validate your data</h5>
     <p>In order to expedite the loading process, you can check your data submission to
         resolve simple discrepancies by running your files through our <a href="{% url 'validate' %}">automated
             validation script</a>.</p>
     <ol>
         <li>Download your Animal and Sample Table in Excel format.</li>
-        <li>Submit the Excel file on the <a href="{% url 'validate' %}">TraceBase validation page</a>.</li>
-        <li>Fix any errors reported, re-download the table and validate the new Excel file.</li>
+        <li>Submit the table and any AccuCor files on the <a href="{% url 'validate' %}">TraceBase validation page</a></li>
+        <li>Fix any errors reported, re-download the table and validate the new Excel file.<br/>
+            Note that in general, you should <strong>NOT</strong> edit your AccuCor
+            files. It&#39;s simplest and often best to resolve issues by
+            editing your animal and sample table file.
+        </li>
     </ol>
-    <p>Notes:</p>
-    <ul>
-        <li>In general, you should NOT edit your AccuCor files. It&#39;s simplest and often
-            best to resolve issues by editing your animal and sample table file.
-        </li>
-        <li>If you have any questions about how to format the files or any validation
-            errors, don&#39;t hesitate to <a href="mailto:csgenome@princeton.edu?subject=TraceBase study submission
-                question">contact
-                us</a>.
-        </li>
-    </ul>
-    <h2 id="submit-your-data-on-google-drive">Submit your data on Google Drive</h2>
+    <h5 id="submit-your-data-on-google-drive">Submit your data on Google Drive</h5>
     <ol>
         <li>Navigate to the <a href="https://drive.google.com/drive/folders/1cBy3eezfr_0vmaz8RGodga6A8n3hkm1m?usp=sharing">TraceBase Study Submission
             folder</a> on Google Drive.
@@ -68,29 +67,31 @@
         <li>Create a folder with your name (if it doesn&#39;t already exist).</li>
         <li>Create a new folder for this study.</li>
         <li>Add the following files to the study folder:
-            <ol>
+            <ul>
                 <li>TraceBase Animal and Sample spread sheet</li>
                 <li>Any AccuCor files that should be included in the study</li>
-            </ol>
+            </ul>
         </li>
         <li>Submit the <a href="https://forms.gle/vEfJEfhPbCbkybpE7">TraceBase Study Submission
-            form</a>. It will ask you for the
-            following information:
-            <ol>
-                <li>Study Name</li>
-                <li>Link to Google Drive folder with study submission.</li>
-                <li>Mass Spectrometry Details
-                    <ol>
-                        <li>Mass Spec Run Date</li>
-                        <li>Mass Spec Operator</li>
-                        <li>LC method(s)</li>
-                        <li>MS mode(s)</li>
-                    </ol>
-                </li>
-            </ol>
+            form</a> <a class="badge bg-secondary" data-bs-toggle="collapse" data-bs-target="#study-submission-details">more info</a>
+            <div id="study-submission-details" class="panel-collapse collapse">
+                The form will ask for the following information:
+                <ol>
+                    <li>Study Name</li>
+                    <li>Link to Google Drive folder with study submission.</li>
+                    <li>Mass Spectrometry Details
+                        <ol>
+                            <li>Mass Spec Run Date</li>
+                            <li>Mass Spec Operator</li>
+                            <li>LC method(s)</li>
+                            <li>MS mode(s)</li>
+                        </ol>
+                    </li>
+                </ol>
+            </div>
         </li>
     </ol>
-    <h2 id="what-happens-next">What happens next</h2>
+    <h5 id="what-happens-next">What happens next</h5>
     <ol>
         <li>We&#39;ll review your study to ensure that everything will load smoothly. If
             there are any issues, we&#39;ll contact you to sort everything out.
