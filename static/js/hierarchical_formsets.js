@@ -695,14 +695,14 @@ function saveSearchQueryHierarchy (divElem) { // eslint-disable-line no-unused-v
 //   path - a running path string to be stored in a leaf form's hidden 'pos' field.
 //   count - The serial form number used to set the form element ID to what Django expects.
 //   idx - The hierarchical node index, relative to the parent's child node array.
-//   selectedformat - The selected item in the fmt select list
-function saveSearchQueryHierarchyHelper (divElem, path, count, idx, selectedformat) {
+//   selectedformat - The selected item in the fmt select list.
+//   curfmt - Should initially be undefined/unsupplied.  The format currently being saved.
+function saveSearchQueryHierarchyHelper (divElem, path, count, idx, selectedformat, curfmt) {
   'use strict'
 
-  // If the div has a "-hierarchy" ID, we're at the root, so we can grab the output format name
-  let fmt = ''
+  // If the div has a "-hierarchy" ID, we're at the root, so we can update the format name
   if (typeof divElem.id !== 'undefined' && divElem.id && divElem.id.includes('-hierarchy')) {
-    fmt = '' + divElem.id.split('-').shift()
+    curfmt = '' + divElem.id.split('-').shift()
   }
 
   const childDivs = divElem.querySelectorAll(':scope > div') // - results in only 1, even if 2 items added - I think because each input is not wrapped in a div
@@ -730,27 +730,34 @@ function saveSearchQueryHierarchyHelper (divElem, path, count, idx, selectedform
           isAll = false
         }
         if (childInputs[i].disabled) {
+          // Form elements that are "static" (see compositeviews.py) are explicitly set as disabled
           // Infer static form by presence of disabled attribute
           staticGroup = true
         }
       } else if (childInputs[i].name.includes('-static')) {
         stcElem = childInputs[i]
       } else if (childInputs[i].disabled) {
+        // Form elements that are "static" (see compositeviews.py) are explicitly set as disabled
         // Infer static search form if any other form element is disabled
         staticForm = true
       }
       if (childInputs[i].disabled) {
+        // Form elements that are "static" (see compositeviews.py) are explicitly set as disabled
         // Remove the disabled attribute so that the data submits
         childInputs[i].removeAttribute('disabled')
       }
+      console.log('Saving template:', curfmt, 'Input:', childInputs[i].name, 'Value:', childInputs[i].value)
+      if (curfmt === selectedformat && childInputs[i].name.includes('-val') && childInputs[i].value === '') {
+        formErrLabel.innerHTML = 'All fields are required'
+      }
     }
-    console.log('Saving template:', selectedformat, 'Input:', childInputs[i].name, 'Value:', childInputs[i].value)
   }
 
   if (path === '') {
-    const formatName = getFormatName(fmt)
+    let fmt = curfmt
+    const formatName = getFormatName(curfmt)
     // Set up the root of the path to indicate the output format
-    if (selectedformat === fmt) {
+    if (selectedformat === curfmt) {
       fmt += '-' + formatName + '-selected'
     } else {
       fmt += '-' + formatName
@@ -805,7 +812,7 @@ function saveSearchQueryHierarchyHelper (divElem, path, count, idx, selectedform
   // Recurse
   // Always traverse 1 less, because there's always an empty trailing div tag
   for (let i = 0; i < numChildren; i++) {
-    count = saveSearchQueryHierarchyHelper(childDivs[i], path, count, i)
+    count = saveSearchQueryHierarchyHelper(childDivs[i], path, count, i, selectedformat, curfmt)
   }
 
   return count

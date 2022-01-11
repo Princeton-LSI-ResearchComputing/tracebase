@@ -50,8 +50,6 @@ class BaseAdvSearchForm(forms.Form):
 
     ncmp = forms.ChoiceField(required=True, widget=forms.Select())
 
-    # TODO: Currently, I am only providing this one field type.  Eventually, I will work out a way to dynamically
-    # update this based on the model's field type
     # Note: the placeholder attribute solves issue #135
     val = forms.CharField(widget=forms.TextInput(attrs={"placeholder": "search term"}))
 
