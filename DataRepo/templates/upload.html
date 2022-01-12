@@ -3,11 +3,12 @@
 {% block content %}
     <div>
 
-        <h4 id="animal-sample-accucor-data-submission-process">Animal, Sample, &amp; Accucor Data Submission Process</h4>
+        <h4 id="animal-sample-accucor-data-submission-process">Data Submission Process</h4>
+        <hr />
+        <p>An important part of TraceBase is collecting and maintaining a consistent set of metadata for each sample. Use the following instructions to submit your Animal, Sample, &amp; Accucor Data.</p>
         <h5 id="create-a-sample-sheet">Create a Sample Sheet</h5>
-        <p>An important part of TraceBase is collecting and maintaining a consistent set of metadata for each sample.</p>
         <ol>
-            <li>Make a copy of the <a href="https://docs.google.com/spreadsheets/d/1To3495KxJkAtnAD9KVdzc162zKbNiYuPEVyPseQPjMQ/copy">Tracebase Animal and Sample Table Template</a>.
+            <li><a href="https://docs.google.com/spreadsheets/d/1To3495KxJkAtnAD9KVdzc162zKbNiYuPEVyPseQPjMQ/copy">Copy</a> the TraceBase Animal and Sample Table Template.
             </li>
             <li>Fill in the <em>Animals</em> sheet <a class="badge bg-secondary" data-bs-toggle="collapse" data-bs-target="#fill-animals">more info</a>
                 <div id="fill-animals" class="collapse">
@@ -52,11 +53,11 @@
             validation script</a>.</p>
     <ol>
         <li>Download your Animal and Sample Table in Excel format.</li>
-        <li>Submit the table and any AccuCor files on the <a href="{% url 'validate' %}">TraceBase validation page</a></li>
-        <li>Fix any errors reported, re-download the table and validate the new Excel file.<br/>
-            Note that in general, you should <strong>NOT</strong> edit your AccuCor
+        <li><a href="{% url 'validate' %}">Validate</a> your sample table and AccuCor files</li>
+        <li>If there are any errors reported, fix them in the google spreadsheet and return to step 1.<br/>
+            <div class="text-muted">Note: In general, you should <strong>NOT</strong> edit your AccuCor
             files. It&#39;s simplest and often best to resolve issues by
-            editing your animal and sample table file.
+            editing your animal and sample table file.</div>
         </li>
     </ol>
     <h5 id="submit-your-data-on-google-drive">Submit your data on Google Drive</h5>
