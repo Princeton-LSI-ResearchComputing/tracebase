@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/3.1/ref/settings/
 
 import os
 from pathlib import Path
+from django.core.cache import cache
 
 import environ
 
@@ -151,6 +152,28 @@ FILE_UPLOAD_HANDLERS = [
 ]
 DATA_SUBMISSION_URL = "https://forms.gle/Jyp94aiGmhBNLZh6A"
 DATA_SUBMISSION_EMAIL = "csgenome@princeton.edu"
+
+
+# # Set up caching used by model cached_properties
+# # See: https://docs.djangoproject.com/en/dev/topics/cache/#setting-up-the-cache
+# CACHES = {
+#     'default': {
+#         'BACKEND': 'django.core.cache.backends.memcached.PyMemcacheCache',
+#         'LOCATION': '127.0.0.1:11211',
+#     }
+# }
+# Set up caching used by model cached_properties
+# See: https://docs.djangoproject.com/en/dev/topics/cache/#setting-up-the-cache
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
+        'LOCATION': 'tracebase_cache_table',
+        'TIMEOUT': None,
+        'OPTIONS': {
+            'MAX_ENTRIES': 500000
+        }
+    }
+}
 
 
 # Logging settings
