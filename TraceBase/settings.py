@@ -12,9 +12,9 @@ https://docs.djangoproject.com/en/3.1/ref/settings/
 
 import os
 from pathlib import Path
-from django.core.cache import cache
 
 import environ
+from django.core.cache import cache
 
 env = environ.Env()
 # reading .env file
@@ -165,13 +165,11 @@ DATA_SUBMISSION_EMAIL = "csgenome@princeton.edu"
 # Set up caching used by model cached_properties
 # See: https://docs.djangoproject.com/en/dev/topics/cache/#setting-up-the-cache
 CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
-        'LOCATION': 'tracebase_cache_table',
-        'TIMEOUT': None,
-        'OPTIONS': {
-            'MAX_ENTRIES': 500000
-        }
+    "default": {
+        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+        "LOCATION": "tracebase_cache_table",
+        "TIMEOUT": None,
+        "OPTIONS": {"MAX_ENTRIES": 500000},
     }
 }
 

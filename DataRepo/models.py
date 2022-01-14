@@ -5,13 +5,13 @@ import pandas as pd
 from chempy import Substance
 from chempy.util.periodic import atomic_number
 from django.apps import apps
+from django.conf import settings
+from django.core.cache import cache
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import Q, Sum
 from django.utils.functional import cached_property
-from django.core.cache import cache
-
 
 use_cache = True
 
@@ -503,7 +503,7 @@ class Animal(models.Model, TracerLabeledClass):
         elapsed/duration from the initiation of infusion or treatment,
         typically.
         """
-        cpname = 'all_serum_samples'
+        cpname = "all_serum_samples"
         result, is_cache_good = getCache(self, cpname)
         if not is_cache_good:
             result = (
@@ -523,11 +523,13 @@ class Animal(models.Model, TracerLabeledClass):
         has no serum samples or if the retrieved serum sample has no annotated
         time_collected, a warning will be issued.
         """
-        cpname = 'final_serum_sample'
+        cpname = "final_serum_sample"
         result, is_cache_good = getCache(self, cpname)
         if not is_cache_good:
             final_serum_sample = (
-                self.samples.filter(tissue__name__istartswith=Tissue.SERUM_TISSUE_PREFIX)
+                self.samples.filter(
+                    tissue__name__istartswith=Tissue.SERUM_TISSUE_PREFIX
+                )
                 .order_by("time_collected")
                 .last()
             )
@@ -552,7 +554,7 @@ class Animal(models.Model, TracerLabeledClass):
         serum sample removed from the animal, based on the time elapsed/duration from the initiation of infusion or
         treatment.  If the animal has no serum samples, a warning will be issued.
         """
-        cpname = 'final_serum_sample_id'
+        cpname = "final_serum_sample_id"
         result, is_cache_good = getCache(self, cpname)
         if not is_cache_good:
             # Note: calling self.final_serum_sample here ran into linting issues with `fss.id` not "existing". Added
@@ -571,7 +573,7 @@ class Animal(models.Model, TracerLabeledClass):
         Instance method that returns a list of all peak groups assayed from all
         serum samples on an animal
         """
-        cpname = 'all_serum_samples_tracer_peak_groups'
+        cpname = "all_serum_samples_tracer_peak_groups"
         result, is_cache_good = getCache(self, cpname)
         if not is_cache_good:
             all_serum_samples_tracer_peak_groups = []
@@ -591,7 +593,7 @@ class Animal(models.Model, TracerLabeledClass):
         the very last recorded PeakGroup obtained from the Animal's final serum
         sample from the last date it was measured/assayed
         """
-        cpname = 'final_serum_sample_tracer_peak_group'
+        cpname = "final_serum_sample_tracer_peak_group"
         result, is_cache_good = getCache(self, cpname)
         if not is_cache_good:
             if not self.final_serum_sample:
@@ -613,7 +615,7 @@ class Animal(models.Model, TracerLabeledClass):
         all the PeakData from the very last recorded PeakGroup obtained from the
         Animal's final serum sample from the last date it was measured/assayed
         """
-        cpname = 'final_serum_sample_tracer_peak_data'
+        cpname = "final_serum_sample_tracer_peak_data"
         result, is_cache_good = getCache(self, cpname)
         if not is_cache_good:
             final_peak_group = self.final_serum_sample_tracer_peak_group
@@ -630,18 +632,22 @@ class Animal(models.Model, TracerLabeledClass):
         intact_tracer_peak_data is an instance method that returns the peak data
         matching the intact tracer (i.e. the labeled_count matches the tracer_labeled_count)
         """
-        cpname = 'intact_tracer_peak_data'
+        cpname = "intact_tracer_peak_data"
         result, is_cache_good = getCache(self, cpname)
         if not is_cache_good:
             if not self.tracer_labeled_count:
-                warnings.warn(f"Animal {self.name} has no annotated tracer_labeled_count")
+                warnings.warn(
+                    f"Animal {self.name} has no annotated tracer_labeled_count"
+                )
                 result = None
             else:
                 final_peak_data = self.final_serum_sample_tracer_peak_data
                 if not final_peak_data:
                     result = None
                 else:
-                    result = final_peak_data.filter(labeled_count=self.tracer_labeled_count).get()
+                    result = final_peak_data.filter(
+                        labeled_count=self.tracer_labeled_count
+                    ).get()
             setCache(self, cpname, result)
         return result
 
@@ -651,11 +657,13 @@ class Animal(models.Model, TracerLabeledClass):
         Rate of Disappearance (intact), also referred to as Rd_intact_g. This is
         calculated on the Animal's final serum sample tracer's PeakGroup.
         """
-        cpname = 'final_serum_tracer_rate_disappearance_intact_per_gram'
+        cpname = "final_serum_tracer_rate_disappearance_intact_per_gram"
         result, is_cache_good = getCache(self, cpname)
         if not is_cache_good:
             if not self.final_serum_sample_tracer_peak_group:
-                warnings.warn(f"Animal {self.name} has no final serum sample peak group.")
+                warnings.warn(
+                    f"Animal {self.name} has no final serum sample peak group."
+                )
                 result = None
             else:
                 result = (
@@ -671,14 +679,18 @@ class Animal(models.Model, TracerLabeledClass):
         sometimes Fcirc_intact. This is calculated on the Animal's
         final serum sample tracer's PeakGroup.
         """
-        cpname = 'final_serum_tracer_rate_appearance_intact_per_gram'
+        cpname = "final_serum_tracer_rate_appearance_intact_per_gram"
         result, is_cache_good = getCache(self, cpname)
         if not is_cache_good:
             if not self.final_serum_sample_tracer_peak_group:
-                warnings.warn(f"Animal {self.name} has no final serum sample peak group.")
+                warnings.warn(
+                    f"Animal {self.name} has no final serum sample peak group."
+                )
                 result = None
             else:
-                result = self.final_serum_sample_tracer_peak_group.rate_appearance_intact_per_gram
+                result = (
+                    self.final_serum_sample_tracer_peak_group.rate_appearance_intact_per_gram
+                )
             setCache(self, cpname, result)
         return result
 
@@ -688,11 +700,13 @@ class Animal(models.Model, TracerLabeledClass):
         Rate of Disappearance (intact), also referred to as Rd_intact. This is
         calculated on the Animal's final serum sample tracer's PeakGroup.
         """
-        cpname = 'final_serum_tracer_rate_disappearance_intact_per_animal'
+        cpname = "final_serum_tracer_rate_disappearance_intact_per_animal"
         result, is_cache_good = getCache(self, cpname)
         if not is_cache_good:
             if not self.final_serum_sample_tracer_peak_group:
-                warnings.warn(f"Animal {self.name} has no final serum sample peak group.")
+                warnings.warn(
+                    f"Animal {self.name} has no final serum sample peak group."
+                )
                 result = None
             else:
                 result = (
@@ -708,11 +722,13 @@ class Animal(models.Model, TracerLabeledClass):
         Fcirc_intact_per_mouse. This is calculated on the Animal's final serum
         sample tracer's PeakGroup.
         """
-        cpname = 'final_serum_tracer_rate_appearance_intact_per_animal'
+        cpname = "final_serum_tracer_rate_appearance_intact_per_animal"
         result, is_cache_good = getCache(self, cpname)
         if not is_cache_good:
             if not self.final_serum_sample_tracer_peak_group:
-                warnings.warn(f"Animal {self.name} has no final serum sample peak group.")
+                warnings.warn(
+                    f"Animal {self.name} has no final serum sample peak group."
+                )
                 result = None
             else:
                 result = (
@@ -729,11 +745,13 @@ class Animal(models.Model, TracerLabeledClass):
         Calculated for the last serum sample collected, for the last tracer
         peakgroup analyzed.
         """
-        cpname = 'final_serum_tracer_rate_disappearance_average_per_gram'
+        cpname = "final_serum_tracer_rate_disappearance_average_per_gram"
         result, is_cache_good = getCache(self, cpname)
         if not is_cache_good:
             if not self.final_serum_sample_tracer_peak_group:
-                warnings.warn(f"Animal {self.name} has no final serum sample peak group.")
+                warnings.warn(
+                    f"Animal {self.name} has no final serum sample peak group."
+                )
                 result = None
             else:
                 result = (
@@ -750,11 +768,13 @@ class Animal(models.Model, TracerLabeledClass):
         Calculated for the last serum sample collected, for the last tracer
         peakgroup analyzed.
         """
-        cpname = 'final_serum_tracer_rate_appearance_average_per_gram'
+        cpname = "final_serum_tracer_rate_appearance_average_per_gram"
         result, is_cache_good = getCache(self, cpname)
         if not is_cache_good:
             if not self.final_serum_sample_tracer_peak_group:
-                warnings.warn(f"Animal {self.name} has no final serum sample peak group.")
+                warnings.warn(
+                    f"Animal {self.name} has no final serum sample peak group."
+                )
                 result = None
             else:
                 return (
@@ -771,11 +791,13 @@ class Animal(models.Model, TracerLabeledClass):
         Calculated for the last serum sample collected, for the last tracer
         peakgroup analyzed.
         """
-        cpname = 'final_serum_tracer_rate_disappearance_average_per_animal'
+        cpname = "final_serum_tracer_rate_disappearance_average_per_animal"
         result, is_cache_good = getCache(self, cpname)
         if not is_cache_good:
             if not self.final_serum_sample_tracer_peak_group:
-                warnings.warn(f"Animal {self.name} has no final serum sample peak group.")
+                warnings.warn(
+                    f"Animal {self.name} has no final serum sample peak group."
+                )
                 result = None
             else:
                 result = (
@@ -792,11 +814,13 @@ class Animal(models.Model, TracerLabeledClass):
         Calculated for the last serum sample collected, for the last tracer
         peakgroup analyzed.
         """
-        cpname = 'final_serum_tracer_rate_appearance_average_per_animal'
+        cpname = "final_serum_tracer_rate_appearance_average_per_animal"
         result, is_cache_good = getCache(self, cpname)
         if not is_cache_good:
             if not self.final_serum_sample_tracer_peak_group:
-                warnings.warn(f"Animal {self.name} has no final serum sample peak group.")
+                warnings.warn(
+                    f"Animal {self.name} has no final serum sample peak group."
+                )
                 result = None
             else:
                 result = (
@@ -812,11 +836,13 @@ class Animal(models.Model, TracerLabeledClass):
         Fcirc_avg * PeakData:label_count in nmol atom / min / gram
         turnover of atoms in this compound, e.g. "nmol carbon / min / g"
         """
-        cpname = 'final_serum_tracer_rate_appearance_average_per_animal'
+        cpname = "final_serum_tracer_rate_appearance_average_per_animal"
         result, is_cache_good = getCache(self, cpname)
         if not is_cache_good:
             if not self.final_serum_sample_tracer_peak_group:
-                warnings.warn(f"Animal {self.name} has no final serum sample peak group.")
+                warnings.warn(
+                    f"Animal {self.name} has no final serum sample peak group."
+                )
                 result = None
             else:
                 result = (
@@ -943,7 +969,7 @@ class Sample(models.Model):
     def is_serum_sample(self):
         """returns True if the sample is flagged as a "serum" sample"""
 
-        cpname = 'is_serum_sample'
+        cpname = "is_serum_sample"
         result, is_cache_good = getCache(self, cpname)
         if not is_cache_good:
             # NOTE: this logic may have to change in the future
@@ -1085,7 +1111,7 @@ class PeakGroup(models.Model):
         Accucor provides this in the tab "pool size".
         Sum of the corrected_abundance of all PeakData for this PeakGroup.
         """
-        cpname = 'total_abundance'
+        cpname = "total_abundance"
         result, is_cache_good = getCache(self, cpname)
         if not is_cache_good:
             result = self.peak_data.all().aggregate(
@@ -1103,7 +1129,7 @@ class PeakGroup(models.Model):
         Sum of all (PeakData.fraction * PeakData.labeled_count) /
             PeakGroup.Compound.num_atoms(PeakData.labeled_element)
         """
-        cpname = 'enrichment_fraction'
+        cpname = "enrichment_fraction"
         result, is_cache_good = getCache(self, cpname)
         if not is_cache_good:
             enrichment_fraction = None
@@ -1144,7 +1170,7 @@ class PeakGroup(models.Model):
         This abundance of labeled atoms in this compound.
         PeakGroup.total_abundance * PeakGroup.enrichment_fraction
         """
-        cpname = 'enrichment_abundance'
+        cpname = "enrichment_abundance"
         result, is_cache_good = getCache(self, cpname)
         if not is_cache_good:
             try:
@@ -1163,7 +1189,7 @@ class PeakGroup(models.Model):
         ThisPeakGroup.enrichment_fraction / SerumTracerPeakGroup.enrichment_fraction
         """
 
-        cpname = 'normalized_labeling'
+        cpname = "normalized_labeling"
         result, is_cache_good = getCache(self, cpname)
         if not is_cache_good:
             try:
@@ -1182,7 +1208,9 @@ class PeakGroup(models.Model):
                     )
                     serum_peak_group = (
                         PeakGroup.objects.filter(msrun__sample_id=final_serum_sample.id)
-                        .filter(compounds__id=self.msrun.sample.animal.tracer_compound.id)
+                        .filter(
+                            compounds__id=self.msrun.sample.animal.tracer_compound.id
+                        )
                         .get()
                     )
                     normalized_labeling = (
@@ -1213,7 +1241,7 @@ class PeakGroup(models.Model):
     @cached_property
     def animal(self):
         """Convenient instance method to cache the animal this PeakGroup came from"""
-        cpname = 'animal'
+        cpname = "animal"
         result, is_cache_good = getCache(self, cpname)
         if not is_cache_good:
             result = self.msrun.sample.animal
@@ -1229,7 +1257,7 @@ class PeakGroup(models.Model):
         calculations from returning values from non-tracer compounds. Uncertain
         whether this is a true concern.
         """
-        cpname = 'is_tracer_compound_group'
+        cpname = "is_tracer_compound_group"
         result, is_cache_good = getCache(self, cpname)
         if not is_cache_good:
             if self.animal.tracer_compound in self.compounds.all():
@@ -1245,7 +1273,7 @@ class PeakGroup(models.Model):
         Instance method which returns True if a peakgroup was obtained from a
         msrun of a serum sample. Uncertain whether this is a true concern.
         """
-        cpname = 'from_serum_sample'
+        cpname = "from_serum_sample"
         result, is_cache_good = getCache(self, cpname)
         if not is_cache_good:
             if self.msrun.sample.is_serum_sample:
@@ -1262,7 +1290,7 @@ class PeakGroup(models.Model):
         Instance method which returns True if a peak_group can (feasibly)
         calculate rates of appearance and dissapearance of a tracer group
         """
-        cpname = 'can_compute_tracer_rates'
+        cpname = "can_compute_tracer_rates"
         result, is_cache_good = getCache(self, cpname)
         if not is_cache_good:
             if not self.is_tracer_compound_group:
@@ -1293,11 +1321,13 @@ class PeakGroup(models.Model):
         Instance method which returns True if a peak_group rate metric can utilize
         the associated animal.body_weight
         """
-        cpname = 'can_compute_body_weight_tracer_rates'
+        cpname = "can_compute_body_weight_tracer_rates"
         result, is_cache_good = getCache(self, cpname)
         if not is_cache_good:
             if not self.animal.body_weight:
-                warnings.warn(f"Animal {self.animal.name} has no annotated body_weight.")
+                warnings.warn(
+                    f"Animal {self.animal.name} has no annotated body_weight."
+                )
                 result = False
             else:
                 result = True
@@ -1312,7 +1342,7 @@ class PeakGroup(models.Model):
         peakdata.  Returns the peakdata.fraction, if it exists and is greater
         than zero.
         """
-        cpname = 'can_compute_intact_tracer_rates'
+        cpname = "can_compute_intact_tracer_rates"
         result, is_cache_good = getCache(self, cpname)
         if not is_cache_good:
             if not self.can_compute_tracer_rates:
@@ -1352,7 +1382,7 @@ class PeakGroup(models.Model):
         calculated using averaged enrichment measurements of a tracer's
         peakdata.
         """
-        cpname = 'can_compute_average_tracer_rates'
+        cpname = "can_compute_average_tracer_rates"
         result, is_cache_good = getCache(self, cpname)
         if not is_cache_good:
             if not self.can_compute_tracer_rates:
@@ -1370,7 +1400,7 @@ class PeakGroup(models.Model):
     @cached_property
     def rate_disappearance_intact_per_gram(self):
         """Rate of Disappearance (intact)"""
-        cpname = 'rate_disappearance_intact_per_gram'
+        cpname = "rate_disappearance_intact_per_gram"
         result, is_cache_good = getCache(self, cpname)
         if not is_cache_good:
             if not self.can_compute_intact_tracer_rates:
@@ -1378,7 +1408,9 @@ class PeakGroup(models.Model):
                 result = None
             else:
                 fraction = (
-                    self.peak_data.filter(labeled_count=self.animal.tracer_labeled_count)
+                    self.peak_data.filter(
+                        labeled_count=self.animal.tracer_labeled_count
+                    )
                     .get()
                     .fraction
                 )
@@ -1394,7 +1426,7 @@ class PeakGroup(models.Model):
     @cached_property
     def rate_appearance_intact_per_gram(self):
         """Rate of Appearance (intact)"""
-        cpname = 'rate_appearance_intact_per_gram'
+        cpname = "rate_appearance_intact_per_gram"
         result, is_cache_good = getCache(self, cpname)
         if not is_cache_good:
             if not self.can_compute_intact_tracer_rates:
@@ -1412,7 +1444,7 @@ class PeakGroup(models.Model):
     @cached_property
     def rate_disappearance_intact_per_animal(self):
         """Rate of Disappearance (intact)"""
-        cpname = 'rate_disappearance_intact_per_animal'
+        cpname = "rate_disappearance_intact_per_animal"
         result, is_cache_good = getCache(self, cpname)
         if not is_cache_good:
             if not self.can_compute_intact_tracer_rates:
@@ -1424,14 +1456,16 @@ class PeakGroup(models.Model):
                 )
                 result = None
             else:
-                result = self.rate_disappearance_intact_per_gram * self.animal.body_weight
+                result = (
+                    self.rate_disappearance_intact_per_gram * self.animal.body_weight
+                )
             setCache(self, cpname, result)
         return result
 
     @cached_property
     def rate_appearance_intact_per_animal(self):
         """Rate of Appearance (intact)"""
-        cpname = 'rate_appearance_intact_per_animal'
+        cpname = "rate_appearance_intact_per_animal"
         result, is_cache_good = getCache(self, cpname)
         if not is_cache_good:
             if not self.can_compute_intact_tracer_rates:
@@ -1453,7 +1487,7 @@ class PeakGroup(models.Model):
         Rd_avg_g = [Infusate] * 'Infusion Rate' / 'Enrichment Fraction'
         in nmol/min/g
         """
-        cpname = 'rate_disappearance_average_per_gram'
+        cpname = "rate_disappearance_average_per_gram"
         result, is_cache_good = getCache(self, cpname)
         if not is_cache_good:
             if not self.can_compute_average_tracer_rates:
@@ -1473,7 +1507,7 @@ class PeakGroup(models.Model):
         """
         Ra_avg_g = Rd_avg_g - [Infusate] * 'Infusion Rate' in nmol/min/g
         """
-        cpname = 'rate_appearance_average_per_gram'
+        cpname = "rate_appearance_average_per_gram"
         result, is_cache_good = getCache(self, cpname)
         if not is_cache_good:
             if not self.can_compute_average_tracer_rates:
@@ -1494,7 +1528,7 @@ class PeakGroup(models.Model):
         Rate of Disappearance (avg)
         Rd_avg = Rd_avg_g * 'Body Weight' in nmol/min
         """
-        cpname = 'rate_disappearance_average_per_animal'
+        cpname = "rate_disappearance_average_per_animal"
         result, is_cache_good = getCache(self, cpname)
         if not is_cache_good:
             if not self.can_compute_average_tracer_rates:
@@ -1506,7 +1540,9 @@ class PeakGroup(models.Model):
                 )
                 result = None
             else:
-                result = self.rate_disappearance_average_per_gram * self.animal.body_weight
+                result = (
+                    self.rate_disappearance_average_per_gram * self.animal.body_weight
+                )
             setCache(self, cpname, result)
         return result
 
@@ -1516,7 +1552,7 @@ class PeakGroup(models.Model):
         Rate of Appearance (avg)
         Ra_avg = Ra_avg_g * 'Body Weight' in nmol/min
         """
-        cpname = 'rate_appearance_average_per_animal'
+        cpname = "rate_appearance_average_per_animal"
         result, is_cache_good = getCache(self, cpname)
         if not is_cache_good:
             if not self.can_compute_average_tracer_rates:
@@ -1537,7 +1573,7 @@ class PeakGroup(models.Model):
         """
         turnover of atoms in this compound in nmol atom / min / gram
         """
-        cpname = 'rate_appearance_average_atom_turnover'
+        cpname = "rate_appearance_average_atom_turnover"
         result, is_cache_good = getCache(self, cpname)
         if not is_cache_good:
             if (
@@ -1549,7 +1585,10 @@ class PeakGroup(models.Model):
                 )
                 result = None
             else:
-                result = self.rate_appearance_average_per_gram * self.animal.tracer_labeled_count
+                result = (
+                    self.rate_appearance_average_per_gram
+                    * self.animal.tracer_labeled_count
+                )
             setCache(self, cpname, result)
         return result
 
@@ -1632,7 +1671,7 @@ class PeakData(models.Model, TracerLabeledClass):
         "fraction" to avoid confusion with other variables like "normalized
         labeling".
         """
-        cpname = 'fraction'
+        cpname = "fraction"
         result, is_cache_good = getCache(self, cpname)
         if not is_cache_good:
             try:
@@ -1656,13 +1695,14 @@ class PeakData(models.Model, TracerLabeledClass):
             )
         ]
 
+
 def getCache(rec, cache_prop_name):
     if not use_cache:
         return None, False
     try:
         good_cache = True
         uncached = object()
-        cachekey = '.'.join([rec.__class__.__name__, cache_prop_name, str(rec.pk)])
+        cachekey = ".".join([rec.__class__.__name__, cache_prop_name, str(rec.pk)])
         result = cache.get(cachekey, uncached)
         if result is uncached:
             good_cache = False
@@ -1671,23 +1711,20 @@ def getCache(rec, cache_prop_name):
         print(e)
         result = None
         good_cache = False
-    print(f"Returning cached {cachekey}?: {good_cache} Value: {result}")
+    if settings.DEBUG:
+        print(f"Returning cached {cachekey}?: {good_cache} Value: {result}")
     return result, good_cache
+
 
 def setCache(rec, cache_prop_name, value):
     if not use_cache:
         return False
     try:
-        cachekey = '.'.join([rec.__class__.__name__, cache_prop_name, str(rec.pk)])
+        cachekey = ".".join([rec.__class__.__name__, cache_prop_name, str(rec.pk)])
         cache.set(cachekey, value, timeout=None, version=1)
         print(f"Setting cache {cachekey} to {value}")
     except Exception as e:
         # Allow tracebase to still work, just without caching
         print(e)
         return False
-    # test = cache.get(cachekey)
-    # if test is None:
-    #     print(f"CACHE FAILURE FOR KEY/VALUE: {cachekey}/{value}")
-    # else:
-    #     print(f"CACHE SUCCESS FOR KEY/VALUE: {cachekey}/{test}")
     return True
