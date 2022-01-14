@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% load static %}
+{% block content %}
+    <div>
+
+        <h4>Data Validation Disabled</h4>
+        <hr />
+
+        <p>Data Validation has been temporarily disabled while we fix some
+            bugs. In the meantime, please go ahead and <a href="{% url 'upload'
+                %}">submit your data</a>. We aplogize for any inconvience.</p>
+
+    </div>
+{% endblock %}

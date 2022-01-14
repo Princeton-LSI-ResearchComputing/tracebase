@@ -929,7 +929,9 @@ class ViewTests(TestCase):
         """
         response = self.client.get(reverse("validate"))
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "DataRepo/validate_submission.html")
+        # Temporarily disable validation due to a bug
+        # self.assertTemplateUsed(response, "DataRepo/validate_submission.html")
+        self.assertTemplateUsed(response, "validation_disabled.html")
 
     def test_validate_files(self):
         """
