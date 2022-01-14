@@ -1468,10 +1468,10 @@ class BaseAdvancedSearchView:
         all_fld_choices = ()
         seen = []
         for fmtid in self.modeldata.keys():
-            for opt in self.getSearchFieldChoices(fmtid):
-                if opt[0] not in seen:
-                    seen.append(opt[0])
-                    all_fld_choices = all_fld_choices + ((opt[0], opt[1]),)
+            for (fld_val, fld_name) in self.getSearchFieldChoices(fmtid):
+                if fld_val not in seen:
+                    seen.append(fld_val)
+                    all_fld_choices = all_fld_choices + ((fld_val, fld_name),)
         return all_fld_choices
 
     def getComparisonChoices(self):
