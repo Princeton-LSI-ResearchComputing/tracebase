@@ -34,6 +34,8 @@ from DataRepo.views import (
 
 
 class ViewTests(TestCase):
+    maxDiff = None
+
     @classmethod
     def setUpTestData(cls):
         call_command("loaddata", "tissues.yaml")
@@ -438,7 +440,7 @@ class ViewTests(TestCase):
                                 "pos": "",
                                 "ncmp": "iexact",
                                 "static": "",
-                                "fld": "",
+                                "fld": "labeled_element",
                                 "val": "",
                             }
                         ],
