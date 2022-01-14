@@ -33,8 +33,8 @@
 <div>
     <br>
     {% if measured %}
-        <h5><a href="{% url 'search_basic' 'MeasuredCompound' 'id' 'exact' compound.id 'peakgroups' %}">View Peak Groups of this measured compound</a></h5>
-        <h5><a href="{% url 'search_basic' 'MeasuredCompound' 'id' 'exact' compound.id 'peakdata' %}">View Peak Data of this measured compound</a></h5>
+        <h5><a href="{% url 'search_basic' 'MeasuredCompound' 'id' 'iexact' compound.id 'peakgroups' %}">View Peak Groups of this measured compound</a></h5>
+        <h5><a href="{% url 'search_basic' 'MeasuredCompound' 'id' 'iexact' compound.id 'peakdata' %}">View Peak Data of this measured compound</a></h5>
     {% else %}
         No measurements of this compound have yet been loaded.
     {% endif %}
