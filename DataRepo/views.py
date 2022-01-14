@@ -138,6 +138,10 @@ def upload(request):
     return render(request, "upload.html", context)
 
 
+def validation_disabled(request):
+    return render(request, "validation_disabled.html")
+
+
 class CompoundListView(ListView):
     """Generic class-based view for a list of compounds"""
 
