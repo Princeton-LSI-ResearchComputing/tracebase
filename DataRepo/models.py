@@ -14,6 +14,7 @@ from django.db.models import Q, Sum
 from django.utils.functional import cached_property
 
 use_cache = True
+caching_updates = True
 
 
 def value_from_choices_label(label, choices):
@@ -869,6 +870,29 @@ class Animal(models.Model, TracerLabeledClass):
                     f"{Protocol.ANIMAL_TREATMENT}"
                 )
 
+    def save(self, *args, **kwargs):
+        if caching_updates:
+            self.deleteCache()
+        super().save(*args, **kwargs)  # Call the "real" save() method.
+
+    def delete(self, *args, **kwargs):
+        if caching_updates:
+            self.deleteCache()
+        super().delete(*args, **kwargs)  # Call the "real" save() method.
+
+    def deleteCache(self):
+        if not caching_updates:
+            return
+        # For every cached property, delete the cache value
+        for member_key in Animal.__dict__.keys():
+            if Animal.__dict__[member_key].__class__.__name__ == 'cached_property':
+                cache_key = getCacheKey(self, member_key)
+                cache.delete(cache_key)
+        # For every child record, call its deleteCache()
+        qs = Sample.objects.filter(animal__exact=self.pk)
+        for rec in qs:
+            rec.deleteCache()
+
 
 class Tissue(models.Model):
     # Instance / model fields
@@ -989,6 +1013,34 @@ class Sample(models.Model):
 
     def __str__(self):
         return str(self.name)
+
+    def save(self, *args, **kwargs):
+        if caching_updates:
+            self.deleteAnimalCache()
+        super().save(*args, **kwargs)  # Call the "real" save() method.
+
+    def delete(self, *args, **kwargs):
+        if caching_updates:
+            self.deleteAnimalCache()
+        super().delete(*args, **kwargs)  # Call the "real" save() method.
+
+    def deleteAnimalCache(self):
+        # Get the animal and call it's deleteCache method
+        if caching_updates:
+            self.animal.deleteCache()
+
+    def deleteCache(self):
+        if not caching_updates:
+            return
+        # For every cached property, delete the cache value
+        for member_key in Sample.__dict__.keys():
+            if Sample.__dict__[member_key].__class__.__name__ == 'cached_property':
+                cache_key = getCacheKey(self, member_key)
+                cache.delete(cache_key)
+        # For every child record, call its deleteCache()
+        qs = PeakGroup.objects.filter(msrun__sample__exact=self.pk)
+        for rec in qs:
+            rec.deleteCache()
 
 
 class MSRun(models.Model):
@@ -1608,6 +1660,34 @@ class PeakGroup(models.Model):
     def __str__(self):
         return str(self.name)
 
+    def save(self, *args, **kwargs):
+        if caching_updates:
+            self.deleteAnimalCache()
+        super().save(*args, **kwargs)  # Call the "real" save() method.
+
+    def delete(self, *args, **kwargs):
+        if caching_updates:
+            self.deleteAnimalCache()
+        super().delete(*args, **kwargs)  # Call the "real" save() method.
+
+    def deleteAnimalCache(self):
+        # Get the animal and call it's deleteCache method
+        if caching_updates:
+            self.msrun.sample.animal.deleteCache()
+
+    def deleteCache(self):
+        if not caching_updates:
+            return
+        # For every cached property, delete the cache value
+        for member_key in PeakGroup.__dict__.keys():
+            if PeakGroup.__dict__[member_key].__class__.__name__ == 'cached_property':
+                cache_key = getCacheKey(self, member_key)
+                cache.delete(cache_key)
+        # For every child record, call its deleteCache()
+        qs = PeakData.objects.filter(peak_group__msrun__sample__exact=self.pk)
+        for rec in qs:
+            rec.deleteCache()
+
 
 class PeakData(models.Model, TracerLabeledClass):
     """
@@ -1695,6 +1775,30 @@ class PeakData(models.Model, TracerLabeledClass):
             )
         ]
 
+    def save(self, *args, **kwargs):
+        if caching_updates:
+            self.deleteAnimalCache()
+        super().save(*args, **kwargs)  # Call the "real" save() method.
+
+    def delete(self, *args, **kwargs):
+        if caching_updates:
+            self.deleteAnimalCache()
+        super().delete(*args, **kwargs)  # Call the "real" save() method.
+
+    def deleteAnimalCache(self):
+        # Get the animal and call it's deleteCache method
+        if caching_updates:
+            self.peak_group.msrun.sample.animal.deleteCache()
+
+    def deleteCache(self):
+        if not caching_updates:
+            return
+        # For every cached property, delete the cache value
+        for member_key in PeakGroup.__dict__.keys():
+            if PeakGroup.__dict__[member_key].__class__.__name__ == 'cached_property':
+                cache_key = getCacheKey(self, member_key)
+                cache.delete(cache_key)
+
 
 def getCache(rec, cache_prop_name):
     if not use_cache:
@@ -1702,7 +1806,7 @@ def getCache(rec, cache_prop_name):
     try:
         good_cache = True
         uncached = object()
-        cachekey = ".".join([rec.__class__.__name__, cache_prop_name, str(rec.pk)])
+        cachekey = getCacheKey(rec, cache_prop_name)
         result = cache.get(cachekey, uncached)
         if result is uncached:
             good_cache = False
@@ -1720,7 +1824,7 @@ def setCache(rec, cache_prop_name, value):
     if not use_cache:
         return False
     try:
-        cachekey = ".".join([rec.__class__.__name__, cache_prop_name, str(rec.pk)])
+        cachekey = getCacheKey(rec, cache_prop_name)
         cache.set(cachekey, value, timeout=None, version=1)
         print(f"Setting cache {cachekey} to {value}")
     except Exception as e:
@@ -1728,3 +1832,12 @@ def setCache(rec, cache_prop_name, value):
         print(e)
         return False
     return True
+
+def getCacheKey(rec, cache_prop_name):
+    return ".".join([rec.__class__.__name__, cache_prop_name, str(rec.pk)])
+
+def disableCachingUpdates():
+    caching_updates = False
+
+def enableCachingUpdates():
+    caching_updates = True
