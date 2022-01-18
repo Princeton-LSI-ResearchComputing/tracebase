@@ -25,8 +25,8 @@ from DataRepo.models import (
     Study,
     Tissue,
     TracerLabeledClass,
-    disableCachingUpdates,
-    enableCachingUpdates,
+    disable_caching_updates,
+    enable_caching_updates,
     get_researchers,
     value_from_choices_label,
 )
@@ -128,7 +128,7 @@ class SampleTableLoader:
     def load_sample_table(self, data, skip_researcher_check=False, debug=False):
         self.debug = debug
 
-        disableCachingUpdates()
+        disable_caching_updates()
         animals_to_uncache = []
 
         # Create a list to hold the csv reader data so that iterations from validating doesn't leave the csv reader
@@ -157,7 +157,7 @@ class SampleTableLoader:
             try:
                 tissue = Tissue.objects.get(name=tissue_name)
             except Tissue.DoesNotExist as e:
-                enableCachingUpdates()
+                enable_caching_updates()
                 raise Tissue.DoesNotExist(
                     f"Invalid tissue type specified: '{tissue_name}'"
                 ) from e
@@ -183,7 +183,7 @@ class SampleTableLoader:
                     study.full_clean()
                     study.save()
                 except Exception as e:
-                    enableCachingUpdates()
+                    enable_caching_updates()
                     print(f"Error saving record: Study:{study}")
                     raise (e)
 
@@ -289,7 +289,7 @@ class SampleTableLoader:
                         )
                         animal.tracer_compound = tracer_compound
                     except Compound.DoesNotExist as e:
-                        enableCachingUpdates()
+                        enable_caching_updates()
                         print(
                             f"ERROR: {self.headers.TRACER_COMPOUND_NAME} not found: Compound:{tracer_compound_name}"
                         )
@@ -322,7 +322,7 @@ class SampleTableLoader:
                     animal.full_clean()
                     animal.save()
                 except Exception as e:
-                    enableCachingUpdates()
+                    enable_caching_updates()
                     print(f"Error saving record: Animal:{animal}")
                     raise (e)
 
@@ -359,12 +359,12 @@ class SampleTableLoader:
                         sample.full_clean()
                         sample.save()
                     except Exception as e:
-                        enableCachingUpdates()
+                        enable_caching_updates()
                         print(f"Error saving record: Sample:{sample}")
                         raise (e)
 
         if len(self.missing_headers) > 0:
-            enableCachingUpdates()
+            enable_caching_updates()
             raise (
                 HeaderError(
                     f"The following column headers were missing: {', '.join(self.missing_headers)}",
@@ -375,7 +375,7 @@ class SampleTableLoader:
         # Check researchers last so that other errors can be dealt with by users during validation
         # Users cannot resolve new researcher errors if they really are new
         if len(self.researcher_errors) > 0:
-            enableCachingUpdates()
+            enable_caching_updates()
             nl = "\n"
             all_researcher_error_strs = []
             for ere in self.researcher_errors:
@@ -389,14 +389,14 @@ class SampleTableLoader:
                 all_researcher_error_strs.append(err_msg)
             raise ResearcherError("\n".join(all_researcher_error_strs))
 
-        enableCachingUpdates()
+        enable_caching_updates()
 
         # Throw an exception in debug mode to abort the load
         assert not debug, "Debugging..."
 
         print("Expiring affected caches...")
         for animal in animals_to_uncache:
-            animal.deleteCache()
+            animal.delete_cache()
 
     def getRowVal(self, row, header, hdr_required=True, val_required=True):
         """
@@ -409,12 +409,12 @@ class SampleTableLoader:
             if hdr_required or header:
                 val = row[header]
             elif hdr_required:
-                enableCachingUpdates()
+                enable_caching_updates()
                 raise HeaderConfigError(
                     "Header required, but no header string supplied."
                 )
             if header and val_required and (val == "" or val is None):
-                enableCachingUpdates()
+                enable_caching_updates()
                 raise RequiredValueError(
                     f"Values in column {header} are required, but some found missing"
                 )
@@ -562,7 +562,7 @@ class AccuCorDataLoader:
         corr_iter_err = ""
         for k, v in corr_iter.items():
             if k.startswith("Unnamed: "):
-                enableCachingUpdates()
+                enable_caching_updates()
                 raise Exception(
                     "Sample columns missing headers found in the Corrected data sheet. You have "
                     + str(len(self.accucor_corrected_df.columns))
@@ -576,7 +576,7 @@ class AccuCorDataLoader:
             orig_iter_err = ""
             for k, v in orig_iter.items():
                 if k.startswith("Unnamed: "):
-                    enableCachingUpdates()
+                    enable_caching_updates()
                     raise EmptyDataError(
                         "Sample columns missing headers found in the Original data sheet. You have "
                         + str(len(self.accucor_original_df.columns))
@@ -686,7 +686,7 @@ class AccuCorDataLoader:
                 missing_samples.append(sample_name)
 
         if len(missing_samples) != 0:
-            enableCachingUpdates()
+            enable_caching_updates()
             raise (
                 MissingSamplesError(
                     f"{len(missing_samples)} samples are missing: {', '.join(missing_samples)}",
@@ -835,7 +835,7 @@ class AccuCorDataLoader:
         """
         extract and store the data for MsRun PeakGroup and PeakData
         """
-        disableCachingUpdates()
+        disable_caching_updates()
         animals_to_uncache = []
 
         print("Loading data...")
@@ -994,13 +994,13 @@ class AccuCorDataLoader:
                         peak_data.full_clean()
                         peak_data.save()
 
-        enableCachingUpdates()
+        enable_caching_updates()
 
         assert not self.debug, "Debugging..."
 
         print("Expiring affected caches...")
         for animal in animals_to_uncache:
-            animal.deleteCache()
+            animal.delete_cache()
 
     @classmethod
     def parse_isotope_label(cls, label):
@@ -1088,7 +1088,7 @@ class CompoundsLoader:
                 err_msg = f"Could not find the required header '{header}."
                 self.validation_error_messages.append(err_msg)
         if len(self.missing_headers) > 0:
-            enableCachingUpdates()
+            enable_caching_updates()
             raise (
                 HeaderError(
                     f"The following column headers were missing: {', '.join(self.missing_headers)}",
@@ -1212,7 +1212,7 @@ class CompoundsLoader:
         if len(all_found_compounds) > 1:
             err_msg = f"Retrieved multiple ({len(all_found_compounds)}) "
             err_msg += f"distinct compounds using names {names}"
-            enableCachingUpdates()
+            enable_caching_updates()
             raise AmbiguousCompoundDefinitionError(err_msg)
 
         return found_compound
