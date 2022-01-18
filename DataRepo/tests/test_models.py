@@ -16,6 +16,7 @@ from DataRepo.models import (
     PeakGroup,
     PeakGroupSet,
     Protocol,
+    Researcher,
     Sample,
     Study,
     Tissue,
@@ -26,6 +27,7 @@ from DataRepo.utils import (
     AmbiguousCompoundDefinitionError,
     CompoundsLoader,
     MissingSamplesError,
+    leaderboard_data,
 )
 
 
@@ -1647,20 +1649,43 @@ class AccuCorDataLoadingTests(TestCase):
 
 @tag("load_study")
 class StudyLoadingTests(TestCase):
-    def test_load_small_obob_study(self):
+    @classmethod
+    def setUpTestData(cls):
         call_command("loaddata", "tissues.yaml")
         call_command(
             "load_study",
             "DataRepo/example_data/small_dataset/small_obob_study_params.yaml",
         )
-        COMPOUNDS_COUNT = 2
-        SAMPLES_COUNT = 14
-        PEAKDATA_ROWS = 11
+        cls.COMPOUNDS_COUNT = 2
+        cls.SAMPLES_COUNT = 14
+        cls.PEAKDATA_ROWS = 11
 
+    def test_load_small_obob_study(self):
         self.assertEqual(
-            PeakGroup.objects.all().count(), COMPOUNDS_COUNT * SAMPLES_COUNT
+            PeakGroup.objects.all().count(), self.COMPOUNDS_COUNT * self.SAMPLES_COUNT
         )
-        self.assertEqual(PeakData.objects.all().count(), PEAKDATA_ROWS * SAMPLES_COUNT)
+        self.assertEqual(
+            PeakData.objects.all().count(), self.PEAKDATA_ROWS * self.SAMPLES_COUNT
+        )
+
+    def test_studies_leaderboard(self):
+
+        expected_leaderboard = {
+            "studies_leaderboard": [
+                (Researcher(name="Xianfeng Zeng"), 1),
+            ],
+            "animals_leaderboard": [
+                (Researcher(name="Xianfeng Zeng"), 1),
+            ],
+            "peakgroups_leaderboard": [
+                (
+                    Researcher(name="Xianfeng Zeng"),
+                    self.COMPOUNDS_COUNT * self.SAMPLES_COUNT,
+                ),
+            ],
+        }
+        self.maxDiff = None
+        self.assertDictEqual(expected_leaderboard, leaderboard_data())
 
 
 class ParseIsotopeLabelTests(TestCase):

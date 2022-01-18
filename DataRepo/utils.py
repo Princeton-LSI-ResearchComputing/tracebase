@@ -20,6 +20,7 @@ from DataRepo.models import (
     PeakGroup,
     PeakGroupSet,
     Protocol,
+    Researcher,
     Sample,
     Study,
     Tissue,
@@ -1797,3 +1798,32 @@ class QuerysetToPandasDataFrame:
         comp_tracer_list_df = comp_tracer_list_df.reindex(columns=column_names)
 
         return comp_tracer_list_df
+
+
+def leaderboard_data():
+    """
+    Get list of tuples for leaderboard data
+    [(Researcher, count)]
+    """
+
+    leaderboards = {
+        "studies_leaderboard": [],
+        "animals_leaderboard": [],
+        "peakgroups_leaderboard": [],
+    }
+    for name in get_researchers():
+        researcher = Researcher(name=name)
+        leaderboards["studies_leaderboard"].append(
+            (researcher, researcher.studies().count())
+        )
+        leaderboards["animals_leaderboard"].append(
+            (researcher, researcher.animals().count())
+        )
+        leaderboards["peakgroups_leaderboard"].append(
+            (researcher, researcher.peakgroups().count())
+        )
+    # Sort leaderboards by count
+    for leaderboard in leaderboards.values():
+        leaderboard.sort(key=lambda x: x[1], reverse=True)
+
+    return leaderboards

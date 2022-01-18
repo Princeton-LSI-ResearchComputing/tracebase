@@ -34,7 +34,7 @@ from DataRepo.models import (
 from DataRepo.multiforms import MultiFormsView
 from DataRepo.utils import MissingSamplesError
 from DataRepo.utils import QuerysetToPandasDataFrame as qs2df
-from DataRepo.utils import ResearcherError
+from DataRepo.utils import ResearcherError, leaderboard_data
 
 
 def home(request):
@@ -125,8 +125,11 @@ def home(request):
     )
 
     card_row_list = [card_attrs_list1, card_attrs_list2]
+
     context = {}
     context["card_rows"] = card_row_list
+    context["leaderboards"] = leaderboard_data()
+
     return render(request, "home.html", context)
 
 
