@@ -14,7 +14,6 @@ import os
 from pathlib import Path
 
 import environ
-from django.core.cache import cache
 
 env = environ.Env()
 # reading .env file
@@ -154,14 +153,6 @@ DATA_SUBMISSION_URL = "https://forms.gle/Jyp94aiGmhBNLZh6A"
 DATA_SUBMISSION_EMAIL = "csgenome@princeton.edu"
 
 
-# # Set up caching used by model cached_properties
-# # See: https://docs.djangoproject.com/en/dev/topics/cache/#setting-up-the-cache
-# CACHES = {
-#     'default': {
-#         'BACKEND': 'django.core.cache.backends.memcached.PyMemcacheCache',
-#         'LOCATION': '127.0.0.1:11211',
-#     }
-# }
 # Set up caching used by model cached_properties
 # See: https://docs.djangoproject.com/en/dev/topics/cache/#setting-up-the-cache
 CACHES = {

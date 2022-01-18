@@ -25,10 +25,10 @@ from DataRepo.models import (
     Study,
     Tissue,
     TracerLabeledClass,
-    get_researchers,
-    value_from_choices_label,
     disableCachingUpdates,
     enableCachingUpdates,
+    get_researchers,
+    value_from_choices_label,
 )
 
 
@@ -192,7 +192,8 @@ class SampleTableLoader:
             name = self.getRowVal(row, self.headers.ANIMAL_NAME)
             if name is not None:
                 animal, created = Animal.objects.get_or_create(name=name)
-                animals_to_uncache.append(animal)
+                if created:
+                    animals_to_uncache.append(animal)
             """
             We do this here, and not in the "created" block below, in case the
             researcher is creating a new study from previously-loaded animals
@@ -393,9 +394,9 @@ class SampleTableLoader:
         # Throw an exception in debug mode to abort the load
         assert not debug, "Debugging..."
 
+        print("Expiring affected caches...")
         for animal in animals_to_uncache:
             animal.deleteCache()
-
 
     def getRowVal(self, row, header, hdr_required=True, val_required=True):
         """
@@ -993,9 +994,11 @@ class AccuCorDataLoader:
                         peak_data.full_clean()
                         peak_data.save()
 
+        enableCachingUpdates()
+
         assert not self.debug, "Debugging..."
 
-        enableCachingUpdates()
+        print("Expiring affected caches...")
         for animal in animals_to_uncache:
             animal.deleteCache()
 

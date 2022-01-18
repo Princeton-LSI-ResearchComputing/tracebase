@@ -885,8 +885,10 @@ class Animal(models.Model, TracerLabeledClass):
             return
         # For every cached property, delete the cache value
         for member_key in Animal.__dict__.keys():
-            if Animal.__dict__[member_key].__class__.__name__ == 'cached_property':
+            if Animal.__dict__[member_key].__class__.__name__ == "cached_property":
                 cache_key = getCacheKey(self, member_key)
+                if settings.DEBUG:
+                    print(f"Deleting cache {cache_key}")
                 cache.delete(cache_key)
         # For every child record, call its deleteCache()
         qs = Sample.objects.filter(animal__exact=self.pk)
@@ -1034,8 +1036,10 @@ class Sample(models.Model):
             return
         # For every cached property, delete the cache value
         for member_key in Sample.__dict__.keys():
-            if Sample.__dict__[member_key].__class__.__name__ == 'cached_property':
+            if Sample.__dict__[member_key].__class__.__name__ == "cached_property":
                 cache_key = getCacheKey(self, member_key)
+                if settings.DEBUG:
+                    print(f"Deleting cache {cache_key}")
                 cache.delete(cache_key)
         # For every child record, call its deleteCache()
         qs = PeakGroup.objects.filter(msrun__sample__exact=self.pk)
@@ -1363,7 +1367,8 @@ class PeakGroup(models.Model):
                     f"Animal {self.animal.name} has no annotated tracer_infusion_rate."
                 )
                 result = False
-            result = True
+            else:
+                result = True
             setCache(self, cpname, result)
         return result
 
@@ -1680,8 +1685,10 @@ class PeakGroup(models.Model):
             return
         # For every cached property, delete the cache value
         for member_key in PeakGroup.__dict__.keys():
-            if PeakGroup.__dict__[member_key].__class__.__name__ == 'cached_property':
+            if PeakGroup.__dict__[member_key].__class__.__name__ == "cached_property":
                 cache_key = getCacheKey(self, member_key)
+                if settings.DEBUG:
+                    print(f"Deleting cache {cache_key}")
                 cache.delete(cache_key)
         # For every child record, call its deleteCache()
         qs = PeakData.objects.filter(peak_group__msrun__sample__exact=self.pk)
@@ -1795,8 +1802,10 @@ class PeakData(models.Model, TracerLabeledClass):
             return
         # For every cached property, delete the cache value
         for member_key in PeakGroup.__dict__.keys():
-            if PeakGroup.__dict__[member_key].__class__.__name__ == 'cached_property':
+            if PeakGroup.__dict__[member_key].__class__.__name__ == "cached_property":
                 cache_key = getCacheKey(self, member_key)
+                if settings.DEBUG:
+                    print(f"Deleting cache {cache_key}")
                 cache.delete(cache_key)
 
 
@@ -1821,7 +1830,7 @@ def getCache(rec, cache_prop_name):
 
 
 def setCache(rec, cache_prop_name, value):
-    if not use_cache:
+    if not use_cache or not caching_updates:
         return False
     try:
         cachekey = getCacheKey(rec, cache_prop_name)
@@ -1833,11 +1842,16 @@ def setCache(rec, cache_prop_name, value):
         return False
     return True
 
+
 def getCacheKey(rec, cache_prop_name):
-    return ".".join([rec.__class__.__name__, cache_prop_name, str(rec.pk)])
+    return ".".join([rec.__class__.__name__, str(rec.pk), cache_prop_name])
+
 
 def disableCachingUpdates():
+    global caching_updates
     caching_updates = False
 
+
 def enableCachingUpdates():
+    global caching_updates
     caching_updates = True
