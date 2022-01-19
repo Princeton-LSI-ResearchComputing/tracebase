@@ -463,6 +463,7 @@ class AccuCorDataLoader:
         """
         basic sanity/integrity checks for the data inputs
         """
+        disable_caching_updates()
 
         self.validate_dataframes()
 
@@ -481,6 +482,8 @@ class AccuCorDataLoader:
         self.validate_researcher()
 
         self.validate_compounds()
+
+        enable_caching_updates()
 
     def validate_researcher(self):
         researchers = get_researchers()

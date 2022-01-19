@@ -164,6 +164,12 @@ CACHES = {
     }
 }
 
+TEST_CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.dummy.DummyCache",
+    }
+}
+
 
 # Logging settings
 # This logging level was added to show the number of SQL queries in the server console
