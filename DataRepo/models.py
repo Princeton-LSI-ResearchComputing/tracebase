@@ -389,7 +389,7 @@ class Study(models.Model):
 
 
 class Animal(HierCachedModel, TracerLabeledClass):
-    parent_cache_key_name = None  # Root
+    # No parent_cache_key_name, because this is a root
     child_cache_related_names = ["samples"]
 
     FEMALE = "F"
@@ -1441,7 +1441,7 @@ class PeakData(HierCachedModel, TracerLabeledClass):
     """
 
     parent_cache_key_name = "peak_group"
-    child_cache_related_names = []  # Leaf
+    # No child_cache_related_names because this is a leaf
 
     id = models.AutoField(primary_key=True)
     peak_group = models.ForeignKey(

@@ -1,5 +1,5 @@
 from functools import wraps
-from typing import List
+from typing import List, Optional
 
 from django.conf import settings
 from django.core.cache import cache
@@ -95,8 +95,8 @@ def enable_caching_updates():
 
 class HierCachedModel(Model):
     # Set these in the derived class
-    parent_cache_key_name: str = None
-    child_cache_related_names: List[str] = []
+    parent_cache_key_name: Optional[str] = None
+    child_cache_related_names: Optional[List[str]] = []
 
     def save(self, *args, **kwargs):
         """
