@@ -1814,13 +1814,13 @@ def leaderboard_data():
     for name in get_researchers():
         researcher = Researcher(name=name)
         leaderboards["studies_leaderboard"].append(
-            (researcher, researcher.studies().count())
+            (researcher, researcher.studies.count())
         )
         leaderboards["animals_leaderboard"].append(
-            (researcher, researcher.animals().count())
+            (researcher, researcher.animals.count())
         )
         leaderboards["peakgroups_leaderboard"].append(
-            (researcher, researcher.peakgroups().count())
+            (researcher, researcher.peakgroups.count())
         )
     # Sort leaderboards by count
     for leaderboard in leaderboards.values():

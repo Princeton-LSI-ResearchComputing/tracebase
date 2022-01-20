@@ -148,18 +148,21 @@ class Researcher:
         else:
             self.name = name
 
+    @cached_property
     def studies(self):
         """
         Returns QuerySet of Studies that contain samples "owned" by this Researcher
         """
         return Study.objects.filter(animals__samples__researcher=self.name).distinct()
 
+    @cached_property
     def animals(self):
         """
         Returns QuerySet of Studies that contain samples "owned" by this Researcher
         """
         return Animal.objects.filter(samples__researcher=self.name).distinct()
 
+    @cached_property
     def peakgroups(self):
         """
         Returns QuerySet of Studies that contain samples "owned" by this Researcher
