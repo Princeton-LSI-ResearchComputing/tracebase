@@ -1439,6 +1439,9 @@ class PeakData(models.Model, TracerLabeledClass):
     For example, this could describe the data for M+2 in glucose from mouse 345 brain tissue.
     """
 
+    parent_cache_key_name = "peak_group"
+    child_cache_related_names = []  # Leaf
+
     id = models.AutoField(primary_key=True)
     peak_group = models.ForeignKey(
         PeakGroup, on_delete=models.CASCADE, null=False, related_name="peak_data"
