@@ -1,6 +1,5 @@
 import warnings
 from datetime import date, timedelta
-from functools import wraps
 
 import pandas as pd
 from chempy import Substance
@@ -14,92 +13,7 @@ from django.db import models
 from django.db.models import Q, Sum
 from django.utils.functional import cached_property
 
-use_cache = True
-caching_updates = True
-
-
-def cached_function(f):
-    """
-    This function returns a wrapper function to be called instead of the function that has this decorator
-    """
-
-    @wraps(f)
-    def get_result(self, *args, **kwargs):
-        """
-        This decorator function is called for any function with the @cached_function decorator.  This function decides
-        whether the use the cache or call the original function and save its output in the cache before returning the
-        result
-        """
-        result, is_cache_good = get_cache(self, f.__name__)
-        if not is_cache_good:
-            result = f(self, *args, **kwargs)
-            set_cache(self, f.__name__, result)
-        return result
-
-    return get_result
-
-
-def get_cache(rec, cache_prop_name):
-    """
-    Returns a cached value and a boolean as to whether the cached value was good or not (e.g. not cached)
-    """
-    if not use_cache:
-        return None, False
-    try:
-        good_cache = True
-        uncached = object()
-        cachekey = get_cacheKey(rec, cache_prop_name)
-        result = cache.get(cachekey, uncached)
-        if result is uncached:
-            good_cache = False
-    except Exception as e:
-        # Allow tracebase to still work, just without caching
-        print(e)
-        result = None
-        good_cache = False
-    if settings.DEBUG:
-        print(f"Returning cached {cachekey}?: {good_cache} Value: {result}")
-    return result, good_cache
-
-
-def set_cache(rec, cache_prop_name, value):
-    """
-    Caches a given value
-    """
-    if not use_cache or not caching_updates:
-        return False
-    try:
-        cachekey = get_cacheKey(rec, cache_prop_name)
-        cache.set(cachekey, value, timeout=None, version=1)
-        print(f"Setting cache {cachekey} to {value}")
-    except Exception as e:
-        # Allow tracebase to still work, just without caching
-        print(e)
-        return False
-    return True
-
-
-def get_cacheKey(rec, cache_prop_name):
-    """
-    Generates a cache key given a record and the cached_property method name
-    """
-    return ".".join([rec.__class__.__name__, str(rec.pk), cache_prop_name])
-
-
-def disable_caching_updates():
-    """
-    Prevents storage and deletion of cached values.  Currently only used for loading scripts.
-    """
-    global caching_updates
-    caching_updates = False
-
-
-def enable_caching_updates():
-    """
-    Reenables storage and deletion of cached values.  Currently only used for loading scripts.
-    """
-    global caching_updates
-    caching_updates = True
+from DataRepo.hier_cached_model import HierCachedModel, cached_function
 
 
 def value_from_choices_label(label, choices):
@@ -474,7 +388,9 @@ class Study(models.Model):
         return str(self.name)
 
 
-class Animal(models.Model, TracerLabeledClass):
+class Animal(HierCachedModel, TracerLabeledClass):
+    parent_cache_key_name = None  # Root
+    child_cache_related_names = ["samples"]
 
     FEMALE = "F"
     MALE = "M"
@@ -867,44 +783,6 @@ class Animal(models.Model, TracerLabeledClass):
                     f"{Protocol.ANIMAL_TREATMENT}"
                 )
 
-    def save(self, *args, **kwargs):
-        """
-        If caching updates are enabled, trigger the deletion of every cached value under the linked Animal record
-        """
-        if caching_updates:
-            self.delete_cache()
-        super().save(*args, **kwargs)  # Call the "real" save() method.
-
-    def delete(self, *args, **kwargs):
-        """
-        If caching updates are enabled, trigger the deletion of every cached value under the linked Animal record
-        """
-        if caching_updates:
-            self.delete_cache()
-        super().delete(*args, **kwargs)  # Call the "real" delete() method.
-
-    def delete_cache(self):
-        """
-        Cascading cache deletion (originally triggered through an Animal record down to PeakData
-        """
-        if not caching_updates:
-            return
-        delete_keys = []
-        # For every cached property, delete the cache value
-        for member_key in self.__class__.__dict__.keys():
-            if (
-                self.__class__.__dict__[member_key].__class__.__name__
-                == "cached_property"
-            ):
-                cache_key = get_cacheKey(self, member_key)
-                if settings.DEBUG:
-                    print(f"Deleting cache {cache_key}")
-                delete_keys.append(cache_key)
-        cache.delete_many(delete_keys)
-        # For every child record, call its delete_cache()
-        for rec in self.samples.all():
-            rec.delete_cache()
-
 
 class Tissue(models.Model):
     # Instance / model fields
@@ -930,7 +808,10 @@ class Tissue(models.Model):
         return str(self.name)
 
 
-class Sample(models.Model):
+class Sample(HierCachedModel):
+    parent_cache_key_name = "animal"
+    child_cache_related_names = ["msruns"]
+
     # Instance / model fields
     id = models.AutoField(primary_key=True)
     name = models.CharField(
@@ -1021,54 +902,11 @@ class Sample(models.Model):
     def __str__(self):
         return str(self.name)
 
-    def save(self, *args, **kwargs):
-        """
-        If caching updates are enabled, trigger the deletion of every cached value under the linked Animal record
-        """
-        if caching_updates:
-            self.delete_animal_cache()
-        super().save(*args, **kwargs)  # Call the "real" save() method.
 
-    def delete(self, *args, **kwargs):
-        """
-        If caching updates are enabled, trigger the deletion of every cached value under the linked Animal record
-        """
-        if caching_updates:
-            self.delete_animal_cache()
-        super().delete(*args, **kwargs)  # Call the "real" delete() method.
+class MSRun(HierCachedModel):
+    parent_cache_key_name = "sample"
+    child_cache_related_names = ["peak_groups"]
 
-    def delete_animal_cache(self):
-        """
-        Gets the parent animal and calls it's delete_cache method
-        """
-        if caching_updates:
-            self.animal.delete_cache()
-
-    def delete_cache(self):
-        """
-        Cascading cache deletion (originally triggered through an Animal record down to PeakData
-        """
-        if not caching_updates:
-            return
-        delete_keys = []
-        # For every cached property, delete the cache value
-        for member_key in self.__class__.__dict__.keys():
-            if (
-                self.__class__.__dict__[member_key].__class__.__name__
-                == "cached_property"
-            ):
-                cache_key = get_cacheKey(self, member_key)
-                if settings.DEBUG:
-                    print(f"Deleting cache {cache_key}")
-                delete_keys.append(cache_key)
-        cache.delete_many(delete_keys)
-        # For every child record, call its delete_cache()
-        for msr in self.msruns.all():
-            for rec in msr.peak_groups.all():
-                rec.delete_cache()
-
-
-class MSRun(models.Model):
     # Instance / model fields
     id = models.AutoField(primary_key=True)
     researcher = models.CharField(
@@ -1148,7 +986,10 @@ class PeakGroupSet(models.Model):
         return str(f"{self.filename} at {self.imported_timestamp}")
 
 
-class PeakGroup(models.Model):
+class PeakGroup(HierCachedModel):
+    parent_cache_key_name = "msrun"
+    child_cache_related_names = ["peak_data"]
+
     id = models.AutoField(primary_key=True)
     name = models.CharField(
         max_length=256,
@@ -1592,57 +1433,15 @@ class PeakGroup(models.Model):
     def __str__(self):
         return str(self.name)
 
-    def save(self, *args, **kwargs):
-        """
-        If caching updates are enabled, trigger the deletion of every cached value under the linked Animal record
-        """
-        if caching_updates:
-            self.delete_animal_cache()
-        super().save(*args, **kwargs)  # Call the "real" save() method.
 
-    def delete(self, *args, **kwargs):
-        """
-        If caching updates are enabled, trigger the deletion of every cached value under the linked Animal record
-        """
-        if caching_updates:
-            self.delete_animal_cache()
-        super().delete(*args, **kwargs)  # Call the "real" delete() method.
-
-    def delete_animal_cache(self):
-        """
-        Gets the parent animal and calls it's delete_cache method
-        """
-        if caching_updates:
-            self.msrun.sample.animal.delete_cache()
-
-    def delete_cache(self):
-        """
-        Cascading cache deletion (originally triggered through an Animal record down to PeakData
-        """
-        if not caching_updates:
-            return
-        delete_keys = []
-        # For every cached property, delete the cache value
-        for member_key in self.__class__.__dict__.keys():
-            if (
-                self.__class__.__dict__[member_key].__class__.__name__
-                == "cached_property"
-            ):
-                cache_key = get_cacheKey(self, member_key)
-                if settings.DEBUG:
-                    print(f"Deleting cache {cache_key}")
-                delete_keys.append(cache_key)
-        cache.delete_many(delete_keys)
-        # For every child record, call its delete_cache()
-        for rec in self.peak_data.all():
-            rec.delete_cache()
-
-
-class PeakData(models.Model, TracerLabeledClass):
+class PeakData(HierCachedModel, TracerLabeledClass):
     """
     PeakData is a single observation (at the most atomic level) of a MS-detected molecule.
     For example, this could describe the data for M+2 in glucose from mouse 345 brain tissue.
     """
+
+    parent_cache_key_name = "peak_group"
+    child_cache_related_names = []  # Leaf
 
     id = models.AutoField(primary_key=True)
     peak_group = models.ForeignKey(
@@ -1719,45 +1518,3 @@ class PeakData(models.Model, TracerLabeledClass):
                 name="unique_peakdata",
             )
         ]
-
-    def save(self, *args, **kwargs):
-        """
-        If caching updates are enabled, trigger the deletion of every cached value under the linked Animal record
-        """
-        if caching_updates:
-            self.delete_animal_cache()
-        super().save(*args, **kwargs)  # Call the "real" save() method.
-
-    def delete(self, *args, **kwargs):
-        """
-        If caching updates are enabled, trigger the deletion of every cached value under the linked Animal record
-        """
-        if caching_updates:
-            self.delete_animal_cache()
-        super().delete(*args, **kwargs)  # Call the "real" delete() method.
-
-    def delete_animal_cache(self):
-        """
-        Gets the parent animal and calls it's delete_cache method
-        """
-        if caching_updates:
-            self.peak_group.msrun.sample.animal.delete_cache()
-
-    def delete_cache(self):
-        """
-        Cascading cache deletion (originally triggered through an Animal record down to PeakData
-        """
-        if not caching_updates:
-            return
-        delete_keys = []
-        # For every cached property, delete the cache value
-        for member_key in self.__class__.__dict__.keys():
-            if (
-                self.__class__.__dict__[member_key].__class__.__name__
-                == "cached_property"
-            ):
-                cache_key = get_cacheKey(self, member_key)
-                if settings.DEBUG:
-                    print(f"Deleting cache {cache_key}")
-                delete_keys.append(cache_key)
-        cache.delete_many(delete_keys)

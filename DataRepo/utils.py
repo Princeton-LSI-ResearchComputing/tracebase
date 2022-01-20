@@ -11,6 +11,10 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from pandas.errors import EmptyDataError
 
+from DataRepo.hier_cached_model import (
+    disable_caching_updates,
+    enable_caching_updates,
+)
 from DataRepo.models import (
     Animal,
     Compound,
@@ -25,8 +29,6 @@ from DataRepo.models import (
     Study,
     Tissue,
     TracerLabeledClass,
-    disable_caching_updates,
-    enable_caching_updates,
     get_researchers,
     value_from_choices_label,
 )
