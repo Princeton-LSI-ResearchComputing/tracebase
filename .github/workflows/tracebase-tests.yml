@@ -28,6 +28,7 @@ jobs:
       DATABASE_HOST: 127.0.0.1
       DATABASE_PORT: 5432
       DEBUG: true
+      CACHES: TEST_CACHES
     steps:
       - uses: actions/checkout@v1
       - name: Set up Python 3.8
@@ -44,6 +45,8 @@ jobs:
           pip install -r requirements.txt
       - name: Check makemigrations are complete
         run: python manage.py makemigrations --check --dry-run
+      - name: Make sure the cache table exists
+        run: python manage.py createcachetable
       - name: Run tests
         run: python manage.py test
       - name: Run migrations

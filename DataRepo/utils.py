@@ -397,6 +397,7 @@ class SampleTableLoader:
         print("Expiring affected caches...")
         for animal in animals_to_uncache:
             animal.delete_cache()
+        print("Expiring done.")
 
     def getRowVal(self, row, header, hdr_required=True, val_required=True):
         """
@@ -1004,6 +1005,7 @@ class AccuCorDataLoader:
         print("Expiring affected caches...")
         for animal in animals_to_uncache:
             animal.delete_cache()
+        print("Expiring done.")
 
     @classmethod
     def parse_isotope_label(cls, label):
