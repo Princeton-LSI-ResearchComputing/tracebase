@@ -8,7 +8,7 @@ import dateutil.parser  # type: ignore
 import numpy as np
 import pandas as pd
 from django.core.exceptions import ValidationError
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from pandas.errors import EmptyDataError
 
 from DataRepo.models import (
@@ -1797,3 +1797,70 @@ class QuerysetToPandasDataFrame:
         comp_tracer_list_df = comp_tracer_list_df.reindex(columns=column_names)
 
         return comp_tracer_list_df
+
+
+class DryRun(Exception):
+    """
+    Exception thrown during dry-run to ensure atomic transaction is not committed
+    """
+
+    pass
+
+
+class LoadingError(Exception):
+    """
+    Exception thrown if any errors encountered during loading
+    """
+
+
+class TissuesLoader:
+    """
+    Load the Tissues table
+    """
+
+    def __init__(self, tissues, dry_run=True):
+        self.tissues = tissues
+        self.tissues.columns = self.tissues.columns.str.lower()
+        self.dry_run = dry_run
+        # List of exceptions
+        self.errors = []
+        # List of strings that note what was done
+        self.notices = []
+        # Newly create tissues
+        self.created = []
+        # Pre-existing, matching tissues
+        self.existing = []
+
+    @transaction.atomic
+    def load(self):
+        for index, row in self.tissues.iterrows():
+            try:
+                with transaction.atomic():
+                    name = row["name"]
+                    description = row["description"]
+                    tissue, created = Tissue.objects.get_or_create(name=name)
+                    if created:
+                        tissue.description = description
+                        tissue.full_clean()
+                        tissue.save()
+                        self.created.append(tissue)
+                        self.notices.append(
+                            f"Created new tissue {tissue}:{description}"
+                        )
+                    elif tissue.description == description:
+                        self.existing.append(tissue)
+                        self.notices.append(
+                            f"Matching tissue {tissue} already exists, skipping"
+                        )
+                    else:
+                        raise ValidationError(
+                            f"Tissue with name = '{name}' but a different description already exists: "
+                            f"Existing description = '{tissue.description}' "
+                            f"New description = '{description}'"
+                        )
+            except (IntegrityError, ValidationError) as e:
+                self.errors.append(f"Error in line {index}: {e}")
+        if len(self.errors) > 0:
+            raise LoadingError("Errors during tissue loading")
+        if self.dry_run:
+            raise DryRun("DRY-RUN successful")
