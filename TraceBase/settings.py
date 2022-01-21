@@ -160,7 +160,7 @@ PROD_CACHES = {
         "BACKEND": "django.core.cache.backends.db.DatabaseCache",
         "LOCATION": "tracebase_cache_table",
         "TIMEOUT": None,
-        "OPTIONS": {"MAX_ENTRIES": 500000},
+        "OPTIONS": {"MAX_ENTRIES": 1500000},
     }
 }
 

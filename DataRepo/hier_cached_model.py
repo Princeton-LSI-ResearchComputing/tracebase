@@ -1,5 +1,5 @@
 from functools import wraps
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from django.conf import settings
 from django.core.cache import cache
@@ -7,6 +7,7 @@ from django.db.models import Model
 
 use_cache = True
 caching_updates = True
+func_name_lists: Dict[str, List] = {}
 
 
 def cached_function(f):
@@ -26,6 +27,14 @@ def cached_function(f):
             result = f(self, *args, **kwargs)
             set_cache(self, f.__name__, result)
         return result
+
+    class_name = f.__qualname__.split(".")[0]
+    if class_name in func_name_lists:
+        func_name_lists[class_name].append(f.__name__)
+    else:
+        func_name_lists[class_name] = [f.__name__]
+    if settings.DEBUG:
+        print(f"Added cached_function decorator to function {f.__qualname__}")
 
     return get_result
 
@@ -48,8 +57,6 @@ def get_cache(rec, cache_prop_name):
         print(e)
         result = None
         good_cache = False
-    if settings.DEBUG:
-        print(f"Returning cached {cachekey}?: {good_cache} Value: {result}")
     return result, good_cache
 
 
@@ -93,6 +100,22 @@ def enable_caching_updates():
     caching_updates = True
 
 
+def disable_caching_retrievals():
+    """
+    Prevents storage and deletion of cached values.  Currently only used for loading scripts.
+    """
+    global use_cache
+    use_cache = False
+
+
+def enable_caching_retrievals():
+    """
+    Reenables storage and deletion of cached values.  Currently only used for loading scripts.
+    """
+    global use_cache
+    use_cache = True
+
+
 class HierCachedModel(Model):
     # Set these in the derived class
     parent_cache_key_name: Optional[str] = None
@@ -130,15 +153,23 @@ class HierCachedModel(Model):
             return
         delete_keys = []
         # For every cached property, delete the cache value
-        for member_key in self.__class__.__dict__.keys():
-            if (
-                self.__class__.__dict__[member_key].__class__.__name__
-                == "cached_property"
-            ):
-                cache_key = get_cache_key(self, member_key)
+        # COMMENTED CODE is here until I've had a chance to at least manually test it.  I've been working on
+        # profiling...
+        # for member_key in self.__class__.__dict__.keys():
+        if self.__class__.__name__ in func_name_lists:
+            for cached_function in func_name_lists[self.__class__.__name__]:
+                #     self.__class__.__dict__[member_key].__class__.__name__
+                #     == "cached_property"
+                # ):
+                # cache_key = get_cache_key(self, member_key)
+                cache_key = get_cache_key(self, cached_function)
                 if settings.DEBUG:
                     print(f"Deleting cache {cache_key}")
                 delete_keys.append(cache_key)
+        elif settings.DEBUG:
+            print(
+                f"Class [{self.__class__.__name__}] does not have any cached functions."
+            )
         cache.delete_many(delete_keys)
         # For every child model for which we have a related name
         for child_rel_name in self.child_cache_related_names:
@@ -149,3 +180,7 @@ class HierCachedModel(Model):
 
     class Meta:
         abstract = True
+
+
+def get_cached_method_names():
+    return func_name_lists

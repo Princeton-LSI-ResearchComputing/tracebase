@@ -11,7 +11,6 @@ from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import Q, Sum
-from django.utils.functional import cached_property
 
 from DataRepo.hier_cached_model import HierCachedModel, cached_function
 
@@ -283,7 +282,7 @@ class Compound(models.Model):
         help_text=f"A unique identifier for this compound in the Human Metabolome Database ({HMDB_CPD_URL}).",
     )
 
-    @property
+    @property  # type: ignore
     def hmdb_url(self):
         "Returns the url to the compound's hmdb record"
         return f"{self.HMDB_CPD_URL}/{self.hmdb_id}"
@@ -496,7 +495,7 @@ class Animal(HierCachedModel, TracerLabeledClass):
         help_text="The laboratory controlled label of the actions taken on an animal.",
     )
 
-    @cached_property
+    @property  # type: ignore
     @cached_function
     def all_serum_samples(self):
         """
@@ -512,7 +511,7 @@ class Animal(HierCachedModel, TracerLabeledClass):
             .all()
         )
 
-    @cached_property
+    @property  # type: ignore
     @cached_function
     def final_serum_sample(self):
         """
@@ -538,7 +537,7 @@ class Animal(HierCachedModel, TracerLabeledClass):
 
         return final_serum_sample
 
-    @cached_property
+    @property  # type: ignore
     @cached_function
     def final_serum_sample_id(self):
         """
@@ -553,7 +552,7 @@ class Animal(HierCachedModel, TracerLabeledClass):
             id = fss.id
         return id
 
-    @cached_property
+    @property  # type: ignore
     @cached_function
     def all_serum_samples_tracer_peak_groups(self):
         """
@@ -568,7 +567,7 @@ class Animal(HierCachedModel, TracerLabeledClass):
             )
         return all_serum_samples_tracer_peak_groups
 
-    @cached_property
+    @property  # type: ignore
     @cached_function
     def final_serum_sample_tracer_peak_group(self):
         """
@@ -586,7 +585,7 @@ class Animal(HierCachedModel, TracerLabeledClass):
                 .last()
             )
 
-    @cached_property
+    @property  # type: ignore
     @cached_function
     def final_serum_sample_tracer_peak_data(self):
         """
@@ -600,7 +599,7 @@ class Animal(HierCachedModel, TracerLabeledClass):
         else:
             return final_peak_group.peak_data
 
-    @cached_property
+    @property  # type: ignore
     @cached_function
     def intact_tracer_peak_data(self):
         """
@@ -619,7 +618,7 @@ class Animal(HierCachedModel, TracerLabeledClass):
                     labeled_count=self.tracer_labeled_count
                 ).get()
 
-    @cached_property
+    @property  # type: ignore
     @cached_function
     def final_serum_tracer_rate_disappearance_intact_per_gram(self):
         """
@@ -634,7 +633,7 @@ class Animal(HierCachedModel, TracerLabeledClass):
                 self.final_serum_sample_tracer_peak_group.rate_disappearance_intact_per_gram
             )
 
-    @cached_property
+    @property  # type: ignore
     @cached_function
     def final_serum_tracer_rate_appearance_intact_per_gram(self):
         """
@@ -650,7 +649,7 @@ class Animal(HierCachedModel, TracerLabeledClass):
                 self.final_serum_sample_tracer_peak_group.rate_appearance_intact_per_gram
             )
 
-    @cached_property
+    @property  # type: ignore
     @cached_function
     def final_serum_tracer_rate_disappearance_intact_per_animal(self):
         """
@@ -665,7 +664,7 @@ class Animal(HierCachedModel, TracerLabeledClass):
                 self.final_serum_sample_tracer_peak_group.rate_disappearance_intact_per_animal
             )
 
-    @cached_property
+    @property  # type: ignore
     @cached_function
     def final_serum_tracer_rate_appearance_intact_per_animal(self):
         """
@@ -681,7 +680,7 @@ class Animal(HierCachedModel, TracerLabeledClass):
                 self.final_serum_sample_tracer_peak_group.rate_appearance_intact_per_animal
             )
 
-    @cached_property
+    @property  # type: ignore
     @cached_function
     def final_serum_tracer_rate_disappearance_average_per_gram(self):
         """
@@ -698,7 +697,7 @@ class Animal(HierCachedModel, TracerLabeledClass):
                 self.final_serum_sample_tracer_peak_group.rate_disappearance_average_per_gram
             )
 
-    @cached_property
+    @property  # type: ignore
     @cached_function
     def final_serum_tracer_rate_appearance_average_per_gram(self):
         """
@@ -715,7 +714,7 @@ class Animal(HierCachedModel, TracerLabeledClass):
                 self.final_serum_sample_tracer_peak_group.rate_appearance_average_per_gram
             )
 
-    @cached_property
+    @property  # type: ignore
     @cached_function
     def final_serum_tracer_rate_disappearance_average_per_animal(self):
         """
@@ -732,7 +731,7 @@ class Animal(HierCachedModel, TracerLabeledClass):
                 self.final_serum_sample_tracer_peak_group.rate_disappearance_average_per_animal
             )
 
-    @cached_property
+    @property  # type: ignore
     @cached_function
     def final_serum_tracer_rate_appearance_average_per_animal(self):
         """
@@ -749,7 +748,7 @@ class Animal(HierCachedModel, TracerLabeledClass):
                 self.final_serum_sample_tracer_peak_group.rate_appearance_average_per_animal
             )
 
-    @cached_property
+    @property  # type: ignore
     @cached_function
     def final_serum_tracer_rate_appearance_average_atom_turnover(self):
         """
@@ -882,7 +881,7 @@ class Sample(HierCachedModel):
 
         return peakdata.all()
 
-    @cached_property
+    @property  # type: ignore
     @cached_function
     def is_serum_sample(self):
         """returns True if the sample is flagged as a "serum" sample"""
@@ -1022,7 +1021,7 @@ class PeakGroup(HierCachedModel):
     def atom_count(self, atom):
         return atom_count_in_formula(self.formula, atom)
 
-    @cached_property
+    @property  # type: ignore
     @cached_function
     def total_abundance(self):
         """
@@ -1034,7 +1033,7 @@ class PeakGroup(HierCachedModel):
             total_abundance=Sum("corrected_abundance", default=0)
         )["total_abundance"]
 
-    @cached_property
+    @property  # type: ignore
     @cached_function
     def enrichment_fraction(self):
         """
@@ -1074,7 +1073,7 @@ class PeakGroup(HierCachedModel):
 
         return enrichment_fraction
 
-    @cached_property
+    @property  # type: ignore
     @cached_function
     def enrichment_abundance(self):
         """
@@ -1087,7 +1086,7 @@ class PeakGroup(HierCachedModel):
             enrichment_abundance = None
         return enrichment_abundance
 
-    @cached_property
+    @property  # type: ignore
     @cached_function
     def normalized_labeling(self):
         """
@@ -1138,13 +1137,13 @@ class PeakGroup(HierCachedModel):
 
         return normalized_labeling
 
-    @cached_property
+    @property  # type: ignore
     @cached_function
     def animal(self):
         """Convenient instance method to cache the animal this PeakGroup came from"""
         return self.msrun.sample.animal
 
-    @cached_property
+    @property  # type: ignore
     @cached_function
     def is_tracer_compound_group(self):
         """
@@ -1159,7 +1158,7 @@ class PeakGroup(HierCachedModel):
         else:
             return False
 
-    @cached_property
+    @property  # type: ignore
     @cached_function
     def from_serum_sample(self):
         """
@@ -1172,7 +1171,7 @@ class PeakGroup(HierCachedModel):
             warnings.warn(f"{self.name} is not from a serum sample msrun.")
             return False
 
-    @cached_property
+    @property  # type: ignore
     @cached_function
     def can_compute_tracer_rates(self):
         """
@@ -1199,7 +1198,7 @@ class PeakGroup(HierCachedModel):
             return False
         return True
 
-    @cached_property
+    @property  # type: ignore
     @cached_function
     def can_compute_body_weight_tracer_rates(self):
         """
@@ -1212,7 +1211,7 @@ class PeakGroup(HierCachedModel):
         else:
             return True
 
-    @cached_property
+    @property  # type: ignore
     @cached_function
     def can_compute_intact_tracer_rates(self):
         """
@@ -1247,7 +1246,7 @@ class PeakGroup(HierCachedModel):
                 )
                 return False
 
-    @cached_property
+    @property  # type: ignore
     @cached_function
     def can_compute_average_tracer_rates(self):
         """
@@ -1265,7 +1264,7 @@ class PeakGroup(HierCachedModel):
                 warnings.warn(f"PeakGroup {self.name} has no enrichment_fraction.")
                 return False
 
-    @cached_property
+    @property  # type: ignore
     @cached_function
     def rate_disappearance_intact_per_gram(self):
         """Rate of Disappearance (intact)"""
@@ -1285,7 +1284,7 @@ class PeakGroup(HierCachedModel):
                 / fraction
             )
 
-    @cached_property
+    @property  # type: ignore
     @cached_function
     def rate_appearance_intact_per_gram(self):
         """Rate of Appearance (intact)"""
@@ -1299,7 +1298,7 @@ class PeakGroup(HierCachedModel):
                 * self.animal.tracer_infusion_concentration
             )
 
-    @cached_property
+    @property  # type: ignore
     @cached_function
     def rate_disappearance_intact_per_animal(self):
         """Rate of Disappearance (intact)"""
@@ -1314,7 +1313,7 @@ class PeakGroup(HierCachedModel):
         else:
             return self.rate_disappearance_intact_per_gram * self.animal.body_weight
 
-    @cached_property
+    @property  # type: ignore
     @cached_function
     def rate_appearance_intact_per_animal(self):
         """Rate of Appearance (intact)"""
@@ -1329,7 +1328,7 @@ class PeakGroup(HierCachedModel):
         else:
             return self.rate_appearance_intact_per_gram * self.animal.body_weight
 
-    @cached_property
+    @property  # type: ignore
     @cached_function
     def rate_disappearance_average_per_gram(self):
         """
@@ -1346,7 +1345,7 @@ class PeakGroup(HierCachedModel):
                 / self.enrichment_fraction
             )
 
-    @cached_property
+    @property  # type: ignore
     @cached_function
     def rate_appearance_average_per_gram(self):
         """
@@ -1362,7 +1361,7 @@ class PeakGroup(HierCachedModel):
                 * self.animal.tracer_infusion_rate
             )
 
-    @cached_property
+    @property  # type: ignore
     @cached_function
     def rate_disappearance_average_per_animal(self):
         """
@@ -1380,7 +1379,7 @@ class PeakGroup(HierCachedModel):
         else:
             return self.rate_disappearance_average_per_gram * self.animal.body_weight
 
-    @cached_property
+    @property  # type: ignore
     @cached_function
     def rate_appearance_average_per_animal(self):
         """
@@ -1398,7 +1397,7 @@ class PeakGroup(HierCachedModel):
         else:
             return self.rate_appearance_average_per_gram * self.animal.body_weight
 
-    @cached_property
+    @property  # type: ignore
     @cached_function
     def rate_appearance_average_atom_turnover(self):
         """
@@ -1488,7 +1487,7 @@ class PeakData(HierCachedModel, TracerLabeledClass):
         help_text="The median retention time value of this measurement.",
     )
 
-    @cached_property
+    @property  # type: ignore
     @cached_function
     def fraction(self):
         """
