@@ -8,11 +8,6 @@ from django.db import IntegrityError
 from django.db.models.deletion import RestrictedError
 from django.test import TestCase, override_settings, tag
 
-from DataRepo.hier_cached_model import (
-    disable_caching_updates,
-    enable_caching_updates,
-    set_cache,
-)
 from DataRepo.models import (
     Animal,
     Compound,
