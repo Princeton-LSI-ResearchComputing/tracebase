@@ -429,7 +429,7 @@ class ProtocolTests(TestCase):
 class CompoundValidationLoadingTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        call_command("loaddata", "tissues.yaml")
+        call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
         call_command(
             "load_compounds",
             compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
@@ -452,7 +452,7 @@ class CompoundLoadingTests(TestCase):
             "DataRepo/example_data/consolidated_tracebase_compound_list.tsv"
         )
 
-        call_command("loaddata", "tissues.yaml")
+        call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
         call_command(
             "load_compounds",
             compounds=primary_compound_file,
@@ -551,7 +551,7 @@ class CompoundLoadingTestErrors(TestCase):
 class DataLoadingTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        call_command("loaddata", "tissues.yaml")
+        call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
         call_command(
             "load_compounds",
             compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
@@ -1372,7 +1372,7 @@ class DataLoadingTests(TestCase):
 class TracerRateTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        call_command("loaddata", "tissues.yaml")
+        call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
         call_command(
             "load_compounds",
             compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
@@ -1533,7 +1533,7 @@ class TracerRateTests(TestCase):
 class AnimalAndSampleLoadingTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        call_command("loaddata", "tissues.yaml")
+        call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
         call_command(
             "load_compounds",
             compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
@@ -1568,7 +1568,7 @@ class AnimalAndSampleLoadingTests(TestCase):
 class AccuCorDataLoadingTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        call_command("loaddata", "tissues.yaml")
+        call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
         call_command(
             "load_compounds",
             compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
@@ -1648,7 +1648,7 @@ class AccuCorDataLoadingTests(TestCase):
 @tag("load_study")
 class StudyLoadingTests(TestCase):
     def test_load_small_obob_study(self):
-        call_command("loaddata", "tissues.yaml")
+        call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
         call_command(
             "load_study",
             "DataRepo/example_data/small_dataset/small_obob_study_params.yaml",
@@ -1666,7 +1666,7 @@ class StudyLoadingTests(TestCase):
 class ParseIsotopeLabelTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        call_command("loaddata", "tissues.yaml")
+        call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
         call_command(
             "load_compounds",
             compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
@@ -1728,7 +1728,7 @@ class AnimalLoadingTests(TestCase):
 
     @classmethod
     def setUpTestData(cls):
-        call_command("loaddata", "tissues.yaml")
+        call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
         call_command(
             "load_compounds",
             compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",

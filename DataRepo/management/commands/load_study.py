@@ -28,7 +28,7 @@ class Command(BaseCommand):
 
     # Show this when the user types help
     help = (
-        "Loads compounds, animals, samples, and accucor data using a YAML "
+        "Loads tissues, compounds, animals, samples, and accucor data using a YAML "
         "file to specify parameters. "
         "Example usage: manage.py load_study config_file.yaml "
     )
@@ -66,6 +66,13 @@ class Command(BaseCommand):
                 self.style.MIGRATE_HEADING(f"Loading compounds from {compounds_file}")
             )
             call_command("load_compounds", compounds=compounds_file)
+
+        if "tissues" in study_params:
+            tissues_file = os.path.join(study_dir, study_params["tissues"])
+            self.stdout.write(
+                self.style.MIGRATE_HEADING(f"Loading tissues from {tissues_file}")
+            )
+            call_command("load_tissues", tissues=tissues_file)
 
         if "animals_samples_treatments" in study_params:
             # Read in animals and samples file

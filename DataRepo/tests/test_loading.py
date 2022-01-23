@@ -11,7 +11,7 @@ class CompoundLoadingTests(TestCase):
 
     @classmethod
     def setUpTestData(cls):
-        call_command("loaddata", "tissues.yaml")
+        call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
 
     def testCompoundLoading(self):
         """Test the compounds and synonyms are loaded"""

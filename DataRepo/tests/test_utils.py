@@ -11,7 +11,7 @@ from DataRepo.utils import QuerysetToPandasDataFrame as qs2df
 class QuerysetToPandasDataFrameTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        call_command("loaddata", "tissues.yaml")
+        call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
         call_command(
             "load_compounds",
             compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
