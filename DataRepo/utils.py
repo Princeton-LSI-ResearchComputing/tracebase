@@ -1811,19 +1811,20 @@ def leaderboard_data():
         "animals_leaderboard": [],
         "peakgroups_leaderboard": [],
     }
+    LeaderboardRow = namedtuple("LeaderboardRow", ["researcher", "score"])
     for name in get_researchers():
         researcher = Researcher(name=name)
         leaderboards["studies_leaderboard"].append(
-            (researcher, researcher.studies.count())
+            LeaderboardRow(researcher, researcher.studies.count())
         )
         leaderboards["animals_leaderboard"].append(
-            (researcher, researcher.animals.count())
+            LeaderboardRow(researcher, researcher.animals.count())
         )
         leaderboards["peakgroups_leaderboard"].append(
-            (researcher, researcher.peakgroups.count())
+            LeaderboardRow(researcher, researcher.peakgroups.count())
         )
     # Sort leaderboards by count
     for leaderboard in leaderboards.values():
-        leaderboard.sort(key=lambda x: x[1], reverse=True)
+        leaderboard.sort(key=lambda x: x.score, reverse=True)
 
     return leaderboards
