@@ -161,12 +161,17 @@ PROD_CACHES = {
         "LOCATION": "tracebase_cache_table",
         "TIMEOUT": None,
         "OPTIONS": {"MAX_ENTRIES": 1500000},
+        "KEY_PREFIX": "PROD",
     }
 }
 
 TEST_CACHES = {
     "default": {
-        "BACKEND": "django.core.cache.backends.dummy.DummyCache",
+        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+        "LOCATION": "tracebase_cache_table",
+        "TIMEOUT": 1200,
+        "OPTIONS": {"MAX_ENTRIES": 1000},
+        "KEY_PREFIX": "TEST",
     }
 }
 

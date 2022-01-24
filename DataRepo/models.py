@@ -11,6 +11,7 @@ from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import Q, Sum
+from django.utils.functional import cached_property
 
 from DataRepo.hier_cached_model import HierCachedModel, cached_function
 
