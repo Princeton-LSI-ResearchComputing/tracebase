@@ -7,9 +7,9 @@
             <li class="list-group-item d-flex justify-content-between align-items-start">
                 <div class="ms-2 me-auto">
                     <div class="fw-bold">{{ researcher.name }}</div>
-                    {% ifequal forloop.counter 1 %}<i class="bi bi-trophy"></i> First Place! {% endifequal %}
-                    {% ifequal forloop.counter 2 %}<i class="bi bi-award"></i> Second Place! {% endifequal %}
-                    {% ifequal forloop.counter 3 %}Third Place! {% endifequal %}
+                    {% if forloop.counter == 1 %}<i class="bi bi-trophy"></i> First Place! {% endif %}
+                    {% if forloop.counter == 2 %}<i class="bi bi-award"></i> Second Place! {% endif %}
+                    {% if forloop.counter == 3 %}Third Place! {% endif %}
                 </div>
                 <span class="badge bg-primary rounded-pill">{{ count }}</span>
             </li>
