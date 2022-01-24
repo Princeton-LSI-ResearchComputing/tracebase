@@ -5,8 +5,6 @@ import pandas as pd
 from chempy import Substance
 from chempy.util.periodic import atomic_number
 from django.apps import apps
-from django.conf import settings
-from django.core.cache import cache
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
