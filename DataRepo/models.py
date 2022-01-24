@@ -144,7 +144,7 @@ class Researcher:
         Create a researcher object that will lookup items by name
         """
         if name not in get_researchers():
-            raise ObjectDoesNotExist('Researcher named "{name}" was not found')
+            raise ObjectDoesNotExist('Researcher "{name}" not found')
         else:
             self.name = name
 
@@ -158,14 +158,14 @@ class Researcher:
     @cached_property
     def animals(self):
         """
-        Returns QuerySet of Studies that contain samples "owned" by this Researcher
+        Returns QuerySet of Animals that contain samples "owned" by this Researcher
         """
         return Animal.objects.filter(samples__researcher=self.name).distinct()
 
     @cached_property
     def peakgroups(self):
         """
-        Returns QuerySet of Studies that contain samples "owned" by this Researcher
+        Returns QuerySet of Peakgroups that contain samples "owned" by this Researcher
         """
         return PeakGroup.objects.filter(msrun__sample__researcher=self.name).distinct()
 
