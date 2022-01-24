@@ -1,0 +1,18 @@
+<div class="card">
+    <div class="card-header"><h3>Data Submission Leaderboards</h3></div>
+
+    <div class="card-body">
+        <div class="row">
+            <div class="col-sm">
+                {% include "includes/leaderboard.html" with leaderboard_title="Studies" leaderboard_data=leaderboards.studies_leaderboard %}
+            </div>
+            <div class="col-sm">
+                {% include "includes/leaderboard.html" with leaderboard_title="Animals" leaderboard_data=leaderboards.animals_leaderboard %}
+            </div>
+            <div class="col-sm">
+                {% include "includes/leaderboard.html" with leaderboard_title="PeakGroups" leaderboard_data=leaderboards.peakgroups_leaderboard %}
+            </div>
+        </div>
+
+    </div>
+</div>
