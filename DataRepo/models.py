@@ -5,7 +5,7 @@ import pandas as pd
 from chempy import Substance
 from chempy.util.periodic import atomic_number
 from django.apps import apps
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import Q, Sum
@@ -132,6 +132,50 @@ def get_researchers():
         )
     unique_researchers = list(pd.unique(researchers))
     return unique_researchers
+
+
+class Researcher:
+    """
+    Non-model class that provides various researcher related methods
+    """
+
+    def __init__(self, name):
+        """
+        Create a researcher object that will lookup items by name
+        """
+        if name not in get_researchers():
+            raise ObjectDoesNotExist('Researcher "{name}" not found')
+        else:
+            self.name = name
+
+    @cached_property
+    def studies(self):
+        """
+        Returns QuerySet of Studies that contain samples "owned" by this Researcher
+        """
+        return Study.objects.filter(animals__samples__researcher=self.name).distinct()
+
+    @cached_property
+    def animals(self):
+        """
+        Returns QuerySet of Animals that contain samples "owned" by this Researcher
+        """
+        return Animal.objects.filter(samples__researcher=self.name).distinct()
+
+    @cached_property
+    def peakgroups(self):
+        """
+        Returns QuerySet of Peakgroups that contain samples "owned" by this Researcher
+        """
+        return PeakGroup.objects.filter(msrun__sample__researcher=self.name).distinct()
+
+    def __eq__(self, other):
+        if isinstance(other, Researcher):
+            return self.name == other.name
+        return False
+
+    def __str__(self):
+        return self.name
 
 
 class Protocol(models.Model):

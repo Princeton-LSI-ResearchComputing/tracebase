@@ -1,0 +1,18 @@
+<div class="card">
+    <div class="card-header">
+        <h4>{{ leaderboard_title }}</h4>
+    </div>
+    <ol class="list-group list-group-numbered">
+        {% for researcher, count in leaderboard_data|slice:":10" %}
+            <li class="list-group-item d-flex justify-content-between align-items-start">
+                <div class="ms-2 me-auto">
+                    <div class="fw-bold">{{ researcher.name }}</div>
+                    {% if forloop.counter == 1 %}<i class="bi bi-trophy"></i> First Place! {% endif %}
+                    {% if forloop.counter == 2 %}<i class="bi bi-award"></i> Second Place! {% endif %}
+                    {% if forloop.counter == 3 %}Third Place! {% endif %}
+                </div>
+                <span class="badge bg-primary rounded-pill">{{ count }}</span>
+            </li>
+        {% endfor %}
+    </ol>
+</div>

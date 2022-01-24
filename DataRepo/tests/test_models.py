@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 
 import pandas as pd
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.core.management import CommandError, call_command
 from django.db import IntegrityError
 from django.db.models.deletion import RestrictedError
@@ -16,6 +16,7 @@ from DataRepo.models import (
     PeakGroup,
     PeakGroupSet,
     Protocol,
+    Researcher,
     Sample,
     Study,
     Tissue,
@@ -26,6 +27,7 @@ from DataRepo.utils import (
     AmbiguousCompoundDefinitionError,
     CompoundsLoader,
     MissingSamplesError,
+    leaderboard_data,
 )
 
 
@@ -1647,20 +1649,66 @@ class AccuCorDataLoadingTests(TestCase):
 
 @tag("load_study")
 class StudyLoadingTests(TestCase):
-    def test_load_small_obob_study(self):
+    @classmethod
+    def setUpTestData(cls):
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
         call_command(
             "load_study",
             "DataRepo/example_data/small_dataset/small_obob_study_params.yaml",
         )
-        COMPOUNDS_COUNT = 2
-        SAMPLES_COUNT = 14
-        PEAKDATA_ROWS = 11
+        cls.COMPOUNDS_COUNT = 2
+        cls.SAMPLES_COUNT = 14
+        cls.PEAKDATA_ROWS = 11
 
+    def test_load_small_obob_study(self):
         self.assertEqual(
-            PeakGroup.objects.all().count(), COMPOUNDS_COUNT * SAMPLES_COUNT
+            PeakGroup.objects.all().count(), self.COMPOUNDS_COUNT * self.SAMPLES_COUNT
         )
-        self.assertEqual(PeakData.objects.all().count(), PEAKDATA_ROWS * SAMPLES_COUNT)
+        self.assertEqual(
+            PeakData.objects.all().count(), self.PEAKDATA_ROWS * self.SAMPLES_COUNT
+        )
+
+    def test_researcher_dne(self):
+        with self.assertRaises(ObjectDoesNotExist):
+            Researcher(name="New Researcher")
+
+    def test_researcher_eq(self):
+        r1 = Researcher(name="Xianfeng Zeng")
+        r2 = Researcher(name="Xianfeng Zeng")
+        self.assertEqual(r1, r2)
+
+    def test_researcher_studies(self):
+        researcher = Researcher(name="Xianfeng Zeng")
+        self.assertEqual(researcher.studies.count(), 1)
+
+    def test_researcher_animals(self):
+        researcher = Researcher(name="Xianfeng Zeng")
+        self.assertEqual(researcher.animals.count(), 1)
+
+    def test_researcher_peakgroups(self):
+        researcher = Researcher(name="Xianfeng Zeng")
+        self.assertEqual(
+            researcher.peakgroups.count(), self.COMPOUNDS_COUNT * self.SAMPLES_COUNT
+        )
+
+    def test_leaderboards(self):
+
+        expected_leaderboard = {
+            "studies_leaderboard": [
+                (Researcher(name="Xianfeng Zeng"), 1),
+            ],
+            "animals_leaderboard": [
+                (Researcher(name="Xianfeng Zeng"), 1),
+            ],
+            "peakgroups_leaderboard": [
+                (
+                    Researcher(name="Xianfeng Zeng"),
+                    self.COMPOUNDS_COUNT * self.SAMPLES_COUNT,
+                ),
+            ],
+        }
+        self.maxDiff = None
+        self.assertDictEqual(expected_leaderboard, leaderboard_data())
 
 
 class ParseIsotopeLabelTests(TestCase):
