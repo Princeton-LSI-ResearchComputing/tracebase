@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 import dateutil.parser  # type: ignore
 import numpy as np
 import pandas as pd
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from pandas.errors import EmptyDataError
@@ -194,8 +195,10 @@ class SampleTableLoader:
             name = self.getRowVal(row, self.headers.ANIMAL_NAME)
             if name is not None:
                 animal, created = Animal.objects.get_or_create(name=name)
-                if created:
+                if created and animal.caches_exist():
                     animals_to_uncache.append(animal)
+                elif created and settings.DEBUG:
+                    print(f"No cache exists for animal {animal.id}")
             """
             We do this here, and not in the "created" block below, in case the
             researcher is creating a new study from previously-loaded animals
@@ -396,10 +399,14 @@ class SampleTableLoader:
         # Throw an exception in debug mode to abort the load
         assert not debug, "Debugging..."
 
-        print("Expiring affected caches...")
+        if settings.DEBUG:
+            print("Expiring affected caches...")
         for animal in animals_to_uncache:
+            if settings.DEBUG:
+                print(f"Expiring animal {animal.id}'s cache")
             animal.delete_cache()
-        print("Expiring done.")
+        if settings.DEBUG:
+            print("Expiring done.")
 
     def getRowVal(self, row, header, hdr_required=True, val_required=True):
         """
@@ -865,8 +872,15 @@ class AccuCorDataLoader:
             )
             msrun.full_clean()
             msrun.save()
-            if msrun.sample.animal not in animals_to_uncache:
+            if (
+                msrun.sample.animal not in animals_to_uncache
+                and msrun.sample.animal.caches_exist()
+            ):
                 animals_to_uncache.append(msrun.sample.animal)
+            elif not msrun.sample.animal.caches_exist():
+                print(
+                    f"No cache exists for animal {msrun.sample.animal.id} linked to Sample {msrun.sample.id}"
+                )
             self.sample_run_dict[sample_name] = msrun
 
             # Create all PeakGroups
@@ -1004,10 +1018,14 @@ class AccuCorDataLoader:
 
         assert not self.debug, "Debugging..."
 
-        print("Expiring affected caches...")
+        if settings.DEBUG:
+            print("Expiring affected caches...")
         for animal in animals_to_uncache:
+            if settings.DEBUG:
+                print(f"Expiring animal {animal.id}'s cache")
             animal.delete_cache()
-        print("Expiring done.")
+        if settings.DEBUG:
+            print("Expiring done.")
 
     @classmethod
     def parse_isotope_label(cls, label):
