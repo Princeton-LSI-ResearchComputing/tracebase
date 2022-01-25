@@ -7,9 +7,9 @@ from DataRepo.hier_cached_model import (
     enable_caching_updates,
     get_cached_method_names,
 )
-
-# Must import every HierCachedModel (because it's eval'd below)
 from DataRepo.models import Animal, PeakData, PeakGroup, Sample
+
+# ^^^ Must import every HierCachedModel (because it's eval'd below)
 
 
 def build_caches(clear):
