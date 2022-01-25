@@ -387,8 +387,8 @@ class Study(models.Model):
 
 
 class Animal(HierCachedModel, TracerLabeledClass):
-    # No parent_cache_key_name, because this is a root
-    child_cache_related_names = ["samples"]
+    # No parent_related_key_name, because this is a root
+    child_related_key_names = ["samples"]
 
     FEMALE = "F"
     MALE = "M"
@@ -494,8 +494,8 @@ class Animal(HierCachedModel, TracerLabeledClass):
         help_text="The laboratory controlled label of the actions taken on an animal.",
     )
 
-    @property  # type: ignore
-    @cached_function
+    # @cached_function is *slower* than uncached
+    @cached_property
     def all_serum_samples(self):
         """
         all_serum_samples() in an instance method that returns all the serum
@@ -585,8 +585,8 @@ class Animal(HierCachedModel, TracerLabeledClass):
                 .last()
             )
 
-    @property  # type: ignore
-    @cached_function
+    # @cached_function does not work with this method because non-None values are not picklable
+    @cached_property
     def final_serum_sample_tracer_peak_data(self):
         """
         final_serum_sample_tracer_peak_data is an instance method that returns
@@ -808,8 +808,8 @@ class Tissue(models.Model):
 
 
 class Sample(HierCachedModel):
-    parent_cache_key_name = "animal"
-    child_cache_related_names = ["msruns"]
+    parent_related_key_name = "animal"
+    child_related_key_names = ["msruns"]
 
     # Instance / model fields
     id = models.AutoField(primary_key=True)
@@ -903,8 +903,8 @@ class Sample(HierCachedModel):
 
 
 class MSRun(HierCachedModel):
-    parent_cache_key_name = "sample"
-    child_cache_related_names = ["peak_groups"]
+    parent_related_key_name = "sample"
+    child_related_key_names = ["peak_groups"]
 
     # Instance / model fields
     id = models.AutoField(primary_key=True)
@@ -986,8 +986,8 @@ class PeakGroupSet(models.Model):
 
 
 class PeakGroup(HierCachedModel):
-    parent_cache_key_name = "msrun"
-    child_cache_related_names = ["peak_data"]
+    parent_related_key_name = "msrun"
+    # Leaf
 
     id = models.AutoField(primary_key=True)
     name = models.CharField(
@@ -1021,8 +1021,8 @@ class PeakGroup(HierCachedModel):
     def atom_count(self, atom):
         return atom_count_in_formula(self.formula, atom)
 
-    @property  # type: ignore
-    @cached_function
+    # @cached_function is *slower* than uncached
+    @cached_property
     def total_abundance(self):
         """
         Total ion counts for this compound.
@@ -1137,8 +1137,8 @@ class PeakGroup(HierCachedModel):
 
         return normalized_labeling
 
-    @property  # type: ignore
-    @cached_function
+    # @cached_function is *slower* than uncached
+    @cached_property
     def animal(self):
         """Convenient instance method to cache the animal this PeakGroup came from"""
         return self.msrun.sample.animal
@@ -1198,8 +1198,8 @@ class PeakGroup(HierCachedModel):
             return False
         return True
 
-    @property  # type: ignore
-    @cached_function
+    # @cached_function is *slower* than uncached
+    @cached_property
     def can_compute_body_weight_tracer_rates(self):
         """
         Instance method which returns True if a peak_group rate metric can utilize
@@ -1433,14 +1433,11 @@ class PeakGroup(HierCachedModel):
         return str(self.name)
 
 
-class PeakData(HierCachedModel, TracerLabeledClass):
+class PeakData(models.Model, TracerLabeledClass):
     """
     PeakData is a single observation (at the most atomic level) of a MS-detected molecule.
     For example, this could describe the data for M+2 in glucose from mouse 345 brain tissue.
     """
-
-    parent_cache_key_name = "peak_group"
-    # No child_cache_related_names because this is a leaf
 
     id = models.AutoField(primary_key=True)
     peak_group = models.ForeignKey(
@@ -1487,8 +1484,8 @@ class PeakData(HierCachedModel, TracerLabeledClass):
         help_text="The median retention time value of this measurement.",
     )
 
-    @property  # type: ignore
-    @cached_function
+    # @cached_function is *slower* than uncached
+    @cached_property
     def fraction(self):
         """
         The corrected abundance of the labeled element in this PeakData as a
