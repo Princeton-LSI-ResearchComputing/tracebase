@@ -546,6 +546,7 @@ class Animal(HierCachedModel, TracerLabeledClass):
         """
         # Note: calling self.final_serum_sample here ran into linting issues with `fss.id` not "existing". Added
         # fss\..* to this list of generated-members in the pylint config to ignore it.
+        id = None
         fss = self.final_serum_sample
         if fss and fss.id:
             id = fss.id

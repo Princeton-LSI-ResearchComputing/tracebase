@@ -8,6 +8,7 @@ from django.db.models import Model
 use_cache = True
 caching_updates = True
 func_name_lists: Dict[str, List] = {}
+throw_cache_errors = False
 
 
 def cached_function(f):
@@ -59,6 +60,8 @@ def get_cache(rec, cache_prop_name):
         print(e)
         result = None
         good_cache = False
+        if throw_cache_errors:
+            raise Exception(f"{rec.__class__.__name__}.{cache_prop_name} ERROR: {e}")
     return result, good_cache
 
 
@@ -71,7 +74,8 @@ def set_cache(rec, cache_prop_name, value):
     try:
         cachekey = get_cache_key(rec, cache_prop_name)
         cache.set(cachekey, value, timeout=None, version=1)
-        print(f"Setting cache {cachekey} to {value}")
+        if settings.DEBUG:
+            print(f"Setting cache {cachekey} to {value}")
         root_rec, first_method_name = rec.get_representative_root_rec_and_method()
         if (
             root_rec.__class__.__name__ != rec.__class__.__name__
@@ -82,6 +86,8 @@ def set_cache(rec, cache_prop_name, value):
     except Exception as e:
         # Allow tracebase to still work, just without caching
         print(e)
+        if throw_cache_errors:
+            raise Exception(f"{rec.__class__.__name__}.{cache_prop_name} ERROR: {e}")
         return False
     return True
 
@@ -123,6 +129,23 @@ def enable_caching_retrievals():
     """
     global use_cache
     use_cache = True
+
+
+def disable_caching_errors():
+    """
+    Prevents exceptions from being thrown when retrieving or setting a cached value (so that the site works when
+    caching's broken)
+    """
+    global throw_cache_errors
+    throw_cache_errors = False
+
+
+def enable_caching_errors():
+    """
+    Allows exceptions to be thrown when retrieving or setting cached values
+    """
+    global throw_cache_errors
+    throw_cache_errors = True
 
 
 class HierCachedModel(Model):
