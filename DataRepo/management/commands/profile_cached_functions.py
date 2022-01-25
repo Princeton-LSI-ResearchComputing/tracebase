@@ -10,7 +10,7 @@ from DataRepo.hier_cached_model import (
     enable_caching_retrievals,
     get_cached_method_names,
 )
-from DataRepo.models import Animal, PeakData, PeakGroup, Sample
+from DataRepo.models import Animal, PeakData, PeakGroup, Sample # noqa: F401
 
 
 def profile():
@@ -98,9 +98,9 @@ def profile():
                     )
             else:
                 print("\tResults:")
-                print(f"\t\tExceptn occurred with caching")
+                print("\t\tExceptn occurred with caching")
                 print("\tConclusion:")
-                print(f"\t\tCaching doesn't work for this function")
+                print("\t\tCaching doesn't work for this function")
                 print(
                     f"\t\tREMOVE @cached_function decorator from {class_name}.{cfunc_name}"
                 )

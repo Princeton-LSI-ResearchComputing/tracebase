@@ -7,7 +7,7 @@ from DataRepo.hier_cached_model import (
     enable_caching_updates,
     get_cached_method_names,
 )
-from DataRepo.models import Animal, PeakData, PeakGroup, Sample
+from DataRepo.models import Animal, PeakData, PeakGroup, Sample # noqa: F401
 
 # ^^^ Must import every HierCachedModel (because it's eval'd below)
 
@@ -51,7 +51,7 @@ class Command(BaseCommand):
             required=False,
             action="store_true",
             default=False,
-            help=f"Clear existing caches.  Default behavior is to only fill in missing cache values.",
+            help="Clear existing caches.  Default behavior is to only fill in missing cache values.",
         )
 
     def handle(self, *args, **options):
