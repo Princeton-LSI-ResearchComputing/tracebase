@@ -10,7 +10,7 @@ from DataRepo.hier_cached_model import (
     enable_caching_retrievals,
     get_cached_method_names,
 )
-from DataRepo.models import Animal, PeakData, PeakGroup, Sample # noqa: F401
+from DataRepo.models import Animal, PeakData, PeakGroup, Sample  # noqa: F401
 
 
 def profile():
