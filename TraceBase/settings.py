@@ -175,7 +175,7 @@ TEST_CACHES = {
     }
 }
 
-CACHES_SETTING = env.bool("CACHES", default="PROD_CACHES")
+CACHES_SETTING = env.str("CACHES", default="PROD_CACHES")
 
 CACHES: Dict[str, Dict] = PROD_CACHES
 if CACHES_SETTING == "TEST_CACHES":
