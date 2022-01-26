@@ -1,6 +1,9 @@
 $schema: "https://json-schema.org/draft-06/schema#"
 description: dataset loading parameters
 properties:
+  tissues:
+    type: string
+    description: filename for tissues to load
   compounds:
     type: string
     description: filename for compounds to load

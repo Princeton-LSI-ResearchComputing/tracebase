@@ -10,7 +10,7 @@ class CompositeViewTests(TestCase):
 
     @classmethod
     def setUpTestData(cls):
-        call_command("loaddata", "tissues.yaml")
+        call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
         call_command(
             "load_compounds",
             compounds="DataRepo/example_data/small_dataset/small_obob_compounds.tsv",
