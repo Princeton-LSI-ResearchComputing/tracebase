@@ -36,5 +36,5 @@ class TissueLoadingTests(TestCase):
                 "load_tissues",
                 tissues="DataRepo/example_data/testing_data/tissues/tissues_with_errors.tsv",
             )
-        # If errors are found, no records shold be loaded
+        # If errors are found, no records should be loaded
         self.assertEqual(Tissue.objects.count(), 0)

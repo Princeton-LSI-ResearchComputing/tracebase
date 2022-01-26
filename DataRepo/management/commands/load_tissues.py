@@ -6,7 +6,7 @@ from DataRepo.utils import DryRun, LoadingError, TissuesLoader
 
 class Command(BaseCommand):
     # Show this when the user types help
-    help = "Loads data from a compound list into the database"
+    help = "Loads data from a tissue list into the database"
 
     def add_arguments(self, parser):
         parser.add_argument(
