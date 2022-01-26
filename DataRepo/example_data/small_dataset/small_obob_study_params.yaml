@@ -12,4 +12,3 @@ accucor_data:
   new_researcher: False
   skip_samples:
     - "blank"
-
