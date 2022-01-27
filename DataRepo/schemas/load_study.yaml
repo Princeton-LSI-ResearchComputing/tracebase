@@ -1,3 +1,4 @@
+---
 $schema: "https://json-schema.org/draft-06/schema#"
 description: dataset loading parameters
 properties:
@@ -9,14 +10,17 @@ properties:
     description: filename for compounds to load
   animals_samples_treatments:
     type: object
-    description: animals, samples, and treatments table as well as header definitions
+    description: |
+      animals, samples, and treatments table as well as header definitions
     properties:
       table:
         type: string
-        description: filename of Excel file with animals, samples, treatments worksheets
+        description: |
+          filename of Excel file with animals, samples, treatments worksheets
       headers:
         type: string
-        description: filename of yaml file defining headers for Excel worksheets
+        description: |
+          filename of yaml file defining headers for Excel worksheets
       skip_researcher_check:
         type: boolean
         default: false
@@ -29,7 +33,8 @@ properties:
     properties:
       accucor_files:
         type: array
-        description: list of accucor filenames and parameters specific to that file
+        description: |
+          list of accucor filenames and parameters specific to that file
         items:
           type: object
           properties:
