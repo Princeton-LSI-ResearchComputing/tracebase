@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/3.1/ref/settings/
 
 import os
 from pathlib import Path
+from typing import Dict
 
 import environ
 
@@ -152,6 +153,38 @@ FILE_UPLOAD_HANDLERS = [
 DATA_SUBMISSION_URL = "https://forms.gle/Jyp94aiGmhBNLZh6A"
 DATA_SUBMISSION_EMAIL = "csgenome@princeton.edu"
 
+# Set up caching used by model cached_properties
+# See: https://docs.djangoproject.com/en/dev/topics/cache/#setting-up-the-cache
+PROD_CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+        "LOCATION": "tracebase_cache_table",
+        "TIMEOUT": None,
+        "OPTIONS": {"MAX_ENTRIES": 1500000},
+        "KEY_PREFIX": "PROD",
+    }
+}
+
+TEST_CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+        "LOCATION": "tracebase_cache_table",
+        "TIMEOUT": 1200,
+        "OPTIONS": {"MAX_ENTRIES": 1000},
+        "KEY_PREFIX": "TEST",
+    }
+}
+
+CACHES_SETTING = env.str("CACHES", default="PROD_CACHES")
+
+CACHES: Dict[str, Dict] = PROD_CACHES
+if CACHES_SETTING == "TEST_CACHES":
+    CACHES = TEST_CACHES
+elif CACHES_SETTING != "PROD_CACHES":
+    print(
+        f"Invalid CACHE_SETTINGS value: {CACHES_SETTING} in .env. Defaulting to PROD_CACHES. Valid values are "
+        "TEST_CACHES and PROD_CACHES."
+    )
 
 # Logging settings
 # This logging level was added to show the number of SQL queries in the server console

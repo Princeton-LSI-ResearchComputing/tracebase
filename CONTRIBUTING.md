@@ -107,6 +107,11 @@ Copy the TraceBase environment example:
 Update the .env file to reflect the new secret key and the database credentials
 you used when setting up Postgres.
 
+Set up the project's postgres database:
+
+    python manage.py migrate
+    python manage.py createcachetable
+
 ### (Optional) Load Some Example Data
 
     python manage.py load_compounds --compounds DataRepo/example_data/consolidated_tracebase_compound_list.tsv
@@ -117,7 +122,7 @@ you used when setting up Postgres.
 
 ### Start TraceBase
 
-Set up the project's postgres database:
+Make sure the project's postgres database is current:
 
     python manage.py migrate
 
