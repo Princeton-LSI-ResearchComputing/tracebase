@@ -89,13 +89,14 @@ class SampleTableLoader:
         TRACER_INFUSION_CONCENTRATION="Tracer Concentration",
     )
 
-    def __init__(self, sample_table_headers=DefaultSampleTableHeaders):
+    def __init__(self, sample_table_headers=DefaultSampleTableHeaders, database="default"):
         self.headers = sample_table_headers
         self.blank = ""
         self.researcher_errors = []
         self.header_errors = []
         self.missing_headers = []
         self.debug = False
+        self.database = database
 
     def validate_sample_table(self, data, skip_researcher_check=False):
         """
@@ -170,7 +171,7 @@ class SampleTableLoader:
             created = False
             name = self.getRowVal(row, self.headers.STUDY_NAME)
             if name is not None:
-                study, created = Study.objects.get_or_create(name=name)
+                study, created = Study.objects.using(self.database).get_or_create(name=name)
                 study_exists = True
             if created:
                 description = self.getRowVal(
@@ -184,7 +185,7 @@ class SampleTableLoader:
                 print(f"Created new record: Study:{study}")
                 try:
                     study.full_clean()
-                    study.save()
+                    study.save(using=self.database)
                 except Exception as e:
                     enable_caching_updates()
                     print(f"Error saving record: Study:{study}")
@@ -194,7 +195,7 @@ class SampleTableLoader:
             created = False
             name = self.getRowVal(row, self.headers.ANIMAL_NAME)
             if name is not None:
-                animal, created = Animal.objects.get_or_create(name=name)
+                animal, created = Animal.objects.using(self.database).get_or_create(name=name)
                 if created and animal.caches_exist():
                     animals_to_uncache.append(animal)
                 elif created and settings.DEBUG:
@@ -275,6 +276,7 @@ class SampleTableLoader:
                                 protocol_input,
                                 category,
                                 f"For protocol's full text, please consult {researcher}.",
+                                database=self.database,
                             )
                             action = "Found"
                             feedback = f"{animal.treatment.category} protocol "
@@ -289,7 +291,7 @@ class SampleTableLoader:
                 )
                 if tracer_compound_name is not None:
                     try:
-                        tracer_compound = Compound.objects.get(
+                        tracer_compound = Compound.objects.using(self.database).get(
                             name=tracer_compound_name
                         )
                         animal.tracer_compound = tracer_compound
@@ -325,7 +327,7 @@ class SampleTableLoader:
                     animal.tracer_infusion_concentration = tic
                 try:
                     animal.full_clean()
-                    animal.save()
+                    animal.save(using=self.database)
                 except Exception as e:
                     enable_caching_updates()
                     print(f"Error saving record: Animal:{animal}")
@@ -335,7 +337,7 @@ class SampleTableLoader:
             sample_name = self.getRowVal(row, self.headers.SAMPLE_NAME)
             if sample_name is not None:
                 try:
-                    sample = Sample.objects.get(name=sample_name)
+                    sample = Sample.objects.using(self.database).get(name=sample_name)
                     print(f"SKIPPING existing record: Sample:{sample_name}")
                 except Sample.DoesNotExist:
                     print(f"Creating new record: Sample:{sample_name}")
@@ -362,7 +364,7 @@ class SampleTableLoader:
                         sample.date = sample_date
                     try:
                         sample.full_clean()
-                        sample.save()
+                        sample.save(using=self.database)
                     except Exception as e:
                         enable_caching_updates()
                         print(f"Error saving record: Sample:{sample}")
@@ -452,6 +454,7 @@ class AccuCorDataLoader:
         sample_name_prefix=None,
         debug=False,
         new_researcher=False,
+        database="default",
     ):
         self.accucor_original_df = accucor_original_df
         self.accucor_corrected_df = accucor_corrected_df
@@ -468,6 +471,7 @@ class AccuCorDataLoader:
         self.sample_name_prefix = sample_name_prefix
         self.debug = debug
         self.new_researcher = new_researcher
+        self.database = database
 
     def validate_data(self):
         """
@@ -692,7 +696,7 @@ class AccuCorDataLoader:
             prefix_sample_name = f"{self.sample_name_prefix}{sample_name}"
             try:
                 # cached it for later
-                self.sample_dict[sample_name] = Sample.objects.get(
+                self.sample_dict[sample_name] = Sample.objects.using(self.database).get(
                     name=prefix_sample_name
                 )
             except Sample.DoesNotExist:
@@ -842,7 +846,7 @@ class AccuCorDataLoader:
     def insert_peak_group_set(self):
         self.peak_group_set = PeakGroupSet(filename=self.peak_group_set_filename_input)
         self.peak_group_set.full_clean()
-        self.peak_group_set.save()
+        self.peak_group_set.save(using=self.database)
 
     def load_data(self):
         """
@@ -871,7 +875,7 @@ class AccuCorDataLoader:
                 sample=self.sample_dict[sample_name],
             )
             msrun.full_clean()
-            msrun.save()
+            msrun.save(using=self.database)
             if (
                 msrun.sample.animal not in animals_to_uncache
                 and msrun.sample.animal.caches_exist()
@@ -908,7 +912,7 @@ class AccuCorDataLoader:
                         peak_group_set=self.peak_group_set,
                     )
                     peak_group.full_clean()
-                    peak_group.save()
+                    peak_group.save(using=self.database)
                     # cache
                     inserted_peak_group_dict[peak_group_name] = peak_group
 
@@ -981,7 +985,7 @@ class AccuCorDataLoader:
                         )
 
                         peak_data.full_clean()
-                        peak_data.save()
+                        peak_data.save(using=self.database)
 
                 else:
                     peak_group_corrected_df = self.accucor_corrected_df[
@@ -1012,7 +1016,7 @@ class AccuCorDataLoader:
                         )
 
                         peak_data.full_clean()
-                        peak_data.save()
+                        peak_data.save(using=self.database)
 
         enable_caching_updates()
 

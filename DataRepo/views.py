@@ -1282,10 +1282,12 @@ class DataValidationView(FormView):
         errors[animal_sample_name] = []
         results[animal_sample_name] = ""
         try:
+            # debug=True is supposed to NOT commit the DB changes, but it IS creating the study, so even though I'm using debug here, I am also setting the database to the validation database...
             call_command(
                 "load_animals_and_samples",
                 animal_and_sample_table_filename=animal_sample_dict[animal_sample_name],
                 debug=True,
+                database="validation",
             )
             results[animal_sample_name] = "PASSED"
         except ResearcherError as re:
@@ -1303,7 +1305,7 @@ class DataValidationView(FormView):
             if "Debugging" not in estr:
                 valid = False
                 errors[animal_sample_name].append(
-                    f"{animal_sample_name} {e.__class__.__name__}: {estr}"
+                    f"{e.__class__.__name__}: {estr}"
                 )
                 results[animal_sample_name] = "FAILED"
             else:
@@ -1311,12 +1313,14 @@ class DataValidationView(FormView):
 
         can_proceed = False
         if results[animal_sample_name] != "FAILED":
-            # Load the animal and sample data into a test database, so the data is available for the accucor file
-            # validation
-            validation_test = self.ValidationTest()
+            # Load the animal and sample data into the validation database, so the data is available for the accucor
+            # file validation
             try:
-                validation_test.validate_animal_sample_table(
-                    animal_sample_dict[animal_sample_name],
+                call_command(
+                    "load_animals_and_samples",
+                    animal_and_sample_table_filename=animal_sample_dict[animal_sample_name],
+                    skip_researcher_check=True,
+                    database="validation",
                 )
                 can_proceed = True
             except Exception as e:
@@ -1339,10 +1343,7 @@ class DataValidationView(FormView):
             errors[af] = []
             if can_proceed is True:
                 try:
-                    validation_test.validate_accucor(
-                        afp,
-                        [],
-                    )
+                    self.validate_accucor(afp, [])
                     results[af] = "PASSED"
                 except MissingSamplesError as mse:
                     blank_samples = []
@@ -1360,10 +1361,7 @@ class DataValidationView(FormView):
                         mse.sample_list
                     ):
                         try:
-                            validation_test.validate_accucor(
-                                afp,
-                                blank_samples,
-                            )
+                            validate_accucor(afp, blank_samples)
                             results[af] = "PASSED"
                         except Exception as e:
                             estr = str(e)
@@ -1403,37 +1401,24 @@ class DataValidationView(FormView):
             errors,
         ]
 
-    class ValidationTest(TestCase):
-        @classmethod
-        def setUpTestData(cls):
-            setup_databases(keepdb=False)
-            setup_test_environment()
-            call_command("load_compounds", "DataRepo/example_data/obob_compounds.tsv")
-
-        def validate_animal_sample_table(self, animal_sample_file):
+    def validate_accucor(self, accucor_file, skip_samples):
+        if len(skip_samples) > 0:
             call_command(
-                "load_animals_and_samples",
-                animal_and_sample_table_filename=animal_sample_file,
-                skip_researcher_check=True,
+                "load_accucor_msruns",
+                protocol="Default",
+                accucor_file=accucor_file,
+                date="2021-09-14",
+                researcher="Michael Neinast",
+                debug=True,
+                skip_samples=skip_samples,
+                database="validation"
             )
-
-        def validate_accucor(self, accucor_file, skip_samples):
-            if len(skip_samples) > 0:
-                call_command(
-                    "load_accucor_msruns",
-                    protocol="Default",
-                    accucor_file=accucor_file,
-                    date="2021-09-14",
-                    researcher="Michael Neinast",
-                    debug=True,
-                    skip_samples=skip_samples,
-                )
-            else:
-                call_command(
-                    "load_accucor_msruns",
-                    protocol="Default",
-                    accucor_file=accucor_file,
-                    date="2021-09-13",
-                    researcher="Michael Neinast",
-                    debug=True,
-                )
+        else:
+            call_command(
+                "load_accucor_msruns",
+                protocol="Default",
+                accucor_file=accucor_file,
+                date="2021-09-13",
+                researcher="Michael Neinast",
+                debug=True,
+            )
