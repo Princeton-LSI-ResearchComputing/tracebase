@@ -100,6 +100,22 @@ DATABASES = {
     }
 }
 
+VALIDATION_ENABLED = False
+# If the validation database is configured in the .env file...
+if env("VALIDATION_DATABASE_NAME"):
+    try:
+        DATABASES["validation"] = {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": env("VALIDATION_DATABASE_NAME"),
+            "USER": env("VALIDATION_DATABASE_USER"),
+            "PASSWORD": env("VALIDATION_DATABASE_PASSWORD"),
+            "HOST": env("VALIDATION_DATABASE_HOST"),
+            "PORT": env("VALIDATION_DATABASE_PORT"),
+        }
+        VALIDATION_ENABLED = True
+    except Exception as e:
+        print(f"Could not configure access to the {env('VALIDATION_DATABASE_NAME')} database: {e}")
+
 
 # Password validation
 # https://docs.djangoproject.com/en/3.1/ref/settings/#auth-password-validators

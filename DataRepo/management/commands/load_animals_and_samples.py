@@ -63,6 +63,15 @@ class Command(BaseCommand):
             # This issues a "debug-only" error, to abort the transaction
             help="Debug mode. Will not change the database.",
         )
+        # optional database argument.  This was added specifically for user data validation without changing the
+        # production database.
+        parser.add_argument(
+            "--database",
+            required=False,
+            type=str,
+            default="default",
+            help=f"Supply 'validation' for the user data validation database : default",
+        )
 
     def handle(self, *args, **options):
 
@@ -111,7 +120,7 @@ class Command(BaseCommand):
         self.stdout.write(
             self.style.MIGRATE_HEADING("Importing animals and samples...")
         )
-        loader = SampleTableLoader(sample_table_headers=headers)
+        loader = SampleTableLoader(sample_table_headers=headers, database=options["database"])
         loader.load_sample_table(
             merged.to_dict("records"),
             options["skip_researcher_check"],

@@ -75,6 +75,15 @@ class Command(BaseCommand):
             default=False,
             help=argparse.SUPPRESS,
         )
+        # optional database argument.  This was added specifically for user data validation without changing the
+        # production database.
+        parser.add_argument(
+            "--database",
+            required=False,
+            type=str,
+            default="default",
+            help=f"Supply 'validation' for the user data validation database : default",
+        )
 
     def handle(self, *args, **options):
         print("Reading accucor file: " + options["accucor_file"])
@@ -99,6 +108,7 @@ class Command(BaseCommand):
             sample_name_prefix=options["sample_name_prefix"],
             debug=options["debug"],
             new_researcher=options["new_researcher"],
+            database=options["database"],
         )
 
         loader.load_accucor_data()
@@ -133,11 +143,8 @@ class Command(BaseCommand):
         ).iloc[0]
         if self.headers_are_not_unique(corr_heads):
             raise ValidationError(
-                "Column headers in Corrected data sheet are not unique. There are "
-                + str(self.num_heads)
-                + " columns and "
-                + str(self.num_uniq_heads)
-                + " unique values"
+                f"Column headers in Corrected data sheet are not unique. There are {str(self.num_heads)} columns and "
+                f"{str(self.num_uniq_heads)} unique values"
             )
 
         # get the first 2 sheets as the original and corrected data
@@ -159,11 +166,8 @@ class Command(BaseCommand):
         ).iloc[0]
         if self.headers_are_not_unique(corr_heads):
             raise ValidationError(
-                "Column headers in Corrected data sheet are not unique. There are "
-                + str(self.num_heads)
-                + " columns and "
-                + str(self.num_uniq_heads)
-                + " unique values"
+                f"Column headers in Corrected data sheet are not unique. There are {str(self.num_heads)} columns and "
+                f"{str(self.num_uniq_heads)} unique values"
             )
 
         self.original = None
