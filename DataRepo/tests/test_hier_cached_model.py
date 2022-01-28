@@ -1,10 +1,7 @@
-from django.conf import settings
 from django.core.management import call_command
 from django.test import TestCase
 
 from DataRepo.hier_cached_model import (
-    HierCachedModel,
-    cached_function,
     delete_all_caches,
     disable_caching_retrievals,
     disable_caching_updates,
@@ -62,7 +59,7 @@ class GlobalCacheTests(TestCase):
     def test_load_not_cached(self):
         a = Animal.objects.all().first()
         f = "final_serum_sample"
-        v, s = get_cache(a, "final_serum_sample")
+        v, s = get_cache(a, f)
         self.assertEqual(
             v,
             None,
@@ -201,7 +198,10 @@ class GlobalCacheTests(TestCase):
         self.assertEqual(
             grvres,
             rv,
-            msg="Caching a child value should trigger a caching of the root model's representative value, which should be the same as before it was saved in the cache",
+            msg=(
+                "Caching a child value should trigger a caching of the root model's representative value, which should "
+                "be the same as before it was saved in the cache"
+            ),
         )
 
     def test_get_cache_key(self):
@@ -297,7 +297,7 @@ class HierCachedModelTests(TestCase):
             msg="Ensure decorator works to save and retrieve cache, and that the value is correct",
         )
 
-    def test_save_override(self):
+    def createASampleCache(self):
         delete_all_caches()
         smp = Sample.objects.all().first()
         f = "is_serum_sample"
@@ -313,12 +313,22 @@ class HierCachedModelTests(TestCase):
         rv, rs = get_cache(rep_rec, rep_fnc)
         self.assertTrue(
             s,
-            msg="Ensure what we got back was a cached value for the called function so the next assertions are meaningful",
+            msg=(
+                "Ensure what we got back was a cached value for the called function so the next assertions are "
+                "meaningful"
+            ),
         )
         self.assertTrue(
             rs,
-            msg="Ensure what we got back was a cached value for the representative function so the next assertions are meaningful",
+            msg=(
+                "Ensure what we got back was a cached value for the representative function so the next assertions "
+                "are meaningful"
+            ),
         )
+        return smp, f, rep_rec, rep_fnc
+
+    def test_save_override(self):
+        smp, f, rep_rec, rep_fnc = self.createASampleCache()
 
         smp.save()
 
@@ -350,11 +360,17 @@ class HierCachedModelTests(TestCase):
         rv, rs = get_cache(rep_rec, rep_fnc)
         self.assertTrue(
             s,
-            msg="Ensure what we got back was a cached value for the called function so the next assertions are meaningful",
+            msg=(
+                "Ensure what we got back was a cached value for the called function so the next assertions are "
+                "meaningful"
+            ),
         )
         self.assertTrue(
             rs,
-            msg="Ensure what we got back was a cached value for the representative function so the next assertions are meaningful",
+            msg=(
+                "Ensure what we got back was a cached value for the representative function so the next assertions "
+                "are meaningful"
+            ),
         )
 
         # delete() calls from animal, sample, and MSRun are restricted
@@ -369,31 +385,14 @@ class HierCachedModelTests(TestCase):
         )
         self.assertFalse(
             nrs,
-            msg=f"Ensure the value for the representative function {rep_rec.__class__.__name__}.{rep_fnc} in not cached after a delete",
+            msg=(
+                f"Ensure the value for the representative function {rep_rec.__class__.__name__}.{rep_fnc} in not "
+                "cached after a delete"
+            ),
         )
 
     def test_delete_descendant_caches(self):
-        delete_all_caches()
-        smp = Sample.objects.all().first()
-        f = "is_serum_sample"
-
-        enable_caching_retrievals()
-        enable_caching_updates()
-        # Trigger caching via decorator
-        getattr(smp, f)  # same as `smp.is_serum_sample`
-        rep_rec, rep_fnc = smp.get_representative_root_rec_and_method()
-
-        # Ensure cached
-        v, s = get_cache(smp, f)
-        rv, rs = get_cache(rep_rec, rep_fnc)
-        self.assertTrue(
-            s,
-            msg="Ensure what we got back was a cached value for the called function so the next assertions are meaningful",
-        )
-        self.assertTrue(
-            rs,
-            msg="Ensure what we got back was a cached value for the representative function so the next assertions are meaningful",
-        )
+        smp, f, rep_rec, rep_fnc = self.createASampleCache()
 
         smp.delete_descendant_caches()
 
@@ -408,31 +407,14 @@ class HierCachedModelTests(TestCase):
         # Ensure root cache is still intact
         self.assertTrue(
             nrs,
-            msg=f"Ensure the value for the representative function {rep_rec.__class__.__name__}.{rep_fnc} is still cached after a delete_descendant_caches on a descendant",
+            msg=(
+                f"Ensure the value for the representative function {rep_rec.__class__.__name__}.{rep_fnc} is still "
+                "cached after a delete_descendant_caches on a descendant"
+            ),
         )
 
     def test_delete_related_caches(self):
-        delete_all_caches()
-        smp = Sample.objects.all().first()
-        f = "is_serum_sample"
-
-        enable_caching_retrievals()
-        enable_caching_updates()
-        # Trigger caching via decorator
-        getattr(smp, f)  # same as `smp.is_serum_sample`
-        rep_rec, rep_fnc = smp.get_representative_root_rec_and_method()
-
-        # Ensure cached
-        v, s = get_cache(smp, f)
-        rv, rs = get_cache(rep_rec, rep_fnc)
-        self.assertTrue(
-            s,
-            msg="Ensure what we got back was a cached value for the called function so the next assertions are meaningful",
-        )
-        self.assertTrue(
-            rs,
-            msg="Ensure what we got back was a cached value for the representative function so the next assertions are meaningful",
-        )
+        smp, f, rep_rec, rep_fnc = self.createASampleCache()
 
         smp.delete_related_caches()
 
@@ -447,7 +429,10 @@ class HierCachedModelTests(TestCase):
         # Ensure root cache is still intact
         self.assertFalse(
             nrs,
-            msg=f"Ensure the value for the representative function {rep_rec.__class__.__name__}.{rep_fnc} is not cached after a delete_related_caches on a descendant",
+            msg=(
+                f"Ensure the value for the representative function {rep_rec.__class__.__name__}.{rep_fnc} is not "
+                "cached after a delete_related_caches on a descendant"
+            ),
         )
 
     def test_get_my_cached_method_names(self):
@@ -490,7 +475,10 @@ class HierCachedModelTests(TestCase):
         res1 = s1.caches_exist()
         self.assertFalse(
             res1,
-            msg="caches_exist from uncached related object returns false when related record's cache does not yet exist",
+            msg=(
+                "caches_exist from uncached related object returns false when related record's cache does not yet "
+                "exist"
+            ),
         )
 
         # Cache sample 2's first peak group's enrichment_fraction value
@@ -506,7 +494,7 @@ class HierCachedModelTests(TestCase):
             msg="caches_exist from uncached related object returns true for related record's cache existing",
         )
 
-    def test_caches_exist(self):
+    def test_set_caches_exist(self):
         delete_all_caches()
         a = Animal.objects.all().first()
         samples = Sample.objects.filter(animal__id__exact=a.id)
@@ -532,7 +520,9 @@ class HierCachedModelTests(TestCase):
         self.assertEqual(
             rep_rec.__class__.__name__,
             "Animal",
-            msg="The representative record from get_representative_root_rec_and_method is from the root model (Animal)",
+            msg=(
+                "The representative record from get_representative_root_rec_and_method is from the root model (Animal)"
+            ),
         )
         self.assertEqual(
             rep_rec.id,
@@ -542,7 +532,10 @@ class HierCachedModelTests(TestCase):
         self.assertEqual(
             rep_fnc,
             first_fnc,
-            msg="The representative root model cached function from get_representative_root_rec_and_method is its first decorated function",
+            msg=(
+                "The representative root model cached function from get_representative_root_rec_and_method is its "
+                "first decorated function"
+            ),
         )
 
     def test_get_root_record(self):
@@ -575,11 +568,11 @@ class BuildCachesTests(TestCase):
         c = Animal
         f = "final_serum_sample_id"
         a = Animal.objects.all().first()
-        l = Animal.objects.all().last()
+        la = Animal.objects.all().last()
         disable_caching_retrievals()
         # Get the first and last uncached value
         uv = getattr(a, f)
-        lv = getattr(l, f)
+        lv = getattr(la, f)
 
         enable_caching_retrievals()
         enable_caching_updates()
@@ -590,7 +583,7 @@ class BuildCachesTests(TestCase):
 
         # Try to retrieve those cached values
         v, s = get_cache(a, f)
-        lv, ls = get_cache(l, f)
+        lv, ls = get_cache(la, f)
 
         # Ensure the value was cached for both the first and last record
         self.assertEqual(v, uv)
