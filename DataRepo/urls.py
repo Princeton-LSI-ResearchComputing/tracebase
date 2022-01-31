@@ -5,9 +5,8 @@ from . import views
 urlpatterns = [
     path("", views.home, name="home"),
     path("upload", views.upload, name="upload"),
-    # Bug in valdation code, temporarily disabling
     path("validate", views.DataValidationView.as_view(), name="validate"),
-    #path("validate", views.validation_disabled, name="validate"),
+    path("validatedown", views.validation_disabled, name="validatedown"),
     path(
         "search_basic/<str:mdl>/<str:fld>/<str:cmp>/<str:val>/<str:fmt>/",
         views.search_basic,

@@ -6,9 +6,8 @@ from django.conf import settings
 from django.core.management import call_command
 from django.db.models import Q
 from django.http import Http404
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, render, redirect
 from django.test import TestCase
-from django.test.utils import setup_databases, setup_test_environment
 from django.urls import reverse
 from django.views.generic import DetailView, ListView
 from django.views.generic.edit import FormView
@@ -1223,6 +1222,13 @@ class DataValidationView(FormView):
     accucor_files: List[str] = []
     animal_sample_file = None
     submission_url = settings.DATA_SUBMISSION_URL
+
+    def dispatch(self, request, *args, **kwargs):
+        # check if there is some video onsite
+        if not settings.VALIDATION_ENABLED:
+            return redirect('validatedown')
+        else:
+            return super(DataValidationView, self).dispatch(request, *args, **kwargs)
 
     def post(self, request, *args, **kwargs):
         form_class = self.get_form_class()
