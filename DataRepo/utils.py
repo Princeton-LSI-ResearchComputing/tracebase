@@ -159,7 +159,7 @@ class SampleTableLoader:
 
             # Tissue
             try:
-                tissue = Tissue.objects.get(name=tissue_name)
+                tissue = Tissue.objects.using(self.database).get(name=tissue_name)
             except Tissue.DoesNotExist as e:
                 enable_caching_updates()
                 raise Tissue.DoesNotExist(
@@ -363,7 +363,8 @@ class SampleTableLoader:
                             sample_date = sample_date_value
                         sample.date = sample_date
                     try:
-                        sample.full_clean()
+                        if self.database == "default":
+                            sample.full_clean()
                         sample.save(using=self.database)
                     except Exception as e:
                         enable_caching_updates()
@@ -835,6 +836,7 @@ class AccuCorDataLoader:
             self.protocol_input,
             Protocol.MSRUN_PROTOCOL,
             f"For protocol's full text, please consult {self.researcher}.",
+            database=self.database,
         )
         action = "Found"
         feedback = f"{self.protocol.category} protocol {self.protocol.id} '{self.protocol.name}'"
@@ -845,7 +847,9 @@ class AccuCorDataLoader:
 
     def insert_peak_group_set(self):
         self.peak_group_set = PeakGroupSet(filename=self.peak_group_set_filename_input)
-        self.peak_group_set.full_clean()
+        # full_clean cannot validate (e.g. uniqueness) using a non-default database
+        if self.database == "default":
+            self.peak_group_set.full_clean()
         self.peak_group_set.save(using=self.database)
 
     def load_data(self):
@@ -874,7 +878,9 @@ class AccuCorDataLoader:
                 protocol=self.protocol,
                 sample=self.sample_dict[sample_name],
             )
-            msrun.full_clean()
+            # full_clean cannot validate (e.g. uniqueness) using a non-default database
+            if self.database == "default":
+                msrun.full_clean()
             msrun.save(using=self.database)
             if (
                 msrun.sample.animal not in animals_to_uncache
@@ -911,7 +917,9 @@ class AccuCorDataLoader:
                         formula=peak_group_attrs["formula"],
                         peak_group_set=self.peak_group_set,
                     )
-                    peak_group.full_clean()
+                    # full_clean cannot validate (e.g. uniqueness) using a non-default database
+                    if self.database == "default":
+                        peak_group.full_clean()
                     peak_group.save(using=self.database)
                     # cache
                     inserted_peak_group_dict[peak_group_name] = peak_group
@@ -921,6 +929,8 @@ class AccuCorDataLoader:
                     PeakGroup
                     """
                     for compound in peak_group_attrs["compounds"]:
+                        # Must save the compound to the correct database before it can be linked
+                        compound.save(using=self.database)
                         peak_group.compounds.add(compound)
 
             # For each PeakGroup, create PeakData rows
@@ -984,7 +994,9 @@ class AccuCorDataLoader:
                             med_rt=med_rt,
                         )
 
-                        peak_data.full_clean()
+                        # full_clean cannot validate (e.g. uniqueness) using a non-default database
+                        if self.database == "default":
+                            peak_data.full_clean()
                         peak_data.save(using=self.database)
 
                 else:
@@ -1066,7 +1078,7 @@ class CompoundsLoader:
     KEY_SYNONYMS = "Synonyms"
     REQUIRED_KEYS = [KEY_COMPOUND_NAME, KEY_FORMULA, KEY_HMDB, KEY_SYNONYMS]
 
-    def __init__(self, compounds_df, synonym_separator=";"):
+    def __init__(self, compounds_df, synonym_separator=";", database="default"):
         self.compounds_df = compounds_df
         self.synonym_separator = synonym_separator
         self.validation_debug_messages = []
@@ -1075,6 +1087,7 @@ class CompoundsLoader:
         self.summary_messages = []
         self.validated_new_compounds_for_insertion = []
         self.missing_headers = []
+        self.database = database
 
         """
         strip any leading and trailing spaces from the headers and some
@@ -1107,7 +1120,9 @@ class CompoundsLoader:
                         formula=row[self.KEY_FORMULA],
                         hmdb_id=row[self.KEY_HMDB],
                     )
-                    new_compound.full_clean()
+                    # full_clean cannot validate (e.g. uniqueness) using a non-default database
+                    if self.database == "default":
+                        new_compound.full_clean()
                     self.validated_new_compounds_for_insertion.append(new_compound)
 
     def check_required_headers(self):
@@ -1174,7 +1189,7 @@ class CompoundsLoader:
         name = row[self.KEY_COMPOUND_NAME]
         synonyms_string = row[self.KEY_SYNONYMS]
         try:
-            hmdb_compound = Compound.objects.get(hmdb_id=hmdb_id)
+            hmdb_compound = Compound.objects.using(self.database).get(hmdb_id=hmdb_id)
             # preferred method of "finding because it is not a potential synonym
             found_compound = hmdb_compound
             self.validation_debug_messages.append(
@@ -1187,7 +1202,7 @@ class CompoundsLoader:
             self.validation_warning_messages.append(msg)
 
         try:
-            named_compound = Compound.objects.get(name=name)
+            named_compound = Compound.objects.using(self.database).get(name=name)
             if hmdb_compound is None:
                 found_compound = named_compound
                 self.validation_debug_messages.append(
@@ -1225,7 +1240,7 @@ class CompoundsLoader:
                 synonyms = self.parse_synonyms(synonyms_string)
                 names.extend(synonyms)
             for name in names:
-                alt_name_compound = Compound.compound_matching_name_or_synonym(name)
+                alt_name_compound = Compound.compound_matching_name_or_synonym(name, database=self.database)
                 if alt_name_compound is not None:
                     self.validation_debug_messages.append(
                         f"Found {alt_name_compound.name} using {name}"
@@ -1255,7 +1270,7 @@ class CompoundsLoader:
     def load_validated_compounds(self):
         count = 0
         for compound in self.validated_new_compounds_for_insertion:
-            compound.save()
+            compound.save(using=self.database)
             count += 1
         self.summary_messages.append(
             f"{count} compound(s) inserted, with default synonyms."
@@ -1270,14 +1285,14 @@ class CompoundsLoader:
             hmdb_id = row[self.KEY_HMDB]
             # this name might always be a synonym
             compound_name_from_file = row[self.KEY_COMPOUND_NAME]
-            hmdb_compound = Compound.objects.get(hmdb_id=hmdb_id)
+            hmdb_compound = Compound.objects.using(self.database).get(hmdb_id=hmdb_id)
             synonyms_string = row[self.KEY_SYNONYMS]
             synonyms = self.parse_synonyms(synonyms_string)
             if hmdb_compound.name != compound_name_from_file:
                 synonyms.append(compound_name_from_file)
             for synonym in synonyms:
                 (compound_synonym, created) = hmdb_compound.get_or_create_synonym(
-                    synonym
+                    synonym, database=self.database
                 )
                 if created:
                     count += 1
@@ -1886,7 +1901,7 @@ class TissuesLoader:
     Load the Tissues table
     """
 
-    def __init__(self, tissues, dry_run=True):
+    def __init__(self, tissues, dry_run=True, database="default"):
         self.tissues = tissues
         self.tissues.columns = self.tissues.columns.str.lower()
         self.dry_run = dry_run
@@ -1898,6 +1913,7 @@ class TissuesLoader:
         self.created = []
         # Pre-existing, matching tissues
         self.existing = []
+        self.database = database
 
     @transaction.atomic
     def load(self):
@@ -1906,11 +1922,13 @@ class TissuesLoader:
                 with transaction.atomic():
                     name = row["name"]
                     description = row["description"]
-                    tissue, created = Tissue.objects.get_or_create(name=name)
+                    tissue, created = Tissue.objects.using(self.database).get_or_create(name=name)
                     if created:
                         tissue.description = description
-                        tissue.full_clean()
-                        tissue.save()
+                        # full_clean cannot validate (e.g. uniqueness) using a non-default database
+                        if self.database == "default":
+                            tissue.full_clean()
+                        tissue.save(using=self.database)
                         self.created.append(tissue)
                         self.notices.append(
                             f"Created new tissue {tissue}:{description}"

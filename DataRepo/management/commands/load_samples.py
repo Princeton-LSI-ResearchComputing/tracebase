@@ -30,13 +30,22 @@ class Command(BaseCommand):
             default=False,
             help=argparse.SUPPRESS,
         )
+        # optional database argument.  This was added specifically for user data validation without changing the
+        # production database.
+        parser.add_argument(
+            "--database",
+            required=False,
+            type=str,
+            default="default",
+            help=f"Supply 'validation' for the user data validation database : default",
+        )
 
     def handle(self, *args, **options):
         print("Reading header definition")
         if options["sample_table_headers"]:
             with open(options["sample_table_headers"]) as headers_file:
                 header_def = yaml.safe_load(headers_file)
-                headers = SampleTableLoader.SampleTableHeaders(**header_def)
+                headers = SampleTableLoader.SampleTableHeaders(**header_def, database=options["database"])
         else:
             headers = SampleTableLoader.DefaultSampleTableHeaders
         print(f"{headers}")
