@@ -289,10 +289,10 @@ class Compound(models.Model):
     def atom_count(self, atom):
         return atom_count_in_formula(self.formula, atom)
 
-    def get_or_create_synonym(self, synonym_name=None):
+    def get_or_create_synonym(self, synonym_name=None, database="default"):
         if not synonym_name:
             synonym_name = self.name
-        (compound_synonym, created) = CompoundSynonym.objects.get_or_create(
+        (compound_synonym, created) = CompoundSynonym.objects.using(database).get_or_create(
             name=synonym_name, compound_id=self.id
         )
         return (compound_synonym, created)
@@ -309,7 +309,7 @@ class Compound(models.Model):
         (_secondary_synonym, created) = self.get_or_create_synonym(ucfirst_synonym)
 
     @classmethod
-    def compound_matching_name_or_synonym(cls, name):
+    def compound_matching_name_or_synonym(cls, name, database="default"):
         """
         compound_matching_name_or_synonym is a class method that takes a string (name or
         synonym) and retrieves a distinct compound that matches it
@@ -319,7 +319,7 @@ class Compound(models.Model):
         """
 
         # find the distinct union of these queries
-        matching_compounds = cls.objects.filter(
+        matching_compounds = cls.objects.using(database).filter(
             Q(name__iexact=name) | Q(synonyms__name__iexact=name)
         ).distinct()
         if matching_compounds.count() > 1:

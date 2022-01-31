@@ -36,6 +36,15 @@ class Command(BaseCommand):
                 "but simply report back potential work or issues."
             ),
         )
+        # optional database argument.  This was added specifically for user data validation without changing the
+        # production database.
+        parser.add_argument(
+            "--database",
+            required=False,
+            type=str,
+            default="default",
+            help=f"Supply 'validation' for the user data validation database : default",
+        )
 
     def handle(self, *args, **options):
         action = "Loading"
@@ -49,6 +58,7 @@ class Command(BaseCommand):
         loader = CompoundsLoader(
             compounds_df=self.compounds_df,
             synonym_separator=options["synonym_separator"],
+            database=options["database"],
         )
 
         # Run validation
