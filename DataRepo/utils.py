@@ -501,21 +501,23 @@ class AccuCorDataLoader:
         enable_caching_updates()
 
     def validate_researcher(self):
-        researchers = get_researchers()
-        nl = "\n"
-        if self.new_researcher is True:
-            err_msg = (
-                f"Researcher [{self.researcher}] exists.  --new-researcher cannot be used for existing researchers.  "
-                f"Current researchers are:{nl}{nl.join(sorted(researchers))}"
-            )
-            assert self.researcher not in researchers, err_msg
-        elif len(researchers) != 0:
-            err_msg = (
-                f"Researcher [{self.researcher}] does not exist.  Please either choose from the following "
-                f"researchers, or if this is a new researcher, add --new-researcher to your command (leaving "
-                f"`--researcher {self.researcher}` as-is).  Current researchers are:{nl}{nl.join(sorted(researchers))}"
-            )
-            assert self.researcher in researchers, err_msg
+        # For file validation, use researcher "anonymous"
+        if self.researcher != "anonymous":
+            researchers = get_researchers()
+            nl = "\n"
+            if self.new_researcher is True:
+                err_msg = (
+                    f"Researcher [{self.researcher}] exists.  --new-researcher cannot be used for existing researchers.  "
+                    f"Current researchers are:{nl}{nl.join(sorted(researchers))}"
+                )
+                assert self.researcher not in researchers, err_msg
+            elif len(researchers) != 0:
+                err_msg = (
+                    f"Researcher [{self.researcher}] does not exist.  Please either choose from the following "
+                    f"researchers, or if this is a new researcher, add --new-researcher to your command (leaving "
+                    f"`--researcher {self.researcher}` as-is).  Current researchers are:{nl}{nl.join(sorted(researchers))}"
+                )
+                assert self.researcher in researchers, err_msg
 
     def validate_dataframes(self):
 

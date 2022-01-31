@@ -1378,8 +1378,7 @@ class DataValidationView(FormView):
                         valid = False
                         results[af] = "FAILED"
                         errors[af].append(
-                            "Samples in the accucor file are missing in the animal and sample table: "
-                            ", ".join(real_samples)
+                            f"Samples in the accucor file are missing in the animal and sample table: [{', '.join(real_samples)}]"
                         )
                 except Exception as e:
                     estr = str(e)
@@ -1408,7 +1407,7 @@ class DataValidationView(FormView):
                 protocol="Default",
                 accucor_file=accucor_file,
                 date="2021-09-14",
-                researcher="Michael Neinast",
+                researcher="anonymous",
                 debug=True,
                 skip_samples=skip_samples,
                 database="validation"
@@ -1419,6 +1418,7 @@ class DataValidationView(FormView):
                 protocol="Default",
                 accucor_file=accucor_file,
                 date="2021-09-13",
-                researcher="Michael Neinast",
+                researcher="anonymous",
                 debug=True,
+                database="validation"
             )
