@@ -96,18 +96,15 @@ class SampleTableLoader:
         self.header_errors = []
         self.missing_headers = []
         self.debug = False
+        self.db = settings.TRACEBASE_DB
         # If a database was explicitly supplied
         if database is not None:
             self.validate = False
-            self.querydb = database
-            self.loaddb = database
+            self.db = database
         else:
             self.validate = validate
-            self.querydb = settings.TRACEBASE_DB
             if validate:
-                self.loaddb = settings.VALIDATION_DB
-            else:
-                self.loaddb = settings.TRACEBASE_DB
+                self.db = settings.VALIDATION_DB
 
     def validate_sample_table(self, data, skip_researcher_check=False):
         """
@@ -170,23 +167,20 @@ class SampleTableLoader:
 
             # Tissue
             try:
-                tissue = Tissue.objects.using(self.querydb).get(name=tissue_name)
+                # Assuming that both the default and validation databases each have all current compounds
+                tissue = Tissue.objects.using(self.db).get(name=tissue_name)
             except Tissue.DoesNotExist as e:
                 enable_caching_updates()
                 raise Tissue.DoesNotExist(
                     f"Invalid tissue type specified: '{tissue_name}'"
                 ) from e
-            # If we made it here and we're loading a different database, the above checked if the tissue existed in the database proper.  In order to insert into the validation database, we need to get its representation in the validation database
-            if self.validate or self.loaddb != self.querydb:
-                print(f"Getting Tissue from LOADDB: {self.loaddb}")
-                tissue = Tissue.objects.using(self.loaddb).get(name=tissue_name)
 
             # Study
             study_exists = False
             created = False
             name = self.getRowVal(row, self.headers.STUDY_NAME)
             if name is not None:
-                study, created = Study.objects.using(self.loaddb).get_or_create(name=name)
+                study, created = Study.objects.using(self.db).get_or_create(name=name)
                 study_exists = True
             if created:
                 description = self.getRowVal(
@@ -200,7 +194,7 @@ class SampleTableLoader:
                 print(f"Created new record: Study:{study}")
                 try:
                     study.full_clean()
-                    study.save(using=self.loaddb)
+                    study.save(using=self.db)
                 except Exception as e:
                     enable_caching_updates()
                     print(f"Error saving record: Study:{study}")
@@ -210,8 +204,8 @@ class SampleTableLoader:
             created = False
             name = self.getRowVal(row, self.headers.ANIMAL_NAME)
             if name is not None:
-                print(f"Getting Animal from LOADDB: {self.loaddb}")
-                animal, created = Animal.objects.using(self.loaddb).get_or_create(name=name)
+                print(f"Getting Animal from database: {self.db}")
+                animal, created = Animal.objects.using(self.db).get_or_create(name=name)
                 if created and animal.caches_exist():
                     animals_to_uncache.append(animal)
                 elif created and settings.DEBUG:
@@ -222,7 +216,7 @@ class SampleTableLoader:
             """
             if study_exists and animal not in study.animals.all():
                 # Save the animal to the supplied database, because study may be in a different database
-                animal.save(using=self.loaddb)
+                animal.save(using=self.db)
                 print("Adding animal to the study...")
                 study.animals.add(animal)
 
@@ -294,7 +288,7 @@ class SampleTableLoader:
                                 protocol_input,
                                 category,
                                 f"For protocol's full text, please consult {researcher}.",
-                                database=self.loaddb,
+                                database=self.db,
                             )
                             action = "Found"
                             feedback = f"{animal.treatment.category} protocol "
@@ -309,16 +303,11 @@ class SampleTableLoader:
                 )
                 if tracer_compound_name is not None:
                     try:
-                        # In order to insert into the validation database, we need to get its representation in the validation database
-                        if self.validate or self.loaddb != self.querydb:
-                            print(f"Getting Compound from LOADDB: {self.loaddb}")
-                            tracer_compound = Compound.objects.using(self.loaddb).get(
-                                name=tracer_compound_name
-                            )
-                        else:
-                            tracer_compound = Compound.objects.using(self.querydb).get(
-                                name=tracer_compound_name
-                            )
+                        # Assuming that both the default and validation databases each have all current compounds
+                        print(f"Getting Compound from database: {self.db}")
+                        tracer_compound = Compound.objects.using(self.db).get(
+                            name=tracer_compound_name
+                        )
                         animal.tracer_compound = tracer_compound
                     except Compound.DoesNotExist as e:
                         enable_caching_updates()
@@ -352,7 +341,7 @@ class SampleTableLoader:
                     animal.tracer_infusion_concentration = tic
                 try:
                     animal.full_clean()
-                    animal.save(using=self.loaddb)
+                    animal.save(using=self.db)
                 except Exception as e:
                     enable_caching_updates()
                     print(f"Error saving record: Animal:{animal}")
@@ -362,19 +351,20 @@ class SampleTableLoader:
             sample_name = self.getRowVal(row, self.headers.SAMPLE_NAME)
             if sample_name is not None:
                 try:
-                    sample = Sample.objects.using(self.querydb).get(name=sample_name)
+                    # Assuming that duplicates among the submission are handled in the checking of the file, so we must check against the tracebase database for pre-existing sample name duplicates
+                    sample = Sample.objects.using(settings.TRACEBASE_DB).get(name=sample_name)
                     print(f"SKIPPING existing record: Sample:{sample_name}")
                 except Sample.DoesNotExist:
+                    # This loop encounters this code for the same sample multiple times, so during user data validation and when getting here because the sample doesn't exist in the tracebase-proper database, we still have to check the validation database before trying to create the sample so that we don't run afoul of the unique constraint
+                    # In the case of actually just loading the tracebase database, this will result in a duplicate check & exception, but otherwise, it would result in dealing with duplicate code
                     try:
-                        # If this is a validation, it may exist in the loaddb
-                        sample = Sample.objects.using(self.loaddb).get(name=sample_name)
-                        print(f"SKIPPING existing record: Sample:{sample_name}")
+                        sample = Sample.objects.using(self.db).get(name=sample_name)
                     except Sample.DoesNotExist:
                         print(f"Creating new record: Sample:{sample_name}")
                         researcher = self.getRowVal(row, self.headers.SAMPLE_RESEARCHER)
                         tc = self.getRowVal(row, self.headers.TIME_COLLECTED)
                         if researcher is not None and tc is not None:
-                            print(f"Sample LOADDB: {self.loaddb} QUERYDB: {self.querydb}")
+                            print(f"Sample LOADDB: {self.db}")
                             sample = Sample(
                                 name=sample_name,
                                 researcher=researcher,
@@ -394,9 +384,9 @@ class SampleTableLoader:
                                 sample_date = sample_date_value
                             sample.date = sample_date
                         try:
-                            if self.loaddb == "default":
+                            if self.db == "default":
                                 sample.full_clean()
-                            sample.save(using=self.loaddb)
+                            sample.save(using=self.db)
                         except Exception as e:
                             enable_caching_updates()
                             print(f"Error saving record: Sample:{sample}")
@@ -504,18 +494,15 @@ class AccuCorDataLoader:
         self.sample_name_prefix = sample_name_prefix
         self.debug = debug
         self.new_researcher = new_researcher
+        self.db = settings.TRACEBASE_DB
         # If a database was explicitly supplied
         if database is not None:
             self.validate = False
-            self.querydb = database
-            self.loaddb = database
+            self.db = database
         else:
             self.validate = validate
-            self.querydb = settings.TRACEBASE_DB
             if validate:
-                self.loaddb = settings.VALIDATION_DB
-            else:
-                self.loaddb = settings.TRACEBASE_DB
+                self.db = settings.VALIDATION_DB
 
     def validate_data(self):
         """
@@ -741,15 +728,10 @@ class AccuCorDataLoader:
         for sample_name in self.corrected_samples:
             prefix_sample_name = f"{self.sample_name_prefix}{sample_name}"
             try:
-                # If we're validating, retrieve samples from the validation database, because we're assuming these are being validated together
-                if self.validate or self.loaddb != self.querydb:
-                    self.sample_dict[sample_name] = Sample.objects.using(self.loaddb).get(
-                        name=prefix_sample_name
-                    )
-                else:
-                    self.sample_dict[sample_name] = Sample.objects.using(self.querydb).get(
-                        name=prefix_sample_name
-                    )
+                # If we're validating, we'll be retrieving samples from the validation database, because we're assuming that the samples in the accucor files are being validated against the samples that were just loaded into the validation database.  If we're not validating, then we're retrieving samples from the one database we're working with anyway
+                self.sample_dict[sample_name] = Sample.objects.using(self.db).get(
+                    name=prefix_sample_name
+                )
             except Sample.DoesNotExist:
                 missing_samples.append(sample_name)
 
@@ -886,7 +868,7 @@ class AccuCorDataLoader:
             self.protocol_input,
             Protocol.MSRUN_PROTOCOL,
             f"For protocol's full text, please consult {self.researcher}.",
-            database=self.loaddb,
+            database=self.db,
         )
         action = "Found"
         feedback = f"{self.protocol.category} protocol {self.protocol.id} '{self.protocol.name}'"
@@ -898,9 +880,9 @@ class AccuCorDataLoader:
     def insert_peak_group_set(self):
         self.peak_group_set = PeakGroupSet(filename=self.peak_group_set_filename_input)
         # full_clean cannot validate (e.g. uniqueness) using a non-default database
-        if self.loaddb == "default":
+        if self.db == "default":
             self.peak_group_set.full_clean()
-        self.peak_group_set.save(using=self.loaddb)
+        self.peak_group_set.save(using=self.db)
 
     def load_data(self):
         """
@@ -929,9 +911,9 @@ class AccuCorDataLoader:
                 sample=self.sample_dict[sample_name],
             )
             # full_clean cannot validate (e.g. uniqueness) using a non-default database
-            if self.loaddb == "default":
+            if self.db == "default":
                 msrun.full_clean()
-            msrun.save(using=self.loaddb)
+            msrun.save(using=self.db)
             if (
                 msrun.sample.animal not in animals_to_uncache
                 and msrun.sample.animal.caches_exist()
@@ -968,9 +950,9 @@ class AccuCorDataLoader:
                         peak_group_set=self.peak_group_set,
                     )
                     # full_clean cannot validate (e.g. uniqueness) using a non-default database
-                    if self.loaddb == "default":
+                    if self.db == "default":
                         peak_group.full_clean()
-                    peak_group.save(using=self.loaddb)
+                    peak_group.save(using=self.db)
                     # cache
                     inserted_peak_group_dict[peak_group_name] = peak_group
 
@@ -980,7 +962,7 @@ class AccuCorDataLoader:
                     """
                     for compound in peak_group_attrs["compounds"]:
                         # Must save the compound to the correct database before it can be linked
-                        compound.save(using=self.loaddb)
+                        compound.save(using=self.db)
                         peak_group.compounds.add(compound)
 
             # For each PeakGroup, create PeakData rows
@@ -1045,9 +1027,9 @@ class AccuCorDataLoader:
                         )
 
                         # full_clean cannot validate (e.g. uniqueness) using a non-default database
-                        if self.loaddb == "default":
+                        if self.db == "default":
                             peak_data.full_clean()
-                        peak_data.save(using=self.loaddb)
+                        peak_data.save(using=self.db)
 
                 else:
                     peak_group_corrected_df = self.accucor_corrected_df[
@@ -1077,9 +1059,9 @@ class AccuCorDataLoader:
                             med_rt=med_rt,
                         )
 
-                        if self.loaddb == "default":
+                        if self.db == "default":
                             peak_data.full_clean()
-                        peak_data.save(using=self.loaddb)
+                        peak_data.save(using=self.db)
 
         enable_caching_updates()
 
@@ -1138,18 +1120,20 @@ class CompoundsLoader:
         self.summary_messages = []
         self.validated_new_compounds_for_insertion = []
         self.missing_headers = []
+        self.db = settings.TRACEBASE_DB
+        self.loading_mode = "both"
         # If a database was explicitly supplied
         if database is not None:
             self.validate = False
-            self.querydb = database
-            self.loaddb = database
+            self.db = database
+            self.loading_mode = "one"
         else:
             self.validate = validate
-            self.querydb = settings.TRACEBASE_DB
             if validate:
-                self.loaddb = settings.VALIDATION_DB
+                self.db = settings.VALIDATION_DB
+                self.loading_mode = "one"
             else:
-                self.loaddb = settings.TRACEBASE_DB
+                self.loading_mode = "both"
 
         """
         strip any leading and trailing spaces from the headers and some
@@ -1183,7 +1167,7 @@ class CompoundsLoader:
                         hmdb_id=row[self.KEY_HMDB],
                     )
                     # full_clean cannot validate (e.g. uniqueness) using a non-default database
-                    if self.loaddb == "default":
+                    if self.db == "default":
                         new_compound.full_clean()
                     self.validated_new_compounds_for_insertion.append(new_compound)
 
@@ -1251,7 +1235,7 @@ class CompoundsLoader:
         name = row[self.KEY_COMPOUND_NAME]
         synonyms_string = row[self.KEY_SYNONYMS]
         try:
-            hmdb_compound = Compound.objects.using(self.querydb).get(hmdb_id=hmdb_id)
+            hmdb_compound = Compound.objects.using(self.db).get(hmdb_id=hmdb_id)
             # preferred method of "finding because it is not a potential synonym
             found_compound = hmdb_compound
             self.validation_debug_messages.append(
@@ -1264,7 +1248,7 @@ class CompoundsLoader:
             self.validation_warning_messages.append(msg)
 
         try:
-            named_compound = Compound.objects.using(self.querydb).get(name=name)
+            named_compound = Compound.objects.using(self.db).get(name=name)
             if hmdb_compound is None:
                 found_compound = named_compound
                 self.validation_debug_messages.append(
@@ -1302,7 +1286,7 @@ class CompoundsLoader:
                 synonyms = self.parse_synonyms(synonyms_string)
                 names.extend(synonyms)
             for name in names:
-                alt_name_compound = Compound.compound_matching_name_or_synonym(name, database=self.querydb)
+                alt_name_compound = Compound.compound_matching_name_or_synonym(name, database=self.db)
                 if alt_name_compound is not None:
                     self.validation_debug_messages.append(
                         f"Found {alt_name_compound.name} using {name}"
@@ -1330,15 +1314,37 @@ class CompoundsLoader:
         return synonyms
 
     def load_validated_compounds(self):
+        # "both" is the normal loading mode - always loads both the validation and tracebase databases, unless the
+        # database is explicitly supplied or --validate is supplied
+        if self.loading_mode == "both":
+            self.load_validated_compounds_per_db(settings.TRACEBASE_DB)
+            self.load_validated_compounds_per_db(settings.VALIDATION_DB)
+        elif self.loading_mode == "one":
+            self.load_validated_compounds_per_db(self.db)
+        else:
+            raise Exception(f"Internal error: Invalid loading_mode: [{self.loading_mode}]")
+
+    def load_validated_compounds_per_db(self, db=settings.TRACEBASE_DB):
         count = 0
         for compound in self.validated_new_compounds_for_insertion:
-            compound.save(using=self.loaddb)
+            compound.save(using=db)
             count += 1
         self.summary_messages.append(
-            f"{count} compound(s) inserted, with default synonyms."
+            f"{count} compound(s) inserted, with default synonyms, into the {db} database."
         )
 
     def load_synonyms(self):
+        # "both" is the normal loading mode - always loads both the validation and tracebase databases, unless the
+        # database is explicitly supplied or --validate is supplied
+        if self.loading_mode == "both":
+            self.load_synonyms_per_db(settings.TRACEBASE_DB)
+            self.load_synonyms_per_db(settings.VALIDATION_DB)
+        elif self.loading_mode == "one":
+            self.load_synonyms_per_db(self.db)
+        else:
+            raise Exception(f"Internal error: Invalid loading_mode: [{self.loading_mode}]")
+
+    def load_synonyms_per_db(self, db=settings.TRACEBASE_DB):
         # if we are here, every line should either have pre-existed, or have
         # been newly inserted.
         count = 0
@@ -1347,18 +1353,18 @@ class CompoundsLoader:
             hmdb_id = row[self.KEY_HMDB]
             # this name might always be a synonym
             compound_name_from_file = row[self.KEY_COMPOUND_NAME]
-            hmdb_compound = Compound.objects.using(self.querydb).get(hmdb_id=hmdb_id)
+            hmdb_compound = Compound.objects.using(db).get(hmdb_id=hmdb_id)
             synonyms_string = row[self.KEY_SYNONYMS]
             synonyms = self.parse_synonyms(synonyms_string)
             if hmdb_compound.name != compound_name_from_file:
                 synonyms.append(compound_name_from_file)
             for synonym in synonyms:
                 (compound_synonym, created) = hmdb_compound.get_or_create_synonym(
-                    synonym, database=self.loaddb
+                    synonym, database=db
                 )
                 if created:
                     count += 1
-        self.summary_messages.append(f"{count} additional synonym(s) inserted.")
+        self.summary_messages.append(f"{count} additional synonym(s) inserted into the {db} database.")
 
 
 class HeaderError(Exception):
@@ -1972,42 +1978,62 @@ class TissuesLoader:
         # List of strings that note what was done
         self.notices = []
         # Newly create tissues
-        self.created = []
+        self.created = {}
         # Pre-existing, matching tissues
-        self.existing = []
+        self.existing = {}
+        self.db = settings.TRACEBASE_DB
+        self.loading_mode = "both"
         # If a database was explicitly supplied
         if database is not None:
             self.validate = False
-            self.querydb = database
-            self.loaddb = database
+            self.db = database
+            self.loading_mode = "one"
         else:
             self.validate = validate
-            self.querydb = settings.TRACEBASE_DB
             if validate:
-                self.loaddb = settings.VALIDATION_DB
+                self.db = settings.VALIDATION_DB
+                self.loading_mode = "one"
             else:
-                self.loaddb = settings.TRACEBASE_DB
+                self.loading_mode = "both"
 
-    @transaction.atomic
     def load(self):
+        # "both" is the normal loading mode - always loads both the validation and tracebase databases, unless the
+        # database is explicitly supplied or --validate is supplied
+        if self.loading_mode == "both":
+            self.load_database(settings.TRACEBASE_DB)
+            self.load_database(settings.VALIDATION_DB)
+        elif self.loading_mode == "one":
+            self.load_database(self.db)
+        else:
+            raise Exception(f"Internal error: Invalid loading_mode: [{self.loading_mode}]")
+    
+    @transaction.atomic
+    def load_database(self, db):
         for index, row in self.tissues.iterrows():
             try:
                 with transaction.atomic():
                     name = row["name"]
                     description = row["description"]
-                    tissue, created = Tissue.objects.using(self.loaddb).get_or_create(name=name)
+                    # We will assume that the validation DB has up-to-date tissues
+                    tissue, created = Tissue.objects.using(db).get_or_create(name=name)
                     if created:
                         tissue.description = description
                         # full_clean cannot validate (e.g. uniqueness) using a non-default database
-                        if self.loaddb == "default":
+                        if db == "default":
                             tissue.full_clean()
-                        tissue.save(using=self.loaddb)
-                        self.created.append(tissue)
+                        tissue.save(using=db)
+                        if db in self.created:
+                            self.created[db].append(tissue)
+                        else:
+                            self.created[db] = [tissue]
                         self.notices.append(
-                            f"Created new tissue {tissue}:{description}"
+                            f"Created new tissue {tissue}:{description} in the {db} database"
                         )
                     elif tissue.description == description:
-                        self.existing.append(tissue)
+                        if db in self.existing:
+                            self.existing[db].append(tissue)
+                        else:
+                            self.existing[db] = [tissue]
                         self.notices.append(
                             f"Matching tissue {tissue} already exists, skipping"
                         )
@@ -2023,6 +2049,30 @@ class TissuesLoader:
             raise LoadingError("Errors during tissue loading")
         if self.dry_run:
             raise DryRun("DRY-RUN successful")
+
+    def get_notices(self):
+        notice_strs = []
+        for db in self.created.keys():
+            for tissue in self.created[db]:
+                notice_strs.append(f"Created tissue record - {tissue.name}:{tissue.description}")
+            for tissue in self.existing[db]:
+                notice_strs.append(f"Skipping existing tissue record - {tissue.name}:{tissue.description}")
+        return notice_strs
+
+    def get_notice_summary(self):
+        sum = f"Complete"
+        dbs = [self.db]
+        if self.loading_mode == "both":
+            dbs = [settings.TRACEBASE_DB, settings.VALIDATION_DB]
+        for db in dbs:
+            num_created = 0
+            if db in self.created:
+                num_created = len(self.created[db])
+            num_existing = 0
+            if db in self.existing:
+                num_existing = len(self.existing[db])
+            sum += f", loaded {num_created} new tissues and found {num_existing} matching tissues in the {db} database"
+        return sum
 
 
 def leaderboard_data():
