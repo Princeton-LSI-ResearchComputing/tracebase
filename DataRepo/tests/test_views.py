@@ -1,5 +1,6 @@
 import json
 
+from django.conf import settings
 from django.core.management import call_command
 from django.test import TestCase, tag
 from django.urls import reverse
@@ -35,6 +36,7 @@ from DataRepo.views import (
 
 class ViewTests(TestCase):
     maxDiff = None
+    databases = ["default", settings.VALIDATION_DB]
 
     @classmethod
     def setUpTestData(cls):
@@ -929,9 +931,7 @@ class ViewTests(TestCase):
         """
         response = self.client.get(reverse("validate"))
         self.assertEqual(response.status_code, 200)
-        # Temporarily disable validation due to a bug
-        # self.assertTemplateUsed(response, "DataRepo/validate_submission.html")
-        self.assertTemplateUsed(response, "validation_disabled.html")
+        self.assertTemplateUsed(response, "DataRepo/validate_submission.html")
 
     def test_validate_files(self):
         """
@@ -982,8 +982,14 @@ class ViewTests(TestCase):
         self.assertTrue("data_submission_accucor1.xlsx" in errors)
         self.assertTrue("data_submission_accucor2.xlsx" in results)
         self.assertTrue("data_submission_accucor2.xlsx" in errors)
-        self.assertTrue(len(errors["data_submission_accucor1.xlsx"]) == 0)
-        self.assertTrue(len(errors["data_submission_accucor2.xlsx"]) == 0)
+        self.assertTrue(
+            len(errors["data_submission_accucor1.xlsx"]) == 0,
+            msg=f"Should be no errors, but got [{', '.join(errors['data_submission_accucor1.xlsx'])}]",
+        )
+        self.assertTrue(
+            len(errors["data_submission_accucor2.xlsx"]) == 0,
+            msg=f"Should be no errors, but got [{', '.join(errors['data_submission_accucor2.xlsx'])}]",
+        )
         self.assertEqual(results["data_submission_accucor1.xlsx"], "PASSED")
         self.assertEqual(results["data_submission_accucor2.xlsx"], "PASSED")
 
@@ -1032,6 +1038,8 @@ class ViewTests(TestCase):
 
 @tag("search_choices")
 class SearchFieldChoicesTests(TestCase):
+    databases = ["default", settings.VALIDATION_DB]
+
     def test_get_all_comparison_choices(self):
         base_search_view = BaseSearchView()
 

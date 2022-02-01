@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.core.management import call_command
 from django.test import TestCase
 
@@ -7,6 +8,7 @@ from DataRepo.models import PeakGroup
 
 class CompositeViewTests(TestCase):
     maxDiff = None
+    databases = ["default", settings.VALIDATION_DB]
 
     @classmethod
     def setUpTestData(cls):

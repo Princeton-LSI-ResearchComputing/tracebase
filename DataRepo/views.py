@@ -1,14 +1,13 @@
 import json
-from datetime import datetime
 import traceback
+from datetime import datetime
 from typing import List
 
 from django.conf import settings
 from django.core.management import call_command
 from django.db.models import Q
 from django.http import Http404
-from django.shortcuts import get_object_or_404, render, redirect
-from django.test import TestCase
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.generic import DetailView, ListView
 from django.views.generic.edit import FormView
@@ -22,7 +21,6 @@ from DataRepo.forms import (
 from DataRepo.models import (
     Animal,
     Compound,
-    CompoundSynonym,
     MSRun,
     PeakData,
     PeakGroup,
@@ -1228,7 +1226,7 @@ class DataValidationView(FormView):
     def dispatch(self, request, *args, **kwargs):
         # check if there is some video onsite
         if not settings.VALIDATION_ENABLED:
-            return redirect('validatedown')
+            return redirect("validatedown")
         else:
             return super(DataValidationView, self).dispatch(request, *args, **kwargs)
 
@@ -1291,10 +1289,13 @@ class DataValidationView(FormView):
             errors[animal_sample_name] = []
             results[animal_sample_name] = ""
             try:
-                # debug=True is supposed to NOT commit the DB changes, but it IS creating the study, so even though I'm using debug here, I am also setting the database to the validation database...
+                # debug=True is supposed to NOT commit the DB changes, but it IS creating the study, so even though I'm
+                # using debug here, I am also setting the database to the validation database...
                 call_command(
                     "load_animals_and_samples",
-                    animal_and_sample_table_filename=animal_sample_dict[animal_sample_name],
+                    animal_and_sample_table_filename=animal_sample_dict[
+                        animal_sample_name
+                    ],
                     debug=True,
                     validate=True,
                 )
@@ -1316,9 +1317,7 @@ class DataValidationView(FormView):
                     print(estr)
                 if "Debugging" not in estr:
                     valid = False
-                    errors[animal_sample_name].append(
-                        f"{e.__class__.__name__}: {estr}"
-                    )
+                    errors[animal_sample_name].append(f"{e.__class__.__name__}: {estr}")
                     results[animal_sample_name] = "FAILED"
                 else:
                     results[animal_sample_name] = "PASSED"
@@ -1330,7 +1329,9 @@ class DataValidationView(FormView):
                 try:
                     call_command(
                         "load_animals_and_samples",
-                        animal_and_sample_table_filename=animal_sample_dict[animal_sample_name],
+                        animal_and_sample_table_filename=animal_sample_dict[
+                            animal_sample_name
+                        ],
                         skip_researcher_check=True,
                         validate=True,
                     )
@@ -1376,7 +1377,7 @@ class DataValidationView(FormView):
                             mse.sample_list
                         ):
                             try:
-                                validate_accucor(afp, blank_samples)
+                                self.validate_accucor(afp, blank_samples)
                                 results[af] = "PASSED"
                             except Exception as e:
                                 estr = str(e)
@@ -1396,7 +1397,8 @@ class DataValidationView(FormView):
                             valid = False
                             results[af] = "FAILED"
                             errors[af].append(
-                                f"Samples in the accucor file are missing in the animal and sample table: [{', '.join(real_samples)}]"
+                                "Samples in the accucor file are missing in the animal and sample table: "
+                                + f"[{', '.join(real_samples)}]"
                             )
                     except Exception as e:
                         estr = str(e)
@@ -1424,9 +1426,18 @@ class DataValidationView(FormView):
             valid,
             errors,
         ]
-    
+
     def clear_validation_database(self):
-        for mdl in (PeakGroupSet, Study, PeakData, PeakGroup, MSRun, Sample, Animal, Protocol):
+        for mdl in (
+            PeakGroupSet,
+            Study,
+            PeakData,
+            PeakGroup,
+            MSRun,
+            Sample,
+            Animal,
+            Protocol,
+        ):
             mdl.objects.using(settings.VALIDATION_DB).all().delete()
 
     def validate_accucor(self, accucor_file, skip_samples):
