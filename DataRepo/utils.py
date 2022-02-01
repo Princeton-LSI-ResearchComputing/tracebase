@@ -167,10 +167,9 @@ class SampleTableLoader:
 
             # Tissue
             try:
-                # Assuming that both the default and validation databases each have all current compounds
+                # Assuming that both the default and validation databases each have all current tissues
                 tissue = Tissue.objects.using(self.db).get(name=tissue_name)
             except Tissue.DoesNotExist as e:
-                enable_caching_updates()
                 raise Tissue.DoesNotExist(
                     f"Invalid tissue type specified: '{tissue_name}'"
                 ) from e
@@ -196,7 +195,6 @@ class SampleTableLoader:
                     study.full_clean()
                     study.save(using=self.db)
                 except Exception as e:
-                    enable_caching_updates()
                     print(f"Error saving record: Study:{study}")
                     raise (e)
 
@@ -310,7 +308,6 @@ class SampleTableLoader:
                         )
                         animal.tracer_compound = tracer_compound
                     except Compound.DoesNotExist as e:
-                        enable_caching_updates()
                         print(
                             f"ERROR: {self.headers.TRACER_COMPOUND_NAME} not found: Compound:{tracer_compound_name}"
                         )
@@ -343,7 +340,6 @@ class SampleTableLoader:
                     animal.full_clean()
                     animal.save(using=self.db)
                 except Exception as e:
-                    enable_caching_updates()
                     print(f"Error saving record: Animal:{animal}")
                     raise (e)
 
@@ -388,12 +384,10 @@ class SampleTableLoader:
                                 sample.full_clean()
                             sample.save(using=self.db)
                         except Exception as e:
-                            enable_caching_updates()
                             print(f"Error saving record: Sample:{sample}")
                             raise (e)
 
         if len(self.missing_headers) > 0:
-            enable_caching_updates()
             raise (
                 HeaderError(
                     f"The following column headers were missing: {', '.join(self.missing_headers)}",
@@ -404,7 +398,6 @@ class SampleTableLoader:
         # Check researchers last so that other errors can be dealt with by users during validation
         # Users cannot resolve new researcher errors if they really are new
         if len(self.researcher_errors) > 0:
-            enable_caching_updates()
             nl = "\n"
             all_researcher_error_strs = []
             for ere in self.researcher_errors:
@@ -443,12 +436,10 @@ class SampleTableLoader:
             if hdr_required or header:
                 val = row[header]
             elif hdr_required:
-                enable_caching_updates()
                 raise HeaderConfigError(
                     "Header required, but no header string supplied."
                 )
             if header and val_required and (val == "" or val is None):
-                enable_caching_updates()
                 raise RequiredValueError(
                     f"Values in column {header} are required, but some found missing"
                 )
@@ -612,7 +603,6 @@ class AccuCorDataLoader:
         corr_iter_err = ""
         for k, v in corr_iter.items():
             if k.startswith("Unnamed: "):
-                enable_caching_updates()
                 raise Exception(
                     "Sample columns missing headers found in the Corrected data sheet. You have "
                     + str(len(self.accucor_corrected_df.columns))
@@ -626,7 +616,6 @@ class AccuCorDataLoader:
             orig_iter_err = ""
             for k, v in orig_iter.items():
                 if k.startswith("Unnamed: "):
-                    enable_caching_updates()
                     raise EmptyDataError(
                         "Sample columns missing headers found in the Original data sheet. You have "
                         + str(len(self.accucor_original_df.columns))
@@ -736,7 +725,6 @@ class AccuCorDataLoader:
                 missing_samples.append(sample_name)
 
         if len(missing_samples) != 0:
-            enable_caching_updates()
             raise (
                 MissingSamplesError(
                     f"{len(missing_samples)} samples are missing: {', '.join(missing_samples)}",
@@ -1063,9 +1051,9 @@ class AccuCorDataLoader:
                             peak_data.full_clean()
                         peak_data.save(using=self.db)
 
-        enable_caching_updates()
-
         assert not self.debug, "Debugging..."
+
+        enable_caching_updates()
 
         if settings.DEBUG:
             print("Expiring affected caches...")
@@ -1178,7 +1166,6 @@ class CompoundsLoader:
                 err_msg = f"Could not find the required header '{header}."
                 self.validation_error_messages.append(err_msg)
         if len(self.missing_headers) > 0:
-            enable_caching_updates()
             raise (
                 HeaderError(
                     f"The following column headers were missing: {', '.join(self.missing_headers)}",
@@ -1302,7 +1289,6 @@ class CompoundsLoader:
         if len(all_found_compounds) > 1:
             err_msg = f"Retrieved multiple ({len(all_found_compounds)}) "
             err_msg += f"distinct compounds using names {names}"
-            enable_caching_updates()
             raise AmbiguousCompoundDefinitionError(err_msg)
 
         return found_compound
