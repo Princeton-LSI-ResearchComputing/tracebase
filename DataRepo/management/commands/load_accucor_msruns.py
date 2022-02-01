@@ -3,7 +3,6 @@ import os.path
 from zipfile import BadZipFile
 
 import pandas as pd
-from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.management import BaseCommand
 from openpyxl.utils.exceptions import InvalidFileException

@@ -36,6 +36,8 @@ from DataRepo.utils import (
 @override_settings(CACHES=settings.TEST_CACHES)
 @tag("animal")
 class AnimalTests(TestCase):
+    databases = ["default", settings.VALIDATION_DB]
+
     def setUp(self):
         Animal.objects.create(
             name="test_animal",
@@ -102,6 +104,8 @@ class ExampleDataConsumer:
 
 @override_settings(CACHES=settings.TEST_CACHES)
 class CompoundTests(TestCase):
+    databases = ["default", settings.VALIDATION_DB]
+
     def setUp(self):
         Compound.objects.create(
             name="alanine", formula="C3H7NO2", hmdb_id="HMDB0000161"
@@ -136,6 +140,8 @@ class CompoundTests(TestCase):
 
 @override_settings(CACHES=settings.TEST_CACHES)
 class CompoundSynonymTests(TestCase):
+    databases = ["default", settings.VALIDATION_DB]
+
     def setUp(self):
         self.PRIMARY_COMPOUND = Compound.objects.create(
             name="hexadecanoic acid", formula="C16H32O2", hmdb_id="HMDB0000220"
@@ -219,6 +225,8 @@ class CompoundSynonymTests(TestCase):
 
 @override_settings(CACHES=settings.TEST_CACHES)
 class StudyTests(TestCase, ExampleDataConsumer):
+    databases = ["default", settings.VALIDATION_DB]
+
     def setUp(self):
         # Get test data
         self.testdata = self.get_sample_test_dataframe()
@@ -386,6 +394,8 @@ class StudyTests(TestCase, ExampleDataConsumer):
 @override_settings(CACHES=settings.TEST_CACHES)
 @tag("protocol")
 class ProtocolTests(TestCase):
+    databases = ["default", settings.VALIDATION_DB]
+
     def setUp(self):
         self.p1 = Protocol.objects.create(
             name="Protocol 1",
@@ -437,6 +447,8 @@ class ProtocolTests(TestCase):
 @override_settings(CACHES=settings.TEST_CACHES)
 @tag("compound_loading")
 class CompoundValidationLoadingTests(TestCase):
+    databases = ["default", settings.VALIDATION_DB]
+
     @classmethod
     def setUpTestData(cls):
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
@@ -456,6 +468,8 @@ class CompoundValidationLoadingTests(TestCase):
 @override_settings(CACHES=settings.TEST_CACHES)
 @tag("compound_loading")
 class CompoundLoadingTests(TestCase):
+    databases = ["default", settings.VALIDATION_DB]
+
     @classmethod
     def setUpTestData(cls):
 
@@ -547,6 +561,8 @@ class CompoundLoadingTests(TestCase):
 class CompoundLoadingTestErrors(TestCase):
     """Tests loading of Compounds with errors"""
 
+    databases = ["default", settings.VALIDATION_DB]
+
     def testCompoundLoadingFailure(self):
         """Test that an error during compound loading doesn't load any compounds"""
 
@@ -562,6 +578,8 @@ class CompoundLoadingTestErrors(TestCase):
 
 @override_settings(CACHES=settings.TEST_CACHES)
 class DataLoadingTests(TestCase):
+    databases = ["default", settings.VALIDATION_DB]
+
     @classmethod
     def setUpTestData(cls):
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
@@ -1386,6 +1404,8 @@ class DataLoadingTests(TestCase):
 
 @override_settings(CACHES=settings.TEST_CACHES)
 class TracerRateTests(TestCase):
+    databases = ["default", settings.VALIDATION_DB]
+
     @classmethod
     def setUpTestData(cls):
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
@@ -1548,6 +1568,8 @@ class TracerRateTests(TestCase):
 
 @override_settings(CACHES=settings.TEST_CACHES)
 class AnimalAndSampleLoadingTests(TestCase):
+    databases = ["default", settings.VALIDATION_DB]
+
     @classmethod
     def setUpTestData(cls):
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
@@ -1584,6 +1606,8 @@ class AnimalAndSampleLoadingTests(TestCase):
 
 @override_settings(CACHES=settings.TEST_CACHES)
 class AccuCorDataLoadingTests(TestCase):
+    databases = ["default", settings.VALIDATION_DB]
+
     @classmethod
     def setUpTestData(cls):
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
@@ -1666,6 +1690,8 @@ class AccuCorDataLoadingTests(TestCase):
 @override_settings(CACHES=settings.TEST_CACHES)
 @tag("load_study")
 class StudyLoadingTests(TestCase):
+    databases = ["default", settings.VALIDATION_DB]
+
     @classmethod
     def setUpTestData(cls):
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
@@ -1730,6 +1756,8 @@ class StudyLoadingTests(TestCase):
 
 @override_settings(CACHES=settings.TEST_CACHES)
 class ParseIsotopeLabelTests(TestCase):
+    databases = ["default", settings.VALIDATION_DB]
+
     @classmethod
     def setUpTestData(cls):
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
@@ -1792,6 +1820,8 @@ class ParseIsotopeLabelTests(TestCase):
 @tag("loading")
 class AnimalLoadingTests(TestCase):
     """Tests parsing various Animal attributes"""
+
+    databases = ["default", settings.VALIDATION_DB]
 
     @classmethod
     def setUpTestData(cls):

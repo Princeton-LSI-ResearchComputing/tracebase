@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.core.management import call_command
 from django.test import TestCase
 
@@ -6,6 +7,8 @@ from DataRepo.templatetags.customtags import get_case_insensitive_synonyms
 
 
 class CustomTagsTests(TestCase):
+    databases = ["default", settings.VALIDATION_DB]
+
     @classmethod
     def setUpTestData(cls):
         call_command(

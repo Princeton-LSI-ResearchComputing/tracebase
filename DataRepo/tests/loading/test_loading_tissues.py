@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.core.management import CommandError, call_command
 from django.test import TestCase, tag
 
@@ -7,6 +8,8 @@ from DataRepo.models import Tissue
 @tag("tissues")
 class TissueLoadingTests(TestCase):
     """Test Tissue Loader"""
+
+    databases = ["default", settings.VALIDATION_DB]
 
     def test_load_tissue_command(self):
         """Test the load_tissue management command"""

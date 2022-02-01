@@ -130,7 +130,8 @@ def get_researchers(database=settings.TRACEBASE_DB):
         model = field_info[0]
         researchers += list(
             map(
-                lambda x: x[target_field], model.objects.using(database).values(target_field).distinct()
+                lambda x: x[target_field],
+                model.objects.using(database).values(target_field).distinct(),
             )
         )
     unique_researchers = list(pd.unique(researchers))
@@ -210,7 +211,11 @@ class Protocol(models.Model):
 
     @classmethod
     def retrieve_or_create_protocol(
-        cls, protocol_input, category=None, provisional_description=None, database=settings.TRACEBASE_DB
+        cls,
+        protocol_input,
+        category=None,
+        provisional_description=None,
+        database=settings.TRACEBASE_DB,
     ):
         """
         retrieve or create a protocol, based on input.
@@ -295,9 +300,9 @@ class Compound(models.Model):
     def get_or_create_synonym(self, synonym_name=None, database=settings.TRACEBASE_DB):
         if not synonym_name:
             synonym_name = self.name
-        (compound_synonym, created) = CompoundSynonym.objects.using(database).get_or_create(
-            name=synonym_name, compound_id=self.id
-        )
+        (compound_synonym, created) = CompoundSynonym.objects.using(
+            database
+        ).get_or_create(name=synonym_name, compound_id=self.id)
         return (compound_synonym, created)
 
     def save(self, *args, **kwargs):
@@ -322,9 +327,11 @@ class Compound(models.Model):
         """
 
         # find the distinct union of these queries
-        matching_compounds = cls.objects.using(database).filter(
-            Q(name__iexact=name) | Q(synonyms__name__iexact=name)
-        ).distinct()
+        matching_compounds = (
+            cls.objects.using(database)
+            .filter(Q(name__iexact=name) | Q(synonyms__name__iexact=name))
+            .distinct()
+        )
         if matching_compounds.count() > 1:
             raise ValidationError(
                 "compound_matching_name_or_synonym retrieved multiple "

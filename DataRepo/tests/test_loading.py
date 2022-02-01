@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.core.management import CommandError, call_command
 from django.test import TestCase, tag
 
@@ -8,6 +9,8 @@ from DataRepo.models import Compound
 @tag("loading")
 class CompoundLoadingTests(TestCase):
     """Tests Loading of Compounds"""
+
+    databases = ["default", settings.VALIDATION_DB]
 
     @classmethod
     def setUpTestData(cls):

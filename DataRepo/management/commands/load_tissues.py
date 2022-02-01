@@ -56,7 +56,10 @@ class Command(BaseCommand):
         new_tissues = pd.read_csv(options["tissues"], sep="\t", keep_default_na=False)
 
         self.tissue_loader = TissuesLoader(
-            tissues=new_tissues, dry_run=options["dry_run"], database=options["database"], validate=options["validate"],
+            tissues=new_tissues,
+            dry_run=options["dry_run"],
+            database=options["database"],
+            validate=options["validate"],
         )
 
         try:

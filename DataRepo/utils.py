@@ -89,7 +89,12 @@ class SampleTableLoader:
         TRACER_INFUSION_CONCENTRATION="Tracer Concentration",
     )
 
-    def __init__(self, sample_table_headers=DefaultSampleTableHeaders, database=None, validate=False):
+    def __init__(
+        self,
+        sample_table_headers=DefaultSampleTableHeaders,
+        database=None,
+        validate=False,
+    ):
         self.headers = sample_table_headers
         self.blank = ""
         self.researcher_errors = []
@@ -347,12 +352,19 @@ class SampleTableLoader:
             sample_name = self.getRowVal(row, self.headers.SAMPLE_NAME)
             if sample_name is not None:
                 try:
-                    # Assuming that duplicates among the submission are handled in the checking of the file, so we must check against the tracebase database for pre-existing sample name duplicates
-                    sample = Sample.objects.using(settings.TRACEBASE_DB).get(name=sample_name)
+                    # Assuming that duplicates among the submission are handled in the checking of the file, so we must
+                    # check against the tracebase database for pre-existing sample name duplicates
+                    sample = Sample.objects.using(settings.TRACEBASE_DB).get(
+                        name=sample_name
+                    )
                     print(f"SKIPPING existing record: Sample:{sample_name}")
                 except Sample.DoesNotExist:
-                    # This loop encounters this code for the same sample multiple times, so during user data validation and when getting here because the sample doesn't exist in the tracebase-proper database, we still have to check the validation database before trying to create the sample so that we don't run afoul of the unique constraint
-                    # In the case of actually just loading the tracebase database, this will result in a duplicate check & exception, but otherwise, it would result in dealing with duplicate code
+                    # This loop encounters this code for the same sample multiple times, so during user data validation
+                    # and when getting here because the sample doesn't exist in the tracebase-proper database, we still
+                    # have to check the validation database before trying to create the sample so that we don't run
+                    # afoul of the unique constraint
+                    # In the case of actually just loading the tracebase database, this will result in a duplicate
+                    # check & exception, but otherwise, it would result in dealing with duplicate code
                     try:
                         sample = Sample.objects.using(self.db).get(name=sample_name)
                     except Sample.DoesNotExist:
@@ -528,15 +540,16 @@ class AccuCorDataLoader:
             nl = "\n"
             if self.new_researcher is True:
                 err_msg = (
-                    f"Researcher [{self.researcher}] exists.  --new-researcher cannot be used for existing researchers.  "
-                    f"Current researchers are:{nl}{nl.join(sorted(researchers))}"
+                    f"Researcher [{self.researcher}] exists.  --new-researcher cannot be used for existing "
+                    f"researchers.  Current researchers are:{nl}{nl.join(sorted(researchers))}"
                 )
                 assert self.researcher not in researchers, err_msg
             elif len(researchers) != 0:
                 err_msg = (
                     f"Researcher [{self.researcher}] does not exist.  Please either choose from the following "
                     f"researchers, or if this is a new researcher, add --new-researcher to your command (leaving "
-                    f"`--researcher {self.researcher}` as-is).  Current researchers are:{nl}{nl.join(sorted(researchers))}"
+                    f"`--researcher {self.researcher}` as-is).  Current researchers are:"
+                    f"{nl}{nl.join(sorted(researchers))}"
                 )
                 assert self.researcher in researchers, err_msg
 
@@ -717,7 +730,10 @@ class AccuCorDataLoader:
         for sample_name in self.corrected_samples:
             prefix_sample_name = f"{self.sample_name_prefix}{sample_name}"
             try:
-                # If we're validating, we'll be retrieving samples from the validation database, because we're assuming that the samples in the accucor files are being validated against the samples that were just loaded into the validation database.  If we're not validating, then we're retrieving samples from the one database we're working with anyway
+                # If we're validating, we'll be retrieving samples from the validation database, because we're assuming
+                # that the samples in the accucor files are being validated against the samples that were just loaded
+                # into the validation database.  If we're not validating, then we're retrieving samples from the one
+                # database we're working with anyway
                 self.sample_dict[sample_name] = Sample.objects.using(self.db).get(
                     name=prefix_sample_name
                 )
@@ -891,7 +907,10 @@ class AccuCorDataLoader:
             # each msrun/sample has its own set of peak groups
             inserted_peak_group_dict = {}
 
-            print(f"Inserting msrun for sample {sample_name}, date {self.date}, researcher {self.researcher}, protocol {self.protocol}")
+            print(
+                f"Inserting msrun for sample {sample_name}, date {self.date}, researcher {self.researcher}, protocol "
+                f"{self.protocol}"
+            )
             msrun = MSRun(
                 date=self.date,
                 researcher=self.researcher,
@@ -1099,7 +1118,9 @@ class CompoundsLoader:
     KEY_SYNONYMS = "Synonyms"
     REQUIRED_KEYS = [KEY_COMPOUND_NAME, KEY_FORMULA, KEY_HMDB, KEY_SYNONYMS]
 
-    def __init__(self, compounds_df, synonym_separator=";", database=None, validate=False):
+    def __init__(
+        self, compounds_df, synonym_separator=";", database=None, validate=False
+    ):
         self.compounds_df = compounds_df
         self.synonym_separator = synonym_separator
         self.validation_debug_messages = []
@@ -1273,7 +1294,9 @@ class CompoundsLoader:
                 synonyms = self.parse_synonyms(synonyms_string)
                 names.extend(synonyms)
             for name in names:
-                alt_name_compound = Compound.compound_matching_name_or_synonym(name, database=self.db)
+                alt_name_compound = Compound.compound_matching_name_or_synonym(
+                    name, database=self.db
+                )
                 if alt_name_compound is not None:
                     self.validation_debug_messages.append(
                         f"Found {alt_name_compound.name} using {name}"
@@ -1308,7 +1331,9 @@ class CompoundsLoader:
         elif self.loading_mode == "one":
             self.load_validated_compounds_per_db(self.db)
         else:
-            raise Exception(f"Internal error: Invalid loading_mode: [{self.loading_mode}]")
+            raise Exception(
+                f"Internal error: Invalid loading_mode: [{self.loading_mode}]"
+            )
 
     def load_validated_compounds_per_db(self, db=settings.TRACEBASE_DB):
         count = 0
@@ -1328,7 +1353,9 @@ class CompoundsLoader:
         elif self.loading_mode == "one":
             self.load_synonyms_per_db(self.db)
         else:
-            raise Exception(f"Internal error: Invalid loading_mode: [{self.loading_mode}]")
+            raise Exception(
+                f"Internal error: Invalid loading_mode: [{self.loading_mode}]"
+            )
 
     def load_synonyms_per_db(self, db=settings.TRACEBASE_DB):
         # if we are here, every line should either have pre-existed, or have
@@ -1350,7 +1377,9 @@ class CompoundsLoader:
                 )
                 if created:
                     count += 1
-        self.summary_messages.append(f"{count} additional synonym(s) inserted into the {db} database.")
+        self.summary_messages.append(
+            f"{count} additional synonym(s) inserted into the {db} database."
+        )
 
 
 class HeaderError(Exception):
@@ -1991,8 +2020,10 @@ class TissuesLoader:
         elif self.loading_mode == "one":
             self.load_database(self.db)
         else:
-            raise Exception(f"Internal error: Invalid loading_mode: [{self.loading_mode}]")
-    
+            raise Exception(
+                f"Internal error: Invalid loading_mode: [{self.loading_mode}]"
+            )
+
     @transaction.atomic
     def load_database(self, db):
         for index, row in self.tissues.iterrows():
@@ -2040,13 +2071,17 @@ class TissuesLoader:
         notice_strs = []
         for db in self.created.keys():
             for tissue in self.created[db]:
-                notice_strs.append(f"Created tissue record - {tissue.name}:{tissue.description}")
+                notice_strs.append(
+                    f"Created tissue record - {tissue.name}:{tissue.description}"
+                )
             for tissue in self.existing[db]:
-                notice_strs.append(f"Skipping existing tissue record - {tissue.name}:{tissue.description}")
+                notice_strs.append(
+                    f"Skipping existing tissue record - {tissue.name}:{tissue.description}"
+                )
         return notice_strs
 
     def get_notice_summary(self):
-        sum = f"Complete"
+        sum = "Complete"
         dbs = [self.db]
         if self.loading_mode == "both":
             dbs = [settings.TRACEBASE_DB, settings.VALIDATION_DB]

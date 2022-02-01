@@ -51,12 +51,18 @@ class Command(BaseCommand):
         if options["sample_table_headers"]:
             with open(options["sample_table_headers"]) as headers_file:
                 header_def = yaml.safe_load(headers_file)
-                headers = SampleTableLoader.SampleTableHeaders(**header_def, database=options["database"], validate=options["validate"])
+                headers = SampleTableLoader.SampleTableHeaders(
+                    **header_def,
+                )
         else:
             headers = SampleTableLoader.DefaultSampleTableHeaders
         print(f"{headers}")
         print("Loading sample table")
-        loader = SampleTableLoader(sample_table_headers=headers)
+        loader = SampleTableLoader(
+            sample_table_headers=headers,
+            database=options["database"],
+            validate=options["validate"],
+        )
         loader.load_sample_table(
             DictReader(
                 open(options["sample_table_filename"]),

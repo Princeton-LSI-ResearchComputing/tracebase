@@ -114,7 +114,9 @@ if env("VALIDATION_DATABASE_NAME"):
         }
         VALIDATION_ENABLED = True
     except Exception as e:
-        print(f"Could not configure access to the {env('VALIDATION_DATABASE_NAME')} database: {e}")
+        print(
+            f"Could not configure access to the {env('VALIDATION_DATABASE_NAME')} database: {e}"
+        )
 
 # These values are the keys of the DATABASES dict
 TRACEBASE_DB = "default"

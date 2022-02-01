@@ -126,7 +126,11 @@ class Command(BaseCommand):
         self.stdout.write(
             self.style.MIGRATE_HEADING("Importing animals and samples...")
         )
-        loader = SampleTableLoader(sample_table_headers=headers, database=options["database"], validate=options["validate"])
+        loader = SampleTableLoader(
+            sample_table_headers=headers,
+            database=options["database"],
+            validate=options["validate"],
+        )
         loader.load_sample_table(
             merged.to_dict("records"),
             options["skip_researcher_check"],
