@@ -1,5 +1,6 @@
 import json
 from datetime import datetime
+import traceback
 from typing import List
 
 from django.conf import settings
@@ -1293,7 +1294,7 @@ class DataValidationView(FormView):
                 "load_animals_and_samples",
                 animal_and_sample_table_filename=animal_sample_dict[animal_sample_name],
                 debug=True,
-                database="validation",
+                validate=True,
             )
             results[animal_sample_name] = "PASSED"
         except ResearcherError as re:
@@ -1308,6 +1309,9 @@ class DataValidationView(FormView):
             estr = str(e)
             # We are using the presence of the string "Debugging..." to infer that it got to the end of the load
             # without an exception.  If there is no "Debugging" message, then an exception did not occur anyway
+            if settings.DEBUG:
+                traceback.print_exc()
+                print(estr)
             if "Debugging" not in estr:
                 valid = False
                 errors[animal_sample_name].append(
@@ -1326,13 +1330,16 @@ class DataValidationView(FormView):
                     "load_animals_and_samples",
                     animal_and_sample_table_filename=animal_sample_dict[animal_sample_name],
                     skip_researcher_check=True,
-                    database="validation",
+                    validate=True,
                 )
                 can_proceed = True
             except Exception as e:
                 estr = str(e)
                 # We are using the presence of the string "Debugging..." to infer that it got to the end of the load
                 # without an exception.  If there is no "Debugging" message, then an exception did not occur anyway
+                if settings.DEBUG:
+                    traceback.print_exc()
+                    print(estr)
                 if "Debugging" not in estr:
                     valid = False
                     errors[animal_sample_name].append(
@@ -1374,6 +1381,9 @@ class DataValidationView(FormView):
                             # We are using the presence of the string "Debugging..." to infer that it got to the end of
                             # the load without an exception.  If there is no "Debugging" message, then an exception did
                             # not occur anyway
+                            if settings.DEBUG:
+                                traceback.print_exc()
+                                print(estr)
                             if "Debugging" not in estr:
                                 valid = False
                                 results[af] = "FAILED"
@@ -1391,6 +1401,9 @@ class DataValidationView(FormView):
                     # We are using the presence of the string "Debugging..." to infer that it got to the end of the
                     # load without an exception.  If there is no "Debugging" message, then an exception did not occur
                     # anyway
+                    if settings.DEBUG:
+                        traceback.print_exc()
+                        print(estr)
                     if "Debugging" not in estr:
                         valid = False
                         results[af] = "FAILED"
@@ -1416,7 +1429,7 @@ class DataValidationView(FormView):
                 researcher="anonymous",
                 debug=True,
                 skip_samples=skip_samples,
-                database="validation"
+                validate=True,
             )
         else:
             call_command(
@@ -1426,5 +1439,5 @@ class DataValidationView(FormView):
                 date="2021-09-13",
                 researcher="anonymous",
                 debug=True,
-                database="validation"
+                validate=True,
             )

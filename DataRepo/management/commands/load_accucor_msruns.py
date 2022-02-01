@@ -3,6 +3,7 @@ import os.path
 from zipfile import BadZipFile
 
 import pandas as pd
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.management import BaseCommand
 from openpyxl.utils.exceptions import InvalidFileException
@@ -66,6 +67,7 @@ class Command(BaseCommand):
             action="store_true",
             default=False,
             # This issues a "debug-only" error, to abort the transaction
+            # TODO: This DOES change the database. See comments on issue #345
             help="Debug mode. Will not change the database.",
         )
         # optional new researcher argument (circumvents existing researcher check)
@@ -75,14 +77,20 @@ class Command(BaseCommand):
             default=False,
             help=argparse.SUPPRESS,
         )
-        # optional database argument.  This was added specifically for user data validation without changing the
-        # production database.
+        # Used internally by the DataValidationView
+        parser.add_argument(
+            "--validate",
+            required=False,
+            action="store_true",
+            default=False,
+            help=argparse.SUPPRESS,
+        )
+        # Used internally to load necessary data into the validation database
         parser.add_argument(
             "--database",
             required=False,
             type=str,
-            default="default",
-            help=f"Supply 'validation' for the user data validation database : default",
+            help=argparse.SUPPRESS,
         )
 
     def handle(self, *args, **options):
@@ -109,6 +117,7 @@ class Command(BaseCommand):
             debug=options["debug"],
             new_researcher=options["new_researcher"],
             database=options["database"],
+            validate=options["validate"],
         )
 
         loader.load_accucor_data()
