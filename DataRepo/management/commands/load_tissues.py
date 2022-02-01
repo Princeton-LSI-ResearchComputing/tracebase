@@ -38,6 +38,7 @@ class Command(BaseCommand):
             default=False,
             help=argparse.SUPPRESS,
         )
+
         # Used internally to load necessary data into the validation database
         parser.add_argument(
             "--database",
@@ -62,11 +63,11 @@ class Command(BaseCommand):
             self.tissue_loader.load()
         except DryRun:
             if options["verbosity"] >= 2:
-                self.print_notices()
+                self.print_notices(self.tissue_loader.get_notices())
             self.stdout.write(self.style.SUCCESS("DRY-RUN complete, no tissues loaded"))
         except LoadingError:
             if options["verbosity"] >= 2:
-                self.print_notices()
+                self.print_notices(self.tissue_loader.get_notices())
             for exception in self.tissue_loader.errors:
                 self.stdout.write(self.style.ERROR(exception))
             raise CommandError(
@@ -75,20 +76,14 @@ class Command(BaseCommand):
             )
         else:
             if options["verbosity"] >= 2:
-                self.print_notices()
+                self.print_notices(self.tissue_loader.get_notices())
             self.stdout.write(
                 self.style.SUCCESS(
-                    f"Complete, loaded {len(self.tissue_loader.created)} new tissues and found "
-                    f"{len(self.tissue_loader.existing)} matching tissues from {options['tissues']}"
+                    f"{self.tissue_loader.get_notice_summary()}"
+                    f" from {options['tissues']}"
                 )
             )
 
-    def print_notices(self):
-        for tissue in self.tissue_loader.created:
-            self.stdout.write(
-                f"Created tissue record - {tissue.name}:{tissue.description}"
-            )
-        for tissue in self.tissue_loader.existing:
-            self.stdout.write(
-                f"Skipping existing tissue record - {tissue.name}:{tissue.description}"
-            )
+    def print_notices(self, notices):
+        for notice in notices:
+            self.stdout.write(notice)

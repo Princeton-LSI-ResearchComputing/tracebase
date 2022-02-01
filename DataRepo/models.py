@@ -5,6 +5,7 @@ import pandas as pd
 from chempy import Substance
 from chempy.util.periodic import atomic_number
 from django.apps import apps
+from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
@@ -117,7 +118,7 @@ def get_all_fields_named(target_field):
     return found_fields
 
 
-def get_researchers(database="default"):
+def get_researchers(database=settings.TRACEBASE_DB):
     """
     Get a list of distinct researcher names that is the union of values in researcher fields from any model
     """
@@ -209,7 +210,7 @@ class Protocol(models.Model):
 
     @classmethod
     def retrieve_or_create_protocol(
-        cls, protocol_input, category=None, provisional_description=None, database="default"
+        cls, protocol_input, category=None, provisional_description=None, database=settings.TRACEBASE_DB
     ):
         """
         retrieve or create a protocol, based on input.
@@ -291,7 +292,7 @@ class Compound(models.Model):
     def atom_count(self, atom):
         return atom_count_in_formula(self.formula, atom)
 
-    def get_or_create_synonym(self, synonym_name=None, database="default"):
+    def get_or_create_synonym(self, synonym_name=None, database=settings.TRACEBASE_DB):
         if not synonym_name:
             synonym_name = self.name
         (compound_synonym, created) = CompoundSynonym.objects.using(database).get_or_create(
@@ -311,7 +312,7 @@ class Compound(models.Model):
         (_secondary_synonym, created) = self.get_or_create_synonym(ucfirst_synonym)
 
     @classmethod
-    def compound_matching_name_or_synonym(cls, name, database="default"):
+    def compound_matching_name_or_synonym(cls, name, database=settings.TRACEBASE_DB):
         """
         compound_matching_name_or_synonym is a class method that takes a string (name or
         synonym) and retrieves a distinct compound that matches it
