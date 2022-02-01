@@ -1,3 +1,5 @@
+import argparse
+
 import pandas as pd
 from django.core.management import BaseCommand, CommandError
 
@@ -28,14 +30,20 @@ class Command(BaseCommand):
             help=("Dry-run. If specified, nothing will be saved to the database. "),
         )
 
-        # optional database argument.  This was added specifically for user data validation without changing the
-        # production database.
+        # Used internally by the DataValidationView
+        parser.add_argument(
+            "--validate",
+            required=False,
+            action="store_true",
+            default=False,
+            help=argparse.SUPPRESS,
+        )
+        # Used internally to load necessary data into the validation database
         parser.add_argument(
             "--database",
             required=False,
             type=str,
-            default="default",
-            help=f"Supply 'validation' for the user data validation database : default",
+            help=argparse.SUPPRESS,
         )
 
     def handle(self, *args, **options):
@@ -47,7 +55,7 @@ class Command(BaseCommand):
         new_tissues = pd.read_csv(options["tissues"], sep="\t", keep_default_na=False)
 
         self.tissue_loader = TissuesLoader(
-            tissues=new_tissues, dry_run=options["dry_run"], database=options["database"],
+            tissues=new_tissues, dry_run=options["dry_run"], database=options["database"], validate=options["validate"],
         )
 
         try:

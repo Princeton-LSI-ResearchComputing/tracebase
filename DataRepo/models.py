@@ -231,7 +231,9 @@ class Protocol(models.Model):
                     # add the provisional description
                     if provisional_description is not None:
                         protocol.description = provisional_description
-                        protocol.full_clean()
+                        # full_clean cannot validate (e.g. uniqueness) using a non-default database
+                        if database == "default":
+                            protocol.full_clean()
                         protocol.save(using=database)
 
             except Protocol.DoesNotExist as e:

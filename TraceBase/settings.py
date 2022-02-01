@@ -116,6 +116,9 @@ if env("VALIDATION_DATABASE_NAME"):
     except Exception as e:
         print(f"Could not configure access to the {env('VALIDATION_DATABASE_NAME')} database: {e}")
 
+# These values are the keys of the DATABASES dict
+TRACEBASE_DB = "default"
+VALIDATION_DB = "validation"
 
 # Password validation
 # https://docs.djangoproject.com/en/3.1/ref/settings/#auth-password-validators

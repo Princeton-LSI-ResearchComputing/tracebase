@@ -1,3 +1,5 @@
+import argparse
+
 import pandas as pd
 from django.core.management import BaseCommand, CommandError
 
@@ -36,14 +38,20 @@ class Command(BaseCommand):
                 "but simply report back potential work or issues."
             ),
         )
-        # optional database argument.  This was added specifically for user data validation without changing the
-        # production database.
+        # Used internally by the DataValidationView
+        parser.add_argument(
+            "--validate",
+            required=False,
+            action="store_true",
+            default=False,
+            help=argparse.SUPPRESS,
+        )
+        # Used internally to load necessary data into the validation database
         parser.add_argument(
             "--database",
             required=False,
             type=str,
-            default="default",
-            help=f"Supply 'validation' for the user data validation database : default",
+            help=argparse.SUPPRESS,
         )
 
     def handle(self, *args, **options):
@@ -59,6 +67,7 @@ class Command(BaseCommand):
             compounds_df=self.compounds_df,
             synonym_separator=options["synonym_separator"],
             database=options["database"],
+            validate=options["validate"],
         )
 
         # Run validation
