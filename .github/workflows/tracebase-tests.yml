@@ -28,7 +28,7 @@ jobs:
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: tracebase_validation
         ports:
-          - 5433:5433
+          - 5433:5432
         # needed because the postgres container does not provide a healthcheck
         options: >-
           --health-cmd pg_isready --health-interval 10s
