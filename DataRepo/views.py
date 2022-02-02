@@ -1303,9 +1303,9 @@ class DataValidationView(FormView):
             except ResearcherError as re:
                 valid = False
                 errors[animal_sample_name].append(
-                    "[The following error about a new researcher name should only be addressed if the name already exists "
-                    "in the database as a variation.  If this is a truly new researcher name in the database, it may be "
-                    f"ignored.]\n{animal_sample_name}: {str(re)}"
+                    "[The following error about a new researcher name should only be addressed if the name already "
+                    "exists in the database as a variation.  If this is a truly new researcher name in the database, "
+                    f"it may be ignored.]\n{animal_sample_name}: {str(re)}"
                 )
                 results[animal_sample_name] = "WARNING"
             except Exception as e:
@@ -1381,9 +1381,9 @@ class DataValidationView(FormView):
                                 results[af] = "PASSED"
                             except Exception as e:
                                 estr = str(e)
-                                # We are using the presence of the string "Debugging..." to infer that it got to the end of
-                                # the load without an exception.  If there is no "Debugging" message, then an exception did
-                                # not occur anyway
+                                # We are using the presence of the string "Debugging..." to infer that it got to the 
+                                # end of the load without an exception.  If there is no "Debugging" message, then an
+                                # exception did not occur anyway
                                 if settings.DEBUG:
                                     traceback.print_exc()
                                     print(estr)
@@ -1403,8 +1403,8 @@ class DataValidationView(FormView):
                     except Exception as e:
                         estr = str(e)
                         # We are using the presence of the string "Debugging..." to infer that it got to the end of the
-                        # load without an exception.  If there is no "Debugging" message, then an exception did not occur
-                        # anyway
+                        # load without an exception.  If there is no "Debugging" message, then an exception did not
+                        # occur anyway
                         if settings.DEBUG:
                             traceback.print_exc()
                             print(estr)
