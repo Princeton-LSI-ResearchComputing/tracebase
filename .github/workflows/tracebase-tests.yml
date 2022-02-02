@@ -53,7 +53,7 @@ jobs:
       - name: Make the cache table
         run: python manage.py createcachetable
       - name: Create the validation database
-        run: createdb -U postgres -O tracebase tracebase_validation
+        run: createdb -U postgres -O postgres tracebase_validation
       - name: Check the validation database makemigrations are complete
         run: |
           python manage.py makemigrations \
