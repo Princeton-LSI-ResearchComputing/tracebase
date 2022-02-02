@@ -37,14 +37,14 @@ jobs:
       DATABASE_NAME: tracebase
       DATABASE_USER: postgres
       DATABASE_PASSWORD: postgres
-      DATABASE_HOST: localhost
+      DATABASE_HOST: 127.0.0.1
       DATABASE_PORT: 5432
       DEBUG: true
       CACHES: TEST_CACHES
       VALIDATION_DATABASE_NAME: tracebase_validation
       VALIDATION_DATABASE_USER: postgres
       VALIDATION_DATABASE_PASSWORD: postgres
-      VALIDATION_DATABASE_HOST: localhost
+      VALIDATION_DATABASE_HOST: 127.0.0.1
       VALIDATION_DATABASE_PORT: 5433
     steps:
       - uses: actions/checkout@v1
