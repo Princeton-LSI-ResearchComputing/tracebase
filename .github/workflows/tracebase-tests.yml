@@ -52,11 +52,9 @@ jobs:
         run: python manage.py makemigrations --check --dry-run
       - name: Make the cache table
         run: python manage.py createcachetable
-      - name: Setup credentials for the creation of the validation database
-        run: sudo -u postgres echo postgres > ~/.pgpass
       - name: Create the validation database
         run: |
-          sudo -u postgres psql -h "${VALIDATION_DATABASE_HOST}" -p "${VALIDATION_DATABASE_PORT}" -c "create database ${VALIDATION_DATABASE_NAME} OWNER=${VALIDATION_DATABASE_USER};"
+          sudo -u postgres; echo postgres > ~/.pgpass; psql -h "${VALIDATION_DATABASE_HOST}" -p "${VALIDATION_DATABASE_PORT}" -c "create database ${VALIDATION_DATABASE_NAME} OWNER=${VALIDATION_DATABASE_USER};"
       - name: Check the validation database makemigrations are complete
         run: |
           python manage.py makemigrations \
