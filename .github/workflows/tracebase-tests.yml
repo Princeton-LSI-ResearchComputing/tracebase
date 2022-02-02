@@ -62,20 +62,19 @@ jobs:
           pip install -r requirements.txt
       - name: Check makemigrations are complete
         run: python manage.py makemigrations --check --dry-run
+      - name: Run migrations
+        run: python manage.py migrate
       - name: Make the cache table
         run: python manage.py createcachetable
       - name: Run the validation database migrations
         run: |
-          python manage.py migrate \
-          --database validation
+          python manage.py migrate --database validation
       - name: Make the cache table in the validation database
         run: |
           python manage.py createcachetable \
           --database validation
       - name: Run tests
         run: python manage.py test
-      - name: Run migrations
-        run: python manage.py migrate
       - name: Load initial tissue records
         run: |
           python manage.py load_study \
