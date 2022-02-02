@@ -53,9 +53,8 @@ jobs:
       - name: Make the cache table
         run: python manage.py createcachetable
       - name: Create the validation database
-        run: echo "postgres" > ~/.pgpass
         run: |
-          psql -h ${VALIDATION_DATABASE_HOST} -p ${VALIDATION_DATABASE_PORT} --owner ${VALIDATION_DATABASE_USER} -c "CREATE DATABASE ${VALIDATION_DATABASE_NAME};"
+          echo "postgres" > ~/.pgpass && psql -h ${VALIDATION_DATABASE_HOST} -p ${VALIDATION_DATABASE_PORT} --owner ${VALIDATION_DATABASE_USER} -c "CREATE DATABASE ${VALIDATION_DATABASE_NAME};"
       - name: Check the validation database makemigrations are complete
         run: |
           python manage.py makemigrations \
