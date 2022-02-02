@@ -46,6 +46,7 @@ jobs:
       VALIDATION_DATABASE_PASSWORD: postgres
       VALIDATION_DATABASE_PORT: 5433
       VALIDATION_DATABASE_USER: postgres
+      VALIDATION_DATABASE_CONFIG_NAME: validation
     steps:
       - uses: actions/checkout@v1
       - name: Set up Python 3.8
@@ -67,11 +68,11 @@ jobs:
       - name: Run the validation database migrations
         run: |
           python manage.py migrate \
-          --database tracebase_validation
+          --database ${VALIDATION_DATABASE_CONFIG_NAME}
       - name: Make the cache table in the validation database
         run: |
           python manage.py createcachetable \
-          --database tracebase_validation
+          --database ${VALIDATION_DATABASE_CONFIG_NAME}
       - name: Run tests
         run: python manage.py test
       - name: Run migrations
