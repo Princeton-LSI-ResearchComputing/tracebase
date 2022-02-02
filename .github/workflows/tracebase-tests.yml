@@ -11,7 +11,6 @@ jobs:
     services:
       postgres:
         image: postgres:10.8
-        restart: always
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -24,7 +23,6 @@ jobs:
           --health-timeout 5s --health-retries 5
       postgres_validation:
         image: postgres:10.8
-        restart: always
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -39,11 +37,11 @@ jobs:
       DATABASE_NAME: tracebase
       DATABASE_USER: postgres
       DATABASE_PASSWORD: postgres
-      DATABASE_HOST: 127.0.0.1
+      DATABASE_HOST: postgres
       DATABASE_PORT: 5432
       DEBUG: true
       CACHES: TEST_CACHES
-      VALIDATION_DATABASE_HOST: 127.0.0.1
+      VALIDATION_DATABASE_HOST: postgres_validation
       VALIDATION_DATABASE_NAME: tracebase_validation
       VALIDATION_DATABASE_PASSWORD: postgres
       VALIDATION_DATABASE_PORT: 5433
