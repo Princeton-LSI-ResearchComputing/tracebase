@@ -21,6 +21,18 @@ jobs:
         options: >-
           --health-cmd pg_isready --health-interval 10s
           --health-timeout 5s --health-retries 5
+      postgres_validation:
+        image: postgres:10.8
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: tracebase_validation
+        ports:
+          - 5433:5433
+        # needed because the postgres container does not provide a healthcheck
+        options: >-
+          --health-cmd pg_isready --health-interval 10s
+          --health-timeout 5s --health-retries 5
     env:
       DATABASE_NAME: tracebase
       DATABASE_USER: postgres
@@ -32,7 +44,7 @@ jobs:
       VALIDATION_DATABASE_HOST: 127.0.0.1
       VALIDATION_DATABASE_NAME: tracebase_validation
       VALIDATION_DATABASE_PASSWORD: postgres
-      VALIDATION_DATABASE_PORT: 5432
+      VALIDATION_DATABASE_PORT: 5433
       VALIDATION_DATABASE_USER: postgres
     steps:
       - uses: actions/checkout@v1
@@ -52,9 +64,9 @@ jobs:
         run: python manage.py makemigrations --check --dry-run
       - name: Make the cache table
         run: python manage.py createcachetable
-      - name: Create the validation database
-        run: |
-          sudo -u postgres sh -c "echo postgres > ~/.pgpass && psql -h '${VALIDATION_DATABASE_HOST}' -p '${VALIDATION_DATABASE_PORT}' -c 'create database ${VALIDATION_DATABASE_NAME} OWNER=${VALIDATION_DATABASE_USER};'"
+        #- name: Create the validation database
+        #  run: |
+        #    sudo -u postgres sh -c "echo postgres > ~/.pgpass && psql -h '${VALIDATION_DATABASE_HOST}' -p '${VALIDATION_DATABASE_PORT}' -c 'create database ${VALIDATION_DATABASE_NAME} OWNER=${VALIDATION_DATABASE_USER};'"
       - name: Check the validation database makemigrations are complete
         run: |
           python manage.py makemigrations \
