@@ -404,7 +404,7 @@ class SampleTableLoader:
         for animal in animals_to_uncache:
             if settings.DEBUG:
                 print(f"Expiring animal {animal.id}'s cache")
-            animal.delete_cache()
+            animal.delete_related_caches()
         if settings.DEBUG:
             print("Expiring done.")
 
@@ -1023,7 +1023,7 @@ class AccuCorDataLoader:
         for animal in animals_to_uncache:
             if settings.DEBUG:
                 print(f"Expiring animal {animal.id}'s cache")
-            animal.delete_cache()
+            animal.delete_related_caches()
         if settings.DEBUG:
             print("Expiring done.")
 
