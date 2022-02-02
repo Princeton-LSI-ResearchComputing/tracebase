@@ -59,7 +59,7 @@ jobs:
           -O postgres \
           -p 5432 \
           -h 127.0.0.1 \
-          -W postgres \
+          -w \
           tracebase_validation
       - name: Check the validation database makemigrations are complete
         run: |
