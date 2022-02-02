@@ -50,8 +50,23 @@ jobs:
           pip install -r requirements.txt
       - name: Check makemigrations are complete
         run: python manage.py makemigrations --check --dry-run
-      - name: Make sure the cache table exists
+      - name: Make the cache table
         run: python manage.py createcachetable
+      - name: Create the validation database
+        run: createdb -U postgres -O tracebase tracebase_validation
+      - name: Check the validation database makemigrations are complete
+        run: |
+          python manage.py makemigrations \
+          --check --dry-run \
+          --database tracebase_validation
+      - name: Run the validation database migrations
+        run: |
+          python manage.py migrate \
+          --database tracebase_validation
+      - name: Make the cache table in the validation database
+        run: |
+          python manage.py createcachetable \
+          --database tracebase_validation
       - name: Run tests
         run: python manage.py test
       - name: Run migrations
