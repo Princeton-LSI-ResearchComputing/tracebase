@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.core.management import call_command
 from django.test import TestCase
 
@@ -56,6 +57,7 @@ def load_minimum_data():
 
 class GlobalCacheTests(TestCase):
     maxDiff = None
+    databases = ["default", settings.VALIDATION_DB]
 
     @classmethod
     def setUpTestData(cls):
@@ -267,6 +269,7 @@ class GlobalCacheTests(TestCase):
 
 class HierCachedModelTests(TestCase):
     maxDiff = None
+    databases = ["default", settings.VALIDATION_DB]
 
     @classmethod
     def setUpTestData(cls):
@@ -564,6 +567,7 @@ class HierCachedModelTests(TestCase):
 
 class BuildCachesTests(TestCase):
     maxDiff = None
+    databases = ["default", settings.VALIDATION_DB]
 
     @classmethod
     def setUpTestData(cls):
