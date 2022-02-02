@@ -1381,7 +1381,7 @@ class DataValidationView(FormView):
                                 results[af] = "PASSED"
                             except Exception as e:
                                 estr = str(e)
-                                # We are using the presence of the string "Debugging..." to infer that it got to the 
+                                # We are using the presence of the string "Debugging..." to infer that it got to the
                                 # end of the load without an exception.  If there is no "Debugging" message, then an
                                 # exception did not occur anyway
                                 if settings.DEBUG:
