@@ -66,11 +66,19 @@ class Command(BaseCommand):
             self.tissue_loader.load()
         except DryRun:
             if options["verbosity"] >= 2:
-                self.print_notices(self.tissue_loader.get_notices())
+                self.print_notices(
+                    self.tissue_loader.get_stats(),
+                    options["tissues"],
+                    options["verbosity"],
+                )
             self.stdout.write(self.style.SUCCESS("DRY-RUN complete, no tissues loaded"))
         except LoadingError:
             if options["verbosity"] >= 2:
-                self.print_notices(self.tissue_loader.get_notices())
+                self.print_notices(
+                    self.tissue_loader.get_stats(),
+                    options["tissues"],
+                    options["verbosity"],
+                )
             for exception in self.tissue_loader.errors:
                 self.stdout.write(self.style.ERROR(exception))
             raise CommandError(
@@ -78,15 +86,24 @@ class Command(BaseCommand):
                 f"{options['tissues']} - NO RECORDS SAVED"
             )
         else:
-            if options["verbosity"] >= 2:
-                self.print_notices(self.tissue_loader.get_notices())
-            self.stdout.write(
-                self.style.SUCCESS(
-                    f"{self.tissue_loader.get_notice_summary()}"
-                    f" from {options['tissues']}"
-                )
+            self.print_notices(
+                self.tissue_loader.get_stats(), options["tissues"], options["verbosity"]
             )
 
-    def print_notices(self, notices):
-        for notice in notices:
-            self.stdout.write(notice)
+    def print_notices(self, stats, opt, verbosity):
+
+        if verbosity >= 2:
+            for db in stats.keys():
+                for stat in stats[db]:
+                    self.stdout.write(
+                        f"Created {db} tissue record - {stat['tissue']}:{stat['description']}"
+                    )
+
+        smry = "Complete"
+        for db in stats.keys():
+            smry += f", loaded {len(stats[db]['created'])} new tissues and found "
+            smry += f"{len(stats[db]['skipped'])} matching tissues "
+            smry += f"in database [{db}]"
+        smry += f" from {opt}"
+
+        self.stdout.write(self.style.SUCCESS(smry))

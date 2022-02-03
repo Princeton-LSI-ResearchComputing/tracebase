@@ -109,7 +109,10 @@ class SampleTableLoader:
         else:
             self.validate = validate
             if validate:
-                self.db = settings.VALIDATION_DB
+                if settings.VALIDATION_ENABLED:
+                    self.db = settings.VALIDATION_DB
+                else:
+                    raise ValidationDatabaseSetupError()
 
     def validate_sample_table(self, data, skip_researcher_check=False):
         """
@@ -207,7 +210,6 @@ class SampleTableLoader:
             created = False
             name = self.getRowVal(row, self.headers.ANIMAL_NAME)
             if name is not None:
-                print(f"Getting Animal from database: {self.db}")
                 animal, created = Animal.objects.using(self.db).get_or_create(name=name)
                 if created and animal.caches_exist():
                     animals_to_uncache.append(animal)
@@ -372,7 +374,6 @@ class SampleTableLoader:
                         researcher = self.getRowVal(row, self.headers.SAMPLE_RESEARCHER)
                         tc = self.getRowVal(row, self.headers.TIME_COLLECTED)
                         if researcher is not None and tc is not None:
-                            print(f"Sample LOADDB: {self.db}")
                             sample = Sample(
                                 name=sample_name,
                                 researcher=researcher,
@@ -392,7 +393,7 @@ class SampleTableLoader:
                                 sample_date = sample_date_value
                             sample.date = sample_date
                         try:
-                            if self.db == "default":
+                            if self.db == settings.DEFAULT_DB:
                                 sample.full_clean()
                             sample.save(using=self.db)
                         except Exception as e:
@@ -505,7 +506,10 @@ class AccuCorDataLoader:
         else:
             self.validate = validate
             if validate:
-                self.db = settings.VALIDATION_DB
+                if settings.VALIDATION_ENABLED:
+                    self.db = settings.VALIDATION_DB
+                else:
+                    raise ValidationDatabaseSetupError()
 
     def validate_data(self):
         """
@@ -884,7 +888,7 @@ class AccuCorDataLoader:
     def insert_peak_group_set(self):
         self.peak_group_set = PeakGroupSet(filename=self.peak_group_set_filename_input)
         # full_clean cannot validate (e.g. uniqueness) using a non-default database
-        if self.db == "default":
+        if self.db == settings.DEFAULT_DB:
             self.peak_group_set.full_clean()
         self.peak_group_set.save(using=self.db)
 
@@ -918,7 +922,7 @@ class AccuCorDataLoader:
                 sample=self.sample_dict[sample_name],
             )
             # full_clean cannot validate (e.g. uniqueness) using a non-default database
-            if self.db == "default":
+            if self.db == settings.DEFAULT_DB:
                 msrun.full_clean()
             msrun.save(using=self.db)
             if (
@@ -957,7 +961,7 @@ class AccuCorDataLoader:
                         peak_group_set=self.peak_group_set,
                     )
                     # full_clean cannot validate (e.g. uniqueness) using a non-default database
-                    if self.db == "default":
+                    if self.db == settings.DEFAULT_DB:
                         peak_group.full_clean()
                     peak_group.save(using=self.db)
                     # cache
@@ -1034,7 +1038,7 @@ class AccuCorDataLoader:
                         )
 
                         # full_clean cannot validate (e.g. uniqueness) using a non-default database
-                        if self.db == "default":
+                        if self.db == settings.DEFAULT_DB:
                             peak_data.full_clean()
                         peak_data.save(using=self.db)
 
@@ -1066,7 +1070,7 @@ class AccuCorDataLoader:
                             med_rt=med_rt,
                         )
 
-                        if self.db == "default":
+                        if self.db == settings.DEFAULT_DB:
                             peak_data.full_clean()
                         peak_data.save(using=self.db)
 
@@ -1139,7 +1143,10 @@ class CompoundsLoader:
         else:
             self.validate = validate
             if validate:
-                self.db = settings.VALIDATION_DB
+                if settings.VALIDATION_ENABLED:
+                    self.db = settings.VALIDATION_DB
+                else:
+                    raise ValidationDatabaseSetupError()
                 self.loading_mode = "one"
             else:
                 self.loading_mode = "both"
@@ -1176,7 +1183,7 @@ class CompoundsLoader:
                         hmdb_id=row[self.KEY_HMDB],
                     )
                     # full_clean cannot validate (e.g. uniqueness) using a non-default database
-                    if self.db == "default":
+                    if self.db == settings.DEFAULT_DB:
                         new_compound.full_clean()
                     self.validated_new_compounds_for_insertion.append(new_compound)
 
@@ -1327,7 +1334,8 @@ class CompoundsLoader:
         # database is explicitly supplied or --validate is supplied
         if self.loading_mode == "both":
             self.load_validated_compounds_per_db(settings.TRACEBASE_DB)
-            self.load_validated_compounds_per_db(settings.VALIDATION_DB)
+            if settings.VALIDATION_ENABLED:
+                self.load_validated_compounds_per_db(settings.VALIDATION_DB)
         elif self.loading_mode == "one":
             self.load_validated_compounds_per_db(self.db)
         else:
@@ -1349,7 +1357,8 @@ class CompoundsLoader:
         # database is explicitly supplied or --validate is supplied
         if self.loading_mode == "both":
             self.load_synonyms_per_db(settings.TRACEBASE_DB)
-            self.load_synonyms_per_db(settings.VALIDATION_DB)
+            if settings.VALIDATION_ENABLED:
+                self.load_synonyms_per_db(settings.VALIDATION_DB)
         elif self.loading_mode == "one":
             self.load_synonyms_per_db(self.db)
         else:
@@ -1408,6 +1417,10 @@ class MissingSamplesError(Exception):
 
 class AmbiguousCompoundDefinitionError(Exception):
     pass
+
+
+class ValidationDatabaseSetupError(Exception):
+    message = "The validation database is not configured"
 
 
 class QuerysetToPandasDataFrame:
@@ -2006,7 +2019,10 @@ class TissuesLoader:
         else:
             self.validate = validate
             if validate:
-                self.db = settings.VALIDATION_DB
+                if settings.VALIDATION_ENABLED:
+                    self.db = settings.VALIDATION_DB
+                else:
+                    raise ValidationDatabaseSetupError()
                 self.loading_mode = "one"
             else:
                 self.loading_mode = "both"
@@ -2016,7 +2032,8 @@ class TissuesLoader:
         # database is explicitly supplied or --validate is supplied
         if self.loading_mode == "both":
             self.load_database(settings.TRACEBASE_DB)
-            self.load_database(settings.VALIDATION_DB)
+            if settings.VALIDATION_ENABLED:
+                self.load_database(settings.VALIDATION_DB)
         elif self.loading_mode == "one":
             self.load_database(self.db)
         else:
@@ -2036,7 +2053,7 @@ class TissuesLoader:
                     if created:
                         tissue.description = description
                         # full_clean cannot validate (e.g. uniqueness) using a non-default database
-                        if db == "default":
+                        if db == settings.DEFAULT_DB:
                             tissue.full_clean()
                         tissue.save(using=db)
                         if db in self.created:
@@ -2067,33 +2084,33 @@ class TissuesLoader:
         if self.dry_run:
             raise DryRun("DRY-RUN successful")
 
-    def get_notices(self):
-        notice_strs = []
-        for db in self.created.keys():
-            for tissue in self.created[db]:
-                notice_strs.append(
-                    f"Created tissue record - {tissue.name}:{tissue.description}"
-                )
-            for tissue in self.existing[db]:
-                notice_strs.append(
-                    f"Skipping existing tissue record - {tissue.name}:{tissue.description}"
-                )
-        return notice_strs
-
-    def get_notice_summary(self):
-        sum = "Complete"
-        dbs = [self.db]
-        if self.loading_mode == "both":
-            dbs = [settings.TRACEBASE_DB, settings.VALIDATION_DB]
+    def get_stats(self):
+        dbs = [settings.TRACEBASE_DB]
+        if settings.VALIDATION_ENABLED:
+            dbs.append(settings.VALIDATION_DB)
+        stats = {}
         for db in dbs:
-            num_created = 0
+
+            created = []
             if db in self.created:
-                num_created = len(self.created[db])
-            num_existing = 0
+                for tissue in self.created[db]:
+                    created.append(
+                        {"tissue": tissue.name, "description": tissue.description}
+                    )
+
+            skipped = []
             if db in self.existing:
-                num_existing = len(self.existing[db])
-            sum += f", loaded {num_created} new tissues and found {num_existing} matching tissues in the {db} database"
-        return sum
+                for tissue in self.existing[db]:
+                    skipped.append(
+                        {"tissue": tissue.name, "description": tissue.description}
+                    )
+
+            stats[db] = {
+                "created": created,
+                "skipped": skipped,
+            }
+
+        return stats
 
 
 def leaderboard_data():

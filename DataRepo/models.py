@@ -238,7 +238,7 @@ class Protocol(models.Model):
                     if provisional_description is not None:
                         protocol.description = provisional_description
                         # full_clean cannot validate (e.g. uniqueness) using a non-default database
-                        if database == "default":
+                        if database == settings.DEFAULT_DB:
                             protocol.full_clean()
                         protocol.save(using=database)
 

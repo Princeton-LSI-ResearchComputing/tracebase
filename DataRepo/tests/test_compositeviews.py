@@ -1,15 +1,11 @@
-from django.conf import settings
 from django.core.management import call_command
-from django.test import TestCase
 
 from DataRepo.compositeviews import BaseAdvancedSearchView, BaseSearchView
 from DataRepo.models import PeakGroup
+from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
-class CompositeViewTests(TestCase):
-    maxDiff = None
-    databases = ["default", settings.VALIDATION_DB]
-
+class CompositeViewTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")

@@ -121,6 +121,7 @@ if env("VALIDATION_DATABASE_NAME"):
 # These values are the keys of the DATABASES dict
 TRACEBASE_DB = "default"
 VALIDATION_DB = "validation"
+DEFAULT_DB = "default"
 
 # Password validation
 # https://docs.djangoproject.com/en/3.1/ref/settings/#auth-password-validators

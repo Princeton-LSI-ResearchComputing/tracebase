@@ -1,17 +1,14 @@
 import json
 
 import pandas as pd
-from django.conf import settings
 from django.core.management import call_command
-from django.test import TestCase
 from django.utils import dateparse
 
+from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import QuerysetToPandasDataFrame as qs2df
 
 
-class QuerysetToPandasDataFrameTests(TestCase):
-    databases = ["default", settings.VALIDATION_DB]
-
+class QuerysetToPandasDataFrameTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")

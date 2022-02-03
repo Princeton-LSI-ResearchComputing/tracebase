@@ -1,15 +1,13 @@
-from django.conf import settings
 from django.core.management import CommandError, call_command
-from django.test import TestCase, tag
+from django.test import tag
 
 from DataRepo.models import Tissue
+from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
 @tag("tissues")
-class TissueLoadingTests(TestCase):
+class TissueLoadingTests(TracebaseTestCase):
     """Test Tissue Loader"""
-
-    databases = ["default", settings.VALIDATION_DB]
 
     def test_load_tissue_command(self):
         """Test the load_tissue management command"""

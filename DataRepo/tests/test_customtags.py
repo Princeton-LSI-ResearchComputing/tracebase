@@ -1,14 +1,11 @@
-from django.conf import settings
 from django.core.management import call_command
-from django.test import TestCase
 
 from DataRepo.models import CompoundSynonym
 from DataRepo.templatetags.customtags import get_case_insensitive_synonyms
+from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
-class CustomTagsTests(TestCase):
-    databases = ["default", settings.VALIDATION_DB]
-
+class CustomTagsTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
         call_command(
