@@ -1008,19 +1008,7 @@ class ValidationViewTests(TracebaseTestCase):
         it's confusing as to why, given the various restrict constraints, but to be safe, this explicitly deletes every
         model's contents.
         """
-        for mdl in (
-            PeakGroupSet,
-            Study,
-            PeakData,
-            PeakGroup,
-            MSRun,
-            Sample,
-            Animal,
-            Protocol,
-            Compound,
-            CompoundSynonym,
-            Tissue,
-        ):
+        for mdl in get_all_models():
             mdl.objects.using(db).all().delete()
         # Make sure the database is actually empty so that the tests are meaningful
         sum = cls.sum_record_counts(db)

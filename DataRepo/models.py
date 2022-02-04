@@ -86,9 +86,13 @@ def atom_count_in_formula(formula, atom):
 
 def get_all_models():
     """
-    Retrieves all models from DataRepo and returns them as a list
+    Retrieves all models (that were explicitly defined, i.e. no hidden related models) from DataRepo and returns them
+    as a list ordered in a way that they can all have their contents deleted without running afould of "restrict"
+    constrains
     """
-    return list(apps.all_models["DataRepo"].values())
+    mdls = list(apps.get_app_config("DataRepo").get_models())
+    mdls.reverse()
+    return mdls
 
 
 def get_model_fields(model):
