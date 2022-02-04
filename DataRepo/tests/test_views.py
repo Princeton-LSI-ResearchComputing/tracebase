@@ -1003,8 +1003,7 @@ class ValidationViewTests(TracebaseTestCase):
 
     @classmethod
     def clear_database(cls, db):
-        for mdl in get_all_models():
-            mdl.objects.using(db).all().delete()
+        call_command("flush", interactive=False, load_initial_data=False)
         # Make sure the database is actually empty so that the tests are meaningful
         sum = cls.sum_record_counts(db)
         assert sum == 0

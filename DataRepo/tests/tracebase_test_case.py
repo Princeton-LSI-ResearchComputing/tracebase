@@ -1,4 +1,3 @@
-from django.conf import settings
 from django.test import TestCase
 
 
@@ -8,7 +7,7 @@ class TracebaseTestCase(TestCase):
     """
 
     maxDiff = None
-    databases = ["default", settings.VALIDATION_DB]
+    databases = "__all__"
 
     class Meta:
         abstract = True

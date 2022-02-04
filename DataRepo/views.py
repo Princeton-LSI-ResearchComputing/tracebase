@@ -1430,10 +1430,14 @@ class DataValidationView(FormView):
         ]
 
     def clear_validation_database(self):
+        """
+        Clear out every table aside from compounds and tissues, which are intended to persist in the validation
+        database, as they are needed to create related links for data inserted by the load animals/samples scripts
+        """
         seen = {}
         for mdl in get_all_models():
             seen[mdl.__name__] = False
-        # The order is necessary due to restriucted relation deletions
+        # The order is necessary due to restricted relation deletions
         # If more models are added, they must be added here
         for mdl in (
             PeakGroupSet,
