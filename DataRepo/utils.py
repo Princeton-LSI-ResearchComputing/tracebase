@@ -572,7 +572,6 @@ class AccuCorDataLoader:
 
         # Make sure all sample columns have names
         corr_iter = collections.Counter(corrected_samples)
-        corr_iter_err = ""
         for k, v in corr_iter.items():
             if k.startswith("Unnamed: "):
                 enable_caching_updates()
@@ -581,12 +580,10 @@ class AccuCorDataLoader:
                     + str(len(self.accucor_corrected_df.columns))
                     + " columns."
                 )
-            corr_iter_err += '"' + str(k) + '":"' + str(v) + '",'
 
         if original_samples:
             # Make sure all sample columns have names
             orig_iter = collections.Counter(original_samples)
-            orig_iter_err = ""
             for k, v in orig_iter.items():
                 if k.startswith("Unnamed: "):
                     enable_caching_updates()
@@ -595,12 +592,15 @@ class AccuCorDataLoader:
                         + str(len(self.accucor_original_df.columns))
                         + " columns. Be sure to delete any unused columns."
                     )
-                orig_iter_err += '"' + str(k) + '":' + str(v) + '",'
 
             # Make sure that the sheets have the same number of sample columns
+            original_only = list(set(original_samples) - set(corrected_samples))
+            corrected_only = list(set(corrected_samples) - set(original_samples))
             err_msg = (
-                "Number of samples in the original and corrected sheets differ."
-                f"Original: [{orig_iter_err}] Corrected: [{corr_iter_err}]."
+                "Samples in the original and corrected sheets differ."
+                f"\nOriginal contains {len(orig_iter)} samples | Corrected contains {len(corr_iter)} samples"
+                f"\nSamples in original sheet missing from corrected:\n{original_only}"
+                f"\nSamples in corrected sheet missing from original:\n{corrected_only}"
             )
             assert orig_iter == corr_iter, err_msg
 
