@@ -1,3 +1,5 @@
+import argparse
+
 import pandas as pd
 from django.core.management import BaseCommand, CommandError
 
@@ -28,6 +30,23 @@ class Command(BaseCommand):
             help=("Dry-run. If specified, nothing will be saved to the database. "),
         )
 
+        # Used internally by the DataValidationView
+        parser.add_argument(
+            "--validate",
+            required=False,
+            action="store_true",
+            default=False,
+            help=argparse.SUPPRESS,
+        )
+
+        # Used internally to load necessary data into the validation database
+        parser.add_argument(
+            "--database",
+            required=False,
+            type=str,
+            help=argparse.SUPPRESS,
+        )
+
     def handle(self, *args, **options):
         if options["dry_run"]:
             self.stdout.write(
@@ -37,18 +56,29 @@ class Command(BaseCommand):
         new_tissues = pd.read_csv(options["tissues"], sep="\t", keep_default_na=False)
 
         self.tissue_loader = TissuesLoader(
-            tissues=new_tissues, dry_run=options["dry_run"]
+            tissues=new_tissues,
+            dry_run=options["dry_run"],
+            database=options["database"],
+            validate=options["validate"],
         )
 
         try:
             self.tissue_loader.load()
         except DryRun:
             if options["verbosity"] >= 2:
-                self.print_notices()
+                self.print_notices(
+                    self.tissue_loader.get_stats(),
+                    options["tissues"],
+                    options["verbosity"],
+                )
             self.stdout.write(self.style.SUCCESS("DRY-RUN complete, no tissues loaded"))
         except LoadingError:
             if options["verbosity"] >= 2:
-                self.print_notices()
+                self.print_notices(
+                    self.tissue_loader.get_stats(),
+                    options["tissues"],
+                    options["verbosity"],
+                )
             for exception in self.tissue_loader.errors:
                 self.stdout.write(self.style.ERROR(exception))
             raise CommandError(
@@ -56,21 +86,24 @@ class Command(BaseCommand):
                 f"{options['tissues']} - NO RECORDS SAVED"
             )
         else:
-            if options["verbosity"] >= 2:
-                self.print_notices()
-            self.stdout.write(
-                self.style.SUCCESS(
-                    f"Complete, loaded {len(self.tissue_loader.created)} new tissues and found "
-                    f"{len(self.tissue_loader.existing)} matching tissues from {options['tissues']}"
-                )
+            self.print_notices(
+                self.tissue_loader.get_stats(), options["tissues"], options["verbosity"]
             )
 
-    def print_notices(self):
-        for tissue in self.tissue_loader.created:
-            self.stdout.write(
-                f"Created tissue record - {tissue.name}:{tissue.description}"
-            )
-        for tissue in self.tissue_loader.existing:
-            self.stdout.write(
-                f"Skipping existing tissue record - {tissue.name}:{tissue.description}"
-            )
+    def print_notices(self, stats, opt, verbosity):
+
+        if verbosity >= 2:
+            for db in stats.keys():
+                for stat in stats[db]:
+                    self.stdout.write(
+                        f"Created {db} tissue record - {stat['tissue']}:{stat['description']}"
+                    )
+
+        smry = "Complete"
+        for db in stats.keys():
+            smry += f", loaded {len(stats[db]['created'])} new tissues and found "
+            smry += f"{len(stats[db]['skipped'])} matching tissues "
+            smry += f"in database [{db}]"
+        smry += f" from {opt}"
+
+        self.stdout.write(self.style.SUCCESS(smry))

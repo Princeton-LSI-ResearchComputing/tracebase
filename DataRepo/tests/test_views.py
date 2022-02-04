@@ -1,13 +1,15 @@
 import json
 
+from django.conf import settings
 from django.core.management import call_command
-from django.test import TestCase, tag
+from django.test import override_settings, tag
 from django.urls import reverse
 
 from DataRepo.compositeviews import BaseAdvancedSearchView, BaseSearchView
 from DataRepo.models import (
     Animal,
     Compound,
+    CompoundSynonym,
     MSRun,
     PeakData,
     PeakGroup,
@@ -16,7 +18,9 @@ from DataRepo.models import (
     Sample,
     Study,
     Tissue,
+    get_all_models,
 )
+from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.views import (
     DataValidationView,
     constructAdvancedQuery,
@@ -33,9 +37,7 @@ from DataRepo.views import (
 )
 
 
-class ViewTests(TestCase):
-    maxDiff = None
-
+class ViewTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
@@ -923,70 +925,6 @@ class ViewTests(TestCase):
         res = basv_metadata.formatNameOrKeyToKey(fmt)
         self.assertEqual(res, "pgtemplate")
 
-    def test_validate_view(self):
-        """
-        Do a simple validation view test
-        """
-        response = self.client.get(reverse("validate"))
-        self.assertEqual(response.status_code, 200)
-        # Temporarily disable validation due to a bug
-        # self.assertTemplateUsed(response, "DataRepo/validate_submission.html")
-        self.assertTemplateUsed(response, "validation_disabled.html")
-
-    def test_validate_files(self):
-        """
-        Do a file validation test
-        """
-        # Load the necessary compounds for a successful test
-        call_command(
-            "load_compounds",
-            compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
-        )
-
-        # Files/inputs we will test
-        animal_sample_dict = {}
-        animal_sample_dict[
-            "data_submission_animal_sample_table.xlsx"
-        ] = "DataRepo/example_data/data_submission_animal_sample_table.xlsx"
-        accucor_dict = {
-            "data_submission_accucor1.xlsx": "DataRepo/example_data/data_submission_accucor1.xlsx",
-            "data_submission_accucor2.xlsx": "DataRepo/example_data/data_submission_accucor2.xlsx",
-        }
-
-        # Test the validate_load_files function
-        vo = DataValidationView()
-        [results, valid, errors] = vo.validate_load_files(
-            animal_sample_dict, accucor_dict
-        )
-
-        # Note that even though the Study "Notes" header is missing from the input file, we don't expect to encounter
-        # that error before the researcher warning because that column value is optional
-
-        # Check the sample file details
-        self.assertTrue("data_submission_animal_sample_table.xlsx" in results)
-        self.assertTrue("data_submission_animal_sample_table.xlsx" in errors)
-
-        # The researcher warning technically results in a validation failure (because it's an exception), but it's the
-        # last possible check on the file on purpose so that everything else is guaranteed to be OK
-        self.assertTrue(not valid)
-
-        self.assertEqual(results["data_submission_animal_sample_table.xlsx"], "WARNING")
-        self.assertTrue(len(errors["data_submission_animal_sample_table.xlsx"]) == 1)
-        self.assertTrue(
-            "1 researchers from the sample file: [Anonymous]"
-            in errors["data_submission_animal_sample_table.xlsx"][0]
-        )
-
-        # Check the accucor file details
-        self.assertTrue("data_submission_accucor1.xlsx" in results)
-        self.assertTrue("data_submission_accucor1.xlsx" in errors)
-        self.assertTrue("data_submission_accucor2.xlsx" in results)
-        self.assertTrue("data_submission_accucor2.xlsx" in errors)
-        self.assertTrue(len(errors["data_submission_accucor1.xlsx"]) == 0)
-        self.assertTrue(len(errors["data_submission_accucor2.xlsx"]) == 0)
-        self.assertEqual(results["data_submission_accucor1.xlsx"], "PASSED")
-        self.assertEqual(results["data_submission_accucor2.xlsx"], "PASSED")
-
     def test_manyToManyFilter(self):
         call_command(
             "load_samples",
@@ -1031,7 +969,7 @@ class ViewTests(TestCase):
 
 
 @tag("search_choices")
-class SearchFieldChoicesTests(TestCase):
+class SearchFieldChoicesTests(TracebaseTestCase):
     def test_get_all_comparison_choices(self):
         base_search_view = BaseSearchView()
 
@@ -1052,3 +990,236 @@ class SearchFieldChoicesTests(TestCase):
             ("not_iendswith", "does not end with"),
         )
         self.assertEqual(base_search_view.getAllComparisonChoices(), all_ncmp_choices)
+
+
+class ValidationViewTests(TracebaseTestCase):
+    @classmethod
+    def initialize_databases(cls):
+        call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
+        call_command(
+            "load_compounds",
+            compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
+        )
+
+    @classmethod
+    def clear_database(cls, db):
+        """
+        Note, using call_command to flush doesn't seem to work.  Looping on get_all_models() does seem to work, but
+        it's confusing as to why, given the various restrict constraints, but to be safe, this explicitly deletes every
+        model's contents.
+        """
+        for mdl in (
+            PeakGroupSet,
+            Study,
+            PeakData,
+            PeakGroup,
+            MSRun,
+            Sample,
+            Animal,
+            Protocol,
+            Compound,
+            CompoundSynonym,
+            Tissue,
+        ):
+            mdl.objects.using(db).all().delete()
+        # Make sure the database is actually empty so that the tests are meaningful
+        sum = cls.sum_record_counts(db)
+        assert sum == 0
+
+    @classmethod
+    def sum_record_counts(cls, db):
+        record_counts = cls.get_record_counts(db)
+        sum = 0
+        for cnt in record_counts:
+            sum += cnt
+        return sum
+
+    @classmethod
+    def get_record_counts(cls, db):
+        record_counts = []
+        for mdl in get_all_models():
+            record_counts.append(mdl.objects.using(db).all().count())
+        return record_counts
+
+    def test_validate_view(self):
+        """
+        Do a simple validation view test
+        """
+        response = self.client.get(reverse("validate"))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "DataRepo/validate_submission.html")
+
+    def test_validate_files(self):
+        """
+        Do a file validation test
+        """
+        self.initialize_databases()
+
+        # Load some data that should cause a researcher warning during validation
+        call_command(
+            "load_samples",
+            "DataRepo/example_data/small_dataset/small_obob_sample_table.tsv",
+            sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
+        )
+        call_command(
+            "load_accucor_msruns",
+            protocol="Default",
+            accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf.xlsx",
+            date="2021-06-03",
+            researcher="Michael Neinast",
+            new_researcher=True,
+        )
+
+        # Files/inputs we will test
+        animal_sample_dict = {}
+        animal_sample_dict[
+            "data_submission_animal_sample_table.xlsx"
+        ] = "DataRepo/example_data/data_submission_animal_sample_table.xlsx"
+        accucor_dict = {
+            "data_submission_accucor1.xlsx": "DataRepo/example_data/data_submission_accucor1.xlsx",
+            "data_submission_accucor2.xlsx": "DataRepo/example_data/data_submission_accucor2.xlsx",
+        }
+
+        # Test the validate_load_files function
+        vo = DataValidationView()
+        [results, valid, errors] = vo.validate_load_files(
+            animal_sample_dict, accucor_dict
+        )
+
+        # Note that even though the Study "Notes" header is missing from the input file, we don't expect to encounter
+        # that error before the researcher warning because that column value is optional
+
+        # Check the sample file details
+        self.assertTrue("data_submission_animal_sample_table.xlsx" in results)
+        self.assertTrue("data_submission_animal_sample_table.xlsx" in errors)
+
+        # The researcher warning technically results in a validation failure (because it's an exception), but it's the
+        # last possible check on the file on purpose so that everything else is guaranteed to be OK
+        self.assertTrue(not valid)
+
+        self.assertEqual(results["data_submission_animal_sample_table.xlsx"], "WARNING")
+        self.assertTrue(len(errors["data_submission_animal_sample_table.xlsx"]) == 1)
+        self.assertTrue(
+            "1 researchers from the sample file: [Anonymous]"
+            in errors["data_submission_animal_sample_table.xlsx"][0]
+        )
+
+        # Check the accucor file details
+        self.assertTrue("data_submission_accucor1.xlsx" in results)
+        self.assertTrue("data_submission_accucor1.xlsx" in errors)
+        self.assertTrue("data_submission_accucor2.xlsx" in results)
+        self.assertTrue("data_submission_accucor2.xlsx" in errors)
+        self.assertTrue(
+            len(errors["data_submission_accucor1.xlsx"]) == 0,
+            msg=f"Should be no errors, but got [{', '.join(errors['data_submission_accucor1.xlsx'])}]",
+        )
+        self.assertTrue(
+            len(errors["data_submission_accucor2.xlsx"]) == 0,
+            msg=f"Should be no errors, but got [{', '.join(errors['data_submission_accucor2.xlsx'])}]",
+        )
+        self.assertEqual(results["data_submission_accucor1.xlsx"], "PASSED")
+        self.assertEqual(results["data_submission_accucor2.xlsx"], "PASSED")
+
+    def test_databases_unchanged(self):
+        """
+        Test to ensure that validating user submitted data does not change either database
+        """
+        self.clear_database(settings.TRACEBASE_DB)
+        self.clear_database(settings.VALIDATION_DB)
+        self.initialize_databases()
+
+        # Get initial record counts for all models
+        tb_init_counts = self.get_record_counts(settings.TRACEBASE_DB)
+        vd_init_counts = self.get_record_counts(settings.VALIDATION_DB)
+
+        # Files/inputs we will test
+        animal_sample_dict = {}
+        animal_sample_dict[
+            "data_submission_animal_sample_table.xlsx"
+        ] = "DataRepo/example_data/data_submission_animal_sample_table.xlsx"
+        accucor_dict = {
+            "data_submission_accucor1.xlsx": "DataRepo/example_data/data_submission_accucor1.xlsx",
+            "data_submission_accucor2.xlsx": "DataRepo/example_data/data_submission_accucor2.xlsx",
+        }
+
+        # Test the validate_load_files function
+        vo = DataValidationView()
+        vo.validate_load_files(animal_sample_dict, accucor_dict)
+
+        # Get record counts for all models
+        tb_post_counts = self.get_record_counts(settings.TRACEBASE_DB)
+        vd_post_counts = self.get_record_counts(settings.VALIDATION_DB)
+
+        self.assertListEqual(tb_init_counts, tb_post_counts)
+        self.assertListEqual(vd_init_counts, vd_post_counts)
+
+    def test_compounds_load_in_both_dbs(self):
+        """
+        Test to ensure that compounds load in both databases by default
+        """
+        self.clear_database(settings.TRACEBASE_DB)
+        self.clear_database(settings.VALIDATION_DB)
+        call_command(
+            "load_compounds",
+            compounds="DataRepo/example_data/small_dataset/small_obob_compounds.tsv",
+        )
+        self.assertGreater(
+            Compound.objects.using(settings.TRACEBASE_DB).all().count(), 0
+        )
+        self.assertGreater(
+            CompoundSynonym.objects.using(settings.TRACEBASE_DB).all().count(), 0
+        )
+
+    def test_tissues_load_in_both_dbs(self):
+        """
+        Test to ensure that tissues load in both databases by default
+        """
+        self.clear_database(settings.TRACEBASE_DB)
+        self.clear_database(settings.VALIDATION_DB)
+        call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
+        self.assertGreater(Tissue.objects.using(settings.TRACEBASE_DB).all().count(), 0)
+
+    def test_only_tracebase_loaded(self):
+        """
+        Test to ensure that the validation database is never loaded with samples, animals, and accucor data by default
+        """
+        self.clear_database(settings.TRACEBASE_DB)
+        self.clear_database(settings.VALIDATION_DB)
+        self.initialize_databases()
+        tb_init_sum = self.sum_record_counts(settings.TRACEBASE_DB)
+        vd_init_sum = self.sum_record_counts(settings.VALIDATION_DB)
+        call_command(
+            "load_samples",
+            "DataRepo/example_data/small_dataset/small_obob_sample_table.tsv",
+            sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
+        )
+        call_command(
+            "load_accucor_msruns",
+            protocol="Default",
+            accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf.xlsx",
+            date="2021-06-03",
+            researcher="Michael Neinast",
+            new_researcher=True,
+        )
+        tb_post_sum = self.sum_record_counts(settings.TRACEBASE_DB)
+        vd_post_sum = self.sum_record_counts(settings.VALIDATION_DB)
+        self.assertGreater(tb_post_sum, tb_init_sum)
+        self.assertEqual(vd_post_sum, vd_init_sum)
+
+    @override_settings(VALIDATION_ENABLED=False)
+    def test_validate_view_disabled_redirect(self):
+        """
+        Do a simple validation view test when validation is disabled
+        """
+        response = self.client.get(reverse("validate"))
+        self.assertEqual(
+            response.status_code, 302, msg="Make sure the view is redirected"
+        )
+
+    @override_settings(VALIDATION_ENABLED=False)
+    def test_validate_view_disabled_template(self):
+        """
+        Do a simple validation view test when validation is disabled
+        """
+        response = self.client.get(reverse("validate"), follow=True)
+        self.assertTemplateUsed(response, "validation_disabled.html")

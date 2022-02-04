@@ -1,12 +1,13 @@
 from django.core.management import CommandError, call_command
-from django.test import TestCase, tag
+from django.test import tag
 
 from DataRepo.models import Compound
+from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
 @tag("compounds")
 @tag("loading")
-class CompoundLoadingTests(TestCase):
+class CompoundLoadingTests(TracebaseTestCase):
     """Tests Loading of Compounds"""
 
     @classmethod

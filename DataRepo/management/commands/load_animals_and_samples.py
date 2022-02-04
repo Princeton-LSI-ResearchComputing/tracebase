@@ -63,6 +63,21 @@ class Command(BaseCommand):
             # This issues a "debug-only" error, to abort the transaction
             help="Debug mode. Will not change the database.",
         )
+        # Used internally by the DataValidationView
+        parser.add_argument(
+            "--validate",
+            required=False,
+            action="store_true",
+            default=False,
+            help=argparse.SUPPRESS,
+        )
+        # Used internally to load necessary data into the validation database
+        parser.add_argument(
+            "--database",
+            required=False,
+            type=str,
+            help=argparse.SUPPRESS,
+        )
 
     def handle(self, *args, **options):
 
@@ -111,7 +126,11 @@ class Command(BaseCommand):
         self.stdout.write(
             self.style.MIGRATE_HEADING("Importing animals and samples...")
         )
-        loader = SampleTableLoader(sample_table_headers=headers)
+        loader = SampleTableLoader(
+            sample_table_headers=headers,
+            database=options["database"],
+            validate=options["validate"],
+        )
         loader.load_sample_table(
             merged.to_dict("records"),
             options["skip_researcher_check"],

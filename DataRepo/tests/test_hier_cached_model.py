@@ -1,5 +1,4 @@
 from django.core.management import call_command
-from django.test import TestCase
 
 from DataRepo.hier_cached_model import (
     delete_all_caches,
@@ -14,6 +13,7 @@ from DataRepo.hier_cached_model import (
 )
 from DataRepo.management.commands.build_caches import cached_function_call
 from DataRepo.models import Animal, MSRun, PeakGroup, Sample
+from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
 def load_data():
@@ -54,9 +54,7 @@ def load_minimum_data():
     )
 
 
-class GlobalCacheTests(TestCase):
-    maxDiff = None
-
+class GlobalCacheTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
         load_data()
@@ -265,9 +263,7 @@ class GlobalCacheTests(TestCase):
         )
 
 
-class HierCachedModelTests(TestCase):
-    maxDiff = None
-
+class HierCachedModelTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
         load_data()
@@ -562,9 +558,7 @@ class HierCachedModelTests(TestCase):
         )
 
 
-class BuildCachesTests(TestCase):
-    maxDiff = None
-
+class BuildCachesTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
         load_minimum_data()

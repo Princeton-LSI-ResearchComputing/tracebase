@@ -43,6 +43,21 @@ class Command(BaseCommand):
                 f"SCHEMA {self.schema_path}"
             ),
         )
+        # Used internally by the DataValidationView
+        parser.add_argument(
+            "--validate",
+            required=False,
+            action="store_true",
+            default=False,
+            help=argparse.SUPPRESS,
+        )
+        # Used internally to load necessary data into the validation database
+        parser.add_argument(
+            "--database",
+            required=False,
+            type=str,
+            help=argparse.SUPPRESS,
+        )
 
     def handle(self, *args, **options):
 
@@ -65,14 +80,24 @@ class Command(BaseCommand):
             self.stdout.write(
                 self.style.MIGRATE_HEADING(f"Loading compounds from {compounds_file}")
             )
-            call_command("load_compounds", compounds=compounds_file)
+            call_command(
+                "load_compounds",
+                compounds=compounds_file,
+                database=options["database"],
+                validate=options["validate"],
+            )
 
         if "tissues" in study_params:
             tissues_file = os.path.join(study_dir, study_params["tissues"])
             self.stdout.write(
                 self.style.MIGRATE_HEADING(f"Loading tissues from {tissues_file}")
             )
-            call_command("load_tissues", tissues=tissues_file)
+            call_command(
+                "load_tissues",
+                tissues=tissues_file,
+                database=options["database"],
+                validate=options["validate"],
+            )
 
         if "animals_samples_treatments" in study_params:
             # Read in animals and samples file
@@ -98,6 +123,7 @@ class Command(BaseCommand):
                 animal_and_sample_table_filename=animals_samples_table_file,
                 table_headers=headers_file,
                 skip_researcher_check=skip_researcher_check,
+                database=options["database"],
             )
 
         if "accucor_data" in study_params:
@@ -146,6 +172,8 @@ class Command(BaseCommand):
                     new_researcher=new_researcher,
                     skip_samples=skip_samples,
                     sample_name_prefix=sample_name_prefix,
+                    database=options["database"],
+                    validate=options["validate"],
                 )
 
         self.stdout.write(self.style.SUCCESS("Done loading study"))

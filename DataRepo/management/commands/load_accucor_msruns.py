@@ -66,6 +66,7 @@ class Command(BaseCommand):
             action="store_true",
             default=False,
             # This issues a "debug-only" error, to abort the transaction
+            # TODO: This DOES change the database. See comments on issue #345
             help="Debug mode. Will not change the database.",
         )
         # optional new researcher argument (circumvents existing researcher check)
@@ -73,6 +74,21 @@ class Command(BaseCommand):
             "--new-researcher",
             action="store_true",
             default=False,
+            help=argparse.SUPPRESS,
+        )
+        # Used internally by the DataValidationView
+        parser.add_argument(
+            "--validate",
+            required=False,
+            action="store_true",
+            default=False,
+            help=argparse.SUPPRESS,
+        )
+        # Used internally to load necessary data into the validation database
+        parser.add_argument(
+            "--database",
+            required=False,
+            type=str,
             help=argparse.SUPPRESS,
         )
 
@@ -99,6 +115,8 @@ class Command(BaseCommand):
             sample_name_prefix=options["sample_name_prefix"],
             debug=options["debug"],
             new_researcher=options["new_researcher"],
+            database=options["database"],
+            validate=options["validate"],
         )
 
         loader.load_accucor_data()
@@ -133,11 +151,8 @@ class Command(BaseCommand):
         ).iloc[0]
         if self.headers_are_not_unique(corr_heads):
             raise ValidationError(
-                "Column headers in Corrected data sheet are not unique. There are "
-                + str(self.num_heads)
-                + " columns and "
-                + str(self.num_uniq_heads)
-                + " unique values"
+                f"Column headers in Corrected data sheet are not unique. There are {self.num_heads} columns and "
+                f"{self.num_uniq_heads} unique values"
             )
 
         # get the first 2 sheets as the original and corrected data
@@ -159,11 +174,8 @@ class Command(BaseCommand):
         ).iloc[0]
         if self.headers_are_not_unique(corr_heads):
             raise ValidationError(
-                "Column headers in Corrected data sheet are not unique. There are "
-                + str(self.num_heads)
-                + " columns and "
-                + str(self.num_uniq_heads)
-                + " unique values"
+                f"Column headers in Corrected data sheet are not unique. There are {self.num_heads} columns and "
+                f"{self.num_uniq_heads} unique values"
             )
 
         self.original = None

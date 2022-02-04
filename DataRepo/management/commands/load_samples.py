@@ -30,18 +30,39 @@ class Command(BaseCommand):
             default=False,
             help=argparse.SUPPRESS,
         )
+        # Used internally by the DataValidationView
+        parser.add_argument(
+            "--validate",
+            required=False,
+            action="store_true",
+            default=False,
+            help=argparse.SUPPRESS,
+        )
+        # Used internally to load necessary data into the validation database
+        parser.add_argument(
+            "--database",
+            required=False,
+            type=str,
+            help=argparse.SUPPRESS,
+        )
 
     def handle(self, *args, **options):
         print("Reading header definition")
         if options["sample_table_headers"]:
             with open(options["sample_table_headers"]) as headers_file:
                 header_def = yaml.safe_load(headers_file)
-                headers = SampleTableLoader.SampleTableHeaders(**header_def)
+                headers = SampleTableLoader.SampleTableHeaders(
+                    **header_def,
+                )
         else:
             headers = SampleTableLoader.DefaultSampleTableHeaders
         print(f"{headers}")
         print("Loading sample table")
-        loader = SampleTableLoader(sample_table_headers=headers)
+        loader = SampleTableLoader(
+            sample_table_headers=headers,
+            database=options["database"],
+            validate=options["validate"],
+        )
         loader.load_sample_table(
             DictReader(
                 open(options["sample_table_filename"]),

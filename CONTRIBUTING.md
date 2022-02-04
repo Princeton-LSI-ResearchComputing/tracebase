@@ -48,8 +48,16 @@ located.  Open it in a text editor and make sure these settings are uncommented
 
 Manually create the tracebase database (`tracebase`) in postgres:
 
-    psql -U postgres
-    > CREATE DATABASE tracebase;
+    createdb -U postgres tracebase
+
+Optional: Manually create the validation database (`tracebase_validation`) in
+postgres (to allow users to validate their load file submissions):
+
+    createdb -U postgres tracebase_validation
+
+Note that subsequent commands in this doc that reference tracebase_validation
+or `--database validation` are conditionally required based on your election to
+perform the step above.
 
 Create a tracebase postgres user:
 
@@ -107,15 +115,18 @@ Copy the TraceBase environment example:
 Update the .env file to reflect the new secret key and the database credentials
 you used when setting up Postgres.
 
-Set up the project's postgres database:
+Set up the project's postgres databases:
 
     python manage.py migrate
     python manage.py createcachetable
 
+    python manage.py migrate --database validation
+    python manage.py createcachetable --database validation
+
 ### (Optional) Load Some Example Data
 
     python manage.py load_compounds --compounds DataRepo/example_data/consolidated_tracebase_compound_list.tsv
-    python manage.py load_tissues DataRepo/example_data/tissues/tissues.yaml
+    python manage.py load_study DataRepo/example_data/tissues/tissues.yaml
     python manage.py load_animals_and_samples --animal-and-sample-table-filename DataRepo/example_data/small_dataset/small_obob_animal_and_sample_table.xlsx --table-headers DataRepo/example_data/sample_and_animal_tables_headers.yaml
     python manage.py load_animals_and_samples --sample-table-filename DataRepo/example_data/obob_samples_table.tsv --animal-table-filename DataRepo/example_data/obob_animals_table.tsv --table-headers DataRepo/example_data/sample_and_animal_tables_headers.yaml
     python manage.py load_accucor_msruns --protocol Default --accucor-file DataRepo/example_data/obob_maven_6eaas_inf.xlsx --date 2021-04-29 --researcher "Anon" --new-researcher
@@ -125,6 +136,10 @@ Set up the project's postgres database:
 Make sure the project's postgres database is current:
 
     python manage.py migrate
+    python manage.py migrate --database validation
+
+Note that the the default migrations must be done in order to migrate the
+validation database.
 
 Verify you can run the development server.  Run:
 

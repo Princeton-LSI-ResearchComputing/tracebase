@@ -5,6 +5,7 @@ import pandas as pd
 from chempy import Substance
 from chempy.util.periodic import atomic_number
 from django.apps import apps
+from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
@@ -117,7 +118,7 @@ def get_all_fields_named(target_field):
     return found_fields
 
 
-def get_researchers():
+def get_researchers(database=settings.TRACEBASE_DB):
     """
     Get a list of distinct researcher names that is the union of values in researcher fields from any model
     """
@@ -129,7 +130,8 @@ def get_researchers():
         model = field_info[0]
         researchers += list(
             map(
-                lambda x: x[target_field], model.objects.values(target_field).distinct()
+                lambda x: x[target_field],
+                model.objects.using(database).values(target_field).distinct(),
             )
         )
     unique_researchers = list(pd.unique(researchers))
@@ -209,7 +211,11 @@ class Protocol(models.Model):
 
     @classmethod
     def retrieve_or_create_protocol(
-        cls, protocol_input, category=None, provisional_description=None
+        cls,
+        protocol_input,
+        category=None,
+        provisional_description=None,
+        database=settings.TRACEBASE_DB,
     ):
         """
         retrieve or create a protocol, based on input.
@@ -219,11 +225,11 @@ class Protocol(models.Model):
         created = False
 
         try:
-            protocol = Protocol.objects.get(id=protocol_input)
+            protocol = Protocol.objects.using(database).get(id=protocol_input)
         except ValueError:
             # protocol_input must not be an integer; try the name
             try:
-                protocol, created = Protocol.objects.get_or_create(
+                protocol, created = Protocol.objects.using(database).get_or_create(
                     name=protocol_input,
                     category=category,
                 )
@@ -231,8 +237,10 @@ class Protocol(models.Model):
                     # add the provisional description
                     if provisional_description is not None:
                         protocol.description = provisional_description
-                        protocol.full_clean()
-                        protocol.save()
+                        # full_clean cannot validate (e.g. uniqueness) using a non-default database
+                        if database == settings.DEFAULT_DB:
+                            protocol.full_clean()
+                        protocol.save(using=database)
 
             except Protocol.DoesNotExist as e:
                 raise Protocol.DoesNotExist(
@@ -289,12 +297,12 @@ class Compound(models.Model):
     def atom_count(self, atom):
         return atom_count_in_formula(self.formula, atom)
 
-    def get_or_create_synonym(self, synonym_name=None):
+    def get_or_create_synonym(self, synonym_name=None, database=settings.TRACEBASE_DB):
         if not synonym_name:
             synonym_name = self.name
-        (compound_synonym, created) = CompoundSynonym.objects.get_or_create(
-            name=synonym_name, compound_id=self.id
-        )
+        (compound_synonym, created) = CompoundSynonym.objects.using(
+            database
+        ).get_or_create(name=synonym_name, compound_id=self.id)
         return (compound_synonym, created)
 
     def save(self, *args, **kwargs):
@@ -309,7 +317,7 @@ class Compound(models.Model):
         (_secondary_synonym, created) = self.get_or_create_synonym(ucfirst_synonym)
 
     @classmethod
-    def compound_matching_name_or_synonym(cls, name):
+    def compound_matching_name_or_synonym(cls, name, database=settings.TRACEBASE_DB):
         """
         compound_matching_name_or_synonym is a class method that takes a string (name or
         synonym) and retrieves a distinct compound that matches it
@@ -319,9 +327,11 @@ class Compound(models.Model):
         """
 
         # find the distinct union of these queries
-        matching_compounds = cls.objects.filter(
-            Q(name__iexact=name) | Q(synonyms__name__iexact=name)
-        ).distinct()
+        matching_compounds = (
+            cls.objects.using(database)
+            .filter(Q(name__iexact=name) | Q(synonyms__name__iexact=name))
+            .distinct()
+        )
         if matching_compounds.count() > 1:
             raise ValidationError(
                 "compound_matching_name_or_synonym retrieved multiple "

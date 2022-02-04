@@ -1,3 +1,5 @@
+import argparse
+
 import pandas as pd
 from django.core.management import BaseCommand, CommandError
 
@@ -36,6 +38,21 @@ class Command(BaseCommand):
                 "but simply report back potential work or issues."
             ),
         )
+        # Used internally by the DataValidationView
+        parser.add_argument(
+            "--validate",
+            required=False,
+            action="store_true",
+            default=False,
+            help=argparse.SUPPRESS,
+        )
+        # Used internally to load necessary data into the validation database
+        parser.add_argument(
+            "--database",
+            required=False,
+            type=str,
+            help=argparse.SUPPRESS,
+        )
 
     def handle(self, *args, **options):
         action = "Loading"
@@ -49,6 +66,8 @@ class Command(BaseCommand):
         loader = CompoundsLoader(
             compounds_df=self.compounds_df,
             synonym_separator=options["synonym_separator"],
+            database=options["database"],
+            validate=options["validate"],
         )
 
         # Run validation
