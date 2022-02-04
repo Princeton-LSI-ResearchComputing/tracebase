@@ -269,7 +269,6 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
     q_exp = constructAdvancedQuery(qry)
     res = performQuery(q_exp, fmtkey, basv_metadata)
     root_group = basv_metadata.getRootGroup()
-    refilter = basv_metadata.shouldReFilter(qry)
 
     return render(
         request,
@@ -282,7 +281,6 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
             "debug": settings.DEBUG,
             "root_group": root_group,
             "mode": "search",
-            "refilter": refilter,
             "default_format": basv_metadata.default_format,
             "ncmp_choices": basv_metadata.getComparisonChoices(),
             "fld_types": basv_metadata.getFieldTypes(),
@@ -357,7 +355,6 @@ class AdvancedSearchView(MultiFormsView):
                 ncmp_choices=self.basv_metadata.getComparisonChoices(),
                 fld_types=self.basv_metadata.getFieldTypes(),
                 fld_choices=self.basv_metadata.getSearchFieldChoicesDict(),
-                refilter=False,
                 error="All fields are required",  # Unless hacked, this is the only thing that can go wrong
             )
         )
@@ -393,7 +390,6 @@ class AdvancedSearchView(MultiFormsView):
                 ncmp_choices=self.basv_metadata.getComparisonChoices(),
                 fld_types=self.basv_metadata.getFieldTypes(),
                 fld_choices=self.basv_metadata.getSearchFieldChoicesDict(),
-                refilter=self.basv_metadata.shouldReFilter(qry),
             )
         )
 
@@ -449,7 +445,6 @@ class AdvancedSearchView(MultiFormsView):
             context["res"] = performQuery(
                 q_exp, qry["selectedtemplate"], self.basv_metadata
             )
-            context["refilter"] = self.basv_metadata.shouldReFilter(qry)
 
 
 # Basis: https://stackoverflow.com/questions/29672477/django-export-current-queryset-to-csv-by-button-click-in-browser
@@ -476,9 +471,7 @@ class AdvancedSearchTSVView(FormView):
         dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
         res = {}
         return self.render_to_response(
-            self.get_context_data(
-                res=res, qry=qry, dt=dt_string, debug=settings.DEBUG, refilter=False
-            )
+            self.get_context_data(res=res, qry=qry, dt=dt_string, debug=settings.DEBUG)
         )
 
     def form_valid(self, form):
@@ -501,18 +494,14 @@ class AdvancedSearchTSVView(FormView):
             + ".tsv"
         )
 
-        refilter = False
         if isValidQryObjPopulated(qry):
             q_exp = constructAdvancedQuery(qry)
             res = performQuery(q_exp, qry["selectedtemplate"], self.basv_metadata)
-            refilter = self.basv_metadata.shouldReFilter(qry)
         else:
             res = getAllBrowseData(qry["selectedtemplate"], self.basv_metadata)
 
         response = self.render_to_response(
-            self.get_context_data(
-                res=res, qry=qry, dt=dt_string, debug=settings.DEBUG, refilter=refilter
-            )
+            self.get_context_data(res=res, qry=qry, dt=dt_string, debug=settings.DEBUG)
         )
         response["Content-Disposition"] = "attachment; filename={}".format(filename)
 
@@ -997,16 +986,6 @@ def rootToFormatInfo(rootInfo):
         val = val_name_sel
         name = val_name_sel
     return [val, name, sel]
-
-
-def manyToManyFilter(rootrec, mm_lookup, qry):
-    """
-    This method is called by queryFilter in templatetags/customtags.py.  It is designed to determine whether a
-    combination of separate records (one from the root table and the other from a .all query on a many-to-many related
-    table) should be included in the output table or not.
-    """
-    basv_metadata = BaseAdvancedSearchView()
-    return basv_metadata.isAMatch(rootrec, mm_lookup, qry)
 
 
 def getDownloadQryList():
