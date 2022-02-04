@@ -594,8 +594,8 @@ class AccuCorDataLoader:
                     )
 
             # Make sure that the sheets have the same number of sample columns
-            original_only = list(set(original_samples) - set(corrected_samples))
-            corrected_only = list(set(corrected_samples) - set(original_samples))
+            original_only = sorted(set(original_samples) - set(corrected_samples))
+            corrected_only = sorted(set(corrected_samples) - set(original_samples))
             err_msg = (
                 "Samples in the original and corrected sheets differ."
                 f"\nOriginal contains {len(orig_iter)} samples | Corrected contains {len(corr_iter)} samples"
