@@ -924,16 +924,6 @@ class ViewTests(TracebaseTestCase):
         res = basv_metadata.formatNameOrKeyToKey(fmt)
         self.assertEqual(res, "pgtemplate")
 
-    def test_validate_view(self):
-        """
-        Do a simple validation view test
-        """
-        response = self.client.get(reverse("validate"))
-        self.assertEqual(response.status_code, 200)
-        # Temporarily disable validation due to a bug
-        # self.assertTemplateUsed(response, "DataRepo/validate_submission.html")
-        self.assertTemplateUsed(response, "validation_disabled.html")
-
     def test_validate_files(self):
         """
         Do a file validation test
