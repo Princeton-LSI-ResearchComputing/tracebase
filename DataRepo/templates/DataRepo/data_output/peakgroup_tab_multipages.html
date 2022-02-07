@@ -1,0 +1,182 @@
+{% load customtags %}
+
+{% block content %}
+<table class="table table-hover table-striped table-bordered"
+id="derived_peakgroup"
+data-toggle="table"
+data-buttons-class="primary"
+data-buttons-align="left"
+data-filter-control="false"
+data-search="false"
+data-show-search-clear-button="false"
+data-show-multi-sort="true"
+data-show-columns="true"
+data-show-columns-toggle-all="true"
+data-show-fullscreen="false"
+>
+
+
+<colgroup span="8" class="identdata"></colgroup>
+<colgroup span="5" class="datadata"></colgroup>
+<colgroup span="12" class="metadata"></colgroup>
+
+<thead>
+    <tr>
+        <th data-valign="top" data-sortable="true" class="idgrp" data-visible="false" data-sorter="alphanum" data-field="Animal">Animal</th>
+        <th data-valign="top" data-sortable="true" class="idgrp" data-visible="true" data-sorter="alphanum" data-field="Sample" data-switchable="false">Sample</th>
+        <th data-valign="top" data-sortable="true" class="idgrp" data-visible="true" data-sorter="alphanum" data-field="Tissue">Tissue</th>
+        <th data-valign="top" data-sortable="true" class="idgrp" data-visible="false" data-sorter="alphanum" data-field="Peak_Group">Peak Group</th>
+        <th data-valign="top" data-sortable="true" class="idgrp" data-visible="true" data-sorter="alphanum" data-field="Measured_Compounds">Measured<br>Compound(s)</th>
+        <th data-valign="top" data-sortable="true" class="idgrp" data-visible="false" data-sorter="alphanum" data-field="Measured_Compound_Synonyms">Measured<br>Compound<br>Synonym(s)</th>
+        <th data-valign="top" data-sortable="true" class="idgrp" data-visible="true" data-sorter="alphanum" data-field="Labeled_Element_Count">Labeled<br>Element</th>
+        <th data-valign="top" data-sortable="true" class="idgrp" data-visible="false" data-sorter="alphanum" data-field="Peak_Group_Set_Filename">Peak Group Set Filename</th>
+
+        <th data-valign="top" data-sortable="true" data-visible="true" data-sorter="numericOnly" data-field="Total_Abundance" class="datagrp" data-switchable="false">Total<br>Abundance</th>
+        <th data-valign="top" data-sortable="true" data-visible="true" data-sorter="numericOnly" data-field="Enrichment_Fraction" class="datagrp">Enrichment<br>Fraction</th>
+        <th data-valign="top" data-sortable="true" data-visible="true" data-sorter="numericOnly" data-field="Enrichment_Abundance" class="datagrp">Enrichment<br>Abundance</th>
+        <th data-valign="top" data-sortable="true" data-visible="true" data-sorter="numericOnly" data-field="Normalized_Labeling" class="datagrp">Normalized<br>Labeling</th>
+
+
+        <th data-valign="top" data-sortable="true" class="metagrp" data-visible="false" data-sorter="alphanum" data-field="Formula">Formula</th>
+        <th data-valign="top" data-sortable="true" class="metagrp" data-visible="true" data-sorter="alphanum" data-field="Genotype">Genotype</th>
+        <th data-valign="top" data-sortable="true" class="metagrp" data-visible="false" data-sorter="alphanum" data-field="Sex">Sex</th>
+        <th data-valign="top" data-sortable="true" class="metagrp" data-visible="false" data-sorter="alphanum" data-field="Age">Age<br>(weeks)</th>
+        <th data-valign="top" data-sortable="true" class="metagrp" data-visible="false" data-sorter="numericOnly" data-field="Body_Weight">Body<br>Weight<br>(g)</th>
+        <th data-valign="top" data-sortable="true" class="metagrp" data-visible="true" data-sorter="alphanum" data-field="Feeding_Status">Feeding<br>Status</th>
+        <th data-valign="top" data-sortable="true" class="metagrp" data-visible="true" data-sorter="alphanum" data-field="Treatment">Treatment</th>
+        <th data-valign="top" data-sortable="true" class="metagrp" data-visible="false" data-sorter="alphanum" data-field="Diet">Diet</th>
+        <th data-valign="top" data-sortable="true" class="metagrp" data-visible="true" data-sorter="alphanum" data-field="Tracer_Compound" data-switchable="false">Tracer<br>Compound</th>
+        <th data-valign="top" data-sortable="true" class="metagrp" data-visible="false" data-sorter="numericOnly" data-field="Tracer_Infusion_Rate">Tracer<br>Infusion<br>Rate<br>(ul/min/g)</th>
+        <th data-valign="top" data-sortable="true" class="metagrp" data-visible="false" data-sorter="numericOnly" data-field="Tracer_Infusion_Concentration">Tracer<br>Infusion<br>Concentration<br>(mM)</th>
+        <th data-valign="top" data-sortable="true" class="metagrp" data-visible="true" data-sorter="alphanum" data-field="Studies">Studies</th>
+    </tr>
+</thead>
+
+{% if is_paginated %}
+<tbody>
+    {% for pg in page_obj %}
+        <tr>
+            <td><a href="{% url 'animal_detail' pg.animal_id %}">{{ pg.animal }}</a></td>
+            <td><a href="{% url 'sample_detail' pg.sample_id %}">{{ pg.sample }}</a></td>
+            <td><a href="{% url 'tissue_detail' pg.tissue_id %}">{{ pg.tissue }}</a></td>
+            <!-- Peak Group -->
+            <td>
+                <!-- Put displayed link text first for sorting -->
+                <div style="display:none;">{{ pg.peakgroup_name }}</div>
+                <a href="{% url 'peakgroup_detail' pg.peakgroup_id %}">
+                    {{ pg.peakgroup_name }}
+                </a>
+            </td>
+            <!-- Measured Compound(s) -->
+            <td>{{ pg.pg_id_name_list |obj_hyperlink:"pg_compound"}}</td>
+            <!-- Measured Compound Synonym(s) -->
+            <td>{{ pg.pg_id_synonyms_list |obj_hyperlink:"pg_comp_synonym"}}</td>
+             <!-- Labeled Element -->
+            <td>{{ pg.labeled_element }}</td>
+            <!-- Peak Group Set Filename -->
+            <td><a href="{% url 'peakgroupset_detail' pg.peakgroupset_id %}">{{ pg.accucor_filename }}</a></td>
+            
+            <!-- Total Abundance -->
+            <td class="text-end">
+                <p title="{{ pg.pg_total_abundance|floatformat:10 }}">{{ pg.pg_total_abundance|floatformat:1 }}</p>
+            </td>
+            
+            <!-- Enrichment Fraction -->
+             <td class="text-end">
+                <p title="{{ pg.pg_enrichment_fraction|floatformat:15 }}">{{ pg.pg_enrichment_fraction|floatformat:4}}</p>
+            </td>
+
+            <!-- Enrichment Abundance -->
+            <td class="text-end">
+                <p title="{{ pg.pg_enrichment_abundance|floatformat:10 }}">{{ pg.pg_enrichment_abundance|floatformat:4 }}</p>
+            </td>
+
+            <!-- Normalized Labeling -->
+            <td class="text-end">
+                <p title="{{ pg.pg_normalized_labeling|floatformat:15 }}">{{ pg.pg_normalized_labeling|floatformat:4 }}</p>
+            </td>
+
+            <!-- Formula -->
+            <td>
+                {{ pg.peakgroup_formula }}
+            </td>
+
+            <!-- Genotype -->
+            <td>
+                {{ pg.genotype }}
+            </td>
+
+            <!-- Sex -->
+            <td>
+                {{ pg.sex }}
+            </td>
+
+            <!-- Age (weeks) -->
+            <td class="text-end">
+                {{ pg.age |duration_iso_to_weeks }}
+            </td>
+
+            <!-- Feeding Status -->
+            <td>
+                {{ pg_comp_synonym.feeding_status }}
+            </td>
+
+            <!-- Treatment -->
+            <!--handle None value for treatement-->
+            <td>
+                {% if pg.treatment %}
+                    <a href="{% url 'protocol_detail' pg.treatment_id %}">{{ pg.treatment }}</a>
+                {% else %}
+                    None
+                {% endif %}
+            </td>
+
+            <!-- Diet -->
+            <td>
+                {{ pg.diet }}
+            </td>
+
+            <!-- Body Weight (g) -->
+            <td>
+                {{ pg.body_weight }}
+            </td>
+
+            <!-- Tracer Compound -->
+            <td>
+                {% if pd.tracer_compound_id %}
+                    <a href="{% url 'compound_detail' pd.tracer_compound_id %}">{{ pd.tracer }}</a>
+                {% else %}
+                    None
+                {% endif %}
+            </td>
+
+            <!-- Tracer Infusion Rate (ul/min/g) -->
+            <td class="text-end">
+                {{ pg.tracer_infusion_rate }}
+            </td>
+
+            <!-- Tracer Infusion Concentration (mM) -->
+            <td class="text-end">
+                {{ pg.tracer_infusion_concentration }}
+            </td>
+            <td>{{ pg.study_id_name_list |obj_hyperlink:"study" }}</td>
+        {% endfor %}
+</tbody>
+{% endif %}
+</table>
+
+
+{% endblock %}
+
+{% block js_extras %}
+<script>
+    var $table = $('#derived_peakgroup')
+
+    $.extend($.fn.bootstrapTable.columnDefaults, {
+        valign: "top"
+    });
+
+    $('#derived_peakgroup').bootstrapTable()
+</script>
+{% endblock %}
+      

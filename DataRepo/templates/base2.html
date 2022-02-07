@@ -1,0 +1,72 @@
+{% load static %}
+<!--use Bootstrap CSS and JS 5.0.2-->
+<!--https://getbootstrap.com/docs/5.0/getting-started/download/-->
+<!--use Bootstrap Table plugin 1.18.3-->
+<!--https://bootstrap-table.com/docs/getting-started/introduction/-->
+<!doctype html>
+<html lang="en-US">
+    <head>
+        <!-- Required meta tags -->
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- Bootstrap CSS -->
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet"
+            integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC"
+            crossorigin="anonymous">
+
+        <!--Font Awesome-->
+        <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.6.3/css/all.css"
+            integrity="sha384-UHRtZLI+pbxtHCWp1t77Bi1L4ZtiqrqD80Kn4Z8NTSRyMA2Fd33n5dQ8lWUE00s/"
+            crossorigin="anonymous">
+
+        <!-- Bootstrap Table CSS -->
+        <link rel="stylesheet" href="https://unpkg.com/bootstrap-table@1.18.3/dist/bootstrap-table.min.css">
+
+        <!-- Bootstrap Icons -->
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+
+         <!-- Custom styles for this template -->
+        <link href="{% static 'css/sidebar.css' %}" rel="stylesheet">
+        <link href="{% static 'css/extras.css' %}" rel="stylesheet">
+
+        {% block head_extras %}
+        {% endblock %}
+
+        <title>{% block title %}TraceBase{% endblock %}</title>
+    </head>
+
+    <body>
+
+        {% include 'navbar.html' %}
+
+        <div class="d-flex" id="wrapper">
+            {% include 'sidebar.html' %}
+            <div class="container-fluid" style="width: 90%">
+                {% block content %}
+                {% endblock %}
+
+                {% include 'pagination2.html' %}
+            </div>
+        </div>
+
+        <!-- jQuery JS -->
+        <script src="https://cdn.jsdelivr.net/npm/jquery/dist/jquery.min.js"></script>
+        <script src="https://unpkg.com/tableexport.jquery.plugin/tableExport.min.js"></script>
+
+        <!-- Bootstrap JS -->
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"
+            integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM"
+            crossorigin="anonymous">
+        </script>
+
+        <!-- Bootstrap Table JS -->
+        <script src="https://unpkg.com/bootstrap-table@1.18.3/dist/bootstrap-table.min.js"></script>
+        <script src="https://unpkg.com/bootstrap-table@1.18.3/dist/extensions/filter-control/bootstrap-table-filter-control.min.js"></script>
+        <script src="https://unpkg.com/bootstrap-table@1.18.3/dist/extensions/export/bootstrap-table-export.min.js"></script>
+
+    </body>
+
+    {% block js_extras %}
+    {% endblock %}
+</html>

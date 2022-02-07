@@ -66,6 +66,14 @@
 </div>
 <br>
 <div>
+    <br>
+    <h4>Test the output from Pandas DataFrames:</h4>
+    <h5><a href="{% url 'derived_peakgroup' %}?obj_type=animal&obj_id={{ animal.id }}&page=1">View Peak Group Data</a></h5>
+    <h5><a href="{% url 'derived_peakdata' %}?obj_type=animal&obj_id={{ animal.id }}&page=1">View Peak Data</a></h5>
+    <h5><a href="{% url 'derived_fcirc' %}?obj_type=animal&obj_id={{ animal.id }}">View Fcirc Data</a></h5>
+</div>
+<br>
+<div>
     <h5>Sample Data for the Animal:</h5>
     {% if df %}
     <table class="table table-sm table-hover table-bordered table-striped table-responsive" w-auto mw-100

@@ -1,0 +1,40 @@
+{% extends "base2.html" %}
+{% load customtags %}
+
+{% block title %}Derived Peakdata{% endblock %}
+
+<br>
+{% block content %}
+<h4>Peakdata for {{ obj_type }}: {{ obj_name }}</h4>
+<br>
+<!--p>Time before rendering the output table: {% now "Y-m-d H:i:s" %}</p-->
+<div>
+<h4>Data retrieval from database to Pandas DataFrame</h4>
+<h5>Starting time: {{ get_data_start_time }}</h5>
+<h5>Ending time: {{ get_data_end_time }}</h5>
+</div>
+
+{% if total_rows %}
+    {% if total_rows < 5000 %}
+        <h5>Total rows: {{ total_rows }} (
+            <a class="link-button" href="{% url 'derived_peakdata' %}?obj_type={{ obj_type }}&obj_id={{ obj_id }}">View All Rows in One Page</a>
+            &nbsp;
+            <a class="link-button" href="{% url 'derived_data_to_csv' %}?category=peakgroup&obj_type={{ obj_type }}&obj_id={{ obj_id }}">Download All Rows to csv File</a>)</h5> 
+    {% else %}
+        <h5>Total rows: {{ total_rows }} (
+         <a class="link-button" href="{% url 'derived_data_to_csv' %}?category=peakgroup&obj_type={{ obj_type }}&obj_id={{ obj_id }}">Download All Rows to csv File)</a></h5>
+    {% endif %}
+{% endif %}
+<br>
+
+
+{% if is_paginated %}
+<h4>View Data by Page:</h4>
+    {% if page_obj %}
+        {% include "DataRepo/data_output/peakdata_tab_multipages.html" %}
+    {% endif %}
+{% else %}
+    {% include "DataRepo/data_output/peakdata_tab_onepage.html" %}
+{% endif %}
+
+{% endblock %}

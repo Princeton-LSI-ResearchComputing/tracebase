@@ -37,6 +37,10 @@ from DataRepo.utils import MissingSamplesError
 from DataRepo.utils import QuerysetToPandasDataFrame as qs2df
 from DataRepo.utils import ResearcherError, leaderboard_data
 
+from DataRepo.models import atom_count_in_formula
+from django.http import HttpResponse
+from django.core.paginator import Paginator
+from django.core.cache import cache
 
 def home(request):
     """
@@ -1491,3 +1495,351 @@ class DataValidationView(FormView):
                 debug=True,
                 validate=True,
             )
+
+
+def derived_peakdata(request):
+    """
+    Function-based view for getting peakdata including calculated values in a 
+    Pandas DataFrame, then convert to format like object_list in ListView.
+    
+    Control pagination using Django Paginators 
+    """
+    get_data_start_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print("get_data_start_time:", get_data_start_time)
+
+    # get parameters from request
+    obj_type = request.GET.get("obj_type", None)
+    obj_id = request.GET.get("obj_id", None)
+    page_no = request.GET.get("page", None)
+
+    study_id = None
+    animal_id = None
+    obj_name = None
+    page_obj = None
+
+    if obj_type =="study":
+        if obj_id is not None:
+            study_id = int(obj_id)
+            obj_name = Study.objects.get(id = study_id).name
+            # get count for peakdata to determine if cache is needed
+            study_pd_count = PeakData.objects.filter(peak_group__msrun__sample__animal__studies=study_id).count()
+    elif obj_type =="animal":
+        if obj_id is not None:
+            animal_id = int(obj_id)
+            obj_name = Animal.objects.get(id = animal_id).name
+
+    if study_id is not None and animal_id is None:
+        if study_pd_count > 5000:
+            # get cache or create cache if not found
+            # ref: https://docs.djangoproject.com/en/3.2/topics/cache/
+            dpd_cache_key = "res_dpd_study" + str(study_id)
+            print("cache_key:", dpd_cache_key)
+            res_data = cache.get(dpd_cache_key)
+            if res_data is None:
+                # generate data and cache it: keep the cache for 10 min (600 seconds) for testing purpose
+                print("Note: generating new dpd data cache for study_id=", study_id)
+                dpd_df = qs2df().get_per_study_dpd_df(study_id)
+                # convert DataFrame to a list of dictionary
+                res_data = qs2df.df_to_list_of_dict(dpd_df)
+                cache.set(dpd_cache_key, res_data, 600)
+        else:
+            dpd_df = qs2df().get_per_study_dpd_df(study_id)
+            res_data = qs2df.df_to_list_of_dict(dpd_df)
+    elif study_id is None and animal_id is not None:
+        # no cache for data per animal
+        dpd_df = qs2df().get_per_animal_dpd_df(animal_id)
+        res_data = qs2df.df_to_list_of_dict(dpd_df)
+    # need to deal with other cases later
+    # may get error if animal has no MSRun
+    # else:
+    # res_data = None
+
+    get_data_end_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print("obj_name:", obj_name)
+    print("get_data_end_time:", get_data_end_time)
+
+    # total_rows
+    total_rows = len(res_data)
+    print("total rows:", total_rows)
+
+    """
+    add pagination:
+    https://docs.djangoproject.com/en/4.0/topics/pagination/#the-paginator-class
+    """
+    get_page_obj_start_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print("get_page_obj_start_time:", get_page_obj_start_time)
+    
+    # set parametes for Django's Paginator
+    if page_no is None:
+        is_paginated = False
+        page_obj = res_data
+    else:
+        object_list = res_data
+        is_paginated = True
+        # set max_items (max. rows displayed on a page)
+        max_page_items = 200
+        # num of items per page
+        if total_rows <= max_page_items:
+            items_per_page = max_page_items
+        else: 
+            items_per_page = 20
+            # creating a paginator object
+            p = Paginator(object_list, items_per_page)
+            page_obj = p.get_page(page_no)
+    
+    get_page_obj_end_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print("page_no:", page_no)
+    print("get_page_obj_end_time:", get_page_obj_end_time)
+
+    context = {
+        "get_data_start_time": get_data_start_time,
+        "get_data_end_time": get_data_end_time,
+        "obj_type": obj_type,
+        "obj_name": obj_name,
+        "obj_id": obj_id,
+        "total_rows": total_rows,
+        "is_paginated": is_paginated,
+        "page_obj": page_obj
+    }
+    
+    return render(request, "DataRepo/data_output/derived_peakdata.html", context)
+
+
+def derived_peakgroup(request):
+    """
+    Function-based view for getting peakgroup data including calculated values in a 
+    Pandas DataFrame, then convert to format like object_list in ListView
+    
+    Control pagination using Django Paginators
+    """
+    get_data_start_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print("get_data_start_time:", get_data_start_time)
+
+    # get parameters from request
+    obj_type = request.GET.get("obj_type", None)
+    obj_id = request.GET.get("obj_id", None)
+    page_no = request.GET.get("page", None)
+
+    study_id = None
+    animal_id = None
+    obj_name = None
+    page_obj = None
+
+    if obj_type =="study":
+        if obj_id is not None:
+            study_id = int(obj_id)
+            obj_name = Study.objects.get(id = study_id).name
+            # get count for peakdata to determine if cache is neeeded
+            study_pd_count = PeakData.objects.filter(peak_group__msrun__sample__animal__studies=study_id).count()
+    elif obj_type =="animal":
+        if obj_id is not None:
+            animal_id = int(obj_id)
+            obj_name = Animal.objects.get(id = animal_id).name
+
+    if study_id is not None and animal_id is None:
+        if study_pd_count > 5000:
+            # get cache or create cache if not found
+            # ref: https://docs.djangoproject.com/en/4.0/topics/cache/
+            dpg_cache_key = "res_dpg_study" + str(study_id)
+            print("cache_key:", dpg_cache_key)
+            res_data = cache.get(dpg_cache_key,)
+            if res_data is None:
+                # generate data and cache it: keep the cache for 10 min (600 seconds) for testing purpose
+                print("Note: generating new dpd data cache for study_id=", study_id)
+                dpg_df = qs2df().get_per_study_dpg_df(study_id)
+                # convert DataFrame to a list of dictionary
+                res_data = qs2df.df_to_list_of_dict(dpg_df)
+                cache.set(dpg_cache_key, res_data, 600)
+        else:
+            dpg_df = qs2df().get_per_study_dpg_df(study_id)
+            res_data = qs2df.df_to_list_of_dict(dpg_df)
+    elif study_id is None and animal_id is not None:
+        # no cache for data per animal
+        dpg_df = qs2df().get_per_animal_dpg_df(animal_id)
+        res_data = qs2df.df_to_list_of_dict(dpg_df)
+    # need to deal with other cases later
+    # may get error if animal has no MSRun
+    # else:
+    # res_data = None
+
+    get_data_end_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print("obj_name:", obj_name)
+    print("get_data_end_time:", get_data_end_time)
+
+    # total_rows
+    total_rows = len(res_data)
+    print("total rows:", total_rows)
+
+    """
+    add pagination:
+    https://docs.djangoproject.com/en/4.0/topics/pagination/#the-paginator-class
+    """
+    get_page_obj_start_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print("get_page_obj_start_time:", get_page_obj_start_time)
+    
+    # set parametes for Django's Paginator
+    if page_no is None:
+        is_paginated = False
+        page_obj = res_data
+    else:
+        object_list = res_data
+        is_paginated = True
+        # set max_items (max. rows displayed on a page)
+        max_page_items = 200
+        # num of items per page
+        if total_rows <= max_page_items:
+            items_per_page = max_page_items
+        else: 
+            items_per_page = 20
+            # creating a paginator object
+            p = Paginator(object_list, items_per_page)
+            page_obj = p.get_page(page_no)
+    
+    get_page_obj_end_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print("page_no:", page_no)
+    print("get_page_obj_end_time:", get_page_obj_end_time)
+
+    context = {
+        "get_data_start_time": get_data_start_time,
+        "get_data_end_time": get_data_end_time,
+        "obj_type": obj_type,
+        "obj_name": obj_name,
+        "obj_id": obj_id,
+        "total_rows": total_rows,
+        "is_paginated": is_paginated,
+        "page_obj": page_obj
+    }
+    
+    return render(request, "DataRepo/data_output/derived_peakgroup.html", context)
+
+
+def derived_fcirc(request):
+    """
+    Function-based view for getting fcirc including serum sample data in a
+    Pandas DataFrame, then convert to format like object_list in ListView
+    """
+    get_data_start_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print("get_data_start_time:", get_data_start_time)
+
+    # get parameters from request
+    obj_type = request.GET.get("obj_type", None)
+    obj_id = request.GET.get("obj_id", None)
+
+    study_id = None
+    animal_id = None
+    obj_name = None
+
+    if obj_type =="study":
+        if obj_id is not None:
+            study_id = int(obj_id)
+            obj_name = Study.objects.get(id = study_id).name
+    elif obj_type =="animal":
+        if obj_id is not None:
+            animal_id = int(obj_id)
+            obj_name = Animal.objects.get(id = animal_id).name
+
+    if study_id is not None and animal_id is None:
+        fcirc_df = qs2df().get_per_study_fcirc_df(study_id)
+        res_data = qs2df.df_to_list_of_dict(fcirc_df)
+    elif study_id is None and animal_id is not None:
+        # need to fix it later, but got to pass a list to make dataframe work
+        animal_id_list = Animal.objects.values_list('id', flat=True).filter(id=animal_id)
+        fcirc_df = qs2df().get_fcirc_df(animal_id_list)
+        res_data = qs2df.df_to_list_of_dict(fcirc_df)
+    else:
+        # need to deal with other cases later
+        res_data = None
+
+    get_data_end_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print("obj_name:", obj_name)
+    print("get_data_end_time:", get_data_end_time)
+
+    # total_rows
+    total_rows = len(res_data)
+    print("total rows:", total_rows)
+
+    context = {
+        "get_data_start_time": get_data_start_time,
+        "get_data_end_time": get_data_end_time,
+        "obj_type": obj_type,
+        "obj_name": obj_name,
+        "obj_id": obj_id,
+        "total_rows": total_rows,
+        "df": res_data
+    }
+    
+    return render(request, "DataRepo/data_output/derived_fcirc.html", context)
+
+
+def derived_data_to_csv(request):
+    """
+    export derived data to csv file
+    """
+    # get parameters from request
+    category=request.GET.get("category", None)
+    obj_type = request.GET.get("obj_type", None)
+    obj_id = request.GET.get("obj_id", None)
+
+    study_id = None
+    animal_id = None
+    obj_name = None
+
+    if obj_type =="study":
+        if obj_id is not None:
+            study_id = int(obj_id)
+            obj_name = Study.objects.get(id = study_id).name
+            # get count for peakdata to determine if cache is neeeded
+            study_pd_count = PeakData.objects.filter(peak_group__msrun__sample__animal__studies=study_id).count()
+    elif obj_type =="animal":
+        if obj_id is not None:
+            animal_id = int(obj_id)
+            obj_name = Animal.objects.get(id = animal_id).name
+
+    if category not in ["peakdata", "peakgroup"]:
+        raise TypeError ("Unknown type for derived data")
+    elif category == "peakdata":
+        if study_id is not None and animal_id is None:
+            # may consider create a cache key later
+            dpd_df = qs2df().get_per_study_dpd_df(study_id)
+        elif study_id is None and animal_id is not None:
+            dpd_df = qs2df().get_per_animal_dpd_df(animal_id)
+
+        dpd_download_columns = [
+            "animal", "sample", "tissue", "peakgroup_name", "peakgroup_formula",
+            "labeled_element", "labeled_count", "raw_abundance", "med_mz", "med_rt",
+            "corrected_abundance", "accucor_filename",
+            "msrun_date", "msrun_owner", "msrun_protocol",  "sample_owner", "sample_date",
+            "sample_time_collected",  "tracer","tracer_labeled_atom", "tracer_labeled_count",
+            "tracer_infusion_rate","tracer_infusion_concentration", "genotype", "body_weight", "age",
+            "sex", "diet", "feeding_status", "treatment",
+            "fraction","enrichment",  'studies'
+        ]
+        dpd_download_df = dpd_df[dpd_download_columns]
+        download_df = dpd_download_df.copy()
+    elif category == "peakgroup":
+        if study_id is not None and animal_id is None:
+            dpg_df = qs2df().get_per_study_dpg_df(study_id)
+        elif study_id is None and animal_id is not None:
+            dpg_df = qs2df().get_per_animal_dpg_df(animal_id)
+        dpg_download_columns = [
+            "animal", "sample", "tissue", "peakgroup_name", "peakgroup_formula",
+            "labeled_element", "pg_total_abundance", "pg_enrichment_fraction",
+            "pg_normalized_labeling", "afss_sample", "afss_sample_time_collected",
+            "afss_pg_enrichment_fraction","accucor_filename",  "msrun_date", "msrun_owner",
+            "msrun_protocol",  "sample_owner", "sample_date", "sample_time_collected",
+            "tracer","tracer_labeled_atom", "tracer_labeled_count",
+            "tracer_infusion_rate","tracer_infusion_concentration", "genotype", "body_weight", "age",
+            "sex", "diet", "feeding_status", "treatment","studies"
+        ]
+        dpg_download_df = dpg_df[dpg_download_columns]
+        download_df = dpg_download_df.copy()
+    get_data_end_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print("get_data_end_time:", get_data_end_time)
+
+    # get all rows
+    total_rows = download_df.shape[0]
+    print("Total rows: ", total_rows)
+    response = HttpResponse(content_type='text/csv')
+    response["Content-Disposition"] = "attachment; filename=export_data.csv"
+    download_df.to_csv(path_or_buf=response,sep=',',float_format='%.4f',index=False)
+    return response

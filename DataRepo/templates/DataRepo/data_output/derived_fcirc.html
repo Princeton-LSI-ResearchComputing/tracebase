@@ -1,0 +1,291 @@
+{% extends "base2.html" %}
+{% load customtags %}
+
+{% block title %}Fcirc data{% endblock %}
+
+<br>
+{% block content %}
+<h4>Fcirc Data for {{ obj_type }}: {{ obj_name }}</h4>
+<h4>Total rows: {{ total_rows }}</h4>
+<br>
+<!--p>Time before rendering the output table: {% now "Y-m-d H:i:s" %}</p-->
+<div>
+<h4>Data retrieval from database to Pandas DataFrame</h4>
+<h5>Starting time: {{ get_data_start_time }}</h5>
+<h5>Ending time: {{ get_data_end_time }}</h5>
+</div>
+
+    <div style="float: right; margin-right: 1rem;" class="buttons-toolbar"></div>
+    <div style="float: right; margin-right: 1rem;">
+        <small>
+            <table class="table table-highlighted-legend table-hover table-bordered">
+                <tr>
+                    <td><strong>Calculation Method</strong></td>
+                    <td><input type="checkbox" id="showaverage" checked/> Average</td>
+                    <td><input type="checkbox" id="showintact" checked/> Intact</td>
+                </tr>
+                <tr>
+                    <td><strong>Normalization Method</strong></td>
+                    <td><input type="checkbox" id="showweight" checked/> Per gram body-weight</td>
+                    <td><input type="checkbox" id="shownonorm" checked/> Per animal</td>
+                </tr>
+                <tr>
+                    <td><strong>Calculation Type</strong></td>
+                    <td><input type="checkbox" id="showrd" checked/> Rd (disappearance rate)</td>
+                    <td><input type="checkbox" id="showra" checked/> Ra (appearance rate)</td>
+                </tr>
+                <!--tr>
+                    <td><strong>Serum Samples (rows)</strong></td>
+                    <td><input type="checkbox" id="shownotlast" checked/> Previous</td>
+                    <td class="bg-highlighted"><input type="checkbox" id="showlast" checked/> Last</td>
+                </tr-->
+            </table>
+        </small>
+    </div>
+  
+    <table class="table table-highlighted table-hover table-bordered"
+        id="derived_fcirc"
+        data-toggle="table"
+        data-buttons-class="primary"
+        data-buttons-align="left"
+        data-filter-control="true"
+        data-search="true"
+        data-search-align="left"
+        data-show-search-clear-button="true"
+        data-show-fullscreen="true"
+        data-show-multi-sort="true"
+        data-show-columns="true"
+        data-show-columns-toggle-all="true"
+        data-show-export="true"
+        data-export-types="['csv', 'txt', 'excel']">
+
+        <thead>
+            <tr>
+                <th colspan="14" rowspan="2"></th>
+                <th colspan="4" class="average">Average</th>
+                <th colspan="4" class="intact">Intact</th>
+            </tr>
+            <tr>
+                <th colspan="2" data-valign="top" data-sortable="false" data-switchable="true" data-field="Weight_Normalized" class="average weight">Weight<br>Normalized<br>(nM/m/g)</th>
+                <th colspan="2" data-valign="top" data-sortable="false" data-switchable="true" data-field="Mouse_Normalized" class="average nonorm">Mouse<br>Normalized<br>(nM/m)</th>
+                <th colspan="2" data-valign="top" data-sortable="false" data-switchable="true" data-field="Weight_Normalized2" class="intact weight">Weight<br>Normalized<br>(nM/m/g)</th>
+                <th colspan="2" data-valign="top" data-sortable="false" data-switchable="true" data-field="Mouse_Normalized2" class="intact nonorm">Mouse<br>Normalized<br>(nM/m)</th>
+            </tr>
+            <tr>
+                <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-visible="true" data-field="Animal">Animal</th>
+                <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-visible="true" data-field="Studies">Studies</th>
+                <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-visible="true" data-field="Genotype">Genotype</th>
+                <th data-valign="top" data-sortable="true" data-sorter="numericOnly" data-visible="false" data-field="Body_Weight">Body<br>Weight<br>(g)</th>
+                <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-visible="false" data-field="Age">Age<br>(weeks)</th>
+                <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-visible="false" data-field="Sex">Sex</th>
+                <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-visible="false" data-field="Diet">Diet</th>
+                <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-visible="true" data-field="Feeding_Status">Feeding<br>Status</th>
+                <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-visible="true" data-field="Treatment">Treatment</th>
+                <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-visible="true" data-field="Tracer_Compound">Tracer<br>Compound</th>
+                <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-visible="false" data-field="Labeled_Element">Labeled<br>Element</th>
+                <th data-valign="top" data-sortable="true" data-sorter="numericOnly" data-visible="true" data-field="Tracer_Infusion_Rate">Tracer<br>Infusion<br>Rate<br>(ul/m/g)</th>
+                <th data-valign="top" data-sortable="true" data-sorter="numericOnly" data-visible="true" data-field="Tracer_Infusion_Concentration">Tracer Infusion<br>Concentration<br>(mM)</th>
+                <!--add columns for serum sample here-->
+                <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-visible="true" data-field="Serum_Sample">Serum<br>Sample</th>
+                <th data-valign="top" data-sortable="true" data-sorter="numericOnly" data-visible="true" data-field="MSRUN_ID">MSRun Detail</th>
+                <th data-valign="top" data-sortable="true" data-sorter="numericOnly" data-visible="true" data-field="Fraction">Fraction</th>
+                <th data-valign="top" data-sortable="true" data-sorter="numericOnly" data-visible="true" data-field="Enrichment_Fraction">Enrichment<br>Fraction</th>
+
+                <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-visible="true" data-field="Time_Collected">Time<br>Collected<br>(m)</th>
+                <th data-valign="top" data-sortable="true" data-sorter="numericOnly" data-visible="true" data-switchable="false" data-field="Average_Weight_Normalized_Ra" data-title-tooltip="Average_Weight_Normalized_Ra" class="average weight ra">Ra</th>
+                <th data-valign="top" data-sortable="true" data-sorter="numericOnly" data-visible="true" data-switchable="false" data-field="Average_Weight_Normalized_Rd" data-title-tooltip="Average_Weight_Normalized_Rd" class="average weight rd">Rd</th>
+                <th data-valign="top" data-sortable="true" data-sorter="numericOnly" data-visible="true" data-switchable="false" data-field="Average_Mouse_Normalized_Ra" data-title-tooltip="Average_Mouse_Normalized_Ra" class="average nonorm ra">Ra</th>
+                <th data-valign="top" data-sortable="true" data-sorter="numericOnly" data-visible="true" data-switchable="false" data-field="Average_Mouse_Normalized_Rd" data-title-tooltip="Average_Mouse_Normalized_Rd" class="average nonorm rd">Rd</th>
+                <th data-valign="top" data-sortable="true" data-sorter="numericOnly" data-visible="true" data-switchable="false" data-field="Intact_Weight_Normalized_Ra" data-title-tooltip="Intact_Weight_Normalized_Ra" class="intact weight ra">Ra</th>
+                <th data-valign="top" data-sortable="true" data-sorter="numericOnly" data-visible="true" data-switchable="false" data-field="Intact_Weight_Normalized_Rd" data-title-tooltip="Intact_Weight_Normalized_Rd" class="intact weight rd">Rd</th>
+                <th data-valign="top" data-sortable="true" data-sorter="numericOnly" data-visible="true" data-switchable="false" data-field="Intact_Mouse_Normalized_Ra" data-title-tooltip="Intact_Mouse_Normalized_Ra" class="intact nonorm ra">Ra</th>
+                <th data-valign="top" data-sortable="true" data-sorter="numericOnly" data-visible="true" data-switchable="false" data-field="Intact_Mouse_Normalized_Rd" data-title-tooltip="Intact_Mouse_Normalized_Rd" class="intact nonorm rd">Rd</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            {% for i in df %}
+                <!-- Animal -->
+                <td>
+                <!-- Put displayed link text first for sorting -->
+                <div style="display:none;">{{ i.animal }}</div>
+                    <a href="{% url 'animal_detail' i.animal_id %}">
+                            {{ i.animal }}
+                    </a>
+                </td>
+                <!-- Studies -->
+                <td>{{ i.study_id_name_list |obj_hyperlink:"study" }}</td>
+
+                <!-- Genotype -->
+                <td>{{ i.genotype }}</td>
+
+                <!-- Body Weight (g) -->
+                <td class="text-end">
+                    {{ i.body_weight }}
+                </td>
+
+                <!-- Age (weeks) -->
+                <td class="text-end">
+                    {{ i.age |duration_iso_to_weeks }}
+                </td>
+
+                <!-- Sex -->
+                <td>{{ i.sex }}</td>
+
+                <!-- Diet -->
+                <td>{{ i.diet }}</td>
+
+                <!-- Feeding Status -->
+                <td>{{ i.feeding_status }}</td>
+
+                <!-- Treatment -->
+                <!--handle None value for treatement-->
+                <td>
+                {% if pd.treatment %}
+                    <a href="{% url 'protocol_detail' i.treatment_id %}">{{ i.treatment }}</a>
+                {% else %}
+                    None
+                {% endif %}
+                </td>
+
+                <!-- Tracer Compound -->
+                <td>
+                    {% if pd.tracer_compound_id %}
+                        <a href="{% url 'compound_detail' i.tracer_compound_id %}">{{ i.tracer }}</a>
+                    {% else %}
+                        None
+                    {% endif %}
+                </td>
+                <!-- Labeled Element -->
+                <td>{{ i.tracer_labeled_atom }}</td>
+
+                <!-- Tracer Infusion Rate (ul/min/g) -->
+                <td class="text-end">
+                    {{ i.tracer_infusion_rate }}
+                </td>
+
+                <!-- Tracer Infusion Concentration (mM) -->
+                <td class="text-end">
+                    {{ i.tracer_infusion_concentration }}
+                </td>
+
+                <!--add serum sample columns here -->
+                <td> {% if i.sample_id %}
+                    <a href="{% url 'sample_detail' i.sample_id %}">{{ i.serum_sample }}</a></td>
+                    {% else %}
+                        None
+                    {% endif %}
+                <td>
+                    {% if i.msrun_id %}
+                        <a href="{% url 'msrun_detail' i.msrun_id %}">MSRun Detail</a>
+                    {% else %}
+                        None
+                    {% endif %}
+                </td>
+                <!-- Fraction -->
+                <td class="text-end">
+                    {% if i.fraction %}
+                    <p title="{{ i.fraction|floatformat:15 }}">{{ i.fraction|floatformat:4 }}</p>
+                    {% else %}
+                        None
+                    {% endif %}
+                </td>
+                <!-- Enrichment Fraction -->
+                <td class="text-end">
+                    {% if i.pg_enrichment_fraction %}
+                    <p title="{{ i.pg_enrichment_fraction|floatformat:15 }}">{{ i.pg_enrichment_fraction|floatformat:4 }}</p>
+                    {% else %}
+                        None
+                    {% endif %}
+                </td>
+
+                <!-- Time Collected (m) -->
+                <td>{{ i.sample_time_collected |duration_iso_to_mins }}</td>
+                
+                <!-- Average Ra (nM/m/g) -->
+                <td class="text-end average weight ra">
+                    {% if i.Ra_avg_g is None %}
+                        None
+                    {% else %}
+                        <p title="{{ i.Ra_avg_g |floatformat:10 }}">{{ i.Ra_avg_g |floatformat:2 }}</p>
+                    {% endif %}
+                </td>
+
+                <td class="text-end average weight ra">
+                    {% if i.Rd_avg_g is None %}
+                        None
+                    {% else %}
+                        <p title="{{ i.Rd_avg_g |floatformat:10 }}">{{ i.Rd_avg_g |floatformat:2 }}</p>
+                    {% endif %}
+                </td>
+
+                <!-- Average Ra (nM/m) -->
+                <td class="text-end average nonorm ra">
+                    {% if i.Ra_avg is None %}
+                        None
+                    {% else %}
+                        <p title="{{ i.Ra_avg|floatformat:10 }}">{{ i.Ra_avg|floatformat:2 }}</p>
+                    {% endif %}
+                </td>
+
+                <!-- Average Rd (nM/m) -->
+                <td class="text-end average nonorm rd">
+                    {% if i.Rd_avg is None %}
+                        None
+                    {% else %}
+                        <p title="{{ i.Rd_avg|floatformat:10 }}">{{ i.Rd_avg|floatformat:2 }}</p>
+                {% endif %}
+                </td>
+
+                <!-- Intact Ra (nM/m/g) -->
+                <td class="text-end intact weight ra">
+                    {% if i.Ra_intact_g is None %}
+                        None
+                    {% else %}
+                        <p title="{{ i.Ra_intact_g|floatformat:10 }}">{{ i.Ra_intact_g|floatformat:2 }}</p>
+                    {% endif %}
+                </td>
+
+                <!-- Intact Rd (nM/m/g) -->
+                <td class="text-end intact weight rd">
+                    {% if i.Rd_intact_g is None %}
+                        None
+                    {% else %}
+                        <p title="{{ i.Rd_intact_g|floatformat:10 }}">{{ i.Rd_intact_g|floatformat:2 }}</p>
+                    {% endif %}
+                </td>
+
+                <!-- Intact Ra (nM/m) -->
+                <td class="text-end intact nonorm ra">
+                    {% if i.Ra_intact is None %}
+                        None
+                    {% else %}
+                        <p title="{{ i.Ra_intact|floatformat:10 }}">{{ i.Ra_intact|floatformat:2 }}</p>
+                    {% endif %}
+                </td>
+
+                <!-- Intact Rd (nM/m) -->
+                <td class="text-end intact nonorm rd">
+                    {% if i.Rd_intact is None %}
+                        None
+                    {% else %}
+                        <p title="{{ i.Rd_intact|floatformat:10 }}">{{ i.Rd_intact|floatformat:2 }}</p>
+                    {% endif %}
+                </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}
+
+{% block js_extras %}
+    <script>
+        var $table = $('#derived_fcirc')
+
+        $.extend($.fn.bootstrapTable.columnDefaults, {
+            valign: "top"
+        });
+
+        $('#derived_fcirc').bootstrapTable()
+    </script>
+{% endblock %}
