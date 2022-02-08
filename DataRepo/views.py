@@ -6,7 +6,7 @@ from typing import List
 from django.conf import settings
 from django.core.management import call_command
 from django.db.models import Q
-from django.http import Http404
+from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.generic import DetailView, ListView
@@ -17,6 +17,7 @@ from DataRepo.forms import (
     AdvSearchDownloadForm,
     AdvSearchForm,
     DataSubmissionValidationForm,
+    AdvSearchPageForm,
 )
 from DataRepo.models import (
     Animal,
@@ -299,8 +300,19 @@ class AdvancedSearchView(MultiFormsView):
     # Base Advanced Search View
     basv_metadata = BaseAdvancedSearchView()
 
+    ##
+    ## The following forms each submit to this view
+    ##
+
     # Base Advanced Search Form
     basf = AdvSearchForm()
+
+    # Advanced Search Page Form
+    page_form = AdvSearchPageForm()
+
+    ##
+    ## This form submits to the AdvSearchDownloadView
+    ##
 
     # Advanced search download form
     download_form = AdvSearchDownloadForm()
@@ -335,6 +347,15 @@ class AdvancedSearchView(MultiFormsView):
 
         return context
 
+    def post(self, request, *args, **kwargs):
+        print("POST::",request.POST)
+        #### TODO: THIS NEEDS TO BE SUSTAINABLE, I.E. DO IT RIGHT.  SHOULD RELY ON THE POST IN MULTIFORMS.PY
+        if request.method == 'POST' and 'advanced-page-submit' in request.POST:
+            return self._process_individual_form("paging", {"paging": AdvSearchPageForm})
+
+        if request.method == 'POST' and 'advanced-search-submit' in request.POST:
+            return self._process_mixed_forms(self.form_classes)
+
     def form_invalid(self, formset):
         """
         Upon invalid advanced search form submission, rescues the query to add back to the context.
@@ -351,6 +372,10 @@ class AdvancedSearchView(MultiFormsView):
                 qry=qry,
                 debug=settings.DEBUG,
                 root_group=root_group,
+                page=1,
+                rows=10,
+                order_by="x",
+                order_dir="x",
                 default_format=self.basv_metadata.default_format,
                 ncmp_choices=self.basv_metadata.getComparisonChoices(),
                 fld_types=self.basv_metadata.getFieldTypes(),
@@ -367,11 +392,13 @@ class AdvancedSearchView(MultiFormsView):
         qry = formsetsToDict(formset, self.form_classes)
         res = {}
         download_form = {}
+        page_form = {}
 
         if isQryObjValid(qry, self.form_classes.keys()):
             download_form = AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
+            page_form = AdvSearchPageForm(initial={"qryjson": json.dumps(qry), "page": 1, "rows": 10, "order_by": "x", "order_direction": "x"})
             q_exp = constructAdvancedQuery(qry)
-            res = performQuery(q_exp, qry["selectedtemplate"], self.basv_metadata)
+            res = performQuery(q_exp, qry["selectedtemplate"], self.basv_metadata, limit=10, offset=0, order_by="x", order_direction="x")
         else:
             # Log a warning
             print("WARNING: Invalid query root:", qry)
@@ -384,14 +411,107 @@ class AdvancedSearchView(MultiFormsView):
                 forms=self.form_classes,
                 qry=qry,
                 download_form=download_form,
+                page_form=page_form,
                 debug=settings.DEBUG,
                 root_group=root_group,
+                page=1,
+                rows=10,
+                order_by="x",
+                order_dir="x",
                 default_format=self.basv_metadata.default_format,
                 ncmp_choices=self.basv_metadata.getComparisonChoices(),
                 fld_types=self.basv_metadata.getFieldTypes(),
                 fld_choices=self.basv_metadata.getSearchFieldChoicesDict(),
             )
         )
+
+    # Invalid form whose name is "paging" will call this from the post override in multiforms.py
+    def paging_form_invalid(self, formset):
+        """
+        Upon invalid advanced search form submission, rescues the query to add back to the context.
+        """
+
+        qry = {}
+
+        root_group = self.basv_metadata.getRootGroup()
+
+        return self.render_to_response(
+            self.get_context_data(
+                res={},
+                forms=self.form_classes,
+                qry=qry,
+                debug=settings.DEBUG,
+                root_group=root_group,
+                page=1,
+                rows=10,
+                order_by="x",
+                order_dir="x",
+                default_format=self.basv_metadata.default_format,
+                ncmp_choices=self.basv_metadata.getComparisonChoices(),
+                fld_types=self.basv_metadata.getFieldTypes(),
+                fld_choices=self.basv_metadata.getSearchFieldChoicesDict(),
+                error="All fields are required",  # Unless hacked, this is the only thing that can go wrong
+            )
+        )
+
+    # Valid form whose name is "paging" will call this from the post override in multiforms.py
+    def paging_form_valid(self, form):
+        cform = form.cleaned_data
+        print("paging_form_valid 1")
+
+        # Ensure valid query
+        try:
+            qry = json.loads(cform["qryjson"])
+            # Apparently this causes a TypeError exception in test_views. Could not figure out why, so...
+        except TypeError:
+            qry = cform["qryjson"]
+        print("paging_form_valid 2")
+
+        if not isQryObjValid(qry, self.basv_metadata.getFormatNames().keys()):
+            print("ERROR: Invalid qry object: ", qry)
+            raise Http404("Invalid json")
+        print("paging_form_valid 3")
+
+        page = int(cform["page"])
+        rows = int(cform["rows"])
+        order_by = cform["order_by"]
+        order_dir = cform["order_direction"]
+
+        offset = (page - 1) * rows
+        print("paging_form_valid 4")
+
+        if isValidQryObjPopulated(qry):
+            q_exp = constructAdvancedQuery(qry)
+            res = performQuery(q_exp, qry["selectedtemplate"], self.basv_metadata, limit=rows, offset=offset, order_by=order_by, order_direction=order_dir)
+        else:
+            res = getAllBrowseData(qry["selectedtemplate"], self.basv_metadata, limit=rows, offset=offset, order_by=order_by, order_direction=order_dir)
+        print("paging_form_valid 5")
+
+        root_group = self.basv_metadata.getRootGroup()
+        print("paging_form_valid 6")
+
+        response = self.render_to_response(
+            self.get_context_data(
+                res=res,
+                forms=self.form_classes,
+                qry=qry,
+                download_form=self.download_form,
+                page_form=self.page_form,
+                debug=settings.DEBUG,
+                root_group=root_group,
+                page=page,
+                rows=rows,
+                order_by=order_by,
+                order_dir=order_dir,
+                default_format=self.basv_metadata.default_format,
+                ncmp_choices=self.basv_metadata.getComparisonChoices(),
+                fld_types=self.basv_metadata.getFieldTypes(),
+                fld_choices=self.basv_metadata.getSearchFieldChoicesDict(),
+            )
+        )
+        print("paging_form_valid 7")
+
+        return response
 
     def addInitialContext(self, context):
         """
@@ -408,6 +528,7 @@ class AdvancedSearchView(MultiFormsView):
         context["fld_types"] = self.basv_metadata.getFieldTypes()
         context["fld_choices"] = self.basv_metadata.getSearchFieldChoicesDict()
 
+        # Initial search page with no results
         if "qry" not in context or (
             mode == "browse" and not isValidQryObjPopulated(context["qry"])
         ):
@@ -428,6 +549,15 @@ class AdvancedSearchView(MultiFormsView):
                 context["download_form"] = AdvSearchDownloadForm(
                     initial={"qryjson": json.dumps(qry)}
                 )
+                context["page_form"] = AdvSearchPageForm(
+                    initial={
+                        "qryjson": json.dumps(qry),
+                        "page": 1,
+                        "rows": 10,
+                        "order_by": "x",
+                        "order_direction": "x",
+                    }
+                )
                 context["res"] = getAllBrowseData(
                     qry["selectedtemplate"], self.basv_metadata
                 )
@@ -440,6 +570,15 @@ class AdvancedSearchView(MultiFormsView):
             qry = context["qry"]
             context["download_form"] = AdvSearchDownloadForm(
                 initial={"qryjson": json.dumps(qry)}
+            )
+            context["page_form"] = AdvSearchPageForm(
+                initial={
+                    "qryjson": json.dumps(qry),
+                    "page": 1,
+                    "rows": 10,
+                    "order_by": "x",
+                    "order_direction": "x",
+                }
             )
             q_exp = constructAdvancedQuery(qry)
             context["res"] = performQuery(
@@ -508,13 +647,78 @@ class AdvancedSearchTSVView(FormView):
         return response
 
 
-def getAllBrowseData(format, basv):
+class AdvancedSearchPageView(FormView):
+    """
+    This is the paginated view for the results of an advanced search.
+    """
+
+    form_class = AdvSearchDownloadForm()
+    template_name = "DataRepo/search/results/display.html"
+    success_url = ""
+    basv_metadata = BaseAdvancedSearchView()
+    page_form = AdvSearchPageForm()
+
+    def form_invalid(self, form):
+        saved_form = form.saved_data
+        qry = {}
+        if "qryjson" in saved_form:
+            # Discovered this can cause a KeyError during testing, so...
+            qry = json.loads(saved_form["qryjson"])
+        else:
+            print("ERROR: qryjson hidden input not in saved form.")
+        now = datetime.now()
+        dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
+        res = {}
+        return self.render_to_response(
+            self.get_context_data(res=res, qry=qry, dt=dt_string, debug=settings.DEBUG)
+        )
+
+    def form_valid(self, form):
+        cform = form.cleaned_data
+
+        # Ensure valid query
+        try:
+            qry = json.loads(cform["qryjson"])
+            # Apparently this causes a TypeError exception in test_views. Could not figure out why, so...
+        except TypeError:
+            qry = cform["qryjson"]
+
+        if not isQryObjValid(qry, self.basv_metadata.getFormatNames().keys()):
+            print("ERROR: Invalid qry object: ", qry)
+            raise Http404("Invalid json")
+
+        page = int(cform["page"])
+        rows = int(cform["rows"])
+        order_by = cform["order_by"]
+        order_dir = cform["order_direction"]
+
+        offset = (page - 1) * rows
+
+        if isValidQryObjPopulated(qry):
+            q_exp = constructAdvancedQuery(qry)
+            res = performQuery(q_exp, qry["selectedtemplate"], self.basv_metadata, limit=rows, offset=offset, order_by=order_by, order_direction=order_dir)
+        else:
+            res = getAllBrowseData(qry["selectedtemplate"], self.basv_metadata, limit=rows, offset=offset, order_by=order_by, order_direction=order_dir)
+
+        response = self.render_to_response(
+            self.get_context_data(res=res, qry=qry, debug=settings.DEBUG)
+        )
+
+        return response
+
+
+def getAllBrowseData(format, basv, limit=None, offset=0, order_by=None, order_direction=None):
     """
     Grabs all data without a filtering match for browsing.
     """
 
+    start_index = offset
     if format in basv.getFormatNames().keys():
-        res = basv.getRootQuerySet(format).all()
+        if limit is None:
+            res = basv.getRootQuerySet(format).all()[start_index:]
+        else:
+            end_index = offset + limit
+            res = basv.getRootQuerySet(format).all()[start_index:end_index]
     else:
         # Log a warning
         print("WARNING: Unknown format: " + format)
@@ -673,13 +877,18 @@ def getJoinedRecFieldValue(recs, basv_metadata, fmt, mdl, dfld, sfld, sval):
     return dval
 
 
-def performQuery(q_exp, fmt, basv):
+def performQuery(q_exp, fmt, basv, limit=None, offset=0, order_by=None, order_direction=None):
     """
     Executes an advanced search query.
     """
+    start_index = offset
     res = {}
     if fmt in basv.getFormatNames().keys():
-        res = basv.getRootQuerySet(fmt).filter(q_exp).distinct()
+        if limit is None:
+            res = basv.getRootQuerySet(fmt).filter(q_exp).distinct()[start_index:]
+        else:
+            end_index = offset + limit
+            res = basv.getRootQuerySet(fmt).filter(q_exp).distinct()[start_index:end_index]
     else:
         # Log a warning
         print("WARNING: Invalid selected format:", fmt)
@@ -855,6 +1064,8 @@ def formsetToDict(rawformset, form_classes):
             form = rawform.saved_data
         else:
             form = rawform
+
+        print(form)
 
         path = form["pos"].split(".")
 

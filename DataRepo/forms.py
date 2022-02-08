@@ -145,6 +145,23 @@ class AdvSearchDownloadForm(forms.Form):
         return self.cleaned_data
 
 
+class AdvSearchPageForm(forms.Form):
+    """
+    Advanced search download form for any advanced search data.
+    """
+
+    qryjson = forms.JSONField(widget=forms.HiddenInput())
+    rows = forms.CharField(widget=forms.HiddenInput())
+    page = forms.CharField(widget=forms.HiddenInput())
+    order_by = forms.CharField(widget=forms.HiddenInput())
+    order_direction = forms.CharField(widget=forms.HiddenInput())
+
+    def clean(self):
+        """This override of super.clean is so we can reconstruct the search inputs upon form_invalid in views.py"""
+        self.saved_data = self.cleaned_data
+        return self.cleaned_data
+
+
 class DataSubmissionValidationForm(forms.Form):
     """
     Form for users to validate their Animal and Sample Table with Accucor files

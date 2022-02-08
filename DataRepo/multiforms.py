@@ -68,8 +68,11 @@ class MultiFormMixin(ContextMixin):
         num_valid_calls = 0
         for form_name in forms.keys():
             form_valid_method = "%s_form_valid" % form_name
+            print("CALLING",form_valid_method)
             if hasattr(self, form_valid_method):
-                getattr(self, form_valid_method)(forms[form_name])
+                #### TODO: THIS NEEDS TO BE SUSTAINABLE, I.E. DO IT RIGHT.  PROB SHOULD RETURN USING SUCCESS URL
+                #### Added return here just for proof of concept
+                return getattr(self, form_valid_method)(forms[form_name])
                 num_valid_calls += 1
         if self._mixed_exists() and num_valid_calls == 0:
             return self.form_valid(forms)
@@ -155,6 +158,8 @@ class ProcessMultipleFormsView(ProcessFormView):
         elif self._group_exists(form_name) and not self._mixed_exists():
             return self._process_grouped_forms(form_name, form_classes)
         elif self._mixed_exists():
+            print("FORM NAME: ", form_name)
+            print("FORM CLASSES: ", form_classes)
             return self._process_mixed_forms(form_classes)
         else:
             return self._process_all_forms(form_classes)
@@ -171,7 +176,7 @@ class ProcessMultipleFormsView(ProcessFormView):
         if not form:
             return HttpResponseForbidden()
         elif form.is_valid():
-            return self.forms_valid(forms, form_name)
+            return self.forms_valid(forms)
         else:
             return self.forms_invalid(forms)
 
