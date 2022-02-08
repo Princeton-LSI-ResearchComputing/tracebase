@@ -151,8 +151,19 @@ class AdvSearchPageForm(forms.Form):
     """
 
     qryjson = forms.JSONField(widget=forms.HiddenInput())
-    rows = forms.CharField(widget=forms.HiddenInput())
-    page = forms.CharField(widget=forms.HiddenInput())
+    rows = forms.ChoiceField(
+        choices=(
+            ('10', '10'),
+            ('25', '25'),
+            ('50', '50'),
+            ('100', '100'),
+            ('200', '200'),
+            ('500', '500'),
+            ('1000', '1000'),
+        ),
+        widget=forms.Select(attrs={'id':'pager-rows-elem'}),
+    )
+    page = forms.CharField(widget=forms.HiddenInput(attrs={'id':'pager-page-elem'}))
     order_by = forms.CharField(widget=forms.HiddenInput())
     order_direction = forms.CharField(widget=forms.HiddenInput())
 
