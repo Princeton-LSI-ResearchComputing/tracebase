@@ -396,7 +396,7 @@ class AdvancedSearchView(MultiFormsView):
 
         if isQryObjValid(qry, self.form_classes.keys()):
             download_form = AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
-            page_form = AdvSearchPageForm(initial={"qryjson": json.dumps(qry), "page": 1, "rows": 10, "order_by": "x", "order_direction": "x"})
+            page_form = AdvSearchPageForm(initial={"qryjson": json.dumps(qry), "page": 2, "rows": 10, "order_by": "x", "order_direction": "x"})
             q_exp = constructAdvancedQuery(qry)
             res = performQuery(q_exp, qry["selectedtemplate"], self.basv_metadata, limit=10, offset=0, order_by="x", order_direction="x")
         else:
@@ -552,7 +552,7 @@ class AdvancedSearchView(MultiFormsView):
                 context["page_form"] = AdvSearchPageForm(
                     initial={
                         "qryjson": json.dumps(qry),
-                        "page": 1,
+                        "page": 2,
                         "rows": 10,
                         "order_by": "x",
                         "order_direction": "x",
@@ -574,7 +574,7 @@ class AdvancedSearchView(MultiFormsView):
             context["page_form"] = AdvSearchPageForm(
                 initial={
                     "qryjson": json.dumps(qry),
-                    "page": 1,
+                    "page": 2,
                     "rows": 10,
                     "order_by": "x",
                     "order_direction": "x",
