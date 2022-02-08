@@ -88,7 +88,7 @@ def get_all_models():
     """
     Retrieves all models (that were explicitly defined, i.e. no hidden related models) from DataRepo and returns them
     as a list ordered in a way that they can all have their contents deleted without running afould of "restrict"
-    constrains
+    constraints
     """
     mdls = list(apps.get_app_config("DataRepo").get_models())
     mdls.reverse()
