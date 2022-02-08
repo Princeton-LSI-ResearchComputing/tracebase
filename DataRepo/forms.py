@@ -161,7 +161,8 @@ class AdvSearchPageForm(forms.Form):
             ('500', '500'),
             ('1000', '1000'),
         ),
-        widget=forms.Select(attrs={'id':'pager-rows-elem'}),
+        # TODO: Can probably get the caret in the button image using: https://stackoverflow.com/questions/45424162/listing-a-choicefield-in-django-as-button
+        widget=forms.Select(attrs={'id':'pager-rows-elem', 'class':"btn btn-primary dropdown-toggle", 'type':"button", 'data-bs-toggle':"dropdown"}),
     )
     page = forms.CharField(widget=forms.HiddenInput(attrs={'id':'pager-page-elem'}))
     order_by = forms.CharField(widget=forms.HiddenInput())

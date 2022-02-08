@@ -23,7 +23,6 @@
             var rowselem = document.getElementById("pager-rows-elem")
             rowselem.addEventListener("change", function (event) {
                 setPage(1)
-                {% comment %} alert("Submitting for page " + document.getElementById("pager-page-elem").value + " and rows " + event.target.value) {% endcomment %}
                 myform.submit();
             })
         })
@@ -35,25 +34,41 @@
         }
     </script>
 
-    {% if pager.tot > 0 %}
-        <form action="{{ pager.action }}" id="custom-paging" name="paging" method="POST">
-            {% csrf_token %}
-            {{ pager.page_form.qryjson }}
-            {{ pager.page_form.order_by }}
-            {{ pager.page_form.order_direction }}
-            {{ pager.page_form.page }}
-            <div style="float: left;">
-                Showing {{ pager.start }} to {{ pager.end }} of {{ pager.tot }} rows, {{ pager.page_form.rows }} rows per page
-            </div>
-            <div style="float: right;">
-                {% for pg in pager.pages %}
-                    {% if pg.navigable %}
-                        <button type="submit" class="btn btn-primary mb-2" id="advanced-page-submit" onclick="setPage({{ pg.val }})" name="{{ pager.submit_name }}">{{ pg.name }}</button>
-                    {% else %}
-                        {{ pg.name }}
-                    {% endif %}
-                {% endfor %}
-            </div>
-        </form>
+    {% if pager.tot > pager.rows %}
+        <div class="fixed-table-pagination" style="padding-top: 10px;">
+            <form action="{{ pager.action }}" id="custom-paging" name="paging" method="POST">
+                {% csrf_token %}
+                {{ pager.page_form.qryjson }}
+                {{ pager.page_form.order_by }}
+                {{ pager.page_form.order_direction }}
+                {{ pager.page_form.page }}
+                <div style="float: left;">
+                    Showing {{ pager.start }} to {{ pager.end }} of {{ pager.tot }} rows, {{ pager.page_form.rows }} rows per page
+                </div>
+                <div style="float: right;">
+                    <nav aria-label="Page navigation">
+                        <ul class="pagination">
+                            {% for pg in pager.pages %}
+                                {% if pg.navigable %}
+                                    <li class="page-item">
+                                        <button type="submit" class="page-link" id="advanced-page-submit" onclick="setPage({{ pg.val }})" name="{{ pager.submit_name }}">{{ pg.name }}</button>
+                                    </li>
+                                {% else %}
+                                    {% if pg.val == pager.page %}
+                                        <li class="page-item active">
+                                            <a class="page-link" href="#">{{ pg.name }} <span class="sr-only">(current)</span></a>
+                                        </li>
+                                    {% else %}
+                                        <li class="page-item disabled">
+                                            <a class="page-link" href="#">{{ pg.name }}</a>
+                                        </li>
+                                    {% endif %}
+                                {% endif %}
+                            {% endfor %}
+                        </ul>
+                    </nav>
+                </div>
+            </form>
+        </div>
     {% endif %}
 {% endif %}
