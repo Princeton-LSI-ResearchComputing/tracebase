@@ -65,30 +65,51 @@ class MultiFormMixin(ContextMixin):
         return kwargs
 
     def forms_valid(self, forms):
-        num_valid_calls = 0
+        calls = []
         for form_name in forms.keys():
             form_valid_method = "%s_form_valid" % form_name
             print("CALLING",form_valid_method)
             if hasattr(self, form_valid_method):
-                #### TODO: THIS NEEDS TO BE SUSTAINABLE, I.E. DO IT RIGHT.  PROB SHOULD RETURN USING SUCCESS URL
-                #### Added return here just for proof of concept
-                return getattr(self, form_valid_method)(forms[form_name])
-                num_valid_calls += 1
-        if self._mixed_exists() and num_valid_calls == 0:
+                calls.append([form_valid_method, forms[form_name]])
+                # Originally, there was not a return here. I added it to validate my theory, and it worked, so I added an elif below to handle this case. The line below this one just originally called the form valid method and expected it to not return anything
+                #return getattr(self, form_valid_method)(forms[form_name])
+        if self._mixed_exists() and len(calls) == 0:
             return self.form_valid(forms)
+        elif len(calls) == 1:
+            form_valid_method, form = calls[0]
+            return getattr(self, form_valid_method)(form)
         else:
-            return HttpResponseRedirect(self.get_success_url(form_name))
+            for call in calls:
+                form_valid_method, form = call
+                getattr(self, form_valid_method)(form)
+            if len(self.success_urls) == 0:
+                if self.success_url == "":
+                    # Not entirely sure this is correct, but with the current code, this should never execute
+                    return self.render_to_response(self.get_context_data(forms=forms))
+                else:
+                    return HttpResponseRedirect(self.success_url)
+            else:
+                return HttpResponseRedirect(self.get_success_url(form_name))
 
     def forms_invalid(self, forms):
-        num_invalid_calls = 0
+        calls = []
         for form_name in forms.keys():
-            form_invalid_method = "%s_form_valid" % form_name
+            form_invalid_method = "%s_form_invalid" % form_name
+            print("CALLING",form_invalid_method)
             if hasattr(self, form_invalid_method):
-                getattr(self, form_invalid_method)(forms[form_name])
-                num_invalid_calls += 1
-        if self._mixed_exists() and num_invalid_calls == 0:
+                calls.append([form_invalid_method, forms[form_name]])
+                # Originally, there was not a return here. I added it to validate my theory, and it worked, so I added an elif below to handle this case. The line below this one just originally called the form valid method and expected it to not return anything
+                #return getattr(self, form_invalid_method)(forms[form_name])
+        if self._mixed_exists() and len(calls) == 0:
             return self.form_invalid(forms)
+        elif len(calls) == 1:
+            form_invalid_method, form = calls[0]
+            return getattr(self, form_invalid_method)(form)
         else:
+            for call in calls:
+                form_invalid_method, form = call
+                getattr(self, form_invalid_method)(form)
+                # Not entirely sure this is correct, but with the current code, this should never execute
             return self.render_to_response(self.get_context_data(forms=forms))
 
     def get_initial(self, form_name):
