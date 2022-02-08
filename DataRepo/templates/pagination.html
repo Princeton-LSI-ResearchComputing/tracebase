@@ -1,4 +1,5 @@
 {% load static %}
+{% load customtags %}
 
 {% if is_paginated %}
     <div class="pagination">
@@ -14,4 +15,26 @@
             {% endif %}
         </span>
     </div>
+{% elif pager %}
+    {% if pager.tot > 0 %}
+        <div style="float: right;">
+            {% if pager.page > 1 %}
+                has previous
+            {% endif %}
+
+                    <form action="{{ pager.action }}" id="custom-paging" name="paging" method="POST">
+                        {% csrf_token %}
+                        {{ pager.page_form.qryjson }}
+                        {{ pager.page_form.rows }}
+                        {{ pager.page_form.page }}
+                        {{ pager.page_form.order_by }}
+                        {{ pager.page_form.order_direction }}
+                        <button type="submit" class="btn btn-primary mb-2" id="advanced-page-submit" name="{{ pager.submit_name }}" value="{{ page_form.page.value }}">next</button>
+                    </form>
+
+            {% if pager.page < pager.tot %}
+                has next
+            {% endif %}
+        </div>
+    {% endif %}
 {% endif %}

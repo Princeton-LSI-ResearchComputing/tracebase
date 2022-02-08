@@ -1,7 +1,7 @@
 import json
 import traceback
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 
 from django.conf import settings
 from django.core.management import call_command
@@ -291,6 +291,31 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
     )
 
 
+class CustomPaginator():
+    # Advanced Search Page Form
+    page_form = AdvSearchPageForm()
+    page = 1
+    rows = 10
+    tot = None
+    order_by = "x"
+    order_dir = "x"
+    qryjson = None
+    action = None
+    submit_name = None
+
+    def __init__(self, action="", submit_name="pager-submit", qry=None, tot=None, page=1, rows=10, order_by = "x", order_dir = "x"):
+        self.page = page
+        self.rows = rows
+        self.tot = tot
+        self.order_by = order_by
+        self.order_dir = order_dir
+        self.action=action
+        self.submit_name=submit_name
+        self.qryjson = json.dumps(qry)
+        self.page_form = AdvSearchPageForm(initial={"qryjson": self.qryjson, "page": page, "rows": rows, "order_by": order_by, "order_direction": order_dir})
+
+
+
 # Based on:
 #   https://stackoverflow.com/questions/15497693/django-can-class-based-views-accept-two-forms-at-a-time
 class AdvancedSearchView(MultiFormsView):
@@ -308,8 +333,11 @@ class AdvancedSearchView(MultiFormsView):
     # Base Advanced Search Form
     basf = AdvSearchForm()
 
-    # Advanced Search Page Form
-    page_form = AdvSearchPageForm()
+    action_url = "/DataRepo/search_advanced/"
+    page_submit_name = "advanced-page-submit"
+    pager = CustomPaginator(action=action_url, submit_name=page_submit_name)
+    # # Advanced Search Page Form
+    # page_form = AdvSearchPageForm()
 
     ##
     ## This form submits to the AdvSearchDownloadView
@@ -351,7 +379,7 @@ class AdvancedSearchView(MultiFormsView):
     def post(self, request, *args, **kwargs):
         print("POST::",request.POST)
         #### TODO: THIS NEEDS TO BE SUSTAINABLE, I.E. DO IT RIGHT.  SHOULD RELY ON THE POST IN MULTIFORMS.PY
-        if request.method == 'POST' and 'advanced-page-submit' in request.POST:
+        if request.method == 'POST' and self.page_submit_name in request.POST:
             return self._process_individual_form("paging", {"paging": AdvSearchPageForm})
 
         if request.method == 'POST' and 'advanced-search-submit' in request.POST:
@@ -373,10 +401,10 @@ class AdvancedSearchView(MultiFormsView):
                 qry=qry,
                 debug=settings.DEBUG,
                 root_group=root_group,
-                page=1,
-                rows=10,
-                order_by="x",
-                order_dir="x",
+                # page=1,
+                # rows=10,
+                # order_by="x",
+                # order_dir="x",
                 default_format=self.basv_metadata.default_format,
                 ncmp_choices=self.basv_metadata.getComparisonChoices(),
                 fld_types=self.basv_metadata.getFieldTypes(),
@@ -393,13 +421,14 @@ class AdvancedSearchView(MultiFormsView):
         qry = formsetsToDict(formset, self.form_classes)
         res = {}
         download_form = {}
-        page_form = {}
+        # page_form = {}
 
         if isQryObjValid(qry, self.form_classes.keys()):
             download_form = AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
-            page_form = AdvSearchPageForm(initial={"qryjson": json.dumps(qry), "page": 2, "rows": 10, "order_by": "x", "order_direction": "x"})
+            # page_form = AdvSearchPageForm(initial={"qryjson": json.dumps(qry), "page": 2, "rows": 10, "order_by": "x", "order_direction": "x"})
             q_exp = constructAdvancedQuery(qry)
             res, tot = performQuery(q_exp, qry["selectedtemplate"], self.basv_metadata, limit=10, offset=0, order_by="x", order_direction="x")
+            pager = CustomPaginator(action=self.action_url, submit_name=self.page_submit_name, qry=qry, tot=tot, page=1, rows=10)
         else:
             # Log a warning
             print("WARNING: Invalid query root:", qry)
@@ -412,14 +441,16 @@ class AdvancedSearchView(MultiFormsView):
                 forms=self.form_classes,
                 qry=qry,
                 download_form=download_form,
-                page_form=page_form,
+                # page_form=page_form,
                 debug=settings.DEBUG,
                 root_group=root_group,
-                page=1,
-                rows=10,
-                tot=tot,
-                order_by="x",
-                order_dir="x",
+                # page=1,
+                # rows=10,
+                # tot=tot,
+                # order_by="x",
+                # order_dir="x",
+                # is_custom_paginated=True,
+                pager=pager,
                 default_format=self.basv_metadata.default_format,
                 ncmp_choices=self.basv_metadata.getComparisonChoices(),
                 fld_types=self.basv_metadata.getFieldTypes(),
@@ -487,6 +518,7 @@ class AdvancedSearchView(MultiFormsView):
             res, tot = performQuery(q_exp, qry["selectedtemplate"], self.basv_metadata, limit=rows, offset=offset, order_by=order_by, order_direction=order_dir)
         else:
             res, tot = getAllBrowseData(qry["selectedtemplate"], self.basv_metadata, limit=rows, offset=offset, order_by=order_by, order_direction=order_dir)
+        pager = CustomPaginator(action=self.action_url, submit_name=self.page_submit_name, qry=qry, tot=tot, page=page, rows=rows, order_by=order_by, order_dir=order_dir)
         print("paging_form_valid 5")
 
         root_group = self.basv_metadata.getRootGroup()
@@ -498,14 +530,16 @@ class AdvancedSearchView(MultiFormsView):
                 forms=self.form_classes,
                 qry=qry,
                 download_form=self.download_form,
-                page_form=self.page_form,
+                # page_form=self.page_form,
                 debug=settings.DEBUG,
                 root_group=root_group,
-                page=page,
-                rows=rows,
-                tot=tot,
-                order_by=order_by,
-                order_dir=order_dir,
+                # page=page,
+                # rows=rows,
+                # tot=tot,
+                # order_by=order_by,
+                # order_dir=order_dir,
+                # is_custom_paginated=True,
+                pager=pager,
                 default_format=self.basv_metadata.default_format,
                 ncmp_choices=self.basv_metadata.getComparisonChoices(),
                 fld_types=self.basv_metadata.getFieldTypes(),
@@ -552,18 +586,20 @@ class AdvancedSearchView(MultiFormsView):
                 context["download_form"] = AdvSearchDownloadForm(
                     initial={"qryjson": json.dumps(qry)}
                 )
-                context["page_form"] = AdvSearchPageForm(
-                    initial={
-                        "qryjson": json.dumps(qry),
-                        "page": 2,
-                        "rows": 10,
-                        "order_by": "x",
-                        "order_direction": "x",
-                    }
-                )
+                # context["page_form"] = AdvSearchPageForm(
+                #     initial={
+                #         "qryjson": json.dumps(qry),
+                #         "page": 2,
+                #         "rows": 10,
+                #         "order_by": "x",
+                #         "order_direction": "x",
+                #     }
+                # )
                 context["res"], context["tot"] = getAllBrowseData(
                     qry["selectedtemplate"], self.basv_metadata
                 )
+                context["pager"] = CustomPaginator(action=self.action_url, submit_name=self.page_submit_name, qry=qry, tot=context["tot"])
+                # context["is_custom_paginated"] = True
 
         elif (
             "qry" in context
@@ -574,19 +610,21 @@ class AdvancedSearchView(MultiFormsView):
             context["download_form"] = AdvSearchDownloadForm(
                 initial={"qryjson": json.dumps(qry)}
             )
-            context["page_form"] = AdvSearchPageForm(
-                initial={
-                    "qryjson": json.dumps(qry),
-                    "page": 2,
-                    "rows": 10,
-                    "order_by": "x",
-                    "order_direction": "x",
-                }
-            )
+            # context["page_form"] = AdvSearchPageForm(
+            #     initial={
+            #         "qryjson": json.dumps(qry),
+            #         "page": 2,
+            #         "rows": 10,
+            #         "order_by": "x",
+            #         "order_direction": "x",
+            #     }
+            # )
             q_exp = constructAdvancedQuery(qry)
             context["res"], context["tot"] = performQuery(
                 q_exp, qry["selectedtemplate"], self.basv_metadata
             )
+            context["pager"] = CustomPaginator(action=self.action_url, submit_name=self.page_submit_name, qry=qry, tot=context["tot"])
+            # context["is_custom_paginated"] = True
 
 
 # Basis: https://stackoverflow.com/questions/29672477/django-export-current-queryset-to-csv-by-button-click-in-browser
@@ -650,6 +688,7 @@ class AdvancedSearchTSVView(FormView):
         return response
 
 
+#### TODO: I think I can remove this, but do it after a commit and then test
 class AdvancedSearchPageView(FormView):
     """
     This is the paginated view for the results of an advanced search.

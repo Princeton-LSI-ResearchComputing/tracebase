@@ -44,7 +44,7 @@
 {% endblock %}
 {% block content %}
     <div style="float: right; margin-right: 1rem;" class="buttons-toolbar"></div>
-    <h3>{{ qry|getFormatName:selfmt }} Results ({{ tot|default:"0" }} Rows)</h3>
+    <h3>{{ qry|getFormatName:selfmt }} Results ({{ pager.tot|default:"0" }} Rows)</h3>
     <table class="table table-hover table-striped table-bordered"
         id="advsrchres"
         data-toggle="table"

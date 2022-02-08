@@ -48,7 +48,7 @@
             {% else %}
                 <label class="text-danger">Invalid format: {{ selfmt }}</label>
             {% endif %}
-
+{% comment %} 
             <div style="float: right;">
                 <form action="/DataRepo/search_advanced/" id="advanced-search-paging" name="paging" method="POST">
                     {% csrf_token %}
@@ -59,7 +59,7 @@
                     {{ page_form.order_direction }}
                     <button type="submit" class="btn btn-primary mb-2" id="advanced-page-submit" name="advanced-page-submit" value="{{ page_form.page.value }}">next</button>
                 </form>
-            </div>
+            </div> {% endcomment %}
         {% else %}
             {% if valid_search and mode == "browse" or qry %}
                 <hr>
