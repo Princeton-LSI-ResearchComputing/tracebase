@@ -141,7 +141,7 @@
                 <!-- Treatment -->
                 <!--handle None value for treatement-->
                 <td>
-                {% if pd.treatment %}
+                {% if i.treatment %}
                     <a href="{% url 'protocol_detail' i.treatment_id %}">{{ i.treatment }}</a>
                 {% else %}
                     None
@@ -150,7 +150,7 @@
 
                 <!-- Tracer Compound -->
                 <td>
-                    {% if pd.tracer_compound_id %}
+                    {% if i.tracer_compound_id %}
                         <a href="{% url 'compound_detail' i.tracer_compound_id %}">{{ i.tracer }}</a>
                     {% else %}
                         None

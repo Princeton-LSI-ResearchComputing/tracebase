@@ -118,9 +118,14 @@ data-export-types="['csv', 'txt', 'excel']">
                 {{ pg.age |duration_iso_to_weeks }}
             </td>
 
+            <!-- Body Weight -->
+            <td>
+                {{ pg.body_weight }}
+            </td>
+
             <!-- Feeding Status -->
             <td>
-                {{ pg_comp_synonym.feeding_status }}
+                {{ pg.feeding_status }}
             </td>
 
             <!-- Treatment -->
@@ -138,15 +143,10 @@ data-export-types="['csv', 'txt', 'excel']">
                 {{ pg.diet }}
             </td>
 
-            <!-- Body Weight (g) -->
-            <td>
-                {{ pg.body_weight }}
-            </td>
-
             <!-- Tracer Compound -->
             <td>
-                {% if pd.tracer_compound_id %}
-                    <a href="{% url 'compound_detail' pd.tracer_compound_id %}">{{ pd.tracer }}</a>
+                {% if pg.tracer_compound_id %}
+                    <a href="{% url 'compound_detail' pg.tracer_compound_id %}">{{ pg.tracer }}</a>
                 {% else %}
                     None
                 {% endif %}
