@@ -268,7 +268,7 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
     qry = createNewBasicQuery(basv_metadata, mdl, fld, cmp, val, fmtkey)
     download_form = AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
     q_exp = constructAdvancedQuery(qry)
-    res = performQuery(q_exp, fmtkey, basv_metadata)
+    res, tot = performQuery(q_exp, fmtkey, basv_metadata)
     root_group = basv_metadata.getRootGroup()
 
     return render(
@@ -278,6 +278,7 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
             "forms": basf.form_classes,
             "qry": qry,
             "res": res,
+            "tot": tot,
             "download_form": download_form,
             "debug": settings.DEBUG,
             "root_group": root_group,
@@ -398,7 +399,7 @@ class AdvancedSearchView(MultiFormsView):
             download_form = AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
             page_form = AdvSearchPageForm(initial={"qryjson": json.dumps(qry), "page": 2, "rows": 10, "order_by": "x", "order_direction": "x"})
             q_exp = constructAdvancedQuery(qry)
-            res = performQuery(q_exp, qry["selectedtemplate"], self.basv_metadata, limit=10, offset=0, order_by="x", order_direction="x")
+            res, tot = performQuery(q_exp, qry["selectedtemplate"], self.basv_metadata, limit=10, offset=0, order_by="x", order_direction="x")
         else:
             # Log a warning
             print("WARNING: Invalid query root:", qry)
@@ -416,6 +417,7 @@ class AdvancedSearchView(MultiFormsView):
                 root_group=root_group,
                 page=1,
                 rows=10,
+                tot=tot,
                 order_by="x",
                 order_dir="x",
                 default_format=self.basv_metadata.default_format,
@@ -482,9 +484,9 @@ class AdvancedSearchView(MultiFormsView):
 
         if isValidQryObjPopulated(qry):
             q_exp = constructAdvancedQuery(qry)
-            res = performQuery(q_exp, qry["selectedtemplate"], self.basv_metadata, limit=rows, offset=offset, order_by=order_by, order_direction=order_dir)
+            res, tot = performQuery(q_exp, qry["selectedtemplate"], self.basv_metadata, limit=rows, offset=offset, order_by=order_by, order_direction=order_dir)
         else:
-            res = getAllBrowseData(qry["selectedtemplate"], self.basv_metadata, limit=rows, offset=offset, order_by=order_by, order_direction=order_dir)
+            res, tot = getAllBrowseData(qry["selectedtemplate"], self.basv_metadata, limit=rows, offset=offset, order_by=order_by, order_direction=order_dir)
         print("paging_form_valid 5")
 
         root_group = self.basv_metadata.getRootGroup()
@@ -501,6 +503,7 @@ class AdvancedSearchView(MultiFormsView):
                 root_group=root_group,
                 page=page,
                 rows=rows,
+                tot=tot,
                 order_by=order_by,
                 order_dir=order_dir,
                 default_format=self.basv_metadata.default_format,
@@ -558,7 +561,7 @@ class AdvancedSearchView(MultiFormsView):
                         "order_direction": "x",
                     }
                 )
-                context["res"] = getAllBrowseData(
+                context["res"], context["tot"] = getAllBrowseData(
                     qry["selectedtemplate"], self.basv_metadata
                 )
 
@@ -581,7 +584,7 @@ class AdvancedSearchView(MultiFormsView):
                 }
             )
             q_exp = constructAdvancedQuery(qry)
-            context["res"] = performQuery(
+            context["res"], context["tot"] = performQuery(
                 q_exp, qry["selectedtemplate"], self.basv_metadata
             )
 
@@ -635,12 +638,12 @@ class AdvancedSearchTSVView(FormView):
 
         if isValidQryObjPopulated(qry):
             q_exp = constructAdvancedQuery(qry)
-            res = performQuery(q_exp, qry["selectedtemplate"], self.basv_metadata)
+            res, tot = performQuery(q_exp, qry["selectedtemplate"], self.basv_metadata)
         else:
-            res = getAllBrowseData(qry["selectedtemplate"], self.basv_metadata)
+            res, tot = getAllBrowseData(qry["selectedtemplate"], self.basv_metadata)
 
         response = self.render_to_response(
-            self.get_context_data(res=res, qry=qry, dt=dt_string, debug=settings.DEBUG)
+            self.get_context_data(res=res, tot=tot, qry=qry, dt=dt_string, debug=settings.DEBUG)
         )
         response["Content-Disposition"] = "attachment; filename={}".format(filename)
 
@@ -696,12 +699,12 @@ class AdvancedSearchPageView(FormView):
 
         if isValidQryObjPopulated(qry):
             q_exp = constructAdvancedQuery(qry)
-            res = performQuery(q_exp, qry["selectedtemplate"], self.basv_metadata, limit=rows, offset=offset, order_by=order_by, order_direction=order_dir)
+            res, tot = performQuery(q_exp, qry["selectedtemplate"], self.basv_metadata, limit=rows, offset=offset, order_by=order_by, order_direction=order_dir)
         else:
-            res = getAllBrowseData(qry["selectedtemplate"], self.basv_metadata, limit=rows, offset=offset, order_by=order_by, order_direction=order_dir)
+            res, tot = getAllBrowseData(qry["selectedtemplate"], self.basv_metadata, limit=rows, offset=offset, order_by=order_by, order_direction=order_dir)
 
         response = self.render_to_response(
-            self.get_context_data(res=res, qry=qry, debug=settings.DEBUG)
+            self.get_context_data(res=res, tot=tot, qry=qry, debug=settings.DEBUG)
         )
 
         return response
@@ -715,10 +718,13 @@ def getAllBrowseData(format, basv, limit=None, offset=0, order_by=None, order_di
     start_index = offset
     if format in basv.getFormatNames().keys():
         if limit is None:
-            res = basv.getRootQuerySet(format).all()[start_index:]
+            res = basv.getRootQuerySet(format).all()
+            cnt = res.count()
         else:
+            all_res = basv.getRootQuerySet(format).all()
+            cnt = all_res.count()
             end_index = offset + limit
-            res = basv.getRootQuerySet(format).all()[start_index:end_index]
+            res = all_res[start_index:end_index]
     else:
         # Log a warning
         print("WARNING: Unknown format: " + format)
@@ -730,7 +736,7 @@ def getAllBrowseData(format, basv, limit=None, offset=0, order_by=None, order_di
     else:
         res2 = res
 
-    return res2
+    return res2, cnt
 
 
 def createNewBasicQuery(basv_metadata, mdl, fld, cmp, val, fmt):
@@ -812,8 +818,8 @@ def searchFieldToDisplayField(basv_metadata, mdl, fld, val, fmt, qry):
     if fld in dfields.keys() and dfields[fld] != fld:
         # If fld is not a displayed field, perform a query to convert the undisplayed field query to a displayed query
         q_exp = constructAdvancedQuery(qry)
-        recs = performQuery(q_exp, fmt, basv_metadata)
-        if len(recs) == 0:
+        recs, tot = performQuery(q_exp, fmt, basv_metadata)
+        if tot == 0:
             print(
                 f"WARNING: Failed basic/advanced {fmt} search conversion: {qry}. No records found matching {mdl}."
                 f"{fld}='{val}'."
@@ -883,12 +889,16 @@ def performQuery(q_exp, fmt, basv, limit=None, offset=0, order_by=None, order_di
     """
     start_index = offset
     res = {}
+    cnt = 0
     if fmt in basv.getFormatNames().keys():
         if limit is None:
-            res = basv.getRootQuerySet(fmt).filter(q_exp).distinct()[start_index:]
+            res = basv.getRootQuerySet(fmt).filter(q_exp).distinct()
+            cnt = res.count()
         else:
             end_index = offset + limit
-            res = basv.getRootQuerySet(fmt).filter(q_exp).distinct()[start_index:end_index]
+            all_res = basv.getRootQuerySet(fmt).filter(q_exp).distinct()
+            cnt = all_res.count()
+            res = all_res[start_index:end_index]
     else:
         # Log a warning
         print("WARNING: Invalid selected format:", fmt)
@@ -899,7 +909,7 @@ def performQuery(q_exp, fmt, basv, limit=None, offset=0, order_by=None, order_di
     else:
         res2 = res
 
-    return res2
+    return res2, cnt
 
 
 def isQryObjValid(qry, form_class_list):
