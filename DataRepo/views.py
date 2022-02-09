@@ -1434,40 +1434,11 @@ class DataValidationView(FormView):
         Clear out every table aside from compounds and tissues, which are intended to persist in the validation
         database, as they are needed to create related links for data inserted by the load animals/samples scripts
         """
-        seen = {}
+        skips = [Compound, CompoundSynonym, Tissue]
+
         for mdl in get_all_models():
-            seen[mdl.__name__] = False
-        # The order is necessary due to restricted relation deletions
-        # If more models are added, they must be added here
-        for mdl in (
-            PeakGroupSet,
-            Study,
-            PeakData,
-            PeakGroup,
-            MSRun,
-            Sample,
-            Animal,
-            Protocol,
-        ):
-            mdl.objects.using(settings.VALIDATION_DB).all().delete()
-            seen[mdl.__name__] = True
-
-        # Compound, CompoundSynonym, and Tissue all are required to be in the validation database
-        seen[Compound.__name__] = True
-        seen[CompoundSynonym.__name__] = True
-        seen[Tissue.__name__] = True
-
-        # Ignore these hidden models
-        seen["Animal_studies"] = True
-        seen["PeakGroup_compounds"] = True
-
-        # Check for newly added models to be added to the above loop
-        for mdl in get_all_models():
-            if not seen[mdl.__name__]:
-                raise Exception(
-                    f"Model {mdl.__name__} not cleaned up in the validation database {settings.VALIDATION_DB}.  "
-                    "Please add the model to the clear_validation_database method"
-                )
+            if mdl not in skips:
+                mdl.objects.using(settings.VALIDATION_DB).all().delete()
 
     def validate_accucor(self, accucor_file, skip_samples):
         if len(skip_samples) > 0:

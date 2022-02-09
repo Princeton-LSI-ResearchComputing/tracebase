@@ -1004,23 +1004,10 @@ class ValidationViewTests(TracebaseTestCase):
     @classmethod
     def clear_database(cls, db):
         """
-        Note, using call_command to flush doesn't seem to work.  Looping on get_all_models() does seem to work, but
-        it's confusing as to why, given the various restrict constraints, but to be safe, this explicitly deletes every
-        model's contents.
+        Clears out the contents of the supplied database and confirms it's empty.
         """
-        for mdl in (
-            PeakGroupSet,
-            Study,
-            PeakData,
-            PeakGroup,
-            MSRun,
-            Sample,
-            Animal,
-            Protocol,
-            Compound,
-            CompoundSynonym,
-            Tissue,
-        ):
+        # Note that get_all_models is implemented to return the models in an order that facilitates this deletion
+        for mdl in get_all_models():
             mdl.objects.using(db).all().delete()
         # Make sure the database is actually empty so that the tests are meaningful
         sum = cls.sum_record_counts(db)
