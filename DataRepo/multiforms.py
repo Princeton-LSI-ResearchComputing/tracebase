@@ -174,13 +174,12 @@ class ProcessMultipleFormsView(ProcessFormView):
     def post(self, request, *args, **kwargs):
         form_classes = self.get_form_classes()
         form_name = request.POST.get("action")
+
         if self._individual_exists(form_name) and not self._mixed_exists():
             return self._process_individual_form(form_name, form_classes)
         elif self._group_exists(form_name) and not self._mixed_exists():
             return self._process_grouped_forms(form_name, form_classes)
         elif self._mixed_exists():
-            print("FORM NAME: ", form_name)
-            print("FORM CLASSES: ", form_classes)
             return self._process_mixed_forms(form_classes)
         else:
             return self._process_all_forms(form_classes)

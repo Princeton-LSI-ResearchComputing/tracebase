@@ -2,12 +2,12 @@ import json
 import math
 import traceback
 from datetime import datetime
-from typing import List, Optional
+from typing import List
 
 from django.conf import settings
 from django.core.management import call_command
 from django.db.models import Q
-from django.http import Http404
+from django.http import Http404, HttpResponseServerError
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.generic import DetailView, ListView
@@ -302,13 +302,13 @@ class CustomPaginator():
     order_dir = "x"
     qryjson = None
     action = None
-    submit_name = None
     start = None
     end = None
     num_buttons = 5  # Not counting prev/next controls. Number of page number controls. Includes current page.
     pages = []
+    min_rows_per_page = None
 
-    def __init__(self, action="", submit_name="pager-submit", qry=None, tot=None, page=1, rows=10, start=None, end=None, order_by = "x", order_dir = "x"):
+    def __init__(self, action="", qry=None, tot=None, page=1, rows=10, start=None, end=None, order_by = "x", order_dir = "x"):
         if start is None:
             self.start = (page - 1) * rows + 1
         else:
@@ -324,10 +324,16 @@ class CustomPaginator():
         self.tot = tot
         self.order_by = order_by
         self.order_dir = order_dir
-        self.action=action
-        self.submit_name=submit_name
+        self.action = action
+        self.form_id_val = 1
         self.qryjson = json.dumps(qry)
         self.pages = []
+
+        self.min_rows_per_page = None
+        rppsl = self.page_form.ROWS_PER_PAGE_CHOICES
+        for num, name in enumerate(rppsl):
+            if self.min_rows_per_page is None or num < self.min_rows_per_page:
+                self.min_rows_per_page = num
 
         # Validate
         if self.num_buttons % 2 == 0 or self.num_buttons < 3:
@@ -336,7 +342,7 @@ class CustomPaginator():
             raise Exception(f"Invalid page number [{self.num_buttons}] must be a number between 1 and {tot}.")
         
         # Prepare the form
-        self.page_form = AdvSearchPageForm(initial={"qryjson": self.qryjson, "page": page, "rows": rows, "order_by": order_by, "order_direction": order_dir})
+        self.page_form = AdvSearchPageForm(initial={"adv_search_page_form": self.form_id_val, "qryjson": self.qryjson, "page": page, "rows": rows, "order_by": order_by, "order_direction": order_dir})
 
         # Set up the paging controls
         if tot is not None:
@@ -361,11 +367,6 @@ class CustomPaginator():
             if startpg < 1:
                 startpg = 1
                 num_left_controls = self.page - startpg
-            elif startpg > 1:
-                self.pages.append({"navigable": True, "val": (self.page - 1), "name": "<"})
-                self.pages.append({"navigable": True, "val": 1, "name": 1})
-                self.pages.append({"navigable": False, "val": "", "name": "..."})
-                startpg += 1
             if num_left_controls < num_side_controls:
                 left_leftovers = num_side_controls - num_left_controls
 
@@ -373,12 +374,8 @@ class CustomPaginator():
             if endpg > totpgs:
                 endpg = totpgs
                 num_right_controls = endpg - self.page
-            elif endpg < totpgs:
-                endpg -= 1
             if num_right_controls < num_side_controls:
                 right_leftovers = num_side_controls - num_right_controls
-            # Need to be 1 past for the range function
-            endpg += 1
 
             print(f"Num left controls: {num_left_controls} Num side controls: {num_side_controls} Left leftovers: {left_leftovers} Right leftovers: {right_leftovers}")
             # Append leftovers
@@ -386,8 +383,23 @@ class CustomPaginator():
             if startpg < 1:
                 startpg = 1
             endpg += left_leftovers
-            if endpg > (totpgs + 1):
-                endpg = totpgs + 1
+            if endpg > totpgs:
+                endpg = totpgs
+
+            if self.page > 1:
+                self.pages.append({"navigable": True, "val": (self.page - 1), "name": "<"})
+
+            if startpg > 1:
+                self.pages.append({"navigable": True, "val": 1, "name": 1})
+                self.pages.append({"navigable": False, "val": "", "name": "..."})
+                startpg += 1
+
+            # If the ending page in the range is not the last page, decrement the ending page so that we can use the last page control for the last page (after an ellipsis)
+            if endpg < totpgs:
+                endpg -= 1
+
+            # Need to be 1 past for the range function
+            endpg += 1
 
             print("Range:",startpg,"-",endpg)
             for pg in (range(startpg, endpg)):
@@ -396,9 +408,13 @@ class CustomPaginator():
                 else:
                     self.pages.append({"navigable": True, "val": pg, "name": pg})
 
-            if endpg < (totpgs + 1):
+            # While endpg is 1 larger than the number of pages that were drawn, we can use that to decide whether to print an ellipsis and the last page control
+            if endpg < totpgs:
+                print(f"End page {endpg} is less than {totpgs} + 1")
                 self.pages.append({"navigable": False, "val": "", "name": "..."})
                 self.pages.append({"navigable": True, "val": totpgs, "name": totpgs})
+            
+            if self.page < totpgs:
                 self.pages.append({"navigable": True, "val": (self.page + 1), "name": ">"})
 
 # Based on:
@@ -419,8 +435,8 @@ class AdvancedSearchView(MultiFormsView):
     basf = AdvSearchForm()
 
     action_url = "/DataRepo/search_advanced/"
-    page_submit_name = "advanced-page-submit"
-    pager = CustomPaginator(action=action_url, submit_name=page_submit_name)
+    form_id_string = "adv_search_page_form"  # This is a name of a form field intended to serve as a unique identifier among the forms on a page
+    pager = CustomPaginator(action=action_url)
 
     ##
     ## This form submits to the AdvSearchDownloadView
@@ -462,11 +478,13 @@ class AdvancedSearchView(MultiFormsView):
     def post(self, request, *args, **kwargs):
         print("POST::",request.POST)
         #### TODO: THIS NEEDS TO BE SUSTAINABLE, I.E. DO IT RIGHT.  SHOULD RELY ON THE POST IN MULTIFORMS.PY
-        if request.method == 'POST' and self.page_submit_name in request.POST:
+        if request.method == 'POST' and self.form_id_string in request.POST:
             return self._process_individual_form("paging", {"paging": AdvSearchPageForm})
 
         if request.method == 'POST' and 'advanced-search-submit' in request.POST:
             return self._process_mixed_forms(self.form_classes)
+
+        return HttpResponseServerError("Unable to identify submitted form")
 
     def form_invalid(self, formset):
         """
@@ -509,7 +527,7 @@ class AdvancedSearchView(MultiFormsView):
             download_form = AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
             q_exp = constructAdvancedQuery(qry)
             res, tot = performQuery(q_exp, qry["selectedtemplate"], self.basv_metadata, limit=10, offset=0, order_by="x", order_direction="x")
-            pager = CustomPaginator(action=self.action_url, submit_name=self.page_submit_name, qry=qry, tot=tot, page=1, rows=10)
+            pager = CustomPaginator(action=self.action_url, qry=qry, tot=tot, page=1, rows=10)
         else:
             # Log a warning
             print("WARNING: Invalid query root:", qry)
@@ -584,7 +602,7 @@ class AdvancedSearchView(MultiFormsView):
             offset = (page - 1) * rows
         except:
             # Assumes this is an initial query, not a page form submission
-            tmp_pager = CustomPaginator(action=self.action_url, submit_name=self.page_submit_name)
+            tmp_pager = CustomPaginator(action=self.action_url)
             page = tmp_pager.page
             rows = tmp_pager.rows
             order_by = tmp_pager.order_by
@@ -597,7 +615,7 @@ class AdvancedSearchView(MultiFormsView):
         else:
             res, tot = getAllBrowseData(qry["selectedtemplate"], self.basv_metadata, limit=rows, offset=offset, order_by=order_by, order_direction=order_dir)
 
-        pager = CustomPaginator(action=self.action_url, submit_name=self.page_submit_name, qry=qry, tot=tot, page=page, rows=rows, order_by=order_by, order_dir=order_dir)
+        pager = CustomPaginator(action=self.action_url, qry=qry, tot=tot, page=page, rows=rows, order_by=order_by, order_dir=order_dir)
 
         root_group = self.basv_metadata.getRootGroup()
 
@@ -655,12 +673,12 @@ class AdvancedSearchView(MultiFormsView):
                 context["download_form"] = AdvSearchDownloadForm(
                     initial={"qryjson": json.dumps(qry)}
                 )
-                tmp_pager = CustomPaginator(action=self.action_url, submit_name=self.page_submit_name)
+                tmp_pager = CustomPaginator(action=self.action_url)
                 offset = 0
                 context["res"], context["tot"] = getAllBrowseData(
                     qry["selectedtemplate"], self.basv_metadata, limit=tmp_pager.rows, offset=offset, order_by=tmp_pager.order_by, order_direction=tmp_pager.order_dir
                 )
-                context["pager"] = CustomPaginator(action=self.action_url, submit_name=self.page_submit_name, qry=qry, tot=context["tot"])
+                context["pager"] = CustomPaginator(action=self.action_url, qry=qry, tot=context["tot"])
 
         elif (
             "qry" in context
@@ -675,7 +693,7 @@ class AdvancedSearchView(MultiFormsView):
             context["res"], context["tot"] = performQuery(
                 q_exp, qry["selectedtemplate"], self.basv_metadata
             )
-            context["pager"] = CustomPaginator(action=self.action_url, submit_name=self.page_submit_name, qry=qry, tot=context["tot"])
+            context["pager"] = CustomPaginator(action=self.action_url, qry=qry, tot=context["tot"])
 
 
 # Basis: https://stackoverflow.com/questions/29672477/django-export-current-queryset-to-csv-by-button-click-in-browser
@@ -788,7 +806,7 @@ class AdvancedSearchPageView(FormView):
             offset = (page - 1) * rows
         except:
             # Assumes this is an initial query, not a page form submission
-            tmp_pager = CustomPaginator(action=self.action_url, submit_name=self.page_submit_name)
+            tmp_pager = CustomPaginator(action=self.action_url)
             page = tmp_pager.page
             rows = tmp_pager.rows
             order_by = tmp_pager.order_by

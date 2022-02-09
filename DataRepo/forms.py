@@ -149,24 +149,26 @@ class AdvSearchPageForm(forms.Form):
     """
     Advanced search download form for any advanced search data.
     """
+    ROWS_PER_PAGE_CHOICES = (
+        ('10', '10'),
+        ('25', '25'),
+        ('50', '50'),
+        ('100', '100'),
+        ('200', '200'),
+        ('500', '500'),
+        ('1000', '1000'),
+    )
 
     qryjson = forms.JSONField(widget=forms.HiddenInput())
     rows = forms.ChoiceField(
-        choices=(
-            ('10', '10'),
-            ('25', '25'),
-            ('50', '50'),
-            ('100', '100'),
-            ('200', '200'),
-            ('500', '500'),
-            ('1000', '1000'),
-        ),
+        choices=ROWS_PER_PAGE_CHOICES,
         # TODO: Can probably get the caret in the button image using: https://stackoverflow.com/questions/45424162/listing-a-choicefield-in-django-as-button
         widget=forms.Select(attrs={'id':'pager-rows-elem', 'class':"btn btn-primary dropdown-toggle", 'type':"button", 'data-bs-toggle':"dropdown"}),
     )
     page = forms.CharField(widget=forms.HiddenInput(attrs={'id':'pager-page-elem'}))
     order_by = forms.CharField(widget=forms.HiddenInput())
     order_direction = forms.CharField(widget=forms.HiddenInput())
+    adv_search_page_form = forms.CharField(widget=forms.HiddenInput())  # Used to distinguish pager form submissions from advanced search submissions
 
     def clean(self):
         """This override of super.clean is so we can reconstruct the search inputs upon form_invalid in views.py"""

@@ -38,6 +38,8 @@
                     </form>
                 </div>
 
+                <h3 style="margin: 0; display: inline-block;">{{ qry|getFormatName:selfmt }} Results ({{ pager.tot|default:"0" }} Rows)</h3>
+
                 {% if selfmt == "pgtemplate" %}
                     {% include "DataRepo/search/results/peakgroups.html" with selfmt=selfmt %}
                 {% elif selfmt == "pdtemplate" %}
@@ -48,18 +50,6 @@
             {% else %}
                 <label class="text-danger">Invalid format: {{ selfmt }}</label>
             {% endif %}
-{% comment %} 
-            <div style="float: right;">
-                <form action="/DataRepo/search_advanced/" id="advanced-search-paging" name="paging" method="POST">
-                    {% csrf_token %}
-                    {{ page_form.qryjson }}
-                    {{ page_form.rows }}
-                    {{ page_form.page }}
-                    {{ page_form.order_by }}
-                    {{ page_form.order_direction }}
-                    <button type="submit" class="btn btn-primary mb-2" id="advanced-page-submit" name="advanced-page-submit" value="{{ page_form.page.value }}">next</button>
-                </form>
-            </div> {% endcomment %}
         {% else %}
             {% if valid_search and mode == "browse" or qry %}
                 <hr>
