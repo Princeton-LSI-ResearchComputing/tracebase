@@ -4,7 +4,7 @@ from django.urls import reverse
 from django.utils import dateparse
 from django.utils.html import format_html_join
 
-from DataRepo.views import getDownloadQryList, manyToManyFilter
+from DataRepo.views import getDownloadQryList
 
 register = template.Library()
 
@@ -72,15 +72,6 @@ def count_tracer_groups(res):
         if pg.is_tracer_compound_group:
             cnt = cnt + 1
     return cnt
-
-
-@register.simple_tag
-def shouldKeepManyToMany(rootrec, mm_lookup, qry, refilter):
-    """
-    If refilter is true, this method calls the views.manyToManyFilter to filter out records that do not match search
-    terms from a many-to-many related table.
-    """
-    return not refilter or manyToManyFilter(rootrec, mm_lookup, qry)
 
 
 @register.simple_tag

@@ -29,7 +29,6 @@ from DataRepo.views import (
     getJoinedRecFieldValue,
     isQryObjValid,
     isValidQryObjPopulated,
-    manyToManyFilter,
     pathStepToPosGroupType,
     performQuery,
     rootToFormatInfo,
@@ -925,47 +924,59 @@ class ViewTests(TracebaseTestCase):
         res = basv_metadata.formatNameOrKeyToKey(fmt)
         self.assertEqual(res, "pgtemplate")
 
-    def test_manyToManyFilter(self):
+    def test_validate_files(self):
+        """
+        Do a file validation test
+        """
+        # Load the necessary compounds for a successful test
         call_command(
-            "load_samples",
-            "DataRepo/example_data/small_dataset/small_obob_sample_table_2ndstudy.tsv",
-            sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
+            "load_compounds",
+            compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
         )
-        qry = {
-            "selectedtemplate": "pgtemplate",
-            "searches": {
-                "pgtemplate": {
-                    "tree": {
-                        "type": "group",
-                        "val": "all",
-                        "static": False,
-                        "queryGroup": [
-                            {
-                                "type": "query",
-                                "pos": "",
-                                "static": False,
-                                "ncmp": "icontains",
-                                "fld": "msrun__sample__animal__studies__name",
-                                "val": "obob_fasted",
-                            }
-                        ],
-                    },
-                    "name": "PeakGroups",
-                },
-                "pdtemplate": {"name": "PeakData", "tree": {}},
-                "fctemplate": {"name": "Fcirc", "tree": {}},
-            },
+
+        # Files/inputs we will test
+        animal_sample_dict = {}
+        animal_sample_dict[
+            "data_submission_animal_sample_table.xlsx"
+        ] = "DataRepo/example_data/data_submission_animal_sample_table.xlsx"
+        accucor_dict = {
+            "data_submission_accucor1.xlsx": "DataRepo/example_data/data_submission_accucor1.xlsx",
+            "data_submission_accucor2.xlsx": "DataRepo/example_data/data_submission_accucor2.xlsx",
         }
-        pgrecs = PeakGroup.objects.filter(
-            msrun__sample__animal__studies__name__icontains="obob_fasted"
+
+        # Test the validate_load_files function
+        vo = DataValidationView()
+        [results, valid, errors] = vo.validate_load_files(
+            animal_sample_dict, accucor_dict
         )
-        studyrecs = pgrecs[0].msrun.sample.animal.studies.all()
-        mm_lookup = {"msrun__sample__animal__studies": studyrecs[0]}
-        result = manyToManyFilter(pgrecs[0], mm_lookup, qry)
-        self.assertTrue(result)
-        mm_lookup = {"msrun__sample__animal__studies": studyrecs[1]}
-        result = manyToManyFilter(pgrecs[0], mm_lookup, qry)
-        self.assertTrue(not result)
+
+        # Note that even though the Study "Notes" header is missing from the input file, we don't expect to encounter
+        # that error before the researcher warning because that column value is optional
+
+        # Check the sample file details
+        self.assertTrue("data_submission_animal_sample_table.xlsx" in results)
+        self.assertTrue("data_submission_animal_sample_table.xlsx" in errors)
+
+        # The researcher warning technically results in a validation failure (because it's an exception), but it's the
+        # last possible check on the file on purpose so that everything else is guaranteed to be OK
+        self.assertTrue(not valid)
+
+        self.assertEqual(results["data_submission_animal_sample_table.xlsx"], "WARNING")
+        self.assertTrue(len(errors["data_submission_animal_sample_table.xlsx"]) == 1)
+        self.assertTrue(
+            "1 researchers from the sample file: [Anonymous]"
+            in errors["data_submission_animal_sample_table.xlsx"][0]
+        )
+
+        # Check the accucor file details
+        self.assertTrue("data_submission_accucor1.xlsx" in results)
+        self.assertTrue("data_submission_accucor1.xlsx" in errors)
+        self.assertTrue("data_submission_accucor2.xlsx" in results)
+        self.assertTrue("data_submission_accucor2.xlsx" in errors)
+        self.assertTrue(len(errors["data_submission_accucor1.xlsx"]) == 0)
+        self.assertTrue(len(errors["data_submission_accucor2.xlsx"]) == 0)
+        self.assertEqual(results["data_submission_accucor1.xlsx"], "PASSED")
+        self.assertEqual(results["data_submission_accucor2.xlsx"], "PASSED")
 
 
 @tag("search_choices")

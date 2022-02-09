@@ -21,7 +21,7 @@ class BaseSearchView:
     model_instances: Dict[str, Dict] = {}
     prefetches: List[str] = []
     rootmodel: Model = None
-    ncmp_choices = {  # If any values are changed in any category, update valueMatches()
+    ncmp_choices = {
         "number": [
             ("iexact", "is"),
             ("not_iexact", "is not"),
@@ -266,150 +266,6 @@ class BaseSearchView:
             return self.rootmodel.objects.all()
         print("ERROR: rootmodel not set.")
         return None
-
-    def getMMKeyPaths(self):
-        """
-        Gathers and returns all the model key paths that are in a many-to-many relationship
-        """
-        paths = []
-        for mdl in self.model_instances.keys():
-            if self.model_instances[mdl]["manytomany"]:
-                paths.append(self.model_instances[mdl]["path"])
-        return paths
-
-    # Don't send the root qry. Send this: qry["searches"][fmt]["tree"]
-    def shouldReFilter(self, qrytree):
-        """
-        Provided a root qry object and the selected format, this determines whether an advanced search includes a
-        search term on a field in a table that has a many-to-many relationship with the root model.
-        """
-        mm_keypaths = self.getMMKeyPaths()
-        if len(mm_keypaths) > 0:
-            fld_list = self.getFldValues(qrytree)
-            for mm_keypath in mm_keypaths:
-                for fld in fld_list:
-                    if mm_keypath in fld:
-                        return True
-        return False
-
-    # Don't send the root qry. Send this qry["searches"][fmt]["tree"]
-    def getFldValues(self, query):
-        """
-        This takes a qry object's tree (for a particular format's searches) and returns a list of all the fld values
-        involved in the search
-        """
-        if query["type"] == "query":
-            return [query["fld"]]
-        else:
-            fld_list = []
-            for subquery in query["queryGroup"]:
-                fld_list += self.getFldValues(subquery)
-            return fld_list
-
-    def isAMatch(self, rootrec, mm_lookup, query):
-        """
-        Given a pair of records from tables in a many-to-many relationship, the key path of the M:M model, and a qry
-        object's tree of the searched format, this method returns false if the row should be omitted from the table.
-        It basically re-applies the search defined in qry, because when there's a search term from a M:M table,
-        django's join method provides no means to filter out records that do not match those search terms.  It simple
-        left-joins everything related to the root table records.
-        """
-        if query["type"] == "query":
-            recval = self.getValue(rootrec, mm_lookup, query["fld"])
-            if recval is None:
-                raise KeyError(
-                    f"The record lookup dict is missing a many-to-many-related table for key path [{query['fld']}]."
-                )
-            return self.valueMatches(recval, query["ncmp"], query["val"])
-        else:
-            if query["val"] == "all":
-                for subquery in query["queryGroup"]:
-                    if not self.isAMatch(rootrec, mm_lookup, subquery):
-                        return False
-                return True
-            else:
-                for subquery in query["queryGroup"]:
-                    if self.isAMatch(rootrec, mm_lookup, subquery):
-                        return True
-                return False
-
-    def getValue(self, rootrec, mm_lookup, qry_keypath):
-        """
-        Given a pair of records from tables in a many-to-many relationship, the key path of the M:M model, and the
-        keypath of a single fld value in the qry search tree, the value of the fld in the record in which it resides
-        (whether it's in the M:M table record or the root table record).  The qry_keypath is assumed to end in a field
-        name, which is used to obtain the value.
-        """
-        ptr, qry_keypath_list = self.getMMKeyPathList(qry_keypath, mm_lookup, rootrec)
-        for key in qry_keypath_list:
-            ptr = getattr(ptr, key)
-        return ptr
-
-    def getMMKeyPathList(self, qry_keypath, mm_lookup, rootrec):
-        """
-        This takes a single keypath from the qry object, the M:M lookup dict that holds individual records keyed by
-        their model's keypath in string format, and a root model record, and returns the record (either the root record
-        or a M:M record) along with its key path (in list format) that can be used to obtain the field value from that
-        record.
-        """
-        qry_keypath_list = self.keypathStringToList(qry_keypath)
-        rec = rootrec
-        for mm_keypath in mm_lookup.keys():
-            if mm_keypath in qry_keypath:
-                mm_keypath_list = self.keypathStringToList(mm_keypath)
-                # shift the mm_keypath off the qry_keypath
-                start = len(mm_keypath_list)
-                tmp_qry_keypath_list = qry_keypath_list[start:]
-                if len(tmp_qry_keypath_list) == 1:
-                    qry_keypath_list = tmp_qry_keypath_list
-                    rec = mm_lookup[mm_keypath]
-        return rec, qry_keypath_list
-
-    def keypathStringToList(self, keypath_str):
-        return keypath_str.split("__")
-
-    def valueMatches(self, recval, condition, searchterm):
-        """
-        Determines whether the recval and search term match, given the matching condition.
-        This is only useful for re-filtering records in a template when the qry includes a fld from a many-to-many
-        related model relative to the root model.
-        Note that any changes to ncmp_choices must also be implemented here.
-        """
-        if condition == "iexact":
-            return recval.lower() == searchterm.lower()
-        elif condition == "not_iexact":
-            return recval.lower() != searchterm.lower()
-        elif condition == "lt":
-            return recval < searchterm
-        elif condition == "lte":
-            return recval <= searchterm
-        elif condition == "gt":
-            return recval > searchterm
-        elif condition == "gte":
-            return recval >= searchterm
-        elif condition == "isnull":
-            return recval is None
-        elif condition == "not_isnull":
-            return recval is not None
-        elif condition == "icontains":
-            return searchterm.lower() in recval.lower()
-        elif condition == "not_icontains":
-            return searchterm.lower() not in recval.lower()
-        elif condition == "istartswith":
-            return recval.lower().startswith(searchterm.lower())
-        elif condition == "not_istartswith":
-            return not recval.lower().startswith(searchterm.lower())
-        elif condition == "iendswith":
-            return recval.lower().endswith(searchterm.lower())
-        elif condition == "not_iendswith":
-            return not recval.lower().endswith(searchterm.lower())
-        elif condition == "exact":
-            # For search_basic
-            return recval == searchterm
-        else:
-            raise UnknownComparison(
-                f"Unrecognized negatable comparison (ncmp) value: {condition}."
-            )
 
 
 class PeakGroupsSearchView(BaseSearchView):
@@ -1556,36 +1412,6 @@ class BaseAdvancedSearchView:
         if foundit is False:
             return None
         return fmtkey
-
-    def getMMKeyPaths(self, fmt):
-        """
-        Gathers and returns all the model key paths that are in a many-to-many relationship in the provided format
-        """
-        return self.modeldata[fmt].getMMKeyPaths()
-
-    def shouldReFilter(self, qry):
-        """
-        Provided a root qry object and the selected format, this determines whether an advanced search includes a
-        search term on a field in a table that has a many-to-many relationship with the root model.
-        """
-        if "selectedtemplate" not in qry:
-            print("ERROR: Invalid qry object: ", qry)
-            raise InvalidQryObject("selectedtemplate key is missing")
-        fmt = qry["selectedtemplate"]
-        return self.modeldata[fmt].shouldReFilter(qry["searches"][fmt]["tree"])
-
-    def isAMatch(self, rootrec, mm_lookup, query):
-        """
-        Given a pair of records from tables in a many-to-many relationship, the key path of the M:M model, and a qry
-        object, this method returns false if the row should be omitted from the table.
-        It basically re-applies the search defined in qry, because when there's a search term from a M:M table,
-        django's join method provides no means to filter out records that do not match those search terms.  It simple
-        left-joins everything related to the root table records.
-        """
-        fmt = query["selectedtemplate"]
-        return self.modeldata[fmt].isAMatch(
-            rootrec, mm_lookup, query["searches"][fmt]["tree"]
-        )
 
 
 class UnknownComparison(Exception):

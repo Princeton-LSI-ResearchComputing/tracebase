@@ -4,11 +4,6 @@
     <script>
         // Correct the row count to account for M:M related tables
         document.addEventListener("DOMContentLoaded", function(){
-            const real_cnt_elem = document.getElementById("realcount")
-            const real_cnt = real_cnt_elem.innerHTML
-            const rec_cnt_elem = document.getElementById("recordcount")
-            rec_cnt_elem.innerHTML = real_cnt
-
             // https://bootstrap-table.com/docs/api/events/
             // https://bootstrap-table.com/docs/api/events/#oncolumnswitch
             $("#advsrchres").bootstrapTable({
@@ -43,7 +38,7 @@
 {% endblock %}
 {% block content %}
     <div style="float: right; margin-right: 1rem;" class="buttons-toolbar"></div>
-    <h3>{{ qry|getFormatName:selfmt }} Results (<span id="recordcount">{{ res.count|default:"0" }}</span> Rows)</h3>
+    <h3>{{ qry|getFormatName:selfmt }} Results ({{ res.count|default:"0" }} Rows)</h3>
     <table class="table table-hover table-striped table-bordered"
         id="advsrchres"
         data-toggle="table"
@@ -91,241 +86,202 @@
                 <th data-valign="top" data-sortable="true" data-visible="true" data-sorter="alphanum" data-field="Tracer_Compound" class="metagrp" data-switchable="false">Tracer<br>Compound</th>
                 <th data-valign="top" data-sortable="true" data-visible="false" data-sorter="numericOnly" data-field="Tracer_Infusion_Rate" class="metagrp">Tracer<br>Infusion<br>Rate<br>(ul/min/g)</th>
                 <th data-valign="top" data-sortable="true" data-visible="false" data-sorter="numericOnly" data-field="Tracer_Infusion_Concentration" class="metagrp">Tracer<br>Infusion<br>Concentration<br>(mM)</th>
-                <th data-valign="top" data-sortable="true" data-visible="true" data-sorter="alphanum" data-field="Study" class="metagrp">Study</th>
+                <th data-valign="top" data-sortable="true" data-visible="true" data-sorter="alphanum" data-field="Study" class="metagrp">Studies</th>
             </tr>
         </thead>
 
         <tbody>
 
-            {% createCounter as rec_cnt %}
-
             {% for pg in res.all %}
 
-                {# Initialize a new dict used for many-to-many related table refiltering. This way of looking up M:M record values is necessary to support multiple M:M related models in a composite view #}
-                {# Add each M:M model key path as a key pointing to its current record to the mm_lookup dict #}
-                {% createDict as mm_lookup %}
+                <tr>
+                    <!-- Animal -->
+                    <td>
+                        <!-- Put displayed link text first for sorting -->
+                        <div style="display:none;">{{ pg.msrun.sample.animal.name }}</div>
+                        <a href="{% url 'animal_detail' pg.msrun.sample.animal.id %}">
+                            {{ pg.msrun.sample.animal.name }}
+                        </a>
+                    </td>
 
-                {# Keep track of what record combos we're keeping or refiltering with a dict holding a boolean [keeping.keep] (because a single boolean value has some sort of scoping issue) #}
-                {% createDict as keeping %}
+                    <!-- Sample -->
+                    <td>
+                        <!-- Put displayed link text first for sorting -->
+                        <div style="display:none;">{{ pg.msrun.sample.name }}</div>
+                        <div class="nobr">
+                            <a href="{% url 'sample_detail' pg.msrun.sample.id %}">
+                                {{ pg.msrun.sample.name }}
+                            </a>
+                        </div>
+                    </td>
 
-                {% for study in pg.msrun.sample.animal.studies.all %}
+                    <!-- Tissue -->
+                    <td>
+                        <!-- Put displayed link text first for sorting -->
+                        <div style="display:none;">{{ pg.msrun.sample.tissue.name }}</div>
+                        <a href="{% url 'tissue_detail' pg.msrun.sample.tissue.id %}">
+                            {{ pg.msrun.sample.tissue.name }}
+                        </a>
+                    </td>
 
-                    {% addToDict mm_lookup "msrun__sample__animal__studies" study %}
-                    {% addToDict keeping "keep" False %}
+                    <!-- Peak Group -->
+                    <td>
+                        <!-- Put displayed link text first for sorting -->
+                        <div style="display:none;">{{ pg.name }}</div>
+                        <a href="{% url 'peakgroup_detail' pg.id %}">
+                            {{ pg.name }}
+                        </a>
+                    </td>
 
-                    {% for cs in pg.compounds.all %}
+                    <!-- Measured Compound -->
+                    <td>
+                        <!-- Put displayed link text first for sorting -->
+                        <div style="display:none;">
+                            {% define True as cpdfirst %}
+                            {% for mcpd in pg.compounds.all %}{% if not cpdfirst %}; {% endif%}{{ mcpd.name }}{% define False as cpdfirst %}{% endfor %}
+                        </div>
 
-                        {% addToDict mm_lookup "compounds" cs %}
+                        {% define True as cpdfirst %}
+                        {% for mcpd in pg.compounds.all %}{% if not cpdfirst %}; {% endif%}<a href="{% url 'compound_detail' mcpd.id %}">{{ mcpd.name }}</a>{% define False as cpdfirst %}{% endfor %}
+                    </td>
 
-                        {% for ss in cs.synonyms.all %}
+                    <!-- Measured Compound Synonym(s) -->
+                    <td>
+                        <!-- Put displayed link text first for sorting -->
+                        <div style="display:none;">
+                            {% define True as cpdfirst %}
+                            {% for mcpd in pg.compounds.all %}{% if not cpdfirst %}; {% endif%}{% define True as synfirst %}{% get_case_insensitive_synonyms mcpd.synonyms as inssyns %}{% for mcpdsyn in inssyns %}{% if not synfirst %}/{% endif%}{{ mcpdsyn }}{% define False as synfirst %}{% endfor %}{% define False as cpdfirst %}{% endfor %}
+                        </div>
 
-                            {% addToDict mm_lookup "compounds__synonyms" ss %}
+                        {% define True as cpdfirst %}
+                        {% for mcpd in pg.compounds.all %}{% if not cpdfirst %}; {% endif%}<a href="{% url 'compound_detail' mcpd.id %}">{% define True as synfirst %}{% get_case_insensitive_synonyms mcpd.synonyms as inssyns %}{% for mcpdsyn in inssyns %}{% if not synfirst %}/{% endif%}{{ mcpdsyn }}{% define False as synfirst %}{% endfor %}</a>{% define False as cpdfirst %}{% endfor %}
+                    </td>
 
-                            {% if not keeping.keep %}
+                    <!-- Labeled Element -->
+                    <td>
+                        {{ pg.msrun.sample.animal.tracer_labeled_atom }}
+                    </td>
 
-                                {# At the most nested loop level, we have enough info to refilter for unmatching many-to-many records #}
-                                {% shouldKeepManyToMany pg mm_lookup qry refilter as keep %}
+                    <!-- Peak Group Set Filename -->
+                    <td>
+                        <!-- Put displayed link text first for sorting -->
+                        <div style="display:none;">{{ pg.peak_group_set.filename }}</div>
+                        <a href="{% url 'peakgroupset_detail' pg.peak_group_set.id %}">
+                            {{ pg.peak_group_set.filename }}
+                        </a>
+                    </td>
 
-                                {# I don't know why changes to keep don't make it outside the loop, but saving it in a dict works #}
-                                {% addToDict keeping "keep" keep %}
+                    <!-- Total Abundance -->
+                    <td class="text-end">
+                        <p title="{{ pg.total_abundance|floatformat:10 }}">{{ pg.total_abundance|floatformat:1 }}</p>
+                    </td>
 
-                            {% endif %}
+                    <!-- Enrichment Fraction -->
+                    <td class="text-end">
+                        <p title="{{ pg.enrichment_fraction|floatformat:15 }}">{{ pg.enrichment_fraction|floatformat:4 }}</p>
+                    </td>
 
-                        {% endfor %}
-                    {% endfor %}
+                    <!-- Enrichment Abundance -->
+                    <td class="text-end">
+                        <p title="{{ pg.enrichment_abundance|floatformat:10 }}">{{ pg.enrichment_abundance|floatformat:4 }}</p>
+                    </td>
 
-                    {% if keeping.keep %}
+                    <!-- Normalized Labeling -->
+                    <td class="text-end">
+                        {% if pg.normalized_labeling is None %}
+                            <p title="PeakGroup, serum sample, or Animal Tracer not found.">None</p>
+                        {% else %}
+                            <p title="{{ pg.normalized_labeling|floatformat:15 }}">{{ pg.normalized_labeling|floatformat:4 }}</p>
+                        {% endif %}
+                    </td>
 
-                        {% incrementCounter rec_cnt %}
+                    <!-- Formula -->
+                    <td>
+                        {{ pg.formula }}
+                    </td>
 
-                        <tr>
-                            <!-- Animal -->
-                            <td>
-                                <!-- Put displayed link text first for sorting -->
-                                <div style="display:none;">{{ pg.msrun.sample.animal.name }}</div>
-                                <a href="{% url 'animal_detail' pg.msrun.sample.animal.id %}">
-                                    {{ pg.msrun.sample.animal.name }}
-                                </a>
-                            </td>
+                    <!-- Genotype -->
+                    <td>
+                        {{ pg.msrun.sample.animal.genotype }}
+                    </td>
 
-                            <!-- Sample -->
-                            <td>
-                                <!-- Put displayed link text first for sorting -->
-                                <div style="display:none;">{{ pg.msrun.sample.name }}</div>
-                                <div class="nobr">
-                                    <a href="{% url 'sample_detail' pg.msrun.sample.id %}">
-                                        {{ pg.msrun.sample.name }}
-                                    </a>
-                                </div>
-                            </td>
+                    <!-- Sex -->
+                    <td>
+                        {{ pg.msrun.sample.animal.sex }}
+                    </td>
 
-                            <!-- Tissue -->
-                            <td>
-                                <!-- Put displayed link text first for sorting -->
-                                <div style="display:none;">{{ pg.msrun.sample.tissue.name }}</div>
-                                <a href="{% url 'tissue_detail' pg.msrun.sample.tissue.id %}">
-                                    {{ pg.msrun.sample.tissue.name }}
-                                </a>
-                            </td>
+                    <!-- Feeding Status -->
+                    <td>
+                        {{ pg.msrun.sample.animal.feeding_status }}
+                    </td>
 
-                            <!-- Peak Group -->
-                            <td>
-                                <!-- Put displayed link text first for sorting -->
-                                <div style="display:none;">{{ pg.name }}</div>
-                                <a href="{% url 'peakgroup_detail' pg.id %}">
-                                    {{ pg.name }}
-                                </a>
-                            </td>
+                    <!-- Diet -->
+                    <td>
+                        {{ pg.msrun.sample.animal.diet }}
+                    </td>
 
-                            <!-- Measured Compound -->
-                            <td>
-                                <!-- Put displayed link text first for sorting -->
-                                <div style="display:none;">
-                                    {% define True as cpdfirst %}
-                                    {% for mcpd in pg.compounds.all %}{% if not cpdfirst %}; {% endif%}{{ mcpd.name }}{% define False as cpdfirst %}{% endfor %}
-                                </div>
+                    <!-- Treatment -->
+                    <td>
+                        {% if pg.msrun.sample.animal.treatment is None %}
+                            None
+                        {% else %}
+                            <!-- Put displayed link text first for sorting -->
+                            <div style="display:none;">{{ pg.msrun.sample.animal.treatment.name }}</div>
 
-                                {% define True as cpdfirst %}
-                                {% for mcpd in pg.compounds.all %}{% if not cpdfirst %}; {% endif%}<a href="{% url 'compound_detail' mcpd.id %}">{{ mcpd.name }}</a>{% define False as cpdfirst %}{% endfor %}
-                            </td>
+                            <a href="{% url 'protocol_detail' pg.msrun.sample.animal.treatment.id %}">
+                                {{ pg.msrun.sample.animal.treatment.name }}
+                            </a>
+                        {% endif %}
+                    </td>
 
-                            <!-- Measured Compound Synonym(s) -->
-                            <td>
-                                <!-- Put displayed link text first for sorting -->
-                                <div style="display:none;">
-                                    {% define True as cpdfirst %}
-                                    {% for mcpd in pg.compounds.all %}{% if not cpdfirst %}; {% endif%}{% define True as synfirst %}{% get_case_insensitive_synonyms mcpd.synonyms as inssyns %}{% for mcpdsyn in inssyns %}{% if not synfirst %}/{% endif%}{{ mcpdsyn }}{% define False as synfirst %}{% endfor %}{% define False as cpdfirst %}{% endfor %}
-                                </div>
+                    <!-- Body Weight (g) -->
+                    <td class="text-end">
+                        {{ pg.msrun.sample.animal.body_weight }}
+                    </td>
 
-                                {% define True as cpdfirst %}
-                                {% for mcpd in pg.compounds.all %}{% if not cpdfirst %}; {% endif%}<a href="{% url 'compound_detail' mcpd.id %}">{% define True as synfirst %}{% get_case_insensitive_synonyms mcpd.synonyms as inssyns %}{% for mcpdsyn in inssyns %}{% if not synfirst %}/{% endif%}{{ mcpdsyn }}{% define False as synfirst %}{% endfor %}</a>{% define False as cpdfirst %}{% endfor %}
-                            </td>
+                    <!-- Age (weeks) -->
+                    <td class="text-end">
+                        <p title="{{ pg.msrun.sample.animal.age }} (d-hh:mm:ss)">{{ pg.msrun.sample.animal.age|durationToWeeks|decimalPlaces:2 }}</p>
+                    </td>
 
-                            <!-- Labeled Element -->
-                            <td>
-                                {{ pg.msrun.sample.animal.tracer_labeled_atom }}
-                            </td>
+                    <!-- Tracer Compound -->
+                    <td>
+                        {% if pg.msrun.sample.animal.tracer_compound is None %}
+                            <!-- Put displayed link text first for sorting -->
+                            <div style="display:none;">None</div>
+                            <p title="Animal has no tracer.">None</p>
+                        {% else %}
+                            <!-- Put displayed link text first for sorting -->
+                            <div style="display:none;">{{ pg.msrun.sample.animal.tracer_compound.name }}</div>
+                            <a href="{% url 'compound_detail' pg.msrun.sample.animal.tracer_compound.id %}">
+                                {{ pg.msrun.sample.animal.tracer_compound.name }}
+                            </a>
+                        {% endif %}
+                    </td>
 
-                            <!-- Peak Group Set Filename -->
-                            <td>
-                                <!-- Put displayed link text first for sorting -->
-                                <div style="display:none;">{{ pg.peak_group_set.filename }}</div>
-                                <a href="{% url 'peakgroupset_detail' pg.peak_group_set.id %}">
-                                    {{ pg.peak_group_set.filename }}
-                                </a>
-                            </td>
+                    <!-- Tracer Infusion Rate (ul/min/g) -->
+                    <td class="text-end">
+                        {{ pg.msrun.sample.animal.tracer_infusion_rate }}
+                    </td>
 
-                            <!-- Total Abundance -->
-                            <td class="text-end">
-                                <p title="{{ pg.total_abundance|floatformat:10 }}">{{ pg.total_abundance|floatformat:1 }}</p>
-                            </td>
+                    <!-- Tracer Infusion Concentration (mM) -->
+                    <td class="text-end">
+                        {{ pg.msrun.sample.animal.tracer_infusion_concentration }}
+                    </td>
 
-                            <!-- Enrichment Fraction -->
-                            <td class="text-end">
-                                <p title="{{ pg.enrichment_fraction|floatformat:15 }}">{{ pg.enrichment_fraction|floatformat:4 }}</p>
-                            </td>
+                    <!-- Studies -->
+                    <td>
+                        <!-- Put displayed link text first for sorting -->
+                        <div style="display:none;">
+                            {% define True as first %}
+                            {% for study in pg.msrun.sample.animal.studies.all %}{% if not first %},<br>{% endif%}{{ study.name }}{% define False as first %}{% endfor %}
+                        </div>
 
-                            <!-- Enrichment Abundance -->
-                            <td class="text-end">
-                                <p title="{{ pg.enrichment_abundance|floatformat:10 }}">{{ pg.enrichment_abundance|floatformat:4 }}</p>
-                            </td>
-
-                            <!-- Normalized Labeling -->
-                            <td class="text-end">
-                                {% if pg.normalized_labeling is None %}
-                                    <p title="PeakGroup, serum sample, or Animal Tracer not found.">None</p>
-                                {% else %}
-                                    <p title="{{ pg.normalized_labeling|floatformat:15 }}">{{ pg.normalized_labeling|floatformat:4 }}</p>
-                                {% endif %}
-                            </td>
-
-                            <!-- Formula -->
-                            <td>
-                                {{ pg.formula }}
-                            </td>
-
-                            <!-- Genotype -->
-                            <td>
-                                {{ pg.msrun.sample.animal.genotype }}
-                            </td>
-
-                            <!-- Sex -->
-                            <td>
-                                {{ pg.msrun.sample.animal.sex }}
-                            </td>
-
-                            <!-- Feeding Status -->
-                            <td>
-                                {{ pg.msrun.sample.animal.feeding_status }}
-                            </td>
-
-                            <!-- Diet -->
-                            <td>
-                                {{ pg.msrun.sample.animal.diet }}
-                            </td>
-
-                            <!-- Treatment -->
-                            <td>
-                                {% if pg.msrun.sample.animal.treatment is None %}
-                                    None
-                                {% else %}
-                                    <!-- Put displayed link text first for sorting -->
-                                    <div style="display:none;">{{ pg.msrun.sample.animal.treatment.name }}</div>
-
-                                    <a href="{% url 'protocol_detail' pg.msrun.sample.animal.treatment.id %}">
-                                        {{ pg.msrun.sample.animal.treatment.name }}
-                                    </a>
-                                {% endif %}
-                            </td>
-
-                            <!-- Body Weight (g) -->
-                            <td class="text-end">
-                                {{ pg.msrun.sample.animal.body_weight }}
-                            </td>
-
-                            <!-- Age (weeks) -->
-                            <td class="text-end">
-                                <p title="{{ pg.msrun.sample.animal.age }} (d-hh:mm:ss)">{{ pg.msrun.sample.animal.age|durationToWeeks|decimalPlaces:2 }}</p>
-                            </td>
-
-                            <!-- Tracer Compound -->
-                            <td>
-                                {% if pg.msrun.sample.animal.tracer_compound is None %}
-                                    <!-- Put displayed link text first for sorting -->
-                                    <div style="display:none;">None</div>
-                                    <p title="Animal has no tracer.">None</p>
-                                {% else %}
-                                    <!-- Put displayed link text first for sorting -->
-                                    <div style="display:none;">{{ pg.msrun.sample.animal.tracer_compound.name }}</div>
-                                    <a href="{% url 'compound_detail' pg.msrun.sample.animal.tracer_compound.id %}">
-                                        {{ pg.msrun.sample.animal.tracer_compound.name }}
-                                    </a>
-                                {% endif %}
-                            </td>
-
-                            <!-- Tracer Infusion Rate (ul/min/g) -->
-                            <td class="text-end">
-                                {{ pg.msrun.sample.animal.tracer_infusion_rate }}
-                            </td>
-
-                            <!-- Tracer Infusion Concentration (mM) -->
-                            <td class="text-end">
-                                {{ pg.msrun.sample.animal.tracer_infusion_concentration }}
-                            </td>
-
-                            <!-- Study -->
-                            <td>
-                                <!-- Put displayed link text first for sorting -->
-                                <div style="display:none;">{{ study.name }}</div>
-                                <a href="{% url 'study_detail' study.id %}">
-                                    {{ study.name }}
-                                </a>
-                            </td>
-                        </tr>
-                    {% endif %}
-                {% endfor %}
+                        {% define True as first %}
+                        {% for study in pg.msrun.sample.animal.studies.all %}{% if not first %},<br>{% endif%}<a href="{% url 'study_detail' study.id %}">{{ study.name }}</a>{% define False as first %}{% endfor %}
+                    </td>
+                </tr>
             {% endfor %}
         </tbody>
     </table>
-    <div id="realcount" style="display:none;">{% getCount rec_cnt %}</div>
 {% endblock %}
