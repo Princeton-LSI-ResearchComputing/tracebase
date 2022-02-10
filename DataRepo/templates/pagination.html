@@ -21,16 +21,20 @@
 
             var myform = document.getElementById("custom-paging")
             var rowselem = document.getElementById("pager-rows-elem")
-            rowselem.addEventListener("change", function (event) {
-                setPage(1)
-                myform.submit();
-            })
+            if (typeof rowselem !== 'undefined' && rowselem) {
+                rowselem.addEventListener("change", function (event) {
+                    setPage(1)
+                    myform.submit();
+                })
+            }
         })
 
         function setPage(pagenum){
-            {% comment %} alert("setPage called for page " + pagenum) {% endcomment %}
             // The "pager-page-elem" ID is set in for django form class
-            document.getElementById("pager-page-elem").value = pagenum;
+            var rowselem = document.getElementById("pager-rows-elem")
+            if (typeof rowselem !== 'undefined' && rowselem) {
+                document.getElementById("pager-page-elem").value = pagenum;
+            }
         }
     </script>
 
@@ -44,7 +48,7 @@
                 {{ pager.page_form.page }}
                 {{ pager.page_form.adv_search_page_form }}
                 <div style="float: left;">
-                    Showing {{ pager.start }} to {{ pager.end }} of {{ pager.tot }} rows, {{ pager.page_form.rows }} rows per page
+                    Showing {{ pager.start }} to {{ pager.end }} of {{ pager.tot }} rows, {{ pager.page_form.rows }} rows per page, min: {{ pager.min_rows_per_page }}
                 </div>
     {% endif %}
     {% if pager.tot > pager.rows %}

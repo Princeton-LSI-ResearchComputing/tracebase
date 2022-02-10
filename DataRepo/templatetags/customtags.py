@@ -191,3 +191,10 @@ def get_case_insensitive_synonyms(case_qs):
         lcitem = item.lower()
         case_insensitive_dict[lcitem] = item
     return list(case_insensitive_dict.values())
+
+@register.simple_tag(takes_context = True)  # Prepends context to submitted args (do not explicitly supply)
+def get_template_cookie(context, template_name, cookie_name, cookie_default):
+    request = context['request']
+    full_cookie_name = ".".join([template_name, cookie_name])
+    result = request.COOKIES.get(full_cookie_name, cookie_default)
+    return result
