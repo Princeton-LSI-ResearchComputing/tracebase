@@ -1,4 +1,15 @@
 {% load customtags %}
+
+{% block head_extras %}
+    <script>
+        // Set a Cookie
+        function set_cookie(name, val) {
+            console.log("Setting cookie " + name + " to " + val)
+            document.cookie = name + "=" + val + "; path=/";
+        }
+    </script>
+{% endblock %}
+
 {% block content %}
     <div>
         {% define True as valid_search %}

@@ -9,6 +9,9 @@
             $("#advsrchres").bootstrapTable({
                 onAll: function() {
                     updateColumnGroups()
+                },
+                onColumnSwitch: function(field, checked) {
+                    set_template_cookie(field + '-data-visible', checked)
                 }
             })
 
@@ -32,6 +35,10 @@
                 $("#advsrchres .metadata").attr("span", metadata_cnt)
             }
         })
+
+        function set_template_cookie(name, val) {
+            set_cookie('peakdata.' + name, val);
+        }
     </script>
     <script src="https://cdn.jsdelivr.net/gh/wenzhixin/bootstrap-table-examples@master/utils/natural-sorting/dist/natural-sorting.js"></script>
 
@@ -59,33 +66,33 @@
 
         <thead>
             <tr>
-                <th data-valign="top" data-sortable="true" class="idgrp" data-visible="false" data-sorter="alphanum" data-field="Animal">Animal</th>
-                <th data-valign="top" data-sortable="true" class="idgrp" data-visible="true" data-sorter="alphanum" data-field="Sample" data-switchable="false">Sample</th>
-                <th data-valign="top" data-sortable="true" class="idgrp" data-visible="true" data-sorter="alphanum" data-field="Tissue">Tissue</th>
-                <th data-valign="top" data-sortable="true" class="idgrp" data-visible="false" data-sorter="alphanum" data-field="Peak_Group">Peak Group</th>
-                <th data-valign="top" data-sortable="true" class="idgrp" data-visible="true" data-sorter="alphanum" data-field="Measured_Compounds">Measured<br>Compound(s)</th>
-                <th data-valign="top" data-sortable="true" class="idgrp" data-visible="false" data-sorter="alphanum" data-field="Measured_Compound_Synonyms">Measured<br>Compound<br>Synonym(s)</th>
-                <th data-valign="top" data-sortable="true" class="idgrp" data-visible="true" data-sorter="alphanum" data-field="Labeled_Element_Count">Labeled<br>Element:<br>Count</th>
-                <th data-valign="top" data-sortable="true" class="idgrp" data-visible="false" data-sorter="alphanum" data-field="Peak_Group_Set_Filename">Peak Group Set Filename</th>
+                <th data-valign="top" data-sortable="true" class="idgrp" data-visible="{% get_template_cookie 'peakdata' 'Animal-data-visible' 'false' %}" data-sorter="alphanum" data-field="Animal">Animal</th>
+                <th data-valign="top" data-sortable="true" class="idgrp" data-visible="{% get_template_cookie 'peakdata' 'Sample-data-visible' 'true' %}" data-sorter="alphanum" data-field="Sample" data-switchable="false">Sample</th>
+                <th data-valign="top" data-sortable="true" class="idgrp" data-visible="{% get_template_cookie 'peakdata' 'Tissue-data-visible' 'true' %}" data-sorter="alphanum" data-field="Tissue">Tissue</th>
+                <th data-valign="top" data-sortable="true" class="idgrp" data-visible="{% get_template_cookie 'peakdata' 'Peak_Group-data-visible' 'false' %}" data-sorter="alphanum" data-field="Peak_Group">Peak Group</th>
+                <th data-valign="top" data-sortable="true" class="idgrp" data-visible="{% get_template_cookie 'peakdata' 'Measured_Compounds-data-visible' 'true' %}" data-sorter="alphanum" data-field="Measured_Compounds">Measured<br>Compound(s)</th>
+                <th data-valign="top" data-sortable="true" class="idgrp" data-visible="{% get_template_cookie 'peakdata' 'Measured_Compound_Synonyms-data-visible' 'false' %}" data-sorter="alphanum" data-field="Measured_Compound_Synonyms">Measured<br>Compound<br>Synonym(s)</th>
+                <th data-valign="top" data-sortable="true" class="idgrp" data-visible="{% get_template_cookie 'peakdata' 'Labeled_Element_Count-data-visible' 'true' %}" data-sorter="alphanum" data-field="Labeled_Element_Count">Labeled<br>Element:<br>Count</th>
+                <th data-valign="top" data-sortable="true" class="idgrp" data-visible="{% get_template_cookie 'peakdata' 'Peak_Group_Set_Filename-data-visible' 'false' %}" data-sorter="alphanum" data-field="Peak_Group_Set_Filename">Peak Group Set Filename</th>
 
-                <th data-valign="top" data-sortable="true" class="datagrp" data-visible="false" data-sorter="numericOnly" data-field="Raw_Abundance">Raw<br>Abundance</th>
-                <th data-valign="top" data-sortable="true" class="datagrp" data-visible="true" data-sorter="numericOnly" data-field="Corrected_Abundance">Corrected<br>Abundance</th>
-                <th data-valign="top" data-sortable="true" class="datagrp" data-visible="true" data-sorter="numericOnly" data-field="Fraction" data-switchable="false">Fraction</th>
-                <th data-valign="top" data-sortable="true" class="datagrp" data-visible="false" data-sorter="numericOnly" data-field="Median_MZ">Median<br>M/Z</th>
-                <th data-valign="top" data-sortable="true" class="datagrp" data-visible="false" data-sorter="numericOnly" data-field="Median_RT">Median<br>RT</th>
+                <th data-valign="top" data-sortable="true" class="datagrp" data-visible="{% get_template_cookie 'peakdata' 'Raw_Abundance-data-visible' 'false' %}" data-sorter="numericOnly" data-field="Raw_Abundance">Raw<br>Abundance</th>
+                <th data-valign="top" data-sortable="true" class="datagrp" data-visible="{% get_template_cookie 'peakdata' 'Corrected_Abundance-data-visible' 'true' %}" data-sorter="numericOnly" data-field="Corrected_Abundance">Corrected<br>Abundance</th>
+                <th data-valign="top" data-sortable="true" class="datagrp" data-visible="{% get_template_cookie 'peakdata' 'Fraction-data-visible' 'true' %}" data-sorter="numericOnly" data-field="Fraction" data-switchable="false">Fraction</th>
+                <th data-valign="top" data-sortable="true" class="datagrp" data-visible="{% get_template_cookie 'peakdata' 'Median_MZ-data-visible' 'false' %}" data-sorter="numericOnly" data-field="Median_MZ">Median<br>M/Z</th>
+                <th data-valign="top" data-sortable="true" class="datagrp" data-visible="{% get_template_cookie 'peakdata' 'Median_RT-data-visible' 'false' %}" data-sorter="numericOnly" data-field="Median_RT">Median<br>RT</th>
 
-                <th data-valign="top" data-sortable="true" class="metagrp" data-visible="false" data-sorter="alphanum" data-field="Formula">Formula</th>
-                <th data-valign="top" data-sortable="true" class="metagrp" data-visible="true" data-sorter="alphanum" data-field="Genotype">Genotype</th>
-                <th data-valign="top" data-sortable="true" class="metagrp" data-visible="false" data-sorter="alphanum" data-field="Sex">Sex</th>
-                <th data-valign="top" data-sortable="true" class="metagrp" data-visible="false" data-sorter="alphanum" data-field="Age">Age<br>(weeks)</th>
-                <th data-valign="top" data-sortable="true" class="metagrp" data-visible="false" data-sorter="numericOnly" data-field="Body_Weight">Body<br>Weight<br>(g)</th>
-                <th data-valign="top" data-sortable="true" class="metagrp" data-visible="true" data-sorter="alphanum" data-field="Feeding_Status">Feeding<br>Status</th>
-                <th data-valign="top" data-sortable="true" class="metagrp" data-visible="true" data-sorter="alphanum" data-field="Treatment">Treatment</th>
-                <th data-valign="top" data-sortable="true" class="metagrp" data-visible="false" data-sorter="alphanum" data-field="Diet">Diet</th>
-                <th data-valign="top" data-sortable="true" class="metagrp" data-visible="true" data-sorter="alphanum" data-field="Tracer_Compound" data-switchable="false">Tracer<br>Compound</th>
-                <th data-valign="top" data-sortable="true" class="metagrp" data-visible="false" data-sorter="numericOnly" data-field="Tracer_Infusion_Rate">Tracer<br>Infusion<br>Rate<br>(ul/min/g)</th>
-                <th data-valign="top" data-sortable="true" class="metagrp" data-visible="false" data-sorter="numericOnly" data-field="Tracer_Infusion_Concentration">Tracer<br>Infusion<br>Concentration<br>(mM)</th>
-                <th data-valign="top" data-sortable="true" class="metagrp" data-visible="true" data-sorter="alphanum" data-field="Study">Studies</th>
+                <th data-valign="top" data-sortable="true" class="metagrp" data-visible="{% get_template_cookie 'peakdata' 'Formula-data-visible' 'false' %}" data-sorter="alphanum" data-field="Formula">Formula</th>
+                <th data-valign="top" data-sortable="true" class="metagrp" data-visible="{% get_template_cookie 'peakdata' 'Genotype-data-visible' 'true' %}" data-sorter="alphanum" data-field="Genotype">Genotype</th>
+                <th data-valign="top" data-sortable="true" class="metagrp" data-visible="{% get_template_cookie 'peakdata' 'Sex-data-visible' 'false' %}" data-sorter="alphanum" data-field="Sex">Sex</th>
+                <th data-valign="top" data-sortable="true" class="metagrp" data-visible="{% get_template_cookie 'peakdata' 'Age-data-visible' 'false' %}" data-sorter="alphanum" data-field="Age">Age<br>(weeks)</th>
+                <th data-valign="top" data-sortable="true" class="metagrp" data-visible="{% get_template_cookie 'peakdata' 'Body_Weight-data-visible' 'false' %}" data-sorter="numericOnly" data-field="Body_Weight">Body<br>Weight<br>(g)</th>
+                <th data-valign="top" data-sortable="true" class="metagrp" data-visible="{% get_template_cookie 'peakdata' 'Feeding_Status-data-visible' 'true' %}" data-sorter="alphanum" data-field="Feeding_Status">Feeding<br>Status</th>
+                <th data-valign="top" data-sortable="true" class="metagrp" data-visible="{% get_template_cookie 'peakdata' 'Treatment-data-visible' 'true' %}" data-sorter="alphanum" data-field="Treatment">Treatment</th>
+                <th data-valign="top" data-sortable="true" class="metagrp" data-visible="{% get_template_cookie 'peakdata' 'Diet-data-visible' 'false' %}" data-sorter="alphanum" data-field="Diet">Diet</th>
+                <th data-valign="top" data-sortable="true" class="metagrp" data-visible="{% get_template_cookie 'peakdata' 'Tracer_Compound-data-visible' 'true' %}" data-sorter="alphanum" data-field="Tracer_Compound" data-switchable="false">Tracer<br>Compound</th>
+                <th data-valign="top" data-sortable="true" class="metagrp" data-visible="{% get_template_cookie 'peakdata' 'Tracer_Infusion_Rate-data-visible' 'false' %}" data-sorter="numericOnly" data-field="Tracer_Infusion_Rate">Tracer<br>Infusion<br>Rate<br>(ul/min/g)</th>
+                <th data-valign="top" data-sortable="true" class="metagrp" data-visible="{% get_template_cookie 'peakdata' 'Tracer_Infusion_Concentration-data-visible' 'false' %}" data-sorter="numericOnly" data-field="Tracer_Infusion_Concentration">Tracer<br>Infusion<br>Concentration<br>(mM)</th>
+                <th data-valign="top" data-sortable="true" class="metagrp" data-visible="{% get_template_cookie 'peakdata' 'Study-data-visible' 'true' %}" data-sorter="alphanum" data-field="Study">Studies</th>
             </tr>
         </thead>
 
