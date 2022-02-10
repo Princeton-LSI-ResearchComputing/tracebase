@@ -56,11 +56,17 @@ class MultiFormMixin(ContextMixin):
 
     def get_form_kwargs(self, form_name, bind_form=False):
         kwargs = {}
-        kwargs.update({"initial": self.get_initial(form_name)})
-        kwargs.update({"prefix": self.get_prefix(form_name)})
+        init = self.get_initial(form_name)
+        if init:
+            kwargs.update({"initial": self.get_initial(form_name)})
+        pfx = self.get_prefix(form_name)
+        if pfx:
+            kwargs.update({"prefix": self.get_prefix(form_name)})
 
         if bind_form:
-            kwargs.update(self._bind_form_data())
+            bound = self._bind_form_data()
+            if len(bound.keys()) > 0:
+                kwargs.update(bound)
 
         return kwargs
 
@@ -130,16 +136,27 @@ class MultiFormMixin(ContextMixin):
         form_create_method = "create_%s_form" % form_name
         if hasattr(self, form_create_method):
             form = getattr(self, form_create_method)(**form_kwargs)
+        elif len(form_kwargs.keys()) > 0:
+            print("KWARGS:",len(form_kwargs.keys()))
+            try:
+                form = klass(**form_kwargs)
+            except TypeError as te:
+                print(te)
+                form = klass.__new__()
         else:
-            form = klass(**form_kwargs)
+            form = klass()
         return form
 
     def _bind_form_data(self):
         if self.request.method in ("POST", "PUT"):
-            return {
-                "data": self.request.POST,
-                "files": self.request.FILES,
-            }
+            retdict = {}
+            data = self.request.POST
+            if data:
+                retdict["data"] = data
+            files = self.request.FILES
+            if files:
+                retdict["files"] = files
+            return retdict
         return {}
 
     def _mixed_exists(self):
