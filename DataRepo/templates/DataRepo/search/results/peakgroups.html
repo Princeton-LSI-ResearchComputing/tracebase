@@ -60,7 +60,7 @@
         data-filter-control="false"
         data-search="false"
         data-show-search-clear-button="false"
-        data-show-multi-sort="true"
+        data-show-multi-sort="false"
         data-show-columns="true"
         data-show-columns-toggle-all="true"
         data-show-fullscreen="false"
@@ -72,32 +72,32 @@
 
         <thead>
             <tr>
-                <th data-valign="top" data-sortable="true" data-visible="{% get_template_cookie 'peakgroups' 'Animal-data-visible' 'false' %}" data-sorter="alphanum" data-field="Animal" class="idgrp">Animal</th>
-                <th data-valign="top" data-sortable="true" data-visible="{% get_template_cookie 'peakgroups' 'Sample-data-visible' 'true' %}" data-sorter="alphanum" data-field="Sample" class="idgrp" data-switchable="false">Sample</th>
-                <th data-valign="top" data-sortable="true" data-visible="{% get_template_cookie 'peakgroups' 'Tissue-data-visible' 'true' %}" data-sorter="alphanum" data-field="Tissue" class="idgrp">Tissue</th>
-                <th data-valign="top" data-sortable="true" data-visible="{% get_template_cookie 'peakgroups' 'Peak_Group-data-visible' 'false' %}" data-sorter="alphanum" data-field="Peak_Group" class="idgrp">Peak Group</th>
-                <th data-valign="top" data-sortable="true" data-visible="{% get_template_cookie 'peakgroups' 'Compound_Name-data-visible' 'true' %}" data-sorter="alphanum" data-field="Compound_Name" class="idgrp">Measured<br>Compound</th>
-                <th data-valign="top" data-sortable="true" data-visible="{% get_template_cookie 'peakgroups' 'Compound_Synonym-data-visible' 'false' %}" data-sorter="alphanum" data-field="Compound_Synonym" class="idgrp">Measured<br>Compound<br>Synonym(s)</th>
-                <th data-valign="top" data-sortable="true" data-visible="{% get_template_cookie 'peakgroups' 'Labeled_Element-data-visible' 'true' %}" data-sorter="alphanum" data-field="Labeled_Element" class="idgrp">Labeled<br>Element</th>
-                <th data-valign="top" data-sortable="true" data-visible="{% get_template_cookie 'peakgroups' 'Peak_Group_Set_Filename-data-visible' 'false' %}" data-sorter="alphanum" data-field="Peak_Group_Set_Filename" class="idgrp">Peak Group Set Filename</th>
+                <th data-valign="top" data-visible="{% get_template_cookie 'peakgroups' 'Animal-data-visible' 'false' %}" data-field="Animal" class="idgrp">Animal</th>
+                <th data-valign="top" data-visible="{% get_template_cookie 'peakgroups' 'Sample-data-visible' 'true' %}" data-field="Sample" class="idgrp" data-switchable="false">Sample</th>
+                <th data-valign="top" data-visible="{% get_template_cookie 'peakgroups' 'Tissue-data-visible' 'true' %}" data-field="Tissue" class="idgrp">Tissue</th>
+                <th data-valign="top" data-visible="{% get_template_cookie 'peakgroups' 'Peak_Group-data-visible' 'false' %}" data-field="Peak_Group" class="idgrp">Peak Group</th>
+                <th data-valign="top" data-visible="{% get_template_cookie 'peakgroups' 'Compound_Name-data-visible' 'true' %}" data-field="Compound_Name" class="idgrp">Measured<br>Compound</th>
+                <th data-valign="top" data-visible="{% get_template_cookie 'peakgroups' 'Compound_Synonym-data-visible' 'false' %}" data-field="Compound_Synonym" class="idgrp">Measured<br>Compound<br>Synonym(s)</th>
+                <th data-valign="top" data-visible="{% get_template_cookie 'peakgroups' 'Labeled_Element-data-visible' 'true' %}" data-field="Labeled_Element" class="idgrp">Labeled<br>Element</th>
+                <th data-valign="top" data-visible="{% get_template_cookie 'peakgroups' 'Peak_Group_Set_Filename-data-visible' 'false' %}" data-field="Peak_Group_Set_Filename" class="idgrp">Peak Group Set Filename</th>
 
-                <th data-valign="top" data-sortable="true" data-visible="{% get_template_cookie 'peakgroups' 'Total_Abundance-data-visible' 'true' %}" data-sorter="numericOnly" data-field="Total_Abundance" class="datagrp" data-switchable="false">Total<br>Abundance</th>
-                <th data-valign="top" data-sortable="true" data-visible="{% get_template_cookie 'peakgroups' 'Enrichment_Fraction-data-visible' 'true' %}" data-sorter="numericOnly" data-field="Enrichment_Fraction" class="datagrp">Enrichment<br>Fraction</th>
-                <th data-valign="top" data-sortable="true" data-visible="{% get_template_cookie 'peakgroups' 'Enrichment_Abundance-data-visible' 'true' %}" data-sorter="numericOnly" data-field="Enrichment_Abundance" class="datagrp">Enrichment<br>Abundance</th>
-                <th data-valign="top" data-sortable="true" data-visible="{% get_template_cookie 'peakgroups' 'Normalized_Labeling-data-visible' 'true' %}" data-sorter="numericOnly" data-field="Normalized_Labeling" class="datagrp">Normalized<br>Labeling</th>
+                <th data-valign="top" data-visible="{% get_template_cookie 'peakgroups' 'Total_Abundance-data-visible' 'true' %}" data-field="Total_Abundance" class="datagrp" data-switchable="false">Total<br>Abundance</th>
+                <th data-valign="top" data-visible="{% get_template_cookie 'peakgroups' 'Enrichment_Fraction-data-visible' 'true' %}" data-field="Enrichment_Fraction" class="datagrp">Enrichment<br>Fraction</th>
+                <th data-valign="top" data-visible="{% get_template_cookie 'peakgroups' 'Enrichment_Abundance-data-visible' 'true' %}" data-field="Enrichment_Abundance" class="datagrp">Enrichment<br>Abundance</th>
+                <th data-valign="top" data-visible="{% get_template_cookie 'peakgroups' 'Normalized_Labeling-data-visible' 'true' %}" data-field="Normalized_Labeling" class="datagrp">Normalized<br>Labeling</th>
 
-                <th data-valign="top" data-sortable="true" data-visible="{% get_template_cookie 'peakgroups' 'Formula-data-visible' 'false' %}" data-sorter="alphanum" data-field="Formula" class="metagrp">Formula</th>
-                <th data-valign="top" data-sortable="true" data-visible="{% get_template_cookie 'peakgroups' 'Genotype-data-visible' 'true' %}" data-sorter="alphanum" data-field="Genotype" class="metagrp">Genotype</th>
-                <th data-valign="top" data-sortable="true" data-visible="{% get_template_cookie 'peakgroups' 'Sex-data-visible' 'false' %}" data-sorter="alphanum" data-field="Sex" class="metagrp">Sex</th>
-                <th data-valign="top" data-sortable="true" data-visible="{% get_template_cookie 'peakgroups' 'Feeding_Status-data-visible' 'true' %}" data-sorter="alphanum" data-field="Feeding_Status" class="metagrp">Feeding<br>Status</th>
-                <th data-valign="top" data-sortable="true" data-visible="{% get_template_cookie 'peakgroups' 'Diet-data-visible' 'false' %}" data-sorter="alphanum" data-field="Diet" class="metagrp">Diet</th>
-                <th data-valign="top" data-sortable="true" data-visible="{% get_template_cookie 'peakgroups' 'Treatment-data-visible' 'true' %}" data-sorter="alphanum" data-field="Treatment" class="metagrp">Treatment</th>
-                <th data-valign="top" data-sortable="true" data-visible="{% get_template_cookie 'peakgroups' 'Body_Weight-data-visible' 'false' %}" data-sorter="numericOnly" data-field="Body_Weight" class="metagrp">Body<br>Weight<br>(g)</th>
-                <th data-valign="top" data-sortable="true" data-visible="{% get_template_cookie 'peakgroups' 'Age-data-visible' 'false' %}" data-sorter="alphanum" data-field="Age" class="metagrp">Age<br>(weeks)</th>
-                <th data-valign="top" data-sortable="true" data-visible="{% get_template_cookie 'peakgroups' 'Tracer_Compound-data-visible' 'true' %}" data-sorter="alphanum" data-field="Tracer_Compound" class="metagrp" data-switchable="false">Tracer<br>Compound</th>
-                <th data-valign="top" data-sortable="true" data-visible="{% get_template_cookie 'peakgroups' 'Tracer_Infusion_Rate-data-visible' 'false' %}" data-sorter="numericOnly" data-field="Tracer_Infusion_Rate" class="metagrp">Tracer<br>Infusion<br>Rate<br>(ul/min/g)</th>
-                <th data-valign="top" data-sortable="true" data-visible="{% get_template_cookie 'peakgroups' 'Tracer_Infusion_Concentration-data-visible' 'false' %}" data-sorter="numericOnly" data-field="Tracer_Infusion_Concentration" class="metagrp">Tracer<br>Infusion<br>Concentration<br>(mM)</th>
-                <th data-valign="top" data-sortable="true" data-visible="{% get_template_cookie 'peakgroups' 'Study-data-visible' 'true' %}" data-sorter="alphanum" data-field="Study" class="metagrp">Studies</th>
+                <th data-valign="top" data-visible="{% get_template_cookie 'peakgroups' 'Formula-data-visible' 'false' %}" data-field="Formula" class="metagrp">Formula</th>
+                <th data-valign="top" data-visible="{% get_template_cookie 'peakgroups' 'Genotype-data-visible' 'true' %}" data-field="Genotype" class="metagrp">Genotype</th>
+                <th data-valign="top" data-visible="{% get_template_cookie 'peakgroups' 'Sex-data-visible' 'false' %}" data-field="Sex" class="metagrp">Sex</th>
+                <th data-valign="top" data-visible="{% get_template_cookie 'peakgroups' 'Feeding_Status-data-visible' 'true' %}" data-field="Feeding_Status" class="metagrp">Feeding<br>Status</th>
+                <th data-valign="top" data-visible="{% get_template_cookie 'peakgroups' 'Diet-data-visible' 'false' %}" data-field="Diet" class="metagrp">Diet</th>
+                <th data-valign="top" data-visible="{% get_template_cookie 'peakgroups' 'Treatment-data-visible' 'true' %}" data-field="Treatment" class="metagrp">Treatment</th>
+                <th data-valign="top" data-visible="{% get_template_cookie 'peakgroups' 'Body_Weight-data-visible' 'false' %}" data-field="Body_Weight" class="metagrp">Body<br>Weight<br>(g)</th>
+                <th data-valign="top" data-visible="{% get_template_cookie 'peakgroups' 'Age-data-visible' 'false' %}" data-field="Age" class="metagrp">Age<br>(weeks)</th>
+                <th data-valign="top" data-visible="{% get_template_cookie 'peakgroups' 'Tracer_Compound-data-visible' 'true' %}" data-field="Tracer_Compound" class="metagrp" data-switchable="false">Tracer<br>Compound</th>
+                <th data-valign="top" data-visible="{% get_template_cookie 'peakgroups' 'Tracer_Infusion_Rate-data-visible' 'false' %}" data-field="Tracer_Infusion_Rate" class="metagrp">Tracer<br>Infusion<br>Rate<br>(ul/min/g)</th>
+                <th data-valign="top" data-visible="{% get_template_cookie 'peakgroups' 'Tracer_Infusion_Concentration-data-visible' 'false' %}" data-field="Tracer_Infusion_Concentration" class="metagrp">Tracer<br>Infusion<br>Concentration<br>(mM)</th>
+                <th data-valign="top" data-visible="{% get_template_cookie 'peakgroups' 'Study-data-visible' 'true' %}" data-field="Study" class="metagrp">Studies</th>
             </tr>
         </thead>
 

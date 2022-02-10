@@ -332,10 +332,11 @@ class CustomPaginator():
         self.min_rows_per_page = None
         rppsl = self.page_form.ROWS_PER_PAGE_CHOICES
         for atuple in rppsl:
-            num = atuple[0]
+            num = int(atuple[0])
             print(f"ROWS PER PAGE CHOICE: {num}")
             if self.min_rows_per_page is None or num < self.min_rows_per_page:
                 self.min_rows_per_page = num
+        print(f"MIN ROWS PER PAGE CHOICE: {self.min_rows_per_page}")
 
         # Validate
         if self.num_buttons % 2 == 0 or self.num_buttons < 3:
