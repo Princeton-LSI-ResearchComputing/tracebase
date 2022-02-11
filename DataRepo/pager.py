@@ -15,6 +15,7 @@ class Pager():
         order_dir_field,
         num_buttons=5,
         other_fields=[],
+        default_rows=10,
         page_input_id="pager-page-elem",
         rows_input_id="pager-rows-elem",
         form_name="paging",  # Relies on multiforms
@@ -33,6 +34,7 @@ class Pager():
         self.rows_per_page_choices = rows_per_page_choices
         self.page_field = page_field
         self.rows_per_page_field = rows_per_page_field
+        self.default_rows = default_rows
         self.order_by_field = order_by_field
         self.order_dir_field = order_dir_field
         self.other_fields = other_fields
@@ -45,7 +47,7 @@ class Pager():
             if self.min_rows_per_page is None or num < self.min_rows_per_page:
                 self.min_rows_per_page = num
 
-    def new(self, tot=None, page=1, rows=10, start=None, end=None, order_by = "x", order_dir = "x", other_field_dict=None):
+    def new(self, tot=None, page=1, rows=None, start=None, end=None, order_by = "placeholder", order_dir = "placeholder", other_field_dict=None):
         if start is None:
             self.start = (page - 1) * rows + 1
         else:
@@ -57,6 +59,8 @@ class Pager():
         else:
             self.end = end
         self.page = page
+        if rows is None:
+            rows = self.default_rows
         self.rows = rows
         self.tot = tot
         self.order_by = order_by

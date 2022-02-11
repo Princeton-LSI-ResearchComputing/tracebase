@@ -25,6 +25,7 @@
             var rowselem = document.getElementById("{{ pager.rows_input_id }}")
             if (typeof rowselem !== 'undefined' && rowselem) {
                 rowselem.addEventListener("change", function (event) {
+                    set_template_cookie("{{ pager.rows_per_page_field }}", event.target.value)
                     setPage(1)
                     myform.submit();
                 })
@@ -33,9 +34,9 @@
 
         function setPage(pagenum){
             // The "pager-page-elem" ID is set in for django form class
-            var rowselem = document.getElementById("{{ pager.rows_input_id }}")
-            if (typeof rowselem !== 'undefined' && rowselem) {
-                document.getElementById("{{ pager.page_input_id }}").value = pagenum;
+            var pageelem = document.getElementById("{{ pager.page_input_id }}")
+            if (typeof pageelem !== 'undefined' && pageelem) {
+                pageelem.value = pagenum;
             }
         }
     </script>

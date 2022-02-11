@@ -403,9 +403,10 @@ class AdvancedSearchView(MultiFormsView):
 
         if isQryObjValid(qry, self.form_classes.keys()):
             download_form = AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
+            rows_per_page = int(self.get_template_cookie(qry["selectedtemplate"], self.pager.rows_per_page_field, self.pager.default_rows))
             q_exp = constructAdvancedQuery(qry)
-            res, tot = performQuery(q_exp, qry["selectedtemplate"], self.basv_metadata, limit=10, offset=0, order_by="x", order_direction="x")
-            self.pager.new(other_field_dict={"qryjson": json.dumps(qry)}, tot=tot, page=1, rows=10)
+            res, tot = performQuery(q_exp, qry["selectedtemplate"], self.basv_metadata, limit=rows_per_page, offset=0, order_by="placeholder", order_direction="placeholder")
+            self.pager.new(other_field_dict={"qryjson": json.dumps(qry)}, tot=tot, page=1, rows=rows_per_page)
         else:
             # Log a warning
             print("WARNING: Invalid query root:", qry)
@@ -427,6 +428,12 @@ class AdvancedSearchView(MultiFormsView):
                 fld_choices=self.basv_metadata.getSearchFieldChoicesDict(),
             )
         )
+
+    def get_template_cookie(self, template_name, cookie_name, cookie_default):
+        request = self.request
+        full_cookie_name = ".".join([template_name, cookie_name])
+        result = request.COOKIES.get(full_cookie_name, cookie_default)
+        return result
 
     # Invalid form whose name is "paging" will call this from the post override in multiforms.py
     def paging_form_invalid(self, formset):
