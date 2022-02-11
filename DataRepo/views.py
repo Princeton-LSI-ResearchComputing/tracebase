@@ -6,7 +6,7 @@ from typing import List
 from django.conf import settings
 from django.core.management import call_command
 from django.db.models import Q
-from django.http import Http404, HttpResponseServerError
+from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.generic import DetailView, ListView
@@ -16,8 +16,8 @@ from DataRepo.compositeviews import BaseAdvancedSearchView
 from DataRepo.forms import (
     AdvSearchDownloadForm,
     AdvSearchForm,
-    DataSubmissionValidationForm,
     AdvSearchPageForm,
+    DataSubmissionValidationForm,
 )
 from DataRepo.models import (
     Animal,
@@ -302,9 +302,9 @@ class AdvancedSearchView(MultiFormsView):
     # Base Advanced Search View
     basv_metadata = BaseAdvancedSearchView()
 
-    ##
-    ## The following forms each submit to this view
-    ##
+    #
+    # The following forms each submit to this view
+    #
 
     # Base Advanced Search Form
     basf = AdvSearchForm()
@@ -321,9 +321,9 @@ class AdvancedSearchView(MultiFormsView):
         order_dir_field="order_direction",
     )
 
-    ##
-    ## This form submits to the AdvSearchDownloadView
-    ##
+    #
+    # This form submits to the AdvSearchDownloadView
+    #
 
     # Advanced search download form
     download_form = AdvSearchDownloadForm()
@@ -359,14 +359,19 @@ class AdvancedSearchView(MultiFormsView):
         return context
 
     def post(self, request, *args, **kwargs):
-        # TODO: THIS NEEDS TO BE REFACTORED.  SHOULD RELY ON THE POST METHOD IN MULTIFORMS.PY.  SEE THE TODO IN multiforms.py
-        if request.method == 'POST' and self.pager.form_id_field in request.POST:
-            return self._process_individual_form(self.pager.form_name, {self.pager.form_name: self.pager.page_form_class})
+        # TODO: THIS NEEDS TO BE REFACTORED.  SHOULD RELY ON THE POST METHOD IN MULTIFORMS.PY.  SEE THE TODO IN
+        # multiforms.py
+        if request.method == "POST" and self.pager.form_id_field in request.POST:
+            return self._process_individual_form(
+                self.pager.form_name,
+                {self.pager.form_name: self.pager.page_form_class},
+            )
 
-        if request.method == 'POST' and 'advanced-search-submit' in request.POST:
-            return self._process_mixed_forms(self.form_classes)
+        return super().post(request, *args, **kwargs)
+        # if request.method == 'POST' and 'advanced-search-submit' in request.POST:
+        #     return self._process_mixed_forms(self.form_classes)
 
-        return HttpResponseServerError("Unable to identify submitted form")
+        # return HttpResponseServerError("Unable to identify submitted form")
 
     def form_invalid(self, formset):
         """
@@ -403,10 +408,29 @@ class AdvancedSearchView(MultiFormsView):
 
         if isQryObjValid(qry, self.form_classes.keys()):
             download_form = AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
-            rows_per_page = int(self.get_template_cookie(qry["selectedtemplate"], self.pager.rows_per_page_field, self.pager.default_rows))
+            rows_per_page = int(
+                self.get_template_cookie(
+                    qry["selectedtemplate"],
+                    self.pager.rows_per_page_field,
+                    self.pager.default_rows,
+                )
+            )
             q_exp = constructAdvancedQuery(qry)
-            res, tot = performQuery(q_exp, qry["selectedtemplate"], self.basv_metadata, limit=rows_per_page, offset=0, order_by="placeholder", order_direction="placeholder")
-            self.pager.new(other_field_dict={"qryjson": json.dumps(qry)}, tot=tot, page=1, rows=rows_per_page)
+            res, tot = performQuery(
+                q_exp,
+                qry["selectedtemplate"],
+                self.basv_metadata,
+                limit=rows_per_page,
+                offset=0,
+                order_by="placeholder",
+                order_direction="placeholder",
+            )
+            self.pager.new(
+                other_field_dict={"qryjson": json.dumps(qry)},
+                tot=tot,
+                page=1,
+                rows=rows_per_page,
+            )
         else:
             # Log a warning
             print("WARNING: Invalid query root:", qry)
@@ -482,7 +506,7 @@ class AdvancedSearchView(MultiFormsView):
             order_by = cform["order_by"]
             order_dir = cform["order_direction"]
             offset = (page - 1) * rows
-        except:
+        except Exception:
             # Assumes this is an initial query, not a page form submission
             self.pager.new()
             page = self.pager.page
@@ -492,16 +516,45 @@ class AdvancedSearchView(MultiFormsView):
             offset = 0
 
         if isValidQryObjPopulated(qry):
+            # For some reason, the download form generated in either case below always generates an error in the
+            # browser that says "Failed to load resource: Frame load interrupted" when the download button is
+            # clicked, but it still seems to work.  If however, the form creation in the first case is moved to the
+            # bottom of the block, the downloaded file will only contain the header and will not be named properly...
+            # Might be a (Safari) browser issue (according to stack).
+            download_form = AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
             q_exp = constructAdvancedQuery(qry)
-            res, tot = performQuery(q_exp, qry["selectedtemplate"], self.basv_metadata, limit=rows, offset=offset, order_by=order_by, order_direction=order_dir)
-            download_form=AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)}),
+            res, tot = performQuery(
+                q_exp,
+                qry["selectedtemplate"],
+                self.basv_metadata,
+                limit=rows,
+                offset=offset,
+                order_by=order_by,
+                order_direction=order_dir,
+            )
         else:
-            res, tot = getAllBrowseData(qry["selectedtemplate"], self.basv_metadata, limit=rows, offset=offset, order_by=order_by, order_direction=order_dir)
-            # Remake the qry so it will be valid for downloading all data (not entirely sure why this is necessary, but the download form created on the subsequent line doesn't work without doing this.  I suspect that the qry object isn't built correctly when the initial browse link is clicked)
+            res, tot = getAllBrowseData(
+                qry["selectedtemplate"],
+                self.basv_metadata,
+                limit=rows,
+                offset=offset,
+                order_by=order_by,
+                order_direction=order_dir,
+            )
+            # Remake the qry so it will be valid for downloading all data (not entirely sure why this is necessary, but
+            # the download form created on the subsequent line doesn't work without doing this.  I suspect that the qry
+            # object isn't built correctly when the initial browse link is clicked)
             qry = self.basv_metadata.getRootGroup(qry["selectedtemplate"])
             download_form = AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
 
-        self.pager.new(other_field_dict={"qryjson": json.dumps(qry)}, tot=tot, page=page, rows=rows, order_by=order_by, order_dir=order_dir)
+        self.pager.new(
+            other_field_dict={"qryjson": json.dumps(qry)},
+            tot=tot,
+            page=page,
+            rows=rows,
+            order_by=order_by,
+            order_dir=order_dir,
+        )
 
         root_group = self.basv_metadata.getRootGroup()
 
@@ -569,7 +622,9 @@ class AdvancedSearchView(MultiFormsView):
                     order_by=self.pager.order_by,
                     order_direction=self.pager.order_dir,
                 )
-                context["pager"] = self.pager.new(other_field_dict={"qryjson": json.dumps(qry)}, tot=context["tot"])
+                context["pager"] = self.pager.new(
+                    other_field_dict={"qryjson": json.dumps(qry)}, tot=context["tot"]
+                )
 
         elif (
             "qry" in context
@@ -584,7 +639,9 @@ class AdvancedSearchView(MultiFormsView):
             context["res"], context["tot"] = performQuery(
                 q_exp, qry["selectedtemplate"], self.basv_metadata
             )
-            context["pager"] = self.pager.new(other_field_dict={"qryjson": json.dumps(qry)}, tot=context["tot"])
+            context["pager"] = self.pager.new(
+                other_field_dict={"qryjson": json.dumps(qry)}, tot=context["tot"]
+            )
 
 
 # Basis: https://stackoverflow.com/questions/29672477/django-export-current-queryset-to-csv-by-button-click-in-browser
@@ -641,14 +698,18 @@ class AdvancedSearchTSVView(FormView):
             res, tot = getAllBrowseData(qry["selectedtemplate"], self.basv_metadata)
 
         response = self.render_to_response(
-            self.get_context_data(res=res, tot=tot, qry=qry, dt=dt_string, debug=settings.DEBUG)
+            self.get_context_data(
+                res=res, tot=tot, qry=qry, dt=dt_string, debug=settings.DEBUG
+            )
         )
         response["Content-Disposition"] = "attachment; filename={}".format(filename)
 
         return response
 
 
-def getAllBrowseData(format, basv, limit=None, offset=0, order_by=None, order_direction=None):
+def getAllBrowseData(
+    format, basv, limit=None, offset=0, order_by=None, order_direction=None
+):
     """
     Grabs all data without a filtering match for browsing.
     """
@@ -821,7 +882,9 @@ def getJoinedRecFieldValue(recs, basv_metadata, fmt, mdl, dfld, sfld, sval):
     return dval
 
 
-def performQuery(q_exp, fmt, basv, limit=None, offset=0, order_by=None, order_direction=None):
+def performQuery(
+    q_exp, fmt, basv, limit=None, offset=0, order_by=None, order_direction=None
+):
     """
     Executes an advanced search query.
     """

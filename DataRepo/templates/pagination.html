@@ -41,7 +41,7 @@
         }
     </script>
 
-    {% if pager.tot > pager.min_rows_per_page %}
+    {% if pager.tot|gt:pager.min_rows_per_page %}
         <div class="fixed-table-pagination" style="padding-top: 10px;">
             <form action="{{ pager.action }}" id="{{ pager.form_id }}" name="{{ pager.form_name }}" method="POST">
                 {% csrf_token %}
@@ -54,7 +54,7 @@
                     Showing {{ pager.start }} to {{ pager.end }} of {{ pager.tot }} rows, {{ pager.page_form.rows }} rows per page
                 </div>
     {% endif %}
-    {% if pager.tot > pager.rows %}
+    {% if pager.tot|gt:pager.rows %}
                 <div style="float: right;">
                     <nav aria-label="Page navigation">
                         <ul class="pagination">
@@ -79,7 +79,7 @@
                     </nav>
                 </div>
     {% endif %}
-    {% if pager.tot > pager.min_rows_per_page %}
+    {% if pager.tot|gt:pager.min_rows_per_page %}
             </form>
         </div>
     {% endif %}

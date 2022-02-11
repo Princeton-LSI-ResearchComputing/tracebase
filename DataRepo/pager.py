@@ -1,8 +1,7 @@
 import math
 
 
-class Pager():
-
+class Pager:
     def __init__(
         self,
         page_form_class,
@@ -20,7 +19,11 @@ class Pager():
         rows_input_id="pager-rows-elem",
         form_name="paging",  # Relies on multiforms
         form_id="custom-paging",
-        rows_attrs={'class':"btn btn-primary dropdown-toggle", 'type':"button", 'data-bs-toggle':"dropdown"},
+        rows_attrs={
+            "class": "btn btn-primary dropdown-toggle",
+            "type": "button",
+            "data-bs-toggle": "dropdown",
+        },
     ):
         self.form_id_field = form_id_field
         self.action = action
@@ -47,7 +50,19 @@ class Pager():
             if self.min_rows_per_page is None or num < self.min_rows_per_page:
                 self.min_rows_per_page = num
 
-    def new(self, tot=None, page=1, rows=None, start=None, end=None, order_by = "placeholder", order_dir = "placeholder", other_field_dict=None):
+    def new(
+        self,
+        tot=None,
+        page=1,
+        rows=None,
+        start=None,
+        end=None,
+        order_by="placeholder",
+        order_dir="placeholder",
+        other_field_dict=None,
+    ):
+        if rows is None:
+            rows = self.default_rows
         if start is None:
             self.start = (page - 1) * rows + 1
         else:
@@ -59,8 +74,6 @@ class Pager():
         else:
             self.end = end
         self.page = page
-        if rows is None:
-            rows = self.default_rows
         self.rows = rows
         self.tot = tot
         self.order_by = order_by
@@ -69,23 +82,27 @@ class Pager():
 
         # Validate
         if self.num_buttons % 2 == 0 or self.num_buttons < 3:
-            raise Exception(f"The minimum number of buttons [{self.num_buttons}] must be an odd number and greater than 2.")
+            raise Exception(
+                f"The minimum number of buttons [{self.num_buttons}] must be an odd number and greater than 2."
+            )
         if page < 1 or (tot is not None and page > tot):
-            raise Exception(f"Invalid page number [{self.num_buttons}] must be a number between 1 and {tot}.")
-        
+            raise Exception(
+                f"Invalid page number [{self.num_buttons}] must be a number between 1 and {tot}."
+            )
+
         # Prepare the form
         init_dict = {
             self.page_field: page,
             self.rows_per_page_field: rows,
             self.order_by_field: order_by,
-            self.order_dir_field: order_dir
+            self.order_dir_field: order_dir,
         }
         if self.form_id_field not in init_dict:
             init_dict[self.form_id_field] = 1
         if other_field_dict is not None:
             for fld in self.other_fields:
                 init_dict[fld] = other_field_dict[fld]
-        kwargs = {"initial":init_dict}
+        kwargs = {"initial": init_dict}
         self.page_form = self.page_form_class(**kwargs)
         self.page_form.new(self.page_input_id, self.rows_input_id, self.rows_attrs)
 
@@ -107,7 +124,7 @@ class Pager():
             num_right_controls = totpgs - self.page
             if num_right_controls > num_side_controls:
                 num_right_controls = num_side_controls
-            
+
             startpg = self.page - num_left_controls
             if startpg < 1:
                 startpg = 1
@@ -131,33 +148,38 @@ class Pager():
                 endpg = totpgs
 
             if self.page > 1:
-                self.pages.append({"navigable": True, "val": (self.page - 1), "name": "<"})
+                self.pages.append(
+                    {"navigable": True, "val": (self.page - 1), "name": "<"}
+                )
 
             if startpg > 1:
                 self.pages.append({"navigable": True, "val": 1, "name": 1})
                 self.pages.append({"navigable": False, "val": "", "name": "..."})
                 startpg += 1
 
-            # If the ending page in the range is not the last page, decrement the ending page so that we can use the last page control for the last page (after an ellipsis)
+            # If the ending page in the range is not the last page, decrement the ending page so that we can use the
+            # last page control for the last page (after an ellipsis)
             if endpg < totpgs:
                 endpg -= 1
 
             # Need to be 1 past for the range function
             endpg += 1
 
-            for pg in (range(startpg, endpg)):
+            for pg in range(startpg, endpg):
                 if pg == self.page:
                     self.pages.append({"navigable": False, "val": pg, "name": pg})
                 else:
                     self.pages.append({"navigable": True, "val": pg, "name": pg})
 
-            # While endpg is 1 larger than the number of pages that were drawn, we can use that to decide whether to print an ellipsis and the last page control
+            # While endpg is 1 larger than the number of pages that were drawn, we can use that to decide whether to
+            # print an ellipsis and the last page control
             if endpg < totpgs:
                 self.pages.append({"navigable": False, "val": "", "name": "..."})
                 self.pages.append({"navigable": True, "val": totpgs, "name": totpgs})
-            
+
             if self.page < totpgs:
-                self.pages.append({"navigable": True, "val": (self.page + 1), "name": ">"})
+                self.pages.append(
+                    {"navigable": True, "val": (self.page + 1), "name": ">"}
+                )
 
         return self
-

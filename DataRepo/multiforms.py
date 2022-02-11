@@ -20,7 +20,9 @@ from django.views.generic.edit import ProcessFormView
 # and it needs to be called as an individual form.  Code I added to views to use an additional paging form
 # (AdvSearchPageForm) uses a strategy similar to the original intent of this code.  It identifies a form by one of its
 # input names.  I need to refactor a number of things to make multiforms work correctly and handle my mixed form case
-# AND the page form.
+# AND the page form.  Note the submit button form identification strategy won't work for the mixed forms since they all
+# have the same named fields and don't always use a button to submit, but if I add a hidden field and set its value to
+# identify the form, that would work.
 
 
 class MultiFormMixin(ContextMixin):
@@ -89,8 +91,10 @@ class MultiFormMixin(ContextMixin):
             form_valid_method = "%s_form_valid" % form_name
             if hasattr(self, form_valid_method):
                 calls.append([form_valid_method, forms[form_name]])
-                # Originally, there was not a return here. I added it to validate my theory, and it worked, so I added an elif below to handle this case. The line below this one just originally called the form valid method and expected it to not return anything
-                #return getattr(self, form_valid_method)(forms[form_name])
+                # Originally, there was not a return here. I added it to validate my theory, and it worked, so I added
+                # an elif below to handle this case. The line below this one just originally called the form valid
+                # method and expected it to not return anything
+                # return getattr(self, form_valid_method)(forms[form_name])
         if self._mixed_exists() and len(calls) == 0:
             return self.form_valid(forms)
         elif len(calls) == 1:
@@ -115,8 +119,10 @@ class MultiFormMixin(ContextMixin):
             form_invalid_method = "%s_form_invalid" % form_name
             if hasattr(self, form_invalid_method):
                 calls.append([form_invalid_method, forms[form_name]])
-                # Originally, there was not a return here. I added it to validate my theory, and it worked, so I added an elif below to handle this case. The line below this one just originally called the form valid method and expected it to not return anything
-                #return getattr(self, form_invalid_method)(forms[form_name])
+                # Originally, there was not a return here. I added it to validate my theory, and it worked, so I added
+                # an elif below to handle this case. The line below this one just originally called the form valid
+                # method and expected it to not return anything
+                # return getattr(self, form_invalid_method)(forms[form_name])
         if self._mixed_exists() and len(calls) == 0:
             return self.form_invalid(forms)
         elif len(calls) == 1:
