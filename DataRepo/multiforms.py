@@ -9,6 +9,19 @@ from django.views.generic.edit import ProcessFormView
 #   https://stackoverflow.com/questions/15497693/django-can-class-based-views-accept-two-forms-at-a-time
 #   https://gist.github.com/jamesbrobb/748c47f46b9bd224b07f
 
+# TODO: Re-reading the above stack post after having learned a bunch about various components of form processing, I
+# have realized a few things that I could clean up in here.  First of all, the original code requires that the submit
+# button be named "action" and its "value" must match a form_name that is used as keys in the form_classes dict.
+# However, that form processing only works if the submit button is what submits the form.  E.g. if a user hits enter in
+# another form field, it won't work correctly.  The reason my changes work is because first, I haven't configured the
+# pre-existing code correctly, so it never gets into the various form processing methods and gets to my mixed form
+# check.  I am checking data member values for a "mixed" form.  A "mixed" form is 3 different form classes (all with
+# the same form fields) that are all wrapped in one form tag.  Now, I have added another form type (AdvSearchPageForm)
+# and it needs to be called as an individual form.  Code I added to views to use an additional paging form
+# (AdvSearchPageForm) uses a strategy similar to the original intent of this code.  It identifies a form by one of its
+# input names.  I need to refactor a number of things to make multiforms work correctly and handle my mixed form case
+# AND the page form.
+
 
 class MultiFormMixin(ContextMixin):
 
@@ -74,7 +87,6 @@ class MultiFormMixin(ContextMixin):
         calls = []
         for form_name in forms.keys():
             form_valid_method = "%s_form_valid" % form_name
-            print("CALLING",form_valid_method)
             if hasattr(self, form_valid_method):
                 calls.append([form_valid_method, forms[form_name]])
                 # Originally, there was not a return here. I added it to validate my theory, and it worked, so I added an elif below to handle this case. The line below this one just originally called the form valid method and expected it to not return anything
@@ -101,7 +113,6 @@ class MultiFormMixin(ContextMixin):
         calls = []
         for form_name in forms.keys():
             form_invalid_method = "%s_form_invalid" % form_name
-            print("CALLING",form_invalid_method)
             if hasattr(self, form_invalid_method):
                 calls.append([form_invalid_method, forms[form_name]])
                 # Originally, there was not a return here. I added it to validate my theory, and it worked, so I added an elif below to handle this case. The line below this one just originally called the form valid method and expected it to not return anything
@@ -137,7 +148,6 @@ class MultiFormMixin(ContextMixin):
         if hasattr(self, form_create_method):
             form = getattr(self, form_create_method)(**form_kwargs)
         elif len(form_kwargs.keys()) > 0:
-            print("KWARGS:",len(form_kwargs.keys()))
             try:
                 form = klass(**form_kwargs)
             except TypeError as te:

@@ -359,7 +359,7 @@ class AdvancedSearchView(MultiFormsView):
         return context
 
     def post(self, request, *args, **kwargs):
-        #### TODO: THIS NEEDS TO BE SUSTAINABLE, I.E. DO IT RIGHT.  SHOULD RELY ON THE POST IN MULTIFORMS.PY
+        # TODO: THIS NEEDS TO BE REFACTORED.  SHOULD RELY ON THE POST METHOD IN MULTIFORMS.PY.  SEE THE TODO IN multiforms.py
         if request.method == 'POST' and self.pager.form_id_field in request.POST:
             return self._process_individual_form(self.pager.form_name, {self.pager.form_name: self.pager.page_form_class})
 
@@ -562,7 +562,12 @@ class AdvancedSearchView(MultiFormsView):
                 self.pager.new()
                 offset = 0
                 context["res"], context["tot"] = getAllBrowseData(
-                    qry["selectedtemplate"], self.basv_metadata, limit=self.pager.rows, offset=offset, order_by=self.pager.order_by, order_direction=self.pager.order_dir
+                    qry["selectedtemplate"],
+                    self.basv_metadata,
+                    limit=self.pager.rows,
+                    offset=offset,
+                    order_by=self.pager.order_by,
+                    order_direction=self.pager.order_dir,
                 )
                 context["pager"] = self.pager.new(other_field_dict={"qryjson": json.dumps(qry)}, tot=context["tot"])
 
@@ -1007,8 +1012,6 @@ def formsetToDict(rawformset, form_classes):
             form = rawform.saved_data
         else:
             form = rawform
-
-        print(form)
 
         path = form["pos"].split(".")
 

@@ -10,11 +10,8 @@
                 onAll: function() {
                     updateColumnGroups()
                 },
-                onPageChange: function(number, size) {
-                    alert("Paging to " + number + " with " + size + " rows")
-                },
                 onSort: function(name, order) {
-                    alert("Sorting " + name + " in " + order + " order")
+                    alert("PLACEHOLDER: Sorting " + name + " in " + order + " order")
                 },
                 onColumnSwitch: function(field, checked) {
                     set_template_cookie(field + '-data-visible', checked)
