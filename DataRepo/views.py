@@ -1,5 +1,4 @@
 import json
-import math
 import traceback
 from datetime import datetime
 from typing import List
@@ -35,6 +34,7 @@ from DataRepo.models import (
     get_all_models,
 )
 from DataRepo.multiforms import MultiFormsView
+from DataRepo.pager import Pager
 from DataRepo.utils import MissingSamplesError
 from DataRepo.utils import QuerysetToPandasDataFrame as qs2df
 from DataRepo.utils import ResearcherError, leaderboard_data
@@ -292,143 +292,6 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
     )
 
 
-class CustomPaginator():
-
-    def __init__(self, action, form_id_field, rows_per_page_choices, num_buttons=5, page_field="page", rows_per_page_field="rows", order_by_field="order_by", order_dir_field="order_direction", other_fields=["qryjson"], page_form_class=AdvSearchPageForm):
-        self.form_id_field = form_id_field
-        self.action = action
-        self.num_buttons = num_buttons
-        self.page_form_class = page_form_class
-        self.page_form = self.page_form_class()
-        self.rows_per_page_choices = rows_per_page_choices
-        self.page_field = page_field
-        self.rows_per_page_field = rows_per_page_field
-        self.order_by_field = order_by_field
-        self.order_dir_field = order_dir_field
-        self.other_fields = other_fields
-
-        self.min_rows_per_page = None
-        for atuple in self.rows_per_page_choices:
-            num = int(atuple[0])
-            if self.min_rows_per_page is None or num < self.min_rows_per_page:
-                self.min_rows_per_page = num
-
-    def new(self, tot=None, page=1, rows=10, start=None, end=None, order_by = "x", order_dir = "x", other_field_dict=None):
-        if start is None:
-            self.start = (page - 1) * rows + 1
-        else:
-            self.start = start
-        if end is None:
-            self.end = self.start - 1 + rows
-            if tot is not None and self.end > tot:
-                self.end = tot
-        else:
-            self.end = end
-        self.page = page
-        self.rows = rows
-        self.tot = tot
-        self.order_by = order_by
-        self.order_dir = order_dir
-        # self.qryjson = json.dumps(qry)
-        self.pages = []
-
-        # Validate
-        if self.num_buttons % 2 == 0 or self.num_buttons < 3:
-            raise Exception(f"The minimum number of buttons [{self.num_buttons}] must be an odd number and greater than 2.")
-        if page < 1 or (tot is not None and page > tot):
-            raise Exception(f"Invalid page number [{self.num_buttons}] must be a number between 1 and {tot}.")
-        
-        # Prepare the form
-        init_dict = {
-            self.page_field: page,
-            self.rows_per_page_field: rows,
-            self.order_by_field: order_by,
-            self.order_dir_field: order_dir
-        }
-        if self.form_id_field not in init_dict:
-            init_dict[self.form_id_field] = 1
-        if other_field_dict is not None:
-            for fld in self.other_fields:
-                print(f"INIT OTHER DICT ITEM: {fld}")
-                init_dict[fld] = other_field_dict[fld]
-        kwargs = {"initial":init_dict}
-        self.page_form = self.page_form_class(**kwargs)
-
-        # Set up the paging controls
-        if tot is not None:
-            totpgs = math.ceil(tot / rows)
-
-            # The number of pages that are shown to either side of the current page
-            num_side_controls = int(self.num_buttons / 2)
-            left_leftovers = 0
-            right_leftovers = 0
-
-            # Initially, this is the total possible number of pages to the left
-            num_left_controls = self.page - 1
-            if num_left_controls > num_side_controls:
-                num_left_controls = num_side_controls
-
-            # Initially, this is the total possible number of pages to the right
-            num_right_controls = totpgs - self.page
-            if num_right_controls > num_side_controls:
-                num_right_controls = num_side_controls
-            
-            startpg = self.page - num_left_controls
-            if startpg < 1:
-                startpg = 1
-                num_left_controls = self.page - startpg
-            if num_left_controls < num_side_controls:
-                left_leftovers = num_side_controls - num_left_controls
-
-            endpg = self.page + num_right_controls
-            if endpg > totpgs:
-                endpg = totpgs
-                num_right_controls = endpg - self.page
-            if num_right_controls < num_side_controls:
-                right_leftovers = num_side_controls - num_right_controls
-
-            print(f"Num left controls: {num_left_controls} Num side controls: {num_side_controls} Left leftovers: {left_leftovers} Right leftovers: {right_leftovers}")
-            # Append leftovers
-            startpg -= right_leftovers
-            if startpg < 1:
-                startpg = 1
-            endpg += left_leftovers
-            if endpg > totpgs:
-                endpg = totpgs
-
-            if self.page > 1:
-                self.pages.append({"navigable": True, "val": (self.page - 1), "name": "<"})
-
-            if startpg > 1:
-                self.pages.append({"navigable": True, "val": 1, "name": 1})
-                self.pages.append({"navigable": False, "val": "", "name": "..."})
-                startpg += 1
-
-            # If the ending page in the range is not the last page, decrement the ending page so that we can use the last page control for the last page (after an ellipsis)
-            if endpg < totpgs:
-                endpg -= 1
-
-            # Need to be 1 past for the range function
-            endpg += 1
-
-            print("Range:",startpg,"-",endpg)
-            for pg in (range(startpg, endpg)):
-                if pg == self.page:
-                    self.pages.append({"navigable": False, "val": pg, "name": pg})
-                else:
-                    self.pages.append({"navigable": True, "val": pg, "name": pg})
-
-            # While endpg is 1 larger than the number of pages that were drawn, we can use that to decide whether to print an ellipsis and the last page control
-            if endpg < totpgs:
-                print(f"End page {endpg} is less than {totpgs} + 1")
-                self.pages.append({"navigable": False, "val": "", "name": "..."})
-                self.pages.append({"navigable": True, "val": totpgs, "name": totpgs})
-            
-            if self.page < totpgs:
-                self.pages.append({"navigable": True, "val": (self.page + 1), "name": ">"})
-
-        return self
-
 # Based on:
 #   https://stackoverflow.com/questions/15497693/django-can-class-based-views-accept-two-forms-at-a-time
 class AdvancedSearchView(MultiFormsView):
@@ -446,7 +309,17 @@ class AdvancedSearchView(MultiFormsView):
     # Base Advanced Search Form
     basf = AdvSearchForm()
 
-    pager = CustomPaginator(action="/DataRepo/search_advanced/", form_id_field="adv_search_page_form", num_buttons=5, rows_per_page_choices=AdvSearchPageForm.ROWS_PER_PAGE_CHOICES, page_form_class=AdvSearchPageForm)
+    pager = Pager(
+        action="/DataRepo/search_advanced/",
+        form_id_field="adv_search_page_form",
+        rows_per_page_choices=AdvSearchPageForm.ROWS_PER_PAGE_CHOICES,
+        page_form_class=AdvSearchPageForm,
+        other_fields=["qryjson"],
+        page_field="page",
+        rows_per_page_field="rows",
+        order_by_field="order_by",
+        order_dir_field="order_direction",
+    )
 
     ##
     ## This form submits to the AdvSearchDownloadView
@@ -486,10 +359,9 @@ class AdvancedSearchView(MultiFormsView):
         return context
 
     def post(self, request, *args, **kwargs):
-        print("POST::",request.POST)
         #### TODO: THIS NEEDS TO BE SUSTAINABLE, I.E. DO IT RIGHT.  SHOULD RELY ON THE POST IN MULTIFORMS.PY
         if request.method == 'POST' and self.pager.form_id_field in request.POST:
-            return self._process_individual_form("paging", {"paging": self.pager.page_form_class})
+            return self._process_individual_form(self.pager.form_name, {self.pager.form_name: self.pager.page_form_class})
 
         if request.method == 'POST' and 'advanced-search-submit' in request.POST:
             return self._process_mixed_forms(self.form_classes)
@@ -533,7 +405,7 @@ class AdvancedSearchView(MultiFormsView):
             download_form = AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
             q_exp = constructAdvancedQuery(qry)
             res, tot = performQuery(q_exp, qry["selectedtemplate"], self.basv_metadata, limit=10, offset=0, order_by="x", order_direction="x")
-            self.pager.new(other_field_dict={"qryjson": qry}, tot=tot, page=1, rows=10)
+            self.pager.new(other_field_dict={"qryjson": json.dumps(qry)}, tot=tot, page=1, rows=10)
         else:
             # Log a warning
             print("WARNING: Invalid query root:", qry)
@@ -571,12 +443,9 @@ class AdvancedSearchView(MultiFormsView):
                 res={},
                 forms=self.form_classes,
                 qry=qry,
+                download_form=AdvSearchDownloadForm(),
                 debug=settings.DEBUG,
                 root_group=root_group,
-                # page=1,
-                # rows=10,
-                # order_by="x",
-                # order_dir="x",
                 default_format=self.basv_metadata.default_format,
                 ncmp_choices=self.basv_metadata.getComparisonChoices(),
                 fld_types=self.basv_metadata.getFieldTypes(),
@@ -618,10 +487,14 @@ class AdvancedSearchView(MultiFormsView):
         if isValidQryObjPopulated(qry):
             q_exp = constructAdvancedQuery(qry)
             res, tot = performQuery(q_exp, qry["selectedtemplate"], self.basv_metadata, limit=rows, offset=offset, order_by=order_by, order_direction=order_dir)
+            download_form=AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)}),
         else:
             res, tot = getAllBrowseData(qry["selectedtemplate"], self.basv_metadata, limit=rows, offset=offset, order_by=order_by, order_direction=order_dir)
+            # Remake the qry so it will be valid for downloading all data (not entirely sure why this is necessary, but the download form created on the subsequent line doesn't work without doing this.  I suspect that the qry object isn't built correctly when the initial browse link is clicked)
+            qry = self.basv_metadata.getRootGroup(qry["selectedtemplate"])
+            download_form = AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
 
-        self.pager.new(other_field_dict={"qryjson": qry}, tot=tot, page=page, rows=rows, order_by=order_by, order_dir=order_dir)
+        self.pager.new(other_field_dict={"qryjson": json.dumps(qry)}, tot=tot, page=page, rows=rows, order_by=order_by, order_dir=order_dir)
 
         root_group = self.basv_metadata.getRootGroup()
 
@@ -630,7 +503,7 @@ class AdvancedSearchView(MultiFormsView):
                 res=res,
                 forms=self.form_classes,
                 qry=qry,
-                download_form=self.download_form,
+                download_form=download_form,
                 debug=settings.DEBUG,
                 root_group=root_group,
                 pager=self.pager,
@@ -684,7 +557,7 @@ class AdvancedSearchView(MultiFormsView):
                 context["res"], context["tot"] = getAllBrowseData(
                     qry["selectedtemplate"], self.basv_metadata, limit=self.pager.rows, offset=offset, order_by=self.pager.order_by, order_direction=self.pager.order_dir
                 )
-                context["pager"] = self.pager.new(other_field_dict={"qryjson": qry}, tot=context["tot"])
+                context["pager"] = self.pager.new(other_field_dict={"qryjson": json.dumps(qry)}, tot=context["tot"])
 
         elif (
             "qry" in context
@@ -699,7 +572,7 @@ class AdvancedSearchView(MultiFormsView):
             context["res"], context["tot"] = performQuery(
                 q_exp, qry["selectedtemplate"], self.basv_metadata
             )
-            context["pager"] = self.pager.new(other_field_dict={"qryjson": qry}, tot=context["tot"])
+            context["pager"] = self.pager.new(other_field_dict={"qryjson": json.dumps(qry)}, tot=context["tot"])
 
 
 # Basis: https://stackoverflow.com/questions/29672477/django-export-current-queryset-to-csv-by-button-click-in-browser
@@ -771,9 +644,8 @@ def getAllBrowseData(format, basv, limit=None, offset=0, order_by=None, order_di
     start_index = offset
     if format in basv.getFormatNames().keys():
         if limit is None:
-            all_res = basv.getRootQuerySet(format).all()
-            cnt = all_res.count()
-
+            res = basv.getRootQuerySet(format).all()
+            cnt = res.count()
         else:
             all_res = basv.getRootQuerySet(format).all()
             cnt = all_res.count()

@@ -2,6 +2,7 @@
 {% load customtags %}
 
 {% if is_paginated %}
+    {% comment %} Model list view built-in Pagination {% endcomment %}
     <div class="pagination">
         <span class="page-links">
             {% if page_obj.has_previous %}
@@ -16,11 +17,12 @@
         </span>
     </div>
 {% elif pager %}
+    {% comment %} Advanced Search Pagination (assumed, though the "pager" object could be used for other pagination as well) {% endcomment %}
     <script>
         document.addEventListener("DOMContentLoaded", function(){
 
-            var myform = document.getElementById("custom-paging")
-            var rowselem = document.getElementById("pager-rows-elem")
+            var myform = document.getElementById("{{ pager.form_id }}")
+            var rowselem = document.getElementById("{{ pager.rows_input_id }}")
             if (typeof rowselem !== 'undefined' && rowselem) {
                 rowselem.addEventListener("change", function (event) {
                     setPage(1)
@@ -31,16 +33,16 @@
 
         function setPage(pagenum){
             // The "pager-page-elem" ID is set in for django form class
-            var rowselem = document.getElementById("pager-rows-elem")
+            var rowselem = document.getElementById("{{ pager.rows_input_id }}")
             if (typeof rowselem !== 'undefined' && rowselem) {
-                document.getElementById("pager-page-elem").value = pagenum;
+                document.getElementById("{{ pager.page_input_id }}").value = pagenum;
             }
         }
     </script>
 
     {% if pager.tot > pager.min_rows_per_page %}
         <div class="fixed-table-pagination" style="padding-top: 10px;">
-            <form action="{{ pager.action }}" id="custom-paging" name="paging" method="POST">
+            <form action="{{ pager.action }}" id="{{ pager.form_id }}" name="{{ pager.form_name }}" method="POST">
                 {% csrf_token %}
                 {{ pager.page_form.qryjson }}
                 {{ pager.page_form.order_by }}

@@ -174,6 +174,25 @@ class AdvSearchPageForm(forms.Form):
         """This override of super.clean is so we can reconstruct the search inputs upon form_invalid in views.py"""
         self.saved_data = self.cleaned_data
         return self.cleaned_data
+    
+    def new(self, page_id, rows_id, rows_attrs={}):
+        page = self.fields.get("page")
+        rows = self.fields.get("rows")
+
+        # Allow IDs for the page and rows inputs to be set for javascript to find the inputs and change them
+        if page.widget.attrs and "id" in page.widget.attrs and page.widget.attrs["id"] != page_id:
+            raise Exception("ERROR: AdvSearchPageForm class already has an ID set for the page input")
+        page.widget.attrs["id"] = page_id
+        if rows.widget.attrs and "id" in rows.widget.attrs and rows.widget.attrs["id"] != rows_id:
+            raise Exception("ERROR: AdvSearchPageForm class already has an ID set for the page input")
+        rows.widget.attrs["id"] = rows_id
+
+        # Allow setting of additional attributes for appearance of the rows select list. Others are assumed to be
+        # hidden and page control is assumed to be accomplished using submit buttons that run javascript
+        for key, val in rows_attrs.items():
+            if rows.widget.attrs and key in rows.widget.attrs and rows.widget.attrs[key] != val:
+                raise Exception("ERROR: AdvSearchPageForm class already has a [{key}] set for the rows input")
+            rows.widget.attrs[key] = val
 
 
 class DataSubmissionValidationForm(forms.Form):
