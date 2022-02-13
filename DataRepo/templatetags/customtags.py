@@ -209,3 +209,12 @@ def gt(x, y):
     This is here to get around htmlhint's spec-char-escape error even though {% if x > y %} works.
     """
     return x > y
+
+
+@register.simple_tag
+def uniquify(retval, unused):
+    """
+    This is an htmlhint workaround so that the ID attribute appears unique to htmlhint when an HTML element is rendered
+    differently in 2 parts of a conditional, but with the same ID.  Just supply a different value to unused.
+    """
+    return retval

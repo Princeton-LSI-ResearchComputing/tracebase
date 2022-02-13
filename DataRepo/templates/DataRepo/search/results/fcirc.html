@@ -252,18 +252,18 @@
                     <td>
                         {% get_template_cookie selfmt 'showaverage' 'checked' as avgchkd %}
                         {% if avgchkd == "checked" %}
-                            <input type="checkbox" id="showaverage" onclick="set_template_cookie('showaverage', this.checked ? 'checked' : '')" checked />
+                            <input type="checkbox" id="{% uniquify 'showaverage' 1 %}" onclick="set_template_cookie('showaverage', this.checked ? 'checked' : '')" checked />
                         {% else %}
-                            <input type="checkbox" id="showaverage" onclick="set_template_cookie('showaverage', this.checked ? 'checked' : '')" />
+                            <input type="checkbox" id="{% uniquify 'showaverage' 2 %}" onclick="set_template_cookie('showaverage', this.checked ? 'checked' : '')" />
                         {% endif %}
                         Average
                     </td>
                     <td>
                         {% get_template_cookie selfmt 'showintact' 'checked' as ntctchkd %}
                         {% if ntctchkd == "checked" %}
-                            <input type="checkbox" id="showintact" onclick="set_template_cookie('showintact', this.checked ? 'checked' : '')" checked />
+                            <input type="checkbox" id="{% uniquify 'showintact' 1 %}" onclick="set_template_cookie('showintact', this.checked ? 'checked' : '')" checked />
                         {% else %}
-                            <input type="checkbox" id="showintact" onclick="set_template_cookie('showintact', this.checked ? 'checked' : '')" />
+                            <input type="checkbox" id="{% uniquify 'showintact' 2 %}" onclick="set_template_cookie('showintact', this.checked ? 'checked' : '')" />
                         {% endif %}
                         Intact
                     </td>
@@ -273,18 +273,18 @@
                     <td>
                         {% get_template_cookie selfmt 'showweight' 'checked' as wghtchkd %}
                         {% if wghtchkd == "checked" %}
-                            <input type="checkbox" id="showweight" onclick="set_template_cookie('showweight', this.checked ? 'checked' : '')" checked />
+                            <input type="checkbox" id="{% uniquify 'showweight' 1 %}" onclick="set_template_cookie('showweight', this.checked ? 'checked' : '')" checked />
                         {% else %}
-                            <input type="checkbox" id="showweight" onclick="set_template_cookie('showweight', this.checked ? 'checked' : '')" />
+                            <input type="checkbox" id="{% uniquify 'showweight' 2 %}" onclick="set_template_cookie('showweight', this.checked ? 'checked' : '')" />
                         {% endif %}
                         Per gram body-weight
                     </td>
                     <td>
                         {% get_template_cookie selfmt 'shownonorm' 'checked' as nnrmchkd %}
                         {% if nnrmchkd == "checked" %}
-                            <input type="checkbox" id="shownonorm" onclick="set_template_cookie('shownonorm', this.checked ? 'checked' : '')" checked />
+                            <input type="checkbox" id="{% uniquify 'shownonorm' 1 %}" onclick="set_template_cookie('shownonorm', this.checked ? 'checked' : '')" checked />
                         {% else %}
-                            <input type="checkbox" id="shownonorm" onclick="set_template_cookie('shownonorm', this.checked ? 'checked' : '')" />
+                            <input type="checkbox" id="{% uniquify 'shownonorm' 2 %}" onclick="set_template_cookie('shownonorm', this.checked ? 'checked' : '')" />
                         {% endif %}
                         Per animal
                     </td>
@@ -294,18 +294,18 @@
                     <td>
                         {% get_template_cookie selfmt 'showrd' 'checked' as rdchkd %}
                         {% if rdchkd == "checked" %}
-                            <input type="checkbox" id="showrd" onclick="set_template_cookie('showrd', this.checked ? 'checked' : '')" checked />
+                            <input type="checkbox" id="{% uniquify 'showrd' 1 %}" onclick="set_template_cookie('showrd', this.checked ? 'checked' : '')" checked />
                         {% else %}
-                            <input type="checkbox" id="showrd" onclick="set_template_cookie('showrd', this.checked ? 'checked' : '')" />
+                            <input type="checkbox" id="{% uniquify 'showrd' 2 %}" onclick="set_template_cookie('showrd', this.checked ? 'checked' : '')" />
                         {% endif %}
                         Rd (disappearance rate)
                     </td>
                     <td>
                         {% get_template_cookie selfmt 'showra' 'checked' as rachkd %}
                         {% if rachkd == "checked" %}
-                            <input type="checkbox" id="showra" onclick="set_template_cookie('showra', this.checked ? 'checked' : '')" checked />
+                            <input type="checkbox" id="{% uniquify 'showra' 1 %}" onclick="set_template_cookie('showra', this.checked ? 'checked' : '')" checked />
                         {% else %}
-                            <input type="checkbox" id="showra" onclick="set_template_cookie('showra', this.checked ? 'checked' : '')" />
+                            <input type="checkbox" id="{% uniquify 'showra' 2 %}" onclick="set_template_cookie('showra', this.checked ? 'checked' : '')" />
                         {% endif %}
                         Ra (appearance rate)
                     </td>
@@ -315,18 +315,18 @@
                     <td>
                         {% get_template_cookie selfmt 'shownotlast' 'checked' as nlstchkd %}
                         {% if nlstchkd == "checked" %}
-                            <input type="checkbox" id="shownotlast" onclick="set_template_cookie('shownotlast', this.checked ? 'checked' : '')" checked />
+                            <input type="checkbox" id="{% uniquify 'shownotlast' 1 %}" onclick="set_template_cookie('shownotlast', this.checked ? 'checked' : '')" checked />
                         {% else %}
-                            <input type="checkbox" id="shownotlast" onclick="set_template_cookie('shownotlast', this.checked ? 'checked' : '')" />
+                            <input type="checkbox" id="{% uniquify 'shownotlast' 2 %}" onclick="set_template_cookie('shownotlast', this.checked ? 'checked' : '')" />
                         {% endif %}
                         Previous
                     </td>
                     <td class="bg-highlighted">
                         {% get_template_cookie selfmt 'showlast' 'checked' as lstchkd %}
                         {% if lstchkd == "checked" %}
-                            <input type="checkbox" id="showlast" onclick="set_template_cookie('showlast', this.checked ? 'checked' : '')" checked />
+                            <input type="checkbox" id="{% uniquify 'showlast' 1 %}" onclick="set_template_cookie('showlast', this.checked ? 'checked' : '')" checked />
                         {% else %}
-                            <input type="checkbox" id="showlast" onclick="set_template_cookie('showlast', this.checked ? 'checked' : '')" />
+                            <input type="checkbox" id="{% uniquify 'showlast' 2 %}" onclick="set_template_cookie('showlast', this.checked ? 'checked' : '')" />
                         {% endif %}
                         Last
                     </td>
