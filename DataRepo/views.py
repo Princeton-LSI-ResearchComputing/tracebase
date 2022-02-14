@@ -258,6 +258,18 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
     # Base Advanced Search Form
     basf = AdvSearchForm()
 
+    pager = Pager(
+        action="/DataRepo/search_advanced/",
+        form_id_field="adv_search_page_form",
+        rows_per_page_choices=AdvSearchPageForm.ROWS_PER_PAGE_CHOICES,
+        page_form_class=AdvSearchPageForm,
+        other_fields=["qryjson"],
+        page_field="page",
+        rows_per_page_field="rows",
+        order_by_field="order_by",
+        order_dir_field="order_direction",
+    )
+
     format_template = "DataRepo/search/query.html"
     fmtkey = basv_metadata.formatNameOrKeyToKey(fmt)
     if fmtkey is None:
@@ -269,7 +281,28 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
     qry = createNewBasicQuery(basv_metadata, mdl, fld, cmp, val, fmtkey)
     download_form = AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
     q_exp = constructAdvancedQuery(qry)
-    res, tot = performQuery(q_exp, fmtkey, basv_metadata)
+
+    rows_per_page = int(
+        get_cookie(
+            request,
+            pager.rows_per_page_field,
+            pager.default_rows,
+        )
+    )
+
+    res, tot = performQuery(
+        q_exp,
+        qry["selectedtemplate"],
+        basv_metadata,
+        limit=rows_per_page,
+        offset=0,
+    )
+
+    pager.new(
+        other_field_dict={"qryjson": json.dumps(qry)},
+        tot=tot,
+    )
+
     root_group = basv_metadata.getRootGroup()
 
     return render(
@@ -280,6 +313,7 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
             "qry": qry,
             "res": res,
             "tot": tot,
+            "pager": pager,
             "download_form": download_form,
             "debug": settings.DEBUG,
             "root_group": root_group,
@@ -454,9 +488,8 @@ class AdvancedSearchView(MultiFormsView):
         )
 
     def get_template_cookie(self, template_name, cookie_name, cookie_default):
-        request = self.request
         full_cookie_name = ".".join([template_name, cookie_name])
-        result = request.COOKIES.get(full_cookie_name, cookie_default)
+        result = get_cookie(self.request, full_cookie_name, cookie_default)
         return result
 
     # Invalid form whose name is "paging" will call this from the post override in multiforms.py
@@ -642,6 +675,10 @@ class AdvancedSearchView(MultiFormsView):
             context["pager"] = self.pager.new(
                 other_field_dict={"qryjson": json.dumps(qry)}, tot=context["tot"]
             )
+
+
+def get_cookie(request, cookie_name, cookie_default):
+    return request.COOKIES.get(cookie_name, cookie_default)
 
 
 # Basis: https://stackoverflow.com/questions/29672477/django-export-current-queryset-to-csv-by-button-click-in-browser
