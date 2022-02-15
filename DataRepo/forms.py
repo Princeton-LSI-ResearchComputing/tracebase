@@ -165,16 +165,8 @@ class AdvSearchPageForm(forms.Form):
         choices=ROWS_PER_PAGE_CHOICES,
         # TODO: Can probably get the caret in the button image using:
         #   https://stackoverflow.com/questions/45424162/listing-a-choicefield-in-django-as-button
-        widget=forms.Select(
-            attrs={
-                "id": "pager-rows-elem",
-                "class": "btn btn-primary dropdown-toggle",
-                "type": "button",
-                "data-bs-toggle": "dropdown",
-            }
-        ),
-    )
-    page = forms.CharField(widget=forms.HiddenInput(attrs={"id": "pager-page-elem"}))
+        widget=forms.Select())
+    page = forms.CharField(widget=forms.HiddenInput())
     order_by = forms.CharField(widget=forms.HiddenInput())
     order_direction = forms.CharField(widget=forms.HiddenInput())
     adv_search_page_form = forms.CharField(
@@ -186,11 +178,14 @@ class AdvSearchPageForm(forms.Form):
         self.saved_data = self.cleaned_data
         return self.cleaned_data
 
-    def new(self, page_id, rows_id, rows_attrs={}):
+    def new(self, page_id, rows_id, orderby_id, orderdir_id, rows_attrs={}):
+        # Allow IDs for the inputs to be set for javascript to find the inputs and change them
         page = self.fields.get("page")
         rows = self.fields.get("rows")
+        order_by = self.fields.get("order_by")
+        order_direction = self.fields.get("order_direction")
 
-        # Allow IDs for the page and rows inputs to be set for javascript to find the inputs and change them
+        # page input
         if (
             page.widget.attrs
             and "id" in page.widget.attrs
@@ -200,6 +195,8 @@ class AdvSearchPageForm(forms.Form):
                 "ERROR: AdvSearchPageForm class already has an ID set for the page input"
             )
         page.widget.attrs["id"] = page_id
+
+        # rows input
         if (
             rows.widget.attrs
             and "id" in rows.widget.attrs
@@ -209,6 +206,28 @@ class AdvSearchPageForm(forms.Form):
                 "ERROR: AdvSearchPageForm class already has an ID set for the page input"
             )
         rows.widget.attrs["id"] = rows_id
+
+        # order_by input
+        if (
+            order_by.widget.attrs
+            and "id" in order_by.widget.attrs
+            and order_by.widget.attrs["id"] != orderby_id
+        ):
+            raise Exception(
+                "ERROR: AdvSearchPageForm class already has an ID set for the page input"
+            )
+        order_by.widget.attrs["id"] = orderby_id
+
+        # order_direction input
+        if (
+            order_direction.widget.attrs
+            and "id" in order_direction.widget.attrs
+            and order_direction.widget.attrs["id"] != orderdir_id
+        ):
+            raise Exception(
+                "ERROR: AdvSearchPageForm class already has an ID set for the page input"
+            )
+        order_direction.widget.attrs["id"] = orderdir_id
 
         # Allow setting of additional attributes for appearance of the rows select list. Others are assumed to be
         # hidden and page control is assumed to be accomplished using submit buttons that run javascript
@@ -222,6 +241,17 @@ class AdvSearchPageForm(forms.Form):
                     "ERROR: AdvSearchPageForm class already has a [{key}] set for the rows input"
                 )
             rows.widget.attrs[key] = val
+
+    def is_valid(self):
+        # This triggers the setting of self.cleaned_data
+        super().is_valid()
+        data = self.cleaned_data
+        fields = self.base_fields.keys()
+        # Make sure all fields besides the order fields are present
+        for field in fields:
+            if field != "order_by" and field != "order_direction" and field not in data:
+                return False
+        return True
 
 
 class DataSubmissionValidationForm(forms.Form):

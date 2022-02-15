@@ -456,8 +456,8 @@ class AdvancedSearchView(MultiFormsView):
                 self.basv_metadata,
                 limit=rows_per_page,
                 offset=0,
-                order_by="placeholder",
-                order_direction="placeholder",
+                order_by=None,
+                order_direction=None,
             )
             self.pager.new(
                 other_field_dict={"qryjson": json.dumps(qry)},
@@ -497,6 +497,7 @@ class AdvancedSearchView(MultiFormsView):
         """
         Upon invalid advanced search form submission, rescues the query to add back to the context.
         """
+        print(f"Invalid paging form: {formset}")
 
         qry = {}
 
@@ -536,11 +537,21 @@ class AdvancedSearchView(MultiFormsView):
         try:
             page = int(cform["page"])
             rows = int(cform["rows"])
-            order_by = cform["order_by"]
-            order_dir = cform["order_direction"]
+
+            # Order_by and order_direction are optional
+            if "order_by" in cform:
+                order_by = cform["order_by"]
+            else:
+                order_by = None
+            if "order_direction" in cform:
+                order_dir = cform["order_direction"]
+            else:
+                order_dir = None
+
             offset = (page - 1) * rows
-        except Exception:
+        except Exception as e:
             # Assumes this is an initial query, not a page form submission
+            print(f"Exception occurred: {e}")
             self.pager.new()
             page = self.pager.page
             rows = self.pager.rows
@@ -566,6 +577,7 @@ class AdvancedSearchView(MultiFormsView):
                 order_direction=order_dir,
             )
         else:
+            print(f"Getting browse data with offset: {offset} and limit {rows}")
             res, tot = getAllBrowseData(
                 qry["selectedtemplate"],
                 self.basv_metadata,
@@ -590,6 +602,8 @@ class AdvancedSearchView(MultiFormsView):
         )
 
         root_group = self.basv_metadata.getRootGroup()
+
+        print(f"Sending {order_by} {order_dir} ordered qry: {qry}")
 
         response = self.render_to_response(
             self.get_context_data(
@@ -658,9 +672,10 @@ class AdvancedSearchView(MultiFormsView):
                 context["pager"] = self.pager.new(
                     other_field_dict={"qryjson": json.dumps(qry)}, tot=context["tot"]
                 )
-
+            print(f"SETTING UP BROWSE MODE WITH QRY: {qry}")
         elif (
             "qry" in context
+            and isQryObjValid(context["qry"], self.basv_metadata.getFormatNames().keys())
             and isValidQryObjPopulated(context["qry"])
             and ("res" not in context or len(context["res"]) == 0)
         ):
@@ -750,29 +765,7 @@ def getAllBrowseData(
     """
     Grabs all data without a filtering match for browsing.
     """
-
-    start_index = offset
-    if format in basv.getFormatNames().keys():
-        if limit is None:
-            res = basv.getRootQuerySet(format).all()
-            cnt = res.count()
-        else:
-            all_res = basv.getRootQuerySet(format).all()
-            cnt = all_res.count()
-            end_index = offset + limit
-            res = all_res[start_index:end_index]
-    else:
-        # Log a warning
-        print("WARNING: Unknown format: " + format)
-        return {}
-
-    prefetches = basv.getPrefetches(format)
-    if prefetches is not None:
-        res2 = res.prefetch_related(*prefetches)
-    else:
-        res2 = res
-
-    return res2, cnt
+    return performQuery(None, format, basv, limit, offset, order_by, order_direction)
 
 
 def createNewBasicQuery(basv_metadata, mdl, fld, cmp, val, fmt):
@@ -926,28 +919,49 @@ def performQuery(
     Executes an advanced search query.
     """
     start_index = offset
-    res = {}
     cnt = 0
+    print("Performing query")
     if fmt in basv.getFormatNames().keys():
-        if limit is None:
+
+        # All results
+        if q_exp is None:
+            res = basv.getRootQuerySet(fmt).distinct()
+        else:
             res = basv.getRootQuerySet(fmt).filter(q_exp).distinct()
-            cnt = res.count()
+        cnt = res.count()
+
+        # Order by
+        if order_by is not None:
+            if order_direction is not None:
+                if order_direction == "desc":
+                    order_by = f"-{order_by}"
+                elif order_direction and order_direction != "asc":
+                    raise Exception(f"Invalid order direction: {order_direction}.  Must be 'asc' or 'desc'.")
+            print(f"Ordering by {order_by}")
+            res2 = res.order_by(order_by)
+        else:
+            print("No ordering")
+            res2 = res
+
+        # Limit
+        if limit is None:
+            print("No limit")
+            res3 = res2
         else:
             end_index = offset + limit
-            all_res = basv.getRootQuerySet(fmt).filter(q_exp).distinct()
-            cnt = all_res.count()
-            res = all_res[start_index:end_index]
+            print(f"Limiting {start_index}:{end_index}")
+            res3 = res2[start_index:end_index]
     else:
         # Log a warning
         print("WARNING: Invalid selected format:", fmt)
-
+    
     prefetches = basv.getPrefetches(fmt)
     if prefetches is not None:
-        res2 = res.prefetch_related(*prefetches)
+        res4 = res3.prefetch_related(*prefetches)
     else:
-        res2 = res
+        res4 = res3
 
-    return res2, cnt
+    return res4, cnt
 
 
 def isQryObjValid(qry, form_class_list):

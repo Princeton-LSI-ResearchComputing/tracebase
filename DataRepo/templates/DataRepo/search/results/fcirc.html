@@ -361,28 +361,72 @@
                 <th colspan="2" class="intact nonorm">Mouse<br>Normalized<br>(nM/m)</th>
             </tr>
             <tr>
-                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Animal-data-visible' 'true' %}" data-field="Animal">Animal</th>
-                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Studies-data-visible' 'true' %}" data-field="Studies">Studies</th>
-                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Genotype-data-visible' 'true' %}" data-field="Genotype">Genotype</th>
-                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Body_Weight-data-visible' 'false' %}" data-field="Body_Weight">Body<br>Weight<br>(g)</th>
-                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Age-data-visible' 'false' %}" data-field="Age">Age<br>(weeks)</th>
-                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Sex-data-visible' 'false' %}" data-field="Sex">Sex</th>
-                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Diet-data-visible' 'false' %}" data-field="Diet">Diet</th>
-                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Feeding_Status-data-visible' 'true' %}" data-field="Feeding_Status">Feeding<br>Status</th>
-                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Treatment-data-visible' 'true' %}" data-field="Treatment">Treatment</th>
-                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Tracer_Compound-data-visible' 'true' %}" data-field="Tracer_Compound">Tracer<br>Compound</th>
-                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Labeled_Element-data-visible' 'false' %}" data-field="Labeled_Element">Labeled<br>Element</th>
-                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Tracer_Infusion_Rate-data-visible' 'true' %}" data-field="Tracer_Infusion_Rate">Tracer<br>Infusion<br>Rate<br>(ul/m/g)</th>
-                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Tracer_Infusion_Concentration-data-visible' 'true' %}" data-field="Tracer_Infusion_Concentration">Tracer Infusion<br>Concentration<br>(mM)</th>
-                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Time_Collected-data-visible' 'true' %}" data-field="Time_Collected">Time<br>Collected<br>(m)</th>
-                <th data-valign="top" data-visible="true" data-switchable="false" data-field="Average_Weight_Normalized_Ra" data-title-tooltip="Average_Weight_Normalized_Ra" class="average weight ra">Ra</th>
-                <th data-valign="top" data-visible="true" data-switchable="false" data-field="Average_Weight_Normalized_Rd" data-title-tooltip="Average_Weight_Normalized_Rd" class="average weight rd">Rd</th>
-                <th data-valign="top" data-visible="true" data-switchable="false" data-field="Average_Mouse_Normalized_Ra" data-title-tooltip="Average_Mouse_Normalized_Ra" class="average nonorm ra">Ra</th>
-                <th data-valign="top" data-visible="true" data-switchable="false" data-field="Average_Mouse_Normalized_Rd" data-title-tooltip="Average_Mouse_Normalized_Rd" class="average nonorm rd">Rd</th>
-                <th data-valign="top" data-visible="true" data-switchable="false" data-field="Intact_Weight_Normalized_Ra" data-title-tooltip="Intact_Weight_Normalized_Ra" class="intact weight ra">Ra</th>
-                <th data-valign="top" data-visible="true" data-switchable="false" data-field="Intact_Weight_Normalized_Rd" data-title-tooltip="Intact_Weight_Normalized_Rd" class="intact weight rd">Rd</th>
-                <th data-valign="top" data-visible="true" data-switchable="false" data-field="Intact_Mouse_Normalized_Ra" data-title-tooltip="Intact_Mouse_Normalized_Ra" class="intact nonorm ra">Ra</th>
-                <th data-valign="top" data-visible="true" data-switchable="false" data-field="Intact_Mouse_Normalized_Rd" data-title-tooltip="Intact_Mouse_Normalized_Rd" class="intact nonorm rd">Rd</th>
+                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Animal-data-visible' 'true' %}" data-field="Animal">
+                    Animal<div onclick="sortColumn(this)" class="sortable" id="msrun__sample__animal__name"></div>
+                </th>
+                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Studies-data-visible' 'true' %}" data-field="Studies">
+                    Studies
+                </th>
+                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Genotype-data-visible' 'true' %}" data-field="Genotype">
+                    <div onclick="sortColumn(this)" class="sortable" id="msrun__sample__animal__genotype" >Genotype</div>
+                </th>
+                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Body_Weight-data-visible' 'false' %}" data-field="Body_Weight">
+                    <div onclick="sortColumn(this)" class="sortable" id="msrun__sample__animal__body_weight" >Body<br>Weight<br>(g)</div>
+                </th>
+                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Age-data-visible' 'false' %}" data-field="Age">
+                    <div onclick="sortColumn(this)" class="sortable" id="msrun__sample__animal__age" >Age<br>(weeks)</div>
+                </th>
+                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Sex-data-visible' 'false' %}" data-field="Sex">
+                    <div onclick="sortColumn(this)" class="sortable" id="msrun__sample__animal__sex" >Sex</div>
+                </th>
+                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Diet-data-visible' 'false' %}" data-field="Diet">
+                    <div onclick="sortColumn(this)" class="sortable" id="msrun__sample__animal__diet" >Diet</div>
+                </th>
+                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Feeding_Status-data-visible' 'true' %}" data-field="Feeding_Status">
+                    <div onclick="sortColumn(this)" class="sortable" id="msrun__sample__animal__feeding_status" >Feeding<br>Status</div>
+                </th>
+                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Treatment-data-visible' 'true' %}" data-field="Treatment">
+                    <div onclick="sortColumn(this)" class="sortable" id="msrun__sample__animal__treatment__name" >Treatment</div>
+                </th>
+                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Tracer_Compound-data-visible' 'true' %}" data-field="Tracer_Compound">
+                    <div onclick="sortColumn(this)" class="sortable" id="msrun__sample__animal__tracer_compound__name" >Tracer<br>Compound</div>
+                </th>
+                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Labeled_Element-data-visible' 'false' %}" data-field="Labeled_Element">
+                    <div onclick="sortColumn(this)" class="sortable" id="msrun__sample__animal__tracer_labeled_atom" >Labeled<br>Element</div>
+                </th>
+                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Tracer_Infusion_Rate-data-visible' 'true' %}" data-field="Tracer_Infusion_Rate">
+                    <div onclick="sortColumn(this)" class="sortable" id="msrun__sample__animal__tracer_infusion_rate" >Tracer<br>Infusion<br>Rate<br>(ul/m/g)</div>
+                </th>
+                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Tracer_Infusion_Concentration-data-visible' 'true' %}" data-field="Tracer_Infusion_Concentration">
+                    <div onclick="sortColumn(this)" class="sortable" id="msrun__sample__animal__tracer_infusion_concentration" >Tracer Infusion<br>Concentration<br>(mM)</div>
+                </th>
+                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Time_Collected-data-visible' 'true' %}" data-field="Time_Collected">
+                    <div onclick="sortColumn(this)" class="sortable" id="msrun__sample__time_collected" >Time<br>Collected<br>(m)</div>
+                </th>
+                <th data-valign="top" data-visible="true" data-switchable="false" data-field="Average_Weight_Normalized_Ra" data-title-tooltip="Average_Weight_Normalized_Ra" class="average weight ra">
+                    Ra
+                </th>
+                <th data-valign="top" data-visible="true" data-switchable="false" data-field="Average_Weight_Normalized_Rd" data-title-tooltip="Average_Weight_Normalized_Rd" class="average weight rd">
+                    Rd
+                </th>
+                <th data-valign="top" data-visible="true" data-switchable="false" data-field="Average_Mouse_Normalized_Ra" data-title-tooltip="Average_Mouse_Normalized_Ra" class="average nonorm ra">
+                    Ra
+                </th>
+                <th data-valign="top" data-visible="true" data-switchable="false" data-field="Average_Mouse_Normalized_Rd" data-title-tooltip="Average_Mouse_Normalized_Rd" class="average nonorm rd">
+                    Rd
+                </th>
+                <th data-valign="top" data-visible="true" data-switchable="false" data-field="Intact_Weight_Normalized_Ra" data-title-tooltip="Intact_Weight_Normalized_Ra" class="intact weight ra">
+                    Ra
+                </th>
+                <th data-valign="top" data-visible="true" data-switchable="false" data-field="Intact_Weight_Normalized_Rd" data-title-tooltip="Intact_Weight_Normalized_Rd" class="intact weight rd">
+                    Rd
+                </th>
+                <th data-valign="top" data-visible="true" data-switchable="false" data-field="Intact_Mouse_Normalized_Ra" data-title-tooltip="Intact_Mouse_Normalized_Ra" class="intact nonorm ra">
+                    Ra
+                </th>
+                <th data-valign="top" data-visible="true" data-switchable="false" data-field="Intact_Mouse_Normalized_Rd" data-title-tooltip="Intact_Mouse_Normalized_Rd" class="intact nonorm rd">
+                    Rd
+                </th>
             </tr>
         </thead>
 

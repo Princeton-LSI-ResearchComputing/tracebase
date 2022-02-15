@@ -14,9 +14,15 @@ class Pager:
         order_dir_field,
         num_buttons=5,
         other_fields=[],
+
+        # Default form values
         default_rows=10,
+
+        #Default form element attributes
         page_input_id="pager-page-elem",
         rows_input_id="pager-rows-elem",
+        orderby_input_id="pager-orderby-elem",
+        orderdir_input_id="pager-orderdir-elem",
         form_name="paging",  # Relies on multiforms
         form_id="custom-paging",
         rows_attrs={
@@ -31,9 +37,11 @@ class Pager:
         self.page_form_class = page_form_class
         self.page_input_id = page_input_id
         self.rows_input_id = rows_input_id
+        self.orderby_input_id = orderby_input_id
+        self.orderdir_input_id = orderdir_input_id
         self.rows_attrs = rows_attrs
         self.page_form = self.page_form_class()
-        self.page_form.new(self.page_input_id, self.rows_input_id, self.rows_attrs)
+        self.page_form.new(self.page_input_id, self.rows_input_id, self.orderby_input_id, self.orderdir_input_id, self.rows_attrs)
         self.rows_per_page_choices = rows_per_page_choices
         self.page_field = page_field
         self.rows_per_page_field = rows_per_page_field
@@ -57,8 +65,8 @@ class Pager:
         rows=None,
         start=None,
         end=None,
-        order_by="placeholder",
-        order_dir="placeholder",
+        order_by=None,
+        order_dir=None,
         other_field_dict=None,
     ):
         if rows is None:
@@ -104,7 +112,7 @@ class Pager:
                 init_dict[fld] = other_field_dict[fld]
         kwargs = {"initial": init_dict}
         self.page_form = self.page_form_class(**kwargs)
-        self.page_form.new(self.page_input_id, self.rows_input_id, self.rows_attrs)
+        self.page_form.new(self.page_input_id, self.rows_input_id, self.orderby_input_id, self.orderdir_input_id, self.rows_attrs)
 
         # Set up the paging controls
         if tot is not None:
