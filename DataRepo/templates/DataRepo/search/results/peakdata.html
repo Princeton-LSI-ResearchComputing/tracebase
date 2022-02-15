@@ -87,10 +87,10 @@
                     <div onclick="sortColumn(this)" class="sortable" id="peak_group__name">Peak Group</div>
                 </th>
                 <th data-valign="top" class="idgrp" data-visible="{% get_template_cookie selfmt 'Measured_Compounds-data-visible' 'true' %}" data-field="Measured_Compounds">
-                    Measured<br>Compound(s)
+                    <div onclick="sortColumn(this)" class="sortable" id="peak_group__compounds__name">Measured<br>Compound(s)</div>
                 </th>
                 <th data-valign="top" class="idgrp" data-visible="{% get_template_cookie selfmt 'Measured_Compound_Synonyms-data-visible' 'false' %}" data-field="Measured_Compound_Synonyms">
-                    Measured<br>Compound<br>Synonym(s)
+                    <div onclick="sortColumn(this)" class="sortable" id="peak_group__compounds__synonyms__name">Measured<br>Compound<br>Synonym(s)</div>
                 </th>
                 <th data-valign="top" class="idgrp" data-visible="{% get_template_cookie selfmt 'Labeled_Element_Count-data-visible' 'true' %}" data-field="Labeled_Element_Count">
                     <div onclick="sortColumn(this)" class="sortable" id="labeled_element">Labeled<br>Element:<br></div><div onclick="sortColumn(this)" class="sortable" id="labeled_count">Count</div>
@@ -149,7 +149,7 @@
                     <div onclick="sortColumn(this)" class="sortable" id="peak_group__msrun__sample__animal__tracer_infusion_concentration">Tracer<br>Infusion<br>Concentration<br>(mM)</div>
                 </th>
                 <th data-valign="top" class="metagrp" data-visible="{% get_template_cookie selfmt 'Study-data-visible' 'true' %}" data-field="Study">
-                    Studies
+                    <div onclick="sortColumn(this)" class="sortable" id="peak_group__msrun__sample__animal__studies__name">Studies</div>
                 </th>
             </tr>
         </thead>
