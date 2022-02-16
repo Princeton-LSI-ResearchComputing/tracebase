@@ -67,6 +67,8 @@
                 },
                 onColumnSwitch: function(field, checked) {
                     set_template_cookie(field + '-data-visible', checked)
+                    // This is to update the server-side sort controls after a column switch
+                    setupColumnSort()
                 }
             })
 

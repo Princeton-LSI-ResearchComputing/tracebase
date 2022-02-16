@@ -12,6 +12,8 @@
                 },
                 onColumnSwitch: function(field, checked) {
                     set_template_cookie(field + '-data-visible', checked)
+                    // This is to update the server-side sort controls after a column switch
+                    setupColumnSort()
                 }
             })
 
@@ -34,14 +36,6 @@
                 $("#advsrchres .datadata").attr("span", datadata_cnt)
                 $("#advsrchres .metadata").attr("span", metadata_cnt)
             }
-
-            $("#advsrchres").bootstrapTable({
-                onColumnSwitch: function(field, checked) {
-                    alert("Resetting column sort controls for " + field + ":" + checked)
-                    set_template_cookie(field + '-data-visible', checked)
-                    setupColumnSort()
-                }
-            })
         })
     </script>
     <script src="https://cdn.jsdelivr.net/gh/wenzhixin/bootstrap-table-examples@master/utils/natural-sorting/dist/natural-sorting.js"></script>

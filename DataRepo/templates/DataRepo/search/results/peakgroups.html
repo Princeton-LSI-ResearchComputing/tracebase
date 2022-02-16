@@ -10,11 +10,10 @@
                 onAll: function() {
                     updateColumnGroups()
                 },
-                onSort: function(name, order) {
-                    alert("PLACEHOLDER: Sorting " + name + " in " + order + " order")
-                },
                 onColumnSwitch: function(field, checked) {
                     set_template_cookie(field + '-data-visible', checked)
+                    // This is to update the server-side sort controls after a column switch
+                    setupColumnSort()
                 }
             })
 
