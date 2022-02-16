@@ -4,8 +4,19 @@
     <script>
         // Inspired by: https://stackoverflow.com/questions/12455699/show-hide-table-column-with-colspan-using-jquery
 
-        // Correct the row count to account for M:M related tables
         document.addEventListener("DOMContentLoaded", function(){
+            // https://bootstrap-table.com/docs/api/events/
+            // https://bootstrap-table.com/docs/api/events/#oncolumnswitch
+            $("#advsrchres").bootstrapTable({
+                onAll: function() {
+                    updateColumnSwitching()
+                    updateRowSwitching()
+                    updateColumnSortControls()
+                    updateAllColumnSwitchingCookies()
+                }
+                // I did have an onColumnSwitch here to set cookies, but it doesn't handle the "Toggle All" control, so I added a call to updateAllColumnSwitchingCookies in onAll
+            })
+
             $("#showaverage").on("click", function(e) {
                 var acbv = $(this).is(":checked")
                 var icbv = $("#showintact").is(":checked")
@@ -56,20 +67,6 @@
                 }
 
                 updateColumnSwitching()
-            })
-
-            // https://bootstrap-table.com/docs/api/events/
-            // https://bootstrap-table.com/docs/api/events/#oncolumnswitch
-            $("#advsrchres").bootstrapTable({
-                onAll: function() {
-                    updateColumnSwitching()
-                    updateRowSwitching()
-                },
-                onColumnSwitch: function(field, checked) {
-                    set_template_cookie(field + '-data-visible', checked)
-                    // This is to update the server-side sort controls after a column switch
-                    setupColumnSort()
-                }
             })
 
             $("#showra").on("click", function(e) {

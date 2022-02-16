@@ -16,10 +16,22 @@
         function set_template_cookie(name, val) {
             set_cookie(selfmt + "." + name, val);
         }
+
+        function updateAllColumnSwitchingCookies() {
+            var hidarray = $("#advsrchres").bootstrapTable('getHiddenColumns')
+            for (const item of hidarray) {
+                set_template_cookie(item["field"] + "-data-visible", false)
+            }
+            var visarray = $("#advsrchres").bootstrapTable('getVisibleColumns')
+            for (const item of visarray) {
+                set_template_cookie(item["field"] + "-data-visible", true)
+            }
+        }
     </script>
 {% endblock %}
 
 {% block content %}
+
     <div>
         {% define True as valid_search %}
         {% define default_format as selfmt %}
@@ -48,6 +60,9 @@
             <hr>
 
             {% if valid_search %}
+                <div style="margin-left: 16px; float: right;">
+                    <button class="btn btn-primary mb-2" id="reset" title="Reset Page Settings" onclick="restoreDefaults()"><i class="fa">Reset</i></button>
+                </div>
                 <div style="float: right;">
                     <form action="/DataRepo/search_advanced_tsv/" id="advanced-search-download-form" method="POST">
                         {% csrf_token %}

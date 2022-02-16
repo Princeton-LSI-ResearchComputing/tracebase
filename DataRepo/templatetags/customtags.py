@@ -200,6 +200,8 @@ def get_template_cookie(context, template_name, cookie_name, cookie_default):
     request = context["request"]
     full_cookie_name = ".".join([template_name, cookie_name])
     result = request.COOKIES.get(full_cookie_name, cookie_default)
+    if result == "__default__":
+        result = cookie_default
     return result
 
 

@@ -9,12 +9,10 @@
             $("#advsrchres").bootstrapTable({
                 onAll: function() {
                     updateColumnGroups()
-                },
-                onColumnSwitch: function(field, checked) {
-                    set_template_cookie(field + '-data-visible', checked)
-                    // This is to update the server-side sort controls after a column switch
-                    setupColumnSort()
+                    updateColumnSortControls()
+                    updateAllColumnSwitchingCookies()
                 }
+                // I did have an onColumnSwitch here to set cookies, but it doesn't handle the "Toggle All" control, so I added a call to updateAllColumnSwitchingCookies in onAll
             })
 
             function updateColumnGroups() {
