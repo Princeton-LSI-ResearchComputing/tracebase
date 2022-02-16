@@ -2,9 +2,19 @@
 
 {% block head_extras %}
     <script>
+        var selfmt = ""
+
         // Set a Cookie
         function set_cookie(name, val) {
             document.cookie = name + "=" + val + "; path=/";
+        }
+
+        function setSelectedFormat(selfmt) {
+            globalThis.selfmt = selfmt
+        }
+
+        function set_template_cookie(name, val) {
+            set_cookie(selfmt + "." + name, val);
         }
     </script>
 {% endblock %}
@@ -67,6 +77,9 @@
             {% endif %}
             {# 'else' is just the search forms #}
         {% endif %}
+
+        <!-- This is just used for setting cookies without needing to have the set_template_cookie method in every format template -->
+        <script>setSelectedFormat("{{ selfmt }}")</script>
     </div>
 
 {% endblock %}
