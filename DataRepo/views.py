@@ -675,7 +675,9 @@ class AdvancedSearchView(MultiFormsView):
             print(f"SETTING UP BROWSE MODE WITH QRY: {qry}")
         elif (
             "qry" in context
-            and isQryObjValid(context["qry"], self.basv_metadata.getFormatNames().keys())
+            and isQryObjValid(
+                context["qry"], self.basv_metadata.getFormatNames().keys()
+            )
             and isValidQryObjPopulated(context["qry"])
             and ("res" not in context or len(context["res"]) == 0)
         ):
@@ -936,7 +938,9 @@ def performQuery(
                 if order_direction == "desc":
                     order_by = f"-{order_by}"
                 elif order_direction and order_direction != "asc":
-                    raise Exception(f"Invalid order direction: {order_direction}.  Must be 'asc' or 'desc'.")
+                    raise Exception(
+                        f"Invalid order direction: {order_direction}.  Must be 'asc' or 'desc'."
+                    )
             print(f"Ordering by {order_by}")
             res2 = res.order_by(order_by)
         else:
@@ -954,7 +958,7 @@ def performQuery(
     else:
         # Log a warning
         print("WARNING: Invalid selected format:", fmt)
-    
+
     prefetches = basv.getPrefetches(fmt)
     if prefetches is not None:
         res4 = res3.prefetch_related(*prefetches)

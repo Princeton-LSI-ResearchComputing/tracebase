@@ -165,7 +165,8 @@ class AdvSearchPageForm(forms.Form):
         choices=ROWS_PER_PAGE_CHOICES,
         # TODO: Can probably get the caret in the button image using:
         #   https://stackoverflow.com/questions/45424162/listing-a-choicefield-in-django-as-button
-        widget=forms.Select())
+        widget=forms.Select(),
+    )
     page = forms.CharField(widget=forms.HiddenInput())
     order_by = forms.CharField(widget=forms.HiddenInput())
     order_direction = forms.CharField(widget=forms.HiddenInput())
