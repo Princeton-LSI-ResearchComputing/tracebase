@@ -7,8 +7,8 @@ from django.conf import settings
 from django.core.management import call_command
 from django.db.models import Q
 from django.http import Http404, StreamingHttpResponse
-from django.template import loader
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template import loader
 from django.urls import reverse
 from django.views.generic import DetailView, ListView
 from django.views.generic.edit import FormView
@@ -704,7 +704,8 @@ class AdvancedSearchTSVView(FormView):
     """
 
     form_class = AdvSearchDownloadForm
-    template_name = "DataRepo/search/downloads/download.tsv"
+    header_template = "DataRepo/search/downloads/download_header.tsv"
+    row_template = "DataRepo/search/downloads/download_row.tsv"
     content_type = "application/text"
     success_url = ""
     basv_metadata = BaseAdvancedSearchView()
@@ -750,20 +751,19 @@ class AdvancedSearchTSVView(FormView):
         else:
             res, tot = getAllBrowseData(qry["selectedtemplate"], self.basv_metadata)
 
-        headtmplt = loader.get_template("DataRepo/search/downloads/download_header.tsv")
-        rowtmplt = loader.get_template("DataRepo/search/downloads/download_row.tsv")
+        headtmplt = loader.get_template(self.header_template)
+        rowtmplt = loader.get_template(self.row_template)
 
         return StreamingHttpResponse(
             self.tsv_template_iterator(rowtmplt, headtmplt, res, qry, dt_string),
-            content_type="text/plain",
+            content_type=self.content_type,
             headers={"Content-Disposition": f"attachment; filename={filename}"},
         )
 
     def tsv_template_iterator(self, rowtmplt, headtmplt, res, qry, dt):
-        yield headtmplt.render({'qry': qry, "dt": dt})
+        yield headtmplt.render({"qry": qry, "dt": dt})
         for row in res:
-            yield rowtmplt.render({'qry': qry, 'row': row})
-
+            yield rowtmplt.render({"qry": qry, "row": row})
 
 
 def getAllBrowseData(

@@ -41,8 +41,8 @@ This document will serve to guide developers on implementing new code.
       - Numeric values that have long decimal strings should be formatted with a tooltip like this: `<p title="{{ rec.longval }}">{{ rec.longval|floatformat:4 }}</p>`
       - Name fields should be linked to their details page using their ID, e.g. `<a href="{% url 'peakgroup_detail' pg.id %}">{{ pg.name }}</a>`
 
-4. `DataRepo/templates/downloads/<format name>.tsv`
-   - Copy `DataRepo/templates/downloads/peakgroups.tsv` to a new file with a name that indicates the format (e.g., same name as in step 3 with a different extension) and edit as you wish, following these guidelines:
+4. `DataRepo/templates/downloads/<format name>_{colheads,row}.tsv`
+   - Copy `DataRepo/templates/downloads/peakgroups_colheads.tsv` and `DataRepo/templates/downloads/peakgroups_row.tsv` to new files with a name that indicates the format (e.g., same name as in step 3 with a different extension) and edit as you wish, following these guidelines:
       - If a field's path includes a many-to-many relationship, e.g. `models.ManyToManyField`
          - A nested `for` loop will be necessary in the template, e.g. `{% for study in pg.msrun.sample.animal.studies.all %}`.
          - Each nested loop must maintain a `keeping` dict and conditionally include a row based on the value of `keeping.keep`.
@@ -55,9 +55,9 @@ This document will serve to guide developers on implementing new code.
       - Replace both occurrences of `pdtemplate` with the ID you assigned at the top of step 1
       - Replace the filename on the include line with the file created in step 3 above
 
-6. `DataRepo/templates/DataRepo/search/downloads/download.tsv`
-   - Copy the `elif`:
-     `{% elif qry.selectedtemplate == "pdtemplate" %}{% include "DataRepo/search/downloads/peakdata.tsv" %}`
+6. `DataRepo/templates/DataRepo/search/downloads/download_{header,row}.tsv`
+   - In both files, copy the `elif` that looks like:
+     `{% elif qry.selectedtemplate == "pdtemplate" %}{% include "DataRepo/search/downloads/peakdata_{colheads,row}.tsv" %}`
      Paste it before the `endif` and make the following edits:
       - Replace `pdtemplate` with the ID you assigned at the top of step 1
       - Replace the filename on the include line with the file created in step 4 above
@@ -107,8 +107,8 @@ Be careful that the .tsv file has actual tab characters and note that every newl
       - Manipulated values (like truncated decimal values) should have a tooltip that shows the full value
       - Headers should show units in parenthases if a value has units
 
-3. `DataRepo/templates/downloads/<format name>.tsv`
-   - Each template is different, but generally, unless the model doesn't already exist in the template, just add a column to the tab-delimited table.
+3. `DataRepo/templates/downloads/<format name>_{colheads,row}.tsv`
+   - Each template is different, but generally, unless the model doesn't already exist in the template, just add a column to the tab-delimited headers and row files.
    - General guidelines:
       - Field values should not be manipulated/modified (e.g. do not truncate decimal places) except to match the format supplied by researchers in the loading files (when the stored version in the database differs, e.g. Sample.time_collected or Animal.age, which are saved as time-deltas)
       - None values should be ensured to display as "None" so they can be differentiated from empty string
