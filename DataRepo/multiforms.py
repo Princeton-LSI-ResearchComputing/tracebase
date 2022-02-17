@@ -9,6 +9,21 @@ from django.views.generic.edit import ProcessFormView
 #   https://stackoverflow.com/questions/15497693/django-can-class-based-views-accept-two-forms-at-a-time
 #   https://gist.github.com/jamesbrobb/748c47f46b9bd224b07f
 
+# TODO: Re-reading the above stack post after having learned a bunch about various components of form processing, I
+# have realized a few things that I could clean up in here.  First of all, the original code requires that the submit
+# button be named "action" and its "value" must match a form_name that is used as keys in the form_classes dict.
+# However, that form processing only works if the submit button is what submits the form.  E.g. if a user hits enter in
+# another form field, it won't work correctly.  The reason my changes work is because first, I haven't configured the
+# pre-existing code correctly, so it never gets into the various form processing methods and gets to my mixed form
+# check.  I am checking data member values for a "mixed" form.  A "mixed" form is 3 different form classes (all with
+# the same form fields) that are all wrapped in one form tag.  Now, I have added another form type (AdvSearchPageForm)
+# and it needs to be called as an individual form.  Code I added to views to use an additional paging form
+# (AdvSearchPageForm) uses a strategy similar to the original intent of this code.  It identifies a form by one of its
+# input names.  I need to refactor a number of things to make multiforms work correctly and handle my mixed form case
+# AND the page form.  Note the submit button form identification strategy won't work for the mixed forms since they all
+# have the same named fields and don't always use a button to submit, but if I add a hidden field and set its value to
+# identify the form, that would work.
+
 
 class MultiFormMixin(ContextMixin):
 
@@ -56,36 +71,68 @@ class MultiFormMixin(ContextMixin):
 
     def get_form_kwargs(self, form_name, bind_form=False):
         kwargs = {}
-        kwargs.update({"initial": self.get_initial(form_name)})
-        kwargs.update({"prefix": self.get_prefix(form_name)})
+        init = self.get_initial(form_name)
+        if init:
+            kwargs.update({"initial": self.get_initial(form_name)})
+        pfx = self.get_prefix(form_name)
+        if pfx:
+            kwargs.update({"prefix": self.get_prefix(form_name)})
 
         if bind_form:
-            kwargs.update(self._bind_form_data())
+            bound = self._bind_form_data()
+            if len(bound.keys()) > 0:
+                kwargs.update(bound)
 
         return kwargs
 
     def forms_valid(self, forms):
-        num_valid_calls = 0
+        calls = []
         for form_name in forms.keys():
             form_valid_method = "%s_form_valid" % form_name
             if hasattr(self, form_valid_method):
-                getattr(self, form_valid_method)(forms[form_name])
-                num_valid_calls += 1
-        if self._mixed_exists() and num_valid_calls == 0:
+                calls.append([form_valid_method, forms[form_name]])
+                # Originally, there was not a return here. I added it to validate my theory, and it worked, so I added
+                # an elif below to handle this case. The line below this one just originally called the form valid
+                # method and expected it to not return anything
+                # return getattr(self, form_valid_method)(forms[form_name])
+        if self._mixed_exists() and len(calls) == 0:
             return self.form_valid(forms)
+        elif len(calls) == 1:
+            form_valid_method, form = calls[0]
+            return getattr(self, form_valid_method)(form)
         else:
-            return HttpResponseRedirect(self.get_success_url(form_name))
+            for call in calls:
+                form_valid_method, form = call
+                getattr(self, form_valid_method)(form)
+            if len(self.success_urls) == 0:
+                if self.success_url == "":
+                    # Not entirely sure this is correct, but with the current code, this should never execute
+                    return self.render_to_response(self.get_context_data(forms=forms))
+                else:
+                    return HttpResponseRedirect(self.success_url)
+            else:
+                return HttpResponseRedirect(self.get_success_url(form_name))
 
     def forms_invalid(self, forms):
-        num_invalid_calls = 0
+        calls = []
         for form_name in forms.keys():
-            form_invalid_method = "%s_form_valid" % form_name
+            form_invalid_method = "%s_form_invalid" % form_name
             if hasattr(self, form_invalid_method):
-                getattr(self, form_invalid_method)(forms[form_name])
-                num_invalid_calls += 1
-        if self._mixed_exists() and num_invalid_calls == 0:
+                calls.append([form_invalid_method, forms[form_name]])
+                # Originally, there was not a return here. I added it to validate my theory, and it worked, so I added
+                # an elif below to handle this case. The line below this one just originally called the form valid
+                # method and expected it to not return anything
+                # return getattr(self, form_invalid_method)(forms[form_name])
+        if self._mixed_exists() and len(calls) == 0:
             return self.form_invalid(forms)
+        elif len(calls) == 1:
+            form_invalid_method, form = calls[0]
+            return getattr(self, form_invalid_method)(form)
         else:
+            for call in calls:
+                form_invalid_method, form = call
+                getattr(self, form_invalid_method)(form)
+                # Not entirely sure this is correct, but with the current code, this should never execute
             return self.render_to_response(self.get_context_data(forms=forms))
 
     def get_initial(self, form_name):
@@ -106,16 +153,26 @@ class MultiFormMixin(ContextMixin):
         form_create_method = "create_%s_form" % form_name
         if hasattr(self, form_create_method):
             form = getattr(self, form_create_method)(**form_kwargs)
+        elif len(form_kwargs.keys()) > 0:
+            try:
+                form = klass(**form_kwargs)
+            except TypeError as te:
+                print(te)
+                form = klass.__new__()
         else:
-            form = klass(**form_kwargs)
+            form = klass()
         return form
 
     def _bind_form_data(self):
         if self.request.method in ("POST", "PUT"):
-            return {
-                "data": self.request.POST,
-                "files": self.request.FILES,
-            }
+            retdict = {}
+            data = self.request.POST
+            if data:
+                retdict["data"] = data
+            files = self.request.FILES
+            if files:
+                retdict["files"] = files
+            return retdict
         return {}
 
     def _mixed_exists(self):
@@ -150,6 +207,7 @@ class ProcessMultipleFormsView(ProcessFormView):
     def post(self, request, *args, **kwargs):
         form_classes = self.get_form_classes()
         form_name = request.POST.get("action")
+
         if self._individual_exists(form_name) and not self._mixed_exists():
             return self._process_individual_form(form_name, form_classes)
         elif self._group_exists(form_name) and not self._mixed_exists():
@@ -171,7 +229,7 @@ class ProcessMultipleFormsView(ProcessFormView):
         if not form:
             return HttpResponseForbidden()
         elif form.is_valid():
-            return self.forms_valid(forms, form_name)
+            return self.forms_valid(forms)
         else:
             return self.forms_invalid(forms)
 

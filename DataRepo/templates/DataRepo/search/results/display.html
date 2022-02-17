@@ -1,4 +1,14 @@
 {% load customtags %}
+
+{% block head_extras %}
+    <script>
+        // Set a Cookie
+        function set_cookie(name, val) {
+            document.cookie = name + "=" + val + "; path=/";
+        }
+    </script>
+{% endblock %}
+
 {% block content %}
     <div>
         {% define True as valid_search %}
@@ -38,6 +48,8 @@
                     </form>
                 </div>
 
+                <h3 style="margin: 0; display: inline-block;">{{ qry|getFormatName:selfmt }} Results ({{ pager.tot|default:"0" }} Rows)</h3>
+
                 {% if selfmt == "pgtemplate" %}
                     {% include "DataRepo/search/results/peakgroups.html" with selfmt=selfmt %}
                 {% elif selfmt == "pdtemplate" %}
@@ -48,7 +60,6 @@
             {% else %}
                 <label class="text-danger">Invalid format: {{ selfmt }}</label>
             {% endif %}
-
         {% else %}
             {% if valid_search and mode == "browse" or qry %}
                 <hr>

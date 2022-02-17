@@ -1,6 +1,8 @@
 {% load static %}
+{% load customtags %}
 
 {% if is_paginated %}
+    {% comment %} Model list view built-in Pagination {% endcomment %}
     <div class="pagination">
         <span class="page-links">
             {% if page_obj.has_previous %}
@@ -14,4 +16,71 @@
             {% endif %}
         </span>
     </div>
+{% elif pager %}
+    {% comment %} Advanced Search Pagination (assumed, though the "pager" object could be used for other pagination as well) {% endcomment %}
+    <script>
+        document.addEventListener("DOMContentLoaded", function(){
+
+            var myform = document.getElementById("{{ pager.form_id }}")
+            var rowselem = document.getElementById("{{ pager.rows_input_id }}")
+            if (typeof rowselem !== 'undefined' && rowselem) {
+                rowselem.addEventListener("change", function (event) {
+                    set_template_cookie("{{ pager.rows_per_page_field }}", event.target.value)
+                    setPage(1)
+                    myform.submit();
+                })
+            }
+        })
+
+        function setPage(pagenum){
+            // The "pager-page-elem" ID is set in for django form class
+            var pageelem = document.getElementById("{{ pager.page_input_id }}")
+            if (typeof pageelem !== 'undefined' && pageelem) {
+                pageelem.value = pagenum;
+            }
+        }
+    </script>
+
+    {% if pager.tot|gt:pager.min_rows_per_page %}
+        <div class="fixed-table-pagination" style="padding-top: 10px;">
+            <form action="{{ pager.action }}" id="{{ pager.form_id }}" name="{{ pager.form_name }}" method="POST">
+                {% csrf_token %}
+                {{ pager.page_form.qryjson }}
+                {{ pager.page_form.order_by }}
+                {{ pager.page_form.order_direction }}
+                {{ pager.page_form.page }}
+                {{ pager.page_form.adv_search_page_form }}
+                <div style="float: left;">
+                    Showing {{ pager.start }} to {{ pager.end }} of {{ pager.tot }} rows, {{ pager.page_form.rows }} rows per page
+                </div>
+    {% endif %}
+    {% if pager.tot|gt:pager.rows %}
+                <div style="float: right;">
+                    <nav aria-label="Page navigation">
+                        <ul class="pagination">
+                            {% for pg in pager.pages %}
+                                {% if pg.navigable %}
+                                    <li class="page-item">
+                                        <button type="submit" class="page-link" id="advanced-page-submit" onclick="setPage({{ pg.val }})" name="{{ pager.submit_name }}">{{ pg.name }}</button>
+                                    </li>
+                                {% else %}
+                                    {% if pg.val == pager.page %}
+                                        <li class="page-item active">
+                                            <a class="page-link" href="#">{{ pg.name }} <span class="sr-only">(current)</span></a>
+                                        </li>
+                                    {% else %}
+                                        <li class="page-item disabled">
+                                            <a class="page-link" href="#">{{ pg.name }}</a>
+                                        </li>
+                                    {% endif %}
+                                {% endif %}
+                            {% endfor %}
+                        </ul>
+                    </nav>
+                </div>
+    {% endif %}
+    {% if pager.tot|gt:pager.min_rows_per_page %}
+            </form>
+        </div>
+    {% endif %}
 {% endif %}

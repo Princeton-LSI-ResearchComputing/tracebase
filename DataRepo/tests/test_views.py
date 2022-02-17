@@ -616,8 +616,8 @@ class ViewTests(TracebaseTestCase):
         basv_metadata = BaseAdvancedSearchView()
         pf = "msrun__sample__animal__studies"
         qs = PeakGroup.objects.all().prefetch_related(pf)
-        res = getAllBrowseData("pgtemplate", basv_metadata)
-        self.assertEqual(res.count(), qs.count())
+        res, cnt = getAllBrowseData("pgtemplate", basv_metadata)
+        self.assertEqual(cnt, qs.count())
 
     def get_basic_qry_inputs(self):
         qs = PeakGroup.objects.all().prefetch_related("msrun__sample__animal__studies")
@@ -722,11 +722,11 @@ class ViewTests(TracebaseTestCase):
             "msrun__sample__animal__tracer_compound",
             "msrun__sample__animal__studies",
         ]
-        res = performQuery(q_exp, "pgtemplate", basv_metadata)
+        res, cnt = performQuery(q_exp, "pgtemplate", basv_metadata)
         qs = PeakGroup.objects.filter(
             msrun__sample__tissue__name__iexact="Brain"
         ).prefetch_related(*pf)
-        self.assertEqual(res.count(), qs.count())
+        self.assertEqual(cnt, qs.count())
 
     def test_constructAdvancedQuery_performQuery_distinct(self):
         """
@@ -735,15 +735,15 @@ class ViewTests(TracebaseTestCase):
         qry = self.get_advanced_qry2()
         q_exp = constructAdvancedQuery(qry)
         basv_metadata = BaseAdvancedSearchView()
-        res = performQuery(q_exp, "pgtemplate", basv_metadata)
+        res, cnt = performQuery(q_exp, "pgtemplate", basv_metadata)
         qs = (
             PeakGroup.objects.filter(msrun__sample__name__iexact="BAT-xz971")
             .filter(msrun__sample__animal__studies__name__iexact="obob_fasted")
             .filter(compounds__synonyms__name__iexact="glucose")
         )
         # Ensure the test is working by ensuring the number of records without distinct is larger
-        self.assertTrue(res.count() < qs.count())
-        self.assertEqual(res.count(), 1)
+        self.assertTrue(cnt < qs.count())
+        self.assertEqual(cnt, 1)
 
     def test_isQryObjValid(self):
         """

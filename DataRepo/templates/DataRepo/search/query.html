@@ -101,7 +101,7 @@
         <form action="/DataRepo/search_advanced/" id="hierarchical-search-form" method="POST">
             {% csrf_token %}
             <div class="hierarchical-search"></div>
-            <button type="submit" class="btn btn-primary" id="advanced-search-submit">Search</button>
+            <button type="submit" class="btn btn-primary" id="advanced-search-submit" name="advanced-search-submit">Search</button>
             <!-- There are multiple form types, but we only need one set of form management inputs. We can get away with this because all the fields are the same. -->
             {% with forms|index:default_format as managing_form %}
                 {{ managing_form.errors.val }}

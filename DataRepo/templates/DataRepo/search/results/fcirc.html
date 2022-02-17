@@ -64,6 +64,9 @@
                 onAll: function() {
                     updateColumnSwitching()
                     updateRowSwitching()
+                },
+                onColumnSwitch: function(field, checked) {
+                    set_template_cookie(field + '-data-visible', checked)
                 }
             })
 
@@ -233,6 +236,10 @@
                 }
             })
         }
+
+        function set_template_cookie(name, val) {
+            set_cookie("{{ selfmt }}" + "." + name, val);
+        }
     </script>
 {% endblock %}
 {% block content %}
@@ -242,28 +249,91 @@
             <table class="table table-highlighted-legend table-hover table-bordered">
                 <tr>
                     <td><strong>Calculation Method</strong></td>
-                    <td><input type="checkbox" id="showaverage" checked/> Average</td>
-                    <td><input type="checkbox" id="showintact" checked/> Intact</td>
+                    <td>
+                        {% get_template_cookie selfmt 'showaverage' 'checked' as avgchkd %}
+                        {% if avgchkd == "checked" %}
+                            <input type="checkbox" id="{% uniquify 'showaverage' 1 %}" onclick="set_template_cookie('showaverage', this.checked ? 'checked' : '')" checked />
+                        {% else %}
+                            <input type="checkbox" id="{% uniquify 'showaverage' 2 %}" onclick="set_template_cookie('showaverage', this.checked ? 'checked' : '')" />
+                        {% endif %}
+                        Average
+                    </td>
+                    <td>
+                        {% get_template_cookie selfmt 'showintact' 'checked' as ntctchkd %}
+                        {% if ntctchkd == "checked" %}
+                            <input type="checkbox" id="{% uniquify 'showintact' 1 %}" onclick="set_template_cookie('showintact', this.checked ? 'checked' : '')" checked />
+                        {% else %}
+                            <input type="checkbox" id="{% uniquify 'showintact' 2 %}" onclick="set_template_cookie('showintact', this.checked ? 'checked' : '')" />
+                        {% endif %}
+                        Intact
+                    </td>
                 </tr>
                 <tr>
                     <td><strong>Normalization Method</strong></td>
-                    <td><input type="checkbox" id="showweight" checked/> Per gram body-weight</td>
-                    <td><input type="checkbox" id="shownonorm" checked/> Per animal</td>
+                    <td>
+                        {% get_template_cookie selfmt 'showweight' 'checked' as wghtchkd %}
+                        {% if wghtchkd == "checked" %}
+                            <input type="checkbox" id="{% uniquify 'showweight' 1 %}" onclick="set_template_cookie('showweight', this.checked ? 'checked' : '')" checked />
+                        {% else %}
+                            <input type="checkbox" id="{% uniquify 'showweight' 2 %}" onclick="set_template_cookie('showweight', this.checked ? 'checked' : '')" />
+                        {% endif %}
+                        Per gram body-weight
+                    </td>
+                    <td>
+                        {% get_template_cookie selfmt 'shownonorm' 'checked' as nnrmchkd %}
+                        {% if nnrmchkd == "checked" %}
+                            <input type="checkbox" id="{% uniquify 'shownonorm' 1 %}" onclick="set_template_cookie('shownonorm', this.checked ? 'checked' : '')" checked />
+                        {% else %}
+                            <input type="checkbox" id="{% uniquify 'shownonorm' 2 %}" onclick="set_template_cookie('shownonorm', this.checked ? 'checked' : '')" />
+                        {% endif %}
+                        Per animal
+                    </td>
                 </tr>
                 <tr>
                     <td><strong>Calculation Type</strong></td>
-                    <td><input type="checkbox" id="showrd" checked/> Rd (disappearance rate)</td>
-                    <td><input type="checkbox" id="showra" checked/> Ra (appearance rate)</td>
+                    <td>
+                        {% get_template_cookie selfmt 'showrd' 'checked' as rdchkd %}
+                        {% if rdchkd == "checked" %}
+                            <input type="checkbox" id="{% uniquify 'showrd' 1 %}" onclick="set_template_cookie('showrd', this.checked ? 'checked' : '')" checked />
+                        {% else %}
+                            <input type="checkbox" id="{% uniquify 'showrd' 2 %}" onclick="set_template_cookie('showrd', this.checked ? 'checked' : '')" />
+                        {% endif %}
+                        Rd (disappearance rate)
+                    </td>
+                    <td>
+                        {% get_template_cookie selfmt 'showra' 'checked' as rachkd %}
+                        {% if rachkd == "checked" %}
+                            <input type="checkbox" id="{% uniquify 'showra' 1 %}" onclick="set_template_cookie('showra', this.checked ? 'checked' : '')" checked />
+                        {% else %}
+                            <input type="checkbox" id="{% uniquify 'showra' 2 %}" onclick="set_template_cookie('showra', this.checked ? 'checked' : '')" />
+                        {% endif %}
+                        Ra (appearance rate)
+                    </td>
                 </tr>
                 <tr>
                     <td><strong>Serum Samples (rows)</strong></td>
-                    <td><input type="checkbox" id="shownotlast" checked/> Previous</td>
-                    <td class="bg-highlighted"><input type="checkbox" id="showlast" checked/> Last</td>
+                    <td>
+                        {% get_template_cookie selfmt 'shownotlast' 'checked' as nlstchkd %}
+                        {% if nlstchkd == "checked" %}
+                            <input type="checkbox" id="{% uniquify 'shownotlast' 1 %}" onclick="set_template_cookie('shownotlast', this.checked ? 'checked' : '')" checked />
+                        {% else %}
+                            <input type="checkbox" id="{% uniquify 'shownotlast' 2 %}" onclick="set_template_cookie('shownotlast', this.checked ? 'checked' : '')" />
+                        {% endif %}
+                        Previous
+                    </td>
+                    <td class="bg-highlighted">
+                        {% get_template_cookie selfmt 'showlast' 'checked' as lstchkd %}
+                        {% if lstchkd == "checked" %}
+                            <input type="checkbox" id="{% uniquify 'showlast' 1 %}" onclick="set_template_cookie('showlast', this.checked ? 'checked' : '')" checked />
+                        {% else %}
+                            <input type="checkbox" id="{% uniquify 'showlast' 2 %}" onclick="set_template_cookie('showlast', this.checked ? 'checked' : '')" />
+                        {% endif %}
+                        Last
+                    </td>
                 </tr>
             </table>
         </small>
     </div>
-    <h3 style="margin: 0; display: inline-block;">{{ qry|getFormatName:selfmt }} Results ({{ res.count|default:"0" }} Rows)</h3>
     <table class="table table-highlighted table-hover table-bordered"
         id="advsrchres"
         data-toggle="table"
@@ -277,8 +347,7 @@
         data-show-columns="true"
         data-show-columns-toggle-all="true"
         data-show-fullscreen="false"
-        data-show-export="false"
-        data-pagination="true">
+        data-show-export="false">
         <thead>
             <tr>
                 <th colspan="14" rowspan="2"></th>
@@ -286,34 +355,34 @@
                 <th colspan="4" class="intact">Intact</th>
             </tr>
             <tr>
-                <th colspan="2" data-valign="top" data-sortable="false" data-switchable="true" data-field="Weight_Normalized" class="average weight">Weight<br>Normalized<br>(nM/m/g)</th>
-                <th colspan="2" data-valign="top" data-sortable="false" data-switchable="true" data-field="Mouse_Normalized" class="average nonorm">Mouse<br>Normalized<br>(nM/m)</th>
-                <th colspan="2" data-valign="top" data-sortable="false" data-switchable="true" data-field="Weight_Normalized2" class="intact weight">Weight<br>Normalized<br>(nM/m/g)</th>
-                <th colspan="2" data-valign="top" data-sortable="false" data-switchable="true" data-field="Mouse_Normalized2" class="intact nonorm">Mouse<br>Normalized<br>(nM/m)</th>
+                <th colspan="2" class="average weight">Weight<br>Normalized<br>(nM/m/g)</th>
+                <th colspan="2" class="average nonorm">Mouse<br>Normalized<br>(nM/m)</th>
+                <th colspan="2" class="intact weight">Weight<br>Normalized<br>(nM/m/g)</th>
+                <th colspan="2" class="intact nonorm">Mouse<br>Normalized<br>(nM/m)</th>
             </tr>
             <tr>
-                <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-visible="true" data-field="Animal">Animal</th>
-                <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-visible="true" data-field="Studies">Studies</th>
-                <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-visible="true" data-field="Genotype">Genotype</th>
-                <th data-valign="top" data-sortable="true" data-sorter="numericOnly" data-visible="false" data-field="Body_Weight">Body<br>Weight<br>(g)</th>
-                <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-visible="false" data-field="Age">Age<br>(weeks)</th>
-                <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-visible="false" data-field="Sex">Sex</th>
-                <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-visible="false" data-field="Diet">Diet</th>
-                <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-visible="true" data-field="Feeding_Status">Feeding<br>Status</th>
-                <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-visible="true" data-field="Treatment">Treatment</th>
-                <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-visible="true" data-field="Tracer_Compound">Tracer<br>Compound</th>
-                <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-visible="false" data-field="Labeled_Element">Labeled<br>Element</th>
-                <th data-valign="top" data-sortable="true" data-sorter="numericOnly" data-visible="true" data-field="Tracer_Infusion_Rate">Tracer<br>Infusion<br>Rate<br>(ul/m/g)</th>
-                <th data-valign="top" data-sortable="true" data-sorter="numericOnly" data-visible="true" data-field="Tracer_Infusion_Concentration">Tracer Infusion<br>Concentration<br>(mM)</th>
-                <th data-valign="top" data-sortable="true" data-sorter="alphanum" data-visible="true" data-field="Time_Collected">Time<br>Collected<br>(m)</th>
-                <th data-valign="top" data-sortable="true" data-sorter="numericOnly" data-visible="true" data-switchable="false" data-field="Average_Weight_Normalized_Ra" data-title-tooltip="Average_Weight_Normalized_Ra" class="average weight ra">Ra</th>
-                <th data-valign="top" data-sortable="true" data-sorter="numericOnly" data-visible="true" data-switchable="false" data-field="Average_Weight_Normalized_Rd" data-title-tooltip="Average_Weight_Normalized_Rd" class="average weight rd">Rd</th>
-                <th data-valign="top" data-sortable="true" data-sorter="numericOnly" data-visible="true" data-switchable="false" data-field="Average_Mouse_Normalized_Ra" data-title-tooltip="Average_Mouse_Normalized_Ra" class="average nonorm ra">Ra</th>
-                <th data-valign="top" data-sortable="true" data-sorter="numericOnly" data-visible="true" data-switchable="false" data-field="Average_Mouse_Normalized_Rd" data-title-tooltip="Average_Mouse_Normalized_Rd" class="average nonorm rd">Rd</th>
-                <th data-valign="top" data-sortable="true" data-sorter="numericOnly" data-visible="true" data-switchable="false" data-field="Intact_Weight_Normalized_Ra" data-title-tooltip="Intact_Weight_Normalized_Ra" class="intact weight ra">Ra</th>
-                <th data-valign="top" data-sortable="true" data-sorter="numericOnly" data-visible="true" data-switchable="false" data-field="Intact_Weight_Normalized_Rd" data-title-tooltip="Intact_Weight_Normalized_Rd" class="intact weight rd">Rd</th>
-                <th data-valign="top" data-sortable="true" data-sorter="numericOnly" data-visible="true" data-switchable="false" data-field="Intact_Mouse_Normalized_Ra" data-title-tooltip="Intact_Mouse_Normalized_Ra" class="intact nonorm ra">Ra</th>
-                <th data-valign="top" data-sortable="true" data-sorter="numericOnly" data-visible="true" data-switchable="false" data-field="Intact_Mouse_Normalized_Rd" data-title-tooltip="Intact_Mouse_Normalized_Rd" class="intact nonorm rd">Rd</th>
+                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Animal-data-visible' 'true' %}" data-field="Animal">Animal</th>
+                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Studies-data-visible' 'true' %}" data-field="Studies">Studies</th>
+                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Genotype-data-visible' 'true' %}" data-field="Genotype">Genotype</th>
+                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Body_Weight-data-visible' 'false' %}" data-field="Body_Weight">Body<br>Weight<br>(g)</th>
+                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Age-data-visible' 'false' %}" data-field="Age">Age<br>(weeks)</th>
+                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Sex-data-visible' 'false' %}" data-field="Sex">Sex</th>
+                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Diet-data-visible' 'false' %}" data-field="Diet">Diet</th>
+                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Feeding_Status-data-visible' 'true' %}" data-field="Feeding_Status">Feeding<br>Status</th>
+                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Treatment-data-visible' 'true' %}" data-field="Treatment">Treatment</th>
+                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Tracer_Compound-data-visible' 'true' %}" data-field="Tracer_Compound">Tracer<br>Compound</th>
+                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Labeled_Element-data-visible' 'false' %}" data-field="Labeled_Element">Labeled<br>Element</th>
+                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Tracer_Infusion_Rate-data-visible' 'true' %}" data-field="Tracer_Infusion_Rate">Tracer<br>Infusion<br>Rate<br>(ul/m/g)</th>
+                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Tracer_Infusion_Concentration-data-visible' 'true' %}" data-field="Tracer_Infusion_Concentration">Tracer Infusion<br>Concentration<br>(mM)</th>
+                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Time_Collected-data-visible' 'true' %}" data-field="Time_Collected">Time<br>Collected<br>(m)</th>
+                <th data-valign="top" data-visible="true" data-switchable="false" data-field="Average_Weight_Normalized_Ra" data-title-tooltip="Average_Weight_Normalized_Ra" class="average weight ra">Ra</th>
+                <th data-valign="top" data-visible="true" data-switchable="false" data-field="Average_Weight_Normalized_Rd" data-title-tooltip="Average_Weight_Normalized_Rd" class="average weight rd">Rd</th>
+                <th data-valign="top" data-visible="true" data-switchable="false" data-field="Average_Mouse_Normalized_Ra" data-title-tooltip="Average_Mouse_Normalized_Ra" class="average nonorm ra">Ra</th>
+                <th data-valign="top" data-visible="true" data-switchable="false" data-field="Average_Mouse_Normalized_Rd" data-title-tooltip="Average_Mouse_Normalized_Rd" class="average nonorm rd">Rd</th>
+                <th data-valign="top" data-visible="true" data-switchable="false" data-field="Intact_Weight_Normalized_Ra" data-title-tooltip="Intact_Weight_Normalized_Ra" class="intact weight ra">Ra</th>
+                <th data-valign="top" data-visible="true" data-switchable="false" data-field="Intact_Weight_Normalized_Rd" data-title-tooltip="Intact_Weight_Normalized_Rd" class="intact weight rd">Rd</th>
+                <th data-valign="top" data-visible="true" data-switchable="false" data-field="Intact_Mouse_Normalized_Ra" data-title-tooltip="Intact_Mouse_Normalized_Ra" class="intact nonorm ra">Ra</th>
+                <th data-valign="top" data-visible="true" data-switchable="false" data-field="Intact_Mouse_Normalized_Rd" data-title-tooltip="Intact_Mouse_Normalized_Rd" class="intact nonorm rd">Rd</th>
             </tr>
         </thead>
 
