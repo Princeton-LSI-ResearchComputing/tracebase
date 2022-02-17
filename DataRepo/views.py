@@ -6,7 +6,8 @@ from typing import List
 from django.conf import settings
 from django.core.management import call_command
 from django.db.models import Q
-from django.http import Http404
+from django.http import Http404, StreamingHttpResponse
+from django.template import loader
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.generic import DetailView, ListView
@@ -749,14 +750,25 @@ class AdvancedSearchTSVView(FormView):
         else:
             res, tot = getAllBrowseData(qry["selectedtemplate"], self.basv_metadata)
 
-        response = self.render_to_response(
-            self.get_context_data(
-                res=res, tot=tot, qry=qry, dt=dt_string, debug=settings.DEBUG
-            )
-        )
-        response["Content-Disposition"] = "attachment; filename={}".format(filename)
+        headtmplt = loader.get_template("DataRepo/search/downloads/download_header.tsv")
+        rowtmplt = loader.get_template("DataRepo/search/downloads/download_row.tsv")
 
-        return response
+        return StreamingHttpResponse(
+            self.tsv_template_iterator(rowtmplt, headtmplt, res, qry, dt_string),
+            content_type="text/plain",
+            headers={"Content-Disposition": f"attachment; filename={filename}"},
+        )
+
+    def tsv_template_iterator(self, rowtmplt, headtmplt, res, qry, dt):
+        for i in range(-1, res.count()):
+            if i < 0:
+                tmplt = headtmplt
+                context = {'qry': qry, "dt": dt}
+            else:
+                tmplt = rowtmplt
+                context = {'qry': qry, 'row': res[i]}
+            yield tmplt.render(context)
+
 
 
 def getAllBrowseData(
