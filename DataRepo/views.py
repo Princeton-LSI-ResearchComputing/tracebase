@@ -760,14 +760,9 @@ class AdvancedSearchTSVView(FormView):
         )
 
     def tsv_template_iterator(self, rowtmplt, headtmplt, res, qry, dt):
-        for i in range(-1, res.count()):
-            if i < 0:
-                tmplt = headtmplt
-                context = {'qry': qry, "dt": dt}
-            else:
-                tmplt = rowtmplt
-                context = {'qry': qry, 'row': res[i]}
-            yield tmplt.render(context)
+        yield headtmplt.render({'qry': qry, "dt": dt})
+        for row in res:
+            yield rowtmplt.render({'qry': qry, 'row': row})
 
 
 
