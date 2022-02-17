@@ -268,6 +268,7 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
         rows_per_page_field="rows",
         order_by_field="order_by",
         order_dir_field="order_direction",
+        form_name="paging",
     )
 
     format_template = "DataRepo/search/query.html"
@@ -298,7 +299,7 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
         offset=0,
     )
 
-    pager.new(
+    pager.update(
         other_field_dict={"qryjson": json.dumps(qry)},
         tot=tot,
     )
@@ -353,6 +354,7 @@ class AdvancedSearchView(MultiFormsView):
         rows_per_page_field="rows",
         order_by_field="order_by",
         order_dir_field="order_direction",
+        form_name="paging",
     )
 
     #
@@ -401,11 +403,8 @@ class AdvancedSearchView(MultiFormsView):
                 {self.pager.form_name: self.pager.page_form_class},
             )
 
+        # This calls the post method in multiforms.py
         return super().post(request, *args, **kwargs)
-        # if request.method == 'POST' and 'advanced-search-submit' in request.POST:
-        #     return self._process_mixed_forms(self.form_classes)
-
-        # return HttpResponseServerError("Unable to identify submitted form")
 
     def form_invalid(self, formset):
         """
@@ -459,7 +458,7 @@ class AdvancedSearchView(MultiFormsView):
                 order_by=None,
                 order_direction=None,
             )
-            self.pager.new(
+            self.pager.update(
                 other_field_dict={"qryjson": json.dumps(qry)},
                 tot=tot,
                 page=1,
@@ -492,7 +491,8 @@ class AdvancedSearchView(MultiFormsView):
         result = get_cookie(self.request, full_cookie_name, cookie_default)
         return result
 
-    # Invalid form whose name is "paging" will call this from the post override in multiforms.py
+    # Invalid form whose multiforms given name is "paging" will call this from the post override in multiforms.py
+    # TODO: See Issue #370's comment on this method.
     def paging_form_invalid(self, formset):
         """
         Upon invalid advanced search form submission, rescues the query to add back to the context.
@@ -519,7 +519,8 @@ class AdvancedSearchView(MultiFormsView):
             )
         )
 
-    # Valid form whose name is "paging" will call this from the post override in multiforms.py
+    # Valid form whose multiforms given name is "paging" will call this from the post override in multiforms.py
+    # TODO: See Issue #370's comment on this method.
     def paging_form_valid(self, form):
         cform = form.cleaned_data
 
@@ -552,7 +553,7 @@ class AdvancedSearchView(MultiFormsView):
         except Exception as e:
             # Assumes this is an initial query, not a page form submission
             print(f"Exception occurred: {e}")
-            self.pager.new()
+            self.pager.update()
             page = self.pager.page
             rows = self.pager.rows
             order_by = self.pager.order_by
@@ -592,7 +593,7 @@ class AdvancedSearchView(MultiFormsView):
             qry = self.basv_metadata.getRootGroup(qry["selectedtemplate"])
             download_form = AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
 
-        self.pager.new(
+        self.pager.update(
             other_field_dict={"qryjson": json.dumps(qry)},
             tot=tot,
             page=page,
@@ -659,7 +660,7 @@ class AdvancedSearchView(MultiFormsView):
                 context["download_form"] = AdvSearchDownloadForm(
                     initial={"qryjson": json.dumps(qry)}
                 )
-                self.pager.new()
+                self.pager.update()
                 offset = 0
                 context["res"], context["tot"] = getAllBrowseData(
                     qry["selectedtemplate"],
@@ -669,7 +670,7 @@ class AdvancedSearchView(MultiFormsView):
                     order_by=self.pager.order_by,
                     order_direction=self.pager.order_dir,
                 )
-                context["pager"] = self.pager.new(
+                context["pager"] = self.pager.update(
                     other_field_dict={"qryjson": json.dumps(qry)}, tot=context["tot"]
                 )
             print(f"SETTING UP BROWSE MODE WITH QRY: {qry}")
@@ -689,7 +690,7 @@ class AdvancedSearchView(MultiFormsView):
             context["res"], context["tot"] = performQuery(
                 q_exp, qry["selectedtemplate"], self.basv_metadata
             )
-            context["pager"] = self.pager.new(
+            context["pager"] = self.pager.update(
                 other_field_dict={"qryjson": json.dumps(qry)}, tot=context["tot"]
             )
 

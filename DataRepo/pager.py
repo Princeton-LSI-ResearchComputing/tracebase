@@ -12,6 +12,7 @@ class Pager:
         rows_per_page_field,
         order_by_field,
         order_dir_field,
+        form_name,  # Relies on multiforms
         num_buttons=5,
         other_fields=[],
         # Default form values
@@ -21,7 +22,6 @@ class Pager:
         rows_input_id="pager-rows-elem",
         orderby_input_id="pager-orderby-elem",
         orderdir_input_id="pager-orderdir-elem",
-        form_name="paging",  # Relies on multiforms
         form_id="custom-paging",
         rows_attrs={
             "class": "btn btn-primary dropdown-toggle",
@@ -39,7 +39,7 @@ class Pager:
         self.orderdir_input_id = orderdir_input_id
         self.rows_attrs = rows_attrs
         self.page_form = self.page_form_class()
-        self.page_form.new(
+        self.page_form.update(
             self.page_input_id,
             self.rows_input_id,
             self.orderby_input_id,
@@ -62,7 +62,7 @@ class Pager:
             if self.min_rows_per_page is None or num < self.min_rows_per_page:
                 self.min_rows_per_page = num
 
-    def new(
+    def update(
         self,
         tot=None,
         page=1,
@@ -73,6 +73,11 @@ class Pager:
         order_dir=None,
         other_field_dict=None,
     ):
+        """
+        This method is used to update the pager object for each new current page being sent to the pagination template
+        """
+
+        # Make sure rows, start, and end are set
         if rows is None:
             rows = self.default_rows
         if start is None:
@@ -85,6 +90,8 @@ class Pager:
                 self.end = tot
         else:
             self.end = end
+
+        # Set the member variables
         self.page = page
         self.rows = rows
         self.tot = tot
@@ -116,7 +123,7 @@ class Pager:
                 init_dict[fld] = other_field_dict[fld]
         kwargs = {"initial": init_dict}
         self.page_form = self.page_form_class(**kwargs)
-        self.page_form.new(
+        self.page_form.update(
             self.page_input_id,
             self.rows_input_id,
             self.orderby_input_id,

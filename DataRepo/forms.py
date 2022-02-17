@@ -175,16 +175,22 @@ class AdvSearchPageForm(forms.Form):
     )  # Used to distinguish pager form submissions from advanced search submissions
 
     def clean(self):
-        """This override of super.clean is so we can reconstruct the search inputs upon form_invalid in views.py"""
+        """
+        This override of super.clean is so we can reconstruct the search inputs upon form_invalid in views.py
+        """
         self.saved_data = self.cleaned_data
         return self.cleaned_data
 
-    def new(self, page_id, rows_id, orderby_id, orderdir_id, rows_attrs={}):
+    def update(self, page_id, rows_id, orderby_id, orderdir_id, rows_attrs={}):
         # Allow IDs for the inputs to be set for javascript to find the inputs and change them
         page = self.fields.get("page")
         rows = self.fields.get("rows")
         order_by = self.fields.get("order_by")
         order_direction = self.fields.get("order_direction")
+
+        #
+        # Make sure any future hard-coded settings are not silently over-ridden
+        #
 
         # page input
         if (
