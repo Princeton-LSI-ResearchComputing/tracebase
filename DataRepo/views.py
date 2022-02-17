@@ -552,7 +552,7 @@ class AdvancedSearchView(MultiFormsView):
             offset = (page - 1) * rows
         except Exception as e:
             # Assumes this is an initial query, not a page form submission
-            print(f"Exception occurred: {e}")
+            print(f"WARNING: {e}")
             self.pager.update()
             page = self.pager.page
             rows = self.pager.rows
@@ -603,8 +603,6 @@ class AdvancedSearchView(MultiFormsView):
         )
 
         root_group = self.basv_metadata.getRootGroup()
-
-        print(f"Sending {order_by} {order_dir} ordered qry: {qry}")
 
         response = self.render_to_response(
             self.get_context_data(
@@ -673,7 +671,6 @@ class AdvancedSearchView(MultiFormsView):
                 context["pager"] = self.pager.update(
                     other_field_dict={"qryjson": json.dumps(qry)}, tot=context["tot"]
                 )
-            print(f"SETTING UP BROWSE MODE WITH QRY: {qry}")
         elif (
             "qry" in context
             and isQryObjValid(
@@ -921,17 +918,18 @@ def performQuery(
     """
     Executes an advanced search query.
     """
-    start_index = offset
+    results = None
     cnt = 0
-    print("Performing query")
     if fmt in basv.getFormatNames().keys():
 
-        # All results
+        # If the Q expression is None, get all, otherwise filter
         if q_exp is None:
-            res = basv.getRootQuerySet(fmt).distinct()
+            results = basv.getRootQuerySet(fmt).distinct()
         else:
-            res = basv.getRootQuerySet(fmt).filter(q_exp).distinct()
-        cnt = res.count()
+            results = basv.getRootQuerySet(fmt).filter(q_exp).distinct()
+
+        # Count the total results.  Limit/offset are only used for paging.
+        cnt = results.count()
 
         # Order by
         if order_by is not None:
@@ -942,31 +940,24 @@ def performQuery(
                     raise Exception(
                         f"Invalid order direction: {order_direction}.  Must be 'asc' or 'desc'."
                     )
-            print(f"Ordering by {order_by}")
-            res2 = res.order_by(order_by)
-        else:
-            print("No ordering")
-            res2 = res
+            results = results.order_by(order_by)
 
         # Limit
-        if limit is None:
-            print("No limit")
-            res3 = res2
-        else:
+        if limit is not None:
+            start_index = offset
             end_index = offset + limit
-            print(f"Limiting {start_index}:{end_index}")
-            res3 = res2[start_index:end_index]
+            results = results[start_index:end_index]
+
+        # If prefetches have been defined in the base advanced search view
+        prefetches = basv.getPrefetches(fmt)
+        if prefetches is not None:
+            results = results.prefetch_related(*prefetches)
+
     else:
         # Log a warning
         print("WARNING: Invalid selected format:", fmt)
 
-    prefetches = basv.getPrefetches(fmt)
-    if prefetches is not None:
-        res4 = res3.prefetch_related(*prefetches)
-    else:
-        res4 = res3
-
-    return res4, cnt
+    return results, cnt
 
 
 def isQryObjValid(qry, form_class_list):

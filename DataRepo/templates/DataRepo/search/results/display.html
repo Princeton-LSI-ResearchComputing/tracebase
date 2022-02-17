@@ -2,6 +2,10 @@
 
 {% block head_extras %}
     <script>
+        // This is the selected format saved in javascript form for the purpose of cookie naming so that there are no
+        // collisions between formats for user settings.  The selected format is determined via template tags below
+        // using the qry object, the format URL parameter and the default_format context variable.  It's validated using
+        // forms.keys.
         var selfmt = ""
 
         // Set a Cookie
@@ -14,7 +18,11 @@
         }
 
         function set_template_cookie(name, val) {
-            set_cookie(selfmt + "." + name, val);
+            if (typeof selfmt !== "undefined" && selfmt && selfmt !== "") {
+                set_cookie(selfmt + "." + name, val);
+            } else {
+                console.error("selfmt is undefined.  Unable to set cookie for the current format.")
+            }
         }
 
         function updateAllColumnSwitchingCookies() {
