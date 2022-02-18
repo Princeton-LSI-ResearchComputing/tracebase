@@ -56,6 +56,13 @@
 </div>
 <br>
 <div>
+    <br>
+    <h4>Test downloading data from Pandas DataFrames:</h4>
+    <h5><a href="{% url 'derived_data_to_file_by_streaming' %}?category=peakgroup&obj_type=study&obj_id={{ study.id }}">Download Peak Group Data</a></h5>
+    <h5><a href="{% url 'derived_data_to_file_by_streaming' %}?category=peakdata&obj_type=study&obj_id={{ study.id }}">Download Peak Data</a></h5>
+</div>
+<br>
+<div>
     <h5>Animal and Sample Data for the Study:</h5>
     {% if df %}
     <table class="table table-sm table-hover table-bordered table-striped table-responsive" w-auto mw-100

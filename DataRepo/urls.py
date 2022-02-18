@@ -63,5 +63,6 @@ urlpatterns = [
     path("data_output/derived_peakdata/", views.derived_peakdata, name="derived_peakdata"),
     path("data_output/derived_peakgroup/", views.derived_peakgroup, name="derived_peakgroup"),
     path("data_output/derived_fcirc/", views.derived_fcirc, name="derived_fcirc"),
-    path("data_output/download/", views.derived_data_to_csv, name="derived_data_to_csv"),
+    # path("data_output/download/", views.derived_data_to_csv, name="derived_data_to_csv"),
+    path("data_output/download/", views.derived_data_to_file_by_streaming, name="derived_data_to_file_by_streaming"),
 ]

@@ -38,7 +38,7 @@ from DataRepo.utils import QuerysetToPandasDataFrame as qs2df
 from DataRepo.utils import ResearcherError, leaderboard_data
 
 from DataRepo.models import atom_count_in_formula
-from django.http import HttpResponse
+from django.http import HttpResponse, StreamingHttpResponse
 from django.core.paginator import Paginator
 from django.core.cache import cache
 
@@ -1570,7 +1570,7 @@ def derived_peakdata(request):
     print("get_page_obj_start_time:", get_page_obj_start_time)
     
     # set parametes for Django's Paginator
-    if page_no is None:
+    if page_no is None or len(res_data) == 0:
         is_paginated = False
         page_obj = res_data
     else:
@@ -1580,12 +1580,12 @@ def derived_peakdata(request):
         max_page_items = 200
         # num of items per page
         if total_rows <= max_page_items:
-            items_per_page = max_page_items
+            items_per_page = total_rows
         else: 
             items_per_page = 20
             # creating a paginator object
-            p = Paginator(object_list, items_per_page)
-            page_obj = p.get_page(page_no)
+        p = Paginator(object_list, items_per_page)
+        page_obj = p.get_page(page_no)
     
     get_page_obj_end_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print("page_no:", page_no)
@@ -1678,7 +1678,7 @@ def derived_peakgroup(request):
     print("get_page_obj_start_time:", get_page_obj_start_time)
     
     # set parametes for Django's Paginator
-    if page_no is None:
+    if page_no is None or len(res_data) == 0:
         is_paginated = False
         page_obj = res_data
     else:
@@ -1688,12 +1688,12 @@ def derived_peakgroup(request):
         max_page_items = 200
         # num of items per page
         if total_rows <= max_page_items:
-            items_per_page = max_page_items
-        else: 
+            items_per_page = total_rows
+        else:
             items_per_page = 20
-            # creating a paginator object
-            p = Paginator(object_list, items_per_page)
-            page_obj = p.get_page(page_no)
+        # creating a paginator object
+        p = Paginator(object_list, items_per_page)
+        page_obj = p.get_page(page_no)
     
     get_page_obj_end_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print("page_no:", page_no)
@@ -1770,11 +1770,12 @@ def derived_fcirc(request):
     
     return render(request, "DataRepo/data_output/derived_fcirc.html", context)
 
-
+"""
+# keep the code, but replacing this view with "derived_data_to_csv_by_streaming" using StreamingHttpResponse
 def derived_data_to_csv(request):
-    """
-    export derived data to csv file
-    """
+    
+    # export derived data to csv file
+    
     # get parameters from request
     category=request.GET.get("category", None)
     obj_type = request.GET.get("obj_type", None)
@@ -1842,4 +1843,113 @@ def derived_data_to_csv(request):
     response = HttpResponse(content_type='text/csv')
     response["Content-Disposition"] = "attachment; filename=export_data.csv"
     download_df.to_csv(path_or_buf=response,sep=',',float_format='%.4f',index=False)
+    return response
+"""
+
+
+def derived_data_to_file_by_streaming(request):
+    """
+    export derived data from dataframe to text file
+    get all parameters from request
+    create an iterator as input for StreamingHttpResponse
+    """
+    # get parameters from request
+    category=request.GET.get("category", None)
+    obj_type = request.GET.get("obj_type", None)
+    obj_id = request.GET.get("obj_id", None)
+
+    """
+    category = "peakdata"
+    obj_type = "study"
+    obj_id = "1"
+    """
+
+    study_id = None
+    animal_id = None
+    obj_name = None
+
+    if obj_type =="study":
+        if obj_id is not None:
+            study_id = int(obj_id)
+            obj_name = Study.objects.get(id = study_id).name
+            # get animal list
+            animal_id_list = Animal.objects.values_list('id', flat=True).filter(studies__id=study_id)
+    elif obj_type =="animal":
+        if obj_id is not None:
+            animal_id = int(obj_id)
+            obj_name = Animal.objects.get(id = animal_id).name
+            # get id as a list 
+            animal_id_list = Animal.objects.values_list('id', flat=True).filter(id = animal_id)
+    
+    # print ("List of Animal IDs:", animal_id_list)
+
+    # file name for download based on request parameters and separater in output
+    sep = "\t"
+    if sep == "\t":
+        file_suffix = "tsv"
+    else:
+        file_suffix = "txt"
+
+    fname = f"{category}_{obj_type}_{obj_id}.{file_suffix}"
+
+    # define columns and header in output file
+    # peakdata output columns
+    dpd_download_columns = [
+        "animal", "sample", "tissue", "peakgroup_name", "peakgroup_formula",
+        "labeled_element", "labeled_count", "raw_abundance", "med_mz", "med_rt",
+        "corrected_abundance", "accucor_filename",
+        "msrun_date", "msrun_owner", "msrun_protocol",  "sample_owner", "sample_date",
+        "sample_time_collected",  "tracer","tracer_labeled_atom", "tracer_labeled_count",
+        "tracer_infusion_rate","tracer_infusion_concentration", "genotype", "body_weight", "age",
+        "sex", "diet", "feeding_status", "treatment",
+        "fraction","enrichment",  "studies"
+    ]
+
+    # peakgroups output columns
+    dpg_download_columns = [
+        "animal", "sample", "tissue", "peakgroup_name", "peakgroup_formula",
+        "labeled_element", "pg_total_abundance", "pg_enrichment_fraction",
+        "pg_normalized_labeling", "afss_sample", "afss_sample_time_collected",
+        "afss_pg_enrichment_fraction","accucor_filename",  "msrun_date", "msrun_owner",
+        "msrun_protocol",  "sample_owner", "sample_date", "sample_time_collected",
+        "tracer","tracer_labeled_atom", "tracer_labeled_count",
+        "tracer_infusion_rate","tracer_infusion_concentration", "genotype", "body_weight", "age",
+        "sex", "diet", "feeding_status", "treatment","studies"
+    ]
+
+
+    # output generator for animal list
+    # only include header for the 1st output buffer
+    def output_generator(category, animal_id_list):
+        for i in range(len(animal_id_list)):
+            if category == "peakdata":
+                df = qs2df().get_per_animal_dpd_df(animal_id_list[i])
+                download_columns = dpd_download_columns
+            elif category == "peakgroup":
+                df = qs2df().get_per_animal_dpg_df(animal_id_list[i])
+                download_columns = dpg_download_columns
+            
+            if not df.empty and i == 0:
+                output_buff = df.to_csv(
+                    sep = sep,
+                    columns = download_columns,
+                    header = download_columns,
+                    index = False
+                )
+            elif not df.empty and i > 0:
+                output_buff = df.to_csv(
+                    sep = sep,
+                    columns = download_columns,
+                    header = False,
+                    index = False
+                )
+            else:
+                output_buff = None
+
+            if output_buff is not None:
+                yield output_buff
+
+    streaming_content = output_generator(category, animal_id_list)
+    response = StreamingHttpResponse(streaming_content, content_type="text/csv")
+    response["Content-Disposition"] = f"attachment; filename={fname}"
     return response

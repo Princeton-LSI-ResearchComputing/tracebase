@@ -2112,185 +2112,213 @@ class QuerysetToPandasDataFrame:
         # get MSRun id list for serum samples from the animal list
         msrun_id_list = MSRun.objects.values_list("id").filter(sample__animal__id__in=animal_id_list, sample__tissue__name__icontains="serum")
         
-        # get all peakdata the serum samples
-        dpd_serum_df1 = self.get_stage_peakdata_df(msrun_id_list)
+        if len(msrun_id_list) == 0:
+            # return empty data frame
+            fcirc_res_df = pd.DataFrame()
+        elif len(msrun_id_list) > 0:
+            # get all peakdata the serum samples
+            dpd_serum_df1 = self.get_stage_peakdata_df(msrun_id_list)
 
-        # get all peakdata for calculating Fcirc 
-        # filter conditions: peakgroup name is the same as tracer and labeled_count = atom_count_in_formula
-        dpd_serum_fcirc_df1 =  dpd_serum_df1[
-            (dpd_serum_df1["peakgroup_formula"] == dpd_serum_df1["tracer_compound_formula"]) 
-            & (dpd_serum_df1["labeled_count"] == dpd_serum_df1["atom_count_in_formula"]) 
-        ]
-
-        # keep columns needed for calculating or displaying Fcirc values with no overlap with anim_target_df2
-        dpd_serum_fcirc_df2 = dpd_serum_fcirc_df1[
-            [
-            "animal_id", 
-            "tissue_id",
-            "tissue",
-            "tracer_compound_formula",
-            "sample_id",
-            "sample",
-            "sample_owner",
-            "sample_date",
-            "sample_time_collected",
-            "msrun_id",
-            "peakdata_id",
-            "peakgroup_id",
-            "peakgroup_name",
-            "peakgroup_formula",
-            "labeled_element",
-            "labeled_count",
-            "accucor_filename",
-            "peakgroupset_id",
-            "corrected_abundance",
-            "fraction",
-            "pg_enrichment_fraction"
+            # get all peakdata for calculating Fcirc 
+            # filter conditions: peakgroup name is the same as tracer and labeled_count = atom_count_in_formula
+            dpd_serum_fcirc_df1 =  dpd_serum_df1[
+                (dpd_serum_df1["peakgroup_formula"] == dpd_serum_df1["tracer_compound_formula"]) 
+                & (dpd_serum_df1["labeled_count"] == dpd_serum_df1["atom_count_in_formula"]) 
             ]
-        ]
-        dpd_serum_fcirc_df2 = dpd_serum_fcirc_df2.drop_duplicates()
-        # rename two columns to make it clearer
-        dpd_serum_fcirc_df2.rename(columns = {"tissue": "serum_tissues", "sample": "serum_sample"}, 
-          inplace = True)
 
-        # merge with anim_target_df2 using left join to get all animals
-        dpd_serum_fcirc_df2b = pd.merge(
-            anim_target_df2, dpd_serum_fcirc_df2, left_on="animal_id", right_on="animal_id", how="left"
-        )
+            # keep columns needed for calculating or displaying Fcirc values with no overlap with anim_target_df2
+            dpd_serum_fcirc_df2 = dpd_serum_fcirc_df1[
+                [
+                "animal_id", 
+                "tissue_id",
+                "tissue",
+                "tracer_compound_formula",
+                "sample_id",
+                "sample",
+                "sample_owner",
+                "sample_date",
+                "sample_time_collected",
+                "msrun_id",
+                "peakdata_id",
+                "peakgroup_id",
+                "peakgroup_name",
+                "peakgroup_formula",
+                "labeled_element",
+                "labeled_count",
+                "accucor_filename",
+                "peakgroupset_id",
+                "corrected_abundance",
+                "fraction",
+                "pg_enrichment_fraction"
+                ]
+            ]
+            dpd_serum_fcirc_df2 = dpd_serum_fcirc_df2.drop_duplicates()
+            # rename two columns to make it clearer
+            dpd_serum_fcirc_df2.rename(columns = {"tissue": "serum_tissues", "sample": "serum_sample"}, 
+                inplace = True)
 
-        dpd_serum_fcirc_df2c = dpd_serum_fcirc_df2b.copy()
+            # merge with anim_target_df2 using left join to get all animals
+            dpd_serum_fcirc_df2b = pd.merge(
+                anim_target_df2, dpd_serum_fcirc_df2, left_on="animal_id", right_on="animal_id", how="left"
+            )
+
+            dpd_serum_fcirc_df2c = dpd_serum_fcirc_df2b.copy()
         
-        # replace None with pd.NA
-        dpd_serum_fcirc_df2c.replace({None: pd.NA}, inplace=True)
+            # replace None with pd.NA
+            dpd_serum_fcirc_df2c.replace({None: pd.NA}, inplace=True)
 
-        """
-        replace NA values in 5 columns as np.nan for easy handling of missing values,
-        since numpy ignore the NaN values while performing mathematical operations.
-        """
-        dpd_serum_fcirc_df3 = dpd_serum_fcirc_df2c.copy()
-        dpd_serum_fcirc_df3[["tracer_infusion_rate", "tracer_infusion_concentration", "body_weight", "pg_enrichment_fraction", "fraction"]
-            ] = dpd_serum_fcirc_df3[
+            """
+            replace NA values in 5 columns as np.nan for easy handling of missing values,
+            since numpy ignore the NaN values while performing mathematical operations.
+            """
+            dpd_serum_fcirc_df3 = dpd_serum_fcirc_df2c.copy()
+            dpd_serum_fcirc_df3[["tracer_infusion_rate", "tracer_infusion_concentration", "body_weight", "pg_enrichment_fraction", "fraction"]
+                ] = dpd_serum_fcirc_df3[
                 ["tracer_infusion_rate", "tracer_infusion_concentration", "body_weight", "pg_enrichment_fraction", "fraction"]
                 ].fillna(np.nan)
         
-        # calculate the set of values for Fcirc
-        # add column Rtracer
-        dpd_serum_fcirc_df3["Rtracer"] = dpd_serum_fcirc_df3["tracer_infusion_rate"] * dpd_serum_fcirc_df3["tracer_infusion_concentration"]
-        # Rd_avg_g
-        dpd_serum_fcirc_df3.loc[dpd_serum_fcirc_df3["pg_enrichment_fraction"] !=0, "Rd_avg_g"] = (
-            dpd_serum_fcirc_df3["Rtracer"] / dpd_serum_fcirc_df3["pg_enrichment_fraction"]
-        )
-        # Ra_avg_g
-        dpd_serum_fcirc_df3["Ra_avg_g"] = dpd_serum_fcirc_df3["Rd_avg_g"] - dpd_serum_fcirc_df3["Rtracer"]
-        # Rd_avg
-        dpd_serum_fcirc_df3["Rd_avg"] = dpd_serum_fcirc_df3["Rd_avg_g"] * dpd_serum_fcirc_df3["body_weight"]
-        # Ra_avg
-        dpd_serum_fcirc_df3["Ra_avg"] = dpd_serum_fcirc_df3["Ra_avg_g"] * dpd_serum_fcirc_df3["body_weight"]
+            # calculate the set of values for Fcirc
+            # add column Rtracer
+            dpd_serum_fcirc_df3["Rtracer"] = dpd_serum_fcirc_df3["tracer_infusion_rate"] * dpd_serum_fcirc_df3["tracer_infusion_concentration"]
+            # Rd_avg_g
+            dpd_serum_fcirc_df3.loc[dpd_serum_fcirc_df3["pg_enrichment_fraction"] !=0, "Rd_avg_g"] = (
+                dpd_serum_fcirc_df3["Rtracer"] / dpd_serum_fcirc_df3["pg_enrichment_fraction"]
+            )
+            # Ra_avg_g
+            dpd_serum_fcirc_df3["Ra_avg_g"] = dpd_serum_fcirc_df3["Rd_avg_g"] - dpd_serum_fcirc_df3["Rtracer"]
+            # Rd_avg
+            dpd_serum_fcirc_df3["Rd_avg"] = dpd_serum_fcirc_df3["Rd_avg_g"] * dpd_serum_fcirc_df3["body_weight"]
+            # Ra_avg
+            dpd_serum_fcirc_df3["Ra_avg"] = dpd_serum_fcirc_df3["Ra_avg_g"] * dpd_serum_fcirc_df3["body_weight"]
 
-        # Rd_intact_g
-        dpd_serum_fcirc_df3.loc[dpd_serum_fcirc_df3["pg_enrichment_fraction"] !=0, "Rd_intact_g"] = (
-            dpd_serum_fcirc_df3["Rtracer"] / dpd_serum_fcirc_df3["fraction"]
-        )
-        # Ra_intact_g
-        dpd_serum_fcirc_df3["Ra_intact_g"] = dpd_serum_fcirc_df3["Rd_intact_g"] - dpd_serum_fcirc_df3["Rtracer"]
+            # Rd_intact_g
+            dpd_serum_fcirc_df3.loc[dpd_serum_fcirc_df3["pg_enrichment_fraction"] !=0, "Rd_intact_g"] = (
+                dpd_serum_fcirc_df3["Rtracer"] / dpd_serum_fcirc_df3["fraction"]
+            )
+            # Ra_intact_g
+            dpd_serum_fcirc_df3["Ra_intact_g"] = dpd_serum_fcirc_df3["Rd_intact_g"] - dpd_serum_fcirc_df3["Rtracer"]
 
-        # Rd_intact
-        dpd_serum_fcirc_df3["Rd_intact"] = dpd_serum_fcirc_df3["Rd_intact_g"] * dpd_serum_fcirc_df3["body_weight"]
-        # Ra_intact
-        dpd_serum_fcirc_df3["Ra_intact"] = dpd_serum_fcirc_df3["Ra_intact_g"] * dpd_serum_fcirc_df3["body_weight"]
+            # Rd_intact
+            dpd_serum_fcirc_df3["Rd_intact"] = dpd_serum_fcirc_df3["Rd_intact_g"] * dpd_serum_fcirc_df3["body_weight"]
+            # Ra_intact
+            dpd_serum_fcirc_df3["Ra_intact"] = dpd_serum_fcirc_df3["Ra_intact_g"] * dpd_serum_fcirc_df3["body_weight"]
 
-        # convert back np.nan to pd.NA for final output (also allow correct conversion to Json format)
-        # dpd_serum_fcirc_df3.replace({np.nan: pd.NA}, inplace=True)
+            # convert back np.nan to pd.NA for final output (also allow correct conversion to Json format)
+            # dpd_serum_fcirc_df3.replace({np.nan: pd.NA}, inplace=True)
+            fcirc_res_df = dpd_serum_fcirc_df3.convert_dtypes()
 
-        fcirc_res_df = dpd_serum_fcirc_df3.convert_dtypes()
         return fcirc_res_df
 
     def get_per_study_fcirc_df(self, study_id):
         self.study_id = study_id
         animal_id_list = Animal.objects.values_list('id', flat=True).filter(studies__id=study_id)
-        fcirc_df = self.get_fcirc_df (animal_id_list)
+        fcirc_df = self.get_fcirc_df(animal_id_list)
         return fcirc_df
 
     def get_derived_peakgroup_df(self, msrun_id_list):
         self.msrun_id_list = msrun_id_list
-        # get animal_id_list
-        animal_id_list = Sample.objects.values_list("animal_id", flat=True).filter(msruns__id__in = msrun_id_list)
 
-        # get staging peakdata first (without compund synonyms)
-        dpd_df = self.get_stage_peakdata_df(msrun_id_list)
+        if len(msrun_id_list) == 0:
+            # return empty data frame
+            dpg_res_df = pd.DataFrame()
+        elif len(msrun_id_list) > 0:
+            # get animal_id_list
+            animal_id_list = Sample.objects.values_list("animal_id", flat=True).filter(msruns__id__in = msrun_id_list)
 
-        # need to get unique rows for peakgroups before adding compound synonyms as array
-        # dpg: shortname for derived peakgroup
-        dpg_df1 = dpd_df.drop(
-            columns=[
-                "peakdata_id",
-                "labeled_count",
-                "raw_abundance",
-                "med_mz",
-                "med_rt",
-                "corrected_abundance",
-                "fraction",
-                "enrichment"
-            ]
-        )
-        # get unqiue rows
-        dpg_df1 = dpg_df1.drop_duplicates()
-        dpg_df2 = dpg_df1.copy()
+            # get staging peakdata first (without compund synonyms)
+            dpd_df = self.get_stage_peakdata_df(msrun_id_list)
 
-        # find last serum sample for each peakgroup based on the serum dataframe used for Fcirc
-        anim_serum_fcirc_df = self.get_fcirc_df(animal_id_list)
-        # get needed columns
-        anim_serum_df1 = anim_serum_fcirc_df[[
-            "animal_id",
-            "sample_id",
-            "serum_sample",
-            "sample_time_collected",
-            "pg_enrichment_fraction"
-        ]]
+            # need to get unique rows for peakgroups before adding compound synonyms as array
+            # dpg: shortname for derived peakgroup
+            dpg_df1 = dpd_df.drop(
+                columns=[
+                    "peakdata_id",
+                    "labeled_count",
+                    "raw_abundance",
+                    "med_mz",
+                    "med_rt",
+                    "corrected_abundance",
+                    "fraction",
+                    "enrichment"
+                ]
+            )
+            # get unqiue rows
+            dpg_df1 = dpg_df1.drop_duplicates()
+            dpg_df2 = dpg_df1.copy()
 
-        # get animal's final serum sample with peak data (afss)
-        afss_df1 = anim_serum_df1.sort_values("sample_time_collected", ascending=False).groupby(["animal_id"]).first().reset_index()
+            # find last serum sample for each peakgroup based on the serum dataframe used for Fcirc
+            anim_serum_fcirc_df = self.get_fcirc_df(animal_id_list)
 
-        afss_df2 = afss_df1.rename(
-            columns={
-                "sample_id": "afss_sample_id",
-                "serum_sample": "afss_sample",
-                "sample_time_collected": "afss_sample_time_collected",
-                "pg_enrichment_fraction": "afss_pg_enrichment_fraction"
-            }
-        )
+            if anim_serum_fcirc_df.empty:
+                # empty dataframe with 5 columns
+                anim_serum_df1 = pd.DataFrame(
+                    columns =[
+                        "animal_id",
+                        "sample_id",
+                        "serum_sample",
+                        "sample_time_collected",
+                        "pg_enrichment_fraction"    
+                    ]
+                )
 
-        # merge with dpg_df2
-        dpg_df3 = pd.merge(
-            dpg_df2, afss_df2, left_on="animal_id", right_on="animal_id", how="left"
-        )
+            else:
+                # get needed columns
+                anim_serum_df1 = anim_serum_fcirc_df[[
+                    "animal_id",
+                    "sample_id",
+                    "serum_sample",
+                    "sample_time_collected",
+                    "pg_enrichment_fraction"
+                ]]
 
-        # calculate normalized_labeling
-        dpg_df3["pg_normalized_labeling"] = dpg_df3["pg_enrichment_fraction"] / dpg_df3["afss_pg_enrichment_fraction"]
+            # get animal's final serum sample with peak data (afss)
+            afss_df1 = anim_serum_df1.sort_values("sample_time_collected", ascending=False).groupby(["animal_id"]).first().reset_index()
 
-        # for linking peakgroup_name to synonyms and compound id(s)
-        # DataFrame for unique peakgroup_name with associated compounds (ids, names, synonyms)
-        dpg_pg_name_df = pd.DataFrame()
-        # get unique peakgroup names
-        dpg_pg_name_df["peakgroup_name"]= dpg_df3["peakgroup_name"].unique()
-        # add comp_id_name_list for peakgroup_name
-        dpg_pg_name_df["pg_id_name_list"] = dpg_pg_name_df["peakgroup_name"].apply(get_pg_id_name_list)
-        # add synonyms for peakgroup_name
-        dpg_pg_name_df["pg_id_synonyms_list"] = dpg_pg_name_df["peakgroup_name"].apply(get_pg_id_synonyms_list)
-        # convert to np.array
-        dpg_pg_name_df["pg_id_name_list"] = dpg_pg_name_df["pg_id_name_list"].apply(lambda x: np.array(x))
-        dpg_pg_name_df["pg_id_synonyms_list"] = dpg_pg_name_df["pg_id_synonyms_list"].apply(lambda x: np.array(x))
+            afss_df2 = afss_df1.rename(
+                columns={
+                    "sample_id": "afss_sample_id",
+                    "serum_sample": "afss_sample",
+                    "sample_time_collected": "afss_sample_time_collected",
+                    "pg_enrichment_fraction": "afss_pg_enrichment_fraction"
+                }
+            )
 
-        # merge dataframes to get all columns for output
-        # for linking animals to studies
-        anim_list_stats_df = self.get_animal_list_stats_df()
-        anim_stud_df1 = anim_list_stats_df[["animal_id", "studies", "study_id_name_list"]].copy()
+            # merge with dpg_df2
+            dpg_df3 = pd.merge(
+                dpg_df2, afss_df2, left_on="animal_id", right_on="animal_id", how="left"
+            )
+            dpg_df3.replace({None: pd.NA}, inplace=True)
+            """
+            replace NA values in 2 columns as np.nan for easy handling of missing values,
+            since numpy ignore the NaN values while performing mathematical operations.
+            """
+            dpg_df3[["pg_enrichment_fraction", "afss_pg_enrichment_fraction"]] = dpg_df3[["pg_enrichment_fraction", "afss_pg_enrichment_fraction"]].fillna(np.nan)
 
-        # merge DataFrames to get all columns
-        dpg_df4 = dpg_df3.merge(dpg_pg_name_df, on="peakgroup_name")
-        dpg_df5 = pd.merge(dpg_df4, anim_stud_df1, left_on="animal_id", right_on="animal_id", how="left")
+            # calculate normalized_labeling
+            dpg_df3["pg_normalized_labeling"] = dpg_df3["pg_enrichment_fraction"] / dpg_df3["afss_pg_enrichment_fraction"]
 
-        dpg_res_df = dpg_df5.convert_dtypes()
+            # for linking peakgroup_name to synonyms and compound id(s)
+            # DataFrame for unique peakgroup_name with associated compounds (ids, names, synonyms)
+            dpg_pg_name_df = pd.DataFrame()
+            # get unique peakgroup names
+            dpg_pg_name_df["peakgroup_name"]= dpg_df3["peakgroup_name"].unique()
+            # add comp_id_name_list for peakgroup_name
+            dpg_pg_name_df["pg_id_name_list"] = dpg_pg_name_df["peakgroup_name"].apply(get_pg_id_name_list)
+            # add synonyms for peakgroup_name
+            dpg_pg_name_df["pg_id_synonyms_list"] = dpg_pg_name_df["peakgroup_name"].apply(get_pg_id_synonyms_list)
+            # convert to np.array
+            dpg_pg_name_df["pg_id_name_list"] = dpg_pg_name_df["pg_id_name_list"].apply(lambda x: np.array(x))
+            dpg_pg_name_df["pg_id_synonyms_list"] = dpg_pg_name_df["pg_id_synonyms_list"].apply(lambda x: np.array(x))
+
+            # merge dataframes to get all columns for output
+            # for linking animals to studies
+            anim_list_stats_df = self.get_animal_list_stats_df()
+            anim_stud_df1 = anim_list_stats_df[["animal_id", "studies", "study_id_name_list"]].copy()
+
+            # merge DataFrames to get all columns
+            dpg_df4 = dpg_df3.merge(dpg_pg_name_df, on="peakgroup_name")
+            dpg_df5 = pd.merge(dpg_df4, anim_stud_df1, left_on="animal_id", right_on="animal_id", how="left")
+            dpg_res_df = dpg_df5.convert_dtypes()
 
         return dpg_res_df
     
@@ -2299,7 +2327,10 @@ class QuerysetToPandasDataFrame:
         samples =Sample.objects.select_related().filter(animal__id__in=Animal.objects.values_list('id').filter(studies__id=study_id))
         msrun_id_list = MSRun.objects.values_list("id").filter(sample__id__in=samples)
 
-        dpd_df = self.get_derived_peakdata_df( msrun_id_list)
+        if len(msrun_id_list) > 0:
+            dpd_df = self.get_derived_peakdata_df(msrun_id_list)
+        else:
+            dpd_df = pd.DataFrame()   
         return dpd_df
 
     def get_per_animal_dpd_df (self, animal_id):
@@ -2307,7 +2338,10 @@ class QuerysetToPandasDataFrame:
         samples =Sample.objects.select_related().filter(animal__id = animal_id)
         msrun_id_list = MSRun.objects.values_list("id").filter(sample__id__in=samples)
 
-        dpd_df = self.get_derived_peakdata_df( msrun_id_list)
+        if len(msrun_id_list) > 0:
+            dpd_df = self.get_derived_peakdata_df(msrun_id_list)
+        else:
+            dpd_df = pd.DataFrame()
         return dpd_df
     
     def get_per_study_dpg_df (self, study_id):
@@ -2315,7 +2349,10 @@ class QuerysetToPandasDataFrame:
         samples =Sample.objects.select_related().filter(animal__id__in=Animal.objects.values_list('id').filter(studies__id=study_id))
         msrun_id_list = MSRun.objects.values_list("id").filter(sample__id__in=samples)
 
-        dpg_df = self.get_derived_peakgroup_df( msrun_id_list)
+        if len(msrun_id_list) > 0:
+            dpg_df = self.get_derived_peakgroup_df(msrun_id_list)
+        else:
+            dpg_df = pd.DataFrame()
         return dpg_df
 
     def get_per_animal_dpg_df (self, animal_id):
@@ -2323,7 +2360,10 @@ class QuerysetToPandasDataFrame:
         samples =Sample.objects.select_related().filter(animal__id = animal_id)
         msrun_id_list = MSRun.objects.values_list("id").filter(sample__id__in=samples)
 
-        dpg_df = self.get_derived_peakgroup_df( msrun_id_list)
+        if len(msrun_id_list) > 0:
+            dpg_df = self.get_derived_peakgroup_df(msrun_id_list)
+        else:
+            dpg_df = pd.DataFrame()
         return dpg_df
 
 def get_pg_id_name_synonyms(pg_name):

@@ -19,10 +19,10 @@
         <h5>Total rows: {{ total_rows }} (
             <a class="link-button" href="{% url 'derived_peakdata' %}?obj_type={{ obj_type }}&obj_id={{ obj_id }}">View All Rows in One Page</a>
             &nbsp;
-            <a class="link-button" href="{% url 'derived_data_to_csv' %}?category=peakgroup&obj_type={{ obj_type }}&obj_id={{ obj_id }}">Download All Rows to csv File</a>)</h5> 
+            <a class="link-button" href="{% url 'derived_data_to_file_by_streaming' %}?category=peakgroup&obj_type={{ obj_type }}&obj_id={{ obj_id }}">Download All Rows to File</a>)</h5> 
     {% else %}
         <h5>Total rows: {{ total_rows }} (
-         <a class="link-button" href="{% url 'derived_data_to_csv' %}?category=peakgroup&obj_type={{ obj_type }}&obj_id={{ obj_id }}">Download All Rows to csv File)</a></h5>
+         <a class="link-button" href="{% url 'derived_data_to_file_by_streaming' %}?category=peakgroup&obj_type={{ obj_type }}&obj_id={{ obj_id }}">Download All Rows to File)</a></h5>
     {% endif %}
 {% endif %}
 <br>
