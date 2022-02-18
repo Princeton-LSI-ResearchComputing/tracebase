@@ -238,7 +238,7 @@
     </script>
 {% endblock %}
 {% block content %}
-    <div style="float: right; margin-right: 1rem;" class="buttons-toolbar"></div>
+    <div style="float: right; {% if mode == 'view' %}margin-right: 1rem;margin-bottom: 1rem;{% else %}margin-right: 1rem;{% endif %}" class="buttons-toolbar"></div>
     <div style="float: right; margin-right: 1rem;">
         <small>
             <table class="table table-highlighted-legend table-hover table-bordered">
@@ -338,11 +338,12 @@
         data-filter-control="false"
         data-search="false"
         data-show-search-clear-button="false"
-        data-show-multi-sort="true"
+        data-show-multi-sort="{% if mode == 'view' %}true{% else %}false{% endif %}"
         data-show-columns="true"
         data-show-columns-toggle-all="true"
         data-show-fullscreen="false"
-        data-show-export="false">
+        data-show-export="false"
+        data-pagination="{% if mode == 'view' %}true{% else %}false{% endif %}">
         <thead>
             <tr>
                 <th colspan="14" rowspan="2"></th>

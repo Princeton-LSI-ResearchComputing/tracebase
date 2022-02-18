@@ -328,6 +328,26 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
     )
 
 
+def test_barebones_advanced_search(request):
+    """
+    Demonstrates the flexibility added to the advanced search templates
+    """
+
+    format_template = "DataRepo/search/query.html"
+
+    res = PeakGroup.objects.filter(name__contains="glut")
+
+    return render(
+        request,
+        format_template,
+        {
+            "res": res,
+            "format": "pgtemplate",  # pgtemplate = peakgroups, pdtemplate = peakdata, fctemplate = fcirc
+            "mode": "view",  # This is a new mode that means "I'm only providing a queryset"
+        },
+    )
+
+
 # Based on:
 #   https://stackoverflow.com/questions/15497693/django-can-class-based-views-accept-two-forms-at-a-time
 class AdvancedSearchView(MultiFormsView):

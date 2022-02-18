@@ -40,7 +40,7 @@
 
 {% endblock %}
 {% block content %}
-    <div style="float: right; margin-right: 1rem;" class="buttons-toolbar"></div>
+    <div style="float: right; {% if mode == 'view' %}margin-right: 1rem;margin-bottom: 1rem;{% else %}margin-right: 1rem;{% endif %}" class="buttons-toolbar"></div>
     <table class="table table-hover table-striped table-bordered"
         id="advsrchres"
         data-toggle="table"
@@ -50,11 +50,12 @@
         data-filter-control="false"
         data-search="false"
         data-show-search-clear-button="false"
-        data-show-multi-sort="false"
+        data-show-multi-sort="{% if mode == 'view' %}true{% else %}false{% endif %}"
         data-show-columns="true"
         data-show-columns-toggle-all="true"
         data-show-fullscreen="false"
-        data-show-export="false">
+        data-show-export="false"
+        data-pagination="{% if mode == 'view' %}true{% else %}false{% endif %}">
 
         <colgroup span="8" class="identdata"></colgroup>
         <colgroup span="4" class="datadata"></colgroup>
