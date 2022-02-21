@@ -2,14 +2,44 @@
 
 {% block head_extras %}
     <script>
+        // This is the selected format saved in javascript form for the purpose of cookie naming so that there are no
+        // collisions between formats for user settings.  The selected format is determined via template tags below
+        // using the qry object, the format URL parameter and the default_format context variable.  It's validated using
+        // forms.keys.
+        var selfmt = ""
+
         // Set a Cookie
         function set_cookie(name, val) {
             document.cookie = name + "=" + val + "; path=/";
+        }
+
+        function setSelectedFormat(selfmt) {
+            globalThis.selfmt = selfmt
+        }
+
+        function set_template_cookie(name, val) {
+            if (typeof selfmt !== "undefined" && selfmt && selfmt !== "") {
+                set_cookie(selfmt + "." + name, val);
+            } else {
+                console.error("selfmt is undefined.  Unable to set cookie for the current format.")
+            }
+        }
+
+        function updateAllColumnSwitchingCookies() {
+            var hidarray = $("#advsrchres").bootstrapTable('getHiddenColumns')
+            for (const item of hidarray) {
+                set_template_cookie(item["field"] + "-data-visible", false)
+            }
+            var visarray = $("#advsrchres").bootstrapTable('getVisibleColumns')
+            for (const item of visarray) {
+                set_template_cookie(item["field"] + "-data-visible", true)
+            }
         }
     </script>
 {% endblock %}
 
 {% block content %}
+
     <div>
         {% define True as valid_search %}
         {% define default_format as selfmt %}
@@ -38,6 +68,9 @@
             <hr>
 
             {% if valid_search %}
+                <div style="margin-left: 16px; float: right;">
+                    <button class="btn btn-primary mb-2" id="reset" title="Reset Page Settings" onclick="restoreDefaults()"><i class="fa">Reset</i></button>
+                </div>
                 <div style="float: right;">
                     <form action="/DataRepo/search_advanced_tsv/" id="advanced-search-download-form" method="POST">
                         {% csrf_token %}
@@ -67,6 +100,9 @@
             {% endif %}
             {# 'else' is just the search forms #}
         {% endif %}
+
+        <!-- This is just used for setting cookies without needing to have the set_template_cookie method in every format template -->
+        <script>setSelectedFormat("{{ selfmt }}")</script>
     </div>
 
 {% endblock %}

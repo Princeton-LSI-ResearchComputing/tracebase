@@ -9,13 +9,10 @@
             $("#advsrchres").bootstrapTable({
                 onAll: function() {
                     updateColumnGroups()
-                },
-                onSort: function(name, order) {
-                    alert("PLACEHOLDER: Sorting " + name + " in " + order + " order")
-                },
-                onColumnSwitch: function(field, checked) {
-                    set_template_cookie(field + '-data-visible', checked)
+                    updateColumnSortControls()
+                    updateAllColumnSwitchingCookies()
                 }
+                // I did have an onColumnSwitch here to set cookies, but it doesn't handle the "Toggle All" control, so I added a call to updateAllColumnSwitchingCookies in onAll
             })
 
             function updateColumnGroups() {
@@ -38,10 +35,6 @@
                 $("#advsrchres .metadata").attr("span", metadata_cnt)
             }
         })
-
-        function set_template_cookie(name, val) {
-            set_cookie("{{ selfmt }}" + "." + name, val);
-        }
     </script>
     <script src="https://cdn.jsdelivr.net/gh/wenzhixin/bootstrap-table-examples@master/utils/natural-sorting/dist/natural-sorting.js"></script>
 
@@ -69,32 +62,80 @@
 
         <thead>
             <tr>
-                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Animal-data-visible' 'false' %}" data-field="Animal" class="idgrp">Animal</th>
-                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Sample-data-visible' 'true' %}" data-field="Sample" class="idgrp" data-switchable="false">Sample</th>
-                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Tissue-data-visible' 'true' %}" data-field="Tissue" class="idgrp">Tissue</th>
-                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Peak_Group-data-visible' 'false' %}" data-field="Peak_Group" class="idgrp">Peak Group</th>
-                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Compound_Name-data-visible' 'true' %}" data-field="Compound_Name" class="idgrp">Measured<br>Compound</th>
-                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Compound_Synonym-data-visible' 'false' %}" data-field="Compound_Synonym" class="idgrp">Measured<br>Compound<br>Synonym(s)</th>
-                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Labeled_Element-data-visible' 'true' %}" data-field="Labeled_Element" class="idgrp">Labeled<br>Element</th>
-                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Peak_Group_Set_Filename-data-visible' 'false' %}" data-field="Peak_Group_Set_Filename" class="idgrp">Peak Group Set Filename</th>
+                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Animal-data-visible' 'false' %}" data-field="Animal" class="idgrp">
+                    <div onclick="sortColumn(this)" class="sortable" id="msrun__sample__animal__name">Animal</div>
+                </th>
+                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Sample-data-visible' 'true' %}" data-field="Sample" class="idgrp" data-switchable="false">
+                    <div onclick="sortColumn(this)" class="sortable" id="msrun__sample__name">Sample</div>
+                </th>
+                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Tissue-data-visible' 'true' %}" data-field="Tissue" class="idgrp">
+                    <div onclick="sortColumn(this)" class="sortable" id="msrun__sample__tissue__name">Tissue</div>
+                </th>
+                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Peak_Group-data-visible' 'false' %}" data-field="Peak_Group" class="idgrp">
+                    <div onclick="sortColumn(this)" class="sortable" id="name">Peak Group</div>
+                </th>
+                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Compound_Name-data-visible' 'true' %}" data-field="Compound_Name" class="idgrp">
+                    <div onclick="sortColumn(this)" class="sortable" id="compounds__name">Measured<br>Compound</div>
+                </th>
+                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Compound_Synonym-data-visible' 'false' %}" data-field="Compound_Synonym" class="idgrp">
+                    <div onclick="sortColumn(this)" class="sortable" id="compounds__synonyms__name">Measured<br>Compound<br>Synonym(s)</div>
+                </th>
+                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Labeled_Element-data-visible' 'true' %}" data-field="Labeled_Element" class="idgrp">
+                    <div onclick="sortColumn(this)" class="sortable" id="msrun__sample__animal__tracer_labeled_atom">Labeled<br>Element</div>
+                </th>
+                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Peak_Group_Set_Filename-data-visible' 'false' %}" data-field="Peak_Group_Set_Filename" class="idgrp">
+                    <div onclick="sortColumn(this)" class="sortable" id="peak_group_set__filename">Peak Group Set Filename</div>
+                </th>
 
-                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Total_Abundance-data-visible' 'true' %}" data-field="Total_Abundance" class="datagrp" data-switchable="false">Total<br>Abundance</th>
-                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Enrichment_Fraction-data-visible' 'true' %}" data-field="Enrichment_Fraction" class="datagrp">Enrichment<br>Fraction</th>
-                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Enrichment_Abundance-data-visible' 'true' %}" data-field="Enrichment_Abundance" class="datagrp">Enrichment<br>Abundance</th>
-                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Normalized_Labeling-data-visible' 'true' %}" data-field="Normalized_Labeling" class="datagrp">Normalized<br>Labeling</th>
+                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Total_Abundance-data-visible' 'true' %}" data-field="Total_Abundance" class="datagrp" data-switchable="false">
+                    Total<br>Abundance
+                </th>
+                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Enrichment_Fraction-data-visible' 'true' %}" data-field="Enrichment_Fraction" class="datagrp">
+                    Enrichment<br>Fraction
+                </th>
+                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Enrichment_Abundance-data-visible' 'true' %}" data-field="Enrichment_Abundance" class="datagrp">
+                    Enrichment<br>Abundance
+                </th>
+                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Normalized_Labeling-data-visible' 'true' %}" data-field="Normalized_Labeling" class="datagrp">
+                    Normalized<br>Labeling
+                </th>
 
-                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Formula-data-visible' 'false' %}" data-field="Formula" class="metagrp">Formula</th>
-                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Genotype-data-visible' 'true' %}" data-field="Genotype" class="metagrp">Genotype</th>
-                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Sex-data-visible' 'false' %}" data-field="Sex" class="metagrp">Sex</th>
-                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Feeding_Status-data-visible' 'true' %}" data-field="Feeding_Status" class="metagrp">Feeding<br>Status</th>
-                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Diet-data-visible' 'false' %}" data-field="Diet" class="metagrp">Diet</th>
-                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Treatment-data-visible' 'true' %}" data-field="Treatment" class="metagrp">Treatment</th>
-                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Body_Weight-data-visible' 'false' %}" data-field="Body_Weight" class="metagrp">Body<br>Weight<br>(g)</th>
-                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Age-data-visible' 'false' %}" data-field="Age" class="metagrp">Age<br>(weeks)</th>
-                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Tracer_Compound-data-visible' 'true' %}" data-field="Tracer_Compound" class="metagrp" data-switchable="false">Tracer<br>Compound</th>
-                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Tracer_Infusion_Rate-data-visible' 'false' %}" data-field="Tracer_Infusion_Rate" class="metagrp">Tracer<br>Infusion<br>Rate<br>(ul/min/g)</th>
-                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Tracer_Infusion_Concentration-data-visible' 'false' %}" data-field="Tracer_Infusion_Concentration" class="metagrp">Tracer<br>Infusion<br>Concentration<br>(mM)</th>
-                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Study-data-visible' 'true' %}" data-field="Study" class="metagrp">Studies</th>
+                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Formula-data-visible' 'false' %}" data-field="Formula" class="metagrp">
+                    <div onclick="sortColumn(this)" class="sortable" id="formula">Formula</div>
+                </th>
+                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Genotype-data-visible' 'true' %}" data-field="Genotype" class="metagrp">
+                    <div onclick="sortColumn(this)" class="sortable" id="msrun__sample__animal__genotype">Genotype</div>
+                </th>
+                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Sex-data-visible' 'false' %}" data-field="Sex" class="metagrp">
+                    <div onclick="sortColumn(this)" class="sortable" id="msrun__sample__animal__sex">Sex</div>
+                </th>
+                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Feeding_Status-data-visible' 'true' %}" data-field="Feeding_Status" class="metagrp">
+                    <div onclick="sortColumn(this)" class="sortable" id="msrun__sample__animal__feeding_status">Feeding<br>Status</div>
+                </th>
+                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Diet-data-visible' 'false' %}" data-field="Diet" class="metagrp">
+                    <div onclick="sortColumn(this)" class="sortable" id="msrun__sample__animal__diet">Diet</div>
+                </th>
+                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Treatment-data-visible' 'true' %}" data-field="Treatment" class="metagrp">
+                    <div onclick="sortColumn(this)" class="sortable" id="msrun__sample__animal__treatment__name">Treatment</div>
+                </th>
+                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Body_Weight-data-visible' 'false' %}" data-field="Body_Weight" class="metagrp">
+                    <div onclick="sortColumn(this)" class="sortable" id="msrun__sample__animal__body_weight">Body<br>Weight<br>(g)</div>
+                </th>
+                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Age-data-visible' 'false' %}" data-field="Age" class="metagrp">
+                    <div onclick="sortColumn(this)" class="sortable" id="msrun__sample__animal__age">Age<br>(weeks)</div>
+                </th>
+                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Tracer_Compound-data-visible' 'true' %}" data-field="Tracer_Compound" class="metagrp" data-switchable="false">
+                    <div onclick="sortColumn(this)" class="sortable" id="msrun__sample__animal__tracer_compound__name">Tracer<br>Compound</div>
+                </th>
+                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Tracer_Infusion_Rate-data-visible' 'false' %}" data-field="Tracer_Infusion_Rate" class="metagrp">
+                    <div onclick="sortColumn(this)" class="sortable" id="msrun__sample__animal__tracer_infusion_rate">Tracer<br>Infusion<br>Rate<br>(ul/min/g)</div>
+                </th>
+                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Tracer_Infusion_Concentration-data-visible' 'false' %}" data-field="Tracer_Infusion_Concentration" class="metagrp">
+                    <div onclick="sortColumn(this)" class="sortable" id="msrun__sample__animal__tracer_infusion_concentration">Tracer<br>Infusion<br>Concentration<br>(mM)</div>
+                </th>
+                <th data-valign="top" data-visible="{% get_template_cookie selfmt 'Study-data-visible' 'true' %}" data-field="Study" class="metagrp">
+                    <div onclick="sortColumn(this)" class="sortable" id="msrun__sample__animal__studies__name">Studies</div>
+                </th>
             </tr>
         </thead>
 

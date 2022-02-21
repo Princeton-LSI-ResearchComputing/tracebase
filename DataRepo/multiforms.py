@@ -9,20 +9,7 @@ from django.views.generic.edit import ProcessFormView
 #   https://stackoverflow.com/questions/15497693/django-can-class-based-views-accept-two-forms-at-a-time
 #   https://gist.github.com/jamesbrobb/748c47f46b9bd224b07f
 
-# TODO: Re-reading the above stack post after having learned a bunch about various components of form processing, I
-# have realized a few things that I could clean up in here.  First of all, the original code requires that the submit
-# button be named "action" and its "value" must match a form_name that is used as keys in the form_classes dict.
-# However, that form processing only works if the submit button is what submits the form.  E.g. if a user hits enter in
-# another form field, it won't work correctly.  The reason my changes work is because first, I haven't configured the
-# pre-existing code correctly, so it never gets into the various form processing methods and gets to my mixed form
-# check.  I am checking data member values for a "mixed" form.  A "mixed" form is 3 different form classes (all with
-# the same form fields) that are all wrapped in one form tag.  Now, I have added another form type (AdvSearchPageForm)
-# and it needs to be called as an individual form.  Code I added to views to use an additional paging form
-# (AdvSearchPageForm) uses a strategy similar to the original intent of this code.  It identifies a form by one of its
-# input names.  I need to refactor a number of things to make multiforms work correctly and handle my mixed form case
-# AND the page form.  Note the submit button form identification strategy won't work for the mixed forms since they all
-# have the same named fields and don't always use a button to submit, but if I add a hidden field and set its value to
-# identify the form, that would work.
+# TODO: Issue #370 refactor multiforms.py and views.AdvSearchView
 
 
 class MultiFormMixin(ContextMixin):

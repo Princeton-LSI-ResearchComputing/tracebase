@@ -27,34 +27,128 @@
                 rowselem.addEventListener("change", function (event) {
                     set_template_cookie("{{ pager.rows_per_page_field }}", event.target.value)
                     setPage(1)
-                    myform.submit();
+                    submitForm()
                 })
             }
+
+            updateColumnSortControls()
         })
 
-        function setPage(pagenum){
-            // The "pager-page-elem" ID is set in for django form class
-            var pageelem = document.getElementById("{{ pager.page_input_id }}")
-            if (typeof pageelem !== 'undefined' && pageelem) {
-                pageelem.value = pagenum;
+        function updateColumnSortControls() {
+            // Add sort controls to every sortable column header (div around th contents with class 'sortable')
+
+            // The column ID must match the database field path contained in the pager's order_by member variable, e.g. "peak_group__msrun__sample__animal__name"
+            sorted_column_id = "{{ pager.order_by }}"
+            sorted_dir = {% if pager.order_dir is None %}"undefined"{% else %}"{{ pager.order_dir }}"{% endif %}
+
+            // Check that the sorted column ID is valid
+            sorted_column_elem = document.getElementById(sorted_column_id)
+            if (typeof sorted_column_elem === "undefined" || !sorted_column_elem) {
+                if (sorted_column_id !== "" && sorted_column_id !== "None") {
+                    alert("ERROR: Could not find sortable div element with the ID " + sorted_column_id + ".  Make sure a div element containing the class 'sortable' and the given ID exists in the template.  Abandonning sorted column control settings.")
+                }
+                // Else: No explicit sort exists, all columns should be "both"
+                console.log("Sort column not set")
             }
+
+            $('.sortable').each(function() {
+                var elem_id = this.id
+                if (elem_id === sorted_column_id) {
+                    // I think bootstrap table's javascript is adding "both" on page load...
+                    this.classList.remove("both")
+                    if (sorted_dir === "undefined" || !sorted_dir || sorted_dir === "asc") {
+                        this.classList.add("asc")
+                    } else if (sorted_dir === "desc") {
+                        this.classList.add("desc")
+                    } else {
+                        alert("Invalid order by direction [" + sorted_dir + "].  Must be None, 'asc', or 'desc'.  Abandonning sorted column control settings.")
+                    }
+                } else {
+                    this.classList.add('both')
+                }
+            })
+        }
+
+        function sortColumn(elem) {
+            isBoth = $(elem).hasClass("both")
+            isAsc = $(elem).hasClass("asc")
+            isDesc = $(elem).hasClass("desc")
+
+            sort_col_id = elem.id
+
+            if (isBoth) {
+                setPage(1)
+                setOrderBy(sort_col_id)
+                setOrderDir("asc")
+            } else if (isAsc) {
+                setOrderBy(sort_col_id)
+                setOrderDir("desc")
+            } else if (isDesc){
+                setOrderBy(sort_col_id)
+                setOrderDir("asc")
+            } else {
+                // This should not happen
+                alert("ERROR: sortColumn called from an element (ID: " + sort_col_id + ") that is not set up for sorting.  Make sure sortColumn is being called from an element containing the sortable class.")
+                return
+            }
+
+            submitForm()
+        }
+
+        function submitForm() {
+            var myform = document.getElementById("{{ pager.form_id }}")
+            myform.submit();
+        }
+
+        function setOrderBy(field_path) {
+            setPageFormValue("{{ pager.orderby_input_id }}", field_path)
+        }
+
+        function setOrderDir(dir) {
+            setPageFormValue("{{ pager.orderdir_input_id }}", dir)
+        }
+
+        function setPage(pagenum){
+            setPageFormValue("{{ pager.page_input_id }}", pagenum)
+        }
+
+        function setPageFormValue(elem_id, val) {
+            var input_elem = document.getElementById(elem_id)
+            if (typeof input_elem !== 'undefined' && input_elem) {
+                input_elem.value = val;
+            } else {
+                alert("Could not find page form input element: " + elem_id + ".  Make sure the input element's ID is set to this value.")
+            }
+        }
+
+        function restoreDefaults() {
+            // I wanted to have this inside display.html, but since reloading does a GET and not a POST, the current page needs to be POSTed, so it made sense to put it here for the form POST of the current page
+            var hidarray = $("#advsrchres").bootstrapTable('getHiddenColumns')
+            for (const item of hidarray) {
+                set_template_cookie(item["field"] + "-data-visible", "__default__")
+            }
+            var visarray = $("#advsrchres").bootstrapTable('getVisibleColumns')
+            for (const item of visarray) {
+                set_template_cookie(item["field"] + "-data-visible", "__default__")
+            }
+            var myform = document.getElementById("{{ pager.form_id }}")
+            myform.submit();
         }
     </script>
 
-    {% if pager.tot|gt:pager.min_rows_per_page %}
-        <div class="fixed-table-pagination" style="padding-top: 10px;">
-            <form action="{{ pager.action }}" id="{{ pager.form_id }}" name="{{ pager.form_name }}" method="POST">
-                {% csrf_token %}
-                {{ pager.page_form.qryjson }}
-                {{ pager.page_form.order_by }}
-                {{ pager.page_form.order_direction }}
-                {{ pager.page_form.page }}
-                {{ pager.page_form.adv_search_page_form }}
-                <div style="float: left;">
-                    Showing {{ pager.start }} to {{ pager.end }} of {{ pager.tot }} rows, {{ pager.page_form.rows }} rows per page
-                </div>
-    {% endif %}
-    {% if pager.tot|gt:pager.rows %}
+    {% comment %} We need at least a hidden form to support server side sorting {% endcomment %}
+    <div class="fixed-table-pagination" style="{% if pager.tot|gt:pager.min_rows_per_page %}padding-top: 10px;{% else %}display:none;{% endif %}">
+        <form action="{{ pager.action }}" id="{{ pager.form_id }}" name="{{ pager.form_name }}" method="POST">
+            {% csrf_token %}
+            {{ pager.page_form.qryjson }}
+            {{ pager.page_form.order_by }}
+            {{ pager.page_form.order_direction }}
+            {{ pager.page_form.page }}
+            {{ pager.page_form.adv_search_page_form }}
+            <div style="float: left;">
+                Showing {{ pager.start }} to {{ pager.end }} of {{ pager.tot }} rows, {{ pager.page_form.rows }} rows per page
+            </div>
+            {% if pager.tot|gt:pager.rows %}
                 <div style="float: right;">
                     <nav aria-label="Page navigation">
                         <ul class="pagination">
@@ -78,9 +172,7 @@
                         </ul>
                     </nav>
                 </div>
-    {% endif %}
-    {% if pager.tot|gt:pager.min_rows_per_page %}
-            </form>
-        </div>
-    {% endif %}
+            {% endif %}
+        </form>
+    </div>
 {% endif %}
