@@ -60,4 +60,6 @@ urlpatterns = [
         name="peakgroup_detail",
     ),
     path("peakdata/", views.PeakDataListView.as_view(), name="peakdata_list"),
+    # path(r'^(?P<task_id>[\w-]+)/$', views.get_progress, name='task_status'),
+    path("task_status/<str:task_id>/", views.get_progress, name='task_status'),
 ]

@@ -1,13 +1,16 @@
 import json
+from datetime import datetime
 import traceback
+from DataRepo.tasks import tsv_producer2, loop, tsv_producer3
+from celery.result import AsyncResult
 from datetime import datetime
 from typing import List
 
 from django.apps import apps
 from django.conf import settings
 from django.core.management import call_command
-from django.db.models import Prefetch, Q
-from django.http import Http404, StreamingHttpResponse
+from django.db.models import Q
+from django.http import Http404, StreamingHttpResponse, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template import loader
 from django.urls import reverse
@@ -701,9 +704,10 @@ class AdvancedSearchTSVView(FormView):
     """
 
     form_class = AdvSearchDownloadForm
+    template_name = "DataRepo/search/downloads/download_progress.html"
     header_template = "DataRepo/search/downloads/download_header.tsv"
     row_template = "DataRepo/search/downloads/download_row.tsv"
-    content_type = "application/text"
+    # content_type = "application/text"
     success_url = ""
     basv_metadata = BaseAdvancedSearchView()
 
@@ -749,18 +753,57 @@ class AdvancedSearchTSVView(FormView):
 
         headtmplt = loader.get_template(self.header_template)
         rowtmplt = loader.get_template(self.row_template)
+        # return StreamingHttpResponse(
+        #     self.tsv_template_iterator(rowtmplt, headtmplt, res, qry, dt_string),
+        #     content_type=self.content_type,
+        #     headers={"Content-Disposition": f"attachment; filename={filename}"},
+        # )
 
-        return StreamingHttpResponse(
-            self.tsv_template_iterator(rowtmplt, headtmplt, res, qry, dt_string),
-            content_type=self.content_type,
-            headers={"Content-Disposition": f"attachment; filename={filename}"},
-        )
+        # headlines = headtmplt.render({"qry": qry, "dt": dt_string}).splitlines(True)
+        # rowlines = map(lambda r: rowtmplt.render({"qry": qry, "row": r}), res)
+        # alllines = [*headlines, *rowlines]
+
+        response = HttpResponse(content='', content_type="application/text", status=200, reason=None, charset='utf-8')
+        response["Content-Disposition"] = f"attachment; filename={filename}"
+
+        # response.writelines(self.tsv_template_iterator(rowtmplt, headtmplt, res, qry, dt_string))
+        # return response
+
+        # progress = AsyncResult("advanced_search_download_progress")
+        # tsv_producer.delay(response, self.tsv_template_iterator, headtmplt, rowtmplt, res, qry, dt_string, progress)
+        # return self.render_to_response(self.get_context_data(progress=progress))
+
+        print("Before", datetime.now().time())
+
+        try:
+            # tsv_producer2.apply_async(response, self.tsv_template_iterator, headtmplt, rowtmplt, res, qry, dt_string)
+            # bgtask = tsv_producer2.delay(response, self.tsv_template_iterator, headtmplt, rowtmplt, res, qry, dt_string)
+
+            #The above is not working.  Let me try a simple test case...
+            # bgtask = loop.delay(30)
+
+            bgtask = tsv_producer3.delay(filename, self.header_template, self.row_template, qry, dt_string)
+
+        except Exception as e:
+            print(f"Error running task: {e}")
+            return self.render_to_response(self.get_context_data(progress={"state":"FAILURE", "id": "unknown"}))
+        print("After", datetime.now().time())
+
+        return self.render_to_response(self.get_context_data(progress=bgtask))
+
 
     def tsv_template_iterator(self, rowtmplt, headtmplt, res, qry, dt):
         yield headtmplt.render({"qry": qry, "dt": dt})
         for row in res:
             yield rowtmplt.render({"qry": qry, "row": row})
-
+    
+def get_progress(request, task_id):
+    result = AsyncResult(task_id)
+    response_data = {
+        'state': result.state,
+        'details': result.info,
+    }
+    return JsonResponse(response_data)
 
 def getAllBrowseData(
     format, basv, limit=None, offset=0, order_by=None, order_direction=None
