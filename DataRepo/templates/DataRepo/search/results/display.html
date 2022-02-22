@@ -72,7 +72,7 @@
                     <button class="btn btn-primary mb-2" id="reset" title="Reset Page Settings" onclick="restoreDefaults()"><i class="fa">Reset</i></button>
                 </div>
                 <div style="float: right;">
-                    <form action="/DataRepo/search_advanced_tsv/" id="advanced-search-download-form" method="POST">
+                    <form action="/DataRepo/search_advanced_tsv/" id="advanced-search-download-form" method="POST" target="_blank">
                         {% csrf_token %}
                         {{ download_form.qryjson }}
                         <button type="submit" class="btn btn-primary mb-2" id="advanced-download-submit" title="Export data"><i class="fa fa-download"></i></button>

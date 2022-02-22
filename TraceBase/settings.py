@@ -235,3 +235,25 @@ elif CACHES_SETTING != "PROD_CACHES":
 #        }
 #    },
 # }
+
+BROKER_URL = 'amqp://tracebase@localhost/tracebase'
+BROKER_HOST = "localhost"
+BROKER_PORT = 5672
+BROKER_USER = "tracebase"
+BROKER_PASSWORD = "tracebase"
+BROKER_VHOST = "tracebase"
+
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_RESULT_BACKEND = 'rpc://'
+# CELERY_RESULT_BACKEND = "amqp"
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_IMPORTS = ('DataRepo.tasks', )
+# CELERY_TASK_TRACK_STARTED = True
+# CELERY_TASK_TIME_LIMIT = 30 * 60
+# CELERY_IGNORE_RESULT = False
+# CELERY_TRACK_STARTED = True
+
+# CELERY_BROKER_URL = 'amqp'
+# CELERY_RESULT_BACKEND = 'rpc://localhost'
