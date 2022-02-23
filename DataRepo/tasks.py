@@ -1,61 +1,64 @@
 import time
-from django.http import JsonResponse, HttpResponse
+from django.http import HttpResponse
 from django.template import loader
 import DataRepo.views as views
 from DataRepo.compositeviews import BaseAdvancedSearchView
 
-# from celery import shared_task
-# from celery import Celery, shared_task
-
-# celery = Celery('tasks', broker='amqp://guest@localhost//')
 from TraceBase.celery import app
 
-@app.task
-def tsv_producer(response, iterator, headtmplt, rowtmplt, res, qry, dt, progress_observer):
-    total_work_to_do = res.count() + 1
-    i = 0
-    for yielded in iterator(rowtmplt, headtmplt, res, qry, dt):
-        i += 1
-        response.writelines(yielded)
-        print(f"Write yeild {i}")
-        progress_observer.set_progress(i, total_work_to_do)
-    # return response
-
+# Binding gives us access to the AsyncResult "self" object to issue status updates
 @app.task(bind=True)
-def tsv_producer2(self, response, iterator, headtmplt, rowtmplt, res, qry, dt):
-    total_work_to_do = res.count() + 1
-    i = 0
-    for yielded in iterator(rowtmplt, headtmplt, res, qry, dt):
-        i += 1
-        response.writelines(yielded)
-        tsv_producer2.update_state(state='COMPILING_DATA', meta={'current': i, 'total': total_work_to_do})
-        print(f"Write yeild {i}")
-    return JsonResponse({'current': total_work_to_do, 'total': total_work_to_do, 'output': response})
-    # return response
+def tsv_producer(self, filename, header_template, row_template, qry, dt):
+    # headtmplt, rowtmplt, basv, all methods, and response are all NOT json serializable.  All inputs into this "task"
+    # need to be json serializable in order for the task to be saved and monitored in celery/rabbitmq/asyncresult, so
+    # instead of passing those things in, they are created here using inputs that *are* json serializable.
 
-@app.task(bind=True)
-def tsv_producer3(self, filename, header_template, row_template, qry, dt):
+    # Templates
     headtmplt = loader.get_template(header_template)
     rowtmplt = loader.get_template(row_template)
+
+    # BaseAdvancedSearchView object
     basv = BaseAdvancedSearchView()
+
+    # Execute the query
     if views.isValidQryObjPopulated(qry):
         q_exp = views.constructAdvancedQuery(qry)
         res, tot = views.performQuery(q_exp, qry["selectedtemplate"], basv)
     else:
         res, tot = views.getAllBrowseData(qry["selectedtemplate"], basv)
+    
+    # Initialize a response object needed to build the download file
     response = HttpResponse(content='', content_type="application/text", status=200, reason=None, charset='utf-8')
     response["Content-Disposition"] = f"attachment; filename={filename}"
-    total_work_to_do = res.count() + 1
+
+    # Prepare the running status
+    total_work_to_do = tot + 1
     i = 1
+
+    # Keep the status updates to under 1000 to avoid exception: celery.backends.rpc.BacklogLimitExceeded
+    throttled_work_to_do = total_work_to_do
+    mag_shift = 1
+    while throttled_work_to_do > 1000:
+        mag_shift *= 10
+        throttled_work_to_do = int(total_work_to_do / mag_shift) + 1
+
+    # Build the download data
     response.writelines(headtmplt.render({"qry": qry, "dt": dt}))
-    tsv_producer3.update_state(state='COMPILING_DATA', meta={'current': i, 'total': total_work_to_do})
+    throttled_i = 0
+    tsv_producer.update_state(state='COMPILING_DATA', meta={'current': throttled_i, 'total': throttled_work_to_do})
     for row in res:
         i += 1
         response.writelines(rowtmplt.render({"qry": qry, "row": row}))
-        tsv_producer3.update_state(state='COMPILING_DATA', meta={'current': i, 'total': total_work_to_do})
-        print(f"Write yeild {i}")
-    return {'current': total_work_to_do, 'total': total_work_to_do}
+        throttled_i = int(i / mag_shift)
+        if i % mag_shift == 0:
+            tsv_producer.update_state(state='COMPILING_DATA', meta={'current': throttled_i, 'total': throttled_work_to_do})
 
+    tsv_producer.update_state(state='COMPILING_DATA', meta={'current': throttled_work_to_do, 'total': throttled_work_to_do})
+
+    # Return success
+    return {'current': throttled_work_to_do, 'total': throttled_work_to_do}
+
+# Sanity check (for debugging)
 @app.task(bind=True)
 def loop(self, l):
     "simulate a long-running task like export of data or generateing a report"
