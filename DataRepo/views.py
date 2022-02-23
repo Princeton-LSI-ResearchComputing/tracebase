@@ -1,7 +1,7 @@
 import json
 from datetime import datetime
 import traceback
-from DataRepo.tasks import tsv_producer
+import DataRepo.tasks as tasks
 from celery.result import AsyncResult
 from datetime import datetime
 from typing import List
@@ -749,7 +749,7 @@ class AdvancedSearchTSVView(FormView):
         print("Before", datetime.now().time())
 
         try:
-            bgtask = tsv_producer.delay(filename, self.header_template, self.row_template, qry, dt_string)
+            bgtask = tasks.tsv_producer.delay(filename, self.header_template, self.row_template, qry, dt_string)
         except Exception as e:
             print(f"Error running task: {e}")
             return self.render_to_response(self.get_context_data(progress={"state":"FAILURE", "id": "unknown"}))

@@ -65,6 +65,59 @@ Create a tracebase postgres user:
     > ALTER USER tracebase CREATEDB;
     > grant all privileges on database tracebase to tracebase;
 
+### RabbitMQ
+
+RabbitMQ is a message broker.  It us used by the python dependency "celery" to
+enable asynchronous download processes that update a progress bar when a user
+clicks to download the results of an advanced search.
+
+#### Install RabbitMQ
+
+Install RabbitMQ via package installer from
+[https://www.rabbitmq.com](https://www.rabbitmq.com/download.html).  For
+example, on macOS, install via homebrew with:
+
+    brew install rabbitmq
+
+Be sure to make note of where it installs the `psql` command-line utility, so
+you can add it to your PATH, e.g. if you see:
+
+    Or, if you don't want/need a background service you can just run:
+      /usr/local/opt/rabbitmq/sbin/rabbitmq-server
+
+Then, add this to your PATH:
+
+    /usr/local/opt/rabbitmq/sbin
+
+#### Start the RabbitMQ message broker server
+
+There are 2 options to run the server: run it once or run it all the time as a
+service.
+
+##### Run once
+
+    rabbitmq-server
+
+##### Run as a service
+
+For example, if you installed using homebrew, run:
+
+    brew services start rabbitmq
+
+#### Configuration:
+
+Once the rabbitmq server is running, run the following command to create a
+tracebase user with password "tracebase":
+
+    rabbitmqctl add_user tracebase tracebase
+
+Anytime you start the rabbitmq server, you will need to run these
+confirguration commands:
+
+    rabbitmqctl add_vhost tracebase
+    rabbitmqctl set_user_tags tracebase tracebase
+    rabbitmqctl set_permissions -p tracebase tracebase ".*" ".*" ".*"
+
 ### Setup the TraceBase project
 
 #### Clone the repository
@@ -88,12 +141,84 @@ dependencies.
 
 #### Verify Installations
 
-Django:
+##### Django:
 
     python
     > import django
     > print(django.get_version())
     3.2.4
+
+##### RabbitMQ & Celery (after running the RabbitMQ server, as described above):
+
+###### Run the Celery daemon
+
+Start the daemon:
+
+    celery -A TraceBase worker -l info
+
+The output should contain the following:
+
+    -------------- celery@gen-rl-imac v5.2.3 (dawn-chorus)
+    --- ***** ----- 
+    -- ******* ---- macOS-10.16-x86_64-i386-64bit 2022-02-23 10:01:02
+    - *** --- * --- 
+    - ** ---------- [config]
+    - ** ---------- .> app:        TraceBase:0x7fcfc2fd23d0
+    - ** ---------- .> transport:  amqp://tracebase:**@localhost:5672/tracebase
+    - ** ---------- .> results:    rpc://
+    - *** --- * --- .> concurrency:4 (prefork)
+    -- ******* ---- .> task events:OFF (enable -E to monitor tasks in this
+    --- ***** -----                                                     worker)
+    -------------- [queues]
+                    .> celery           exchange=celery(direct) key=celery
+                    
+
+    [tasks]
+    . DataRepo.tasks.loop
+    . DataRepo.tasks.tsv_producer
+    . TraceBase.celery.debug_task
+
+    [2022-02-23 10:01:02,850: INFO/MainProcess] Connected to
+    amqp://tracebase:**@127.0.0.1:5672/tracebase
+
+Things to note:
+
+- "app:" contains "TraceBase"
+- "transport:" contains "amqp://tracebase:**@localhost:5672/tracebase"
+- "results:" contains "rpc://"
+- Connection to RabbitMQ is successful, indicated by the message: "Connected to
+  amqp://tracebase:**@127.0.0.1:5672/tracebase"
+
+###### Verify celery correctly processes messages
+
+Run the Django shell:
+
+    python manage.py shell
+
+In the Django shell:
+
+    Start a task:
+
+        In [1]: from DataRepo.tasks import loop
+        ...: task = loop.delay(30)
+        ...: task.id
+        Out[1]: 'fc6387f0-a82c-4e2b-8e1d-a563368453f7'
+
+    Then verify (before and after 30 secondsis up), you get these outputs from
+    the following commands:
+
+        In [2]: task.state
+        Out[2]: 'PROGRESS'
+
+        In [3]: task.state
+        Out[3]: 'SUCCESS'
+
+In the terminal window running the celery daemon, you will see a message every
+second that looks like the following:
+
+    [2022-02-23 10:13:21,117: WARNING/ForkPoolWorker-2] 0
+    [2022-02-23 10:13:22,130: WARNING/ForkPoolWorker-2] 1
+    [2022-02-23 10:13:23,132: WARNING/ForkPoolWorker-2] 2
 
 ### Configure TraceBase
 
