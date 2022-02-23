@@ -53,10 +53,10 @@ def tsv_producer(self, filename, header_template, row_template, qry, dt):
         if i % mag_shift == 0:
             tsv_producer.update_state(state='COMPILING_DATA', meta={'current': throttled_i, 'total': throttled_work_to_do})
 
-    tsv_producer.update_state(state='COMPILING_DATA', meta={'current': throttled_work_to_do, 'total': throttled_work_to_do})
+    tsv_producer.update_state(state='SUCCESS', meta={'current': throttled_work_to_do, 'total': throttled_work_to_do})
 
     # Return success
-    return {'current': throttled_work_to_do, 'total': throttled_work_to_do}
+    return response
 
 # Sanity check (for debugging)
 @app.task(bind=True)
