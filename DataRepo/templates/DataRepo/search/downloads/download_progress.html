@@ -7,15 +7,31 @@
 
             document.addEventListener("DOMContentLoaded", function(){
                 progressElem = document.getElementById('download_progress')
-                updateProgress(progressUrl);
+                updateProgress(progressUrl, 0);
             })
 
-            function updateProgress (progressUrl) {
+            function updateProgress (progressUrl, cnt) {
                 fetch(progressUrl).then(function(response) {
                     response.json().then(function(data) {
+                        console.log(data)
                         // update the appropriate UI components
-                        setProgress(data.state);
-                        // setTimeout(updateProgress, 500, progressUrl);
+                        var details = data["details"]
+                        cnt += 1
+                        if (data.state === "PENDING" || typeof details === "undefined" || !details) {
+                            if (cnt < 10) {
+                                setProgress("Starting... " + cnt);
+                                setTimeout(updateProgress, 500, progressUrl, cnt);
+                            } else {
+                                setProgress("Download attempt failed.");
+                            }
+                        } else {
+                            if (data.state === "COMPILING_DATA" && details.current < details.total) {
+                                setProgress("Compiling data. Progress: " + details.current + "/" + details.total);
+                                setTimeout(updateProgress, 500, progressUrl, cnt);
+                            } else {
+                                setProgress("Success. " + details.current + "/" + details.total + ".  Downloading...");
+                            }
+                        }
                     });
                 });
             }
@@ -26,8 +42,8 @@
     </head>
 
     <body>
-        This is a test 
-        <div id="download_progress">0</div>
-        <a href='{% url "task_status" progress.id %}'>test</a>
+        Downloading all Advanced Search Results
+        <div id="download_progress">Initializing...</div>
+        <a href='{% url "task_status" progress.id %}'>Debug Check Status</a>
     </body>
 </html>
