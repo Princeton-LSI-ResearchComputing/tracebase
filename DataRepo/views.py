@@ -766,6 +766,10 @@ def get_progress(request, task_id):
     }
     return JsonResponse(response_data)
 
+def get_output(request, task_id):
+    response = AsyncResult(task_id)
+    return response.get(timeout=600)
+
 def getAllBrowseData(
     format, basv, limit=None, offset=0, order_by=None, order_direction=None
 ):
