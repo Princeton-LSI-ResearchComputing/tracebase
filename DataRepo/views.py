@@ -6,8 +6,14 @@ from typing import List
 from celery.result import AsyncResult
 from django.conf import settings
 from django.core.management import call_command
-from django.http import Http404, HttpResponse, JsonResponse
+from django.http import (
+    Http404,
+    HttpResponse,
+    JsonResponse,
+    StreamingHttpResponse,
+)
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template import loader
 from django.urls import reverse
 from django.views.generic import DetailView, ListView
 from django.views.generic.edit import FormView
@@ -716,6 +722,9 @@ class AdvancedSearchTSVView(FormView):
     success_url = ""
     basv_metadata = BaseAdvancedSearchView()
 
+    # Advanced search download form for fallback downloads if rabbitmq was not started
+    download_form = AdvSearchDownloadForm()
+
     def form_invalid(self, form):
         saved_form = form.saved_data
         qry = {}
@@ -760,10 +769,80 @@ class AdvancedSearchTSVView(FormView):
 
         print(f"Starting task: {bgtask}")
 
+        download_form = AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
+
         # Return an http response for the download progress page, supplying it the task ID
         return self.render_to_response(
-            self.get_context_data(progress=bgtask, debug=settings.DEBUG)
+            self.get_context_data(
+                progress=bgtask,
+                debug=settings.DEBUG,
+                fallback_download_form=download_form,
+            )
         )
+
+
+# Basis: https://stackoverflow.com/questions/29672477/django-export-current-queryset-to-csv-by-button-click-in-browser
+class AdvancedSearchTSVFallbackView(AdvancedSearchTSVView):
+    """
+    This is a fallback download view for the advanced search page in case the RabbitMQ server isn't running.
+    """
+
+    content_type = "application/text"
+
+    def form_invalid(self, form):
+        saved_form = form.saved_data
+        qry = {}
+        if "qryjson" in saved_form:
+            # Discovered this can cause a KeyError during testing, so...
+            qry = json.loads(saved_form["qryjson"])
+        else:
+            print("ERROR: qryjson hidden input not in saved form.")
+        now = datetime.now()
+        dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
+        res = {}
+        return self.render_to_response(
+            self.get_context_data(res=res, qry=qry, dt=dt_string, debug=settings.DEBUG)
+        )
+
+    def form_valid(self, form):
+        cform = form.cleaned_data
+        try:
+            qry = json.loads(cform["qryjson"])
+            # Apparently this causes a TypeError exception in test_views. Could not figure out why, so...
+        except TypeError:
+            qry = cform["qryjson"]
+        if not isQryObjValid(qry, self.basv_metadata.getFormatNames().keys()):
+            print("ERROR: Invalid qry object: ", qry)
+            raise Http404("Invalid json")
+
+        now = datetime.now()
+        dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
+        filename = (
+            qry["searches"][qry["selectedtemplate"]]["name"]
+            + "_"
+            + now.strftime("%d.%m.%Y.%H.%M.%S")
+            + ".tsv"
+        )
+
+        if isValidQryObjPopulated(qry):
+            q_exp = constructAdvancedQuery(qry)
+            res, tot = performQuery(q_exp, qry["selectedtemplate"], self.basv_metadata)
+        else:
+            res, tot = getAllBrowseData(qry["selectedtemplate"], self.basv_metadata)
+
+        headtmplt = loader.get_template(self.header_template)
+        rowtmplt = loader.get_template(self.row_template)
+
+        return StreamingHttpResponse(
+            self.tsv_template_iterator(rowtmplt, headtmplt, res, qry, dt_string),
+            content_type=self.content_type,
+            headers={"Content-Disposition": f"attachment; filename={filename}"},
+        )
+
+    def tsv_template_iterator(self, rowtmplt, headtmplt, res, qry, dt):
+        yield headtmplt.render({"qry": qry, "dt": dt})
+        for row in res:
+            yield rowtmplt.render({"qry": qry, "row": row})
 
 
 def get_advsrch_download_progress(request, task_id):

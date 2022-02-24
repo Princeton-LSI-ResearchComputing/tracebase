@@ -22,6 +22,11 @@ urlpatterns = [
         views.AdvancedSearchTSVView.as_view(),
         name="search_advanced_tsv",
     ),
+    path(
+        "search_advanced_tsv_fallback/",
+        views.AdvancedSearchTSVFallbackView.as_view(),
+        name="search_advanced_fallback_tsv",
+    ),
     path("compounds/", views.CompoundListView.as_view(), name="compound_list"),
     path(
         "compounds/<int:pk>/",
