@@ -1,8 +1,13 @@
 import time
 from django.template import loader
-import DataRepo.views as views
+
+from DataRepo.advanced_search_utils import (
+    isValidQryObjPopulated,
+    constructAdvancedQuery,
+    performQuery,
+    getAllBrowseData,
+)
 from DataRepo.compositeviews import BaseAdvancedSearchView
-from django.core.serializers import serialize
 
 from TraceBase.celery import app
 
@@ -21,15 +26,13 @@ def tsv_producer(self, filename, header_template, row_template, qry, dt):
     basv = BaseAdvancedSearchView()
 
     # Execute the query
-    if views.isValidQryObjPopulated(qry):
-        q_exp = views.constructAdvancedQuery(qry)
-        res, tot = views.performQuery(q_exp, qry["selectedtemplate"], basv)
+    if isValidQryObjPopulated(qry):
+        q_exp = constructAdvancedQuery(qry)
+        res, tot = performQuery(q_exp, qry["selectedtemplate"], basv)
     else:
-        res, tot = views.getAllBrowseData(qry["selectedtemplate"], basv)
-    
-    # Initialize a response object needed to build the download file
-    # response = HttpResponse(content='', content_type="application/text", status=200, reason=None, charset='utf-8')
-    # response["Content-Disposition"] = f"attachment; filename={filename}"
+        res, tot = getAllBrowseData(qry["selectedtemplate"], basv)
+
+    print(f"Total results: {tot}")
 
     # Prepare the running status
     total_work_to_do = tot + 1
@@ -55,8 +58,9 @@ def tsv_producer(self, filename, header_template, row_template, qry, dt):
 
     tsv_producer.update_state(state='SUCCESS', meta={'current': throttled_work_to_do, 'total': throttled_work_to_do})
 
-    print("Returning response ", output)
-    data = {"output": output, "filename": filename}
+    print("Returning download data", output)
+    data = {'current': throttled_work_to_do, 'total': throttled_work_to_do, "output": output, "filename": filename}
+
     # Return success
     return data
 

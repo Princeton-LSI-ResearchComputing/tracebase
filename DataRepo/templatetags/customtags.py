@@ -4,7 +4,7 @@ from django.urls import reverse
 from django.utils import dateparse
 from django.utils.html import format_html_join
 
-from DataRepo.views import getDownloadQryList
+from DataRepo.advanced_search_utils import getDownloadQryList
 
 register = template.Library()
 
