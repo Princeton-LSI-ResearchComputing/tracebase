@@ -200,8 +200,8 @@ In the Django shell:
     Start a task:
 
         In [1]: from DataRepo.tasks import loop
-        ...: task = loop.delay(30)
-        ...: task.id
+           ...: task = loop.delay(30)
+           ...: task.id
         Out[1]: 'fc6387f0-a82c-4e2b-8e1d-a563368453f7'
 
     Then verify (before and after 30 secondsis up), you get these outputs from
