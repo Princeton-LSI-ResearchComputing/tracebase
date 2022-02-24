@@ -756,6 +756,8 @@ class AdvancedSearchTSVView(FormView):
             print(f"Error running task: {e}")
             return self.render_to_response(self.get_context_data(progress={"state":"FAILURE", "id": "unknown"}))
 
+        print(f"Starting task: {bgtask}")
+
         # Return an http response for the download progress page, supplying it the task ID
         return self.render_to_response(self.get_context_data(progress=bgtask))
 
