@@ -1,12 +1,9 @@
 import json
-from datetime import datetime
 import traceback
-import DataRepo.tasks as tasks
-from celery.result import AsyncResult
 from datetime import datetime
 from typing import List
 
-from django.apps import apps
+from celery.result import AsyncResult
 from django.conf import settings
 from django.core.management import call_command
 from django.http import Http404, HttpResponse, JsonResponse
@@ -15,14 +12,15 @@ from django.urls import reverse
 from django.views.generic import DetailView, ListView
 from django.views.generic.edit import FormView
 
+import DataRepo.tasks as tasks
 from DataRepo.advanced_search_utils import (
-    getAllBrowseData,
-    performQuery,
-    isQryObjValid,
-    isValidQryObjPopulated,
     constructAdvancedQuery,
     createNewBasicQuery,
     formsetsToDict,
+    getAllBrowseData,
+    isQryObjValid,
+    isValidQryObjPopulated,
+    performQuery,
 )
 from DataRepo.compositeviews import BaseAdvancedSearchView
 from DataRepo.forms import (
@@ -751,15 +749,22 @@ class AdvancedSearchTSVView(FormView):
 
         # Initiate a background task to compile the download data
         try:
-            bgtask = tasks.tsv_producer.delay(filename, self.header_template, self.row_template, qry, dt_string)
+            bgtask = tasks.tsv_producer.delay(
+                filename, self.header_template, self.row_template, qry, dt_string
+            )
         except Exception as e:
             print(f"Error running task: {e}")
-            return self.render_to_response(self.get_context_data(progress={"state":"FAILURE", "id": "unknown"}))
+            return self.render_to_response(
+                self.get_context_data(progress={"state": "FAILURE", "id": "unknown"})
+            )
 
         print(f"Starting task: {bgtask}")
 
         # Return an http response for the download progress page, supplying it the task ID
-        return self.render_to_response(self.get_context_data(progress=bgtask))
+        return self.render_to_response(
+            self.get_context_data(progress=bgtask, debug=settings.DEBUG)
+        )
+
 
 def get_advsrch_download_progress(request, task_id):
     """
@@ -769,17 +774,17 @@ def get_advsrch_download_progress(request, task_id):
     # Grab the task data using the supplied task ID
     result = AsyncResult(task_id)
 
-    print("Async RESULT: ", result)
+    # Wait until the result is ready
+    result.ready()
 
     # Report the task's state
     response_data = {
-        'state': result.state,
-        'details': result.info,
+        "state": result.state,
+        "details": result.info,
     }
 
-    print(f"Task ID: {task_id}", response_data)
-
     return JsonResponse(response_data)
+
 
 def get_advsrch_download_output(request, task_id):
     """
@@ -797,11 +802,18 @@ def get_advsrch_download_output(request, task_id):
     output = data["output"]
 
     # Create an http response containing the data
-    response = HttpResponse(content='', content_type="application/text", status=200, reason=None, charset='utf-8')
+    response = HttpResponse(
+        content="",
+        content_type="application/text",
+        status=200,
+        reason=None,
+        charset="utf-8",
+    )
     response["Content-Disposition"] = f"attachment; filename={filename}"
     response.writelines(output)
 
     return response
+
 
 class ProtocolListView(ListView):
     """Generic class-based view for a list of protocols"""

@@ -104,7 +104,7 @@ For example, if you installed using homebrew, run:
 
     brew services start rabbitmq
 
-#### Configuration:
+#### Configuration
 
 Once the rabbitmq server is running, run the following command to create a
 tracebase user with password "tracebase":
@@ -141,14 +141,14 @@ dependencies.
 
 #### Verify Installations
 
-##### Django:
+##### Django
 
     python
     > import django
     > print(django.get_version())
     3.2.4
 
-##### RabbitMQ & Celery (after running the RabbitMQ server, as described above):
+##### RabbitMQ & Celery (after running the RabbitMQ server, as described above)
 
 ###### Run the Celery daemon
 
@@ -159,9 +159,9 @@ Start the daemon:
 The output should contain the following:
 
     -------------- celery@gen-rl-imac v5.2.3 (dawn-chorus)
-    --- ***** ----- 
+    --- ***** -----
     -- ******* ---- macOS-10.16-x86_64-i386-64bit 2022-02-23 10:01:02
-    - *** --- * --- 
+    - *** --- * ---
     - ** ---------- [config]
     - ** ---------- .> app:        TraceBase:0x7fcfc2fd23d0
     - ** ---------- .> transport:  amqp://tracebase:**@localhost:5672/tracebase
@@ -171,7 +171,7 @@ The output should contain the following:
     --- ***** -----                                                     worker)
     -------------- [queues]
                     .> celery           exchange=celery(direct) key=celery
-                    
+
 
     [tasks]
     . DataRepo.tasks.loop

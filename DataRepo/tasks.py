@@ -1,15 +1,16 @@
 import time
+
 from django.template import loader
 
 from DataRepo.advanced_search_utils import (
-    isValidQryObjPopulated,
     constructAdvancedQuery,
-    performQuery,
     getAllBrowseData,
+    isValidQryObjPopulated,
+    performQuery,
 )
 from DataRepo.compositeviews import BaseAdvancedSearchView
-
 from TraceBase.celery import app
+
 
 # Binding gives us access to the AsyncResult "self" object to issue status updates
 @app.task(bind=True)
@@ -32,8 +33,6 @@ def tsv_producer(self, filename, header_template, row_template, qry, dt):
     else:
         res, tot = getAllBrowseData(qry["selectedtemplate"], basv)
 
-    print(f"Total results: {tot}")
-
     # Prepare the running status
     total_work_to_do = tot + 1
     i = 1
@@ -48,30 +47,46 @@ def tsv_producer(self, filename, header_template, row_template, qry, dt):
     # Build the download data
     output = headtmplt.render({"qry": qry, "dt": dt})
     throttled_i = 0
-    tsv_producer.update_state(state='COMPILING_DATA', meta={'current': throttled_i, 'total': throttled_work_to_do})
+    tsv_producer.update_state(
+        state="COMPILING_DATA",
+        meta={"current": throttled_i, "total": throttled_work_to_do},
+    )
     for row in res:
         i += 1
         output += rowtmplt.render({"qry": qry, "row": row})
         throttled_i = int(i / mag_shift)
         if i % mag_shift == 0:
-            tsv_producer.update_state(state='COMPILING_DATA', meta={'current': throttled_i, 'total': throttled_work_to_do})
+            tsv_producer.update_state(
+                state="COMPILING_DATA",
+                meta={"current": throttled_i, "total": throttled_work_to_do},
+            )
 
-    tsv_producer.update_state(state='SUCCESS', meta={'current': throttled_work_to_do, 'total': throttled_work_to_do})
+    tsv_producer.update_state(
+        state="SUCCESS",
+        meta={"current": throttled_work_to_do, "total": throttled_work_to_do},
+    )
 
-    print("Returning download data", output)
-    data = {'current': throttled_work_to_do, 'total': throttled_work_to_do, "output": output, "filename": filename}
+    data = {
+        "current": throttled_work_to_do,
+        "total": throttled_work_to_do,
+        "output": output,
+        "filename": filename,
+    }
 
     # Return success
     return data
 
+
 # Sanity check (for debugging)
 @app.task(bind=True)
-def loop(self, l):
+def loop(self, num):
     "simulate a long-running task like export of data or generateing a report"
-    for i in range(int(l)):
+    for i in range(int(num)):
         print(i)
         time.sleep(1)
-        loop.update_state(state='PROGRESS',
-                          meta={'current': i, 'total': l})
-    print('Task completed')
-    return {'current': 100, 'total': 100, }
+        loop.update_state(state="PROGRESS", meta={"current": i, "total": num})
+    print("Loop completed")
+    return {
+        "current": 100,
+        "total": 100,
+    }

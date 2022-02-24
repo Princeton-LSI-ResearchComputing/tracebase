@@ -1,6 +1,9 @@
 <!doctype html>
 <html lang="en-US">
     <head>
+        <title>Advanced Search Download</title>
+    </head>
+    <body>
         <script>
             var progressUrl = '{% url "task_status" progress.id %}';
             var downloadUrl = '{% url "task_output" progress.id %}';
@@ -42,12 +45,15 @@
                 progressElem.innerHTML = state
             }
         </script>
-    </head>
 
-    <body>
-        Downloading all Advanced Search Results
+        <h5>Downloading all Advanced Search Results</h5>
         <div id="download_progress">Initializing...</div>
-        <a href='{% url "task_status" progress.id %}'>Debug Check Status</a>
-        <a href='{% url "task_output" progress.id %}'>Debug Download</a>
+        {% if debug %}
+            <blockquote>
+                Debug Controls:<br>
+                <a href="{% url 'task_status' progress.id %}">Debug Check Status</a><br>
+                <a href="{% url 'task_output' progress.id %}">Debug Download</a>
+            </blockquote>
+        {% endif %}
     </body>
 </html>
