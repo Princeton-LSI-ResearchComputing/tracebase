@@ -769,6 +769,8 @@ def get_advsrch_download_progress(request, task_id):
     # Grab the task data using the supplied task ID
     result = AsyncResult(task_id)
 
+    print("Async RESULT: ", result)
+
     # Report the task's state
     response_data = {
         'state': result.state,
@@ -785,6 +787,9 @@ def get_advsrch_download_output(request, task_id):
     """
     # Grab the task data using the supplied task ID
     result = AsyncResult(task_id)
+
+    # Wait until the result is ready
+    result.ready()
 
     # Retrieve the actual output from the result of the asynch task
     data = result.get(timeout=600)
