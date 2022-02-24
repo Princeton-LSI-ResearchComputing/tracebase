@@ -575,18 +575,10 @@ class ViewTests(TracebaseTestCase):
         """
         Download a simple advanced search and make sure the results are correct
         """
-        qs = PeakGroup.objects.filter(
-            msrun__sample__tissue__name__iexact="Brain"
-        ).prefetch_related("msrun__sample__animal__studies")
-        expected_newline_count = qs.count() + 6
-        # This query returns 2 rows and the tsv has 23 tabs. We add 23 more for the header
-        expected_tab_count = qs.count() * 23 + 23
         [filledform, qry, dlform] = self.get_advanced_search_inputs()
         response = self.client.post("/DataRepo/search_advanced_tsv/", dlform)
 
         # Response content settings
-        self.assertTemplateUsed(response, "DataRepo/search/downloads/download.tsv")
-        self.assertTemplateUsed(response, "DataRepo/search/downloads/peakgroups.tsv")
         self.assertEqual(response.get("Content-Type"), "application/text")
         self.assertEqual(response.status_code, 200)
         # Cannot use assertContains here for non-http response - it will complain about a missing status_code
@@ -594,20 +586,6 @@ class ViewTests(TracebaseTestCase):
         self.assertTrue("attachment" in contentdisp)
         self.assertTrue("PeakGroups" in contentdisp)
         self.assertTrue(".tsv" in contentdisp)
-        # Line count
-        self.assertContains(response, "\n", count=expected_newline_count)
-        self.assertContains(response, "\t", count=expected_tab_count)
-        # Header tests
-        # The header includes the download time
-        self.assertContains(response, "# Download Time: ", count=1)
-        # The header includes the advanced search qry
-        self.assertContains(response, "# Advanced Search Query: {", count=1)
-        # The qry in the header contains the search term and is in json format
-        self.assertContains(response, "'val': 'Brain'", count=1)
-        # Header row starts with the sample column
-        self.assertContains(response, "Sample\t", count=1)
-        # qry sent to the downloaded file header is correct
-        self.assertEqual(response.context["qry"], qry)
 
     def test_getAllBrowseData(self):
         """

@@ -21,3 +21,7 @@ trim_trailing_whitespace = false
 [*.css]
 indent_style = space
 indent_size = 2
+
+[download_{header,row}.tsv]
+# These templates need no final newline to avoid empty lines in the output
+insert_final_newline = false
