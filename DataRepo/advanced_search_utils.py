@@ -1,6 +1,8 @@
 import json
+
 from django.db.models import Q
 from django.http import Http404
+
 from DataRepo.compositeviews import BaseAdvancedSearchView
 
 
@@ -517,5 +519,3 @@ def getDownloadQryList():
             {"name": name, "json": json.dumps(basv_metadata.getRootGroup(format))}
         )
     return qry_list
-
-
