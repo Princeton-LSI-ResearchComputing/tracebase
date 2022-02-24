@@ -1,8 +1,8 @@
 import time
-from django.http import HttpResponse
 from django.template import loader
 import DataRepo.views as views
 from DataRepo.compositeviews import BaseAdvancedSearchView
+from django.core.serializers import serialize
 
 from TraceBase.celery import app
 
@@ -28,8 +28,8 @@ def tsv_producer(self, filename, header_template, row_template, qry, dt):
         res, tot = views.getAllBrowseData(qry["selectedtemplate"], basv)
     
     # Initialize a response object needed to build the download file
-    response = HttpResponse(content='', content_type="application/text", status=200, reason=None, charset='utf-8')
-    response["Content-Disposition"] = f"attachment; filename={filename}"
+    # response = HttpResponse(content='', content_type="application/text", status=200, reason=None, charset='utf-8')
+    # response["Content-Disposition"] = f"attachment; filename={filename}"
 
     # Prepare the running status
     total_work_to_do = tot + 1
@@ -43,20 +43,22 @@ def tsv_producer(self, filename, header_template, row_template, qry, dt):
         throttled_work_to_do = int(total_work_to_do / mag_shift) + 1
 
     # Build the download data
-    response.writelines(headtmplt.render({"qry": qry, "dt": dt}))
+    output = headtmplt.render({"qry": qry, "dt": dt})
     throttled_i = 0
     tsv_producer.update_state(state='COMPILING_DATA', meta={'current': throttled_i, 'total': throttled_work_to_do})
     for row in res:
         i += 1
-        response.writelines(rowtmplt.render({"qry": qry, "row": row}))
+        output += rowtmplt.render({"qry": qry, "row": row})
         throttled_i = int(i / mag_shift)
         if i % mag_shift == 0:
             tsv_producer.update_state(state='COMPILING_DATA', meta={'current': throttled_i, 'total': throttled_work_to_do})
 
     tsv_producer.update_state(state='SUCCESS', meta={'current': throttled_work_to_do, 'total': throttled_work_to_do})
 
+    print("Returning response ", output)
+    data = {"output": output, "filename": filename}
     # Return success
-    return response
+    return data
 
 # Sanity check (for debugging)
 @app.task(bind=True)
