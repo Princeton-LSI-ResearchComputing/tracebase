@@ -12,10 +12,10 @@ from django.core.management import call_command
 from django.db.models import Q, Prefetch
 from django.http import Http404, StreamingHttpResponse, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.template import loader
 from django.urls import reverse
 from django.views.generic import DetailView, ListView
 from django.views.generic.edit import FormView
+from django.core.serializers import deserialize
 
 from DataRepo.compositeviews import BaseAdvancedSearchView
 from DataRepo.forms import (
@@ -767,8 +767,23 @@ def get_progress(request, task_id):
     return JsonResponse(response_data)
 
 def get_output(request, task_id):
-    response = AsyncResult(task_id)
-    return response.get(timeout=600)
+    print(f"TASK: {task_id}")
+    
+    result = AsyncResult(task_id)
+    
+    data = result.get(timeout=600)
+    print(data)
+    filename = data["filename"]
+    output = data["output"]
+    
+    print(filename)
+    print(output)
+
+    response = HttpResponse(content='', content_type="application/text", status=200, reason=None, charset='utf-8')
+    response["Content-Disposition"] = f"attachment; filename={filename}"
+    response.writelines(output)
+
+    return response
 
 def getAllBrowseData(
     format, basv, limit=None, offset=0, order_by=None, order_direction=None
