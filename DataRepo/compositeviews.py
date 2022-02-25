@@ -160,7 +160,18 @@ class BaseSearchView:
         Returns a list of prefetch strings for a composite view from the root table to the supplied table.  It includes
         a unique set of "foreign key paths" that encompass all tables.
         """
-        return self.prefetches
+        desc_len_sorted_paths = sorted(map(lambda name: self.model_instances[name]["path"], self.getModelInstances()), key=len, reverse=True)
+        unique_paths = []
+        for path in desc_len_sorted_paths:
+            contained = False
+            if path != "":
+                for upath in unique_paths:
+                    if path in upath:
+                        contained = True
+                        break
+            if not contained:
+                unique_paths.append(path)
+        return unique_paths
 
     def getModelInstances(self):
         """
