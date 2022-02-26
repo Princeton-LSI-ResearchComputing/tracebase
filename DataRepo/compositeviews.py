@@ -1,6 +1,7 @@
 from copy import deepcopy
 from typing import Dict, List
 
+from django.conf import settings
 from django.db.models import Model
 
 from DataRepo.models import (
@@ -173,6 +174,72 @@ class BaseSearchView:
             if not contained:
                 unique_paths.append(path)
         return unique_paths
+
+    def getTrueJoinPrefetchPathsAndQrys(self, qry):
+        # Sort the paths so that multiple subquery prefetches on the same path are encountered hierarchically.
+        # This is based on the assumption that prefetch filters work serially and are applied iteratively.  So if a
+        # compound is filtered and then compound synonyms are filtered, the synonyms operate on the already filtered
+        # compounds.  This migth be a false assumption.
+        fld_paths = sorted(extractFldPaths(qry), key=len)
+
+        # Identify the fld paths that need a subquery in its prefetch and collect those paths associated with their
+        # rerooted qry objects
+        subquery_paths = []
+        for srch_path_str in fld_paths:
+            srch_model_inst_name = self.pathToModelInstanceName(srch_path_str)
+            if (
+                self.model_instances[srch_model_inst_name]["manytomany"]["is"]
+                and self.model_instances[srch_model_inst_name]["manytomany"]["fulljoin"]
+            ):
+                new_qry = deepcopy(qry)
+                self.reRootQry(new_qry, srch_model_inst_name)
+                subquery_paths.append([srch_path_str, new_qry, self.model_instances[srch_model_inst_name]["model"]])
+
+        # If there are no subqueries necessary, just return all the prefetches
+        if len(subquery_paths) == 0:
+            return self.getPrefetches()
+
+        prefetches = self.getPrefetches()
+
+        # Create a dict to hold the more complex prefetch data so we know if we need queries on multiple nodes of a
+        # path
+        prefetch_dict = {}
+        # Pre-populate the prefetch_dict with the subquery
+        for subquery_path in subquery_paths:
+            sq_path = subquery_path[0]
+            sq_qry = subquery_path[1]
+            sq_mdl = subquery_path[2]
+            matched = False
+            for pf_str in prefetches:
+                if sq_path in pf_str:
+                    if matched:
+                        continue
+                    if pf_str not in prefetch_dict.keys():
+                        prefetch_dict[pf_str] = {}
+                    prefetch_dict[pf_str][sq_path] = [sq_path, sq_qry, sq_mdl]
+                    matched = True
+
+        # Build the final prefetches, which is a list of items that can be either normal prefetch paths, or (possibly
+        # multiple per prefetch path) sublist(s) containing a component of a prefetch path (ending in a model that has
+        # a M:M relationship with the root model) together with a re-rooted qry object intended to filter the prefetch
+        # records.  This only changes the output if a search term in a M:M related model excludes related records that
+        # are linked to the root model.
+        final_prefetches = []
+        for pf_str in prefetches:
+            if pf_str in prefetch_dict:
+                full = False
+                subqueries = prefetch_dict[pf_str]
+                for path_str in subqueries.keys():
+                    final_prefetches.append(subqueries[path_str])
+                    if path_str == pf_str:
+                        # Append the path and the re-rooted qry object
+                        full = True
+                if not full:
+                    final_prefetches.append(pf_str)
+            else:
+                final_prefetches.append(pf_str)
+
+        return final_prefetches
 
     def getModelInstances(self):
         """
@@ -1480,6 +1547,16 @@ class BaseAdvancedSearchView:
         """
         return self.modeldata[format].getPrefetches()
 
+    def getTrueJoinPrefetchPathsAndQrys(self, qry, format=None):
+        """
+        Calls getTrueJoinPrefetchPathsAndQrys of the supplied ID of the search output format class.
+        """
+        if format is not None and format != qry["selectedtemplate"]:
+            raise Exception(
+                f"Supplied format: [{format}] does not match the qry selected format: [{qry['selectedtemplate']}]"
+            )
+        return self.modeldata[format].getTrueJoinPrefetchPathsAndQrys(qry)
+
     def getSearchFieldChoices(self, format):
         """
         Calls getSearchFieldChoices of the supplied ID of the search output format class.
@@ -1625,6 +1702,38 @@ def splitCommon(fld_path, reroot_path):
         else:
             remaining_path_list.append(fld_path_list[i])
     return "__".join(command_path_list), "__".join(remaining_path_list)
+
+
+def extractFldPaths(qry):
+    print(f"qry supplied to extractFldPaths: [{qry}]")
+    unique_fld_paths = []
+    fld_paths = extractFldPathsHelper(qry["searches"][qry["selectedtemplate"]]["tree"])
+
+    for fld_path in fld_paths:
+        if fld_path not in unique_fld_paths:
+            unique_fld_paths.append(fld_path)
+
+    return unique_fld_paths
+
+
+def extractFldPathsHelper(subtree):
+    """
+    Recursive helper to extractFldPaths
+    """
+    fld_paths = []
+    if subtree["type"] == "group":
+        for child in subtree["queryGroup"]:
+            tmp_fld_paths = extractFldPathsHelper(child)
+            for fld_path in tmp_fld_paths:
+                fld_paths.append(fld_path)
+    elif subtree["type"] == "query":
+        fld_path_name = subtree["fld"]
+        fld_path, fld_name = splitPathName(fld_path_name)
+        return [fld_path]
+    else:
+        raise Exception(f"Qry type: [{subtree['type']}] must be either 'group' or 'query'.")
+
+    return fld_paths
 
 
 class UnknownComparison(Exception):

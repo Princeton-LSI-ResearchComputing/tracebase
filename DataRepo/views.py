@@ -3,9 +3,10 @@ import traceback
 from datetime import datetime
 from typing import List
 
+from django.apps import apps
 from django.conf import settings
 from django.core.management import call_command
-from django.db.models import Q
+from django.db.models import Q, Prefetch
 from django.http import Http404, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template import loader
@@ -845,7 +846,7 @@ def searchFieldToDisplayField(basv_metadata, mdl, fld, val, qry):
 
     dfld = fld
     dval = val
-    fmt = qry["selectedformat"]
+    fmt = qry["selectedtemplate"]
     dfields = basv_metadata.getDisplayFields(fmt, mdl)
     if fld in dfields.keys() and dfields[fld] != fld:
         # If fld is not a displayed field, perform a query to convert the undisplayed field query to a displayed query
@@ -925,14 +926,15 @@ def performQuery(
     q_exp = None
 
     if qry is not None:
+        print(f"Supplied qry: {qry}")
         q_exp = constructAdvancedQuery(qry)
-        if fmt is not None and fmt != qry["selectedformat"]:
+        if fmt is not None and fmt != qry["selectedtemplate"]:
             raise Exception(
-                f"The selected format in the qry object: [{qry['selectedformat']}] does not match the supplied "
+                f"The selected format in the qry object: [{qry['selectedtemplate']}] does not match the supplied "
                 f"format: [{fmt}]"
             )
         else:
-            fmt = qry["selectedformat"]
+            fmt = qry["selectedtemplate"]
     elif fmt is None:
         raise Exception(
             "Neither a qry object nor a format was supplied.  1 of the 2 is required."
@@ -970,7 +972,22 @@ def performQuery(
             results = results[start_index:end_index]
 
         # If prefetches have been defined in the base advanced search view
-        prefetches = basv.getPrefetches(fmt)
+        if qry is None:
+            prefetches = basv.getPrefetches(fmt)
+        else:
+            prefetch_qrys = basv.getTrueJoinPrefetchPathsAndQrys(qry, fmt)
+            prefetches = []
+            for pfq in prefetch_qrys:
+                if isinstance(pfq, list):
+                    pf_path = pfq[0]
+                    pf_qry = pfq[1]
+                    pf_mdl = pfq[2]
+                    pf_q_exp = constructAdvancedQuery(pf_qry)
+                    mdl = apps.get_model("DataRepo", pf_mdl)
+                    pf_qs = mdl.objects.filter(pf_q_exp).distinct()
+                    prefetches.append(Prefetch(pf_path, queryset=pf_qs))
+                else:
+                    prefetches.append(pfq)
         if prefetches is not None:
             results = results.prefetch_related(*prefetches)
 
