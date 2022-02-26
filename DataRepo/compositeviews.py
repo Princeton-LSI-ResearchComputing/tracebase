@@ -163,12 +163,13 @@ class BaseSearchView:
         desc_len_sorted_paths = sorted(map(lambda name: self.model_instances[name]["path"], self.getModelInstances()), key=len, reverse=True)
         unique_paths = []
         for path in desc_len_sorted_paths:
+            if path == "":
+                continue
             contained = False
-            if path != "":
-                for upath in unique_paths:
-                    if path in upath:
-                        contained = True
-                        break
+            for upath in unique_paths:
+                if path in upath:
+                    contained = True
+                    break
             if not contained:
                 unique_paths.append(path)
         return unique_paths
@@ -277,6 +278,68 @@ class BaseSearchView:
             return self.rootmodel.objects.all()
         print("ERROR: rootmodel not set.")
         return None
+    
+    def pathToModelInstanceName(self, fld_path):
+        for mdl in self.model_instances.keys():
+            if fld_path == self.model_instances[mdl]["path"]:
+                return mdl
+        raise Exception(f"Field path: [{fld_path}] not found in model instances of format [{self.id}].")
+
+    def reRootQry(self, qry, new_root_model_instance_name):
+        """
+        This takes a qry object and the name of a model instance in the composite view and re-roots the fld values,
+        making all the field paths come from a different model root.  It is intended to be used for prefetch
+        subqueries.
+        
+        Note, the submitted qry will be modified in the caller's namespace, so copy it before calling
+        """
+        self.reRootQryHelper(qry["searches"][self.id]["tree"], new_root_model_instance_name)
+
+    def reRootQryHelper(self, subtree, new_root_model_instance_name):
+        """
+        Recursive helper to reRootQry
+        """
+        if subtree["type"] == "group":
+            for child in subtree["queryGroup"]:
+                self.reRootQryHelper(child, new_root_model_instance_name)
+        elif subtree["type"] == "query":
+            subtree["fld"] = self.reRootFieldPath(subtree["fld"], new_root_model_instance_name)
+        else:
+            raise Exception(f"Qry type: [{subtree['type']}] must be either 'group' or 'query'.")
+
+    def reRootFieldPath(self, fld, reroot_instance_name):
+        """
+        Returns a modified fld path (derived from a qry object), re-rooted by using reroot_instance_name as the model
+        instance name of the new root.  Essentially, it chops off the common path and prepends the reverse path of the
+        fld's model.
+        """
+        fld_path, fld_name = splitPathName(fld)
+        fld_instance_name = self.pathToModelInstanceName(fld_path)
+        if fld_instance_name == reroot_instance_name:
+            return fld_name
+        else:
+            reroot_path = self.model_instances[reroot_instance_name]["path"]
+            reroot_path_list = reroot_path.split("__")
+            # Pop the new root model off the end
+            reroot_path_list.pop()
+            reroot_path = "__".join(reroot_path_list)
+            reroot_rpath = self.model_instances[reroot_instance_name]["reverse_path"]
+
+            # Determine the last common path item between reroot_path and fld_path (which could be none) and grab the
+            # remainder of fld_path
+            common_path, fld_path_rem = splitCommon(fld_path, reroot_path)
+            common_path_list = common_path.split("__")
+            reroot_rpath_list = reroot_rpath.split("__")
+            for item in common_path_list:
+                reroot_rpath_list.pop()
+            reroot_rpath_rem = "__".join(reroot_rpath_list)
+            fld_new_path = ""
+            if reroot_rpath_rem:
+                fld_new_path += reroot_rpath_rem + "__"
+            if fld_path_rem:
+                fld_new_path += fld_path_rem + "__"
+            fld_new_path += fld_name
+            return fld_new_path
 
 
 class PeakGroupsSearchView(BaseSearchView):
@@ -299,7 +362,11 @@ class PeakGroupsSearchView(BaseSearchView):
         "PeakGroupSet": {
             "model": "PeakGroupSet",
             "path": "peak_group_set",
-            "manytomany": False,
+            "reverse_path": "peak_groups",
+            "manytomany": {
+                "is": False,
+                "fulljoin": False,
+            },
             "fields": {
                 "id": {
                     "displayname": "(Internal) Peak Group Set Index",
@@ -319,7 +386,11 @@ class PeakGroupsSearchView(BaseSearchView):
         "CompoundSynonym": {
             "model": "CompoundSynonym",
             "path": "compounds__synonyms",
-            "manytomany": True,
+            "reverse_path": "compound__peak_groups",
+            "manytomany": {
+                "is": True,
+                "fulljoin": False,
+            },
             "fields": {
                 "name": {
                     "displayname": "Measured Compound (Any Synonym)",
@@ -332,7 +403,11 @@ class PeakGroupsSearchView(BaseSearchView):
         "PeakGroup": {
             "model": "PeakGroup",
             "path": "",
-            "manytomany": False,
+            "reverse_path": "",
+            "manytomany": {
+                "is": False,
+                "fulljoin": False,
+            },
             "fields": {
                 "name": {
                     "displayname": "Peak Group",
@@ -375,7 +450,11 @@ class PeakGroupsSearchView(BaseSearchView):
         "Protocol": {
             "model": "Protocol",
             "path": "msrun__sample__animal__treatment",
-            "manytomany": False,
+            "reverse_path": "animals__samples__msruns__peak_groups",
+            "manytomany": {
+                "is": False,
+                "fulljoin": False,
+            },
             "fields": {
                 "id": {
                     "displayname": "(Internal) Protocol Index",
@@ -395,7 +474,11 @@ class PeakGroupsSearchView(BaseSearchView):
         "Sample": {
             "model": "Sample",
             "path": "msrun__sample",
-            "manytomany": False,
+            "reverse_path": "msruns__peak_groups",
+            "manytomany": {
+                "is": False,
+                "fulljoin": False,
+            },
             "fields": {
                 "id": {
                     "displayname": "(Internal) Sample Index",
@@ -415,7 +498,11 @@ class PeakGroupsSearchView(BaseSearchView):
         "Tissue": {
             "model": "Tissue",
             "path": "msrun__sample__tissue",
-            "manytomany": False,
+            "reverse_path": "samples__msruns__peak_groups",
+            "manytomany": {
+                "is": False,
+                "fulljoin": False,
+            },
             "fields": {
                 "id": {
                     "displayname": "(Internal) Tissue Index",
@@ -435,7 +522,11 @@ class PeakGroupsSearchView(BaseSearchView):
         "Animal": {
             "model": "Animal",
             "path": "msrun__sample__animal",
-            "manytomany": False,
+            "reverse_path": "samples__msruns__peak_groups",
+            "manytomany": {
+                "is": False,
+                "fulljoin": False,
+            },
             "fields": {
                 "id": {
                     "displayname": "(Internal) Animal Index",
@@ -511,7 +602,11 @@ class PeakGroupsSearchView(BaseSearchView):
         "TracerCompound": {
             "model": "Compound",
             "path": "msrun__sample__animal__tracer_compound",
-            "manytomany": False,
+            "reverse_path": "animals__samples__msruns__peak_groups",
+            "manytomany": {
+                "is": False,
+                "fulljoin": False,
+            },
             "fields": {
                 "id": {
                     "displayname": "(Internal) Tracer Compound Index",
@@ -531,7 +626,11 @@ class PeakGroupsSearchView(BaseSearchView):
         "MeasuredCompound": {
             "model": "Compound",
             "path": "compounds",
-            "manytomany": True,
+            "reverse_path": "peak_groups",
+            "manytomany": {
+                "is": True,
+                "fulljoin": False,
+            },
             "fields": {
                 "id": {
                     "displayname": "(Internal) Measured Compound Index",
@@ -551,7 +650,11 @@ class PeakGroupsSearchView(BaseSearchView):
         "Study": {
             "model": "Study",
             "path": "msrun__sample__animal__studies",
-            "manytomany": True,
+            "reverse_path": "animals__samples__msruns__peak_groups",
+            "manytomany": {
+                "is": True,
+                "fulljoin": True,  # This is a test for only including study records when they match a search term on this field
+            },
             "fields": {
                 "id": {
                     "displayname": "(Internal) Study Index",
@@ -591,7 +694,11 @@ class PeakDataSearchView(BaseSearchView):
         "PeakData": {
             "model": "PeakData",
             "path": "",
-            "manytomany": False,
+            "reverse_path": "",
+            "manytomany": {
+                "is": False,
+                "fulljoin": False,
+            },
             "fields": {
                 "labeled_element": {
                     "displayname": "Labeled Element",
@@ -641,7 +748,11 @@ class PeakDataSearchView(BaseSearchView):
         "PeakGroup": {
             "model": "PeakGroup",
             "path": "peak_group",
-            "manytomany": False,
+            "reverse_path": "peak_data",
+            "manytomany": {
+                "is": False,
+                "fulljoin": False,
+            },
             "fields": {
                 "id": {
                     "displayname": "(Internal) Peak Group Index",  # Used in link
@@ -667,7 +778,11 @@ class PeakDataSearchView(BaseSearchView):
         "MeasuredCompound": {
             "model": "Compound",
             "path": "peak_group__compounds",
-            "manytomany": False,
+            "reverse_path": "peak_groups__peak_data",
+            "manytomany": {
+                "is": False,
+                "fulljoin": False,
+            },
             "fields": {
                 "id": {
                     "displayname": "(Internal) Measured Compound Index",
@@ -687,7 +802,11 @@ class PeakDataSearchView(BaseSearchView):
         "CompoundSynonym": {
             "model": "CompoundSynonym",
             "path": "peak_group__compounds__synonyms",
-            "manytomany": True,
+            "reverse_path": "compound__peak_groups__peak_data",
+            "manytomany": {
+                "is": True,
+                "fulljoin": False,
+            },
             "fields": {
                 "name": {
                     "displayname": "Measured Compound (Any Synonym)",
@@ -700,7 +819,11 @@ class PeakDataSearchView(BaseSearchView):
         "PeakGroupSet": {
             "model": "PeakGroupSet",
             "path": "peak_group__peak_group_set",
-            "manytomany": False,
+            "reverse_path": "peak_groups__peak_data",
+            "manytomany": {
+                "is": False,
+                "fulljoin": False,
+            },
             "fields": {
                 "id": {
                     "displayname": "(Internal) Peak Group Set Index",  # Used in link
@@ -720,7 +843,11 @@ class PeakDataSearchView(BaseSearchView):
         "Sample": {
             "model": "Sample",
             "path": "peak_group__msrun__sample",
-            "manytomany": False,
+            "reverse_path": "msruns__peak_groups__peak_data",
+            "manytomany": {
+                "is": False,
+                "fulljoin": False,
+            },
             "fields": {
                 "id": {
                     "displayname": "(Internal) Sample Index",  # Used in link
@@ -740,7 +867,11 @@ class PeakDataSearchView(BaseSearchView):
         "Tissue": {
             "model": "Tissue",
             "path": "peak_group__msrun__sample__tissue",
-            "manytomany": False,
+            "reverse_path": "samples__msruns__peak_groups__peak_data",
+            "manytomany": {
+                "is": False,
+                "fulljoin": False,
+            },
             "fields": {
                 "id": {
                     "displayname": "Tissue",
@@ -760,7 +891,11 @@ class PeakDataSearchView(BaseSearchView):
         "Animal": {
             "model": "Animal",
             "path": "peak_group__msrun__sample__animal",
-            "manytomany": False,
+            "reverse_path": "samples__msruns__peak_groups__peak_data",
+            "manytomany": {
+                "is": False,
+                "fulljoin": False,
+            },
             "fields": {
                 "name": {
                     "displayname": "Animal",
@@ -829,7 +964,11 @@ class PeakDataSearchView(BaseSearchView):
         "Protocol": {
             "model": "Protocol",
             "path": "peak_group__msrun__sample__animal__treatment",
-            "manytomany": False,
+            "reverse_path": "animals__samples__msruns__peak_groups__peak_data",
+            "manytomany": {
+                "is": False,
+                "fulljoin": False,
+            },
             "fields": {
                 "name": {
                     "displayname": "Treatment",
@@ -849,7 +988,11 @@ class PeakDataSearchView(BaseSearchView):
         "TracerCompound": {
             "model": "Compound",
             "path": "peak_group__msrun__sample__animal__tracer_compound",
-            "manytomany": False,
+            "reverse_path": "animals__samples__msruns__peak_groups__peak_data",
+            "manytomany": {
+                "is": False,
+                "fulljoin": False,
+            },
             "fields": {
                 "id": {
                     "displayname": "(Internal) Tracer Compound Index",
@@ -869,7 +1012,11 @@ class PeakDataSearchView(BaseSearchView):
         "Study": {
             "model": "Study",
             "path": "peak_group__msrun__sample__animal__studies",
-            "manytomany": True,
+            "reverse_path": "animals__samples__msruns__peak_groups__peak_data",
+            "manytomany": {
+                "is": True,
+                "fulljoin": False,
+            },
             "fields": {
                 "name": {
                     "displayname": "Study",
@@ -906,7 +1053,11 @@ class FluxCircSearchView(BaseSearchView):
         "PeakGroup": {
             "model": "PeakGroup",
             "path": "",
-            "manytomany": False,
+            "reverse_path": "",
+            "manytomany": {
+                "is": False,
+                "fulljoin": False,
+            },
             "fields": {
                 "rate_disappearance_average_per_gram": {
                     "displayname": "Average Rd (nmol/min/g)",
@@ -961,7 +1112,11 @@ class FluxCircSearchView(BaseSearchView):
         "Animal": {
             "model": "Animal",
             "path": "msrun__sample__animal",
-            "manytomany": False,
+            "reverse_path": "samples__msruns__peak_groups",
+            "manytomany": {
+                "is": False,
+                "fulljoin": False,
+            },
             "fields": {
                 "id": {
                     "displayname": "(Internal) Animal Index",
@@ -1037,7 +1192,11 @@ class FluxCircSearchView(BaseSearchView):
         "Protocol": {
             "model": "Protocol",
             "path": "msrun__sample__animal__treatment",
-            "manytomany": False,
+            "reverse_path": "animals__samples__msruns__peak_groups",
+            "manytomany": {
+                "is": False,
+                "fulljoin": False,
+            },
             "fields": {
                 "name": {
                     "displayname": "Treatment",
@@ -1057,7 +1216,11 @@ class FluxCircSearchView(BaseSearchView):
         "Sample": {
             "model": "Sample",
             "path": "msrun__sample",
-            "manytomany": False,
+            "reverse_path": "msruns__peak_groups",
+            "manytomany": {
+                "is": False,
+                "fulljoin": False,
+            },
             "fields": {
                 "time_collected": {
                     "displayname": "Time Collected (hh:mm:ss since infusion)",
@@ -1070,7 +1233,11 @@ class FluxCircSearchView(BaseSearchView):
         "Compound": {
             "model": "Compound",
             "path": "msrun__sample__animal__tracer_compound",
-            "manytomany": False,
+            "reverse_path": "animals__samples__msruns__peak_groups",
+            "manytomany": {
+                "is": False,
+                "fulljoin": False,
+            },
             "fields": {
                 "name": {
                     "displayname": "Tracer Compound",
@@ -1090,7 +1257,11 @@ class FluxCircSearchView(BaseSearchView):
         "Study": {
             "model": "Study",
             "path": "msrun__sample__animal__studies",
-            "manytomany": True,
+            "reverse_path": "animals__samples__msruns__peak_groups",
+            "manytomany": {
+                "is": True,
+                "fulljoin": False,
+            },
             "fields": {
                 "name": {
                     "displayname": "Study",
@@ -1423,6 +1594,37 @@ class BaseAdvancedSearchView:
         if foundit is False:
             return None
         return fmtkey
+
+    def reRootQry(self, fmt, qry, new_root_model_instance_name):
+        return self.modeldata[fmt].reRootQry(qry, new_root_model_instance_name)
+
+
+def splitPathName(fld):
+    fld_path_list = fld.split("__")
+    fld_name = fld_path_list.pop()
+    fld_path = "__".join(fld_path_list)
+    return fld_path, fld_name
+
+
+def splitCommon(fld_path, reroot_path):
+    fld_path_list = fld_path.split("__")
+    reroot_path_list = reroot_path.split("__")
+    length = 0
+    if len(fld_path_list) < len(reroot_path_list):
+        length = len(fld_path_list)
+    else:
+        length = len(reroot_path_list)
+    command_path_list = []
+    remaining_path_list = []
+    same = True
+    for i in range(0, length):
+        if fld_path_list[i] != reroot_path_list[i]:
+            same = False
+        if same:
+            command_path_list.append(fld_path_list[i])
+        else:
+            remaining_path_list.append(fld_path_list[i])
+    return "__".join(command_path_list), "__".join(remaining_path_list)
 
 
 class UnknownComparison(Exception):
