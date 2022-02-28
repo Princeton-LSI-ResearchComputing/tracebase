@@ -1,7 +1,6 @@
 from copy import deepcopy
-from typing import Dict, List
+from typing import Dict
 
-from django.conf import settings
 from django.db.models import Model
 
 from DataRepo.models import (
@@ -18,9 +17,9 @@ class BaseSearchView:
     This class holds common data/functions for search output formats.
     """
 
+    id = ""
     name = ""
     model_instances: Dict[str, Dict] = {}
-    prefetches: List[str] = []
     rootmodel: Model = None
     ncmp_choices = {
         "number": [
@@ -161,7 +160,14 @@ class BaseSearchView:
         Returns a list of prefetch strings for a composite view from the root table to the supplied table.  It includes
         a unique set of "foreign key paths" that encompass all tables.
         """
-        desc_len_sorted_paths = sorted(map(lambda name: self.model_instances[name]["path"], self.getModelInstances()), key=len, reverse=True)
+        desc_len_sorted_paths = sorted(
+            map(
+                lambda name: self.model_instances[name]["path"],
+                self.getModelInstances(),
+            ),
+            key=len,
+            reverse=True,
+        )
         unique_paths = []
         for path in desc_len_sorted_paths:
             if path == "":
@@ -193,7 +199,13 @@ class BaseSearchView:
             ):
                 new_qry = deepcopy(qry)
                 self.reRootQry(new_qry, srch_model_inst_name)
-                subquery_paths.append([srch_path_str, new_qry, self.model_instances[srch_model_inst_name]["model"]])
+                subquery_paths.append(
+                    [
+                        srch_path_str,
+                        new_qry,
+                        self.model_instances[srch_model_inst_name]["model"],
+                    ]
+                )
 
         # If there are no subqueries necessary, just return all the prefetches
         if len(subquery_paths) == 0:
@@ -345,22 +357,26 @@ class BaseSearchView:
             return self.rootmodel.objects.all()
         print("ERROR: rootmodel not set.")
         return None
-    
+
     def pathToModelInstanceName(self, fld_path):
         for mdl in self.model_instances.keys():
             if fld_path == self.model_instances[mdl]["path"]:
                 return mdl
-        raise Exception(f"Field path: [{fld_path}] not found in model instances of format [{self.id}].")
+        raise Exception(
+            f"Field path: [{fld_path}] not found in model instances of format [{self.id}]."
+        )
 
     def reRootQry(self, qry, new_root_model_instance_name):
         """
         This takes a qry object and the name of a model instance in the composite view and re-roots the fld values,
         making all the field paths come from a different model root.  It is intended to be used for prefetch
         subqueries.
-        
+
         Note, the submitted qry will be modified in the caller's namespace, so copy it before calling
         """
-        self.reRootQryHelper(qry["searches"][self.id]["tree"], new_root_model_instance_name)
+        self.reRootQryHelper(
+            qry["searches"][self.id]["tree"], new_root_model_instance_name
+        )
 
     def reRootQryHelper(self, subtree, new_root_model_instance_name):
         """
@@ -370,9 +386,13 @@ class BaseSearchView:
             for child in subtree["queryGroup"]:
                 self.reRootQryHelper(child, new_root_model_instance_name)
         elif subtree["type"] == "query":
-            subtree["fld"] = self.reRootFieldPath(subtree["fld"], new_root_model_instance_name)
+            subtree["fld"] = self.reRootFieldPath(
+                subtree["fld"], new_root_model_instance_name
+            )
         else:
-            raise Exception(f"Qry type: [{subtree['type']}] must be either 'group' or 'query'.")
+            raise Exception(
+                f"Qry type: [{subtree['type']}] must be either 'group' or 'query'."
+            )
 
     def reRootFieldPath(self, fld, reroot_instance_name):
         """
@@ -386,26 +406,36 @@ class BaseSearchView:
             return fld_name
         else:
             reroot_path = self.model_instances[reroot_instance_name]["path"]
-            reroot_path_list = reroot_path.split("__")
-            # Pop the new root model off the end
-            reroot_path_list.pop()
-            reroot_path = "__".join(reroot_path_list)
             reroot_rpath = self.model_instances[reroot_instance_name]["reverse_path"]
 
-            # Determine the last common path item between reroot_path and fld_path (which could be none) and grab the
+            # Determine the common path item(s) between reroot_path and fld_path (which could be none) and grab the
             # remainder of fld_path
             common_path, fld_path_rem = splitCommon(fld_path, reroot_path)
-            common_path_list = common_path.split("__")
-            reroot_rpath_list = reroot_rpath.split("__")
+            common_path_list = []
+            if common_path != "":
+                common_path_list = common_path.split("__")
+
+            # Pop off as many nodes off the end of the reverse reroot path as there were common nodes between the
+            # forward reroot path and the fld path.
+            reroot_rpath_list = []
+            if reroot_rpath != "":
+                reroot_rpath_list = reroot_rpath.split("__")
             for item in common_path_list:
                 reroot_rpath_list.pop()
             reroot_rpath_rem = "__".join(reroot_rpath_list)
+
+            # Then we just join the reverse reroot path remainder with the forward fld path remainder, e.g. if the orig
+            # reroot Compound path was compounds and the fld path was compounds_synonyms, then the rerooted path for a
+            # synonyms fields would be "synonyms"
             fld_new_path = ""
             if reroot_rpath_rem:
                 fld_new_path += reroot_rpath_rem + "__"
             if fld_path_rem:
                 fld_new_path += fld_path_rem + "__"
+
+            # Append the field name
             fld_new_path += fld_name
+
             return fld_new_path
 
 
@@ -417,14 +447,6 @@ class PeakGroupsSearchView(BaseSearchView):
     id = "pgtemplate"
     name = "PeakGroups"
     rootmodel = PeakGroup
-    prefetches = [
-        "peak_group_set",
-        "compounds__synonyms",
-        "msrun__sample__tissue",
-        "msrun__sample__animal__treatment",
-        "msrun__sample__animal__tracer_compound",
-        "msrun__sample__animal__studies",
-    ]
     model_instances = {
         "PeakGroupSet": {
             "model": "PeakGroupSet",
@@ -456,7 +478,8 @@ class PeakGroupsSearchView(BaseSearchView):
             "reverse_path": "compound__peak_groups",
             "manytomany": {
                 "is": True,
-                "fulljoin": False,
+                "fulljoin": True,  # This is a test for only including study records when they match a search term on
+                # this field: Test with citrate; isocitrate
             },
             "fields": {
                 "name": {
@@ -696,7 +719,8 @@ class PeakGroupsSearchView(BaseSearchView):
             "reverse_path": "peak_groups",
             "manytomany": {
                 "is": True,
-                "fulljoin": False,
+                "fulljoin": True,  # This is a test for only including study records when they match a search term on
+                # this field: Test with citrate; isocitrate
             },
             "fields": {
                 "id": {
@@ -720,7 +744,8 @@ class PeakGroupsSearchView(BaseSearchView):
             "reverse_path": "animals__samples__msruns__peak_groups",
             "manytomany": {
                 "is": True,
-                "fulljoin": True,  # This is a test for only including study records when they match a search term on this field
+                "fulljoin": True,  # This is a test for only including study records when they match a search term on
+                # this field: Test with obob_fasted and Small OBOB
             },
             "fields": {
                 "id": {
@@ -749,14 +774,6 @@ class PeakDataSearchView(BaseSearchView):
     id = "pdtemplate"
     name = "PeakData"
     rootmodel = PeakData
-    prefetches = [
-        "peak_group__compounds__synonyms",
-        "peak_group__peak_group_set",
-        "peak_group__msrun__sample__tissue",
-        "peak_group__msrun__sample__animal__tracer_compound",
-        "peak_group__msrun__sample__animal__treatment",
-        "peak_group__msrun__sample__animal__studies",
-    ]
     model_instances = {
         "PeakData": {
             "model": "PeakData",
@@ -1111,11 +1128,6 @@ class FluxCircSearchView(BaseSearchView):
     id = "fctemplate"
     name = "Fcirc"
     rootmodel = PeakGroup
-    prefetches = [
-        "msrun__sample__animal__tracer_compound",
-        "msrun__sample__animal__treatment",
-        "msrun__sample__animal__studies",
-    ]
     model_instances = {
         "PeakGroup": {
             "model": "PeakGroup",
@@ -1684,8 +1696,12 @@ def splitPathName(fld):
 
 
 def splitCommon(fld_path, reroot_path):
-    fld_path_list = fld_path.split("__")
-    reroot_path_list = reroot_path.split("__")
+    fld_path_list = []
+    if fld_path != "":
+        fld_path_list = fld_path.split("__")
+    reroot_path_list = []
+    if reroot_path != "":
+        reroot_path_list = reroot_path.split("__")
     length = 0
     if len(fld_path_list) < len(reroot_path_list):
         length = len(fld_path_list)
@@ -1705,7 +1721,6 @@ def splitCommon(fld_path, reroot_path):
 
 
 def extractFldPaths(qry):
-    print(f"qry supplied to extractFldPaths: [{qry}]")
     unique_fld_paths = []
     fld_paths = extractFldPathsHelper(qry["searches"][qry["selectedtemplate"]]["tree"])
 
@@ -1731,7 +1746,9 @@ def extractFldPathsHelper(subtree):
         fld_path, fld_name = splitPathName(fld_path_name)
         return [fld_path]
     else:
-        raise Exception(f"Qry type: [{subtree['type']}] must be either 'group' or 'query'.")
+        raise Exception(
+            f"Qry type: [{subtree['type']}] must be either 'group' or 'query'."
+        )
 
     return fld_paths
 

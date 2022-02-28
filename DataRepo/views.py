@@ -6,7 +6,7 @@ from typing import List
 from django.apps import apps
 from django.conf import settings
 from django.core.management import call_command
-from django.db.models import Q, Prefetch
+from django.db.models import Prefetch, Q
 from django.http import Http404, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template import loader
@@ -916,7 +916,13 @@ def getJoinedRecFieldValue(recs, basv_metadata, fmt, mdl, dfld, sfld, sval):
 
 
 def performQuery(
-    qry=None, fmt=None, basv=None, limit=None, offset=0, order_by=None, order_direction=None
+    qry=None,
+    fmt=None,
+    basv=None,
+    limit=None,
+    offset=0,
+    order_by=None,
+    order_direction=None,
 ):
     """
     Executes an advanced search query.  The only required input is either a qry object or a format (fmt).
@@ -926,7 +932,6 @@ def performQuery(
     q_exp = None
 
     if qry is not None:
-        print(f"Supplied qry: {qry}")
         q_exp = constructAdvancedQuery(qry)
         if fmt is not None and fmt != qry["selectedtemplate"]:
             raise Exception(
@@ -975,19 +980,34 @@ def performQuery(
         if qry is None:
             prefetches = basv.getPrefetches(fmt)
         else:
+            # Retrieve the prefetch data
             prefetch_qrys = basv.getTrueJoinPrefetchPathsAndQrys(qry, fmt)
+
+            # Build the prefetches, including subqueries for M:M related tables to produce a "true join" if a search
+            # term is from a M:M related model
             prefetches = []
             for pfq in prefetch_qrys:
+                # Rerooted subquery prefetches are in a list whereas regular prefetches that get everything are just a
+                # string
                 if isinstance(pfq, list):
                     pf_path = pfq[0]
                     pf_qry = pfq[1]
                     pf_mdl = pfq[2]
+
+                    # Construct a new Q expression using the rerooted query
                     pf_q_exp = constructAdvancedQuery(pf_qry)
+
+                    # grab the model using its name
                     mdl = apps.get_model("DataRepo", pf_mdl)
+
+                    # Create the subquery queryset
                     pf_qs = mdl.objects.filter(pf_q_exp).distinct()
+
+                    # Append a prefetch object with the subquery queryset
                     prefetches.append(Prefetch(pf_path, queryset=pf_qs))
                 else:
                     prefetches.append(pfq)
+
         if prefetches is not None:
             results = results.prefetch_related(*prefetches)
 

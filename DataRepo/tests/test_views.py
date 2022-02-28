@@ -23,7 +23,6 @@ from DataRepo.models import (
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.views import (
     DataValidationView,
-    constructAdvancedQuery,
     createNewBasicQuery,
     getAllBrowseData,
     getJoinedRecFieldValue,
@@ -670,8 +669,7 @@ class ViewTests(TracebaseTestCase):
         mdl = "Study"
         fld = "id"
         val = tval
-        fmt = "pgtemplate"
-        dfld, dval = searchFieldToDisplayField(basv_metadata, mdl, fld, val, fmt, qry)
+        dfld, dval = searchFieldToDisplayField(basv_metadata, mdl, fld, val, qry)
         self.assertEqual(dfld, "name")
         self.assertEqual(dval, "obob_fasted")
 
@@ -688,32 +686,30 @@ class ViewTests(TracebaseTestCase):
         val = getJoinedRecFieldValue(recs, basv_metadata, fmt, mdl, fld, fld, "Fasted")
         self.assertEqual(val, "Fasted")
 
-    def test_constructAdvancedQuery_performQuery(self):
+    def test_performQuery(self):
         """
         Test that performQuery returns a correct queryset
         """
         qry = self.get_advanced_qry()
-        q_exp = constructAdvancedQuery(qry)
         basv_metadata = BaseAdvancedSearchView()
         pf = [
             "msrun__sample__tissue",
             "msrun__sample__animal__tracer_compound",
             "msrun__sample__animal__studies",
         ]
-        res, cnt = performQuery(q_exp, "pgtemplate", basv_metadata)
+        res, cnt = performQuery(qry, "pgtemplate", basv_metadata)
         qs = PeakGroup.objects.filter(
             msrun__sample__tissue__name__iexact="Brain"
         ).prefetch_related(*pf)
         self.assertEqual(cnt, qs.count())
 
-    def test_constructAdvancedQuery_performQuery_distinct(self):
+    def test_performQuery_distinct(self):
         """
         Test that performQuery returns no duplicate root table records when M:M tables queried with multiple matches.
         """
         qry = self.get_advanced_qry2()
-        q_exp = constructAdvancedQuery(qry)
         basv_metadata = BaseAdvancedSearchView()
-        res, cnt = performQuery(q_exp, "pgtemplate", basv_metadata)
+        res, cnt = performQuery(qry, "pgtemplate", basv_metadata)
         qs = (
             PeakGroup.objects.filter(msrun__sample__name__iexact="BAT-xz971")
             .filter(msrun__sample__animal__studies__name__iexact="obob_fasted")
@@ -804,14 +800,14 @@ class ViewTests(TracebaseTestCase):
         fmt = "pgtemplate"
         res = basv_metadata.getPrefetches(fmt)
         pfl = [
-            "peak_group_set",
-            "compounds__synonyms",
-            "msrun__sample__tissue",
-            "msrun__sample__animal__treatment",
             "msrun__sample__animal__tracer_compound",
+            "msrun__sample__animal__treatment",
             "msrun__sample__animal__studies",
+            "msrun__sample__tissue",
+            "compounds__synonyms",
+            "peak_group_set",
         ]
-        self.assertEqual(res, pfl)
+        self.assertEqual(pfl, res)
 
     def test_cv_getModelInstances(self):
         """
