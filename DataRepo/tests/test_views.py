@@ -2,6 +2,7 @@ import json
 
 from django.conf import settings
 from django.core.management import call_command
+from django.db.models import Q
 from django.test import override_settings, tag
 from django.urls import reverse
 
@@ -23,6 +24,7 @@ from DataRepo.models import (
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.views import (
     DataValidationView,
+    constructAdvancedQuery,
     createNewBasicQuery,
     getAllBrowseData,
     getJoinedRecFieldValue,
@@ -685,6 +687,15 @@ class ViewTests(TracebaseTestCase):
         recs = PeakGroup.objects.all().prefetch_related(pf)
         val = getJoinedRecFieldValue(recs, basv_metadata, fmt, mdl, fld, fld, "Fasted")
         self.assertEqual(val, "Fasted")
+
+    def test_constructAdvancedQuery(self):
+        """
+        Test that constructAdvancedQuery returns a correct Q expression
+        """
+        qry = self.get_advanced_qry()
+        q_exp = constructAdvancedQuery(qry)
+        expected_q = Q(msrun__sample__tissue__name__iexact="Brain")
+        self.assertEqual(q_exp, expected_q)
 
     def test_performQuery(self):
         """

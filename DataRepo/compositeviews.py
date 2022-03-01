@@ -182,6 +182,13 @@ class BaseSearchView:
         return unique_paths
 
     def getTrueJoinPrefetchPathsAndQrys(self, qry):
+        """
+        Takes a qry object and returns a list of prefetch paths.  If a prefetch path contains models that are related
+        M:M with the root model, that prefetch path will be split into multiple paths (all that end in a M:M model, and
+        the remainder (if any of the path is left)).  Any path ending in a M:M model will be represented as a 3-member
+        list containing the path, a re-rooted qry object, and the name of the new root model.
+        """
+
         # Sort the paths so that multiple subquery prefetches on the same path are encountered hierarchically.
         # This is based on the assumption that prefetch filters work serially and are applied iteratively.  So if a
         # compound is filtered and then compound synonyms are filtered, the synonyms operate on the already filtered
@@ -197,8 +204,7 @@ class BaseSearchView:
                 self.model_instances[srch_model_inst_name]["manytomany"]["is"]
                 and self.model_instances[srch_model_inst_name]["manytomany"]["fulljoin"]
             ):
-                new_qry = deepcopy(qry)
-                self.reRootQry(new_qry, srch_model_inst_name)
+                new_qry = self.reRootQry(qry, srch_model_inst_name)
                 subquery_paths.append(
                     [
                         srch_path_str,
@@ -359,24 +365,26 @@ class BaseSearchView:
         return None
 
     def pathToModelInstanceName(self, fld_path):
+        """
+        Takes a model instance name (i.e. a key to the model_instances dict) and returns its key path
+        """
         for mdl in self.model_instances.keys():
             if fld_path == self.model_instances[mdl]["path"]:
                 return mdl
-        raise Exception(
-            f"Field path: [{fld_path}] not found in model instances of format [{self.id}]."
-        )
+        # This should raise an exception if we got here
+        self.checkPath(fld_path)
 
     def reRootQry(self, qry, new_root_model_instance_name):
         """
         This takes a qry object and the name of a model instance in the composite view and re-roots the fld values,
         making all the field paths come from a different model root.  It is intended to be used for prefetch
         subqueries.
-
-        Note, the submitted qry will be modified in the caller's namespace, so copy it before calling
         """
+        ret_qry = deepcopy(qry)
         self.reRootQryHelper(
-            qry["searches"][self.id]["tree"], new_root_model_instance_name
+            ret_qry["searches"][self.id]["tree"], new_root_model_instance_name
         )
+        return ret_qry
 
     def reRootQryHelper(self, subtree, new_root_model_instance_name):
         """
@@ -437,6 +445,19 @@ class BaseSearchView:
             fld_new_path += fld_name
 
             return fld_new_path
+
+    def checkPath(self, path):
+        """
+        Simply raises an exception if the path doesn't exist
+        """
+        avail = list(
+            map(lambda m: self.model_instances[m]["path"], self.model_instances.keys())
+        )
+        if path not in avail:
+            raise Exception(
+                f"Field path: [{path}] not found in model instances of format [{self.id}].  "
+                f"Available paths are: [{', '.join(avail)}]."
+            )
 
 
 class PeakGroupsSearchView(BaseSearchView):
@@ -1567,6 +1588,8 @@ class BaseAdvancedSearchView:
             raise Exception(
                 f"Supplied format: [{format}] does not match the qry selected format: [{qry['selectedtemplate']}]"
             )
+        elif format is None:
+            format = qry["selectedtemplate"]
         return self.modeldata[format].getTrueJoinPrefetchPathsAndQrys(qry)
 
     def getSearchFieldChoices(self, format):
@@ -1689,6 +1712,9 @@ class BaseAdvancedSearchView:
 
 
 def splitPathName(fld):
+    """
+    Removes the field name from the end of a key path.  The last __ delimited string is assumed to be a field name.
+    """
     fld_path_list = fld.split("__")
     fld_name = fld_path_list.pop()
     fld_path = "__".join(fld_path_list)
@@ -1696,31 +1722,53 @@ def splitPathName(fld):
 
 
 def splitCommon(fld_path, reroot_path):
+    """
+    Returns 2 strings: the beginning portion of fld_path that it has in common with the reroot_path and the remainder
+    of the fld_path.
+    """
+    # Initialize the list versions of the supplied paths
     fld_path_list = []
     if fld_path != "":
         fld_path_list = fld_path.split("__")
     reroot_path_list = []
     if reroot_path != "":
         reroot_path_list = reroot_path.split("__")
+
+    # Set loop length to the length of the shorter list
     length = 0
     if len(fld_path_list) < len(reroot_path_list):
         length = len(fld_path_list)
     else:
         length = len(reroot_path_list)
+
+    # Initialize the list versions of the paths to return and assume they start out the same
     command_path_list = []
     remaining_path_list = []
     same = True
+
+    # For the common path positions
     for i in range(0, length):
-        if fld_path_list[i] != reroot_path_list[i]:
-            same = False
-        if same:
+        # If these nodes are the same
+        if fld_path_list[i] == reroot_path_list[i]:
             command_path_list.append(fld_path_list[i])
         else:
+            same = False
+            for node in fld_path_list[i:]:
+                remaining_path_list.append(node)
+            break
+
+    # If the paths were the same, and the field path was longer, finish off the remainder
+    if same and len(fld_path_list) > len(reroot_path_list):
+        for i in range(len(reroot_path_list), len(fld_path_list)):
             remaining_path_list.append(fld_path_list[i])
+
     return "__".join(command_path_list), "__".join(remaining_path_list)
 
 
 def extractFldPaths(qry):
+    """
+    Takes a qry object and returns the fld values under the tree of the selectedtemplate.
+    """
     unique_fld_paths = []
     fld_paths = extractFldPathsHelper(qry["searches"][qry["selectedtemplate"]]["tree"])
 
