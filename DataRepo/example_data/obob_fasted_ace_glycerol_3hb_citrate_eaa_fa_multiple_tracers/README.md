@@ -12,7 +12,8 @@ Example of data with multiple tracers and multiple labeled elements
 
 ## NOTES
 
-* Format to convey multiple tracers and multiple labels in Animal and Sample sheet not finalized
+* Format to convey multiple tracers and multiple labels in Animal and Sample
+  sheet not finalized
 
 * Missing compound records for "compound tracers": `BCAAs (VLI)` and `6EAAs
 (MFWKHT)`
