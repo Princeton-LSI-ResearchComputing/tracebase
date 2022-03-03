@@ -3,7 +3,6 @@ import time
 from django.template import loader
 
 from DataRepo.advanced_search_utils import (
-    constructAdvancedQuery,
     getAllBrowseData,
     isValidQryObjPopulated,
     performQuery,
@@ -28,8 +27,7 @@ def tsv_producer(self, filename, header_template, row_template, qry, dt):
 
     # Execute the query
     if isValidQryObjPopulated(qry):
-        q_exp = constructAdvancedQuery(qry)
-        res, tot = performQuery(q_exp, qry["selectedtemplate"], basv)
+        res, tot = performQuery(qry, qry["selectedtemplate"], basv)
     else:
         res, tot = getAllBrowseData(qry["selectedtemplate"], basv)
 

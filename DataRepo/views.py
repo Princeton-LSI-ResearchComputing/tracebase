@@ -20,7 +20,6 @@ from django.views.generic.edit import FormView
 
 import DataRepo.tasks as tasks
 from DataRepo.advanced_search_utils import (
-    constructAdvancedQuery,
     createNewBasicQuery,
     formsetsToDict,
     getAllBrowseData,
@@ -825,8 +824,7 @@ class AdvancedSearchTSVFallbackView(AdvancedSearchTSVView):
         )
 
         if isValidQryObjPopulated(qry):
-            q_exp = constructAdvancedQuery(qry)
-            res, tot = performQuery(q_exp, qry["selectedtemplate"], self.basv_metadata)
+            res, tot = performQuery(qry, qry["selectedtemplate"], self.basv_metadata)
         else:
             res, tot = getAllBrowseData(qry["selectedtemplate"], self.basv_metadata)
 
@@ -853,14 +851,19 @@ def get_advsrch_download_progress(request, task_id):
     # Grab the task data using the supplied task ID
     result = AsyncResult(task_id)
 
-    # Wait until the result is ready
-    result.ready()
-
-    # Report the task's state
+    # Not ready response
     response_data = {
-        "state": result.state,
-        "details": result.info,
+        "state": "PENDING",
+        "details": {},
     }
+
+    # Wait until the result is ready
+    if result.ready():
+        # Report the task's state
+        response_data = {
+            "state": result.state,
+            "details": result.info,
+        }
 
     return JsonResponse(response_data)
 

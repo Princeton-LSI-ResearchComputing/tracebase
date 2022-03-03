@@ -11,8 +11,13 @@
     </head>
     <body>
         <script>
-            var progressUrl = '{% url "task_status" progress.id %}';
-            var downloadUrl = '{% url "task_output" progress.id %}';
+            {% if progress and progress.id %}
+                var progressUrl = '{% url "task_status" progress.id %}';
+                var downloadUrl = '{% url "task_output" progress.id %}';
+            {% else %}
+                var progressUrl = '{% url "task_status" "unknown" %}';
+                var downloadUrl = '{% url "task_output" "unknown" %}';
+            {% endif %}
             var progressElem
 
             document.addEventListener("DOMContentLoaded", function(){
@@ -21,36 +26,45 @@
             })
 
             function updateProgress (progressUrl, cnt) {
+                console.log("Getting progress")
                 fetch(progressUrl).then(function(response) {
-                    response.json().then(function(data) {
-                        console.log(data)
-                        // update the appropriate UI components
-                        var details = data["details"]
-                        cnt += 1
-                        if (data.state === "PENDING" || typeof details === "undefined" || !details) {
-                            if (cnt < 10) {
-                                setProgress("Starting... " + cnt);
-                                setTimeout(updateProgress, 500, progressUrl, cnt);
+                    console.log("Parsing progress", response)
+                    if (response.ok) {
+                        response.json().then(function(data) {
+                            console.log(data)
+                            // update the appropriate UI components
+                            var details = data["details"]
+                            cnt += 1
+                            if (data.state === "PENDING" || typeof details === "undefined" || !details) {
+                                if (cnt < 10) {
+                                    setProgress("Starting... " + cnt);
+                                    setTimeout(updateProgress, 500, progressUrl, cnt);
+                                } else {
+                                    fallbackDownload()
+                                }
                             } else {
-                                setProgress("Download progress updates failed.  Downloading without progress updates.  If your download does not start automatically, click the download link that was revealed below.");
-                                console.error("Celery Progress Failed");
-                                fallbackElem = document.getElementById('fallback');
-                                fallbackElem.style = ""
-                                fallbackForm = document.getElementById('advanced-search-download-form');
-                                fallbackForm.submit()
+                                if (data.state === "COMPILING_DATA" && details.current < details.total) {
+                                    setProgress("Compiling data. Progress: " + details.current + "/" + details.total);
+                                    setTimeout(updateProgress, 500, progressUrl, cnt);
+                                } else {
+                                    setProgress("Success. " + details.current + "/" + details.total + ".  Downloading...");
+                                    console.log("Download should be ready: ", data)
+                                    window.location.replace(downloadUrl);
+                                }
                             }
-                        } else {
-                            if (data.state === "COMPILING_DATA" && details.current < details.total) {
-                                setProgress("Compiling data. Progress: " + details.current + "/" + details.total);
-                                setTimeout(updateProgress, 500, progressUrl, cnt);
-                            } else {
-                                setProgress("Success. " + details.current + "/" + details.total + ".  Downloading...");
-                                console.log("Download should be ready: ", data)
-                                window.location.replace(downloadUrl);
-                            }
-                        }
-                    });
+                        });
+                    } else {
+                        fallbackDownload()
+                    }
                 });
+            }
+            function fallbackDownload() {
+                setProgress("Download progress updates failed.  Downloading without progress updates.  If your download does not start automatically, click the download link that was revealed below.");
+                console.error("Celery Progress Failed");
+                fallbackElem = document.getElementById('fallback');
+                fallbackElem.style = ""
+                fallbackForm = document.getElementById('advanced-search-download-form');
+                fallbackForm.submit()
             }
             function setProgress (state) {
                 progressElem.innerHTML = state
@@ -66,8 +80,12 @@
             <div>
                 Debug Controls:
                 <div>
-                    <a href="{% url 'task_status' progress.id %}">Debug Check Status</a><br>
-                    <a href="{% url 'task_output' progress.id %}">Debug Download</a>
+                    {% if progress and progress.id %}
+                        <a href="{% url 'task_status' progress.id %}">Debug Check Status</a><br>
+                        <a href="{% url 'task_output' progress.id %}">Debug Download</a>
+                    {% else %}
+                        No debug links available.
+                    {% endif %}
                 </div>
             </div>
         {% endif %}

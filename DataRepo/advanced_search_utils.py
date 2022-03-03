@@ -1,6 +1,7 @@
 import json
 
-from django.db.models import Q
+from django.apps import apps
+from django.db.models import Prefetch, Q
 from django.http import Http404
 
 from DataRepo.compositeviews import BaseAdvancedSearchView
