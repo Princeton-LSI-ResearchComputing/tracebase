@@ -12,6 +12,12 @@ urlpatterns = [
         views.search_basic,
         name="search_basic",
     ),
+    # Remove this when done
+    path(
+        "test_barebones_advanced_search/",
+        views.test_barebones_advanced_search,
+        name="test_barebones_advanced_search",
+    ),
     path(
         "search_advanced/",
         views.AdvancedSearchView.as_view(),
