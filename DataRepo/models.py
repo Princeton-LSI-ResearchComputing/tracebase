@@ -420,6 +420,7 @@ class Animal(HierCachedModel, TracerLabeledClass):
         on_delete=models.RESTRICT,
         blank=True,
         null=True,
+        related_name="animals",
         help_text="The compound which was used as the tracer (i.e. infusate). "
         "The tracer is the labeled compound that is infused into the animal.",
     )
@@ -850,6 +851,7 @@ class Sample(HierCachedModel):
         Tissue,
         on_delete=models.RESTRICT,
         null=False,
+        related_name="samples",
         help_text="The tissue type this sample was taken from.",
     )
 

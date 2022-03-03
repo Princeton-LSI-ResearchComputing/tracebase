@@ -3,9 +3,10 @@ import traceback
 from datetime import datetime
 from typing import List
 
+from django.apps import apps
 from django.conf import settings
 from django.core.management import call_command
-from django.db.models import Q
+from django.db.models import Prefetch, Q
 from django.http import Http404, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template import loader
@@ -282,7 +283,6 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
 
     qry = createNewBasicQuery(basv_metadata, mdl, fld, cmp, val, fmtkey)
     download_form = AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
-    q_exp = constructAdvancedQuery(qry)
 
     rows_per_page = int(
         get_cookie(
@@ -293,7 +293,7 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
     )
 
     res, tot = performQuery(
-        q_exp,
+        qry,
         qry["selectedtemplate"],
         basv_metadata,
         limit=rows_per_page,
@@ -449,9 +449,8 @@ class AdvancedSearchView(MultiFormsView):
                     self.pager.default_rows,
                 )
             )
-            q_exp = constructAdvancedQuery(qry)
             res, tot = performQuery(
-                q_exp,
+                qry,
                 qry["selectedtemplate"],
                 self.basv_metadata,
                 limit=rows_per_page,
@@ -568,9 +567,8 @@ class AdvancedSearchView(MultiFormsView):
             # bottom of the block, the downloaded file will only contain the header and will not be named properly...
             # Might be a (Safari) browser issue (according to stack).
             download_form = AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
-            q_exp = constructAdvancedQuery(qry)
             res, tot = performQuery(
-                q_exp,
+                qry,
                 qry["selectedtemplate"],
                 self.basv_metadata,
                 limit=rows,
@@ -684,9 +682,8 @@ class AdvancedSearchView(MultiFormsView):
             context["download_form"] = AdvSearchDownloadForm(
                 initial={"qryjson": json.dumps(qry)}
             )
-            q_exp = constructAdvancedQuery(qry)
             context["res"], context["tot"] = performQuery(
-                q_exp, qry["selectedtemplate"], self.basv_metadata
+                qry, qry["selectedtemplate"], self.basv_metadata
             )
             context["pager"] = self.pager.update(
                 other_field_dict={"qryjson": json.dumps(qry)}, tot=context["tot"]
@@ -746,8 +743,7 @@ class AdvancedSearchTSVView(FormView):
         )
 
         if isValidQryObjPopulated(qry):
-            q_exp = constructAdvancedQuery(qry)
-            res, tot = performQuery(q_exp, qry["selectedtemplate"], self.basv_metadata)
+            res, tot = performQuery(qry, qry["selectedtemplate"], self.basv_metadata)
         else:
             res, tot = getAllBrowseData(qry["selectedtemplate"], self.basv_metadata)
 
@@ -809,7 +805,7 @@ def createNewBasicQuery(basv_metadata, mdl, fld, cmp, val, fmt):
     empty_qry["ncmp"] = cmp
     empty_qry["val"] = val
 
-    dfld, dval = searchFieldToDisplayField(basv_metadata, mdl, fld, val, fmt, qry)
+    dfld, dval = searchFieldToDisplayField(basv_metadata, mdl, fld, val, qry)
 
     if dfld != fld:
         # Set the field path for the display field
@@ -843,18 +839,18 @@ def getFirstEmptyQuery(qry_ref):
     raise Http404("Type not found.")
 
 
-def searchFieldToDisplayField(basv_metadata, mdl, fld, val, fmt, qry):
+def searchFieldToDisplayField(basv_metadata, mdl, fld, val, qry):
     """
     Takes a field from a basic search and converts it to a non-hidden field for an advanced search select list.
     """
 
     dfld = fld
     dval = val
+    fmt = qry["selectedtemplate"]
     dfields = basv_metadata.getDisplayFields(fmt, mdl)
     if fld in dfields.keys() and dfields[fld] != fld:
         # If fld is not a displayed field, perform a query to convert the undisplayed field query to a displayed query
-        q_exp = constructAdvancedQuery(qry)
-        recs, tot = performQuery(q_exp, fmt, basv_metadata)
+        recs, tot = performQuery(qry, fmt, basv_metadata)
         if tot == 0:
             print(
                 f"WARNING: Failed basic/advanced {fmt} search conversion: {qry}. No records found matching {mdl}."
@@ -920,13 +916,38 @@ def getJoinedRecFieldValue(recs, basv_metadata, fmt, mdl, dfld, sfld, sval):
 
 
 def performQuery(
-    q_exp, fmt, basv, limit=None, offset=0, order_by=None, order_direction=None
+    qry=None,
+    fmt=None,
+    basv=None,
+    limit=None,
+    offset=0,
+    order_by=None,
+    order_direction=None,
 ):
     """
-    Executes an advanced search query.
+    Executes an advanced search query.  The only required input is either a qry object or a format (fmt).
     """
     results = None
     cnt = 0
+    q_exp = None
+
+    if qry is not None:
+        q_exp = constructAdvancedQuery(qry)
+        if fmt is not None and fmt != qry["selectedtemplate"]:
+            raise Exception(
+                f"The selected format in the qry object: [{qry['selectedtemplate']}] does not match the supplied "
+                f"format: [{fmt}]"
+            )
+        else:
+            fmt = qry["selectedtemplate"]
+    elif fmt is None:
+        raise Exception(
+            "Neither a qry object nor a format was supplied.  1 of the 2 is required."
+        )
+
+    if basv is None:
+        basv = BaseAdvancedSearchView()
+
     if fmt in basv.getFormatNames().keys():
 
         # If the Q expression is None, get all, otherwise filter
@@ -956,7 +977,37 @@ def performQuery(
             results = results[start_index:end_index]
 
         # If prefetches have been defined in the base advanced search view
-        prefetches = basv.getPrefetches(fmt)
+        if qry is None:
+            prefetches = basv.getPrefetches(fmt)
+        else:
+            # Retrieve the prefetch data
+            prefetch_qrys = basv.getTrueJoinPrefetchPathsAndQrys(qry, fmt)
+
+            # Build the prefetches, including subqueries for M:M related tables to produce a "true join" if a search
+            # term is from a M:M related model
+            prefetches = []
+            for pfq in prefetch_qrys:
+                # Rerooted subquery prefetches are in a list whereas regular prefetches that get everything are just a
+                # string
+                if isinstance(pfq, list):
+                    pf_path = pfq[0]
+                    pf_qry = pfq[1]
+                    pf_mdl = pfq[2]
+
+                    # Construct a new Q expression using the rerooted query
+                    pf_q_exp = constructAdvancedQuery(pf_qry)
+
+                    # grab the model using its name
+                    mdl = apps.get_model("DataRepo", pf_mdl)
+
+                    # Create the subquery queryset
+                    pf_qs = mdl.objects.filter(pf_q_exp).distinct()
+
+                    # Append a prefetch object with the subquery queryset
+                    prefetches.append(Prefetch(pf_path, queryset=pf_qs))
+                else:
+                    prefetches.append(pfq)
+
         if prefetches is not None:
             results = results.prefetch_related(*prefetches)
 

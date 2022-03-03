@@ -1,6 +1,14 @@
+from copy import deepcopy
+
 from django.core.management import call_command
 
-from DataRepo.compositeviews import BaseAdvancedSearchView
+from DataRepo.compositeviews import (
+    BaseAdvancedSearchView,
+    PeakGroupsSearchView,
+    extractFldPaths,
+    splitCommon,
+    splitPathName,
+)
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
@@ -65,6 +73,20 @@ class CompositeViewTests(TracebaseTestCase):
                 "fctemplate": {"name": "Fcirc", "tree": {}},
             },
         }
+
+    def getQueryObject2(self):
+        qry = deepcopy(self.getQueryObject())
+        qry["searches"]["pgtemplate"]["tree"]["queryGroup"].append(
+            {
+                "type": "query",
+                "pos": "",
+                "static": False,
+                "ncmp": "icontains",
+                "fld": "compounds__synonyms__name",
+                "val": "glucose",
+            }
+        )
+        return qry
 
     def getPdtemplateChoicesTuple(self):
         return (
@@ -186,3 +208,154 @@ class CompositeViewTests(TracebaseTestCase):
             ),
         )
         self.assertTupleEqual(sfct, sfct_expected)
+
+    def test_extractFldPaths(self):
+        paths = extractFldPaths(self.getQueryObject())
+        expected_paths = ["msrun__sample__animal__studies"]
+        self.assertEqual(paths, expected_paths)
+
+    def test_splitCommon_hascommon(self):
+        fld_path = "msrun__sample__animal__studies"
+        reroot_path = "msrun__sample__animal__tracer_compound"
+        common_path, remainder = splitCommon(fld_path, reroot_path)
+        self.assertEqual(common_path, "msrun__sample__animal")
+        self.assertEqual(remainder, "studies")
+
+    def test_splitCommon_nocommon(self):
+        fld_path = "msrun__sample__animal__studies"
+        reroot_path = "compounds__synonyms"
+        common_path, remainder = splitCommon(fld_path, reroot_path)
+        self.assertEqual(common_path, "")
+        self.assertEqual(remainder, "msrun__sample__animal__studies")
+
+    def test_splitPathName(self):
+        path, name = splitPathName("msrun__sample__animal__treatment__name")
+        self.assertEqual(path, "msrun__sample__animal__treatment")
+        self.assertEqual(name, "name")
+
+    def test_reRootFieldPath(self):
+        fld = "msrun__sample__animal__studies__name"
+        reroot_instance_name = "CompoundSynonym"
+        pgsv = PeakGroupsSearchView()
+        rerooted_fld = pgsv.reRootFieldPath(fld, reroot_instance_name)
+        expected_fld = "compound__peak_groups__msrun__sample__animal__studies__name"
+        self.assertEqual(rerooted_fld, expected_fld)
+
+    def test_reRootQry(self):
+        qry = self.getQueryObject2()
+        qry_backup = deepcopy(qry)
+        basv = BaseAdvancedSearchView()
+        new_qry = basv.reRootQry("pgtemplate", qry, "MeasuredCompound")
+        expected_qry = deepcopy(self.getQueryObject2())
+        expected_qry["searches"]["pgtemplate"]["tree"]["queryGroup"][0][
+            "fld"
+        ] = "peak_groups__msrun__sample__animal__studies__name"
+        expected_qry["searches"]["pgtemplate"]["tree"]["queryGroup"][1][
+            "fld"
+        ] = "synonyms__name"
+        self.assertEqual(qry, qry_backup, msg="qry must be left unchanged")
+        self.assertEqual(new_qry, expected_qry)
+
+    def test_pathToModelInstanceName(self):
+        pgsv = PeakGroupsSearchView()
+        mi = pgsv.pathToModelInstanceName("msrun__sample__animal__studies")
+        self.assertEqual(mi, "Study")
+
+    def test_getTrueJoinPrefetchPathsAndQrys(self):
+        qry = self.getQueryObject2()
+        basv = BaseAdvancedSearchView()
+        prefetches = basv.getTrueJoinPrefetchPathsAndQrys(qry)
+        expected_prefetches = [
+            "msrun__sample__animal__tracer_compound",
+            "msrun__sample__animal__treatment",
+            [
+                "msrun__sample__animal__studies",
+                {
+                    "searches": {
+                        "fctemplate": {
+                            "name": "Fcirc",
+                            "tree": {},
+                        },
+                        "pdtemplate": {
+                            "name": "PeakData",
+                            "tree": {},
+                        },
+                        "pgtemplate": {
+                            "name": "PeakGroups",
+                            "tree": {
+                                "queryGroup": [
+                                    {
+                                        "fld": "name",
+                                        "ncmp": "icontains",
+                                        "pos": "",
+                                        "static": False,
+                                        "type": "query",
+                                        "val": "obob_fasted",
+                                    },
+                                    {
+                                        "fld": "animals__samples__msruns__peak_groups__compounds__synonyms__name",
+                                        "ncmp": "icontains",
+                                        "pos": "",
+                                        "static": False,
+                                        "type": "query",
+                                        "val": "glucose",
+                                    },
+                                ],
+                                "static": False,
+                                "type": "group",
+                                "val": "all",
+                            },
+                        },
+                    },
+                    "selectedtemplate": "pgtemplate",
+                },
+                "Study",
+            ],
+            "msrun__sample__tissue",
+            [
+                "compounds__synonyms",
+                {
+                    "searches": {
+                        "fctemplate": {
+                            "name": "Fcirc",
+                            "tree": {},
+                        },
+                        "pdtemplate": {
+                            "name": "PeakData",
+                            "tree": {},
+                        },
+                        "pgtemplate": {
+                            "name": "PeakGroups",
+                            "tree": {
+                                "queryGroup": [
+                                    {
+                                        "fld": "compound__peak_groups__msrun__sample__animal__studies__name",
+                                        "ncmp": "icontains",
+                                        "pos": "",
+                                        "static": False,
+                                        "type": "query",
+                                        "val": "obob_fasted",
+                                    },
+                                    {
+                                        "fld": "name",
+                                        "ncmp": "icontains",
+                                        "pos": "",
+                                        "static": False,
+                                        "type": "query",
+                                        "val": "glucose",
+                                    },
+                                ],
+                                "static": False,
+                                "type": "group",
+                                "val": "all",
+                            },
+                        },
+                    },
+                    "selectedtemplate": "pgtemplate",
+                },
+                "CompoundSynonym",
+            ],
+            "peak_group_set",
+        ]
+
+        self.assertEqual(prefetches, expected_prefetches)
