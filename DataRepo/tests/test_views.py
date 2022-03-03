@@ -2,7 +2,6 @@ import json
 
 from django.conf import settings
 from django.core.management import call_command
-from django.db.models import Q
 from django.test import override_settings, tag
 from django.urls import reverse
 
