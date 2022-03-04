@@ -41,6 +41,7 @@ jobs:
       DATABASE_PORT: 5432
       DEBUG: true
       CACHES: TEST_CACHES
+      VALIDATION_ENABLED: true
       VALIDATION_DATABASE_NAME: tracebase_validation
       VALIDATION_DATABASE_USER: postgres
       VALIDATION_DATABASE_PASSWORD: postgres
