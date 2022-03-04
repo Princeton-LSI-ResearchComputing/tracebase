@@ -100,14 +100,19 @@ DATABASES = {
     }
 }
 
-VALIDATION_ENABLED = env.bool("VALIDATION_ENABLED", default=True)
-vdb_def_name = "tracebase_validation"
+VALIDATION_ENABLED = env.bool("VALIDATION_ENABLED")
 # If the validation database is configured in the .env file...
-if VALIDATION_ENABLED and env("VALIDATION_DATABASE_NAME", default=vdb_def_name):
+if VALIDATION_ENABLED:
+    # Only for use in the exception, if it occurs, so that we reference the set name
+    vdb_name = env(
+        "VALIDATION_DATABASE_NAME", default=DATABASES["default"]["NAME"] + "_validation"
+    )
     try:
         DATABASES["validation"] = {
-            "ENGINE": "django.db.backends.postgresql",
-            "NAME": env("VALIDATION_DATABASE_NAME", default=vdb_def_name),
+            "ENGINE": env(
+                "VALIDATION_DATABASE_ENGINE", default=DATABASES["default"]["ENGINE"]
+            ),
+            "NAME": env("VALIDATION_DATABASE_NAME"),
             "USER": env("VALIDATION_DATABASE_USER"),
             "PASSWORD": env("VALIDATION_DATABASE_PASSWORD"),
             "HOST": env("VALIDATION_DATABASE_HOST"),
@@ -115,10 +120,7 @@ if VALIDATION_ENABLED and env("VALIDATION_DATABASE_NAME", default=vdb_def_name):
         }
         VALIDATION_ENABLED = True
     except Exception as e:
-        print(
-            f"Could not configure access to the {env('VALIDATION_DATABASE_NAME', default=vdb_def_name)} database: {e}"
-        )
-        VALIDATION_ENABLED = False
+        raise Exception(f"Could not configure access to the {vdb_name} database: {e}")
 
 # These values are the keys of the DATABASES dict
 TRACEBASE_DB = "default"
