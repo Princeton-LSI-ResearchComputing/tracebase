@@ -101,12 +101,13 @@ DATABASES = {
 }
 
 VALIDATION_ENABLED = env.bool("VALIDATION_ENABLED", default=True)
+vdb_def_name = "tracebase_validation"
 # If the validation database is configured in the .env file...
-if VALIDATION_ENABLED and env("VALIDATION_DATABASE_NAME"):
+if VALIDATION_ENABLED and env("VALIDATION_DATABASE_NAME", default=vdb_def_name):
     try:
         DATABASES["validation"] = {
             "ENGINE": "django.db.backends.postgresql",
-            "NAME": env("VALIDATION_DATABASE_NAME"),
+            "NAME": env("VALIDATION_DATABASE_NAME", default=vdb_def_name),
             "USER": env("VALIDATION_DATABASE_USER"),
             "PASSWORD": env("VALIDATION_DATABASE_PASSWORD"),
             "HOST": env("VALIDATION_DATABASE_HOST"),
@@ -115,7 +116,7 @@ if VALIDATION_ENABLED and env("VALIDATION_DATABASE_NAME"):
         VALIDATION_ENABLED = True
     except Exception as e:
         print(
-            f"Could not configure access to the {env('VALIDATION_DATABASE_NAME')} database: {e}"
+            f"Could not configure access to the {env('VALIDATION_DATABASE_NAME', default=vdb_def_name)} database: {e}"
         )
         VALIDATION_ENABLED = False
 
