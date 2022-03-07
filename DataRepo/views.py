@@ -968,79 +968,80 @@ def performQuery(
     if basv is None:
         basv = BaseAdvancedSearchView()
 
-    if fmt in basv.getFormatNames().keys():
+    if fmt not in basv.getFormatNames().keys():
+        raise Exception("Invalid selected format: {fmt}")
 
-        # If the Q expression is None, get all, otherwise filter
-        if q_exp is None:
-            results = basv.getRootQuerySet(fmt)
-        else:
-            results = basv.getRootQuerySet(fmt).filter(q_exp)
-
-        # Order by
-        if order_by is not None:
-            order_by_arg = order_by
-            if order_direction is not None:
-                if order_direction == "desc":
-                    order_by_arg = f"-{order_by}"
-                elif order_direction and order_direction != "asc":
-                    raise Exception(
-                        f"Invalid order direction: {order_direction}.  Must be 'asc' or 'desc'."
-                    )
-            results = results.order_by(order_by_arg)
-
-        # This ensures the number of records matches the number of rows desired in the html table based on the fulljoin
-        # values configured in each format in BaseAdvancedSearchView
-        distinct_fields = basv.getDistinctFields(fmt, order_by)
-        print(", ".join(distinct_fields))
-        results = results.distinct(*distinct_fields)
-
-        # Count the total results.  Limit/offset are only used for paging.
-        cnt = results.count()
-
-        # Limit
-        if limit is not None:
-            start_index = offset
-            end_index = offset + limit
-            results = results[start_index:end_index]
-
-        # If prefetches have been defined in the base advanced search view
-        if qry is None:
-            prefetches = basv.getPrefetches(fmt)
-        else:
-            # Retrieve the prefetch data
-            prefetch_qrys = basv.getTrueJoinPrefetchPathsAndQrys(qry, fmt)
-
-            # Build the prefetches, including subqueries for M:M related tables to produce a "true join" if a search
-            # term is from a M:M related model
-            prefetches = []
-            for pfq in prefetch_qrys:
-                # Rerooted subquery prefetches are in a list whereas regular prefetches that get everything are just a
-                # string
-                if isinstance(pfq, list):
-                    pf_path = pfq[0]
-                    pf_qry = pfq[1]
-                    pf_mdl = pfq[2]
-
-                    # Construct a new Q expression using the rerooted query
-                    pf_q_exp = constructAdvancedQuery(pf_qry)
-
-                    # grab the model using its name
-                    mdl = apps.get_model("DataRepo", pf_mdl)
-
-                    # Create the subquery queryset
-                    pf_qs = mdl.objects.filter(pf_q_exp).distinct()
-
-                    # Append a prefetch object with the subquery queryset
-                    prefetches.append(Prefetch(pf_path, queryset=pf_qs))
-                else:
-                    prefetches.append(pfq)
-
-        if prefetches is not None:
-            results = results.prefetch_related(*prefetches)
-
+    # If the Q expression is None, get all, otherwise filter
+    if q_exp is None:
+        results = basv.getRootQuerySet(fmt)
     else:
-        # Log a warning
-        print("WARNING: Invalid selected format:", fmt)
+        results = basv.getRootQuerySet(fmt).filter(q_exp)
+
+    # Order by
+    if order_by is not None:
+        order_by_arg = order_by
+        if order_direction is not None:
+            if order_direction == "desc":
+                order_by_arg = f"-{order_by}"
+            elif order_direction and order_direction != "asc":
+                raise Exception(
+                    f"Invalid order direction: {order_direction}.  Must be 'asc' or 'desc'."
+                )
+        results = results.order_by(order_by_arg)
+
+    # This ensures the number of records matches the number of rows desired in the html table based on the
+    # full_join values configured in each format in BaseAdvancedSearchView
+    distinct_fields = basv.getDistinctFields(fmt, order_by)
+    print(", ".join(distinct_fields))
+    results = results.distinct(*distinct_fields)
+
+    # Count the total results.  Limit/offset are only used for paging.
+    cnt = results.count()
+
+    # Limit
+    if limit is not None:
+        start_index = offset
+        end_index = offset + limit
+        results = results[start_index:end_index]
+
+    # If prefetches have been defined in the base advanced search view
+    if qry is None:
+        prefetches = basv.getPrefetches(fmt)
+    else:
+        # Retrieve the prefetch data
+        prefetch_qrys = basv.getTrueJoinPrefetchPathsAndQrys(qry, fmt)
+
+        # Build the prefetches, including subqueries for M:M related tables to produce a "true join" if a search
+        # term is from a M:M related model
+        prefetches = []
+        for pfq in prefetch_qrys:
+            # Rerooted subquery prefetches are in a list whereas regular prefetches that get everything are just a
+            # string
+            if isinstance(pfq, list):
+                pf_path = pfq[0]
+                pf_qry = pfq[1]
+                pf_mdl = pfq[2]
+
+                # Construct a new Q expression using the rerooted query
+                pf_q_exp = constructAdvancedQuery(pf_qry)
+
+                # grab the model using its name
+                mdl = apps.get_model("DataRepo", pf_mdl)
+
+                # Create the subquery queryset
+                pf_qs = mdl.objects.filter(pf_q_exp).distinct()
+
+                # Append a prefetch object with the subquery queryset
+                prefetches.append(Prefetch(pf_path, queryset=pf_qs))
+            else:
+                prefetches.append(pfq)
+
+    if prefetches is not None:
+        results = results.prefetch_related(*prefetches)
+
+    full_join_annotations = basv.getFullJoinAnnotations(fmt)
+    for annotation in full_join_annotations:
+        results = results.annotate(**annotation)
 
     return results, cnt
 

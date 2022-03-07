@@ -274,7 +274,7 @@
                         </div>
 
                         {% define True as cpdfirst %}
-                        {% for mcpd in pg.compounds.all %}{% if not cpdfirst %}; {% endif%}<a href="{% url 'compound_detail' mcpd.id %}">{{ mcpd.name }}</a>{% define False as cpdfirst %}{% endfor %}
+                        {% for mcpd in pg.compounds.all %}{% if pg.compound == mcpd.id %}{% if not cpdfirst %}; {% endif%}<a href="{% url 'compound_detail' mcpd.id %}">{{ mcpd.name }}</a>{% define False as cpdfirst %}{% endif %}{% endfor %}
                     </td>
 
                     <!-- Measured Compound Synonym(s) -->
