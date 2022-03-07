@@ -992,7 +992,6 @@ def performQuery(
     # This ensures the number of records matches the number of rows desired in the html table based on the
     # full_join values configured in each format in BaseAdvancedSearchView
     distinct_fields = basv.getDistinctFields(fmt, order_by)
-    print(", ".join(distinct_fields))
     results = results.distinct(*distinct_fields)
 
     # Count the total results.  Limit/offset are only used for paging.
