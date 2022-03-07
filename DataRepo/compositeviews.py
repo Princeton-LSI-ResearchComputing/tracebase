@@ -2,7 +2,7 @@ from copy import deepcopy
 from typing import Dict
 
 from django.apps import apps
-from django.db.models import Model, F
+from django.db.models import F, Model
 
 from DataRepo.models import (
     Animal,
@@ -203,7 +203,9 @@ class BaseSearchView:
             srch_model_inst_name = self.pathToModelInstanceName(srch_path_str)
             if (
                 self.model_instances[srch_model_inst_name]["manytomany"]["is"]
-                and self.model_instances[srch_model_inst_name]["manytomany"]["full_join"]
+                and self.model_instances[srch_model_inst_name]["manytomany"][
+                    "full_join"
+                ]
             ):
                 new_qry = self.reRootQry(qry, srch_model_inst_name)
                 subquery_paths.append(
@@ -278,22 +280,33 @@ class BaseSearchView:
                 self.model_instances[mdl_inst_nm]["manytomany"]["is"]
                 and self.model_instances[mdl_inst_nm]["manytomany"]["full_join"]
             ):
-                # If an annotated_pk key exists in the "manytomany" dict
-                if "annotated_pk" in self.model_instances[mdl_inst_nm]["manytomany"].keys():
-                    # Append a dict that creates an annotation when supplied to .annotate()
-                    # E.g. .annotate(compound=compounds__pk)
-                    # ...where we're adding an annotation accessed as 'root_table_rec.compound' and its value is that
-                    # of essentially: root_table_rec.compounds.all()["pk"]
-                    annotations.append({
-                        self.model_instances[mdl_inst_nm]["manytomany"]["annotated_pk"]:
-                            F(self.model_instances[mdl_inst_nm]["path"] + "__pk")
-                    })
+                # If an annotated_pk_field key exists in the "manytomany" dict, use it
+                if (
+                    "annotated_pk_field"
+                    in self.model_instances[mdl_inst_nm]["manytomany"].keys()
+                ):
+                    annot_fld = self.model_instances[mdl_inst_nm]["manytomany"][
+                        "annotated_pk_field"
+                    ]
                 else:
-                    raise Exception(
-                        f"Many-to-many model {mdl_inst_nm} with full_join=True in format {self.id} must have a value "
-                        "for [annotated_pk].  This is the name that will be used to associate a root table record "
-                        "with its M:M field in a unique combination."
-                    )
+                    # Otherwise, come up with a reasonable default
+                    annot_fld = self.model_instances[mdl_inst_nm]["model"].lower()
+
+                    # Check to make sure it doesn't exist
+                    if annot_fld in self.rootmodel.__dict__.keys():
+                        raise Exception(
+                            f"Many-to-many model {mdl_inst_nm} with full_join=True in format {self.id} must have a "
+                            "value for [annotated_pk_field].  This is the name that will be used to associate a root "
+                            f"table record with its M:M field in a unique combination."
+                        )
+
+                # Append a dict that creates an annotation when supplied to .annotate()
+                # E.g. .annotate(compound=compounds__pk)
+                # ...where we're adding an annotation accessed as 'root_table_rec.compound' and its value is that
+                # of essentially: root_table_rec.compounds.all()["pk"]
+                annotations.append(
+                    {annot_fld: F(self.model_instances[mdl_inst_nm]["path"] + "__pk")}
+                )
 
         return annotations
 
@@ -539,7 +552,9 @@ class BaseSearchView:
                     distinct_fields.append(fld)
                 # Don't assume the ordering fields are populated/unique, so include the primary key.  Duplicate fields
                 # should be OK (though I haven't tested it).
-                distinct_fields.append(self.model_instances[mdl_inst_nm]["path"] + "__pk")
+                distinct_fields.append(
+                    self.model_instances[mdl_inst_nm]["path"] + "__pk"
+                )
 
         # If there are any full_join manytomany related tables, we will need to prepend the ordering (and pk) fields of
         # the root model
@@ -838,8 +853,8 @@ class PeakGroupsSearchView(BaseSearchView):
                 "is": True,
                 "full_join": True,  # This is a test for only including study records when they match a search term on
                 # this field: Test with citrate; isocitrate
-                "annotated_pk": "compound",  # A "field" of this name will be added as an annotation and can be used to
-                # include only the joined M:M table record in nested for loops in templates
+                "annotated_pk_field": "compound",  # This is a name of the field that will be added to the root table
+                # record and can be used to identify the M:M related record that goes with it in the template
             },
             "fields": {
                 "id": {
@@ -1810,7 +1825,7 @@ class BaseAdvancedSearchView:
 
     def getDistinctFields(self, fmt, order_by):
         return self.modeldata[fmt].getDistinctFields(order_by)
-    
+
     def getFullJoinAnnotations(self, fmt):
         return self.modeldata[fmt].getFullJoinAnnotations()
 

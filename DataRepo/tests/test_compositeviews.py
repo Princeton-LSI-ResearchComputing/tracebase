@@ -13,6 +13,8 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
 class CompositeViewTests(TracebaseTestCase):
+    maxDiff = None
+
     @classmethod
     def setUpTestData(cls):
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
@@ -264,56 +266,18 @@ class CompositeViewTests(TracebaseTestCase):
     def test_getTrueJoinPrefetchPathsAndQrys(self):
         qry = self.getQueryObject2()
         basv = BaseAdvancedSearchView()
+        qry["searches"]["pgtemplate"]["tree"]["queryGroup"][1][
+            "fld"
+        ] = "compounds__name"
+        qry["searches"]["pgtemplate"]["tree"]["queryGroup"][1]["val"] = "citrate"
         prefetches = basv.getTrueJoinPrefetchPathsAndQrys(qry)
         expected_prefetches = [
             "msrun__sample__animal__tracer_compound",
             "msrun__sample__animal__treatment",
-            [
-                "msrun__sample__animal__studies",
-                {
-                    "searches": {
-                        "fctemplate": {
-                            "name": "Fcirc",
-                            "tree": {},
-                        },
-                        "pdtemplate": {
-                            "name": "PeakData",
-                            "tree": {},
-                        },
-                        "pgtemplate": {
-                            "name": "PeakGroups",
-                            "tree": {
-                                "queryGroup": [
-                                    {
-                                        "fld": "name",
-                                        "ncmp": "icontains",
-                                        "pos": "",
-                                        "static": False,
-                                        "type": "query",
-                                        "val": "obob_fasted",
-                                    },
-                                    {
-                                        "fld": "animals__samples__msruns__peak_groups__compounds__synonyms__name",
-                                        "ncmp": "icontains",
-                                        "pos": "",
-                                        "static": False,
-                                        "type": "query",
-                                        "val": "glucose",
-                                    },
-                                ],
-                                "static": False,
-                                "type": "group",
-                                "val": "all",
-                            },
-                        },
-                    },
-                    "selectedtemplate": "pgtemplate",
-                },
-                "Study",
-            ],
+            "msrun__sample__animal__studies",
             "msrun__sample__tissue",
             [
-                "compounds__synonyms",
+                "compounds",
                 {
                     "searches": {
                         "fctemplate": {
@@ -329,7 +293,7 @@ class CompositeViewTests(TracebaseTestCase):
                             "tree": {
                                 "queryGroup": [
                                     {
-                                        "fld": "compound__peak_groups__msrun__sample__animal__studies__name",
+                                        "fld": "peak_groups__msrun__sample__animal__studies__name",
                                         "ncmp": "icontains",
                                         "pos": "",
                                         "static": False,
@@ -342,7 +306,7 @@ class CompositeViewTests(TracebaseTestCase):
                                         "pos": "",
                                         "static": False,
                                         "type": "query",
-                                        "val": "glucose",
+                                        "val": "citrate",
                                     },
                                 ],
                                 "static": False,
@@ -353,8 +317,9 @@ class CompositeViewTests(TracebaseTestCase):
                     },
                     "selectedtemplate": "pgtemplate",
                 },
-                "CompoundSynonym",
+                "Compound",
             ],
+            "compounds__synonyms",
             "peak_group_set",
         ]
 

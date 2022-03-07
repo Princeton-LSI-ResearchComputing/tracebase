@@ -220,3 +220,24 @@ def uniquify(retval, unused):
     differently in 2 parts of a conditional, but with the same ID.  Just supply a different value to unused.
     """
     return retval
+
+
+@register.simple_tag
+def get_manytomany_rec(recs, pk):
+    """
+    If a M:M ralted table is marked in compositeviews as a full_join, this method identifies the M:M related record
+    that belongs to the root table record, as if this was a proper SQL left join.  While django always returns every
+    related table record with every root table record, this method essentially simulates a proper join by only
+    selecting the join record that was involved in the original query.  It uses an annotated version of the M:M related
+    table record that was added to the root table record using getFullJoinAnnotations().
+
+    It returns a list in each case so that full join can be turned off and on by simply tiggling the `full_join`
+    boolean value in compositeviews.py.
+    """
+    if pk != "":
+        for rec in recs:
+            if rec.pk == pk:
+                return [rec]
+        return None
+    else:
+        return recs

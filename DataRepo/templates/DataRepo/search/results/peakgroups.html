@@ -268,13 +268,14 @@
                     <!-- Measured Compound -->
                     <td>
                         <!-- Put displayed link text first for sorting -->
+                        {% get_manytomany_rec pg.compounds.all pg.compound as compounds %}
                         <div style="display:none;">
                             {% define True as cpdfirst %}
-                            {% for mcpd in pg.compounds.all %}{% if not cpdfirst %}; {% endif%}{{ mcpd.name }}{% define False as cpdfirst %}{% endfor %}
+                            {% for mcpd in compounds %}{% if not cpdfirst %}; {% endif%}{{ mcpd.name }}{% define False as cpdfirst %}{% endfor %}
                         </div>
 
                         {% define True as cpdfirst %}
-                        {% for mcpd in pg.compounds.all %}{% if pg.compound == mcpd.id %}{% if not cpdfirst %}; {% endif%}<a href="{% url 'compound_detail' mcpd.id %}">{{ mcpd.name }}</a>{% define False as cpdfirst %}{% endif %}{% endfor %}
+                        {% for mcpd in compounds %}{% if not cpdfirst %}; {% endif%}<a href="{% url 'compound_detail' mcpd.id %}">{{ mcpd.name }}</a>{% define False as cpdfirst %}{% endfor %}
                     </td>
 
                     <!-- Measured Compound Synonym(s) -->
