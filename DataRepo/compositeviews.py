@@ -1,6 +1,7 @@
 from copy import deepcopy
 from typing import Dict
 
+from django.apps import apps
 from django.db.models import Model
 
 from DataRepo.models import (
@@ -459,6 +460,64 @@ class BaseSearchView:
                 f"Available paths are: [{', '.join(avail)}]."
             )
 
+    def getOrderByFields(self, mdl_inst_nm=None, model_name=None):
+        """
+        Retrieves a model's default order by fields, given a model instance name.
+        """
+        # Determine the model name based on either the supplied model or model instance name
+        mdl_nm = model_name
+        if mdl_inst_nm is None and model_name is None:
+            raise Exception("Either a model instance name or model name is required.")
+        elif model_name is None:
+            mdl_nm = self.model_instances[mdl_inst_nm]["model"]
+
+        # Get a model object
+        mdl = apps.get_model("DataRepo", mdl_nm)
+
+        if "ordering" in mdl._meta.__dict__:
+            return mdl._meta.__dict__["ordering"]
+        return []
+
+    def getDistinctFields(self, order_by):
+        """
+        Puts together fields required by queryset.distinct() based on the value of each model instance's fulljoin
+        state.  fulljoin=True allows us to choose whether the output rows in the html results template will contain M:M
+        related table values joined in one cell on one row ("merged"), or whether they will be split across multiple
+        rows ("split"), and supplying these fields to distinct ensures that the queryset record count reflects that
+        html table row (split or merged).
+
+        An order_by field (including its key path) is required if the queryset will be non-default ordered, because
+        .distinct() requires them to be present.  Otherwise, you will encounter an exception when the queryset is made
+        distinct on the returned fields.  Only a single order_by field is supported.
+        """
+        distinct_fields = []
+        for mdl_inst_nm in self.model_instances:
+            # We only need to include a field if we want to split
+            if self.model_instances[mdl_inst_nm]["manytomany"]["fulljoin"]:
+                # Django's ordering fields are required when any field is provided to .distinct().  Otherwise, you get
+                # the error: `ProgrammingError: SELECT DISTINCT ON expressions must match initial ORDER BY expressions`
+                tmp_distincts = self.getOrderByFields(mdl_inst_nm)
+                for fld_nm in tmp_distincts:
+                    fld = self.model_instances[mdl_inst_nm]["path"] + "__" + fld_nm
+                    distinct_fields.append(fld)
+                # Don't assume the ordering fields are populated/unique, so include the primary key.  Duplicate fields
+                # should be OK (though I haven't tested it).
+                distinct_fields.append(self.model_instances[mdl_inst_nm]["path"] + "__pk")
+
+        # If there are any fulljoin manytomany related tables, we will need to prepend the ordering (and pk) fields of
+        # the root model
+        if len(distinct_fields) > 0:
+            distinct_fields.insert(0, "pk")
+            tmp_distincts = self.getOrderByFields(model_name=self.rootmodel.__name__)
+            tmp_distincts.reverse()
+            for fld_nm in tmp_distincts:
+                distinct_fields.insert(0, fld_nm)
+
+            if order_by is not None:
+                distinct_fields.insert(0, order_by)
+
+        return distinct_fields
+
 
 class PeakGroupsSearchView(BaseSearchView):
     """
@@ -499,7 +558,7 @@ class PeakGroupsSearchView(BaseSearchView):
             "reverse_path": "compound__peak_groups",
             "manytomany": {
                 "is": True,
-                "fulljoin": True,  # This is a test for only including study records when they match a search term on
+                "fulljoin": False,  # This is a test for only including study records when they match a search term on
                 # this field: Test with citrate; isocitrate
             },
             "fields": {
@@ -765,7 +824,7 @@ class PeakGroupsSearchView(BaseSearchView):
             "reverse_path": "animals__samples__msruns__peak_groups",
             "manytomany": {
                 "is": True,
-                "fulljoin": True,  # This is a test for only including study records when they match a search term on
+                "fulljoin": False,  # This is a test for only including study records when they match a search term on
                 # this field: Test with obob_fasted and Small OBOB
             },
             "fields": {
@@ -1709,6 +1768,9 @@ class BaseAdvancedSearchView:
 
     def reRootQry(self, fmt, qry, new_root_model_instance_name):
         return self.modeldata[fmt].reRootQry(qry, new_root_model_instance_name)
+
+    def getDistinctFields(self, fmt, order_by):
+        return self.modeldata[fmt].getDistinctFields(order_by)
 
 
 def splitPathName(fld):

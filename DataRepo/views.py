@@ -972,23 +972,30 @@ def performQuery(
 
         # If the Q expression is None, get all, otherwise filter
         if q_exp is None:
-            results = basv.getRootQuerySet(fmt).distinct()
+            results = basv.getRootQuerySet(fmt)
         else:
-            results = basv.getRootQuerySet(fmt).filter(q_exp).distinct()
-
-        # Count the total results.  Limit/offset are only used for paging.
-        cnt = results.count()
+            results = basv.getRootQuerySet(fmt).filter(q_exp)
 
         # Order by
         if order_by is not None:
+            order_by_arg = order_by
             if order_direction is not None:
                 if order_direction == "desc":
-                    order_by = f"-{order_by}"
+                    order_by_arg = f"-{order_by}"
                 elif order_direction and order_direction != "asc":
                     raise Exception(
                         f"Invalid order direction: {order_direction}.  Must be 'asc' or 'desc'."
                     )
-            results = results.order_by(order_by)
+            results = results.order_by(order_by_arg)
+
+        # This ensures the number of records matches the number of rows desired in the html table based on the fulljoin
+        # values configured in each format in BaseAdvancedSearchView
+        distinct_fields = basv.getDistinctFields(fmt, order_by)
+        print(", ".join(distinct_fields))
+        results = results.distinct(*distinct_fields)
+
+        # Count the total results.  Limit/offset are only used for paging.
+        cnt = results.count()
 
         # Limit
         if limit is not None:
