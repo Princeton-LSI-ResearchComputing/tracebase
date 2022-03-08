@@ -267,10 +267,18 @@ class CompositeViewTests(TracebaseTestCase):
     def test_getTrueJoinPrefetchPathsAndQrys(self):
         qry = self.getQueryObject2()
         basv = BaseAdvancedSearchView()
-        qry["searches"]["pgtemplate"]["tree"]["queryGroup"][1][
-            "fld"
-        ] = "compounds__name"
-        qry["searches"]["pgtemplate"]["tree"]["queryGroup"][1]["val"] = "citrate"
+        fmt = "pgtemplate"
+
+        # Set all full_join values to False for the test, then...
+        mdl_inst = "MeasuredCompound"
+        pgsv = basv.modeldata[fmt]
+        for inst in pgsv.model_instances.keys():
+            pgsv.model_instances[inst]["manytomany"]["full_join"] = False
+        # Set only MeasuredCompound's full_join=True for the test
+        pgsv.model_instances[mdl_inst]["manytomany"]["full_join"] = True
+
+        qry["searches"][fmt]["tree"]["queryGroup"][1]["fld"] = "compounds__name"
+        qry["searches"][fmt]["tree"]["queryGroup"][1]["val"] = "citrate"
         prefetches = basv.getTrueJoinPrefetchPathsAndQrys(qry)
         expected_prefetches = [
             "msrun__sample__animal__tracer_compound",
@@ -316,7 +324,7 @@ class CompositeViewTests(TracebaseTestCase):
                             },
                         },
                     },
-                    "selectedtemplate": "pgtemplate",
+                    "selectedtemplate": fmt,
                 },
                 "Compound",
             ],
