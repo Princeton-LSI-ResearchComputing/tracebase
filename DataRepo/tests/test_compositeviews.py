@@ -1,6 +1,7 @@
 from copy import deepcopy
 
 from django.core.management import call_command
+from django.db.models import F
 
 from DataRepo.compositeviews import (
     BaseAdvancedSearchView,
@@ -324,3 +325,75 @@ class CompositeViewTests(TracebaseTestCase):
         ]
 
         self.assertEqual(prefetches, expected_prefetches)
+
+    def test_getFullJoinAnnotations(self):
+        basv = BaseAdvancedSearchView()
+        fmt = "pgtemplate"
+        annot_name = "compound"
+
+        # Set all full_join values to False for the test, then...
+        mdl_inst = "MeasuredCompound"
+        pgsv = basv.modeldata[fmt]
+        for inst in pgsv.model_instances.keys():
+            pgsv.model_instances[inst]["manytomany"]["full_join"] = False
+        # Set only MeasuredCompound's full_join=True and annot_name="compound" for the test
+        pgsv.model_instances[mdl_inst]["manytomany"]["full_join"] = True
+        pgsv.model_instances[mdl_inst]["manytomany"]["annotated_pk_field"] = annot_name
+
+        # Do the test
+        annots = basv.getFullJoinAnnotations(fmt)
+        expected_annots = [{annot_name: F("compounds__pk")}]
+        self.assertEqual(annots, expected_annots)
+
+    def test_getDistinctFields(self):
+        basv = BaseAdvancedSearchView()
+        fmt = "pgtemplate"
+        order_by = "name"
+
+        # Turn off all full_joins for the test, then...
+        mdl_inst = "MeasuredCompound"
+        pgsv = basv.modeldata[fmt]
+        for inst in pgsv.model_instances.keys():
+            pgsv.model_instances[inst]["manytomany"]["full_join"] = False
+        # Set only MeasuredCompound's full_join value to True for the test
+        pgsv.model_instances[mdl_inst]["manytomany"]["full_join"] = True
+
+        distincts = basv.getDistinctFields(fmt, order_by)
+        expected_distincts = [order_by, "pk", "compounds__name", "compounds__pk"]
+        self.assertEqual(distincts, expected_distincts)
+
+    def test_getOrderByFields_instance(self):
+        pgsv = PeakGroupsSearchView()
+        mdl_inst = "MeasuredCompound"
+
+        order_bys = pgsv.getOrderByFields(mdl_inst_nm=mdl_inst)
+        expected_order_bys = ["name"]
+        self.assertEqual(order_bys, expected_order_bys)
+
+    def test_getOrderByFields_model(self):
+        pgsv = PeakGroupsSearchView()
+        mdl = "Compound"
+
+        order_bys = pgsv.getOrderByFields(model_name=mdl)
+        expected_order_bys = ["name"]
+        self.assertEqual(order_bys, expected_order_bys)
+
+    def test_getOrderByFields_both(self):
+        pgsv = PeakGroupsSearchView()
+        mdl_inst = "MeasuredCompound"
+        mdl = "Compound"
+
+        with self.assertRaises(
+            Exception, msg="mdl_inst_nm and model_name are mutually exclusive options."
+        ):
+            pgsv.getOrderByFields(mdl_inst_nm=mdl_inst, model_name=mdl)
+
+    def test_getOrderByFields_neither(self):
+        pgsv = PeakGroupsSearchView()
+        mdl_inst = "MeasuredCompound"
+        mdl = "Compound"
+
+        with self.assertRaises(
+            Exception, msg="Either a model instance name or model name is required."
+        ):
+            pgsv.getOrderByFields(mdl_inst_nm=mdl_inst, model_name=mdl)

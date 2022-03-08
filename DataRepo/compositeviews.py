@@ -518,6 +518,10 @@ class BaseSearchView:
         mdl_nm = model_name
         if mdl_inst_nm is None and model_name is None:
             raise Exception("Either a model instance name or model name is required.")
+        elif mdl_inst_nm is not None and model_name is not None:
+            raise Exception(
+                "mdl_inst_nm and model_name are mutually exclusive options."
+            )
         elif model_name is None:
             mdl_nm = self.model_instances[mdl_inst_nm]["model"]
 
@@ -565,7 +569,7 @@ class BaseSearchView:
             for fld_nm in tmp_distincts:
                 distinct_fields.insert(0, fld_nm)
 
-            if order_by is not None:
+            if order_by is not None and order_by not in distinct_fields:
                 distinct_fields.insert(0, order_by)
 
         return distinct_fields
