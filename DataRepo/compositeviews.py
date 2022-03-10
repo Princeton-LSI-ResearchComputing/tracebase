@@ -204,7 +204,7 @@ class BaseSearchView:
             if (
                 self.model_instances[srch_model_inst_name]["manytomany"]["is"]
                 and self.model_instances[srch_model_inst_name]["manytomany"][
-                    "full_join"
+                    "split_rows"
                 ]
             ):
                 new_qry = self.reRootQry(qry, srch_model_inst_name)
@@ -278,15 +278,15 @@ class BaseSearchView:
             # If this model is many to many related, and we want a full join
             if (
                 self.model_instances[mdl_inst_nm]["manytomany"]["is"]
-                and self.model_instances[mdl_inst_nm]["manytomany"]["full_join"]
+                and self.model_instances[mdl_inst_nm]["manytomany"]["split_rows"]
             ):
-                # If an annotated_pk_field key exists in the "manytomany" dict, use it
+                # If an root_annot_fld key exists in the "manytomany" dict, use it
                 if (
-                    "annotated_pk_field"
+                    "root_annot_fld"
                     in self.model_instances[mdl_inst_nm]["manytomany"].keys()
                 ):
                     annot_fld = self.model_instances[mdl_inst_nm]["manytomany"][
-                        "annotated_pk_field"
+                        "root_annot_fld"
                     ]
                 else:
                     # Otherwise, come up with a reasonable default
@@ -295,8 +295,8 @@ class BaseSearchView:
                     # Check to make sure it doesn't exist
                     if annot_fld in self.rootmodel.__dict__.keys():
                         raise Exception(
-                            f"Many-to-many model {mdl_inst_nm} with full_join=True in format {self.id} must have a "
-                            "value for [annotated_pk_field].  This is the name that will be used to associate a root "
+                            f"Many-to-many model {mdl_inst_nm} with split_rows=True in format {self.id} must have a "
+                            "value for [root_annot_fld].  This is the name that will be used to associate a root "
                             f"table record with its M:M field in a unique combination."
                         )
 
@@ -534,8 +534,8 @@ class BaseSearchView:
 
     def getDistinctFields(self, order_by):
         """
-        Puts together fields required by queryset.distinct() based on the value of each model instance's full_join
-        state.  full_join=True allows us to choose whether the output rows in the html results template will contain
+        Puts together fields required by queryset.distinct() based on the value of each model instance's split_rows
+        state.  split_rows=True allows us to choose whether the output rows in the html results template will contain
         M:M related table values joined in one cell on one row ("merged"), or whether they will be split across
         multiple rows ("split"), and supplying these fields to distinct ensures that the queryset record count reflects
         that html table row (split or merged).
@@ -547,7 +547,7 @@ class BaseSearchView:
         distinct_fields = []
         for mdl_inst_nm in self.model_instances:
             # We only need to include a field if we want to split
-            if self.model_instances[mdl_inst_nm]["manytomany"]["full_join"]:
+            if self.model_instances[mdl_inst_nm]["manytomany"]["split_rows"]:
                 # Django's ordering fields are required when any field is provided to .distinct().  Otherwise, you get
                 # the error: `ProgrammingError: SELECT DISTINCT ON expressions must match initial ORDER BY expressions`
                 tmp_distincts = self.getOrderByFields(mdl_inst_nm)
@@ -560,7 +560,7 @@ class BaseSearchView:
                     self.model_instances[mdl_inst_nm]["path"] + "__pk"
                 )
 
-        # If there are any full_join manytomany related tables, we will need to prepend the ordering (and pk) fields of
+        # If there are any split_rows manytomany related tables, we will need to prepend the ordering (and pk) fields of
         # the root model
         if len(distinct_fields) > 0:
             distinct_fields.insert(0, "pk")
@@ -590,7 +590,7 @@ class PeakGroupsSearchView(BaseSearchView):
             "reverse_path": "peak_groups",
             "manytomany": {
                 "is": False,
-                "full_join": False,
+                "split_rows": False,
             },
             "fields": {
                 "id": {
@@ -614,7 +614,7 @@ class PeakGroupsSearchView(BaseSearchView):
             "reverse_path": "compound__peak_groups",
             "manytomany": {
                 "is": True,
-                "full_join": False,  # This is a test for only including study records when they match a search term on
+                "split_rows": False,  # This is a test for only including study records when they match a search term on
                 # this field: Test with citrate; isocitrate
             },
             "fields": {
@@ -632,7 +632,7 @@ class PeakGroupsSearchView(BaseSearchView):
             "reverse_path": "",
             "manytomany": {
                 "is": False,
-                "full_join": False,
+                "split_rows": False,
             },
             "fields": {
                 "name": {
@@ -679,7 +679,7 @@ class PeakGroupsSearchView(BaseSearchView):
             "reverse_path": "animals__samples__msruns__peak_groups",
             "manytomany": {
                 "is": False,
-                "full_join": False,
+                "split_rows": False,
             },
             "fields": {
                 "id": {
@@ -703,7 +703,7 @@ class PeakGroupsSearchView(BaseSearchView):
             "reverse_path": "msruns__peak_groups",
             "manytomany": {
                 "is": False,
-                "full_join": False,
+                "split_rows": False,
             },
             "fields": {
                 "id": {
@@ -727,7 +727,7 @@ class PeakGroupsSearchView(BaseSearchView):
             "reverse_path": "samples__msruns__peak_groups",
             "manytomany": {
                 "is": False,
-                "full_join": False,
+                "split_rows": False,
             },
             "fields": {
                 "id": {
@@ -751,7 +751,7 @@ class PeakGroupsSearchView(BaseSearchView):
             "reverse_path": "samples__msruns__peak_groups",
             "manytomany": {
                 "is": False,
-                "full_join": False,
+                "split_rows": False,
             },
             "fields": {
                 "id": {
@@ -831,7 +831,7 @@ class PeakGroupsSearchView(BaseSearchView):
             "reverse_path": "animals__samples__msruns__peak_groups",
             "manytomany": {
                 "is": False,
-                "full_join": False,
+                "split_rows": False,
             },
             "fields": {
                 "id": {
@@ -855,9 +855,9 @@ class PeakGroupsSearchView(BaseSearchView):
             "reverse_path": "peak_groups",
             "manytomany": {
                 "is": True,
-                "full_join": True,  # This is a test for only including study records when they match a search term on
+                "split_rows": True,  # This is a test for only including study records when they match a search term on
                 # this field: Test with citrate; isocitrate
-                "annotated_pk_field": "compound",  # This is a name of the field that will be added to the root table
+                "root_annot_fld": "compound",  # This is a name of the field that will be added to the root table
                 # record and can be used to identify the M:M related record that goes with it in the template
             },
             "fields": {
@@ -882,7 +882,7 @@ class PeakGroupsSearchView(BaseSearchView):
             "reverse_path": "animals__samples__msruns__peak_groups",
             "manytomany": {
                 "is": True,
-                "full_join": False,  # This is a test for only including study records when they match a search term on
+                "split_rows": False,  # This is a test for only including study records when they match a search term on
                 # this field: Test with obob_fasted and Small OBOB
             },
             "fields": {
@@ -919,7 +919,7 @@ class PeakDataSearchView(BaseSearchView):
             "reverse_path": "",
             "manytomany": {
                 "is": False,
-                "full_join": False,
+                "split_rows": False,
             },
             "fields": {
                 "labeled_element": {
@@ -973,7 +973,7 @@ class PeakDataSearchView(BaseSearchView):
             "reverse_path": "peak_data",
             "manytomany": {
                 "is": False,
-                "full_join": False,
+                "split_rows": False,
             },
             "fields": {
                 "id": {
@@ -1003,7 +1003,7 @@ class PeakDataSearchView(BaseSearchView):
             "reverse_path": "peak_groups__peak_data",
             "manytomany": {
                 "is": False,
-                "full_join": False,
+                "split_rows": False,
             },
             "fields": {
                 "id": {
@@ -1027,7 +1027,7 @@ class PeakDataSearchView(BaseSearchView):
             "reverse_path": "compound__peak_groups__peak_data",
             "manytomany": {
                 "is": True,
-                "full_join": False,
+                "split_rows": False,
             },
             "fields": {
                 "name": {
@@ -1044,7 +1044,7 @@ class PeakDataSearchView(BaseSearchView):
             "reverse_path": "peak_groups__peak_data",
             "manytomany": {
                 "is": False,
-                "full_join": False,
+                "split_rows": False,
             },
             "fields": {
                 "id": {
@@ -1068,7 +1068,7 @@ class PeakDataSearchView(BaseSearchView):
             "reverse_path": "msruns__peak_groups__peak_data",
             "manytomany": {
                 "is": False,
-                "full_join": False,
+                "split_rows": False,
             },
             "fields": {
                 "id": {
@@ -1092,7 +1092,7 @@ class PeakDataSearchView(BaseSearchView):
             "reverse_path": "samples__msruns__peak_groups__peak_data",
             "manytomany": {
                 "is": False,
-                "full_join": False,
+                "split_rows": False,
             },
             "fields": {
                 "id": {
@@ -1116,7 +1116,7 @@ class PeakDataSearchView(BaseSearchView):
             "reverse_path": "samples__msruns__peak_groups__peak_data",
             "manytomany": {
                 "is": False,
-                "full_join": False,
+                "split_rows": False,
             },
             "fields": {
                 "name": {
@@ -1189,7 +1189,7 @@ class PeakDataSearchView(BaseSearchView):
             "reverse_path": "animals__samples__msruns__peak_groups__peak_data",
             "manytomany": {
                 "is": False,
-                "full_join": False,
+                "split_rows": False,
             },
             "fields": {
                 "name": {
@@ -1213,7 +1213,7 @@ class PeakDataSearchView(BaseSearchView):
             "reverse_path": "animals__samples__msruns__peak_groups__peak_data",
             "manytomany": {
                 "is": False,
-                "full_join": False,
+                "split_rows": False,
             },
             "fields": {
                 "id": {
@@ -1237,7 +1237,7 @@ class PeakDataSearchView(BaseSearchView):
             "reverse_path": "animals__samples__msruns__peak_groups__peak_data",
             "manytomany": {
                 "is": True,
-                "full_join": False,
+                "split_rows": False,
             },
             "fields": {
                 "name": {
@@ -1273,7 +1273,7 @@ class FluxCircSearchView(BaseSearchView):
             "reverse_path": "",
             "manytomany": {
                 "is": False,
-                "full_join": False,
+                "split_rows": False,
             },
             "fields": {
                 "rate_disappearance_average_per_gram": {
@@ -1332,7 +1332,7 @@ class FluxCircSearchView(BaseSearchView):
             "reverse_path": "samples__msruns__peak_groups",
             "manytomany": {
                 "is": False,
-                "full_join": False,
+                "split_rows": False,
             },
             "fields": {
                 "id": {
@@ -1412,7 +1412,7 @@ class FluxCircSearchView(BaseSearchView):
             "reverse_path": "animals__samples__msruns__peak_groups",
             "manytomany": {
                 "is": False,
-                "full_join": False,
+                "split_rows": False,
             },
             "fields": {
                 "name": {
@@ -1436,7 +1436,7 @@ class FluxCircSearchView(BaseSearchView):
             "reverse_path": "msruns__peak_groups",
             "manytomany": {
                 "is": False,
-                "full_join": False,
+                "split_rows": False,
             },
             "fields": {
                 "time_collected": {
@@ -1453,7 +1453,7 @@ class FluxCircSearchView(BaseSearchView):
             "reverse_path": "animals__samples__msruns__peak_groups",
             "manytomany": {
                 "is": False,
-                "full_join": False,
+                "split_rows": False,
             },
             "fields": {
                 "name": {
@@ -1477,7 +1477,7 @@ class FluxCircSearchView(BaseSearchView):
             "reverse_path": "animals__samples__msruns__peak_groups",
             "manytomany": {
                 "is": True,
-                "full_join": False,
+                "split_rows": False,
             },
             "fields": {
                 "name": {

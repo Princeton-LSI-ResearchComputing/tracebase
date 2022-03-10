@@ -501,14 +501,16 @@
 
                         <!-- Studies -->
                         <td>
+                            <!-- This will work as intended even if pg.msrun.sample.animal.study wasn't added as an anotation (e.g. if split_rows is false or root_annot_fld is not defined) -->
+                            {% get_manytomany_rec pg.msrun.sample.animal.studies pg.msrun.sample.animal.study as studies %}
                             <!-- Put displayed link text first for sorting -->
                             <div style="display:none;">
                                 {% define True as first %}
-                                {% for study in pg.msrun.sample.animal.studies.all %}{% if not first %},<br>{% endif%}{{ study.name }}{% define False as first %}{% endfor %}
+                                {% for study in studies %}{% if not first %},<br>{% endif%}{{ study.name }}{% define False as first %}{% endfor %}
                             </div>
 
                             {% define True as first %}
-                            {% for study in pg.msrun.sample.animal.studies.all %}{% if not first %},<br>{% endif%}<a href="{% url 'study_detail' study.id %}">{{ study.name }}</a>{% define False as first %}{% endfor %}
+                            {% for study in studies %}{% if not first %},<br>{% endif%}<a href="{% url 'study_detail' study.id %}">{{ study.name }}</a>{% define False as first %}{% endfor %}
                         </td>
 
                         <!-- Genotype -->

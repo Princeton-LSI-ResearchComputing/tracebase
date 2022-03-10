@@ -269,13 +269,13 @@ class CompositeViewTests(TracebaseTestCase):
         basv = BaseAdvancedSearchView()
         fmt = "pgtemplate"
 
-        # Set all full_join values to False for the test, then...
+        # Set all split_rows values to False for the test, then...
         mdl_inst = "MeasuredCompound"
         pgsv = basv.modeldata[fmt]
         for inst in pgsv.model_instances.keys():
-            pgsv.model_instances[inst]["manytomany"]["full_join"] = False
-        # Set only MeasuredCompound's full_join=True for the test
-        pgsv.model_instances[mdl_inst]["manytomany"]["full_join"] = True
+            pgsv.model_instances[inst]["manytomany"]["split_rows"] = False
+        # Set only MeasuredCompound's split_rows=True for the test
+        pgsv.model_instances[mdl_inst]["manytomany"]["split_rows"] = True
 
         qry["searches"][fmt]["tree"]["queryGroup"][1]["fld"] = "compounds__name"
         qry["searches"][fmt]["tree"]["queryGroup"][1]["val"] = "citrate"
@@ -339,14 +339,14 @@ class CompositeViewTests(TracebaseTestCase):
         fmt = "pgtemplate"
         annot_name = "compound"
 
-        # Set all full_join values to False for the test, then...
+        # Set all split_rows values to False for the test, then...
         mdl_inst = "MeasuredCompound"
         pgsv = basv.modeldata[fmt]
         for inst in pgsv.model_instances.keys():
-            pgsv.model_instances[inst]["manytomany"]["full_join"] = False
-        # Set only MeasuredCompound's full_join=True and annot_name="compound" for the test
-        pgsv.model_instances[mdl_inst]["manytomany"]["full_join"] = True
-        pgsv.model_instances[mdl_inst]["manytomany"]["annotated_pk_field"] = annot_name
+            pgsv.model_instances[inst]["manytomany"]["split_rows"] = False
+        # Set only MeasuredCompound's split_rows=True and annot_name="compound" for the test
+        pgsv.model_instances[mdl_inst]["manytomany"]["split_rows"] = True
+        pgsv.model_instances[mdl_inst]["manytomany"]["root_annot_fld"] = annot_name
 
         # Do the test
         annots = basv.getFullJoinAnnotations(fmt)
@@ -358,13 +358,13 @@ class CompositeViewTests(TracebaseTestCase):
         fmt = "pgtemplate"
         order_by = "name"
 
-        # Turn off all full_joins for the test, then...
+        # Turn off all split_rows for the test, then...
         mdl_inst = "MeasuredCompound"
         pgsv = basv.modeldata[fmt]
         for inst in pgsv.model_instances.keys():
-            pgsv.model_instances[inst]["manytomany"]["full_join"] = False
-        # Set only MeasuredCompound's full_join value to True for the test
-        pgsv.model_instances[mdl_inst]["manytomany"]["full_join"] = True
+            pgsv.model_instances[inst]["manytomany"]["split_rows"] = False
+        # Set only MeasuredCompound's split_rows value to True for the test
+        pgsv.model_instances[mdl_inst]["manytomany"]["split_rows"] = True
 
         distincts = basv.getDistinctFields(fmt, order_by)
         expected_distincts = [order_by, "pk", "compounds__name", "compounds__pk"]

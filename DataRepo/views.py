@@ -969,7 +969,7 @@ def performQuery(
         basv = BaseAdvancedSearchView()
 
     if fmt not in basv.getFormatNames().keys():
-        raise Exception("Invalid selected format: {fmt}")
+        raise KeyError("Invalid selected format: {fmt}")
 
     # If the Q expression is None, get all, otherwise filter
     if q_exp is None:
@@ -990,7 +990,7 @@ def performQuery(
         results = results.order_by(order_by_arg)
 
     # This ensures the number of records matches the number of rows desired in the html table based on the
-    # full_join values configured in each format in BaseAdvancedSearchView
+    # split_rows values configured in each format in BaseAdvancedSearchView
     distinct_fields = basv.getDistinctFields(fmt, order_by)
     results = results.distinct(*distinct_fields)
 
@@ -1038,8 +1038,8 @@ def performQuery(
     if prefetches is not None:
         results = results.prefetch_related(*prefetches)
 
-    full_join_annotations = basv.getFullJoinAnnotations(fmt)
-    for annotation in full_join_annotations:
+    split_row_annotations = basv.getFullJoinAnnotations(fmt)
+    for annotation in split_row_annotations:
         results = results.annotate(**annotation)
 
     return results, cnt
