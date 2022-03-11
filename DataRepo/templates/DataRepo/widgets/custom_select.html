@@ -1,0 +1,38 @@
+<!-- Started using .venv/lib/python3.9/site-packages/django/forms/templates/django/forms/widgets/select.html as a starting point template -->
+<!-- Then I did a `git checkout 0557699` and grabbed the html rendered by bootstrap-table -->
+
+<script>
+  function setPageButtonValue(value) {
+    // Get the rows select list button element
+    var slbutton = document.getElementById("{{ widget.attrs.id }}")
+    alert("Setting rows per page to " + value)
+    slbutton.value = value
+
+    // Set the displayed value on the button itself
+    var pss = document.getElementsByClassName("page-size")
+    var ps = pss[0]
+    ps.innerHTML = value
+
+    // Make the button element trigger a change event
+    var event = new Event('change');
+    slbutton.dispatchEvent(event);
+  }
+</script>
+
+<div class="page-list" style="display: inline-block; white-space: nowrap;">
+  <div class="btn-group dropdown dropup">
+    <button {% for name, value in widget.attrs.items %}{% if value is not False %} {{ name }}{% if value is not True %}="{{ value|stringformat:'s' }}"{% endif %}{% endif %}{% endfor %} value="{{ widget.value.0 }}">
+      <span class="page-size">{{ widget.value.0 }}</span>
+      <span class="caret"></span>
+    </button>
+    <!-- Original django code (modified to merge attrs code) -->
+    <!-- <select name="{{ widget.name }}" {% for name, value in widget.attrs.items %}{% if value is not False %} {{ name }}{% if value is not True %}="{{ value|stringformat:'s' }}"{% endif %}{% endif %}{% endfor %}> -->
+    <div class="dropdown-menu">
+      {% for group_name, group_choices, group_index in widget.optgroups %}
+          {% for option in group_choices %}
+            {% include option.template_name with widget=option %}
+          {% endfor %}
+      {% endfor %}
+    </div>
+  </div>
+</div>

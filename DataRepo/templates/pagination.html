@@ -97,6 +97,7 @@
 
         function submitForm() {
             var myform = document.getElementById("{{ pager.form_id }}")
+            alert("Submitting form " + myform.name)
             myform.submit();
         }
 
@@ -115,6 +116,7 @@
         function setPageFormValue(elem_id, val) {
             var input_elem = document.getElementById(elem_id)
             if (typeof input_elem !== 'undefined' && input_elem) {
+                alert("Setting page to " + val)
                 input_elem.value = val;
             } else {
                 alert("Could not find page form input element: " + elem_id + ".  Make sure the input element's ID is set to this value.")
