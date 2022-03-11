@@ -19,7 +19,9 @@ This document will serve to guide developers on implementing new code.
          - AutoFields (like IDs) should not be displayed (because they can change depending on how the data is loaded from scratch, thus, they should be obfuscated from the user).
          - If `displayed` is False, set a `handoff` key whose value is a unique field (e.g. `name`).  See any `id` field in the copied class's models data.
    - If not already there, add the root model to the DataRepo.models import at the top of the file.
-   - Set each model's manytomany["is"] value as True/False based on whether it is in a many-to-many relationship with the root model.  Any many-to-many relationship on the key path necessitates a many-to-many status for that model instance.  Set each model's manytomany["fulljoin"] value as True/False based on whether the template will have a separate row for every root-model/M:M-model combo.
+   - Set each model's manytomany["is"] value as True/False based on whether it is in a many-to-many relationship with the root model.  Any many-to-many relationship on the key path necessitates a many-to-many status for that model instance.  Set each model's manytomany["split_rows"] value as True/False based on whether the template should display a separate row for every root-model/M:M-model combo.
+      - A default annotation field (`manytomany["root_annot_fld"]`) will be created that is the lower case version of the M:M model name, but if this causes a conflict with existing root model fields, you can:
+         - specify a custom annotation field name by setting `manytomany["root_annot_fld"]`.  E.g. For the MeasureCompound model instance, `manytomany["root_annot_fld"]` is explicitly set to `compound` in the PeakGroupSeachView class.
    - Add the new class to the for loop in BaseAdvancedSearchView.__init__
 
 2. `DataRepo/forms.py`
@@ -30,7 +32,11 @@ This document will serve to guide developers on implementing new code.
 
 3. `DataRepo/templates/results/<format name>.html`
    - Copy `DataRepo/templates/results/peakgroups.html` to a new file with a name that indicates the format and edit as you wish, following these guidelines:
-      - If a field's path includes a many-to-many relationship, e.g. `models.ManyToManyField`, and the resulting table should include a row for every root-model/M:M-model combo, a nested `for` loop will be necessary in the template, e.g. `{% for study in pg.msrun.sample.animal.studies.all %}`.
+      - If a field's path includes a many-to-many relationship, e.g. `models.ManyToManyField`, and the resulting table should include a row for every root-model/M:M-model combo...
+         - See the `manytomany` settings for step 1 above.
+         - See the MeasuredCompound column code in the `peakgroups.html` for an example.  Othwerwise, follow these guidelines:
+            - You should not create a nested `for` loop.  Instead, you can retrieve the M:M related record to be included on the current row of the outer loop by calling the `get_manytomany_rec` template tag.  Based on the `manytomany` config, it will either return all related records as a list or it will return the one related table record (also as a list).
+            - It is encouraged that you implement a `for` loop inside the `<td>` tags that can render the records either as a delimited series or as an individual value so that how the field is displayed can be toggled by the `manytomany` settings.
       - If there are no M:M relationships, the nested `for` loop in the copied template may be removed.
       - Use column headers that match the field's displayname set in step 1 so that they match the field select list.  (A reference to this value may be supplied in the future.)
       - Numeric values should use `<td class="text-end">`
@@ -39,7 +45,11 @@ This document will serve to guide developers on implementing new code.
 
 4. `DataRepo/templates/downloads/<format name>_{colheads,row}.tsv`
    - Copy `DataRepo/templates/downloads/peakgroups_colheads.tsv` and `DataRepo/templates/downloads/peakgroups_row.tsv` to new files with a name that indicates the format (e.g., same name as in step 3 with a different extension) and edit as you wish, following these guidelines:
-      - If a field's path includes a many-to-many relationship, e.g. `models.ManyToManyField`, and the resulting table should include a row for every root-model/M:M-model combo, a nested `for` loop will be necessary in the template, e.g. `{% for study in pg.msrun.sample.animal.studies.all %}`.
+      - If a field's path includes a many-to-many relationship, e.g. `models.ManyToManyField`, and the resulting table should include a row for every root-model/M:M-model combo...
+         - See the `manytomany` settings for step 1 above.
+         - See the MeasuredCompound column code in the `peakgroups.html` for an example.  Othwerwise, follow these guidelines:
+            - You should not create a nested `for` loop.  Instead, you can retrieve the M:M related record to be included on the current row of the outer loop by calling the `get_manytomany_rec` template tag.  Based on the `manytomany` config, it will either return all related records as a list or it will return the one related table record (also as a list).
+            - It is encouraged that you implement a `for` loop inside the `<td>` tags that can render the records either as a delimited series or as an individual value so that how the field is displayed can be toggled by the `manytomany` settings.
       - If there are no M:M relationships, the nested `for` loop in the copied template may be removed.
       - Use column headers that match the field's displayname set in step 1 so that they match the field select list.  (A reference to this value may be supplied in the future.)
 

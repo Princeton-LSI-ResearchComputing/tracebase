@@ -1,4 +1,5 @@
 from django import template
+from django.core.exceptions import MultipleObjectsReturned, ObjectDoesNotExist
 from django.template.defaultfilters import floatformat
 from django.urls import reverse
 from django.utils import dateparse
@@ -220,3 +221,39 @@ def uniquify(retval, unused):
     differently in 2 parts of a conditional, but with the same ID.  Just supply a different value to unused.
     """
     return retval
+
+
+@register.simple_tag
+def get_manytomany_rec(mm_set, pk):
+    """
+    Takes the value of a ManyToManyField (which is a queryset manager) and the value of the M:M related table primary
+    key that is associated with the root table record via an added annotation, and returns either the one M:M related
+    table record (that matches the primary key) in a list of size 1 or (if there was no annotated primary key value)
+    all the records of the mm_set in a list (what you would get from mm_set.all()).
+
+    Further explanation...
+    If a M:M related table is marked in compositeviews with split_rows=True, this method identifies the M:M related
+    record that is associated with the current instance of the root record (which will be a duplicate instance if
+    split_rows is True), as if this was a proper SQL left join.  While django always returns every related table record
+    associated with every root table record on its key path, this method essentially allows the template to reconstruct
+    a full SQL joined table result by providing the M:M related record that was associated with the original left-join
+    query.  It uses an annotated version of the M:M related table record that was added to the root table record using
+    getFullJoinAnnotations().
+
+    It returns a list in each case so that full join can be turned off and on by simply toggling the `split_rows`
+    boolean value in compositeviews.py.
+    """
+    if pk != "":
+        try:
+            mm_rec = [mm_set.get(pk__exact=pk)]
+        except ObjectDoesNotExist:
+            mm_rec = None
+        except MultipleObjectsReturned as mor:
+            raise MultipleObjectsReturned(
+                "Internal error: Primary key is not unique in M:M record list. Was "
+                f"`.distinct()` removed from the Prefetch queryset parameter? {mor}"
+            )
+    else:
+        mm_rec = mm_set.all()
+
+    return mm_rec
