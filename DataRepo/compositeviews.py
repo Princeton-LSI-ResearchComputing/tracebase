@@ -614,8 +614,7 @@ class PeakGroupsSearchView(BaseSearchView):
             "reverse_path": "compound__peak_groups",
             "manytomany": {
                 "is": True,
-                "split_rows": False,  # This is a test for only including study records when they match a search term on
-                # this field: Test with citrate; isocitrate
+                "split_rows": False,
             },
             "fields": {
                 "name": {
@@ -855,10 +854,8 @@ class PeakGroupsSearchView(BaseSearchView):
             "reverse_path": "peak_groups",
             "manytomany": {
                 "is": True,
-                "split_rows": True,  # This is a test for only including study records when they match a search term on
-                # this field: Test with citrate; isocitrate
-                "root_annot_fld": "compound",  # This is a name of the field that will be added to the root table
-                # record and can be used to identify the M:M related record that goes with it in the template
+                "split_rows": False,
+                "root_annot_fld": "compound",
             },
             "fields": {
                 "id": {
@@ -882,8 +879,8 @@ class PeakGroupsSearchView(BaseSearchView):
             "reverse_path": "animals__samples__msruns__peak_groups",
             "manytomany": {
                 "is": True,
-                "split_rows": False,  # This is a test for only including study records when they match a search term on
-                # this field: Test with obob_fasted and Small OBOB
+                "split_rows": False,
+                "root_annot_fld": "study",
             },
             "fields": {
                 "id": {
@@ -1238,6 +1235,7 @@ class PeakDataSearchView(BaseSearchView):
             "manytomany": {
                 "is": True,
                 "split_rows": False,
+                "root_annot_fld": "study",
             },
             "fields": {
                 "name": {
@@ -1478,6 +1476,7 @@ class FluxCircSearchView(BaseSearchView):
             "manytomany": {
                 "is": True,
                 "split_rows": False,
+                "root_annot_fld": "study",
             },
             "fields": {
                 "name": {
