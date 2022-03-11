@@ -284,7 +284,7 @@
 
                     <!-- Measured Compound(s) -->
                     <td>
-                        <!-- this will work as intended even if pd.peak_group.compound wasn't added as an anotation (e.g. if split_rows is false or root_annot_fld is not defined) -->
+                        <!-- this will work as intended even if pd.peak_group.compound wasn't added as an annotation (e.g. if split_rows is false or root_annot_fld is not defined) -->
                         {% get_manytomany_rec pd.peak_group.compounds pd.peak_group.compound as compounds %}
                         <!-- Put displayed link text first for sorting -->
                         <div style="display:none;">
@@ -420,7 +420,7 @@
 
                     <!-- Studies -->
                     <td>
-                        <!-- This will work as intended even if pd.peak_group.msrun.sample.animal.study wasn't added as an anotation (e.g. if split_rows is false or root_annot_fld is not defined) -->
+                        <!-- This will work as intended even if pd.peak_group.msrun.sample.animal.study wasn't added as an annotation (e.g. if split_rows is false or root_annot_fld is not defined) -->
                         {% get_manytomany_rec pd.peak_group.msrun.sample.animal.studies pd.peak_group.msrun.sample.animal.study as studies %}
                         <!-- Put displayed link text first for sorting -->
                         <div style="display:none;">

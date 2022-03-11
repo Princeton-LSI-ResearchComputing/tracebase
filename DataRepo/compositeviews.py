@@ -264,10 +264,10 @@ class BaseSearchView:
 
     def getFullJoinAnnotations(self):
         """
-        This retrurns a list of dicts that, when expanded, can be supplied to .annotate().  It is intended to be used
-        to distinguish between otherwise identical root table records that are returned because they link to many
-        records of a related table, so that when looping through those subtable records, you can skip the ones that do
-        not belong to that fully joined record.
+        This returns a list of dicts that, when expanded, can be supplied to .annotate().  It is intended to be used to
+        distinguish between otherwise identical root table records that are returned because they link to many records
+        of a related table, so that when looping through those subtable records, you can skip the ones that do not
+        belong to that fully joined record.
 
         This is necessary because the Django ORM does not suppored many-to-many tables involved in a join.  You always
         get every M:M related record with every root table record even though Django returned the number of root table
@@ -297,7 +297,7 @@ class BaseSearchView:
                         raise Exception(
                             f"Many-to-many model {mdl_inst_nm} with split_rows=True in format {self.id} must have a "
                             "value for [root_annot_fld].  This is the name that will be used to associate a root "
-                            f"table record with its M:M field in a unique combination."
+                            "table record with its M:M field in a unique combination."
                         )
 
                 # Append a dict that creates an annotation when supplied to .annotate()
