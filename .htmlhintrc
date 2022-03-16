@@ -5,7 +5,7 @@
   "attr-value-not-empty": false,
   "attr-no-duplication": true,
   "doctype-first": false,
-  "tag-pair": true,
+  "tag-pair": false,
   "tag-self-close": false,
   "spec-char-escape": false,
   "id-unique": true,
