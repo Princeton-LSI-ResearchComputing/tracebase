@@ -2,8 +2,6 @@
 
 <script>
   function setPageButtonValue(value) {
-    alert("Setting rows per page to " + value)
-
     // Get the hidden input element
     var rows_input_elem = document.getElementById("{{ widget.attrs.id }}")
     rows_input_elem.value = value
@@ -23,9 +21,9 @@
   }
 </script>
 
+<input type="hidden" name="{{ widget.name }}" {% for name, value in widget.attrs.items %}{% if value is not False %} {{ name }}{% if value is not True %}="{{ value|stringformat:'s' }}"{% endif %}{% endif %}{% endfor %} value="{{ widget.value.0 }}">
 <div class="page-list" style="display: inline-block; white-space: nowrap;">
   <div class="btn-group dropdown dropup">
-    <input type="hidden" name="{{ widget.name }}" {% for name, value in widget.attrs.items %}{% if value is not False %} {{ name }}{% if value is not True %}="{{ value|stringformat:'s' }}"{% endif %}{% endif %}{% endfor %} value="{{ widget.value.0 }}">
     <button id="custom-select-button" class="btn btn-primary dropdown-toggle" type="button" data-bs-toggle="dropdown">
       <span class="page-size">{{ widget.value.0 }}</span>
       <span class="caret"></span>
