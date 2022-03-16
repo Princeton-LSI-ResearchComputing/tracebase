@@ -147,7 +147,7 @@ class AdvSearchDownloadForm(forms.Form):
 
 class PageSelectWidget(forms.Select):
     template_name = "DataRepo/widgets/custom_select.html"
-    option_template_name =  "DataRepo/widgets/custom_select_option.html"
+    option_template_name = "DataRepo/widgets/custom_select_option.html"
 
 
 class AdvSearchPageForm(forms.Form):

@@ -3,9 +3,14 @@
 
 <script>
   function setPageButtonValue(value) {
-    // Get the rows select list button element
-    var slbutton = document.getElementById("{{ widget.attrs.id }}")
     alert("Setting rows per page to " + value)
+
+    // Get the hidden input element
+    var rows_input_elem = document.getElementById("{{ widget.attrs.id }}")
+    rows_input_elem.value = value
+
+    // Get the rows select list button element
+    var slbutton = document.getElementById("custom-select-button")
     slbutton.value = value
 
     // Set the displayed value on the button itself
@@ -15,13 +20,14 @@
 
     // Make the button element trigger a change event
     var event = new Event('change');
-    slbutton.dispatchEvent(event);
+    rows_input_elem.dispatchEvent(event);
   }
 </script>
 
 <div class="page-list" style="display: inline-block; white-space: nowrap;">
   <div class="btn-group dropdown dropup">
-    <button {% for name, value in widget.attrs.items %}{% if value is not False %} {{ name }}{% if value is not True %}="{{ value|stringformat:'s' }}"{% endif %}{% endif %}{% endfor %} value="{{ widget.value.0 }}">
+    <input type="hidden" name="{{ widget.name }}" {% for name, value in widget.attrs.items %}{% if value is not False %} {{ name }}{% if value is not True %}="{{ value|stringformat:'s' }}"{% endif %}{% endif %}{% endfor %} value="{{ widget.value.0 }}">
+    <button id="custom-select-button" class="btn btn-primary dropdown-toggle" type="button" data-bs-toggle="dropdown">
       <span class="page-size">{{ widget.value.0 }}</span>
       <span class="caret"></span>
     </button>
