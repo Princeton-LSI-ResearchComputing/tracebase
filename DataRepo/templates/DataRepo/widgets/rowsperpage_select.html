@@ -1,5 +1,4 @@
-<!-- Started using .venv/lib/python3.9/site-packages/django/forms/templates/django/forms/widgets/select.html as a starting point template -->
-<!-- Then I did a `git checkout 0557699` and grabbed the html rendered by bootstrap-table -->
+<!-- Based on .venv/lib/python3.9/site-packages/django/forms/templates/django/forms/widgets/select.html as a starting point template -->
 
 <script>
   function setPageButtonValue(value) {
@@ -31,8 +30,6 @@
       <span class="page-size">{{ widget.value.0 }}</span>
       <span class="caret"></span>
     </button>
-    <!-- Original django code (modified to merge attrs code) -->
-    <!-- <select name="{{ widget.name }}" {% for name, value in widget.attrs.items %}{% if value is not False %} {{ name }}{% if value is not True %}="{{ value|stringformat:'s' }}"{% endif %}{% endif %}{% endfor %}> -->
     <div class="dropdown-menu">
       {% for group_name, group_choices, group_index in widget.optgroups %}
           {% for option in group_choices %}

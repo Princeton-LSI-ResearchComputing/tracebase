@@ -518,7 +518,7 @@ class AdvancedSearchView(MultiFormsView):
         Upon invalid advanced search form submission, rescues the query to add back to the context.
         """
         print(f"Invalid paging form: {formset}")
-        print(f"Saved form: {formset.saved_data}")
+
         qry = {}
 
         root_group = self.basv_metadata.getRootGroup()
