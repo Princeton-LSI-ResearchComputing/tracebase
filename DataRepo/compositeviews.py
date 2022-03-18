@@ -13,6 +13,27 @@ from DataRepo.models import (
 )
 
 
+def getSimpleFilter(fld, ncmp, val, static=False):
+    """
+    This returns a 1-query portion of what is usually under qry[searches][<template>][tree]
+    """
+    return {
+        "type": "group",
+        "val": "all",
+        "static": static,
+        "queryGroup": [
+            {
+                "type": "query",
+                "pos": "",
+                "static": static,
+                "fld": fld,
+                "ncmp": ncmp,
+                "val": val,
+            },
+        ],
+    }
+
+
 class BaseSearchView:
     """
     This class holds common data/functions for search output formats.
@@ -532,7 +553,7 @@ class BaseSearchView:
             return mdl._meta.__dict__["ordering"]
         return []
 
-    def getDistinctFields(self, order_by):
+    def getDistinctFields(self, order_by=None):
         """
         Puts together fields required by queryset.distinct() based on the value of each model instance's split_rows
         state.  split_rows=True allows us to choose whether the output rows in the html results template will contain
@@ -574,6 +595,9 @@ class BaseSearchView:
 
         return distinct_fields
 
+    def getStatsParams(self):
+        return deepcopy(self.stats)
+
 
 class PeakGroupsSearchView(BaseSearchView):
     """
@@ -583,6 +607,58 @@ class PeakGroupsSearchView(BaseSearchView):
     id = "pgtemplate"
     name = "PeakGroups"
     rootmodel = PeakGroup
+    stats = [
+        {
+            "displayname": "Animals",
+            "distincts": ["msrun__sample__animal__name"],
+            "filter": None,
+        },
+        {
+            "displayname": "Labeled Elements",
+            "distincts": ["peak_data__labeled_element"],
+            "filter": None,
+        },
+        {
+            "displayname": "Measured Compounds",
+            "distincts": ["compounds__name"],
+            "filter": None,
+        },
+        {
+            "displayname": "Samples",
+            "distincts": ["msrun__sample__name"],
+            "filter": None,
+        },
+        {
+            "displayname": "Tissues",
+            "distincts": ["msrun__sample__tissue__name"],
+            "filter": None,
+        },
+        {
+            "displayname": "Tracer Compounds",
+            "distincts": ["msrun__sample__animal__tracer_compound__name"],
+            "filter": None,
+        },
+        {
+            "displayname": "Studies",
+            "distincts": ["msrun__sample__animal__studies__name"],
+            "filter": None,
+        },
+        {
+            "displayname": "Feeding Statuses",
+            "distincts": ["msrun__sample__animal__feeding_status"],
+            "filter": None,
+        },
+        {
+            "displayname": "Infusion Rates",
+            "distincts": ["msrun__sample__animal__tracer_infusion_rate"],
+            "filter": None,
+        },
+        {
+            "displayname": "Infusion Concentrations",
+            "distincts": ["msrun__sample__animal__tracer_infusion_concentration"],
+            "filter": None,
+        },
+    ]
     model_instances = {
         "PeakGroupSet": {
             "model": "PeakGroupSet",
@@ -923,6 +999,51 @@ class PeakDataSearchView(BaseSearchView):
     id = "pdtemplate"
     name = "PeakData"
     rootmodel = PeakData
+    stats = [
+        {
+            "displayname": "Animals",
+            "distincts": ["peak_group__msrun__sample__animal__name"],
+            "filter": None,
+        },
+        {
+            "displayname": "Labels",
+            "distincts": [
+                "labeled_element",
+                "labeled_count",
+            ],
+            "filter": None,
+        },
+        {
+            "displayname": "Feeding Statuses",
+            "distincts": ["peak_group__msrun__sample__animal__feeding_status"],
+            "filter": None,
+        },
+        {
+            "displayname": "Corrected Abundances",  # Append " > 0.1" based on filter
+            "distincts": ["corrected_abundance"],
+            "filter": getSimpleFilter("corrected_abundance", "gt", 0.1),
+        },
+        {
+            "displayname": "Samples",
+            "distincts": ["peak_group__msrun__sample__name"],
+            "filter": None,
+        },
+        {
+            "displayname": "Tissues",
+            "distincts": ["peak_group__msrun__sample__tissue__name"],
+            "filter": None,
+        },
+        {
+            "displayname": "Tracer Compounds",
+            "distincts": ["peak_group__msrun__sample__animal__tracer_compound__name"],
+            "filter": None,
+        },
+        {
+            "displayname": "Measured Compounds",
+            "distincts": ["peak_group__compounds__name"],
+            "filter": None,
+        },
+    ]
     model_instances = {
         "PeakData": {
             "model": "PeakData",
@@ -1301,6 +1422,7 @@ class FluxCircSearchView(BaseSearchView):
     id = "fctemplate"
     name = "Fcirc"
     rootmodel = PeakGroup
+    stats = None
     model_instances = {
         "PeakGroup": {
             "model": "PeakGroup",
@@ -1881,11 +2003,14 @@ class BaseAdvancedSearchView:
     def reRootQry(self, fmt, qry, new_root_model_instance_name):
         return self.modeldata[fmt].reRootQry(qry, new_root_model_instance_name)
 
-    def getDistinctFields(self, fmt, order_by):
+    def getDistinctFields(self, fmt, order_by=None):
         return self.modeldata[fmt].getDistinctFields(order_by)
 
     def getFullJoinAnnotations(self, fmt):
         return self.modeldata[fmt].getFullJoinAnnotations()
+    
+    def getStatsParams(self, fmt):
+        return self.modeldata[fmt].getStatsParams()
 
 
 def splitPathName(fld):

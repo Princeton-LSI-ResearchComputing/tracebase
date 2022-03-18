@@ -6,7 +6,7 @@ from typing import List
 from django.apps import apps
 from django.conf import settings
 from django.core.management import call_command
-from django.db.models import Prefetch, Q
+from django.db.models import Prefetch, Q, F, ExpressionWrapper, Count, CharField
 from django.http import Http404, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template import loader
@@ -292,7 +292,7 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
         )
     )
 
-    res, tot = performQuery(
+    res, tot, stats = performQuery(
         qry,
         qry["selectedtemplate"],
         basv_metadata,
@@ -314,7 +314,7 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
             "forms": basf.form_classes,
             "qry": qry,
             "res": res,
-            "tot": tot,
+            "stats": stats,
             "pager": pager,
             "download_form": download_form,
             "debug": settings.DEBUG,
@@ -469,7 +469,7 @@ class AdvancedSearchView(MultiFormsView):
                     self.pager.default_rows,
                 )
             )
-            res, tot = performQuery(
+            res, tot, stats = performQuery(
                 qry,
                 qry["selectedtemplate"],
                 self.basv_metadata,
@@ -493,6 +493,7 @@ class AdvancedSearchView(MultiFormsView):
         return self.render_to_response(
             self.get_context_data(
                 res=res,
+                stats=stats,
                 forms=self.form_classes,
                 qry=qry,
                 download_form=download_form,
@@ -587,7 +588,7 @@ class AdvancedSearchView(MultiFormsView):
             # bottom of the block, the downloaded file will only contain the header and will not be named properly...
             # Might be a (Safari) browser issue (according to stack).
             download_form = AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
-            res, tot = performQuery(
+            res, tot, stats = performQuery(
                 qry,
                 qry["selectedtemplate"],
                 self.basv_metadata,
@@ -598,7 +599,7 @@ class AdvancedSearchView(MultiFormsView):
             )
         else:
             print(f"Getting browse data with offset: {offset} and limit {rows}")
-            res, tot = getAllBrowseData(
+            res, tot, stats = getAllBrowseData(
                 qry["selectedtemplate"],
                 self.basv_metadata,
                 limit=rows,
@@ -626,6 +627,7 @@ class AdvancedSearchView(MultiFormsView):
         response = self.render_to_response(
             self.get_context_data(
                 res=res,
+                stats=stats,
                 forms=self.form_classes,
                 qry=qry,
                 download_form=download_form,
@@ -679,7 +681,7 @@ class AdvancedSearchView(MultiFormsView):
                 )
                 self.pager.update()
                 offset = 0
-                context["res"], context["tot"] = getAllBrowseData(
+                context["res"], context["tot"], context["stats"] = getAllBrowseData(
                     qry["selectedtemplate"],
                     self.basv_metadata,
                     limit=self.pager.rows,
@@ -702,7 +704,7 @@ class AdvancedSearchView(MultiFormsView):
             context["download_form"] = AdvSearchDownloadForm(
                 initial={"qryjson": json.dumps(qry)}
             )
-            context["res"], context["tot"] = performQuery(
+            context["res"], context["tot"], context["stats"] = performQuery(
                 qry, qry["selectedtemplate"], self.basv_metadata
             )
             context["pager"] = self.pager.update(
@@ -763,9 +765,9 @@ class AdvancedSearchTSVView(FormView):
         )
 
         if isValidQryObjPopulated(qry):
-            res, tot = performQuery(qry, qry["selectedtemplate"], self.basv_metadata)
+            res, tot, stats = performQuery(qry, qry["selectedtemplate"], self.basv_metadata)
         else:
-            res, tot = getAllBrowseData(qry["selectedtemplate"], self.basv_metadata)
+            res, tot, stats = getAllBrowseData(qry["selectedtemplate"], self.basv_metadata)
 
         headtmplt = loader.get_template(self.header_template)
         rowtmplt = loader.get_template(self.row_template)
@@ -870,7 +872,7 @@ def searchFieldToDisplayField(basv_metadata, mdl, fld, val, qry):
     dfields = basv_metadata.getDisplayFields(fmt, mdl)
     if fld in dfields.keys() and dfields[fld] != fld:
         # If fld is not a displayed field, perform a query to convert the undisplayed field query to a displayed query
-        recs, tot = performQuery(qry, fmt, basv_metadata)
+        recs, tot, stats = performQuery(qry, fmt, basv_metadata)
         if tot == 0:
             print(
                 f"WARNING: Failed basic/advanced {fmt} search conversion: {qry}. No records found matching {mdl}."
@@ -996,6 +998,7 @@ def performQuery(
 
     # Count the total results.  Limit/offset are only used for paging.
     cnt = results.count()
+    stats = getQueryStats(results, fmt, basv)
 
     # Limit
     if limit is not None:
@@ -1042,7 +1045,50 @@ def performQuery(
     for annotation in split_row_annotations:
         results = results.annotate(**annotation)
 
-    return results, cnt
+    return results, cnt, stats
+
+
+def getQueryStats(res, fmt, basv=None):
+    """
+    This method takes a queryset (produced by performQuery) and a format (e.g. "pgtemplate") and returns a stats dict
+    keyed on the stat name and containing the counts of  the number of unique values for the fields defined in the
+    basic advanced search view object for the supplied template.  E.g. The results contain 5 distinct tissues.
+    """
+    if basv is None:
+        basv = BaseAdvancedSearchView()
+
+    params_arrays = basv.getStatsParams(fmt)
+    if params_arrays is None:
+        return None
+
+    stats = {}
+
+    # For each stats category defined for this format
+    for params in params_arrays:
+
+        # If this stat has a filter (i.e. sub-query) defined
+        if params["filter"] is not None:
+            # Since we don't have an entire qry object, but just the value under qry["searches"][template]["tree"], we
+            # can call the helper method directly
+            q_exp = constructAdvancedQueryHelper(params["filter"])
+            results = res.filter(q_exp)
+        else:
+            results = res
+
+        # Get distinct fields for the count
+        distinct_fields = params["distincts"]
+        results = results.values(*distinct_fields).annotate(cnt=Count("pk")).order_by("-cnt")
+
+        counted_distincts = params["distincts"]
+        counted_distincts.append("cnt")
+
+        # Compile the stats
+        stats[params["displayname"]] = {}
+        stats[params["displayname"]]["count"] = results.count()
+        stats[params["displayname"]]["sample"] = results.values_list(*counted_distincts, named=False)[0:10]
+        stats[params["displayname"]]["filter"] = params["filter"]
+
+    return stats
 
 
 def isQryObjValid(qry, form_class_list):

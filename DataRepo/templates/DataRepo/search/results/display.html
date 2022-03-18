@@ -98,6 +98,28 @@
             {% endif %}
 
             {% if mode == "view" or valid_search %}
+                {% if stats %}
+                    <table>
+                        <tr>
+                            <th>Count</th>
+                            <th>Feature</th>
+                            <th>Example</th>
+                        </tr>
+                        {% for stat_name in stats.keys %}
+                            <tr>
+                                <td>{{ stat_name }}</td>
+                                <td>{{ stats|index:stat_name|index:"count" }}</td>
+                                <td>
+                                    {% for val in stats|index:stat_name|index:"sample" %}
+                                        {{ val }}{% if not forloop.last %}, {% endif %}
+                                    {% endfor %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+
+                    </table>
+                {% endif %}
+
                 {% if selfmt == "pgtemplate" %}
                     {% include "DataRepo/search/results/peakgroups.html" with selfmt=selfmt %}
                 {% elif selfmt == "pdtemplate" %}
