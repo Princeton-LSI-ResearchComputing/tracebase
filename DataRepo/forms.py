@@ -145,6 +145,11 @@ class AdvSearchDownloadForm(forms.Form):
         return self.cleaned_data
 
 
+class RowsPerPageSelectWidget(forms.Select):
+    template_name = "DataRepo/widgets/rowsperpage_select.html"
+    option_template_name = "DataRepo/widgets/rowsperpage_select_option.html"
+
+
 class AdvSearchPageForm(forms.Form):
     """
     Advanced search download form for any advanced search data.
@@ -163,9 +168,7 @@ class AdvSearchPageForm(forms.Form):
     qryjson = forms.JSONField(widget=forms.HiddenInput())
     rows = forms.ChoiceField(
         choices=ROWS_PER_PAGE_CHOICES,
-        # TODO: Can probably get the caret in the button image using:
-        #   https://stackoverflow.com/questions/45424162/listing-a-choicefield-in-django-as-button
-        widget=forms.Select(),
+        widget=RowsPerPageSelectWidget(),
     )
     page = forms.CharField(widget=forms.HiddenInput())
     order_by = forms.CharField(widget=forms.HiddenInput())
