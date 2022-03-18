@@ -617,6 +617,13 @@ class PeakGroupsSearchView(BaseSearchView):
                 "split_rows": False,
             },
             "fields": {
+                "id": {
+                    "displayname": "(Internal) Compound Synonym Index",
+                    "searchable": True,
+                    "displayed": False,  # Used in link
+                    "handoff": "name",  # This is the field that will be loaded in the search form
+                    "type": "number",
+                },
                 "name": {
                     "displayname": "Measured Compound (Any Synonym)",
                     "searchable": True,
@@ -634,6 +641,13 @@ class PeakGroupsSearchView(BaseSearchView):
                 "split_rows": False,
             },
             "fields": {
+                "id": {
+                    "displayname": "(Internal) Peak Group Index",
+                    "searchable": True,
+                    "displayed": False,  # Used in link
+                    "handoff": "name",  # This is the field that will be loaded in the search form
+                    "type": "number",
+                },
                 "name": {
                     "displayname": "Peak Group",
                     "searchable": True,
@@ -919,6 +933,15 @@ class PeakDataSearchView(BaseSearchView):
                 "split_rows": False,
             },
             "fields": {
+                "id": {
+                    "displayname": "(Internal) Peak Data Index",
+                    "searchable": True,
+                    "displayed": False,  # Used in link
+                    # "handoff": "",
+                    # Using in link will expose the internal index field in the search form because there's no
+                    # searchable unique field for handoff
+                    "type": "number",
+                },
                 "labeled_element": {
                     "displayname": "Labeled Element",
                     "searchable": True,
@@ -1027,6 +1050,13 @@ class PeakDataSearchView(BaseSearchView):
                 "split_rows": False,
             },
             "fields": {
+                "id": {
+                    "displayname": "(Internal) Compound Synonym Index",
+                    "searchable": True,
+                    "displayed": False,  # Used in link
+                    "handoff": "name",  # This is the field that will be loaded in the search form
+                    "type": "number",
+                },
                 "name": {
                     "displayname": "Measured Compound (Any Synonym)",
                     "searchable": True,
@@ -1116,6 +1146,13 @@ class PeakDataSearchView(BaseSearchView):
                 "split_rows": False,
             },
             "fields": {
+                "id": {
+                    "displayname": "(Internal) Animal Index",
+                    "searchable": True,
+                    "displayed": False,  # Used in link
+                    "handoff": "name",  # This is the field that will be loaded in the search form
+                    "type": "number",
+                },
                 "name": {
                     "displayname": "Animal",
                     "searchable": True,
@@ -1189,18 +1226,18 @@ class PeakDataSearchView(BaseSearchView):
                 "split_rows": False,
             },
             "fields": {
-                "name": {
-                    "displayname": "Treatment",
-                    "searchable": True,
-                    "displayed": True,
-                    "type": "string",
-                },
                 "id": {
                     "displayname": "(Internal) Protocol Index",
                     "searchable": True,
                     "displayed": False,  # Used in link
                     "handoff": "name",  # This is the field that will be loaded in the search form
                     "type": "number",
+                },
+                "name": {
+                    "displayname": "Treatment",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "string",
                 },
             },
         },
@@ -1238,18 +1275,18 @@ class PeakDataSearchView(BaseSearchView):
                 "root_annot_fld": "study",
             },
             "fields": {
-                "name": {
-                    "displayname": "Study",
-                    "searchable": True,
-                    "displayed": True,
-                    "type": "string",
-                },
                 "id": {
                     "displayname": "(Internal) Study Index",
                     "searchable": True,
                     "displayed": False,  # Used in link
                     "handoff": "name",  # This is the field that will be loaded in the search form
                     "type": "number",
+                },
+                "name": {
+                    "displayname": "Study",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "string",
                 },
             },
         },
@@ -1274,6 +1311,15 @@ class FluxCircSearchView(BaseSearchView):
                 "split_rows": False,
             },
             "fields": {
+                "id": {
+                    "displayname": "(Internal) Peak Group Index",
+                    "searchable": True,
+                    "displayed": False,  # Used in link
+                    # "handoff": "",
+                    # Using in link will expose the internal index field in the search form because there's no
+                    # searchable unique field for handoff
+                    "type": "number",
+                },
                 "rate_disappearance_average_per_gram": {
                     "displayname": "Average Rd (nmol/min/g)",
                     "searchable": False,  # Cannot search cached property
@@ -1413,18 +1459,18 @@ class FluxCircSearchView(BaseSearchView):
                 "split_rows": False,
             },
             "fields": {
-                "name": {
-                    "displayname": "Treatment",
-                    "searchable": True,
-                    "displayed": True,
-                    "type": "string",
-                },
                 "id": {
                     "displayname": "(Internal) Protocol Index",
                     "searchable": True,
                     "displayed": False,  # Used in link
                     "handoff": "name",  # This is the field that will be loaded in the search form
                     "type": "number",
+                },
+                "name": {
+                    "displayname": "Treatment",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "string",
                 },
             },
         },
@@ -1437,6 +1483,15 @@ class FluxCircSearchView(BaseSearchView):
                 "split_rows": False,
             },
             "fields": {
+                "id": {
+                    "displayname": "(Internal) Sample Index",
+                    "searchable": True,
+                    "displayed": False,  # Used in link
+                    # "handoff": "",
+                    # Using in link will expose the internal index field in the search form because there's no
+                    # searchable unique field for handoff
+                    "type": "number",
+                },
                 "time_collected": {
                     "displayname": "Time Collected (hh:mm:ss since infusion)",
                     "searchable": True,
@@ -1454,18 +1509,18 @@ class FluxCircSearchView(BaseSearchView):
                 "split_rows": False,
             },
             "fields": {
-                "name": {
-                    "displayname": "Tracer Compound",
-                    "searchable": True,
-                    "displayed": True,
-                    "type": "string",
-                },
                 "id": {
                     "displayname": "(Internal) Tracer Index",
                     "searchable": True,
                     "displayed": False,  # Used in link
                     "handoff": "name",  # This is the field that will be loaded in the search form
                     "type": "number",
+                },
+                "name": {
+                    "displayname": "Tracer Compound",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "string",
                 },
             },
         },
@@ -1479,18 +1534,18 @@ class FluxCircSearchView(BaseSearchView):
                 "root_annot_fld": "study",
             },
             "fields": {
-                "name": {
-                    "displayname": "Study",
-                    "searchable": True,
-                    "displayed": True,
-                    "type": "string",
-                },
                 "id": {
                     "displayname": "(Internal) Study Index",
                     "searchable": True,
                     "displayed": False,  # Used in link
                     "handoff": "name",  # This is the field that will be loaded in the search form
                     "type": "number",
+                },
+                "name": {
+                    "displayname": "Study",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "string",
                 },
             },
         },
