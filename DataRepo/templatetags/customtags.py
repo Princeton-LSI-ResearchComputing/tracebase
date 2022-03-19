@@ -257,3 +257,17 @@ def get_manytomany_rec(mm_set, pk):
         mm_rec = mm_set.all()
 
     return mm_rec
+
+@register.simple_tag
+def compile_stats(stats, num_chars=160):
+    smry = ""
+    for i, val in enumerate(stats):
+        smry += f"{val['val']} ({val['cnt']})"
+        if i != (len(stats) - 1):
+            smry += ", "
+    short = smry
+    if len(smry) > num_chars:
+        short = str(smry[0:(num_chars - 3)])
+        short += "..."
+        print(f"truncating to {short}")
+    return {"full": smry, "short": short}

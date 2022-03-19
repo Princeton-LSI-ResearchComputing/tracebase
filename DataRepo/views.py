@@ -1082,10 +1082,30 @@ def getQueryStats(res, fmt, basv=None):
         counted_distincts = params["distincts"]
         counted_distincts.append("cnt")
 
+        if "delimiter" in params:
+            delim = params["delimiter"]
+        else:
+            delim = " "
+        
+        # Create a list of dicts containing a delimiter-joined value and the count
+        top10 = []
+        vals = results.values_list(*counted_distincts, named=False)[0:10]
+        for tpl in vals:
+            lst = []
+            for i, val in enumerate(tpl):
+                if i == (len(tpl) - 1):
+                    vcnt = val
+                else:
+                    lst.append(str(val))
+            top10.append({
+                "val": delim.join(lst),
+                "cnt": vcnt,
+            })
+
         # Compile the stats
         stats[params["displayname"]] = {}
         stats[params["displayname"]]["count"] = results.count()
-        stats[params["displayname"]]["sample"] = results.values_list(*counted_distincts, named=False)[0:10]
+        stats[params["displayname"]]["sample"] = top10
         stats[params["displayname"]]["filter"] = params["filter"]
 
     return stats

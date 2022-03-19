@@ -1012,6 +1012,7 @@ class PeakDataSearchView(BaseSearchView):
                 "labeled_count",
             ],
             "filter": None,
+            "delimiter": ":",
         },
         {
             "displayname": "Feeding Statuses",

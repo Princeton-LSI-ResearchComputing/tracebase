@@ -79,6 +79,12 @@
             <hr>
 
             {% if mode != "view" or valid_search %}
+                {% if stats %}
+                    {% comment %} <div style="font-size: 12px !important; width: 60% !important; margin-left: 16px; float: right;"> {% endcomment %}
+                        {% include "DataRepo/search/results/stats.html" %}
+                    {% comment %} </div> {% endcomment %}
+                {% endif %}
+
                 <div style="margin-left: 16px; float: right;">
                     <button class="btn btn-primary mb-2" id="reset" title="Reset Page Settings" onclick="restoreDefaults()"><i class="fa">Reset</i></button>
                 </div>
@@ -98,28 +104,6 @@
             {% endif %}
 
             {% if mode == "view" or valid_search %}
-                {% if stats %}
-                    <table>
-                        <tr>
-                            <th>Count</th>
-                            <th>Feature</th>
-                            <th>Example</th>
-                        </tr>
-                        {% for stat_name in stats.keys %}
-                            <tr>
-                                <td>{{ stat_name }}</td>
-                                <td>{{ stats|index:stat_name|index:"count" }}</td>
-                                <td>
-                                    {% for val in stats|index:stat_name|index:"sample" %}
-                                        {{ val }}{% if not forloop.last %}, {% endif %}
-                                    {% endfor %}
-                                </td>
-                            </tr>
-                        {% endfor %}
-
-                    </table>
-                {% endif %}
-
                 {% if selfmt == "pgtemplate" %}
                     {% include "DataRepo/search/results/peakgroups.html" with selfmt=selfmt %}
                 {% elif selfmt == "pdtemplate" %}

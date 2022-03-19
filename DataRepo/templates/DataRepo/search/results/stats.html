@@ -1,0 +1,25 @@
+{% load customtags %}
+<div id="resultstats" style="font-size: 12px !important; width: 30% !important; margin-left: 16px; float: right;" class="collapse">
+    <table class="table table-condensed table-striped text-xsmall" style="padding: 2px;">
+        <tr>
+            <th class="col-sm-1 text-end" style="padding: 1px 5px !important;">#</th>
+            <th class="col-sm-1" style="padding: 1px 5px !important;">Feature</th>
+            <th class="col-sm-10" style="padding: 1px 5px !important;">Top 10</th>
+        </tr>
+        {% for stat_name in stats.keys %}
+            <tr>
+                <td class="col-sm-1 text-end" style="padding: 1px 5px !important;">{{ stats|index:stat_name|index:"count" }}</td>
+                <td class="col-sm-1" style="padding: 1px 5px !important;">{{ stat_name }}</td>
+                <td class="col-sm-10" style="padding: 1px 5px !important;">
+                    {% compile_stats stats|index:stat_name|index:"sample" 90 as smry %}
+                    <div title="{{ smry.full }}">
+                        {{ smry.short }}
+                    </div>
+                </td>
+            </tr>
+        {% endfor %}
+    </table>
+</div>
+<div style="margin-left: 16px; float: right;">
+    <button class="btn btn-primary mb-2" title="View Stats" data-bs-toggle="collapse" data-bs-target="#resultstats"><i class="fa">Stats</i></button>
+</div>
