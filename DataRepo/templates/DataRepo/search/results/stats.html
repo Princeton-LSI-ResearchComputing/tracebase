@@ -9,7 +9,7 @@
         {% for stat_name in stats.keys %}
             <tr>
                 <td class="col-sm-1 text-end" style="padding: 1px 5px !important;">{{ stats|index:stat_name|index:"count" }}</td>
-                <td class="col-sm-1" style="padding: 1px 5px !important;">{{ stat_name }}</td>
+                <td class="col-sm-1" style="padding: 1px 5px !important;">{{ stat_name }}{% if stats|index:stat_name|index:"filter" %} {% display_filter stats|index:stat_name|index:"filter" %}{% endif %}</td>
                 <td class="col-sm-10" style="padding: 1px 5px !important;">
                     {% compile_stats stats|index:stat_name|index:"sample" 90 as smry %}
                     <div title="{{ smry.full }}">

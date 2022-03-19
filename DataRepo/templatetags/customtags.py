@@ -271,3 +271,12 @@ def compile_stats(stats, num_chars=160):
         short += "..."
         print(f"truncating to {short}")
     return {"full": smry, "short": short}
+
+@register.simple_tag
+def display_filter(filter):
+    """
+    This method is an overly simplistic placeholder until we need a more complex filter to support
+    """
+    ncmp = filter["queryGroup"][0]["ncmp"]
+    val = filter["queryGroup"][0]["val"]
+    return f"{ncmp} {val}"
