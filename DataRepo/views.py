@@ -6,7 +6,7 @@ from typing import List
 from django.apps import apps
 from django.conf import settings
 from django.core.management import call_command
-from django.db.models import Prefetch, Q, F, ExpressionWrapper, Count, CharField
+from django.db.models import Prefetch, Q
 from django.http import Http404, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template import loader
@@ -765,9 +765,13 @@ class AdvancedSearchTSVView(FormView):
         )
 
         if isValidQryObjPopulated(qry):
-            res, tot, stats = performQuery(qry, qry["selectedtemplate"], self.basv_metadata)
+            res, tot, stats = performQuery(
+                qry, qry["selectedtemplate"], self.basv_metadata
+            )
         else:
-            res, tot, stats = getAllBrowseData(qry["selectedtemplate"], self.basv_metadata)
+            res, tot, stats = getAllBrowseData(
+                qry["selectedtemplate"], self.basv_metadata
+            )
 
         headtmplt = loader.get_template(self.header_template)
         rowtmplt = loader.get_template(self.row_template)
@@ -1057,14 +1061,25 @@ def getQueryStats(res, fmt, basv=None):
     if basv is None:
         basv = BaseAdvancedSearchView()
 
+    # Obtain the metadata about what stats we will display
     params_arrays = basv.getStatsParams(fmt)
     if params_arrays is None:
         return None
+
+    # Since `results.values(*distinct_fields).annotate(cnt=Count("pk"))` throws an exception if duplicate records
+    # result from the possible use of distinct(fields) in the res sent in, we must mix in the distinct fields that
+    # uniquely identify records.
+    fmt_distinct_fields = basv.getDistinctFields(fmt, assume_distinct=False)
 
     stats = {}
 
     # For each stats category defined for this format
     for params in params_arrays:
+
+        if "delimiter" in params:
+            delim = params["delimiter"]
+        else:
+            delim = " "
 
         # If this stat has a filter (i.e. sub-query) defined
         if params["filter"] is not None:
@@ -1075,36 +1090,48 @@ def getQueryStats(res, fmt, basv=None):
         else:
             results = res
 
-        # Get distinct fields for the count
+        # Get distinct fields for the count by taking the union of the record-identifying distinct fields and the
+        # distinct fields whose repeated values we want to count.
         distinct_fields = params["distincts"]
-        results = results.values(*distinct_fields).annotate(cnt=Count("pk")).order_by("-cnt")
+        all_distinct_fields = fmt_distinct_fields + distinct_fields
 
-        counted_distincts = params["distincts"]
-        counted_distincts.append("cnt")
+        num_unique = (
+            results.distinct(*distinct_fields).order_by(*distinct_fields).count()
+        )
 
-        if "delimiter" in params:
-            delim = params["delimiter"]
-        else:
-            delim = " "
-        
-        # Create a list of dicts containing a delimiter-joined value and the count
+        # Count repeated occurrences of each unique value using a dict.
+        #   Normally, we would do:
+        #     results.values(*distinct_fields).annotate(cnt=Count("pk")).order_by("-cnt")
+        #   However, Django does not support this when root table records can be repeated in a true join, so if there
+        #   are duplicates, it would throw this exception:
+        #     NotImplementedError: annotate() + distinct(fields) is not implemented
+        # Also, note that .values_list() will condense to distinct combos, so we must supply it all_distinct_fields
+        cnt_dict = {}
+        for rec in results.values_list(*all_distinct_fields):
+            # Create the distinct value combo as the dict key
+            valkey = delim.join(
+                # values_list is fast, but can only be indexed by number...
+                map(lambda x: str(rec[all_distinct_fields.index(x)]), distinct_fields)
+            )
+            # Count occurrences
+            if valkey not in cnt_dict:
+                cnt_dict[valkey] = 1
+            else:
+                cnt_dict[valkey] += 1
+
+        # For the top 10 unique values (delimited-combos), in order of descending number of occurrences
         top10 = []
-        vals = results.values_list(*counted_distincts, named=False)[0:10]
-        for tpl in vals:
-            lst = []
-            for i, val in enumerate(tpl):
-                if i == (len(tpl) - 1):
-                    vcnt = val
-                else:
-                    lst.append(str(val))
-            top10.append({
-                "val": delim.join(lst),
-                "cnt": vcnt,
-            })
+        for valcombo in sorted(cnt_dict.keys(), key=lambda x: -cnt_dict[x])[0:10]:
+            top10.append(
+                {
+                    "val": valcombo,
+                    "cnt": cnt_dict[valcombo],
+                }
+            )
 
         # Compile the stats
         stats[params["displayname"]] = {}
-        stats[params["displayname"]]["count"] = results.count()
+        stats[params["displayname"]]["count"] = num_unique
         stats[params["displayname"]]["sample"] = top10
         stats[params["displayname"]]["filter"] = params["filter"]
 

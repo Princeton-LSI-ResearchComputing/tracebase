@@ -258,8 +258,10 @@ def get_manytomany_rec(mm_set, pk):
 
     return mm_rec
 
+
 @register.simple_tag
 def compile_stats(stats, num_chars=160):
+    more_str = "..."
     smry = ""
     for i, val in enumerate(stats):
         smry += f"{val['val']} ({val['cnt']})"
@@ -267,10 +269,13 @@ def compile_stats(stats, num_chars=160):
             smry += ", "
     short = smry
     if len(smry) > num_chars:
-        short = str(smry[0:(num_chars - 3)])
-        short += "..."
+        # black and flake8 disagree on how `[0 : (num_chars - 3)]` should be spaced, so...
+        num_chars -= len(more_str)
+        short = str(smry[0:num_chars])
+        short += more_str
         print(f"truncating to {short}")
     return {"full": smry, "short": short}
+
 
 @register.simple_tag
 def display_filter(filter):

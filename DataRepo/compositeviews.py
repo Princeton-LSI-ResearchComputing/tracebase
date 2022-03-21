@@ -1,5 +1,5 @@
 from copy import deepcopy
-from typing import Dict
+from typing import Dict, List, Optional
 
 from django.apps import apps
 from django.db.models import F, Model
@@ -43,6 +43,7 @@ class BaseSearchView:
     name = ""
     model_instances: Dict[str, Dict] = {}
     rootmodel: Model = None
+    stats: Optional[List[Dict]] = None
     ncmp_choices = {
         "number": [
             ("iexact", "is"),
@@ -553,7 +554,7 @@ class BaseSearchView:
             return mdl._meta.__dict__["ordering"]
         return []
 
-    def getDistinctFields(self, order_by=None):
+    def getDistinctFields(self, order_by=None, assume_distinct=True):
         """
         Puts together fields required by queryset.distinct() based on the value of each model instance's split_rows
         state.  split_rows=True allows us to choose whether the output rows in the html results template will contain
@@ -564,6 +565,10 @@ class BaseSearchView:
         An order_by field (including its key path) is required if the queryset will be non-default ordered, because
         .distinct() requires them to be present.  Otherwise, you will encounter an exception when the queryset is made
         distinct on the returned fields.  Only a single order_by field is supported.
+
+        assume_distinct - This assumes (when split_rows is False) that all records are distinct/not-identical.  In that
+        case, this method returns an empty list (as the parameters to .distinct()).  This is the default behavior.  If
+        that assumption is false, supply assume_distinct=False.
         """
         distinct_fields = []
         for mdl_inst_nm in self.model_instances:
@@ -592,6 +597,9 @@ class BaseSearchView:
 
             if order_by is not None and order_by not in distinct_fields:
                 distinct_fields.insert(0, order_by)
+
+        if len(distinct_fields) == 0 and not assume_distinct:
+            distinct_fields.append("pk")
 
         return distinct_fields
 
@@ -1280,13 +1288,6 @@ class PeakDataSearchView(BaseSearchView):
                     "searchable": True,
                     "displayed": True,
                     "type": "string",
-                },
-                "id": {
-                    "displayname": "(Internal) Animal Index",  # Used in link
-                    "searchable": True,
-                    "displayed": False,
-                    "handoff": "name",  # This is the field that will be loaded in the search form
-                    "type": "number",
                 },
                 "body_weight": {
                     "displayname": "Body Weight (g)",
@@ -2004,12 +2005,12 @@ class BaseAdvancedSearchView:
     def reRootQry(self, fmt, qry, new_root_model_instance_name):
         return self.modeldata[fmt].reRootQry(qry, new_root_model_instance_name)
 
-    def getDistinctFields(self, fmt, order_by=None):
-        return self.modeldata[fmt].getDistinctFields(order_by)
+    def getDistinctFields(self, fmt, order_by=None, assume_distinct=True):
+        return self.modeldata[fmt].getDistinctFields(order_by, assume_distinct)
 
     def getFullJoinAnnotations(self, fmt):
         return self.modeldata[fmt].getFullJoinAnnotations()
-    
+
     def getStatsParams(self, fmt):
         return self.modeldata[fmt].getStatsParams()
 

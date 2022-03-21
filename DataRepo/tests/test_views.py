@@ -595,7 +595,7 @@ class ViewTests(TracebaseTestCase):
         basv_metadata = BaseAdvancedSearchView()
         pf = "msrun__sample__animal__studies"
         qs = PeakGroup.objects.all().prefetch_related(pf)
-        res, cnt = getAllBrowseData("pgtemplate", basv_metadata)
+        res, cnt, stats = getAllBrowseData("pgtemplate", basv_metadata)
         self.assertEqual(cnt, qs.count())
 
     def get_basic_qry_inputs(self):
@@ -708,7 +708,7 @@ class ViewTests(TracebaseTestCase):
             "msrun__sample__animal__tracer_compound",
             "msrun__sample__animal__studies",
         ]
-        res, cnt = performQuery(qry, "pgtemplate", basv_metadata)
+        res, cnt, stats = performQuery(qry, "pgtemplate", basv_metadata)
         qs = PeakGroup.objects.filter(
             msrun__sample__tissue__name__iexact="Brain"
         ).prefetch_related(*pf)
@@ -720,7 +720,7 @@ class ViewTests(TracebaseTestCase):
         """
         qry = self.get_advanced_qry2()
         basv_metadata = BaseAdvancedSearchView()
-        res, cnt = performQuery(qry, "pgtemplate", basv_metadata)
+        res, cnt, stats = performQuery(qry, "pgtemplate", basv_metadata)
         qs = (
             PeakGroup.objects.filter(msrun__sample__name__iexact="BAT-xz971")
             .filter(msrun__sample__animal__studies__name__iexact="obob_fasted")
