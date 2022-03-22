@@ -606,6 +606,45 @@ class BaseSearchView:
     def getStatsParams(self):
         return deepcopy(self.stats)
 
+    def meetsCondition(self, recval, condition, searchterm):
+        """
+        Determines whether the recval and search term match, given the matching condition.
+        This is only useful for re-filtering records in a template when the qry includes a fld from a many-to-many
+        related model relative to the root model.
+        Note that any changes to ncmp_choices must also be implemented here.
+        """
+        if condition == "iexact":
+            print("matches?: ", (recval.lower() == searchterm.lower()))
+            return recval.lower() == searchterm.lower()
+        elif condition == "not_iexact":
+            return recval.lower() != searchterm.lower()
+        elif condition == "lt":
+            return recval < searchterm
+        elif condition == "lte":
+            return recval <= searchterm
+        elif condition == "gt":
+            return recval > searchterm
+        elif condition == "gte":
+            return recval >= searchterm
+        elif condition == "isnull":
+            return recval is None
+        elif condition == "not_isnull":
+            return recval is not None
+        elif condition == "icontains":
+            return searchterm.lower() in recval.lower()
+        elif condition == "not_icontains":
+            return searchterm.lower() not in recval.lower()
+        elif condition == "istartswith":
+            return recval.lower().startswith(searchterm.lower())
+        elif condition == "not_istartswith":
+            return not recval.lower().startswith(searchterm.lower())
+        elif condition == "iendswith":
+            return recval.lower().endswith(searchterm.lower())
+        elif condition == "not_iendswith":
+            return not recval.lower().endswith(searchterm.lower())
+        else:
+            raise UnknownComparison(f"Unrecognized negatable comparison (ncmp) value: {condition}.")
+
 
 class PeakGroupsSearchView(BaseSearchView):
     """
@@ -2106,8 +2145,4 @@ def extractFldPathsHelper(subtree):
 
 
 class UnknownComparison(Exception):
-    pass
-
-
-class InvalidQryObject(Exception):
     pass

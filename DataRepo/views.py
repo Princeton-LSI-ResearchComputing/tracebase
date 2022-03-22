@@ -1118,18 +1118,25 @@ def getQueryStats(res, fmt, basv=None):
                 list(str(rec[all_fields.index(fld)]) for fld in distinct_fields)
             )
 
-            # Update the stats
             if statskey not in stats:
                 stats[statskey] = {
-                    "count": 1,
+                    "count": 0,
                     "filter": params["filter"],
                 }
-                cnt_dict[statskey] = {valcombo: 1}
-            elif valcombo not in cnt_dict[statskey]:
-                cnt_dict[statskey][valcombo] = 1
-                stats[statskey]["count"] += 1
+
+            # Update the stats
+            if params["filter"] is None:
+                if valcombo not in cnt_dict[statskey]:
+                    cnt_dict[statskey][valcombo] = 1
+                    stats[statskey]["count"] += 1
+                else:
+                    cnt_dict[statskey][valcombo] += 1
             else:
-                cnt_dict[statskey][valcombo] += 1
+                ##->## PLACEHOLDER - I didn't retrieve the correct code from the refilter branch that was abandonned.  Checking in to go back...
+                if basv.meetsCondition(valcombo, params["filter"]["queryGroup"]["ncmp"], params["filter"]["queryGroup"]["val"]):
+                    stats[statskey]["count"] += 1
+                    cnt_dict[statskey][valcombo] += 1
+
 
     # For each stats category defined for this format
     for params in params_arrays:
@@ -1147,110 +1154,6 @@ def getQueryStats(res, fmt, basv=None):
             )
 
         stats[statskey]["sample"] = top10
-
-    return stats
-
-
-def getQueryStatsOLD(res, fmt, basv=None):
-    """
-    This method takes a queryset (produced by performQuery) and a format (e.g. "pgtemplate") and returns a stats dict
-    keyed on the stat name and containing the counts of  the number of unique values for the fields defined in the
-    basic advanced search view object for the supplied template.  E.g. The results contain 5 distinct tissues.
-    """
-    if basv is None:
-        basv = BaseAdvancedSearchView()
-
-    # Obtain the metadata about what stats we will display
-    params_arrays = basv.getStatsParams(fmt)
-    if params_arrays is None:
-        return None
-
-    # Since `results.values(*distinct_fields).annotate(cnt=Count("pk"))` throws an exception if duplicate records
-    # result from the possible use of distinct(fields) in the res sent in, we must mix in the distinct fields that
-    # uniquely identify records.
-    fmt_distinct_fields = basv.getDistinctFields(fmt, assume_distinct=False)
-
-    stats = {}
-
-    # For each stats category defined for this format
-    for params in params_arrays:
-
-        if "delimiter" in params:
-            delim = params["delimiter"]
-        else:
-            delim = " "
-
-        # If this stat has a filter (i.e. sub-query) defined
-        if params["filter"] is not None:
-            # Since we don't have an entire qry object, but just the value under qry["searches"][template]["tree"], we
-            # can call the helper method directly
-            q_exp = constructAdvancedQueryHelper(params["filter"])
-            results = res.filter(q_exp)
-        else:
-            results = res
-
-        # Get distinct fields for the count by taking the union of the record-identifying distinct fields and the
-        # distinct fields whose repeated values we want to count.
-        distinct_fields = params["distincts"]
-        all_distinct_fields = fmt_distinct_fields + distinct_fields
-
-        num_unique = (
-            results.distinct(*distinct_fields).order_by(*distinct_fields).count()
-        )
-
-        # Count repeated occurrences of each unique value using a dict.
-        #   Normally, we would do:
-        #     results.values(*distinct_fields).annotate(cnt=Count("pk")).order_by("-cnt")
-        #   However, Django does not support this when root table records can be repeated in a true join, so if there
-        #   are duplicates, it would throw this exception:
-        #     NotImplementedError: annotate() + distinct(fields) is not implemented
-        # Also, note that .values_list() will condense to distinct combos, so we must supply it all_distinct_fields
-        cnt_dict = {}
-        for rec in results.values_list(*all_distinct_fields):
-            # Create the distinct value combo as the dict key
-            valkey = delim.join(
-                # values_list is fast, but can only be indexed by number...
-                map(lambda x: str(rec[all_distinct_fields.index(x)]), distinct_fields)
-            )
-            # Count occurrences
-            if valkey not in cnt_dict:
-                cnt_dict[valkey] = 1
-            else:
-                cnt_dict[valkey] += 1
-
-        # first10 = []
-        # for rec in results.values_list(*all_distinct_fields)[0:10]:
-        #     # Create the distinct value combo as the dict key
-        #     valkey = delim.join(
-        #         # values_list is fast, but can only be indexed by number...
-        #         map(lambda x: str(rec[all_distinct_fields.index(x)]), distinct_fields)
-        #     )
-        #     first10.append(
-        #         {
-        #             "val": valkey,
-        #             # "cnt": cnt_dict[valcombo],
-        #             "cnt": 1,
-        #         }
-        #     )
-
-        # For the top 10 unique values (delimited-combos), in order of descending number of occurrences
-        top10 = []
-        # for valcombo in sorted(cnt_dict.keys(), key=lambda x: -cnt_dict[x])[0:10]:
-        for valcombo in sorted(cnt_dict.keys(), key=lambda x: -cnt_dict[x])[0:10]:
-            top10.append(
-                {
-                    "val": valcombo,
-                    "cnt": cnt_dict[valcombo],
-                    # "cnt": 1,
-                }
-            )
-
-        # Compile the stats
-        stats[params["displayname"]] = {}
-        stats[params["displayname"]]["count"] = num_unique
-        stats[params["displayname"]]["sample"] = top10
-        # stats[params["displayname"]]["sample"] = first10
-        stats[params["displayname"]]["filter"] = params["filter"]
 
     return stats
 
