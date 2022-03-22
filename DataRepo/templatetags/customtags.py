@@ -273,7 +273,6 @@ def compile_stats(stats, num_chars=160):
         num_chars -= len(more_str)
         short = str(smry[0:num_chars])
         short += more_str
-        print(f"truncating to {short}")
     return {"full": smry, "short": short}
 
 

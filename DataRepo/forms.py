@@ -176,6 +176,7 @@ class AdvSearchPageForm(forms.Form):
     adv_search_page_form = forms.CharField(
         widget=forms.HiddenInput()
     )  # Used to distinguish pager form submissions from advanced search submissions
+    show_stats = forms.JSONField(widget=forms.HiddenInput())
 
     def clean(self):
         """
@@ -184,7 +185,10 @@ class AdvSearchPageForm(forms.Form):
         self.saved_data = self.cleaned_data
         return self.cleaned_data
 
-    def update(self, page_id, rows_id, orderby_id, orderdir_id, rows_attrs={}):
+    def update(self, page_id, rows_id, orderby_id, orderdir_id, rows_attrs={}, other_ids=None):
+        """
+        Adds IDs and other attributes to form elements.
+        """
         # Allow IDs for the inputs to be set for javascript to find the inputs and change them
         page = self.fields.get("page")
         rows = self.fields.get("rows")
@@ -213,7 +217,7 @@ class AdvSearchPageForm(forms.Form):
             and rows.widget.attrs["id"] != rows_id
         ):
             raise Exception(
-                "ERROR: AdvSearchPageForm class already has an ID set for the page input"
+                "ERROR: AdvSearchPageForm class already has an ID set for the rows input"
             )
         rows.widget.attrs["id"] = rows_id
 
@@ -224,7 +228,7 @@ class AdvSearchPageForm(forms.Form):
             and order_by.widget.attrs["id"] != orderby_id
         ):
             raise Exception(
-                "ERROR: AdvSearchPageForm class already has an ID set for the page input"
+                "ERROR: AdvSearchPageForm class already has an ID set for the order_by input"
             )
         order_by.widget.attrs["id"] = orderby_id
 
@@ -235,7 +239,7 @@ class AdvSearchPageForm(forms.Form):
             and order_direction.widget.attrs["id"] != orderdir_id
         ):
             raise Exception(
-                "ERROR: AdvSearchPageForm class already has an ID set for the page input"
+                "ERROR: AdvSearchPageForm class already has an ID set for the order_direction input"
             )
         order_direction.widget.attrs["id"] = orderdir_id
 
@@ -251,6 +255,38 @@ class AdvSearchPageForm(forms.Form):
                     "ERROR: AdvSearchPageForm class already has a [{key}] set for the rows input"
                 )
             rows.widget.attrs[key] = val
+        
+        if other_ids is not None:
+            qryjson = self.fields.get("qryjson")
+            show_stats = self.fields.get("show_stats")
+
+            if "show_stats" in other_ids and other_ids["show_stats"] is not None:
+                # show_stats input
+                if (
+                    show_stats.widget.attrs
+                    and "id" in show_stats.widget.attrs
+                    and show_stats.widget.attrs["id"] != other_ids["show_stats"]
+                ):
+                    raise Exception(
+                        "ERROR: AdvSearchPageForm class already has an ID set for the show_stats input"
+                    )
+                print(f"Setting show_stats ID to {other_ids['show_stats']}")
+                show_stats.widget.attrs["id"] = other_ids["show_stats"]
+
+            if "qryjson" in other_ids and other_ids["qryjson"] is not None:
+                # qryjson input
+                if (
+                    qryjson.widget.attrs
+                    and "id" in qryjson.widget.attrs
+                    and qryjson.widget.attrs["id"] != other_ids["qryjson"]
+                ):
+                    raise Exception(
+                        "ERROR: AdvSearchPageForm class already has an ID set for the show_stats input"
+                    )
+                qryjson.widget.attrs["id"] = other_ids["qryjson"]
+        else:
+            print("Not setting other ids")
+
 
     def is_valid(self):
         # This triggers the setting of self.cleaned_data

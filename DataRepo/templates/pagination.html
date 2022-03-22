@@ -30,6 +30,14 @@
                     submitForm()
                 })
             }
+            // Submits the form with a show_stats true value after the message about it possibly taking a few seconds appears...
+            {% if not stats.populated %}
+                $('#resultstats').on('shown.bs.collapse', function (e) {
+                    var statselem = document.getElementById("{{ pager.other_field_ids.show_stats }}")
+                    statselem.value = true
+                    submitForm()
+                })
+            {% endif %}
 
             updateColumnSortControls()
         })
@@ -95,6 +103,19 @@
             submitForm()
         }
 
+        function toggleStats(obj) {
+            {% if not stats.populated %}
+                var statselem = document.getElementById("{{ pager.other_field_ids.show_stats }}")
+                if (statselem !== "undefined" && statselem) {
+                    $('#resultstats').collapse("show")
+                } else {
+                    console.error("Unable to retrieve the show_stats button.")
+                }
+            {% else %}
+                console.log("Value in stats.populated: " + "{{ stats.populated }}")
+            {% endif %}
+        }
+
         function submitForm() {
             var myform = document.getElementById("{{ pager.form_id }}")
             myform.submit();
@@ -145,6 +166,7 @@
             {{ pager.page_form.order_direction }}
             {{ pager.page_form.page }}
             {{ pager.page_form.adv_search_page_form }}
+            {{ pager.page_form.show_stats }}
             <div style="float: left;">
                 Showing {{ pager.start }} to {{ pager.end }} of {{ pager.tot }} rows, {{ pager.page_form.rows }} rows per page
             </div>

@@ -14,7 +14,7 @@ class Pager:
         order_dir_field,
         form_name,  # Relies on multiforms
         num_buttons=5,
-        other_fields=[],
+        other_field_ids=None,  # {fld_name: id}
         # Default form values
         default_rows=10,
         # Default form element attributes
@@ -38,6 +38,7 @@ class Pager:
         self.orderby_input_id = orderby_input_id
         self.orderdir_input_id = orderdir_input_id
         self.rows_attrs = rows_attrs
+        self.other_field_ids = other_field_ids
         self.page_form = self.page_form_class()
         self.page_form.update(
             self.page_input_id,
@@ -45,6 +46,7 @@ class Pager:
             self.orderby_input_id,
             self.orderdir_input_id,
             self.rows_attrs,
+            self.other_field_ids,
         )
         self.rows_per_page_choices = rows_per_page_choices
         self.page_field = page_field
@@ -52,7 +54,6 @@ class Pager:
         self.default_rows = default_rows
         self.order_by_field = order_by_field
         self.order_dir_field = order_dir_field
-        self.other_fields = other_fields
         self.form_name = form_name
         self.form_id = form_id
 
@@ -71,7 +72,7 @@ class Pager:
         end=None,
         order_by=None,
         order_dir=None,
-        other_field_dict=None,
+        other_field_inits=None,  # {fld_name: {init: val, fld_id: val}}
     ):
         """
         This method is used to update the pager object for each new current page being sent to the pagination template
@@ -118,9 +119,9 @@ class Pager:
         }
         if self.form_id_field not in init_dict:
             init_dict[self.form_id_field] = 1
-        if other_field_dict is not None:
-            for fld in self.other_fields:
-                init_dict[fld] = other_field_dict[fld]
+        if other_field_inits is not None:
+            for fld in other_field_inits.keys():
+                init_dict[fld] = other_field_inits[fld]
         kwargs = {"initial": init_dict}
         self.page_form = self.page_form_class(**kwargs)
         self.page_form.update(
@@ -129,6 +130,7 @@ class Pager:
             self.orderby_input_id,
             self.orderdir_input_id,
             self.rows_attrs,
+            self.other_field_ids,
         )
 
         # Set up the paging controls

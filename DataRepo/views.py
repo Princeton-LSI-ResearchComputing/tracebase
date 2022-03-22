@@ -265,7 +265,7 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
         form_id_field="adv_search_page_form",
         rows_per_page_choices=AdvSearchPageForm.ROWS_PER_PAGE_CHOICES,
         page_form_class=AdvSearchPageForm,
-        other_fields=["qryjson"],
+        other_field_ids={"qryjson": None, "show_stats": "show_stats_id"},
         page_field="page",
         rows_per_page_field="rows",
         order_by_field="order_by",
@@ -301,7 +301,7 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
     )
 
     pager.update(
-        other_field_dict={"qryjson": json.dumps(qry)},
+        other_field_inits={"qryjson": json.dumps(qry), "show_stats": False},
         tot=tot,
     )
 
@@ -370,7 +370,7 @@ class AdvancedSearchView(MultiFormsView):
         form_id_field="adv_search_page_form",
         rows_per_page_choices=AdvSearchPageForm.ROWS_PER_PAGE_CHOICES,
         page_form_class=AdvSearchPageForm,
-        other_fields=["qryjson"],
+        other_field_ids={"qryjson": None, "show_stats": "show_stats_id"},
         page_field="page",
         rows_per_page_field="rows",
         order_by_field="order_by",
@@ -479,7 +479,7 @@ class AdvancedSearchView(MultiFormsView):
                 order_direction=None,
             )
             self.pager.update(
-                other_field_dict={"qryjson": json.dumps(qry)},
+                other_field_inits={"qryjson": json.dumps(qry), "show_stats": False},
                 tot=tot,
                 page=1,
                 rows=rows_per_page,
@@ -570,6 +570,11 @@ class AdvancedSearchView(MultiFormsView):
             else:
                 order_dir = None
 
+            show_stats = False
+            if cform["show_stats"]:
+                show_stats = True
+            print(f"show_stats is {show_stats} RAW: {cform['show_stats']}")
+
             offset = (page - 1) * rows
         except Exception as e:
             # Assumes this is an initial query, not a page form submission
@@ -579,6 +584,7 @@ class AdvancedSearchView(MultiFormsView):
             rows = self.pager.rows
             order_by = self.pager.order_by
             order_dir = self.pager.order_dir
+            show_stats = False
             offset = 0
 
         if isValidQryObjPopulated(qry):
@@ -596,6 +602,7 @@ class AdvancedSearchView(MultiFormsView):
                 offset=offset,
                 order_by=order_by,
                 order_direction=order_dir,
+                generate_stats=show_stats,
             )
         else:
             print(f"Getting browse data with offset: {offset} and limit {rows}")
@@ -606,6 +613,7 @@ class AdvancedSearchView(MultiFormsView):
                 offset=offset,
                 order_by=order_by,
                 order_direction=order_dir,
+                generate_stats=show_stats,
             )
             # Remake the qry so it will be valid for downloading all data (not entirely sure why this is necessary, but
             # the download form created on the subsequent line doesn't work without doing this.  I suspect that the qry
@@ -614,7 +622,7 @@ class AdvancedSearchView(MultiFormsView):
             download_form = AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
 
         self.pager.update(
-            other_field_dict={"qryjson": json.dumps(qry)},
+            other_field_inits={"qryjson": json.dumps(qry), "show_stats": False},
             tot=tot,
             page=page,
             rows=rows,
@@ -690,7 +698,7 @@ class AdvancedSearchView(MultiFormsView):
                     order_direction=self.pager.order_dir,
                 )
                 context["pager"] = self.pager.update(
-                    other_field_dict={"qryjson": json.dumps(qry)}, tot=context["tot"]
+                    other_field_inits={"qryjson": json.dumps(qry), "show_stats": False}, tot=context["tot"]
                 )
         elif (
             "qry" in context
@@ -708,7 +716,7 @@ class AdvancedSearchView(MultiFormsView):
                 qry, qry["selectedtemplate"], self.basv_metadata
             )
             context["pager"] = self.pager.update(
-                other_field_dict={"qryjson": json.dumps(qry)}, tot=context["tot"]
+                other_field_inits={"qryjson": json.dumps(qry), "show_stats": False}, tot=context["tot"]
             )
 
 
@@ -789,12 +797,12 @@ class AdvancedSearchTSVView(FormView):
 
 
 def getAllBrowseData(
-    format, basv, limit=None, offset=0, order_by=None, order_direction=None
+    format, basv, limit=None, offset=0, order_by=None, order_direction=None, generate_stats=False,
 ):
     """
     Grabs all data without a filtering match for browsing.
     """
-    return performQuery(None, format, basv, limit, offset, order_by, order_direction)
+    return performQuery(None, format, basv, limit, offset, order_by, order_direction, generate_stats)
 
 
 def createNewBasicQuery(basv_metadata, mdl, fld, cmp, val, fmt):
@@ -949,6 +957,7 @@ def performQuery(
     offset=0,
     order_by=None,
     order_direction=None,
+    generate_stats=False,
 ):
     """
     Executes an advanced search query.  The only required input is either a qry object or a format (fmt).
@@ -1002,7 +1011,12 @@ def performQuery(
 
     # Count the total results.  Limit/offset are only used for paging.
     cnt = results.count()
-    stats = getQueryStats(results, fmt, basv)
+    stats = {
+        "data": {},
+        "populated": generate_stats,
+    }
+    if generate_stats:
+        stats["data"] = getQueryStats(results, fmt, basv)
 
     # Limit
     if limit is not None:
