@@ -1089,7 +1089,8 @@ def getQueryStats(res, fmt, basv=None):
     stats = {}
     cnt_dict = {}
 
-    for rec in res.values_list(*all_fields):
+    # order_by(*fmt_distinct_fields) and distinct(*fmt_distinct_fields) are required to get accurate row counts, otherwise, some duplicates will get counted
+    for rec in res.order_by(*fmt_distinct_fields).distinct(*fmt_distinct_fields).values_list(*all_fields):
         # For each stats category defined for this format
         for params in params_arrays:
 
@@ -1097,16 +1098,6 @@ def getQueryStats(res, fmt, basv=None):
                 delim = params["delimiter"]
             else:
                 delim = " "
-
-            ##->## Commenting out to test speed.  If it's faster, I will create a plain python filter version using code from the removed refilter code that turns things like 'fld' 'gt' 'val' into `if(rec[fld] > val`
-            # # If this stat has a filter (i.e. sub-query) defined
-            # if params["filter"] is not None:
-            #     # Since we don't have an entire qry object, but just the value under qry["searches"][template]["tree"], we
-            #     # can call the helper method directly
-            #     q_exp = constructAdvancedQueryHelper(params["filter"])
-            #     results = res.filter(q_exp)
-            # else:
-            #     results = res
 
             # Get distinct fields for the count by taking the union of the record-identifying distinct fields and the
             # distinct fields whose repeated values we want to count.
@@ -1123,20 +1114,24 @@ def getQueryStats(res, fmt, basv=None):
                     "count": 0,
                     "filter": params["filter"],
                 }
+                cnt_dict[statskey] = {}
 
             # Update the stats
             if params["filter"] is None:
+                # Count unique and duplicate values
                 if valcombo not in cnt_dict[statskey]:
                     cnt_dict[statskey][valcombo] = 1
                     stats[statskey]["count"] += 1
                 else:
                     cnt_dict[statskey][valcombo] += 1
             else:
-                ##->## PLACEHOLDER - I didn't retrieve the correct code from the refilter branch that was abandonned.  Checking in to go back...
-                if basv.meetsCondition(valcombo, params["filter"]["queryGroup"]["ncmp"], params["filter"]["queryGroup"]["val"]):
+                # Count values meeting a criteria/filter
+                if basv.meetsAllConditionsByValList(fmt, rec, params["filter"], all_fields):
                     stats[statskey]["count"] += 1
-                    cnt_dict[statskey][valcombo] += 1
-
+                    if valcombo not in cnt_dict[statskey]:
+                        cnt_dict[statskey][valcombo] = 1
+                    else:
+                        cnt_dict[statskey][valcombo] += 1
 
     # For each stats category defined for this format
     for params in params_arrays:

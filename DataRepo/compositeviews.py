@@ -37,6 +37,8 @@ def getSimpleFilter(fld, ncmp, val, static=False):
 class BaseSearchView:
     """
     This class holds common data/functions for search output formats.
+
+    Note that any comparison types added to ncmp_choices must also be implemented in meetsCondition().
     """
 
     id = ""
@@ -604,9 +606,15 @@ class BaseSearchView:
         return distinct_fields
 
     def getStatsParams(self):
+        """Stats getter"""
         return deepcopy(self.stats)
 
     def meetsAllConditionsByValList(self, rootrec, query, field_order):
+        """
+        This is a python-code version of a complex Q expression, necessary for checking filters in aggregate count
+        annotations, because the Django ORM does not support .distinct(fields).annotate(Count) when duplicate root
+        table records exist.
+        """
         if query["type"] == "query":
             recval = rootrec[field_order.index(query["fld"])]
             print(f"Comparing {recval} {query['ncmp']} {query['val']}")
@@ -614,12 +622,12 @@ class BaseSearchView:
         else:
             if query["val"] == "all":
                 for subquery in query["queryGroup"]:
-                    if not self.meetsAllConditions(rootrec, subquery):
+                    if not self.meetsAllConditionsByValList(rootrec, subquery, field_order):
                         return False
                 return True
             else:
                 for subquery in query["queryGroup"]:
-                    if self.meetsAllConditions(rootrec, subquery):
+                    if self.meetsAllConditionsByValList(rootrec, subquery, field_order):
                         return True
                 return False
 
@@ -2069,6 +2077,14 @@ class BaseAdvancedSearchView:
 
     def getStatsParams(self, fmt):
         return self.modeldata[fmt].getStatsParams()
+
+    def meetsAllConditionsByValList(self, fmt, rootrec, query, field_order):
+        """
+        This is a python-code version of a complex Q expression, necessary for checking filters in aggregate count
+        annotations, because the Django ORM does not support .distinct(fields).annotate(Count) when duplicate root
+        table records exist.
+        """
+        return self.modeldata[fmt].meetsAllConditionsByValList(rootrec, query, field_order)
 
 
 def splitPathName(fld):
