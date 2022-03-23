@@ -606,6 +606,23 @@ class BaseSearchView:
     def getStatsParams(self):
         return deepcopy(self.stats)
 
+    def meetsAllConditionsByValList(self, rootrec, query, field_order):
+        if query["type"] == "query":
+            recval = rootrec[field_order.index(query["fld"])]
+            print(f"Comparing {recval} {query['ncmp']} {query['val']}")
+            return self.meetsCondition(recval, query["ncmp"], query["val"])
+        else:
+            if query["val"] == "all":
+                for subquery in query["queryGroup"]:
+                    if not self.meetsAllConditions(rootrec, subquery):
+                        return False
+                return True
+            else:
+                for subquery in query["queryGroup"]:
+                    if self.meetsAllConditions(rootrec, subquery):
+                        return True
+                return False
+
     def meetsCondition(self, recval, condition, searchterm):
         """
         Determines whether the recval and search term match, given the matching condition.
