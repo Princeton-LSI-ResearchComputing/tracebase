@@ -265,7 +265,7 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
         form_id_field="adv_search_page_form",
         rows_per_page_choices=AdvSearchPageForm.ROWS_PER_PAGE_CHOICES,
         page_form_class=AdvSearchPageForm,
-        other_field_ids={"qryjson": None, "show_stats": "show_stats_id"},
+        other_field_ids={"qryjson": None, "show_stats": "show_stats_id", "stats": "stats_id"},
         page_field="page",
         rows_per_page_field="rows",
         order_by_field="order_by",
@@ -301,7 +301,7 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
     )
 
     pager.update(
-        other_field_inits={"qryjson": json.dumps(qry), "show_stats": False},
+        other_field_inits={"qryjson": json.dumps(qry), "show_stats": False, "stats": None},
         tot=tot,
     )
 
@@ -370,7 +370,7 @@ class AdvancedSearchView(MultiFormsView):
         form_id_field="adv_search_page_form",
         rows_per_page_choices=AdvSearchPageForm.ROWS_PER_PAGE_CHOICES,
         page_form_class=AdvSearchPageForm,
-        other_field_ids={"qryjson": None, "show_stats": "show_stats_id"},
+        other_field_ids={"qryjson": None, "show_stats": "show_stats_id", "stats": "stats_id"},
         page_field="page",
         rows_per_page_field="rows",
         order_by_field="order_by",
@@ -479,7 +479,7 @@ class AdvancedSearchView(MultiFormsView):
                 order_direction=None,
             )
             self.pager.update(
-                other_field_inits={"qryjson": json.dumps(qry), "show_stats": False},
+                other_field_inits={"qryjson": json.dumps(qry), "show_stats": False, "stats": json.dumps(stats)},
                 tot=tot,
                 page=1,
                 rows=rows_per_page,
@@ -571,14 +571,36 @@ class AdvancedSearchView(MultiFormsView):
                 order_dir = None
 
             show_stats = False
-            if cform["show_stats"]:
+            if "show_stats" in cform and cform["show_stats"]:
                 show_stats = True
-            print(f"show_stats is {show_stats} RAW: {cform['show_stats']}")
+                print(f"show_stats is {show_stats} RAW: {cform['show_stats']}")
+
+            # Retrieve stats if present - It's ok if there's none
+            try:
+                received_stats = json.loads(cform["stats"])
+                # Apparently this causes a TypeError exception in test_views. Could not figure out why, so...
+            except TypeError:
+                try:
+                    if "stats" in cform:
+                        received_stats = cform["stats"]
+                    else:
+                        received_stats = None
+                except:
+                    print(
+                        f"WARNING: The paging form encountered an exception of type {e.__class__.__name__} during "
+                        f"stats field processing: [{e}]."
+                    )
+                    received_stats = None
+            # Update the value in the stats data structure based on the current form value
+            received_stats["show"] = show_stats
 
             offset = (page - 1) * rows
         except Exception as e:
             # Assumes this is an initial query, not a page form submission
-            print(f"WARNING: {e}")
+            print(
+                f"WARNING: The paging form encountered an exception of type {e.__class__.__name__} during processing: "
+                f"[{e}]."
+            )
             self.pager.update()
             page = self.pager.page
             rows = self.pager.rows
@@ -586,6 +608,12 @@ class AdvancedSearchView(MultiFormsView):
             order_dir = self.pager.order_dir
             show_stats = False
             offset = 0
+
+        # We only need to take the time to generate stats is they are not present and they've been requested
+        generate_stats = False
+        if not received_stats["populated"] and show_stats:
+            generate_stats = True
+        print(f"generate_stats is {generate_stats} stats is {received_stats}")
 
         if isValidQryObjPopulated(qry):
             # For some reason, the download form generated in either case below always generates an error in the
@@ -602,7 +630,7 @@ class AdvancedSearchView(MultiFormsView):
                 offset=offset,
                 order_by=order_by,
                 order_direction=order_dir,
-                generate_stats=show_stats,
+                generate_stats=generate_stats,
             )
         else:
             print(f"Getting browse data with offset: {offset} and limit {rows}")
@@ -613,7 +641,7 @@ class AdvancedSearchView(MultiFormsView):
                 offset=offset,
                 order_by=order_by,
                 order_direction=order_dir,
-                generate_stats=show_stats,
+                generate_stats=generate_stats,
             )
             # Remake the qry so it will be valid for downloading all data (not entirely sure why this is necessary, but
             # the download form created on the subsequent line doesn't work without doing this.  I suspect that the qry
@@ -621,8 +649,12 @@ class AdvancedSearchView(MultiFormsView):
             qry = self.basv_metadata.getRootGroup(qry["selectedtemplate"])
             download_form = AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
 
+        # If we received populated stats from the paging form (i.e. they were previously calculated)
+        if not generate_stats and received_stats["populated"]:
+            stats = received_stats
+
         self.pager.update(
-            other_field_inits={"qryjson": json.dumps(qry), "show_stats": False},
+            other_field_inits={"qryjson": json.dumps(qry), "show_stats": show_stats, "stats": json.dumps(stats)},
             tot=tot,
             page=page,
             rows=rows,
@@ -698,7 +730,7 @@ class AdvancedSearchView(MultiFormsView):
                     order_direction=self.pager.order_dir,
                 )
                 context["pager"] = self.pager.update(
-                    other_field_inits={"qryjson": json.dumps(qry), "show_stats": False}, tot=context["tot"]
+                    other_field_inits={"qryjson": json.dumps(qry), "show_stats": False, "stats": None}, tot=context["tot"]
                 )
         elif (
             "qry" in context
@@ -716,7 +748,7 @@ class AdvancedSearchView(MultiFormsView):
                 qry, qry["selectedtemplate"], self.basv_metadata
             )
             context["pager"] = self.pager.update(
-                other_field_inits={"qryjson": json.dumps(qry), "show_stats": False}, tot=context["tot"]
+                other_field_inits={"qryjson": json.dumps(qry), "show_stats": False, "stats": None}, tot=context["tot"]
             )
 
 
@@ -1014,9 +1046,11 @@ def performQuery(
     stats = {
         "data": {},
         "populated": generate_stats,
+        "show": False,
     }
     if generate_stats:
         stats["data"] = getQueryStats(results, fmt, basv)
+        stats["show"] = True
 
     # Limit
     if limit is not None:

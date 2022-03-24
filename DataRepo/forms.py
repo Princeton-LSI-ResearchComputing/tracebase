@@ -176,7 +176,9 @@ class AdvSearchPageForm(forms.Form):
     adv_search_page_form = forms.CharField(
         widget=forms.HiddenInput()
     )  # Used to distinguish pager form submissions from advanced search submissions
-    show_stats = forms.JSONField(widget=forms.HiddenInput())
+    show_stats = forms.BooleanField(widget=forms.HiddenInput())
+    stats = forms.JSONField(widget=forms.HiddenInput())
+    
 
     def clean(self):
         """
@@ -257,45 +259,34 @@ class AdvSearchPageForm(forms.Form):
             rows.widget.attrs[key] = val
         
         if other_ids is not None:
-            qryjson = self.fields.get("qryjson")
-            show_stats = self.fields.get("show_stats")
-
-            if "show_stats" in other_ids and other_ids["show_stats"] is not None:
-                # show_stats input
+            for fld_name in other_ids.keys():
+                fld = self.fields.get(fld_name)
                 if (
-                    show_stats.widget.attrs
-                    and "id" in show_stats.widget.attrs
-                    and show_stats.widget.attrs["id"] != other_ids["show_stats"]
+                    fld.widget.attrs
+                    and "id" in fld.widget.attrs
+                    and fld.widget.attrs["id"] != other_ids[fld_name]
                 ):
                     raise Exception(
-                        "ERROR: AdvSearchPageForm class already has an ID set for the show_stats input"
+                        f"ERROR: AdvSearchPageForm class already has an ID set for the {fld_name} input"
                     )
-                print(f"Setting show_stats ID to {other_ids['show_stats']}")
-                show_stats.widget.attrs["id"] = other_ids["show_stats"]
-
-            if "qryjson" in other_ids and other_ids["qryjson"] is not None:
-                # qryjson input
-                if (
-                    qryjson.widget.attrs
-                    and "id" in qryjson.widget.attrs
-                    and qryjson.widget.attrs["id"] != other_ids["qryjson"]
-                ):
-                    raise Exception(
-                        "ERROR: AdvSearchPageForm class already has an ID set for the show_stats input"
-                    )
-                qryjson.widget.attrs["id"] = other_ids["qryjson"]
+                print(f"Setting {fld_name} ID to {other_ids[fld_name]}")
+                fld.widget.attrs["id"] = other_ids[fld_name]
         else:
             print("Not setting other ids")
-
 
     def is_valid(self):
         # This triggers the setting of self.cleaned_data
         super().is_valid()
         data = self.cleaned_data
         fields = self.base_fields.keys()
+        ignore_missing_fields = [
+            "order_by",
+            "order_direction",
+            "show_stats",
+        ]
         # Make sure all fields besides the order fields are present
         for field in fields:
-            if field != "order_by" and field != "order_direction" and field not in data:
+            if field not in ignore_missing_fields and field not in data:
                 return False
         return True
 

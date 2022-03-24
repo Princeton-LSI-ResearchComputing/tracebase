@@ -72,7 +72,7 @@ class Pager:
         end=None,
         order_by=None,
         order_dir=None,
-        other_field_inits=None,  # {fld_name: {init: val, fld_id: val}}
+        other_field_inits=None,  # {fld_name: init_val,...}
     ):
         """
         This method is used to update the pager object for each new current page being sent to the pagination template

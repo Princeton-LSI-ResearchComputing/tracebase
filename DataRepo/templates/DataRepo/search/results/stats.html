@@ -1,5 +1,5 @@
 {% load customtags %}
-<div id="resultstats" style="font-size: 12px !important; width: 30% !important; margin-left: 16px; float: right;" class="collapse{% if stats.populated %} show{% endif %}">
+<div id="resultstats" style="font-size: 12px !important; width: 30% !important; margin-left: 16px; float: right;" class="collapse{% if stats.show %} show{% endif %}">
     {% if stats.populated %}
         <table class="table table-condensed table-striped text-xsmall" style="padding: 2px;">
             <tr>

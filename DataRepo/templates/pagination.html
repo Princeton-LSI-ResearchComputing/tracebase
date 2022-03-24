@@ -31,11 +31,18 @@
                 })
             }
             // Submits the form with a show_stats true value after the message about it possibly taking a few seconds appears...
+            var statselem = document.getElementById("{{ pager.other_field_ids.show_stats }}")
             {% if not stats.populated %}
                 $('#resultstats').on('shown.bs.collapse', function (e) {
-                    var statselem = document.getElementById("{{ pager.other_field_ids.show_stats }}")
                     statselem.value = true
                     submitForm()
+                })
+            {% else %}
+                $('#resultstats').on('show.bs.collapse', function () {
+                    statselem.value = true
+                })
+                $('#resultstats').on('hide.bs.collapse', function () {
+                    statselem.value = false
                 })
             {% endif %}
 
@@ -167,6 +174,7 @@
             {{ pager.page_form.page }}
             {{ pager.page_form.adv_search_page_form }}
             {{ pager.page_form.show_stats }}
+            {{ pager.page_form.stats }}
             <div style="float: left;">
                 Showing {{ pager.start }} to {{ pager.end }} of {{ pager.tot }} rows, {{ pager.page_form.rows }} rows per page
             </div>
