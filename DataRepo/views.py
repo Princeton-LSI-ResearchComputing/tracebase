@@ -589,13 +589,12 @@ class AdvancedSearchView(MultiFormsView):
             show_stats = False
             if "show_stats" in cform and cform["show_stats"]:
                 show_stats = True
-                print(f"show_stats is {show_stats} RAW: {cform['show_stats']}")
 
             # Retrieve stats if present - It's ok if there's none
             try:
                 received_stats = json.loads(cform["stats"])
                 # Apparently this causes a TypeError exception in test_views. Could not figure out why, so...
-            except TypeError:
+            except (TypeError, KeyError):
                 try:
                     if "stats" in cform:
                         received_stats = cform["stats"]
@@ -607,8 +606,10 @@ class AdvancedSearchView(MultiFormsView):
                         f"stats field processing: [{e}]."
                     )
                     received_stats = None
+
             # Update the value in the stats data structure based on the current form value
-            received_stats["show"] = show_stats
+            if received_stats is not None:
+                received_stats["show"] = show_stats
 
             offset = (page - 1) * rows
         except Exception as e:
@@ -627,9 +628,8 @@ class AdvancedSearchView(MultiFormsView):
 
         # We only need to take the time to generate stats is they are not present and they've been requested
         generate_stats = False
-        if not received_stats["populated"] and show_stats:
+        if (received_stats is None or not received_stats["populated"]) and show_stats:
             generate_stats = True
-        print(f"generate_stats is {generate_stats} stats is {received_stats}")
 
         if isValidQryObjPopulated(qry):
             # For some reason, the download form generated in either case below always generates an error in the
@@ -649,7 +649,6 @@ class AdvancedSearchView(MultiFormsView):
                 generate_stats=generate_stats,
             )
         else:
-            print(f"Getting browse data with offset: {offset} and limit {rows}")
             res, tot, stats = getAllBrowseData(
                 qry["selectedtemplate"],
                 self.basv_metadata,
@@ -666,7 +665,7 @@ class AdvancedSearchView(MultiFormsView):
             download_form = AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
 
         # If we received populated stats from the paging form (i.e. they were previously calculated)
-        if not generate_stats and received_stats["populated"]:
+        if not generate_stats:
             stats = received_stats
 
         self.pager.update(

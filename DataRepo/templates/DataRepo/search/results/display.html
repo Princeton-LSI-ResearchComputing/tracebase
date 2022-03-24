@@ -80,9 +80,7 @@
 
             {% if mode != "view" or valid_search %}
                 {% if stats %}
-                    {% comment %} <div style="font-size: 12px !important; width: 60% !important; margin-left: 16px; float: right;"> {% endcomment %}
-                        {% include "DataRepo/search/results/stats.html" %}
-                    {% comment %} </div> {% endcomment %}
+                    {% include "DataRepo/search/results/stats.html" %}
                 {% endif %}
 
                 <div style="margin-left: 16px; float: right;">

@@ -270,10 +270,7 @@ class AdvSearchPageForm(forms.Form):
                     raise Exception(
                         f"ERROR: AdvSearchPageForm class already has an ID set for the {fld_name} input"
                     )
-                print(f"Setting {fld_name} ID to {other_ids[fld_name]}")
                 fld.widget.attrs["id"] = other_ids[fld_name]
-        else:
-            print("Not setting other ids")
 
     def is_valid(self):
         # This triggers the setting of self.cleaned_data
@@ -284,6 +281,7 @@ class AdvSearchPageForm(forms.Form):
             "order_by",
             "order_direction",
             "show_stats",
+            "stats",
         ]
         # Make sure all fields besides the order fields are present
         for field in fields:

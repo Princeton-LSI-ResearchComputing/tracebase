@@ -634,7 +634,6 @@ class BaseSearchView:
         """
         if query["type"] == "query":
             recval = rootrec[field_order.index(query["fld"])]
-            print(f"Comparing {recval} {query['ncmp']} {query['val']}")
             return self.meetsCondition(recval, query["ncmp"], query["val"])
         else:
             if query["val"] == "all":
@@ -658,7 +657,6 @@ class BaseSearchView:
         Note that any changes to ncmp_choices must also be implemented here.
         """
         if condition == "iexact":
-            print("matches?: ", (recval.lower() == searchterm.lower()))
             return recval.lower() == searchterm.lower()
         elif condition == "not_iexact":
             return recval.lower() != searchterm.lower()
