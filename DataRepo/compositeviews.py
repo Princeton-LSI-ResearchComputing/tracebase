@@ -622,7 +622,9 @@ class BaseSearchView:
         else:
             if query["val"] == "all":
                 for subquery in query["queryGroup"]:
-                    if not self.meetsAllConditionsByValList(rootrec, subquery, field_order):
+                    if not self.meetsAllConditionsByValList(
+                        rootrec, subquery, field_order
+                    ):
                         return False
                 return True
             else:
@@ -668,7 +670,9 @@ class BaseSearchView:
         elif condition == "not_iendswith":
             return not recval.lower().endswith(searchterm.lower())
         else:
-            raise UnknownComparison(f"Unrecognized negatable comparison (ncmp) value: {condition}.")
+            raise UnknownComparison(
+                f"Unrecognized negatable comparison (ncmp) value: {condition}."
+            )
 
 
 class PeakGroupsSearchView(BaseSearchView):
@@ -2084,7 +2088,9 @@ class BaseAdvancedSearchView:
         annotations, because the Django ORM does not support .distinct(fields).annotate(Count) when duplicate root
         table records exist.
         """
-        return self.modeldata[fmt].meetsAllConditionsByValList(rootrec, query, field_order)
+        return self.modeldata[fmt].meetsAllConditionsByValList(
+            rootrec, query, field_order
+        )
 
 
 def splitPathName(fld):

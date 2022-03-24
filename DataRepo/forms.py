@@ -178,7 +178,6 @@ class AdvSearchPageForm(forms.Form):
     )  # Used to distinguish pager form submissions from advanced search submissions
     show_stats = forms.BooleanField(widget=forms.HiddenInput())
     stats = forms.JSONField(widget=forms.HiddenInput())
-    
 
     def clean(self):
         """
@@ -187,7 +186,9 @@ class AdvSearchPageForm(forms.Form):
         self.saved_data = self.cleaned_data
         return self.cleaned_data
 
-    def update(self, page_id, rows_id, orderby_id, orderdir_id, rows_attrs={}, other_ids=None):
+    def update(
+        self, page_id, rows_id, orderby_id, orderdir_id, rows_attrs={}, other_ids=None
+    ):
         """
         Adds IDs and other attributes to form elements.
         """
@@ -257,7 +258,7 @@ class AdvSearchPageForm(forms.Form):
                     "ERROR: AdvSearchPageForm class already has a [{key}] set for the rows input"
                 )
             rows.widget.attrs[key] = val
-        
+
         if other_ids is not None:
             for fld_name in other_ids.keys():
                 fld = self.fields.get(fld_name)
