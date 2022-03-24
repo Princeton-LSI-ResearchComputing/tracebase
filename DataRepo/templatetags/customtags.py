@@ -261,6 +261,11 @@ def get_manytomany_rec(mm_set, pk):
 
 @register.simple_tag
 def compile_stats(stats, num_chars=160):
+    """
+    Takes stats, which is a sorted list of dicts that each contain a val and cnt.  It creates a comma-delimited string
+    of the values (annotated with their count).  It also creates a short version of the string based on the supplied
+    num_chars.  If the string is longer, it truncates the string and inserts an ellipsis.
+    """
     more_str = "..."
     smry = ""
     for i, val in enumerate(stats):
@@ -279,8 +284,24 @@ def compile_stats(stats, num_chars=160):
 @register.simple_tag
 def display_filter(filter):
     """
-    This method is an overly simplistic placeholder until we need a more complex filter to support
+    This method is an overly simplistic placeholder until we need a more complex filter to support.  It handles a
+    single filtering condition only.
     """
+    if (
+        "type" not in filter
+        or "queryGroup" not in filter
+        or filter["type"] != "group"
+        or len(filter["queryGroup"]) != 1
+        or filter["queryGroup"][0]["type"] != "query"
+    ):
+        raise NotYetImplemented(
+            "The display of filtering criterial currently only handles a single condition in a group of size 1.  "
+            "`customtags.display_filter` needs to handle more cases."
+        )
     ncmp = filter["queryGroup"][0]["ncmp"]
     val = filter["queryGroup"][0]["val"]
     return f"{ncmp} {val}"
+
+
+class NotYetImplemented(Exception):
+    pass

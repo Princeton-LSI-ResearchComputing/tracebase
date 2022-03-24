@@ -13,25 +13,42 @@ from DataRepo.models import (
 )
 
 
-def getSimpleFilter(fld, ncmp, val, static=False):
+def createFilterGroup(all=True, static=False):
+    """
+    This returns a 1-query portion of what is usually under qry[searches][<template>][tree]
+    """
+    val = "any"
+    if all:
+        val = "all"
+    return {
+        "type": "group",
+        "val": val,
+        "static": static,
+        "queryGroup": [],
+    }
+
+
+def createFilterCondition(fld, ncmp, val, static=False):
     """
     This returns a 1-query portion of what is usually under qry[searches][<template>][tree]
     """
     return {
-        "type": "group",
-        "val": "all",
+        "type": "query",
+        "pos": "",
         "static": static,
-        "queryGroup": [
-            {
-                "type": "query",
-                "pos": "",
-                "static": static,
-                "fld": fld,
-                "ncmp": ncmp,
-                "val": val,
-            },
-        ],
+        "fld": fld,
+        "ncmp": ncmp,
+        "val": val,
     }
+
+
+def appendFilterToGroup(parent, filter):
+    """
+    This returns a 1-query portion of what is usually under qry[searches][<template>][tree]
+    """
+    output_filter = deepcopy(parent)
+    output_filter["queryGroup"].append(filter)
+    return output_filter
 
 
 class BaseSearchView:
@@ -1098,7 +1115,10 @@ class PeakDataSearchView(BaseSearchView):
         {
             "displayname": "Corrected Abundances",  # Append " > 0.1" based on filter
             "distincts": ["corrected_abundance"],
-            "filter": getSimpleFilter("corrected_abundance", "gt", 0.1),
+            "filter": appendFilterToGroup(
+                createFilterGroup(),
+                createFilterCondition("corrected_abundance", "gt", 0.1),
+            ),
         },
         {
             "displayname": "Samples",

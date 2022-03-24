@@ -6,6 +6,9 @@ from django.db.models import F
 from DataRepo.compositeviews import (
     BaseAdvancedSearchView,
     PeakGroupsSearchView,
+    appendFilterToGroup,
+    createFilterCondition,
+    createFilterGroup,
     extractFldPaths,
     splitCommon,
     splitPathName,
@@ -405,3 +408,63 @@ class CompositeViewTests(TracebaseTestCase):
             Exception, msg="Either a model instance name or model name is required."
         ):
             pgsv.getOrderByFields(mdl_inst_nm=mdl_inst, model_name=mdl)
+
+    def test_createFilterGroup(self):
+        got = createFilterGroup()
+        expected = {
+            "type": "group",
+            "val": "all",
+            "static": False,
+            "queryGroup": [],
+        }
+        self.assertEqual(got, expected)
+
+    def test_createFilterCondition(self):
+        fld = "fldtest"
+        ncmp = "ncmptest"
+        val = "valtest"
+        got = createFilterCondition(fld, ncmp, val)
+        expected = {
+            "type": "query",
+            "pos": "",
+            "static": False,
+            "fld": fld,
+            "ncmp": ncmp,
+            "val": val,
+        }
+        self.assertEqual(got, expected)
+
+    def test_appendFilterToGroup(self):
+        fld = "fldtest"
+        ncmp = "ncmptest"
+        val = "valtest"
+        got = appendFilterToGroup(
+            createFilterGroup(), createFilterCondition(fld, ncmp, val)
+        )
+        expected = {
+            "type": "group",
+            "val": "all",
+            "static": False,
+            "queryGroup": [
+                {
+                    "type": "query",
+                    "pos": "",
+                    "static": False,
+                    "fld": fld,
+                    "ncmp": ncmp,
+                    "val": val,
+                }
+            ],
+        }
+        self.assertEqual(got, expected)
+
+    def test_(self):
+        pgsv = PeakGroupsSearchView()
+        stats = pgsv.getStatsParams()
+        got = stats[2]
+        expected_i2 = {
+            "displayname": "Measured Compounds",
+            "distincts": ["compounds__name"],
+            "filter": None,
+        }
+        self.assertEqual(got, expected_i2)
