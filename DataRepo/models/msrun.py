@@ -1,10 +1,11 @@
-
+from django.core.exceptions import ValidationError
 from django.db import models
 
-from DataRepo.hier_cached_model import HierCachedModel, cached_function
+from DataRepo.hier_cached_model import HierCachedModel
 
 from .protocol import Protocol
 from .sample import Sample
+
 
 class MSRun(HierCachedModel):
     parent_related_key_name = "sample"
@@ -65,4 +66,3 @@ class MSRun(HierCachedModel):
                 "Protocol category for an MSRun must be of type "
                 f"{Protocol.MSRUN_PROTOCOL}"
             )
-

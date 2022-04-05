@@ -1,4 +1,7 @@
+import warnings
+
 from django.db import models
+from django.db.models import Sum
 from django.utils.functional import cached_property
 
 from DataRepo.hier_cached_model import HierCachedModel, cached_function
@@ -6,6 +9,9 @@ from DataRepo.hier_cached_model import HierCachedModel, cached_function
 from .compound import Compound
 from .msrun import MSRun
 from .peakgroupset import PeakGroupSet
+from .tissue import Tissue
+from .utilities import atom_count_in_formula
+
 
 class PeakGroup(HierCachedModel):
     parent_related_key_name = "msrun"
@@ -116,6 +122,8 @@ class PeakGroup(HierCachedModel):
         tracer compound from the final serum timepoint.
         ThisPeakGroup.enrichment_fraction / SerumTracerPeakGroup.enrichment_fraction
         """
+
+        from .sample import Sample
 
         try:
             # An animal can have no tracer_compound (#312 & #315)
@@ -242,6 +250,8 @@ class PeakGroup(HierCachedModel):
         peakdata.  Returns the peakdata.fraction, if it exists and is greater
         than zero.
         """
+        from .peakdata import PeakData
+
         if not self.can_compute_tracer_rates:
             warnings.warn(f"{self.name} cannot compute tracer rates.")
             return False
@@ -453,4 +463,3 @@ class PeakGroup(HierCachedModel):
 
     def __str__(self):
         return str(self.name)
-
