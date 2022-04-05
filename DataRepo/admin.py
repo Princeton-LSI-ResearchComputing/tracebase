@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Compound
+from .models.compound import Compound
 
 
 @admin.register(Compound)

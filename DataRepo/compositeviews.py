@@ -4,13 +4,19 @@ from typing import Dict
 from django.apps import apps
 from django.db.models import F, Model
 
-from DataRepo.models import (
-    Animal,
-    PeakData,
-    PeakGroup,
-    Tissue,
-    TracerLabeledClass,
-)
+from .models.animal import Animal
+from .models.peakdata import PeakData
+from .models.peakgroup import PeakGroup
+from .models.tissue import Tissue
+from .models.tracerlabeledclass import TracerLabeledClass
+
+#from DataRepo.models import (
+#    Animal,
+#    PeakData,
+#    PeakGroup,
+#    Tissue,
+#    TracerLabeledClass,
+#)
 
 
 class BaseSearchView:

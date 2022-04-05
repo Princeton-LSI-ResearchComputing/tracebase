@@ -16,7 +16,22 @@ from DataRepo.hier_cached_model import (
     disable_caching_updates,
     enable_caching_updates,
 )
-from DataRepo.models import (
+
+from .models.animal import Animal
+from .models.compound import Compound, CompoundSynonym
+from .models.msrun import MSRun
+from .models.peakdata import PeakData
+from .models.peakgroup import PeakGroup
+from .models.peakgroupset import PeakGroupSet
+from .models.protocol import Protocol
+from .models.researcher import Researcher
+from .models.sample import Sample
+from .models.study import Study
+from .models.tissue import Tissue
+from .models.tracerlabeledclass import TracerLabeledClass
+
+
+""" from DataRepo.models import (
     Animal,
     Compound,
     CompoundSynonym,
@@ -32,7 +47,7 @@ from DataRepo.models import (
     TracerLabeledClass,
     get_researchers,
     value_from_choices_label,
-)
+) """
 
 
 class SampleTableLoader:
