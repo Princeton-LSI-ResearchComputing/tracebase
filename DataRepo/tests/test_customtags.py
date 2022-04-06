@@ -1,6 +1,8 @@
 from django.core.management import call_command
 
-from DataRepo.models import CompoundSynonym, PeakGroup, Study
+from DataRepo.models.compound import CompoundSynonym
+from DataRepo.models.peak_group import PeakGroup
+from DataRepo.models.study import Study
 from DataRepo.templatetags.customtags import (
     get_case_insensitive_synonyms,
     get_manytomany_rec,

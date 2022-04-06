@@ -65,8 +65,7 @@ class Sample(HierCachedModel):
         animal.tracer_compound), then is it used to filter the PeakGroup queryset to a specific compound's peakgroup(s)
         [if multiple PeakGroupSets exist].
         """
-
-        from .peakgroup import PeakGroup
+        from .peak_group import PeakGroup
 
         peak_groups = PeakGroup.objects.filter(msrun__sample_id=self.id)
         if compound:
@@ -78,7 +77,7 @@ class Sample(HierCachedModel):
         Retrieve a list of PeakData objects for a sample instance.  If an optional compound is passed (e.g.
         animal.tracer_compound), then is it used to filter the PeakData queryset to a specific peakgroup.
         """
-        from .peakdata import PeakData
+        from .peak_data import PeakData
 
         peakdata = PeakData.objects.filter(peak_group__msrun__sample_id=self.id)
         if compound:

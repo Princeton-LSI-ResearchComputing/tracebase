@@ -7,20 +7,17 @@ from django.test import override_settings, tag
 from django.urls import reverse
 
 from DataRepo.compositeviews import BaseAdvancedSearchView, BaseSearchView
-from DataRepo.models import (
-    Animal,
-    Compound,
-    CompoundSynonym,
-    MSRun,
-    PeakData,
-    PeakGroup,
-    PeakGroupSet,
-    Protocol,
-    Sample,
-    Study,
-    Tissue,
-    get_all_models,
-)
+from DataRepo.models.animal import Animal
+from DataRepo.models.compound import Compound, CompoundSynonym
+from DataRepo.models.msrun import MSRun
+from DataRepo.models.peak_data import PeakData
+from DataRepo.models.peak_group import PeakGroup
+from DataRepo.models.peak_group_set import PeakGroupSet
+from DataRepo.models.protocol import Protocol
+from DataRepo.models.sample import Sample
+from DataRepo.models.study import Study
+from DataRepo.models.tissue import Tissue
+from DataRepo.models.utilities import get_all_models
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.views import (
     DataValidationView,

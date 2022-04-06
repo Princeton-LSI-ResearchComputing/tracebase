@@ -4,7 +4,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.utils.functional import cached_property
 
 from .animal import Animal
-from .peakgroup import PeakGroup
+from .peak_group import PeakGroup
 from .study import Study
 from .utilities import get_all_fields_named
 

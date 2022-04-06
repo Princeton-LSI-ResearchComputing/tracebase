@@ -8,7 +8,7 @@ from DataRepo.hier_cached_model import HierCachedModel, cached_function
 
 from .compound import Compound
 from .msrun import MSRun
-from .peakgroupset import PeakGroupSet
+from .peak_group_set import PeakGroupSet
 from .tissue import Tissue
 from .utilities import atom_count_in_formula
 
@@ -250,7 +250,7 @@ class PeakGroup(HierCachedModel):
         peakdata.  Returns the peakdata.fraction, if it exists and is greater
         than zero.
         """
-        from .peakdata import PeakData
+        from .peak_data import PeakData
 
         if not self.can_compute_tracer_rates:
             warnings.warn(f"{self.name} cannot compute tracer rates.")

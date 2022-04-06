@@ -21,39 +21,23 @@ from DataRepo.forms import (
     AdvSearchPageForm,
     DataSubmissionValidationForm,
 )
-
-from .models.animal import Animal
-from .models.compound import Compound, CompoundSynonym
-from .models.msrun import MSRun
-from .models.peakdata import PeakData
-from .models.peakgroup import PeakGroup
-from .models.peakgroupset import PeakGroupSet
-from .models.protocol import Protocol
-from .models.sample import Sample
-from .models.study import Study
-from .models.tissue import Tissue
-from .models.tracerlabeledclass import TracerLabeledClass
-
-
-#from DataRepo.models import (
-#    Animal,
-#    Compound,
-#    CompoundSynonym,
-#    MSRun,
-#    PeakData,
-#    PeakGroup,
-#    PeakGroupSet,
-#    Protocol,
-#    Sample,
-#    Study,
-#    Tissue,
-#    get_all_models,
-#)
 from DataRepo.multiforms import MultiFormsView
 from DataRepo.pager import Pager
 from DataRepo.utils import MissingSamplesError
 from DataRepo.utils import QuerysetToPandasDataFrame as qs2df
 from DataRepo.utils import ResearcherError, leaderboard_data
+
+from .models.animal import Animal
+from .models.compound import Compound, CompoundSynonym
+from .models.msrun import MSRun
+from .models.peak_data import PeakData
+from .models.peak_group import PeakGroup
+from .models.peak_group_set import PeakGroupSet
+from .models.protocol import Protocol
+from .models.sample import Sample
+from .models.study import Study
+from .models.tissue import Tissue
+from .models.utilities import get_all_models
 
 
 def home(request):

@@ -1,7 +1,7 @@
 from django.core.management import CommandError, call_command
 from django.test import tag
 
-from DataRepo.models import Tissue
+from DataRepo.models.tissue import Tissue
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 

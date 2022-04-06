@@ -12,7 +12,10 @@ from DataRepo.hier_cached_model import (
     set_cache,
 )
 from DataRepo.management.commands.build_caches import cached_function_call
-from DataRepo.models import Animal, MSRun, PeakGroup, Sample
+from DataRepo.models.animal import Animal
+from DataRepo.models.msrun import MSRun
+from DataRepo.models.peak_group import PeakGroup
+from DataRepo.models.sample import Sample
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 

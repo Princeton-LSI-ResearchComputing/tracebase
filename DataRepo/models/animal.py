@@ -12,7 +12,7 @@ from .compound import Compound
 from .protocol import Protocol
 from .study import Study
 from .tissue import Tissue
-from .tracerlabeledclass import TracerLabeledClass
+from .tracer_labeled_class import TracerLabeledClass
 
 
 class Animal(HierCachedModel, TracerLabeledClass):

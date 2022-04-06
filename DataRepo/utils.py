@@ -19,16 +19,17 @@ from DataRepo.hier_cached_model import (
 from DataRepo.models.animal import Animal
 from DataRepo.models.compound import Compound, CompoundSynonym
 from DataRepo.models.msrun import MSRun
-from DataRepo.models.peakdata import PeakData
-from DataRepo.models.peakgroup import PeakGroup
-from DataRepo.models.peakgroupset import PeakGroupSet
+from DataRepo.models.peak_group import PeakGroup
+from DataRepo.models.peak_group_set import PeakGroupSet
 from DataRepo.models.protocol import Protocol
 from DataRepo.models.researcher import Researcher
 from DataRepo.models.sample import Sample
 from DataRepo.models.study import Study
 from DataRepo.models.tissue import Tissue
-from DataRepo.models.tracerlabeledclass import TracerLabeledClass
+from DataRepo.models.tracer_labeled_class import TracerLabeledClass
 from DataRepo.models.utilities import get_researchers, value_from_choices_label
+
+from .models.peak_data import PeakData
 
 
 class SampleTableLoader:
