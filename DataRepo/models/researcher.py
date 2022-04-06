@@ -1,11 +1,13 @@
+import pandas as pd
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from django.utils.functional import cached_property
 
-from .utilities import get_all_fields_named
 from .animal import Animal
 from .peakgroup import PeakGroup
 from .study import Study
+from .utilities import get_all_fields_named
+
 
 def get_researchers(database=settings.TRACEBASE_DB):
     """
@@ -25,6 +27,7 @@ def get_researchers(database=settings.TRACEBASE_DB):
         )
     unique_researchers = list(pd.unique(researchers))
     return unique_researchers
+
 
 class Researcher:
     """
@@ -68,4 +71,3 @@ class Researcher:
 
     def __str__(self):
         return self.name
-

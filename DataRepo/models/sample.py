@@ -1,4 +1,5 @@
 from datetime import date, timedelta
+
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
@@ -6,6 +7,7 @@ from DataRepo.hier_cached_model import HierCachedModel, cached_function
 
 from .animal import Animal
 from .tissue import Tissue
+
 
 class Sample(HierCachedModel):
     parent_related_key_name = "animal"
@@ -64,6 +66,8 @@ class Sample(HierCachedModel):
         [if multiple PeakGroupSets exist].
         """
 
+        from .peakgroup import PeakGroup
+
         peak_groups = PeakGroup.objects.filter(msrun__sample_id=self.id)
         if compound:
             peak_groups = peak_groups.filter(compounds__id=compound.id)
@@ -74,9 +78,9 @@ class Sample(HierCachedModel):
         Retrieve a list of PeakData objects for a sample instance.  If an optional compound is passed (e.g.
         animal.tracer_compound), then is it used to filter the PeakData queryset to a specific peakgroup.
         """
+        from .peakdata import PeakData
 
         peakdata = PeakData.objects.filter(peak_group__msrun__sample_id=self.id)
-
         if compound:
             peakdata = peakdata.filter(peak_group__compounds__id=compound.id)
 
@@ -101,4 +105,3 @@ class Sample(HierCachedModel):
 
     def __str__(self):
         return str(self.name)
-

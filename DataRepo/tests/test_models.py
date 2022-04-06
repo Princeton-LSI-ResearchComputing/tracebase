@@ -9,21 +9,18 @@ from django.db.models.deletion import RestrictedError
 from django.test import override_settings, tag
 
 from DataRepo.hier_cached_model import set_cache
-from DataRepo.models import (
-    Animal,
-    Compound,
-    CompoundSynonym,
-    MSRun,
-    PeakData,
-    PeakGroup,
-    PeakGroupSet,
-    Protocol,
-    Researcher,
-    Sample,
-    Study,
-    Tissue,
-    TracerLabeledClass,
-)
+from DataRepo.models.animal import Animal
+from DataRepo.models.compound import Compound, CompoundSynonym
+from DataRepo.models.msrun import MSRun
+from DataRepo.models.peakdata import PeakData
+from DataRepo.models.peakgroup import PeakGroup
+from DataRepo.models.peakgroupset import PeakGroupSet
+from DataRepo.models.protocol import Protocol
+from DataRepo.models.researcher import Researcher
+from DataRepo.models.sample import Sample
+from DataRepo.models.study import Study
+from DataRepo.models.tissue import Tissue
+from DataRepo.models.tracerlabeledclass import TracerLabeledClass
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import (
     AccuCorDataLoader,

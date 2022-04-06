@@ -135,7 +135,7 @@ class Migration(migrations.Migration):
                 "verbose_name": "animal",
                 "verbose_name_plural": "animals",
             },
-            bases=(models.Model, DataRepo.models.TracerLabeledClass),
+            bases=(models.Model, DataRepo.models.tracerlabeledclass.TracerLabeledClass),
         ),
         migrations.CreateModel(
             name="Compound",
@@ -485,7 +485,7 @@ class Migration(migrations.Migration):
                 "verbose_name_plural": "peak data",
                 "ordering": ["peak_group", "labeled_count"],
             },
-            bases=(models.Model, DataRepo.models.TracerLabeledClass),
+            bases=(models.Model, DataRepo.models.tracerlabeledclass.TracerLabeledClass),
         ),
         migrations.AddField(
             model_name="msrun",

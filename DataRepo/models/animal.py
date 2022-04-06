@@ -1,4 +1,7 @@
-from datetime import date, timedelta
+import warnings
+from datetime import timedelta
+
+from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils.functional import cached_property
@@ -8,7 +11,9 @@ from DataRepo.hier_cached_model import HierCachedModel, cached_function
 from .compound import Compound
 from .protocol import Protocol
 from .study import Study
+from .tissue import Tissue
 from .tracerlabeledclass import TracerLabeledClass
+
 
 class Animal(HierCachedModel, TracerLabeledClass):
     # No parent_related_key_name, because this is a root
@@ -406,4 +411,3 @@ class Animal(HierCachedModel, TracerLabeledClass):
                     "Protocol category for an Animal must be of type "
                     f"{Protocol.ANIMAL_TREATMENT}"
                 )
-
