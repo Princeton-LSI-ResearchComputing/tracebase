@@ -1,11 +1,14 @@
 from datetime import date, timedelta
+
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 from DataRepo.hier_cached_model import HierCachedModel, cached_function
 
-from .animal import Animal
+from .peak_data import PeakData
+from .peak_group import PeakGroup
 from .tissue import Tissue
+
 
 class Sample(HierCachedModel):
     parent_related_key_name = "animal"
@@ -26,14 +29,14 @@ class Sample(HierCachedModel):
         help_text='The name of the researcher who prepared the sample (e.g. "Alex Medina").',
     )
     animal = models.ForeignKey(
-        Animal,
+        to="DataRepo.Animal",
         on_delete=models.CASCADE,
         null=False,
         related_name="samples",
         help_text="The source animal from which the sample was extracted.",
     )
     tissue = models.ForeignKey(
-        Tissue,
+        to="DataRepo.Tissue",
         on_delete=models.RESTRICT,
         null=False,
         related_name="samples",
@@ -101,4 +104,3 @@ class Sample(HierCachedModel):
 
     def __str__(self):
         return str(self.name)
-

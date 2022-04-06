@@ -1,5 +1,12 @@
+import importlib
+import warnings
+
+import pandas as pd
+from chempy import Substance
+from chempy.util.periodic import atomic_number
 from django.conf import settings
 from django.core.exceptions import ValidationError
+
 
 def value_from_choices_label(label, choices):
     """
@@ -47,8 +54,20 @@ def get_all_models():
     as a list ordered in a way that they can all have their contents deleted without running afould of "restrict"
     constraints
     """
-    mdls = list(apps.get_app_config("DataRepo").get_models())
-    mdls.reverse()
+    model_names = [
+        "Compound",
+        "CompoundSynonym",
+        "Tissue",
+        "PeakData",
+        "PeakGroup",
+        "PeakGroupSet",
+        "MSRun",
+        "Sample",
+        "Animal",
+        "Protocol",
+    ]
+    module = importlib.import_module("DataRepo.models")
+    mdls = [getattr(module, class_name) for class_name in model_names]
     return mdls
 
 
@@ -97,4 +116,3 @@ def get_researchers(database=settings.TRACEBASE_DB):
         )
     unique_researchers = list(pd.unique(researchers))
     return unique_researchers
-

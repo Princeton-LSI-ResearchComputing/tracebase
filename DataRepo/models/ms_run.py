@@ -1,10 +1,10 @@
-
+from django.core.exceptions import ValidationError
 from django.db import models
 
-from DataRepo.hier_cached_model import HierCachedModel, cached_function
+from DataRepo.hier_cached_model import HierCachedModel
 
 from .protocol import Protocol
-from .sample import Sample
+
 
 class MSRun(HierCachedModel):
     parent_related_key_name = "sample"
@@ -21,14 +21,14 @@ class MSRun(HierCachedModel):
     )
     # Don't allow a Protocol to be deleted if an MSRun links to it
     protocol = models.ForeignKey(
-        Protocol,
+        to="DataRepo.Protocol",
         on_delete=models.RESTRICT,
         limit_choices_to={"category": Protocol.MSRUN_PROTOCOL},
         help_text="The protocol that was used for this mass spectrometer run.",
     )
     # Don't allow a Sample to be deleted if an MSRun links to it
     sample = models.ForeignKey(
-        Sample,
+        to="DataRepo.Sample",
         on_delete=models.RESTRICT,
         related_name="msruns",
         help_text="The sample that was run on the mass spectrometer.",
@@ -65,4 +65,3 @@ class MSRun(HierCachedModel):
                 "Protocol category for an MSRun must be of type "
                 f"{Protocol.MSRUN_PROTOCOL}"
             )
-

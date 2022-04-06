@@ -1,5 +1,6 @@
 from django.db import models
 
+
 class PeakGroupSet(models.Model):
     id = models.AutoField(primary_key=True)
     filename = models.CharField(
@@ -20,4 +21,3 @@ class PeakGroupSet(models.Model):
 
     def __str__(self):
         return str(f"{self.filename} at {self.imported_timestamp}")
-

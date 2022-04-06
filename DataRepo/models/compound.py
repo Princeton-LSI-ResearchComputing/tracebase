@@ -1,5 +1,9 @@
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models import Q
+
+from DataRepo.models.utilities import atom_count_in_formula
 
 
 class Compound(models.Model):
@@ -87,6 +91,7 @@ class Compound(models.Model):
     def __str__(self):
         return str(self.name)
 
+
 class CompoundSynonym(models.Model):
 
     # Instance / model fields
@@ -109,4 +114,3 @@ class CompoundSynonym(models.Model):
 
     def __str__(self):
         return str(self.name)
-

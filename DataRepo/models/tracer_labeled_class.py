@@ -3,6 +3,7 @@
 # (https://docs.djangoproject.com/en/3.1/topics/db/models/#abstract-base-classes).
 # This simply shares some configured variables/values.
 class TracerLabeledClass:
+
     # choice specifications
     CARBON = "C"
     NITROGEN = "N"

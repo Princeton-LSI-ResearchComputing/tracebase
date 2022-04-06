@@ -1,13 +1,15 @@
+import warnings
+
 from django.db import models
+from django.db.models import Sum
 from django.utils.functional import cached_property
 
 from DataRepo.hier_cached_model import HierCachedModel, cached_function
+from DataRepo.models.utilities import atom_count_in_formula
 
-from .compound import Compound
-from .msrun import MSRun
-from .peakgroupset import PeakGroupSet
 
 class PeakGroup(HierCachedModel):
+
     parent_related_key_name = "msrun"
     # Leaf
 
@@ -21,19 +23,19 @@ class PeakGroup(HierCachedModel):
         help_text='The molecular formula of the compound (e.g. "C6H12O6").',
     )
     msrun = models.ForeignKey(
-        MSRun,
+        to="DataRepo.MSRun",
         on_delete=models.CASCADE,
         null=False,
         related_name="peak_groups",
         help_text="The MS Run this PeakGroup belongs to.",
     )
     compounds = models.ManyToManyField(
-        Compound,
+        to="DataRepo.Compound",
         related_name="peak_groups",
         help_text="The compound(s) that this PeakGroup is presumed to represent.",
     )
     peak_group_set = models.ForeignKey(
-        PeakGroupSet,
+        to="DataRepo.PeakGroupSet",
         on_delete=models.CASCADE,
         null=False,
         related_name="peak_groups",
@@ -65,6 +67,7 @@ class PeakGroup(HierCachedModel):
         Sum of all (PeakData.fraction * PeakData.labeled_count) /
             PeakGroup.Compound.num_atoms(PeakData.labeled_element)
         """
+
         enrichment_fraction = None
 
         try:
@@ -116,6 +119,8 @@ class PeakGroup(HierCachedModel):
         tracer compound from the final serum timepoint.
         ThisPeakGroup.enrichment_fraction / SerumTracerPeakGroup.enrichment_fraction
         """
+        from DataRepo.models.sample import Sample
+        from DataRepo.models.tissue import Tissue
 
         try:
             # An animal can have no tracer_compound (#312 & #315)
@@ -242,6 +247,8 @@ class PeakGroup(HierCachedModel):
         peakdata.  Returns the peakdata.fraction, if it exists and is greater
         than zero.
         """
+        from DataRepo.models.peak_data import PeakData
+
         if not self.can_compute_tracer_rates:
             warnings.warn(f"{self.name} cannot compute tracer rates.")
             return False
@@ -453,4 +460,3 @@ class PeakGroup(HierCachedModel):
 
     def __str__(self):
         return str(self.name)
-

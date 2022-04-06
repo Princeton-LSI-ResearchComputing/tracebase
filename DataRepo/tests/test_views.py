@@ -19,8 +19,8 @@ from DataRepo.models import (
     Sample,
     Study,
     Tissue,
-    get_all_models,
 )
+from DataRepo.models.utilities import get_all_models
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.views import (
     DataValidationView,

@@ -1,6 +1,5 @@
 from django.db import models
 
-from .protocol import Protocol
 
 class Study(models.Model):
     # Instance / model fields
@@ -24,4 +23,3 @@ class Study(models.Model):
 
     def __str__(self):
         return str(self.name)
-

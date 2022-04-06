@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.db import models
 
+
 class Protocol(models.Model):
 
     MSRUN_PROTOCOL = "msrun_protocol"
@@ -79,4 +80,3 @@ class Protocol(models.Model):
 
     def __str__(self):
         return str(self.name)
-

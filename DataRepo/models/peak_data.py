@@ -2,8 +2,9 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils.functional import cached_property
 
-from .tracerlabeledclass import TracerLabeledClass
-from .peakgroup import PeakGroup
+from .peak_group import PeakGroup
+from .tracer_labeled_class import TracerLabeledClass
+
 
 class PeakData(models.Model, TracerLabeledClass):
     """
