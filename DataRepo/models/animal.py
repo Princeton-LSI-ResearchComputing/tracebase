@@ -8,9 +8,7 @@ from django.utils.functional import cached_property
 
 from DataRepo.hier_cached_model import HierCachedModel, cached_function
 
-from .compound import Compound
 from .protocol import Protocol
-from .study import Study
 from .tissue import Tissue
 from .tracer_labeled_class import TracerLabeledClass
 
@@ -31,7 +29,7 @@ class Animal(HierCachedModel, TracerLabeledClass):
         help_text="A unique name or lab identifier of the source animal for a series of studied samples.",
     )
     tracer_compound = models.ForeignKey(
-        Compound,
+        to="DataRepo.Compound",
         on_delete=models.RESTRICT,
         blank=True,
         null=True,
@@ -110,12 +108,12 @@ class Animal(HierCachedModel, TracerLabeledClass):
         'also referred to as "Animal State" (e.g. "fasted").',
     )
     studies = models.ManyToManyField(
-        Study,
+        to="DataRepo.Study",
         related_name="animals",
         help_text="The experimental study(ies) the the animal is associated with.",
     )
     treatment = models.ForeignKey(
-        Protocol,
+        to="DataRepo.Protocol",
         on_delete=models.RESTRICT,
         null=True,
         blank=True,

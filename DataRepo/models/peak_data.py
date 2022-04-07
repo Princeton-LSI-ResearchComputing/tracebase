@@ -14,7 +14,10 @@ class PeakData(models.Model, TracerLabeledClass):
 
     id = models.AutoField(primary_key=True)
     peak_group = models.ForeignKey(
-        PeakGroup, on_delete=models.CASCADE, null=False, related_name="peak_data"
+        to="DataRepo.PeakGroup",
+        on_delete=models.CASCADE,
+        null=False,
+        related_name="peak_data",
     )
     labeled_element = models.CharField(
         max_length=1,
