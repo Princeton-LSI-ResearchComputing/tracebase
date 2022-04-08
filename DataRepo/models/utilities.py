@@ -7,6 +7,20 @@ from chempy.util.periodic import atomic_number
 from django.conf import settings
 from django.core.exceptions import ValidationError
 
+ALL_MODELS_IN_SAFE_DELETION_ORDER = [
+    "Compound",
+    "CompoundSynonym",
+    "Tissue",
+    "PeakData",
+    "PeakGroup",
+    "PeakGroupSet",
+    "MSRun",
+    "Sample",
+    "Animal",
+    "Protocol",
+    "Study",
+]
+
 
 def value_from_choices_label(label, choices):
     """
@@ -54,20 +68,10 @@ def get_all_models():
     as a list ordered in a way that they can all have their contents deleted without running afould of "restrict"
     constraints
     """
-    model_names = [
-        "Compound",
-        "CompoundSynonym",
-        "Tissue",
-        "PeakData",
-        "PeakGroup",
-        "PeakGroupSet",
-        "MSRun",
-        "Sample",
-        "Animal",
-        "Protocol",
-    ]
     module = importlib.import_module("DataRepo.models")
-    mdls = [getattr(module, class_name) for class_name in model_names]
+    mdls = [
+        getattr(module, class_name) for class_name in ALL_MODELS_IN_SAFE_DELETION_ORDER
+    ]
     return mdls
 
 
