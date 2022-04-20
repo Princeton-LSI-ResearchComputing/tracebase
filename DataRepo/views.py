@@ -265,7 +265,11 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
         form_id_field="adv_search_page_form",
         rows_per_page_choices=AdvSearchPageForm.ROWS_PER_PAGE_CHOICES,
         page_form_class=AdvSearchPageForm,
-        other_fields=["qryjson"],
+        other_field_ids={
+            "qryjson": None,
+            "show_stats": "show_stats_id",
+            "stats": "stats_id",
+        },
         page_field="page",
         rows_per_page_field="rows",
         order_by_field="order_by",
@@ -292,7 +296,7 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
         )
     )
 
-    res, tot = performQuery(
+    res, tot, stats = performQuery(
         qry,
         qry["selectedtemplate"],
         basv_metadata,
@@ -301,7 +305,11 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
     )
 
     pager.update(
-        other_field_dict={"qryjson": json.dumps(qry)},
+        other_field_inits={
+            "qryjson": json.dumps(qry),
+            "show_stats": False,
+            "stats": None,
+        },
         tot=tot,
     )
 
@@ -314,7 +322,7 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
             "forms": basf.form_classes,
             "qry": qry,
             "res": res,
-            "tot": tot,
+            "stats": stats,
             "pager": pager,
             "download_form": download_form,
             "debug": settings.DEBUG,
@@ -370,7 +378,11 @@ class AdvancedSearchView(MultiFormsView):
         form_id_field="adv_search_page_form",
         rows_per_page_choices=AdvSearchPageForm.ROWS_PER_PAGE_CHOICES,
         page_form_class=AdvSearchPageForm,
-        other_fields=["qryjson"],
+        other_field_ids={
+            "qryjson": None,
+            "show_stats": "show_stats_id",
+            "stats": "stats_id",
+        },
         page_field="page",
         rows_per_page_field="rows",
         order_by_field="order_by",
@@ -469,7 +481,7 @@ class AdvancedSearchView(MultiFormsView):
                     self.pager.default_rows,
                 )
             )
-            res, tot = performQuery(
+            res, tot, stats = performQuery(
                 qry,
                 qry["selectedtemplate"],
                 self.basv_metadata,
@@ -479,7 +491,11 @@ class AdvancedSearchView(MultiFormsView):
                 order_direction=None,
             )
             self.pager.update(
-                other_field_dict={"qryjson": json.dumps(qry)},
+                other_field_inits={
+                    "qryjson": json.dumps(qry),
+                    "show_stats": False,
+                    "stats": json.dumps(stats),
+                },
                 tot=tot,
                 page=1,
                 rows=rows_per_page,
@@ -493,6 +509,7 @@ class AdvancedSearchView(MultiFormsView):
         return self.render_to_response(
             self.get_context_data(
                 res=res,
+                stats=stats,
                 forms=self.form_classes,
                 qry=qry,
                 download_form=download_form,
@@ -569,16 +586,50 @@ class AdvancedSearchView(MultiFormsView):
             else:
                 order_dir = None
 
+            show_stats = False
+            if "show_stats" in cform and cform["show_stats"]:
+                show_stats = True
+
+            # Retrieve stats if present - It's ok if there's none
+            try:
+                received_stats = json.loads(cform["stats"])
+                # Apparently this causes a TypeError exception in test_views. Could not figure out why, so...
+            except (TypeError, KeyError):
+                try:
+                    if "stats" in cform:
+                        received_stats = cform["stats"]
+                    else:
+                        received_stats = None
+                except Exception as e:
+                    print(
+                        f"WARNING: The paging form encountered an exception of type {e.__class__.__name__} during "
+                        f"stats field processing: [{e}]."
+                    )
+                    received_stats = None
+
+            # Update the value in the stats data structure based on the current form value
+            if received_stats is not None:
+                received_stats["show"] = show_stats
+
             offset = (page - 1) * rows
         except Exception as e:
             # Assumes this is an initial query, not a page form submission
-            print(f"WARNING: {e}")
+            print(
+                f"WARNING: The paging form encountered an exception of type {e.__class__.__name__} during processing: "
+                f"[{e}]."
+            )
             self.pager.update()
             page = self.pager.page
             rows = self.pager.rows
             order_by = self.pager.order_by
             order_dir = self.pager.order_dir
+            show_stats = False
             offset = 0
+
+        # We only need to take the time to generate stats is they are not present and they've been requested
+        generate_stats = False
+        if (received_stats is None or not received_stats["populated"]) and show_stats:
+            generate_stats = True
 
         if isValidQryObjPopulated(qry):
             # For some reason, the download form generated in either case below always generates an error in the
@@ -587,7 +638,7 @@ class AdvancedSearchView(MultiFormsView):
             # bottom of the block, the downloaded file will only contain the header and will not be named properly...
             # Might be a (Safari) browser issue (according to stack).
             download_form = AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
-            res, tot = performQuery(
+            res, tot, stats = performQuery(
                 qry,
                 qry["selectedtemplate"],
                 self.basv_metadata,
@@ -595,16 +646,17 @@ class AdvancedSearchView(MultiFormsView):
                 offset=offset,
                 order_by=order_by,
                 order_direction=order_dir,
+                generate_stats=generate_stats,
             )
         else:
-            print(f"Getting browse data with offset: {offset} and limit {rows}")
-            res, tot = getAllBrowseData(
+            res, tot, stats = getAllBrowseData(
                 qry["selectedtemplate"],
                 self.basv_metadata,
                 limit=rows,
                 offset=offset,
                 order_by=order_by,
                 order_direction=order_dir,
+                generate_stats=generate_stats,
             )
             # Remake the qry so it will be valid for downloading all data (not entirely sure why this is necessary, but
             # the download form created on the subsequent line doesn't work without doing this.  I suspect that the qry
@@ -612,8 +664,16 @@ class AdvancedSearchView(MultiFormsView):
             qry = self.basv_metadata.getRootGroup(qry["selectedtemplate"])
             download_form = AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
 
+        # If we received populated stats from the paging form (i.e. they were previously calculated)
+        if not generate_stats:
+            stats = received_stats
+
         self.pager.update(
-            other_field_dict={"qryjson": json.dumps(qry)},
+            other_field_inits={
+                "qryjson": json.dumps(qry),
+                "show_stats": show_stats,
+                "stats": json.dumps(stats),
+            },
             tot=tot,
             page=page,
             rows=rows,
@@ -626,6 +686,7 @@ class AdvancedSearchView(MultiFormsView):
         response = self.render_to_response(
             self.get_context_data(
                 res=res,
+                stats=stats,
                 forms=self.form_classes,
                 qry=qry,
                 download_form=download_form,
@@ -679,7 +740,7 @@ class AdvancedSearchView(MultiFormsView):
                 )
                 self.pager.update()
                 offset = 0
-                context["res"], context["tot"] = getAllBrowseData(
+                context["res"], context["tot"], context["stats"] = getAllBrowseData(
                     qry["selectedtemplate"],
                     self.basv_metadata,
                     limit=self.pager.rows,
@@ -688,7 +749,12 @@ class AdvancedSearchView(MultiFormsView):
                     order_direction=self.pager.order_dir,
                 )
                 context["pager"] = self.pager.update(
-                    other_field_dict={"qryjson": json.dumps(qry)}, tot=context["tot"]
+                    other_field_inits={
+                        "qryjson": json.dumps(qry),
+                        "show_stats": False,
+                        "stats": None,
+                    },
+                    tot=context["tot"],
                 )
         elif (
             "qry" in context
@@ -702,11 +768,16 @@ class AdvancedSearchView(MultiFormsView):
             context["download_form"] = AdvSearchDownloadForm(
                 initial={"qryjson": json.dumps(qry)}
             )
-            context["res"], context["tot"] = performQuery(
+            context["res"], context["tot"], context["stats"] = performQuery(
                 qry, qry["selectedtemplate"], self.basv_metadata
             )
             context["pager"] = self.pager.update(
-                other_field_dict={"qryjson": json.dumps(qry)}, tot=context["tot"]
+                other_field_inits={
+                    "qryjson": json.dumps(qry),
+                    "show_stats": False,
+                    "stats": None,
+                },
+                tot=context["tot"],
             )
 
 
@@ -763,9 +834,13 @@ class AdvancedSearchTSVView(FormView):
         )
 
         if isValidQryObjPopulated(qry):
-            res, tot = performQuery(qry, qry["selectedtemplate"], self.basv_metadata)
+            res, tot, stats = performQuery(
+                qry, qry["selectedtemplate"], self.basv_metadata
+            )
         else:
-            res, tot = getAllBrowseData(qry["selectedtemplate"], self.basv_metadata)
+            res, tot, stats = getAllBrowseData(
+                qry["selectedtemplate"], self.basv_metadata
+            )
 
         headtmplt = loader.get_template(self.header_template)
         rowtmplt = loader.get_template(self.row_template)
@@ -783,12 +858,20 @@ class AdvancedSearchTSVView(FormView):
 
 
 def getAllBrowseData(
-    format, basv, limit=None, offset=0, order_by=None, order_direction=None
+    format,
+    basv,
+    limit=None,
+    offset=0,
+    order_by=None,
+    order_direction=None,
+    generate_stats=False,
 ):
     """
     Grabs all data without a filtering match for browsing.
     """
-    return performQuery(None, format, basv, limit, offset, order_by, order_direction)
+    return performQuery(
+        None, format, basv, limit, offset, order_by, order_direction, generate_stats
+    )
 
 
 def createNewBasicQuery(basv_metadata, mdl, fld, cmp, val, fmt):
@@ -870,7 +953,7 @@ def searchFieldToDisplayField(basv_metadata, mdl, fld, val, qry):
     dfields = basv_metadata.getDisplayFields(fmt, mdl)
     if fld in dfields.keys() and dfields[fld] != fld:
         # If fld is not a displayed field, perform a query to convert the undisplayed field query to a displayed query
-        recs, tot = performQuery(qry, fmt, basv_metadata)
+        recs, tot, stats = performQuery(qry, fmt, basv_metadata)
         if tot == 0:
             print(
                 f"WARNING: Failed basic/advanced {fmt} search conversion: {qry}. No records found matching {mdl}."
@@ -943,6 +1026,7 @@ def performQuery(
     offset=0,
     order_by=None,
     order_direction=None,
+    generate_stats=False,
 ):
     """
     Executes an advanced search query.  The only required input is either a qry object or a format (fmt).
@@ -996,6 +1080,14 @@ def performQuery(
 
     # Count the total results.  Limit/offset are only used for paging.
     cnt = results.count()
+    stats = {
+        "data": {},
+        "populated": generate_stats,
+        "show": False,
+    }
+    if generate_stats:
+        stats["data"] = getQueryStats(results, fmt, basv)
+        stats["show"] = True
 
     # Limit
     if limit is not None:
@@ -1042,7 +1134,103 @@ def performQuery(
     for annotation in split_row_annotations:
         results = results.annotate(**annotation)
 
-    return results, cnt
+    return results, cnt, stats
+
+
+def getQueryStats(res, fmt, basv=None):
+    """
+    This method takes a queryset (produced by performQuery) and a format (e.g. "pgtemplate") and returns a stats dict
+    keyed on the stat name and containing the counts of  the number of unique values for the fields defined in the
+    basic advanced search view object for the supplied template.  E.g. The results contain 5 distinct tissues.
+    """
+    if basv is None:
+        basv = BaseAdvancedSearchView()
+
+    # Obtain the metadata about what stats we will display
+    params_arrays = basv.getStatsParams(fmt)
+    if params_arrays is None:
+        return None
+
+    # Since `results.values(*distinct_fields).annotate(cnt=Count("pk"))` throws an exception if duplicate records
+    # result from the possible use of distinct(fields) in the res sent in, we must mix in the distinct fields that
+    # uniquely identify records.
+    fmt_distinct_fields = basv.getDistinctFields(fmt, assume_distinct=False)
+    stats_fields = [fld for d in params_arrays for fld in d["distincts"]]
+    all_fields = fmt_distinct_fields + stats_fields
+    stats = {}
+    cnt_dict = {}
+
+    # order_by(*fmt_distinct_fields) and distinct(*fmt_distinct_fields) are required to get accurate row counts,
+    # otherwise, some duplicates will get counted
+    for rec in (
+        res.order_by(*fmt_distinct_fields)
+        .distinct(*fmt_distinct_fields)
+        .values_list(*all_fields)
+    ):
+        # For each stats category defined for this format
+        for params in params_arrays:
+
+            if "delimiter" in params:
+                delim = params["delimiter"]
+            else:
+                delim = " "
+
+            # Get distinct fields for the count by taking the union of the record-identifying distinct fields and the
+            # distinct fields whose repeated values we want to count.
+            distinct_fields = params["distincts"]
+
+            statskey = params["displayname"]
+            valcombo = delim.join(
+                # values_list is fast, but can only be indexed by number...
+                list(str(rec[all_fields.index(fld)]) for fld in distinct_fields)
+            )
+
+            if statskey not in stats:
+                stats[statskey] = {
+                    "count": 0,
+                    "filter": params["filter"],
+                }
+                cnt_dict[statskey] = {}
+
+            # Update the stats
+            if params["filter"] is None:
+                # Count unique and duplicate values
+                if valcombo not in cnt_dict[statskey]:
+                    cnt_dict[statskey][valcombo] = 1
+                    stats[statskey]["count"] += 1
+                else:
+                    cnt_dict[statskey][valcombo] += 1
+            else:
+                # Count values meeting a criteria/filter
+                if basv.meetsAllConditionsByValList(
+                    fmt, rec, params["filter"], all_fields
+                ):
+                    stats[statskey]["count"] += 1
+                    if valcombo not in cnt_dict[statskey]:
+                        cnt_dict[statskey][valcombo] = 1
+                    else:
+                        cnt_dict[statskey][valcombo] += 1
+
+    # For each stats category defined for this format
+    for params in params_arrays:
+        statskey = params["displayname"]
+
+        # For the top 10 unique values (delimited-combos), in order of descending number of occurrences
+        top10 = []
+        # for valcombo in sorted(cnt_dict.keys(), key=lambda x: -cnt_dict[x])[0:10]:
+        for valcombo in sorted(
+            cnt_dict[statskey].keys(), key=lambda vc: -cnt_dict[statskey][vc]
+        )[0:10]:
+            top10.append(
+                {
+                    "val": valcombo,
+                    "cnt": cnt_dict[statskey][valcombo],
+                }
+            )
+
+        stats[statskey]["sample"] = top10
+
+    return stats
 
 
 def isQryObjValid(qry, form_class_list):

@@ -1,5 +1,5 @@
 from copy import deepcopy
-from typing import Dict
+from typing import Dict, List, Optional
 
 from django.apps import apps
 from django.db.models import F, Model
@@ -13,15 +13,56 @@ from DataRepo.models import (
 )
 
 
+def createFilterGroup(all=True, static=False):
+    """
+    This returns a 1-query portion of what is usually under qry[searches][<template>][tree]
+    """
+    val = "any"
+    if all:
+        val = "all"
+    return {
+        "type": "group",
+        "val": val,
+        "static": static,
+        "queryGroup": [],
+    }
+
+
+def createFilterCondition(fld, ncmp, val, static=False):
+    """
+    This returns a 1-query portion of what is usually under qry[searches][<template>][tree]
+    """
+    return {
+        "type": "query",
+        "pos": "",
+        "static": static,
+        "fld": fld,
+        "ncmp": ncmp,
+        "val": val,
+    }
+
+
+def appendFilterToGroup(parent, filter):
+    """
+    This returns a 1-query portion of what is usually under qry[searches][<template>][tree]
+    """
+    output_filter = deepcopy(parent)
+    output_filter["queryGroup"].append(filter)
+    return output_filter
+
+
 class BaseSearchView:
     """
     This class holds common data/functions for search output formats.
+
+    Note that any comparison types added to ncmp_choices must also be implemented in meetsCondition().
     """
 
     id = ""
     name = ""
     model_instances: Dict[str, Dict] = {}
     rootmodel: Model = None
+    stats: Optional[List[Dict]] = None
     ncmp_choices = {
         "number": [
             ("iexact", "is"),
@@ -532,7 +573,7 @@ class BaseSearchView:
             return mdl._meta.__dict__["ordering"]
         return []
 
-    def getDistinctFields(self, order_by):
+    def getDistinctFields(self, order_by=None, assume_distinct=True):
         """
         Puts together fields required by queryset.distinct() based on the value of each model instance's split_rows
         state.  split_rows=True allows us to choose whether the output rows in the html results template will contain
@@ -543,6 +584,10 @@ class BaseSearchView:
         An order_by field (including its key path) is required if the queryset will be non-default ordered, because
         .distinct() requires them to be present.  Otherwise, you will encounter an exception when the queryset is made
         distinct on the returned fields.  Only a single order_by field is supported.
+
+        assume_distinct - This assumes (when split_rows is False) that all records are distinct/not-identical.  In that
+        case, this method returns an empty list (as the parameters to .distinct()).  This is the default behavior.  If
+        that assumption is false, supply assume_distinct=False.
         """
         distinct_fields = []
         for mdl_inst_nm in self.model_instances:
@@ -572,7 +617,77 @@ class BaseSearchView:
             if order_by is not None and order_by not in distinct_fields:
                 distinct_fields.insert(0, order_by)
 
+        if len(distinct_fields) == 0 and not assume_distinct:
+            distinct_fields.append("pk")
+
         return distinct_fields
+
+    def getStatsParams(self):
+        """Stats getter"""
+        return deepcopy(self.stats)
+
+    def meetsAllConditionsByValList(self, rootrec, query, field_order):
+        """
+        This is a python-code version of a complex Q expression, necessary for checking filters in aggregate count
+        annotations, because the Django ORM does not support .distinct(fields).annotate(Count) when duplicate root
+        table records exist.
+        """
+        if query["type"] == "query":
+            recval = rootrec[field_order.index(query["fld"])]
+            return self.meetsCondition(recval, query["ncmp"], query["val"])
+        else:
+            if query["val"] == "all":
+                for subquery in query["queryGroup"]:
+                    if not self.meetsAllConditionsByValList(
+                        rootrec, subquery, field_order
+                    ):
+                        return False
+                return True
+            else:
+                for subquery in query["queryGroup"]:
+                    if self.meetsAllConditionsByValList(rootrec, subquery, field_order):
+                        return True
+                return False
+
+    def meetsCondition(self, recval, condition, searchterm):
+        """
+        Determines whether the recval and search term match, given the matching condition.
+        This is only useful for re-filtering records in a template when the qry includes a fld from a many-to-many
+        related model relative to the root model.
+        Note that any changes to ncmp_choices must also be implemented here.
+        """
+        if condition == "iexact":
+            return recval.lower() == searchterm.lower()
+        elif condition == "not_iexact":
+            return recval.lower() != searchterm.lower()
+        elif condition == "lt":
+            return recval < searchterm
+        elif condition == "lte":
+            return recval <= searchterm
+        elif condition == "gt":
+            return recval > searchterm
+        elif condition == "gte":
+            return recval >= searchterm
+        elif condition == "isnull":
+            return recval is None
+        elif condition == "not_isnull":
+            return recval is not None
+        elif condition == "icontains":
+            return searchterm.lower() in recval.lower()
+        elif condition == "not_icontains":
+            return searchterm.lower() not in recval.lower()
+        elif condition == "istartswith":
+            return recval.lower().startswith(searchterm.lower())
+        elif condition == "not_istartswith":
+            return not recval.lower().startswith(searchterm.lower())
+        elif condition == "iendswith":
+            return recval.lower().endswith(searchterm.lower())
+        elif condition == "not_iendswith":
+            return not recval.lower().endswith(searchterm.lower())
+        else:
+            raise UnknownComparison(
+                f"Unrecognized negatable comparison (ncmp) value: {condition}."
+            )
 
 
 class PeakGroupsSearchView(BaseSearchView):
@@ -583,6 +698,58 @@ class PeakGroupsSearchView(BaseSearchView):
     id = "pgtemplate"
     name = "PeakGroups"
     rootmodel = PeakGroup
+    stats = [
+        {
+            "displayname": "Animals",
+            "distincts": ["msrun__sample__animal__name"],
+            "filter": None,
+        },
+        {
+            "displayname": "Labeled Elements",
+            "distincts": ["peak_data__labeled_element"],
+            "filter": None,
+        },
+        {
+            "displayname": "Measured Compounds",
+            "distincts": ["compounds__name"],
+            "filter": None,
+        },
+        {
+            "displayname": "Samples",
+            "distincts": ["msrun__sample__name"],
+            "filter": None,
+        },
+        {
+            "displayname": "Tissues",
+            "distincts": ["msrun__sample__tissue__name"],
+            "filter": None,
+        },
+        {
+            "displayname": "Tracer Compounds",
+            "distincts": ["msrun__sample__animal__tracer_compound__name"],
+            "filter": None,
+        },
+        {
+            "displayname": "Studies",
+            "distincts": ["msrun__sample__animal__studies__name"],
+            "filter": None,
+        },
+        {
+            "displayname": "Feeding Statuses",
+            "distincts": ["msrun__sample__animal__feeding_status"],
+            "filter": None,
+        },
+        {
+            "displayname": "Infusion Rates",
+            "distincts": ["msrun__sample__animal__tracer_infusion_rate"],
+            "filter": None,
+        },
+        {
+            "displayname": "Infusion Concentrations",
+            "distincts": ["msrun__sample__animal__tracer_infusion_concentration"],
+            "filter": None,
+        },
+    ]
     model_instances = {
         "PeakGroupSet": {
             "model": "PeakGroupSet",
@@ -617,6 +784,13 @@ class PeakGroupsSearchView(BaseSearchView):
                 "split_rows": False,
             },
             "fields": {
+                "id": {
+                    "displayname": "(Internal) Compound Synonym Index",
+                    "searchable": True,
+                    "displayed": False,  # Used in link
+                    "handoff": "name",  # This is the field that will be loaded in the search form
+                    "type": "number",
+                },
                 "name": {
                     "displayname": "Measured Compound (Any Synonym)",
                     "searchable": True,
@@ -634,6 +808,13 @@ class PeakGroupsSearchView(BaseSearchView):
                 "split_rows": False,
             },
             "fields": {
+                "id": {
+                    "displayname": "(Internal) Peak Group Index",
+                    "searchable": True,
+                    "displayed": False,  # Used in link
+                    "handoff": "name",  # This is the field that will be loaded in the search form
+                    "type": "number",
+                },
                 "name": {
                     "displayname": "Peak Group",
                     "searchable": True,
@@ -909,6 +1090,55 @@ class PeakDataSearchView(BaseSearchView):
     id = "pdtemplate"
     name = "PeakData"
     rootmodel = PeakData
+    stats = [
+        {
+            "displayname": "Animals",
+            "distincts": ["peak_group__msrun__sample__animal__name"],
+            "filter": None,
+        },
+        {
+            "displayname": "Labels",
+            "distincts": [
+                "labeled_element",
+                "labeled_count",
+            ],
+            "filter": None,
+            "delimiter": ":",
+        },
+        {
+            "displayname": "Feeding Statuses",
+            "distincts": ["peak_group__msrun__sample__animal__feeding_status"],
+            "filter": None,
+        },
+        {
+            "displayname": "Corrected Abundances",  # Append " > 0.1" based on filter
+            "distincts": ["corrected_abundance"],
+            "filter": appendFilterToGroup(
+                createFilterGroup(),
+                createFilterCondition("corrected_abundance", "gt", 0.1),
+            ),
+        },
+        {
+            "displayname": "Samples",
+            "distincts": ["peak_group__msrun__sample__name"],
+            "filter": None,
+        },
+        {
+            "displayname": "Tissues",
+            "distincts": ["peak_group__msrun__sample__tissue__name"],
+            "filter": None,
+        },
+        {
+            "displayname": "Tracer Compounds",
+            "distincts": ["peak_group__msrun__sample__animal__tracer_compound__name"],
+            "filter": None,
+        },
+        {
+            "displayname": "Measured Compounds",
+            "distincts": ["peak_group__compounds__name"],
+            "filter": None,
+        },
+    ]
     model_instances = {
         "PeakData": {
             "model": "PeakData",
@@ -919,6 +1149,15 @@ class PeakDataSearchView(BaseSearchView):
                 "split_rows": False,
             },
             "fields": {
+                "id": {
+                    "displayname": "(Internal) Peak Data Index",
+                    "searchable": True,
+                    "displayed": False,  # Used in link
+                    # "handoff": "",
+                    # Using in link will expose the internal index field in the search form because there's no
+                    # searchable unique field for handoff
+                    "type": "number",
+                },
                 "labeled_element": {
                     "displayname": "Labeled Element",
                     "searchable": True,
@@ -1027,6 +1266,13 @@ class PeakDataSearchView(BaseSearchView):
                 "split_rows": False,
             },
             "fields": {
+                "id": {
+                    "displayname": "(Internal) Compound Synonym Index",
+                    "searchable": True,
+                    "displayed": False,  # Used in link
+                    "handoff": "name",  # This is the field that will be loaded in the search form
+                    "type": "number",
+                },
                 "name": {
                     "displayname": "Measured Compound (Any Synonym)",
                     "searchable": True,
@@ -1116,18 +1362,18 @@ class PeakDataSearchView(BaseSearchView):
                 "split_rows": False,
             },
             "fields": {
+                "id": {
+                    "displayname": "(Internal) Animal Index",
+                    "searchable": True,
+                    "displayed": False,  # Used in link
+                    "handoff": "name",  # This is the field that will be loaded in the search form
+                    "type": "number",
+                },
                 "name": {
                     "displayname": "Animal",
                     "searchable": True,
                     "displayed": True,
                     "type": "string",
-                },
-                "id": {
-                    "displayname": "(Internal) Animal Index",  # Used in link
-                    "searchable": True,
-                    "displayed": False,
-                    "handoff": "name",  # This is the field that will be loaded in the search form
-                    "type": "number",
                 },
                 "body_weight": {
                     "displayname": "Body Weight (g)",
@@ -1189,18 +1435,18 @@ class PeakDataSearchView(BaseSearchView):
                 "split_rows": False,
             },
             "fields": {
-                "name": {
-                    "displayname": "Treatment",
-                    "searchable": True,
-                    "displayed": True,
-                    "type": "string",
-                },
                 "id": {
                     "displayname": "(Internal) Protocol Index",
                     "searchable": True,
                     "displayed": False,  # Used in link
                     "handoff": "name",  # This is the field that will be loaded in the search form
                     "type": "number",
+                },
+                "name": {
+                    "displayname": "Treatment",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "string",
                 },
             },
         },
@@ -1238,18 +1484,18 @@ class PeakDataSearchView(BaseSearchView):
                 "root_annot_fld": "study",
             },
             "fields": {
-                "name": {
-                    "displayname": "Study",
-                    "searchable": True,
-                    "displayed": True,
-                    "type": "string",
-                },
                 "id": {
                     "displayname": "(Internal) Study Index",
                     "searchable": True,
                     "displayed": False,  # Used in link
                     "handoff": "name",  # This is the field that will be loaded in the search form
                     "type": "number",
+                },
+                "name": {
+                    "displayname": "Study",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "string",
                 },
             },
         },
@@ -1264,6 +1510,7 @@ class FluxCircSearchView(BaseSearchView):
     id = "fctemplate"
     name = "Fcirc"
     rootmodel = PeakGroup
+    stats = None
     model_instances = {
         "PeakGroup": {
             "model": "PeakGroup",
@@ -1274,6 +1521,15 @@ class FluxCircSearchView(BaseSearchView):
                 "split_rows": False,
             },
             "fields": {
+                "id": {
+                    "displayname": "(Internal) Peak Group Index",
+                    "searchable": True,
+                    "displayed": False,  # Used in link
+                    # "handoff": "",
+                    # Using in link will expose the internal index field in the search form because there's no
+                    # searchable unique field for handoff
+                    "type": "number",
+                },
                 "rate_disappearance_average_per_gram": {
                     "displayname": "Average Rd (nmol/min/g)",
                     "searchable": False,  # Cannot search cached property
@@ -1413,18 +1669,18 @@ class FluxCircSearchView(BaseSearchView):
                 "split_rows": False,
             },
             "fields": {
-                "name": {
-                    "displayname": "Treatment",
-                    "searchable": True,
-                    "displayed": True,
-                    "type": "string",
-                },
                 "id": {
                     "displayname": "(Internal) Protocol Index",
                     "searchable": True,
                     "displayed": False,  # Used in link
                     "handoff": "name",  # This is the field that will be loaded in the search form
                     "type": "number",
+                },
+                "name": {
+                    "displayname": "Treatment",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "string",
                 },
             },
         },
@@ -1437,6 +1693,15 @@ class FluxCircSearchView(BaseSearchView):
                 "split_rows": False,
             },
             "fields": {
+                "id": {
+                    "displayname": "(Internal) Sample Index",
+                    "searchable": True,
+                    "displayed": False,  # Used in link
+                    # "handoff": "",
+                    # Using in link will expose the internal index field in the search form because there's no
+                    # searchable unique field for handoff
+                    "type": "number",
+                },
                 "time_collected": {
                     "displayname": "Time Collected (hh:mm:ss since infusion)",
                     "searchable": True,
@@ -1454,18 +1719,18 @@ class FluxCircSearchView(BaseSearchView):
                 "split_rows": False,
             },
             "fields": {
-                "name": {
-                    "displayname": "Tracer Compound",
-                    "searchable": True,
-                    "displayed": True,
-                    "type": "string",
-                },
                 "id": {
                     "displayname": "(Internal) Tracer Index",
                     "searchable": True,
                     "displayed": False,  # Used in link
                     "handoff": "name",  # This is the field that will be loaded in the search form
                     "type": "number",
+                },
+                "name": {
+                    "displayname": "Tracer Compound",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "string",
                 },
             },
         },
@@ -1479,18 +1744,18 @@ class FluxCircSearchView(BaseSearchView):
                 "root_annot_fld": "study",
             },
             "fields": {
-                "name": {
-                    "displayname": "Study",
-                    "searchable": True,
-                    "displayed": True,
-                    "type": "string",
-                },
                 "id": {
                     "displayname": "(Internal) Study Index",
                     "searchable": True,
                     "displayed": False,  # Used in link
                     "handoff": "name",  # This is the field that will be loaded in the search form
                     "type": "number",
+                },
+                "name": {
+                    "displayname": "Study",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "string",
                 },
             },
         },
@@ -1826,11 +2091,24 @@ class BaseAdvancedSearchView:
     def reRootQry(self, fmt, qry, new_root_model_instance_name):
         return self.modeldata[fmt].reRootQry(qry, new_root_model_instance_name)
 
-    def getDistinctFields(self, fmt, order_by):
-        return self.modeldata[fmt].getDistinctFields(order_by)
+    def getDistinctFields(self, fmt, order_by=None, assume_distinct=True):
+        return self.modeldata[fmt].getDistinctFields(order_by, assume_distinct)
 
     def getFullJoinAnnotations(self, fmt):
         return self.modeldata[fmt].getFullJoinAnnotations()
+
+    def getStatsParams(self, fmt):
+        return self.modeldata[fmt].getStatsParams()
+
+    def meetsAllConditionsByValList(self, fmt, rootrec, query, field_order):
+        """
+        This is a python-code version of a complex Q expression, necessary for checking filters in aggregate count
+        annotations, because the Django ORM does not support .distinct(fields).annotate(Count) when duplicate root
+        table records exist.
+        """
+        return self.modeldata[fmt].meetsAllConditionsByValList(
+            rootrec, query, field_order
+        )
 
 
 def splitPathName(fld):
@@ -1924,8 +2202,4 @@ def extractFldPathsHelper(subtree):
 
 
 class UnknownComparison(Exception):
-    pass
-
-
-class InvalidQryObject(Exception):
     pass

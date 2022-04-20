@@ -2,6 +2,8 @@ from django.core.management import call_command
 
 from DataRepo.models import CompoundSynonym, PeakGroup, Study
 from DataRepo.templatetags.customtags import (
+    compile_stats,
+    display_filter,
     get_case_insensitive_synonyms,
     get_manytomany_rec,
 )
@@ -65,3 +67,41 @@ class CustomTagsTests(TracebaseTestCase):
         self.assertEqual(recs.count(), of.count())
         self.assertEqual(recs.count(), 2)
         self.assertEqual([recs[0].name, recs[1].name], ["obob_fasted", "small_obob"])
+
+    def test_display_filter(self):
+        filter = {
+            "type": "group",
+            "val": "all",
+            "static": False,
+            "queryGroup": [
+                {
+                    "type": "query",
+                    "pos": "",
+                    "ncmp": "istartswith",
+                    "fld": "msrun__sample__tissue__name",
+                    "val": "brai",
+                    "static": False,
+                },
+            ],
+        }
+        expected = "istartswith brai"
+        got = display_filter(filter)
+        self.assertEqual(got, expected)
+
+    def test_compile_stats(self):
+        dcts = [
+            {
+                "val": "testing",
+                "cnt": 9,
+            },
+            {
+                "val": "trying",
+                "cnt": 100,
+            },
+        ]
+        got = compile_stats(dcts, num_chars=19)
+        expected = {
+            "full": "testing (9), trying (100)",
+            "short": "testing (9), try...",
+        }
+        self.assertEqual(got, expected)

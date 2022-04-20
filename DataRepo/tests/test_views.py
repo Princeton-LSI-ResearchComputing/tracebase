@@ -28,6 +28,7 @@ from DataRepo.views import (
     createNewBasicQuery,
     getAllBrowseData,
     getJoinedRecFieldValue,
+    getQueryStats,
     isQryObjValid,
     isValidQryObjPopulated,
     pathStepToPosGroupType,
@@ -595,7 +596,7 @@ class ViewTests(TracebaseTestCase):
         basv_metadata = BaseAdvancedSearchView()
         pf = "msrun__sample__animal__studies"
         qs = PeakGroup.objects.all().prefetch_related(pf)
-        res, cnt = getAllBrowseData("pgtemplate", basv_metadata)
+        res, cnt, stats = getAllBrowseData("pgtemplate", basv_metadata)
         self.assertEqual(cnt, qs.count())
 
     def get_basic_qry_inputs(self):
@@ -708,11 +709,19 @@ class ViewTests(TracebaseTestCase):
             "msrun__sample__animal__tracer_compound",
             "msrun__sample__animal__studies",
         ]
-        res, cnt = performQuery(qry, "pgtemplate", basv_metadata)
+        res, cnt, stats = performQuery(
+            qry, "pgtemplate", basv_metadata, generate_stats=False
+        )
         qs = PeakGroup.objects.filter(
             msrun__sample__tissue__name__iexact="Brain"
         ).prefetch_related(*pf)
         self.assertEqual(cnt, qs.count())
+        expected_stats = {
+            "data": {},
+            "populated": False,
+            "show": False,
+        }
+        self.assertEqual(stats, expected_stats)
 
     def test_performQuery_distinct(self):
         """
@@ -720,7 +729,7 @@ class ViewTests(TracebaseTestCase):
         """
         qry = self.get_advanced_qry2()
         basv_metadata = BaseAdvancedSearchView()
-        res, cnt = performQuery(qry, "pgtemplate", basv_metadata)
+        res, cnt, stats = performQuery(qry, "pgtemplate", basv_metadata)
         qs = (
             PeakGroup.objects.filter(msrun__sample__name__iexact="BAT-xz971")
             .filter(msrun__sample__animal__studies__name__iexact="obob_fasted")
@@ -962,6 +971,92 @@ class ViewTests(TracebaseTestCase):
         self.assertTrue(len(errors["data_submission_accucor2.xlsx"]) == 0)
         self.assertEqual(results["data_submission_accucor1.xlsx"], "PASSED")
         self.assertEqual(results["data_submission_accucor2.xlsx"], "PASSED")
+
+    def getExpectedStats(self):
+        return {
+            "data": {
+                "Animals": {
+                    "count": 1,
+                    "filter": None,
+                    "sample": [
+                        {
+                            "cnt": 2,
+                            "val": "971",
+                        },
+                    ],
+                },
+                "Feeding Statuses": {
+                    "count": 1,
+                    "filter": None,
+                    "sample": [{"cnt": 2, "val": "Fasted"}],
+                },
+                "Infusion Concentrations": {
+                    "count": 1,
+                    "filter": None,
+                    "sample": [{"cnt": 2, "val": "23.2"}],
+                },
+                "Infusion Rates": {
+                    "count": 1,
+                    "filter": None,
+                    "sample": [{"cnt": 2, "val": "0.11"}],
+                },
+                "Labeled Elements": {
+                    "count": 1,
+                    "filter": None,
+                    "sample": [{"cnt": 2, "val": "C"}],
+                },
+                "Measured Compounds": {
+                    "count": 2,
+                    "filter": None,
+                    "sample": [
+                        {"cnt": 1, "val": "glucose"},
+                        {"cnt": 1, "val": "lactate"},
+                    ],
+                },
+                "Samples": {
+                    "count": 1,
+                    "filter": None,
+                    "sample": [{"cnt": 2, "val": "Br-xz971"}],
+                },
+                "Studies": {
+                    "count": 1,
+                    "filter": None,
+                    "sample": [{"cnt": 2, "val": "obob_fasted"}],
+                },
+                "Tissues": {
+                    "count": 1,
+                    "filter": None,
+                    "sample": [{"cnt": 2, "val": "brain"}],
+                },
+                "Tracer Compounds": {
+                    "count": 1,
+                    "filter": None,
+                    "sample": [{"cnt": 2, "val": "lysine"}],
+                },
+            },
+            "populated": True,
+            "show": True,
+        }
+
+    def test_performQueryStats(self):
+        """
+        Test that performQuery returns a correct stats structure
+        """
+        qry = self.get_advanced_qry()
+        res, cnt, stats = performQuery(qry, "pgtemplate", generate_stats=True)
+        expected_stats = self.getExpectedStats()
+        self.assertEqual(stats, expected_stats)
+
+    def test_getQueryStats(self):
+        """
+        Test that getQueryStats returns a correct stats structure
+        """
+        qry = self.get_advanced_qry()
+        res, cnt, ignore_stats = performQuery(qry, "pgtemplate", generate_stats=True)
+        got = getQueryStats(res, qry["selectedtemplate"])
+        full_stats = self.getExpectedStats()
+        expected = full_stats["data"]
+        self.assertEqual(got, expected)
 
 
 @tag("search_choices")

@@ -1,0 +1,29 @@
+{% load customtags %}
+<div id="resultstats" style="font-size: 12px !important; width: 30% !important; margin-left: 16px; float: right;" class="collapse{% if stats.show %} show{% endif %}">
+    {% if stats.populated %}
+        <table class="table table-condensed table-striped text-xsmall" style="padding: 2px;">
+            <tr>
+                <th class="col-sm-1 text-end" style="padding: 1px 5px !important;">#</th>
+                <th class="col-sm-1" style="padding: 1px 5px !important;">Feature</th>
+                <th class="col-sm-10" style="padding: 1px 5px !important;">Top 10</th>
+            </tr>
+            {% for stat_name in stats.data.keys %}
+                <tr>
+                    <td class="col-sm-1 text-end" style="padding: 1px 5px !important;">{{ stats.data|index:stat_name|index:"count" }}</td>
+                    <td class="col-sm-1" style="padding: 1px 5px !important;">{{ stat_name }}{% if stats.data|index:stat_name|index:"filter" %} {% display_filter stats.data|index:stat_name|index:"filter" %}{% endif %}</td>
+                    <td class="col-sm-10" style="padding: 1px 5px !important;">
+                        {% compile_stats stats.data|index:stat_name|index:"sample" 90 as smry %}
+                        <div title="{{ smry.full }}">
+                            {{ smry.short }}
+                        </div>
+                    </td>
+                </tr>
+            {% endfor %}
+        </table>
+    {% else %}
+        <div>Compiling stats (this could take up to a minute for large result sets...)</div>
+    {% endif %}
+</div>
+<div style="margin-left: 16px; float: right;">
+    <button class="btn btn-primary mb-2" title="View Stats" data-bs-toggle="collapse" data-bs-target="#resultstats" onclick="toggleStats(this)"><i class="fa">Stats</i></button>
+</div>
