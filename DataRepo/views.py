@@ -33,8 +33,8 @@ from DataRepo.models import (
     Sample,
     Study,
     Tissue,
-    get_all_models,
 )
+from DataRepo.models.utilities import get_all_models
 from DataRepo.multiforms import MultiFormsView
 from DataRepo.pager import Pager
 from DataRepo.utils import MissingSamplesError

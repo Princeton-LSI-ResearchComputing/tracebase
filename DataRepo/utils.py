@@ -30,9 +30,8 @@ from DataRepo.models import (
     Study,
     Tissue,
     TracerLabeledClass,
-    get_researchers,
-    value_from_choices_label,
 )
+from DataRepo.models.utilities import get_researchers, value_from_choices_label
 
 
 class SampleTableLoader:
