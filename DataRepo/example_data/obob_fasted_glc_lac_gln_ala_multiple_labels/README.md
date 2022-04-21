@@ -8,11 +8,9 @@ Xianfeng Zeng <xzeng@princeton.edu>
 
 Part of the OB/OB Fasted study - `glc_lac_gln_ala`
 
-This dataset includes data that uses tracer compounds with multiple labeled elements.
+This study that includes tracers that are labeled with multiple elements
+(*e.g.* Carbon and Nitrogen labeling).
 
 Data files for multiple labeled tracers were generated using IsoCorCN.
 
 ## NOTES
-
-* Format to convey multiple tracers and multiple labels in Animal and Sample
-  sheet not finalized

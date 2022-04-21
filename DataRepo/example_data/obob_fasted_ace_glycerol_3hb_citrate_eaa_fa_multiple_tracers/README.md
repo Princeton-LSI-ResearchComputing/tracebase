@@ -8,14 +8,9 @@ Xianfeng Zeng <xzeng@princeton.edu>
 
 Part of the OB/OB Fasted study - `ace_glcyerol_3hb_cirate_eaa_fa`
 
-Example of data with multiple tracers and multiple labeled elements
+Example of a study that includes animals infused with multiple tracer
+compounds.
 
 ## NOTES
-
-* Format to convey multiple tracers and multiple labels in Animal and Sample
-  sheet not finalized
-
-* Missing compound records for "compound tracers": `BCAAs (VLI)` and `6EAAs
-(MFWKHT)`
 
 * Missing compound record for compound `3-phosphoglycerate`: `C3H7O7P`
