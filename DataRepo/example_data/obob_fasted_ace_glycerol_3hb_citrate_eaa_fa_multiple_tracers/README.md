@@ -8,8 +8,7 @@ Xianfeng Zeng <xzeng@princeton.edu>
 
 Part of the OB/OB Fasted study - `ace_glcyerol_3hb_cirate_eaa_fa`
 
-Example of a study that includes animals infused with multiple tracer
-compounds.
+This study includes animals infused with multiple tracer compounds.
 
 ## NOTES
 

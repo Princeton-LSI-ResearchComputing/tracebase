@@ -11,8 +11,6 @@ These directories are organized so that they can be loaded using the
 `load_study` management command. See the `README.md` in each directory for
 complete descriptions.
 
-* `compounds.tsv` - A list of compounds used in the example datasets (not yet
-  in study form)
 * `tissues` - A "study" with just tissues that are used in the example datasets
 * `obob_fasted_ace_glycerol_3hb_citrate_eaa_fa_multiple_tracers` - An example
   study that includes animals infused with multiple tracer compounds
@@ -22,4 +20,6 @@ complete descriptions.
 
 ### Other data
 
-Other data in this directory is yet to be organized.
+Other data in this directory, not yet to organized in "study form.
+
+* `compounds.tsv` - A list of compounds used in the example datasets
