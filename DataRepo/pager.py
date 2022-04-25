@@ -12,7 +12,6 @@ class Pager:
         rows_per_page_field,
         order_by_field,
         order_dir_field,
-        form_name,  # Relies on multiforms
         num_buttons=5,
         other_field_ids=None,  # {fld_name: id}
         # Default form values
@@ -54,7 +53,6 @@ class Pager:
         self.default_rows = default_rows
         self.order_by_field = order_by_field
         self.order_dir_field = order_dir_field
-        self.form_name = form_name
         self.form_id = form_id
 
         self.min_rows_per_page = None

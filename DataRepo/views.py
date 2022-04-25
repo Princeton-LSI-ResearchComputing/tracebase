@@ -262,7 +262,7 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
 
     pager = Pager(
         action="/DataRepo/search_advanced/",
-        form_id_field="adv_search_page_form",
+        form_id_field="paging",  # Must match the "<>_form_valid" and "<>_form_invalid" methods
         rows_per_page_choices=AdvSearchPageForm.ROWS_PER_PAGE_CHOICES,
         page_form_class=AdvSearchPageForm,
         other_field_ids={
@@ -274,7 +274,6 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
         rows_per_page_field="rows",
         order_by_field="order_by",
         order_dir_field="order_direction",
-        form_name="paging",
     )
 
     format_template = "DataRepo/search/query.html"
@@ -375,7 +374,7 @@ class AdvancedSearchView(MultiFormsView):
 
     pager = Pager(
         action="/DataRepo/search_advanced/",
-        form_id_field="adv_search_page_form",
+        form_id_field="paging",
         rows_per_page_choices=AdvSearchPageForm.ROWS_PER_PAGE_CHOICES,
         page_form_class=AdvSearchPageForm,
         other_field_ids={
@@ -387,7 +386,6 @@ class AdvancedSearchView(MultiFormsView):
         rows_per_page_field="rows",
         order_by_field="order_by",
         order_dir_field="order_direction",
-        form_name="paging",
     )
 
     #
@@ -399,10 +397,21 @@ class AdvancedSearchView(MultiFormsView):
 
     # MultiFormView class vars
     template_name = "DataRepo/search/query.html"
-    form_classes = basf.form_classes
+
+    # form classes for multiforms.py
+    form_classes = {}
+
+    # Add the mixed_forms for the advanced search
+    for key in basf.form_classes.keys():
+        form_classes[key] = basf.form_classes[key]
+    # Add the pager form
+    form_classes[pager.form_id_field] = pager.page_form_class
+
+    # Set the mixed_forms dict to be keyed on the select list that's created in javascript
+    mixed_forms = {basf.format_select_list_name: [list(form_classes.keys())]}
+
+    # Success URL is the same for everything
     success_url = ""
-    mixedform_selected_formtype = basf.format_select_list_name
-    mixedform_prefix_field = basf.hierarchy_path_field_name
 
     # Override get_context_data to retrieve mode from the query string
     def get_context_data(self, **kwargs):
@@ -426,18 +435,6 @@ class AdvancedSearchView(MultiFormsView):
         self.addInitialContext(context)
 
         return context
-
-    def post(self, request, *args, **kwargs):
-        # TODO: THIS NEEDS TO BE REFACTORED.  SHOULD RELY ON THE POST METHOD IN MULTIFORMS.PY.  SEE THE TODO IN
-        # multiforms.py
-        if request.method == "POST" and self.pager.form_id_field in request.POST:
-            return self._process_individual_form(
-                self.pager.form_name,
-                {self.pager.form_name: self.pager.page_form_class},
-            )
-
-        # This calls the post method in multiforms.py
-        return super().post(request, *args, **kwargs)
 
     def form_invalid(self, formset):
         """

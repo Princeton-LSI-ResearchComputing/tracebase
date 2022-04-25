@@ -166,7 +166,7 @@
 
     {% comment %} We need at least a hidden form to support server side sorting {% endcomment %}
     <div class="fixed-table-pagination" style="{% if pager.tot|gt:pager.min_rows_per_page %}padding-top: 10px;{% else %}display:none;{% endif %}">
-        <form action="{{ pager.action }}" id="{{ pager.form_id }}" name="{{ pager.form_name }}" method="POST">
+        <form action="{{ pager.action }}" id="{{ pager.form_id }}" method="POST">
             {% csrf_token %}
             {{ pager.page_form.qryjson }}
             {{ pager.page_form.order_by }}
