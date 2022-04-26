@@ -262,7 +262,9 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
 
     pager = Pager(
         action="/DataRepo/search_advanced/",
-        form_id_field="paging",  # Must match the "<>_form_valid" and "<>_form_invalid" methods
+        form_id_field="paging",  # Must match the "<>_form_valid" and "<>_form_invalid" methods.
+        # ^^ This is the field *name* used to identify the form type in multiforms.py (among other form submissions on
+        # the same page), not a field ID assignment used in  javascript
         rows_per_page_choices=AdvSearchPageForm.ROWS_PER_PAGE_CHOICES,
         page_form_class=AdvSearchPageForm,
         other_field_ids={
@@ -374,7 +376,9 @@ class AdvancedSearchView(MultiFormsView):
 
     pager = Pager(
         action="/DataRepo/search_advanced/",
-        form_id_field="paging",
+        form_id_field="paging",  # Must match the "<>_form_valid" and "<>_form_invalid" methods.
+        # ^^ This is the field *name* used to identify the form type in multiforms.py (among other form submissions on
+        # the same page), not a field ID assignment used in  javascript
         rows_per_page_choices=AdvSearchPageForm.ROWS_PER_PAGE_CHOICES,
         page_form_class=AdvSearchPageForm,
         other_field_ids={
@@ -397,21 +401,18 @@ class AdvancedSearchView(MultiFormsView):
 
     # MultiFormView class vars
     template_name = "DataRepo/search/query.html"
-
-    # form classes for multiforms.py
-    form_classes = {}
-
-    # Add the mixed_forms for the advanced search
-    for key in basf.form_classes.keys():
-        form_classes[key] = basf.form_classes[key]
-    # Add the pager form
-    form_classes[pager.form_id_field] = pager.page_form_class
-
-    # Set the mixed_forms dict to be keyed on the select list that's created in javascript
-    mixed_forms = {basf.format_select_list_name: [list(form_classes.keys())]}
-
-    # Success URL is the same for everything
     success_url = ""
+
+    def __init__(self, *args, **kwargs):
+        # Set up the multiple form types that submit to this view
+        # Add the advanced search forms as a mixed forms type
+        self.add_mixed_forms(
+            # This is the name of the field in the form that identifies the form as belonging to the "mixed" forms type
+            self.basf.format_select_list_name,
+            self.basf.form_classes,
+        )
+        # Add the paging form as an individual form type
+        self.add_individual_form(self.pager.form_id_field, self.pager.page_form_class)
 
     # Override get_context_data to retrieve mode from the query string
     def get_context_data(self, **kwargs):
@@ -469,7 +470,7 @@ class AdvancedSearchView(MultiFormsView):
         res = {}
         download_form = {}
 
-        if isQryObjValid(qry, self.form_classes.keys()):
+        if isQryObjValid(qry, self.basf.form_classes.keys()):
             download_form = AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
             rows_per_page = int(
                 self.get_template_cookie(
@@ -1250,8 +1251,7 @@ def isQryObjValid(qry, form_class_list):
             ):
                 return False
         return True
-    else:
-        return False
+    return False
 
 
 def isValidQryObjPopulated(qry):

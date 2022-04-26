@@ -69,7 +69,7 @@ class BaseAdvSearchForm(forms.Form):
     def is_valid(self):
         data = self.cleaned_data
         fields = self.base_fields.keys()
-        # Only validate if the pos field contains the posprefix - otherwise, it belongs to a different form class
+        # Only validate if the pos field starts with the posprefix - otherwise, it belongs to a different form class
         if "pos" in data and data["pos"].startswith(self.posprefix + "-"):
             self.selected = True
             for field in fields:
@@ -118,9 +118,8 @@ class AdvSearchForm:
     """
 
     form_classes: Dict[str, BaseAdvSearchForm] = {}
-    # These form field elements are actually (currently) created in javascript.
+    # This form field is actually (currently) created in javascript.
     format_select_list_name = "fmt"
-    hierarchy_path_field_name = "pos"
 
     def __init__(self, *args, **kwargs):
         for form_class in (
@@ -173,9 +172,9 @@ class AdvSearchPageForm(forms.Form):
     page = forms.CharField(widget=forms.HiddenInput())
     order_by = forms.CharField(widget=forms.HiddenInput())
     order_direction = forms.CharField(widget=forms.HiddenInput())
-    adv_search_page_form = forms.CharField(
+    paging = forms.CharField(
         widget=forms.HiddenInput()
-    )  # Used to distinguish pager form submissions from advanced search submissions
+    )  # This field's name ("paging") is used to distinguish pager form submissions from other form submissions
     show_stats = forms.BooleanField(widget=forms.HiddenInput())
     stats = forms.JSONField(widget=forms.HiddenInput())
 
