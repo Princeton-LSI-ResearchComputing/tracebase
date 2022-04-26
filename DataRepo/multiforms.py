@@ -47,7 +47,6 @@ class MultiFormMixin(ContextMixin):
     prefixes: Dict[str, str] = {}
     success_urls: Dict[str, str] = {}
     default_formid_fieldname = "action"
-    default_mixedid_fieldname = "formtype"
 
     identifying_fields: Dict[str, str] = {}
     # Key is a field name and the value indicates whether to look in form_classes ("individual"), grouped_forms
