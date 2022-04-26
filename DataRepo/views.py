@@ -527,7 +527,6 @@ class AdvancedSearchView(MultiFormsView):
         return result
 
     # Invalid form whose multiforms given name is "paging" will call this from the post override in multiforms.py
-    # TODO: See Issue #370's comment on this method.
     def paging_form_invalid(self, formset):
         """
         Upon invalid advanced search form submission, rescues the query to add back to the context.
@@ -555,7 +554,6 @@ class AdvancedSearchView(MultiFormsView):
         )
 
     # Valid form whose multiforms given name is "paging" will call this from the post override in multiforms.py
-    # TODO: See Issue #370's comment on this method.
     def paging_form_valid(self, form):
         cform = form.cleaned_data
 
