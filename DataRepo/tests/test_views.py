@@ -6,7 +6,8 @@ from django.db.models import Q
 from django.test import override_settings, tag
 from django.urls import reverse
 
-from DataRepo.compositeviews import BaseAdvancedSearchView, BaseSearchView
+from DataRepo.Formats.DataRepo.SearchGroup import SearchGroup
+from DataRepo.Formats.Format import Format
 from DataRepo.models import (
     Animal,
     Compound,
@@ -593,7 +594,7 @@ class ViewTests(TracebaseTestCase):
         """
         Test that test_getAllBrowseData returns all data for the selected format.
         """
-        basv_metadata = BaseAdvancedSearchView()
+        basv_metadata = SearchGroup()
         pf = "msrun__sample__animal__studies"
         qs = PeakGroup.objects.all().prefetch_related(pf)
         res, cnt, stats = getAllBrowseData("pgtemplate", basv_metadata)
@@ -649,7 +650,7 @@ class ViewTests(TracebaseTestCase):
         Test createNewBasicQuery creates a correct qry
         """
         tval, qry = self.get_basic_qry_inputs()
-        basv_metadata = BaseAdvancedSearchView()
+        basv_metadata = SearchGroup()
         mdl = "Study"
         fld = "id"
         cmp = "iexact"
@@ -668,7 +669,7 @@ class ViewTests(TracebaseTestCase):
             "fld"
         ] = "msrun__sample__animal__studies__id"
         qry["searches"]["pgtemplate"]["tree"]["queryGroup"][0]["val"] = tval
-        basv_metadata = BaseAdvancedSearchView()
+        basv_metadata = SearchGroup()
         mdl = "Study"
         fld = "id"
         val = tval
@@ -680,7 +681,7 @@ class ViewTests(TracebaseTestCase):
         """
         Test that getJoinedRecFieldValue gets a value from a joined table
         """
-        basv_metadata = BaseAdvancedSearchView()
+        basv_metadata = SearchGroup()
         fmt = "pgtemplate"
         mdl = "Animal"
         fld = "feeding_status"
@@ -703,7 +704,7 @@ class ViewTests(TracebaseTestCase):
         Test that performQuery returns a correct queryset
         """
         qry = self.get_advanced_qry()
-        basv_metadata = BaseAdvancedSearchView()
+        basv_metadata = SearchGroup()
         pf = [
             "msrun__sample__tissue",
             "msrun__sample__animal__tracer_compound",
@@ -729,7 +730,7 @@ class ViewTests(TracebaseTestCase):
         Test that performQuery returns no duplicate root table records when M:M tables queried with multiple matches.
         """
         qry = self.get_advanced_qry2()
-        basv_metadata = BaseAdvancedSearchView()
+        basv_metadata = SearchGroup()
         res, cnt, stats = performQuery(qry, "pgtemplate", basv_metadata)
         qs = (
             PeakGroup.objects.filter(msrun__sample__name__iexact="BAT-xz971")
@@ -745,7 +746,7 @@ class ViewTests(TracebaseTestCase):
         Test that isQryObjValid correctly validates a qry object.
         """
         qry = self.get_advanced_qry()
-        basv_metadata = BaseAdvancedSearchView()
+        basv_metadata = SearchGroup()
         isvalid = isQryObjValid(qry, basv_metadata.getFormatNames().keys())
         self.assertEqual(isvalid, True)
         qry.pop("selectedtemplate")
@@ -767,7 +768,7 @@ class ViewTests(TracebaseTestCase):
         """
         Test getSearchFieldChoices
         """
-        basv_metadata = BaseAdvancedSearchView()
+        basv_metadata = SearchGroup()
         fmt = "pgtemplate"
         res = basv_metadata.getSearchFieldChoices(fmt)
         choices = (
@@ -806,7 +807,7 @@ class ViewTests(TracebaseTestCase):
         """
         Test getKeyPathList
         """
-        basv_metadata = BaseAdvancedSearchView()
+        basv_metadata = SearchGroup()
         fmt = "pgtemplate"
         mdl = "Animal"
         res = basv_metadata.getKeyPathList(fmt, mdl)
@@ -817,7 +818,7 @@ class ViewTests(TracebaseTestCase):
         """
         Test getPrefetches
         """
-        basv_metadata = BaseAdvancedSearchView()
+        basv_metadata = SearchGroup()
         fmt = "pgtemplate"
         res = basv_metadata.getPrefetches(fmt)
         pfl = [
@@ -834,7 +835,7 @@ class ViewTests(TracebaseTestCase):
         """
         Test getModelInstances
         """
-        basv_metadata = BaseAdvancedSearchView()
+        basv_metadata = SearchGroup()
         fmt = "pgtemplate"
         res = basv_metadata.getModelInstances(fmt)
         ml = [
@@ -855,7 +856,7 @@ class ViewTests(TracebaseTestCase):
         """
         Test getSearchFields
         """
-        basv_metadata = BaseAdvancedSearchView()
+        basv_metadata = SearchGroup()
         fmt = "pgtemplate"
         mdl = "Animal"
         res = basv_metadata.getSearchFields(fmt, mdl)
@@ -877,7 +878,7 @@ class ViewTests(TracebaseTestCase):
         """
         Test getDisplayFields
         """
-        basv_metadata = BaseAdvancedSearchView()
+        basv_metadata = SearchGroup()
         fmt = "pgtemplate"
         mdl = "Animal"
         res = basv_metadata.getDisplayFields(fmt, mdl)
@@ -901,7 +902,7 @@ class ViewTests(TracebaseTestCase):
         """
         Test getFormatNames
         """
-        basv_metadata = BaseAdvancedSearchView()
+        basv_metadata = SearchGroup()
         res = basv_metadata.getFormatNames()
         fnd = {
             "pgtemplate": "PeakGroups",
@@ -914,7 +915,7 @@ class ViewTests(TracebaseTestCase):
         """
         Test formatNameOrKeyToKey
         """
-        basv_metadata = BaseAdvancedSearchView()
+        basv_metadata = SearchGroup()
         fmt = "PeakGroups"
         res = basv_metadata.formatNameOrKeyToKey(fmt)
         self.assertEqual(res, "pgtemplate")
@@ -1064,7 +1065,7 @@ class ViewTests(TracebaseTestCase):
 @tag("search_choices")
 class SearchFieldChoicesTests(TracebaseTestCase):
     def test_get_all_comparison_choices(self):
-        base_search_view = BaseSearchView()
+        base_search_view = Format()
 
         all_ncmp_choices = (
             ("iexact", "is"),

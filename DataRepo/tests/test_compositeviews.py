@@ -3,15 +3,14 @@ from copy import deepcopy
 from django.core.management import call_command
 from django.db.models import F
 
-from DataRepo.compositeviews import (
-    BaseAdvancedSearchView,
-    PeakGroupsSearchView,
+from DataRepo.Formats.DataRepo.PeakGroupsFormat import PeakGroupsFormat
+from DataRepo.Formats.DataRepo.SearchGroup import SearchGroup
+from DataRepo.Formats.Format import splitCommon, splitPathName
+from DataRepo.Formats.Query import (
     appendFilterToGroup,
     createFilterCondition,
     createFilterGroup,
     extractFldPaths,
-    splitCommon,
-    splitPathName,
 )
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
@@ -167,7 +166,7 @@ class CompositeViewTests(TracebaseTestCase):
         )
 
     def test_getSearchFieldChoicesDict(self):
-        basv = BaseAdvancedSearchView()
+        basv = SearchGroup()
         sfcd = basv.getSearchFieldChoicesDict()
         sfcd_expected = {
             "fctemplate": (
@@ -203,7 +202,7 @@ class CompositeViewTests(TracebaseTestCase):
         self.assertDictEqual(sfcd, sfcd_expected)
 
     def test_getAllSearchFieldChoices(self):
-        basv = BaseAdvancedSearchView()
+        basv = SearchGroup()
         sfct = basv.getAllSearchFieldChoices()
         sfct_expected = self.getPgtemplateChoicesTuple()
         sfct_expected += self.getPdtemplateChoicesTuple()
@@ -216,7 +215,8 @@ class CompositeViewTests(TracebaseTestCase):
         self.assertTupleEqual(sfct, sfct_expected)
 
     def test_extractFldPaths(self):
-        paths = extractFldPaths(self.getQueryObject())
+        qry = self.getQueryObject()
+        paths = extractFldPaths(qry)
         expected_paths = ["msrun__sample__animal__studies"]
         self.assertEqual(paths, expected_paths)
 
@@ -242,7 +242,7 @@ class CompositeViewTests(TracebaseTestCase):
     def test_reRootFieldPath(self):
         fld = "msrun__sample__animal__studies__name"
         reroot_instance_name = "CompoundSynonym"
-        pgsv = PeakGroupsSearchView()
+        pgsv = SearchGroup()
         rerooted_fld = pgsv.reRootFieldPath(fld, reroot_instance_name)
         expected_fld = "compound__peak_groups__msrun__sample__animal__studies__name"
         self.assertEqual(rerooted_fld, expected_fld)
@@ -250,7 +250,7 @@ class CompositeViewTests(TracebaseTestCase):
     def test_reRootQry(self):
         qry = self.getQueryObject2()
         qry_backup = deepcopy(qry)
-        basv = BaseAdvancedSearchView()
+        basv = SearchGroup()
         new_qry = basv.reRootQry("pgtemplate", qry, "MeasuredCompound")
         expected_qry = deepcopy(self.getQueryObject2())
         expected_qry["searches"]["pgtemplate"]["tree"]["queryGroup"][0][
@@ -263,13 +263,13 @@ class CompositeViewTests(TracebaseTestCase):
         self.assertEqual(new_qry, expected_qry)
 
     def test_pathToModelInstanceName(self):
-        pgsv = PeakGroupsSearchView()
+        pgsv = SearchGroup()
         mi = pgsv.pathToModelInstanceName("msrun__sample__animal__studies")
         self.assertEqual(mi, "Study")
 
     def test_getTrueJoinPrefetchPathsAndQrys(self):
         qry = self.getQueryObject2()
-        basv = BaseAdvancedSearchView()
+        basv = SearchGroup()
         fmt = "pgtemplate"
 
         # Set all split_rows values to False for the test, then...
@@ -338,7 +338,7 @@ class CompositeViewTests(TracebaseTestCase):
         self.assertEqual(prefetches, expected_prefetches)
 
     def test_getFullJoinAnnotations(self):
-        basv = BaseAdvancedSearchView()
+        basv = SearchGroup()
         fmt = "pgtemplate"
         annot_name = "compound"
 
@@ -357,7 +357,7 @@ class CompositeViewTests(TracebaseTestCase):
         self.assertEqual(annots, expected_annots)
 
     def test_getDistinctFields(self):
-        basv = BaseAdvancedSearchView()
+        basv = SearchGroup()
         fmt = "pgtemplate"
         order_by = "name"
 
@@ -374,7 +374,7 @@ class CompositeViewTests(TracebaseTestCase):
         self.assertEqual(distincts, expected_distincts)
 
     def test_getOrderByFields_instance(self):
-        pgsv = PeakGroupsSearchView()
+        pgsv = SearchGroup()
         mdl_inst = "MeasuredCompound"
 
         order_bys = pgsv.getOrderByFields(mdl_inst_nm=mdl_inst)
@@ -382,7 +382,7 @@ class CompositeViewTests(TracebaseTestCase):
         self.assertEqual(order_bys, expected_order_bys)
 
     def test_getOrderByFields_model(self):
-        pgsv = PeakGroupsSearchView()
+        pgsv = SearchGroup()
         mdl = "Compound"
 
         order_bys = pgsv.getOrderByFields(model_name=mdl)
@@ -390,7 +390,7 @@ class CompositeViewTests(TracebaseTestCase):
         self.assertEqual(order_bys, expected_order_bys)
 
     def test_getOrderByFields_both(self):
-        pgsv = PeakGroupsSearchView()
+        pgsv = SearchGroup()
         mdl_inst = "MeasuredCompound"
         mdl = "Compound"
 
@@ -400,7 +400,7 @@ class CompositeViewTests(TracebaseTestCase):
             pgsv.getOrderByFields(mdl_inst_nm=mdl_inst, model_name=mdl)
 
     def test_getOrderByFields_neither(self):
-        pgsv = PeakGroupsSearchView()
+        pgsv = SearchGroup()
         mdl_inst = "MeasuredCompound"
         mdl = "Compound"
 
@@ -459,7 +459,7 @@ class CompositeViewTests(TracebaseTestCase):
         self.assertEqual(got, expected)
 
     def test_(self):
-        pgsv = PeakGroupsSearchView()
+        pgsv = SearchGroup()
         stats = pgsv.getStatsParams()
         got = stats[2]
         expected_i2 = {

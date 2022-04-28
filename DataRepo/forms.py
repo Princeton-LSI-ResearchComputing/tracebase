@@ -3,13 +3,11 @@ from typing import Dict, Optional
 from django import forms
 from django.forms import formset_factory
 
-from DataRepo.compositeviews import (
-    BaseAdvancedSearchView,
-    BaseSearchView,
-    FluxCircSearchView,
-    PeakDataSearchView,
-    PeakGroupsSearchView,
-)
+from DataRepo.Formats.DataRepo.FluxCircFormat import FluxCircFormat
+from DataRepo.Formats.DataRepo.PeakDataFormat import PeakDataFormat
+from DataRepo.Formats.DataRepo.PeakGroupsFormat import PeakGroupsFormat
+from DataRepo.Formats.DataRepo.SearchGroup import SearchGroup
+from DataRepo.Formats.Format import Format
 
 # IMPORTANT NOTE ABOUT THE pos & posprefix FIELDS IN EACH AdvSearch FORM CLASSES:
 
@@ -39,13 +37,13 @@ class BaseAdvSearchForm(forms.Form):
 
     # This is the class used to populate posprefix value and the fld choices. composite_view_class is set in the
     # derived class (not here.  Here, it's just declared for mypy).
-    composite_view_class: BaseSearchView
+    composite_view_class: Format
 
     # This class is used to initialize the fld select list choices to a flat tuple encompassing every format
     # The format-specific list of fields is pared down by javascript using the composite_view_class above
     # The initial list needs to be comprehensive for form validation so that unselected formats retain their user-
     # selections after a search is peformed.  See issue #229.
-    advsrch_view_class = BaseAdvancedSearchView()
+    advsrch_view_class = SearchGroup()
 
     # See important note above about the pos & posprefix fields above
     posprefix: Optional[str] = None
@@ -93,7 +91,7 @@ class AdvSearchPeakGroupsForm(BaseAdvSearchForm):
     Advanced search form for the peakgroups output format that will be used inside a formset.
     """
 
-    composite_view_class = PeakGroupsSearchView()
+    composite_view_class = PeakGroupsFormat()
 
 
 class AdvSearchPeakDataForm(BaseAdvSearchForm):
@@ -101,7 +99,7 @@ class AdvSearchPeakDataForm(BaseAdvSearchForm):
     Advanced search form for the peakdata output format that will be used inside a formset.
     """
 
-    composite_view_class = PeakDataSearchView()
+    composite_view_class = PeakDataFormat()
 
 
 class AdvSearchFluxCircForm(BaseAdvSearchForm):
@@ -109,7 +107,7 @@ class AdvSearchFluxCircForm(BaseAdvSearchForm):
     Advanced search form for the fcirc output format that will be used inside a formset.
     """
 
-    composite_view_class = FluxCircSearchView()
+    composite_view_class = FluxCircFormat()
 
 
 class AdvSearchForm:

@@ -14,7 +14,7 @@ from django.urls import reverse
 from django.views.generic import DetailView, ListView
 from django.views.generic.edit import FormView
 
-from DataRepo.compositeviews import BaseAdvancedSearchView
+from DataRepo.Formats.DataRepo.SearchGroup import SearchGroup
 from DataRepo.forms import (
     AdvSearchDownloadForm,
     AdvSearchForm,
@@ -255,7 +255,7 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
     """Generic function-based view for a basic search."""
 
     # Base Advanced Search View Metadata
-    basv_metadata = BaseAdvancedSearchView()
+    basv_metadata = SearchGroup()
 
     # Base Advanced Search Form
     basf = AdvSearchForm()
@@ -365,7 +365,7 @@ class AdvancedSearchView(MultiFormsView):
     """
 
     # Base Advanced Search View
-    basv_metadata = BaseAdvancedSearchView()
+    basv_metadata = SearchGroup()
 
     #
     # The following forms each submit to this view
@@ -797,7 +797,7 @@ class AdvancedSearchTSVView(FormView):
     row_template = "DataRepo/search/downloads/download_row.tsv"
     content_type = "application/text"
     success_url = ""
-    basv_metadata = BaseAdvancedSearchView()
+    basv_metadata = SearchGroup()
 
     def form_invalid(self, form):
         saved_form = form.saved_data
@@ -1051,7 +1051,7 @@ def performQuery(
         )
 
     if basv is None:
-        basv = BaseAdvancedSearchView()
+        basv = SearchGroup()
 
     if fmt not in basv.getFormatNames().keys():
         raise KeyError("Invalid selected format: {fmt}")
@@ -1075,7 +1075,7 @@ def performQuery(
         results = results.order_by(order_by_arg)
 
     # This ensures the number of records matches the number of rows desired in the html table based on the
-    # split_rows values configured in each format in BaseAdvancedSearchView
+    # split_rows values configured in each format in SearchGroup
     distinct_fields = basv.getDistinctFields(fmt, order_by)
     results = results.distinct(*distinct_fields)
 
@@ -1146,7 +1146,7 @@ def getQueryStats(res, fmt, basv=None):
     basic advanced search view object for the supplied template.  E.g. The results contain 5 distinct tissues.
     """
     if basv is None:
-        basv = BaseAdvancedSearchView()
+        basv = SearchGroup()
 
     # Obtain the metadata about what stats we will display
     params_arrays = basv.getStatsParams(fmt)
@@ -1535,7 +1535,7 @@ def getDownloadQryList():
     Returns a list of dicts where the keys are name and json and the values are the format name and the json-
     stringified qry object with the target format selected
     """
-    basv_metadata = BaseAdvancedSearchView()
+    basv_metadata = SearchGroup()
     qry_list = []
     for format, name in basv_metadata.getFormatNames().items():
         qry_list.append(
