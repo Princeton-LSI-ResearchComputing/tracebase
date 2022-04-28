@@ -626,6 +626,9 @@ class BaseSearchView:
         """Stats getter"""
         return deepcopy(self.stats)
 
+    def statsAvailable(self):
+        return self.stats is not None
+
     def meetsAllConditionsByValList(self, rootrec, query, field_order):
         """
         This is a python-code version of a complex Q expression, necessary for checking filters in aggregate count
@@ -2099,6 +2102,9 @@ class BaseAdvancedSearchView:
 
     def getStatsParams(self, fmt):
         return self.modeldata[fmt].getStatsParams()
+
+    def statsAvailable(self, fmt):
+        return self.modeldata[fmt].statsAvailable()
 
     def meetsAllConditionsByValList(self, fmt, rootrec, query, field_order):
         """
