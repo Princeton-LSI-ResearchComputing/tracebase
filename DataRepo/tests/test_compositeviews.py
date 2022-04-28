@@ -242,7 +242,7 @@ class CompositeViewTests(TracebaseTestCase):
     def test_reRootFieldPath(self):
         fld = "msrun__sample__animal__studies__name"
         reroot_instance_name = "CompoundSynonym"
-        pgsv = SearchGroup()
+        pgsv = PeakGroupsFormat()
         rerooted_fld = pgsv.reRootFieldPath(fld, reroot_instance_name)
         expected_fld = "compound__peak_groups__msrun__sample__animal__studies__name"
         self.assertEqual(rerooted_fld, expected_fld)
@@ -263,7 +263,7 @@ class CompositeViewTests(TracebaseTestCase):
         self.assertEqual(new_qry, expected_qry)
 
     def test_pathToModelInstanceName(self):
-        pgsv = SearchGroup()
+        pgsv = PeakGroupsFormat()
         mi = pgsv.pathToModelInstanceName("msrun__sample__animal__studies")
         self.assertEqual(mi, "Study")
 
@@ -374,7 +374,7 @@ class CompositeViewTests(TracebaseTestCase):
         self.assertEqual(distincts, expected_distincts)
 
     def test_getOrderByFields_instance(self):
-        pgsv = SearchGroup()
+        pgsv = PeakGroupsFormat()
         mdl_inst = "MeasuredCompound"
 
         order_bys = pgsv.getOrderByFields(mdl_inst_nm=mdl_inst)
@@ -382,7 +382,7 @@ class CompositeViewTests(TracebaseTestCase):
         self.assertEqual(order_bys, expected_order_bys)
 
     def test_getOrderByFields_model(self):
-        pgsv = SearchGroup()
+        pgsv = PeakGroupsFormat()
         mdl = "Compound"
 
         order_bys = pgsv.getOrderByFields(model_name=mdl)
@@ -390,7 +390,7 @@ class CompositeViewTests(TracebaseTestCase):
         self.assertEqual(order_bys, expected_order_bys)
 
     def test_getOrderByFields_both(self):
-        pgsv = SearchGroup()
+        pgsv = PeakGroupsFormat()
         mdl_inst = "MeasuredCompound"
         mdl = "Compound"
 
@@ -400,7 +400,7 @@ class CompositeViewTests(TracebaseTestCase):
             pgsv.getOrderByFields(mdl_inst_nm=mdl_inst, model_name=mdl)
 
     def test_getOrderByFields_neither(self):
-        pgsv = SearchGroup()
+        pgsv = PeakGroupsFormat()
         mdl_inst = "MeasuredCompound"
         mdl = "Compound"
 
@@ -458,8 +458,8 @@ class CompositeViewTests(TracebaseTestCase):
         }
         self.assertEqual(got, expected)
 
-    def test_(self):
-        pgsv = SearchGroup()
+    def test_getStatsParams(self):
+        pgsv = PeakGroupsFormat()
         stats = pgsv.getStatsParams()
         got = stats[2]
         expected_i2 = {

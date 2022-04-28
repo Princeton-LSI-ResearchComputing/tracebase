@@ -1,10 +1,5 @@
-from DataRepo.models import (
-    Animal,
-    PeakGroup,
-    TracerLabeledClass,
-)
-
 from DataRepo.Formats.Format import Format
+from DataRepo.models import Animal, PeakGroup, TracerLabeledClass
 
 
 class PeakGroupsFormat(Format):

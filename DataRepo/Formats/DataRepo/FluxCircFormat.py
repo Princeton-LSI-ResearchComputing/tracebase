@@ -1,11 +1,5 @@
-from DataRepo.models import (
-    Animal,
-    PeakGroup,
-    Tissue,
-    TracerLabeledClass,
-)
-
 from DataRepo.Formats.Format import Format
+from DataRepo.models import Animal, PeakGroup, Tissue, TracerLabeledClass
 
 
 class FluxCircFormat(Format):

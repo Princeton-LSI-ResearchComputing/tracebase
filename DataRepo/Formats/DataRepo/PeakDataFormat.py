@@ -1,15 +1,10 @@
-from DataRepo.models import (
-    Animal,
-    PeakData,
-    TracerLabeledClass,
-)
-
-from DataRepo.Formats.Query import (
-    createFilterGroup,
-    createFilterCondition,
-    appendFilterToGroup,
-)
 from DataRepo.Formats.Format import Format
+from DataRepo.Formats.Query import (
+    appendFilterToGroup,
+    createFilterCondition,
+    createFilterGroup,
+)
+from DataRepo.models import Animal, PeakData, TracerLabeledClass
 
 
 class PeakDataFormat(Format):
