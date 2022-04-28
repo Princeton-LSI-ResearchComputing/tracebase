@@ -12,6 +12,38 @@ class QuerysetToPandasDataFrame:
     DataFrames for study or animal based summary data
     """
 
+    animal_tissue_sample_msrun_column_names = [
+        "animal_id",
+        "animal",
+        "tracer_compound_id",
+        "tracer",
+        "tracer_labeled_atom",
+        "tracer_labeled_count",
+        "tracer_infusion_rate",
+        "tracer_infusion_concentration",
+        "genotype",
+        "body_weight",
+        "age",
+        "sex",
+        "diet",
+        "feeding_status",
+        "treatment_id",
+        "treatment",
+        "treatment_category",
+        "tissue_id",
+        "tissue",
+        "sample_id",
+        "sample",
+        "sample_owner",
+        "sample_date",
+        "sample_time_collected",
+        "msrun_id",
+        "msrun_owner",
+        "msrun_date",
+        "msrun_protocol_id",
+        "msrun_protocol",
+    ]
+
     @staticmethod
     def qs_to_df(qs, qry_to_df_fields):
         """
@@ -228,39 +260,9 @@ class QuerysetToPandasDataFrame:
 
         # reindex with defined column names
         # re-order columns (animal, tissue, sample, MSrun, studies)
-        column_names = [
-            "animal_id",
-            "animal",
-            "tracer_compound_id",
-            "tracer",
-            "tracer_labeled_atom",
-            "tracer_labeled_count",
-            "tracer_infusion_rate",
-            "tracer_infusion_concentration",
-            "genotype",
-            "body_weight",
-            "age",
-            "sex",
-            "diet",
-            "feeding_status",
-            "treatment_id",
-            "treatment",
-            "treatment_category",
-            "tissue_id",
-            "tissue",
-            "sample_id",
-            "sample",
-            "sample_owner",
-            "sample_date",
-            "sample_time_collected",
-            "msrun_id",
-            "msrun_owner",
-            "msrun_date",
-            "msrun_protocol_id",
-            "msrun_protocol",
-            "studies",
-            "study_id_name_list",
-        ]
+        study_column_names = ["studies", "study_id_name_list"]
+        column_names = cls.animal_tissue_sample_msrun_column_names + study_column_names
+
         all_anim_msrun_df = all_anim_msrun_df.reindex(columns=column_names)
         return all_anim_msrun_df
 
@@ -348,40 +350,12 @@ class QuerysetToPandasDataFrame:
         all_stud_msrun_df = all_stud_msrun_df1.convert_dtypes()
 
         # reindex with defined column names and column order
-        column_names = [
+        study_column_names = [
             "study_id",
             "study",
             "study_description",
-            "animal_id",
-            "animal",
-            "tracer_compound_id",
-            "tracer",
-            "tracer_labeled_atom",
-            "tracer_labeled_count",
-            "tracer_infusion_rate",
-            "tracer_infusion_concentration",
-            "genotype",
-            "body_weight",
-            "age",
-            "sex",
-            "diet",
-            "feeding_status",
-            "treatment_id",
-            "treatment",
-            "treatment_category",
-            "tissue_id",
-            "tissue",
-            "sample_id",
-            "sample",
-            "sample_owner",
-            "sample_date",
-            "sample_time_collected",
-            "msrun_id",
-            "msrun_owner",
-            "msrun_date",
-            "msrun_protocol_id",
-            "msrun_protocol",
         ]
+        column_names = study_column_names + cls.animal_tissue_sample_msrun_column_names
         all_stud_msrun_df = all_stud_msrun_df.reindex(columns=column_names)
         return all_stud_msrun_df
 
