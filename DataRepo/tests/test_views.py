@@ -8,6 +8,13 @@ from django.urls import reverse
 
 from DataRepo.Formats.DataRepo.SearchGroup import SearchGroup
 from DataRepo.Formats.Format import Format
+from DataRepo.Formats.Query import (
+    createNewBasicQuery,
+    isQryObjValid,
+    isValidQryObjPopulated,
+    pathStepToPosGroupType,
+    rootToFormatInfo,
+)
 from DataRepo.models import (
     Animal,
     Compound,
@@ -23,20 +30,7 @@ from DataRepo.models import (
 )
 from DataRepo.models.utilities import get_all_models
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
-from DataRepo.views import (
-    DataValidationView,
-    constructAdvancedQuery,
-    createNewBasicQuery,
-    getAllBrowseData,
-    getJoinedRecFieldValue,
-    getQueryStats,
-    isQryObjValid,
-    isValidQryObjPopulated,
-    pathStepToPosGroupType,
-    performQuery,
-    rootToFormatInfo,
-    searchFieldToDisplayField,
-)
+from DataRepo.views import DataValidationView
 
 
 class ViewTests(TracebaseTestCase):
@@ -597,7 +591,7 @@ class ViewTests(TracebaseTestCase):
         basv_metadata = SearchGroup()
         pf = "msrun__sample__animal__studies"
         qs = PeakGroup.objects.all().prefetch_related(pf)
-        res, cnt, stats = getAllBrowseData("pgtemplate", basv_metadata)
+        res, cnt, stats = basv_metadata.getAllBrowseData("pgtemplate")
         self.assertEqual(cnt, qs.count())
 
     def get_basic_qry_inputs(self):
@@ -673,7 +667,7 @@ class ViewTests(TracebaseTestCase):
         mdl = "Study"
         fld = "id"
         val = tval
-        dfld, dval = searchFieldToDisplayField(basv_metadata, mdl, fld, val, qry)
+        dfld, dval = basv_metadata.searchFieldToDisplayField(mdl, fld, val, qry)
         self.assertEqual(dfld, "name")
         self.assertEqual(dval, "obob_fasted")
 
@@ -687,7 +681,7 @@ class ViewTests(TracebaseTestCase):
         fld = "feeding_status"
         pf = "msrun__sample__animal__studies"
         recs = PeakGroup.objects.all().prefetch_related(pf)
-        val = getJoinedRecFieldValue(recs, basv_metadata, fmt, mdl, fld, fld, "Fasted")
+        val = basv_metadata.getJoinedRecFieldValue(recs, fmt, mdl, fld, fld, "Fasted")
         self.assertEqual(val, "Fasted")
 
     def test_constructAdvancedQuery(self):
@@ -695,7 +689,8 @@ class ViewTests(TracebaseTestCase):
         Test that constructAdvancedQuery returns a correct Q expression
         """
         qry = self.get_advanced_qry()
-        q_exp = constructAdvancedQuery(qry)
+        basv_metadata = SearchGroup()
+        q_exp = basv_metadata.constructAdvancedQuery(qry)
         expected_q = Q(msrun__sample__tissue__name__iexact="Brain")
         self.assertEqual(q_exp, expected_q)
 
@@ -710,8 +705,8 @@ class ViewTests(TracebaseTestCase):
             "msrun__sample__animal__tracer_compound",
             "msrun__sample__animal__studies",
         ]
-        res, cnt, stats = performQuery(
-            qry, "pgtemplate", basv_metadata, generate_stats=False
+        res, cnt, stats = basv_metadata.performQuery(
+            qry, "pgtemplate", generate_stats=False
         )
         qs = PeakGroup.objects.filter(
             msrun__sample__tissue__name__iexact="Brain"
@@ -731,7 +726,7 @@ class ViewTests(TracebaseTestCase):
         """
         qry = self.get_advanced_qry2()
         basv_metadata = SearchGroup()
-        res, cnt, stats = performQuery(qry, "pgtemplate", basv_metadata)
+        res, cnt, stats = basv_metadata.performQuery(qry, "pgtemplate")
         qs = (
             PeakGroup.objects.filter(msrun__sample__name__iexact="BAT-xz971")
             .filter(msrun__sample__animal__studies__name__iexact="obob_fasted")
@@ -1045,8 +1040,9 @@ class ViewTests(TracebaseTestCase):
         """
         Test that performQuery returns a correct stats structure
         """
+        basv = SearchGroup()
         qry = self.get_advanced_qry()
-        res, cnt, stats = performQuery(qry, "pgtemplate", generate_stats=True)
+        res, cnt, stats = basv.performQuery(qry, "pgtemplate", generate_stats=True)
         expected_stats = self.getExpectedStats()
         self.assertEqual(stats, expected_stats)
 
@@ -1054,9 +1050,12 @@ class ViewTests(TracebaseTestCase):
         """
         Test that getQueryStats returns a correct stats structure
         """
+        basv = SearchGroup()
         qry = self.get_advanced_qry()
-        res, cnt, ignore_stats = performQuery(qry, "pgtemplate", generate_stats=True)
-        got = getQueryStats(res, qry["selectedtemplate"])
+        res, cnt, ignore_stats = basv.performQuery(
+            qry, "pgtemplate", generate_stats=True
+        )
+        got = basv.getQueryStats(res, qry["selectedtemplate"])
         full_stats = self.getExpectedStats()
         expected = full_stats["data"]
         self.assertEqual(got, expected)

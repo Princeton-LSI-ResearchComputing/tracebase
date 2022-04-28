@@ -1,5 +1,10 @@
+import json
 from copy import deepcopy
 from typing import Dict
+
+from django.apps import apps
+from django.db.models import Prefetch, Q
+from django.http import Http404
 
 from DataRepo.Formats.Format import Format
 
@@ -351,3 +356,370 @@ class Group:
         return self.modeldata[fmt].meetsAllConditionsByValList(
             rootrec, query, field_order
         )
+
+    def searchFieldToDisplayField(self, mdl, fld, val, qry):
+        """
+        Takes a field from a basic search and converts it to a non-hidden field for an advanced search select list.
+        """
+
+        dfld = fld
+        dval = val
+        fmt = qry["selectedtemplate"]
+        dfields = self.getDisplayFields(fmt, mdl)
+        if fld in dfields.keys() and dfields[fld] != fld:
+            # If fld is not a displayed field, perform a query to convert the undisplayed field query to a displayed
+            # query
+            recs, tot, stats = self.performQuery(qry, fmt)
+            if tot == 0:
+                print(
+                    f"WARNING: Failed basic/advanced {fmt} search conversion: {qry}. No records found matching {mdl}."
+                    f"{fld}='{val}'."
+                )
+                raise Http404(f"No records found matching [{mdl}.{fld}={val}].")
+            # Set the field path for the display field
+            dfld = dfields[fld]
+            dval = self.getJoinedRecFieldValue(recs, fmt, mdl, dfields[fld], fld, val)
+
+        return dfld, dval
+
+    # Warning, the code in this method would potentially not work in cases where multiple search terms (including a term
+    # from a m:m related table) were or'ed together.  This cannot happen currently because this is only utilized for
+    # handoff fields from search_basic, so the first record is guaranteed to have a matching value from the search term.
+    def getJoinedRecFieldValue(self, recs, fmt, mdl, dfld, sfld, sval):
+        """
+        Takes a queryset object and a model.field and returns its value.
+        """
+
+        if len(recs) == 0:
+            raise Http404("Records not found.")
+
+        kpl = self.getKeyPathList(fmt, mdl)
+        ptr = recs[0]
+        # This loop climbs through each key in the key path, maintaining a pointer to the current model
+        for key in kpl:
+            # If this is a many-to-many model
+            if ptr.__class__.__name__ == "ManyRelatedManager":
+                tmprecs = ptr.all()
+                ptr = getattr(tmprecs[0], key)
+            else:
+                ptr = getattr(ptr, key)
+
+        # Now find the value of the display field that corresponds to the value of the search field
+        gotit = True
+        if ptr.__class__.__name__ == "ManyRelatedManager":
+            tmprecs = ptr.all()
+            gotit = False
+            for tmprec in tmprecs:
+                # If the value of this record for the searched field matches the search term
+                tsval = getattr(tmprec, sfld)
+                if str(tsval) == str(sval):
+                    # Return the value of the display field
+                    dval = getattr(tmprec, dfld)
+                    gotit = True
+        else:
+            dval = getattr(ptr, dfld)
+
+        if not gotit:
+            print(
+                f"ERROR: Values retrieved for search field {mdl}.{sfld} using search term: {sval} did not match."
+            )
+            raise Http404(
+                f"ERROR: Unable to find a value for [{mdl}.{sfld}] that matches the search term.  Unable to "
+                f"convert to the handoff field {dfld}."
+            )
+
+        return dval
+
+    def getAllBrowseData(
+        self,
+        format,
+        limit=None,
+        offset=0,
+        order_by=None,
+        order_direction=None,
+        generate_stats=False,
+    ):
+        """
+        Grabs all data without a filtering match for browsing.
+        """
+        return self.performQuery(
+            None, format, limit, offset, order_by, order_direction, generate_stats
+        )
+
+    def performQuery(
+        self,
+        qry=None,
+        fmt=None,
+        limit=None,
+        offset=0,
+        order_by=None,
+        order_direction=None,
+        generate_stats=False,
+    ):
+        """
+        Executes an advanced search query.  The only required input is either a qry object or a format (fmt).
+        """
+        results = None
+        cnt = 0
+        q_exp = None
+
+        if qry is not None:
+            q_exp = self.constructAdvancedQuery(qry)
+            if fmt is not None and fmt != qry["selectedtemplate"]:
+                raise Exception(
+                    f"The selected format in the qry object: [{qry['selectedtemplate']}] does not match the supplied "
+                    f"format: [{fmt}]"
+                )
+            else:
+                fmt = qry["selectedtemplate"]
+        elif fmt is None:
+            raise Exception(
+                "Neither a qry object nor a format was supplied.  1 of the 2 is required."
+            )
+
+        if fmt not in self.getFormatNames().keys():
+            raise KeyError("Invalid selected format: {fmt}")
+
+        # If the Q expression is None, get all, otherwise filter
+        if q_exp is None:
+            results = self.getRootQuerySet(fmt)
+        else:
+            results = self.getRootQuerySet(fmt).filter(q_exp)
+
+        # Order by
+        if order_by is not None:
+            order_by_arg = order_by
+            if order_direction is not None:
+                if order_direction == "desc":
+                    order_by_arg = f"-{order_by}"
+                elif order_direction and order_direction != "asc":
+                    raise Exception(
+                        f"Invalid order direction: {order_direction}.  Must be 'asc' or 'desc'."
+                    )
+            results = results.order_by(order_by_arg)
+
+        # This ensures the number of records matches the number of rows desired in the html table based on the
+        # split_rows values configured in each format in SearchGroup
+        distinct_fields = self.getDistinctFields(fmt, order_by)
+        results = results.distinct(*distinct_fields)
+
+        # Count the total results.  Limit/offset are only used for paging.
+        cnt = results.count()
+        stats = {
+            "data": {},
+            "populated": generate_stats,
+            "show": False,
+        }
+        if generate_stats:
+            stats["data"] = self.getQueryStats(results, fmt)
+            stats["show"] = True
+
+        # Limit
+        if limit is not None:
+            start_index = offset
+            end_index = offset + limit
+            results = results[start_index:end_index]
+
+        # If prefetches have been defined in the base advanced search view
+        if qry is None:
+            prefetches = self.getPrefetches(fmt)
+        else:
+            # Retrieve the prefetch data
+            prefetch_qrys = self.getTrueJoinPrefetchPathsAndQrys(qry, fmt)
+
+            # Build the prefetches, including subqueries for M:M related tables to produce a "true join" if a search
+            # term is from a M:M related model
+            prefetches = []
+            for pfq in prefetch_qrys:
+                # Rerooted subquery prefetches are in a list whereas regular prefetches that get everything are just a
+                # string
+                if isinstance(pfq, list):
+                    pf_path = pfq[0]
+                    pf_qry = pfq[1]
+                    pf_mdl = pfq[2]
+
+                    # Construct a new Q expression using the rerooted query
+                    pf_q_exp = self.constructAdvancedQuery(pf_qry)
+
+                    # grab the model using its name
+                    mdl = apps.get_model("DataRepo", pf_mdl)
+
+                    # Create the subquery queryset
+                    pf_qs = mdl.objects.filter(pf_q_exp).distinct()
+
+                    # Append a prefetch object with the subquery queryset
+                    prefetches.append(Prefetch(pf_path, queryset=pf_qs))
+                else:
+                    prefetches.append(pfq)
+
+        if prefetches is not None:
+            results = results.prefetch_related(*prefetches)
+
+        split_row_annotations = self.getFullJoinAnnotations(fmt)
+        for annotation in split_row_annotations:
+            results = results.annotate(**annotation)
+
+        return results, cnt, stats
+
+    def getQueryStats(self, res, fmt):
+        """
+        This method takes a queryset (produced by performQuery) and a format (e.g. "pgtemplate") and returns a stats
+        dict keyed on the stat name and containing the counts of  the number of unique values for the fields defined in
+        the basic advanced search view object for the supplied template.  E.g. The results contain 5 distinct tissues.
+        """
+        # Obtain the metadata about what stats we will display
+        params_arrays = self.getStatsParams(fmt)
+        if params_arrays is None:
+            return None
+
+        # Since `results.values(*distinct_fields).annotate(cnt=Count("pk"))` throws an exception if duplicate records
+        # result from the possible use of distinct(fields) in the res sent in, we must mix in the distinct fields that
+        # uniquely identify records.
+        fmt_distinct_fields = self.getDistinctFields(fmt, assume_distinct=False)
+        stats_fields = [fld for d in params_arrays for fld in d["distincts"]]
+        all_fields = fmt_distinct_fields + stats_fields
+        stats = {}
+        cnt_dict = {}
+
+        # order_by(*fmt_distinct_fields) and distinct(*fmt_distinct_fields) are required to get accurate row counts,
+        # otherwise, some duplicates will get counted
+        for rec in (
+            res.order_by(*fmt_distinct_fields)
+            .distinct(*fmt_distinct_fields)
+            .values_list(*all_fields)
+        ):
+            # For each stats category defined for this format
+            for params in params_arrays:
+
+                if "delimiter" in params:
+                    delim = params["delimiter"]
+                else:
+                    delim = " "
+
+                # Get distinct fields for the count by taking the union of the record-identifying distinct fields and
+                # the distinct fields whose repeated values we want to count.
+                distinct_fields = params["distincts"]
+
+                statskey = params["displayname"]
+                valcombo = delim.join(
+                    # values_list is fast, but can only be indexed by number...
+                    list(str(rec[all_fields.index(fld)]) for fld in distinct_fields)
+                )
+
+                if statskey not in stats:
+                    stats[statskey] = {
+                        "count": 0,
+                        "filter": params["filter"],
+                    }
+                    cnt_dict[statskey] = {}
+
+                # Update the stats
+                if params["filter"] is None:
+                    # Count unique and duplicate values
+                    if valcombo not in cnt_dict[statskey]:
+                        cnt_dict[statskey][valcombo] = 1
+                        stats[statskey]["count"] += 1
+                    else:
+                        cnt_dict[statskey][valcombo] += 1
+                else:
+                    # Count values meeting a criteria/filter
+                    if self.meetsAllConditionsByValList(
+                        fmt, rec, params["filter"], all_fields
+                    ):
+                        stats[statskey]["count"] += 1
+                        if valcombo not in cnt_dict[statskey]:
+                            cnt_dict[statskey][valcombo] = 1
+                        else:
+                            cnt_dict[statskey][valcombo] += 1
+
+        # For each stats category defined for this format
+        for params in params_arrays:
+            statskey = params["displayname"]
+
+            # For the top 10 unique values (delimited-combos), in order of descending number of occurrences
+            top10 = []
+            # for valcombo in sorted(cnt_dict.keys(), key=lambda x: -cnt_dict[x])[0:10]:
+            for valcombo in sorted(
+                cnt_dict[statskey].keys(), key=lambda vc: -cnt_dict[statskey][vc]
+            )[0:10]:
+                top10.append(
+                    {
+                        "val": valcombo,
+                        "cnt": cnt_dict[statskey][valcombo],
+                    }
+                )
+
+            stats[statskey]["sample"] = top10
+
+        return stats
+
+    def constructAdvancedQuery(self, qryRoot):
+        """
+        Turns a qry object into a complex Q object by calling its helper and supplying the selected format's tree.
+        """
+
+        return self.constructAdvancedQueryHelper(
+            qryRoot["searches"][qryRoot["selectedtemplate"]]["tree"]
+        )
+
+    def constructAdvancedQueryHelper(self, qry):
+        """
+        Recursively build a complex Q object based on a hierarchical tree defining the search terms.
+        """
+
+        if "type" not in qry:
+            print("ERROR: type missing from qry object: ", qry)
+        if qry["type"] == "query":
+            cmp = qry["ncmp"].replace("not_", "", 1)
+            negate = cmp != qry["ncmp"]
+
+            # Special case for isnull (ignores qry['val'])
+            if cmp == "isnull":
+                if negate:
+                    negate = False
+                    qry["val"] = False
+                else:
+                    qry["val"] = True
+
+            criteria = {"{0}__{1}".format(qry["fld"], cmp): qry["val"]}
+            if negate is False:
+                return Q(**criteria)
+            else:
+                return ~Q(**criteria)
+
+        elif qry["type"] == "group":
+            q = Q()
+            gotone = False
+            for elem in qry["queryGroup"]:
+                gotone = True
+                if qry["val"] == "all":
+                    nq = self.constructAdvancedQueryHelper(elem)
+                    if nq is None:
+                        return None
+                    else:
+                        q &= nq
+                elif qry["val"] == "any":
+                    nq = self.constructAdvancedQueryHelper(elem)
+                    if nq is None:
+                        return None
+                    else:
+                        q |= nq
+                else:
+                    return None
+            if not gotone or q is None:
+                return None
+            else:
+                return q
+        return None
+
+    def getDownloadQryList(self):
+        """
+        Returns a list of dicts where the keys are name and json and the values are the format name and the json-
+        stringified qry object with the target format selected
+        """
+        qry_list = []
+        for format, name in self.getFormatNames().items():
+            qry_list.append(
+                {"name": name, "json": json.dumps(self.getRootGroup(format))}
+            )
+        return qry_list

@@ -5,7 +5,7 @@ from django.urls import reverse
 from django.utils import dateparse
 from django.utils.html import format_html_join
 
-from DataRepo.views import getDownloadQryList
+from DataRepo.Formats.DataRepo.SearchGroup import SearchGroup
 
 register = template.Library()
 
@@ -106,7 +106,8 @@ def getCount(countdict):
 
 @register.simple_tag
 def getDownloadQrys():
-    return getDownloadQryList()
+    basv = SearchGroup()
+    return basv.getDownloadQryList()
 
 
 @register.filter
