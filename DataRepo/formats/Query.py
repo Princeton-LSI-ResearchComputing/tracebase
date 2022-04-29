@@ -363,3 +363,45 @@ def rootToFormatInfo(rootInfo):
         val = val_name_sel
         name = val_name_sel
     return [val, name, sel]
+
+
+def getFirstEmptyQuery(qry_ref):
+    """
+    This method takes the "tree" from a qry object (i.e. what you get from basv_metadata.getRootGroup(fmt)) and
+    returns a reference to the single empty item of type query that should be present in a new rootGroup.
+    """
+    if qry_ref["type"] and qry_ref["type"] == "query":
+        if qry_ref["val"] == "":
+            return qry_ref
+        return None
+    elif qry_ref["type"] and qry_ref["type"] == "group":
+        immutable = qry_ref["static"]
+        if len(qry_ref["queryGroup"]) > 0:
+            for qry in qry_ref["queryGroup"]:
+                emptyqry = getFirstEmptyQuery(qry)
+                if emptyqry:
+                    if immutable:
+                        raise Http404(
+                            "Group containing empty query must not be static."
+                        )
+                    return emptyqry
+        return None
+    raise Http404("Type not found.")
+
+
+def setFirstEmptyQuery(qry_ref, fmt, fld, cmp, val):
+    """
+    This method takes the "tree" from a qry object (i.e. what you get from basv_metadata.getRootGroup(fmt)) and
+    returns a reference to the single empty item of type query that should be present in a new rootGroup.
+    """
+    empty_qry = getFirstEmptyQuery(qry_ref["searches"][fmt]["tree"])
+
+    if empty_qry is None:
+        return None
+
+    empty_qry["type"] = "query"
+    empty_qry["pos"] = ""
+    empty_qry["static"] = False
+    empty_qry["fld"] = fld
+    empty_qry["ncmp"] = cmp
+    empty_qry["val"] = val

@@ -7,6 +7,7 @@ from django.db.models import Prefetch
 from django.http import Http404
 
 from DataRepo.formats.Format import Format
+from DataRepo.formats.Query import setFirstEmptyQuery
 
 
 class FormatGroup:
