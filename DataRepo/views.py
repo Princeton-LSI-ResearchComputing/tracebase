@@ -12,9 +12,8 @@ from django.urls import reverse
 from django.views.generic import DetailView, ListView
 from django.views.generic.edit import FormView
 
-from DataRepo.Formats.DataRepo.SearchGroup import SearchGroup
-from DataRepo.Formats.Query import (
-    createNewBasicQuery,
+from DataRepo.formats.DataRepo.SearchGroup import SearchGroup
+from DataRepo.formats.Query import (
     formsetsToDict,
     isQryObjValid,
     isValidQryObjPopulated,
@@ -290,7 +289,7 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
             f"Invalid format [{fmt}].  Must be one of: [{','.join(names.keys())},{','.join(names.values())}]"
         )
 
-    qry = createNewBasicQuery(basv_metadata, mdl, fld, cmp, val, fmtkey)
+    qry = basv_metadata.createNewBasicQuery(mdl, fld, cmp, val, fmtkey)
     download_form = AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
 
     rows_per_page = int(

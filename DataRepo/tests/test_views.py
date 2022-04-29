@@ -6,10 +6,9 @@ from django.db.models import Q
 from django.test import override_settings, tag
 from django.urls import reverse
 
-from DataRepo.Formats.DataRepo.SearchGroup import SearchGroup
-from DataRepo.Formats.Format import Format
-from DataRepo.Formats.Query import (
-    createNewBasicQuery,
+from DataRepo.formats.DataRepo.SearchGroup import SearchGroup
+from DataRepo.formats.Format import Format
+from DataRepo.formats.Query import (
     isQryObjValid,
     isValidQryObjPopulated,
     pathStepToPosGroupType,
@@ -650,7 +649,7 @@ class ViewTests(TracebaseTestCase):
         cmp = "iexact"
         val = tval
         fmt = "pgtemplate"
-        newqry = createNewBasicQuery(basv_metadata, mdl, fld, cmp, val, fmt)
+        newqry = basv_metadata.createNewBasicQuery(mdl, fld, cmp, val, fmt)
         self.maxDiff = None
         self.assertEqual(newqry, qry)
 

@@ -4,7 +4,7 @@ from typing import Dict, List, Optional
 from django.apps import apps
 from django.db.models import F, Model
 
-from DataRepo.Formats.Query import extractFldPaths, splitCommon, splitPathName
+from DataRepo.formats.Query import extractFldPaths, splitCommon, splitPathName
 
 
 class Format:
