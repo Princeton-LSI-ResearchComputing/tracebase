@@ -1,181 +1,86 @@
-from DataRepo.formats.Format import Format
-from DataRepo.formats.Query import (
-    appendFilterToGroup,
-    createFilterCondition,
-    createFilterGroup,
-)
-from DataRepo.models import Animal, PeakData, TracerLabeledClass
+from DataRepo.TMPFMT.Format import Format
+from DataRepo.models import Animal, PeakGroup, TracerLabeledClass
 
 
-class PeakDataFormat(Format):
+class PeakGroupsFormat(Format):
     """
     This class encapsulates all the metadata of a single search output format, which includes multiple tables/fields.
     """
 
-    id = "pdtemplate"
-    name = "PeakData"
-    rootmodel = PeakData
+    id = "pgtemplate"
+    name = "PeakGroups"
+    rootmodel = PeakGroup
     stats = [
         {
             "displayname": "Animals",
-            "distincts": ["peak_group__msrun__sample__animal__name"],
+            "distincts": ["msrun__sample__animal__name"],
             "filter": None,
         },
         {
-            "displayname": "Labels",
-            "distincts": [
-                "labeled_element",
-                "labeled_count",
-            ],
-            "filter": None,
-            "delimiter": ":",
-        },
-        {
-            "displayname": "Feeding Statuses",
-            "distincts": ["peak_group__msrun__sample__animal__feeding_status"],
-            "filter": None,
-        },
-        {
-            "displayname": "Corrected Abundances",  # Append " > 0.1" based on filter
-            "distincts": ["corrected_abundance"],
-            "filter": appendFilterToGroup(
-                createFilterGroup(),
-                createFilterCondition("corrected_abundance", "gt", 0.1),
-            ),
-        },
-        {
-            "displayname": "Samples",
-            "distincts": ["peak_group__msrun__sample__name"],
-            "filter": None,
-        },
-        {
-            "displayname": "Tissues",
-            "distincts": ["peak_group__msrun__sample__tissue__name"],
-            "filter": None,
-        },
-        {
-            "displayname": "Tracer Compounds",
-            "distincts": ["peak_group__msrun__sample__animal__tracer_compound__name"],
+            "displayname": "Labeled Elements",
+            "distincts": ["peak_data__labeled_element"],
             "filter": None,
         },
         {
             "displayname": "Measured Compounds",
-            "distincts": ["peak_group__compounds__name"],
+            "distincts": ["compounds__name"],
+            "filter": None,
+        },
+        {
+            "displayname": "Samples",
+            "distincts": ["msrun__sample__name"],
+            "filter": None,
+        },
+        {
+            "displayname": "Tissues",
+            "distincts": ["msrun__sample__tissue__name"],
+            "filter": None,
+        },
+        {
+            "displayname": "Tracer Compounds",
+            "distincts": ["msrun__sample__animal__tracer_compound__name"],
+            "filter": None,
+        },
+        {
+            "displayname": "Studies",
+            "distincts": ["msrun__sample__animal__studies__name"],
+            "filter": None,
+        },
+        {
+            "displayname": "Feeding Statuses",
+            "distincts": ["msrun__sample__animal__feeding_status"],
+            "filter": None,
+        },
+        {
+            "displayname": "Infusion Rates",
+            "distincts": ["msrun__sample__animal__tracer_infusion_rate"],
+            "filter": None,
+        },
+        {
+            "displayname": "Infusion Concentrations",
+            "distincts": ["msrun__sample__animal__tracer_infusion_concentration"],
             "filter": None,
         },
     ]
     model_instances = {
-        "PeakData": {
-            "model": "PeakData",
-            "path": "",
-            "reverse_path": "",
+        "PeakGroupSet": {
+            "model": "PeakGroupSet",
+            "path": "peak_group_set",
+            "reverse_path": "peak_groups",
             "manytomany": {
                 "is": False,
                 "split_rows": False,
             },
             "fields": {
                 "id": {
-                    "displayname": "(Internal) Peak Data Index",
+                    "displayname": "(Internal) Peak Group Set Index",
                     "searchable": True,
                     "displayed": False,  # Used in link
-                    # "handoff": "",
-                    # Using in link will expose the internal index field in the search form because there's no
-                    # searchable unique field for handoff
+                    "handoff": "filename",  # This is the field that will be loaded in the search form
                     "type": "number",
                 },
-                "labeled_element": {
-                    "displayname": "Labeled Element",
-                    "searchable": True,
-                    "displayed": True,
-                    "type": "enumeration",
-                    "choices": TracerLabeledClass.TRACER_LABELED_ELEMENT_CHOICES,
-                },
-                "labeled_count": {
-                    "displayname": "Labeled Count",
-                    "searchable": True,
-                    "displayed": True,
-                    "type": "number",
-                },
-                "raw_abundance": {
-                    "displayname": "Raw Abundance",
-                    "searchable": True,
-                    "displayed": True,
-                    "type": "number",
-                },
-                "corrected_abundance": {
-                    "displayname": "Corrected Abundance",
-                    "searchable": True,
-                    "displayed": True,
-                    "type": "number",
-                },
-                "fraction": {
-                    "displayname": "Fraction",
-                    "searchable": False,  # Cannot search cached property
-                    "displayed": True,
-                    "type": "number",
-                },
-                "med_mz": {
-                    "displayname": "Median M/Z",
-                    "searchable": True,
-                    "displayed": True,
-                    "type": "number",
-                },
-                "med_rt": {
-                    "displayname": "Median RT",
-                    "searchable": True,
-                    "displayed": True,
-                    "type": "number",
-                },
-            },
-        },
-        "PeakGroup": {
-            "model": "PeakGroup",
-            "path": "peak_group",
-            "reverse_path": "peak_data",
-            "manytomany": {
-                "is": False,
-                "split_rows": False,
-            },
-            "fields": {
-                "id": {
-                    "displayname": "(Internal) Peak Group Index",  # Used in link
-                    "searchable": True,
-                    "displayed": False,
-                    "handoff": "name",  # This is the field that will be loaded in the search form
-                    "type": "number",
-                },
-                "name": {
-                    "displayname": "Peak Group",
-                    "searchable": True,
-                    "displayed": True,
-                    "type": "string",
-                },
-                "formula": {
-                    "displayname": "Formula",
-                    "searchable": True,
-                    "displayed": True,
-                    "type": "string",
-                },
-            },
-        },
-        "MeasuredCompound": {
-            "model": "Compound",
-            "path": "peak_group__compounds",
-            "reverse_path": "peak_groups__peak_data",
-            "manytomany": {
-                "is": False,
-                "split_rows": False,
-            },
-            "fields": {
-                "id": {
-                    "displayname": "(Internal) Measured Compound Index",
-                    "searchable": True,
-                    "displayed": False,  # Used in link
-                    "handoff": "name",  # This is the field that will be loaded in the search form
-                    "type": "number",
-                },
-                "name": {
-                    "displayname": "Measured Compound (Primary Synonym)",
+                "filename": {
+                    "displayname": "Peak Group Set Filename",
                     "searchable": True,
                     "displayed": True,
                     "type": "string",
@@ -184,8 +89,8 @@ class PeakDataFormat(Format):
         },
         "CompoundSynonym": {
             "model": "CompoundSynonym",
-            "path": "peak_group__compounds__synonyms",
-            "reverse_path": "compound__peak_groups__peak_data",
+            "path": "compounds__synonyms",
+            "reverse_path": "compound__peak_groups",
             "manytomany": {
                 "is": True,
                 "split_rows": False,
@@ -206,146 +111,55 @@ class PeakDataFormat(Format):
                 },
             },
         },
-        "PeakGroupSet": {
-            "model": "PeakGroupSet",
-            "path": "peak_group__peak_group_set",
-            "reverse_path": "peak_groups__peak_data",
+        "PeakGroup": {
+            "model": "PeakGroup",
+            "path": "",
+            "reverse_path": "",
             "manytomany": {
                 "is": False,
                 "split_rows": False,
             },
             "fields": {
                 "id": {
-                    "displayname": "(Internal) Peak Group Set Index",  # Used in link
-                    "searchable": True,
-                    "displayed": False,
-                    "handoff": "filename",  # This is the field that will be loaded in the search form
-                    "type": "number",
-                },
-                "filename": {
-                    "displayname": "Peak Group Set Filename",
-                    "searchable": True,
-                    "displayed": True,
-                    "type": "string",
-                },
-            },
-        },
-        "Sample": {
-            "model": "Sample",
-            "path": "peak_group__msrun__sample",
-            "reverse_path": "msruns__peak_groups__peak_data",
-            "manytomany": {
-                "is": False,
-                "split_rows": False,
-            },
-            "fields": {
-                "id": {
-                    "displayname": "(Internal) Sample Index",  # Used in link
-                    "searchable": True,
-                    "displayed": False,
-                    "type": "number",
-                    "handoff": "name",
-                },
-                "name": {
-                    "displayname": "Sample",
-                    "searchable": True,
-                    "displayed": True,
-                    "type": "string",
-                },
-            },
-        },
-        "Tissue": {
-            "model": "Tissue",
-            "path": "peak_group__msrun__sample__tissue",
-            "reverse_path": "samples__msruns__peak_groups__peak_data",
-            "manytomany": {
-                "is": False,
-                "split_rows": False,
-            },
-            "fields": {
-                "id": {
-                    "displayname": "Tissue",
-                    "searchable": True,
-                    "displayed": False,
-                    "type": "number",
-                    "handoff": "name",
-                },
-                "name": {
-                    "displayname": "Tissue",
-                    "searchable": True,
-                    "displayed": True,
-                    "type": "string",
-                },
-            },
-        },
-        "Animal": {
-            "model": "Animal",
-            "path": "peak_group__msrun__sample__animal",
-            "reverse_path": "samples__msruns__peak_groups__peak_data",
-            "manytomany": {
-                "is": False,
-                "split_rows": False,
-            },
-            "fields": {
-                "id": {
-                    "displayname": "(Internal) Animal Index",
+                    "displayname": "(Internal) Peak Group Index",
                     "searchable": True,
                     "displayed": False,  # Used in link
                     "handoff": "name",  # This is the field that will be loaded in the search form
                     "type": "number",
                 },
                 "name": {
-                    "displayname": "Animal",
+                    "displayname": "Peak Group",
                     "searchable": True,
                     "displayed": True,
                     "type": "string",
                 },
-                "body_weight": {
-                    "displayname": "Body Weight (g)",
+                "formula": {
+                    "displayname": "Formula",
                     "searchable": True,
+                    "displayed": True,
+                    "type": "string",
+                },
+                "enrichment_fraction": {
+                    "displayname": "Enrichment Fraction",
+                    "searchable": False,  # Cannot search cached property
                     "displayed": True,
                     "type": "number",
                 },
-                "genotype": {
-                    "displayname": "Genotype",
-                    "searchable": True,
-                    "displayed": True,
-                    "type": "string",
-                },
-                "sex": {
-                    "displayname": "Sex",
-                    "searchable": True,
-                    "displayed": True,
-                    "type": "enumeration",
-                    "choices": Animal.SEX_CHOICES,
-                },
-                "age": {
-                    "displayname": "Age (d-hh:mm:ss)",
-                    "searchable": False,
+                "enrichment_abundance": {
+                    "displayname": "Enrichment Abundance",
+                    "searchable": False,  # Cannot search cached property
                     "displayed": True,
                     "type": "number",
                 },
-                "feeding_status": {
-                    "displayname": "Feeding Status",
-                    "searchable": True,
-                    "displayed": True,
-                    "type": "string",
-                },
-                "diet": {
-                    "displayname": "Diet",
-                    "searchable": True,
-                    "displayed": True,
-                    "type": "string",
-                },
-                "tracer_infusion_concentration": {
-                    "displayname": "Tracer Infusion Concentration (mM)",
-                    "searchable": True,
+                "total_abundance": {
+                    "displayname": "Total Abundance",
+                    "searchable": False,  # Cannot search cached property
                     "displayed": True,
                     "type": "number",
                 },
-                "tracer_infusion_rate": {
-                    "displayname": "Tracer Infusion Rate (ul/min/g)",
-                    "searchable": True,
+                "normalized_labeling": {
+                    "displayname": "Normalized Labeling",
+                    "searchable": False,  # Cannot search cached property
                     "displayed": True,
                     "type": "number",
                 },
@@ -353,8 +167,8 @@ class PeakDataFormat(Format):
         },
         "Protocol": {
             "model": "Protocol",
-            "path": "peak_group__msrun__sample__animal__treatment",
-            "reverse_path": "animals__samples__msruns__peak_groups__peak_data",
+            "path": "msrun__sample__animal__treatment",
+            "reverse_path": "animals__samples__msruns__peak_groups",
             "manytomany": {
                 "is": False,
                 "split_rows": False,
@@ -375,10 +189,138 @@ class PeakDataFormat(Format):
                 },
             },
         },
+        "Sample": {
+            "model": "Sample",
+            "path": "msrun__sample",
+            "reverse_path": "msruns__peak_groups",
+            "manytomany": {
+                "is": False,
+                "split_rows": False,
+            },
+            "fields": {
+                "id": {
+                    "displayname": "(Internal) Sample Index",
+                    "searchable": True,
+                    "displayed": False,  # Used in link
+                    "handoff": "name",  # This is the field that will be loaded in the search form
+                    "type": "number",
+                },
+                "name": {
+                    "displayname": "Sample",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "string",
+                },
+            },
+        },
+        "Tissue": {
+            "model": "Tissue",
+            "path": "msrun__sample__tissue",
+            "reverse_path": "samples__msruns__peak_groups",
+            "manytomany": {
+                "is": False,
+                "split_rows": False,
+            },
+            "fields": {
+                "id": {
+                    "displayname": "(Internal) Tissue Index",
+                    "searchable": True,
+                    "displayed": False,  # Used in link
+                    "handoff": "name",  # This is the field that will be loaded in the search form
+                    "type": "number",
+                },
+                "name": {
+                    "displayname": "Tissue",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "string",
+                },
+            },
+        },
+        "Animal": {
+            "model": "Animal",
+            "path": "msrun__sample__animal",
+            "reverse_path": "samples__msruns__peak_groups",
+            "manytomany": {
+                "is": False,
+                "split_rows": False,
+            },
+            "fields": {
+                "id": {
+                    "displayname": "(Internal) Animal Index",
+                    "searchable": True,
+                    "displayed": False,  # Used in link
+                    "handoff": "name",  # This is the field that will be loaded in the search form
+                    "type": "number",
+                },
+                "name": {
+                    "displayname": "Animal",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "string",
+                },
+                "genotype": {
+                    "displayname": "Genotype",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "string",
+                },
+                "body_weight": {
+                    "displayname": "Body Weight (g)",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "number",
+                },
+                "age": {
+                    "displayname": "Age (d-hh:mm:ss)",
+                    "searchable": False,  # currently no data available for testing and a bug: issue #180
+                    "displayed": True,
+                    "type": "number",
+                },
+                "sex": {
+                    "displayname": "Sex",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "enumeration",
+                    "choices": Animal.SEX_CHOICES,
+                },
+                "diet": {
+                    "displayname": "Diet",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "string",
+                },
+                "feeding_status": {
+                    "displayname": "Feeding Status",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "string",
+                },
+                "tracer_labeled_atom": {
+                    "displayname": "Tracer Labeled Element",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "enumeration",
+                    "choices": TracerLabeledClass.TRACER_LABELED_ELEMENT_CHOICES,
+                },
+                "tracer_infusion_rate": {
+                    "displayname": "Tracer Infusion Rate (ul/min/g)",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "number",
+                },
+                "tracer_infusion_concentration": {
+                    "displayname": "Tracer Infusion Concentration (mM)",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "number",
+                },
+            },
+        },
         "TracerCompound": {
             "model": "Compound",
-            "path": "peak_group__msrun__sample__animal__tracer_compound",
-            "reverse_path": "animals__samples__msruns__peak_groups__peak_data",
+            "path": "msrun__sample__animal__tracer_compound",
+            "reverse_path": "animals__samples__msruns__peak_groups",
             "manytomany": {
                 "is": False,
                 "split_rows": False,
@@ -399,10 +341,35 @@ class PeakDataFormat(Format):
                 },
             },
         },
+        "MeasuredCompound": {
+            "model": "Compound",
+            "path": "compounds",
+            "reverse_path": "peak_groups",
+            "manytomany": {
+                "is": True,
+                "split_rows": False,
+                "root_annot_fld": "compound",
+            },
+            "fields": {
+                "id": {
+                    "displayname": "(Internal) Measured Compound Index",
+                    "searchable": True,
+                    "displayed": False,  # Used in link
+                    "handoff": "name",  # This is the field that will be loaded in the search form
+                    "type": "number",
+                },
+                "name": {
+                    "displayname": "Measured Compound (Primary Synonym)",
+                    "searchable": True,
+                    "displayed": True,  # Will display due to the handoff
+                    "type": "string",
+                },
+            },
+        },
         "Study": {
             "model": "Study",
-            "path": "peak_group__msrun__sample__animal__studies",
-            "reverse_path": "animals__samples__msruns__peak_groups__peak_data",
+            "path": "msrun__sample__animal__studies",
+            "reverse_path": "animals__samples__msruns__peak_groups",
             "manytomany": {
                 "is": True,
                 "split_rows": False,

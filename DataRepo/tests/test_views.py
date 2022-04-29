@@ -6,9 +6,9 @@ from django.db.models import Q
 from django.test import override_settings, tag
 from django.urls import reverse
 
-from DataRepo.formats.DataRepo.SearchGroup import SearchGroup
-from DataRepo.formats.Format import Format
-from DataRepo.formats.Query import (
+from DataRepo.TMPFMT.DataRepo.SearchGroup import SearchGroup
+from DataRepo.TMPFMT.Format import Format
+from DataRepo.TMPFMT.Query import (
     isQryObjValid,
     isValidQryObjPopulated,
     pathStepToPosGroupType,

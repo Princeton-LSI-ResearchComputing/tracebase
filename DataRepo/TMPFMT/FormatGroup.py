@@ -6,13 +6,7 @@ from django.apps import apps
 from django.db.models import Prefetch
 from django.http import Http404
 
-from DataRepo.formats.Format import Format
-from DataRepo.formats.Query import (
-    constructAdvancedQuery,
-    getNumEmptyQueries,
-    getSelectedFormat,
-    setFirstEmptyQuery,
-)
+from DataRepo.TMPFMT.Format import Format
 
 
 class FormatGroup:
