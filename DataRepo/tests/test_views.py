@@ -9,6 +9,7 @@ from django.urls import reverse
 from DataRepo.formats.DataRepo.SearchGroup import SearchGroup
 from DataRepo.formats.Format import Format
 from DataRepo.formats.Query import (
+    constructAdvancedQuery,
     isQryObjValid,
     isValidQryObjPopulated,
     pathStepToPosGroupType,
@@ -688,8 +689,7 @@ class ViewTests(TracebaseTestCase):
         Test that constructAdvancedQuery returns a correct Q expression
         """
         qry = self.get_advanced_qry()
-        basv_metadata = SearchGroup()
-        q_exp = basv_metadata.constructAdvancedQuery(qry)
+        q_exp = constructAdvancedQuery(qry)
         expected_q = Q(msrun__sample__tissue__name__iexact="Brain")
         self.assertEqual(q_exp, expected_q)
 

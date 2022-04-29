@@ -1,5 +1,6 @@
 from copy import deepcopy
 
+from django.db.models import Q
 from django.http import Http404
 
 
@@ -433,3 +434,73 @@ def getNumEmptyQueriesHelper(filter):
         raise Exception(
             f"Invalid query type {filter['type']}.  Must be either 'query' or 'group'."
         )
+
+
+def getSelectedFormat(qry):
+    return qry["selectedtemplate"]
+
+
+def setSelectedFormat(qry, fmt):
+    qry["selectedtemplate"] = fmt
+    return qry
+
+
+def constructAdvancedQuery(qryRoot):
+    """
+    Turns a qry object into a complex Q object by calling its helper and supplying the selected format's tree.
+    """
+    return constructAdvancedQueryHelper(
+        qryRoot["searches"][qryRoot["selectedtemplate"]]["tree"]
+    )
+
+
+def constructAdvancedQueryHelper(qry):
+    """
+    Recursively build a complex Q object based on a hierarchical tree defining the search terms.
+    """
+
+    if "type" not in qry:
+        print("ERROR: type missing from qry object: ", qry)
+
+    if qry["type"] == "query":
+        cmp = qry["ncmp"].replace("not_", "", 1)
+        negate = cmp != qry["ncmp"]
+
+        # Special case for isnull (ignores qry['val'])
+        if cmp == "isnull":
+            if negate:
+                negate = False
+                qry["val"] = False
+            else:
+                qry["val"] = True
+
+        criteria = {"{0}__{1}".format(qry["fld"], cmp): qry["val"]}
+        if negate is False:
+            return Q(**criteria)
+        else:
+            return ~Q(**criteria)
+
+    elif qry["type"] == "group":
+        q = Q()
+        gotone = False
+        for elem in qry["queryGroup"]:
+            gotone = True
+            if qry["val"] == "all":
+                nq = constructAdvancedQueryHelper(elem)
+                if nq is None:
+                    return None
+                else:
+                    q &= nq
+            elif qry["val"] == "any":
+                nq = constructAdvancedQueryHelper(elem)
+                if nq is None:
+                    return None
+                else:
+                    q |= nq
+            else:
+                return None
+        if not gotone or q is None:
+            return None
+        else:
+            return q
+    return None
