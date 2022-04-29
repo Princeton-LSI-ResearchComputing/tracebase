@@ -3,10 +3,10 @@ from copy import deepcopy
 from django.core.management import call_command
 from django.db.models import F
 
-from DataRepo.TMPFMT.DataRepo.PeakGroupsFormat import PeakGroupsFormat
-from DataRepo.TMPFMT.DataRepo.SearchGroup import SearchGroup
-from DataRepo.TMPFMT.Format import splitCommon, splitPathName
-from DataRepo.TMPFMT.Query import (
+from DataRepo.formats.DataRepo.PeakGroupsFormat import PeakGroupsFormat
+from DataRepo.formats.DataRepo.SearchGroup import SearchGroup
+from DataRepo.formats.Format import splitCommon, splitPathName
+from DataRepo.formats.Query import (
     appendFilterToGroup,
     createFilterCondition,
     createFilterGroup,

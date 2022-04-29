@@ -12,8 +12,8 @@ from django.urls import reverse
 from django.views.generic import DetailView, ListView
 from django.views.generic.edit import FormView
 
-from DataRepo.TMPFMT.DataRepo.SearchGroup import SearchGroup
-from DataRepo.TMPFMT.Query import (
+from DataRepo.formats.DataRepo.SearchGroup import SearchGroup
+from DataRepo.formats.Query import (
     formsetsToDict,
     isQryObjValid,
     isValidQryObjPopulated,

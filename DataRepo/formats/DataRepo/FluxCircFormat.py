@@ -1,4 +1,4 @@
-from DataRepo.TMPFMT.Format import Format
+from DataRepo.formats.Format import Format
 from DataRepo.models import Animal, PeakGroup, Tissue, TracerLabeledClass
 
 
