@@ -405,3 +405,31 @@ def setFirstEmptyQuery(qry_ref, fmt, fld, cmp, val):
     empty_qry["fld"] = fld
     empty_qry["ncmp"] = cmp
     empty_qry["val"] = val
+
+
+def getNumEmptyQueries(qry, fmt):
+    """
+    Takes a qry object and a format and counts the number of empty queries for that format's search tree.
+    """
+    return getNumEmptyQueriesHelper(qry["searches"][fmt]["tree"])
+
+
+def getNumEmptyQueriesHelper(filter):
+    """
+    Takes a "tree" value of 1 format from the rootGroup query object and recursively counts the number of empty
+    queries.
+    """
+    if filter["type"] == "query":
+        # If empty (i.e. val holds an empty string), return 1
+        if not filter["static"] and filter["val"] == "":
+            return 1
+        return 0
+    elif filter["type"] == "group":
+        total_empty = 0
+        for query in filter["queryGroup"]:
+            total_empty += getNumEmptyQueriesHelper(query)
+        return total_empty
+    else:
+        raise Exception(
+            f"Invalid query type {filter['type']}.  Must be either 'query' or 'group'."
+        )
