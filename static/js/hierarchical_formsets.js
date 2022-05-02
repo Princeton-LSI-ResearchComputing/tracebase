@@ -207,7 +207,7 @@ function addSearchFieldForm (myDiv, query, templateId) {
       clones[i].style = 'display:none;'
     }
 
-    // If the query is static (as defined in the compositeviews class), disable its input element
+    // If the query is static (as defined in the Format class), disable its input element
     if (query.static) {
       clones[i].disabled = true
     }
@@ -756,19 +756,19 @@ function saveSearchQueryHierarchyHelper (divElem, path, count, idx, selectedform
           isAll = false
         }
         if (childInputs[i].disabled) {
-          // Form elements that are "static" (see compositeviews.py) are explicitly set as disabled
+          // Form elements that are "static" (see the Format class) are explicitly set as disabled
           // Infer static form by presence of disabled attribute
           staticGroup = true
         }
       } else if (childInputs[i].name.includes('-static')) {
         stcElem = childInputs[i]
       } else if (childInputs[i].disabled) {
-        // Form elements that are "static" (see compositeviews.py) are explicitly set as disabled
+        // Form elements that are "static" (see the Format class) are explicitly set as disabled
         // Infer static search form if any other form element is disabled
         staticForm = true
       }
       if (childInputs[i].disabled) {
-        // Form elements that are "static" (see compositeviews.py) are explicitly set as disabled
+        // Form elements that are "static" (see the Format class) are explicitly set as disabled
         // Remove the disabled attribute so that the data submits
         childInputs[i].removeAttribute('disabled')
       }
