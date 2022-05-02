@@ -81,9 +81,7 @@ class BaseAdvSearchForm(forms.Form):
         super().__init__(*args, **kwargs)
         self.posprefix = self.format_class.id
         self.fields["fld"].choices = self.advsrch_view_class.getAllSearchFieldChoices()
-        self.fields[
-            "ncmp"
-        ].choices = self.format_class.getAllComparisonChoices()
+        self.fields["ncmp"].choices = self.format_class.getAllComparisonChoices()
 
 
 class AdvSearchPeakGroupsForm(BaseAdvSearchForm):
