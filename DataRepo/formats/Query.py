@@ -445,6 +445,51 @@ def setSelectedFormat(qry, fmt):
     return qry
 
 
+def getSearchTree(qry, fmt):
+    return qry["searches"][fmt]["tree"]
+
+
+def isQuery(filter):
+    return filter["type"] == "query"
+
+
+def isQueryGroup(filter):
+    return filter["type"] == "group"
+
+
+def isAllGroup(filter):
+    return filter["val"] == "all"
+
+
+def isAnyGroup(filter):
+    return filter["val"] == "any"
+
+
+def getFilterType(filter):
+    return filter["type"]
+
+
+def getChildren(filter):
+    return filter["queryGroup"]
+
+
+def getValue(filter):
+    return filter["val"]
+
+
+def getComparison(filter):
+    return filter["ncmp"]
+
+
+def getField(filter):
+    return filter["fld"]
+
+
+def setField(filter, fld):
+    filter["fld"] = fld
+    return filter
+
+
 def constructAdvancedQuery(qryRoot):
     """
     Turns a qry object into a complex Q object by calling its helper and supplying the selected format's tree.

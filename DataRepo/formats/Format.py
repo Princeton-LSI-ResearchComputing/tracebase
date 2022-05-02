@@ -4,7 +4,24 @@ from typing import Dict, List, Optional
 from django.apps import apps
 from django.db.models import F, Model
 
-from DataRepo.formats.Query import extractFldPaths, splitCommon, splitPathName
+from DataRepo.formats.Query import (
+    appendFilterToGroup,
+    createFilterCondition,
+    createFilterGroup,
+    extractFldPaths,
+    getChildren,
+    getComparison,
+    getField,
+    getFilterType,
+    getSearchTree,
+    getValue,
+    isAllGroup,
+    isQuery,
+    isQueryGroup,
+    setField,
+    splitCommon,
+    splitPathName,
+)
 
 
 class Format:
@@ -53,21 +70,10 @@ class Format:
             ("isnull", "does not have a value (ie. is None)"),
         ],
     }
-    static_filter = {  # Same as qry['tree']
-        "type": "group",
-        "val": "all",
-        "static": False,
-        "queryGroup": [
-            {
-                "type": "query",
-                "pos": "",
-                "static": False,
-                "ncmp": "",
-                "fld": "",
-                "val": "",
-            },
-        ],
-    }
+    static_filter = appendFilterToGroup(
+        createFilterGroup(),
+        createFilterCondition("", "", ""),
+    )  # Same as qry['tree']
 
     # static_filter example WITH static=True (below).  Note that a non-static empty query must be present in a non-
     # static queryGroup because that is where the user is prompted to add their search.  When static is True, the user
@@ -430,7 +436,7 @@ class Format:
         """
         ret_qry = deepcopy(qry)
         self.reRootQryHelper(
-            ret_qry["searches"][self.id]["tree"], new_root_model_instance_name
+            getSearchTree(ret_qry, self.id), new_root_model_instance_name
         )
         return ret_qry
 
@@ -438,17 +444,17 @@ class Format:
         """
         Recursive helper to reRootQry
         """
-        if subtree["type"] == "group":
-            for child in subtree["queryGroup"]:
+        if isQueryGroup(subtree):
+            for child in getChildren(subtree):
                 self.reRootQryHelper(child, new_root_model_instance_name)
-        elif subtree["type"] == "query":
-            subtree["fld"] = self.reRootFieldPath(
-                subtree["fld"], new_root_model_instance_name
+        elif isQuery(subtree):
+            setField(
+                subtree,
+                self.reRootFieldPath(getField(subtree), new_root_model_instance_name),
             )
         else:
-            raise Exception(
-                f"Qry type: [{subtree['type']}] must be either 'group' or 'query'."
-            )
+            type = getFilterType(subtree)
+            raise Exception(f"Qry type: [{type}] must be either 'group' or 'query'.")
 
     def reRootFieldPath(self, fld, reroot_instance_name):
         """
@@ -591,19 +597,19 @@ class Format:
         annotations, because the Django ORM does not support .distinct(fields).annotate(Count) when duplicate root
         table records exist.
         """
-        if query["type"] == "query":
-            recval = rootrec[field_order.index(query["fld"])]
-            return self.meetsCondition(recval, query["ncmp"], query["val"])
+        if isQuery(query):
+            recval = rootrec[field_order.index(getField(query))]
+            return self.meetsCondition(recval, getComparison(query), getValue(query))
         else:
-            if query["val"] == "all":
-                for subquery in query["queryGroup"]:
+            if isAllGroup(query):
+                for subquery in getChildren(query):
                     if not self.meetsAllConditionsByValList(
                         rootrec, subquery, field_order
                     ):
                         return False
                 return True
             else:
-                for subquery in query["queryGroup"]:
+                for subquery in getChildren(query):
                     if self.meetsAllConditionsByValList(rootrec, subquery, field_order):
                         return True
                 return False
