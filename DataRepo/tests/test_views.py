@@ -717,6 +717,7 @@ class ViewTests(TracebaseTestCase):
         ).prefetch_related(*pf)
         self.assertEqual(cnt, qs.count())
         expected_stats = {
+            "available": True,
             "data": {},
             "populated": False,
             "show": False,
@@ -974,6 +975,7 @@ class ViewTests(TracebaseTestCase):
 
     def getExpectedStats(self):
         return {
+            "available": True,
             "data": {
                 "Animals": {
                     "count": 1,

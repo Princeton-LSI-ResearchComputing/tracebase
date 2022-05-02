@@ -79,7 +79,7 @@
             <hr>
 
             {% if mode != "view" or valid_search %}
-                {% if stats %}
+                {% if stats and stats.available %}
                     {% include "DataRepo/search/results/stats.html" %}
                 {% endif %}
 
