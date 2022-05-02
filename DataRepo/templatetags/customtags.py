@@ -233,7 +233,7 @@ def get_manytomany_rec(mm_set, pk):
     all the records of the mm_set in a list (what you would get from mm_set.all()).
 
     Further explanation...
-    If a M:M related table is marked in compositeviews with split_rows=True, this method identifies the M:M related
+    If a M:M related table is marked in the Format with split_rows=True, this method identifies the M:M related
     record that is associated with the current instance of the root record (which will be a duplicate instance if
     split_rows is True), as if this was a proper SQL left join.  While django always returns every related table record
     associated with every root table record on its key path, this method essentially allows the template to reconstruct
@@ -242,7 +242,7 @@ def get_manytomany_rec(mm_set, pk):
     getFullJoinAnnotations().
 
     It returns a list in each case so that full join can be turned off and on by simply toggling the `split_rows`
-    boolean value in compositeviews.py.
+    boolean value in the Format class.
     """
     if pk != "":
         try:

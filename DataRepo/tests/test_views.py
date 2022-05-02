@@ -2,19 +2,9 @@ import json
 
 from django.conf import settings
 from django.core.management import call_command
-from django.db.models import Q
 from django.test import override_settings, tag
 from django.urls import reverse
 
-from DataRepo.formats.DataRepo.SearchGroup import SearchGroup
-from DataRepo.formats.Format import Format
-from DataRepo.formats.Query import (
-    constructAdvancedQuery,
-    isQryObjValid,
-    isValidQryObjPopulated,
-    pathStepToPosGroupType,
-    rootToFormatInfo,
-)
 from DataRepo.models import (
     Animal,
     Compound,
@@ -467,42 +457,6 @@ class ViewTests(TracebaseTestCase):
             },
         }
 
-    def get_advanced_qry2(self):
-        """
-        Modify the query returned by get_advanced_qry to include search terms on 2 M:M related tables in a sub-group.
-        """
-        qry = self.get_advanced_qry()
-        qry["searches"]["pgtemplate"]["tree"]["queryGroup"][0][
-            "fld"
-        ] = "msrun__sample__name"
-        qry["searches"]["pgtemplate"]["tree"]["queryGroup"][0]["val"] = "BAT-xz971"
-        qry["searches"]["pgtemplate"]["tree"]["queryGroup"].append(
-            {
-                "type": "group",
-                "val": "all",
-                "static": False,
-                "queryGroup": [
-                    {
-                        "type": "query",
-                        "pos": "",
-                        "static": False,
-                        "ncmp": "iexact",
-                        "fld": "msrun__sample__animal__studies__name",
-                        "val": "obob_fasted",
-                    },
-                    {
-                        "type": "query",
-                        "pos": "",
-                        "static": False,
-                        "ncmp": "iexact",
-                        "fld": "compounds__synonyms__name",
-                        "val": "glucose",
-                    },
-                ],
-            }
-        )
-        return qry
-
     def test_search_advanced_valid(self):
         """
         Do a simple advanced search and make sure the results are correct
@@ -532,42 +486,6 @@ class ViewTests(TracebaseTestCase):
         self.assertEqual(len(response.context["res"]), 0)
         self.assertEqual(response.context["qry"], qry)
 
-    def test_pathStepToPosGroupType_inner_node(self):
-        """
-        Convert "0-all" to [0, "all"]
-        """
-        [pos, gtype, static] = pathStepToPosGroupType("0-all-True")
-        self.assertEqual(pos, 0)
-        self.assertEqual(gtype, "all")
-        self.assertTrue(not static)
-
-    def test_pathStepToPosGroupType_leaf_node(self):
-        """
-        Convert "0" to [0, None]
-        """
-        [pos, gtype, static] = pathStepToPosGroupType("0")
-        self.assertEqual(pos, 0)
-        self.assertEqual(gtype, None)
-        self.assertEqual(static, False)
-
-    def test_rootToFormatInfo_selected(self):
-        """
-        Convert "pgtemplate-PeakGroups-selected" to ["pgtemplate", "PeakGroups", True]
-        """
-        [format, name, sel] = rootToFormatInfo("pgtemplate-PeakGroups-selected")
-        self.assertEqual(format, "pgtemplate")
-        self.assertEqual(name, "PeakGroups")
-        self.assertEqual(sel, True)
-
-    def test_rootToFormatInfo_unselected(self):
-        """
-        Convert "pdtemplate-PeakData" to ["pdtemplate", "PeakData", False]
-        """
-        [format, name, sel] = rootToFormatInfo("pdtemplate-PeakData")
-        self.assertEqual(format, "pdtemplate")
-        self.assertEqual(name, "PeakData")
-        self.assertEqual(sel, False)
-
     def test_search_advanced_tsv(self):
         """
         Download a simple advanced search and make sure the results are correct
@@ -584,336 +502,6 @@ class ViewTests(TracebaseTestCase):
         self.assertTrue("PeakGroups" in contentdisp)
         self.assertTrue(".tsv" in contentdisp)
 
-    def test_getAllBrowseData(self):
-        """
-        Test that test_getAllBrowseData returns all data for the selected format.
-        """
-        basv_metadata = SearchGroup()
-        pf = "msrun__sample__animal__studies"
-        qs = PeakGroup.objects.all().prefetch_related(pf)
-        res, cnt, stats = basv_metadata.getAllBrowseData("pgtemplate")
-        self.assertEqual(cnt, qs.count())
-
-    def get_basic_qry_inputs(self):
-        qs = PeakGroup.objects.all().prefetch_related("msrun__sample__animal__studies")
-        tval = str(qs[0].msrun.sample.animal.studies.all()[0].id)
-        empty_tree = {
-            "type": "group",
-            "val": "all",
-            "static": False,
-            "queryGroup": [
-                {
-                    "type": "query",
-                    "pos": "",
-                    "static": False,
-                    "ncmp": "",
-                    "fld": "",
-                    "val": "",
-                }
-            ],
-        }
-        qry = {
-            "selectedtemplate": "pgtemplate",
-            "searches": {
-                "pgtemplate": {
-                    "name": "PeakGroups",
-                    "tree": {
-                        "type": "group",
-                        "val": "all",
-                        "static": False,
-                        "queryGroup": [
-                            {
-                                "type": "query",
-                                "pos": "",
-                                "static": False,
-                                "ncmp": "iexact",
-                                "fld": "msrun__sample__animal__studies__name",
-                                "val": "obob_fasted",
-                            }
-                        ],
-                    },
-                },
-                "pdtemplate": {"name": "PeakData", "tree": empty_tree},
-                "fctemplate": {"name": "Fcirc", "tree": empty_tree},
-            },
-        }
-        return tval, qry
-
-    def test_createNewBasicQuery(self):
-        """
-        Test createNewBasicQuery creates a correct qry
-        """
-        tval, qry = self.get_basic_qry_inputs()
-        basv_metadata = SearchGroup()
-        mdl = "Study"
-        fld = "id"
-        cmp = "iexact"
-        val = tval
-        fmt = "pgtemplate"
-        newqry = basv_metadata.createNewBasicQuery(mdl, fld, cmp, val, fmt)
-        self.maxDiff = None
-        self.assertEqual(newqry, qry)
-
-    def test_searchFieldToDisplayField(self):
-        """
-        Test that searchFieldToDisplayField converts Study.id to Study.name
-        """
-        [tval, qry] = self.get_basic_qry_inputs()
-        qry["searches"]["pgtemplate"]["tree"]["queryGroup"][0][
-            "fld"
-        ] = "msrun__sample__animal__studies__id"
-        qry["searches"]["pgtemplate"]["tree"]["queryGroup"][0]["val"] = tval
-        basv_metadata = SearchGroup()
-        mdl = "Study"
-        fld = "id"
-        val = tval
-        dfld, dval = basv_metadata.searchFieldToDisplayField(mdl, fld, val, qry)
-        self.assertEqual(dfld, "name")
-        self.assertEqual(dval, "obob_fasted")
-
-    def test_getJoinedRecFieldValue(self):
-        """
-        Test that getJoinedRecFieldValue gets a value from a joined table
-        """
-        basv_metadata = SearchGroup()
-        fmt = "pgtemplate"
-        mdl = "Animal"
-        fld = "feeding_status"
-        pf = "msrun__sample__animal__studies"
-        recs = PeakGroup.objects.all().prefetch_related(pf)
-        val = basv_metadata.getJoinedRecFieldValue(recs, fmt, mdl, fld, fld, "Fasted")
-        self.assertEqual(val, "Fasted")
-
-    def test_constructAdvancedQuery(self):
-        """
-        Test that constructAdvancedQuery returns a correct Q expression
-        """
-        qry = self.get_advanced_qry()
-        q_exp = constructAdvancedQuery(qry)
-        expected_q = Q(msrun__sample__tissue__name__iexact="Brain")
-        self.assertEqual(q_exp, expected_q)
-
-    def test_performQuery(self):
-        """
-        Test that performQuery returns a correct queryset
-        """
-        qry = self.get_advanced_qry()
-        basv_metadata = SearchGroup()
-        pf = [
-            "msrun__sample__tissue",
-            "msrun__sample__animal__tracer_compound",
-            "msrun__sample__animal__studies",
-        ]
-        res, cnt, stats = basv_metadata.performQuery(
-            qry, "pgtemplate", generate_stats=False
-        )
-        qs = PeakGroup.objects.filter(
-            msrun__sample__tissue__name__iexact="Brain"
-        ).prefetch_related(*pf)
-        self.assertEqual(cnt, qs.count())
-        expected_stats = {
-            "available": True,
-            "data": {},
-            "populated": False,
-            "show": False,
-        }
-        self.assertEqual(stats, expected_stats)
-
-    def test_performQuery_distinct(self):
-        """
-        Test that performQuery returns no duplicate root table records when M:M tables queried with multiple matches.
-        """
-        qry = self.get_advanced_qry2()
-        basv_metadata = SearchGroup()
-        res, cnt, stats = basv_metadata.performQuery(qry, "pgtemplate")
-        qs = (
-            PeakGroup.objects.filter(msrun__sample__name__iexact="BAT-xz971")
-            .filter(msrun__sample__animal__studies__name__iexact="obob_fasted")
-            .filter(compounds__synonyms__name__iexact="glucose")
-        )
-        # Ensure the test is working by ensuring the number of records without distinct is larger
-        self.assertTrue(cnt < qs.count())
-        self.assertEqual(cnt, 1)
-
-    def test_isQryObjValid(self):
-        """
-        Test that isQryObjValid correctly validates a qry object.
-        """
-        qry = self.get_advanced_qry()
-        basv_metadata = SearchGroup()
-        isvalid = isQryObjValid(qry, basv_metadata.getFormatNames().keys())
-        self.assertEqual(isvalid, True)
-        qry.pop("selectedtemplate")
-        isvalid = isQryObjValid(qry, basv_metadata.getFormatNames().keys())
-        self.assertEqual(isvalid, False)
-
-    def test_isValidQryObjPopulated(self):
-        """
-        Test that isValidQryObjPopulated correctly interprets the population of a subgroup.
-        """
-        qry = self.get_advanced_qry2()
-        isvalid = isValidQryObjPopulated(qry)
-        self.assertEqual(isvalid, True)
-        qry["searches"]["pgtemplate"]["tree"]["queryGroup"][1]["queryGroup"] = []
-        isvalid = isValidQryObjPopulated(qry)
-        self.assertEqual(isvalid, False)
-
-    def test_cv_getSearchFieldChoices(self):
-        """
-        Test getSearchFieldChoices
-        """
-        basv_metadata = SearchGroup()
-        fmt = "pgtemplate"
-        res = basv_metadata.getSearchFieldChoices(fmt)
-        choices = (
-            ("msrun__sample__animal__name", "Animal"),
-            ("msrun__sample__animal__body_weight", "Body Weight (g)"),
-            ("msrun__sample__animal__diet", "Diet"),
-            ("msrun__sample__animal__feeding_status", "Feeding Status"),
-            ("formula", "Formula"),
-            ("msrun__sample__animal__genotype", "Genotype"),
-            ("compounds__synonyms__name", "Measured Compound (Any Synonym)"),
-            ("compounds__name", "Measured Compound (Primary Synonym)"),
-            ("name", "Peak Group"),
-            ("peak_group_set__filename", "Peak Group Set Filename"),
-            ("msrun__sample__name", "Sample"),
-            ("msrun__sample__animal__sex", "Sex"),
-            ("msrun__sample__animal__studies__name", "Study"),
-            ("msrun__sample__tissue__name", "Tissue"),
-            (
-                "msrun__sample__animal__tracer_compound__name",
-                "Tracer Compound (Primary Synonym)",
-            ),
-            (
-                "msrun__sample__animal__tracer_infusion_concentration",
-                "Tracer Infusion Concentration (mM)",
-            ),
-            (
-                "msrun__sample__animal__tracer_infusion_rate",
-                "Tracer Infusion Rate (ul/min/g)",
-            ),
-            ("msrun__sample__animal__tracer_labeled_atom", "Tracer Labeled Element"),
-            ("msrun__sample__animal__treatment__name", "Treatment"),
-        )
-        self.assertEqual(res, choices)
-
-    def test_cv_getKeyPathList(self):
-        """
-        Test getKeyPathList
-        """
-        basv_metadata = SearchGroup()
-        fmt = "pgtemplate"
-        mdl = "Animal"
-        res = basv_metadata.getKeyPathList(fmt, mdl)
-        kpl = ["msrun", "sample", "animal"]
-        self.assertEqual(res, kpl)
-
-    def test_cv_getPrefetches(self):
-        """
-        Test getPrefetches
-        """
-        basv_metadata = SearchGroup()
-        fmt = "pgtemplate"
-        res = basv_metadata.getPrefetches(fmt)
-        pfl = [
-            "msrun__sample__animal__tracer_compound",
-            "msrun__sample__animal__treatment",
-            "msrun__sample__animal__studies",
-            "msrun__sample__tissue",
-            "compounds__synonyms",
-            "peak_group_set",
-        ]
-        self.assertEqual(pfl, res)
-
-    def test_cv_getModelInstances(self):
-        """
-        Test getModelInstances
-        """
-        basv_metadata = SearchGroup()
-        fmt = "pgtemplate"
-        res = basv_metadata.getModelInstances(fmt)
-        ml = [
-            "PeakGroupSet",
-            "CompoundSynonym",
-            "PeakGroup",
-            "Protocol",
-            "Sample",
-            "Tissue",
-            "Animal",
-            "TracerCompound",
-            "MeasuredCompound",
-            "Study",
-        ]
-        self.assertEqual(res, ml)
-
-    def test_cv_getSearchFields(self):
-        """
-        Test getSearchFields
-        """
-        basv_metadata = SearchGroup()
-        fmt = "pgtemplate"
-        mdl = "Animal"
-        res = basv_metadata.getSearchFields(fmt, mdl)
-        sfd = {
-            "id": "msrun__sample__animal__id",
-            "name": "msrun__sample__animal__name",
-            "genotype": "msrun__sample__animal__genotype",
-            "body_weight": "msrun__sample__animal__body_weight",
-            "sex": "msrun__sample__animal__sex",
-            "diet": "msrun__sample__animal__diet",
-            "feeding_status": "msrun__sample__animal__feeding_status",
-            "tracer_labeled_atom": "msrun__sample__animal__tracer_labeled_atom",
-            "tracer_infusion_rate": "msrun__sample__animal__tracer_infusion_rate",
-            "tracer_infusion_concentration": "msrun__sample__animal__tracer_infusion_concentration",
-        }
-        self.assertEqual(res, sfd)
-
-    def test_cv_getDisplayFields(self):
-        """
-        Test getDisplayFields
-        """
-        basv_metadata = SearchGroup()
-        fmt = "pgtemplate"
-        mdl = "Animal"
-        res = basv_metadata.getDisplayFields(fmt, mdl)
-        # Note the difference with the 'id' field - which is not a displayed field
-        dfd = {
-            "id": "name",
-            "name": "name",
-            "genotype": "genotype",
-            "body_weight": "body_weight",
-            "age": "age",
-            "sex": "sex",
-            "diet": "diet",
-            "feeding_status": "feeding_status",
-            "tracer_labeled_atom": "tracer_labeled_atom",
-            "tracer_infusion_rate": "tracer_infusion_rate",
-            "tracer_infusion_concentration": "tracer_infusion_concentration",
-        }
-        self.assertEqual(res, dfd)
-
-    def test_cv_getFormatNames(self):
-        """
-        Test getFormatNames
-        """
-        basv_metadata = SearchGroup()
-        res = basv_metadata.getFormatNames()
-        fnd = {
-            "pgtemplate": "PeakGroups",
-            "pdtemplate": "PeakData",
-            "fctemplate": "Fcirc",
-        }
-        self.assertEqual(res, fnd)
-
-    def test_cv_formatNameOrKeyToKey(self):
-        """
-        Test formatNameOrKeyToKey
-        """
-        basv_metadata = SearchGroup()
-        fmt = "PeakGroups"
-        res = basv_metadata.formatNameOrKeyToKey(fmt)
-        self.assertEqual(res, "pgtemplate")
-
     def test_validate_files(self):
         """
         Do a file validation test
@@ -924,164 +512,12 @@ class ViewTests(TracebaseTestCase):
             compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
         )
 
-        # Files/inputs we will test
-        animal_sample_dict = {}
-        animal_sample_dict[
-            "data_submission_animal_sample_table.xlsx"
-        ] = "DataRepo/example_data/data_submission_animal_sample_table.xlsx"
-        accucor_dict = {
-            "data_submission_accucor1.xlsx": "DataRepo/example_data/data_submission_accucor1.xlsx",
-            "data_submission_accucor2.xlsx": "DataRepo/example_data/data_submission_accucor2.xlsx",
-        }
+        results, errors = validate_some_files(self)
 
-        # Test the validate_load_files function
-        vo = DataValidationView()
-        [results, valid, errors] = vo.validate_load_files(
-            animal_sample_dict, accucor_dict
-        )
-
-        # Note that even though the Study "Notes" header is missing from the input file, we don't expect to encounter
-        # that error before the researcher warning because that column value is optional
-
-        # Check the sample file details
-        self.assertTrue("data_submission_animal_sample_table.xlsx" in results)
-        self.assertTrue("data_submission_animal_sample_table.xlsx" in errors)
-
-        # The researcher warning technically results in a validation failure (because it's an exception), but it's the
-        # last possible check on the file on purpose so that everything else is guaranteed to be OK
-        self.assertTrue(not valid)
-
-        self.assertEqual(results["data_submission_animal_sample_table.xlsx"], "WARNING")
-        self.assertTrue(len(errors["data_submission_animal_sample_table.xlsx"]) == 1)
-        self.assertTrue(
-            "1 researchers from the sample file: [Anonymous]"
-            in errors["data_submission_animal_sample_table.xlsx"][0]
-        )
-
-        # Check the accucor file details
-        self.assertTrue("data_submission_accucor1.xlsx" in results)
-        self.assertTrue("data_submission_accucor1.xlsx" in errors)
-        self.assertTrue("data_submission_accucor2.xlsx" in results)
-        self.assertTrue("data_submission_accucor2.xlsx" in errors)
         self.assertTrue(len(errors["data_submission_accucor1.xlsx"]) == 0)
         self.assertTrue(len(errors["data_submission_accucor2.xlsx"]) == 0)
         self.assertEqual(results["data_submission_accucor1.xlsx"], "PASSED")
         self.assertEqual(results["data_submission_accucor2.xlsx"], "PASSED")
-
-    def getExpectedStats(self):
-        return {
-            "available": True,
-            "data": {
-                "Animals": {
-                    "count": 1,
-                    "filter": None,
-                    "sample": [
-                        {
-                            "cnt": 2,
-                            "val": "971",
-                        },
-                    ],
-                },
-                "Feeding Statuses": {
-                    "count": 1,
-                    "filter": None,
-                    "sample": [{"cnt": 2, "val": "Fasted"}],
-                },
-                "Infusion Concentrations": {
-                    "count": 1,
-                    "filter": None,
-                    "sample": [{"cnt": 2, "val": "23.2"}],
-                },
-                "Infusion Rates": {
-                    "count": 1,
-                    "filter": None,
-                    "sample": [{"cnt": 2, "val": "0.11"}],
-                },
-                "Labeled Elements": {
-                    "count": 1,
-                    "filter": None,
-                    "sample": [{"cnt": 2, "val": "C"}],
-                },
-                "Measured Compounds": {
-                    "count": 2,
-                    "filter": None,
-                    "sample": [
-                        {"cnt": 1, "val": "glucose"},
-                        {"cnt": 1, "val": "lactate"},
-                    ],
-                },
-                "Samples": {
-                    "count": 1,
-                    "filter": None,
-                    "sample": [{"cnt": 2, "val": "Br-xz971"}],
-                },
-                "Studies": {
-                    "count": 1,
-                    "filter": None,
-                    "sample": [{"cnt": 2, "val": "obob_fasted"}],
-                },
-                "Tissues": {
-                    "count": 1,
-                    "filter": None,
-                    "sample": [{"cnt": 2, "val": "brain"}],
-                },
-                "Tracer Compounds": {
-                    "count": 1,
-                    "filter": None,
-                    "sample": [{"cnt": 2, "val": "lysine"}],
-                },
-            },
-            "populated": True,
-            "show": True,
-        }
-
-    def test_performQueryStats(self):
-        """
-        Test that performQuery returns a correct stats structure
-        """
-        basv = SearchGroup()
-        qry = self.get_advanced_qry()
-        res, cnt, stats = basv.performQuery(qry, "pgtemplate", generate_stats=True)
-        expected_stats = self.getExpectedStats()
-        self.assertEqual(stats, expected_stats)
-
-    def test_getQueryStats(self):
-        """
-        Test that getQueryStats returns a correct stats structure
-        """
-        basv = SearchGroup()
-        qry = self.get_advanced_qry()
-        res, cnt, ignore_stats = basv.performQuery(
-            qry, "pgtemplate", generate_stats=True
-        )
-        got = basv.getQueryStats(res, qry["selectedtemplate"])
-        full_stats = self.getExpectedStats()
-        expected = full_stats["data"]
-        self.assertEqual(got, expected)
-
-
-@tag("search_choices")
-class SearchFieldChoicesTests(TracebaseTestCase):
-    def test_get_all_comparison_choices(self):
-        base_search_view = Format()
-
-        all_ncmp_choices = (
-            ("iexact", "is"),
-            ("not_iexact", "is not"),
-            ("lt", "<"),
-            ("lte", "<="),
-            ("gt", ">"),
-            ("gte", ">="),
-            ("not_isnull", "has a value (ie. is not None)"),
-            ("isnull", "does not have a value (ie. is None)"),
-            ("icontains", "contains"),
-            ("not_icontains", "does not contain"),
-            ("istartswith", "starts with"),
-            ("not_istartswith", "does not start with"),
-            ("iendswith", "ends with"),
-            ("not_iendswith", "does not end with"),
-        )
-        self.assertEqual(base_search_view.getAllComparisonChoices(), all_ncmp_choices)
 
 
 class ValidationViewTests(TracebaseTestCase):
@@ -1149,45 +585,7 @@ class ValidationViewTests(TracebaseTestCase):
             new_researcher=True,
         )
 
-        # Files/inputs we will test
-        animal_sample_dict = {}
-        animal_sample_dict[
-            "data_submission_animal_sample_table.xlsx"
-        ] = "DataRepo/example_data/data_submission_animal_sample_table.xlsx"
-        accucor_dict = {
-            "data_submission_accucor1.xlsx": "DataRepo/example_data/data_submission_accucor1.xlsx",
-            "data_submission_accucor2.xlsx": "DataRepo/example_data/data_submission_accucor2.xlsx",
-        }
-
-        # Test the validate_load_files function
-        vo = DataValidationView()
-        [results, valid, errors] = vo.validate_load_files(
-            animal_sample_dict, accucor_dict
-        )
-
-        # Note that even though the Study "Notes" header is missing from the input file, we don't expect to encounter
-        # that error before the researcher warning because that column value is optional
-
-        # Check the sample file details
-        self.assertTrue("data_submission_animal_sample_table.xlsx" in results)
-        self.assertTrue("data_submission_animal_sample_table.xlsx" in errors)
-
-        # The researcher warning technically results in a validation failure (because it's an exception), but it's the
-        # last possible check on the file on purpose so that everything else is guaranteed to be OK
-        self.assertTrue(not valid)
-
-        self.assertEqual(results["data_submission_animal_sample_table.xlsx"], "WARNING")
-        self.assertTrue(len(errors["data_submission_animal_sample_table.xlsx"]) == 1)
-        self.assertTrue(
-            "1 researchers from the sample file: [Anonymous]"
-            in errors["data_submission_animal_sample_table.xlsx"][0]
-        )
-
-        # Check the accucor file details
-        self.assertTrue("data_submission_accucor1.xlsx" in results)
-        self.assertTrue("data_submission_accucor1.xlsx" in errors)
-        self.assertTrue("data_submission_accucor2.xlsx" in results)
-        self.assertTrue("data_submission_accucor2.xlsx" in errors)
+        results, errors = validate_some_files(self)
         self.assertTrue(
             len(errors["data_submission_accucor1.xlsx"]) == 0,
             msg=f"Should be no errors, but got [{', '.join(errors['data_submission_accucor1.xlsx'])}]",
@@ -1302,3 +700,45 @@ class ValidationViewTests(TracebaseTestCase):
         """
         response = self.client.get(reverse("validate"), follow=True)
         self.assertTemplateUsed(response, "validation_disabled.html")
+
+
+def validate_some_files(testobj):
+    # Files/inputs we will test
+    animal_sample_dict = {}
+    animal_sample_dict[
+        "data_submission_animal_sample_table.xlsx"
+    ] = "DataRepo/example_data/data_submission_animal_sample_table.xlsx"
+    accucor_dict = {
+        "data_submission_accucor1.xlsx": "DataRepo/example_data/data_submission_accucor1.xlsx",
+        "data_submission_accucor2.xlsx": "DataRepo/example_data/data_submission_accucor2.xlsx",
+    }
+
+    # Test the validate_load_files function
+    vo = DataValidationView()
+    [results, valid, errors] = vo.validate_load_files(animal_sample_dict, accucor_dict)
+
+    # Note that even though the Study "Notes" header is missing from the input file, we don't expect to encounter
+    # that error before the researcher warning because that column value is optional
+
+    # Check the sample file details
+    testobj.assertTrue("data_submission_animal_sample_table.xlsx" in results)
+    testobj.assertTrue("data_submission_animal_sample_table.xlsx" in errors)
+
+    # The researcher warning technically results in a validation failure (because it's an exception), but it's the
+    # last possible check on the file on purpose so that everything else is guaranteed to be OK
+    testobj.assertTrue(not valid)
+
+    testobj.assertEqual(results["data_submission_animal_sample_table.xlsx"], "WARNING")
+    testobj.assertTrue(len(errors["data_submission_animal_sample_table.xlsx"]) == 1)
+    testobj.assertTrue(
+        "1 researchers from the sample file: [Anonymous]"
+        in errors["data_submission_animal_sample_table.xlsx"][0]
+    )
+
+    # Check the accucor file details
+    testobj.assertTrue("data_submission_accucor1.xlsx" in results)
+    testobj.assertTrue("data_submission_accucor1.xlsx" in errors)
+    testobj.assertTrue("data_submission_accucor2.xlsx" in results)
+    testobj.assertTrue("data_submission_accucor2.xlsx" in errors)
+
+    return results, errors
