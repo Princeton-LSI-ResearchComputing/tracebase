@@ -657,6 +657,7 @@ class FormatGroup:
                         ):
                             stats[statskey]["count"] += 1
                             if valcombo not in cnt_dict[statskey]:
+                                cnt_dict[statskey][valcombo] = {}
                                 cnt_dict[statskey][valcombo][reccombo] = 1
                             else:
                                 cnt_dict[statskey][valcombo][reccombo] = 1
