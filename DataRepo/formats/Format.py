@@ -535,7 +535,9 @@ class Format:
             return mdl._meta.__dict__["ordering"]
         return []
 
-    def getDistinctFields(self, order_by=None, assume_distinct=True):
+    def getDistinctFields(
+        self, order_by=None, assume_distinct=True, included_paths=None
+    ):
         """
         Puts together fields required by queryset.distinct() based on the value of each model instance's split_rows
         state.  split_rows=True allows us to choose whether the output rows in the html results template will contain
@@ -554,7 +556,11 @@ class Format:
         distinct_fields = []
         for mdl_inst_nm in self.model_instances:
             # We only need to include a field if we want to split
-            if self.model_instances[mdl_inst_nm]["manytomany"]["split_rows"]:
+            if self.model_instances[mdl_inst_nm]["manytomany"]["split_rows"] or (
+                included_paths is not None
+                and self.model_instances[mdl_inst_nm]["manytomany"]["is"]
+                and self.model_instances[mdl_inst_nm]["path"] in included_paths
+            ):
                 # Django's ordering fields are required when any field is provided to .distinct().  Otherwise, you get
                 # the error: `ProgrammingError: SELECT DISTINCT ON expressions must match initial ORDER BY expressions`
                 tmp_distincts = self.getOrderByFields(mdl_inst_nm)

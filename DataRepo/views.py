@@ -263,8 +263,6 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
     # Base Advanced Search Form
     basf = AdvSearchForm()
 
-    fmtkey = basv_metadata.formatNameOrKeyToKey(fmt)
-
     pager = Pager(
         action="/DataRepo/search_advanced/",
         form_id_field="adv_search_page_form",
@@ -283,6 +281,7 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
     )
 
     format_template = "DataRepo/search/query.html"
+    fmtkey = basv_metadata.formatNameOrKeyToKey(fmt)
     if fmtkey is None:
         names = basv_metadata.getFormatNames()
         raise Http404(

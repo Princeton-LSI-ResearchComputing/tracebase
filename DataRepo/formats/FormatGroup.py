@@ -4,6 +4,7 @@ from typing import Dict
 
 from django.apps import apps
 from django.db.models import Prefetch
+from django.db.utils import ProgrammingError
 from django.http import Http404
 
 from DataRepo.formats.Format import Format
@@ -12,6 +13,7 @@ from DataRepo.formats.Query import (
     getNumEmptyQueries,
     getSelectedFormat,
     setFirstEmptyQuery,
+    splitPathName,
 )
 
 
@@ -323,8 +325,12 @@ class FormatGroup:
     def reRootQry(self, fmt, qry, new_root_model_instance_name):
         return self.modeldata[fmt].reRootQry(qry, new_root_model_instance_name)
 
-    def getDistinctFields(self, fmt, order_by=None, assume_distinct=True):
-        return self.modeldata[fmt].getDistinctFields(order_by, assume_distinct)
+    def getDistinctFields(
+        self, fmt, order_by=None, assume_distinct=True, included_paths=None
+    ):
+        return self.modeldata[fmt].getDistinctFields(
+            order_by, assume_distinct, included_paths
+        )
 
     def getFullJoinAnnotations(self, fmt):
         return self.modeldata[fmt].getFullJoinAnnotations()
@@ -474,6 +480,18 @@ class FormatGroup:
         else:
             results = self.getRootQuerySet(fmt).filter(q_exp)
 
+        # Get stats before applying order by and distinct so that unsplit rows can be accurately counted by making all
+        # M:M related tables distinct
+        stats = {
+            "data": {},
+            "populated": generate_stats,
+            "show": False,
+            "available": self.statsAvailable(fmt),
+        }
+        if generate_stats:
+            stats["data"] = self.getQueryStats(results, fmt)
+            stats["show"] = True
+
         # Order by
         if order_by is not None:
             order_by_arg = order_by
@@ -491,16 +509,8 @@ class FormatGroup:
         distinct_fields = self.getDistinctFields(fmt, order_by)
         results = results.distinct(*distinct_fields)
 
-        # Count the total results.  Limit/offset are only used for paging.
+        # Count the total results after employing distinct.  Limit/offset are only used for paging.
         cnt = results.count()
-        stats = {
-            "data": {},
-            "populated": generate_stats,
-            "show": False,
-        }
-        if generate_stats:
-            stats["data"] = self.getQueryStats(results, fmt)
-            stats["show"] = True
 
         # Limit
         if limit is not None:
@@ -552,7 +562,7 @@ class FormatGroup:
     def getQueryStats(self, res, fmt):
         """
         This method takes a queryset (produced by performQuery) and a format (e.g. "pgtemplate") and returns a stats
-        dict keyed on the stat name and containing the counts of  the number of unique values for the fields defined in
+        dict keyed on the stat name and containing the counts of the number of unique values for the fields defined in
         the basic advanced search view object for the supplied template.  E.g. The results contain 5 distinct tissues.
         """
         # Obtain the metadata about what stats we will display
@@ -563,81 +573,123 @@ class FormatGroup:
         # Since `results.values(*distinct_fields).annotate(cnt=Count("pk"))` throws an exception if duplicate records
         # result from the possible use of distinct(fields) in the res sent in, we must mix in the distinct fields that
         # uniquely identify records.
-        fmt_distinct_fields = self.getDistinctFields(fmt, assume_distinct=False)
         stats_fields = [fld for d in params_arrays for fld in d["distincts"]]
-        all_fields = fmt_distinct_fields + stats_fields
+
+        # This extracts a unique list of table paths among the database fields that are included in the stats table.
+        # We will supply it to getDistinctFields to supplement the list of many-to-many tables whose split_rows is true
+        # so that we can get an accurate count of unique field values in M:M records.  This is overkill because we're
+        # supplying all tables included in the stats, most of which are not going to be M:M tables and they will be
+        # ignored.  It would be easier to simply include all M:M tables, but it turns out that Django has a bug in its
+        # distinct SQL construction.  When it goes through compounds (M:M with PeakGroup) and then through
+        # CompoundSynonym (1:M with Compound), it fails to un-alias (or conversely alias) all of the `DISTINCT ON`
+        # fields, and it's check that those fields match the `ORDER BY` fields fails - because one uses an alias and
+        # the other doesn't.  So this is a work-around that happens to work because CompoundSynonym is not among the
+        # stats fields...
+        stats_paths = []
+        for field_path in stats_fields:
+            path, name = splitPathName(field_path)
+            if path not in stats_paths:
+                stats_paths.append(path)
+
+        # These are the distinct fields that that dictate the number of rows in the view's output table
+        fmt_distinct_fields = self.getDistinctFields(fmt, assume_distinct=False)
+        # These are the distinct fields necessary to get an accurate count of unique values
+        all_distinct_fields = self.getDistinctFields(
+            fmt, assume_distinct=False, included_paths=stats_paths
+        )
+        all_fields = all_distinct_fields + stats_fields
         stats = {}
         cnt_dict = {}
 
-        # order_by(*fmt_distinct_fields) and distinct(*fmt_distinct_fields) are required to get accurate row counts,
-        # otherwise, some duplicates will get counted
-        for rec in (
-            res.order_by(*fmt_distinct_fields)
-            .distinct(*fmt_distinct_fields)
-            .values_list(*all_fields)
-        ):
+        try:
+            # order_by(*all_distinct_fields) and distinct(*all_distinct_fields) are required to get accurate row counts,
+            # otherwise, some duplicates will get counted
+            for rec in (
+                res.order_by(*all_distinct_fields)
+                .distinct(*all_distinct_fields)
+                .values_list(*all_fields)
+            ):
+                # This is a combination of field values whose unique count corresponds to the number of output rows of
+                # this format
+                reccombo = ";".join(
+                    # values_list is fast, but can only be indexed by number...
+                    list(str(rec[all_fields.index(fld)]) for fld in fmt_distinct_fields)
+                )
+
+                # For each stats category defined for this format
+                for params in params_arrays:
+
+                    if "delimiter" in params:
+                        delim = params["delimiter"]
+                    else:
+                        delim = " "
+
+                    # Get distinct fields for the count by taking the union of the record-identifying distinct fields
+                    # and the distinct fields whose repeated values we want to count.
+                    distinct_fields = params["distincts"]
+
+                    statskey = params["displayname"]
+                    valcombo = delim.join(
+                        # values_list is fast, but can only be indexed by number...
+                        list(str(rec[all_fields.index(fld)]) for fld in distinct_fields)
+                    )
+
+                    if statskey not in stats:
+                        stats[statskey] = {
+                            "count": 0,
+                            "filter": params["filter"],
+                        }
+                        cnt_dict[statskey] = {}
+
+                    # Update the stats
+                    if params["filter"] is None:
+                        # Count unique and duplicate values
+                        if valcombo not in cnt_dict[statskey]:
+                            cnt_dict[statskey][valcombo] = {}
+                            cnt_dict[statskey][valcombo][reccombo] = 1
+                            stats[statskey]["count"] += 1
+                        else:
+                            cnt_dict[statskey][valcombo][reccombo] = 1
+                    else:
+                        # Count values meeting a criteria/filter
+                        if self.meetsAllConditionsByValList(
+                            fmt, rec, params["filter"], all_fields
+                        ):
+                            stats[statskey]["count"] += 1
+                            if valcombo not in cnt_dict[statskey]:
+                                cnt_dict[statskey][valcombo][reccombo] = 1
+                            else:
+                                cnt_dict[statskey][valcombo][reccombo] = 1
+
             # For each stats category defined for this format
             for params in params_arrays:
-
-                if "delimiter" in params:
-                    delim = params["delimiter"]
-                else:
-                    delim = " "
-
-                # Get distinct fields for the count by taking the union of the record-identifying distinct fields and
-                # the distinct fields whose repeated values we want to count.
-                distinct_fields = params["distincts"]
-
                 statskey = params["displayname"]
-                valcombo = delim.join(
-                    # values_list is fast, but can only be indexed by number...
-                    list(str(rec[all_fields.index(fld)]) for fld in distinct_fields)
+
+                # For the top 10 unique values (delimited-combos), in order of descending number of occurrences
+                top10 = []
+                for valcombo in sorted(
+                    cnt_dict[statskey].keys(),
+                    key=lambda vc: -len(cnt_dict[statskey][vc].keys()),
+                )[0:10]:
+                    top10.append(
+                        {
+                            "val": valcombo,
+                            "cnt": len(cnt_dict[statskey][valcombo].keys()),
+                        }
+                    )
+
+                stats[statskey]["sample"] = top10
+        except ProgrammingError as pe:
+            if len(
+                all_distinct_fields
+            ) > 1 and "SELECT DISTINCT ON expressions must match initial ORDER BY expressions" in str(
+                pe
+            ):
+                raise UnsupportedDistinctCombo(
+                    all_distinct_fields, self.modeldata[fmt].__class__.__name__
                 )
-
-                if statskey not in stats:
-                    stats[statskey] = {
-                        "count": 0,
-                        "filter": params["filter"],
-                    }
-                    cnt_dict[statskey] = {}
-
-                # Update the stats
-                if params["filter"] is None:
-                    # Count unique and duplicate values
-                    if valcombo not in cnt_dict[statskey]:
-                        cnt_dict[statskey][valcombo] = 1
-                        stats[statskey]["count"] += 1
-                    else:
-                        cnt_dict[statskey][valcombo] += 1
-                else:
-                    # Count values meeting a criteria/filter
-                    if self.meetsAllConditionsByValList(
-                        fmt, rec, params["filter"], all_fields
-                    ):
-                        stats[statskey]["count"] += 1
-                        if valcombo not in cnt_dict[statskey]:
-                            cnt_dict[statskey][valcombo] = 1
-                        else:
-                            cnt_dict[statskey][valcombo] += 1
-
-        # For each stats category defined for this format
-        for params in params_arrays:
-            statskey = params["displayname"]
-
-            # For the top 10 unique values (delimited-combos), in order of descending number of occurrences
-            top10 = []
-            # for valcombo in sorted(cnt_dict.keys(), key=lambda x: -cnt_dict[x])[0:10]:
-            for valcombo in sorted(
-                cnt_dict[statskey].keys(), key=lambda vc: -cnt_dict[statskey][vc]
-            )[0:10]:
-                top10.append(
-                    {
-                        "val": valcombo,
-                        "cnt": cnt_dict[statskey][valcombo],
-                    }
-                )
-
-            stats[statskey]["sample"] = top10
+            else:
+                raise pe
 
         return stats
 
@@ -695,3 +747,19 @@ class FormatGroup:
             setFirstEmptyQuery(qry, fmt, target_fld, cmp, target_val)
 
         return qry
+
+
+class UnsupportedDistinctCombo(Exception):
+    def __init__(self, fields, fmt_cls_name):
+        message = (
+            f"Unsupported combination of distinct fields: [{', '.join(fields)}].  This probably arose from "
+            "FormatGroup.getQueryStats(), which compiles a list of distinct fields in many-to-many related tables "
+            f"using the fields found in the stats defined here: [{fmt_cls_name}.stats] and rows that are split in the "
+            f"views defined here: [{fmt_cls_name}.model_instances[*][manytomany][split_rows]].  To fix this error, "
+            f"you either need to remove fields from the [{fmt_cls_name}.stats], or make split_rows false that are "
+            "problematic.  Look for tables in the stats that include multiple many-related tables in its field path "
+            "and remove thos field entries.  The problem stems from a likely distinct SQL generation bug in Django "
+            "when dealing with transiting multiple M:M or 1:M tables int he same path."
+        )
+        super().__init__(message)
+        self.fields = fields

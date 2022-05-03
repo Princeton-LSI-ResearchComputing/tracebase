@@ -668,6 +668,7 @@ class FormatsTests(TracebaseTestCase):
 
     def getExpectedStats(self):
         return {
+            "available": True,
             "data": {
                 "Animals": {
                     "count": 1,
@@ -716,8 +717,8 @@ class FormatsTests(TracebaseTestCase):
                     "count": 2,
                     "filter": None,
                     "sample": [
-                        {"cnt": 1, "val": "obob_fasted"},
-                        {"cnt": 1, "val": "small_obob"},
+                        {"cnt": 2, "val": "obob_fasted"},
+                        {"cnt": 2, "val": "small_obob"},
                     ],
                 },
                 "Tissues": {
@@ -787,6 +788,7 @@ class FormatsTests(TracebaseTestCase):
         ).prefetch_related(*pf)
         self.assertEqual(cnt, qs.count())
         expected_stats = {
+            "available": True,
             "data": {},
             "populated": False,
             "show": False,
