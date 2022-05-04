@@ -3,7 +3,7 @@ from typing import Dict, Optional
 from django import forms
 from django.forms import formset_factory
 
-from DataRepo.formats.data_format import Format
+from DataRepo.formats.dataformat import Format
 from DataRepo.formats.fluxcirc_dataformat import FluxCircFormat
 from DataRepo.formats.peakdata_dataformat import PeakDataFormat
 from DataRepo.formats.peakgroups_dataformat import PeakGroupsFormat

@@ -4,7 +4,7 @@ from django.core.management import call_command
 from django.db.models import F, Q
 from django.test import tag
 
-from DataRepo.formats.data_format import Format, splitCommon, splitPathName
+from DataRepo.formats.dataformat import Format, splitCommon, splitPathName
 from DataRepo.formats.dataformat_group_query import (
     appendFilterToGroup,
     constructAdvancedQuery,
