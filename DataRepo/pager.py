@@ -116,8 +116,7 @@ class Pager:
             self.order_dir_field: order_dir,
         }
         # Set an arbitrary initial value - doesn't matter what
-        if self.form_id_field not in init_dict:
-            init_dict[self.form_id_field] = 1
+        init_dict.setdefault(self.form_id_field, 1)
         if other_field_inits is not None:
             for fld in other_field_inits.keys():
                 init_dict[fld] = other_field_inits[fld]

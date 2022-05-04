@@ -262,9 +262,9 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
 
     pager = Pager(
         action="/DataRepo/search_advanced/",
+        # form_id_field holds the field *name* used to identify the form type in multiforms.py (among other form
+        # submissions on the same page), not a field ID assignment used in  javascript
         form_id_field="paging",  # Must match the "<>_form_valid" and "<>_form_invalid" methods.
-        # ^^ This is the field *name* used to identify the form type in multiforms.py (among other form submissions on
-        # the same page), not a field ID assignment used in  javascript
         rows_per_page_choices=AdvSearchPageForm.ROWS_PER_PAGE_CHOICES,
         page_form_class=AdvSearchPageForm,
         other_field_ids={
@@ -376,9 +376,9 @@ class AdvancedSearchView(MultiFormsView):
 
     pager = Pager(
         action="/DataRepo/search_advanced/",
+        # form_id_field holds the field *name* used to identify the form type in multiforms.py (among other form
+        # submissions on the same page), not a field ID assignment used in  javascript
         form_id_field="paging",  # Must match the "<>_form_valid" and "<>_form_invalid" methods.
-        # ^^ This is the field *name* used to identify the form type in multiforms.py (among other form submissions on
-        # the same page), not a field ID assignment used in  javascript
         rows_per_page_choices=AdvSearchPageForm.ROWS_PER_PAGE_CHOICES,
         page_form_class=AdvSearchPageForm,
         other_field_ids={

@@ -48,20 +48,22 @@ class MultiFormMixin(ContextMixin):
     success_urls: Dict[str, str] = {}
     default_formid_fieldname = "action"
 
+    # identifying_fields: Key is a field name and the value indicates whether to look in form_classes ("individual"),
+    # grouped_forms ("grouped"), or mixed_forms ("mixed") to determine the form type(s)
     identifying_fields: Dict[str, str] = {}
-    # Key is a field name and the value indicates whether to look in form_classes ("individual"), grouped_forms
-    # ("grouped"), or mixed_forms ("mixed") to determine the form type(s)
 
+    # form_classes: Key is the value in the identifying field that defines an individualform.  Value is a form type.
     form_classes: Dict[str, Form] = {}
-    # Key is the value in the identifying field that defines an individualform.  Value is a form type.
 
+    # grouped_forms: Key is the value in the identifying field that defines the group.  Value is a list of form_classes
+    # keys.
     grouped_forms: Dict[str, List] = {}
-    # Key is the value in the identifying field that defines the group.  Value is a list of form_classes keys.
 
+    # mixed_forms: Key is the value in the identifying field that defines the mixed type.  Value is a list of
+    # form_classes keys.  Note, this class does not differentiate the forms in any particular mix.  Each form's
+    # is_valid method must recognize and ignore forms of other types.  All forms in a mixed form type must have the
+    # same fields.
     mixed_forms: Dict[str, List] = {}
-    # Key is the value in the identifying field that defines the mixed type.  Value is a list of form_classes keys.
-    # Note, this class does not differentiate the forms in any particular mix.  Each form's is_valid method must
-    # recognize and ignore forms of other types.  All forms in a mixed form type must have the same fields.
 
     debug = True  # Reports when an expected method is not defined
 
@@ -81,7 +83,7 @@ class MultiFormMixin(ContextMixin):
             and form_class.__name__
             != self.form_classes[identifying_field_name].__name__
         ):
-            raise Exception(
+            raise MultiformIdentifierConflict(
                 f"Identifying form field {identifying_field_name} already exists as a ["
                 f"{self.identifying_fields[identifying_field_name]}] form.  Cannot add an individual form identified "
                 "by the same field name."
@@ -93,7 +95,7 @@ class MultiFormMixin(ContextMixin):
             and form_class.__name__
             != self.form_classes[identifying_field_name].__name__
         ):
-            raise Exception(
+            raise MultiformIdentifierConflict(
                 f"A different form class [{self.form_classes[identifying_field_name].__name__}] already exists under "
                 f"key [{identifying_field_name}].  Cannot add form class [{form_class.__name__}]."
             )
@@ -112,7 +114,7 @@ class MultiFormMixin(ContextMixin):
             identifying_field_name in self.identifying_fields.keys()
             and self.identifying_fields[identifying_field_name] != "grouped"
         ):
-            raise Exception(
+            raise MultiformIdentifierConflict(
                 f"Identifying form field {identifying_field_name} already exists as a ["
                 f"{self.identifying_fields[identifying_field_name]}] form.  Cannot add grouped forms identified by "
                 "the same field name."
@@ -124,7 +126,7 @@ class MultiFormMixin(ContextMixin):
                 key in self.form_classes.keys()
                 and form_classes_dict[key].__name__ != self.form_classes[key].__name__
             ):
-                raise Exception(
+                raise MultiformIdentifierConflict(
                     f"A different form class [{self.form_classes[key].__name__}] already exists under key [{key}].  "
                     f"Cannot add form class [{form_classes_dict[key].__name__}] for group [{identifying_field_name}]."
                 )
@@ -147,7 +149,7 @@ class MultiFormMixin(ContextMixin):
             identifying_field_name in self.identifying_fields.keys()
             and self.identifying_fields[identifying_field_name] != "mixed"
         ):
-            raise Exception(
+            raise MultiformIdentifierConflict(
                 f"Identifying form field {identifying_field_name} already exists as a ["
                 f"{self.identifying_fields[identifying_field_name]}] form.  Cannot add mixed forms identified "
                 "by the same field name."
@@ -159,7 +161,7 @@ class MultiFormMixin(ContextMixin):
                 key in self.form_classes.keys()
                 and form_classes_dict[key].__name__ != self.form_classes[key].__name__
             ):
-                raise Exception(
+                raise MultiformIdentifierConflict(
                     f"A different form class [{self.form_classes[key].__name__}] already exists under key [{key}].  "
                     f"Cannot add form class [{form_classes_dict[key].__name__}]."
                 )
@@ -183,7 +185,7 @@ class MultiFormMixin(ContextMixin):
             for form_key in self.grouped_forms[group_key]:
                 seen_forms[form_key] = 1
                 if form_key not in self.form_classes:
-                    raise Exception(
+                    raise MultiformMissingFormClass(
                         f"Group [{group_key}]'s form key: [{form_key}] is not in the form_classes dict."
                     )
                 else:
@@ -195,7 +197,7 @@ class MultiFormMixin(ContextMixin):
             for form_key in self.mixed_forms[mix_key]:
                 seen_forms[form_key] = 1
                 if form_key not in self.form_classes:
-                    raise Exception(
+                    raise MultiformMissingFormClass(
                         f"Mix [{mix_key}]'s form key: [{form_key}] is not in the form_classes dict."
                     )
                 else:
@@ -242,7 +244,9 @@ class MultiFormMixin(ContextMixin):
         calls = []
         if one_form_name is not None:
             if one_form_name not in forms:
-                raise Exception("Form [{one_form_name}] not in the forms submitted.")
+                raise MultiformFormNotFound(
+                    "Form [{one_form_name}] not in the forms submitted."
+                )
             form_valid_method = "%s_form_valid" % one_form_name
             if hasattr(self, form_valid_method):
                 calls.append([form_valid_method, forms[one_form_name], one_form_name])
@@ -277,17 +281,22 @@ class MultiFormMixin(ContextMixin):
                     f"WARNING: ({','.join(forms.keys())})_form_valid method(s) not found"
                 )
 
+            # If one_form_name has a value but calls is empty, we are here because no calls were idenified (i.e. we're
+            # in the `else` instead of the above `if`).  There was no generic form_valid method, nor was there a
+            # specific method.  Returning (whether the success url is defined or not) implies successful validation, so
+            # it makes no sense.
+            if one_form_name is not None and len(calls) == 0:
+                raise MultiformNoValidationMethodFound(
+                    f"There is neither a specific `{one_form_name}_form_valid` method nor a generic `form_valid` "
+                    f"method to handle form type [{one_form_name}]."
+                )
+
             # Get common success URL for all validated forms
             surl = self.get_success_url()
 
             # if there is a success URL (ignoring potentially multiple success URLs)
             if surl is not None and surl != "":
                 return HttpResponseRedirect(surl)
-
-            if one_form_name is not None:
-                raise Exception(
-                    "There is no `{one_form_name}_form_valid` method for form type [{one_form_name}]."
-                )
 
             # Default to "same/self" view
             return self.render_to_response(self.get_context_data(forms=forms))
@@ -399,7 +408,7 @@ class ProcessMultipleFormsView(ProcessFormView):
                     forms_type = self.identifying_fields[id_field]
                     identifying_field = id_field
                 else:
-                    raise Exception(
+                    raise MultiformAmbiguousFormIdentification(
                         f"Form matches multiple form types: [{identifying_field}] and [{id_field}]"
                     )
         if identifying_field is None and self.default_formid_fieldname in request.POST:
@@ -449,7 +458,7 @@ class ProcessMultipleFormsView(ProcessFormView):
         form_kwargs = self.get_form_kwargs("", True)
         selected_form = form_kwargs["data"][mix_name]
         if selected_form not in self.form_classes:
-            raise Exception(
+            raise MultiformInvalidSelectedMixedFormType(
                 f"Form type [{selected_form}] obtained from form field [{mix_name}] is not in the form_classes dict.  "
                 f"The form type select list must be populated with one of: [{','.join(self.form_classes.keys())}]."
             )
@@ -486,3 +495,27 @@ class MultiFormsView(TemplateResponseMixin, BaseMultipleFormsView):
     """
     A view for displaying several forms, and rendering a template response.
     """
+
+
+class MultiformIdentifierConflict(Exception):
+    pass
+
+
+class MultiformMissingFormClass(Exception):
+    pass
+
+
+class MultiformFormNotFound(Exception):
+    pass
+
+
+class MultiformNoValidationMethodFound(Exception):
+    pass
+
+
+class MultiformAmbiguousFormIdentification(Exception):
+    pass
+
+
+class MultiformInvalidSelectedMixedFormType(Exception):
+    pass
