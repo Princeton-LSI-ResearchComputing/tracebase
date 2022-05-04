@@ -4,7 +4,7 @@ from typing import Dict, List, Optional
 from django.apps import apps
 from django.db.models import F, Model
 
-from DataRepo.formats.DataFormatGroupQuery import (
+from DataRepo.formats.dataformat_group_query import (
     appendFilterToGroup,
     createFilterCondition,
     createFilterGroup,

@@ -12,12 +12,12 @@ from django.urls import reverse
 from django.views.generic import DetailView, ListView
 from django.views.generic.edit import FormView
 
-from DataRepo.formats.DataFormatGroupQuery import (
+from DataRepo.formats.dataformat_group_query import (
     formsetsToDict,
     isQryObjValid,
     isValidQryObjPopulated,
 )
-from DataRepo.formats.SearchGroup import SearchGroup
+from DataRepo.formats.search_group import SearchGroup
 from DataRepo.forms import (
     AdvSearchDownloadForm,
     AdvSearchForm,

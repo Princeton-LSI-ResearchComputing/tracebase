@@ -7,8 +7,8 @@ from django.db.models import Prefetch
 from django.db.utils import ProgrammingError
 from django.http import Http404
 
-from DataRepo.formats.DataFormat import Format
-from DataRepo.formats.DataFormatGroupQuery import (
+from DataRepo.formats.dataformat import Format
+from DataRepo.formats.dataformat_group_query import (
     constructAdvancedQuery,
     getNumEmptyQueries,
     getSelectedFormat,

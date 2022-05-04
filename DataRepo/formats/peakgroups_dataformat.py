@@ -1,4 +1,4 @@
-from DataRepo.formats.DataFormat import Format
+from DataRepo.formats.dataformat import Format
 from DataRepo.models import Animal, PeakGroup, TracerLabeledClass
 
 

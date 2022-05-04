@@ -1,7 +1,7 @@
-from DataRepo.formats.DataFormatGroup import FormatGroup
-from DataRepo.formats.FluxCircFormat import FluxCircFormat
-from DataRepo.formats.PeakDataFormat import PeakDataFormat
-from DataRepo.formats.PeakGroupsFormat import PeakGroupsFormat
+from DataRepo.formats.dataformat_group import FormatGroup
+from DataRepo.formats.fluxcirc_dataformat import FluxCircFormat
+from DataRepo.formats.peakdata_dataformat import PeakDataFormat
+from DataRepo.formats.peakgroups_dataformat import PeakGroupsFormat
 
 
 class SearchGroup(FormatGroup):
