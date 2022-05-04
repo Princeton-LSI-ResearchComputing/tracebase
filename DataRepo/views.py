@@ -264,7 +264,9 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
 
     pager = Pager(
         action="/DataRepo/search_advanced/",
-        form_id_field="adv_search_page_form",
+        # form_id_field holds the field *name* used to identify the form type in multiforms.py (among other form
+        # submissions on the same page), not a field ID assignment used in  javascript
+        form_id_field="paging",  # Must match the "<>_form_valid" and "<>_form_invalid" methods.
         rows_per_page_choices=AdvSearchPageForm.ROWS_PER_PAGE_CHOICES,
         page_form_class=AdvSearchPageForm,
         other_field_ids={
@@ -276,7 +278,6 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
         rows_per_page_field="rows",
         order_by_field="order_by",
         order_dir_field="order_direction",
-        form_name="paging",
     )
 
     format_template = "DataRepo/search/query.html"
@@ -376,7 +377,9 @@ class AdvancedSearchView(MultiFormsView):
 
     pager = Pager(
         action="/DataRepo/search_advanced/",
-        form_id_field="adv_search_page_form",
+        # form_id_field holds the field *name* used to identify the form type in multiforms.py (among other form
+        # submissions on the same page), not a field ID assignment used in  javascript
+        form_id_field="paging",  # Must match the "<>_form_valid" and "<>_form_invalid" methods.
         rows_per_page_choices=AdvSearchPageForm.ROWS_PER_PAGE_CHOICES,
         page_form_class=AdvSearchPageForm,
         other_field_ids={
@@ -388,7 +391,6 @@ class AdvancedSearchView(MultiFormsView):
         rows_per_page_field="rows",
         order_by_field="order_by",
         order_dir_field="order_direction",
-        form_name="paging",
     )
 
     #
@@ -400,10 +402,18 @@ class AdvancedSearchView(MultiFormsView):
 
     # MultiFormView class vars
     template_name = "DataRepo/search/query.html"
-    form_classes = basf.form_classes
     success_url = ""
-    mixedform_selected_formtype = basf.format_select_list_name
-    mixedform_prefix_field = basf.hierarchy_path_field_name
+
+    def __init__(self, *args, **kwargs):
+        # Set up the multiple form types that submit to this view
+        # Add the advanced search forms as a mixed forms type
+        self.add_mixed_forms(
+            # This is the name of the field in the form that identifies the form as belonging to the "mixed" forms type
+            self.basf.format_select_list_name,
+            self.basf.form_classes,
+        )
+        # Add the paging form as an individual form type
+        self.add_individual_form(self.pager.form_id_field, self.pager.page_form_class)
 
     # Override get_context_data to retrieve mode from the query string
     def get_context_data(self, **kwargs):
@@ -427,18 +437,6 @@ class AdvancedSearchView(MultiFormsView):
         self.addInitialContext(context)
 
         return context
-
-    def post(self, request, *args, **kwargs):
-        # TODO: THIS NEEDS TO BE REFACTORED.  SHOULD RELY ON THE POST METHOD IN MULTIFORMS.PY.  SEE THE TODO IN
-        # multiforms.py
-        if request.method == "POST" and self.pager.form_id_field in request.POST:
-            return self._process_individual_form(
-                self.pager.form_name,
-                {self.pager.form_name: self.pager.page_form_class},
-            )
-
-        # This calls the post method in multiforms.py
-        return super().post(request, *args, **kwargs)
 
     def form_invalid(self, formset):
         """
@@ -473,7 +471,7 @@ class AdvancedSearchView(MultiFormsView):
         res = {}
         download_form = {}
 
-        if isQryObjValid(qry, self.form_classes.keys()):
+        if isQryObjValid(qry, self.basf.form_classes.keys()):
             download_form = AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
             rows_per_page = int(
                 self.get_template_cookie(
@@ -530,7 +528,6 @@ class AdvancedSearchView(MultiFormsView):
         return result
 
     # Invalid form whose multiforms given name is "paging" will call this from the post override in multiforms.py
-    # TODO: See Issue #370's comment on this method.
     def paging_form_invalid(self, formset):
         """
         Upon invalid advanced search form submission, rescues the query to add back to the context.
@@ -558,7 +555,6 @@ class AdvancedSearchView(MultiFormsView):
         )
 
     # Valid form whose multiforms given name is "paging" will call this from the post override in multiforms.py
-    # TODO: See Issue #370's comment on this method.
     def paging_form_valid(self, form):
         cform = form.cleaned_data
 
@@ -1255,8 +1251,7 @@ def isQryObjValid(qry, form_class_list):
             ):
                 return False
         return True
-    else:
-        return False
+    return False
 
 
 def isValidQryObjPopulated(qry):
