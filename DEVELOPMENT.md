@@ -6,11 +6,11 @@ This document will serve to guide developers on implementing new code.
 
 ### Procedure
 
-1. `DataRepo/compositeviews.py`
-   - Copy and rename PeakGroupsSearchView and make the following edits
+1. `DataRepo/formats/<format name>DataFormat.py`
+   - Copy and rename PeakGroupsFormat.py and make the following edits
       - Set a new ID and name.
       - Set a root model
-      - Determine the root queryset.  If you don't want the browse functionality to return all records of the root model (e.g. PeakData.objects.all()) (i.e. a filter is required), add a method to the class called getRootQuerySet() that overrides the base class version, and returns the filtered queryset.  See FluxCircSearchView for an example.
+      - Determine the root queryset.  If you don't want the browse functionality to return all records of the root model (e.g. PeakData.objects.all()) (i.e. a filter is required), add a method to the class called getRootQuerySet() that overrides the base class version, and returns the filtered queryset.  See FluxCircFormat.py for an example.
          - Note that if you want your pre-filter to be transparent to the user, you can alternatively override the base class's value for `static_filter`.  Any searches you set there, as the value of the `tree` member of the qry object (see the static_filter commented example), will show in the hierarchical search form, but will not be editable to the user.
       - Fill in the model_instances data: every model, it's path (from the root table to the current table), it's reverse_path (from the current table to the root table), and all its fields.
         (Note that paths (a.k.a. "key paths") use the foreign key names in the models or the "related_name" in the model being linked to.  The forward path does not include the root table and the reverse_path does not include the current table.)
@@ -22,12 +22,12 @@ This document will serve to guide developers on implementing new code.
    - Set each model's manytomany["is"] value as True/False based on whether it is in a many-to-many relationship with the root model.  Any many-to-many relationship on the key path necessitates a many-to-many status for that model instance.  Set each model's manytomany["split_rows"] value as True/False based on whether the template should display a separate row for every root-model/M:M-model combo.
       - A default annotation field (`manytomany["root_annot_fld"]`) will be created that is the lower case version of the M:M model name, but if this causes a conflict with existing root model fields, you can:
          - specify a custom annotation field name by setting `manytomany["root_annot_fld"]`.  E.g. For the MeasureCompound model instance, `manytomany["root_annot_fld"]` is explicitly set to `compound` in the PeakGroupSeachView class.
-   - Add the new class to the for loop in BaseAdvancedSearchView.__init__
+   - Add the new class to the for loop in SearchGroup.__init__
 
 2. `DataRepo/forms.py`
    - Add an import at the top of the class created in step 1 above
    - Copy and rename AdvSearchPeakGroupsForm and:
-      - Set the data member `composite_view_class` to the class from step 1
+      - Set the data member `format_class` to the class from step 1
       - Add the new the new class to the loop in the __init__ function of the AdvSearchForm class.
 
 3. `DataRepo/templates/results/<format name>.html`
@@ -81,22 +81,21 @@ Be careful that the .tsv file has actual tab characters and note that every newl
 
 ## How to add/remove columns to an advanced search output format
 
-1. `DataRepo/compositeviews.py`
-   - Locate the derived class of BaseSearchView for the output format to which you want to add columns and...
-      - If the model exists in the models datamember
-         - Copy one of the existing fields, paste, and edit.  See field editing notes below.
-      - Else (if the model does not exist in the models datamember)
-         - Copy one of the existing models, paste, and edit.
-         - Always include the primary key as a searchable field.
-         - See field editing notes below.
-      - Field editing notes:
-         - Note that all this class does is add the field to the fld field in the search form.  It does not affect the template.
-         - "searchable" should only be False if it is a cached property.  Every visible column should otherwise be searchable.
-         - Use the same display name as is used in the column header.
-         - If a field is not "displayed"...
-            - it will not appear to the user in the fld select list.
-            - When it also *is* searchable, it means that we use this field to link to the advanced search using a primary key or otherwise obfuscated field value (like auto-generated IDs that may not persist between DB rebuilds).
-            - A "handoff" field that specifies how the search form will be pre-filled out must be added.  The handoff field must be unique (or uniquely correspond to the field that is used in the link).
+1. `DataRepo/formats/<format name>DataFormat.py`
+   - If the model exists in the models datamember
+      - Copy one of the existing fields, paste, and edit.  See field editing notes below.
+   - Else (if the model does not exist in the models datamember)
+      - Copy one of the existing models, paste, and edit.
+      - Always include the primary key as a searchable field.
+      - See field editing notes below.
+   - Field editing notes:
+      - Note that all this class does is add the field to the fld field in the search form.  It does not affect the template.
+      - "searchable" should only be False if it is a cached property.  Every visible column should otherwise be searchable.
+      - Use the same display name as is used in the column header.
+      - If a field is not "displayed"...
+         - it will not appear to the user in the fld select list.
+         - When it also *is* searchable, it means that we use this field to link to the advanced search using a primary key or otherwise obfuscated field value (like auto-generated IDs that may not persist between DB rebuilds).
+         - A "handoff" field that specifies how the search form will be pre-filled out must be added.  The handoff field must be unique (or uniquely correspond to the field that is used in the link).
 
 2. `DataRepo/templates/results/<format name>.html`
    - Each template is different, but generally, unless the model doesn't already exist in the template, just add a column to the HTML table.

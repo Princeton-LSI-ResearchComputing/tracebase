@@ -3,13 +3,11 @@ from typing import Dict, Optional
 from django import forms
 from django.forms import formset_factory
 
-from DataRepo.compositeviews import (
-    BaseAdvancedSearchView,
-    BaseSearchView,
-    FluxCircSearchView,
-    PeakDataSearchView,
-    PeakGroupsSearchView,
-)
+from DataRepo.formats.dataformat import Format
+from DataRepo.formats.fluxcirc_dataformat import FluxCircFormat
+from DataRepo.formats.peakdata_dataformat import PeakDataFormat
+from DataRepo.formats.peakgroups_dataformat import PeakGroupsFormat
+from DataRepo.formats.search_group import SearchGroup
 
 # IMPORTANT NOTE ABOUT THE pos & posprefix FIELDS IN EACH AdvSearch FORM CLASSES:
 
@@ -37,15 +35,15 @@ class BaseAdvSearchForm(forms.Form):
     Advanced search form base class that will be used inside a formset.
     """
 
-    # This is the class used to populate posprefix value and the fld choices. composite_view_class is set in the
+    # This is the class used to populate posprefix value and the fld choices. format_class is set in the
     # derived class (not here.  Here, it's just declared for mypy).
-    composite_view_class: BaseSearchView
+    format_class: Format
 
     # This class is used to initialize the fld select list choices to a flat tuple encompassing every format
-    # The format-specific list of fields is pared down by javascript using the composite_view_class above
+    # The format-specific list of fields is pared down by javascript using the format_class above
     # The initial list needs to be comprehensive for form validation so that unselected formats retain their user-
     # selections after a search is peformed.  See issue #229.
-    advsrch_view_class = BaseAdvancedSearchView()
+    advsrch_view_class = SearchGroup()
 
     # See important note above about the pos & posprefix fields above
     posprefix: Optional[str] = None
@@ -81,11 +79,9 @@ class BaseAdvSearchForm(forms.Form):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.posprefix = self.composite_view_class.id
+        self.posprefix = self.format_class.id
         self.fields["fld"].choices = self.advsrch_view_class.getAllSearchFieldChoices()
-        self.fields[
-            "ncmp"
-        ].choices = self.composite_view_class.getAllComparisonChoices()
+        self.fields["ncmp"].choices = self.format_class.getAllComparisonChoices()
 
 
 class AdvSearchPeakGroupsForm(BaseAdvSearchForm):
@@ -93,7 +89,7 @@ class AdvSearchPeakGroupsForm(BaseAdvSearchForm):
     Advanced search form for the peakgroups output format that will be used inside a formset.
     """
 
-    composite_view_class = PeakGroupsSearchView()
+    format_class = PeakGroupsFormat()
 
 
 class AdvSearchPeakDataForm(BaseAdvSearchForm):
@@ -101,7 +97,7 @@ class AdvSearchPeakDataForm(BaseAdvSearchForm):
     Advanced search form for the peakdata output format that will be used inside a formset.
     """
 
-    composite_view_class = PeakDataSearchView()
+    format_class = PeakDataFormat()
 
 
 class AdvSearchFluxCircForm(BaseAdvSearchForm):
@@ -109,7 +105,7 @@ class AdvSearchFluxCircForm(BaseAdvSearchForm):
     Advanced search form for the fcirc output format that will be used inside a formset.
     """
 
-    composite_view_class = FluxCircSearchView()
+    format_class = FluxCircFormat()
 
 
 class AdvSearchForm:
@@ -127,7 +123,7 @@ class AdvSearchForm:
             AdvSearchPeakDataForm(),
             AdvSearchFluxCircForm(),
         ):
-            id = form_class.composite_view_class.id
+            id = form_class.format_class.id
             self.form_classes[id] = formset_factory(form_class.__class__)
 
 
