@@ -1,4 +1,4 @@
-from DataRepo.formats.dataformat import Format
+from DataRepo.formats.data_format import Format
 from DataRepo.formats.dataformat_group_query import (
     appendFilterToGroup,
     createFilterCondition,
