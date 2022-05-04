@@ -3,11 +3,11 @@ from typing import Dict, Optional
 from django import forms
 from django.forms import formset_factory
 
-from DataRepo.formats.DataRepo.FluxCircFormat import FluxCircFormat
-from DataRepo.formats.DataRepo.PeakDataFormat import PeakDataFormat
-from DataRepo.formats.DataRepo.PeakGroupsFormat import PeakGroupsFormat
-from DataRepo.formats.DataRepo.SearchGroup import SearchGroup
-from DataRepo.formats.Format import Format
+from DataRepo.formats.DataFormat import Format
+from DataRepo.formats.FluxCircFormat import FluxCircFormat
+from DataRepo.formats.PeakDataFormat import PeakDataFormat
+from DataRepo.formats.PeakGroupsFormat import PeakGroupsFormat
+from DataRepo.formats.SearchGroup import SearchGroup
 
 # IMPORTANT NOTE ABOUT THE pos & posprefix FIELDS IN EACH AdvSearch FORM CLASSES:
 

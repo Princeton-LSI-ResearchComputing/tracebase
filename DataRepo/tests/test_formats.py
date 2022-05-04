@@ -4,10 +4,8 @@ from django.core.management import call_command
 from django.db.models import F, Q
 from django.test import tag
 
-from DataRepo.formats.DataRepo.PeakGroupsFormat import PeakGroupsFormat
-from DataRepo.formats.DataRepo.SearchGroup import SearchGroup
-from DataRepo.formats.Format import Format, splitCommon, splitPathName
-from DataRepo.formats.Query import (
+from DataRepo.formats.DataFormat import Format, splitCommon, splitPathName
+from DataRepo.formats.DataFormatGroupQuery import (
     appendFilterToGroup,
     constructAdvancedQuery,
     createFilterCondition,
@@ -18,6 +16,8 @@ from DataRepo.formats.Query import (
     pathStepToPosGroupType,
     rootToFormatInfo,
 )
+from DataRepo.formats.PeakGroupsFormat import PeakGroupsFormat
+from DataRepo.formats.SearchGroup import SearchGroup
 from DataRepo.models import PeakGroup
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 

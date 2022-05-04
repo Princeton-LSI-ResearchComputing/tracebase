@@ -7,8 +7,8 @@ from django.db.models import Prefetch
 from django.db.utils import ProgrammingError
 from django.http import Http404
 
-from DataRepo.formats.Format import Format
-from DataRepo.formats.Query import (
+from DataRepo.formats.DataFormat import Format
+from DataRepo.formats.DataFormatGroupQuery import (
     constructAdvancedQuery,
     getNumEmptyQueries,
     getSelectedFormat,
@@ -688,7 +688,7 @@ class FormatGroup:
             ):
                 raise UnsupportedDistinctCombo(
                     all_distinct_fields, self.modeldata[fmt].__class__.__name__
-                )
+                ) from pe
             else:
                 raise pe
 

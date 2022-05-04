@@ -5,7 +5,7 @@ from django.urls import reverse
 from django.utils import dateparse
 from django.utils.html import format_html_join
 
-from DataRepo.formats.DataRepo.SearchGroup import SearchGroup
+from DataRepo.formats.SearchGroup import SearchGroup
 
 register = template.Library()
 

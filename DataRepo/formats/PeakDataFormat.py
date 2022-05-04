@@ -1,5 +1,5 @@
-from DataRepo.formats.Format import Format
-from DataRepo.formats.Query import (
+from DataRepo.formats.DataFormat import Format
+from DataRepo.formats.DataFormatGroupQuery import (
     appendFilterToGroup,
     createFilterCondition,
     createFilterGroup,
