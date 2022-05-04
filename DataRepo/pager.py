@@ -12,7 +12,6 @@ class Pager:
         rows_per_page_field,
         order_by_field,
         order_dir_field,
-        form_name,  # Relies on multiforms
         num_buttons=5,
         other_field_ids=None,  # {fld_name: id}
         # Default form values
@@ -54,7 +53,6 @@ class Pager:
         self.default_rows = default_rows
         self.order_by_field = order_by_field
         self.order_dir_field = order_dir_field
-        self.form_name = form_name
         self.form_id = form_id
 
         self.min_rows_per_page = None
@@ -117,8 +115,8 @@ class Pager:
             self.order_by_field: order_by,
             self.order_dir_field: order_dir,
         }
-        if self.form_id_field not in init_dict:
-            init_dict[self.form_id_field] = 1
+        # Set an arbitrary initial value - doesn't matter what
+        init_dict.setdefault(self.form_id_field, 1)
         if other_field_inits is not None:
             for fld in other_field_inits.keys():
                 init_dict[fld] = other_field_inits[fld]
