@@ -6,7 +6,7 @@ This document will serve to guide developers on implementing new code.
 
 ### Procedure
 
-1. `DataRepo/Formats/DataRepo/<format name>Format.py`
+1. `DataRepo/formats/<format name>DataFormat.py`
    - Copy and rename PeakGroupsFormat.py and make the following edits
       - Set a new ID and name.
       - Set a root model
@@ -81,7 +81,7 @@ Be careful that the .tsv file has actual tab characters and note that every newl
 
 ## How to add/remove columns to an advanced search output format
 
-1. `DataRepo/Formats/DataRepo/<format name>Format.py`
+1. `DataRepo/formats/<format name>DataFormat.py`
    - If the model exists in the models datamember
       - Copy one of the existing fields, paste, and edit.  See field editing notes below.
    - Else (if the model does not exist in the models datamember)
