@@ -1,15 +1,15 @@
 import traceback
-from DataRepo.forms import DataSubmissionValidationForm
-from django.views.generic.edit import FormView
 from typing import List
+
 from django.conf import settings
-from django.shortcuts import redirect
 from django.core.management import call_command
-from DataRepo.utils import ResearcherError
-from DataRepo.utils import MissingSamplesError
+from django.shortcuts import redirect, render
+from django.views.generic.edit import FormView
+
+from DataRepo.forms import DataSubmissionValidationForm
 from DataRepo.models import Compound, CompoundSynonym, Tissue
 from DataRepo.models.utilities import get_all_models
-from django.shortcuts import render
+from DataRepo.utils import MissingSamplesError, ResearcherError
 
 
 class DataValidationView(FormView):

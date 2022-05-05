@@ -1,6 +1,7 @@
-from DataRepo.models import Study
-from django.views.generic import DetailView, ListView
 from django.shortcuts import render
+from django.views.generic import DetailView, ListView
+
+from DataRepo.models import Study
 from DataRepo.utils import QuerysetToPandasDataFrame as qs2df
 
 

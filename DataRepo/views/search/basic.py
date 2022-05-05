@@ -1,8 +1,9 @@
 import json
 
-from django.shortcuts import render
 from django.conf import settings
 from django.http import Http404
+from django.shortcuts import render
+
 from DataRepo.formats.search_group import SearchGroup
 from DataRepo.forms import (
     AdvSearchDownloadForm,

@@ -1,5 +1,6 @@
-from DataRepo.models import MSRun
 from django.views.generic import DetailView, ListView
+
+from DataRepo.models import MSRun
 
 
 class MSRunListView(ListView):

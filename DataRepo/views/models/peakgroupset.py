@@ -1,5 +1,6 @@
-from DataRepo.models import PeakGroupSet
 from django.views.generic import DetailView, ListView
+
+from DataRepo.models import PeakGroupSet
 
 
 class PeakGroupSetListView(ListView):

@@ -1,5 +1,6 @@
-from DataRepo.models import Sample
 from django.views.generic import DetailView, ListView
+
+from DataRepo.models import Sample
 from DataRepo.utils import QuerysetToPandasDataFrame as qs2df
 
 

@@ -1,5 +1,6 @@
-from DataRepo.models import Protocol
 from django.views.generic import DetailView, ListView
+
+from DataRepo.models import Protocol
 
 
 class ProtocolListView(ListView):

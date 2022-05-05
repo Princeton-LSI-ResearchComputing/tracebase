@@ -1,5 +1,6 @@
-from DataRepo.models import Compound, PeakGroup
 from django.views.generic import DetailView, ListView
+
+from DataRepo.models import Compound, PeakGroup
 from DataRepo.utils import QuerysetToPandasDataFrame as qs2df
 
 

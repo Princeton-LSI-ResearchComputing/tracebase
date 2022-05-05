@@ -1,5 +1,6 @@
-from DataRepo.models import Tissue
 from django.views.generic import DetailView, ListView
+
+from DataRepo.models import Tissue
 
 
 class TissueListView(ListView):

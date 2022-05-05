@@ -1,5 +1,6 @@
-from DataRepo.models import Animal
 from django.views.generic import DetailView, ListView
+
+from DataRepo.models import Animal
 from DataRepo.utils import QuerysetToPandasDataFrame as qs2df
 
 

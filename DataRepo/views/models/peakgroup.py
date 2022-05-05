@@ -1,6 +1,7 @@
-from DataRepo.models import PeakGroup, MSRun
-from django.views.generic import DetailView, ListView
 from django.shortcuts import get_object_or_404
+from django.views.generic import DetailView, ListView
+
+from DataRepo.models import MSRun, PeakGroup
 
 
 class PeakGroupListView(ListView):
