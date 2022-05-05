@@ -14,9 +14,9 @@ urlpatterns = [
     ),
     # Remove this when done
     path(
-        "test_barebones_advanced_search/",
-        views.test_barebones_advanced_search,
-        name="test_barebones_advanced_search",
+        "example_barebones_advanced_search/",
+        views.example_barebones_advanced_search,
+        name="example_barebones_advanced_search",
     ),
     path(
         "search_advanced/",
