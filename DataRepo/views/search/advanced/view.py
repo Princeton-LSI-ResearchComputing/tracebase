@@ -172,8 +172,8 @@ class AdvancedSearchView(MultiFormsView):
                 forms=self.form_classes,
                 qry=qry,
                 download_form=download_form,
-                debug=settings.DEBUG,
                 root_group=root_group,
+                debug=settings.DEBUG,
                 pager=self.pager,
                 default_format=self.basv_metadata.default_format,
                 ncmp_choices=self.basv_metadata.getComparisonChoices(),
@@ -208,9 +208,9 @@ class AdvancedSearchView(MultiFormsView):
                 root_group=root_group,
                 default_format=self.basv_metadata.default_format,
                 ncmp_choices=self.basv_metadata.getComparisonChoices(),
-                fld_types=self.basv_metadata.getFieldTypes(),
                 fld_choices=self.basv_metadata.getSearchFieldChoicesDict(),
                 error="All fields are required",  # Unless hacked, this is the only thing that can go wrong
+                fld_types=self.basv_metadata.getFieldTypes(),
             )
         )
 
