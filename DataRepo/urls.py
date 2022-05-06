@@ -12,11 +12,10 @@ urlpatterns = [
         views.search_basic,
         name="search_basic",
     ),
-    # Remove this when done
     path(
-        "example_barebones_advanced_search/",
-        views.example_barebones_advanced_search,
-        name="example_barebones_advanced_search",
+        "static_search_results/",
+        views.view_search_results,
+        name="view_search_results",
     ),
     path(
         "search_advanced/",

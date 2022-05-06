@@ -1,9 +1,5 @@
-from DataRepo.views.loading.submission import upload
-from DataRepo.views.loading.validation import (
-    DataValidationView,
-    validation_disabled,
-)
-from DataRepo.views.models import (
+from .loading import DataValidationView, upload, validation_disabled
+from .models import (
     AnimalDetailView,
     AnimalListView,
     CompoundDetailView,
@@ -25,11 +21,13 @@ from DataRepo.views.models import (
     TissueListView,
     study_summary,
 )
-from DataRepo.views.nav import home
-from DataRepo.views.search.advanced.download import AdvancedSearchTSVView
-from DataRepo.views.search.advanced.view import AdvancedSearchView
-from DataRepo.views.search.basic import search_basic
-from DataRepo.views.search.results import example_barebones_advanced_search
+from .nav import home
+from .search import (
+    AdvancedSearchTSVView,
+    AdvancedSearchView,
+    search_basic,
+    view_search_results,
+)
 
 __all__ = [
     "home",
@@ -37,7 +35,7 @@ __all__ = [
     "DataValidationView",
     "validation_disabled",
     "search_basic",
-    "example_barebones_advanced_search",
+    "view_search_results",
     "AdvancedSearchView",
     "AdvancedSearchTSVView",
     "CompoundListView",

@@ -1,23 +1,13 @@
-from DataRepo.views.models.animal import AnimalDetailView, AnimalListView
-from DataRepo.views.models.compound import CompoundDetailView, CompoundListView
-from DataRepo.views.models.msrun import MSRunDetailView, MSRunListView
-from DataRepo.views.models.peakdata import PeakDataListView
-from DataRepo.views.models.peakgroup import (
-    PeakGroupDetailView,
-    PeakGroupListView,
-)
-from DataRepo.views.models.peakgroupset import (
-    PeakGroupSetDetailView,
-    PeakGroupSetListView,
-)
-from DataRepo.views.models.protocol import ProtocolDetailView, ProtocolListView
-from DataRepo.views.models.sample import SampleDetailView, SampleListView
-from DataRepo.views.models.study import (
-    StudyDetailView,
-    StudyListView,
-    study_summary,
-)
-from DataRepo.views.models.tissue import TissueDetailView, TissueListView
+from .animal import AnimalDetailView, AnimalListView
+from .compound import CompoundDetailView, CompoundListView
+from .msrun import MSRunDetailView, MSRunListView
+from .peakdata import PeakDataListView
+from .peakgroup import PeakGroupDetailView, PeakGroupListView
+from .peakgroupset import PeakGroupSetDetailView, PeakGroupSetListView
+from .protocol import ProtocolDetailView, ProtocolListView
+from .sample import SampleDetailView, SampleListView
+from .study import StudyDetailView, StudyListView, study_summary
+from .tissue import TissueDetailView, TissueListView
 
 __all__ = [
     "CompoundListView",

@@ -1,24 +1,20 @@
 from django.shortcuts import render
 
-from DataRepo.models import PeakGroup
 
-
-# THIS IS JUST AN EXAMPLE to show how to link to one of the advanced search results views
-def example_barebones_advanced_search(request):
+def view_search_results(request, format, queryset):
     """
-    Demonstrates the flexibility added to the advanced search templates
+    Call this to display a queryset in one of the output formats.  Note, this is a static convenience method.  It does
+    not allow the user to refine the search.  To do so would require a qry object.
     """
 
     format_template = "DataRepo/search/query.html"
-
-    res = PeakGroup.objects.filter(name__contains="glut")
 
     return render(
         request,
         format_template,
         {
-            "res": res,
-            "format": "pgtemplate",  # pgtemplate = peakgroups, pdtemplate = peakdata, fctemplate = fcirc
-            "mode": "view",  # This is a new mode that means "I'm only providing a queryset"
+            "res": queryset,
+            "format": format,  # pgtemplate = peakgroups, pdtemplate = peakdata, fctemplate = fcirc
+            "mode": "view",
         },
     )
