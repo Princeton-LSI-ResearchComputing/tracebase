@@ -669,9 +669,7 @@ class FormatGroup:
             ) > 1 and "SELECT DISTINCT ON expressions must match initial ORDER BY expressions" in str(
                 pe
             ):
-                raise UnsupportedDistinctCombo(
-                    all_distinct_fields, self.modeldata[fmt].__class__.__name__
-                ) from pe
+                raise UnsupportedDistinctCombo(all_distinct_fields) from pe
             else:
                 raise pe
 
@@ -734,16 +732,12 @@ class FormatGroup:
 
 
 class UnsupportedDistinctCombo(Exception):
-    def __init__(self, fields, fmt_cls_name):
+    def __init__(self, fields):
         message = (
-            f"Unsupported combination of distinct fields: [{', '.join(fields)}].  This probably arose from "
-            "FormatGroup.getQueryStats(), which compiles a list of distinct fields in many-to-many related tables "
-            f"using the fields found in the stats defined here: [{fmt_cls_name}.stats] and rows that are split in the "
-            f"views defined here: [{fmt_cls_name}.model_instances[*][manytomany][split_rows]].  To fix this error, "
-            f"you either need to remove fields from the [{fmt_cls_name}.stats], or make split_rows false that are "
-            "problematic.  Look for tables in the stats that include multiple many-related tables in its field path "
-            "and remove thos field entries.  The problem stems from a likely distinct SQL generation bug in Django "
-            "when dealing with transiting multiple M:M or 1:M tables int he same path."
+            f"Unsupported combination of distinct fields: [{', '.join(fields)}].  The problem likely stems from the "
+            "usage of field references that are not real database fields, used in both .distinct() and .order_by().  "
+            "Those methods resolve foreign keys (to database fields) in models differently.  Be sure to supply actual "
+            "database fields and not foreign key object references."
         )
         super().__init__(message)
         self.fields = fields
