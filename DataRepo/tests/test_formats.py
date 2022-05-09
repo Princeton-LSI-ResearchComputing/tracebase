@@ -18,7 +18,7 @@ from DataRepo.formats.dataformat_group_query import (
 )
 from DataRepo.formats.peakgroups_dataformat import PeakGroupsFormat
 from DataRepo.formats.search_group import SearchGroup
-from DataRepo.models import PeakGroup
+from DataRepo.models import CompoundSynonym, PeakGroup
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
@@ -379,6 +379,36 @@ class FormatsTests(TracebaseTestCase):
         distincts = basv.getDistinctFields(fmt, order_by)
         expected_distincts = [order_by, "pk", "compounds__name", "compounds__pk"]
         self.assertEqual(distincts, expected_distincts)
+
+    def test_getDistinctFields_split_all(self):
+        """
+        Ensures that meta ordering fields are expanded to real database fields.  I.e. it tests that the third returned
+        field is "compounds__synonyms__compound__name" and not "compounds__synonyms__compound"
+        """
+        pgf = PeakGroupsFormat()
+        self.assertIn(
+            "compound",
+            CompoundSynonym._meta.__dict__["ordering"],
+            msg="CompoundSynonym must have 'compound' in meta.ordering for the next assertion to be meaningful",
+        )
+        distincts = pgf.getDistinctFields(split_all=True)
+        expected_distincts = [
+            "name",
+            "pk",
+            "compounds__synonyms__compound__name",
+            "compounds__synonyms__name",
+            "compounds__synonyms__pk",
+            "compounds__name",
+            "compounds__pk",
+            "msrun__sample__animal__studies__name",
+            "msrun__sample__animal__studies__pk",
+        ]
+        self.assertEqual(distincts, expected_distincts)
+
+    def test_getFKModelName(self):
+        pgf = PeakGroupsFormat()
+        mdl_name = pgf.getFKModelName(CompoundSynonym(), "compound")
+        self.assertEqual(mdl_name, "Compound")
 
     def test_getOrderByFields_instance(self):
         pgsv = PeakGroupsFormat()
