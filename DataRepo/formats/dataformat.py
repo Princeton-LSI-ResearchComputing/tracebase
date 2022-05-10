@@ -531,19 +531,52 @@ class Format:
         # Get a model object
         mdl = apps.get_model("DataRepo", mdl_nm)
 
+        # Retreive any custom ordering
         if "ordering" in mdl._meta.__dict__:
-            return mdl._meta.__dict__["ordering"]
+            # The fields defined in the model's meta ordering - potentially containing non-database field references
+            ordering = mdl._meta.__dict__["ordering"]
+            # We will save the db-only field names here (i.e. no non-DB field references to model objects)
+            db_field_ordering = []
+            # For each order-by field reference
+            for ob_field in ordering:
+                add_flds = []
+                fld = getattr(mdl, ob_field)
+                # If this is a foreign key (i.e. it's a model reference, not an actual DB field)
+                if fld.field.__class__.__name__ == "ForeignKey":
+                    # Get the model name of the linked model
+                    linked_model = self.getFKModelName(mdl, ob_field)
+                    # Recursively get that model's ordering fields
+                    add_flds = self.getOrderByFields(model_name=linked_model)
+                    if len(add_flds) == 0:
+                        # Default when the linking model says to order by an FK that has no custom ordering is to order
+                        # by that model's primary key
+                        db_field_ordering.append(ob_field + "__pk")
+                    else:
+                        # Append each field to the list with the link name prepended
+                        for add_fld in add_flds:
+                            db_field_ordering.append(ob_field + "__" + add_fld)
+                else:
+                    # If it's not a foreign key, just append the field as-is
+                    db_field_ordering.append(ob_field)
+            return db_field_ordering
         return []
 
-    def getDistinctFields(
-        self, order_by=None, assume_distinct=True, included_paths=None
-    ):
+    def getFKModelName(self, mdl, field_ref_name):
+        """
+        Given a model class and the name of a foreign key field, this retrieves the name of the model the foreign key
+        links to
+        """
+        return mdl._meta.get_field(field_ref_name).related_model._meta.model.__name__
+
+    def getDistinctFields(self, order_by=None, assume_distinct=True, split_all=False):
         """
         Puts together fields required by queryset.distinct() based on the value of each model instance's split_rows
-        state.  split_rows=True allows us to choose whether the output rows in the html results template will contain
-        M:M related table values joined in one cell on one row ("merged"), or whether they will be split across
+        state (or if split_all is True).
+
+        split_rows=True in the format allows us to choose whether the output rows in the html results template will
+        contain M:M related table values joined in one cell on one row ("merged"), or whether they will be split across
         multiple rows ("split"), and supplying these fields to distinct ensures that the queryset record count reflects
-        that html table row (split or merged).
+        that html table row (split or merged).  split_all overrides this.
 
         An order_by field (including its key path) is required if the queryset will be non-default ordered, because
         .distinct() requires them to be present.  Otherwise, you will encounter an exception when the queryset is made
@@ -557,9 +590,7 @@ class Format:
         for mdl_inst_nm in self.model_instances:
             # We only need to include a field if we want to split
             if self.model_instances[mdl_inst_nm]["manytomany"]["split_rows"] or (
-                included_paths is not None
-                and self.model_instances[mdl_inst_nm]["manytomany"]["is"]
-                and self.model_instances[mdl_inst_nm]["path"] in included_paths
+                self.model_instances[mdl_inst_nm]["manytomany"]["is"] and split_all
             ):
                 # Django's ordering fields are required when any field is provided to .distinct().  Otherwise, you get
                 # the error: `ProgrammingError: SELECT DISTINCT ON expressions must match initial ORDER BY expressions`
@@ -569,6 +600,8 @@ class Format:
                     distinct_fields.append(fld)
                 # Don't assume the ordering fields are populated/unique, so include the primary key.  Duplicate fields
                 # should be OK (though I haven't tested it).
+                # Note, this assumes that being here means we're in a related table and not the root table, so path is
+                # not an empty string
                 distinct_fields.append(
                     self.model_instances[mdl_inst_nm]["path"] + "__pk"
                 )

@@ -13,7 +13,6 @@ from DataRepo.formats.dataformat_group_query import (
     getNumEmptyQueries,
     getSelectedFormat,
     setFirstEmptyQuery,
-    splitPathName,
 )
 
 
@@ -326,10 +325,10 @@ class FormatGroup:
         return self.modeldata[fmt].reRootQry(qry, new_root_model_instance_name)
 
     def getDistinctFields(
-        self, fmt, order_by=None, assume_distinct=True, included_paths=None
+        self, fmt, order_by=None, assume_distinct=True, split_all=False
     ):
         return self.modeldata[fmt].getDistinctFields(
-            order_by, assume_distinct, included_paths
+            order_by, assume_distinct, split_all
         )
 
     def getFullJoinAnnotations(self, fmt):
@@ -575,27 +574,11 @@ class FormatGroup:
         # uniquely identify records.
         stats_fields = [fld for d in params_arrays for fld in d["distincts"]]
 
-        # This extracts a unique list of table paths among the database fields that are included in the stats table.
-        # We will supply it to getDistinctFields to supplement the list of many-to-many tables whose split_rows is true
-        # so that we can get an accurate count of unique field values in M:M records.  This is overkill because we're
-        # supplying all tables included in the stats, most of which are not going to be M:M tables and they will be
-        # ignored.  It would be easier to simply include all M:M tables, but it turns out that Django has a bug in its
-        # distinct SQL construction.  When it goes through compounds (M:M with PeakGroup) and then through
-        # CompoundSynonym (1:M with Compound), it fails to un-alias (or conversely alias) all of the `DISTINCT ON`
-        # fields, and it's check that those fields match the `ORDER BY` fields fails - because one uses an alias and
-        # the other doesn't.  So this is a work-around that happens to work because CompoundSynonym is not among the
-        # stats fields...
-        stats_paths = []
-        for field_path in stats_fields:
-            path, name = splitPathName(field_path)
-            if path not in stats_paths:
-                stats_paths.append(path)
-
         # These are the distinct fields that that dictate the number of rows in the view's output table
         fmt_distinct_fields = self.getDistinctFields(fmt, assume_distinct=False)
         # These are the distinct fields necessary to get an accurate count of unique values
         all_distinct_fields = self.getDistinctFields(
-            fmt, assume_distinct=False, included_paths=stats_paths
+            fmt, assume_distinct=False, split_all=True
         )
         all_fields = all_distinct_fields + stats_fields
         stats = {}
@@ -686,9 +669,7 @@ class FormatGroup:
             ) > 1 and "SELECT DISTINCT ON expressions must match initial ORDER BY expressions" in str(
                 pe
             ):
-                raise UnsupportedDistinctCombo(
-                    all_distinct_fields, self.modeldata[fmt].__class__.__name__
-                ) from pe
+                raise UnsupportedDistinctCombo(all_distinct_fields) from pe
             else:
                 raise pe
 
@@ -751,16 +732,12 @@ class FormatGroup:
 
 
 class UnsupportedDistinctCombo(Exception):
-    def __init__(self, fields, fmt_cls_name):
+    def __init__(self, fields):
         message = (
-            f"Unsupported combination of distinct fields: [{', '.join(fields)}].  This probably arose from "
-            "FormatGroup.getQueryStats(), which compiles a list of distinct fields in many-to-many related tables "
-            f"using the fields found in the stats defined here: [{fmt_cls_name}.stats] and rows that are split in the "
-            f"views defined here: [{fmt_cls_name}.model_instances[*][manytomany][split_rows]].  To fix this error, "
-            f"you either need to remove fields from the [{fmt_cls_name}.stats], or make split_rows false that are "
-            "problematic.  Look for tables in the stats that include multiple many-related tables in its field path "
-            "and remove thos field entries.  The problem stems from a likely distinct SQL generation bug in Django "
-            "when dealing with transiting multiple M:M or 1:M tables int he same path."
+            f"Unsupported combination of distinct fields: [{', '.join(fields)}].  The problem likely stems from the "
+            "usage of field references that are not real database fields, used in both .distinct() and .order_by().  "
+            "Those methods resolve foreign keys (to database fields) in models differently.  Be sure to supply actual "
+            "database fields and not foreign key object references."
         )
         super().__init__(message)
         self.fields = fields
