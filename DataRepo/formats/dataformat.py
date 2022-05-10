@@ -563,7 +563,7 @@ class Format:
 
     def getFKModelName(self, mdl, field_ref_name):
         """
-        Given a model class and the name of a foreign key field, this retrieves the name of the model the koreign key
+        Given a model class and the name of a foreign key field, this retrieves the name of the model the foreign key
         links to
         """
         return mdl._meta.get_field(field_ref_name).related_model._meta.model.__name__
