@@ -12,6 +12,8 @@ from DataRepo.models.researcher import Researcher
 from DataRepo.models.sample import Sample
 from DataRepo.models.study import Study
 from DataRepo.models.tissue import Tissue
+from DataRepo.models.tracer import Tracer
+from DataRepo.models.tracer_ingredient import TracerIngredient
 
 __all__ = [
     "Animal",
@@ -29,4 +31,8 @@ __all__ = [
     "ElementLabel",
     "PeakDataLabel",
     "HierCachedModel",
+    "TracerLabeledClass",
+    "Tracer",
+    "TracerIngredient",
+    "Infusate",
 ]
