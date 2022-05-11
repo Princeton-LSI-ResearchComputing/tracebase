@@ -13,6 +13,7 @@ from .tissue import Tissue
 from .tracer import Tracer
 from .tracer_ingredient import TracerIngredient
 from .tracer_labeled_class import TracerLabeledClass
+from .label_observation import LabelObservation
 
 __all__ = [
     "Animal",
@@ -31,4 +32,5 @@ __all__ = [
     "Tracer",
     "TracerIngredient",
     "Infusate",
+    "LabelObservation",
 ]
