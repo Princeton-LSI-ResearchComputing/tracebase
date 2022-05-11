@@ -2,7 +2,7 @@ import warnings
 from datetime import timedelta
 
 from django.core.exceptions import ValidationError
-from django.core.validators import MaxValueValidator, MinValueValidator
+from django.core.validators import MinValueValidator
 from django.db import models
 from django.utils.functional import cached_property
 
@@ -28,49 +28,12 @@ class Animal(HierCachedModel, TracerLabeledClass):
         unique=True,
         help_text="A unique name or lab identifier of the source animal for a series of studied samples.",
     )
-    tracer_compound = models.ForeignKey(
-        to="DataRepo.Compound",
-        on_delete=models.RESTRICT,
-        blank=True,
-        null=True,
-        related_name="animals",
-        help_text="The compound which was used as the tracer (i.e. infusate). "
-        "The tracer is the labeled compound that is infused into the animal.",
-    )
-    # NOTE: encoding labeled atom as the atom's symbol, NOT the full element
-    # name, as I have seen in some example files
-    tracer_labeled_atom = models.CharField(
-        max_length=1,
-        null=True,
-        choices=TracerLabeledClass.TRACER_LABELED_ELEMENT_CHOICES,
-        default=TracerLabeledClass.CARBON,
-        blank=True,
-        help_text="The type of atom that is labeled in the tracer compound "
-        '(e.g. "C", "H", "O").',
-    )
-    # NOTE: encoding atom count as an integer, NOT a float, as I have seen in
-    # some example files
-    tracer_labeled_count = models.PositiveSmallIntegerField(
-        null=True,
-        blank=True,
-        validators=[
-            MinValueValidator(1),
-            MaxValueValidator(TracerLabeledClass.MAX_LABELED_ATOMS),
-        ],
-        help_text="The number of labeled atoms (M+) in the tracer compound "
-        "supplied to this animal.",
-    )
     tracer_infusion_rate = models.FloatField(
         null=True,
         blank=True,
         validators=[MinValueValidator(0)],
-        help_text="The rate of tracer infusion in microliters/min/gram of body weight of the animal (ul/min/g).",
-    )
-    tracer_infusion_concentration = models.FloatField(
-        null=True,
-        blank=True,
-        validators=[MinValueValidator(0)],
-        help_text="The millimolar concentration of the tracer in the solution that was infused (mM).",
+        help_text="The rate of infusion of the tracer solution in microliters/min/gram of body weight of the animal "
+        "(ul/min/g).",
     )
     genotype = models.CharField(
         max_length=256, help_text="The laboratory standardized genotype of the animal."

@@ -18,7 +18,10 @@ class TracerLabeledClass:
         (SULFUR, "Sulfur"),
     ]
 
+    MIN_MASS_NUMBER = 1
+    MAX_MASS_NUMBER = 120
     MAX_LABELED_ATOMS = 20
+    MAX_COMPOUND_POSITION = 20
 
     @classmethod
     def tracer_labeled_elements_list(cls):
