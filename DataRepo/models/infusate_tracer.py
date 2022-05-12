@@ -17,6 +17,6 @@ class InfusateTracer(models.Model):
     )
 
     class Meta:
-        verbose_name = "ingredient"
-        verbose_name_plural = "ingredients"
+        verbose_name = "infusate_tracer_link"
+        verbose_name_plural = "infusate_tracer_links"
         ordering = ["infusate", "tracer"]
