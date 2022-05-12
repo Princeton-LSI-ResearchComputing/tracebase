@@ -57,8 +57,8 @@ class Tracer(models.Model, TracerLabeledClass):
             MinValueValidator(TracerLabeledClass.MIN_MASS_NUMBER),
             MaxValueValidator(TracerLabeledClass.MAX_MASS_NUMBER),
         ],
-        help_text="The sum of the number of protons and neutrons of the labeled atom, a.k.a. 'isotope', e.g. Carbon 14.  "
-        "The number of protons identifies the element that this tracer is an isotope of.  The number of neutrons "
+        help_text="The sum of the number of protons and neutrons of the labeled atom, a.k.a. 'isotope', e.g. Carbon "
+        "14.  The number of protons identifies the element that this tracer is an isotope of.  The number of neutrons "
         "in the element equals the number of protons, but in an isotope, the number of neutrons will be less than "
         "or greater than the number of protons.  Note, this differs from the 'atomic number' which indicates the "
         "number of protons only.",
