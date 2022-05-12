@@ -26,8 +26,5 @@ __all__ = [
     "Study",
     "Tissue",
     "TracerLabeledClass",
-    "Tracer",
-    "TracerIngredient",
-    "Infusate",
     "PeakDataLabel",
 ]
