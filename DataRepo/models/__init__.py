@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 from DataRepo.models.animal import Animal
 from DataRepo.models.compound import Compound, CompoundSynonym
 from DataRepo.models.element_label import ElementLabel
@@ -13,7 +14,8 @@ from DataRepo.models.sample import Sample
 from DataRepo.models.study import Study
 from DataRepo.models.tissue import Tissue
 from DataRepo.models.tracer import Tracer
-from DataRepo.models.tracer_ingredient import TracerIngredient
+from DataRepo.models.infusate_tracer import InfusateTracer
+from DataRepo.models.infusate import Infusate
 
 __all__ = [
     "Animal",
@@ -31,8 +33,7 @@ __all__ = [
     "ElementLabel",
     "PeakDataLabel",
     "HierCachedModel",
-    "TracerLabeledClass",
     "Tracer",
-    "TracerIngredient",
+    "InfusateTracer",
     "Infusate",
 ]

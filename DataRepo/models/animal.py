@@ -28,7 +28,16 @@ class Animal(HierCachedModel, ElementLabel):
         unique=True,
         help_text="A unique name or lab identifier of the source animal for a series of studied samples.",
     )
-    tracer_infusion_rate = models.FloatField(
+    infusate = models.ForeignKey(
+        to="DataRepo.Infusate",
+        on_delete=models.RESTRICT,
+        null=True,
+        blank=True,
+        related_name="animal",
+        help_text="The solution infused into the animal containing 1 or more tracer compounds at specific "
+        "concentrations.",
+    )
+    infusion_rate = models.FloatField(
         null=True,
         blank=True,
         validators=[MinValueValidator(0)],
