@@ -2,12 +2,17 @@ from django.db import models
 
 
 class PeakGroupSet(models.Model):
+    """
+    A set of peakgroups derived from a single imported file.  Note that there can be multiple peakgroups from the same
+    sample/msrun, but imported from different files.
+    """
+
     id = models.AutoField(primary_key=True)
     filename = models.CharField(
         max_length=256,
         unique=True,
-        help_text="The unique name of the source-file or dataset containing "
-        "a researcher-defined set of peak groups and their associated data",
+        help_text="The unique name of the source-file or dataset containing a researcher-defined set of peak groups "
+        "and their associated data",
     )
     imported_timestamp = models.DateTimeField(
         auto_now_add=True,

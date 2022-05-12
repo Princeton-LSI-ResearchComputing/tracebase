@@ -4,9 +4,9 @@ from django.db import models
 from .tracer_labeled_class import TracerLabeledClass
 
 
-class LabelObservation(models.Model, TracerLabeledClass):
+class PeakDataLabel(models.Model, TracerLabeledClass):
     """
-    LabelObservation is a single observation of MS-detected labels in measured compounds.
+    PeakDataLabel is a single observation of MS-detected labels in measured compounds.
     """
 
     id = models.AutoField(primary_key=True)
@@ -41,11 +41,11 @@ class LabelObservation(models.Model, TracerLabeledClass):
             MinValueValidator(1),
             MaxValueValidator(TracerLabeledClass.MAX_MASS_NUMBER),
         ],
-        help_text="The sum of the number of protons and neutrons of the labeled atom, a.k.a. 'isotope', e.g. Carbon 14.  "
-        "The number of protons identifies the element that this tracer is an isotope of.  The number of neutrons "
-        "in the element equals the number of protons, but in an isotope, the number of neutrons will be less than "
-        "or greater than the number of protons.  Note, this differs from the 'atomic number' which indicates the "
-        "number of protons only.",
+        help_text="The sum of the number of protons and neutrons of the labeled atom, a.k.a. 'isotope', e.g. Carbon "
+        "14.  The number of protons identifies the element that this tracer is an isotope of.  The number of neutrons "
+        "in the element equals the number of protons, but in an isotope, the number of neutrons will be less than or "
+        "greater than the number of protons.  Note, this differs from the 'atomic number' which indicates the number "
+        "of protons only.",
     )
 
     class Meta:
@@ -56,7 +56,7 @@ class LabelObservation(models.Model, TracerLabeledClass):
         # composite key
         constraints = [
             models.UniqueConstraint(
-                fields=["peak_group", "labeled_element", "labeled_count"],
+                fields=["peak_data", "labeled_element", "labeled_count"],
                 name="unique_peakdata",
             )
         ]
