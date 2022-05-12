@@ -2,6 +2,7 @@ from .animal import Animal
 from .compound import Compound, CompoundSynonym
 from .ms_run import MSRun
 from .peak_data import PeakData
+from .peak_data_label import PeakDataLabel
 from .peak_group import PeakGroup
 from .peak_group_set import PeakGroupSet
 from .protocol import Protocol
@@ -10,7 +11,6 @@ from .sample import Sample
 from .study import Study
 from .tissue import Tissue
 from .tracer_labeled_class import TracerLabeledClass
-from .label_observation import LabelObservation
 
 __all__ = [
     "Animal",
@@ -26,5 +26,8 @@ __all__ = [
     "Study",
     "Tissue",
     "TracerLabeledClass",
-    "LabelObservation",
+    "Tracer",
+    "TracerIngredient",
+    "Infusate",
+    "PeakDataLabel",
 ]
