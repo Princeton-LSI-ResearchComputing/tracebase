@@ -1,6 +1,7 @@
 from django.contrib.postgres.fields import ArrayField
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.utils.functional import cached_property
 
 from .tracer import Tracer
 from .tracer_labeled_class import TracerLabeledClass
@@ -16,15 +17,15 @@ class TracerLabel(models.Model, TracerLabeledClass):
     )
     element = models.CharField(
         max_length=1,
-        null=True,
+        null=False,
+        blank=False,
         choices=TracerLabeledClass.TRACER_LABELED_ELEMENT_CHOICES,
         default=TracerLabeledClass.CARBON,
-        blank=True,
         help_text='The type of atom that is labeled in the tracer compound (e.g. "C", "H", "O").',
     )
     count = models.PositiveSmallIntegerField(
-        null=True,
-        blank=True,
+        null=False,
+        blank=False,
         validators=[
             MinValueValidator(1),
             MaxValueValidator(TracerLabeledClass.MAX_LABELED_ATOMS),
@@ -34,13 +35,16 @@ class TracerLabel(models.Model, TracerLabeledClass):
     )
     positions = ArrayField(
         models.PositiveSmallIntegerField(
-            null=True,
-            blank=True,
+            null=False,
+            blank=False,
             validators=[
                 MinValueValidator(1),
                 MaxValueValidator(TracerLabeledClass.MAX_COMPOUND_POSITION),
             ],
         ),
+        null=True,
+        blank=True,
+        default=list,
         help_text="The known labeled atom positions in the compound.  Note that the number of known labeled positions "
         "must be less than or equal to the labeled_count.",
     )
@@ -70,11 +74,14 @@ class TracerLabel(models.Model, TracerLabeledClass):
         ]
 
     def __str__(self):
-        return str(self.name)
+        return str(self._name)
 
+    @cached_property
     def _name(self):
         # format: `position,position,... - weight element count` (but no spaces) positions optional
         pos_str = ""
-        if len() > 0:
-            pos_str = ",".join(sorted(self.positions)) + "-"
-        return "".join([pos_str, self.mass_number, self.element, self.count])
+        if len(self.positions) > 0:
+            pos_str = (
+                ",".join(list(map(lambda p: str(p), sorted(self.positions)))) + "-"
+            )
+        return "".join([pos_str, str(self.mass_number), self.element, str(self.count)])

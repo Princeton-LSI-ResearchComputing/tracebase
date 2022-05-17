@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils.functional import cached_property
 
 from .tracer_labeled_class import TracerLabeledClass
 
@@ -24,8 +25,16 @@ class Tracer(models.Model, TracerLabeledClass):
         ordering = ["name"]
 
     def __str__(self):
-        return str(self.name)
+        return str(self._name())
 
+    @cached_property
     def _name(self):
         # format: `compound - [ labelname,labelname,... ]` (but no spaces)
-        return self.compound.name + "-[" + ",".join(self.labels.name()) + "]"
+        if self.labels is None or self.labels.count() == 0:
+            return self.compound.name
+        return (
+            self.compound.name
+            + "-["
+            + ",".join(list(map(lambda l: str(l), self.labels.all())))
+            + "]"
+        )
