@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils.functional import cached_property
 
 from .tracer import Tracer
 
@@ -34,11 +35,14 @@ class Infusate(models.Model):
     def __str__(self):
         return str(self.name)
 
+    @cached_property
     def _name(self):
         # Format: `short_name { tracername ; tracername }` (no spaces)
+        if self.tracers is None or self.tracers.count() == 0:
+            return self.short_name
         return (
             self.short_name
             + "{"
-            + "-".join(sorted(map(lambda o: o.name(), self.tracers)))
+            + ";".join(sorted(map(lambda o: o._name, self.tracers.all())))
             + "}"
         )

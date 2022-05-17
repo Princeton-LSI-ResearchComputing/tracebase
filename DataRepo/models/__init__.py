@@ -1,18 +1,19 @@
-from .animal import Animal
-from .compound import Compound, CompoundSynonym
-from .infusate import Infusate
-from .infusate_tracer import InfusateTracer
-from .ms_run import MSRun
-from .peak_data import PeakData
-from .peak_group import PeakGroup
-from .peak_group_set import PeakGroupSet
-from .protocol import Protocol
-from .researcher import Researcher
-from .sample import Sample
-from .study import Study
-from .tissue import Tissue
-from .tracer import Tracer
-from .tracer_labeled_class import TracerLabeledClass
+from DataRepo.models.animal import Animal
+from DataRepo.models.compound import Compound, CompoundSynonym
+from DataRepo.models.infusate import Infusate
+from DataRepo.models.infusate_tracer import InfusateTracer
+from DataRepo.models.ms_run import MSRun
+from DataRepo.models.peak_data import PeakData
+from DataRepo.models.peak_group import PeakGroup
+from DataRepo.models.peak_group_set import PeakGroupSet
+from DataRepo.models.protocol import Protocol
+from DataRepo.models.researcher import Researcher
+from DataRepo.models.sample import Sample
+from DataRepo.models.study import Study
+from DataRepo.models.tissue import Tissue
+from DataRepo.models.tracer import Tracer
+from DataRepo.models.tracer_label import TracerLabel
+from DataRepo.models.tracer_labeled_class import TracerLabeledClass
 
 __all__ = [
     "Animal",
@@ -29,6 +30,7 @@ __all__ = [
     "Tissue",
     "TracerLabeledClass",
     "Tracer",
+    "TracerLabel",
     "InfusateTracer",
     "Infusate",
 ]
