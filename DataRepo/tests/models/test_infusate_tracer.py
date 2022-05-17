@@ -1,7 +1,13 @@
 from django.db.utils import IntegrityError
-from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
-from DataRepo.models import InfusateTracer, Infusate, Tracer, TracerLabel, Compound
+from DataRepo.models import (
+    Compound,
+    Infusate,
+    InfusateTracer,
+    Tracer,
+    TracerLabel,
+)
+from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
 class InfusateTests(TracebaseTestCase):

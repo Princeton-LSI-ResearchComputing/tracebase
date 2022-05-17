@@ -1,6 +1,5 @@
+from DataRepo.models import Compound, Tracer, TracerLabel
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
-
-from DataRepo.models import Tracer, TracerLabel, Compound
 
 
 class TracerLabelTests(TracebaseTestCase):
