@@ -1,3 +1,7 @@
+:root {
+  --nav-bg-color: #d5f5e3;
+}
+
 .nobr {
   white-space: nowrap;
 }
@@ -10,4 +14,14 @@ colgroup.identdata,
 colgroup.datadata,
 colgroup.metadata {
   border: 2px solid black;
+}
+
+.navbar,
+.nav-link,
+.navbar-brand {
+  background-color: var(--nav-bg-color);
+}
+
+body.development > nav.navbar {
+  background-image: url("/static/images/construction.png");
 }
