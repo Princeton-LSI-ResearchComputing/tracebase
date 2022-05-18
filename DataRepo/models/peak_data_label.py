@@ -35,8 +35,8 @@ class PeakDataLabel(models.Model, ElementLabel):
         "presumed compound referred to in the peak group.",
     )
     mass_number = models.PositiveSmallIntegerField(
-        null=True,
-        blank=True,
+        null=False,
+        blank=False,
         validators=[
             MinValueValidator(1),
             MaxValueValidator(ElementLabel.MAX_MASS_NUMBER),
@@ -52,11 +52,9 @@ class PeakDataLabel(models.Model, ElementLabel):
         verbose_name = "label"
         verbose_name_plural = "labels"
         ordering = ["element", "count", "mass_number", "peak_data"]
-
-        # composite key
         constraints = [
             models.UniqueConstraint(
-                fields=["peak_data", "element", "count"],
+                fields=["peak_data", "element", "count", "mass_number"],
                 name="unique_peakdata",
             )
         ]
