@@ -36,7 +36,11 @@
         <title>{% block title %}TraceBase{% endblock %}</title>
     </head>
 
+    {% if DEBUG %}
+    <body class="development">
+    {% else %}
     <body>
+    {% endif %}
 
         {% include 'navbar.html' %}
 
