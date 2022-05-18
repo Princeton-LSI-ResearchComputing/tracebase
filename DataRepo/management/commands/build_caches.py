@@ -1,13 +1,13 @@
 from django.core.cache import cache
 from django.core.management import BaseCommand
 
-from DataRepo.hier_cached_model import (
+from DataRepo.models import Animal, PeakData, PeakGroup, Sample  # noqa: F401
+from DataRepo.models.hier_cached_model import (
     enable_caching_errors,
     enable_caching_retrievals,
     enable_caching_updates,
     get_cached_method_names,
 )
-from DataRepo.models import Animal, PeakData, PeakGroup, Sample  # noqa: F401
 
 # ^^^ Must import every HierCachedModel (because it's eval'd below)
 

@@ -2,10 +2,8 @@ from django.core.validators import MinValueValidator
 from django.db import models
 from django.utils.functional import cached_property
 
-from .tracer_labeled_class import TracerLabeledClass
 
-
-class PeakData(models.Model, TracerLabeledClass):
+class PeakData(models.Model):
     """
     PeakData is a single observation (at the most atomic level) of a MS-detected molecule.
     For example, this could describe the data for M+2 in glucose from mouse 345 brain tissue.

@@ -4,13 +4,13 @@ import warnings
 from django.conf import settings
 from django.core.management import BaseCommand
 
-from DataRepo.hier_cached_model import (
+from DataRepo.models import Animal, PeakData, PeakGroup, Sample  # noqa: F401
+from DataRepo.models.hier_cached_model import (
     disable_caching_retrievals,
     enable_caching_errors,
     enable_caching_retrievals,
     get_cached_method_names,
 )
-from DataRepo.models import Animal, PeakData, PeakGroup, Sample  # noqa: F401
 
 
 def profile():

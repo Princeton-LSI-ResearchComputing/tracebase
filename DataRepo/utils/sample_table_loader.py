@@ -5,11 +5,11 @@ import dateutil.parser  # type: ignore
 import pandas as pd
 from django.conf import settings
 
-from DataRepo.hier_cached_model import (
+from DataRepo.models import Animal, Compound, Protocol, Sample, Study, Tissue
+from DataRepo.models.hier_cached_model import (
     disable_caching_updates,
     enable_caching_updates,
 )
-from DataRepo.models import Animal, Compound, Protocol, Sample, Study, Tissue
 from DataRepo.models.utilities import get_researchers, value_from_choices_label
 from DataRepo.utils.exceptions import (
     HeaderConfigError,
@@ -310,7 +310,7 @@ class SampleTableLoader:
                 if tracer_labeled_elem is not None:
                     tracer_labeled_atom = value_from_choices_label(
                         tracer_labeled_elem,
-                        animal.TRACER_LABELED_ELEMENT_CHOICES,
+                        animal.LABELED_ELEMENT_CHOICES,
                     )
                     animal.tracer_labeled_atom = tracer_labeled_atom
                 tlc = self.getRowVal(

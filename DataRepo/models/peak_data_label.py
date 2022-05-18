@@ -1,10 +1,10 @@
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
-from .tracer_labeled_class import TracerLabeledClass
+from .element_label import ElementLabel
 
 
-class PeakDataLabel(models.Model, TracerLabeledClass):
+class PeakDataLabel(models.Model, ElementLabel):
     """
     PeakDataLabel is a single observation of MS-detected labels in measured compounds.
     """
@@ -16,20 +16,20 @@ class PeakDataLabel(models.Model, TracerLabeledClass):
         null=False,
         related_name="labels",
     )
-    labeled_element = models.CharField(
+    element = models.CharField(
         max_length=1,
-        null=True,
-        choices=TracerLabeledClass.TRACER_LABELED_ELEMENT_CHOICES,
-        default=TracerLabeledClass.CARBON,
-        blank=True,
+        null=False,
+        blank=False,
+        choices=ElementLabel.LABELED_ELEMENT_CHOICES,
+        default=ElementLabel.CARBON,
         help_text='The type of element that is labeled in this observation (e.g. "C", "H", "O").',
     )
-    labeled_count = models.PositiveSmallIntegerField(
-        null=True,
-        blank=True,
+    count = models.PositiveSmallIntegerField(
+        null=False,
+        blank=False,
         validators=[
             MinValueValidator(0),
-            MaxValueValidator(TracerLabeledClass.MAX_LABELED_ATOMS),
+            MaxValueValidator(ElementLabel.MAX_LABELED_ATOMS),
         ],
         help_text="The number of labeled atoms (M+) observed relative to the "
         "presumed compound referred to in the peak group.",
@@ -39,7 +39,7 @@ class PeakDataLabel(models.Model, TracerLabeledClass):
         blank=True,
         validators=[
             MinValueValidator(1),
-            MaxValueValidator(TracerLabeledClass.MAX_MASS_NUMBER),
+            MaxValueValidator(ElementLabel.MAX_MASS_NUMBER),
         ],
         help_text="The sum of the number of protons and neutrons of the labeled atom, a.k.a. 'isotope', e.g. Carbon "
         "14.  The number of protons identifies the element that this tracer is an isotope of.  The number of neutrons "
@@ -49,14 +49,14 @@ class PeakDataLabel(models.Model, TracerLabeledClass):
     )
 
     class Meta:
-        verbose_name = "label observation"
-        verbose_name_plural = "label observations"
-        ordering = ["labeled_element", "labeled_count", "mass_number", "peak_data"]
+        verbose_name = "label"
+        verbose_name_plural = "labels"
+        ordering = ["element", "count", "mass_number", "peak_data"]
 
         # composite key
         constraints = [
             models.UniqueConstraint(
-                fields=["peak_data", "labeled_element", "labeled_count"],
+                fields=["peak_data", "element", "count"],
                 name="unique_peakdata",
             )
         ]
