@@ -14,7 +14,7 @@ from DataRepo.models import (
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
-class PeakDataLabelTests(TracebaseTestCase):
+class PeakDataData(TracebaseTestCase):
     def setUp(self):
         anml = Animal.objects.create(
             name="test_animal",
@@ -59,22 +59,40 @@ class PeakDataLabelTests(TracebaseTestCase):
             med_rt=1.0,
         )
 
+
+class PeakDataTests(PeakDataData):
     def test_record(self):
         rec = PeakData.objects.get(raw_abundance=1000.0)
         rec.full_clean()
 
     def test_multiple_labels(self):
         pd = PeakData.objects.get(raw_abundance=1000.0)
-        pdl1 = PeakDataLabel.objects.create(
+        PeakDataLabel.objects.create(
             peak_data=pd,
             element="C",
             count=5,
             mass_number=13,
         )
-        pdl2 = PeakDataLabel.objects.create(
+        PeakDataLabel.objects.create(
             peak_data=pd,
             element="O",
             count=1,
             mass_number=17,
         )
         self.assertEqual(pd.labels.count(), 2)
+
+
+class PeakDataLabelTests(PeakDataData):
+    def setUp(self):
+        super().setUp()
+        pd = PeakData.objects.get(raw_abundance=1000.0)
+        PeakDataLabel.objects.create(
+            peak_data=pd,
+            element="C",
+            count=5,
+            mass_number=13,
+        )
+
+    def test_record(self):
+        rec = PeakDataLabel.objects.get(element="C")
+        rec.full_clean()
