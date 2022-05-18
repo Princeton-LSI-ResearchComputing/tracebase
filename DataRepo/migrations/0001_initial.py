@@ -2,6 +2,7 @@
 
 import DataRepo.models.element_label
 import datetime
+import django.contrib.postgres.fields
 import django.core.validators
 from django.db import migrations, models
 import django.db.models.deletion
@@ -20,10 +21,7 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.AutoField(primary_key=True, serialize=False)),
                 ('name', models.CharField(help_text='A unique name or lab identifier of the source animal for a series of studied samples.', max_length=256, unique=True)),
-                ('tracer_labeled_atom', models.CharField(blank=True, choices=[('C', 'Carbon'), ('N', 'Nitrogen'), ('H', 'Hydrogen'), ('O', 'Oxygen'), ('S', 'Sulfur')], default='C', help_text='The type of atom that is labeled in the tracer compound (e.g. "C", "H", "O").', max_length=1, null=True)),
-                ('tracer_labeled_count', models.PositiveSmallIntegerField(blank=True, help_text='The number of labeled atoms (M+) in the tracer compound supplied to this animal.', null=True, validators=[django.core.validators.MinValueValidator(1), django.core.validators.MaxValueValidator(20)])),
-                ('tracer_infusion_rate', models.FloatField(blank=True, help_text='The rate of tracer infusion in microliters/min/gram of body weight of the animal (ul/min/g).', null=True, validators=[django.core.validators.MinValueValidator(0)])),
-                ('tracer_infusion_concentration', models.FloatField(blank=True, help_text='The millimolar concentration of the tracer in the solution that was infused (mM).', null=True, validators=[django.core.validators.MinValueValidator(0)])),
+                ('infusion_rate', models.FloatField(blank=True, help_text='The rate of infusion of the tracer solution in microliters/min/gram of body weight of the animal (ul/min/g).', null=True, validators=[django.core.validators.MinValueValidator(0)])),
                 ('genotype', models.CharField(help_text='The laboratory standardized genotype of the animal.', max_length=256)),
                 ('body_weight', models.FloatField(blank=True, help_text='The weight (in grams) of the animal at the time of sample collection.', null=True, validators=[django.core.validators.MinValueValidator(0)])),
                 ('age', models.DurationField(blank=True, help_text='The age of the animal at the time of sample collection.', null=True, validators=[django.core.validators.MinValueValidator(datetime.timedelta(0))])),
@@ -36,7 +34,7 @@ class Migration(migrations.Migration):
                 'verbose_name_plural': 'animals',
                 'ordering': ['name'],
             },
-            bases=(models.Model, DataRepo.models.element_label.ElementLabel),
+            bases=(models.Model, DataRepo.models.tracer_labeled_class.TracerLabeledClass),
         ),
         migrations.CreateModel(
             name='Compound',
@@ -53,6 +51,19 @@ class Migration(migrations.Migration):
             },
         ),
         migrations.CreateModel(
+            name='Infusate',
+            fields=[
+                ('id', models.AutoField(primary_key=True, serialize=False)),
+                ('name', models.CharField(help_text="A unique name or lab identifier of the infusate 'recipe' containing 1 or more tracer compounds at specific concentrations.", max_length=256, unique=True)),
+                ('short_name', models.CharField(blank=True, help_text="A unique short name or lab identifier of the infusate 'recipe' containing 1 or more tracer compounds at specific concentrations, e.g '6eaas'.", max_length=20, null=True, unique=True)),
+            ],
+            options={
+                'verbose_name': 'infusate',
+                'verbose_name_plural': 'infusates',
+                'ordering': ['name'],
+            },
+        ),
+        migrations.CreateModel(
             name='MSRun',
             fields=[
                 ('id', models.AutoField(primary_key=True, serialize=False)),
@@ -63,21 +74,6 @@ class Migration(migrations.Migration):
                 'verbose_name': 'mass spectrometry run',
                 'verbose_name_plural': 'mass spectrometry runs',
                 'ordering': ['date', 'researcher', 'sample__name', 'protocol__name'],
-            },
-        ),
-        migrations.CreateModel(
-            name='PeakData',
-            fields=[
-                ('id', models.AutoField(primary_key=True, serialize=False)),
-                ('raw_abundance', models.FloatField(blank=True, help_text='The ion count of this observation.', null=True, validators=[django.core.validators.MinValueValidator(0)])),
-                ('corrected_abundance', models.FloatField(help_text='The ion counts corrected for natural abundance of isotopomers.', validators=[django.core.validators.MinValueValidator(0)])),
-                ('med_mz', models.FloatField(blank=True, help_text='The median mass/charge value of this measurement.', null=True, validators=[django.core.validators.MinValueValidator(0)])),
-                ('med_rt', models.FloatField(blank=True, help_text='The median retention time value of this measurement.', null=True, validators=[django.core.validators.MinValueValidator(0)])),
-            ],
-            options={
-                'verbose_name': 'peak data',
-                'verbose_name_plural': 'peak data',
-                'ordering': ['peak_group', '-corrected_abundance'],
             },
         ),
         migrations.CreateModel(
@@ -134,6 +130,37 @@ class Migration(migrations.Migration):
             },
         ),
         migrations.CreateModel(
+            name='Tracer',
+            fields=[
+                ('id', models.AutoField(primary_key=True, serialize=False)),
+                ('name', models.CharField(help_text="A unique name or lab identifier of the tracer, e.g. 'lysine-C14'.", max_length=256, unique=True)),
+                ('compound', models.ForeignKey(on_delete=django.db.models.deletion.RESTRICT, related_name='tracer', to='DataRepo.compound')),
+            ],
+            options={
+                'verbose_name': 'tracer',
+                'verbose_name_plural': 'tracers',
+                'ordering': ['name'],
+            },
+            bases=(models.Model, DataRepo.models.tracer_labeled_class.TracerLabeledClass),
+        ),
+        migrations.CreateModel(
+            name='TracerLabel',
+            fields=[
+                ('id', models.AutoField(primary_key=True, serialize=False)),
+                ('element', models.CharField(choices=[('C', 'Carbon'), ('N', 'Nitrogen'), ('H', 'Hydrogen'), ('O', 'Oxygen'), ('S', 'Sulfur')], default='C', help_text='The type of atom that is labeled in the tracer compound (e.g. "C", "H", "O").', max_length=1)),
+                ('count', models.PositiveSmallIntegerField(help_text='The number of labeled atoms (M+) in the tracer compound supplied to this animal.  Note that the labeled_count must be greater than or equal to the number of labeled_positions.', validators=[django.core.validators.MinValueValidator(1), django.core.validators.MaxValueValidator(20)])),
+                ('positions', django.contrib.postgres.fields.ArrayField(base_field=models.PositiveSmallIntegerField(validators=[django.core.validators.MinValueValidator(1), django.core.validators.MaxValueValidator(20)]), blank=True, default=[], help_text='The known labeled atom positions in the compound.  Note that the number of known labeled positions must be less than or equal to the labeled_count.', null=True, size=None)),
+                ('mass_number', models.PositiveSmallIntegerField(help_text="The sum of the number of protons and neutrons of the labeled atom, a.k.a. 'isotope', e.g. Carbon 14.  The number of protons identifies the element that this tracer is an isotope of.  The number of neutrons in the element equals the number of protons, but in an isotope, the number of neutrons will be less than or greater than the number of protons.  Note, this differs from the 'atomic number' which indicates the number of protons only.", validators=[django.core.validators.MinValueValidator(1), django.core.validators.MaxValueValidator(120)])),
+                ('tracer', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='labels', to='DataRepo.tracer')),
+            ],
+            options={
+                'verbose_name': 'tracer label',
+                'verbose_name_plural': 'tracer labels',
+                'ordering': ['tracer', 'element', 'mass_number', 'count', 'positions'],
+            },
+            bases=(models.Model, DataRepo.models.tracer_labeled_class.TracerLabeledClass),
+        ),
+        migrations.CreateModel(
             name='Sample',
             fields=[
                 ('id', models.AutoField(primary_key=True, serialize=False)),
@@ -167,25 +194,23 @@ class Migration(migrations.Migration):
             },
         ),
         migrations.CreateModel(
-            name='PeakDataLabel',
+            name='PeakData',
             fields=[
                 ('id', models.AutoField(primary_key=True, serialize=False)),
-                ('element', models.CharField(choices=[('C', 'Carbon'), ('N', 'Nitrogen'), ('H', 'Hydrogen'), ('O', 'Oxygen'), ('S', 'Sulfur')], default='C', help_text='The type of element that is labeled in this observation (e.g. "C", "H", "O").', max_length=1)),
-                ('count', models.PositiveSmallIntegerField(help_text='The number of labeled atoms (M+) observed relative to the presumed compound referred to in the peak group.', validators=[django.core.validators.MinValueValidator(0), django.core.validators.MaxValueValidator(20)])),
-                ('mass_number', models.PositiveSmallIntegerField(help_text="The sum of the number of protons and neutrons of the labeled atom, a.k.a. 'isotope', e.g. Carbon 14.  The number of protons identifies the element that this tracer is an isotope of.  The number of neutrons in the element equals the number of protons, but in an isotope, the number of neutrons will be less than or greater than the number of protons.  Note, this differs from the 'atomic number' which indicates the number of protons only.", validators=[django.core.validators.MinValueValidator(1), django.core.validators.MaxValueValidator(120)])),
-                ('peak_data', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='labels', to='DataRepo.peakdata')),
+                ('labeled_element', models.CharField(blank=True, choices=[('C', 'Carbon'), ('N', 'Nitrogen'), ('H', 'Hydrogen'), ('O', 'Oxygen'), ('S', 'Sulfur')], default='C', help_text='The type of element that is labeled in this observation (e.g. "C", "H", "O").', max_length=1, null=True)),
+                ('labeled_count', models.PositiveSmallIntegerField(blank=True, help_text='The number of labeled atoms (M+) observed relative to the presumed compound referred to in the peak group.', null=True, validators=[django.core.validators.MinValueValidator(0), django.core.validators.MaxValueValidator(20)])),
+                ('raw_abundance', models.FloatField(blank=True, help_text='The ion count of this observation.', null=True, validators=[django.core.validators.MinValueValidator(0)])),
+                ('corrected_abundance', models.FloatField(help_text='The ion counts corrected for natural abundance of isotopomers.', validators=[django.core.validators.MinValueValidator(0)])),
+                ('med_mz', models.FloatField(blank=True, help_text='The median mass/charge value of this measurement.', null=True, validators=[django.core.validators.MinValueValidator(0)])),
+                ('med_rt', models.FloatField(blank=True, help_text='The median retention time value of this measurement.', null=True, validators=[django.core.validators.MinValueValidator(0)])),
+                ('peak_group', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='peak_data', to='DataRepo.peakgroup')),
             ],
             options={
-                'verbose_name': 'label',
-                'verbose_name_plural': 'labels',
-                'ordering': ['element', 'count', 'mass_number', 'peak_data'],
+                'verbose_name': 'peak data',
+                'verbose_name_plural': 'peak data',
+                'ordering': ['peak_group', 'labeled_count'],
             },
-            bases=(models.Model, DataRepo.models.element_label.ElementLabel),
-        ),
-        migrations.AddField(
-            model_name='peakdata',
-            name='peak_group',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='peak_data', to='DataRepo.peakgroup'),
+            bases=(models.Model, DataRepo.models.tracer_labeled_class.TracerLabeledClass),
         ),
         migrations.AddField(
             model_name='msrun',
@@ -196,6 +221,25 @@ class Migration(migrations.Migration):
             model_name='msrun',
             name='sample',
             field=models.ForeignKey(help_text='The sample that was run on the mass spectrometer.', on_delete=django.db.models.deletion.RESTRICT, related_name='msruns', to='DataRepo.sample'),
+        ),
+        migrations.CreateModel(
+            name='InfusateTracer',
+            fields=[
+                ('id', models.AutoField(primary_key=True, serialize=False)),
+                ('concentration', models.FloatField(help_text="The millimolar concentration of the tracer in a specific infusate 'recipe' (mM).", validators=[django.core.validators.MinValueValidator(0)])),
+                ('infusate', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='DataRepo.infusate')),
+                ('tracer', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='DataRepo.tracer')),
+            ],
+            options={
+                'verbose_name': 'infusate_tracer_link',
+                'verbose_name_plural': 'infusate_tracer_links',
+                'ordering': ['infusate', 'tracer'],
+            },
+        ),
+        migrations.AddField(
+            model_name='infusate',
+            name='tracers',
+            field=models.ManyToManyField(help_text="Tracers included in this infusate 'recipe'.", through='DataRepo.InfusateTracer', to='DataRepo.Tracer'),
         ),
         migrations.CreateModel(
             name='CompoundSynonym',
@@ -211,13 +255,13 @@ class Migration(migrations.Migration):
         ),
         migrations.AddField(
             model_name='animal',
-            name='studies',
-            field=models.ManyToManyField(help_text='The experimental study(ies) the the animal is associated with.', related_name='animals', to='DataRepo.Study'),
+            name='infusate',
+            field=models.ForeignKey(blank=True, help_text='The solution infused into the animal containing 1 or more tracer compounds at specific concentrations.', null=True, on_delete=django.db.models.deletion.RESTRICT, related_name='animal', to='DataRepo.infusate'),
         ),
         migrations.AddField(
             model_name='animal',
-            name='tracer_compound',
-            field=models.ForeignKey(blank=True, help_text='The compound which was used as the tracer (i.e. infusate). The tracer is the labeled compound that is infused into the animal.', null=True, on_delete=django.db.models.deletion.RESTRICT, related_name='animals', to='DataRepo.compound'),
+            name='studies',
+            field=models.ManyToManyField(help_text='The experimental study(ies) the the animal is associated with.', related_name='animals', to='DataRepo.Study'),
         ),
         migrations.AddField(
             model_name='animal',
@@ -225,12 +269,16 @@ class Migration(migrations.Migration):
             field=models.ForeignKey(blank=True, help_text='The laboratory controlled label of the actions taken on an animal.', limit_choices_to={'category': 'animal_treatment'}, null=True, on_delete=django.db.models.deletion.RESTRICT, related_name='animals', to='DataRepo.protocol'),
         ),
         migrations.AddConstraint(
+            model_name='tracerlabel',
+            constraint=models.UniqueConstraint(fields=('tracer', 'element', 'mass_number', 'count', 'positions'), name='unique_tracerlabel'),
+        ),
+        migrations.AddConstraint(
             model_name='peakgroup',
             constraint=models.UniqueConstraint(fields=('name', 'msrun'), name='unique_peakgroup'),
         ),
         migrations.AddConstraint(
-            model_name='peakdatalabel',
-            constraint=models.UniqueConstraint(fields=('peak_data', 'element', 'count', 'mass_number'), name='unique_peakdata'),
+            model_name='peakdata',
+            constraint=models.UniqueConstraint(fields=('peak_group', 'labeled_element', 'labeled_count'), name='unique_peakdata'),
         ),
         migrations.AddConstraint(
             model_name='msrun',
