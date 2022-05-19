@@ -53,14 +53,12 @@ Add any other context or screenshots about the feature request here.
 
 ### Affected Components
 
-A list of repo items, dependencies, etc, labeled as added, deleted, or changed.
-E.g.:
+A list of repo items, dependencies, etc, labeled with add, delete, or change.
+One item per line.  (Mostly, this will be a list of files.)
 
-- changed: File path
-- added: Environment variable
-- deleted: External executable
-- changed: Database table
-- added: Cron job
+- change: File path or DB table ...
+- add: Environment variable or server setting
+- delete: External executable or cron job
 
 ### DESIGN
 
