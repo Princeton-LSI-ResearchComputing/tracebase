@@ -1,8 +1,9 @@
 from django.contrib.postgres.fields import ArrayField
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
-from django.utils.functional import cached_property
 
+# from django.utils.functional import cached_property
+from DataRepo.models.maintained_model import field_updater_function
 from DataRepo.models.tracer import Tracer
 from DataRepo.models.element_label import ElementLabel
 
@@ -76,7 +77,7 @@ class TracerLabel(models.Model, ElementLabel):
     def __str__(self):
         return str(self._name)
 
-    @cached_property
+    @field_updater_function("name", "tracer")
     def _name(self):
         # format: `position,position,... - weight element count` (but no spaces) positions optional
         pos_str = ""

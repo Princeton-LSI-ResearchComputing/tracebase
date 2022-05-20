@@ -1,6 +1,7 @@
 from django.db import models
-from django.utils.functional import cached_property
 
+# from django.utils.functional import cached_property
+from DataRepo.models.maintained_model import field_updater_function
 from DataRepo.models.element_label import ElementLabel
 
 
@@ -27,7 +28,7 @@ class Tracer(models.Model, ElementLabel):
     def __str__(self):
         return str(self._name())
 
-    @cached_property
+    @field_updater_function("name", "infusates")
     def _name(self):
         # format: `compound - [ labelname,labelname,... ]` (but no spaces)
         if self.labels is None or self.labels.count() == 0:
