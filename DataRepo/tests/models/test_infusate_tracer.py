@@ -27,6 +27,6 @@ class InfusateTests(TracebaseTestCase):
 
     def test_no_concentration(self):
         with self.assertRaises(IntegrityError):
-            tracer = Tracer.objects.get(name="gluc13")
-            infusate = Infusate.objects.get(name="test infusate")
+            tracer = Tracer.objects.first()
+            infusate = Infusate.objects.first()
             InfusateTracer.objects.create(infusate=infusate, tracer=tracer)

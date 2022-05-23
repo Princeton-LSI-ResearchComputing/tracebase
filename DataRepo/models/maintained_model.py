@@ -1,8 +1,9 @@
 from typing import Dict, List
 
 from django.conf import settings
-from django.db.models import ManyToManyField, Model
+from django.db.models import Model  # , Manager
 
+auto_updates = True
 updater_list: Dict[str, List] = {}
 
 
@@ -32,6 +33,7 @@ def field_updater_function(update_field_name=None, parent_field_name=None):
             "update_field": update_field_name,
             "parent_field": parent_field_name,
         }
+        # No way to ensure supplied fields exist, so this is handled in MaintanedModel via .save and .delete
         if class_name in updater_list:
             updater_list[class_name].append(func_dict)
         else:
@@ -39,7 +41,7 @@ def field_updater_function(update_field_name=None, parent_field_name=None):
         if settings.DEBUG:
             local_msg = ""
             if update_field_name is not None:
-                local_msg = f" maintain {class_name}.{update_field_name}"
+                local_msg = f" maintain {class_name}.{update_field_name}'s value"
                 if parent_field_name is not None:
                     local_msg += " and also"
             parent_msg = ""
@@ -51,11 +53,31 @@ def field_updater_function(update_field_name=None, parent_field_name=None):
                     f"{parent_field_name}"
                 )
             print(
-                f"Added field_updater_function decorator to function {fn.__qualname__} to {local_msg}{parent_msg}."
+                f"Added field_updater_function decorator to function {fn.__qualname__} in order to{local_msg}"
+                f"{parent_msg}."
             )
         return fn
 
     return decorator
+
+
+# This class and its override of the create method works, but is commented because it is redundant to the override of
+# __init__ in MaintainedModel.  Some stack users advised against overrideing __init__ (though I'm sketical as to why),
+# but over-riding create does not capture explicit settings of fields via all means.  If the consensus is to not
+# override __init__, I can fall back to this strategy.
+# class MaintainedModelManager(Manager):
+#     """
+#     This class is to over-ride the create method and prevent developers from explicitly setting values for
+#     automatically maintained fields.
+#     """
+#     def create(self, **obj_data):
+#         class_name = self.model.__name__
+#         for updater_dict in updater_list[class_name]:
+#             update_fld = updater_dict["update_field"]
+#             if update_fld in obj_data:
+#                 update_fcn = updater_dict["function"]
+#                 raise MaintainedFieldNotSettable(class_name, update_fld, update_fcn)
+#         return super().create(**obj_data)
 
 
 class MaintainedModel(Model):
@@ -68,19 +90,46 @@ class MaintainedModel(Model):
     delete methods as triggers for the updates.
     """
 
+    # This data member provides to means to override of the create method, which works, but is commented because it is
+    # redundant to the override of __init__ in MaintainedModel.  Some stack users advised against overrideing __init__
+    # (though I'm sketical as to why), but over-riding create does not capture explicit settings of fields via all
+    # means.  If the consensus is to not override __init__, I can fall back to this strategy.
+    # objects = MaintainedModelManager()
+
+    def __init__(self, *args, **kwargs):
+        """
+        This over-ride of the constructor is to prevent developers from explicitly setting values for automatically
+        maintained fields.
+        """
+        class_name = self.__class__.__name__
+        for updater_dict in updater_list[class_name]:
+            update_fld = updater_dict["update_field"]
+            if update_fld in kwargs:
+                update_fcn = updater_dict["function"]
+                raise MaintainedFieldNotSettable(class_name, update_fld, update_fcn)
+        super().__init__(*args, **kwargs)
+
     def save(self, *args, **kwargs):
         # Set the changed value triggering this update
         super().save(*args, **kwargs)
+
+        if auto_updates is False:
+            return
+
         # Update the fields that change due to the above change (if any)
         self.update_decorated_fields()
         # Now save the updated values (i.e. save again)
-        super().save(*args, **kwargs)
+        # super().save(*args, **kwargs)
         # Percolate changes up to the parents (if any)
         self.call_parent_updaters()
 
     def delete(self, *args, **kwargs):
         # Delete the record triggering this update
         super().delete(*args, **kwargs)  # Call the "real" delete() method.
+
+        if auto_updates is False:
+            return
+
         # Percolate changes up to the parents (if any)
         self.call_parent_updaters()
 
@@ -92,45 +141,78 @@ class MaintainedModel(Model):
             update_fun = getattr(self, updater_dict["function"])
             update_fld = updater_dict["update_field"]
             if update_fld is not None:
-                setattr(self, update_fld, update_fun())
+                current_val = None
+                # Get the field to make sure it exists in the model
+                try:
+                    current_val = getattr(self, update_fld)
+                except AttributeError:
+                    raise BadModelField(
+                        self.__class__.__name__, update_fld, update_fun.__qualname__
+                    )
+                new_val = update_fun()
+                setattr(self, update_fld, new_val)
+                if current_val is None or current_val == "":
+                    current_val = "<empty>"
+                print(
+                    f"Auto-updated {self.__class__.__name__}.{update_fld} using {update_fun.__qualname__} from "
+                    f"[{current_val}] to [{new_val}]"
+                )
+                check_val = getattr(self, update_fld)
+                print(f"Check: {check_val}")
+                if check_val != new_val:
+                    raise Exception("There's a problem")
 
     def call_parent_updaters(self):
-        """
-        Cascading cache deletion from self, downward. Call from a root record to delete all belonging to the same root
-        parent
-        """
         parents = []
         for updater_dict in self.get_my_updaters():
-            parent_fld = getattr(self, updater_dict["parent_field"])
-            if parent_fld is not None and parent_fld not in parents:
-                parents.append(parent_fld)
+            update_fun = getattr(self, updater_dict["function"])
+            parent_fld = updater_dict["parent_field"]
+            if parent_fld is not None:
+                print(f"Looking in {self.__class__.__name__} for {parent_fld}")
+                try:
+                    parent_inst = getattr(self, parent_fld)
+                except AttributeError:
+                    raise BadModelField(
+                        self.__class__.__name__, parent_fld, update_fun.__qualname__
+                    )
+                if parent_inst is not None and parent_inst not in parents:
+                    parents.append(parent_inst)
 
-        for parent_fld in parents:
-            parent_instance = getattr(self, parent_fld)
-            if isinstance(parent_instance, MaintainedModel):
-                parent_instance.save()
-            elif isinstance(parent_instance, ManyToManyField):
-                if parent_instance.count() > 0 and isinstance(
-                    parent_instance.first(), MaintainedModel
+        for parent_inst in parents:
+            if isinstance(parent_inst, MaintainedModel):
+                print(
+                    f"Calling the linked {parent_inst.__class__.__name__} instance's save method."
+                )
+                parent_inst.save()
+            elif parent_inst.__class__.__name__ == "ManyRelatedManager":
+                if parent_inst.count() > 0 and isinstance(
+                    parent_inst.first(), MaintainedModel
                 ):
-                    parent_instance.all().save()
-                elif parent_instance.count() > 0:
-                    raise NotMaintained(parent_instance, self)
+                    print(
+                        f"Calling every M:M linked {parent_inst.first().__class__.__name__} instance's save method."
+                    )
+                    for mm_parent_inst in parent_inst.all():
+                        print(
+                            f"Calling every M:M linked {mm_parent_inst.__class__.__name__} instance's save method."
+                        )
+                        mm_parent_inst.save()
+                elif parent_inst.count() > 0:
+                    raise NotMaintained(parent_inst.first(), self)
                 # Nothing to to do if there are no linked records
             else:
-                raise NotMaintained(parent_instance, self)
+                raise NotMaintained(parent_inst, self)
 
     @classmethod
-    def get_my_updaters(cls):
+    def get_my_updaters(self):
         """
         Convenience method to retrieve all the updater functions of the calling model.
         """
-        if cls.__name__ in updater_list:
-            return updater_list[cls.__name__]
+        if self.__name__ in updater_list:
+            return updater_list[self.__name__]
         else:
             if settings.DEBUG:
                 print(
-                    f"Class [{cls.__name__}] does not have any field maintenance functions."
+                    f"Class [{self.__name__}] does not have any field maintenance functions."
                 )
             return []
 
@@ -141,9 +223,33 @@ class MaintainedModel(Model):
 class NotMaintained(Exception):
     def __init__(self, parent, caller):
         message = (
-            f"Parent class {parent.__class__.__name__} or {caller.__class__.__name__} must inherit "
-            f"from {MaintainedModel.__name__}."
+            f"Class {parent.__class__.__name__} or {caller.__class__.__name__} must inherit from "
+            f"{MaintainedModel.__name__}."
         )
         super().__init__(message)
         self.parent = parent
         self.caller = caller
+
+
+class BadModelField(Exception):
+    def __init__(self, cls, fld, fcn):
+        message = (
+            f"The {cls} class does not have a field named '{fld}'.  Make sure the fields supplied to the "
+            f"@field_updater_function decorator of the function: {fcn}."
+        )
+        super().__init__(message)
+        self.cls = cls
+        self.fld = fld
+        self.fcn = fcn
+
+
+class MaintainedFieldNotSettable(Exception):
+    def __init__(self, cls, fld, fcn):
+        message = (
+            f"{cls}.{fld} cannot be explicitly set.  Its value is maintained by {fcn} because it has a "
+            "@field_updater_function decorator."
+        )
+        super().__init__(message)
+        self.cls = cls
+        self.fld = fld
+        self.fcn = fcn

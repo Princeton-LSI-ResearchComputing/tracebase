@@ -16,4 +16,4 @@ class TracerLabelTests(TracebaseTestCase):
 
     def test_tracer_label_explicit_name(self):
         tl = TracerLabel.objects.all()[0]
-        self.assertEqual(tl._name, "2,3-13C5")
+        self.assertEqual(tl._name(), "2,3-13C5")

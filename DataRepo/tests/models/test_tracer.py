@@ -14,5 +14,5 @@ class TracerTests(TracebaseTestCase):
         )
 
     def test_tracer_name(self):
-        infusate = Tracer.objects.get(name="gluc13")
-        self.assertEqual(infusate._name, "glucose-[2,3-13C5,4-17O1]")
+        tracer = Tracer.objects.first()
+        self.assertEqual(tracer._name(), "glucose-[2,3-13C5,4-17O1]")
