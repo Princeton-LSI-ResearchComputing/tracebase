@@ -120,17 +120,19 @@ class MaintainedModel(Model):
         super().__init__(*args, **kwargs)
 
     def save(self, *args, **kwargs):
-        # Set the changed value triggering this update
-        super().save(*args, **kwargs)
 
         if auto_updates is False:
             self.buffer_parent_update()
+            # Set the changed value triggering this update
+            super().save(*args, **kwargs)
             return
 
         # Update the fields that change due to the above change (if any)
         self.update_decorated_fields()
+
         # Now save the updated values (i.e. save again)
-        # super().save(*args, **kwargs)
+        super().save(*args, **kwargs)
+
         # Percolate changes up to the parents (if any)
         self.call_parent_updaters()
 

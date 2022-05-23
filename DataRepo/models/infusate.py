@@ -43,8 +43,14 @@ class Infusate(MaintainedModel):
 
     @field_updater_function(generation=0, update_field_name="name")
     def _name(self):
-        # Format: `short_name { tracername ; tracername }` (no spaces)
-        if self.tracers is None or self.tracers.count() == 0:
+        # Format: `short_name{tracername;tracername}`
+
+        # Need to check self.id to see if the record exists yet or not, because if it does not yet exist, we cannot use
+        # the reverse self.tracers reference until it exists (besides, another update will trigger when the
+        # InfusateTracer records are created).  Otherwise, the following exception is thrown:
+        # ValueError: "<Infusate: >" needs to have a value for field "id" before this many-to-many relationship can be
+        # used.
+        if self.id is None or self.tracers is None or self.tracers.count() == 0:
             return self.short_name
         return (
             self.short_name
