@@ -25,7 +25,7 @@ class InfusateTracer(MaintainedModel):
         verbose_name_plural = "ingredients"
         ordering = ["infusate", "tracer"]
 
-    @field_updater_function(parent_field_name="infusate")
+    @field_updater_function(generation=1, parent_field_name="infusate")
     def _name(self):
         """
         No name field to update, but we want to propagate changes to Infusate.name when links are created, changed, or

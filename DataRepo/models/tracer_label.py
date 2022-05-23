@@ -85,7 +85,9 @@ class TracerLabel(MaintainedModel, ElementLabel):
     def __str__(self):
         return str(self._name())
 
-    @field_updater_function("name", "tracer")
+    @field_updater_function(
+        generation=3, update_field_name="name", parent_field_name="tracer"
+    )
     def _name(self):
         # format: `position,position,... - weight element count` (but no spaces) positions optional
         pos_str = ""
