@@ -33,7 +33,9 @@ class Tracer(MaintainedModel, TracerLabeledClass):
     def __str__(self):
         return str(self._name())
 
-    @field_updater_function("name", "infusates")
+    @field_updater_function(
+        generation=2, update_field_name="name", parent_field_name="infusates"
+    )
     def _name(self):
         # format: `compound - [ labelname,labelname,... ]` (but no spaces)
         if self.labels is None or self.labels.count() == 0:

@@ -41,7 +41,7 @@ class Infusate(MaintainedModel):
     def __str__(self):
         return str(self.name)
 
-    @field_updater_function("name")
+    @field_updater_function(generation=0, update_field_name="name")
     def _name(self):
         # Format: `short_name { tracername ; tracername }` (no spaces)
         if self.tracers is None or self.tracers.count() == 0:

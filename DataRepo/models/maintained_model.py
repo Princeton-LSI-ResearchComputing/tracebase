@@ -4,10 +4,11 @@ from django.conf import settings
 from django.db.models import Model  # , Manager
 
 auto_updates = True
+update_buffer = []
 updater_list: Dict[str, List] = {}
 
 
-def field_updater_function(update_field_name=None, parent_field_name=None):
+def field_updater_function(generation, update_field_name=None, parent_field_name=None):
     """
     This is a decorator factory for functions in a Model class that are identified to be used to update a supplied
     field and field of any linked parent record (for when the record is changed).  This function returns a decorator
@@ -17,6 +18,10 @@ def field_updater_function(update_field_name=None, parent_field_name=None):
     the updates to the linked dependent model's save methods (if the parent key is supplied), the assumption being that
     a change to "this" record's maintained field necessetates a change to another maintained field in the linked parent
     record.
+
+    The generation input is an integer indicating the hierarchy level.  E.g. if there is no parent, `generation` should
+    be 0.  Each subsequence generation should increment generation.  It us used to populate update_buffer when
+    auto_updates is False, so that mass updates can be triggered after all data is loaded.
     """
 
     if update_field_name is None and parent_field_name is None:
@@ -28,10 +33,15 @@ def field_updater_function(update_field_name=None, parent_field_name=None):
     def decorator(fn):
         # Get the name of the class the function belongs to
         class_name = fn.__qualname__.split(".")[0]
+        if parent_field_name is None and generation != 0:
+            raise InvalidRootGeneration(
+                class_name, update_field_name, fn.__name__, generation
+            )
         func_dict = {
-            "function": fn.__name__,
+            "update_function": fn.__name__,
             "update_field": update_field_name,
             "parent_field": parent_field_name,
+            "generation": generation,
         }
         # No way to ensure supplied fields exist, so this is handled in MaintanedModel via .save and .delete
         if class_name in updater_list:
@@ -75,7 +85,7 @@ def field_updater_function(update_field_name=None, parent_field_name=None):
 #         for updater_dict in updater_list[class_name]:
 #             update_fld = updater_dict["update_field"]
 #             if update_fld in obj_data:
-#                 update_fcn = updater_dict["function"]
+#                 update_fcn = updater_dict["update_function"]
 #                 raise MaintainedFieldNotSettable(class_name, update_fld, update_fcn)
 #         return super().create(**obj_data)
 
@@ -105,7 +115,7 @@ class MaintainedModel(Model):
         for updater_dict in updater_list[class_name]:
             update_fld = updater_dict["update_field"]
             if update_fld in kwargs:
-                update_fcn = updater_dict["function"]
+                update_fcn = updater_dict["update_function"]
                 raise MaintainedFieldNotSettable(class_name, update_fld, update_fcn)
         super().__init__(*args, **kwargs)
 
@@ -114,6 +124,7 @@ class MaintainedModel(Model):
         super().save(*args, **kwargs)
 
         if auto_updates is False:
+            self.buffer_parent_update()
             return
 
         # Update the fields that change due to the above change (if any)
@@ -128,6 +139,7 @@ class MaintainedModel(Model):
         super().delete(*args, **kwargs)  # Call the "real" delete() method.
 
         if auto_updates is False:
+            self.buffer_parent_update()
             return
 
         # Percolate changes up to the parents (if any)
@@ -138,7 +150,7 @@ class MaintainedModel(Model):
         Updates every field identified in each field_updater_function decorator that generates its value
         """
         for updater_dict in self.get_my_updaters():
-            update_fun = getattr(self, updater_dict["function"])
+            update_fun = getattr(self, updater_dict["update_function"])
             update_fld = updater_dict["update_field"]
             if update_fld is not None:
                 current_val = None
@@ -163,20 +175,7 @@ class MaintainedModel(Model):
                     raise Exception("There's a problem")
 
     def call_parent_updaters(self):
-        parents = []
-        for updater_dict in self.get_my_updaters():
-            update_fun = getattr(self, updater_dict["function"])
-            parent_fld = updater_dict["parent_field"]
-            if parent_fld is not None:
-                print(f"Looking in {self.__class__.__name__} for {parent_fld}")
-                try:
-                    parent_inst = getattr(self, parent_fld)
-                except AttributeError:
-                    raise BadModelField(
-                        self.__class__.__name__, parent_fld, update_fun.__qualname__
-                    )
-                if parent_inst is not None and parent_inst not in parents:
-                    parents.append(parent_inst)
+        parents, generations = self.get_parent_instances()
 
         for parent_inst in parents:
             if isinstance(parent_inst, MaintainedModel):
@@ -202,6 +201,25 @@ class MaintainedModel(Model):
             else:
                 raise NotMaintained(parent_inst, self)
 
+    def get_parent_instances(self):
+        parents = []
+        generations = []
+        for updater_dict in self.get_my_updaters():
+            update_fun = getattr(self, updater_dict["update_function"])
+            parent_fld = updater_dict["parent_field"]
+            if parent_fld is not None:
+                print(f"Looking in {self.__class__.__name__} for {parent_fld}")
+                try:
+                    parent_inst = getattr(self, parent_fld)
+                except AttributeError:
+                    raise BadModelField(
+                        self.__class__.__name__, parent_fld, update_fun.__qualname__
+                    )
+                if parent_inst is not None and parent_inst not in parents:
+                    parents.append(parent_inst)
+                    generations.append(updater_dict["generation"])
+        return parents, generations
+
     @classmethod
     def get_my_updaters(self):
         """
@@ -216,8 +234,40 @@ class MaintainedModel(Model):
                 )
             return []
 
+    def buffer_update(self):
+        # Figure out the greatest generation number
+        # Leaves in the hierarchy are updated first
+        gen = None
+        for updater_dict in self.get_my_updaters():
+            if gen is None or gen < updater_dict["generation"]:
+                gen = updater_dict["generation"]
+        update_buffer.append({"rec": self, "gen": gen})
+        # Note, supporting multiple hierarchies will require more thought. Right now, we're assuming the same or non-
+        # conflicting hierarchies
+
+    def buffer_parent_update(self):
+        parents, generations = self.get_parent_instances()
+        for i, parent_inst in enumerate(parents):
+            update_buffer.append({"rec": parent_inst, "gen": generations[i]})
+
     class Meta:
         abstract = True
+
+
+def perform_buffered_updates():
+    global update_buffer
+    # For each record in the buffer
+    for buffer_item in sorted(update_buffer, key=lambda x: x["gen"], reverse=True):
+        # Try to perform the update. It could fail if the affected record was deleted
+        try:
+            buffer_item["rec"].save()
+        except Exception as e:
+            print(
+                "WARNING: Buffered record update failed.  The record may have been deleted.  If it was, you may "
+                f"ignore this warning.  {e}"
+            )
+    # Clear the buffer
+    update_buffer = []
 
 
 class NotMaintained(Exception):
@@ -253,3 +303,16 @@ class MaintainedFieldNotSettable(Exception):
         self.cls = cls
         self.fld = fld
         self.fcn = fcn
+
+
+class InvalidRootGeneration(Exception):
+    def __init__(self, cls, fld, fcn, gen):
+        message = (
+            f"Invalid generation: [{gen}] for {cls}.{fld} supplied to @field_updater_function decorator of function "
+            f"[{fcn}].  Since the parent_field_name was `None` or not supplied, generation must be 0."
+        )
+        super().__init__(message)
+        self.cls = cls
+        self.fld = fld
+        self.fcn = fcn
+        self.gen = gen
