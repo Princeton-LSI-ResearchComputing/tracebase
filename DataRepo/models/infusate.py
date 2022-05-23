@@ -1,16 +1,20 @@
 from django.db import models
 
 # from django.utils.functional import cached_property
-from DataRepo.models.maintained_model import field_updater_function
+from DataRepo.models.maintained_model import (
+    MaintainedModel,
+    field_updater_function,
+)
 from DataRepo.models.tracer import Tracer
 
 
-class Infusate(models.Model):
+class Infusate(MaintainedModel):
 
     id = models.AutoField(primary_key=True)
     name = models.CharField(
         max_length=256,
         unique=True,
+        editable=False,
         help_text="A unique name or lab identifier of the infusate 'recipe' containing 1 or more tracer compounds at "
         "specific concentrations.",
     )
@@ -45,6 +49,6 @@ class Infusate(models.Model):
         return (
             self.short_name
             + "{"
-            + ";".join(sorted(map(lambda o: o._name, self.tracers.all())))
+            + ";".join(sorted(map(lambda o: o._name(), self.tracers.all())))
             + "}"
         )

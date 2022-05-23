@@ -1,16 +1,21 @@
 from django.db import models
 
 # from django.utils.functional import cached_property
-from DataRepo.models.maintained_model import field_updater_function
+from DataRepo.models.maintained_model import (
+    MaintainedModel,
+    field_updater_function,
+)
 from DataRepo.models.element_label import ElementLabel
 
 
-class Tracer(models.Model, ElementLabel):
+class Tracer(MaintainedModel, ElementLabel):
 
     id = models.AutoField(primary_key=True)
     name = models.CharField(
         max_length=256,
         unique=True,
+        null=True,
+        editable=False,
         help_text="A unique name or lab identifier of the tracer, e.g. 'lysine-C14'.",
     )
     compound = models.ForeignKey(
