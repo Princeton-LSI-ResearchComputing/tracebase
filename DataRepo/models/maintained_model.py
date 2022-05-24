@@ -5,10 +5,43 @@ from django.db.models import Model  # , Manager
 
 auto_updates = True
 update_buffer = []
+performing_buffered_updates = False
 updater_list: Dict[str, List] = {}
 
 
-def field_updater_function(generation, update_field_name=None, parent_field_name=None):
+def disable_autoupdates():
+    global auto_updates
+    auto_updates = False
+
+
+def enable_autoupdates():
+    global auto_updates
+    auto_updates = True
+
+
+def clear_update_buffer(generation=None):
+    global update_buffer
+    if generation is None:
+        update_buffer = []
+        return
+    new_buffer = []
+    gen_warns = 0
+    for buffered_item in update_buffer:
+        if buffered_item["info"]["generation"] != generation:
+            new_buffer.append(buffered_item)
+            if buffered_item["info"]["generation"] > generation:
+                gen_warns += 1
+    if gen_warns > 0:
+        print(
+            f"WARNING: {gen_warns} records in the buffer are younger than the generation supplied: {generation}.  "
+            "Generations should be cleared from youngest (/largest generation number/leaf) to oldest(/root)."
+        )
+    update_buffer = new_buffer
+
+
+def field_updater_function(
+    generation, update_field_name=None, parent_field_name=None, update_label=None
+):
     """
     This is a decorator factory for functions in a Model class that are identified to be used to update a supplied
     field and field of any linked parent record (for when the record is changed).  This function returns a decorator
@@ -22,6 +55,15 @@ def field_updater_function(generation, update_field_name=None, parent_field_name
     The generation input is an integer indicating the hierarchy level.  E.g. if there is no parent, `generation` should
     be 0.  Each subsequence generation should increment generation.  It us used to populate update_buffer when
     auto_updates is False, so that mass updates can be triggered after all data is loaded.
+
+    Note that a class can have multiple fields to update and that those updates (according to their decorators) can
+    trigger subsequent updates in different "parent" records.  Records are always updated from the changed record,
+    upward.  If multiple update fields trigger updates to different parents, they are trigger in descending order of
+    their "generation" value.  However, this only becomes relevant when the global variable `auto_updates` is False,
+    mass database changes are made (buffering the auto-updates), and then auto-updates are explicitly triggered.
+
+    Note, if there are many decorated methods updating different fields, and all of the "parent" fields are the same,
+    only 1 of those decorators needs to set a parent field.
     """
 
     if update_field_name is None and parent_field_name is None:
@@ -29,7 +71,9 @@ def field_updater_function(generation, update_field_name=None, parent_field_name
             "Either an update_field_name or parent_field_name argument is required."
         )
 
-    # The actual decorator
+    # The actual decorator (because a decorator can only take 1 argument (the decorated function).  The "decorator"
+    # above is more akin to a global function call that returns this decorator that is immediately applied to the
+    # decorated function.
     def decorator(fn):
         # Get the name of the class the function belongs to
         class_name = fn.__qualname__.split(".")[0]
@@ -41,7 +85,8 @@ def field_updater_function(generation, update_field_name=None, parent_field_name
             "update_function": fn.__name__,
             "update_field": update_field_name,
             "parent_field": parent_field_name,
-            "generation": generation,
+            "update_label": update_label,  # Used as a filter to trigger specific series' of (mass) updates
+            "generation": generation,  # Used to update from leaf to root for mass updates
         }
         # No way to ensure supplied fields exist, so this is handled in MaintanedModel via .save and .delete
         if class_name in updater_list:
@@ -120,9 +165,12 @@ class MaintainedModel(Model):
         super().__init__(*args, **kwargs)
 
     def save(self, *args, **kwargs):
-
-        if auto_updates is False:
-            self.buffer_parent_update()
+        """
+        This is an override of the derived model's save method that is being used here to automatically update
+        maintained fields.
+        """
+        if auto_updates is False and performing_buffered_updates is False:
+            self.buffer_update()
             # Set the changed value triggering this update
             super().save(*args, **kwargs)
             return
@@ -133,10 +181,15 @@ class MaintainedModel(Model):
         # Now save the updated values (i.e. save again)
         super().save(*args, **kwargs)
 
-        # Percolate changes up to the parents (if any)
-        self.call_parent_updaters()
+        if auto_updates is True:
+            # Percolate changes up to the parents (if any)
+            self.call_parent_updaters()
 
     def delete(self, *args, **kwargs):
+        """
+        This is an override of the derived model's delete method that is being used here to automatically update
+        maintained fields.
+        """
         # Delete the record triggering this update
         super().delete(*args, **kwargs)  # Call the "real" delete() method.
 
@@ -149,7 +202,8 @@ class MaintainedModel(Model):
 
     def update_decorated_fields(self):
         """
-        Updates every field identified in each field_updater_function decorator that generates its value
+        Updates every field identified in each field_updater_function decorator using the decorated function that
+        generates its value.
         """
         for updater_dict in self.get_my_updaters():
             update_fun = getattr(self, updater_dict["update_function"])
@@ -177,7 +231,11 @@ class MaintainedModel(Model):
                     raise Exception("There's a problem")
 
     def call_parent_updaters(self):
-        parents, generations = self.get_parent_instances()
+        """
+        This calls parent record's `save` method to trigger updates to their maintained fields (if any) and further
+        propagate those changes up the hierarchy (if those records have parents)
+        """
+        parents, info_list = self.get_parent_instances()
 
         for parent_inst in parents:
             if isinstance(parent_inst, MaintainedModel):
@@ -204,8 +262,13 @@ class MaintainedModel(Model):
                 raise NotMaintained(parent_inst, self)
 
     def get_parent_instances(self):
+        """
+        Returns 2 lists: a list of parent records of the current record (self) (as stored in the updater_list global
+        variable) and a same-sized list of each record's decorator info, as stored by the decorator in the
+        updater_list global variable.
+        """
         parents = []
-        generations = []
+        info_list = []
         for updater_dict in self.get_my_updaters():
             update_fun = getattr(self, updater_dict["update_function"])
             parent_fld = updater_dict["parent_field"]
@@ -219,13 +282,13 @@ class MaintainedModel(Model):
                     )
                 if parent_inst is not None and parent_inst not in parents:
                     parents.append(parent_inst)
-                    generations.append(updater_dict["generation"])
-        return parents, generations
+                    info_list.append(updater_dict)
+        return parents, info_list
 
     @classmethod
     def get_my_updaters(self):
         """
-        Convenience method to retrieve all the updater functions of the calling model.
+        Retrieves all the updater functions of the calling model from the global updater_list variable.
         """
         if self.__name__ in updater_list:
             return updater_list[self.__name__]
@@ -237,39 +300,95 @@ class MaintainedModel(Model):
             return []
 
     def buffer_update(self):
+        """
+        This is called when MaintainedModel.save is called if auto_updates is False, so that maintained fields can be
+        updated after loading code finishes (by calling the global method: perform_buffered_updates)
+        """
         # Figure out the greatest generation number
         # Leaves in the hierarchy are updated first
         gen = None
+        info = None
         for updater_dict in self.get_my_updaters():
             if gen is None or gen < updater_dict["generation"]:
                 gen = updater_dict["generation"]
-        update_buffer.append({"rec": self, "gen": gen})
+                info = updater_dict
+        update_buffer.append({"rec": self, "info": info})
         # Note, supporting multiple hierarchies will require more thought. Right now, we're assuming the same or non-
         # conflicting hierarchies
 
     def buffer_parent_update(self):
-        parents, generations = self.get_parent_instances()
+        """
+        This is called when MaintainedModel.delete is called if auto_updates is False, so that maintained fields can be
+        updated after loading code finishes (by calling the global method: perform_buffered_updates)
+        """
+        parents, info_list = self.get_parent_instances()
         for i, parent_inst in enumerate(parents):
-            update_buffer.append({"rec": parent_inst, "gen": generations[i]})
+            update_buffer.append({"rec": parent_inst, "info": info_list[i]})
+
+    def get_parent_updates(self):
+        """
+        This is used by perform_buffered_updates to append parent updates to a new locally cached update buffer, in
+        order to not repeatedly update the same record via multiple update triggers (e.g. an update triggerted by a
+        parent and an update triggered by a direct update to the same record).  This works because
+        perform_buffered_updates does not propagate updates per update (depth-first traversal), but rather does a
+        breadth-first update.
+        """
+        local_buffer = []
+        parents, info_list = self.get_parent_instances()
+        for i, parent_inst in enumerate(parents):
+            local_buffer.append({"rec": parent_inst, "info": info_list[i]})
+        return local_buffer
 
     class Meta:
         abstract = True
 
 
-def perform_buffered_updates():
+def perform_buffered_updates(label_filters=[]):
+    """
+    Performs a mass update of records in the buffer in a breadth-first fashion without repeated updates to the same
+    record over and over.
+    """
     global update_buffer
-    # For each record in the buffer
-    for buffer_item in sorted(update_buffer, key=lambda x: x["gen"], reverse=True):
-        # Try to perform the update. It could fail if the affected record was deleted
-        try:
-            buffer_item["rec"].save()
-        except Exception as e:
-            print(
-                "WARNING: Buffered record update failed.  The record may have been deleted.  If it was, you may "
-                f"ignore this warning.  {e}"
-            )
-    # Clear the buffer
-    update_buffer = []
+    global performing_buffered_updates
+    # This prevents propagating changes up the hierarchy in a depth-first fashion
+    performing_buffered_updates = True
+
+    # Get the largest generation value
+    youngest_generation = sorted(
+        update_buffer, key=lambda x: x["info"]["generation"], reverse=True
+    )[0]["info"]["generation"]
+
+    updated_dict = {}
+
+    for gen in sorted(range(youngest_generation + 1), reverse=True):
+        # Each generation will potentially add parent records to the update_buffer, which we handle here locally
+        add_to_buffer = []
+        # For each record in the buffer
+        for buffer_item in sorted(
+            update_buffer, key=lambda x: x["info"]["generation"], reverse=True
+        ):
+            # Leave the loop when the generation changes so that we can update the buffer with parent-triggered updates
+            # that are guaranteed to be lesser generation numbers
+            if buffer_item["info"]["generation"] < gen:
+                break
+            # Track updated records to avoid repeated updates
+            key = f"{buffer_item['rec'].__class__.__name__}.{buffer_item['rec'].pk}"
+            # Try to perform the update. It could fail if the affected record was deleted
+            try:
+                if key not in updated_dict:
+                    buffer_item["rec"].save()
+                    updated_dict[key] + True
+                    tmp_buffer = buffer_item["rec"].get_parent_updates()
+                    if len(tmp_buffer) > 0:
+                        add_to_buffer += tmp_buffer
+            except Exception as e:
+                print(
+                    "WARNING: Buffered record update failed.  The record may have been deleted.  If it was, you may "
+                    f"ignore this warning.  {e}"
+                )
+        # Clear this generation from the buffer
+        clear_update_buffer(generation=gen)
+        update_buffer += add_to_buffer
 
 
 class NotMaintained(Exception):
