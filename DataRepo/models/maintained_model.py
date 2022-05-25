@@ -19,24 +19,46 @@ def enable_autoupdates():
     auto_updates = True
 
 
-def clear_update_buffer(generation=None):
+def clear_update_buffer(generation=None, label_filters=[]):
     global update_buffer
     if generation is None:
         update_buffer = []
         return
     new_buffer = []
     gen_warns = 0
+    no_filters = len(label_filters) == 0
     for buffered_item in update_buffer:
-        if buffered_item["info"]["generation"] != generation:
-            new_buffer.append(buffered_item)
-            if buffered_item["info"]["generation"] > generation:
-                gen_warns += 1
+        updaters_list = buffered_item.get_my_updaters()
+        max_gen = get_max_generation(updaters_list, label_filters)
+        if generation is None or max_gen != generation:
+            if (generation is not None and no_filters) or (
+                generation is None
+                and (
+                    no_filters
+                    or not updater_list_has_labels(updaters_list, label_filters)
+                )
+            ):
+                new_buffer.append(buffered_item)
+                if max_gen > generation:
+                    gen_warns += 1
     if gen_warns > 0:
         print(
             f"WARNING: {gen_warns} records in the buffer are younger than the generation supplied: {generation}.  "
-            "Generations should be cleared from youngest (/largest generation number/leaf) to oldest(/root)."
+            "Generations should be cleared in order from youngest (/largest generation number/leaf) to oldest(/root)."
         )
     update_buffer = new_buffer
+
+
+def updater_list_has_labels(updaters_list, label_filters):
+    """
+    Returns True if any updater dict in updaters_list has 1 of any of the update_labels in the label_filters list
+    """
+    for updater_dict in updaters_list:
+        label = updater_dict["update_label"]
+        has_a_label = label is not None
+        if has_a_label and label in label_filters:
+            return True
+    return False
 
 
 def field_updater_function(
@@ -170,15 +192,17 @@ class MaintainedModel(Model):
         maintained fields.
         """
         if auto_updates is False and performing_buffered_updates is False:
-            self.buffer_update()
             # Set the changed value triggering this update
             super().save(*args, **kwargs)
+            print(f"Saved {self.__class__.__name__} ID {self.id}")
+            print(f"Buffered autoupdates to {self.__class__.__name__}")
+            self.buffer_update()
             return
 
         # Update the fields that change due to the above change (if any)
         self.update_decorated_fields()
 
-        # Now save the updated values (i.e. save again)
+        # Now save the updated values
         super().save(*args, **kwargs)
 
         if auto_updates is True:
@@ -235,55 +259,53 @@ class MaintainedModel(Model):
         This calls parent record's `save` method to trigger updates to their maintained fields (if any) and further
         propagate those changes up the hierarchy (if those records have parents)
         """
-        parents, info_list = self.get_parent_instances()
-
+        parents = self.get_parent_instances()
         for parent_inst in parents:
-            if isinstance(parent_inst, MaintainedModel):
-                print(
-                    f"Calling the linked {parent_inst.__class__.__name__} instance's save method."
-                )
-                parent_inst.save()
-            elif parent_inst.__class__.__name__ == "ManyRelatedManager":
-                if parent_inst.count() > 0 and isinstance(
-                    parent_inst.first(), MaintainedModel
-                ):
-                    print(
-                        f"Calling every M:M linked {parent_inst.first().__class__.__name__} instance's save method."
-                    )
-                    for mm_parent_inst in parent_inst.all():
-                        print(
-                            f"Calling every M:M linked {mm_parent_inst.__class__.__name__} instance's save method."
-                        )
-                        mm_parent_inst.save()
-                elif parent_inst.count() > 0:
-                    raise NotMaintained(parent_inst.first(), self)
-                # Nothing to to do if there are no linked records
-            else:
-                raise NotMaintained(parent_inst, self)
+            parent_inst.save()
 
     def get_parent_instances(self):
         """
         Returns 2 lists: a list of parent records of the current record (self) (as stored in the updater_list global
         variable) and a same-sized list of each record's decorator info, as stored by the decorator in the
         updater_list global variable.
+
+        Limitation: This does not return `through` model instances.  If a through model contains decorated methods to
+        maintain through model fields, this will have to be modified to return through model instances.  Note though
+        that changes to through model record will still propagate to linked parent records when the through model
+        contains decorators.  It's just that changes to fields in the through models cannot be triggered by changes to
+        child records.  Currently, this is not the case in the model structure.
         """
         parents = []
-        info_list = []
         for updater_dict in self.get_my_updaters():
             update_fun = getattr(self, updater_dict["update_function"])
             parent_fld = updater_dict["parent_field"]
             if parent_fld is not None:
                 print(f"Looking in {self.__class__.__name__} for {parent_fld}")
                 try:
-                    parent_inst = getattr(self, parent_fld)
+                    tmp_parent_inst = getattr(self, parent_fld)
                 except AttributeError:
                     raise BadModelField(
                         self.__class__.__name__, parent_fld, update_fun.__qualname__
                     )
-                if parent_inst is not None and parent_inst not in parents:
-                    parents.append(parent_inst)
-                    info_list.append(updater_dict)
-        return parents, info_list
+                if tmp_parent_inst is not None:
+                    if isinstance(tmp_parent_inst, MaintainedModel):
+                        parent_inst = tmp_parent_inst
+                        if parent_inst not in parents:
+                            parents.append(parent_inst)
+                    elif tmp_parent_inst.__class__.__name__ == "ManyRelatedManager":
+                        # NOTE: This skips the `through` model
+                        if tmp_parent_inst.count() > 0 and isinstance(
+                            tmp_parent_inst.first(), MaintainedModel
+                        ):
+                            for mm_parent_inst in tmp_parent_inst.all():
+                                if mm_parent_inst not in parents:
+                                    parents.append(mm_parent_inst)
+                        elif tmp_parent_inst.count() > 0:
+                            raise NotMaintained(tmp_parent_inst.first(), self)
+                        # Nothing to to do if there are no linked records
+                    else:
+                        raise NotMaintained(tmp_parent_inst, self)
+        return parents
 
     @classmethod
     def get_my_updaters(self):
@@ -307,12 +329,11 @@ class MaintainedModel(Model):
         # Figure out the greatest generation number
         # Leaves in the hierarchy are updated first
         gen = None
-        info = None
-        for updater_dict in self.get_my_updaters():
+        updaters_list = self.get_my_updaters()
+        for updater_dict in updaters_list:
             if gen is None or gen < updater_dict["generation"]:
                 gen = updater_dict["generation"]
-                info = updater_dict
-        update_buffer.append({"rec": self, "info": info})
+        update_buffer.append(self)
         # Note, supporting multiple hierarchies will require more thought. Right now, we're assuming the same or non-
         # conflicting hierarchies
 
@@ -321,9 +342,9 @@ class MaintainedModel(Model):
         This is called when MaintainedModel.delete is called if auto_updates is False, so that maintained fields can be
         updated after loading code finishes (by calling the global method: perform_buffered_updates)
         """
-        parents, info_list = self.get_parent_instances()
-        for i, parent_inst in enumerate(parents):
-            update_buffer.append({"rec": parent_inst, "info": info_list[i]})
+        parents = self.get_parent_instances()
+        for parent_inst in parents:
+            update_buffer.append(parent_inst)
 
     def get_parent_updates(self):
         """
@@ -334,13 +355,59 @@ class MaintainedModel(Model):
         breadth-first update.
         """
         local_buffer = []
-        parents, info_list = self.get_parent_instances()
-        for i, parent_inst in enumerate(parents):
-            local_buffer.append({"rec": parent_inst, "info": info_list[i]})
+        parents = self.get_parent_instances()
+        for parent_inst in parents:
+            local_buffer.append(parent_inst)
         return local_buffer
 
     class Meta:
         abstract = True
+
+
+def buffer_size(generation=None, label_filters=[]):
+    cnt = 0
+    no_filters = len(label_filters) == 0
+    for buffered_item in update_buffer:
+        updaters_list = buffered_item.get_my_updaters()
+        max_gen = get_max_generation(updaters_list, label_filters)
+        if generation is None or max_gen == generation:
+            if (
+                generation is not None
+                or no_filters
+                or updater_list_has_labels(updaters_list, label_filters)
+            ):
+                cnt += 1
+    return cnt
+
+
+def get_max_buffer_generation(label_filters=[]):
+    youngest_generation = None
+    no_filters = len(label_filters) == 0
+    exploded_updater_dicts = []
+    for buffered_item in update_buffer:
+        exploded_updater_dicts += buffered_item.get_my_updaters()
+    # Get the largest generation value
+    for updater_dict in sorted(
+        exploded_updater_dicts, key=lambda x: x["generation"], reverse=True
+    ):
+        label = updater_dict["update_label"]
+        gen = updater_dict["generation"]
+        if no_filters or label in label_filters:
+            if youngest_generation is None or gen > youngest_generation:
+                youngest_generation = gen
+                break
+    return youngest_generation
+
+
+def get_max_generation(updaters_list, label_filters=[]):
+    max_gen = None
+    no_filters = len(label_filters) == 0
+    for updater_dict in updaters_list:
+        if no_filters or updater_dict["update_label"] in label_filters:
+            gen = updater_dict["generation"]
+            if max_gen is None or gen > max_gen:
+                max_gen = gen
+    return max_gen
 
 
 def perform_buffered_updates(label_filters=[]):
@@ -354,41 +421,74 @@ def perform_buffered_updates(label_filters=[]):
     performing_buffered_updates = True
 
     # Get the largest generation value
-    youngest_generation = sorted(
-        update_buffer, key=lambda x: x["info"]["generation"], reverse=True
-    )[0]["info"]["generation"]
+    youngest_generation = get_max_buffer_generation(label_filters)
 
-    updated_dict = {}
+    updated = {}
 
     for gen in sorted(range(youngest_generation + 1), reverse=True):
         # Each generation will potentially add parent records to the update_buffer, which we handle here locally
+        print(f"Performing buffered updates for generation {gen}")
         add_to_buffer = []
         # For each record in the buffer
         for buffer_item in sorted(
-            update_buffer, key=lambda x: x["info"]["generation"], reverse=True
+            update_buffer,
+            key=lambda x: get_max_generation(x.get_my_updaters(), label_filters),
+            reverse=True,
         ):
+            updater_dicts = buffer_item.get_my_updaters()
+            max_gen = get_max_generation(updater_dicts, label_filters)
             # Leave the loop when the generation changes so that we can update the buffer with parent-triggered updates
             # that are guaranteed to be lesser generation numbers
-            if buffer_item["info"]["generation"] < gen:
+            if max_gen < gen:
                 break
             # Track updated records to avoid repeated updates
-            key = f"{buffer_item['rec'].__class__.__name__}.{buffer_item['rec'].pk}"
+            key = f"{buffer_item.__class__.__name__}.{buffer_item.pk}"
+            print(f"Checking if we have updated key: {key} already")
             # Try to perform the update. It could fail if the affected record was deleted
             try:
-                if key not in updated_dict:
-                    buffer_item["rec"].save()
-                    updated_dict[key] + True
-                    tmp_buffer = buffer_item["rec"].get_parent_updates()
+                no_filters = len(label_filters) == 0
+                if key not in updated and (
+                    no_filters or updater_list_has_labels(updater_dicts, label_filters)
+                ):
+                    print("Saving")
+                    buffer_item.save()
+                    updated[key] = True
+                    tmp_buffer = buffer_item.get_parent_updates()
                     if len(tmp_buffer) > 0:
-                        add_to_buffer += tmp_buffer
+                        print(
+                            f"Parents exist {len(tmp_buffer)}: [{tmp_buffer[0]}] type: [{type(tmp_buffer[0])}]"
+                        )
+                        for tmp_buffer_item in tmp_buffer:
+                            if (
+                                tmp_buffer_item not in update_buffer
+                                and tmp_buffer_item not in add_to_buffer
+                            ):
+                                print(f"Parent: ({tmp_buffer_item})")
+                                print(
+                                    f"Adding new update triggers from child {buffer_item.id} to parent: "
+                                    f"{tmp_buffer_item.id} ({tmp_buffer_item})"
+                                )
+                                add_to_buffer.append(tmp_buffer_item)
+                            else:
+                                print(
+                                    f"Parent: ({tmp_buffer_item}) is already in the global buffer: {update_buffer} or "
+                                    f"the local buffer: {add_to_buffer}"
+                                )
+                    else:
+                        print("No parents")
+                else:
+                    print("Not saving")
             except Exception as e:
                 print(
                     "WARNING: Buffered record update failed.  The record may have been deleted.  If it was, you may "
                     f"ignore this warning.  {e}"
                 )
+                raise e
         # Clear this generation from the buffer
-        clear_update_buffer(generation=gen)
+        clear_update_buffer(generation=gen, label_filters=label_filters)
+        print(f"Old update_buffer: {update_buffer}")
         update_buffer += add_to_buffer
+        print(f"New update_buffer: {update_buffer}")
 
 
 class NotMaintained(Exception):

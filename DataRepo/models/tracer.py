@@ -38,8 +38,12 @@ class Tracer(MaintainedModel, TracerLabeledClass):
     )
     def _name(self):
         # format: `compound - [ labelname,labelname,... ]` (but no spaces)
-        if self.labels is None or self.labels.count() == 0:
+        if self.id is None or self.labels is None or self.labels.count() == 0:
             return self.compound.name
+        print(
+            f"Returning tracer name including {self.labels.count()} labels from record IDs: "
+            f"{','.join(list(map(lambda l: str(l.id), self.labels.all())))}"
+        )
         return (
             self.compound.name
             + "-["

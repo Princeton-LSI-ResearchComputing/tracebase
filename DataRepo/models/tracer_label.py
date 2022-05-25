@@ -16,6 +16,7 @@ class TracerLabel(MaintainedModel, TracerLabeledClass):
     id = models.AutoField(primary_key=True)
     name = models.CharField(
         max_length=256,
+        null=True,
         editable=False,
         help_text="An automatically maintained identifier of a tracer label.",
     )
@@ -90,6 +91,10 @@ class TracerLabel(MaintainedModel, TracerLabeledClass):
     )
     def _name(self):
         # format: `position,position,... - weight element count` (but no spaces) positions optional
+        print(
+            f"TEST: LABEL: positions: {','.join(map(lambda x: str(x), self.positions))}, mass: {self.mass_number} "
+            f"element: {self.element} count: {self.count}"
+        )
         pos_str = ""
         if len(self.positions) > 0:
             pos_str = (
