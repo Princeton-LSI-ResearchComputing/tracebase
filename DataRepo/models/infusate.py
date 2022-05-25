@@ -14,6 +14,7 @@ class Infusate(MaintainedModel):
     name = models.CharField(
         max_length=256,
         unique=True,
+        null=True,
         editable=False,
         help_text="A unique name or lab identifier of the infusate 'recipe' containing 1 or more tracer compounds at "
         "specific concentrations.",
@@ -39,7 +40,7 @@ class Infusate(MaintainedModel):
         ordering = ["name"]
 
     def __str__(self):
-        return str(self.name)
+        return str(self._name())
 
     @field_updater_function(generation=0, update_field_name="name")
     def _name(self):
