@@ -16,25 +16,29 @@ from DataRepo.models.maintained_model import (
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
+def create_infusate_records():
+    glu = Compound.objects.create(name="glucose", formula="C6H12O6", hmdb_id=1)
+    c16 = Compound.objects.create(name="C16:0", formula="C16H32O2", hmdb_id=2)
+    glu_t = Tracer.objects.create(compound=glu)
+    c16_t = Tracer.objects.create(compound=c16)
+    TracerLabel.objects.create(
+        tracer=glu_t, count=5, element="C", positions=[2, 3], mass_number=13
+    )
+    TracerLabel.objects.create(
+        tracer=glu_t, count=1, element="O", positions=[4], mass_number=17
+    )
+    TracerLabel.objects.create(
+        tracer=c16_t, count=5, element="C", positions=[5, 6], mass_number=13
+    )
+    TracerLabel.objects.create(tracer=c16_t, count=1, element="O", mass_number=17)
+    io = Infusate.objects.create(short_name="ti")
+    InfusateTracer.objects.create(infusate=io, tracer=glu_t, concentration=1.0)
+    InfusateTracer.objects.create(infusate=io, tracer=c16_t, concentration=2.0)
+
+
 class InfusateTests(TracebaseTestCase):
     def setUp(self):
-        glu = Compound.objects.create(name="glucose", formula="C6H12O6", hmdb_id=1)
-        c16 = Compound.objects.create(name="C16:0", formula="C16H32O2", hmdb_id=2)
-        glu_t = Tracer.objects.create(compound=glu)
-        c16_t = Tracer.objects.create(compound=c16)
-        TracerLabel.objects.create(
-            tracer=glu_t, count=5, element="C", positions=[2, 3], mass_number=13
-        )
-        TracerLabel.objects.create(
-            tracer=glu_t, count=1, element="O", positions=[4], mass_number=17
-        )
-        TracerLabel.objects.create(
-            tracer=c16_t, count=5, element="C", positions=[5, 6], mass_number=13
-        )
-        TracerLabel.objects.create(tracer=c16_t, count=1, element="O", mass_number=17)
-        io = Infusate.objects.create(short_name="ti")
-        InfusateTracer.objects.create(infusate=io, tracer=glu_t, concentration=1.0)
-        InfusateTracer.objects.create(infusate=io, tracer=c16_t, concentration=2.0)
+        create_infusate_records()
 
     def test_infusate_record(self):
         infusate = Infusate.objects.first()
@@ -75,35 +79,8 @@ class MaintainedModelTests(TracebaseTestCase):
         # the test runs, but the buffer needs to be explicitly emptied
         clear_update_buffer()
         disable_autoupdates()
-        print("CREATING RECORDS WITHOUT AUTOUPDATE TURNED ON")
-        print("CREATING GLUCOSE")
-        glu = Compound.objects.create(name="glucose", formula="C6H12O6", hmdb_id=1)
-        print("CREATING C16")
-        c16 = Compound.objects.create(name="C16:0", formula="C16H32O2", hmdb_id=2)
-        print("CREATING GLUCOSE TRACER")
-        glu_t = Tracer.objects.create(compound=glu)
-        print("CREATING C16 TRACER")
-        c16_t = Tracer.objects.create(compound=c16)
-        print("CREATING LABEL 2,3-13C5")
-        TracerLabel.objects.create(
-            tracer=glu_t, count=5, element="C", positions=[2, 3], mass_number=13
-        )
-        print("CREATING LABEL 2,3-17O1")
-        TracerLabel.objects.create(
-            tracer=glu_t, count=1, element="O", positions=[4], mass_number=17
-        )
-        print("CREATING LABEL 5,6-13C5")
-        TracerLabel.objects.create(
-            tracer=c16_t, count=5, element="C", positions=[5, 6], mass_number=13
-        )
-        print("CREATING LABEL 17O1")
-        TracerLabel.objects.create(tracer=c16_t, count=1, element="O", mass_number=17)
-        print("CREATING INFUSATE ti")
-        io = Infusate.objects.create(short_name="ti")
-        print("CREATING INFUSATE TRACER ti glucose tracer c1")
-        InfusateTracer.objects.create(infusate=io, tracer=glu_t, concentration=1.0)
-        print("CREATING INFUSATE TRACER ti c16 tracer c2")
-        InfusateTracer.objects.create(infusate=io, tracer=c16_t, concentration=2.0)
+        create_infusate_records()
+        enable_autoupdates()
 
     def test_nullable(self):
         """
@@ -118,10 +95,6 @@ class MaintainedModelTests(TracebaseTestCase):
         """
         Makes sure name is not autoupdated in TracerLabel, Tracer, nor Infusate
         """
-        print(
-            f"RUNNING DISABLED AUTOUPDATE TEST {TracerLabel.objects.first()} name: "
-            f"[{TracerLabel.objects.first().name}] isNone: [{TracerLabel.objects.first().name is None}]"
-        )
         self.assertIsNone(TracerLabel.objects.first().name)
         self.assertIsNone(Tracer.objects.first().name)
         self.assertIsNone(Infusate.objects.first().name)
@@ -130,12 +103,10 @@ class MaintainedModelTests(TracebaseTestCase):
         """
         Ensures that the name fields were all updated, updated correctly, and the buffer emptied.
         """
-        print("RUNNING MASS AUTOUPDATE TEST")
-        num_labelrecs_buffered = buffer_size(generation=3)
-        print(f"There are {num_labelrecs_buffered} buffered label records")
+        disable_autoupdates()  # Required for buffered updates to prevent DFS update behavior
         perform_buffered_updates()
-        tls = TracerLabel.objects.all()
-        for tl in tls:
+        # Ensure all the auto-updated fields not have values (correctness of values tested elsewhere)
+        for tl in TracerLabel.objects.all():
             self.assertIsNotNone(tl.name)
             self.assertEqual(tl.name, tl._name())
         for t in Tracer.objects.all():
@@ -144,13 +115,14 @@ class MaintainedModelTests(TracebaseTestCase):
         for i in Infusate.objects.all():
             self.assertIsNotNone(i.name)
             self.assertEqual(i.name, i._name())
+        # Ensure the buffer was emptied by perform_buffered_updates
         self.assertEqual(buffer_size(), 0)
+        enable_autoupdates()
 
     def test_enable_autoupdates(self):
         """
         Ensures that the name field was constructed.
         """
-        print("RUNNING ENABLED AUTOUPDATE TEST")
         enable_autoupdates()
         lys = Compound.objects.create(name="lysine", formula="C6H14N2O2", hmdb_id=3)
         Tracer.objects.create(compound=lys)

@@ -17,6 +17,12 @@ def disable_autoupdates():
 def enable_autoupdates():
     global auto_updates
     auto_updates = True
+    if performing_buffered_updates:
+        raise StaleAutoupdateMode()
+
+
+def are_autoupdates_enabled():
+    return auto_updates
 
 
 def clear_update_buffer(generation=None, label_filters=[]):
@@ -229,8 +235,6 @@ class MaintainedModel(Model):
         if auto_updates is False and performing_buffered_updates is False:
             # Set the changed value triggering this update
             super().save(*args, **kwargs)
-            print(f"Saved {self.__class__.__name__} ID {self.id}")
-            print(f"Buffered autoupdates to {self.__class__.__name__}")
             self.buffer_update()
             return
 
@@ -287,13 +291,13 @@ class MaintainedModel(Model):
                 setattr(self, update_fld, new_val)
 
                 # Report the auto-update
-                # if settings.DEBUG:
-                if current_val is None or current_val == "":
-                    current_val = "<empty>"
-                print(
-                    f"Auto-updated {self.__class__.__name__}.{update_fld} using {update_fun.__qualname__} from "
-                    f"[{current_val}] to [{new_val}]"
-                )
+                if settings.DEBUG:
+                    if current_val is None or current_val == "":
+                        current_val = "<empty>"
+                    print(
+                        f"Auto-updated {self.__class__.__name__}.{update_fld} using {update_fun.__qualname__} from "
+                        f"[{current_val}] to [{new_val}]"
+                    )
 
     def call_parent_updaters(self):
         """
@@ -323,7 +327,7 @@ class MaintainedModel(Model):
 
             # If there is a parent that should update based on this change
             if parent_fld is not None:
-                print(f"Looking in {self.__class__.__name__} for {parent_fld}")
+
                 # Get the parent instance and catch the case where it doesn't exist
                 try:
                     tmp_parent_inst = getattr(self, parent_fld)
@@ -471,6 +475,9 @@ def perform_buffered_updates(label_filters=[]):
     global update_buffer
     global performing_buffered_updates
 
+    if auto_updates:
+        raise InvalidAutoUpdateMode()
+
     # This allows our updates to be saved, but prevents propagating changes up the hierarchy in a depth-first fashion
     performing_buffered_updates = True
     # Get the largest generation value
@@ -480,7 +487,6 @@ def perform_buffered_updates(label_filters=[]):
 
     # For every generation from the youngest leaves/children to root/parent
     for gen in sorted(range(youngest_generation + 1), reverse=True):
-        print(f"Performing buffered updates for generation {gen}")
 
         # Each generation will potentially add parent records to the update_buffer.  We will locally buffer those
         # parents to be included in the next outer loop
@@ -504,14 +510,12 @@ def perform_buffered_updates(label_filters=[]):
             # Track updated records to avoid repeated updates
             key = f"{buffer_item.__class__.__name__}.{buffer_item.pk}"
 
-            print(f"Checking if we have updated key: {key} already")
             # Try to perform the update. It could fail if the affected record was deleted
             try:
                 no_filters = len(label_filters) == 0
                 if key not in updated and (
                     no_filters or updater_list_has_labels(updater_dicts, label_filters)
                 ):
-                    print("Saving")
                     # Saving the record while performing_buffered_updates is True, causes auto-updates of every field
                     # included among the model's decorated functions.  It does not only update the fields indicated in
                     # decorators that contain the labels indicated in the label_filters.  The filters are only used to
@@ -526,38 +530,24 @@ def perform_buffered_updates(label_filters=[]):
                     # Add parent records to the local buffer (add_to_buffer)
                     tmp_buffer = buffer_item.get_parent_instances()
                     if len(tmp_buffer) > 0:
-                        print(
-                            f"Parents exist {len(tmp_buffer)}: [{tmp_buffer[0]}] type: [{type(tmp_buffer[0])}]"
-                        )
+
                         for tmp_buffer_item in tmp_buffer:
                             if (
                                 tmp_buffer_item not in update_buffer
                                 and tmp_buffer_item not in add_to_buffer
                             ):
-                                print(f"Parent: ({tmp_buffer_item})")
-                                print(
-                                    f"Adding new update triggers from child {buffer_item.id} to parent: "
-                                    f"{tmp_buffer_item.id} ({tmp_buffer_item})"
-                                )
                                 add_to_buffer.append(tmp_buffer_item)
-                            else:
-                                print(
-                                    f"Parent: ({tmp_buffer_item}) is already in the global buffer: {update_buffer} or "
-                                    f"the local buffer: {add_to_buffer}"
-                                )
-                    else:
-                        print("No parents")
-                else:
-                    print("Not saving")
+
             except Exception as e:
                 raise AutoUpdateFailed(e)
 
         # Clear this generation from the buffer
         clear_update_buffer(generation=gen, label_filters=label_filters)
-        print(f"Old update_buffer: {update_buffer}")
         # Add newly buffered records
         update_buffer += add_to_buffer
-        print(f"New update_buffer: {update_buffer}")
+
+    # We're done performing buffered updates
+    performing_buffered_updates = False
 
 
 class NotMaintained(Exception):
@@ -624,5 +614,24 @@ class AutoUpdateFailed(Exception):
         message = (
             "Autoupdate failed.  If the record was deleted, a catch for the exception should be added and ignored (or "
             f"the code should be edited to avoid it).  The triggering exception: [{err}]."
+        )
+        super().__init__(message)
+
+
+class InvalidAutoUpdateMode(Exception):
+    def __init__(self):
+        message = (
+            "Autoupdate mode must remain disabled during a mass update of maintained fields so that parent updates are "
+            "not triggered in a depth-first fashion."
+        )
+        super().__init__(message)
+
+
+class StaleAutoupdateMode(Exception):
+    def __init__(self):
+        message = (
+            "Autoupdate mode enabled during a mass update of maintained fields.  Automated update of the global "
+            "variable performing_buffered_updates may have been interrupted during execution of "
+            "perform_buffered_updates."
         )
         super().__init__(message)
