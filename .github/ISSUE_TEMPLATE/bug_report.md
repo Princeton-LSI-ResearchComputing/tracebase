@@ -48,23 +48,23 @@ discovered the problem.
 
 ### Requirements
 
-- List of conditions to be met for the feature
-- E.g. Every column/row must display a value, i.e. cannot be empty
+- [ ] 1. List of numbered conditions to be met for the feature
+- [ ] 2. E.g. Every column/row must display a value, i.e. cannot be empty
+- [ ] 3. Numbers for reference & checkboxes for progress tracking
 
 ### Limitations
 
-- A list of things this work will not fix
-- E.g. Getting edge case X to work requires too much effort and will not be
-  fixed in this effort.
+- A list of things this work will specifically not do
+- E.g. This feature will only handle the most frequent use case X
 
-### Affected/Changed Components
+### Affected Components
 
-- Files
-- Environment variables
-- External executables
-- Database tables
-- Cron job settings
-- Etc.
+A list of repository items, dependencies, etc, labeled with add, delete, or
+change.  One item per line.  (Mostly, this will be a list of files.)
+
+- change: File path or DB table ...
+- add: Environment variable or server setting
+- delete: External executable or cron job
 
 ### DESIGN
 
@@ -72,10 +72,12 @@ discovered the problem.
 
 Describe changes the user will see.
 
-#### Code Change Description *(Pseudocode optional)*
+#### Code Change Description
 
-Describe code changes planned for the fix.
+Describe code changes planned for the feature. *(Pseudocode encouraged)*
 
 #### Tests
 
-A test should be planned for each requirement (above), where possible.
+- [ ] 1. A description of at least one test for each requirement above.
+- [ ] 2. E.g. Test for req 2 that there's an exception when display value is ''
+- [ ] 3. Numbers for reference & checkboxes for progress tracking
