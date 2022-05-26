@@ -59,8 +59,8 @@ discovered the problem.
 
 ### Affected Components
 
-A list of repo items, dependencies, etc, labeled with add, delete, or change.
-One item per line.  (Mostly, this will be a list of files.)
+A list of repository items, dependencies, etc, labeled with add, delete, or
+change.  One item per line.  (Mostly, this will be a list of files.)
 
 - change: File path or DB table ...
 - add: Environment variable or server setting
