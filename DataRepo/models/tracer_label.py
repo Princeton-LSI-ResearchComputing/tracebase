@@ -91,10 +91,6 @@ class TracerLabel(MaintainedModel, ElementLabel):
     )
     def _name(self):
         # format: `position,position,... - weight element count` (but no spaces) positions optional
-        print(
-            f"TEST: LABEL: positions: {','.join(map(lambda x: str(x), self.positions))}, mass: {self.mass_number} "
-            f"element: {self.element} count: {self.count}"
-        )
         pos_str = ""
         if len(self.positions) > 0:
             pos_str = (

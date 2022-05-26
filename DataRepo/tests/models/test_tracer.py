@@ -1,5 +1,8 @@
 from DataRepo.models import Compound, Tracer, TracerLabel
-from DataRepo.models.maintained_model import MaintainedFieldNotSettable
+from DataRepo.models.maintained_model import (
+    MaintainedFieldNotSettable,
+    are_autoupdates_enabled,
+)
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
@@ -28,7 +31,10 @@ class TracerTests(TracebaseTestCase):
 
     def test_name_autoupdated(self):
         """
-        Make sure that the name field was set automatically - triggered by the InfusateTracer record creation.
+        Make sure that the name field was set automatically - updates are triggered by the tracer record creation and
+        each TracerLabel record creation, after which it has its final value.
         """
         # Throws DoesNotExist exception if not found
+        print(f"Last Tracer name: {Tracer.objects.last().name}")
+        print(f"Autoupdates enabled?: {are_autoupdates_enabled()}")
         Tracer.objects.get(name="glucose-[2,3-13C5,4-17O1]")
