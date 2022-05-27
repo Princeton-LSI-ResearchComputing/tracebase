@@ -32,7 +32,10 @@ class Tracer(MaintainedModel, TracerLabeledClass):
         return str(self._name())
 
     @field_updater_function(
-        generation=2, update_field_name="name", parent_field_name="infusates"
+        generation=2,
+        update_field_name="name",
+        parent_field_name="infusates",
+        update_label="name",
     )
     def _name(self):
         # format: `compound - ( labelname,labelname,... )` (but no spaces)

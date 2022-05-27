@@ -19,13 +19,13 @@ class Infusate(MaintainedModel):
         help_text="A unique name or lab identifier of the infusate 'recipe' containing 1 or more tracer compounds at "
         "specific concentrations.",
     )
-    short_name = models.CharField(
+    tracer_group_name = models.CharField(
         max_length=20,
         unique=False,
         null=True,
         blank=True,
-        help_text="A unique short name or lab identifier of the infusate 'recipe' containing 1 or more tracer "
-        "compounds at specific concentrations, e.g '6eaas'.",
+        help_text="A (non-unique) short name or lab identifier of a specific assortment of tracer compounds "
+        "regardless of concentration, e.g '6eaas'.",
     )
     tracers = models.ManyToManyField(
         Tracer,
@@ -42,7 +42,7 @@ class Infusate(MaintainedModel):
     def __str__(self):
         return str(self._name())
 
-    @field_updater_function(generation=0, update_field_name="name")
+    @field_updater_function(generation=0, update_field_name="name", update_label="name")
     def _name(self):
         # Format: `short_name{tracername;tracername}`
 
@@ -52,12 +52,16 @@ class Infusate(MaintainedModel):
         # ValueError: "<Infusate: >" needs to have a value for field "id" before this many-to-many relationship can be
         # used.
         if self.id is None or self.tracers is None or self.tracers.count() == 0:
-            return self.short_name
+            return self.tracer_group_name
 
         link_recs = self.tracers.through.objects.filter(infusate__exact=self.id)
 
+        nickname = ""
+        if self.tracer_group_name is not None:
+            nickname = self.tracer_group_name
+
         return (
-            self.short_name
+            nickname
             + "{"
             + ";".join(
                 sorted(
