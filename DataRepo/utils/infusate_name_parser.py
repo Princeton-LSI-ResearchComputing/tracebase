@@ -1,26 +1,35 @@
 import re
-from typing import Optional, TypedDict
+from typing import List, Optional, TypedDict
 
 # infusate with a name have the tracer(s) grouped in braces
 INFUSATE_ENCODING_PATTERN = r"(.*)\s*\{(.*)\}"
 TRACERS_ENCODING_JOIN = ";"
 TRACER_ENCODING_PATTERN = r"(.*)\-\[([0-9CNHOS,\-]*)\]"
+ISOTOPE_ENCODING_JOIN = ","
+ISOTOPE_ENCODING_PATTERN = re.compile(
+    r"(?:(?P<labeled_positions>[0-9,]+)-){0,1}(?P<labeled_element>[0-9]+[CHNOS])(?P<labeled_count>[0-9+])"
+)
 
 
-class ParsedInfusate(TypedDict):
+class IsotopeData(TypedDict):
+    labeled_element: str
+    labeled_count: int
+    labeled_positions: Optional[List[int]]
+
+
+class TracerData(TypedDict):
+    original_tracer: str
+    compound_name: str
+    isotopes: List[IsotopeData]
+
+
+class InfusateData(TypedDict):
     original_infusate: str
     infusate_name: Optional[str]
-    tracer_names: list
-    compound_names: list
-    isotope_labels: list
+    tracers: List[TracerData]
 
 
-class ParsedTracer(TypedDict):
-    compound_names: list
-    isotope_labels: list
-
-
-def parse_infusate_name(infusate_string: str) -> ParsedInfusate:
+def parse_infusate_name(infusate_string: str) -> InfusateData:
     """
     Takes a complex infusate, coded as a string, and parses it into its optional
     name, lists of tracer(s) and compounds.
@@ -28,48 +37,86 @@ def parse_infusate_name(infusate_string: str) -> ParsedInfusate:
 
     # defaults
     # assume the string lacks the optional name, and it is all tracer encodings
-    parsed_data: ParsedInfusate = {
+    parsed_data: InfusateData = {
         "original_infusate": infusate_string,
         "infusate_name": None,
-        "tracer_names": split_encoded_tracers_string(infusate_string),
-        "compound_names": list(),
-        "isotope_labels": list(),
+        "tracers": list(),
     }
 
     match = re.search(INFUSATE_ENCODING_PATTERN, infusate_string)
 
     if match:
         parsed_data["infusate_name"] = match.group(1).strip()
-        tracers_string = match.group(2).strip()
-        # over-write the defaults
-        tracer_names = split_encoded_tracers_string(tracers_string)
-        parsed_data["tracer_names"] = tracer_names
+        tracer_strings = split_encoded_tracers_string(match.group(2).strip())
+    else:
+        tracer_strings = [infusate_string]
 
-    tracer_data = parse_tracer_strings(parsed_data["tracer_names"])
-
-    parsed_data["compound_names"] = tracer_data["compound_names"]
-    parsed_data["isotope_labels"] = tracer_data["isotope_labels"]
+    for tracer_string in tracer_strings:
+        parsed_data["tracers"].append(parse_tracer_string(tracer_string))
 
     return parsed_data
 
 
-def split_encoded_tracers_string(tracers_string: str) -> list:
+def split_encoded_tracers_string(tracers_string: str) -> List[str]:
     tracers = tracers_string.split(TRACERS_ENCODING_JOIN)
     return tracers
 
 
-def parse_tracer_strings(tracers: list[str]) -> ParsedTracer:
+def parse_tracer_string(tracer: str) -> TracerData:
 
-    tracers_data: ParsedTracer = {"compound_names": list(), "isotope_labels": list()}
+    tracer_data: TracerData = {
+        "original_tracer": tracer,
+        "compound_name": "",
+        "isotopes": list(),
+    }
 
-    for tracer in tracers:
-        match = re.search(TRACER_ENCODING_PATTERN, tracer)
-        if match:
-            compound = match.group(1).strip()
-            labeling = match.group(2).strip()
-            tracers_data["compound_names"].append(compound)
-            tracers_data["isotope_labels"].append(labeling)
+    match = re.search(TRACER_ENCODING_PATTERN, tracer)
+    if match:
+        tracer_data["compound_name"] = match.group(1).strip()
+        tracer_data["isotopes"] = parse_isotope_string(match.group(2).strip())
+    else:
+        raise TracerParsingError(f'Encoded tracer "{tracer}" cannot be parsed.')
+
+    return tracer_data
+
+
+def parse_isotope_string(isotopes_string: str) -> List[IsotopeData]:
+
+    isotope_data = list()
+    isotopes = re.findall(ISOTOPE_ENCODING_PATTERN, isotopes_string)
+    if len(isotopes) < 1:
+        raise IsotopeParsingError(f'Encoded isotopes "{isotopes}" cannot be parsed.')
+    for isotope in ISOTOPE_ENCODING_PATTERN.finditer(isotopes_string):
+        labeled_element = isotope.group("labeled_element")
+        labeled_count = int(isotope.group("labeled_count"))
+        if isotope.group("labeled_positions"):
+            labeled_positions = [
+                int(x) for x in isotope.group("labeled_positions").split(",")
+            ]
         else:
-            raise Exception(f'Encoded tracer "{tracer}" cannot be parsed.')
+            labeled_positions = None
 
-    return tracers_data
+        isotope_data.append(
+            IsotopeData(
+                labeled_element=labeled_element,
+                labeled_count=labeled_count,
+                labeled_positions=labeled_positions,
+            )
+        )
+    return isotope_data
+
+
+class ParsingError(Exception):
+    pass
+
+
+class InfusateParsingError(ParsingError):
+    pass
+
+
+class TracerParsingError(ParsingError):
+    pass
+
+
+class IsotopeParsingError(ParsingError):
+    pass
