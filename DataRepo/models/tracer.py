@@ -1,11 +1,9 @@
-from django.db import models
-
-# from django.utils.functional import cached_property
 from DataRepo.models.maintained_model import (
     MaintainedModel,
     field_updater_function,
 )
 from DataRepo.models.tracer_labeled_class import TracerLabeledClass
+from django.db import models
 
 
 class Tracer(MaintainedModel, TracerLabeledClass):
@@ -37,12 +35,12 @@ class Tracer(MaintainedModel, TracerLabeledClass):
         generation=2, update_field_name="name", parent_field_name="infusates"
     )
     def _name(self):
-        # format: `compound - [ labelname,labelname,... ]` (but no spaces)
+        # format: `compound - ( labelname,labelname,... )` (but no spaces)
         if self.id is None or self.labels is None or self.labels.count() == 0:
             return self.compound.name
         return (
             self.compound.name
-            + "-["
+            + "-("
             + ",".join(list(map(lambda l: str(l), self.labels.all())))
-            + "]"
+            + ")"
         )

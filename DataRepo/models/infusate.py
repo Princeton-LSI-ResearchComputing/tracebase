@@ -1,11 +1,11 @@
-from django.db import models
-
-# from django.utils.functional import cached_property
 from DataRepo.models.maintained_model import (
     MaintainedModel,
     field_updater_function,
 )
 from DataRepo.models.tracer import Tracer
+from django.db import models
+
+CONC_SIG_FIGS = 3
 
 
 class Infusate(MaintainedModel):
@@ -21,7 +21,7 @@ class Infusate(MaintainedModel):
     )
     short_name = models.CharField(
         max_length=20,
-        unique=True,
+        unique=False,
         null=True,
         blank=True,
         help_text="A unique short name or lab identifier of the infusate 'recipe' containing 1 or more tracer "
@@ -53,9 +53,20 @@ class Infusate(MaintainedModel):
         # used.
         if self.id is None or self.tracers is None or self.tracers.count() == 0:
             return self.short_name
+
+        link_recs = self.tracers.through.objects.filter(infusate__exact=self.id)
+
         return (
             self.short_name
             + "{"
-            + ";".join(sorted(map(lambda o: o._name(), self.tracers.all())))
+            + ";".join(
+                sorted(
+                    map(
+                        lambda o: o.tracer._name()
+                        + f"[{o.concentration:.{CONC_SIG_FIGS}g}]",
+                        link_recs.all(),
+                    )
+                )
+            )
             + "}"
         )
