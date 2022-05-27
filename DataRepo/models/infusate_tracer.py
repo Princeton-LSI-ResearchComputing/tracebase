@@ -1,12 +1,11 @@
-from django.core.validators import MinValueValidator
-from django.db import models
-
 from DataRepo.models.infusate import Infusate
 from DataRepo.models.maintained_model import (
     MaintainedModel,
     field_updater_function,
 )
 from DataRepo.models.tracer import Tracer
+from django.core.validators import MinValueValidator
+from django.db import models
 
 
 class InfusateTracer(MaintainedModel):
@@ -23,7 +22,13 @@ class InfusateTracer(MaintainedModel):
     class Meta:
         verbose_name = "infusate_tracer_link"
         verbose_name_plural = "infusate_tracer_links"
-        ordering = ["infusate", "tracer"]
+        ordering = ["infusate", "tracer", "concentration"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["infusate", "tracer", "concentration"],
+                name="unique_infusate_tracer",
+            )
+        ]
 
     @field_updater_function(generation=1, parent_field_name="infusate")
     def _name(self):
