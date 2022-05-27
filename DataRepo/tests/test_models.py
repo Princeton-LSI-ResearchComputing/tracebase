@@ -8,11 +8,11 @@ from django.db import IntegrityError
 from django.db.models.deletion import RestrictedError
 from django.test import override_settings, tag
 
-from DataRepo.hier_cached_model import set_cache
 from DataRepo.models import (
     Animal,
     Compound,
     CompoundSynonym,
+    ElementLabel,
     MSRun,
     PeakData,
     PeakGroup,
@@ -22,8 +22,8 @@ from DataRepo.models import (
     Sample,
     Study,
     Tissue,
-    TracerLabeledClass,
 )
+from DataRepo.models.hier_cached_model import set_cache
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import (
     AccuCorDataLoader,
@@ -710,7 +710,7 @@ class DataLoadingTests(TracebaseTestCase):
         a = Animal.objects.get(name="969")
         c = Compound.objects.get(name="C16:0")
         self.assertEqual(a.tracer_compound, c)
-        self.assertEqual(a.tracer_labeled_atom, TracerLabeledClass.CARBON)
+        self.assertEqual(a.tracer_labeled_atom, ElementLabel.CARBON)
         self.assertEqual(a.sex, None)
 
     def test_animal_treatments_loaded(self):

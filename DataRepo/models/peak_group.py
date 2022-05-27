@@ -4,7 +4,7 @@ from django.db import models
 from django.db.models import Sum
 from django.utils.functional import cached_property
 
-from DataRepo.hier_cached_model import HierCachedModel, cached_function
+from DataRepo.models.hier_cached_model import HierCachedModel, cached_function
 from DataRepo.models.utilities import atom_count_in_formula
 
 

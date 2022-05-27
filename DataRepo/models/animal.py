@@ -6,14 +6,14 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils.functional import cached_property
 
-from DataRepo.hier_cached_model import HierCachedModel, cached_function
+from DataRepo.models.hier_cached_model import HierCachedModel, cached_function
 
+from .element_label import ElementLabel
 from .protocol import Protocol
 from .tissue import Tissue
-from .tracer_labeled_class import TracerLabeledClass
 
 
-class Animal(HierCachedModel, TracerLabeledClass):
+class Animal(HierCachedModel, ElementLabel):
     # No parent_related_key_name, because this is a root
     child_related_key_names = ["samples"]
 
@@ -42,8 +42,8 @@ class Animal(HierCachedModel, TracerLabeledClass):
     tracer_labeled_atom = models.CharField(
         max_length=1,
         null=True,
-        choices=TracerLabeledClass.TRACER_LABELED_ELEMENT_CHOICES,
-        default=TracerLabeledClass.CARBON,
+        choices=ElementLabel.LABELED_ELEMENT_CHOICES,
+        default=ElementLabel.CARBON,
         blank=True,
         help_text="The type of atom that is labeled in the tracer compound "
         '(e.g. "C", "H", "O").',
@@ -55,7 +55,7 @@ class Animal(HierCachedModel, TracerLabeledClass):
         blank=True,
         validators=[
             MinValueValidator(1),
-            MaxValueValidator(TracerLabeledClass.MAX_LABELED_ATOMS),
+            MaxValueValidator(ElementLabel.MAX_LABELED_ATOMS),
         ],
         help_text="The number of labeled atoms (M+) in the tracer compound "
         "supplied to this animal.",
