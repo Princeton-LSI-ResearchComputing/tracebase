@@ -25,7 +25,4 @@ class ElementLabel:
 
     @classmethod
     def labeled_elements_list(cls):
-        element_list = []
-        for idx in cls.LABELED_ELEMENT_CHOICES:
-            element_list.append(idx[0])
-        return element_list
+        return [choice[0] for choice in cls.LABELED_ELEMENT_CHOICES]
