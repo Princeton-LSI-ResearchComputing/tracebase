@@ -1,6 +1,8 @@
 from django.core.management import call_command
 
-from DataRepo.hier_cached_model import (
+from DataRepo.management.commands.build_caches import cached_function_call
+from DataRepo.models import Animal, MSRun, PeakGroup, Sample
+from DataRepo.models.hier_cached_model import (
     delete_all_caches,
     disable_caching_retrievals,
     disable_caching_updates,
@@ -11,8 +13,6 @@ from DataRepo.hier_cached_model import (
     get_cached_method_names,
     set_cache,
 )
-from DataRepo.management.commands.build_caches import cached_function_call
-from DataRepo.models import Animal, MSRun, PeakGroup, Sample
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 

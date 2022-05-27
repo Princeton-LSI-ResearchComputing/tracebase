@@ -1,5 +1,5 @@
 from DataRepo.formats.dataformat import Format
-from DataRepo.models import Animal, PeakGroup, Tissue, TracerLabeledClass
+from DataRepo.models import Animal, ElementLabel, PeakGroup, Tissue
 
 
 class FluxCircFormat(Format):
@@ -144,7 +144,7 @@ class FluxCircFormat(Format):
                     "searchable": True,
                     "displayed": True,
                     "type": "enumeration",
-                    "choices": TracerLabeledClass.TRACER_LABELED_ELEMENT_CHOICES,
+                    "choices": ElementLabel.LABELED_ELEMENT_CHOICES,
                 },
                 "tracer_infusion_rate": {
                     "displayname": "Tracer Infusion Rate (ul/min/g)",

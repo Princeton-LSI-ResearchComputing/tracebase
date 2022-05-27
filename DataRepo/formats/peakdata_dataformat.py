@@ -4,7 +4,7 @@ from DataRepo.formats.dataformat_group_query import (
     createFilterCondition,
     createFilterGroup,
 )
-from DataRepo.models import Animal, PeakData, TracerLabeledClass
+from DataRepo.models import Animal, ElementLabel, PeakData
 
 
 class PeakDataFormat(Format):
@@ -88,7 +88,7 @@ class PeakDataFormat(Format):
                     "searchable": True,
                     "displayed": True,
                     "type": "enumeration",
-                    "choices": TracerLabeledClass.TRACER_LABELED_ELEMENT_CHOICES,
+                    "choices": ElementLabel.LABELED_ELEMENT_CHOICES,
                 },
                 "labeled_count": {
                     "displayname": "Labeled Count",

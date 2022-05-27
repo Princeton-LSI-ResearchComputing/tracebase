@@ -1,7 +1,7 @@
 from django.core.exceptions import ValidationError
 from django.db import models
 
-from DataRepo.hier_cached_model import HierCachedModel
+from DataRepo.models.hier_cached_model import HierCachedModel
 
 from .protocol import Protocol
 

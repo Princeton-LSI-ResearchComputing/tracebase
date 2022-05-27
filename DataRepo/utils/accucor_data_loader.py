@@ -7,19 +7,19 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from pandas.errors import EmptyDataError
 
-from DataRepo.hier_cached_model import (
-    disable_caching_updates,
-    enable_caching_updates,
-)
 from DataRepo.models import (
     Compound,
+    ElementLabel,
     MSRun,
     PeakData,
     PeakGroup,
     PeakGroupSet,
     Protocol,
     Sample,
-    TracerLabeledClass,
+)
+from DataRepo.models.hier_cached_model import (
+    disable_caching_updates,
+    enable_caching_updates,
 )
 from DataRepo.models.utilities import get_researchers
 from DataRepo.utils.exceptions import (
@@ -255,7 +255,7 @@ class AccuCorDataLoader:
 
     def corrected_file_tracer_labeled_column_regex(self):
         regex_pattern = ""
-        tracer_element_list = TracerLabeledClass.tracer_labeled_elements_list()
+        tracer_element_list = ElementLabel.labeled_elements_list()
         regex_pattern = f"^({'|'.join(tracer_element_list)})_Label$"
         return regex_pattern
 
@@ -345,7 +345,7 @@ class AccuCorDataLoader:
         ]
 
         # append the *_Label columns of the corrected dataframe
-        tracer_element_list = TracerLabeledClass.tracer_labeled_elements_list()
+        tracer_element_list = ElementLabel.labeled_elements_list()
         for element in tracer_element_list:
             NONSAMPLE_COLUMN_NAMES.append(f"{element}_Label")
 

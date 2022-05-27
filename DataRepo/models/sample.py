@@ -3,7 +3,7 @@ from datetime import date, timedelta
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
-from DataRepo.hier_cached_model import HierCachedModel, cached_function
+from DataRepo.models.hier_cached_model import HierCachedModel, cached_function
 
 from .peak_data import PeakData
 from .peak_group import PeakGroup
