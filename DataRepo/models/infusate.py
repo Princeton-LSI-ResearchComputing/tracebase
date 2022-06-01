@@ -1,7 +1,7 @@
 from django.db import models
 from django.utils.functional import cached_property
 
-from .tracer import Tracer
+from DataRepo.models.tracer import Tracer
 
 
 class Infusate(models.Model):

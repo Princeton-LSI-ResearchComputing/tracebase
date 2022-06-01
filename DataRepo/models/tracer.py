@@ -1,10 +1,10 @@
 from django.db import models
 from django.utils.functional import cached_property
 
-from .tracer_labeled_class import TracerLabeledClass
+from DataRepo.models.element_label import ElementLabel
 
 
-class Tracer(models.Model, TracerLabeledClass):
+class Tracer(models.Model, ElementLabel):
 
     id = models.AutoField(primary_key=True)
     name = models.CharField(

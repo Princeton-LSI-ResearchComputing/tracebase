@@ -1,8 +1,8 @@
 from django.core.validators import MinValueValidator
 from django.db import models
 
-from .infusate import Infusate
-from .tracer import Tracer
+from DataRepo.models.infusate import Infusate
+from DataRepo.models.tracer import Tracer
 
 
 class InfusateTracer(models.Model):

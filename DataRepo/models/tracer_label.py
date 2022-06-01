@@ -3,11 +3,11 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils.functional import cached_property
 
-from .tracer import Tracer
-from .tracer_labeled_class import TracerLabeledClass
+from DataRepo.models.tracer import Tracer
+from DataRepo.models.element_label import ElementLabel
 
 
-class TracerLabel(models.Model, TracerLabeledClass):
+class TracerLabel(models.Model, ElementLabel):
 
     id = models.AutoField(primary_key=True)
     tracer = models.ForeignKey(
@@ -19,8 +19,8 @@ class TracerLabel(models.Model, TracerLabeledClass):
         max_length=1,
         null=False,
         blank=False,
-        choices=TracerLabeledClass.TRACER_LABELED_ELEMENT_CHOICES,
-        default=TracerLabeledClass.CARBON,
+        choices=ElementLabel.LABELED_ELEMENT_CHOICES,
+        default=ElementLabel.CARBON,
         help_text='The type of atom that is labeled in the tracer compound (e.g. "C", "H", "O").',
     )
     count = models.PositiveSmallIntegerField(
@@ -28,7 +28,7 @@ class TracerLabel(models.Model, TracerLabeledClass):
         blank=False,
         validators=[
             MinValueValidator(1),
-            MaxValueValidator(TracerLabeledClass.MAX_LABELED_ATOMS),
+            MaxValueValidator(ElementLabel.MAX_LABELED_ATOMS),
         ],
         help_text="The number of labeled atoms (M+) in the tracer compound supplied to this animal.  Note that the "
         "labeled_count must be greater than or equal to the number of labeled_positions.",
@@ -39,7 +39,7 @@ class TracerLabel(models.Model, TracerLabeledClass):
             blank=False,
             validators=[
                 MinValueValidator(1),
-                MaxValueValidator(TracerLabeledClass.MAX_COMPOUND_POSITION),
+                MaxValueValidator(ElementLabel.MAX_COMPOUND_POSITION),
             ],
         ),
         null=True,
@@ -52,8 +52,8 @@ class TracerLabel(models.Model, TracerLabeledClass):
         null=False,
         blank=False,
         validators=[
-            MinValueValidator(TracerLabeledClass.MIN_MASS_NUMBER),
-            MaxValueValidator(TracerLabeledClass.MAX_MASS_NUMBER),
+            MinValueValidator(ElementLabel.MIN_MASS_NUMBER),
+            MaxValueValidator(ElementLabel.MAX_MASS_NUMBER),
         ],
         help_text="The sum of the number of protons and neutrons of the labeled atom, a.k.a. 'isotope', e.g. Carbon "
         "14.  The number of protons identifies the element that this tracer is an isotope of.  The number of neutrons "
