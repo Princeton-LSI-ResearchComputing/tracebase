@@ -8,10 +8,12 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 class TracerTests(TracebaseTestCase):
     def setUp(self):
-        glu = Compound.objects.create(name="glucose", formula="C6H12O6", hmdb_id=1)
+        glu = Compound.objects.create(
+            name="glucose", formula="C6H12O6", hmdb_id="HMDB0000122"
+        )
         glu_t = Tracer.objects.create(compound=glu)
         TracerLabel.objects.create(
-            tracer=glu_t, count=5, element="C", positions=[2, 3], mass_number=13
+            tracer=glu_t, count=2, element="C", positions=[2, 3], mass_number=13
         )
         TracerLabel.objects.create(
             tracer=glu_t, count=1, element="O", positions=[4], mass_number=17
@@ -19,7 +21,7 @@ class TracerTests(TracebaseTestCase):
 
     def test_tracer_name(self):
         tracer = Tracer.objects.first()
-        self.assertEqual(tracer._name(), "glucose-[2,3-13C5,4-17O1]")
+        self.assertEqual(tracer._name(), "glucose-[2,3-13C2,4-17O1]")
 
     def test_name_not_settable(self):
         c16 = Compound.objects.create(name="C16:0", formula="C16H32O2", hmdb_id=2)
@@ -35,6 +37,5 @@ class TracerTests(TracebaseTestCase):
         each TracerLabel record creation, after which it has its final value.
         """
         # Throws DoesNotExist exception if not found
-        print(f"Last Tracer name: {Tracer.objects.last().name}")
-        print(f"Autoupdates enabled?: {are_autoupdates_enabled()}")
-        Tracer.objects.get(name="glucose-[2,3-13C5,4-17O1]")
+        self.assertTrue(are_autoupdates_enabled())
+        Tracer.objects.get(name="glucose-[2,3-13C2,4-17O1]")
