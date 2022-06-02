@@ -68,12 +68,12 @@ def rebuild_maintained_fields(label_filters=[]):
                 # Try to perform the update. It could fail if the affected record was deleted
                 try:
                     if key not in updated:
-                        # Saving the record while performing_mass_autoupdates is True, causes auto-updates of every field
-                        # included among the model's decorated functions.  It does not only update the fields indicated in
-                        # decorators that contain the labels indicated in the label_filters.  The filters are only used to
-                        # decide which records should be updated.  Currently, this is not an issue because we only have 1
-                        # update_label in use.  And if/when we add another label, it will only end up causing extra
-                        # repeated updates of the same record.
+                        # Saving the record while performing_mass_autoupdates is True, causes auto-updates of every
+                        # field included among the model's decorated functions.  It does not only update the fields
+                        # indicated in decorators that contain the labels indicated in the label_filters.  The filters
+                        # are only used to decide which records should be updated.  Currently, this is not an issue
+                        # because we only have 1 update_label in use.  And if/when we add another label, it will only
+                        # end up causing extra repeated updates of the same record.
                         rec.save()
 
                         # keep track that this record was updated
@@ -99,7 +99,7 @@ class Command(BaseCommand):
             "--labels",
             required=False,
             default=[],
-            nargs='*',
+            nargs="*",
             help="Only update maintained fields of records whose decorators are labeled with one of these labels.",
         )
 
