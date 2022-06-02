@@ -1,11 +1,9 @@
-from django.db import models
-
-# from django.utils.functional import cached_property
+from DataRepo.models.element_label import ElementLabel
 from DataRepo.models.maintained_model import (
     MaintainedModel,
     field_updater_function,
 )
-from DataRepo.models.element_label import ElementLabel
+from django.db import models
 
 
 class Tracer(MaintainedModel, ElementLabel):

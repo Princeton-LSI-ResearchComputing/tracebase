@@ -1,11 +1,9 @@
-from django.db import models
-
-# from django.utils.functional import cached_property
 from DataRepo.models.maintained_model import (
     MaintainedModel,
     field_updater_function,
 )
 from DataRepo.models.tracer import Tracer
+from django.db import models
 
 
 class Infusate(MaintainedModel):

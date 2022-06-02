@@ -1,10 +1,6 @@
-from DataRepo.models import (
-    Compound,
-    Infusate,
-    InfusateTracer,
-    Tracer,
-    TracerLabel,
-)
+from DataRepo.models.compound import Compound
+from DataRepo.models.infusate import Infusate
+from DataRepo.models.infusate_tracer import InfusateTracer
 from DataRepo.models.maintained_model import (
     MaintainedFieldNotSettable,
     buffer_size,
@@ -13,6 +9,8 @@ from DataRepo.models.maintained_model import (
     enable_autoupdates,
     perform_buffered_updates,
 )
+from DataRepo.models.tracer import Tracer
+from DataRepo.models.tracer_label import TracerLabel
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 

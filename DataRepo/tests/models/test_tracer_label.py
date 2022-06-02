@@ -1,4 +1,6 @@
-from DataRepo.models import Compound, Tracer, TracerLabel
+from DataRepo.models.compound import Compound
+from DataRepo.models.tracer import Tracer
+from DataRepo.models.tracer_label import TracerLabel
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 

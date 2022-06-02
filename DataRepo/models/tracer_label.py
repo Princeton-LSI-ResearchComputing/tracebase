@@ -1,14 +1,12 @@
-from django.contrib.postgres.fields import ArrayField
-from django.core.validators import MaxValueValidator, MinValueValidator
-from django.db import models
-
-# from django.utils.functional import cached_property
+from DataRepo.models.element_label import ElementLabel
 from DataRepo.models.maintained_model import (
     MaintainedModel,
     field_updater_function,
 )
 from DataRepo.models.tracer import Tracer
-from DataRepo.models.element_label import ElementLabel
+from django.contrib.postgres.fields import ArrayField
+from django.core.validators import MaxValueValidator, MinValueValidator
+from django.db import models
 
 
 class TracerLabel(MaintainedModel, ElementLabel):
