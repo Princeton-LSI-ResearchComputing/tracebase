@@ -5,7 +5,7 @@ from django.db.models import Model  # , Manager
 
 auto_updates = True
 update_buffer = []
-performing_buffered_updates = False
+performing_mass_autoupdates = False
 updater_list: Dict[str, List] = {}
 
 
@@ -17,12 +17,24 @@ def disable_autoupdates():
 def enable_autoupdates():
     global auto_updates
     auto_updates = True
-    if performing_buffered_updates:
+    if performing_mass_autoupdates:
         raise StaleAutoupdateMode()
 
 
 def are_autoupdates_enabled():
     return auto_updates
+
+
+def disable_mass_autoupdates():
+    global performing_mass_autoupdates
+    performing_mass_autoupdates = False
+
+
+def enable_mass_autoupdates():
+    global performing_mass_autoupdates
+    performing_mass_autoupdates = True
+    if auto_updates:
+        raise StaleAutoupdateMode()
 
 
 def clear_update_buffer(generation=None, label_filters=[]):
@@ -232,7 +244,7 @@ class MaintainedModel(Model):
         # If auto-updates are turned on, a cascade of updates to linked models will occur, but if they are turned off,
         # the update will be buffered, to be manually triggered later (e.g. upon completion of loading), which
         # mitigates repeated updates to the same record
-        if auto_updates is False and performing_buffered_updates is False:
+        if auto_updates is False and performing_mass_autoupdates is False:
             # Set the changed value triggering this update
             super().save(*args, **kwargs)
             self.buffer_update()
@@ -244,7 +256,7 @@ class MaintainedModel(Model):
         # Now save the updated values
         super().save(*args, **kwargs)
 
-        # We don't need to check performing_buffered_updates, because propagating changes during buffered updates is
+        # We don't need to check performing_mass_autoupdates, because propagating changes during buffered updates is
         # handled differently (in a breadth-first fashion) to mitigate repeated updates of the same parent record
         if auto_updates is True:
             # Percolate changes up to the parents (if any)
@@ -473,13 +485,13 @@ def perform_buffered_updates(label_filters=[]):
     record over and over.
     """
     global update_buffer
-    global performing_buffered_updates
+    global performing_mass_autoupdates
 
     if auto_updates:
         raise InvalidAutoUpdateMode()
 
     # This allows our updates to be saved, but prevents propagating changes up the hierarchy in a depth-first fashion
-    performing_buffered_updates = True
+    performing_mass_autoupdates = True
     # Get the largest generation value
     youngest_generation = get_max_buffer_generation(label_filters)
     # Track what's been updated to prevent repeated updates triggered by multiple child updates
@@ -516,7 +528,7 @@ def perform_buffered_updates(label_filters=[]):
                 if key not in updated and (
                     no_filters or updater_list_has_labels(updater_dicts, label_filters)
                 ):
-                    # Saving the record while performing_buffered_updates is True, causes auto-updates of every field
+                    # Saving the record while performing_mass_autoupdates is True, causes auto-updates of every field
                     # included among the model's decorated functions.  It does not only update the fields indicated in
                     # decorators that contain the labels indicated in the label_filters.  The filters are only used to
                     # decide which records should be updated.  Currently, this is not an issue because we only have 1
@@ -547,7 +559,28 @@ def perform_buffered_updates(label_filters=[]):
         update_buffer += add_to_buffer
 
     # We're done performing buffered updates
-    performing_buffered_updates = False
+    performing_mass_autoupdates = False
+
+
+def get_all_updaters():
+    all_updaters = []
+    for class_name in updater_list:
+        all_updaters += updater_list[class_name]
+    return all_updaters
+
+
+def get_classes(generation=None, label_filters=[]):
+    """
+    Retrieve a list of classes containing maintained fields that match the given criteria
+    """
+    class_list = []
+    for class_name in updater_list:
+        if (
+            len(filter_updaters(updater_list[class_name], generation, label_filters))
+            > 0
+        ):
+            class_list.append(class_name)
+    return class_list
 
 
 class NotMaintained(Exception):
@@ -631,7 +664,7 @@ class StaleAutoupdateMode(Exception):
     def __init__(self):
         message = (
             "Autoupdate mode enabled during a mass update of maintained fields.  Automated update of the global "
-            "variable performing_buffered_updates may have been interrupted during execution of "
+            "variable performing_mass_autoupdates may have been interrupted during execution of "
             "perform_buffered_updates."
         )
         super().__init__(message)

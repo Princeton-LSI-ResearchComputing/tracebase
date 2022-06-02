@@ -1,3 +1,6 @@
+from DataRepo.management.commands.rebuild_maintained_fields import (
+    rebuild_maintained_fields,
+)
 from DataRepo.models.compound import Compound
 from DataRepo.models.infusate import Infusate
 from DataRepo.models.infusate_tracer import InfusateTracer
@@ -129,3 +132,27 @@ class MaintainedModelTests(TracebaseTestCase):
         lys = Compound.objects.create(name="lysine", formula="C6H14N2O2", hmdb_id=3)
         Tracer.objects.create(compound=lys)
         Tracer.objects.get(name="lysine")
+
+
+class RebuildMaintainedModelFieldsTests(TracebaseTestCase):
+    def setUp(self):
+        # Each test first reruns the setup and the DB load adds the same records to the buffer. The DB is emptied after
+        # the test runs, but the buffer needs to be explicitly emptied
+        disable_autoupdates()
+        create_infusate_records()
+        enable_autoupdates()
+
+    def test_rebuild_maintained_fields(self):
+        rebuild_maintained_fields()
+        # Ensure all the auto-updated fields not have values (correctness of values tested elsewhere)
+        for i in Infusate.objects.all():
+            self.assertIsNotNone(i.name)
+            self.assertEqual(i.name, i._name())
+        for t in Tracer.objects.all():
+            self.assertIsNotNone(t.name)
+            self.assertEqual(t.name, t._name())
+        for tl in TracerLabel.objects.all():
+            self.assertIsNotNone(tl.name)
+            self.assertEqual(tl.name, tl._name())
+        # Ensure the buffer was emptied by perform_buffered_updates
+        self.assertEqual(buffer_size(), 0)
