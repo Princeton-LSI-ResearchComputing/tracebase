@@ -2,9 +2,11 @@ import re
 from typing import List, Optional, TypedDict
 
 # infusate with a name have the tracer(s) grouped in braces
-INFUSATE_ENCODING_PATTERN = r"(.*)\s*\{(.*)\}"
+# INFUSATE_ENCODING_PATTERN = r"^(.*)\s*\{(.*)\}$"
+INFUSATE_ENCODING_PATTERN = r"^([^\{\}]*?)\s*\{([^\{\}]*?)\}$"
 TRACERS_ENCODING_JOIN = ";"
-TRACER_ENCODING_PATTERN = r"(.*)\-\[([0-9CNHOS,\-]*)\]"
+TRACER_ENCODING_PATTERN = r"^(.*)\-\[([0-9CNHOS,\-]*)\]$"
+# TRACER_ENCODING_PATTERN = r"^(.*)(?:\-\[([0-9CNHOS,\-]+)\])?$"
 ISOTOPE_ENCODING_JOIN = ","
 ISOTOPE_ENCODING_PATTERN = re.compile(
     r"(?:(?P<labeled_positions>[0-9,]+)-){0,1}(?P<labeled_element>[0-9]+[CHNOS])(?P<labeled_count>[0-9+])"

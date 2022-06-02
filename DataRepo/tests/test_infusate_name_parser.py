@@ -4,6 +4,7 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.infusate_name_parser import (
     InfusateData,
     IsotopeData,
+    IsotopeParsingError,
     TracerData,
     TracerParsingError,
     parse_infusate_name,
@@ -106,4 +107,58 @@ class InfusateParsingTests(TracebaseTestCase):
     def test_malformed_infusate_parsing_2(self):
         name = "not a properly encoded tracer name"
         with self.assertRaisesRegex(TracerParsingError, "cannot be parsed"):
+            _ = parse_infusate_name(name)
+
+    def test_malformed_infusate_parsing_3(self):
+        # Test back-to-back occurrences of curlies expressions
+        name = "short_name{tracers1}{tracers2}"
+        with self.assertRaisesRegex(TracerParsingError, "cannot be parsed"):
+            _ = parse_infusate_name(name)
+
+    def test_malformed_infusate_parsing_4(self):
+        # Test multiple names delimited by hard return
+        name = "short_name1{tracers1}\nshortname2{tracers2}"
+        with self.assertRaisesRegex(TracerParsingError, "cannot be parsed"):
+            _ = parse_infusate_name(name)
+
+    def test_malformed_infusate_parsing_5(self):
+        # Test leading & trailing whitespace
+        name = "  short_name1{tracers1}  "
+        with self.assertRaisesRegex(TracerParsingError, "cannot be parsed"):
+            _ = parse_infusate_name(name)
+
+    def test_malformed_infusate_parsing_6(self):
+        # Test trailing whitespace in short_name
+        name = "short_name1  {tracers1}"
+        with self.assertRaisesRegex(TracerParsingError, "cannot be parsed"):
+            _ = parse_infusate_name(name)
+
+    def test_malformed_tracer_parsing_1(self):
+        # Test back-to-back occurrences of square bracket expressions
+        name = "lysine-[13C5]-[19O2]"
+        with self.assertRaisesRegex(TracerParsingError, "cannot be parsed"):
+            _ = parse_tracer_string(name)
+
+    def test_malformed_tracer_parsing_2(self):
+        # Test multiple labeled compounds delimited by hard return
+        name = "lysine-[13C5]\nlysine-[19O2]"
+        with self.assertRaisesRegex(TracerParsingError, "cannot be parsed"):
+            _ = parse_tracer_string(name)
+
+    def test_malformed_tracer_parsing_3(self):
+        # Test bad isotope pattern not silently skipped
+        name = "lys1,2,3-13C3,badlabel,19O2"
+        with self.assertRaisesRegex(TracerParsingError, "cannot be parsed"):
+            _ = parse_infusate_name(name)
+
+    def test_malformed_tracer_parsing_4(self):
+        # Test bad tracer delimiter (',' instead of ';')
+        name = "lysine-[13C5],glucose-[19O2]"
+        with self.assertRaisesRegex(TracerParsingError, "cannot be parsed"):
+            _ = parse_tracer_string(name)
+
+    def test_malformed_isotope_parsing_1(self):
+        # Test empty labels list
+        name = "lysine-[]"
+        with self.assertRaisesRegex(IsotopeParsingError, "cannot be parsed"):
             _ = parse_infusate_name(name)
