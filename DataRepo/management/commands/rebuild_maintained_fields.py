@@ -46,7 +46,7 @@ def rebuild_maintained_fields(label_filters=[]):
             try:
                 updater_dicts = cls.get_my_updaters()
             except Exception as e:
-                raise MissingMaintainedModelDerivedClass(class_name)
+                raise MissingMaintainedModelDerivedClass(class_name, e)
 
             # Leave the loop when the max generation present changes so that we can update the updated buffer with the
             # parent-triggered updates that were locally buffered during the execution of this loop
@@ -108,9 +108,7 @@ class Command(BaseCommand):
 
 
 class MissingMaintainedModelDerivedClass(Exception):
-    def __init__(self, cls):
-        message = (
-            f"The {cls} class must be imported so that its eval works in this script."
-        )
+    def __init__(self, cls, err):
+        message = f"The {cls} class must be imported so that its eval works in this script.  {err}"
         super().__init__(message)
         self.cls = cls
