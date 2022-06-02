@@ -1,9 +1,10 @@
+from django.db import models
+
 from DataRepo.models.element_label import ElementLabel
 from DataRepo.models.maintained_model import (
     MaintainedModel,
     field_updater_function,
 )
-from django.db import models
 
 
 class Tracer(MaintainedModel, ElementLabel):
