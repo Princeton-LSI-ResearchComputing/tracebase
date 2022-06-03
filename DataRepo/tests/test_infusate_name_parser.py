@@ -111,25 +111,25 @@ class InfusateParsingTests(TracebaseTestCase):
 
     def test_malformed_infusate_parsing_3(self):
         # Test back-to-back occurrences of curlies expressions
-        name = "short_name{tracers1}{tracers2}"
+        name = "myshortname{lysine-[13C5]}{glucose-[13C4]}"
         with self.assertRaisesRegex(TracerParsingError, "cannot be parsed"):
             _ = parse_infusate_name(name)
 
     def test_malformed_infusate_parsing_4(self):
         # Test multiple names delimited by hard return
-        name = "short_name1{tracers1}\nshortname2{tracers2}"
+        name = "myshortname1{lysine-[13C5]}\nmyshortname2{glucose-[13C4]}"
         with self.assertRaisesRegex(TracerParsingError, "cannot be parsed"):
             _ = parse_infusate_name(name)
 
     def test_malformed_infusate_parsing_5(self):
         # Test leading & trailing whitespace
-        name = "  short_name1{tracers1}  "
+        name = "  myshortname{lysine-[13C5]}  "
         with self.assertRaisesRegex(TracerParsingError, "cannot be parsed"):
             _ = parse_infusate_name(name)
 
     def test_malformed_infusate_parsing_6(self):
         # Test trailing whitespace in short_name
-        name = "short_name1  {tracers1}"
+        name = "short_name1 {lysine-[13C5]}"
         with self.assertRaisesRegex(TracerParsingError, "cannot be parsed"):
             _ = parse_infusate_name(name)
 
@@ -147,7 +147,7 @@ class InfusateParsingTests(TracebaseTestCase):
 
     def test_malformed_tracer_parsing_3(self):
         # Test bad isotope pattern not silently skipped
-        name = "lys1,2,3-13C3,badlabel,19O2"
+        name = "1,2,3-13C3,badlabel,19O2"
         with self.assertRaisesRegex(TracerParsingError, "cannot be parsed"):
             _ = parse_infusate_name(name)
 
