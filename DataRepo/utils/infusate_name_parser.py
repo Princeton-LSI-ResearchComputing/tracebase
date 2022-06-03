@@ -2,9 +2,13 @@ import re
 from typing import List, Optional, TypedDict
 
 # infusate with a name have the tracer(s) grouped in braces
-INFUSATE_ENCODING_PATTERN = r"^([^\{\}]*?)\s*\{([^\{\}]*?)\}$"
+INFUSATE_ENCODING_PATTERN = (
+    r"^(?P<infusate_name>[^\{\}]*?)\s*\{(?P<tracers_string>[^\{\}]*?)\}$"
+)
 TRACERS_ENCODING_JOIN = ";"
-TRACER_ENCODING_PATTERN = r"^([^\[\]][\w,\-]+)(?:\-\[([^\[\]][0-9CNHOS,\-]+)\])$"
+TRACER_ENCODING_PATTERN = (
+    r"^(?P<compound_name>[^\[\]][\w,\-]+)(?:\-\[(?P<isotopes>[^\[\]][0-9CNHOS,\-]+)\])$"
+)
 ISOTOPE_ENCODING_JOIN = ","
 ISOTOPE_ENCODING_PATTERN = re.compile(
     r"(?:(?P<labeled_positions>[0-9,]+)-){0,1}(?P<labeled_element>[0-9]+[CHNOS])(?P<labeled_count>[0-9+])"
@@ -46,8 +50,10 @@ def parse_infusate_name(infusate_string: str) -> InfusateData:
     match = re.search(INFUSATE_ENCODING_PATTERN, infusate_string)
 
     if match:
-        parsed_data["infusate_name"] = match.group(1).strip()
-        tracer_strings = split_encoded_tracers_string(match.group(2).strip())
+        parsed_data["infusate_name"] = match.group("infusate_name").strip()
+        tracer_strings = split_encoded_tracers_string(
+            match.group("tracers_string").strip()
+        )
     else:
         tracer_strings = [infusate_string]
 
@@ -72,8 +78,8 @@ def parse_tracer_string(tracer: str) -> TracerData:
 
     match = re.search(TRACER_ENCODING_PATTERN, tracer)
     if match:
-        tracer_data["compound_name"] = match.group(1).strip()
-        tracer_data["isotopes"] = parse_isotope_string(match.group(2).strip())
+        tracer_data["compound_name"] = match.group("compound_name").strip()
+        tracer_data["isotopes"] = parse_isotope_string(match.group("isotopes").strip())
     else:
         raise TracerParsingError(f'Encoded tracer "{tracer}" cannot be parsed.')
 
