@@ -41,6 +41,7 @@ def parse_infusate_name(infusate_string: str) -> InfusateData:
 
     # defaults
     # assume the string lacks the optional name, and it is all tracer encodings
+    infusate_string = infusate_string.strip()
     parsed_data: InfusateData = {
         "original_infusate": infusate_string,
         "infusate_name": None,

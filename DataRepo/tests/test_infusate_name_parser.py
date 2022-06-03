@@ -98,6 +98,12 @@ class InfusateParsingTests(TracebaseTestCase):
         infusate_string = "L-Leucine-[1,2-13C2]"
         self.assertEqual(parse_infusate_name(infusate_string), self.infusate_l_leucine)
 
+    def test_whitespace_infusate_parsing(self):
+        # Test leading & trailing whitespace
+        name = "  myshortname{lysine-[13C5]}  "
+        data = parse_infusate_name(name)
+        self.assertEqual(data["infusate_name"], "myshortname")
+
     def test_malformed_infusate_parsing_1(self):
         name = "not a {properly encoded tracer-[NAME1]}"
         with self.assertRaisesRegex(TracerParsingError, "cannot be parsed"):
@@ -121,12 +127,6 @@ class InfusateParsingTests(TracebaseTestCase):
             _ = parse_infusate_name(name)
 
     def test_malformed_infusate_parsing_5(self):
-        # Test leading & trailing whitespace
-        name = "  myshortname{lysine-[13C5]}  "
-        with self.assertRaisesRegex(TracerParsingError, "cannot be parsed"):
-            _ = parse_infusate_name(name)
-
-    def test_malformed_infusate_parsing_6(self):
         # Test trailing whitespace in short_name
         name = "short_name1 {lysine-[13C5]}"
         data = parse_infusate_name(name)
