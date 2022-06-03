@@ -137,7 +137,6 @@ class InfusateParsingTests(TracebaseTestCase):
         name = "lysine-[13C5]-[19O2]"
         with self.assertRaisesRegex(TracerParsingError, "cannot be parsed"):
             _ = parse_tracer_string(name)
-            print(_)
 
     def test_malformed_tracer_parsing_2(self):
         # Test multiple labeled compounds delimited by hard return
@@ -156,7 +155,6 @@ class InfusateParsingTests(TracebaseTestCase):
         name = "lysine-[13C5],glucose-[19O2]"
         with self.assertRaisesRegex(TracerParsingError, "cannot be parsed"):
             _ = parse_tracer_string(name)
-            print(_)
 
     def test_malformed_isotope_parsing_1(self):
         # Test empty labels list
