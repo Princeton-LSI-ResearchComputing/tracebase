@@ -23,7 +23,7 @@ class TracerTests(TracebaseTestCase):
 
     def test_tracer_name(self):
         tracer = Tracer.objects.first()
-        self.assertEqual(tracer._name(), "glucose-[2,3-13C2,4-17O1]")
+        self.assertEqual(tracer._name(), "glucose-(2,3-13C2,4-17O1)")
 
     def test_name_not_settable(self):
         c16 = Compound.objects.create(name="C16:0", formula="C16H32O2", hmdb_id=2)
@@ -40,4 +40,4 @@ class TracerTests(TracebaseTestCase):
         """
         # Throws DoesNotExist exception if not found
         self.assertTrue(are_autoupdates_enabled())
-        Tracer.objects.get(name="glucose-[2,3-13C2,4-17O1]")
+        Tracer.objects.get(name="glucose-(2,3-13C2,4-17O1)")

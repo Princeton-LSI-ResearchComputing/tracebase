@@ -20,7 +20,7 @@ class InfusateTracerTests(TracebaseTestCase):
         TracerLabel.objects.create(
             tracer=glu_t, count=1, element="O", positions=[4], mass_number=17
         )
-        Infusate.objects.create(short_name="ti")
+        Infusate.objects.create(tracer_group_name="ti")
 
     def test_no_concentration(self):
         with self.assertRaises(IntegrityError):

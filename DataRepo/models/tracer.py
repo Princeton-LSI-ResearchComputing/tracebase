@@ -33,15 +33,18 @@ class Tracer(MaintainedModel, ElementLabel):
         return str(self._name())
 
     @field_updater_function(
-        generation=2, update_field_name="name", parent_field_name="infusates"
+        generation=2,
+        update_field_name="name",
+        parent_field_name="infusates",
+        update_label="name",
     )
     def _name(self):
-        # format: `compound - [ labelname,labelname,... ]` (but no spaces)
+        # format: `compound - ([) labelname,labelname,... )` (but no spaces)
         if self.id is None or self.labels is None or self.labels.count() == 0:
             return self.compound.name
         return (
             self.compound.name
-            + "-["
+            + "-("
             + ",".join(list(map(lambda l: str(l), self.labels.all())))
-            + "]"
+            + ")"
         )

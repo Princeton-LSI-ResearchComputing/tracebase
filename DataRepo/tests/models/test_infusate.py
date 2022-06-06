@@ -36,7 +36,7 @@ def create_infusate_records():
         tracer=c16_t, count=2, element="C", positions=[5, 6], mass_number=13
     )
     TracerLabel.objects.create(tracer=c16_t, count=2, element="O", mass_number=17)
-    io = Infusate.objects.create(short_name="ti")
+    io = Infusate.objects.create(tracer_group_name="ti")
     InfusateTracer.objects.create(infusate=io, tracer=glu_t, concentration=1.0)
     InfusateTracer.objects.create(infusate=io, tracer=c16_t, concentration=2.0)
 
@@ -52,14 +52,15 @@ class InfusateTests(TracebaseTestCase):
     def test_infusate_name_method(self):
         infusate = Infusate.objects.first()
         self.assertEqual(
-            infusate._name(), "ti{C16:0-[5,6-13C2,17O2];glucose-[2,3-13C2,4-17O1]}"
+            infusate._name(),
+            "ti{C16:0-(5,6-13C2,17O2)[2];glucose-(2,3-13C2,4-17O1)[1]}",
         )
 
     def test_name_not_settable(self):
         with self.assertRaises(MaintainedFieldNotSettable):
             Infusate.objects.create(
                 name="test infusate",
-                short_name="ti2",
+                tracer_group_name="ti2",
             )
 
     def test_name_autoupdated(self):
@@ -67,13 +68,15 @@ class InfusateTests(TracebaseTestCase):
         Make sure that the name field was set automatically - triggered by the InfusateTracer record creation.
         """
         # Throws DoesNotExist exception if not found
-        Infusate.objects.get(name="ti{C16:0-[5,6-13C2,17O2];glucose-[2,3-13C2,4-17O1]}")
+        Infusate.objects.get(
+            name="ti{C16:0-(5,6-13C2,17O2)[2];glucose-(2,3-13C2,4-17O1)[1]}"
+        )
 
     def test_name_self_autoupdated(self):
         """
         Make sure that the name field was set automatically - triggered by the Infusate record creation.
         """
-        Infusate.objects.create(short_name="ti3")
+        Infusate.objects.create(tracer_group_name="ti3")
         # Throws DoesNotExist exception if not found
         Infusate.objects.get(name="ti3")
 

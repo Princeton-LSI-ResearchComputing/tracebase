@@ -23,9 +23,17 @@ class InfusateTracer(MaintainedModel):
     class Meta:
         verbose_name = "infusate_tracer_link"
         verbose_name_plural = "infusate_tracer_links"
-        ordering = ["infusate", "tracer"]
+        ordering = ["infusate", "tracer", "concentration"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["infusate", "tracer", "concentration"],
+                name="unique_infusate_tracer",
+            )
+        ]
 
-    @field_updater_function(generation=1, parent_field_name="infusate")
+    @field_updater_function(
+        generation=1, parent_field_name="infusate", update_label="name"
+    )
     def _name(self):
         """
         No name field to update, but we want to propagate changes to Infusate.name when links are created, changed, or
