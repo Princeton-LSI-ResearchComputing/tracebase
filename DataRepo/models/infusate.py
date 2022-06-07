@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError
 from django.db import models
 
 from DataRepo.models.maintained_model import (
@@ -6,7 +7,7 @@ from DataRepo.models.maintained_model import (
 )
 from DataRepo.models.tracer import Tracer
 
-CONC_SIG_FIGS = 3
+CONCENTRATION_SIGNIFICANT_FIGURES = 3
 
 
 class Infusate(MaintainedModel):
@@ -57,49 +58,48 @@ class Infusate(MaintainedModel):
 
         link_recs = self.tracers.through.objects.filter(infusate__exact=self.id)
 
-        nickname = ""
-        lcurly = ""
-        rcurly = ""
-        if self.tracer_group_name is not None:
-            nickname = self.tracer_group_name
-            lcurly = " {"
-            rcurly = "}"
-
-        return (
-            nickname
-            + lcurly
-            + ";".join(
-                sorted(
-                    map(
-                        lambda o: o.tracer._name()
-                        + f"[{o.concentration:.{CONC_SIG_FIGS}g}]",
-                        link_recs.all(),
-                    )
+        name = ";".join(
+            sorted(
+                map(
+                    lambda o: o.tracer._name()
+                    + f"[{o.concentration:.{CONCENTRATION_SIGNIFICANT_FIGURES}g}]",
+                    link_recs.all(),
                 )
             )
-            + rcurly
         )
 
-    @classmethod
-    def validate_all_tracer_group_names(cls):
+        if self.tracer_group_name is not None:
+            name = f"{self.tracer_group_name} {{{name}}}"
+
+        return name
+
+    def clean(self, *args, **kwargs):
         """
-        This raises an exception if the tracer_group_names are not consistent across infusate records, i.e. they refer
-        to different groups of tracers.
+        This is an override of clean to validate the tracer_group_name of new records
         """
-        grouped_recs = cls.objects.filter(tracer_group_name__isnull=False)
-        cls.validate_tracer_group_names_helper(grouped_recs, {})
+        self.validate_tracer_group_names(name=self.tracer_group_name)
+        super().clean(*args, **kwargs)
 
     @classmethod
-    def validate_one_tracer_group_name(cls, name):
+    def validate_tracer_group_names(cls, name=None):
         """
-        This raises an exception if the supplied tracer_group_name is not consistent across infusate records, i.e. they
-        refer to different groups of tracers.
+        Validation method that raises and exception if two infusate records share a tracer_group_name but are not
+        composed of the same group of tracers.  If you want to check an object instance's name only, you must supply
+        the name as an argument.
         """
-        grouped_recs = cls.objects.filter(tracer_group_name__iexact=name)
-        cls.validate_tracer_group_names_helper(grouped_recs, {})
+        if name is None:
+            grouped_recs = cls.objects.filter(tracer_group_name__isnull=False)
+        else:
+            grouped_recs = cls.objects.filter(tracer_group_name__iexact=name)
+
+        cls.validate_tracer_group_names_helper(grouped_recs)
 
     @classmethod
-    def validate_tracer_group_names_helper(cls, grouped_recs, group_map_dict):
+    def validate_tracer_group_names_helper(cls, grouped_recs):
+        # Build a 2-level dict whose keys are the tracer_group_name and a "tracer key".  The "tracer key" is the sorted
+        # IDs of tracer records concatenated together with a delimiting comma.  The value is a list of Infusate record
+        # IDs.
+        group_map_dict = {}
         for group_rec in grouped_recs:
             grp_name = group_rec.tracer_group_name
             if grp_name not in group_map_dict:
@@ -111,6 +111,10 @@ class Infusate(MaintainedModel):
                 group_map_dict[grp_name][tracer_key] = []
             group_map_dict[grp_name][tracer_key].append(group_rec.id)
 
+        # For each tracer_group name, if it refers to multiple groups of tracers, append an error message to the
+        # problems array that identifies the ambiguous tracer_group_names, the number of different groupings of
+        # tracers, a description of the different sets of tracers, and a single example list of the infusate record IDs
+        # with the problematic tracer_group_names.
         problems = []
         for grp_name in group_map_dict:
             if len(group_map_dict[grp_name].keys()) != 1:
@@ -141,18 +145,4 @@ class Infusate(MaintainedModel):
                 )
                 problems.append(msg)
         if len(problems) > 0:
-            raise InvalidTracerGroupNames(problems)
-
-    def validate_my_tracer_group_name(self):
-        grp_name = self.tracer_group_name
-        grouped_recs = self.objects.filter(tracer_group_name__iexact=grp_name).filter(
-            tracer_group_name__isnull=False
-        )
-        group_map_dict = {grp_name: {}}
-        self.validate_tracer_group_names_helper(grouped_recs, group_map_dict)
-
-
-class InvalidTracerGroupNames(Exception):
-    def __init__(self, messages):
-        message = "\n".join(messages)
-        super().__init__(message)
+            raise ValidationError("\n".join(problems))
