@@ -26,8 +26,9 @@ class Infusate(MaintainedModel):
         unique=False,
         null=True,
         blank=True,
-        help_text="A (non-unique) short name or lab identifier of a specific assortment of tracer compounds "
-        "regardless of concentration, e.g '6eaas'.",
+        help_text="A short name or lab identifier of refering to a group of tracer compounds, e.g '6eaas'.  There may "
+        "be multiple infusate records with this group name, each referring to the same tracers at different "
+        "concentrations.",
     )
     tracers = models.ManyToManyField(
         Tracer,
