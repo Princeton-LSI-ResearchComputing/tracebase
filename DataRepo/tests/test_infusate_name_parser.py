@@ -145,26 +145,6 @@ class InfusateParsingTests(TracebaseTestCase):
         with self.assertRaisesRegex(TracerParsingError, "cannot be parsed"):
             _ = parse_tracer_string(name)
 
-    def test_malformed_tracer_parsing_with_bad_isotopic_specification(self):
-        # Test bad isotope pattern not silently skipped
-        name = "1,2,3-13C3,badlabel,19O2"
-        with self.assertRaisesRegex(IsotopeParsingError, "disallowed characters"):
-            _ = parse_isotope_string(name)
-
-    def test_malformed_tracer_parsing_with_incomplete_parsing(self):
-        # Test bad isotope pattern not silently skipped
-        name = "1,2,3-13C3,S5,19O2"
-        with self.assertRaisesRegex(
-            IsotopeParsingError, "cannot be completely interpreted"
-        ):
-            _ = parse_isotope_string(name)
-
-    def test_malformed_tracer_parsing_with_null_isotopic_specification_6(self):
-        # Test bad isotope pattern not silently skipped
-        name = "13F"
-        with self.assertRaisesRegex(IsotopeParsingError, "disallowed characters"):
-            _ = parse_isotope_string(name)
-
     def test_malformed_tracer_parsing_with_improper_delimiter(self):
         # Test bad tracer delimiter (',' instead of ';')
         name = "lysine-[13C5],glucose-[19O2]"
@@ -176,3 +156,29 @@ class InfusateParsingTests(TracebaseTestCase):
         name = "lysine-[]"
         with self.assertRaisesRegex(TracerParsingError, "cannot be parsed"):
             _ = parse_infusate_name(name)
+
+    def test_malformed_tracer_parsing_with_bad_isotopic_specification(self):
+        # Test bad isotope pattern not silently skipped
+        name = "1,2,3-13C3,badlabel,19O2"
+        with self.assertRaisesRegex(IsotopeParsingError, "disallowed characters"):
+            _ = parse_isotope_string(name)
+
+    def test_malformed_isotope_parsing_with_incomplete_parsing(self):
+        # Test bad isotope pattern not silently skipped
+        name = "1,2,3-13C3,S5,19O2"
+        with self.assertRaisesRegex(
+            IsotopeParsingError, "cannot be completely interpreted"
+        ):
+            _ = parse_isotope_string(name)
+
+    def test_malformed_isotope_parsing_with_bad_isotopic_specification(self):
+        # Test bad isotope pattern not silently skipped
+        name = "13F"
+        with self.assertRaisesRegex(IsotopeParsingError, "disallowed characters"):
+            _ = parse_isotope_string(name)
+
+    def test_malformed_isotope_parsing_with_null_isotopic_specification(self):
+        # Test empty labels list
+        name = ""
+        with self.assertRaisesRegex(IsotopeParsingError, "requires a defined string"):
+            _ = parse_isotope_string(name)

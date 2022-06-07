@@ -97,6 +97,9 @@ def parse_tracer_string(tracer: str) -> TracerData:
 
 def parse_isotope_string(isotopes_string: str) -> List[IsotopeData]:
 
+    if not isotopes_string:
+        raise IsotopeParsingError("parse_isotope_string requires a defined string.")
+
     rejected_match = re.search(ISOTOPE_DISALLOWED_CHARACTERS, isotopes_string)
     if rejected_match:
         raise IsotopeParsingError(
