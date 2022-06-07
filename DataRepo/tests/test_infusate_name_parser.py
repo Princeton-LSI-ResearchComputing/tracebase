@@ -151,6 +151,14 @@ class InfusateParsingTests(TracebaseTestCase):
         with self.assertRaisesRegex(IsotopeParsingError, "disallowed characters"):
             _ = parse_isotope_string(name)
 
+    def test_malformed_tracer_parsing_with_incomplete_parsing(self):
+        # Test bad isotope pattern not silently skipped
+        name = "1,2,3-13C3,S5,19O2"
+        with self.assertRaisesRegex(
+            IsotopeParsingError, "cannot be completely interpreted"
+        ):
+            _ = parse_isotope_string(name)
+
     def test_malformed_tracer_parsing_with_null_isotopic_specification_6(self):
         # Test bad isotope pattern not silently skipped
         name = "13F"

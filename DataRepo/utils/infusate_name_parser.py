@@ -107,16 +107,24 @@ def parse_isotope_string(isotopes_string: str) -> List[IsotopeData]:
     isotopes = re.findall(ISOTOPE_ENCODING_PATTERN, isotopes_string)
     if len(isotopes) < 1:
         raise IsotopeParsingError(f'Encoded isotopes "{isotopes}" cannot be parsed.')
+    recomposited_isotopes = ""
+    first_time = True
     for isotope in ISOTOPE_ENCODING_PATTERN.finditer(isotopes_string):
         labeled_element = isotope.group("labeled_element")
         labeled_count = int(isotope.group("labeled_count"))
+        recomposited_isotope = labeled_element + str(labeled_count)
         if isotope.group("labeled_positions"):
-            labeled_positions = [
-                int(x) for x in isotope.group("labeled_positions").split(",")
-            ]
+            positions_str = isotope.group("labeled_positions")
+            recomposited_isotope = f"{positions_str}-{recomposited_isotope}"
+            labeled_positions = [int(x) for x in positions_str.split(",")]
         else:
             labeled_positions = None
 
+        if first_time:
+            recomposited_isotopes = recomposited_isotope
+            first_time = False
+        else:
+            recomposited_isotopes = recomposited_isotopes + "," + recomposited_isotope
         isotope_data.append(
             IsotopeData(
                 labeled_element=labeled_element,
@@ -124,6 +132,12 @@ def parse_isotope_string(isotopes_string: str) -> List[IsotopeData]:
                 labeled_positions=labeled_positions,
             )
         )
+
+    if recomposited_isotopes != isotopes_string:
+        raise IsotopeParsingError(
+            f'Encoded isotopes "{isotopes_string}" cannot be completely interpreted {recomposited_isotopes}.'
+        )
+
     return isotope_data
 
 
