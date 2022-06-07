@@ -45,7 +45,7 @@ class Infusate(MaintainedModel):
 
     @field_updater_function(generation=0, update_field_name="name", update_label="name")
     def _name(self):
-        # Format: `short_name{tracername;tracername}`
+        # Format: `tracer_group_name{tracername;tracername}`
 
         # Need to check self.id to see if the record exists yet or not, because if it does not yet exist, we cannot use
         # the reverse self.tracers reference until it exists (besides, another update will trigger when the
@@ -58,12 +58,16 @@ class Infusate(MaintainedModel):
         link_recs = self.tracers.through.objects.filter(infusate__exact=self.id)
 
         nickname = ""
+        lcurly = ""
+        rcurly = ""
         if self.tracer_group_name is not None:
             nickname = self.tracer_group_name
+            lcurly = " {"
+            rcurly = "}"
 
         return (
             nickname
-            + "{"
+            + lcurly
             + ";".join(
                 sorted(
                     map(
@@ -73,7 +77,7 @@ class Infusate(MaintainedModel):
                     )
                 )
             )
-            + "}"
+            + rcurly
         )
 
     @classmethod

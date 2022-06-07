@@ -1,3 +1,4 @@
+from collections import defaultdict
 from typing import Dict, List
 
 from django.conf import settings
@@ -6,7 +7,7 @@ from django.db.models import Model  # , Manager
 auto_updates = True
 update_buffer = []
 performing_mass_autoupdates = False
-updater_list: Dict[str, List] = {}
+updater_list: Dict[str, List] = defaultdict(list)
 
 
 def disable_autoupdates():
@@ -40,7 +41,7 @@ def enable_mass_autoupdates():
 def clear_update_buffer(generation=None, label_filters=[]):
     """
     Clears buffered auto-updates.  Use after having performed DB updates when auto_updates was False to no perform
-    auto-updates.  This methid is called automatically during the execution of mass autoupdates.
+    auto-updates.  This method is called automatically during the execution of mass autoupdates.
 
     If a generation is provided (see the generation argument of the field_updater_function decorator), only buffered
     auto-updates labeled with that generation are cleared.  Note that each record can have multiple auto-update fields
@@ -111,10 +112,10 @@ def field_updater_function(
     This is a decorator factory for functions in a Model class that are identified to be used to update a supplied
     field and field of any linked parent record (for when the record is changed).  This function returns a decorator
     that takes the decorated function.  That function should return a value compatible with the field type supplied.
-    These decoratored functions are identified by the MaintainedModel class, whose save and delete methods override the
+    These decorated functions are identified by the MaintainedModel class, whose save and delete methods override the
     parent model and call the decorated functions to update field supplied to the factory function.  It also propagates
     the updates to the linked dependent model's save methods (if the parent key is supplied), the assumption being that
-    a change to "this" record's maintained field necessetates a change to another maintained field in the linked parent
+    a change to "this" record's maintained field necessitates a change to another maintained field in the linked parent
     record.
 
     The generation input is an integer indicating the hierarchy level.  E.g. if there is no parent, `generation` should
@@ -158,10 +159,7 @@ def field_updater_function(
         # handled in MaintanedModel when objects are created
 
         # Add this info to our global updater_list
-        if class_name in updater_list:
-            updater_list[class_name].append(func_dict)
-        else:
-            updater_list[class_name] = [func_dict]
+        updater_list[class_name] = [func_dict]
 
         # Provide some debug feedback
         if settings.DEBUG:
@@ -187,25 +185,6 @@ def field_updater_function(
     return decorator
 
 
-# This class and its override of the create method works, but is commented because it is redundant to the override of
-# __init__ in MaintainedModel.  Some stack users advised against overrideing __init__ (though I'm sketical as to why),
-# but over-riding create does not capture explicit settings of fields via all means.  If the consensus is to not
-# override __init__, I can fall back to this strategy.
-# class MaintainedModelManager(Manager):
-#     """
-#     This class is to over-ride the create method and prevent developers from explicitly setting values for
-#     automatically maintained fields.
-#     """
-#     def create(self, **obj_data):
-#         class_name = self.model.__name__
-#         for updater_dict in updater_list[class_name]:
-#             update_fld = updater_dict["update_field"]
-#             if update_fld in obj_data:
-#                 update_fcn = updater_dict["update_function"]
-#                 raise MaintainedFieldNotSettable(class_name, update_fld, update_fcn)
-#         return super().create(**obj_data)
-
-
 class MaintainedModel(Model):
     """
     This class maintains database field values for a django.models.Model class whose values can be derived using a
@@ -215,12 +194,6 @@ class MaintainedModel(Model):
     will be updated.  Only methods that take no arguments are supported.  This class overrides the class's save and
     delete methods as triggers for the updates.
     """
-
-    # This data member provides to means to override of the create method, which works, but is commented because it is
-    # redundant to the override of __init__ in MaintainedModel.  Some stack users advised against overrideing __init__
-    # (though I'm sketical as to why), but over-riding create does not capture explicit settings of fields via all
-    # means.  If the consensus is to not override __init__, I can fall back to this strategy.
-    # objects = MaintainedModelManager()
 
     def __init__(self, *args, **kwargs):
         """
@@ -399,7 +372,7 @@ class MaintainedModel(Model):
     def buffer_parent_update(self):
         """
         This is called when MaintainedModel.delete is called (if auto_updates is False), so that maintained fields can
-        beupdated after loading code finishes (by calling the global method: perform_buffered_updates)
+        be updated after loading code finishes (by calling the global method: perform_buffered_updates)
         """
         parents = self.get_parent_instances()
         for parent_inst in parents:
