@@ -38,33 +38,33 @@ class InfusateParsingTests(TracebaseTestCase):
             labeled_positions=[1, 2],
         )
         cls.tracer_l_leucine = TracerData(
-            original_tracer="L-Leucine-[1,2-13C2]",
+            unparsed_string="L-Leucine-[1,2-13C2]",
             compound_name="L-Leucine",
             isotopes=[cls.isotope_13c2],
         )
         cls.infusate_bcaas = InfusateData(
-            original_infusate="BCAAs {isoleucine-[13C6,15N1];leucine-[13C6,15N1];valine-[13C5,15N1]}",
+            unparsed_string="BCAAs {isoleucine-[13C6,15N1];leucine-[13C6,15N1];valine-[13C5,15N1]}",
             infusate_name="BCAAs",
             tracers=[
                 TracerData(
-                    original_tracer="isoleucine-[13C6,15N1]",
+                    unparsed_string="isoleucine-[13C6,15N1]",
                     compound_name="isoleucine",
                     isotopes=[cls.isotope_13c6, cls.isotope_15n1],
                 ),
                 TracerData(
-                    original_tracer="leucine-[13C6,15N1]",
+                    unparsed_string="leucine-[13C6,15N1]",
                     compound_name="leucine",
                     isotopes=[cls.isotope_13c6, cls.isotope_15n1],
                 ),
                 TracerData(
-                    original_tracer="valine-[13C5,15N1]",
+                    unparsed_string="valine-[13C5,15N1]",
                     compound_name="valine",
                     isotopes=[cls.isotope_13c5, cls.isotope_15n1],
                 ),
             ],
         )
         cls.infusate_l_leucine = InfusateData(
-            original_infusate="L-Leucine-[1,2-13C2]",
+            unparsed_string="L-Leucine-[1,2-13C2]",
             infusate_name=None,
             tracers=[cls.tracer_l_leucine],
         )

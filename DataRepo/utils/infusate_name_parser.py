@@ -30,13 +30,13 @@ class IsotopeData(TypedDict):
 
 
 class TracerData(TypedDict):
-    original_tracer: str
+    unparsed_string: str
     compound_name: str
     isotopes: List[IsotopeData]
 
 
 class InfusateData(TypedDict):
-    original_infusate: str
+    unparsed_string: str
     infusate_name: Optional[str]
     tracers: List[TracerData]
 
@@ -51,7 +51,7 @@ def parse_infusate_name(infusate_string: str) -> InfusateData:
     # assume the string lacks the optional name, and it is all tracer encodings
     infusate_string = infusate_string.strip()
     parsed_data: InfusateData = {
-        "original_infusate": infusate_string,
+        "unparsed_string": infusate_string,
         "infusate_name": None,
         "tracers": list(),
     }
@@ -80,7 +80,7 @@ def split_encoded_tracers_string(tracers_string: str) -> List[str]:
 def parse_tracer_string(tracer: str) -> TracerData:
 
     tracer_data: TracerData = {
-        "original_tracer": tracer,
+        "unparsed_string": tracer,
         "compound_name": "",
         "isotopes": list(),
     }
