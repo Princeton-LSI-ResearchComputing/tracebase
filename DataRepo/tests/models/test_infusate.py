@@ -92,6 +92,16 @@ class InfusateTests(TracebaseTestCase):
         # Throws DoesNotExist exception if not found
         Infusate.objects.get(name="ti3")
 
+    def test_delete_autoupdate(self):
+        """
+        Make sure parent records are updated when a child record is deleted
+        """
+        tl = TracerLabel.objects.get(name="2,3-13C2")
+        tl.delete()
+        # These queries will raise an exception if the name was not auto-updated
+        Tracer.objects.get(name="glucose-(4-17O1)")
+        Infusate.objects.get(name="C16:0-(5,6-13C2,17O2)[4];glucose-(4-17O1)[3]")
+
 
 class MaintainedModelTests(TracebaseTestCase):
     def setUp(self):
