@@ -1,4 +1,3 @@
-from string import whitespace
 from django.test import tag
 
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
