@@ -5,6 +5,7 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.infusate_name_parser import (
     InfusateData,
     IsotopeData,
+    IsotopeParsingError,
     TracerData,
     TracerParsingError,
     parse_infusate_name,
@@ -148,8 +149,14 @@ class InfusateParsingTests(TracebaseTestCase):
     def test_malformed_tracer_parsing_with_bad_isotopic_specification(self):
         # Test bad isotope pattern not silently skipped
         name = "1,2,3-13C3,badlabel,19O2"
-        with self.assertRaisesRegex(TracerParsingError, "cannot be parsed"):
-            _ = parse_infusate_name(name)
+        with self.assertRaisesRegex(IsotopeParsingError, "disallowed characters"):
+            _ = parse_isotope_string(name)
+
+    def test_malformed_tracer_parsing_with_null_isotopic_specification_6(self):
+        # Test bad isotope pattern not silently skipped
+        name = "13F"
+        with self.assertRaisesRegex(IsotopeParsingError, "disallowed characters"):
+            _ = parse_isotope_string(name)
 
     def test_malformed_tracer_parsing_with_improper_delimiter(self):
         # Test bad tracer delimiter (',' instead of ';')

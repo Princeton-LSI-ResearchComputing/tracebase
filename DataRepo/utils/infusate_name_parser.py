@@ -1,19 +1,22 @@
 import re
 from typing import List, Optional, TypedDict
 
+KNOWN_ISOTOPES = 'CNHOS'
+
 # infusate with a name have the tracer(s) grouped in braces
 INFUSATE_ENCODING_PATTERN = (
     r"^(?P<infusate_name>[^\{\}]*?)\s*\{(?P<tracers_string>[^\{\}]*?)\}$"
 )
 TRACERS_ENCODING_JOIN = ";"
 TRACER_ENCODING_PATTERN = (
-    r"^(?P<compound_name>[^\[\]][\w,\-]+)(?:\-\[(?P<isotopes>[^\[\]][0-9CNHOS,\-]+)\])$"
+    r"^(?P<compound_name>[^\[\]][\w,\-]+)(?:\-\[(?P<isotopes>[^\[\]][0-9" + KNOWN_ISOTOPES + ",\-]+)\])$"
 )
 ISOTOPE_ENCODING_JOIN = ","
 ISOTOPE_ENCODING_PATTERN = re.compile(
-    r"(?:(?P<labeled_positions>[0-9,]+)-){0,1}(?P<labeled_element>[0-9]+[CHNOS])(?P<labeled_count>[0-9+])"
+    r"(?:(?P<labeled_positions>[0-9,]+)-){0,1}(?P<labeled_element>[0-9]+[^\[\]][" + KNOWN_ISOTOPES + "])(?P<labeled_count>[0-9+])"
 )
-
+# only allow digits, brackets, dashes, commas, and  isotope symbols
+ISOTOPE_DISALLOWED_CHARACTERS = r"[^\d\[\]\-," + KNOWN_ISOTOPES + "]"
 
 class IsotopeData(TypedDict):
     labeled_element: str
@@ -88,6 +91,10 @@ def parse_tracer_string(tracer: str) -> TracerData:
 
 
 def parse_isotope_string(isotopes_string: str) -> List[IsotopeData]:
+
+    rejected_match = match = re.search(ISOTOPE_DISALLOWED_CHARACTERS, isotopes_string)
+    if rejected_match:
+        raise IsotopeParsingError(f'Encoded isotopes "{isotopes_string}" contains disallowed characters.')
 
     isotope_data = list()
     isotopes = re.findall(ISOTOPE_ENCODING_PATTERN, isotopes_string)
