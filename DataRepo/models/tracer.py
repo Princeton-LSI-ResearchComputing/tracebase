@@ -1,15 +1,20 @@
 from django.db import models
-from django.utils.functional import cached_property
 
 from DataRepo.models.element_label import ElementLabel
+from DataRepo.models.maintained_model import (
+    MaintainedModel,
+    field_updater_function,
+)
 
 
-class Tracer(models.Model, ElementLabel):
+class Tracer(MaintainedModel, ElementLabel):
 
     id = models.AutoField(primary_key=True)
     name = models.CharField(
         max_length=256,
         unique=True,
+        null=True,
+        editable=False,
         help_text="A unique name or lab identifier of the tracer, e.g. 'lysine-C14'.",
     )
     compound = models.ForeignKey(
@@ -27,14 +32,19 @@ class Tracer(models.Model, ElementLabel):
     def __str__(self):
         return str(self._name())
 
-    @cached_property
+    @field_updater_function(
+        generation=2,
+        update_field_name="name",
+        parent_field_name="infusates",
+        update_label="name",
+    )
     def _name(self):
-        # format: `compound - [ labelname,labelname,... ]` (but no spaces)
-        if self.labels is None or self.labels.count() == 0:
+        # format: `compound - ([) labelname,labelname,... )` (but no spaces)
+        if self.id is None or self.labels is None or self.labels.count() == 0:
             return self.compound.name
         return (
             self.compound.name
-            + "-["
+            + "-("
             + ",".join(list(map(lambda l: str(l), self.labels.all())))
-            + "]"
+            + ")"
         )
