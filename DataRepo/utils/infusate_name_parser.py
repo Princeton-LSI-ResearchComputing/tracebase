@@ -121,8 +121,9 @@ def parse_isotope_string(isotopes_string: str) -> List[IsotopeData]:
                 r"(?P<mass_number>[\d]+)(?P<element>[" + KNOWN_ISOTOPES + "]{1})",
                 labeled_element,
             )
-            mass_number = int(match.group("mass_number"))
-            element = match.group("element")
+            if match:
+                mass_number = int(match.group("mass_number"))
+                element = match.group("element")
         labeled_count = int(isotope.group("labeled_count"))
 
         recomposited_isotope = labeled_element + str(labeled_count)
