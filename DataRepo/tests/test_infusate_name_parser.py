@@ -19,21 +19,29 @@ class InfusateParsingTests(TracebaseTestCase):
     def setUpTestData(cls):
         cls.isotope_13c6 = IsotopeData(
             labeled_element="13C",
+            element="C",
+            mass_number=13,
             labeled_count=6,
             labeled_positions=None,
         )
         cls.isotope_13c5 = IsotopeData(
             labeled_element="13C",
+            element="C",
+            mass_number=13,
             labeled_count=5,
             labeled_positions=None,
         )
         cls.isotope_15n1 = IsotopeData(
             labeled_element="15N",
+            element="N",
+            mass_number=15,
             labeled_count=1,
             labeled_positions=None,
         )
         cls.isotope_13c2 = IsotopeData(
             labeled_element="13C",
+            element="C",
+            mass_number=13,
             labeled_count=2,
             labeled_positions=[1, 2],
         )

@@ -25,6 +25,8 @@ ISOTOPE_DISALLOWED_CHARACTERS = re.compile(r"[^\d\[\]\-," + KNOWN_ISOTOPES + "]"
 
 class IsotopeData(TypedDict):
     labeled_element: str
+    element: str
+    mass_number: int
     labeled_count: int
     labeled_positions: Optional[List[int]]
 
@@ -114,7 +116,15 @@ def parse_isotope_string(isotopes_string: str) -> List[IsotopeData]:
     first_time = True
     for isotope in ISOTOPE_ENCODING_PATTERN.finditer(isotopes_string):
         labeled_element = isotope.group("labeled_element")
+        if labeled_element:
+            match = re.search(
+                r"(?P<mass_number>[\d]+)(?P<element>[" + KNOWN_ISOTOPES + "]{1})",
+                labeled_element,
+            )
+            mass_number = int(match.group("mass_number"))
+            element = match.group("element")
         labeled_count = int(isotope.group("labeled_count"))
+
         recomposited_isotope = labeled_element + str(labeled_count)
         if isotope.group("labeled_positions"):
             positions_str = isotope.group("labeled_positions")
@@ -131,6 +141,8 @@ def parse_isotope_string(isotopes_string: str) -> List[IsotopeData]:
         isotope_data.append(
             IsotopeData(
                 labeled_element=labeled_element,
+                element=element,
+                mass_number=mass_number,
                 labeled_count=labeled_count,
                 labeled_positions=labeled_positions,
             )
