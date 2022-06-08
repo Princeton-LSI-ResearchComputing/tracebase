@@ -1,31 +1,28 @@
 import re
 from typing import List, Optional, TypedDict
 
-KNOWN_ISOTOPES = "CNHOS"
+from DataRepo.models.tracer_labeled_class import TracerLabeledClass
+
+KNOWN_ISOTOPES = "".join(TracerLabeledClass.tracer_labeled_elements_list())
 
 # infusate with a name have the tracer(s) grouped in braces
 INFUSATE_ENCODING_PATTERN = re.compile(
-    r"^(?P<infusate_name>[^\{\}]*?)\s*\{(?P<tracers_string>[^\{\}]*?)\}$"
+    r"^(?:(?P<infusate_name>[^\{\}]*?)\s*\{)?(?P<tracers_string>[^\{\}]*?)\}?$"
 )
 TRACERS_ENCODING_JOIN = ";"
 TRACER_ENCODING_PATTERN = re.compile(
-    r"^(?P<compound_name>[^\[\]][\w,\-]+)(?:\-\[(?P<isotopes>[^\[\]][0-9"
-    + KNOWN_ISOTOPES
-    + r",\-]+)\])$"
+    r"^(?P<compound_name>.*?)-\[(?P<isotopes>[^\[\]]+)\]$"
 )
 ISOTOPE_ENCODING_JOIN = ","
 ISOTOPE_ENCODING_PATTERN = re.compile(
-    r"(?:(?P<labeled_positions>[0-9,]+)-){0,1}(?P<labeled_element>[0-9]+[^\[\]]["
+    r"(?P<all>(?:(?P<labeled_positions>[0-9,]+)-)?(?P<mass_number>[0-9]+)(?P<labeled_element>["
     + KNOWN_ISOTOPES
-    + r"])(?P<labeled_count>[0-9+])"
+    + r"]{1,2})(?P<labeled_count>[0-9]+))"
 )
-# only allow digits, brackets, dashes, commas, and  isotope symbols
-ISOTOPE_DISALLOWED_CHARACTERS = re.compile(r"[^\d\[\]\-," + KNOWN_ISOTOPES + "]")
 
 
 class IsotopeData(TypedDict):
     labeled_element: str
-    element: str
     mass_number: int
     labeled_count: int
     labeled_positions: Optional[List[int]]
@@ -61,12 +58,16 @@ def parse_infusate_name(infusate_string: str) -> InfusateData:
     match = re.search(INFUSATE_ENCODING_PATTERN, infusate_string)
 
     if match:
-        parsed_data["infusate_name"] = match.group("infusate_name").strip()
+        short_name = match.group("infusate_name")
+        if short_name is not None and short_name.strip() != "":
+            parsed_data["infusate_name"] = short_name.strip()
         tracer_strings = split_encoded_tracers_string(
             match.group("tracers_string").strip()
         )
     else:
-        tracer_strings = [infusate_string]
+        raise InfusateParsingError(
+            f"Unable to parse infusate string: [{infusate_string}]"
+        )
 
     for tracer_string in tracer_strings:
         parsed_data["tracers"].append(parse_tracer_string(tracer_string))
@@ -79,7 +80,7 @@ def split_encoded_tracers_string(tracers_string: str) -> List[str]:
     return tracers
 
 
-def parse_tracer_string(tracer: str) -> TracerData:
+def parse_tracer_string(tracer: str, parse_one=False) -> TracerData:
 
     tracer_data: TracerData = {
         "unparsed_string": tracer,
@@ -89,10 +90,21 @@ def parse_tracer_string(tracer: str) -> TracerData:
 
     match = re.search(TRACER_ENCODING_PATTERN, tracer)
     if match:
+        if parse_one and (match.start != 0 or match.end != len(tracer)):
+            raise TracerParsingError(f'Encoded tracer "{tracer}" cannot be parsed.')
         tracer_data["compound_name"] = match.group("compound_name").strip()
         tracer_data["isotopes"] = parse_isotope_string(match.group("isotopes").strip())
     else:
         raise TracerParsingError(f'Encoded tracer "{tracer}" cannot be parsed.')
+
+    # Compound names are very premissive, but we should at least make sure a malformed isotope specification didn't
+    # bleed into the compound pattern (like you would get if the wrong delimiter was used
+    # - see test_malformed_tracer_parsing_with_improper_delimiter)
+    imatch = re.search(ISOTOPE_ENCODING_PATTERN, tracer_data["compound_name"])
+    if imatch:
+        raise TracerParsingError(
+            f'Encoded tracer "{tracer}" cannot be parsed.  A compound name cannot contain an isotope encoding string.'
+        )
 
     return tracer_data
 
@@ -102,56 +114,42 @@ def parse_isotope_string(isotopes_string: str) -> List[IsotopeData]:
     if not isotopes_string:
         raise IsotopeParsingError("parse_isotope_string requires a defined string.")
 
-    rejected_match = re.search(ISOTOPE_DISALLOWED_CHARACTERS, isotopes_string)
-    if rejected_match:
-        raise IsotopeParsingError(
-            f'Encoded isotopes "{isotopes_string}" contains disallowed characters.'
-        )
-
     isotope_data = list()
     isotopes = re.findall(ISOTOPE_ENCODING_PATTERN, isotopes_string)
     if len(isotopes) < 1:
-        raise IsotopeParsingError(f'Encoded isotopes "{isotopes}" cannot be parsed.')
-    recomposited_isotopes = ""
-    first_time = True
-    for isotope in ISOTOPE_ENCODING_PATTERN.finditer(isotopes_string):
-        labeled_element = isotope.group("labeled_element")
-        if labeled_element:
-            match = re.search(
-                r"(?P<mass_number>[\d]+)(?P<element>[" + KNOWN_ISOTOPES + "]{1})",
-                labeled_element,
-            )
-            if match:
-                mass_number = int(match.group("mass_number"))
-                element = match.group("element")
-        labeled_count = int(isotope.group("labeled_count"))
+        raise IsotopeParsingError(
+            f"Encoded isotopes: [{isotopes_string}] cannot be parsed."
+        )
 
-        recomposited_isotope = labeled_element + str(labeled_count)
+    parsed_string = None
+    for isotope in ISOTOPE_ENCODING_PATTERN.finditer(isotopes_string):
+
+        mass_number = int(isotope.group("mass_number"))
+        labeled_element = isotope.group("labeled_element")
+        labeled_count = int(isotope.group("labeled_count"))
+        labeled_positions = None
         if isotope.group("labeled_positions"):
             positions_str = isotope.group("labeled_positions")
-            recomposited_isotope = f"{positions_str}-{recomposited_isotope}"
             labeled_positions = [int(x) for x in positions_str.split(",")]
-        else:
-            labeled_positions = None
 
-        if first_time:
-            recomposited_isotopes = recomposited_isotope
-            first_time = False
+        if parsed_string is None:
+            parsed_string = isotope.group("all")
         else:
-            recomposited_isotopes = recomposited_isotopes + "," + recomposited_isotope
+            parsed_string += "," + isotope.group("all")
+
         isotope_data.append(
             IsotopeData(
                 labeled_element=labeled_element,
-                element=element,
                 mass_number=mass_number,
                 labeled_count=labeled_count,
                 labeled_positions=labeled_positions,
             )
         )
 
-    if recomposited_isotopes != isotopes_string:
+    if parsed_string != isotopes_string:
         raise IsotopeParsingError(
-            f'Encoded isotopes "{isotopes_string}" cannot be completely interpreted {recomposited_isotopes}.'
+            f"One or more encoded isotopes in [{isotopes_string}] could not be parsed. Only the following were "
+            f"parsed: [{parsed_string}]."
         )
 
     return isotope_data

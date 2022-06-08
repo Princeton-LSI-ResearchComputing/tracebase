@@ -3,6 +3,7 @@ from django.test import tag
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.infusate_name_parser import (
     InfusateData,
+    InfusateParsingError,
     IsotopeData,
     IsotopeParsingError,
     TracerData,
@@ -18,29 +19,25 @@ class InfusateParsingTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
         cls.isotope_13c6 = IsotopeData(
-            labeled_element="13C",
-            element="C",
+            labeled_element="C",
             mass_number=13,
             labeled_count=6,
             labeled_positions=None,
         )
         cls.isotope_13c5 = IsotopeData(
-            labeled_element="13C",
-            element="C",
+            labeled_element="C",
             mass_number=13,
             labeled_count=5,
             labeled_positions=None,
         )
         cls.isotope_15n1 = IsotopeData(
-            labeled_element="15N",
-            element="N",
+            labeled_element="N",
             mass_number=15,
             labeled_count=1,
             labeled_positions=None,
         )
         cls.isotope_13c2 = IsotopeData(
-            labeled_element="13C",
-            element="C",
+            labeled_element="C",
             mass_number=13,
             labeled_count=2,
             labeled_positions=[1, 2],
@@ -120,8 +117,10 @@ class InfusateParsingTests(TracebaseTestCase):
         self.assertEqual(data["infusate_name"], "myshortname")
 
     def test_malformed_infusate_parsing(self):
-        name = "not a {properly encoded tracer-[NAME1]}"
-        with self.assertRaisesRegex(TracerParsingError, "cannot be parsed"):
+        name = "not a {{properly encoded tracer-[13C1]}"
+        with self.assertRaisesRegex(
+            InfusateParsingError, "Unable to parse infusate string"
+        ):
             _ = parse_infusate_name(name)
 
     def test_malformed_infusate_parsing_no_isotope_encoding(self):
@@ -132,20 +131,24 @@ class InfusateParsingTests(TracebaseTestCase):
     def test_malformed_infusate_parsing_multiple_brace_groups(self):
         # Test back-to-back occurrences of curlies expressions
         name = "myshortname{lysine-[13C5]}{glucose-[13C4]}"
-        with self.assertRaisesRegex(TracerParsingError, "cannot be parsed"):
+        with self.assertRaisesRegex(
+            InfusateParsingError, "Unable to parse infusate string"
+        ):
             _ = parse_infusate_name(name)
 
     def test_malformed_infusate_parsing_with_new_line(self):
         # Test multiple names delimited by hard return
         name = "myshortname1{lysine-[13C5]}\nmyshortname2{glucose-[13C4]}"
-        with self.assertRaisesRegex(TracerParsingError, "cannot be parsed"):
+        with self.assertRaisesRegex(
+            InfusateParsingError, "Unable to parse infusate string"
+        ):
             _ = parse_infusate_name(name)
 
     def test_malformed_tracer_parsing_multiple_isotopic_definitions(self):
         # Test back-to-back occurrences of square bracket expressions
         name = "lysine-[13C5]-[19O2]"
         with self.assertRaisesRegex(TracerParsingError, "cannot be parsed"):
-            _ = parse_tracer_string(name)
+            _ = parse_tracer_string(name, parse_one=True)
 
     def test_malformed_tracer_parsing_with_new_line(self):
         # Test multiple labeled compounds delimited by hard return
@@ -168,21 +171,23 @@ class InfusateParsingTests(TracebaseTestCase):
     def test_malformed_tracer_parsing_with_bad_isotopic_specification(self):
         # Test bad isotope pattern not silently skipped
         name = "1,2,3-13C3,badlabel,19O2"
-        with self.assertRaisesRegex(IsotopeParsingError, "disallowed characters"):
+        with self.assertRaisesRegex(
+            IsotopeParsingError, "Only the following were parsed"
+        ):
             _ = parse_isotope_string(name)
 
     def test_malformed_isotope_parsing_with_incomplete_parsing(self):
         # Test bad isotope pattern not silently skipped
         name = "1,2,3-13C3,S5,19O2"
         with self.assertRaisesRegex(
-            IsotopeParsingError, "cannot be completely interpreted"
+            IsotopeParsingError, "Only the following were parsed"
         ):
             _ = parse_isotope_string(name)
 
     def test_malformed_isotope_parsing_with_bad_isotopic_specification(self):
         # Test bad isotope pattern not silently skipped
         name = "13F"
-        with self.assertRaisesRegex(IsotopeParsingError, "disallowed characters"):
+        with self.assertRaisesRegex(IsotopeParsingError, "cannot be parsed"):
             _ = parse_isotope_string(name)
 
     def test_malformed_isotope_parsing_with_null_isotopic_specification(self):
