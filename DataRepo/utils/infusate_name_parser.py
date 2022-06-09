@@ -1,9 +1,9 @@
 import re
 from typing import List, Optional, TypedDict
 
-from DataRepo.models.tracer_labeled_class import TracerLabeledClass
+from DataRepo.models.element_label import ElementLabel
 
-KNOWN_ISOTOPES = "".join(TracerLabeledClass.tracer_labeled_elements_list())
+KNOWN_ISOTOPES = "".join(ElementLabel.labeled_elements_list())
 
 # infusate with a name have the tracer(s) grouped in braces
 INFUSATE_ENCODING_PATTERN = re.compile(
