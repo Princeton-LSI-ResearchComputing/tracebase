@@ -19,25 +19,25 @@ class InfusateParsingTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
         cls.isotope_13c6 = IsotopeData(
-            labeled_element="C",
+            element="C",
             mass_number=13,
             labeled_count=6,
             labeled_positions=None,
         )
         cls.isotope_13c5 = IsotopeData(
-            labeled_element="C",
+            element="C",
             mass_number=13,
             labeled_count=5,
             labeled_positions=None,
         )
         cls.isotope_15n1 = IsotopeData(
-            labeled_element="N",
+            element="N",
             mass_number=15,
             labeled_count=1,
             labeled_positions=None,
         )
         cls.isotope_13c2 = IsotopeData(
-            labeled_element="C",
+            element="C",
             mass_number=13,
             labeled_count=2,
             labeled_positions=[1, 2],
@@ -148,7 +148,7 @@ class InfusateParsingTests(TracebaseTestCase):
         # Test back-to-back occurrences of square bracket expressions
         name = "lysine-[13C5]-[19O2]"
         with self.assertRaisesRegex(TracerParsingError, "cannot be parsed"):
-            _ = parse_tracer_string(name, parse_one=True)
+            _ = parse_tracer_string(name)
 
     def test_malformed_tracer_parsing_with_new_line(self):
         # Test multiple labeled compounds delimited by hard return

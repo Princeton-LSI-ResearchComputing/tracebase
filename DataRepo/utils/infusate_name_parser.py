@@ -15,14 +15,14 @@ TRACER_ENCODING_PATTERN = re.compile(
 )
 ISOTOPE_ENCODING_JOIN = ","
 ISOTOPE_ENCODING_PATTERN = re.compile(
-    r"(?P<all>(?:(?P<labeled_positions>[0-9,]+)-)?(?P<mass_number>[0-9]+)(?P<labeled_element>["
+    r"(?P<all>(?:(?P<labeled_positions>[0-9,]+)-)?(?P<mass_number>[0-9]+)(?P<element>["
     + KNOWN_ISOTOPES
     + r"]{1,2})(?P<labeled_count>[0-9]+))"
 )
 
 
 class IsotopeData(TypedDict):
-    labeled_element: str
+    element: str
     mass_number: int
     labeled_count: int
     labeled_positions: Optional[List[int]]
@@ -80,7 +80,7 @@ def split_encoded_tracers_string(tracers_string: str) -> List[str]:
     return tracers
 
 
-def parse_tracer_string(tracer: str, parse_one=False) -> TracerData:
+def parse_tracer_string(tracer: str) -> TracerData:
 
     tracer_data: TracerData = {
         "unparsed_string": tracer,
@@ -90,8 +90,6 @@ def parse_tracer_string(tracer: str, parse_one=False) -> TracerData:
 
     match = re.search(TRACER_ENCODING_PATTERN, tracer)
     if match:
-        if parse_one and (match.start != 0 or match.end != len(tracer)):
-            raise TracerParsingError(f'Encoded tracer "{tracer}" cannot be parsed.')
         tracer_data["compound_name"] = match.group("compound_name").strip()
         tracer_data["isotopes"] = parse_isotope_string(match.group("isotopes").strip())
     else:
@@ -125,7 +123,7 @@ def parse_isotope_string(isotopes_string: str) -> List[IsotopeData]:
     for isotope in ISOTOPE_ENCODING_PATTERN.finditer(isotopes_string):
 
         mass_number = int(isotope.group("mass_number"))
-        labeled_element = isotope.group("labeled_element")
+        element = isotope.group("element")
         labeled_count = int(isotope.group("labeled_count"))
         labeled_positions = None
         if isotope.group("labeled_positions"):
@@ -139,7 +137,7 @@ def parse_isotope_string(isotopes_string: str) -> List[IsotopeData]:
 
         isotope_data.append(
             IsotopeData(
-                labeled_element=labeled_element,
+                element=element,
                 mass_number=mass_number,
                 labeled_count=labeled_count,
                 labeled_positions=labeled_positions,
