@@ -21,26 +21,26 @@ class InfusateParsingTests(TracebaseTestCase):
         cls.isotope_13c6 = IsotopeData(
             element="C",
             mass_number=13,
-            labeled_count=6,
-            labeled_positions=None,
+            count=6,
+            positions=None,
         )
         cls.isotope_13c5 = IsotopeData(
             element="C",
             mass_number=13,
-            labeled_count=5,
-            labeled_positions=None,
+            count=5,
+            positions=None,
         )
         cls.isotope_15n1 = IsotopeData(
             element="N",
             mass_number=15,
-            labeled_count=1,
-            labeled_positions=None,
+            count=1,
+            positions=None,
         )
         cls.isotope_13c2 = IsotopeData(
             element="C",
             mass_number=13,
-            labeled_count=2,
-            labeled_positions=[1, 2],
+            count=2,
+            positions=[1, 2],
         )
         cls.tracer_l_leucine = TracerData(
             unparsed_string="L-Leucine-[1,2-13C2]",

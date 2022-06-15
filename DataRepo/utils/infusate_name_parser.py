@@ -15,17 +15,17 @@ TRACER_ENCODING_PATTERN = re.compile(
 )
 ISOTOPE_ENCODING_JOIN = ","
 ISOTOPE_ENCODING_PATTERN = re.compile(
-    r"(?P<all>(?:(?P<labeled_positions>[0-9,]+)-)?(?P<mass_number>[0-9]+)(?P<element>["
+    r"(?P<all>(?:(?P<positions>[0-9,]+)-)?(?P<mass_number>[0-9]+)(?P<element>["
     + KNOWN_ISOTOPES
-    + r"]{1,2})(?P<labeled_count>[0-9]+))"
+    + r"]{1,2})(?P<count>[0-9]+))"
 )
 
 
 class IsotopeData(TypedDict):
     element: str
     mass_number: int
-    labeled_count: int
-    labeled_positions: Optional[List[int]]
+    count: int
+    positions: Optional[List[int]]
 
 
 class TracerData(TypedDict):
@@ -95,7 +95,7 @@ def parse_tracer_string(tracer: str) -> TracerData:
     else:
         raise TracerParsingError(f'Encoded tracer "{tracer}" cannot be parsed.')
 
-    # Compound names are very premissive, but we should at least make sure a malformed isotope specification didn't
+    # Compound names are very permissive, but we should at least make sure a malformed isotope specification didn't
     # bleed into the compound pattern (like you would get if the wrong delimiter was used
     # - see test_malformed_tracer_parsing_with_improper_delimiter)
     imatch = re.search(ISOTOPE_ENCODING_PATTERN, tracer_data["compound_name"])
@@ -124,23 +124,23 @@ def parse_isotope_string(isotopes_string: str) -> List[IsotopeData]:
 
         mass_number = int(isotope.group("mass_number"))
         element = isotope.group("element")
-        labeled_count = int(isotope.group("labeled_count"))
-        labeled_positions = None
-        if isotope.group("labeled_positions"):
-            positions_str = isotope.group("labeled_positions")
-            labeled_positions = [int(x) for x in positions_str.split(",")]
+        count = int(isotope.group("count"))
+        positions = None
+        if isotope.group("positions"):
+            positions_str = isotope.group("positions")
+            positions = [int(x) for x in positions_str.split(",")]
 
         if parsed_string is None:
             parsed_string = isotope.group("all")
         else:
-            parsed_string += "," + isotope.group("all")
+            parsed_string += ISOTOPE_ENCODING_JOIN + isotope.group("all")
 
         isotope_data.append(
             IsotopeData(
                 element=element,
                 mass_number=mass_number,
-                labeled_count=labeled_count,
-                labeled_positions=labeled_positions,
+                count=count,
+                positions=positions,
             )
         )
 
