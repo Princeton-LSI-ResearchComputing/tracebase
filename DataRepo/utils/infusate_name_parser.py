@@ -133,7 +133,7 @@ def parse_isotope_string(isotopes_string: str) -> List[IsotopeData]:
         if parsed_string is None:
             parsed_string = isotope.group("all")
         else:
-            parsed_string += "," + isotope.group("all")
+            parsed_string += ISOTOPE_ENCODING_JOIN + isotope.group("all")
 
         isotope_data.append(
             IsotopeData(
