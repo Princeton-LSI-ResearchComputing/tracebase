@@ -1,0 +1,16 @@
+---
+animals_samples_treatments:
+  table: "TraceBase Animal and Sample Table Templates_AR.xlsx"
+  skip_researcher_check: true  # New researcher
+accucor_data:
+  accucor_files:
+    - name: "./13C-val tissues metabolites results - No D-Val_cor.csv"
+    - name: "./13C-val tissues metabolites results 146,148,149 no D-val_cor.csv"
+    - name: "./Serum results_cor.csv"
+  msrun_protocol: "Hilic25min_NegativeMode"
+  date: "2021-12-07"
+  researcher: "Asael Roichman"
+  new_researcher: false
+  skip_samples:
+    - "blank"
+
