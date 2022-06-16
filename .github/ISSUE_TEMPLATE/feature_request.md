@@ -72,7 +72,7 @@ list of files.)
 
 #### Interface Change description
 
-Describe changes that will be seen during usage. *E.g. GUI/commandline changes*
+Describe changes to usage. *E.g. GUI/command-line changes*
 
 #### Code Change Description
 
