@@ -8,15 +8,15 @@ assignees: ''
 ---
 
 <!-- markdownlint-disable-next-line first-line-heading -->
-## FEATURE DESCRIPTION
+## FEATURE REQUEST
 
-### Feature Inspiration
+### Inspiration
 
 A brief description of *what prompted/inspired* the feature request.  (This
 should not describe the feature, but rather what demonstrates the *need* for the
 feature.)
 
-### Feature Description
+### Description
 
 A brief description of *what* the feature should do (not *how* it will be done -
 for that, jump down to the *Code Change Description* section below to make
@@ -26,6 +26,13 @@ suggestions).
 
 A brief description of any alternative features that could accomplish the same
 ultimate goal, either for consideration or considered and rejected.
+
+### Dependencies
+
+This issue cannot be started until the completion of the following issue(s):
+
+- #<issue number 1>
+- #<issue number 2>
 
 ### Comment
 
@@ -37,7 +44,7 @@ Add any other context or screenshots about the feature request here.
 
 ### Assumptions
 
-- List of assumptions made WRT the code
+- List of assumptions that the code will not explicitly address/check
 - E.g. We will assume input is correct (explaining why there is no validation)
 
 ### Requirements
@@ -53,8 +60,9 @@ Add any other context or screenshots about the feature request here.
 
 ### Affected Components
 
-A list of repository items, dependencies, etc, labeled with add, delete, or
-change.  One item per line.  (Mostly, this will be a list of files.)
+A tentative list of anticipated repository items that will be changed, labeled
+with "add", "delete", or "change".  One item per line.  (Mostly, this will be a
+list of files.)
 
 - change: File path or DB table ...
 - add: Environment variable or server setting
@@ -62,9 +70,9 @@ change.  One item per line.  (Mostly, this will be a list of files.)
 
 ### DESIGN
 
-#### GUI Change description
+#### Interface Change description
 
-Describe changes the user will see.
+Describe changes to usage. *E.g. GUI/command-line changes*
 
 #### Code Change Description
 
