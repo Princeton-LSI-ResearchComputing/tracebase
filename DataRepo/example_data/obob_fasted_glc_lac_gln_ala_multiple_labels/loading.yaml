@@ -13,3 +13,4 @@ accucor_data:
   date: "2021-06-06"
   researcher: "Xianfeng Zeng"
   new_researcher: false
+  isocorr_format: true
