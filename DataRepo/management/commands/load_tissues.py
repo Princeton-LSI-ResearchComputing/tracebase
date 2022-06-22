@@ -94,9 +94,15 @@ class Command(BaseCommand):
 
         if verbosity >= 2:
             for db in stats.keys():
-                for stat in stats[db]:
+                for stat in stats[db]["created"]:
                     self.stdout.write(
-                        f"Created {db} tissue record - {stat['tissue']}:{stat['description']}"
+                        self.style.SUCCESS(
+                            f"Created {db} tissue record - {stat['tissue']}:{stat['description']}"
+                        )
+                    )
+                for stat in stats[db]["skipped"]:
+                    self.stdout.write(
+                        f"Skipped {db} tissue record - {stat['tissue']}:{stat['description']}"
                     )
 
         smry = "Complete"

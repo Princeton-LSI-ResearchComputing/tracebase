@@ -27,6 +27,39 @@ from DataRepo.utils.exceptions import (
     ValidationDatabaseSetupError,
 )
 
+# Global variables for Accucor/Isocorr corrected column names/patterns
+# List of column names from data files that we know are not samples.  Note that the column names are the same in
+# Accucor versus Isocorr - they're just ordered differently.
+NONSAMPLE_COLUMN_NAMES = [
+    "label",  # Accucor format
+    "metaGroupId",
+    "groupId",
+    "goodPeakCount",
+    "medMz",
+    "medRt",
+    "maxQuality",
+    "isotopeLabel",
+    "compound",
+    "compoundId",
+    "formula",
+    "expectedRtDiff",
+    "ppmDiff",
+    "parent",
+    "Compound",
+    "adductName",
+]
+# append the *_Label columns of the corrected dataframe for accucor format
+for element in ElementLabel.labeled_elements_list():
+    NONSAMPLE_COLUMN_NAMES.append(f"{element}_Label")
+ACCUCOR_LABEL_PATTERN = re.compile(
+    f"^({'|'.join(ElementLabel.labeled_elements_list())})_Label$"
+)
+ISOTOPE_LABEL_PATTERN = re.compile(
+    r"^(?P<element>["
+    + "".join(ElementLabel.labeled_elements_list())
+    + r"]{1,2})(?P<mass_number>\d+)(?: (?P<parent>PARENT)|-label-(?P<count>\d+))$"
+)
+
 
 class AccuCorDataLoader:
 
@@ -48,6 +81,7 @@ class AccuCorDataLoader:
         new_researcher=False,
         database=None,
         validate=False,
+        isocorr_format=False,
     ):
         self.accucor_original_df = accucor_original_df
         self.accucor_corrected_df = accucor_corrected_df
@@ -65,6 +99,10 @@ class AccuCorDataLoader:
         self.debug = debug
         self.new_researcher = new_researcher
         self.db = settings.TRACEBASE_DB
+        self.isocorr_format = isocorr_format
+        self.compound_header = "Compound"
+        if isocorr_format:
+            self.compound_header = "compound"
         # If a database was explicitly supplied
         if database is not None:
             self.validate = False
@@ -151,9 +189,18 @@ class AccuCorDataLoader:
             ].str.strip()
 
         self.accucor_corrected_df.rename(columns=lambda x: x.strip())
-        self.accucor_corrected_df["Compound"] = self.accucor_corrected_df[
-            "Compound"
-        ].str.strip()
+        try:
+            self.accucor_corrected_df[self.compound_header] = self.accucor_corrected_df[
+                self.compound_header
+            ].str.strip()
+        except KeyError as ke:
+            if "'Compound'" in str(ke):
+                raise KeyError(
+                    "Compound header [Compound] not found in the accucor corrected data.  Did you forget to provide "
+                    "--isocorr-format?"
+                )
+            else:
+                raise ke
 
         """
         Validate sample headers. Get the sample names from the original header
@@ -234,14 +281,19 @@ class AccuCorDataLoader:
             )
             assert len(dupe_dict.keys()) == 0, err_msg
 
+        if self.isocorr_format:
+            labeled_element_header = "isotopeLabel"
+        else:
+            labeled_element_header = self.labeled_element_header
+
         # do it again for the corrected
         dupe_dict = {}
         for index, row in self.accucor_corrected_df[
             self.accucor_corrected_df.duplicated(
-                subset=["Compound", self.labeled_element_header], keep=False
+                subset=[self.compound_header, labeled_element_header], keep=False
             )
         ].iterrows():
-            dupe_key = row["Compound"] + " & " + row[self.labeled_element_header]
+            dupe_key = row[self.compound_header] + " & " + row[labeled_element_header]
             if dupe_key not in dupe_dict:
                 dupe_dict[dupe_key] = str(index + 1)
             else:
@@ -253,30 +305,28 @@ class AccuCorDataLoader:
         )
         assert len(dupe_dict.keys()) == 0, err_msg
 
-    def corrected_file_tracer_labeled_column_regex(self):
-        regex_pattern = ""
-        tracer_element_list = ElementLabel.labeled_elements_list()
-        regex_pattern = f"^({'|'.join(tracer_element_list)})_Label$"
-        return regex_pattern
-
     # determine the labeled element from the corrected data
     def set_labeled_element(self):
 
-        label_pattern = self.corrected_file_tracer_labeled_column_regex()
-        labeled_df = self.accucor_corrected_df.filter(regex=(label_pattern))
+        if self.isocorr_format:
+            self.labeled_element_header = "isotopeLabel"
+            self.labeled_element = None  # Determined on each row
+        else:
+            labeled_df = self.accucor_corrected_df.filter(regex=(ACCUCOR_LABEL_PATTERN))
 
-        err_msg = f"{self.__class__.__name__} cannot deal with multiple tracer labels"
-        err_msg += f"({','.join(labeled_df.columns)}), currently..."
-        assert len(labeled_df.columns) == 1, err_msg
+            err_msg = (
+                f"{self.__class__.__name__} cannot deal with multiple tracer labels"
+            )
+            err_msg += f"({','.join(labeled_df.columns)}), currently..."
+            assert len(labeled_df.columns) == 1, err_msg
 
-        labeled_column = labeled_df.columns[0]
-        self.labeled_element_header = labeled_column
-        re_pattern = re.compile(label_pattern)
-        match = re_pattern.match(labeled_column)
-        labeled_element = match.group(1)
-        if labeled_element:
-            print(f"Setting labeled element to {labeled_element}")
-            self.labeled_element = labeled_element
+            labeled_column = labeled_df.columns[0]
+            self.labeled_element_header = labeled_column
+            match = ACCUCOR_LABEL_PATTERN.match(labeled_column)
+            labeled_element = match.group(1)
+            if labeled_element:
+                print(f"Setting labeled element to {labeled_element}")
+                self.labeled_element = labeled_element
 
     def is_integer(self, data):
         try:
@@ -324,31 +374,6 @@ class AccuCorDataLoader:
         column
         """
 
-        # list of column names from data files that we know are not samples
-        NONSAMPLE_COLUMN_NAMES = [
-            "label",
-            "metaGroupId",
-            "groupId",
-            "goodPeakCount",
-            "medMz",
-            "medRt",
-            "maxQuality",
-            "isotopeLabel",
-            "compound",
-            "compoundId",
-            "formula",
-            "expectedRtDiff",
-            "ppmDiff",
-            "parent",
-            "Compound",
-            "adductName",
-        ]
-
-        # append the *_Label columns of the corrected dataframe
-        tracer_element_list = ElementLabel.labeled_elements_list()
-        for element in tracer_element_list:
-            NONSAMPLE_COLUMN_NAMES.append(f"{element}_Label")
-
         max_nonsample_index = 0
         for col_name in NONSAMPLE_COLUMN_NAMES:
             try:
@@ -370,7 +395,7 @@ class AccuCorDataLoader:
         self.peak_group_dict = {}
         missing_compounds = 0
         reference_dataframe = self.accucor_corrected_df
-        peak_group_name_key = "Compound"
+        peak_group_name_key = self.compound_header
         # corrected data does not have a formula column
         peak_group_formula_key = None
         if self.accucor_original_df is not None:
@@ -504,7 +529,11 @@ class AccuCorDataLoader:
 
             # Create all PeakGroups
             for index, row in self.accucor_corrected_df.iterrows():
-                labeled_count = row[self.labeled_element_header]
+                (
+                    labeled_element,
+                    labeled_count,
+                    mass_number,
+                ) = self.get_labeled_element_count_massnumber(row)
                 if labeled_count == 0:
 
                     """
@@ -514,7 +543,7 @@ class AccuCorDataLoader:
                     fail
                     """
 
-                    peak_group_name = row["Compound"]
+                    peak_group_name = row[self.compound_header]
                     print(
                         f"\tInserting {peak_group_name} peak group for sample "
                         f"{sample_name}"
@@ -531,7 +560,10 @@ class AccuCorDataLoader:
                         peak_group.full_clean()
                     peak_group.save(using=self.db)
                     # cache
-                    inserted_peak_group_dict[peak_group_name] = peak_group
+                    inserted_peak_group_dict[peak_group_name] = {
+                        "group": peak_group,
+                        "element": labeled_element,
+                    }
 
                     """
                     associate the pre-vetted compounds with the newly inserted
@@ -545,8 +577,9 @@ class AccuCorDataLoader:
             # For each PeakGroup, create PeakData rows
             for peak_group_name in inserted_peak_group_dict:
 
-                # we should have a cached PeakGroup now
-                peak_group = inserted_peak_group_dict[peak_group_name]
+                # we should have a cached PeakGroup and its labeled element now
+                peak_group = inserted_peak_group_dict[peak_group_name]["group"]
+                labeled_element = inserted_peak_group_dict[peak_group_name]["element"]
 
                 if self.accucor_original_df is not None:
                     peak_group_original_data = self.accucor_original_df.loc[
@@ -555,13 +588,15 @@ class AccuCorDataLoader:
                     # get next row from original data
                     row_idx = 0
                     for labeled_count in range(
-                        0, peak_group.atom_count(self.labeled_element) + 1
+                        0, peak_group.atom_count(labeled_element) + 1
                     ):
                         try:
                             row = peak_group_original_data.iloc[row_idx]
-                            _atom, row_labeled_count = self.parse_isotope_label(
-                                row["isotopeLabel"]
-                            )
+                            (
+                                _element,
+                                row_labeled_count,
+                                _massnum,
+                            ) = self.parse_isotope_label(row["isotopeLabel"])
                             # Not a matching row
                             if row_labeled_count != labeled_count:
                                 row = None
@@ -570,7 +605,10 @@ class AccuCorDataLoader:
                             row = None
                         # Lookup corrected abundance by compound and label
                         corrected_abundance = self.accucor_corrected_df.loc[
-                            (self.accucor_corrected_df["Compound"] == peak_group_name)
+                            (
+                                self.accucor_corrected_df[self.compound_header]
+                                == peak_group_name
+                            )
                             & (
                                 self.accucor_corrected_df[self.labeled_element_header]
                                 == labeled_count
@@ -595,8 +633,12 @@ class AccuCorDataLoader:
                         )
                         peak_data = PeakData(
                             peak_group=peak_group,
-                            labeled_element=self.labeled_element,
-                            labeled_count=labeled_count,
+                            # TODO: Issue #349 only covers parsing and validation only - so the loading of this data to
+                            # infusate/tracer/label tables is being left for handling in other issues and these
+                            # arguments have been commented out to accommodate testing and should be removed when the
+                            # load of the isotope data is complete
+                            # labeled_element=self.labeled_element,
+                            # labeled_count=labeled_count,
                             raw_abundance=raw_abundance,
                             corrected_abundance=corrected_abundance,
                             med_mz=med_mz,
@@ -610,13 +652,18 @@ class AccuCorDataLoader:
 
                 else:
                     peak_group_corrected_df = self.accucor_corrected_df[
-                        self.accucor_corrected_df["Compound"] == peak_group_name
+                        self.accucor_corrected_df[self.compound_header]
+                        == peak_group_name
                     ]
 
                     for _index, row in peak_group_corrected_df.iterrows():
 
                         corrected_abundance_for_sample = row[sample_name]
-                        labeled_count = row[self.labeled_element_header]
+                        (
+                            labeled_element,
+                            labeled_count,
+                            _massn,
+                        ) = self.get_labeled_element_count_massnumber(row)
                         # No original dataframe, no raw_abundance, med_mz, or med_rt
                         raw_abundance = None
                         med_mz = None
@@ -628,8 +675,12 @@ class AccuCorDataLoader:
                         )
                         peak_data = PeakData(
                             peak_group=peak_group,
-                            labeled_element=self.labeled_element,
-                            labeled_count=labeled_count,
+                            # TODO: Issue #349 only covers parsing and validation only - so the loading of this data to
+                            # infusate/tracer/label tables is being left for handling in other issues and these
+                            # arguments have been commented out to accommodate testing and should be removed when the
+                            # load of the isotope data is complete
+                            # labeled_element=self.labeled_element,
+                            # labeled_count=labeled_count,
                             raw_abundance=raw_abundance,
                             corrected_abundance=corrected_abundance_for_sample,
                             med_mz=med_mz,
@@ -653,24 +704,49 @@ class AccuCorDataLoader:
         if settings.DEBUG:
             print("Expiring done.")
 
+    def get_labeled_element_count_massnumber(self, row):
+        """
+        Given a row of data, it retrieves the labeled element, count, and mass_number using a method corresponding to
+        the file format
+        """
+        if self.isocorr_format:
+            element, count, mass_number = self.parse_isotope_label(
+                row[self.labeled_element_header]
+            )
+        else:
+            element = self.labeled_element
+            count = row[self.labeled_element_header]
+            mass_number = None  # Not defined in accucor corrected file
+
+        return element, count, mass_number
+
     @classmethod
     def parse_isotope_label(cls, label):
         """
-        Parse El-Maven style isotope label string
-        e.g. C12 PARENT, C13-label-1, C13-label-2
-        Returns tuple with "Atom" and "Label count"
-        e.g. ("C12", 0), ("C13", 1), ("C13", 2)
+        Parse El-Maven style isotope label string, e.g. C12 PARENT, C13-label-1, C13-label-2
+        Returns tuple with labeled "Element", "count", and "mass number", e.g. ("C", 0, 12), ("C", 1, 13), ("C", 2, 13)
         """
-        atom, count = (None, None)
-        if "PARENT" in label:
-            atom = label.split(" ")[0]
-            count = 0
+
+        match = re.search(ISOTOPE_LABEL_PATTERN, label)
+
+        if match:
+            element = match.group("element")
+            mass_number = match.group("mass_number")
+            count = match.group("count")
+            parent = match.group("parent")
+            if parent is not None and parent == "PARENT":
+                count = 0
         else:
-            atom, count = label.split("-label-")
-        return (atom, int(count))
+            raise IsotopeParsingError(f"Unable to parse isotope label: [{label}]")
+
+        return (element, int(count), int(mass_number))
 
     def load_accucor_data(self):
 
         with transaction.atomic():
             self.validate_data()
             self.load_data()
+
+
+class IsotopeParsingError(Exception):
+    pass

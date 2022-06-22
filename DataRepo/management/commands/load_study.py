@@ -97,6 +97,7 @@ class Command(BaseCommand):
                 tissues=tissues_file,
                 database=options["database"],
                 validate=options["validate"],
+                verbosity=options["verbosity"],
             )
 
         if "animals_samples_treatments" in study_params:
@@ -143,6 +144,7 @@ class Command(BaseCommand):
             # Read in accucor data files
             for accucor_file in study_params["accucor_data"]["accucor_files"]:
                 accucor_file_name = accucor_file["name"]
+                isocorr_format = False
                 self.stdout.write(
                     self.style.MIGRATE_HEADING(
                         f"Loading accucor_data from {accucor_file_name}"
@@ -162,6 +164,8 @@ class Command(BaseCommand):
                 if "sample_name_prefix" in accucor_file:
                     sample_name_prefix = accucor_file["sample_name_prefix"]
                     print(f"PREFIX: {sample_name_prefix}")
+                if "isocorr_format" in accucor_file:
+                    isocorr_format = accucor_file["isocorr_format"]
 
                 call_command(
                     "load_accucor_msruns",
@@ -174,6 +178,7 @@ class Command(BaseCommand):
                     sample_name_prefix=sample_name_prefix,
                     database=options["database"],
                     validate=options["validate"],
+                    isocorr_format=isocorr_format,
                 )
 
         self.stdout.write(self.style.SUCCESS("Done loading study"))
