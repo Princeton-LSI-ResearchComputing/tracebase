@@ -1,3 +1,5 @@
+from django.apps import apps
+from django.core.exceptions import ValidationError
 from django.db import models
 
 from DataRepo.models.element_label import ElementLabel
@@ -5,9 +7,51 @@ from DataRepo.models.maintained_model import (
     MaintainedModel,
     field_updater_function,
 )
+from DataRepo.utils.infusate_name_parser import TracerData
+
+
+class TracerManager(models.Manager):
+    def create_tracer(self, tracer_data: TracerData):
+        TracerLabel = apps.get_model("DataRepo.TracerLabel")
+        Compound = apps.get_model("DataRepo.Compound")
+        compound = Compound.compound_matching_name_or_synonym(
+            tracer_data["compound_name"]
+        )
+        tracer = self.create(compound=compound)
+        for isotope_data in tracer_data["isotopes"]:
+            TracerLabel.objects.create_tracer_label(tracer, isotope_data)
+        tracer.full_clean()
+        return tracer
+
+    def find_tracer(self, tracer_data: TracerData):
+        matching_tracer = None
+
+        # First, check if the compound is found
+        Compound = apps.get_model("DataRepo.Compound")
+        compound = Compound.compound_matching_name_or_synonym(
+            tracer_data["compound_name"]
+        )
+        if compound:
+            # Check for tracers of the compound with same number of labels
+            tracers = Tracer.objects.annotate(num_labels=models.Count("labels")).filter(
+                compound=compound, num_labels=len(tracer_data["isotopes"])
+            )
+            # Check that the labels match
+            for tracer_label in tracer_data["isotopes"]:
+                tracers = tracers.filter(
+                    labels__element=tracer_label["element"],
+                    labels__mass_number=tracer_label["mass_number"],
+                    labels__count=tracer_label["count"],
+                    labels__positions=tracer_label["positions"],
+                )
+            if tracers.count() == 1:
+                matching_tracer = tracers.first()
+        return matching_tracer
 
 
 class Tracer(MaintainedModel, ElementLabel):
+
+    objects = TracerManager()
 
     id = models.AutoField(primary_key=True)
     name = models.CharField(
@@ -40,11 +84,32 @@ class Tracer(MaintainedModel, ElementLabel):
     )
     def _name(self):
         # format: `compound - ([) labelname,labelname,... )` (but no spaces)
-        if self.id is None or self.labels is None or self.labels.count() == 0:
+        if self.id is None or self.labels is None or len(self.labels.all()) == 0:
             return self.compound.name
-        return (
-            self.compound.name
-            + "-("
-            + ",".join(list(map(lambda l: str(l), self.labels.all())))
-            + ")"
-        )
+        labels_string = ",".join([str(label) for label in self.labels.all()])
+        return f"{self.compound.name}-({labels_string})"
+
+    def clean(self):
+        for label in self.labels.all():
+            atom_count = self.compound.atom_count(label.element)
+            # Ensure isotope elements exist in compound formula
+            if atom_count == 0:
+                raise ValidationError(
+                    f"Labeled element {label.element} does not exist in "
+                    f"{self.compound} formula ({self.compound.formula})"
+                )
+
+            # Ensure isotope count does not exceed number of elements in formula
+            if label.count > atom_count:
+                raise ValidationError(
+                    f"Count of labeled element {label.element} exceeds the number of "
+                    f"{label.element} atoms in {self.compound} formula ({self.compound.formula})"
+                )
+
+            # Ensure positions exist if count < number of elements in formula
+            if label.count < atom_count and not label.positions:
+                raise ValidationError(
+                    f"Positions required for partially labeled tracer compound {self.compound.name}. "
+                    f"Labeled count ({label.count}) is less than number of {label.element} atoms "
+                    f"in formula ({atom_count} in {self.compound.formula}."
+                )

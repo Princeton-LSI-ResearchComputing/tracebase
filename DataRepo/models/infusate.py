@@ -1,3 +1,8 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from django.apps import apps
 from django.core.exceptions import ValidationError
 from django.db import models
 
@@ -5,12 +10,60 @@ from DataRepo.models.maintained_model import (
     MaintainedModel,
     field_updater_function,
 )
-from DataRepo.models.tracer import Tracer
+
+if TYPE_CHECKING:
+    from DataRepo.utils.infusate_name_parser import InfusateData
+
 
 CONCENTRATION_SIGNIFICANT_FIGURES = 3
 
 
+class InfusateManager(models.Manager):
+    def create_infusate(self, infusate_data: InfusateData):
+
+        # create infusate
+        infusate = self.create(tracer_group_name=infusate_data["infusate_name"])
+
+        # create tracers
+        Tracer = apps.get_model("DataRepo.Tracer")
+        InfusateTracer = apps.get_model("DataRepo.InfusateTracer")
+        for (tracer_data, concentration) in infusate_data["tracers"]:
+            tracer = Tracer.objects.find_tracer(tracer_data)
+            if tracer is None:
+                tracer = Tracer.objects.create_tracer(tracer_data)
+            # associate tracers with specific conectrations
+            InfusateTracer.objects.create(
+                infusate=infusate, tracer=tracer, concentration=concentration
+            )
+        infusate.full_clean()
+        return infusate
+
+    def find_infusate(self, infusate_data: InfusateData):
+        matching_infusate = None
+
+        # Check for infusates with the same name and same number of tracers
+        infusates = Infusate.objects.annotate(
+            num_tracers=models.Count("tracers")
+        ).filter(
+            tracer_group_name=infusate_data["infusate_name"],
+            num_tracers=len(infusate_data["tracers"]),
+        )
+        # Check that the tracers match
+        for (tracer_data, concentration) in infusate_data["tracers"]:
+            Tracer = apps.get_model("DataRepo.Tracer")
+            tracer = Tracer.objects.find_tracer(tracer_data)
+            infusates = infusates.filter(
+                infusatetracer__tracer=tracer,
+                infusatetracer__concentration=concentration,
+            )
+        if infusates.count() == 1:
+            matching_infusate = infusates.first()
+        return matching_infusate
+
+
 class Infusate(MaintainedModel):
+
+    objects = InfusateManager()
 
     id = models.AutoField(primary_key=True)
     name = models.CharField(
@@ -31,7 +84,7 @@ class Infusate(MaintainedModel):
         "concentrations.",
     )
     tracers = models.ManyToManyField(
-        Tracer,
+        "DataRepo.Tracer",
         through="InfusateTracer",
         help_text="Tracers included in this infusate 'recipe' at specific concentrations.",
         related_name="infusates",
@@ -133,9 +186,8 @@ class Infusate(MaintainedModel):
                     )
                     i += 1
                     if i == num_groupings:
-                        stats += (
-                            f", this last one with the following IDs: "
-                            f"{','.join(group_map_dict[grp_name][tracer_key])}"
+                        stats += ", this last one with the following IDs: " + ",".join(
+                            str(group_map_dict[grp_name][tracer_key])
                         )
                     else:
                         stats += "\n"
