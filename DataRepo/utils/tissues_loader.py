@@ -66,6 +66,15 @@ class TissuesLoader:
                 with transaction.atomic():
                     name = row["name"]
                     description = row["description"]
+                    # To aid in debugging the case where an editor entered spaces instead of a tab...
+                    if " " in name and description is None:
+                        raise ValidationError(
+                            f"Tissue with name '{name}' cannot contain a space unless a description is provided.  "
+                            "Either the space(s) be changed to a tab character or a tab character must be appended to "
+                            "the line."
+                        )
+                    if description is None:
+                        description = ""
                     # We will assume that the validation DB has up-to-date tissues
                     tissue, created = Tissue.objects.using(db).get_or_create(name=name)
                     if created:

@@ -53,7 +53,9 @@ class Command(BaseCommand):
                 self.style.MIGRATE_HEADING("DRY-RUN, NO CHANGES WILL BE SAVED")
             )
 
-        new_tissues = pd.read_csv(options["tissues"], sep="\t", keep_default_na=False)
+        # Keeping `na` to differentiate between intentional empty descriptions and spaces in the first column that were
+        # intended to be tab characters
+        new_tissues = pd.read_csv(options["tissues"], sep="\t", keep_default_na=True)
 
         self.tissue_loader = TissuesLoader(
             tissues=new_tissues,
@@ -94,9 +96,15 @@ class Command(BaseCommand):
 
         if verbosity >= 2:
             for db in stats.keys():
-                for stat in stats[db]:
+                for stat in stats[db]["created"]:
                     self.stdout.write(
-                        f"Created {db} tissue record - {stat['tissue']}:{stat['description']}"
+                        self.style.SUCCESS(
+                            f"Created {db} tissue record - {stat['tissue']}:{stat['description']}"
+                        )
+                    )
+                for stat in stats[db]["skipped"]:
+                    self.stdout.write(
+                        f"Skipped {db} tissue record - {stat['tissue']}:{stat['description']}"
                     )
 
         smry = "Complete"
