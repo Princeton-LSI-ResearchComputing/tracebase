@@ -46,3 +46,5 @@ tryptophan	C11H12N2O2	HMDB0000929	trp	tryptophan:C11H12N2O2
 tyrosine	C9H11NO3	HMDB0000158	tyr	tyrosine:C9H11NO3
 urea	CH4N2O	HMDB0000294		urea:CH4N2O
 valine	C5H11NO2	HMDB0000883	val	valine:C5H11NO2
+2-keto-isovalerate	C5H8O3	HMDB0000019	2-Ketoisovaleric acid; 
+3-hydroxyisobutyrate	C4H8O3	HMDB0000023	3-HIBA; 3-Hydroxyisobutyric acid

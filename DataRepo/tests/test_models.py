@@ -29,6 +29,7 @@ from DataRepo.utils import (
     AccuCorDataLoader,
     AmbiguousCompoundDefinitionError,
     CompoundsLoader,
+    IsotopeParsingError,
     MissingSamplesError,
     leaderboard_data,
 )
@@ -1563,10 +1564,15 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
 class AccuCorDataLoadingTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
-        call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
+        call_command(
+            "load_study",
+            "DataRepo/example_data/tissues/loading.yaml",
+            verbosity=2,
+        )
         call_command(
             "load_compounds",
             compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
+            verbosity=2,
         )
 
         call_command(
@@ -1577,7 +1583,14 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             ),
             table_headers="DataRepo/example_data/sample_and_animal_tables_headers.yaml",
         )
-        cls.COMPOUNDS_COUNT = 2
+        call_command(
+            "load_animals_and_samples",
+            animal_and_sample_table_filename=(
+                "DataRepo/example_data/AsaelR_13C-Valine+PI3Ki_flank-KPC_2021-12_isocorr_CN-corrected/"
+                "TraceBase Animal and Sample Table Templates_AR.xlsx"
+            ),
+            skip_researcher_check=True,
+        )
 
     def test_accucor_load_blank_fail(self):
         with self.assertRaises(MissingSamplesError, msg="1 samples are missing."):
@@ -1602,9 +1615,10 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         )
         SAMPLES_COUNT = 14
         PEAKDATA_ROWS = 11
+        COMPOUNDS_COUNT = 2  # Glucose and lactate loaded thus far
 
         self.assertEqual(
-            PeakGroup.objects.all().count(), self.COMPOUNDS_COUNT * SAMPLES_COUNT
+            PeakGroup.objects.all().count(), COMPOUNDS_COUNT * SAMPLES_COUNT
         )
         self.assertEqual(PeakData.objects.all().count(), PEAKDATA_ROWS * SAMPLES_COUNT)
 
@@ -1621,9 +1635,10 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         )
         SAMPLES_COUNT = 1
         PEAKDATA_ROWS = 11
+        COMPOUNDS_COUNT = 2  # Glucose and lactate loaded thus far
 
         self.assertEqual(
-            PeakGroup.objects.all().count(), self.COMPOUNDS_COUNT * SAMPLES_COUNT
+            PeakGroup.objects.all().count(), COMPOUNDS_COUNT * SAMPLES_COUNT
         )
         self.assertEqual(PeakData.objects.all().count(), PEAKDATA_ROWS * SAMPLES_COUNT)
 
@@ -1633,6 +1648,64 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
                 "load_accucor_msruns",
                 accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_req_prefix.xlsx",
                 skip_samples=("blank"),
+                protocol="Default",
+                date="2021-04-29",
+                researcher="Michael Neinast",
+                new_researcher=True,
+            )
+
+    def test_isocorr_load(self):
+        call_command(
+            "load_accucor_msruns",
+            accucor_file="DataRepo/example_data/AsaelR_13C-Valine+PI3Ki_flank-KPC_2021-12_isocorr_CN-corrected/"
+            "Serum results_cor.csv",
+            skip_samples=(
+                "Blank01",
+                "Blank02",
+                "Blank03",
+                "Blank04",
+            ),
+            protocol="Default",
+            date="2021-04-29",
+            researcher="Michael Neinast",
+            new_researcher=True,
+            isocorr_format=True,
+        )
+        # The number of samples in the isocorr csv file (not the samples file)
+        SAMPLES_COUNT = 19
+        PEAKDATA_ROWS = 24
+        COMPOUNDS_COUNT = (
+            6  # 4 more compounds ina ddition to the glucose and lactate loaded thus far
+        )
+
+        self.assertEqual(
+            PeakGroup.objects.all().count(),
+            COMPOUNDS_COUNT * SAMPLES_COUNT,
+            msg=f"PeakGroup record count should be the number of compounds [{COMPOUNDS_COUNT}] times the number of "
+            f"samples [{SAMPLES_COUNT}] = [{COMPOUNDS_COUNT * SAMPLES_COUNT}].",
+        )
+        self.assertEqual(
+            PeakData.objects.all().count(),
+            PEAKDATA_ROWS * SAMPLES_COUNT,
+            msg=f"PeakData record count should be the number of peakdata rows [{PEAKDATA_ROWS}] times the number of "
+            f"samples [{SAMPLES_COUNT}] = [{PEAKDATA_ROWS * SAMPLES_COUNT}].",
+        )
+
+    def test_singly_labeled_isocorr_study_accucor_error(self):
+        """
+        Test to make sure --isocorr-format is suggested when not supplied
+        """
+        with self.assertRaisesRegex(KeyError, ".+--isocorr-format.+"):
+            call_command(
+                "load_accucor_msruns",
+                accucor_file="DataRepo/example_data/AsaelR_13C-Valine+PI3Ki_flank-KPC_2021-12_isocorr_CN-corrected/"
+                "Serum results_cor.csv",
+                skip_samples=(
+                    "Blank01",
+                    "Blank02",
+                    "Blank03",
+                    "Blank04",
+                ),
                 protocol="Default",
                 date="2021-04-29",
                 researcher="Michael Neinast",
@@ -1704,15 +1777,27 @@ class StudyLoadingTests(TracebaseTestCase):
         self.maxDiff = None
         self.assertDictEqual(expected_leaderboard, leaderboard_data())
 
+    def test_singly_labeled_isocorr_study(self):
+        call_command(
+            "load_study",
+            "DataRepo/example_data/AsaelR_13C-Valine+PI3Ki_flank-KPC_2021-12_isocorr_CN-corrected/loading.yaml",
+            verbosity=2,
+        )
+
 
 @override_settings(CACHES=settings.TEST_CACHES)
 class ParseIsotopeLabelTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
-        call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
+        call_command(
+            "load_study",
+            "DataRepo/example_data/tissues/loading.yaml",
+            verbosity=2,
+        )
         call_command(
             "load_compounds",
             compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
+            verbosity=2,
         )
 
         call_command(
@@ -1723,20 +1808,20 @@ class ParseIsotopeLabelTests(TracebaseTestCase):
 
     def test_parse_parent_isotope_label(self):
         self.assertEqual(
-            AccuCorDataLoader.parse_isotope_label("C12 PARENT"), ("C12", 0)
+            AccuCorDataLoader.parse_isotope_label("C12 PARENT"), ("C", 0, 12)
         )
 
     def test_parse_isotope_label(self):
         self.assertEqual(
-            AccuCorDataLoader.parse_isotope_label("C13-label-5"), ("C13", 5)
+            AccuCorDataLoader.parse_isotope_label("C13-label-5"), ("C", 5, 13)
         )
 
     def test_parse_isotope_label_bad(self):
-        with self.assertRaises(ValueError):
+        with self.assertRaises(IsotopeParsingError):
             AccuCorDataLoader.parse_isotope_label("label-5")
 
     def test_parse_isotope_label_empty(self):
-        with self.assertRaises(ValueError):
+        with self.assertRaises(IsotopeParsingError):
             AccuCorDataLoader.parse_isotope_label("")
 
     def test_parse_isotope_label_none(self):
@@ -1762,6 +1847,15 @@ class ParseIsotopeLabelTests(TracebaseTestCase):
         # Data was not loaded
         self.assertEqual(PeakGroup.objects.filter(name__exact="glucose").count(), 0)
         self.assertEqual(PeakGroup.objects.filter(name__exact="lactate").count(), 0)
+
+    def test_multiple_labels_error(self):
+        """
+        This tests that a multi-label `isotopeLabel` column from an isocorr file would cause an error, because the
+        accucor data loader only supports singly labeled compounds in isocor format
+        """
+        dual_label = "C13N15-label-1-1"
+        with self.assertRaises(IsotopeParsingError):
+            AccuCorDataLoader.parse_isotope_label(dual_label)
 
 
 @override_settings(CACHES=settings.TEST_CACHES)

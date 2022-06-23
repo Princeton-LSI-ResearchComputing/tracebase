@@ -1,4 +1,7 @@
-from DataRepo.utils.accucor_data_loader import AccuCorDataLoader
+from DataRepo.utils.accucor_data_loader import (
+    AccuCorDataLoader,
+    IsotopeParsingError,
+)
 from DataRepo.utils.composite_data import leaderboard_data
 from DataRepo.utils.compounds_loader import CompoundsLoader
 from DataRepo.utils.exceptions import (
@@ -23,6 +26,7 @@ __all__ = [
     "CompoundsLoader",
     "HeaderError",
     "HeaderConfigError",
+    "IsotopeParsingError",
     "RequiredValueError",
     "ResearcherError",
     "MissingSamplesError",

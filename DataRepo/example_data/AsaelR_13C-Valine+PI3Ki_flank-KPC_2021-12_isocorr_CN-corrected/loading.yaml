@@ -5,11 +5,19 @@ animals_samples_treatments:
 accucor_data:
   accucor_files:
     - name: "./13C-val tissues metabolites results - No D-Val_cor.csv"
+      isocorr_format: true
     - name: "./13C-val tissues metabolites results 146,148,149 no D-val_cor.csv"
+      isocorr_format: true
     - name: "./Serum results_cor.csv"
+      isocorr_format: true
   msrun_protocol: "Hilic25min_NegativeMode"
   date: "2021-12-07"
   researcher: "Asael Roichman"
   new_researcher: false
   skip_samples:
-    - "blank"
+    - "Blank01"
+    - "Blank02"
+    - "Blank03"
+    - "Blank04"
+    - "Blank_std"
+    - "Blank_std_2"

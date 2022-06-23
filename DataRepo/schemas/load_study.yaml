@@ -56,6 +56,9 @@ properties:
               type: array
               items:
                 type: string
+            isocorr_format:
+              type: boolean
+              default: False
           required:
             - name
           additionalProperties: false

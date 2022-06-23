@@ -164,7 +164,7 @@ class SampleTableLoader:
                 tissue = Tissue.objects.using(self.db).get(name=tissue_name)
             except Tissue.DoesNotExist as e:
                 raise Tissue.DoesNotExist(
-                    f"Invalid tissue type specified: '{tissue_name}'"
+                    f"Invalid tissue type specified: '{tissue_name}'. Not found in database {self.db}."
                 ) from e
 
             # Study
