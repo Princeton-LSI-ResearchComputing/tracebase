@@ -53,7 +53,9 @@ class Command(BaseCommand):
                 self.style.MIGRATE_HEADING("DRY-RUN, NO CHANGES WILL BE SAVED")
             )
 
-        new_tissues = pd.read_csv(options["tissues"], sep="\t", keep_default_na=False)
+        # Keeping `na` to differentiate between intentional empty descriptions and spaces in the first column that were
+        # intended to be tab characters
+        new_tissues = pd.read_csv(options["tissues"], sep="\t", keep_default_na=True)
 
         self.tissue_loader = TissuesLoader(
             tissues=new_tissues,

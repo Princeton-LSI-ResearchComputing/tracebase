@@ -194,7 +194,7 @@ class AccuCorDataLoader:
                 self.compound_header
             ].str.strip()
         except KeyError as ke:
-            if "'Compound'" in str(ke):
+            if not self.isocorr_format and f"'{self.compound_header}'" in str(ke):
                 raise KeyError(
                     "Compound header [Compound] not found in the accucor corrected data.  Did you forget to provide "
                     "--isocorr-format?"
