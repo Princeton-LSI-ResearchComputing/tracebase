@@ -6,6 +6,7 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.infusate_name_parser import (
     InfusateData,
     InfusateParsingError,
+    InfusateTracer,
     IsotopeData,
     IsotopeParsingError,
     TracerData,
@@ -59,7 +60,10 @@ class InfusateTest(TracebaseTestCase):
             unparsed_string="L-Leucine-[1,2-13C2]",
             infusate_name=None,
             tracers=[
-                (cls.tracer_data_l_leucine, cls.infusate_concentrations_leucine[0])
+                InfusateTracer(
+                    tracer=cls.tracer_data_l_leucine,
+                    concentration=cls.infusate_concentrations_leucine[0],
+                )
             ],
         )
 
@@ -67,7 +71,10 @@ class InfusateTest(TracebaseTestCase):
             unparsed_string="leucine {L-Leucine-[1,2-13C2]}",
             infusate_name="leucine",
             tracers=[
-                (cls.tracer_data_l_leucine, cls.infusate_concentrations_leucine[0])
+                InfusateTracer(
+                    tracer=cls.tracer_data_l_leucine,
+                    concentration=cls.infusate_concentrations_leucine[0],
+                )
             ],
         )
 
@@ -75,7 +82,10 @@ class InfusateTest(TracebaseTestCase):
             unparsed_string="leucine {L-Leucine-[1,2-13C2]}",
             infusate_name="leucine",
             tracers=[
-                (cls.tracer_data_l_leucine, cls.infusate_concentrations_leucine[1])
+                InfusateTracer(
+                    tracer=cls.tracer_data_l_leucine,
+                    concentration=cls.infusate_concentrations_leucine[1],
+                )
             ],
         )
 
@@ -95,29 +105,29 @@ class InfusateTest(TracebaseTestCase):
             unparsed_string="BCAAs {isoleucine-[13C6,15N1];leucine-[13C6,15N1];valine-[13C5,15N1]}",
             infusate_name="BCAAs",
             tracers=[
-                (
-                    TracerData(
+                InfusateTracer(
+                    tracer=TracerData(
                         unparsed_string="isoleucine-[13C6,15N1]",
                         compound_name="isoleucine",
                         isotopes=[cls.isotope_data_13c6, cls.isotope_data_15n1],
                     ),
-                    cls.infusate_concentrations_bcaas[0],
+                    concentration=cls.infusate_concentrations_bcaas[0],
                 ),
-                (
-                    TracerData(
+                InfusateTracer(
+                    tracer=TracerData(
                         unparsed_string="leucine-[13C6,15N1]",
                         compound_name="leucine",
                         isotopes=[cls.isotope_data_13c6, cls.isotope_data_15n1],
                     ),
-                    cls.infusate_concentrations_bcaas[1],
+                    concentration=cls.infusate_concentrations_bcaas[1],
                 ),
-                (
-                    TracerData(
+                InfusateTracer(
+                    tracer=TracerData(
                         unparsed_string="valine-[13C5,15N1]",
                         compound_name="valine",
                         isotopes=[cls.isotope_data_13c5, cls.isotope_data_15n1],
                     ),
-                    cls.infusate_concentrations_bcaas[2],
+                    concentration=cls.infusate_concentrations_bcaas[2],
                 ),
             ],
         )
@@ -266,7 +276,10 @@ class InfusateParsingTests(InfusateTest):
 class InfusateValidationTests(InfusateTest):
     def test_tracer_creation(self):
         """Test creation of a valid tracer object from TracerData"""
-        tracer = Tracer.objects.create_tracer(self.tracer_data_l_leucine)
+        (tracer, created) = Tracer.objects.get_or_create_tracer(
+            self.tracer_data_l_leucine
+        )
+        self.assertTrue(created)
         self.assertEqual(tracer.name, "leucine-(1,2-13C2)")
         self.assertEqual(tracer.compound.name, "leucine")
         self.assertEqual(len(tracer.labels.all()), 1)
@@ -277,7 +290,9 @@ class InfusateValidationTests(InfusateTest):
             "Leucine-[1-13C2]"
         )
         with self.assertRaises(ValidationError):
-            _ = Tracer.objects.create_tracer(tracer_data_leucine_mismatched_positions)
+            _ = Tracer.objects.get_or_create_tracer(
+                tracer_data_leucine_mismatched_positions
+            )
 
     def test_tracer_validation_element_doesnot_exist(self):
         """Test tracer validation when labeled element does not exist in compound formula"""
@@ -287,7 +302,9 @@ class InfusateValidationTests(InfusateTest):
         with self.assertRaisesRegex(
             ValidationError, "Labeled element S does not exist"
         ):
-            _ = Tracer.objects.create_tracer(tracer_data_leucine_compound_doesnot_exist)
+            _ = Tracer.objects.get_or_create_tracer(
+                tracer_data_leucine_compound_doesnot_exist
+            )
 
     def test_tracer_validation_count_too_large(self):
         """Test tracer validation when labeled element count is greater than element count in compound formula"""
@@ -295,12 +312,14 @@ class InfusateValidationTests(InfusateTest):
         with self.assertRaisesRegex(
             ValidationError, "Count of labeled element C exceeds"
         ):
-            _ = Tracer.objects.create_tracer(tracer_data_leucine_count_too_large)
+            _ = Tracer.objects.get_or_create_tracer(tracer_data_leucine_count_too_large)
 
     def test_tracer_validation_fully_labeled_no_positions(self):
         """Test tracer validation allows no postions on fully labeled compound"""
         tracer_data_leucine_fully_labeled = parse_tracer_string("Leucine-[13C6]")
-        tracer = Tracer.objects.create_tracer(tracer_data_leucine_fully_labeled)
+        (tracer, _) = Tracer.objects.get_or_create_tracer(
+            tracer_data_leucine_fully_labeled
+        )
         self.assertEqual(tracer.name, "leucine-(13C6)")
 
     def test_tracer_validation_missing_positions(self):
@@ -309,11 +328,16 @@ class InfusateValidationTests(InfusateTest):
         with self.assertRaisesRegex(
             ValidationError, "Positions required for partially labeled tracer compound"
         ):
-            _ = Tracer.objects.create_tracer(tracer_data_leucine_missing_postions)
+            _ = Tracer.objects.get_or_create_tracer(
+                tracer_data_leucine_missing_postions
+            )
 
     def test_infusion_creation(self):
         """Test the creation of a valid infusate from InfusateData"""
-        infusate = Infusate.objects.create_infusate(self.infusate_data_bcaas)
+        (infusate, created) = Infusate.objects.get_or_create_infusate(
+            self.infusate_data_bcaas
+        )
+        self.assertTrue(created)
         self.assertEqual(
             infusate.name,
             "BCAAs {isoleucine-(13C6,15N1)[1];leucine-(13C6,15N1)[2];valine-(13C5,15N1)[3]}",
@@ -323,7 +347,10 @@ class InfusateValidationTests(InfusateTest):
 
     def test_infusion_creation_without_optional_name(self):
         """Test the creation of a valid infusate without the optional name"""
-        infusate = Infusate.objects.create_infusate(self.infusate_data_l_leucine)
+        (infusate, created) = Infusate.objects.get_or_create_infusate(
+            self.infusate_data_l_leucine
+        )
+        self.assertTrue(created)
         self.assertEqual(
             infusate.name,
             "leucine-(1,2-13C2)[1.5]",
@@ -333,12 +360,14 @@ class InfusateValidationTests(InfusateTest):
 
     def test_infusion_validation_name_conflict(self):
         """Test infusate validation when two groups of tracers share the same infusate name"""
-        infusate = Infusate.objects.create_infusate(self.infusate_data_bcaas)
+        (infusate, _) = Infusate.objects.get_or_create_infusate(
+            self.infusate_data_bcaas
+        )
         self.assertEqual(infusate.tracer_group_name, "BCAAs")
         with self.assertRaisesRegex(
             ValidationError, "Tracer group name BCAAs is inconsistent."
         ):
-            Infusate.objects.create_infusate(
+            Infusate.objects.get_or_create_infusate(
                 parse_infusate_name(
                     "BCAAs {L-Leucine-[1,2-13C2]}",
                     [self.infusate_concentrations_leucine[0]],
@@ -347,26 +376,34 @@ class InfusateValidationTests(InfusateTest):
 
     def test_infusion_validation_same_name(self):
         """Test invusate validation when two infusates have the same group of tracers and the same name"""
-        infusate_conc1 = Infusate.objects.create_infusate(
+        (infusate_conc1, created1) = Infusate.objects.get_or_create_infusate(
             self.infusate_data_leucine_named_1
         )
+        self.assertTrue(created1)
         self.assertEqual(infusate_conc1.tracer_group_name, "leucine")
 
-        infusate_conc2 = Infusate.objects.create_infusate(
+        (infusate_conc2, created2) = Infusate.objects.get_or_create_infusate(
             self.infusate_data_leucine_named_2
         )
+        self.assertTrue(created2)
         self.assertEqual(infusate_conc2.tracer_group_name, "leucine")
 
-    def test_infusion_find_by_data(self):
-        """Test finding infusion record using InfusateData"""
-        infusate = Infusate.objects.create_infusate(self.infusate_data_bcaas)
-        infusate_found = Infusate.objects.find_infusate(self.infusate_data_bcaas)
+    def test_infusion_get_by_data(self):
+        """Test getting infusion record using InfusateData"""
+        (infusate, created) = Infusate.objects.get_or_create_infusate(
+            self.infusate_data_bcaas
+        )
+        self.assertTrue(created)
+        infusate_found = Infusate.objects.get_infusate(self.infusate_data_bcaas)
         self.assertEqual(infusate, infusate_found)
 
-    def test_infusion_find_by_data_diffconc(self):
-        """Test that concentration must match to find infusion record using InfusateData"""
-        _ = Infusate.objects.create_infusate(self.infusate_data_leucine_named_1)
-        infusate_found = Infusate.objects.find_infusate(
+    def test_infusion_get_by_data_diffconc(self):
+        """Test that concentration must match to get infusion record using InfusateData"""
+        (_, created) = Infusate.objects.get_or_create_infusate(
+            self.infusate_data_leucine_named_1
+        )
+        self.assertTrue(created)
+        infusate_found = Infusate.objects.get_infusate(
             self.infusate_data_leucine_named_2
         )
         self.assertIsNone(infusate_found)

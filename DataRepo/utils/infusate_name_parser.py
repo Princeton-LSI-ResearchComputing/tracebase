@@ -1,6 +1,6 @@
 import re
 from itertools import zip_longest
-from typing import List, Optional, Tuple, TypedDict
+from typing import List, Optional, TypedDict
 
 from DataRepo.models.element_label import ElementLabel
 
@@ -35,11 +35,15 @@ class TracerData(TypedDict):
     isotopes: List[IsotopeData]
 
 
+class InfusateTracer(TypedDict):
+    tracer: TracerData
+    concentration: Optional[float]
+
+
 class InfusateData(TypedDict):
     unparsed_string: str
     infusate_name: Optional[str]
-    # Tuple of tracers with optional concentration
-    tracers: List[Tuple[TracerData, Optional[float]]]
+    tracers: List[InfusateTracer]
 
 
 def parse_infusate_name(
@@ -74,9 +78,11 @@ def parse_infusate_name(
         )
 
     for (tracer_string, concentration) in zip_longest(tracer_strings, concentrations):
-        parsed_data["tracers"].append(
-            (parse_tracer_string(tracer_string), concentration)
-        )
+        infusate_tracer: InfusateTracer = {
+            "tracer": parse_tracer_string(tracer_string),
+            "concentration": concentration,
+        }
+        parsed_data["tracers"].append(infusate_tracer)
 
     return parsed_data
 

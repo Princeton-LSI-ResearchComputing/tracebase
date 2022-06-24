@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import Optional
+
 from django.apps import apps
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -11,19 +15,25 @@ from DataRepo.utils.infusate_name_parser import TracerData
 
 
 class TracerManager(models.Manager):
-    def create_tracer(self, tracer_data: TracerData):
-        TracerLabel = apps.get_model("DataRepo.TracerLabel")
-        Compound = apps.get_model("DataRepo.Compound")
-        compound = Compound.compound_matching_name_or_synonym(
-            tracer_data["compound_name"]
-        )
-        tracer = self.create(compound=compound)
-        for isotope_data in tracer_data["isotopes"]:
-            TracerLabel.objects.create_tracer_label(tracer, isotope_data)
-        tracer.full_clean()
-        return tracer
+    def get_or_create_tracer(self, tracer_data: TracerData) -> tuple[Tracer, bool]:
+        """Get Tracer matching the tracer_data, or create a new tracer"""
+        tracer = self.get_tracer(tracer_data)
+        created = False
+        if tracer is None:
+            TracerLabel = apps.get_model("DataRepo.TracerLabel")
+            Compound = apps.get_model("DataRepo.Compound")
+            compound = Compound.compound_matching_name_or_synonym(
+                tracer_data["compound_name"]
+            )
+            tracer = self.create(compound=compound)
+            for isotope_data in tracer_data["isotopes"]:
+                TracerLabel.objects.create_tracer_label(tracer, isotope_data)
+            tracer.full_clean()
+            created = True
+        return (tracer, created)
 
-    def find_tracer(self, tracer_data: TracerData):
+    def get_tracer(self, tracer_data: TracerData) -> Optional[Tracer]:
+        """Get Tracer matching the tracer_data"""
         matching_tracer = None
 
         # First, check if the compound is found
@@ -84,7 +94,7 @@ class Tracer(MaintainedModel, ElementLabel):
     )
     def _name(self):
         # format: `compound - ([) labelname,labelname,... )` (but no spaces)
-        if self.id is None or self.labels is None or len(self.labels.all()) == 0:
+        if self.id is None or self.labels is None or self.labels.count() == 0:
             return self.compound.name
         labels_string = ",".join([str(label) for label in self.labels.all()])
         return f"{self.compound.name}-({labels_string})"
