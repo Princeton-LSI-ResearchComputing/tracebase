@@ -99,17 +99,17 @@ class Tracer(MaintainedModel, ElementLabel):
                     f"{self.compound} formula ({self.compound.formula})"
                 )
 
-            # Ensure isotope count does not exceed number of elements in formula
+            # Ensure isotope count does not exceed count of that element in formula
             if label.count > atom_count:
                 raise ValidationError(
                     f"Count of labeled element {label.element} exceeds the number of "
                     f"{label.element} atoms in {self.compound} formula ({self.compound.formula})"
                 )
 
-            # Ensure positions exist if count < number of elements in formula
+            # Ensure positions exist if count < count of that element in formula
             if label.count < atom_count and not label.positions:
                 raise ValidationError(
                     f"Positions required for partially labeled tracer compound {self.compound.name}. "
                     f"Labeled count ({label.count}) is less than number of {label.element} atoms "
-                    f"in formula ({atom_count} in {self.compound.formula}."
+                    f"({atom_count}) in formula ({self.compound.formula})."
                 )
