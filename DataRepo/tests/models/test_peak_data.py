@@ -1,5 +1,7 @@
 from datetime import datetime, timedelta
 
+from django.db.utils import IntegrityError
+
 from DataRepo.models import (
     Animal,
     MSRun,
@@ -96,3 +98,21 @@ class PeakDataLabelTests(PeakDataData):
     def test_record(self):
         rec = PeakDataLabel.objects.get(element="C")
         rec.full_clean()
+
+    def test_multiple_labels_with_same_elem(self):
+        # Note, asserting UniqueConstraint is raised doesn't work and... if the assertion clause wraps only the second
+        # create, the assert raises bafflingly doesn't work in either case
+        with self.assertRaisesRegex(IntegrityError, r"\(\d+, C\)"):
+            pd = PeakData.objects.get(raw_abundance=1000.0)
+            PeakDataLabel.objects.create(
+                peak_data=pd,
+                element="C",
+                count=5,
+                mass_number=13,
+            )
+            PeakDataLabel.objects.create(
+                peak_data=pd,
+                element="C",
+                count=1,
+                mass_number=13,
+            )

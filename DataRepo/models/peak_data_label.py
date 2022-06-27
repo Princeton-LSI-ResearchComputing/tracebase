@@ -54,7 +54,10 @@ class PeakDataLabel(models.Model, ElementLabel):
         ordering = ["element", "count", "mass_number", "peak_data"]
         constraints = [
             models.UniqueConstraint(
-                fields=["peak_data", "element", "count", "mass_number"],
+                # We could additionally have "count" and "mass_number", but we only want 1 instance of "C" linked to 1
+                # peak_data record. And while we could theoretically have both 13C and 14C labels in the same compound,
+                # the tracer code doesn't currently support that, so there's no point in allowing that here.
+                fields=["peak_data", "element"],
                 name="unique_peakdata",
             )
         ]
