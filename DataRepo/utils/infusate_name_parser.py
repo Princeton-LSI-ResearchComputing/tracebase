@@ -1,4 +1,5 @@
 import re
+from itertools import zip_longest
 from typing import List, Optional, TypedDict
 
 from DataRepo.models.element_label import ElementLabel
@@ -34,13 +35,20 @@ class TracerData(TypedDict):
     isotopes: List[IsotopeData]
 
 
+class InfusateTracer(TypedDict):
+    tracer: TracerData
+    concentration: Optional[float]
+
+
 class InfusateData(TypedDict):
     unparsed_string: str
     infusate_name: Optional[str]
-    tracers: List[TracerData]
+    tracers: List[InfusateTracer]
 
 
-def parse_infusate_name(infusate_string: str) -> InfusateData:
+def parse_infusate_name(
+    infusate_string: str, concentrations: List[int] = []
+) -> InfusateData:
     """
     Takes a complex infusate, coded as a string, and parses it into its optional
     name, lists of tracer(s) and compounds.
@@ -69,8 +77,12 @@ def parse_infusate_name(infusate_string: str) -> InfusateData:
             f"Unable to parse infusate string: [{infusate_string}]"
         )
 
-    for tracer_string in tracer_strings:
-        parsed_data["tracers"].append(parse_tracer_string(tracer_string))
+    for (tracer_string, concentration) in zip_longest(tracer_strings, concentrations):
+        infusate_tracer: InfusateTracer = {
+            "tracer": parse_tracer_string(tracer_string),
+            "concentration": concentration,
+        }
+        parsed_data["tracers"].append(infusate_tracer)
 
     return parsed_data
 

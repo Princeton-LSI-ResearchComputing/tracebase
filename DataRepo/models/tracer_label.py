@@ -1,16 +1,33 @@
 from django.contrib.postgres.fields import ArrayField
+from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
+from DataRepo.models import Tracer
 from DataRepo.models.element_label import ElementLabel
 from DataRepo.models.maintained_model import (
     MaintainedModel,
     field_updater_function,
 )
-from DataRepo.models.tracer import Tracer
+from DataRepo.utils.infusate_name_parser import IsotopeData
+
+
+class TracerLabelManager(models.Manager):
+    def create_tracer_label(self, tracer: Tracer, isotope_data: IsotopeData):
+        tracer_label = self.create(
+            tracer=tracer,
+            element=isotope_data["element"],
+            count=isotope_data["count"],
+            positions=isotope_data["positions"],
+            mass_number=isotope_data["mass_number"],
+        )
+        tracer_label.full_clean()
+        return tracer_label
 
 
 class TracerLabel(MaintainedModel, ElementLabel):
+
+    objects = TracerLabelManager()
 
     id = models.AutoField(primary_key=True)
     name = models.CharField(
@@ -20,7 +37,7 @@ class TracerLabel(MaintainedModel, ElementLabel):
         help_text="An automatically maintained identifier of a tracer label.",
     )
     tracer = models.ForeignKey(
-        Tracer,
+        "DataRepo.Tracer",
         on_delete=models.CASCADE,
         related_name="labels",
     )
@@ -93,9 +110,15 @@ class TracerLabel(MaintainedModel, ElementLabel):
     )
     def _name(self):
         # format: `position,position,... - weight element count` (but no spaces) positions optional
-        pos_str = ""
-        if len(self.positions) > 0:
-            pos_str = (
-                ",".join(list(map(lambda p: str(p), sorted(self.positions)))) + "-"
+        positions_string = ""
+        if self.positions and len(self.positions) > 0:
+            positions_string = ",".join([str(p) for p in sorted(self.positions)]) + "-"
+        return f"{positions_string}{self.mass_number}{self.element}{self.count}"
+
+    def clean(self):
+        # Ensure positions match count
+        if self.positions and len(self.positions) != self.count:
+            raise ValidationError(
+                "Length of labeled positions list "
+                f"({len(self.positions)}) must match labeled element count ({self.count})"
             )
-        return "".join([pos_str, str(self.mass_number), self.element, str(self.count)])

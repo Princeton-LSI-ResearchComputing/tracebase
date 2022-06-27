@@ -1,18 +1,16 @@
 from django.core.validators import MinValueValidator
 from django.db import models
 
-from DataRepo.models.infusate import Infusate
 from DataRepo.models.maintained_model import (
     MaintainedModel,
     field_updater_function,
 )
-from DataRepo.models.tracer import Tracer
 
 
 class InfusateTracer(MaintainedModel):
     id = models.AutoField(primary_key=True)
-    infusate = models.ForeignKey(Infusate, on_delete=models.CASCADE)
-    tracer = models.ForeignKey(Tracer, on_delete=models.CASCADE)
+    infusate = models.ForeignKey("DataRepo.Infusate", on_delete=models.CASCADE)
+    tracer = models.ForeignKey("DataRepo.Tracer", on_delete=models.CASCADE)
     concentration = models.FloatField(
         null=False,
         blank=False,
