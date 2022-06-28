@@ -1,17 +1,20 @@
 import collections
 import re
+import regex
 from datetime import datetime
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from pandas.errors import EmptyDataError
+from typing import List, Optional, TypedDict
 
 from DataRepo.models import (
     Compound,
     ElementLabel,
     MSRun,
     PeakData,
+    PeakDataLabel,
     PeakGroup,
     PeakGroupSet,
     Protocol,
@@ -54,11 +57,22 @@ for element in ElementLabel.labeled_elements_list():
 ACCUCOR_LABEL_PATTERN = re.compile(
     f"^({'|'.join(ElementLabel.labeled_elements_list())})_Label$"
 )
-ISOTOPE_LABEL_PATTERN = re.compile(
-    r"^(?P<element>["
+# ISOTOPE_LABEL_PATTERN = re.compile(
+#     r"^(?P<element>["
+#     + "".join(ElementLabel.labeled_elements_list())
+#     + r"]{1,2})(?P<mass_number>\d+)(?: (?P<parent>PARENT)|-label-(?P<count>\d+))$"
+# )
+ISOTOPE_LABEL_PATTERN = regex.compile(
+    r"^(?:(?P<elements>["
     + "".join(ElementLabel.labeled_elements_list())
-    + r"]{1,2})(?P<mass_number>\d+)(?: (?P<parent>PARENT)|-label-(?P<count>\d+))$"
+    + r"]{1,2})(?P<mass_numbers>\d+))+(?: (?P<parent>PARENT)|-label(?:-(?P<counts>\d+))+)$"
 )
+
+
+class IsotopeObservationData(TypedDict):
+    element: str
+    mass_number: int
+    count: int
 
 
 class AccuCorDataLoader:
@@ -533,7 +547,7 @@ class AccuCorDataLoader:
                     labeled_element,
                     labeled_count,
                     mass_number,
-                ) = self.get_labeled_element_count_massnumber(row)
+                ) = self.get_isotopes(row)
                 if labeled_count == 0:
 
                     """
@@ -592,13 +606,14 @@ class AccuCorDataLoader:
                     ):
                         try:
                             row = peak_group_original_data.iloc[row_idx]
-                            (
-                                _element,
-                                row_labeled_count,
-                                _massnum,
-                            ) = self.parse_isotope_label(row["isotopeLabel"])
+                            # (
+                            #     _element,
+                            #     row_labeled_count,
+                            #     _massnum,
+                            # )
+                            isotopes = self.parse_isotope_string(row["isotopeLabel"])
                             # Not a matching row
-                            if row_labeled_count != labeled_count:
+                            if len(isotopes) == 0:
                                 row = None
                         except IndexError:
                             # later rows are missing
@@ -663,7 +678,7 @@ class AccuCorDataLoader:
                             labeled_element,
                             labeled_count,
                             _massn,
-                        ) = self.get_labeled_element_count_massnumber(row)
+                        ) = self.get_isotopes(row)
                         # No original dataframe, no raw_abundance, med_mz, or med_rt
                         raw_abundance = None
                         med_mz = None
@@ -704,13 +719,13 @@ class AccuCorDataLoader:
         if settings.DEBUG:
             print("Expiring done.")
 
-    def get_labeled_element_count_massnumber(self, row):
+    def get_isotopes(self, row):
         """
         Given a row of data, it retrieves the labeled element, count, and mass_number using a method corresponding to
         the file format
         """
         if self.isocorr_format:
-            element, count, mass_number = self.parse_isotope_label(
+            isotopes = self.parse_isotope_string(
                 row[self.labeled_element_header]
             )
         else:
@@ -721,25 +736,43 @@ class AccuCorDataLoader:
         return element, count, mass_number
 
     @classmethod
-    def parse_isotope_label(cls, label):
+    def parse_isotope_string(cls, label) -> List[IsotopeObservationData]:
         """
-        Parse El-Maven style isotope label string, e.g. C12 PARENT, C13-label-1, C13-label-2
-        Returns tuple with labeled "Element", "count", and "mass number", e.g. ("C", 0, 12), ("C", 1, 13), ("C", 2, 13)
+        Parse El-Maven style isotope label string, e.g. C12 PARENT, C13-label-1, C13N15-label-2-1
+        Returns a list of IsotopeObservationData objects (which is a TypedDict)
         """
 
-        match = re.search(ISOTOPE_LABEL_PATTERN, label)
+        isotope_observations = []
+
+        match = regex.match(ISOTOPE_LABEL_PATTERN, label)
 
         if match:
-            element = match.group("element")
-            mass_number = match.group("mass_number")
-            count = match.group("count")
+            elements = match.captures("elements")
+            mass_numbers = match.captures("mass_numbers")
+            counts = match.captures("counts")
             parent = match.group("parent")
+
             if parent is not None and parent == "PARENT":
-                count = 0
+                counts = [0]
+
+            if len(elements) != len(mass_numbers) or len(elements) != len(counts):
+                IsotopeParsingError(
+                    f"Unable to parse the same number of elements ({len(elements)}), mass numbers "
+                    f"({len(mass_numbers)}), and counts ({len(counts)}) from isotope label: [{label}]"
+                )
+            else:
+                for index in range(len(elements)):
+                    isotope_observations.append(
+                        IsotopeObservationData(
+                            element=elements[index],
+                            mass_number=int(mass_numbers[index]),
+                            count=int(counts[index]),
+                        )
+                    )
         else:
             raise IsotopeParsingError(f"Unable to parse isotope label: [{label}]")
 
-        return (element, int(count), int(mass_number))
+        return isotope_observations
 
     def load_accucor_data(self):
 

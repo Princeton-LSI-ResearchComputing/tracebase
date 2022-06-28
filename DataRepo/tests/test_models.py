@@ -1808,25 +1808,27 @@ class ParseIsotopeLabelTests(TracebaseTestCase):
 
     def test_parse_parent_isotope_label(self):
         self.assertEqual(
-            AccuCorDataLoader.parse_isotope_label("C12 PARENT"), ("C", 0, 12)
+            AccuCorDataLoader.parse_isotope_string("C12 PARENT"),
+            [{"element": "C", "count": 0, "mass_number": 12}]
         )
 
     def test_parse_isotope_label(self):
         self.assertEqual(
-            AccuCorDataLoader.parse_isotope_label("C13-label-5"), ("C", 5, 13)
+            AccuCorDataLoader.parse_isotope_string("C13-label-5"),
+            [{"element": "C", "count": 5, "mass_number": 13}]
         )
 
     def test_parse_isotope_label_bad(self):
         with self.assertRaises(IsotopeParsingError):
-            AccuCorDataLoader.parse_isotope_label("label-5")
+            AccuCorDataLoader.parse_isotope_string("label-5")
 
     def test_parse_isotope_label_empty(self):
         with self.assertRaises(IsotopeParsingError):
-            AccuCorDataLoader.parse_isotope_label("")
+            AccuCorDataLoader.parse_isotope_string("")
 
     def test_parse_isotope_label_none(self):
         with self.assertRaises(TypeError):
-            AccuCorDataLoader.parse_isotope_label(None)
+            AccuCorDataLoader.parse_isotope_string(None)
 
     def test_dupe_compound_isotope_pairs(self):
         # Error must contain:
@@ -1848,14 +1850,15 @@ class ParseIsotopeLabelTests(TracebaseTestCase):
         self.assertEqual(PeakGroup.objects.filter(name__exact="glucose").count(), 0)
         self.assertEqual(PeakGroup.objects.filter(name__exact="lactate").count(), 0)
 
-    def test_multiple_labels_error(self):
-        """
-        This tests that a multi-label `isotopeLabel` column from an isocorr file would cause an error, because the
-        accucor data loader only supports singly labeled compounds in isocor format
-        """
-        dual_label = "C13N15-label-1-1"
-        with self.assertRaises(IsotopeParsingError):
-            AccuCorDataLoader.parse_isotope_label(dual_label)
+    def test_multiple_labeled_elements(self):
+        dual_label = "C13N15-label-1-2"
+        self.assertEqual(
+            AccuCorDataLoader.parse_isotope_string(dual_label),
+            [
+                {"element": "C", "count": 1, "mass_number": 13},
+                {"element": "N", "count": 2, "mass_number": 15},
+            ],
+        )
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
