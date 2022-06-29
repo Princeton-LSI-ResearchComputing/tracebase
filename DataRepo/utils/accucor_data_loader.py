@@ -615,13 +615,14 @@ class AccuCorDataLoader:
                         try:
                             orig_row = peak_group_original_data.iloc[orig_row_idx]
                             orig_isotopes = self.parse_isotope_string(orig_row["isotopeLabel"])
-                            # If it's a matching row
-                            if orig_isotopes["count"] == labeled_count:
-                                # We have a matching row, use it and increment row_idx
-                                raw_abundance = orig_row[sample_name]
-                                med_mz = orig_row["medMz"]
-                                med_rt = orig_row["medRt"]
-                                orig_row_idx = orig_row_idx + 1
+                            for isotope in orig_isotopes:
+                                # If it's a matching row
+                                if isotope["element"] == parent["element"] and isotope["count"] == labeled_count:
+                                    # We have a matching row, use it and increment row_idx
+                                    raw_abundance = orig_row[sample_name]
+                                    med_mz = orig_row["medMz"]
+                                    med_rt = orig_row["medRt"]
+                                    orig_row_idx = orig_row_idx + 1
                         except IndexError:
                             raw_abundance = 0
                             med_mz = 0
@@ -692,8 +693,8 @@ class AccuCorDataLoader:
                         med_rt = None
 
                         print(
-                            f"\t\tInserting peak data for {peak_group_name}:label-{labeled_count} "
-                            f"for sample {sample_name}"
+                            f"\t\tInserting peak data for peak group [{peak_group_name}] "
+                            f"and sample [{sample_name}]."
                         )
 
                         peak_data = PeakData(
@@ -717,6 +718,14 @@ class AccuCorDataLoader:
 
                         for isotope in corr_isotopes:
 
+                            print(
+                                f"\t\t\tInserting peak data label [{isotope['mass_number']}{isotope['element']}"
+                                f"{isotope['count']}] for peak data ID [{peak_data.id}], peak group [{peak_group_name}"
+                                f"], and sample [{sample_name}]."
+                            )
+
+                            # Note that this inserts the parent record (count 0) as always 12C, since the parent is
+                            # always carbon with a mass_number of 12.
                             peak_data_label = PeakDataLabel(
                                 peak_data=peak_data,
                                 element=isotope["element"],
