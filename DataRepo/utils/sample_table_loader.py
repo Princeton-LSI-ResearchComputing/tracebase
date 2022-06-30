@@ -5,7 +5,7 @@ import dateutil.parser  # type: ignore
 import pandas as pd
 from django.conf import settings
 
-from DataRepo.models import Animal, Compound, Protocol, Sample, Study, Tissue
+from DataRepo.models import Animal, Infusate, Protocol, Sample, Study, Tissue
 from DataRepo.models.hier_cached_model import (
     disable_caching_updates,
     enable_caching_updates,
@@ -18,6 +18,7 @@ from DataRepo.utils.exceptions import (
     ResearcherError,
     ValidationDatabaseSetupError,
 )
+from DataRepo.utils.infusate_name_parser import parse_infusate_name
 
 
 class SampleTableLoader:
@@ -43,11 +44,9 @@ class SampleTableLoader:
             "ANIMAL_FEEDING_STATUS",
             "ANIMAL_DIET",
             "ANIMAL_TREATMENT",
-            "TRACER_COMPOUND_NAME",
-            "TRACER_LABELED_ELEMENT",
-            "TRACER_LABELED_COUNT",
-            "TRACER_INFUSION_RATE",
-            "TRACER_INFUSION_CONCENTRATION",
+            "INFUSATE",
+            "INFUSION_RATE",
+            "TRACER_CONCENTRATIONS",
         ],
     )
 
@@ -67,11 +66,9 @@ class SampleTableLoader:
         ANIMAL_FEEDING_STATUS="Feeding Status",
         ANIMAL_DIET="Diet",
         ANIMAL_TREATMENT="Animal Treatment",
-        TRACER_COMPOUND_NAME="Tracer Compound",
-        TRACER_LABELED_ELEMENT="Tracer Labeled Element",
-        TRACER_LABELED_COUNT="Tracer Label Atom Count",
-        TRACER_INFUSION_RATE="Infusion Rate",
-        TRACER_INFUSION_CONCENTRATION="Tracer Concentration",
+        INFUSATE="Infusate",
+        INFUSION_RATE="Infusion Rate",
+        TRACER_CONCENTRATIONS="Tracer Concentrations",
     )
 
     def __init__(
@@ -288,46 +285,35 @@ class SampleTableLoader:
                                 feedback += f" '{animal.treatment.description}'"
                             print(f"{action} {feedback}")
 
-                tracer_compound_name = self.getRowVal(
-                    row, self.headers.TRACER_COMPOUND_NAME, hdr_required=False
+                # Get the tracer concentrations
+                tracer_concs_str = self.getRowVal(
+                    row, self.headers.TRACER_CONCENTRATIONS, hdr_required=False
                 )
-                if tracer_compound_name is not None:
-                    try:
-                        # Assuming that both the default and validation databases each have all current compounds
-                        print(f"Getting Compound from database: {self.db}")
-                        tracer_compound = Compound.objects.using(self.db).get(
-                            name=tracer_compound_name
-                        )
-                        animal.tracer_compound = tracer_compound
-                    except Compound.DoesNotExist as e:
-                        print(
-                            f"ERROR: {self.headers.TRACER_COMPOUND_NAME} not found: Compound:{tracer_compound_name}"
-                        )
-                        raise (e)
-                tracer_labeled_elem = self.getRowVal(
-                    row, self.headers.TRACER_LABELED_ELEMENT, hdr_required=False
+                try:
+                    # Not sure how the split results in a float, but my guess is that it's something in excel, thus if
+                    # there do exist comma-delimited items, this should actually work
+                    tracer_concs = [float(x.strip()) for x in tracer_concs_str.split(",")]
+                except AttributeError as ae:
+                    if "object has no attribute 'split'" in str(ae):
+                        tracer_concs = [tracer_concs_str]
+                    else:
+                        raise ae
+
+                # Create the infusate record and all its tracers and labels, then link to it from the animal
+                infusate_str = self.getRowVal(
+                    row, self.headers.INFUSATE, hdr_required=False
                 )
-                if tracer_labeled_elem is not None:
-                    tracer_labeled_atom = value_from_choices_label(
-                        tracer_labeled_elem,
-                        animal.LABELED_ELEMENT_CHOICES,
-                    )
-                    animal.tracer_labeled_atom = tracer_labeled_atom
-                tlc = self.getRowVal(
-                    row, self.headers.TRACER_LABELED_COUNT, hdr_required=False
-                )
-                if tlc is not None:
-                    animal.tracer_labeled_count = int(tlc)
+                infusate_data_object = parse_infusate_name(infusate_str, tracer_concs)
+                (infusate, created) = Infusate.objects.get_or_create_infusate(infusate_data_object)
+                animal.infusate = infusate
+
+                # Get the infusion rate
                 tir = self.getRowVal(
-                    row, self.headers.TRACER_INFUSION_RATE, hdr_required=False
+                    row, self.headers.INFUSION_RATE, hdr_required=False
                 )
                 if tir is not None:
                     animal.tracer_infusion_rate = tir
-                tic = self.getRowVal(
-                    row, self.headers.TRACER_INFUSION_CONCENTRATION, hdr_required=False
-                )
-                if tic is not None:
-                    animal.tracer_infusion_concentration = tic
+
                 try:
                     animal.full_clean()
                     animal.save(using=self.db)

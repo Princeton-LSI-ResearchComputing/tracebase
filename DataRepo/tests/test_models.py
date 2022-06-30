@@ -1581,7 +1581,6 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
                 "DataRepo/example_data/small_dataset/"
                 "small_obob_animal_and_sample_table.xlsx"
             ),
-            table_headers="DataRepo/example_data/sample_and_animal_tables_headers.yaml",
         )
         call_command(
             "load_animals_and_samples",
