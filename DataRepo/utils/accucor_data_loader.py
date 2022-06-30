@@ -74,6 +74,7 @@ class IsotopeObservationData(TypedDict):
     element: str
     mass_number: int
     count: int
+    parent: bool
 
 
 class AccuCorDataLoader:
@@ -144,6 +145,8 @@ class AccuCorDataLoader:
         self.date = datetime.strptime(self.date_input, "%Y-%m-%d")
 
         self.retrieve_samples()
+
+        self.initialize_labels()
 
         self.retrieve_or_create_protocol()
 
@@ -383,6 +386,19 @@ class AccuCorDataLoader:
                 )
             )
 
+    def initialize_labels(self):
+        # Assuming all samples come from 1 animal, so we're only looking at 1 (any) sample
+        a_sample = self.sample_dict.values()[0]
+        self.tracer_labeled_elements = []
+        for tracer in a_sample.animal.infusate.tracers.all():
+            for label in tracer.labels.all():
+                this_label = {
+                    "element": label.element,
+                    "mass_number": label.mass_number,
+                }
+                if this_label not in self.labeled_elements:
+                    self.tracer_labeled_elements.append(this_label)
+
     def get_first_sample_column_index(self, df):
         """
         given a dataframe return the column index of the likely "first" sample
@@ -551,7 +567,7 @@ class AccuCorDataLoader:
                 # )
                 isotopes = self.get_isotopes(corr_row)
                 # Assuming a single parent element/count/mass_number, based on available data
-                if len(isotopes) == 1 and isotopes[0]["count"] == 0:
+                if len(isotopes) == 1 and isotopes[0]["parent"]:
                     parent = isotopes[0]
 
                     """
@@ -577,27 +593,30 @@ class AccuCorDataLoader:
                     if self.db == settings.DEFAULT_DB:
                         peak_group.full_clean()
                     peak_group.save(using=self.db)
-                    # cache
-                    inserted_peak_group_dict[peak_group_name] = {
-                        "group": peak_group,
-                        "parent": parent,
-                    }
 
                     """
                     associate the pre-vetted compounds with the newly inserted
                     PeakGroup
                     """
+                    common_labels = []
                     for compound in peak_group_attrs["compounds"]:
                         # Must save the compound to the correct database before it can be linked
                         compound.save(using=self.db)
                         peak_group.compounds.add(compound)
+                        common_labels = self.add_common_labels(compound, common_labels)
+
+                    # cache
+                    inserted_peak_group_dict[peak_group_name] = {
+                        "group": peak_group,
+                        "labels": common_labels,
+                    }
 
             # For each PeakGroup, create PeakData rows
             for peak_group_name in inserted_peak_group_dict:
 
                 # we should have a cached PeakGroup and its labeled element now
                 peak_group = inserted_peak_group_dict[peak_group_name]["group"]
-                parent = inserted_peak_group_dict[peak_group_name]["parent"]
+                common_labels = inserted_peak_group_dict[peak_group_name]["labels"]
 
                 if self.accucor_original_df is not None:
 
@@ -609,7 +628,7 @@ class AccuCorDataLoader:
                     # corrected data, we need to keep track of the corresponding row in the original data
                     orig_row_idx = 0
                     for labeled_count in range(
-                        0, peak_group.atom_count(parent["element"]) + 1
+                        0, peak_group.atom_count(self.labeled_element) + 1
                     ):
                         # Try to get original data. If it's not there, set empty values
                         try:
@@ -617,7 +636,7 @@ class AccuCorDataLoader:
                             orig_isotopes = self.parse_isotope_string(orig_row["isotopeLabel"])
                             for isotope in orig_isotopes:
                                 # If it's a matching row
-                                if isotope["element"] == parent["element"] and isotope["count"] == labeled_count:
+                                if isotope["element"] == self.labeled_element and isotope["count"] == labeled_count:
                                     # We have a matching row, use it and increment row_idx
                                     raw_abundance = orig_row[sample_name]
                                     med_mz = orig_row["medMz"]
@@ -753,6 +772,19 @@ class AccuCorDataLoader:
         if settings.DEBUG:
             print("Expiring done.")
 
+    def add_common_labels(self, compound_rec, common_labels):
+        """
+        Adds labels present among any of the tracers in the infusate to common_labels IF the elements are present in
+        the supplied (measured) compound.  Basically, if the supplied compount contains an element that is a labeled
+        element in any of the tracers, it is added to common_labels.  Note that the new common_labels are returned.
+        The common_labels sent in is not modified.
+        """
+        new_labels = common_labels
+        for tracer_label in self.tracer_labeled_elements:
+            if compound_rec.atom_count(tracer_label["element"]) > 0 and tracer_label not in new_labels:
+                new_labels.append(tracer_label)
+        return new_labels
+
     def get_isotopes(self, row):
         """
         Given a row of data, it retrieves the labeled element, count, and mass_number using a method corresponding to
@@ -764,12 +796,29 @@ class AccuCorDataLoader:
                 row[self.labeled_element_header]
             )
         else:
+            # get the mass number
+            mns = [x["mass_number"] for x in self.tracer_labeled_elements if x["element"] == self.labeled_element]
+            if len(mns) > 1:
+                raise MultipleMassNumbers(
+                    f"Labeled element [{self.labeled_element}] exists among the tracer(s) with "
+                    f"multiple mass numbers: [{','.join(mns)}]."
+                )
+            elif len(mns) == 0:
+                raise MassNumberNotFound(
+                    f"Labeled element [{self.labeled_element}] could not be found among the tracer(s) to retrieve its "
+                    "mass number."
+                )
+            mn = mns[0]
+            parent = row[self.labeled_element_header] == 0
             # E.g. Getting count value from e.g. C_Label column
-            isotopes = [{
-                "element": self.labeled_element,
-                "count": row[self.labeled_element_header],
-                "mass_number": None,  # Not defined in accucor corrected file
-            }]
+            isotopes = [
+                IsotopeObservationData(
+                    element=self.labeled_element,
+                    mass_number=mn,
+                    count=row[self.labeled_element_header],
+                    parent=parent,
+                ),
+            ]
 
         return isotopes
 
@@ -788,10 +837,12 @@ class AccuCorDataLoader:
             elements = match.captures("elements")
             mass_numbers = match.captures("mass_numbers")
             counts = match.captures("counts")
-            parent = match.group("parent")
+            parent_str = match.group("parent")
+            parent = False
 
-            if parent is not None and parent == "PARENT":
+            if parent_str is not None and parent_str == "PARENT":
                 counts = [0]
+                parent = True
 
             if len(elements) != len(mass_numbers) or len(elements) != len(counts):
                 IsotopeParsingError(
@@ -805,6 +856,7 @@ class AccuCorDataLoader:
                             element=elements[index],
                             mass_number=int(mass_numbers[index]),
                             count=int(counts[index]),
+                            parent=parent,
                         )
                     )
         else:
@@ -820,4 +872,12 @@ class AccuCorDataLoader:
 
 
 class IsotopeParsingError(Exception):
+    pass
+
+
+class MultipleMassNumbers(Exception):
+    pass
+
+
+class MassNumberNotFound(Exception):
     pass
