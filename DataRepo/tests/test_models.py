@@ -31,6 +31,7 @@ from DataRepo.utils import (
     AmbiguousCompoundDefinitionError,
     CompoundsLoader,
     IsotopeParsingError,
+    IsotopeObservationParsingError,
     MissingSamplesError,
     leaderboard_data,
 )
@@ -1915,11 +1916,11 @@ class ParseIsotopeLabelTests(TracebaseTestCase):
         )
 
     def test_parse_isotope_label_bad(self):
-        with self.assertRaises(IsotopeParsingError):
+        with self.assertRaises(IsotopeObservationParsingError):
             AccuCorDataLoader.parse_isotope_string("label-5")
 
     def test_parse_isotope_label_empty(self):
-        with self.assertRaises(IsotopeParsingError):
+        with self.assertRaises(IsotopeObservationParsingError):
             AccuCorDataLoader.parse_isotope_string("")
 
     def test_parse_isotope_label_none(self):
@@ -1998,8 +1999,8 @@ class AnimalLoadingTests(TracebaseTestCase):
         )
 
     def testLabeledElementParsingInvalid(self):
-        with self.assertRaisesRegex(
-            ValidationError, ".+ is not a valid selection, must be one of .+"
+        with self.assertRaisesMessage(
+            IsotopeParsingError, "Encoded isotopes: [13Invalid6] cannot be parsed."
         ):
             call_command(
                 "load_animals_and_samples",

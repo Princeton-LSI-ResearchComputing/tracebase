@@ -885,7 +885,7 @@ class AccuCorDataLoader:
                 isotope_observations = self.tracer_labeled_elements
             else:
                 if len(elements) != len(mass_numbers) or len(elements) != len(counts):
-                    IsotopeParsingError(
+                    IsotopeObservationParsingError(
                         f"Unable to parse the same number of elements ({len(elements)}), mass numbers "
                         f"({len(mass_numbers)}), and counts ({len(counts)}) from isotope label: [{label}]"
                     )
@@ -900,7 +900,7 @@ class AccuCorDataLoader:
                             )
                         )
         else:
-            raise IsotopeParsingError(f"Unable to parse isotope label: [{label}]")
+            raise IsotopeObservationParsingError(f"Unable to parse isotope label: [{label}]")
 
         return isotope_observations
 
@@ -911,7 +911,7 @@ class AccuCorDataLoader:
             self.load_data()
 
 
-class IsotopeParsingError(Exception):
+class IsotopeObservationParsingError(Exception):
     pass
 
 
