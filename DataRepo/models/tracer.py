@@ -27,7 +27,7 @@ class TracerManager(models.Manager):
             )
             tracer = self.create(compound=compound)
             for isotope_data in tracer_data["isotopes"]:
-                TracerLabel.objects.create_tracer_label(tracer, isotope_data)
+                TracerLabel.objects.get_or_create_tracer_label(tracer, isotope_data)
             tracer.full_clean()
             created = True
         return (tracer, created)
@@ -47,15 +47,19 @@ class TracerManager(models.Manager):
                 compound=compound, num_labels=len(tracer_data["isotopes"])
             )
             # Check that the labels match
+            q = models.Q()
             for tracer_label in tracer_data["isotopes"]:
-                tracers = tracers.filter(
-                    labels__element=tracer_label["element"],
-                    labels__mass_number=tracer_label["mass_number"],
-                    labels__count=tracer_label["count"],
-                    labels__positions=tracer_label["positions"],
-                )
+                filt = {
+                    "labels__element__exact": tracer_label["element"],
+                    "labels__mass_number__exact": tracer_label["mass_number"],
+                    "labels__count__exact": tracer_label["count"],
+                    "labels__positions__exact": tracer_label["positions"],
+                }
+                q |= models.Q(**filt)
+            tracers = tracers.filter(q)
             if tracers.count() == 1:
                 matching_tracer = tracers.first()
+            print(f"There are {tracers.count()} matching tracers")
         return matching_tracer
 
 

@@ -13,16 +13,36 @@ from DataRepo.utils.infusate_name_parser import IsotopeData
 
 
 class TracerLabelManager(models.Manager):
-    def create_tracer_label(self, tracer: Tracer, isotope_data: IsotopeData):
-        tracer_label = self.create(
-            tracer=tracer,
-            element=isotope_data["element"],
-            count=isotope_data["count"],
-            positions=isotope_data["positions"],
-            mass_number=isotope_data["mass_number"],
+    def get_or_create_tracer_label(self, tracer: Tracer, isotope_data: IsotopeData):
+        tracer_label = self.get_tracer_label(isotope_data)
+        created = False
+        if tracer_label is None:
+            tracer_label = self.create(
+                tracer=tracer,
+                element=isotope_data["element"],
+                count=isotope_data["count"],
+                positions=isotope_data["positions"],
+                mass_number=isotope_data["mass_number"],
+            )
+            created = True
+        if created:
+            tracer_label.full_clean()
+        return (tracer_label, created)
+
+    def get_tracer_label(self, isotope_data: IsotopeData):
+        """
+        This finds a tracer label even if the name is set or not set
+        """
+        matching_tracer_label = None
+        tracer_labels = TracerLabel.objects.filter(
+            element__exact=isotope_data["element"],
+            mass_number__exact=isotope_data["mass_number"],
+            count__exact=isotope_data["count"],
+            positions__exact=isotope_data["positions"],
         )
-        tracer_label.full_clean()
-        return tracer_label
+        if tracer_labels.count() == 1:
+            matching_tracer_label = tracer_labels.first()
+        return matching_tracer_label
 
 
 class TracerLabel(MaintainedModel, ElementLabel):

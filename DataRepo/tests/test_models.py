@@ -23,6 +23,10 @@ from DataRepo.models import (
     Sample,
     Study,
     Tissue,
+    Tracer,
+    TracerLabel,
+    Infusate,
+    InfusateTracer,
 )
 from DataRepo.models.hier_cached_model import set_cache
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
@@ -36,6 +40,7 @@ from DataRepo.utils import (
     leaderboard_data,
 )
 
+MULTITRACER_SAMPLES_LOADED = False
 
 class ExampleDataConsumer:
     def get_sample_test_dataframe(self):
@@ -1680,14 +1685,6 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
                 "small_obob_animal_and_sample_table.xlsx"
             ),
         )
-        call_command(
-            "load_animals_and_samples",
-            animal_and_sample_table_filename=(
-                "DataRepo/example_data/AsaelR_13C-Valine+PI3Ki_flank-KPC_2021-12_isocorr_CN-corrected/"
-                "TraceBase Animal and Sample Table Templates_AR.xlsx"
-            ),
-            skip_researcher_check=True,
-        )
 
     def test_accucor_load_blank_fail(self):
         with self.assertRaises(MissingSamplesError, msg="1 samples are missing."):
@@ -1712,10 +1709,10 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         )
         SAMPLES_COUNT = 14
         PEAKDATA_ROWS = 11
-        COMPOUNDS_COUNT = 2  # Glucose and lactate loaded thus far
+        MEASURED_COMPOUNDS_COUNT = 2  # Glucose and lactate
 
         self.assertEqual(
-            PeakGroup.objects.all().count(), COMPOUNDS_COUNT * SAMPLES_COUNT
+            PeakGroup.objects.all().count(), MEASURED_COMPOUNDS_COUNT * SAMPLES_COUNT
         )
         self.assertEqual(PeakData.objects.all().count(), PEAKDATA_ROWS * SAMPLES_COUNT)
 
@@ -1732,10 +1729,10 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         )
         SAMPLES_COUNT = 1
         PEAKDATA_ROWS = 11
-        COMPOUNDS_COUNT = 2  # Glucose and lactate loaded thus far
+        MEASURED_COMPOUNDS_COUNT = 2  # Glucose and lactate
 
         self.assertEqual(
-            PeakGroup.objects.all().count(), COMPOUNDS_COUNT * SAMPLES_COUNT
+            PeakGroup.objects.all().count(), MEASURED_COMPOUNDS_COUNT * SAMPLES_COUNT
         )
         self.assertEqual(PeakData.objects.all().count(), PEAKDATA_ROWS * SAMPLES_COUNT)
 
@@ -1751,7 +1748,59 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
                 new_researcher=True,
             )
 
-    def test_isocorr_load(self):
+
+@override_settings(CACHES=settings.TEST_CACHES)
+class IsoCorrDataLoadingTests(TracebaseTestCase):
+    @classmethod
+    def setUpTestData(cls):
+        call_command(
+            "load_study",
+            "DataRepo/example_data/tissues/loading.yaml",
+            verbosity=2,
+        )
+        call_command(
+            "load_compounds",
+            compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
+            verbosity=2,
+        )
+
+        call_command(
+            "load_animals_and_samples",
+            animal_and_sample_table_filename=(
+                "DataRepo/example_data/AsaelR_13C-Valine+PI3Ki_flank-KPC_2021-12_isocorr_CN-corrected/"
+                "TraceBase Animal and Sample Table Templates_AR.xlsx"
+            ),
+            skip_researcher_check=True,
+        )
+
+    def load_multitracer_data(self):
+        global MULTITRACER_SAMPLES_LOADED
+        if not MULTITRACER_SAMPLES_LOADED:
+            call_command(
+                "load_animals_and_samples",
+                animal_and_sample_table_filename=(
+                    "DataRepo/example_data/obob_fasted_ace_glycerol_3hb_citrate_eaa_fa_multiple_tracers/"
+                    "animal_sample_table.xlsx"
+                ),
+                skip_researcher_check=True,
+            )
+        MULTITRACER_SAMPLES_LOADED = True
+
+        num_samples = 120
+        num_infusates = 2
+        num_infusatetracers = 6
+        num_tracers = 6
+        num_tracerlabels = 12
+
+        return (
+            num_samples,
+            num_infusates,
+            num_infusatetracers,
+            num_tracers,
+            num_tracerlabels,
+        )
+
+    def test_singly_labeled_isocorr_load(self):
         call_command(
             "load_accucor_msruns",
             accucor_file="DataRepo/example_data/AsaelR_13C-Valine+PI3Ki_flank-KPC_2021-12_isocorr_CN-corrected/"
@@ -1771,15 +1820,13 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         # The number of samples in the isocorr csv file (not the samples file)
         SAMPLES_COUNT = 19
         PEAKDATA_ROWS = 24
-        COMPOUNDS_COUNT = (
-            6  # 4 more compounds ina ddition to the glucose and lactate loaded thus far
-        )
+        MEASURED_COMPOUNDS_COUNT = 6
 
         self.assertEqual(
             PeakGroup.objects.all().count(),
-            COMPOUNDS_COUNT * SAMPLES_COUNT,
-            msg=f"PeakGroup record count should be the number of compounds [{COMPOUNDS_COUNT}] times the number of "
-            f"samples [{SAMPLES_COUNT}] = [{COMPOUNDS_COUNT * SAMPLES_COUNT}].",
+            MEASURED_COMPOUNDS_COUNT * SAMPLES_COUNT,
+            msg=f"PeakGroup record count should be the number of compounds [{MEASURED_COMPOUNDS_COUNT}] times the "
+            f"number of samples [{SAMPLES_COUNT}] = [{MEASURED_COMPOUNDS_COUNT * SAMPLES_COUNT}].",
         )
         self.assertEqual(
             PeakData.objects.all().count(),
@@ -1788,7 +1835,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             f"samples [{SAMPLES_COUNT}] = [{PEAKDATA_ROWS * SAMPLES_COUNT}].",
         )
 
-    def test_singly_labeled_isocorr_study_accucor_error(self):
+    def test_singly_labeled_isocorr_missing_flag_error(self):
         """
         Test to make sure --isocorr-format is suggested when not supplied
         """
@@ -1808,6 +1855,63 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
                 researcher="Michael Neinast",
                 new_researcher=True,
             )
+
+    def test_multitracer_sample_table_load(self):
+        pre_load_sample_count = Sample.objects.count()
+        pre_load_infusate_count = Infusate.objects.count()
+        pre_load_infusatetracer_count = InfusateTracer.objects.count()
+        pre_load_tracer_count = Tracer.objects.count()
+        pre_load_tracerlabel_count = TracerLabel.objects.count()
+
+        (
+            num_samples,
+            num_infusates,
+            num_infusatetracers,
+            num_tracers,
+            num_tracerlabels,
+        ) = self.load_multitracer_data()
+
+        post_load_sample_count = Sample.objects.count()
+        post_load_infusate_count = Infusate.objects.count()
+        post_load_infusatetracer_count = InfusateTracer.objects.count()
+        post_load_tracer_count = Tracer.objects.count()
+        post_load_tracerlabel_count = TracerLabel.objects.count()
+
+        self.assertEqual(num_samples, post_load_sample_count - pre_load_sample_count)
+        self.assertEqual(num_infusates, post_load_infusate_count - pre_load_infusate_count)
+        self.assertEqual(num_infusatetracers, post_load_infusatetracer_count - pre_load_infusatetracer_count)
+        self.assertEqual(num_tracers, post_load_tracer_count - pre_load_tracer_count)
+        self.assertEqual(num_tracerlabels, post_load_tracerlabel_count - pre_load_tracerlabel_count)
+
+    def test_multitracer_isocorr_load(self):
+        self.load_multitracer_data()
+        call_command(
+            "load_accucor_msruns",
+            accucor_file="DataRepo/example_data/obob_fasted_ace_glycerol_3hb_citrate_eaa_fa_multiple_tracers/"
+            "6eaafasted2_cor.xlsx",
+            protocol="Default",
+            date="2021-04-29",
+            researcher="Xianfeng Zeng",
+            new_researcher=False,
+            isocorr_format=True,
+        )
+        # The number of samples in the isocorr csv file (not the samples file)
+        SAMPLES_COUNT = 30
+        PEAKDATA_ROWS = 81
+        MEASURED_COMPOUNDS_COUNT = 14
+
+        self.assertEqual(
+            PeakGroup.objects.all().count(),
+            MEASURED_COMPOUNDS_COUNT * SAMPLES_COUNT,
+            msg=f"PeakGroup record count should be the number of compounds [{MEASURED_COMPOUNDS_COUNT}] times the "
+            f"number of samples [{SAMPLES_COUNT}] = [{MEASURED_COMPOUNDS_COUNT * SAMPLES_COUNT}].",
+        )
+        self.assertEqual(
+            PeakData.objects.all().count(),
+            PEAKDATA_ROWS * SAMPLES_COUNT,
+            msg=f"PeakData record count should be the number of peakdata rows [{PEAKDATA_ROWS}] times the number of "
+            f"samples [{SAMPLES_COUNT}] = [{PEAKDATA_ROWS * SAMPLES_COUNT}].",
+        )
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
