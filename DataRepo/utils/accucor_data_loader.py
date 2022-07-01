@@ -653,11 +653,13 @@ class AccuCorDataLoader:
                                     med_mz = orig_row["medMz"]
                                     med_rt = orig_row["medRt"]
                                     orig_row_idx = orig_row_idx + 1
+                                    mass_number = isotope["mass_number"]
                         except IndexError:
                             raw_abundance = 0
                             med_mz = 0
                             med_rt = 0
-                            orig_isotopes = self.tracer_labeled_elements
+                            # Assuming a single labeled element in the tracer(s) bec. this is accucor
+                            mass_number = self.tracer_labeled_elements[0]["mass_number"]
 
                         # Lookup corrected abundance by compound and label
                         corrected_abundance = self.accucor_corrected_df.loc[
@@ -694,19 +696,23 @@ class AccuCorDataLoader:
                         Create the PeakDataLabel records
                         """
 
-                        for isotope in orig_isotopes:
+                        print(
+                            f"\t\t\tInserting peak data label [{isotope['mass_number']}{isotope['element']}"
+                            f"{isotope['count']}] parsed from cell value: [{orig_row['isotopeLabel']}] for peak data ID [{peak_data.id}], peak group [{peak_group_name}"
+                            f"], and sample [{sample_name}]."
+                        )
 
-                            peak_data_label = PeakDataLabel(
-                                peak_data=peak_data,
-                                element=isotope["element"],
-                                count=isotope["count"],
-                                mass_number=isotope["mass_number"],
-                            )
+                        peak_data_label = PeakDataLabel(
+                            peak_data=peak_data,
+                            element=self.labeled_element,
+                            count=labeled_count,
+                            mass_number=mass_number,
+                        )
 
-                            if self.db == settings.DEFAULT_DB:
-                                peak_data_label.full_clean()
+                        if self.db == settings.DEFAULT_DB:
+                            peak_data_label.full_clean()
 
-                            peak_data_label.save(using=self.db)
+                        peak_data_label.save(using=self.db)
 
                 else:
                     peak_group_corrected_df = self.accucor_corrected_df[
@@ -750,7 +756,7 @@ class AccuCorDataLoader:
 
                             print(
                                 f"\t\t\tInserting peak data label [{isotope['mass_number']}{isotope['element']}"
-                                f"{isotope['count']}] for peak data ID [{peak_data.id}], peak group [{peak_group_name}"
+                                f"{isotope['count']}] parsed from cell value: [{corr_row[self.labeled_element_header]}] for peak data ID [{peak_data.id}], peak group [{peak_group_name}"
                                 f"], and sample [{sample_name}]."
                             )
 

@@ -45,7 +45,7 @@ class SampleTableLoader:
             "ANIMAL_DIET",
             "ANIMAL_TREATMENT",
             "INFUSATE",
-            "INFUSION_RATE",
+            "ANIMAL_INFUSION_RATE",
             "TRACER_CONCENTRATIONS",
         ],
     )
@@ -67,7 +67,7 @@ class SampleTableLoader:
         ANIMAL_DIET="Diet",
         ANIMAL_TREATMENT="Animal Treatment",
         INFUSATE="Infusate",
-        INFUSION_RATE="Infusion Rate",
+        ANIMAL_INFUSION_RATE="Infusion Rate",
         TRACER_CONCENTRATIONS="Tracer Concentrations",
     )
 
@@ -309,7 +309,7 @@ class SampleTableLoader:
 
                 # Get the infusion rate
                 tir = self.getRowVal(
-                    row, self.headers.INFUSION_RATE, hdr_required=False
+                    row, self.headers.ANIMAL_INFUSION_RATE, hdr_required=False
                 )
                 if tir is not None:
                     animal.tracer_infusion_rate = tir
