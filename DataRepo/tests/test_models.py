@@ -1980,22 +1980,19 @@ class AnimalLoadingTests(TracebaseTestCase):
             ),
         )
         self.assertEqual(
-            Animal.objects.get(name="test_animal_1").tracer_labeled_atom, "C"
+            Animal.objects.get(name="test_animal_1").infusate.tracers.first().labels.first().element, "C"
         )
         self.assertEqual(
-            Animal.objects.get(name="test_animal_2").tracer_labeled_atom, "N"
+            Animal.objects.get(name="test_animal_2").infusate.tracers.first().labels.first().element, "N"
         )
         self.assertEqual(
-            Animal.objects.get(name="test_animal_3").tracer_labeled_atom, "H"
+            Animal.objects.get(name="test_animal_3").infusate.tracers.first().labels.first().element, "H"
         )
         self.assertEqual(
-            Animal.objects.get(name="test_animal_4").tracer_labeled_atom, "O"
+            Animal.objects.get(name="test_animal_4").infusate.tracers.first().labels.first().element, "O"
         )
         self.assertEqual(
-            Animal.objects.get(name="test_animal_5").tracer_labeled_atom, "S"
-        )
-        self.assertEqual(
-            Animal.objects.get(name="test_animal_6").tracer_labeled_atom, "C"
+            Animal.objects.get(name="test_animal_5").infusate.tracers.first().labels.first().element, "S"
         )
 
     def testLabeledElementParsingInvalid(self):
