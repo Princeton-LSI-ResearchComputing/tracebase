@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Optional
 from django.apps import apps
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.forms.models import model_to_dict
 
 from DataRepo.models.maintained_model import (
     MaintainedModel,
@@ -31,6 +32,7 @@ class InfusateManager(models.Manager):
         # Matching record not found, create new record
         if infusate is None:
             # create infusate
+            print(f"Creating infusate: {infusate_data}")
             infusate = self.create(tracer_group_name=infusate_data["infusate_name"])
 
             # create tracers
@@ -55,24 +57,56 @@ class InfusateManager(models.Manager):
     def get_infusate(self, infusate_data: InfusateData) -> Optional[Infusate]:
         """Get Infusate matching the infusate_data"""
         matching_infusate = None
+        num_target_tracers = len(infusate_data["tracers"])
 
         # Check for infusates with the same name and same number of tracers
         infusates = Infusate.objects.annotate(
             num_tracers=models.Count("tracers")
         ).filter(
             tracer_group_name=infusate_data["infusate_name"],
-            num_tracers=len(infusate_data["tracers"]),
+            num_tracers=num_target_tracers,
         )
+        print(f"There were {infusates.count()} infusates that matched group name {infusate_data['infusate_name']} and number of tracers: {num_target_tracers}.")
+        for infusate in infusates.all():
+            print(f"  Infusate: {model_to_dict(infusate)}")
+            for it in infusate.tracers.through.objects.filter(infusate__id__exact=infusate.id).all():
+                print(f"    InfusateTracer: {model_to_dict(it)}")
+                print(f"      Tracer: {model_to_dict(it.tracer)}")
+                for label in it.tracer.labels.all():
+                    print(f"        TracerLabel: {model_to_dict(label)}")
+
         # Check that the tracers match
-        for infusate_tracer in infusate_data["tracers"]:
-            Tracer = apps.get_model("DataRepo.Tracer")
-            tracer = Tracer.objects.get_tracer(infusate_tracer["tracer"])
-            infusates = infusates.filter(
-                infusatetracer__tracer=tracer,
-                infusatetracer__concentration=infusate_tracer["concentration"],
-            )
-        if infusates.count() == 1:
-            matching_infusate = infusates.first()
+        Tracer = apps.get_model("DataRepo.Tracer")
+        q = models.Q()
+        for tracer_data in infusate_data["tracers"]:
+            tracer = Tracer.objects.get_tracer(tracer_data["tracer"])
+            if tracer is None:
+                # Matching infusate cannot exist if the tracer it links to does not exist
+                print("There were 0 matching infusates.")
+                return None
+            filt = {
+                "infusatetracer__tracer__id__exact": tracer.id,
+                "infusatetracer__concentration__exact": tracer_data["concentration"],
+            }
+            q |= models.Q(**filt)
+            print(f"Currently, there are {infusates.filter(models.Q(**filt)).count()} infusates that match {q}")
+
+        infusates = infusates.filter(q)
+        print(f"There were {infusates.count()} matching infusates using query {q}.")
+        # The above code was restructured because the way the filter was constructed assumed the returned records were
+        # linked to all sub-records, but in this context, each record is like a left join with access to 1 linked
+        # instance.  That instance cannot be 2 different records at the same time.
+        # So now we have all infusates that match any of the target tracers
+
+        matching_infusates = []
+        for infusate in infusates.all():
+            print(f"Matching infusate is linked to {infusate.tracers.count()} tracers")
+            if infusate.tracers.count() == num_target_tracers:
+                matching_infusates.append(infusate)
+
+        if len(matching_infusates) == 1:
+            matching_infusate = matching_infusates[0]
+
         return matching_infusate
 
 

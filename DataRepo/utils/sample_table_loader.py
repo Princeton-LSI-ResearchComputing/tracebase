@@ -10,6 +10,11 @@ from DataRepo.models.hier_cached_model import (
     disable_caching_updates,
     enable_caching_updates,
 )
+from DataRepo.models.maintained_model import (
+    enable_autoupdates,
+    disable_autoupdates,
+    perform_buffered_updates,
+)
 from DataRepo.models.utilities import get_researchers, value_from_choices_label
 from DataRepo.utils.exceptions import (
     HeaderConfigError,
@@ -131,6 +136,7 @@ class SampleTableLoader:
     def load_sample_table(self, data, skip_researcher_check=False, debug=False):
         self.debug = debug
 
+        disable_autoupdates()
         disable_caching_updates()
         animals_to_uncache = []
 
@@ -397,9 +403,14 @@ class SampleTableLoader:
             raise ResearcherError("\n".join(all_researcher_error_strs))
 
         enable_caching_updates()
+        if debug:
+            enable_autoupdates()
 
         # Throw an exception in debug mode to abort the load
         assert not debug, "Debugging..."
+
+        perform_buffered_updates()
+        enable_autoupdates()
 
         if settings.DEBUG:
             print("Expiring affected caches...")
