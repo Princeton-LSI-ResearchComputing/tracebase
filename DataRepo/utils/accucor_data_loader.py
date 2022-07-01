@@ -830,8 +830,18 @@ class AccuCorDataLoader:
                         isotopes.append(parent_label)
                     elif len(match) > 1:
                         raise Exception("Cannot uniquely match measured labeled elements with tracer labeled elements.")
-            elif len(isotopes) > len(parent_labels):
-                raise Exception("More measured isotopes than tracer labeled elements.")
+            elif observed_compound_recs is not None and len(isotopes) > len(parent_labels):
+                # Apparently, there is evidence of detected heavy nitrogen in an animal whose infusate contained
+                # tracers containing no heavy nitrogen.  This could suggest contamination, but we shouldn't raise an
+                # exception...
+                # See warnings when loading 6eaafasted2_cor.xlsx. Note the tracers for animals 971, 972, 981, 982 in
+                # the sample file and note the isotopeLabels including N15
+                # raise Exception(f"More measured isotopes ({isotopes}) than tracer labeled elements "
+                # f"({parent_labels}) for compounds ({observed_compound_recs}).")
+                print(
+                    f"WARNING: More measured isotopes ({isotopes}) than tracer labeled elements ({parent_labels}) "
+                    f"for compounds ({observed_compound_recs})."
+                )
 
         else:
 
