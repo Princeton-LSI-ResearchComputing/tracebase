@@ -579,8 +579,9 @@ class AccuCorDataLoader:
 
                 obs_isotopes = self.get_observed_isotopes(corr_row)
 
-                # Assuming a single parent element/count/mass_number, based on available data
-                if len(obs_isotopes) == 1 and obs_isotopes[0]["parent"]:
+                # Assuming that if the first one is the parent, they all are.  Note that subsequent isotopes in the
+                # list may be parent=True if 0 isotopes of that element were observed.
+                if len(obs_isotopes) > 0 and obs_isotopes[0]["parent"]:
 
                     """
                     Here we insert PeakGroup, by name (only once per file).
@@ -621,6 +622,10 @@ class AccuCorDataLoader:
                         "group": peak_group,
                         "labels": common_labels,
                     }
+                else:
+                    print(
+                        f"\tObserved isotopes is length {len(obs_isotopes)}"
+                    )
 
             # For each PeakGroup, create PeakData rows
             for peak_group_name in inserted_peak_group_dict:
@@ -805,7 +810,10 @@ class AccuCorDataLoader:
     def get_observed_isotopes(self, corrected_row, observed_compound_recs=None):
         """
         Given a row of corrected data, it retrieves the labeled element, count, and mass_number using a method
-        corresponding to the file format
+        corresponding to the file format.
+
+        This assumes that "C12 PARENT" means that carbon is one of the labeled elements.  It will return carbon as an
+        observed isotope because it is parsing that element from the record.
         """
         if self.isocorr_format:
             # E.g. Parsing C13N15-label-2-3 in isotopeLabel column
@@ -819,7 +827,7 @@ class AccuCorDataLoader:
             else:
                 parent_labels = self.get_common_labels(observed_compound_recs)
             
-            # If there are any labeled elements unaccounted for, add then as zero-counts
+            # If there are any labeled elements unaccounted for, add them as zero-counts
             if len(isotopes) < len(parent_labels):
                 for parent_label in parent_labels:
                     match = [

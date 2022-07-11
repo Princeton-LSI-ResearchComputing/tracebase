@@ -407,3 +407,15 @@ class InfusateValidationTests(InfusateTest):
             self.infusate_data_leucine_named_2
         )
         self.assertIsNone(infusate_found)
+
+    def test_infusion_get_by_all_data(self):
+        """Test getting infusion record using InfusateData"""
+        (infusate, created) = Infusate.objects.get_or_create_infusate(
+            self.infusate_data_bcaas
+        )
+        self.assertTrue(created)
+        (infusate_found, created2) = Infusate.objects.get_or_create_infusate(
+            self.infusate_data_bcaas
+        )
+        self.assertFalse(created2)
+        self.assertEqual(infusate, infusate_found)
