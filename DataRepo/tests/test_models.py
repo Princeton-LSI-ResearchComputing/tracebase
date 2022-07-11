@@ -1892,7 +1892,39 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
         self.assertEqual(num_tracers, post_load_tracer_count - pre_load_tracer_count)
         self.assertEqual(num_tracerlabels, post_load_tracerlabel_count - pre_load_tracerlabel_count)
 
-    def test_multitracer_isocorr_load(self):
+    def test_multitracer_isocorr_load_1(self):
+        self.load_multitracer_data()
+        pre_load_group_count = PeakGroup.objects.count()
+        call_command(
+            "load_accucor_msruns",
+            accucor_file="DataRepo/example_data/obob_fasted_ace_glycerol_3hb_citrate_eaa_fa_multiple_tracers/"
+            "6eaafasted1_cor.xlsx",
+            protocol="Default",
+            date="2021-04-29",
+            researcher="Xianfeng Zeng",
+            new_researcher=False,
+            isocorr_format=True,
+        )
+        post_load_group_count = PeakGroup.objects.count()
+        # The number of samples in the isocorr xlsx file (not the samples file)
+        SAMPLES_COUNT = 30
+        PEAKDATA_ROWS = 86
+        PARENT_REC_COUNT = 15
+
+        self.assertEqual(
+            post_load_group_count - pre_load_group_count,
+            PARENT_REC_COUNT * SAMPLES_COUNT,
+            msg=f"PeakGroup record count should be the number of C12 PARENT lines [{PARENT_REC_COUNT}] times the "
+            f"number of samples [{SAMPLES_COUNT}] = [{PARENT_REC_COUNT * SAMPLES_COUNT}].",
+        )
+        self.assertEqual(
+            PeakData.objects.count(),
+            PEAKDATA_ROWS * SAMPLES_COUNT,
+            msg=f"PeakData record count should be the number of peakdata rows [{PEAKDATA_ROWS}] times the number of "
+            f"samples [{SAMPLES_COUNT}] = [{PEAKDATA_ROWS * SAMPLES_COUNT}].",
+        )
+
+    def test_multitracer_isocorr_load_2(self):
         self.load_multitracer_data()
         pre_load_group_count = PeakGroup.objects.count()
         call_command(
@@ -1906,11 +1938,42 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             isocorr_format=True,
         )
         post_load_group_count = PeakGroup.objects.count()
-        # The number of samples in the isocorr csv file (not the samples file)
+        # The number of samples in the isocorr xlsx file (not the samples file)
         SAMPLES_COUNT = 30
         PEAKDATA_ROWS = 81
-        MEASURED_COMPOUNDS_COUNT = 14
         PARENT_REC_COUNT = 15
+
+        self.assertEqual(
+            post_load_group_count - pre_load_group_count,
+            PARENT_REC_COUNT * SAMPLES_COUNT,
+            msg=f"PeakGroup record count should be the number of C12 PARENT lines [{PARENT_REC_COUNT}] times the "
+            f"number of samples [{SAMPLES_COUNT}] = [{PARENT_REC_COUNT * SAMPLES_COUNT}].",
+        )
+        self.assertEqual(
+            PeakData.objects.count(),
+            PEAKDATA_ROWS * SAMPLES_COUNT,
+            msg=f"PeakData record count should be the number of peakdata rows [{PEAKDATA_ROWS}] times the number of "
+            f"samples [{SAMPLES_COUNT}] = [{PEAKDATA_ROWS * SAMPLES_COUNT}].",
+        )
+
+    def test_multitracer_isocorr_load_3(self):
+        self.load_multitracer_data()
+        pre_load_group_count = PeakGroup.objects.count()
+        call_command(
+            "load_accucor_msruns",
+            accucor_file="DataRepo/example_data/obob_fasted_ace_glycerol_3hb_citrate_eaa_fa_multiple_tracers/"
+            "6eaafasted2_cor.xlsx",
+            protocol="Default",
+            date="2021-04-29",
+            researcher="Xianfeng Zeng",
+            new_researcher=False,
+            isocorr_format=True,
+        )
+        post_load_group_count = PeakGroup.objects.count()
+        # The number of samples in the isocorr xlsx file (not the samples file)
+        SAMPLES_COUNT = 30
+        PEAKDATA_ROWS = 143
+        PARENT_REC_COUNT = 20
 
         self.assertEqual(
             post_load_group_count - pre_load_group_count,
