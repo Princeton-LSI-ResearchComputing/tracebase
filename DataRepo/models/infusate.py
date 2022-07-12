@@ -66,66 +66,19 @@ class InfusateManager(models.Manager):
             tracer_group_name=infusate_data["infusate_name"],
             num_tracers=num_target_tracers,
         )
-        print(f"There were {infusates.count()} infusates that matched group name {infusate_data['infusate_name']} and number of tracers: {num_target_tracers}.")
-        for infusate in infusates.all():
-            print(f"  Infusate: {model_to_dict(infusate)}")
-            for it in infusate.tracers.through.objects.filter(infusate__id__exact=infusate.id).all():
-                print(f"    InfusateTracer: {model_to_dict(it)}")
-                print(f"      Tracer: {model_to_dict(it.tracer)}")
-                for label in it.tracer.labels.all():
-                    print(f"        TracerLabel: {model_to_dict(label)}")
 
         # Check that the tracers match
-        Tracer = apps.get_model("DataRepo.Tracer")
-        matches = {}
-        for tracer_data in infusate_data["tracers"]:
-            tracer = Tracer.objects.get_tracer(tracer_data["tracer"])
-            if tracer is None:
-                # Matching infusate cannot exist if the tracer it links to does not exist
-                print("There were 0 matching infusates.")
-                return None
-            filt = {
-                "infusatetracer__tracer__id__exact": tracer.id,
-                "infusatetracer__concentration__exact": tracer_data["concentration"],
-            }
-            q = models.Q(**filt)
-            for infusate in infusates.filter(q):
-                if infusate.id in matches.keys():
-                    matches[infusate.id]["count"] += 1
-                else:
-                    matches[infusate.id] = {
-                        "count": 1,
-                        "infusate": infusate,
-                    }
-            print(f"Currently, there are {infusates.filter(models.Q(**filt)).count()} infusates that match {q}")
+        for infusate_tracer in infusate_data["tracers"]:
+            Tracer = apps.get_model("DataRepo.Tracer")
+            tracer = Tracer.objects.get_tracer(infusate_tracer["tracer"])
+            infusates = infusates.filter(
+                infusatetracer__tracer=tracer,
+                infusatetracer__concentration=infusate_tracer["concentration"],
+            )
+        if infusates.count() == 1:
+            matching_infusate = infusates.first()
 
-        actual_matches = 0
-        actual_match = None
-        for match in matches.values():
-            if match["count"] == num_target_tracers:
-                actual_match = match["infusate"]
-                actual_matches += 1
-
-        if actual_matches != 1:
-            return None
-        return actual_match
-        # infusates = infusates.filter(q)
-        # print(f"There were {infusates.count()} matching infusates using query {q}.")
-        # # The above code was restructured because the way the filter was constructed assumed the returned records were
-        # # linked to all sub-records, but in this context, each record is like a left join with access to 1 linked
-        # # instance.  That instance cannot be 2 different records at the same time.
-        # # So now we have all infusates that match any of the target tracers
-
-        # matching_infusates = []
-        # for infusate in infusates.all():
-        #     print(f"Matching infusate is linked to {infusate.tracers.count()} tracers")
-        #     if infusate.tracers.count() == num_target_tracers:
-        #         matching_infusates.append(infusate)
-
-        # if len(matching_infusates) == 1:
-        #     matching_infusate = matching_infusates[0]
-
-        # return matching_infusate
+        return matching_infusate
 
 
 class Infusate(MaintainedModel):
