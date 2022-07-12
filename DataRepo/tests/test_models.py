@@ -7,13 +7,14 @@ from django.core.management import CommandError, call_command
 from django.db import IntegrityError
 from django.db.models.deletion import RestrictedError
 from django.test import override_settings, tag
-from django.forms.models import model_to_dict
 
 from DataRepo.models import (
     Animal,
     Compound,
     CompoundSynonym,
     ElementLabel,
+    Infusate,
+    InfusateTracer,
     MSRun,
     PeakData,
     PeakGroup,
@@ -25,8 +26,6 @@ from DataRepo.models import (
     Tissue,
     Tracer,
     TracerLabel,
-    Infusate,
-    InfusateTracer,
 )
 from DataRepo.models.hier_cached_model import set_cache
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
@@ -34,11 +33,13 @@ from DataRepo.utils import (
     AccuCorDataLoader,
     AmbiguousCompoundDefinitionError,
     CompoundsLoader,
-    IsotopeParsingError,
+    IsotopeObservationData,
     IsotopeObservationParsingError,
+    IsotopeParsingError,
     MissingSamplesError,
     leaderboard_data,
 )
+
 
 class ExampleDataConsumer:
     def get_sample_test_dataframe(self):
@@ -692,7 +693,9 @@ class DataLoadingTests(TracebaseTestCase):
         a = Animal.objects.get(name="969")
         c = Compound.objects.get(name="C16:0")
         self.assertEqual(a.infusate.tracers.first().compound, c)
-        self.assertEqual(a.infusate.tracers.first().labels.first().element, ElementLabel.CARBON)
+        self.assertEqual(
+            a.infusate.tracers.first().labels.first().element, ElementLabel.CARBON
+        )
         self.assertEqual(a.sex, None)
 
     def test_animal_treatments_loaded(self):
@@ -770,11 +773,6 @@ class DataLoadingTests(TracebaseTestCase):
         # There should be a peak_data for each label count 0-6
         self.assertEqual(peak_group.peak_data.count(), 7)
 
-        for rec in peak_group.peak_data.all():
-            print(model_to_dict(rec))
-            for rec2 in rec.labels.all():
-                print(model_to_dict(rec2))
-
         # The peak_data for labeled_count==2 is missing, thus values should be 0
         peak_data = peak_group.peak_data.filter(labels__count=2).get()
         self.assertEqual(peak_data.raw_abundance, 0)
@@ -788,15 +786,7 @@ class DataLoadingTests(TracebaseTestCase):
             .filter(msrun__sample__name="serum-xz971")
             .get()
         )
-        print("What do I have here for sample serum-xz971 and compound histidine?:")
-        cnt = 0
-        for rec in peak_group.peak_data.filter(labels__count=5):
-            cnt += 1
-            print(f"peakdata rec {cnt}:")
-            print(model_to_dict(rec))
-            for lrec in rec.labels.filter(count=5):
-                print(f"peakdatalabel rec:")
-                print(model_to_dict(lrec))
+
         peak_data = peak_group.peak_data.filter(labels__count=5).get()
         self.assertAlmostEqual(peak_data.raw_abundance, 1356.587)
         self.assertEqual(peak_data.corrected_abundance, 0)
@@ -1906,10 +1896,17 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
         post_load_tracerlabel_count = TracerLabel.objects.count()
 
         self.assertEqual(num_samples, post_load_sample_count - pre_load_sample_count)
-        self.assertEqual(num_infusates, post_load_infusate_count - pre_load_infusate_count)
-        self.assertEqual(num_infusatetracers, post_load_infusatetracer_count - pre_load_infusatetracer_count)
+        self.assertEqual(
+            num_infusates, post_load_infusate_count - pre_load_infusate_count
+        )
+        self.assertEqual(
+            num_infusatetracers,
+            post_load_infusatetracer_count - pre_load_infusatetracer_count,
+        )
         self.assertEqual(num_tracers, post_load_tracer_count - pre_load_tracer_count)
-        self.assertEqual(num_tracerlabels, post_load_tracerlabel_count - pre_load_tracerlabel_count)
+        self.assertEqual(
+            num_tracerlabels, post_load_tracerlabel_count - pre_load_tracerlabel_count
+        )
 
     def test_multitracer_isocorr_load_1(self):
         self.load_multitracer_data()
@@ -2035,10 +2032,17 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
         post_load_tracerlabel_count = TracerLabel.objects.count()
 
         self.assertEqual(num_samples, post_load_sample_count - pre_load_sample_count)
-        self.assertEqual(num_infusates, post_load_infusate_count - pre_load_infusate_count)
-        self.assertEqual(num_infusatetracers, post_load_infusatetracer_count - pre_load_infusatetracer_count)
+        self.assertEqual(
+            num_infusates, post_load_infusate_count - pre_load_infusate_count
+        )
+        self.assertEqual(
+            num_infusatetracers,
+            post_load_infusatetracer_count - pre_load_infusatetracer_count,
+        )
         self.assertEqual(num_tracers, post_load_tracer_count - pre_load_tracer_count)
-        self.assertEqual(num_tracerlabels, post_load_tracerlabel_count - pre_load_tracerlabel_count)
+        self.assertEqual(
+            num_tracerlabels, post_load_tracerlabel_count - pre_load_tracerlabel_count
+        )
 
     def test_multilabel_isocorr_load_1(self):
         self.load_multilabel_data()
@@ -2116,9 +2120,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             researcher="Xianfeng Zeng",
             new_researcher=False,
             isocorr_format=True,
-            skip_samples=(
-                "bk",
-            ),
+            skip_samples=("bk",),
         )
         post_load_group_count = PeakGroup.objects.count()
         # The number of samples in the isocorr xlsx file (not the samples file)
@@ -2138,7 +2140,6 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             msg=f"PeakData record count should be the number of peakdata rows [{PEAKDATA_ROWS}] times the number of "
             f"samples [{SAMPLES_COUNT}] = [{PEAKDATA_ROWS * SAMPLES_COUNT}].",
         )
-
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
@@ -2234,29 +2235,58 @@ class ParseIsotopeLabelTests(TracebaseTestCase):
             sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
         )
 
+    def get_labeled_elements(self):
+        return [
+            IsotopeObservationData(
+                element="C",
+                mass_number=13,
+                count=0,
+                parent=True,
+            )
+        ]
+
     def test_parse_parent_isotope_label(self):
+        tracer_labeled_elements = self.get_labeled_elements()
         self.assertEqual(
-            AccuCorDataLoader.parse_isotope_string("C12 PARENT"),
-            [{"element": "C", "count": 0, "mass_number": 12}]
+            AccuCorDataLoader.parse_isotope_string(
+                "C12 PARENT", tracer_labeled_elements
+            ),
+            [{"element": "C", "count": 0, "mass_number": 12}],
         )
 
     def test_parse_isotope_label(self):
+        tracer_labeled_elements = self.get_labeled_elements()
         self.assertEqual(
-            AccuCorDataLoader.parse_isotope_string("C13-label-5"),
-            [{"element": "C", "count": 5, "mass_number": 13}]
+            AccuCorDataLoader.parse_isotope_string(
+                "C13-label-5",
+                tracer_labeled_elements,
+            ),
+            [{"element": "C", "count": 5, "mass_number": 13}],
         )
 
     def test_parse_isotope_label_bad(self):
+        tracer_labeled_elements = self.get_labeled_elements()
         with self.assertRaises(IsotopeObservationParsingError):
-            AccuCorDataLoader.parse_isotope_string("label-5")
+            AccuCorDataLoader.parse_isotope_string(
+                "label-5",
+                tracer_labeled_elements,
+            )
 
     def test_parse_isotope_label_empty(self):
+        tracer_labeled_elements = self.get_labeled_elements()
         with self.assertRaises(IsotopeObservationParsingError):
-            AccuCorDataLoader.parse_isotope_string("")
+            AccuCorDataLoader.parse_isotope_string(
+                "",
+                tracer_labeled_elements,
+            )
 
     def test_parse_isotope_label_none(self):
+        tracer_labeled_elements = self.get_labeled_elements()
         with self.assertRaises(TypeError):
-            AccuCorDataLoader.parse_isotope_string(None)
+            AccuCorDataLoader.parse_isotope_string(
+                None,
+                tracer_labeled_elements,
+            )
 
     def test_dupe_compound_isotope_pairs(self):
         # Error must contain:
@@ -2311,19 +2341,39 @@ class AnimalLoadingTests(TracebaseTestCase):
             ),
         )
         self.assertEqual(
-            Animal.objects.get(name="test_animal_1").infusate.tracers.first().labels.first().element, "C"
+            Animal.objects.get(name="test_animal_1")
+            .infusate.tracers.first()
+            .labels.first()
+            .element,
+            "C",
         )
         self.assertEqual(
-            Animal.objects.get(name="test_animal_2").infusate.tracers.first().labels.first().element, "N"
+            Animal.objects.get(name="test_animal_2")
+            .infusate.tracers.first()
+            .labels.first()
+            .element,
+            "N",
         )
         self.assertEqual(
-            Animal.objects.get(name="test_animal_3").infusate.tracers.first().labels.first().element, "H"
+            Animal.objects.get(name="test_animal_3")
+            .infusate.tracers.first()
+            .labels.first()
+            .element,
+            "H",
         )
         self.assertEqual(
-            Animal.objects.get(name="test_animal_4").infusate.tracers.first().labels.first().element, "O"
+            Animal.objects.get(name="test_animal_4")
+            .infusate.tracers.first()
+            .labels.first()
+            .element,
+            "O",
         )
         self.assertEqual(
-            Animal.objects.get(name="test_animal_5").infusate.tracers.first().labels.first().element, "S"
+            Animal.objects.get(name="test_animal_5")
+            .infusate.tracers.first()
+            .labels.first()
+            .element,
+            "S",
         )
 
     def testLabeledElementParsingInvalid(self):

@@ -269,7 +269,7 @@ class InfusateParsingTests(InfusateTest):
     def test_malformed_isotope_parsing_with_null_isotopic_specification(self):
         """Test isotope parsing empty labels list"""
         name = ""
-        with self.assertRaisesRegex(IsotopeParsingError, "requires a non-empty string"):
+        with self.assertRaisesRegex(IsotopeParsingError, "requires a defined string"):
             _ = parse_isotope_string(name)
 
 

@@ -11,8 +11,8 @@ from DataRepo.models.hier_cached_model import (
     enable_caching_updates,
 )
 from DataRepo.models.maintained_model import (
-    enable_autoupdates,
     disable_autoupdates,
+    enable_autoupdates,
     perform_buffered_updates,
 )
 from DataRepo.models.utilities import get_researchers, value_from_choices_label
@@ -26,6 +26,7 @@ from DataRepo.utils.exceptions import (
 from DataRepo.utils.infusate_name_parser import parse_infusate_name
 
 CONCENTRATIONS_DELIMITER = ";"
+
 
 class SampleTableLoader:
     """
@@ -299,7 +300,10 @@ class SampleTableLoader:
                 try:
                     # Not sure how the split results in a float, but my guess is that it's something in excel, thus if
                     # there do exist comma-delimited items, this should actually work
-                    tracer_concs = [float(x.strip()) for x in tracer_concs_str.split(CONCENTRATIONS_DELIMITER)]
+                    tracer_concs = [
+                        float(x.strip())
+                        for x in tracer_concs_str.split(CONCENTRATIONS_DELIMITER)
+                    ]
                 except AttributeError as ae:
                     if "object has no attribute 'split'" in str(ae):
                         tracer_concs = [tracer_concs_str]
@@ -311,7 +315,9 @@ class SampleTableLoader:
                     row, self.headers.INFUSATE, hdr_required=False
                 )
                 infusate_data_object = parse_infusate_name(infusate_str, tracer_concs)
-                (infusate, created) = Infusate.objects.get_or_create_infusate(infusate_data_object)
+                (infusate, created) = Infusate.objects.get_or_create_infusate(
+                    infusate_data_object
+                )
                 animal.infusate = infusate
 
                 # Get the infusion rate

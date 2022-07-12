@@ -1,13 +1,13 @@
 import collections
 import re
-import regex
 from datetime import datetime
+from typing import List, TypedDict
 
+import regex
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from pandas.errors import EmptyDataError
-from typing import List, TypedDict
 
 from DataRepo.models import (
     Compound,
@@ -59,12 +59,10 @@ ACCUCOR_LABEL_PATTERN = re.compile(
 )
 # regex has the ability to store repeated capture groups' values and put them in a list
 ISOTOPE_LABEL_PATTERN = regex.compile(
-
     # Match repeated elements and mass numbers (e.g. "C13N15")
     r"^(?:(?P<elements>["
     + "".join(ElementLabel.labeled_elements_list())
     + r"]{1,2})(?P<mass_numbers>\d+))+"
-
     # Match either " PARENT" or repeated counts (e.g. "-labels-2-1")
     + r"(?: (?P<parent>PARENT)|-label(?:-(?P<counts>\d+))+)$"
 )
@@ -136,9 +134,14 @@ class AccuCorDataLoader:
 
         disable_caching_updates()
         self.clean_dataframes()
-        self.corrected_samples = self.get_df_sample_names(self.accucor_corrected_df, self.skip_samples)
+        self.corrected_samples = self.get_df_sample_names(
+            self.accucor_corrected_df, self.skip_samples
+        )
         # Determine the labeled element from the corrected data
-        self.labeled_element, self.labeled_element_header = self.get_labeled_element_and_header()
+        (
+            self.labeled_element,
+            self.labeled_element_header,
+        ) = self.get_labeled_element_and_header()
         self.sample_dict = self.get_db_samples()
         # Assuming only 1 animal is included as a source for all samples
         tracers = list(self.sample_dict.values())[0].animal.infusate.tracers.all()
@@ -210,16 +213,14 @@ class AccuCorDataLoader:
             else:
                 raise ke
 
-    def get_df_sample_names(cls, df, skip_samples):
+    def get_df_sample_names(self, df, skip_samples):
         sample_names = []
 
         if df is not None:
-            minimum_sample_index = cls.get_first_sample_column_index(df)
+            minimum_sample_index = self.get_first_sample_column_index(df)
             sample_names = [
                 sample
-                for sample in list(df)[
-                    minimum_sample_index:
-                ]
+                for sample in list(df)[minimum_sample_index:]
                 if sample not in skip_samples
             ]
 
@@ -233,7 +234,9 @@ class AccuCorDataLoader:
         Validate sample headers. Get the sample names from the original header
         [all columns]
         """
-        original_samples = self.get_df_sample_names(self.accucor_original_df, self.skip_samples)
+        original_samples = self.get_df_sample_names(
+            self.accucor_original_df, self.skip_samples
+        )
 
         # Make sure all sample columns have names
         corr_iter = collections.Counter(self.corrected_samples)
@@ -339,7 +342,7 @@ class AccuCorDataLoader:
             labeled_element = match.group(1)
             if labeled_element:
                 print(f"Labeled element is {labeled_element}")
-        
+
         return labeled_element, labeled_element_header
 
     @classmethod
@@ -382,7 +385,7 @@ class AccuCorDataLoader:
                     missing_samples,
                 )
             )
-        
+
         return sample_dict
 
     @classmethod
@@ -622,10 +625,6 @@ class AccuCorDataLoader:
                         "group": peak_group,
                         "labels": common_labels,
                     }
-                else:
-                    print(
-                        f"\tObserved isotopes is length {len(obs_isotopes)}"
-                    )
 
             # For each PeakGroup, create PeakData rows
             for peak_group_name in inserted_peak_group_dict:
@@ -655,10 +654,15 @@ class AccuCorDataLoader:
                         # Try to get original data. If it's not there, set empty values
                         try:
                             orig_row = peak_group_original_data.iloc[orig_row_idx]
-                            orig_isotopes = self.parse_isotope_string(orig_row["isotopeLabel"])
+                            orig_isotopes = self.parse_isotope_string(
+                                orig_row["isotopeLabel"], self.tracer_labeled_elements
+                            )
                             for isotope in orig_isotopes:
                                 # If it's a matching row
-                                if isotope["element"] == self.labeled_element and isotope["count"] == labeled_count:
+                                if (
+                                    isotope["element"] == self.labeled_element
+                                    and isotope["count"] == labeled_count
+                                ):
                                     # We have a matching row, use it and increment row_idx
                                     raw_abundance = orig_row[sample_name]
                                     med_mz = orig_row["medMz"]
@@ -710,8 +714,8 @@ class AccuCorDataLoader:
 
                         print(
                             f"\t\t\tInserting peak data label [{isotope['mass_number']}{isotope['element']}"
-                            f"{isotope['count']}] parsed from cell value: [{orig_row['isotopeLabel']}] for peak data ID [{peak_data.id}], peak group [{peak_group_name}"
-                            f"], and sample [{sample_name}]."
+                            f"{isotope['count']}] parsed from cell value: [{orig_row['isotopeLabel']}] for peak data "
+                            f"ID [{peak_data.id}], peak group [{peak_group_name}], and sample [{sample_name}]."
                         )
 
                         peak_data_label = PeakDataLabel(
@@ -762,14 +766,17 @@ class AccuCorDataLoader:
                         Create the PeakDataLabel records
                         """
 
-                        corr_isotopes = self.get_observed_isotopes(corr_row, peak_group.compounds.all())
+                        corr_isotopes = self.get_observed_isotopes(
+                            corr_row, peak_group.compounds.all()
+                        )
 
                         for isotope in corr_isotopes:
 
                             print(
                                 f"\t\t\tInserting peak data label [{isotope['mass_number']}{isotope['element']}"
-                                f"{isotope['count']}] parsed from cell value: [{corr_row[self.labeled_element_header]}] for peak data ID [{peak_data.id}], peak group [{peak_group_name}"
-                                f"], and sample [{sample_name}]."
+                                f"{isotope['count']}] parsed from cell value: [{corr_row[self.labeled_element_header]}"
+                                f"] for peak data ID [{peak_data.id}], peak group [{peak_group_name}], and sample "
+                                f"[{sample_name}]."
                             )
 
                             # Note that this inserts the parent record (count 0) as always 12C, since the parent is
@@ -810,7 +817,10 @@ class AccuCorDataLoader:
         common_labels = []
         for compound_rec in compound_recs:
             for tracer_label in self.tracer_labeled_elements:
-                if compound_rec.atom_count(tracer_label["element"]) > 0 and tracer_label not in common_labels:
+                if (
+                    compound_rec.atom_count(tracer_label["element"]) > 0
+                    and tracer_label not in common_labels
+                ):
                     common_labels.append(tracer_label)
         return common_labels
 
@@ -825,7 +835,7 @@ class AccuCorDataLoader:
         if self.isocorr_format:
             # E.g. Parsing C13N15-label-2-3 in isotopeLabel column
             isotopes = self.parse_isotope_string(
-                corrected_row[self.labeled_element_header]
+                corrected_row[self.labeled_element_header], self.tracer_labeled_elements
             )
 
             # Establish the set of labeled elements we're working from
@@ -833,19 +843,25 @@ class AccuCorDataLoader:
                 parent_labels = self.tracer_labeled_elements
             else:
                 parent_labels = self.get_common_labels(observed_compound_recs)
-            
+
             # If there are any labeled elements unaccounted for, add them as zero-counts
             if len(isotopes) < len(parent_labels):
                 for parent_label in parent_labels:
                     match = [
-                        x for x in isotopes
-                        if x["element"] == parent_label["element"] and x["mass_number"] == parent_label["mass_number"]
+                        x
+                        for x in isotopes
+                        if x["element"] == parent_label["element"]
+                        and x["mass_number"] == parent_label["mass_number"]
                     ]
                     if len(match) == 0:
                         isotopes.append(parent_label)
                     elif len(match) > 1:
-                        raise Exception("Cannot uniquely match measured labeled elements with tracer labeled elements.")
-            elif observed_compound_recs is not None and len(isotopes) > len(parent_labels):
+                        raise Exception(
+                            "Cannot uniquely match measured labeled elements with tracer labeled elements."
+                        )
+            elif observed_compound_recs is not None and len(isotopes) > len(
+                parent_labels
+            ):
                 # Apparently, there is evidence of detected heavy nitrogen in an animal whose infusate contained
                 # tracers containing no heavy nitrogen.  This could suggest contamination, but we shouldn't raise an
                 # exception...
@@ -861,7 +877,11 @@ class AccuCorDataLoader:
         else:
 
             # Get the mass number(s) from the associated tracers
-            mns = [x["mass_number"] for x in self.tracer_labeled_elements if x["element"] == self.labeled_element]
+            mns = [
+                x["mass_number"]
+                for x in self.tracer_labeled_elements
+                if x["element"] == self.labeled_element
+            ]
             if len(mns) > 1:
                 raise MultipleMassNumbers(
                     f"Labeled element [{self.labeled_element}] exists among the tracer(s) with "
@@ -886,7 +906,10 @@ class AccuCorDataLoader:
 
         return isotopes
 
-    def parse_isotope_string(self, label) -> List[IsotopeObservationData]:
+    @classmethod
+    def parse_isotope_string(
+        cls, label, tracer_labeled_elements=None
+    ) -> List[IsotopeObservationData]:
         """
         Parse El-Maven style isotope label string, e.g. C12 PARENT, C13-label-1, C13N15-label-2-1
         Returns a list of IsotopeObservationData objects (which is a TypedDict)
@@ -907,7 +930,11 @@ class AccuCorDataLoader:
 
             if parent_str is not None and parent_str == "PARENT":
                 parent = True
-                isotope_observations = self.tracer_labeled_elements
+                if tracer_labeled_elements is None:
+                    raise Exception(
+                        "tracer_labeled_elements required to process PARENT entries."
+                    )
+                isotope_observations = tracer_labeled_elements
             else:
                 if len(elements) != len(mass_numbers) or len(elements) != len(counts):
                     IsotopeObservationParsingError(
@@ -925,7 +952,9 @@ class AccuCorDataLoader:
                             )
                         )
         else:
-            raise IsotopeObservationParsingError(f"Unable to parse isotope label: [{label}]")
+            raise IsotopeObservationParsingError(
+                f"Unable to parse isotope label: [{label}]"
+            )
 
         return isotope_observations
 
