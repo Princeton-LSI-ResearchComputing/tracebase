@@ -646,6 +646,12 @@ class AccuCorDataLoader:
                     for labeled_count in range(
                         0, peak_group.atom_count(self.labeled_element) + 1
                     ):
+                        raw_abundance = 0
+                        med_mz = 0
+                        med_rt = 0
+                        # Assuming a single labeled element in the tracer(s) bec. this is accucor
+                        mass_number = self.tracer_labeled_elements[0]["mass_number"]
+
                         # Try to get original data. If it's not there, set empty values
                         try:
                             orig_row = peak_group_original_data.iloc[orig_row_idx]
@@ -660,11 +666,12 @@ class AccuCorDataLoader:
                                     orig_row_idx = orig_row_idx + 1
                                     mass_number = isotope["mass_number"]
                         except IndexError:
-                            raw_abundance = 0
-                            med_mz = 0
-                            med_rt = 0
-                            # Assuming a single labeled element in the tracer(s) bec. this is accucor
-                            mass_number = self.tracer_labeled_elements[0]["mass_number"]
+                            # We can ignore missing entries in the original sheet and use the defaults set above the
+                            # try block
+                            print(
+                                f"No original sheet row for element {self.labeled_element} with label count "
+                                f"{labeled_count}"
+                            )
 
                         # Lookup corrected abundance by compound and label
                         corrected_abundance = self.accucor_corrected_df.loc[

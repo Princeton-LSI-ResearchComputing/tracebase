@@ -21,22 +21,8 @@ class TracerLabelManager(models.Manager):
             positions=isotope_data["positions"],
             mass_number=isotope_data["mass_number"],
         )
+        tracer_label.full_clean()
         return tracer_label
-
-    def get_tracer_label(self, isotope_data: IsotopeData):
-        """
-        This finds a tracer label even if the name is set or not set
-        """
-        matching_tracer_label = None
-        tracer_labels = TracerLabel.objects.filter(
-            element__exact=isotope_data["element"],
-            mass_number__exact=isotope_data["mass_number"],
-            count__exact=isotope_data["count"],
-            positions__exact=isotope_data["positions"],
-        )
-        if tracer_labels.count() == 1:
-            matching_tracer_label = tracer_labels.first()
-        return matching_tracer_label
 
 
 class TracerLabel(MaintainedModel, ElementLabel):

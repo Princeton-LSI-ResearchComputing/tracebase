@@ -5,7 +5,7 @@ from typing import Optional
 from django.apps import apps
 from django.core.exceptions import ValidationError
 from django.db import models
-from django.forms.models import model_to_dict
+
 from DataRepo.models.element_label import ElementLabel
 from DataRepo.models.maintained_model import (
     MaintainedModel,
@@ -35,7 +35,6 @@ class TracerManager(models.Manager):
     def get_tracer(self, tracer_data: TracerData) -> Optional[Tracer]:
         """Get Tracer matching the tracer_data"""
         matching_tracer = None
-        target_num_labels = len(tracer_data["isotopes"])
 
         # First, check if the compound is found
         Compound = apps.get_model("DataRepo.Compound")
@@ -45,43 +44,18 @@ class TracerManager(models.Manager):
         if compound:
             # Check for tracers of the compound with same number of labels
             tracers = Tracer.objects.annotate(num_labels=models.Count("labels")).filter(
-                compound=compound, num_labels=target_num_labels
+                compound=compound, num_labels=len(tracer_data["isotopes"])
             )
-
-            print(f"There are {tracers.count()} tracers that matched the compound {compound} and had {len(tracer_data['isotopes'])} labels.")
-            for tracer in tracers.all():
-                print(f"Matching tracer: {model_to_dict(tracer)}")
-                for label in tracer.labels.all():
-                    print(f"  Matching label: {model_to_dict(label)}")
-
             # Check that the labels match
-            q = models.Q()
             for tracer_label in tracer_data["isotopes"]:
-                filt = {
-                    "element__exact": tracer_label["element"],
-                    "mass_number__exact": tracer_label["mass_number"],
-                    "count__exact": tracer_label["count"],
-                }
-                if tracer_label["positions"] is None:
-                    filt["positions__isnull"] = True
-                else:
-                    filt["positions__exact"] = tracer_label["positions"]
-
-                q |= models.Q(**filt)
-
-            print(f"Filtering tracers records with query {q}")
-            matching_tracers = []
-            for tracer in tracers.all():
-                num_labels = 0
-                for label in tracer.labels.filter(q).all():
-                    num_labels += 1
-                if num_labels == target_num_labels:
-                    matching_tracers.append(tracer)
-
-            if len(matching_tracers) == 1:
-                matching_tracer = matching_tracers[0]
-            print(f"There are {len(matching_tracers)} tracers that match all the labels in {tracer_data}")
-
+                tracers = tracers.filter(
+                    labels__element=tracer_label["element"],
+                    labels__mass_number=tracer_label["mass_number"],
+                    labels__count=tracer_label["count"],
+                    labels__positions=tracer_label["positions"],
+                )
+            if tracers.count() == 1:
+                matching_tracer = tracers.first()
         return matching_tracer
 
 

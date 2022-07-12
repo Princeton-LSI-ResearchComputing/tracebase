@@ -552,7 +552,7 @@ class DataLoadingTests(TracebaseTestCase):
             "load_compounds",
             compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
         )
-        cls.ALL_COMPOUNDS_COUNT = 49
+        cls.ALL_COMPOUNDS_COUNT = 51
 
         # initialize some sample-table-dependent counters
         cls.ALL_SAMPLES_COUNT = 0
@@ -770,16 +770,17 @@ class DataLoadingTests(TracebaseTestCase):
         # There should be a peak_data for each label count 0-6
         self.assertEqual(peak_group.peak_data.count(), 7)
 
-        # vvv - This is wrong.  It raises an exception about .get() not  finding anything
-        # The peak_data for labeled_count==2 is missing, thus values should be 0
-        # peak_data = peak_group.peak_data.filter(labels__count=2).get()
-        # self.assertEqual(peak_data.raw_abundance, 0)
-        # self.assertEqual(peak_data.med_mz, 0)
-        # self.assertEqual(peak_data.med_rt, 0)
-        # self.assertEqual(peak_data.corrected_abundance, 0)
+        for rec in peak_group.peak_data.all():
+            print(model_to_dict(rec))
+            for rec2 in rec.labels.all():
+                print(model_to_dict(rec2))
 
-        with self.assertRaisesMessage(PeakData.DoesNotExist, "PeakData matching query does not exist."):
-            peak_group.peak_data.filter(labels__count=2).get()
+        # The peak_data for labeled_count==2 is missing, thus values should be 0
+        peak_data = peak_group.peak_data.filter(labels__count=2).get()
+        self.assertEqual(peak_data.raw_abundance, 0)
+        self.assertEqual(peak_data.med_mz, 0)
+        self.assertEqual(peak_data.med_rt, 0)
+        self.assertEqual(peak_data.corrected_abundance, 0)
 
     def test_peak_group_peak_data_3(self):
         peak_group = (

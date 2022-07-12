@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING, Optional
 from django.apps import apps
 from django.core.exceptions import ValidationError
 from django.db import models
-from django.forms.models import model_to_dict
 
 from DataRepo.models.maintained_model import (
     MaintainedModel,
@@ -32,7 +31,6 @@ class InfusateManager(models.Manager):
         # Matching record not found, create new record
         if infusate is None:
             # create infusate
-            print(f"Creating infusate: {infusate_data}")
             infusate = self.create(tracer_group_name=infusate_data["infusate_name"])
 
             # create tracers
@@ -57,16 +55,14 @@ class InfusateManager(models.Manager):
     def get_infusate(self, infusate_data: InfusateData) -> Optional[Infusate]:
         """Get Infusate matching the infusate_data"""
         matching_infusate = None
-        num_target_tracers = len(infusate_data["tracers"])
 
         # Check for infusates with the same name and same number of tracers
         infusates = Infusate.objects.annotate(
             num_tracers=models.Count("tracers")
         ).filter(
             tracer_group_name=infusate_data["infusate_name"],
-            num_tracers=num_target_tracers,
+            num_tracers=len(infusate_data["tracers"]),
         )
-
         # Check that the tracers match
         for infusate_tracer in infusate_data["tracers"]:
             Tracer = apps.get_model("DataRepo.Tracer")
@@ -77,7 +73,6 @@ class InfusateManager(models.Manager):
             )
         if infusates.count() == 1:
             matching_infusate = infusates.first()
-
         return matching_infusate
 
 
