@@ -1,7 +1,7 @@
 from DataRepo.utils.accucor_data_loader import (
     AccuCorDataLoader,
-    IsotopeObservationParsingError,
     IsotopeObservationData,
+    IsotopeObservationParsingError,
 )
 from DataRepo.utils.composite_data import leaderboard_data
 from DataRepo.utils.compounds_loader import CompoundsLoader
