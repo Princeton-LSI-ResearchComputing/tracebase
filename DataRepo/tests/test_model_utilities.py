@@ -14,5 +14,13 @@ class ModelUtilitiesTests(TracebaseTestCase):
         # Test that the sets contain the same things
         missing_models = all_models - test_all_models
         extra_models = test_all_models - all_models
-        self.assertEqual(missing_models, set())
-        self.assertEqual(extra_models, set())
+        self.assertEqual(
+            missing_models,
+            set(),
+            msg="Models returned by DataRepo.models.utilities.get_all_models() are missing these.",
+        )
+        self.assertEqual(
+            extra_models,
+            set(),
+            msg="Models returned by DataRepo.models.utilities.get_all_models() includes these non-existant models.",
+        )
