@@ -538,7 +538,13 @@ class Format:
             # We will save the db-only field names here (i.e. no non-DB field references to model objects)
             db_field_ordering = []
             # For each order-by field reference
-            for ob_field in ordering:
+            for ob_field_val in ordering:
+                # if the field ordering is reversed
+                if ob_field_val.startswith("-"):
+                    # Chop off the negative sign to get the unmodified field name
+                    ob_field = ob_field_val[1:]
+                else:
+                    ob_field = ob_field_val
                 add_flds = []
                 fld = getattr(mdl, ob_field)
                 # If this is a foreign key (i.e. it's a model reference, not an actual DB field)

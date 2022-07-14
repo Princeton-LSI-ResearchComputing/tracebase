@@ -210,24 +210,17 @@
                         {% endif %}
                     {% endwith %}
                 </th>
-                <th data-valign="top" class="metagrp" data-visible="{% get_template_cookie selfmt 'Tracer_Compound-data-visible' 'true' %}" data-field="Tracer_Compound" data-switchable="false">
-                    {% with "Tracer<br>Compound" as colhead %}
+                <th data-valign="top" class="metagrp" data-visible="{% get_template_cookie selfmt 'Infusate-data-visible' 'true' %}" data-field="Infusate" data-switchable="false">
+                    {% with "Infusate" as colhead %}
                         {% if mode == "view" %}{{ colhead }}{% else %}
-                            <div onclick="sortColumn(this)" class="sortable" id="peak_group__msrun__sample__animal__tracer_compound__name">Tracer<br>Compound</div>
+                            <div onclick="sortColumn(this)" class="sortable" id="peak_group__msrun__sample__animal__infusate__name">Infusate</div>
                         {% endif %}
                     {% endwith %}
                 </th>
-                <th data-valign="top" class="metagrp" data-visible="{% get_template_cookie selfmt 'Tracer_Infusion_Rate-data-visible' 'false' %}" data-field="Tracer_Infusion_Rate">
-                    {% with "Tracer<br>Infusion<br>Rate<br>(ul/min/g)" as colhead %}
+                <th data-valign="top" class="metagrp" data-visible="{% get_template_cookie selfmt 'Infusion_Rate-data-visible' 'false' %}" data-field="Infusion_Rate">
+                    {% with "Infusion<br>Rate<br>(ul/min/g)" as colhead %}
                         {% if mode == "view" %}{{ colhead }}{% else %}
-                            <div onclick="sortColumn(this)" class="sortable" id="peak_group__msrun__sample__animal__tracer_infusion_rate">Tracer<br>Infusion<br>Rate<br>(ul/min/g)</div>
-                        {% endif %}
-                    {% endwith %}
-                </th>
-                <th data-valign="top" class="metagrp" data-visible="{% get_template_cookie selfmt 'Tracer_Infusion_Concentration-data-visible' 'false' %}" data-field="Tracer_Infusion_Concentration">
-                    {% with "Tracer<br>Infusion<br>Concentration<br>(mM)" as colhead %}
-                        {% if mode == "view" %}{{ colhead }}{% else %}
-                            <div onclick="sortColumn(this)" class="sortable" id="peak_group__msrun__sample__animal__tracer_infusion_concentration">Tracer<br>Infusion<br>Concentration<br>(mM)</div>
+                            <div onclick="sortColumn(this)" class="sortable" id="peak_group__msrun__sample__animal__infusion_rate">Infusion<br>Rate<br>(ul/min/g)</div>
                         {% endif %}
                     {% endwith %}
                 </th>
@@ -310,7 +303,8 @@
 
                     <!-- Labeled Element:Count -->
                     <td>
-                        {{ pd.labeled_element }}:{{ pd.labeled_count }}
+                        {% define True as lblfirst %}
+                        {% for lbl in pd.labels.all %}{% if not lblfirst %}; {% endif%}{{ lbl.element }}:{{ lbl.count }}{% define False as lblfirst %}{% endfor %}
                     </td>
 
                     <!-- Peak Group Set Filename -->
@@ -393,29 +387,25 @@
                         {{ pd.peak_group.msrun.sample.animal.diet }}
                     </td>
 
-                    <!-- Tracer Compound -->
+                    <!-- Infusate -->
                     <td>
-                        {% if pd.peak_group.msrun.sample.animal.tracer_compound is None %}
+                        {% if pd.peak_group.msrun.sample.animal.infusate.name is None %}
                             <!-- Put displayed link text first for sorting -->
                             <div style="display:none;">None</div>
-                            <p title="Animal has no tracer.">None</p>
+                            <p title="Animal has no infusate.">None</p>
                         {% else %}
-                            <!-- Put displayed link text first for sorting -->
-                            <div style="display:none;">{{ pd.peak_group.msrun.sample.animal.tracer_compound.name }}</div>
-                            <a href="{% url 'compound_detail' pd.peak_group.msrun.sample.animal.tracer_compound.id %}">
-                                {{ pd.peak_group.msrun.sample.animal.tracer_compound.name }}
-                            </a>
+                            {% comment %} TODO: There does not yet exist an infusate_detail page.  Create one, update this commented code, and uncomment. {% endcomment %}
+                            {% comment %} <!-- Put displayed link text first for sorting --> {% endcomment %}
+                            {% comment %} <div style="display:none;">{{ pd.peak_group.msrun.sample.animal.infusate.name }}</div> {% endcomment %}
+                            {% comment %} <a href="{% url 'compound_detail' pd.peak_group.msrun.sample.animal.infusate.id %}"> {% endcomment %}
+                                {{ pd.peak_group.msrun.sample.animal.infusate.name }}
+                            {% comment %} </a> {% endcomment %}
                         {% endif %}
                     </td>
 
-                    <!-- Tracer Infusion Rate (ul/min/g) -->
+                    <!-- Infusion Rate (ul/min/g) -->
                     <td class="text-end">
-                        {{ pd.peak_group.msrun.sample.animal.tracer_infusion_rate }}
-                    </td>
-
-                    <!-- Tracer Infusion Concentration (mM) -->
-                    <td class="text-end">
-                        {{ pd.peak_group.msrun.sample.animal.tracer_infusion_concentration }}
+                        {{ pd.peak_group.msrun.sample.animal.infusion_rate }}
                     </td>
 
                     <!-- Studies -->

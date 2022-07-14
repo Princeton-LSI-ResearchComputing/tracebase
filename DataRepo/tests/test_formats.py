@@ -35,7 +35,7 @@ class FormatsTests(TracebaseTestCase):
         call_command(
             "load_samples",
             "DataRepo/example_data/small_dataset/small_obob_sample_table.tsv",
-            sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
+            # sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
         )
         call_command(
             "load_samples",
@@ -126,7 +126,7 @@ class FormatsTests(TracebaseTestCase):
             ("peak_group__msrun__sample__animal__studies__name", "Study"),
             ("peak_group__msrun__sample__tissue__name", "Tissue"),
             (
-                "peak_group__msrun__sample__animal__tracer_compound__name",
+                "peak_group__msrun__sample__animal__infusate__tracers__compound__name",
                 "Tracer Compound (Primary Synonym)",
             ),
             (
@@ -134,7 +134,7 @@ class FormatsTests(TracebaseTestCase):
                 "Tracer Infusion Concentration (mM)",
             ),
             (
-                "peak_group__msrun__sample__animal__tracer_infusion_rate",
+                "peak_group__msrun__sample__animal__infusion_rate",
                 "Tracer Infusion Rate (ul/min/g)",
             ),
             ("peak_group__msrun__sample__animal__treatment__name", "Treatment"),
