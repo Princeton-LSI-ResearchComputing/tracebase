@@ -320,12 +320,14 @@ class SampleTableLoader:
                 )
                 animal.infusate = infusate
 
+                rate_required = infusate is not None
+
                 # Get the infusion rate
                 tir = self.getRowVal(
-                    row, self.headers.ANIMAL_INFUSION_RATE, hdr_required=False
+                    row, self.headers.ANIMAL_INFUSION_RATE, hdr_required=rate_required
                 )
                 if tir is not None:
-                    animal.tracer_infusion_rate = tir
+                    animal.infusion_rate = tir
 
                 try:
                     animal.full_clean()
