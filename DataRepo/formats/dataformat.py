@@ -164,18 +164,22 @@ class Format:
         Returns a list of prefetch strings for a composite view from the root table to the supplied table.  It includes
         a unique set of "foreign key paths" that encompass all tables.
         """
-        desc_len_sorted_paths = sorted(
-            map(
-                lambda name: self.model_instances[name]["path"],
+        # This gets non-root model key paths (that are not "through" models) sorted in descending order of their length
+        desc_len_sorted_paths = [
+            self.model_instances[x]["path"] for x in sorted(
                 self.getModelInstances(),
-            ),
-            key=len,
-            reverse=True,
-        )
+                key=len,
+                reverse=True,
+            ) if (
+                self.model_instances[x]["path"] != "" and (
+                    "through" not in self.model_instances[x]["manytomany"]
+                    or not self.model_instances[x]["manytomany"]["through"]
+                )
+            )
+        ]
+        # This filters out paths that are contained inside other paths
         unique_paths = []
         for path in desc_len_sorted_paths:
-            if path == "":
-                continue
             contained = False
             for upath in unique_paths:
                 if path in upath:

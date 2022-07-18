@@ -389,6 +389,79 @@ class PeakDataFormat(Format):
                 },
             },
         },
+        "Infusate": {
+            "model": "Compound",
+            "path": "peak_group__msrun__sample__animal__infusate",
+            "reverse_path": "animals__samples__msruns__peak_groups__peak_data",
+            "manytomany": {
+                "is": True,
+                "split_rows": False,
+            },
+            "fields": {
+                "id": {
+                    "displayname": "(Internal) Infusate Index",
+                    "searchable": True,
+                    "displayed": False,  # Used in link
+                    "handoff": "name",  # This is the field that will be loaded in the search form
+                    "type": "number",
+                },
+                "name": {
+                    "displayname": "Infusate",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "string",
+                },
+            },
+        },
+        "InfusateTracer": {
+            "model": "InfusateTracer",
+            "path": "peak_group__msrun__sample__animal__infusate__infusatetracer",
+            "reverse_path": "infusate__animal__samples__msruns__peak_groups__peak_data",
+            "manytomany": {
+                "is": True,
+                "split_rows": False,
+                "through": True
+            },
+            "fields": {
+                "id": {
+                    "displayname": "(Internal) Infusate Tracer Link Index",
+                    "searchable": True,
+                    "displayed": False,  # Used in link
+                    "handoff": "concentration",  # This is the field that will be loaded in the search form
+                    "type": "number",
+                },
+                "concentration": {
+                    "displayname": "Tracer Concentration",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "number",
+                },
+            },
+        },
+        "Tracer": {
+            "model": "Tracer",
+            "path": "peak_group__msrun__sample__animal__infusate__tracers",
+            "reverse_path": "infusates__animals__samples__msruns__peak_groups__peak_data",
+            "manytomany": {
+                "is": True,
+                "split_rows": False,
+            },
+            "fields": {
+                "id": {
+                    "displayname": "(Internal) Tracer Index",
+                    "searchable": True,
+                    "displayed": False,  # Used in link
+                    "handoff": "name",  # This is the field that will be loaded in the search form
+                    "type": "number",
+                },
+                "name": {
+                    "displayname": "Tracer",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "string",
+                },
+            },
+        },
         "TracerCompound": {
             "model": "Compound",
             "path": "peak_group__msrun__sample__animal__infusate__tracers__compound",
