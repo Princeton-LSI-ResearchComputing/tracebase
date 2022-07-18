@@ -55,7 +55,9 @@ class PeakDataFormat(Format):
         },
         {
             "displayname": "Tracer Compounds",
-            "distincts": ["peak_group__msrun__sample__animal__infusate__tracers__compound__name"],
+            "distincts": [
+                "peak_group__msrun__sample__animal__infusate__tracers__compound__name"
+            ],
             "filter": None,
         },
         {
@@ -417,11 +419,7 @@ class PeakDataFormat(Format):
             "model": "InfusateTracer",
             "path": "peak_group__msrun__sample__animal__infusate__infusatetracer",
             "reverse_path": "infusate__animal__samples__msruns__peak_groups__peak_data",
-            "manytomany": {
-                "is": True,
-                "split_rows": False,
-                "through": True
-            },
+            "manytomany": {"is": True, "split_rows": False, "through": True},
             "fields": {
                 "id": {
                     "displayname": "(Internal) Infusate Tracer Link Index",

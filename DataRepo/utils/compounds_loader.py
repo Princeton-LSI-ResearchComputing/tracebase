@@ -238,7 +238,8 @@ class CompoundsLoader:
                     self.load_validated_compounds_per_db(settings.VALIDATION_DB)
             except (CompoundExists, CompoundNotFound) as ce:
                 ce.message += (
-                    f"  Try loading databases {settings.TRACEBASE_DB} and {settings.VALIDATION_DB} one by one."
+                    f"  Try loading databases {settings.TRACEBASE_DB} and {settings.VALIDATION_DB} one by "
+                    "one."
                 )
                 raise ce
         elif self.loading_mode == "one":
@@ -303,18 +304,21 @@ class CompoundsLoader:
 
 
 class CompoundExists(Exception):
+    message = ""
+
     def __init__(self, cpd, db):
-        message = f"Compound {cpd} already exists in the {db} database."
-        super().__init__(message)
+        self.message = f"Compound {cpd} already exists in the {db} database."
+        super().__init__(self.message)
         self.cpd = cpd
         self.db = db
 
 
-
 class CompoundNotFound(Exception):
+    message = ""
+
     def __init__(self, cpd, db, hmdb_id):
-        message = f"Cound not find compound [{cpd}] in database [{db}] by searching for its HMDB ID: [{hmdb_id}]."
-        super().__init__(message)
+        self.message = f"Cound not find compound [{cpd}] in database [{db}] by searching for its HMDB ID: [{hmdb_id}]."
+        super().__init__(self.message)
         self.cpd = cpd
         self.db = db
         self.hmdb_id = hmdb_id
