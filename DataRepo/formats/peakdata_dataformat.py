@@ -429,7 +429,7 @@ class PeakDataFormat(Format):
                     "type": "number",
                 },
                 "concentration": {
-                    "displayname": "Tracer Concentration",
+                    "displayname": "Tracer Concentration (mM)",
                     "searchable": True,
                     "displayed": True,
                     "type": "number",

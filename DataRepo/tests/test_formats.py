@@ -1,5 +1,6 @@
 from copy import deepcopy
 
+from django.apps import apps
 from django.core.management import call_command
 from django.db.models import F, Q
 from django.test import tag
@@ -17,6 +18,7 @@ from DataRepo.formats.dataformat_group_query import (
     rootToFormatInfo,
 )
 from DataRepo.formats.peakgroups_dataformat import PeakGroupsFormat
+from DataRepo.formats.peakdata_dataformat import PeakDataFormat
 from DataRepo.formats.search_group import SearchGroup
 from DataRepo.models import CompoundSynonym, PeakGroup
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
@@ -109,8 +111,10 @@ class FormatsTests(TracebaseTestCase):
             ("peak_group__msrun__sample__animal__feeding_status", "Feeding Status"),
             ("peak_group__formula", "Formula"),
             ("peak_group__msrun__sample__animal__genotype", "Genotype"),
-            ("labeled_count", "Labeled Count"),
-            ("labeled_element", "Labeled Element"),
+            ("peak_group__msrun__sample__animal__infusate__name", "Infusate"),
+            ("peak_group__msrun__sample__animal__infusion_rate", "Infusion Rate (ul/min/g)"),
+            ("labels__count", "Labeled Count"),
+            ("labels__element", "Labeled Element"),
             (
                 "peak_group__compounds__synonyms__name",
                 "Measured Compound (Any Synonym)",
@@ -125,17 +129,14 @@ class FormatsTests(TracebaseTestCase):
             ("peak_group__msrun__sample__animal__sex", "Sex"),
             ("peak_group__msrun__sample__animal__studies__name", "Study"),
             ("peak_group__msrun__sample__tissue__name", "Tissue"),
+            ("peak_group__msrun__sample__animal__infusate__tracers__name", "Tracer"),
             (
                 "peak_group__msrun__sample__animal__infusate__tracers__compound__name",
                 "Tracer Compound (Primary Synonym)",
             ),
             (
-                "peak_group__msrun__sample__animal__tracer_infusion_concentration",
-                "Tracer Infusion Concentration (mM)",
-            ),
-            (
-                "peak_group__msrun__sample__animal__infusion_rate",
-                "Tracer Infusion Rate (ul/min/g)",
+                "peak_group__msrun__sample__animal__infusate__infusatetracer__concentration",
+                "Tracer Concentration (mM)",
             ),
             ("peak_group__msrun__sample__animal__treatment__name", "Treatment"),
         )
@@ -206,7 +207,7 @@ class FormatsTests(TracebaseTestCase):
             "pdtemplate": self.getPdtemplateChoicesTuple(),
             "pgtemplate": self.getPgtemplateChoicesTuple(),
         }
-        self.assertDictEqual(sfcd, sfcd_expected)
+        self.assertDictEqual(sfcd_expected, sfcd)
 
     def test_getAllSearchFieldChoices(self):
         basv = SearchGroup()
@@ -411,11 +412,22 @@ class FormatsTests(TracebaseTestCase):
         self.assertEqual(mdl_name, "Compound")
 
     def test_getOrderByFields_instance(self):
-        pgsv = PeakGroupsFormat()
-        mdl_inst = "MeasuredCompound"
+        pgsv = PeakDataFormat()
+        mdl_inst = "PeakData"
+        mdl = apps.get_model("DataRepo", mdl_inst)
 
+        # Retreive any custom ordering
+        self.assertEqual(
+            ["peak_group", "-corrected_abundance"],
+            mdl._meta.__dict__["ordering"],
+            msg=(
+                "Ensure that the peak_group field is present (because it's a foreign key that should be converted to "
+                "the default field) and that the corrected abundance field has a negative sign so that the following "
+                "test is meaningful."
+            ),
+        )
         order_bys = pgsv.getOrderByFields(mdl_inst_nm=mdl_inst)
-        expected_order_bys = ["name"]
+        expected_order_bys = ["peak_group__name", "corrected_abundance"]
         self.assertEqual(order_bys, expected_order_bys)
 
     def test_getOrderByFields_model(self):
@@ -929,18 +941,20 @@ class FormatsTests(TracebaseTestCase):
 
     def test_cv_getPrefetches(self):
         """
-        Test getPrefetches
+        Test getPrefetches (which should not return the infusatetracer through model and return paths in order of
+        descending length)
         """
         basv_metadata = SearchGroup()
-        fmt = "pgtemplate"
+        fmt = "pdtemplate"
         res = basv_metadata.getPrefetches(fmt)
         pfl = [
-            "msrun__sample__animal__tracer_compound",
-            "msrun__sample__animal__treatment",
-            "msrun__sample__animal__studies",
-            "msrun__sample__tissue",
-            "compounds__synonyms",
-            "peak_group_set",
+            "peak_group__msrun__sample__animal__infusate__tracers__compound",
+            "peak_group__msrun__sample__animal__treatment",
+            "peak_group__msrun__sample__animal__studies",
+            "peak_group__msrun__sample__tissue",
+            "peak_group__compounds__synonyms",
+            "peak_group__peak_group_set",
+            "labels",
         ]
         self.assertEqual(pfl, res)
 

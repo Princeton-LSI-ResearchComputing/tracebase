@@ -167,12 +167,7 @@ class Format:
         # This gets non-root model key paths (that are not "through" models) sorted in descending order of their length
         desc_len_sorted_paths = [
             self.model_instances[x]["path"]
-            for x in sorted(
-                self.getModelInstances(),
-                key=len,
-                reverse=True,
-            )
-            if (
+            for x in self.getModelInstances() if (
                 self.model_instances[x]["path"] != ""
                 and (
                     "through" not in self.model_instances[x]["manytomany"]
@@ -182,7 +177,11 @@ class Format:
         ]
         # This filters out paths that are contained inside other paths
         unique_paths = []
-        for path in desc_len_sorted_paths:
+        for path in sorted(
+            desc_len_sorted_paths,
+            key=len,
+            reverse=True,
+        ):
             contained = False
             for upath in unique_paths:
                 if path in upath:
