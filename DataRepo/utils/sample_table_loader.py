@@ -324,7 +324,9 @@ class SampleTableLoader:
                             f"{self.headers.INFUSATE} [{infusate_str}] supplied without "
                             f"{self.headers.TRACER_CONCENTRATIONS}."
                         )
-                    infusate_data_object = parse_infusate_name(infusate_str, tracer_concs)
+                    infusate_data_object = parse_infusate_name(
+                        infusate_str, tracer_concs
+                    )
                     (infusate, created) = Infusate.objects.get_or_create_infusate(
                         infusate_data_object
                     )

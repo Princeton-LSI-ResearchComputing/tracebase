@@ -167,7 +167,8 @@ class Format:
         # This gets non-root model key paths (that are not "through" models) sorted in descending order of their length
         desc_len_sorted_paths = [
             self.model_instances[x]["path"]
-            for x in self.getModelInstances() if (
+            for x in self.getModelInstances()
+            if (
                 self.model_instances[x]["path"] != ""
                 and (
                     "through" not in self.model_instances[x]["manytomany"]

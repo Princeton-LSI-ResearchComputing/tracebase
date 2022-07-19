@@ -17,8 +17,8 @@ from DataRepo.formats.dataformat_group_query import (
     pathStepToPosGroupType,
     rootToFormatInfo,
 )
-from DataRepo.formats.peakgroups_dataformat import PeakGroupsFormat
 from DataRepo.formats.peakdata_dataformat import PeakDataFormat
+from DataRepo.formats.peakgroups_dataformat import PeakGroupsFormat
 from DataRepo.formats.search_group import SearchGroup
 from DataRepo.models import CompoundSynonym, PeakGroup
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
@@ -112,7 +112,10 @@ class FormatsTests(TracebaseTestCase):
             ("peak_group__formula", "Formula"),
             ("peak_group__msrun__sample__animal__genotype", "Genotype"),
             ("peak_group__msrun__sample__animal__infusate__name", "Infusate"),
-            ("peak_group__msrun__sample__animal__infusion_rate", "Infusion Rate (ul/min/g)"),
+            (
+                "peak_group__msrun__sample__animal__infusion_rate",
+                "Infusion Rate (ul/min/g)",
+            ),
             ("labels__count", "Labeled Count"),
             ("labels__element", "Labeled Element"),
             (
