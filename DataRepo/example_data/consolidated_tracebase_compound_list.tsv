@@ -48,3 +48,5 @@ urea	CH4N2O	HMDB0000294		urea:CH4N2O
 valine	C5H11NO2	HMDB0000883	val	valine:C5H11NO2
 2-keto-isovalerate	C5H8O3	HMDB0000019	2-Ketoisovaleric acid; 
 3-hydroxyisobutyrate	C4H8O3	HMDB0000023	3-HIBA; 3-Hydroxyisobutyric acid
+sedoheptoluse-7-phosphate	C7H15O10P	HMDB0001068	alpha-D-Sedoheptulose 7-phosphate; Sedoheptulose 7-phosphate; D-Sedoheptulose 7-phosphate
+3-phosphoglycerate	C3H7O7P	HMDB0000807	3-Phosphoglycerate; Glycerate 3-phosphate; 3-PG

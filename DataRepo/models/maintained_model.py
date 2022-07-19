@@ -463,6 +463,9 @@ def perform_buffered_updates(label_filters=[]):
     if auto_updates:
         raise InvalidAutoUpdateMode()
 
+    if len(update_buffer) == 0:
+        return
+
     # This allows our updates to be saved, but prevents propagating changes up the hierarchy in a depth-first fashion
     performing_mass_autoupdates = True
     # Get the largest generation value

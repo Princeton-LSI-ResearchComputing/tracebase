@@ -13,6 +13,8 @@ from DataRepo.models import (
     Compound,
     CompoundSynonym,
     ElementLabel,
+    Infusate,
+    InfusateTracer,
     MSRun,
     PeakData,
     PeakGroup,
@@ -22,6 +24,8 @@ from DataRepo.models import (
     Sample,
     Study,
     Tissue,
+    Tracer,
+    TracerLabel,
 )
 from DataRepo.models.hier_cached_model import set_cache
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
@@ -29,6 +33,8 @@ from DataRepo.utils import (
     AccuCorDataLoader,
     AmbiguousCompoundDefinitionError,
     CompoundsLoader,
+    IsotopeObservationData,
+    IsotopeObservationParsingError,
     IsotopeParsingError,
     MissingSamplesError,
     leaderboard_data,
@@ -547,7 +553,7 @@ class DataLoadingTests(TracebaseTestCase):
             "load_compounds",
             compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
         )
-        cls.ALL_COMPOUNDS_COUNT = 47
+        cls.ALL_COMPOUNDS_COUNT = 51
 
         # initialize some sample-table-dependent counters
         cls.ALL_SAMPLES_COUNT = 0
@@ -686,8 +692,12 @@ class DataLoadingTests(TracebaseTestCase):
     def test_animal_tracers(self):
         a = Animal.objects.get(name="969")
         c = Compound.objects.get(name="C16:0")
-        self.assertEqual(a.tracer_compound, c)
-        self.assertEqual(a.tracer_labeled_atom, ElementLabel.CARBON)
+        self.assertEqual(a.infusate.tracers.first().compound, c)
+        self.assertEqual(
+            a.infusate.tracers.first().labels.first().element, ElementLabel.CARBON
+        )
+        self.assertEqual(a.infusate.tracers.count(), 1)
+        self.assertEqual(a.infusate.tracers.first().labels.count(), 1)
         self.assertEqual(a.sex, None)
 
     def test_animal_treatments_loaded(self):
@@ -708,6 +718,320 @@ class DataLoadingTests(TracebaseTestCase):
         final_serum_sample = animal.final_serum_sample
         self.assertEqual(final_serum_sample.name, "serum-xz971")
         self.assertEqual(final_serum_sample.name, serum_samples.last().name)
+
+    @tag("serum")
+    def test_missing_time_collected_warning(self):
+        final_serum_sample = self.MAIN_SERUM_ANIMAL.final_serum_sample
+        # pretend the time_collected did not exist
+        final_serum_sample.time_collected = None
+        final_serum_sample.save()
+        # so if we refresh, with no cached final serum values...
+        refeshed_animal = Animal.objects.get(name="971")
+        with self.assertWarns(UserWarning):
+            final_serum_sample = refeshed_animal.final_serum_sample
+
+    def test_restricted_animal_treatment_deletion(self):
+        treatment = Animal.objects.get(name="exp024f_M2").treatment
+        with self.assertRaises(RestrictedError):
+            # test a restricted deletion
+            treatment.delete()
+
+    def test_peak_groups_loaded(self):
+        # inf data file: compounds * samples
+        INF_PEAKGROUP_COUNT = self.INF_COMPOUNDS_COUNT * self.INF_SAMPLES_COUNT
+        # serum data file: compounds * samples
+        SERUM_PEAKGROUP_COUNT = self.SERUM_COMPOUNDS_COUNT * self.SERUM_SAMPLES_COUNT
+        # null original data file: compounds * samples
+        NULL_ORIG_PEAKGROUP_COUNT = (
+            self.NULL_ORIG_COMPOUNDS_COUNT * self.NULL_ORIG_SAMPLES_COUNT
+        )
+
+        self.assertEqual(
+            PeakGroup.objects.all().count(),
+            INF_PEAKGROUP_COUNT + SERUM_PEAKGROUP_COUNT + NULL_ORIG_PEAKGROUP_COUNT,
+        )
+
+    def test_peak_data_loaded(self):
+        # inf data file: PeakData rows * samples
+        INF_PEAKDATA_COUNT = self.INF_PEAKDATA_ROWS * self.INF_SAMPLES_COUNT
+        # serum data file: PeakData rows * samples
+        SERUM_PEAKDATA_COUNT = self.SERUM_PEAKDATA_ROWS * self.SERUM_SAMPLES_COUNT
+        # null original version of INF data
+        NULL_ORIG_PEAKDATA_COUNT = (
+            self.NULL_ORIG_PEAKDATA_ROWS * self.NULL_ORIG_SAMPLES_COUNT
+        )
+
+        self.assertEqual(
+            PeakData.objects.all().count(),
+            INF_PEAKDATA_COUNT + SERUM_PEAKDATA_COUNT + NULL_ORIG_PEAKDATA_COUNT,
+        )
+
+    def test_peak_group_peak_data_2(self):
+        peak_group = (
+            PeakGroup.objects.filter(compounds__name="histidine")
+            .filter(msrun__sample__name="serum-xz971")
+            .get()
+        )
+        # There should be a peak_data for each label count 0-6
+        self.assertEqual(peak_group.peak_data.count(), 7)
+
+        # The peak_data for labeled_count==2 is missing, thus values should be 0
+        peak_data = peak_group.peak_data.filter(labels__count=2).get()
+        self.assertEqual(peak_data.raw_abundance, 0)
+        self.assertEqual(peak_data.med_mz, 0)
+        self.assertEqual(peak_data.med_rt, 0)
+        self.assertEqual(peak_data.corrected_abundance, 0)
+
+    def test_peak_group_peak_data_3(self):
+        peak_group = (
+            PeakGroup.objects.filter(compounds__name="histidine")
+            .filter(msrun__sample__name="serum-xz971")
+            .get()
+        )
+
+        peak_data = peak_group.peak_data.filter(labels__count=5).get()
+        self.assertAlmostEqual(peak_data.raw_abundance, 1356.587)
+        self.assertEqual(peak_data.corrected_abundance, 0)
+
+    def test_dupe_sample_load_fails(self):
+        # Insert the dupe sample.  Samples are required to pre-exist for the accucor loader.
+        sample = Sample(
+            name="tst-dupe1",
+            researcher="Michael",
+            time_collected=timedelta(minutes=5),
+            animal=Animal.objects.all()[0],
+            tissue=Tissue.objects.all()[0],
+        )
+        sample.full_clean()
+        sample.save()
+
+        with self.assertRaises(ValidationError):
+            call_command(
+                "load_accucor_msruns",
+                protocol="Default",
+                accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_sample_dupe.xlsx",
+                date="2021-08-20",
+                researcher="Michael",
+            )
+
+    def test_dupe_samples_not_loaded(self):
+        self.assertEqual(Sample.objects.filter(name__exact="tst-dupe1").count(), 0)
+
+    def test_adl_existing_researcher(self):
+        call_command(
+            "load_accucor_msruns",
+            protocol="Default",
+            accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_new_researcher_err.xlsx",
+            date="2021-04-30",
+            researcher="Michael Neinast",
+            new_researcher=False,
+        )
+        # Test that basically, no exception occurred
+        self.assertTrue(True)
+
+    def test_adl_new_researcher(self):
+        # The error string must include:
+        #   The new researcher is in the error
+        #   Hidden flag is suggested
+        #   Existing researchers are shown
+        exp_err = (
+            "Researcher [Luke Skywalker] does not exist.  Please either choose from the following researchers, or if "
+            "this is a new researcher, add --new-researcher to your command (leaving `--researcher Luke Skywalker` "
+            "as-is).  Current researchers are:\nMichael Neinast\nXianfeng Zeng"
+        )
+        with self.assertRaises(Exception, msg=exp_err):
+            # Now load with a new researcher (and no --new-researcher flag)
+            call_command(
+                "load_accucor_msruns",
+                protocol="Default",
+                accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_new_researcher_err2.xlsx",
+                date="2021-04-30",
+                researcher="Luke Skywalker",
+            )
+
+    def test_adl_new_researcher_confirmed(self):
+        call_command(
+            "load_accucor_msruns",
+            protocol="Default",
+            accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_new_researcher_err2.xlsx",
+            date="2021-04-30",
+            researcher="Luke Skywalker",
+            new_researcher=True,
+        )
+        # Test that basically, no exception occurred
+        self.assertTrue(True)
+
+    def test_adl_existing_researcher_marked_new(self):
+        # The error string must include:
+        #   The new researcher is in the error
+        #   Hidden flag is suggested
+        #   Existing researchers are shown
+        exp_err = (
+            "Researcher [Michael Neinast] exists.  --new-researcher cannot be used for existing researchers.  Current "
+            "researchers are:\nMichael Neinast\nXianfeng Zeng"
+        )
+        with self.assertRaises(Exception, msg=exp_err):
+            call_command(
+                "load_accucor_msruns",
+                protocol="Default",
+                accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_new_researcher_err2.xlsx",
+                date="2021-04-30",
+                researcher="Michael Neinast",
+                new_researcher=True,
+            )
+
+    def test_ls_new_researcher(self):
+        # The error string must include:
+        #   The new researcher is in the error
+        #   Hidden flag is suggested
+        #   Existing researchers are shown
+        exp_err = (
+            "1 researchers from the sample file: [Han Solo] out of 1 researchers do not exist in the database.  "
+            "Please ensure they are not variants of existing researchers in the database:\nMichael Neinast\nXianfeng "
+            "Zeng\nIf all researchers are valid new researchers, add --skip-researcher-check to your command."
+        )
+        with self.assertRaises(Exception, msg=exp_err):
+            call_command(
+                "load_samples",
+                "DataRepo/example_data/serum_lactate_timecourse_treatment_new_researcher.tsv",
+                sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
+            )
+
+    def test_ls_new_researcher_confirmed(self):
+        call_command(
+            "load_samples",
+            "DataRepo/example_data/serum_lactate_timecourse_treatment_new_researcher.tsv",
+            sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
+            skip_researcher_check=True,
+        )
+        # Test that basically, no exception occurred
+        self.assertTrue(True)
+
+    @tag("fcirc")
+    def test_peakgroup_from_serum_sample_false(self):
+        # get a tracer compound from a non-serum sample
+        compound = Compound.objects.get(name="glucose")
+        sample = Sample.objects.get(name="Liv-xz982")
+        pg = sample.peak_groups(compound).last()
+        with self.assertWarns(UserWarning):
+            self.assertFalse(pg.from_serum_sample)
+
+    @tag("synonym_data_loading")
+    def test_valid_synonym_accucor_load(self):
+        # this file contains 1 valid synonym for glucose, "dextrose"
+        call_command(
+            "load_accucor_msruns",
+            protocol="Default",
+            accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_corrected_valid_syn.csv",
+            date="2021-11-19",
+            researcher="Michael Neinast",
+        )
+
+        self.assertTrue(
+            PeakGroupSet.objects.filter(
+                filename="obob_maven_6eaas_inf_corrected_valid_syn.csv"
+            ).exists()
+        )
+        peak_group = PeakGroup.objects.filter(
+            peak_group_set__filename="obob_maven_6eaas_inf_corrected_valid_syn.csv"
+        ).first()
+        self.assertEqual(peak_group.name, "dextrose")
+        self.assertEqual(peak_group.compounds.first().name, "glucose")
+
+    @tag("synonym_data_loading")
+    def test_invalid_synonym_accucor_load(self):
+        with self.assertRaises(AssertionError, msg="1 compounds are missing."):
+            # this file contains 1 invalid synonym for glucose "table sugar"
+            call_command(
+                "load_accucor_msruns",
+                protocol="Default",
+                accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_corrected_invalid_syn.csv",
+                date="2021-11-18",
+                researcher="Michael Neinast",
+            )
+
+
+@override_settings(CACHES=settings.TEST_CACHES)
+class PropertyTests(TracebaseTestCase):
+    @classmethod
+    def setUpTestData(cls):
+        call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
+        call_command(
+            "load_compounds",
+            compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
+        )
+        cls.ALL_COMPOUNDS_COUNT = 47
+
+        # initialize some sample-table-dependent counters
+        cls.ALL_SAMPLES_COUNT = 0
+        cls.ALL_ANIMALS_COUNT = 0
+        cls.ALL_STUDIES_COUNT = 0
+
+        call_command(
+            "load_animals_and_samples",
+            sample_table_filename="DataRepo/example_data/obob_samples_table.tsv",
+            animal_table_filename="DataRepo/example_data/obob_animals_table.tsv",
+            table_headers="DataRepo/example_data/sample_and_animal_tables_headers.yaml",
+        )
+
+        # from DataRepo/example_data/obob_sample_table.tsv, not counting the header and BLANK samples
+        cls.ALL_SAMPLES_COUNT += 106
+        # not counting the header and the BLANK animal
+        cls.ALL_OBOB_ANIMALS_COUNT = 7
+        cls.ALL_ANIMALS_COUNT += cls.ALL_OBOB_ANIMALS_COUNT
+        cls.ALL_STUDIES_COUNT += 1
+
+        call_command(
+            "load_samples",
+            "DataRepo/example_data/serum_lactate_timecourse_treatment.tsv",
+            sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
+            skip_researcher_check=True,
+        )
+        # from DataRepo/example_data/serum_lactate_timecourse_treatment.tsv, not counting the header
+        cls.ALL_SAMPLES_COUNT += 24
+        # not counting the header
+        cls.ALL_ANIMALS_COUNT += 5
+        cls.ALL_STUDIES_COUNT += 1
+
+        call_command(
+            "load_accucor_msruns",
+            protocol="Default",
+            accucor_file="DataRepo/example_data/obob_maven_6eaas_inf.xlsx",
+            date="2021-04-29",
+            researcher="Michael Neinast",
+        )
+        cls.ALL_PEAKGROUPSETS_COUNT = 1
+        cls.INF_COMPOUNDS_COUNT = 7
+        cls.INF_SAMPLES_COUNT = 56
+        cls.INF_PEAKDATA_ROWS = 38
+
+        call_command(
+            "load_accucor_msruns",
+            protocol="Default",
+            accucor_file="DataRepo/example_data/obob_maven_6eaas_serum.xlsx",
+            date="2021-04-29",
+            researcher="Michael Neinast",
+        )
+        cls.ALL_PEAKGROUPSETS_COUNT += 1
+        cls.SERUM_COMPOUNDS_COUNT = 13
+        cls.SERUM_SAMPLES_COUNT = 4
+        cls.SERUM_PEAKDATA_ROWS = 85
+
+        # test load CSV file of corrected data, with no "original counterpart"
+        call_command(
+            "load_accucor_msruns",
+            protocol="Default",
+            accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_corrected.csv",
+            date="2021-10-14",
+            researcher="Michael Neinast",
+        )
+        cls.ALL_PEAKGROUPSETS_COUNT += 1
+        cls.NULL_ORIG_COMPOUNDS_COUNT = 7
+        cls.NULL_ORIG_SAMPLES_COUNT = 56
+        cls.NULL_ORIG_PEAKDATA_ROWS = 38
+
+        # defining a primary animal object for repeated tests
+        cls.MAIN_SERUM_ANIMAL = Animal.objects.get(name="971")
 
     @tag("serum")
     def test_sample_peak_groups(self):
@@ -741,17 +1065,6 @@ class DataLoadingTests(TracebaseTestCase):
         # and test that the Animal convenience method is equivalent to the above
         peakdata2 = animal.final_serum_sample_tracer_peak_data
         self.assertEqual(peakdata.last().id, peakdata2.last().id)
-
-    @tag("serum")
-    def test_missing_time_collected_warning(self):
-        final_serum_sample = self.MAIN_SERUM_ANIMAL.final_serum_sample
-        # pretend the time_collected did not exist
-        final_serum_sample.time_collected = None
-        final_serum_sample.save()
-        # so if we refresh, with no cached final serum values...
-        refeshed_animal = Animal.objects.get(name="971")
-        with self.assertWarns(UserWarning):
-            final_serum_sample = refeshed_animal.final_serum_sample
 
     @tag("fcirc", "serum")
     def test_missing_serum_sample_peak_data(self):
@@ -811,42 +1124,6 @@ class DataLoadingTests(TracebaseTestCase):
                 refeshed_animal.final_serum_tracer_rate_appearance_average_per_animal
             )
 
-    def test_restricted_animal_treatment_deletion(self):
-        treatment = Animal.objects.get(name="exp024f_M2").treatment
-        with self.assertRaises(RestrictedError):
-            # test a restricted deletion
-            treatment.delete()
-
-    def test_peak_groups_loaded(self):
-        # inf data file: compounds * samples
-        INF_PEAKGROUP_COUNT = self.INF_COMPOUNDS_COUNT * self.INF_SAMPLES_COUNT
-        # serum data file: compounds * samples
-        SERUM_PEAKGROUP_COUNT = self.SERUM_COMPOUNDS_COUNT * self.SERUM_SAMPLES_COUNT
-        # null original data file: compounds * samples
-        NULL_ORIG_PEAKGROUP_COUNT = (
-            self.NULL_ORIG_COMPOUNDS_COUNT * self.NULL_ORIG_SAMPLES_COUNT
-        )
-
-        self.assertEqual(
-            PeakGroup.objects.all().count(),
-            INF_PEAKGROUP_COUNT + SERUM_PEAKGROUP_COUNT + NULL_ORIG_PEAKGROUP_COUNT,
-        )
-
-    def test_peak_data_loaded(self):
-        # inf data file: PeakData rows * samples
-        INF_PEAKDATA_COUNT = self.INF_PEAKDATA_ROWS * self.INF_SAMPLES_COUNT
-        # serum data file: PeakData rows * samples
-        SERUM_PEAKDATA_COUNT = self.SERUM_PEAKDATA_ROWS * self.SERUM_SAMPLES_COUNT
-        # null original version of INF data
-        NULL_ORIG_PEAKDATA_COUNT = (
-            self.NULL_ORIG_PEAKDATA_ROWS * self.NULL_ORIG_SAMPLES_COUNT
-        )
-
-        self.assertEqual(
-            PeakData.objects.all().count(),
-            INF_PEAKDATA_COUNT + SERUM_PEAKDATA_COUNT + NULL_ORIG_PEAKDATA_COUNT,
-        )
-
     def test_peak_group_peak_data_1(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="glucose")
@@ -854,38 +1131,13 @@ class DataLoadingTests(TracebaseTestCase):
             .filter(peak_group_set__filename="obob_maven_6eaas_inf.xlsx")
             .get()
         )
-        peak_data = peak_group.peak_data.filter(labeled_count=0).get()
+        peak_data = peak_group.peak_data.filter(labels__count=0).get()
         self.assertEqual(peak_data.raw_abundance, 8814287)
         self.assertAlmostEqual(peak_data.corrected_abundance, 9553199.89089051)
         self.assertAlmostEqual(peak_group.total_abundance, 9599112.684, places=3)
         self.assertAlmostEqual(peak_group.enrichment_fraction, 0.001555566789)
         self.assertAlmostEqual(peak_group.enrichment_abundance, 14932.06089, places=5)
         self.assertAlmostEqual(peak_group.normalized_labeling, 0.009119978074)
-
-    def test_peak_group_peak_data_2(self):
-        peak_group = (
-            PeakGroup.objects.filter(compounds__name="histidine")
-            .filter(msrun__sample__name="serum-xz971")
-            .get()
-        )
-        # There should be a peak_data for each label count 0-6
-        self.assertEqual(peak_group.peak_data.count(), 7)
-        # The peak_data for labeled_count==2 is missing, thus values should be 0
-        peak_data = peak_group.peak_data.filter(labeled_count=2).get()
-        self.assertEqual(peak_data.raw_abundance, 0)
-        self.assertEqual(peak_data.med_mz, 0)
-        self.assertEqual(peak_data.med_rt, 0)
-        self.assertEqual(peak_data.corrected_abundance, 0)
-
-    def test_peak_group_peak_data_3(self):
-        peak_group = (
-            PeakGroup.objects.filter(compounds__name="histidine")
-            .filter(msrun__sample__name="serum-xz971")
-            .get()
-        )
-        peak_data = peak_group.peak_data.filter(labeled_count=5).get()
-        self.assertAlmostEqual(peak_data.raw_abundance, 1356.587)
-        self.assertEqual(peak_data.corrected_abundance, 0)
 
     def test_peak_group_peak_data_4(self):
         # null original data
@@ -895,7 +1147,7 @@ class DataLoadingTests(TracebaseTestCase):
             .filter(peak_group_set__filename="obob_maven_6eaas_inf_corrected.csv")
             .get()
         )
-        peak_data = peak_group.peak_data.filter(labeled_count=0).get()
+        peak_data = peak_group.peak_data.filter(labels__count=0).get()
         # so some data is unavialable
         self.assertIsNone(peak_data.raw_abundance)
         self.assertIsNone(peak_data.med_mz)
@@ -913,7 +1165,7 @@ class DataLoadingTests(TracebaseTestCase):
             .filter(msrun__sample__name="serum-xz971")
             .get()
         )
-        peak_data = peak_group.peak_data.filter(labeled_count=0).get()
+        peak_data = peak_group.peak_data.filter(labels__count=0).get()
         self.assertAlmostEqual(peak_data.raw_abundance, 205652.5)
         self.assertAlmostEqual(peak_data.corrected_abundance, 222028.365565823)
         self.assertAlmostEqual(peak_group.total_abundance, 267686.902436353)
@@ -1078,8 +1330,8 @@ class DataLoadingTests(TracebaseTestCase):
             pd = PeakData.objects.create(
                 raw_abundance=0,
                 corrected_abundance=0,
-                labeled_element=orig_peak_data.labeled_element,
-                labeled_count=orig_peak_data.labeled_count,
+                labeled_element=orig_peak_data.labels.first().element,
+                labeled_count=orig_peak_data.labels.first().count,
                 peak_group=peak_group_zero,
                 med_mz=orig_peak_data.med_mz,
                 med_rt=orig_peak_data.med_rt,
@@ -1094,120 +1346,6 @@ class DataLoadingTests(TracebaseTestCase):
 
         self.assertEqual(peak_group_zero.total_abundance, 0)
 
-    def test_dupe_sample_load_fails(self):
-        # Insert the dupe sample.  Samples are required to pre-exist for the accucor loader.
-        sample = Sample(
-            name="tst-dupe1",
-            researcher="Michael",
-            time_collected=timedelta(minutes=5),
-            animal=Animal.objects.all()[0],
-            tissue=Tissue.objects.all()[0],
-        )
-        sample.full_clean()
-        sample.save()
-
-        with self.assertRaises(ValidationError):
-            call_command(
-                "load_accucor_msruns",
-                protocol="Default",
-                accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_sample_dupe.xlsx",
-                date="2021-08-20",
-                researcher="Michael",
-            )
-
-    def test_dupe_samples_not_loaded(self):
-        self.assertEqual(Sample.objects.filter(name__exact="tst-dupe1").count(), 0)
-
-    def test_adl_existing_researcher(self):
-        call_command(
-            "load_accucor_msruns",
-            protocol="Default",
-            accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_new_researcher_err.xlsx",
-            date="2021-04-30",
-            researcher="Michael Neinast",
-            new_researcher=False,
-        )
-        # Test that basically, no exception occurred
-        self.assertTrue(True)
-
-    def test_adl_new_researcher(self):
-        # The error string must include:
-        #   The new researcher is in the error
-        #   Hidden flag is suggested
-        #   Existing researchers are shown
-        exp_err = (
-            "Researcher [Luke Skywalker] does not exist.  Please either choose from the following researchers, or if "
-            "this is a new researcher, add --new-researcher to your command (leaving `--researcher Luke Skywalker` "
-            "as-is).  Current researchers are:\nMichael Neinast\nXianfeng Zeng"
-        )
-        with self.assertRaises(Exception, msg=exp_err):
-            # Now load with a new researcher (and no --new-researcher flag)
-            call_command(
-                "load_accucor_msruns",
-                protocol="Default",
-                accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_new_researcher_err2.xlsx",
-                date="2021-04-30",
-                researcher="Luke Skywalker",
-            )
-
-    def test_adl_new_researcher_confirmed(self):
-        call_command(
-            "load_accucor_msruns",
-            protocol="Default",
-            accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_new_researcher_err2.xlsx",
-            date="2021-04-30",
-            researcher="Luke Skywalker",
-            new_researcher=True,
-        )
-        # Test that basically, no exception occurred
-        self.assertTrue(True)
-
-    def test_adl_existing_researcher_marked_new(self):
-        # The error string must include:
-        #   The new researcher is in the error
-        #   Hidden flag is suggested
-        #   Existing researchers are shown
-        exp_err = (
-            "Researcher [Michael Neinast] exists.  --new-researcher cannot be used for existing researchers.  Current "
-            "researchers are:\nMichael Neinast\nXianfeng Zeng"
-        )
-        with self.assertRaises(Exception, msg=exp_err):
-            call_command(
-                "load_accucor_msruns",
-                protocol="Default",
-                accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_new_researcher_err2.xlsx",
-                date="2021-04-30",
-                researcher="Michael Neinast",
-                new_researcher=True,
-            )
-
-    def test_ls_new_researcher(self):
-        # The error string must include:
-        #   The new researcher is in the error
-        #   Hidden flag is suggested
-        #   Existing researchers are shown
-        exp_err = (
-            "1 researchers from the sample file: [Han Solo] out of 1 researchers do not exist in the database.  "
-            "Please ensure they are not variants of existing researchers in the database:\nMichael Neinast\nXianfeng "
-            "Zeng\nIf all researchers are valid new researchers, add --skip-researcher-check to your command."
-        )
-        with self.assertRaises(Exception, msg=exp_err):
-            call_command(
-                "load_samples",
-                "DataRepo/example_data/serum_lactate_timecourse_treatment_new_researcher.tsv",
-                sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
-            )
-
-    def test_ls_new_researcher_confirmed(self):
-        call_command(
-            "load_samples",
-            "DataRepo/example_data/serum_lactate_timecourse_treatment_new_researcher.tsv",
-            sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
-            skip_researcher_check=True,
-        )
-        # Test that basically, no exception occurred
-        self.assertTrue(True)
-
     @tag("fcirc")
     def test_peakgroup_is_tracer_compound_group_false(self):
         # get a non tracer compound from a serum sample
@@ -1215,15 +1353,6 @@ class DataLoadingTests(TracebaseTestCase):
         sample = Sample.objects.get(name="serum-xz971")
         pg = sample.peak_groups(compound).last()
         self.assertFalse(pg.is_tracer_compound_group)
-
-    @tag("fcirc")
-    def test_peakgroup_from_serum_sample_false(self):
-        # get a tracer compound from a non-serum sample
-        compound = Compound.objects.get(name="glucose")
-        sample = Sample.objects.get(name="Liv-xz982")
-        pg = sample.peak_groups(compound).last()
-        with self.assertWarns(UserWarning):
-            self.assertFalse(pg.from_serum_sample)
 
     @tag("fcirc")
     def test_peakgroup_can_compute_tracer_rates_true(self):
@@ -1326,40 +1455,6 @@ class DataLoadingTests(TracebaseTestCase):
         #     pg.enrichment_fraction = None
         with self.assertWarns(UserWarning):
             self.assertFalse(pg.can_compute_average_tracer_rates)
-
-    @tag("synonym_data_loading")
-    def test_valid_synonym_accucor_load(self):
-        # this file contains 1 valid synonym for glucose, "dextrose"
-        call_command(
-            "load_accucor_msruns",
-            protocol="Default",
-            accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_corrected_valid_syn.csv",
-            date="2021-11-19",
-            researcher="Michael Neinast",
-        )
-
-        self.assertTrue(
-            PeakGroupSet.objects.filter(
-                filename="obob_maven_6eaas_inf_corrected_valid_syn.csv"
-            ).exists()
-        )
-        peak_group = PeakGroup.objects.filter(
-            peak_group_set__filename="obob_maven_6eaas_inf_corrected_valid_syn.csv"
-        ).first()
-        self.assertEqual(peak_group.name, "dextrose")
-        self.assertEqual(peak_group.compounds.first().name, "glucose")
-
-    @tag("synonym_data_loading")
-    def test_invalid_synonym_accucor_load(self):
-        with self.assertRaises(AssertionError, msg="1 compounds are missing."):
-            # this file contains 1 invalid synonym for glucose "table sugar"
-            call_command(
-                "load_accucor_msruns",
-                protocol="Default",
-                accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_corrected_invalid_syn.csv",
-                date="2021-11-18",
-                researcher="Michael Neinast",
-            )
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
@@ -1548,7 +1643,6 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
                 "DataRepo/example_data/small_dataset/"
                 "small_obob_animal_and_sample_table.xlsx"
             ),
-            table_headers="DataRepo/example_data/sample_and_animal_tables_headers.yaml",
             debug=False,
         )
 
@@ -1581,15 +1675,6 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
                 "DataRepo/example_data/small_dataset/"
                 "small_obob_animal_and_sample_table.xlsx"
             ),
-            table_headers="DataRepo/example_data/sample_and_animal_tables_headers.yaml",
-        )
-        call_command(
-            "load_animals_and_samples",
-            animal_and_sample_table_filename=(
-                "DataRepo/example_data/AsaelR_13C-Valine+PI3Ki_flank-KPC_2021-12_isocorr_CN-corrected/"
-                "TraceBase Animal and Sample Table Templates_AR.xlsx"
-            ),
-            skip_researcher_check=True,
         )
 
     def test_accucor_load_blank_fail(self):
@@ -1615,10 +1700,10 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         )
         SAMPLES_COUNT = 14
         PEAKDATA_ROWS = 11
-        COMPOUNDS_COUNT = 2  # Glucose and lactate loaded thus far
+        MEASURED_COMPOUNDS_COUNT = 2  # Glucose and lactate
 
         self.assertEqual(
-            PeakGroup.objects.all().count(), COMPOUNDS_COUNT * SAMPLES_COUNT
+            PeakGroup.objects.count(), MEASURED_COMPOUNDS_COUNT * SAMPLES_COUNT
         )
         self.assertEqual(PeakData.objects.all().count(), PEAKDATA_ROWS * SAMPLES_COUNT)
 
@@ -1635,10 +1720,10 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         )
         SAMPLES_COUNT = 1
         PEAKDATA_ROWS = 11
-        COMPOUNDS_COUNT = 2  # Glucose and lactate loaded thus far
+        MEASURED_COMPOUNDS_COUNT = 2  # Glucose and lactate
 
         self.assertEqual(
-            PeakGroup.objects.all().count(), COMPOUNDS_COUNT * SAMPLES_COUNT
+            PeakGroup.objects.count(), MEASURED_COMPOUNDS_COUNT * SAMPLES_COUNT
         )
         self.assertEqual(PeakData.objects.all().count(), PEAKDATA_ROWS * SAMPLES_COUNT)
 
@@ -1654,7 +1739,80 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
                 new_researcher=True,
             )
 
-    def test_isocorr_load(self):
+
+@override_settings(CACHES=settings.TEST_CACHES)
+class IsoCorrDataLoadingTests(TracebaseTestCase):
+    @classmethod
+    def setUpTestData(cls):
+        call_command(
+            "load_study",
+            "DataRepo/example_data/tissues/loading.yaml",
+            verbosity=2,
+        )
+        call_command(
+            "load_compounds",
+            compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
+            verbosity=2,
+        )
+
+        call_command(
+            "load_animals_and_samples",
+            animal_and_sample_table_filename=(
+                "DataRepo/example_data/AsaelR_13C-Valine+PI3Ki_flank-KPC_2021-12_isocorr_CN-corrected/"
+                "TraceBase Animal and Sample Table Templates_AR.xlsx"
+            ),
+            skip_researcher_check=True,
+        )
+
+    def load_multitracer_data(self):
+        call_command(
+            "load_animals_and_samples",
+            animal_and_sample_table_filename=(
+                "DataRepo/example_data/obob_fasted_ace_glycerol_3hb_citrate_eaa_fa_multiple_tracers/"
+                "animal_sample_table.xlsx"
+            ),
+            skip_researcher_check=True,
+        )
+
+        num_samples = 120
+        num_infusates = 2
+        num_infusatetracers = 3
+        num_tracers = 6
+        num_tracerlabels = 12
+
+        return (
+            num_samples,
+            num_infusates,
+            num_infusatetracers,
+            num_tracers,
+            num_tracerlabels,
+        )
+
+    def load_multilabel_data(self):
+        call_command(
+            "load_animals_and_samples",
+            animal_and_sample_table_filename=(
+                "DataRepo/example_data/obob_fasted_glc_lac_gln_ala_multiple_labels/animal_sample_table.xlsx"
+            ),
+            skip_researcher_check=True,
+        )
+
+        num_samples = 156
+        num_infusates = 2
+        num_infusatetracers = 2
+        num_tracers = 2
+        num_tracerlabels = 3
+
+        return (
+            num_samples,
+            num_infusates,
+            num_infusatetracers,
+            num_tracers,
+            num_tracerlabels,
+        )
+
+    def test_singly_labeled_isocorr_load(self):
+        pre_pg_load_count = PeakGroup.objects.count()
         call_command(
             "load_accucor_msruns",
             accucor_file="DataRepo/example_data/AsaelR_13C-Valine+PI3Ki_flank-KPC_2021-12_isocorr_CN-corrected/"
@@ -1671,18 +1829,17 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             new_researcher=True,
             isocorr_format=True,
         )
+        post_pg_load_count = PeakGroup.objects.count()
         # The number of samples in the isocorr csv file (not the samples file)
         SAMPLES_COUNT = 19
         PEAKDATA_ROWS = 24
-        COMPOUNDS_COUNT = (
-            6  # 4 more compounds ina ddition to the glucose and lactate loaded thus far
-        )
+        MEASURED_COMPOUNDS_COUNT = 6
 
         self.assertEqual(
-            PeakGroup.objects.all().count(),
-            COMPOUNDS_COUNT * SAMPLES_COUNT,
-            msg=f"PeakGroup record count should be the number of compounds [{COMPOUNDS_COUNT}] times the number of "
-            f"samples [{SAMPLES_COUNT}] = [{COMPOUNDS_COUNT * SAMPLES_COUNT}].",
+            post_pg_load_count - pre_pg_load_count,
+            MEASURED_COMPOUNDS_COUNT * SAMPLES_COUNT,
+            msg=f"PeakGroup record count should be the number of compounds [{MEASURED_COMPOUNDS_COUNT}] times the "
+            f"number of samples [{SAMPLES_COUNT}] = [{MEASURED_COMPOUNDS_COUNT * SAMPLES_COUNT}].",
         )
         self.assertEqual(
             PeakData.objects.all().count(),
@@ -1691,7 +1848,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             f"samples [{SAMPLES_COUNT}] = [{PEAKDATA_ROWS * SAMPLES_COUNT}].",
         )
 
-    def test_singly_labeled_isocorr_study_accucor_error(self):
+    def test_singly_labeled_isocorr_missing_flag_error(self):
         """
         Test to make sure --isocorr-format is suggested when not supplied
         """
@@ -1711,6 +1868,280 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
                 researcher="Michael Neinast",
                 new_researcher=True,
             )
+
+    def test_multitracer_sample_table_load(self):
+        num_samples = 120
+        num_infusates = 2
+        num_infusatetracers = 9
+        num_tracers = 9
+        num_tracerlabels = 12
+
+        pre_load_sample_count = Sample.objects.count()
+        pre_load_infusate_count = Infusate.objects.count()
+        pre_load_infusatetracer_count = InfusateTracer.objects.count()
+        pre_load_tracer_count = Tracer.objects.count()
+        pre_load_tracerlabel_count = TracerLabel.objects.count()
+
+        call_command(
+            "load_animals_and_samples",
+            animal_and_sample_table_filename=(
+                "DataRepo/example_data/obob_fasted_ace_glycerol_3hb_citrate_eaa_fa_multiple_tracers/"
+                "animal_sample_table.xlsx"
+            ),
+            skip_researcher_check=True,
+        )
+
+        post_load_sample_count = Sample.objects.count()
+        post_load_infusate_count = Infusate.objects.count()
+        post_load_infusatetracer_count = InfusateTracer.objects.count()
+        post_load_tracer_count = Tracer.objects.count()
+        post_load_tracerlabel_count = TracerLabel.objects.count()
+
+        self.assertEqual(num_samples, post_load_sample_count - pre_load_sample_count)
+        self.assertEqual(
+            num_infusates, post_load_infusate_count - pre_load_infusate_count
+        )
+        self.assertEqual(
+            num_infusatetracers,
+            post_load_infusatetracer_count - pre_load_infusatetracer_count,
+        )
+        self.assertEqual(num_tracers, post_load_tracer_count - pre_load_tracer_count)
+        self.assertEqual(
+            num_tracerlabels, post_load_tracerlabel_count - pre_load_tracerlabel_count
+        )
+
+    def test_multitracer_isocorr_load_1(self):
+        self.load_multitracer_data()
+        pre_load_group_count = PeakGroup.objects.count()
+        call_command(
+            "load_accucor_msruns",
+            accucor_file="DataRepo/example_data/obob_fasted_ace_glycerol_3hb_citrate_eaa_fa_multiple_tracers/"
+            "6eaafasted1_cor.xlsx",
+            protocol="Default",
+            date="2021-04-29",
+            researcher="Xianfeng Zeng",
+            new_researcher=False,
+            isocorr_format=True,
+        )
+        post_load_group_count = PeakGroup.objects.count()
+        # The number of samples in the isocorr xlsx file (not the samples file)
+        SAMPLES_COUNT = 30
+        PEAKDATA_ROWS = 86
+        PARENT_REC_COUNT = 15
+
+        self.assertEqual(
+            post_load_group_count - pre_load_group_count,
+            PARENT_REC_COUNT * SAMPLES_COUNT,
+            msg=f"PeakGroup record count should be the number of C12 PARENT lines [{PARENT_REC_COUNT}] times the "
+            f"number of samples [{SAMPLES_COUNT}] = [{PARENT_REC_COUNT * SAMPLES_COUNT}].",
+        )
+        self.assertEqual(
+            PeakData.objects.count(),
+            PEAKDATA_ROWS * SAMPLES_COUNT,
+            msg=f"PeakData record count should be the number of peakdata rows [{PEAKDATA_ROWS}] times the number of "
+            f"samples [{SAMPLES_COUNT}] = [{PEAKDATA_ROWS * SAMPLES_COUNT}].",
+        )
+
+    def test_multitracer_isocorr_load_2(self):
+        self.load_multitracer_data()
+        pre_load_group_count = PeakGroup.objects.count()
+        call_command(
+            "load_accucor_msruns",
+            accucor_file="DataRepo/example_data/obob_fasted_ace_glycerol_3hb_citrate_eaa_fa_multiple_tracers/"
+            "6eaafasted2_cor.xlsx",
+            protocol="Default",
+            date="2021-04-29",
+            researcher="Xianfeng Zeng",
+            new_researcher=False,
+            isocorr_format=True,
+        )
+        post_load_group_count = PeakGroup.objects.count()
+        # The number of samples in the isocorr xlsx file (not the samples file)
+        SAMPLES_COUNT = 30
+        PEAKDATA_ROWS = 81
+        PARENT_REC_COUNT = 15
+
+        self.assertEqual(
+            post_load_group_count - pre_load_group_count,
+            PARENT_REC_COUNT * SAMPLES_COUNT,
+            msg=f"PeakGroup record count should be the number of C12 PARENT lines [{PARENT_REC_COUNT}] times the "
+            f"number of samples [{SAMPLES_COUNT}] = [{PARENT_REC_COUNT * SAMPLES_COUNT}].",
+        )
+        self.assertEqual(
+            PeakData.objects.count(),
+            PEAKDATA_ROWS * SAMPLES_COUNT,
+            msg=f"PeakData record count should be the number of peakdata rows [{PEAKDATA_ROWS}] times the number of "
+            f"samples [{SAMPLES_COUNT}] = [{PEAKDATA_ROWS * SAMPLES_COUNT}].",
+        )
+
+    def test_multitracer_isocorr_load_3(self):
+        self.load_multitracer_data()
+        pre_load_group_count = PeakGroup.objects.count()
+        call_command(
+            "load_accucor_msruns",
+            accucor_file="DataRepo/example_data/obob_fasted_ace_glycerol_3hb_citrate_eaa_fa_multiple_tracers/"
+            "bcaafasted_cor.xlsx",
+            protocol="Default",
+            date="2021-04-29",
+            researcher="Xianfeng Zeng",
+            new_researcher=False,
+            isocorr_format=True,
+        )
+        post_load_group_count = PeakGroup.objects.count()
+        # The number of samples in the isocorr xlsx file (not the samples file)
+        SAMPLES_COUNT = 60
+        PEAKDATA_ROWS = 143
+        PARENT_REC_COUNT = 20
+
+        self.assertEqual(
+            post_load_group_count - pre_load_group_count,
+            PARENT_REC_COUNT * SAMPLES_COUNT,
+            msg=f"PeakGroup record count should be the number of C12 PARENT lines [{PARENT_REC_COUNT}] times the "
+            f"number of samples [{SAMPLES_COUNT}] = [{PARENT_REC_COUNT * SAMPLES_COUNT}].",
+        )
+        self.assertEqual(
+            PeakData.objects.count(),
+            PEAKDATA_ROWS * SAMPLES_COUNT,
+            msg=f"PeakData record count should be the number of peakdata rows [{PEAKDATA_ROWS}] times the number of "
+            f"samples [{SAMPLES_COUNT}] = [{PEAKDATA_ROWS * SAMPLES_COUNT}].",
+        )
+
+    def test_multilabel_sample_table_load(self):
+        num_samples = 156
+        num_infusates = 2
+        num_infusatetracers = 2
+        num_tracers = 2
+        num_tracerlabels = 4  # TracerLabel records are not unique. Note there would be 3 unique label records
+
+        pre_load_sample_count = Sample.objects.count()
+        pre_load_infusate_count = Infusate.objects.count()
+        pre_load_infusatetracer_count = InfusateTracer.objects.count()
+        pre_load_tracer_count = Tracer.objects.count()
+        pre_load_tracerlabel_count = TracerLabel.objects.count()
+
+        call_command(
+            "load_animals_and_samples",
+            animal_and_sample_table_filename=(
+                "DataRepo/example_data/obob_fasted_glc_lac_gln_ala_multiple_labels/animal_sample_table.xlsx"
+            ),
+            skip_researcher_check=True,
+        )
+
+        post_load_sample_count = Sample.objects.count()
+        post_load_infusate_count = Infusate.objects.count()
+        post_load_infusatetracer_count = InfusateTracer.objects.count()
+        post_load_tracer_count = Tracer.objects.count()
+        post_load_tracerlabel_count = TracerLabel.objects.count()
+
+        self.assertEqual(num_samples, post_load_sample_count - pre_load_sample_count)
+        self.assertEqual(
+            num_infusates, post_load_infusate_count - pre_load_infusate_count
+        )
+        self.assertEqual(
+            num_infusatetracers,
+            post_load_infusatetracer_count - pre_load_infusatetracer_count,
+        )
+        self.assertEqual(num_tracers, post_load_tracer_count - pre_load_tracer_count)
+        self.assertEqual(
+            num_tracerlabels, post_load_tracerlabel_count - pre_load_tracerlabel_count
+        )
+
+    def test_multilabel_isocorr_load_1(self):
+        self.load_multilabel_data()
+        pre_load_group_count = PeakGroup.objects.count()
+        call_command(
+            "load_accucor_msruns",
+            accucor_file="DataRepo/example_data/obob_fasted_glc_lac_gln_ala_multiple_labels/"
+            "alafasted_cor.xlsx",
+            protocol="Default",
+            date="2021-04-29",
+            researcher="Xianfeng Zeng",
+            new_researcher=False,
+            isocorr_format=True,
+        )
+        post_load_group_count = PeakGroup.objects.count()
+        # The number of samples in the isocorr xlsx file (not the samples file)
+        SAMPLES_COUNT = 84
+        PEAKDATA_ROWS = 94
+        PARENT_REC_COUNT = 13
+
+        self.assertEqual(
+            post_load_group_count - pre_load_group_count,
+            PARENT_REC_COUNT * SAMPLES_COUNT,
+            msg=f"PeakGroup record count should be the number of C12 PARENT lines [{PARENT_REC_COUNT}] times the "
+            f"number of samples [{SAMPLES_COUNT}] = [{PARENT_REC_COUNT * SAMPLES_COUNT}].",
+        )
+        self.assertEqual(
+            PeakData.objects.count(),
+            PEAKDATA_ROWS * SAMPLES_COUNT,
+            msg=f"PeakData record count should be the number of peakdata rows [{PEAKDATA_ROWS}] times the number of "
+            f"samples [{SAMPLES_COUNT}] = [{PEAKDATA_ROWS * SAMPLES_COUNT}].",
+        )
+
+    def test_multilabel_isocorr_load_2(self):
+        self.load_multilabel_data()
+        pre_load_group_count = PeakGroup.objects.count()
+        call_command(
+            "load_accucor_msruns",
+            accucor_file="DataRepo/example_data/obob_fasted_glc_lac_gln_ala_multiple_labels/"
+            "glnfasted1_cor.xlsx",
+            protocol="Default",
+            date="2021-04-29",
+            researcher="Xianfeng Zeng",
+            new_researcher=False,
+            isocorr_format=True,
+        )
+        post_load_group_count = PeakGroup.objects.count()
+        # The number of samples in the isocorr xlsx file (not the samples file)
+        SAMPLES_COUNT = 36
+        PEAKDATA_ROWS = 95
+        PARENT_REC_COUNT = 13
+
+        self.assertEqual(
+            post_load_group_count - pre_load_group_count,
+            PARENT_REC_COUNT * SAMPLES_COUNT,
+            msg=f"PeakGroup record count should be the number of C12 PARENT lines [{PARENT_REC_COUNT}] times the "
+            f"number of samples [{SAMPLES_COUNT}] = [{PARENT_REC_COUNT * SAMPLES_COUNT}].",
+        )
+        self.assertEqual(
+            PeakData.objects.count(),
+            PEAKDATA_ROWS * SAMPLES_COUNT,
+            msg=f"PeakData record count should be the number of peakdata rows [{PEAKDATA_ROWS}] times the number of "
+            f"samples [{SAMPLES_COUNT}] = [{PEAKDATA_ROWS * SAMPLES_COUNT}].",
+        )
+
+    def test_multilabel_isocorr_load_3(self):
+        self.load_multilabel_data()
+        pre_load_group_count = PeakGroup.objects.count()
+        call_command(
+            "load_accucor_msruns",
+            accucor_file="DataRepo/example_data/obob_fasted_glc_lac_gln_ala_multiple_labels/"
+            "glnfasted2_cor.xlsx",
+            protocol="Default",
+            date="2021-04-29",
+            researcher="Xianfeng Zeng",
+            new_researcher=False,
+            isocorr_format=True,
+            skip_samples=("bk",),
+        )
+        post_load_group_count = PeakGroup.objects.count()
+        # The number of samples in the isocorr xlsx file (not the samples file)
+        SAMPLES_COUNT = 36
+        PEAKDATA_ROWS = 95
+        PARENT_REC_COUNT = 13
+
+        self.assertEqual(
+            post_load_group_count - pre_load_group_count,
+            PARENT_REC_COUNT * SAMPLES_COUNT,
+            msg=f"PeakGroup record count should be the number of C12 PARENT lines [{PARENT_REC_COUNT}] times the "
+            f"number of samples [{SAMPLES_COUNT}] = [{PARENT_REC_COUNT * SAMPLES_COUNT}].",
+        )
+        self.assertEqual(
+            PeakData.objects.count(),
+            PEAKDATA_ROWS * SAMPLES_COUNT,
+            msg=f"PeakData record count should be the number of peakdata rows [{PEAKDATA_ROWS}] times the number of "
+            f"samples [{SAMPLES_COUNT}] = [{PEAKDATA_ROWS * SAMPLES_COUNT}].",
+        )
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
@@ -1806,27 +2237,58 @@ class ParseIsotopeLabelTests(TracebaseTestCase):
             sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
         )
 
+    def get_labeled_elements(self):
+        return [
+            IsotopeObservationData(
+                element="C",
+                mass_number=13,
+                count=0,
+                parent=True,
+            )
+        ]
+
     def test_parse_parent_isotope_label(self):
+        tracer_labeled_elements = self.get_labeled_elements()
         self.assertEqual(
-            AccuCorDataLoader.parse_isotope_label("C12 PARENT"), ("C", 0, 12)
+            AccuCorDataLoader.parse_isotope_string(
+                "C12 PARENT", tracer_labeled_elements
+            ),
+            [{"element": "C", "count": 0, "mass_number": 12}],
         )
 
     def test_parse_isotope_label(self):
+        tracer_labeled_elements = self.get_labeled_elements()
         self.assertEqual(
-            AccuCorDataLoader.parse_isotope_label("C13-label-5"), ("C", 5, 13)
+            AccuCorDataLoader.parse_isotope_string(
+                "C13-label-5",
+                tracer_labeled_elements,
+            ),
+            [{"element": "C", "count": 5, "mass_number": 13}],
         )
 
     def test_parse_isotope_label_bad(self):
-        with self.assertRaises(IsotopeParsingError):
-            AccuCorDataLoader.parse_isotope_label("label-5")
+        tracer_labeled_elements = self.get_labeled_elements()
+        with self.assertRaises(IsotopeObservationParsingError):
+            AccuCorDataLoader.parse_isotope_string(
+                "label-5",
+                tracer_labeled_elements,
+            )
 
     def test_parse_isotope_label_empty(self):
-        with self.assertRaises(IsotopeParsingError):
-            AccuCorDataLoader.parse_isotope_label("")
+        tracer_labeled_elements = self.get_labeled_elements()
+        with self.assertRaises(IsotopeObservationParsingError):
+            AccuCorDataLoader.parse_isotope_string(
+                "",
+                tracer_labeled_elements,
+            )
 
     def test_parse_isotope_label_none(self):
+        tracer_labeled_elements = self.get_labeled_elements()
         with self.assertRaises(TypeError):
-            AccuCorDataLoader.parse_isotope_label(None)
+            AccuCorDataLoader.parse_isotope_string(
+                None,
+                tracer_labeled_elements,
+            )
 
     def test_dupe_compound_isotope_pairs(self):
         # Error must contain:
@@ -1848,14 +2310,15 @@ class ParseIsotopeLabelTests(TracebaseTestCase):
         self.assertEqual(PeakGroup.objects.filter(name__exact="glucose").count(), 0)
         self.assertEqual(PeakGroup.objects.filter(name__exact="lactate").count(), 0)
 
-    def test_multiple_labels_error(self):
-        """
-        This tests that a multi-label `isotopeLabel` column from an isocorr file would cause an error, because the
-        accucor data loader only supports singly labeled compounds in isocor format
-        """
-        dual_label = "C13N15-label-1-1"
-        with self.assertRaises(IsotopeParsingError):
-            AccuCorDataLoader.parse_isotope_label(dual_label)
+    def test_multiple_labeled_elements(self):
+        dual_label = "C13N15-label-1-2"
+        self.assertEqual(
+            AccuCorDataLoader.parse_isotope_string(dual_label),
+            [
+                {"element": "C", "count": 1, "mass_number": 13},
+                {"element": "N", "count": 2, "mass_number": 15},
+            ],
+        )
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
@@ -1880,27 +2343,44 @@ class AnimalLoadingTests(TracebaseTestCase):
             ),
         )
         self.assertEqual(
-            Animal.objects.get(name="test_animal_1").tracer_labeled_atom, "C"
+            Animal.objects.get(name="test_animal_1")
+            .infusate.tracers.first()
+            .labels.first()
+            .element,
+            "C",
         )
         self.assertEqual(
-            Animal.objects.get(name="test_animal_2").tracer_labeled_atom, "N"
+            Animal.objects.get(name="test_animal_2")
+            .infusate.tracers.first()
+            .labels.first()
+            .element,
+            "N",
         )
         self.assertEqual(
-            Animal.objects.get(name="test_animal_3").tracer_labeled_atom, "H"
+            Animal.objects.get(name="test_animal_3")
+            .infusate.tracers.first()
+            .labels.first()
+            .element,
+            "H",
         )
         self.assertEqual(
-            Animal.objects.get(name="test_animal_4").tracer_labeled_atom, "O"
+            Animal.objects.get(name="test_animal_4")
+            .infusate.tracers.first()
+            .labels.first()
+            .element,
+            "O",
         )
         self.assertEqual(
-            Animal.objects.get(name="test_animal_5").tracer_labeled_atom, "S"
-        )
-        self.assertEqual(
-            Animal.objects.get(name="test_animal_6").tracer_labeled_atom, "C"
+            Animal.objects.get(name="test_animal_5")
+            .infusate.tracers.first()
+            .labels.first()
+            .element,
+            "S",
         )
 
     def testLabeledElementParsingInvalid(self):
-        with self.assertRaisesRegex(
-            ValidationError, ".+ is not a valid selection, must be one of .+"
+        with self.assertRaisesMessage(
+            IsotopeParsingError, "Encoded isotopes: [13Invalid6] cannot be parsed."
         ):
             call_command(
                 "load_animals_and_samples",

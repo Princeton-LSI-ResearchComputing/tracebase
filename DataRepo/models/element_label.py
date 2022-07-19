@@ -10,12 +10,14 @@ class ElementLabel:
     HYDROGEN = "H"
     OXYGEN = "O"
     SULFUR = "S"
+    PHOSPHORUS = "P"
     LABELED_ELEMENT_CHOICES = [
         (CARBON, "Carbon"),
         (NITROGEN, "Nitrogen"),
         (HYDROGEN, "Hydrogen"),
         (OXYGEN, "Oxygen"),
         (SULFUR, "Sulfur"),
+        (PHOSPHORUS, "Phosphorus"),
     ]
 
     MIN_MASS_NUMBER = 1

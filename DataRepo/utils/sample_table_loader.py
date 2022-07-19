@@ -5,10 +5,15 @@ import dateutil.parser  # type: ignore
 import pandas as pd
 from django.conf import settings
 
-from DataRepo.models import Animal, Compound, Protocol, Sample, Study, Tissue
+from DataRepo.models import Animal, Infusate, Protocol, Sample, Study, Tissue
 from DataRepo.models.hier_cached_model import (
     disable_caching_updates,
     enable_caching_updates,
+)
+from DataRepo.models.maintained_model import (
+    disable_autoupdates,
+    enable_autoupdates,
+    perform_buffered_updates,
 )
 from DataRepo.models.utilities import get_researchers, value_from_choices_label
 from DataRepo.utils.exceptions import (
@@ -18,6 +23,9 @@ from DataRepo.utils.exceptions import (
     ResearcherError,
     ValidationDatabaseSetupError,
 )
+from DataRepo.utils.infusate_name_parser import parse_infusate_name
+
+CONCENTRATIONS_DELIMITER = ";"
 
 
 class SampleTableLoader:
@@ -43,11 +51,9 @@ class SampleTableLoader:
             "ANIMAL_FEEDING_STATUS",
             "ANIMAL_DIET",
             "ANIMAL_TREATMENT",
-            "TRACER_COMPOUND_NAME",
-            "TRACER_LABELED_ELEMENT",
-            "TRACER_LABELED_COUNT",
-            "TRACER_INFUSION_RATE",
-            "TRACER_INFUSION_CONCENTRATION",
+            "INFUSATE",
+            "ANIMAL_INFUSION_RATE",
+            "TRACER_CONCENTRATIONS",
         ],
     )
 
@@ -67,11 +73,9 @@ class SampleTableLoader:
         ANIMAL_FEEDING_STATUS="Feeding Status",
         ANIMAL_DIET="Diet",
         ANIMAL_TREATMENT="Animal Treatment",
-        TRACER_COMPOUND_NAME="Tracer Compound",
-        TRACER_LABELED_ELEMENT="Tracer Labeled Element",
-        TRACER_LABELED_COUNT="Tracer Label Atom Count",
-        TRACER_INFUSION_RATE="Infusion Rate",
-        TRACER_INFUSION_CONCENTRATION="Tracer Concentration",
+        INFUSATE="Infusate",
+        ANIMAL_INFUSION_RATE="Infusion Rate",
+        TRACER_CONCENTRATIONS="Tracer Concentrations",
     )
 
     def __init__(
@@ -133,6 +137,7 @@ class SampleTableLoader:
     def load_sample_table(self, data, skip_researcher_check=False, debug=False):
         self.debug = debug
 
+        disable_autoupdates()
         disable_caching_updates()
         animals_to_uncache = []
 
@@ -288,46 +293,42 @@ class SampleTableLoader:
                                 feedback += f" '{animal.treatment.description}'"
                             print(f"{action} {feedback}")
 
-                tracer_compound_name = self.getRowVal(
-                    row, self.headers.TRACER_COMPOUND_NAME, hdr_required=False
+                # Get the tracer concentrations
+                tracer_concs_str = self.getRowVal(
+                    row, self.headers.TRACER_CONCENTRATIONS, hdr_required=False
                 )
-                if tracer_compound_name is not None:
-                    try:
-                        # Assuming that both the default and validation databases each have all current compounds
-                        print(f"Getting Compound from database: {self.db}")
-                        tracer_compound = Compound.objects.using(self.db).get(
-                            name=tracer_compound_name
-                        )
-                        animal.tracer_compound = tracer_compound
-                    except Compound.DoesNotExist as e:
-                        print(
-                            f"ERROR: {self.headers.TRACER_COMPOUND_NAME} not found: Compound:{tracer_compound_name}"
-                        )
-                        raise (e)
-                tracer_labeled_elem = self.getRowVal(
-                    row, self.headers.TRACER_LABELED_ELEMENT, hdr_required=False
+                try:
+                    # Not sure how the split results in a float, but my guess is that it's something in excel, thus if
+                    # there do exist comma-delimited items, this should actually work
+                    tracer_concs = [
+                        float(x.strip())
+                        for x in tracer_concs_str.split(CONCENTRATIONS_DELIMITER)
+                    ]
+                except AttributeError as ae:
+                    if "object has no attribute 'split'" in str(ae):
+                        tracer_concs = [tracer_concs_str]
+                    else:
+                        raise ae
+
+                # Create the infusate record and all its tracers and labels, then link to it from the animal
+                infusate_str = self.getRowVal(
+                    row, self.headers.INFUSATE, hdr_required=False
                 )
-                if tracer_labeled_elem is not None:
-                    tracer_labeled_atom = value_from_choices_label(
-                        tracer_labeled_elem,
-                        animal.LABELED_ELEMENT_CHOICES,
-                    )
-                    animal.tracer_labeled_atom = tracer_labeled_atom
-                tlc = self.getRowVal(
-                    row, self.headers.TRACER_LABELED_COUNT, hdr_required=False
+                infusate_data_object = parse_infusate_name(infusate_str, tracer_concs)
+                (infusate, created) = Infusate.objects.get_or_create_infusate(
+                    infusate_data_object
                 )
-                if tlc is not None:
-                    animal.tracer_labeled_count = int(tlc)
+                animal.infusate = infusate
+
+                rate_required = infusate is not None
+
+                # Get the infusion rate
                 tir = self.getRowVal(
-                    row, self.headers.TRACER_INFUSION_RATE, hdr_required=False
+                    row, self.headers.ANIMAL_INFUSION_RATE, hdr_required=rate_required
                 )
                 if tir is not None:
-                    animal.tracer_infusion_rate = tir
-                tic = self.getRowVal(
-                    row, self.headers.TRACER_INFUSION_CONCENTRATION, hdr_required=False
-                )
-                if tic is not None:
-                    animal.tracer_infusion_concentration = tic
+                    animal.infusion_rate = tir
+
                 try:
                     animal.full_clean()
                     animal.save(using=self.db)
@@ -410,9 +411,14 @@ class SampleTableLoader:
             raise ResearcherError("\n".join(all_researcher_error_strs))
 
         enable_caching_updates()
+        if debug:
+            enable_autoupdates()
 
         # Throw an exception in debug mode to abort the load
         assert not debug, "Debugging..."
+
+        perform_buffered_updates()
+        enable_autoupdates()
 
         if settings.DEBUG:
             print("Expiring affected caches...")

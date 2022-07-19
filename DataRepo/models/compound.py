@@ -39,6 +39,10 @@ class Compound(models.Model):
         return f"{self.HMDB_CPD_URL}/{self.hmdb_id}"
 
     def atom_count(self, atom):
+        """
+        Takes element symbol (e.g. "C") or element name (e.g. "Carbon") and returns the count of that element in the
+        compound
+        """
         return atom_count_in_formula(self.formula, atom)
 
     def get_or_create_synonym(self, synonym_name=None, database=settings.TRACEBASE_DB):
