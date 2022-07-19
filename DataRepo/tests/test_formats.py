@@ -35,7 +35,7 @@ class FormatsTests(TracebaseTestCase):
         call_command(
             "load_samples",
             "DataRepo/example_data/small_dataset/small_obob_sample_table.tsv",
-            # sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
+            sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
         )
         call_command(
             "load_samples",
