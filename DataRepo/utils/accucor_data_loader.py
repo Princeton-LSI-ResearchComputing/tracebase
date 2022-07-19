@@ -648,7 +648,13 @@ class AccuCorDataLoader:
                         raw_abundance = 0
                         med_mz = 0
                         med_rt = 0
-                        # Assuming a single labeled element in the tracer(s) bec. this is accucor
+                        # Ensuing code assumes a single labeled element in the tracer(s), so raise an exception if
+                        # that's not true
+                        if len(self.tracer_labeled_elements) != 1:
+                            raise InvalidNumberOfLabeledElements(
+                                "This code only supports a single labeled elements in the original data sheet, not "
+                                f"{len(self.tracer_labeled_elements)}."
+                            )
                         mass_number = self.tracer_labeled_elements[0]["mass_number"]
 
                         # Try to get original data. If it's not there, set empty values
@@ -672,10 +678,7 @@ class AccuCorDataLoader:
                         except IndexError:
                             # We can ignore missing entries in the original sheet and use the defaults set above the
                             # try block
-                            print(
-                                f"No original sheet row for element {self.labeled_element} with label count "
-                                f"{labeled_count}"
-                            )
+                            pass
 
                         # Lookup corrected abundance by compound and label
                         corrected_abundance = self.accucor_corrected_df.loc[
@@ -974,4 +977,8 @@ class MultipleMassNumbers(Exception):
 
 
 class MassNumberNotFound(Exception):
+    pass
+
+
+class InvalidNumberOfLabeledElements(Exception):
     pass

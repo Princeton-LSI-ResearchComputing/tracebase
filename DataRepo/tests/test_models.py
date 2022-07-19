@@ -696,6 +696,8 @@ class DataLoadingTests(TracebaseTestCase):
         self.assertEqual(
             a.infusate.tracers.first().labels.first().element, ElementLabel.CARBON
         )
+        self.assertEqual(a.infusate.tracers.count(), 1)
+        self.assertEqual(a.infusate.tracers.first().labels.count(), 1)
         self.assertEqual(a.sex, None)
 
     def test_animal_treatments_loaded(self):
