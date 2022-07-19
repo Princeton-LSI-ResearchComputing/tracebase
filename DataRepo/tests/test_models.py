@@ -2251,7 +2251,7 @@ class ParseIsotopeLabelTests(TracebaseTestCase):
             AccuCorDataLoader.parse_isotope_string(
                 "C12 PARENT", tracer_labeled_elements
             ),
-            [{"element": "C", "count": 0, "mass_number": 12}],
+            [{"element": "C", "count": 0, "mass_number": 13, "parent": True}],
         )
 
     def test_parse_isotope_label(self):
@@ -2261,7 +2261,7 @@ class ParseIsotopeLabelTests(TracebaseTestCase):
                 "C13-label-5",
                 tracer_labeled_elements,
             ),
-            [{"element": "C", "count": 5, "mass_number": 13}],
+            [{"element": "C", "count": 5, "mass_number": 13, "parent": False}],
         )
 
     def test_parse_isotope_label_bad(self):
@@ -2313,8 +2313,8 @@ class ParseIsotopeLabelTests(TracebaseTestCase):
         self.assertEqual(
             AccuCorDataLoader.parse_isotope_string(dual_label),
             [
-                {"element": "C", "count": 1, "mass_number": 13},
-                {"element": "N", "count": 2, "mass_number": 15},
+                {"element": "C", "count": 1, "mass_number": 13, "parent": False},
+                {"element": "N", "count": 2, "mass_number": 15, "parent": False},
             ],
         )
 
