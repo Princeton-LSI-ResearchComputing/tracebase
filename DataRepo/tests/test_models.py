@@ -28,6 +28,7 @@ from DataRepo.models import (
     TracerLabel,
 )
 from DataRepo.models.hier_cached_model import set_cache
+from DataRepo.models.peak_group import NoCommonLabels
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import (
     AccuCorDataLoader,
@@ -1175,6 +1176,53 @@ class PropertyTests(TracebaseTestCase):
         # TODO: Temporarily commenting calls to methids I have not updated yet
         # self.assertAlmostEqual(peak_group.enrichment_abundance, 45658.53687, places=5)
         # self.assertAlmostEqual(peak_group.normalized_labeling, 1)
+
+    def test_no_common_labels(self):
+        # This creates an animal with a notrogen-labeled tracer (among others)
+        call_command(
+            "load_animals_and_samples",
+            animal_and_sample_table_filename=(
+                "DataRepo/example_data/testing_data/animal_sample_table_labeled_elements.xlsx"
+            ),
+            skip_researcher_check=True,
+        )
+
+        # Retrieve a sample associated with an animal that has a tracer with only a nitrogen label
+        sample = Sample.objects.get(name__exact="test_animal_2_sample_1")
+        pc = Protocol(name=Protocol.MSRUN_PROTOCOL)
+        pc.save()
+        msrun = MSRun(
+            sample=sample,
+            researcher="george",
+            date=datetime.strptime("1992-1-1".strip(), "%Y-%m-%d"),
+            protocol=pc,
+        )
+        msrun.save()
+        pgs = PeakGroupSet()
+        pgs.save()
+        pg = PeakGroup(name="lactate", peak_group_set=pgs, msrun=msrun)
+        pg.save()
+
+        # Add a compound to the peak group that does not have a nitrogen
+        cpd = Compound.objects.get(name="lactate", formula="C3H6O3")
+        pg.compounds.add(cpd)
+
+        # make sure we get only 1 labeled element of nitrogen
+        self.assertEqual(
+            ["N"],
+            pg.tracer_labeled_elements,
+            msg="Make sure the tracer labeled elements are set for the animal this peak group is linked to.",
+        )
+
+        # Now try to trigger a NoCommonLabels exception
+        with self.assertRaises(
+            NoCommonLabels,
+            msg=(
+                "PeakGroup lactate found associated with a measured compound lactate that contains no elements common "
+                "with the labeled elements among the tracers in the infusate [methionine-(15N1)[200]]."
+            ),
+        ):
+            pg.enrichment_fractions
 
     def test_enrichment_fraction_missing_compounds(self):
         peak_group = (
