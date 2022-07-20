@@ -144,12 +144,18 @@ class PeakGroup(HierCachedModel):
                     element_enrichment_sum / atom_count
                 )
 
-        except (AttributeError, TypeError) as e:
+        except (AttributeError, TypeError, NoCommonLabels) as e:
             error = True
             # The last 2 should not happen since the fields in PeakDataLabel are null=False, but to hard against
             # unexpected DB changes...
+            eql = e.__class__.__name__ == "NoCommonLabels"
+            print(f"Exception: {e.__class__.__name__}: {e} {eql} {compound}")
             if compound is None:
                 msg = "No compounds were associated with PeakGroup"
+            elif e.__class__.__name__ == "NoCommonLabels":
+                # NoCommonLabels is meaningless if there are no linked compounds (above)
+                error = False
+                raise e
             elif label_rec.count is None:
                 msg = "Labeled count missing from PeakDataLabel"
             elif label_rec.element is None:
@@ -173,8 +179,7 @@ class PeakGroup(HierCachedModel):
         finally:
             if error:
                 warnings.warn(
-                    "Unable to compute enrichment_fraction for "
-                    f"{self.msrun.sample}:{self}, {msg}."
+                    f"Unable to compute enrichment_fraction for {self.msrun.sample}:{self}, {msg}."
                 )
                 return None
 
@@ -548,8 +553,9 @@ class NoCommonLabels(Exception):
     def __init__(self, peak_group):
         msg = (
             f"PeakGroup {peak_group.name} found associated with a measured compound "
-            f"{','.join(peak_group.compounds.name)} that contains no elements common with the labeled elements among "
-            f"the tracers in the infusate [{peak_group.msrun.sample.animal.infusate.name}]."
+            f"{','.join(list(peak_group.compounds.all().values_list('name', flat=True)))} that contains no elements "
+            "common with the labeled elements among the tracers in the infusate "
+            f"[{peak_group.msrun.sample.animal.infusate.name}]."
         )
         super().__init__(msg)
         self.peak_group = peak_group
