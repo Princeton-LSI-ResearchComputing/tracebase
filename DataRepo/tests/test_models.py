@@ -1201,6 +1201,24 @@ class PropertyTests(TracebaseTestCase):
         with self.assertWarns(UserWarning):
             self.assertIsNone(peak_group.enrichment_fractions)
 
+    def test_peak_group_common_labels(self):
+        peak_group = (
+            PeakGroup.objects.filter(compounds__name="lysine")
+            .filter(msrun__sample__name="serum-xz971")
+            .get()
+        )
+
+        self.assertEqual(["C"], peak_group.common_labels)
+
+    def test_peak_group_tracer_labeled_elements(self):
+        peak_group = (
+            PeakGroup.objects.filter(compounds__name="lysine")
+            .filter(msrun__sample__name="serum-xz971")
+            .get()
+        )
+
+        self.assertEqual(["C"], peak_group.tracer_labeled_elements)
+
     def test_normalized_labeling_latest_serum(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="glucose")

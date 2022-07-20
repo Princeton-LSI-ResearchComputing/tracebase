@@ -111,6 +111,8 @@ class PeakGroup(HierCachedModel):
 
         enrichment_fractions = {}
         compound = None
+        error = False
+        msg = ""
 
         try:
             compound = self.compounds.first()
@@ -120,7 +122,9 @@ class PeakGroup(HierCachedModel):
             for measured_element in self.common_labels:
                 # Calculate the numerator
                 element_enrichment_sum = 0.0
-                label_pd_recs = self.peak_data.filter(labels__element__exact=measured_element)
+                label_pd_recs = self.peak_data.filter(
+                    labels__element__exact=measured_element
+                )
                 # This assumes that if there are any label_pd_recs for this measured elem, the calculation is valid
                 if label_pd_recs.count() == 0:
                     raise PeakData.DoesNotExist()
@@ -136,9 +140,9 @@ class PeakGroup(HierCachedModel):
                 # This assumes that multiple measured compounds for the same PeakGroup are composed of the same elements
                 atom_count = compound.atom_count(measured_element)
 
-                enrichment_fractions[measured_element] = element_enrichment_sum / atom_count
-
-            error = False
+                enrichment_fractions[measured_element] = (
+                    element_enrichment_sum / atom_count
+                )
 
         except (AttributeError, TypeError) as e:
             error = True
@@ -541,11 +545,11 @@ class PeakGroup(HierCachedModel):
 
 
 class NoCommonLabels(Exception):
-    def __init__(cls, peak_group):
+    def __init__(self, peak_group):
         msg = (
             f"PeakGroup {peak_group.name} found associated with a measured compound "
             f"{','.join(peak_group.compounds.name)} that contains no elements common with the labeled elements among "
             f"the tracers in the infusate [{peak_group.msrun.sample.animal.infusate.name}]."
         )
         super().__init__(msg)
-        cls.peak_group = peak_group
+        self.peak_group = peak_group
