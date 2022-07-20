@@ -53,13 +53,52 @@ class PeakGroup(HierCachedModel):
         Accucor provides this in the tab "pool size".
         Sum of the corrected_abundance of all PeakData for this PeakGroup.
         """
+        # Note: If the measured compound does not contain one of the labeled atoms from the tracer compounds, including
+        # counts from peakdata records linked to a label of an atom that is not in the measured compound would be
+        # invalid.  However, such records should not exist, and if they do, their abundance would be 0, so this code
+        # assumes that to be the case.
         return self.peak_data.all().aggregate(
             total_abundance=Sum("corrected_abundance", default=0)
         )["total_abundance"]
 
     @property  # type: ignore
     @cached_function
-    def enrichment_fraction(self):
+    def tracer_labeled_elements(self):
+        """
+        This method returns a unique list of the labeled elements that exist among the tracers as if they were parent
+        observations (i.e. count=0 and parent=True).  This is so that Isocorr data canrecord 0 observations for parent
+        records.  Accucor data does present data for counts of 0 already.
+        """
+        # Assuming all samples come from 1 animal, so we're only looking at 1 (any) sample
+        tracer_labeled_elements = []
+        for tracer in self.msrun.sample.animal.infusate.tracers.all():
+            for label in tracer.labels.all():
+                if label.element not in tracer_labeled_elements:
+                    tracer_labeled_elements.append(label.element)
+        return tracer_labeled_elements
+
+    @property  # type: ignore
+    @cached_function
+    def common_labels(self):
+        """
+        Gets labels present among any of the tracers in the infusate IF the elements are present in the supplied
+        (measured) compounds.  Basically, if the supplied compound contains an element that is a labeled element in any
+        of the tracers, included in the returned list.
+        """
+        common_labels = []
+        compound_recs = self.compounds.all()
+        for compound_rec in compound_recs:
+            for tracer_labeled_element in self.tracer_labeled_elements:
+                if (
+                    compound_rec.atom_count(tracer_labeled_element) > 0
+                    and tracer_labeled_element not in common_labels
+                ):
+                    common_labels.append(tracer_labeled_element)
+        return common_labels
+
+    @property  # type: ignore
+    @cached_function
+    def enrichment_fractions(self):
         """
         A weighted average of the fraction of labeled atoms for this PeakGroup
         in this sample.
@@ -67,36 +106,75 @@ class PeakGroup(HierCachedModel):
         Sum of all (PeakData.fraction * PeakData.labeled_count) /
             PeakGroup.Compound.num_atoms(PeakData.labeled_element)
         """
+        from DataRepo.models.peak_data import PeakData
+        from DataRepo.models.peak_data_label import PeakDataLabel
 
-        enrichment_fraction = None
+        enrichment_fractions = {}
+        compound = None
 
         try:
-            enrichment_sum = 0.0
             compound = self.compounds.first()
-            for peak_data in self.peak_data.all():
-                enrichment_sum = enrichment_sum + (
-                    peak_data.fraction * peak_data.labeled_count
-                )
+            common_labels = self.common_labels
+            if len(common_labels) == 0:
+                raise NoCommonLabels(self)
+            for measured_element in self.common_labels:
+                # Calculate the numerator
+                element_enrichment_sum = 0.0
+                label_pd_recs = self.peak_data.filter(labels__element__exact=measured_element)
+                # This assumes that if there are any label_pd_recs for this measured elem, the calculation is valid
+                if label_pd_recs.count() == 0:
+                    raise PeakData.DoesNotExist()
+                for label_pd_rec in label_pd_recs:
+                    # This assumes the PeakDataLabel unique constraint: peak_data, element
+                    label_rec = label_pd_rec.labels.get(element__exact=measured_element)
+                    # And this assumes that label_rec must exist because of the filter above the loop
+                    element_enrichment_sum = element_enrichment_sum + (
+                        label_pd_rec.fraction * label_rec.count
+                    )
 
-            atom_count = compound.atom_count(peak_data.labeled_element)
+                # Calculate the denominator
+                # This assumes that multiple measured compounds for the same PeakGroup are composed of the same elements
+                atom_count = compound.atom_count(measured_element)
 
-            enrichment_fraction = enrichment_sum / atom_count
+                enrichment_fractions[measured_element] = element_enrichment_sum / atom_count
 
-        except (AttributeError, TypeError):
-            if compound is not None:
-                msg = "no compounds were associated with PeakGroup"
-            elif peak_data.labeled_count is None:
-                msg = "labeled_count missing from PeakData"
-            elif peak_data.labeled_element is None:
-                msg = "labeled_element missing from PeakData"
+            error = False
+
+        except (AttributeError, TypeError) as e:
+            error = True
+            # The last 2 should not happen since the fields in PeakDataLabel are null=False, but to hard against
+            # unexpected DB changes...
+            if compound is None:
+                msg = "No compounds were associated with PeakGroup"
+            elif label_rec.count is None:
+                msg = "Labeled count missing from PeakDataLabel"
+            elif label_rec.element is None:
+                msg = "Labeled element missing from PeakDataLabel"
             else:
-                msg = "unknown error occurred"
-            warnings.warn(
-                "Unable to compute enrichment_fraction for "
-                f"{self.msrun.sample}:{self}, {msg}."
+                raise e
+        except (PeakData.DoesNotExist, PeakDataLabel.DoesNotExist):
+            error = True
+            msg = (
+                f"PeakDataLabel record missing for element {measured_element}.  There should exist a PeakData record "
+                "for every tracer labeled element common with the the measured compound, even if the abundance is 0."
             )
+        except PeakDataLabel.MultipleObjectsReturned:
+            error = True
+            # This should not happen bec it would violate the PeakDataLabel unique constraint, but to hard against
+            # unexpected DB changes...
+            msg = (
+                f"PeakDataLabel returned multiple records for element {measured_element} linked to the same PeakData "
+                "record."
+            )
+        finally:
+            if error:
+                warnings.warn(
+                    "Unable to compute enrichment_fraction for "
+                    f"{self.msrun.sample}:{self}, {msg}."
+                )
+                return None
 
-        return enrichment_fraction
+        return enrichment_fractions
 
     @property  # type: ignore
     @cached_function
@@ -460,3 +538,14 @@ class PeakGroup(HierCachedModel):
 
     def __str__(self):
         return str(self.name)
+
+
+class NoCommonLabels(Exception):
+    def __init__(cls, peak_group):
+        msg = (
+            f"PeakGroup {peak_group.name} found associated with a measured compound "
+            f"{','.join(peak_group.compounds.name)} that contains no elements common with the labeled elements among "
+            f"the tracers in the infusate [{peak_group.msrun.sample.animal.infusate.name}]."
+        )
+        super().__init__(msg)
+        cls.peak_group = peak_group

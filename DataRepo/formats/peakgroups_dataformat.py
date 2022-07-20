@@ -139,12 +139,12 @@ class PeakGroupsFormat(Format):
                     "displayed": True,
                     "type": "string",
                 },
-                "enrichment_fraction": {
-                    "displayname": "Enrichment Fraction",
-                    "searchable": False,  # Cannot search cached property
-                    "displayed": True,
-                    "type": "number",
-                },
+                # "enrichment_fractions": {
+                #     "displayname": "Enrichment Fraction",
+                #     "searchable": False,  # Cannot search cached property
+                #     "displayed": True,
+                #     "type": "number",
+                # },
                 "enrichment_abundance": {
                     "displayname": "Enrichment Abundance",
                     "searchable": False,  # Cannot search cached property
