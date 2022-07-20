@@ -139,6 +139,8 @@ class PeakGroupsFormat(Format):
                     "displayed": True,
                     "type": "string",
                 },
+                # TODO: This property/cached_function returns a dict, a type that is not (yet) supported.  Commenting
+                #       out for now until I figure out how to handle it.
                 # "enrichment_fractions": {
                 #     "displayname": "Enrichment Fraction",
                 #     "searchable": False,  # Cannot search cached property
