@@ -139,32 +139,32 @@ class PeakGroupsFormat(Format):
                     "displayed": True,
                     "type": "string",
                 },
-                # TODO: This property/cached_function returns a dict, a type that is not (yet) supported.  Commenting
-                #       out for now until I figure out how to handle it.
+                # TODO: The following properties/cached_functions returns a dict, a type that is not (yet) supported.
+                #       Commenting out for now until I figure out how to handle it.
                 # "enrichment_fractions": {
                 #     "displayname": "Enrichment Fraction",
                 #     "searchable": False,  # Cannot search cached property
                 #     "displayed": True,
                 #     "type": "number",
                 # },
-                "enrichment_abundance": {
-                    "displayname": "Enrichment Abundance",
-                    "searchable": False,  # Cannot search cached property
-                    "displayed": True,
-                    "type": "number",
-                },
+                # "enrichment_abundances": {
+                #     "displayname": "Enrichment Abundance",
+                #     "searchable": False,  # Cannot search cached property
+                #     "displayed": True,
+                #     "type": "number",
+                # },
                 "total_abundance": {
                     "displayname": "Total Abundance",
                     "searchable": False,  # Cannot search cached property
                     "displayed": True,
                     "type": "number",
                 },
-                "normalized_labeling": {
-                    "displayname": "Normalized Labeling",
-                    "searchable": False,  # Cannot search cached property
-                    "displayed": True,
-                    "type": "number",
-                },
+                # "normalized_labelings": {
+                #     "displayname": "Normalized Labeling",
+                #     "searchable": False,  # Cannot search cached property
+                #     "displayed": True,
+                #     "type": "number",
+                # },
             },
         },
         "Protocol": {

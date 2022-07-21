@@ -1136,10 +1136,14 @@ class PropertyTests(TracebaseTestCase):
         self.assertEqual(peak_data.raw_abundance, 8814287)
         self.assertAlmostEqual(peak_data.corrected_abundance, 9553199.89089051)
         self.assertAlmostEqual(peak_group.total_abundance, 9599112.684, places=3)
+        self.assertEqual(list(peak_group.enrichment_fractions.keys()), ["C"])
         self.assertAlmostEqual(peak_group.enrichment_fractions["C"], 0.001555566789)
-        # TODO: Temporarily commenting calls to methids I have not updated yet
-        # self.assertAlmostEqual(peak_group.enrichment_abundance, 14932.06089, places=5)
-        # self.assertAlmostEqual(peak_group.normalized_labeling, 0.009119978074)
+        self.assertEqual(list(peak_group.enrichment_abundances.keys()), ["C"])
+        self.assertAlmostEqual(
+            peak_group.enrichment_abundances["C"], 14932.06089, places=5
+        )
+        self.assertEqual(list(peak_group.normalized_labelings.keys()), ["C"])
+        self.assertAlmostEqual(peak_group.normalized_labelings["C"], 0.009119978074)
 
     def test_peak_group_peak_data_4(self):
         # null original data
@@ -1157,10 +1161,14 @@ class PropertyTests(TracebaseTestCase):
         # but presumably these are all computed from the corrected data
         self.assertAlmostEqual(peak_data.corrected_abundance, 9553199.89089051)
         self.assertAlmostEqual(peak_group.total_abundance, 9599112.684, places=3)
+        self.assertEqual(list(peak_group.enrichment_fractions.keys()), ["C"])
         self.assertAlmostEqual(peak_group.enrichment_fractions["C"], 0.001555566789)
-        # TODO: Temporarily commenting calls to methids I have not updated yet
-        # self.assertAlmostEqual(peak_group.enrichment_abundance, 14932.06089, places=5)
-        # self.assertAlmostEqual(peak_group.normalized_labeling, 0.009119978074)
+        self.assertEqual(list(peak_group.enrichment_abundances.keys()), ["C"])
+        self.assertAlmostEqual(
+            peak_group.enrichment_abundances["C"], 14932.06089, places=5
+        )
+        self.assertEqual(list(peak_group.normalized_labelings.keys()), ["C"])
+        self.assertAlmostEqual(peak_group.normalized_labelings["C"], 0.009119978074)
 
     def test_peak_group_peak_data_serum(self):
         peak_group = (
@@ -1172,10 +1180,14 @@ class PropertyTests(TracebaseTestCase):
         self.assertAlmostEqual(peak_data.raw_abundance, 205652.5)
         self.assertAlmostEqual(peak_data.corrected_abundance, 222028.365565823)
         self.assertAlmostEqual(peak_group.total_abundance, 267686.902436353)
+        self.assertEqual(list(peak_group.enrichment_fractions.keys()), ["C"])
         self.assertAlmostEqual(peak_group.enrichment_fractions["C"], 0.1705669439)
-        # TODO: Temporarily commenting calls to methids I have not updated yet
-        # self.assertAlmostEqual(peak_group.enrichment_abundance, 45658.53687, places=5)
-        # self.assertAlmostEqual(peak_group.normalized_labeling, 1)
+        self.assertEqual(list(peak_group.enrichment_abundances.keys()), ["C"])
+        self.assertAlmostEqual(
+            peak_group.enrichment_abundances["C"], 45658.53687, places=5
+        )
+        self.assertEqual(list(peak_group.normalized_labelings.keys()), ["C"])
+        self.assertAlmostEqual(peak_group.normalized_labelings["C"], 1)
 
     def test_no_common_labels(self):
         # This creates an animal with a notrogen-labeled tracer (among others)
@@ -1411,10 +1423,8 @@ class PropertyTests(TracebaseTestCase):
 
         with self.assertWarns(UserWarning):
             self.assertIsNone(peak_group_zero.enrichment_fractions)
-        # TODO: Temporarily commenting calls to methids I have not updated yet
-        # self.assertIsNone(peak_group_zero.enrichment_abundance)
-        # self.assertIsNone(peak_group_zero.normalized_labeling)
-
+        self.assertIsNone(peak_group_zero.enrichment_abundances)
+        self.assertIsNone(peak_group_zero.normalized_labelings)
         self.assertEqual(peak_group_zero.total_abundance, 0)
 
     @tag("fcirc")

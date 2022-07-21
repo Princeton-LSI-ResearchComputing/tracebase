@@ -177,7 +177,7 @@ class PeakGroup(HierCachedModel):
         finally:
             if error:
                 warnings.warn(
-                    f"Unable to compute enrichment_fraction for {self.msrun.sample}:{self}, {msg}."
+                    f"Unable to compute enrichment_fractions for {self.msrun.sample}:{self}, {msg}."
                 )
                 return None
 
@@ -185,69 +185,95 @@ class PeakGroup(HierCachedModel):
 
     @property  # type: ignore
     @cached_function
-    def enrichment_abundance(self):
+    def enrichment_abundances(self):
         """
         This abundance of labeled atoms in this compound.
-        PeakGroup.total_abundance * PeakGroup.enrichment_fraction
+        PeakGroup.total_abundance * PeakGroup.enrichment_fractions
         """
         try:
-            enrichment_abundance = self.total_abundance * self.enrichment_fraction
-        except TypeError:
-            enrichment_abundance = None
-        return enrichment_abundance
+            enrichment_abundances = {}
+            for elem in self.enrichment_fractions.keys():
+                # If self.enrichment_fractions is None, it will be handled in the except
+                enrichment_abundances[elem] = (
+                    self.total_abundance * self.enrichment_fractions[elem]
+                )
+        except (AttributeError, TypeError):
+            enrichment_abundances = None
+        return enrichment_abundances
 
     @property  # type: ignore
     @cached_function
-    def normalized_labeling(self):
+    def normalized_labelings(self):
         """
         The enrichment in this compound normalized to the enrichment in the
         tracer compound from the final serum timepoint.
-        ThisPeakGroup.enrichment_fraction / SerumTracerPeakGroup.enrichment_fraction
+        ThisPeakGroup.enrichment_fractions / SerumTracerPeakGroup.enrichment_fractions
         """
         from DataRepo.models.sample import Sample
         from DataRepo.models.tissue import Tissue
 
         try:
             # An animal can have no tracer_compound (#312 & #315)
-            # And without the enrichment_fraction check, deleting a tracer can result in:
+            # And without the enrichment_fractions check, deleting a tracer can result in:
             #   TypeError: unsupported operand type(s) for /: 'NoneType' and 'float'
             # in test: test_models.DataLoadingTests.test_peak_group_total_abundance_zero
             if (
-                self.msrun.sample.animal.tracer_compound is not None
-                and self.enrichment_fraction is not None
+                self.msrun.sample.animal.infusate.tracers.count() > 0
+                and self.enrichment_fractions is not None
             ):
+                normalized_labelings = {}
                 final_serum_sample = (
                     Sample.objects.filter(animal_id=self.msrun.sample.animal.id)
                     .filter(tissue__name__startswith=Tissue.SERUM_TISSUE_PREFIX)
                     .latest("time_collected")
                 )
+                # I believe it's correct for infusates with a single tracer.  If there are multiple tracers, and the
+                # serum sample has a peak group with a measured compound for more than 1, the call to `.get()` should
+                # raise an exception.
+
+                # Find a peak group for the serum sample that is for a measured compound that matches any of this peak
+                # group's tracer compounds
                 serum_peak_group = (
                     PeakGroup.objects.filter(msrun__sample_id=final_serum_sample.id)
-                    .filter(compounds__id=self.msrun.sample.animal.tracer_compound.id)
+                    .filter(
+                        compounds__id__in=list(
+                            self.msrun.sample.animal.infusate.tracers.values_list(
+                                "compound", flat=True
+                            )
+                        )
+                    )
                     .get()
                 )
-                normalized_labeling = (
-                    self.enrichment_fraction / serum_peak_group.enrichment_fraction
-                )
+
+                # The current peak group can be for any compound, which may or may not have all of the labeled elements
+                # from the tracers.  The serum peak group is from a tracer compound, so it should be guaranteed to have
+                # all the labeled compounds.  I believe it's safe to assume that the labeled elements in this peak
+                # group (and thereby, in its enrichment_fractions) that they also exist in the serum peak group and its
+                # enrichment fractions.
+                for elem in self.enrichment_fractions.keys():
+                    normalized_labelings[elem] = (
+                        self.enrichment_fractions[elem]
+                        / serum_peak_group.enrichment_fractions[elem]
+                    )
             else:
-                normalized_labeling = None
+                normalized_labelings = None
         except Sample.DoesNotExist:
             warnings.warn(
-                "Unable to compute normalized_labeling for "
+                "Unable to compute normalized_labelings for "
                 f"{self.msrun.sample}:{self}, "
                 "associated 'serum' sample not found."
             )
-            normalized_labeling = None
+            normalized_labelings = None
 
         except PeakGroup.DoesNotExist:
             warnings.warn(
-                "Unable to compute normalized_labeling for "
+                "Unable to compute normalized_labelings for "
                 f"{self.msrun.sample}:{self}, "
                 "PeakGroup for associated 'serum' sample not found."
             )
-            normalized_labeling = None
+            normalized_labelings = None
 
-        return normalized_labeling
+        return normalized_labelings
 
     # @cached_function is *slower* than uncached
     @cached_property
@@ -372,10 +398,10 @@ class PeakGroup(HierCachedModel):
             warnings.warn(f"{self.name} cannot compute tracer rates.")
             return False
         else:
-            if self.enrichment_fraction and self.enrichment_fraction > 0:
+            if self.enrichment_fractions and self.enrichment_fractions > 0:
                 return True
             else:
-                warnings.warn(f"PeakGroup {self.name} has no enrichment_fraction.")
+                warnings.warn(f"PeakGroup {self.name} has no enrichment_fractions.")
                 return False
 
     @property  # type: ignore
@@ -456,7 +482,7 @@ class PeakGroup(HierCachedModel):
             return (
                 self.animal.tracer_infusion_concentration
                 * self.animal.tracer_infusion_rate
-                / self.enrichment_fraction
+                / self.enrichment_fractions
             )
 
     @property  # type: ignore
