@@ -618,12 +618,12 @@ class AccuCorDataLoader:
                         # Must save the compound to the correct database before it can be linked
                         compound.save(using=self.db)
                         peak_group.compounds.add(compound)
-                    common_labels = self.get_common_labels(peak_group.compounds.all())
+                    peak_labeled_elements = self.get_peak_labeled_elements(peak_group.compounds.all())
 
                     # cache
                     inserted_peak_group_dict[peak_group_name] = {
                         "group": peak_group,
-                        "labels": common_labels,
+                        "labels": peak_labeled_elements,
                     }
 
             # For each PeakGroup, create PeakData rows
@@ -631,7 +631,7 @@ class AccuCorDataLoader:
 
                 # we should have a cached PeakGroup and its labeled element now
                 peak_group = inserted_peak_group_dict[peak_group_name]["group"]
-                common_labels = inserted_peak_group_dict[peak_group_name]["labels"]
+                peak_labeled_elements = inserted_peak_group_dict[peak_group_name]["labels"]
 
                 if self.accucor_original_df is not None:
 
@@ -811,21 +811,21 @@ class AccuCorDataLoader:
         if settings.DEBUG:
             print("Expiring done.")
 
-    def get_common_labels(self, compound_recs):
+    def get_peak_labeled_elements(self, compound_recs):
         """
         Gets labels present among any of the tracers in the infusate IF the elements are present in the supplied
         (measured) compounds.  Basically, if the supplied compound contains an element that is a labeled element in any
         of the tracers, included in the returned list.
         """
-        common_labels = []
+        peak_labeled_elements = []
         for compound_rec in compound_recs:
             for tracer_label in self.tracer_labeled_elements:
                 if (
                     compound_rec.atom_count(tracer_label["element"]) > 0
-                    and tracer_label not in common_labels
+                    and tracer_label not in peak_labeled_elements
                 ):
-                    common_labels.append(tracer_label)
-        return common_labels
+                    peak_labeled_elements.append(tracer_label)
+        return peak_labeled_elements
 
     def get_observed_isotopes(self, corrected_row, observed_compound_recs=None):
         """
@@ -845,7 +845,7 @@ class AccuCorDataLoader:
             if observed_compound_recs is None:
                 parent_labels = self.tracer_labeled_elements
             else:
-                parent_labels = self.get_common_labels(observed_compound_recs)
+                parent_labels = self.get_peak_labeled_elements(observed_compound_recs)
 
             # If there are any labeled elements unaccounted for, add them as zero-counts
             if len(isotopes) < len(parent_labels):

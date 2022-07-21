@@ -63,13 +63,13 @@ class PeakGroup(HierCachedModel):
 
     @property  # type: ignore
     @cached_function
-    def common_labels(self):
+    def peak_labeled_elements(self):
         """
         Gets labels present among any of the tracers in the infusate IF the elements are present in the supplied
         (measured) compounds.  Basically, if the supplied compound contains an element that is a labeled element in any
         of the tracers, included in the returned list.
         """
-        common_labels = []
+        peak_labeled_elements = []
         compound_recs = self.compounds.all()
         for compound_rec in compound_recs:
             for (
@@ -77,10 +77,10 @@ class PeakGroup(HierCachedModel):
             ) in self.msrun.sample.animal.tracer_labeled_elements:
                 if (
                     compound_rec.atom_count(tracer_labeled_element) > 0
-                    and tracer_labeled_element not in common_labels
+                    and tracer_labeled_element not in peak_labeled_elements
                 ):
-                    common_labels.append(tracer_labeled_element)
-        return common_labels
+                    peak_labeled_elements.append(tracer_labeled_element)
+        return peak_labeled_elements
 
     @property  # type: ignore
     @cached_function
@@ -102,10 +102,10 @@ class PeakGroup(HierCachedModel):
 
         try:
             compound = self.compounds.first()
-            common_labels = self.common_labels
-            if len(common_labels) == 0:
+            peak_labeled_elements = self.peak_labeled_elements
+            if len(peak_labeled_elements) == 0:
                 raise NoCommonLabels(self)
-            for measured_element in common_labels:
+            for measured_element in peak_labeled_elements:
                 # Calculate the numerator
                 element_enrichment_sum = 0.0
                 label_pd_recs = self.peak_data.filter(

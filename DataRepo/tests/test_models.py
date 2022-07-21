@@ -1189,7 +1189,7 @@ class PropertyTests(TracebaseTestCase):
         self.assertEqual(list(peak_group.normalized_labelings.keys()), ["C"])
         self.assertAlmostEqual(peak_group.normalized_labelings["C"], 1)
 
-    def test_no_common_labels(self):
+    def test_no_peak_labeled_elements(self):
         # This creates an animal with a notrogen-labeled tracer (among others)
         call_command(
             "load_animals_and_samples",
@@ -1261,14 +1261,14 @@ class PropertyTests(TracebaseTestCase):
         with self.assertWarns(UserWarning):
             self.assertIsNone(peak_group.enrichment_fractions)
 
-    def test_peak_group_common_labels(self):
+    def test_peak_group_peak_labeled_elements(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="lysine")
             .filter(msrun__sample__name="serum-xz971")
             .get()
         )
 
-        self.assertEqual(["C"], peak_group.common_labels)
+        self.assertEqual(["C"], peak_group.peak_labeled_elements)
 
     def test_peak_group_tracer_labeled_elements(self):
         peak_group = (
