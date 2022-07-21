@@ -63,22 +63,6 @@ class PeakGroup(HierCachedModel):
 
     @property  # type: ignore
     @cached_function
-    def tracer_labeled_elements(self):
-        """
-        This method returns a unique list of the labeled elements that exist among the tracers as if they were parent
-        observations (i.e. count=0 and parent=True).  This is so that Isocorr data canrecord 0 observations for parent
-        records.  Accucor data does present data for counts of 0 already.
-        """
-        # Assuming all samples come from 1 animal, so we're only looking at 1 (any) sample
-        tracer_labeled_elements = []
-        for tracer in self.msrun.sample.animal.infusate.tracers.all():
-            for label in tracer.labels.all():
-                if label.element not in tracer_labeled_elements:
-                    tracer_labeled_elements.append(label.element)
-        return tracer_labeled_elements
-
-    @property  # type: ignore
-    @cached_function
     def common_labels(self):
         """
         Gets labels present among any of the tracers in the infusate IF the elements are present in the supplied
@@ -88,7 +72,9 @@ class PeakGroup(HierCachedModel):
         common_labels = []
         compound_recs = self.compounds.all()
         for compound_rec in compound_recs:
-            for tracer_labeled_element in self.tracer_labeled_elements:
+            for (
+                tracer_labeled_element
+            ) in self.msrun.sample.animal.tracer_labeled_elements:
                 if (
                     compound_rec.atom_count(tracer_labeled_element) > 0
                     and tracer_labeled_element not in common_labels
@@ -119,7 +105,7 @@ class PeakGroup(HierCachedModel):
             common_labels = self.common_labels
             if len(common_labels) == 0:
                 raise NoCommonLabels(self)
-            for measured_element in self.common_labels:
+            for measured_element in common_labels:
                 # Calculate the numerator
                 element_enrichment_sum = 0.0
                 label_pd_recs = self.peak_data.filter(
@@ -210,7 +196,6 @@ class PeakGroup(HierCachedModel):
         ThisPeakGroup.enrichment_fractions / SerumTracerPeakGroup.enrichment_fractions
         """
         from DataRepo.models.sample import Sample
-        from DataRepo.models.tissue import Tissue
 
         try:
             # An animal can have no tracer_compound (#312 & #315)
@@ -222,38 +207,12 @@ class PeakGroup(HierCachedModel):
                 and self.enrichment_fractions is not None
             ):
                 normalized_labelings = {}
-                final_serum_sample = (
-                    Sample.objects.filter(animal_id=self.msrun.sample.animal.id)
-                    .filter(tissue__name__startswith=Tissue.SERUM_TISSUE_PREFIX)
-                    .latest("time_collected")
-                )
-                # I believe it's correct for infusates with a single tracer.  If there are multiple tracers, and the
-                # serum sample has a peak group with a measured compound for more than 1, the call to `.get()` should
-                # raise an exception.
-
-                # Find a peak group for the serum sample that is for a measured compound that matches any of this peak
-                # group's tracer compounds
-                serum_peak_group = (
-                    PeakGroup.objects.filter(msrun__sample_id=final_serum_sample.id)
-                    .filter(
-                        compounds__id__in=list(
-                            self.msrun.sample.animal.infusate.tracers.values_list(
-                                "compound", flat=True
-                            )
-                        )
-                    )
-                    .get()
-                )
-
-                # The current peak group can be for any compound, which may or may not have all of the labeled elements
-                # from the tracers.  The serum peak group is from a tracer compound, so it should be guaranteed to have
-                # all the labeled compounds.  I believe it's safe to assume that the labeled elements in this peak
-                # group (and thereby, in its enrichment_fractions) that they also exist in the serum peak group and its
-                # enrichment fractions.
                 for elem in self.enrichment_fractions.keys():
                     normalized_labelings[elem] = (
                         self.enrichment_fractions[elem]
-                        / serum_peak_group.enrichment_fractions[elem]
+                        / self.msrun.sample.animal.serum_tracers_enrichment_fractions[
+                            elem
+                        ]
                     )
             else:
                 normalized_labelings = None

@@ -1222,7 +1222,7 @@ class PropertyTests(TracebaseTestCase):
         # make sure we get only 1 labeled element of nitrogen
         self.assertEqual(
             ["N"],
-            pg.tracer_labeled_elements,
+            sample.animal.tracer_labeled_elements,
             msg="Make sure the tracer labeled elements are set for the animal this peak group is linked to.",
         )
 
@@ -1277,7 +1277,7 @@ class PropertyTests(TracebaseTestCase):
             .get()
         )
 
-        self.assertEqual(["C"], peak_group.tracer_labeled_elements)
+        self.assertEqual(["C"], peak_group.msrun.sample.animal.tracer_labeled_elements)
 
     def test_normalized_labeling_latest_serum(self):
         peak_group = (
