@@ -148,8 +148,6 @@ class PeakGroup(HierCachedModel):
             error = True
             # The last 2 should not happen since the fields in PeakDataLabel are null=False, but to hard against
             # unexpected DB changes...
-            eql = e.__class__.__name__ == "NoCommonLabels"
-            print(f"Exception: {e.__class__.__name__}: {e} {eql} {compound}")
             if compound is None:
                 msg = "No compounds were associated with PeakGroup"
             elif e.__class__.__name__ == "NoCommonLabels":
