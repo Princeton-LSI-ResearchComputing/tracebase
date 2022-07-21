@@ -164,18 +164,25 @@ class Format:
         Returns a list of prefetch strings for a composite view from the root table to the supplied table.  It includes
         a unique set of "foreign key paths" that encompass all tables.
         """
-        desc_len_sorted_paths = sorted(
-            map(
-                lambda name: self.model_instances[name]["path"],
-                self.getModelInstances(),
-            ),
+        # This gets non-root model key paths (that are not "through" models) sorted in descending order of their length
+        desc_len_sorted_paths = [
+            self.model_instances[x]["path"]
+            for x in self.getModelInstances()
+            if (
+                self.model_instances[x]["path"] != ""
+                and (
+                    "through" not in self.model_instances[x]["manytomany"]
+                    or not self.model_instances[x]["manytomany"]["through"]
+                )
+            )
+        ]
+        # This filters out paths that are contained inside other paths
+        unique_paths = []
+        for path in sorted(
+            desc_len_sorted_paths,
             key=len,
             reverse=True,
-        )
-        unique_paths = []
-        for path in desc_len_sorted_paths:
-            if path == "":
-                continue
+        ):
             contained = False
             for upath in unique_paths:
                 if path in upath:
@@ -538,7 +545,13 @@ class Format:
             # We will save the db-only field names here (i.e. no non-DB field references to model objects)
             db_field_ordering = []
             # For each order-by field reference
-            for ob_field in ordering:
+            for ob_field_val in ordering:
+                # if the field ordering is reversed
+                if ob_field_val.startswith("-"):
+                    # Chop off the negative sign to get the unmodified field name
+                    ob_field = ob_field_val[1:]
+                else:
+                    ob_field = ob_field_val
                 add_flds = []
                 fld = getattr(mdl, ob_field)
                 # If this is a foreign key (i.e. it's a model reference, not an actual DB field)

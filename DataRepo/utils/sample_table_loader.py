@@ -298,27 +298,39 @@ class SampleTableLoader:
                     row, self.headers.TRACER_CONCENTRATIONS, hdr_required=False
                 )
                 try:
-                    # Not sure how the split results in a float, but my guess is that it's something in excel, thus if
-                    # there do exist comma-delimited items, this should actually work
-                    tracer_concs = [
-                        float(x.strip())
-                        for x in tracer_concs_str.split(CONCENTRATIONS_DELIMITER)
-                    ]
+                    if tracer_concs_str is None:
+                        tracer_concs = None
+                    else:
+                        # Not sure how the split results in a float, but my guess is that it's something in excel, thus
+                        # if there do exist comma-delimited items, this should actually work
+                        tracer_concs = [
+                            float(x.strip())
+                            for x in tracer_concs_str.split(CONCENTRATIONS_DELIMITER)
+                        ]
                 except AttributeError as ae:
                     if "object has no attribute 'split'" in str(ae):
-                        tracer_concs = [tracer_concs_str]
+                        tracer_concs = [float(tracer_concs_str)]
                     else:
                         raise ae
 
                 # Create the infusate record and all its tracers and labels, then link to it from the animal
                 infusate_str = self.getRowVal(
-                    row, self.headers.INFUSATE, hdr_required=False
+                    row, self.headers.INFUSATE, hdr_required=True
                 )
-                infusate_data_object = parse_infusate_name(infusate_str, tracer_concs)
-                (infusate, created) = Infusate.objects.get_or_create_infusate(
-                    infusate_data_object
-                )
-                animal.infusate = infusate
+                infusate = None
+                if infusate_str is not None:
+                    if tracer_concs is None:
+                        raise NoConcentrations(
+                            f"{self.headers.INFUSATE} [{infusate_str}] supplied without "
+                            f"{self.headers.TRACER_CONCENTRATIONS}."
+                        )
+                    infusate_data_object = parse_infusate_name(
+                        infusate_str, tracer_concs
+                    )
+                    (infusate, created) = Infusate.objects.get_or_create_infusate(
+                        infusate_data_object
+                    )
+                    animal.infusate = infusate
 
                 rate_required = infusate is not None
 
@@ -451,3 +463,7 @@ class SampleTableLoader:
             if hdr_required and header not in self.missing_headers:
                 self.missing_headers.append(header)
         return val
+
+
+class NoConcentrations(Exception):
+    pass

@@ -66,10 +66,10 @@ def home(request):
 
     comp_count = Compound.objects.all().count()
     tracer_count = (
-        Animal.objects.exclude(tracer_compound_id__isnull=True)
-        .order_by("tracer_compound_id")
-        .values_list("tracer_compound_id")
-        .distinct("tracer_compound_id")
+        Animal.objects.exclude(infusate__tracers__compound__id__isnull=True)
+        .order_by("infusate__tracers__compound__id")
+        .values_list("infusate__tracers__compound__id")
+        .distinct("infusate__tracers__compound__id")
         .count()
     )
 
