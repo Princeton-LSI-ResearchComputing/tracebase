@@ -618,7 +618,9 @@ class AccuCorDataLoader:
                         # Must save the compound to the correct database before it can be linked
                         compound.save(using=self.db)
                         peak_group.compounds.add(compound)
-                    peak_labeled_elements = self.get_peak_labeled_elements(peak_group.compounds.all())
+                    peak_labeled_elements = self.get_peak_labeled_elements(
+                        peak_group.compounds.all()
+                    )
 
                     # cache
                     inserted_peak_group_dict[peak_group_name] = {
@@ -631,7 +633,9 @@ class AccuCorDataLoader:
 
                 # we should have a cached PeakGroup and its labeled element now
                 peak_group = inserted_peak_group_dict[peak_group_name]["group"]
-                peak_labeled_elements = inserted_peak_group_dict[peak_group_name]["labels"]
+                peak_labeled_elements = inserted_peak_group_dict[peak_group_name][
+                    "labels"
+                ]
 
                 if self.accucor_original_df is not None:
 

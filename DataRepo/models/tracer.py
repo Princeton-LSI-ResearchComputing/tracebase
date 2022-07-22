@@ -75,7 +75,7 @@ class Tracer(MaintainedModel, ElementLabel):
         to="DataRepo.Compound",
         on_delete=models.RESTRICT,
         null=False,
-        related_name="tracer",
+        related_name="tracers",
     )
 
     class Meta:

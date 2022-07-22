@@ -609,7 +609,25 @@ class Format:
                 # the error: `ProgrammingError: SELECT DISTINCT ON expressions must match initial ORDER BY expressions`
                 tmp_distincts = self.getOrderByFields(mdl_inst_nm)
                 for fld_nm in tmp_distincts:
-                    fld = self.model_instances[mdl_inst_nm]["path"] + "__" + fld_nm
+
+                    # Remove potential loop added to the path when ordering_fields are dereferenced
+                    # Eg This changes "peak_data__labels__peak_data__peak_group__name" to "peak_data__peak_group__name"
+                    field_path_array = fld_nm.split("__")
+                    model_path_array = self.model_instances[mdl_inst_nm]["path"].split(
+                        "__"
+                    )
+                    if (
+                        len(field_path_array) > 1
+                        and field_path_array[0] in model_path_array
+                    ):
+                        path_array = []
+                        first = model_path_array.index(field_path_array[0])
+                        path_array = model_path_array[0:first]
+                        path_array += field_path_array
+                        fld = "__".join(path_array)
+                    else:
+                        fld = self.model_instances[mdl_inst_nm]["path"] + "__" + fld_nm
+
                     distinct_fields.append(fld)
                 # Don't assume the ordering fields are populated/unique, so include the primary key.  Duplicate fields
                 # should be OK (though I haven't tested it).

@@ -38,7 +38,7 @@ class PeakGroupsFormat(Format):
         },
         {
             "displayname": "Tracer Compounds",
-            "distincts": ["msrun__sample__animal__tracer_compound__name"],
+            "distincts": ["msrun__sample__animal__infusate__tracers__compound__name"],
             "filter": None,
         },
         {
@@ -107,6 +107,30 @@ class PeakGroupsFormat(Format):
                     "displayname": "Measured Compound (Any Synonym)",
                     "searchable": True,
                     "displayed": True,
+                    "type": "string",
+                },
+            },
+        },
+        "PeakDataLabel": {
+            "model": "PeakDataLabel",
+            "path": "peak_data__labels",
+            "reverse_path": "peak_data__peak_group",
+            "manytomany": {
+                "is": True,
+                "split_rows": True,
+            },
+            "fields": {
+                "id": {
+                    "displayname": "(Internal) Peak Data Label Index",
+                    "searchable": True,
+                    "displayed": False,  # Used in link
+                    "handoff": "name",  # This is the field that will be loaded in the search form
+                    "type": "number",
+                },
+                "element": {
+                    "displayname": "Measured Compound (Any Synonym)",
+                    "searchable": False,
+                    "displayed": False,
                     "type": "string",
                 },
             },
@@ -321,8 +345,8 @@ class PeakGroupsFormat(Format):
         },
         "TracerCompound": {
             "model": "Compound",
-            "path": "msrun__sample__animal__tracer_compound",
-            "reverse_path": "animals__samples__msruns__peak_groups",
+            "path": "msrun__sample__animal__infusate__tracers__compound",
+            "reverse_path": "tracer__infusates__animals__samples__msruns__peak_groups",
             "manytomany": {
                 "is": False,
                 "split_rows": False,
