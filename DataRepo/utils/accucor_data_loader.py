@@ -840,16 +840,16 @@ class AccuCorDataLoader:
         observed isotope because it is parsing that element from the record.
         """
         if self.isocorr_format:
-            # E.g. Parsing C13N15-label-2-3 in isotopeLabel column
-            isotopes = self.parse_isotope_string(
-                corrected_row[self.labeled_element_header], self.tracer_labeled_elements
-            )
-
             # Establish the set of labeled elements we're working from
             if observed_compound_recs is None:
                 parent_labels = self.tracer_labeled_elements
             else:
                 parent_labels = self.get_peak_labeled_elements(observed_compound_recs)
+
+            # E.g. Parsing C13N15-label-2-3 in isotopeLabel column
+            isotopes = self.parse_isotope_string(
+                corrected_row[self.labeled_element_header], parent_labels
+            )
 
             # If there are any labeled elements unaccounted for, add them as zero-counts
             if len(isotopes) < len(parent_labels):

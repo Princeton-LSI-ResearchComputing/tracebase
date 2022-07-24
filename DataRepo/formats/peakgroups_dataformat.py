@@ -18,7 +18,7 @@ class PeakGroupsFormat(Format):
         },
         {
             "displayname": "Labeled Elements",
-            "distincts": ["peak_data__labeled_element"],
+            "distincts": ["peak_data__labels__element"],
             "filter": None,
         },
         {
@@ -56,11 +56,11 @@ class PeakGroupsFormat(Format):
             "distincts": ["msrun__sample__animal__tracer_infusion_rate"],
             "filter": None,
         },
-        {
-            "displayname": "Infusion Concentrations",
-            "distincts": ["msrun__sample__animal__tracer_infusion_concentration"],
-            "filter": None,
-        },
+        # {
+        #     "displayname": "Tracer Concentrations",
+        #     "distincts": ["msrun__sample__animal__infusate__infusatetracer__concentration"],
+        #     "filter": None,
+        # },
     ]
     model_instances = {
         "PeakGroupSet": {
@@ -119,19 +119,16 @@ class PeakGroupsFormat(Format):
                 "is": True,
                 "split_rows": True,
             },
+            "distinct": True,  # Makes all fields below distinct - warning, displayed=False fields thwart this
             "fields": {
-                "id": {
-                    "displayname": "(Internal) Peak Data Label Index",
-                    "searchable": True,
-                    "displayed": False,  # Used in link
-                    "handoff": "name",  # This is the field that will be loaded in the search form
-                    "type": "number",
-                },
                 "element": {
-                    "displayname": "Measured Compound (Any Synonym)",
-                    "searchable": False,
-                    "displayed": False,
-                    "type": "string",
+                    "displayname": "Labeled Element",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "enumeration",
+                    "choices": ElementLabel.LABELED_ELEMENT_CHOICES,
+                    # A datamember by this name will be available off the root record in the template
+                    "root_annot_fld": "element",  # Used to annotate root record when dinstinct=True & split_rows=True
                 },
             },
         },
@@ -322,21 +319,8 @@ class PeakGroupsFormat(Format):
                     "displayed": True,
                     "type": "string",
                 },
-                "tracer_labeled_atom": {
-                    "displayname": "Tracer Labeled Element",
-                    "searchable": True,
-                    "displayed": True,
-                    "type": "enumeration",
-                    "choices": ElementLabel.LABELED_ELEMENT_CHOICES,
-                },
                 "tracer_infusion_rate": {
                     "displayname": "Tracer Infusion Rate (ul/min/g)",
-                    "searchable": True,
-                    "displayed": True,
-                    "type": "number",
-                },
-                "tracer_infusion_concentration": {
-                    "displayname": "Tracer Infusion Concentration (mM)",
                     "searchable": True,
                     "displayed": True,
                     "type": "number",
