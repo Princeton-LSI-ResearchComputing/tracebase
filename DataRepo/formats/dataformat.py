@@ -164,18 +164,25 @@ class Format:
         Returns a list of prefetch strings for a composite view from the root table to the supplied table.  It includes
         a unique set of "foreign key paths" that encompass all tables.
         """
-        desc_len_sorted_paths = sorted(
-            map(
-                lambda name: self.model_instances[name]["path"],
-                self.getModelInstances(),
-            ),
+        # This gets non-root model key paths (that are not "through" models) sorted in descending order of their length
+        desc_len_sorted_paths = [
+            self.model_instances[x]["path"]
+            for x in self.getModelInstances()
+            if (
+                self.model_instances[x]["path"] != ""
+                and (
+                    "through" not in self.model_instances[x]["manytomany"]
+                    or not self.model_instances[x]["manytomany"]["through"]
+                )
+            )
+        ]
+        # This filters out paths that are contained inside other paths
+        unique_paths = []
+        for path in sorted(
+            desc_len_sorted_paths,
             key=len,
             reverse=True,
-        )
-        unique_paths = []
-        for path in desc_len_sorted_paths:
-            if path == "":
-                continue
+        ):
             contained = False
             for upath in unique_paths:
                 if path in upath:
@@ -283,7 +290,7 @@ class Format:
                 self.model_instances[mdl_inst_nm]["manytomany"]["is"]
                 and self.model_instances[mdl_inst_nm]["manytomany"]["split_rows"]
             ):
-                # If an root_annot_fld key exists in the "manytomany" dict, use it
+                # If a root_annot_fld key exists in the "manytomany" dict, use it
                 if (
                     "root_annot_fld"
                     in self.model_instances[mdl_inst_nm]["manytomany"].keys()
@@ -310,6 +317,34 @@ class Format:
                 annotations.append(
                     {annot_fld: F(self.model_instances[mdl_inst_nm]["path"] + "__pk")}
                 )
+
+                # If these fields are distinct, annotating their values makes the template cleaner
+                if (
+                    "distinct" in self.model_instances[mdl_inst_nm]
+                    and self.model_instances[mdl_inst_nm]["distinct"]
+                ):
+                    for fld_nm in self.model_instances[mdl_inst_nm]["fields"].keys():
+                        if (
+                            "root_annot_fld"
+                            in self.model_instances[mdl_inst_nm]["fields"][
+                                fld_nm
+                            ].keys()
+                        ):
+                            distinct_annot_fld = self.model_instances[mdl_inst_nm][
+                                "fields"
+                            ][fld_nm]["root_annot_fld"]
+                            fld = self.dereferenceField(
+                                fld_nm, self.model_instances[mdl_inst_nm]["model"]
+                            )
+                            annotations.append(
+                                {
+                                    distinct_annot_fld: F(
+                                        self.model_instances[mdl_inst_nm]["path"]
+                                        + "__"
+                                        + fld
+                                    )
+                                }
+                            )
 
         return annotations
 
@@ -538,7 +573,13 @@ class Format:
             # We will save the db-only field names here (i.e. no non-DB field references to model objects)
             db_field_ordering = []
             # For each order-by field reference
-            for ob_field in ordering:
+            for ob_field_val in ordering:
+                # if the field ordering is reversed
+                if ob_field_val.startswith("-"):
+                    # Chop off the negative sign to get the unmodified field name
+                    ob_field = ob_field_val[1:]
+                else:
+                    ob_field = ob_field_val
                 add_flds = []
                 fld = getattr(mdl, ob_field)
                 # If this is a foreign key (i.e. it's a model reference, not an actual DB field)
@@ -589,25 +630,71 @@ class Format:
         distinct_fields = []
         for mdl_inst_nm in self.model_instances:
             # We only need to include a field if we want to split
-            if self.model_instances[mdl_inst_nm]["manytomany"]["split_rows"] or (
-                self.model_instances[mdl_inst_nm]["manytomany"]["is"] and split_all
+            if (
+                split_all
+                and self.model_instances[mdl_inst_nm]["manytomany"]["is"]
+                or (
+                    self.model_instances[mdl_inst_nm]["manytomany"]["split_rows"]
+                    and (
+                        "distinct" not in self.model_instances[mdl_inst_nm].keys()
+                        or self.model_instances[mdl_inst_nm]["distinct"] is False
+                    )
+                )
             ):
-                # Django's ordering fields are required when any field is provided to .distinct().  Otherwise, you get
-                # the error: `ProgrammingError: SELECT DISTINCT ON expressions must match initial ORDER BY expressions`
+                # Django's ordering fields are required when any field is provided to .distinct().  Otherwise, you
+                # get the error: `ProgrammingError: SELECT DISTINCT ON expressions must match initial ORDER BY
+                # expressions`
                 tmp_distincts = self.getOrderByFields(mdl_inst_nm)
                 for fld_nm in tmp_distincts:
-                    fld = self.model_instances[mdl_inst_nm]["path"] + "__" + fld_nm
+
+                    # Remove potential loop added to the path when ordering_fields are dereferenced
+                    # E.g. This changes "peak_data__labels__peak_data__peak_group__name" to
+                    # "peak_data__peak_group__name"
+                    field_path_array = fld_nm.split("__")
+                    model_path_array = self.model_instances[mdl_inst_nm]["path"].split(
+                        "__"
+                    )
+                    if (
+                        len(field_path_array) > 1
+                        and field_path_array[0] in model_path_array
+                    ):
+                        path_array = []
+                        first = model_path_array.index(field_path_array[0])
+                        path_array = model_path_array[0:first]
+                        path_array += field_path_array
+                        fld = "__".join(path_array)
+                    else:
+                        fld = self.model_instances[mdl_inst_nm]["path"] + "__" + fld_nm
+
                     distinct_fields.append(fld)
-                # Don't assume the ordering fields are populated/unique, so include the primary key.  Duplicate fields
-                # should be OK (though I haven't tested it).
-                # Note, this assumes that being here means we're in a related table and not the root table, so path is
-                # not an empty string
+
+                # Don't assume the ordering fields are populated/unique, so include the primary key.  Duplicate
+                # fields should be OK (though I haven't tested it).
+                # Note, this assumes that being here means we're in a related table and not the root table, so path
+                # is not an empty string
                 distinct_fields.append(
                     self.model_instances[mdl_inst_nm]["path"] + "__pk"
                 )
 
-        # If there are any split_rows manytomany related tables, we will need to prepend the ordering (and pk) fields of
-        # the root model
+            elif (
+                "distinct" in self.model_instances[mdl_inst_nm].keys()
+                and self.model_instances[mdl_inst_nm]["distinct"]
+            ):
+
+                for distinct_fld_nm in self.model_instances[mdl_inst_nm][
+                    "fields"
+                ].keys():
+                    fld = (
+                        self.model_instances[mdl_inst_nm]["path"]
+                        + "__"
+                        + self.dereferenceField(
+                            distinct_fld_nm, self.model_instances[mdl_inst_nm]["model"]
+                        )
+                    )
+                    distinct_fields.append(fld)
+
+        # If there are any split_rows manytomany related tables, we will need to prepend the ordering (and pk) fields
+        # of the root model
         if len(distinct_fields) > 0:
             distinct_fields.insert(0, "pk")
             tmp_distincts = self.getOrderByFields(model_name=self.rootmodel.__name__)
@@ -622,6 +709,15 @@ class Format:
             distinct_fields.append("pk")
 
         return distinct_fields
+
+    def dereferenceField(self, field_name, model_name):
+        mdl = apps.get_model("DataRepo", model_name)
+        fld = getattr(mdl, field_name)
+        deref_field = field_name
+        # If this is a foreign key (i.e. it's a model reference, not an actual DB field)
+        if fld.field.__class__.__name__ == "ForeignKey":
+            deref_field += "__pk"
+        return deref_field
 
     def getStatsParams(self):
         """Stats getter"""

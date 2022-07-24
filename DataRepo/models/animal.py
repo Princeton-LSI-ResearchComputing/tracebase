@@ -364,6 +364,124 @@ class Animal(HierCachedModel, ElementLabel):
                 self.final_serum_sample_tracer_peak_group.rate_appearance_average_atom_turnover
             )
 
+    @property  # type: ignore
+    @cached_function
+    def tracer_labeled_elements(self):
+        """
+        This method returns a unique list of the labeled elements that exist among the tracers as if they were parent
+        observations (i.e. count=0 and parent=True).  This is so that Isocorr data canrecord 0 observations for parent
+        records.  Accucor data does present data for counts of 0 already.
+        """
+        # Assuming all samples come from 1 animal, so we're only looking at 1 (any) sample
+        tracer_labeled_elements = []
+        for tracer in self.infusate.tracers.all():
+            for label in tracer.labels.all():
+                if label.element not in tracer_labeled_elements:
+                    tracer_labeled_elements.append(label.element)
+        return tracer_labeled_elements
+
+    @property  # type: ignore
+    @cached_function
+    def serum_tracers_enrichment_fractions(self):
+        """
+        A weighted average of the fraction of labeled atoms for this PeakGroup
+        in this sample.
+        i.e. The fraction of carbons that are labeled in this PeakGroup compound
+        Sum of all (PeakData.fraction * PeakData.labeled_count) /
+            PeakGroup.Compound.num_atoms(PeakData.labeled_element)
+        """
+        from DataRepo.models.peak_group import PeakGroup
+        from DataRepo.models.sample import Sample
+        from DataRepo.models.tissue import Tissue
+
+        tracers_enrichment_fractions = {}
+        tracer_compounds = None
+        error = False
+        msg = ""
+
+        try:
+            tracer_compounds = []
+            tracer_compound_ids = []
+            for tracer in self.infusate.tracers.all():
+                tracer_compounds.append(tracer.compound)
+                tracer_compound_ids.append(tracer.compound.id)
+            if len(tracer_compound_ids) == 0:
+                raise NoTracerCompounds(self)
+            tracer_labeled_elements = self.tracer_labeled_elements
+
+            # Get the peak group of each tracer compound from the final serum sample
+            final_serum_sample = (
+                Sample.objects.filter(animal_id=self.id)
+                .filter(tissue__name__startswith=Tissue.SERUM_TISSUE_PREFIX)
+                .latest("time_collected")
+            )
+            final_serum_tracer_peak_groups = PeakGroup.objects.filter(
+                msrun__sample_id=final_serum_sample.id
+            ).filter(compounds__id__in=tracer_compound_ids)
+            if final_serum_tracer_peak_groups.count() != len(tracer_compounds):
+                raise MissingSerumTracerPeakGroups(
+                    self,
+                    final_serum_sample,
+                    final_serum_tracer_peak_groups,
+                    tracer_compounds,
+                )
+
+            # Count the total numnber of each element among all the tracer compounds
+            total_atom_counts = {}
+            for tracer_labeled_element in tracer_labeled_elements:
+                total_atom_counts[tracer_labeled_element] = 0
+            for tracer_compound in tracer_compounds:
+                for tracer_labeled_element in tracer_labeled_elements:
+                    total_atom_counts[
+                        tracer_labeled_element
+                    ] += tracer_compound.atom_count(tracer_labeled_element)
+
+            final_serum_tracers_enrichment_sums = {}
+            # Sum the element enrichments across all tracer compounds
+            for tracer_labeled_element in tracer_labeled_elements:
+                final_serum_tracers_enrichment_sums[tracer_labeled_element] = 0.0
+                for final_serum_tracer_peak_group in final_serum_tracer_peak_groups:
+                    label_pd_recs = final_serum_tracer_peak_group.peak_data.filter(
+                        labels__element__exact=tracer_labeled_element
+                    )
+                    # This assumes that if there are any label_pd_recs for this measured elem, the calculation is valid
+                    if label_pd_recs.count() == 0:
+                        raise MissingPeakData(
+                            final_serum_tracer_peak_group, tracer_labeled_element
+                        )
+                    for label_pd_rec in label_pd_recs:
+                        # This assumes the PeakDataLabel unique constraint: peak_data, element
+                        label_rec = label_pd_rec.labels.get(
+                            element__exact=tracer_labeled_element
+                        )
+                        # And this assumes that label_rec must exist because of the filter above the loop
+                        final_serum_tracers_enrichment_sums[tracer_labeled_element] += (
+                            label_pd_rec.fraction * label_rec.count
+                        )
+
+            for tracer_labeled_element in tracer_labeled_elements:
+                tracers_enrichment_fractions[tracer_labeled_element] = (
+                    final_serum_tracers_enrichment_sums[tracer_labeled_element]
+                    / total_atom_counts[tracer_labeled_element]
+                )
+        except NoTracerCompounds as ntc:
+            error = True
+            msg = str(ntc)
+        except MissingSerumTracerPeakGroups as mstpg:
+            error = True
+            msg = str(mstpg)
+        except MissingPeakData as mpd:
+            error = True
+            msg = str(mpd)
+        finally:
+            if error:
+                warnings.warn(
+                    f"Unable to compute serum_tracers_enrichment_fractions for {final_serum_sample}:{self}, {msg}."
+                )
+                return None
+
+        return tracers_enrichment_fractions
+
     class Meta:
         verbose_name = "animal"
         verbose_name_plural = "animals"
@@ -381,3 +499,42 @@ class Animal(HierCachedModel, ElementLabel):
                     "Protocol category for an Animal must be of type "
                     f"{Protocol.ANIMAL_TREATMENT}"
                 )
+
+
+class MissingSerumTracerPeakGroups(Exception):
+    def __init__(
+        self,
+        animal,
+        final_serum_sample,
+        final_serum_tracer_peak_groups,
+        tracer_compounds,
+    ):
+        msg = (
+            f"There is not a peak group [{', '.join(final_serum_tracer_peak_groups.values_list('name', flat=True))}] "
+            f"in the final serum sample [{final_serum_sample}] for animal [{animal}] for every tracer compound "
+            f"[{', '.join(tracer_compounds)}]"
+        )
+        super().__init__(msg)
+        self.animal = animal
+        self.final_serum_sample = final_serum_sample
+        self.final_serum_tracer_peak_groups = final_serum_tracer_peak_groups
+        self.tracer_compounds = tracer_compounds
+
+
+class MissingPeakData(Exception):
+    def __init__(self, final_serum_tracer_peak_group, tracer_labeled_element):
+        msg = (
+            f"PeakData record missing for element {tracer_labeled_element} in final serum peak group "
+            f"{final_serum_tracer_peak_group}.  There should exist a PeakData record for every tracer labeled "
+            "element, even if the abundance is 0."
+        )
+        super().__init__(msg)
+        self.final_serum_tracer_peak_group = final_serum_tracer_peak_group
+        self.tracer_labeled_element = tracer_labeled_element
+
+
+class NoTracerCompounds(Exception):
+    def __init__(self, animal):
+        msg = f"Animal [{animal}] has no tracers."
+        super().__init__(msg)
+        self.animal = animal

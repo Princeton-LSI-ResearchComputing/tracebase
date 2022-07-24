@@ -18,7 +18,7 @@ class PeakGroupsFormat(Format):
         },
         {
             "displayname": "Labeled Elements",
-            "distincts": ["peak_data__labeled_element"],
+            "distincts": ["peak_data__labels__element"],
             "filter": None,
         },
         {
@@ -38,7 +38,7 @@ class PeakGroupsFormat(Format):
         },
         {
             "displayname": "Tracer Compounds",
-            "distincts": ["msrun__sample__animal__tracer_compound__name"],
+            "distincts": ["msrun__sample__animal__infusate__tracers__compound__name"],
             "filter": None,
         },
         {
@@ -56,11 +56,11 @@ class PeakGroupsFormat(Format):
             "distincts": ["msrun__sample__animal__tracer_infusion_rate"],
             "filter": None,
         },
-        {
-            "displayname": "Infusion Concentrations",
-            "distincts": ["msrun__sample__animal__tracer_infusion_concentration"],
-            "filter": None,
-        },
+        # {
+        #     "displayname": "Tracer Concentrations",
+        #     "distincts": ["msrun__sample__animal__infusate__infusatetracer__concentration"],
+        #     "filter": None,
+        # },
     ]
     model_instances = {
         "PeakGroupSet": {
@@ -111,6 +111,27 @@ class PeakGroupsFormat(Format):
                 },
             },
         },
+        "PeakDataLabel": {
+            "model": "PeakDataLabel",
+            "path": "peak_data__labels",
+            "reverse_path": "peak_data__peak_group",
+            "manytomany": {
+                "is": True,
+                "split_rows": True,
+            },
+            "distinct": True,  # Makes all fields below distinct - warning, displayed=False fields thwart this
+            "fields": {
+                "element": {
+                    "displayname": "Labeled Element",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "enumeration",
+                    "choices": ElementLabel.LABELED_ELEMENT_CHOICES,
+                    # A datamember by this name will be available off the root record in the template
+                    "root_annot_fld": "element",  # Used to annotate root record when dinstinct=True & split_rows=True
+                },
+            },
+        },
         "PeakGroup": {
             "model": "PeakGroup",
             "path": "",
@@ -139,32 +160,32 @@ class PeakGroupsFormat(Format):
                     "displayed": True,
                     "type": "string",
                 },
-                # TODO: This property/cached_function returns a dict, a type that is not (yet) supported.  Commenting
-                #       out for now until I figure out how to handle it.
+                # TODO: The following properties/cached_functions returns a dict, a type that is not (yet) supported.
+                #       Commenting out for now until I figure out how to handle it.
                 # "enrichment_fractions": {
                 #     "displayname": "Enrichment Fraction",
                 #     "searchable": False,  # Cannot search cached property
                 #     "displayed": True,
                 #     "type": "number",
                 # },
-                "enrichment_abundance": {
-                    "displayname": "Enrichment Abundance",
-                    "searchable": False,  # Cannot search cached property
-                    "displayed": True,
-                    "type": "number",
-                },
+                # "enrichment_abundances": {
+                #     "displayname": "Enrichment Abundance",
+                #     "searchable": False,  # Cannot search cached property
+                #     "displayed": True,
+                #     "type": "number",
+                # },
                 "total_abundance": {
                     "displayname": "Total Abundance",
                     "searchable": False,  # Cannot search cached property
                     "displayed": True,
                     "type": "number",
                 },
-                "normalized_labeling": {
-                    "displayname": "Normalized Labeling",
-                    "searchable": False,  # Cannot search cached property
-                    "displayed": True,
-                    "type": "number",
-                },
+                # "normalized_labelings": {
+                #     "displayname": "Normalized Labeling",
+                #     "searchable": False,  # Cannot search cached property
+                #     "displayed": True,
+                #     "type": "number",
+                # },
             },
         },
         "Protocol": {
@@ -298,21 +319,8 @@ class PeakGroupsFormat(Format):
                     "displayed": True,
                     "type": "string",
                 },
-                "tracer_labeled_atom": {
-                    "displayname": "Tracer Labeled Element",
-                    "searchable": True,
-                    "displayed": True,
-                    "type": "enumeration",
-                    "choices": ElementLabel.LABELED_ELEMENT_CHOICES,
-                },
                 "tracer_infusion_rate": {
                     "displayname": "Tracer Infusion Rate (ul/min/g)",
-                    "searchable": True,
-                    "displayed": True,
-                    "type": "number",
-                },
-                "tracer_infusion_concentration": {
-                    "displayname": "Tracer Infusion Concentration (mM)",
                     "searchable": True,
                     "displayed": True,
                     "type": "number",
@@ -321,8 +329,8 @@ class PeakGroupsFormat(Format):
         },
         "TracerCompound": {
             "model": "Compound",
-            "path": "msrun__sample__animal__tracer_compound",
-            "reverse_path": "animals__samples__msruns__peak_groups",
+            "path": "msrun__sample__animal__infusate__tracers__compound",
+            "reverse_path": "tracer__infusates__animals__samples__msruns__peak_groups",
             "manytomany": {
                 "is": False,
                 "split_rows": False,

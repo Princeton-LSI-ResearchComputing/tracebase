@@ -42,7 +42,15 @@ def decimalPlaces(number, places):
 # This allows indexing a list or dict
 @register.filter
 def index(indexable, i):
-    return indexable[i]
+    try:
+        v = indexable[i]
+    except (TypeError, KeyError) as e:
+        print(
+            f"Warning: Lookup performed on indexable variable with value: [{indexable}] with index/key: [{i}]. ",
+            f"Caught error: [{str(e)}].  Returning None.",
+        )
+        v = None
+    return v
 
 
 @register.simple_tag

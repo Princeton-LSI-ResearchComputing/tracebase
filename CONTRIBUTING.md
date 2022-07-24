@@ -127,7 +127,6 @@ Set up the project's postgres databases:
 
     python manage.py load_compounds --compounds DataRepo/example_data/consolidated_tracebase_compound_list.tsv
     python manage.py load_study DataRepo/example_data/tissues/loading.yaml
-    python manage.py load_animals_and_samples --animal-and-sample-table-filename DataRepo/example_data/small_dataset/small_obob_animal_and_sample_table.xlsx
     python manage.py load_animals_and_samples --sample-table-filename DataRepo/example_data/obob_samples_table.tsv --animal-table-filename DataRepo/example_data/obob_animals_table.tsv --table-headers DataRepo/example_data/sample_and_animal_tables_headers.yaml
     python manage.py load_accucor_msruns --protocol Default --accucor-file DataRepo/example_data/obob_maven_6eaas_inf.xlsx --date 2021-04-29 --researcher "Anon" --new-researcher
 

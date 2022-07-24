@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.db.utils import IntegrityError
 
 from DataRepo.models import Compound
 from DataRepo.utils.exceptions import (
@@ -231,9 +232,16 @@ class CompoundsLoader:
         # "both" is the normal loading mode - always loads both the validation and tracebase databases, unless the
         # database is explicitly supplied or --validate is supplied
         if self.loading_mode == "both":
-            self.load_validated_compounds_per_db(settings.TRACEBASE_DB)
-            if settings.VALIDATION_ENABLED:
-                self.load_validated_compounds_per_db(settings.VALIDATION_DB)
+            try:
+                self.load_validated_compounds_per_db(settings.TRACEBASE_DB)
+                if settings.VALIDATION_ENABLED:
+                    self.load_validated_compounds_per_db(settings.VALIDATION_DB)
+            except (CompoundExists, CompoundNotFound) as ce:
+                ce.message += (
+                    f"  Try loading databases {settings.TRACEBASE_DB} and {settings.VALIDATION_DB} one by "
+                    "one."
+                )
+                raise ce
         elif self.loading_mode == "one":
             self.load_validated_compounds_per_db(self.db)
         else:
@@ -244,7 +252,10 @@ class CompoundsLoader:
     def load_validated_compounds_per_db(self, db=settings.TRACEBASE_DB):
         count = 0
         for compound in self.validated_new_compounds_for_insertion:
-            compound.save(using=db)
+            try:
+                compound.save(using=db)
+            except IntegrityError:
+                raise CompoundExists(compound.name, db)
             count += 1
         self.summary_messages.append(
             f"{count} compound(s) inserted, with default synonyms, into the {db} database."
@@ -273,7 +284,10 @@ class CompoundsLoader:
             hmdb_id = row[self.KEY_HMDB]
             # this name might always be a synonym
             compound_name_from_file = row[self.KEY_COMPOUND_NAME]
-            hmdb_compound = Compound.objects.using(db).get(hmdb_id=hmdb_id)
+            try:
+                hmdb_compound = Compound.objects.using(db).get(hmdb_id=hmdb_id)
+            except Compound.DoesNotExist:
+                raise CompoundNotFound(compound_name_from_file, db, hmdb_id)
             synonyms_string = row[self.KEY_SYNONYMS]
             synonyms = self.parse_synonyms(synonyms_string)
             if hmdb_compound.name != compound_name_from_file:
@@ -287,3 +301,24 @@ class CompoundsLoader:
         self.summary_messages.append(
             f"{count} additional synonym(s) inserted into the {db} database."
         )
+
+
+class CompoundExists(Exception):
+    message = ""
+
+    def __init__(self, cpd, db):
+        self.message = f"Compound {cpd} already exists in the {db} database."
+        super().__init__(self.message)
+        self.cpd = cpd
+        self.db = db
+
+
+class CompoundNotFound(Exception):
+    message = ""
+
+    def __init__(self, cpd, db, hmdb_id):
+        self.message = f"Cound not find compound [{cpd}] in database [{db}] by searching for its HMDB ID: [{hmdb_id}]."
+        super().__init__(self.message)
+        self.cpd = cpd
+        self.db = db
+        self.hmdb_id = hmdb_id

@@ -238,8 +238,8 @@ class GlobalCacheTests(TracebaseTestCase):
             "Sample": ["is_serum_sample"],
             "PeakGroup": [
                 "enrichment_fractions",
-                "enrichment_abundance",
-                "normalized_labeling",
+                "enrichment_abundances",
+                "normalized_labelings",
                 "is_tracer_compound_group",
                 "from_serum_sample",
                 "can_compute_tracer_rates",
@@ -271,7 +271,7 @@ class HierCachedModelTests(TracebaseTestCase):
     def test_cached_function_decorator(self):
         delete_all_caches()
         pg = PeakGroup.objects.all().first()
-        f = "normalized_labeling"
+        f = "normalized_labelings"
 
         # Get uncached value
         disable_caching_retrievals()
@@ -281,7 +281,9 @@ class HierCachedModelTests(TracebaseTestCase):
         # Trigger caching via decorator
         enable_caching_retrievals()
         enable_caching_updates()
-        saved_return = getattr(pg, f)  # same as `saved_return = pg.normalized_labeling`
+        saved_return = getattr(
+            pg, f
+        )  # same as `saved_return = pg.normalized_labelings`
         cnl, sts = get_cache(pg, f)
         self.assertTrue(
             sts,
@@ -441,8 +443,8 @@ class HierCachedModelTests(TracebaseTestCase):
         pg = PeakGroup.objects.all().first()
         expected = [
             "enrichment_fractions",
-            "enrichment_abundance",
-            "normalized_labeling",
+            "enrichment_abundances",
+            "normalized_labelings",
             "is_tracer_compound_group",
             "from_serum_sample",
             "can_compute_tracer_rates",

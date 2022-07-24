@@ -1136,10 +1136,14 @@ class PropertyTests(TracebaseTestCase):
         self.assertEqual(peak_data.raw_abundance, 8814287)
         self.assertAlmostEqual(peak_data.corrected_abundance, 9553199.89089051)
         self.assertAlmostEqual(peak_group.total_abundance, 9599112.684, places=3)
+        self.assertEqual(list(peak_group.enrichment_fractions.keys()), ["C"])
         self.assertAlmostEqual(peak_group.enrichment_fractions["C"], 0.001555566789)
-        # TODO: Temporarily commenting calls to methids I have not updated yet
-        # self.assertAlmostEqual(peak_group.enrichment_abundance, 14932.06089, places=5)
-        # self.assertAlmostEqual(peak_group.normalized_labeling, 0.009119978074)
+        self.assertEqual(list(peak_group.enrichment_abundances.keys()), ["C"])
+        self.assertAlmostEqual(
+            peak_group.enrichment_abundances["C"], 14932.06089, places=5
+        )
+        self.assertEqual(list(peak_group.normalized_labelings.keys()), ["C"])
+        self.assertAlmostEqual(peak_group.normalized_labelings["C"], 0.009119978074)
 
     def test_peak_group_peak_data_4(self):
         # null original data
@@ -1157,10 +1161,14 @@ class PropertyTests(TracebaseTestCase):
         # but presumably these are all computed from the corrected data
         self.assertAlmostEqual(peak_data.corrected_abundance, 9553199.89089051)
         self.assertAlmostEqual(peak_group.total_abundance, 9599112.684, places=3)
+        self.assertEqual(list(peak_group.enrichment_fractions.keys()), ["C"])
         self.assertAlmostEqual(peak_group.enrichment_fractions["C"], 0.001555566789)
-        # TODO: Temporarily commenting calls to methids I have not updated yet
-        # self.assertAlmostEqual(peak_group.enrichment_abundance, 14932.06089, places=5)
-        # self.assertAlmostEqual(peak_group.normalized_labeling, 0.009119978074)
+        self.assertEqual(list(peak_group.enrichment_abundances.keys()), ["C"])
+        self.assertAlmostEqual(
+            peak_group.enrichment_abundances["C"], 14932.06089, places=5
+        )
+        self.assertEqual(list(peak_group.normalized_labelings.keys()), ["C"])
+        self.assertAlmostEqual(peak_group.normalized_labelings["C"], 0.009119978074)
 
     def test_peak_group_peak_data_serum(self):
         peak_group = (
@@ -1172,12 +1180,16 @@ class PropertyTests(TracebaseTestCase):
         self.assertAlmostEqual(peak_data.raw_abundance, 205652.5)
         self.assertAlmostEqual(peak_data.corrected_abundance, 222028.365565823)
         self.assertAlmostEqual(peak_group.total_abundance, 267686.902436353)
+        self.assertEqual(list(peak_group.enrichment_fractions.keys()), ["C"])
         self.assertAlmostEqual(peak_group.enrichment_fractions["C"], 0.1705669439)
-        # TODO: Temporarily commenting calls to methids I have not updated yet
-        # self.assertAlmostEqual(peak_group.enrichment_abundance, 45658.53687, places=5)
-        # self.assertAlmostEqual(peak_group.normalized_labeling, 1)
+        self.assertEqual(list(peak_group.enrichment_abundances.keys()), ["C"])
+        self.assertAlmostEqual(
+            peak_group.enrichment_abundances["C"], 45658.53687, places=5
+        )
+        self.assertEqual(list(peak_group.normalized_labelings.keys()), ["C"])
+        self.assertAlmostEqual(peak_group.normalized_labelings["C"], 1)
 
-    def test_no_common_labels(self):
+    def test_no_peak_labeled_elements(self):
         # This creates an animal with a notrogen-labeled tracer (among others)
         call_command(
             "load_animals_and_samples",
@@ -1210,7 +1222,7 @@ class PropertyTests(TracebaseTestCase):
         # make sure we get only 1 labeled element of nitrogen
         self.assertEqual(
             ["N"],
-            pg.tracer_labeled_elements,
+            sample.animal.tracer_labeled_elements,
             msg="Make sure the tracer labeled elements are set for the animal this peak group is linked to.",
         )
 
@@ -1249,14 +1261,14 @@ class PropertyTests(TracebaseTestCase):
         with self.assertWarns(UserWarning):
             self.assertIsNone(peak_group.enrichment_fractions)
 
-    def test_peak_group_common_labels(self):
+    def test_peak_group_peak_labeled_elements(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="lysine")
             .filter(msrun__sample__name="serum-xz971")
             .get()
         )
 
-        self.assertEqual(["C"], peak_group.common_labels)
+        self.assertEqual(["C"], peak_group.peak_labeled_elements)
 
     def test_peak_group_tracer_labeled_elements(self):
         peak_group = (
@@ -1265,7 +1277,7 @@ class PropertyTests(TracebaseTestCase):
             .get()
         )
 
-        self.assertEqual(["C"], peak_group.tracer_labeled_elements)
+        self.assertEqual(["C"], peak_group.msrun.sample.animal.tracer_labeled_elements)
 
     def test_normalized_labeling_latest_serum(self):
         peak_group = (
@@ -1411,10 +1423,8 @@ class PropertyTests(TracebaseTestCase):
 
         with self.assertWarns(UserWarning):
             self.assertIsNone(peak_group_zero.enrichment_fractions)
-        # TODO: Temporarily commenting calls to methids I have not updated yet
-        # self.assertIsNone(peak_group_zero.enrichment_abundance)
-        # self.assertIsNone(peak_group_zero.normalized_labeling)
-
+        self.assertIsNone(peak_group_zero.enrichment_abundances)
+        self.assertIsNone(peak_group_zero.normalized_labelings)
         self.assertEqual(peak_group_zero.total_abundance, 0)
 
     @tag("fcirc")
@@ -2324,7 +2334,7 @@ class ParseIsotopeLabelTests(TracebaseTestCase):
             AccuCorDataLoader.parse_isotope_string(
                 "C12 PARENT", tracer_labeled_elements
             ),
-            [{"element": "C", "count": 0, "mass_number": 12}],
+            [{"element": "C", "count": 0, "mass_number": 13, "parent": True}],
         )
 
     def test_parse_isotope_label(self):
@@ -2334,7 +2344,7 @@ class ParseIsotopeLabelTests(TracebaseTestCase):
                 "C13-label-5",
                 tracer_labeled_elements,
             ),
-            [{"element": "C", "count": 5, "mass_number": 13}],
+            [{"element": "C", "count": 5, "mass_number": 13, "parent": False}],
         )
 
     def test_parse_isotope_label_bad(self):
@@ -2386,8 +2396,8 @@ class ParseIsotopeLabelTests(TracebaseTestCase):
         self.assertEqual(
             AccuCorDataLoader.parse_isotope_string(dual_label),
             [
-                {"element": "C", "count": 1, "mass_number": 13},
-                {"element": "N", "count": 2, "mass_number": 15},
+                {"element": "C", "count": 1, "mass_number": 13, "parent": False},
+                {"element": "N", "count": 2, "mass_number": 15, "parent": False},
             ],
         )
 
