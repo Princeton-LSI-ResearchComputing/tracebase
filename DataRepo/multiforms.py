@@ -9,8 +9,6 @@ from django.views.generic.edit import ProcessFormView
 #   https://stackoverflow.com/questions/15497693/django-can-class-based-views-accept-two-forms-at-a-time
 #   https://gist.github.com/jamesbrobb/748c47f46b9bd224b07f
 
-# TODO: Issue #370 refactor multiforms.py and views.AdvSearchView
-
 
 class MultiFormMixin(ContextMixin):
     """

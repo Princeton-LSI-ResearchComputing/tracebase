@@ -53,14 +53,18 @@ class PeakGroupsFormat(Format):
         },
         {
             "displayname": "Infusion Rates",
-            "distincts": ["msrun__sample__animal__tracer_infusion_rate"],
+            "distincts": ["msrun__sample__animal__infusion_rate"],
             "filter": None,
         },
-        # {
-        #     "displayname": "Tracer Concentrations",
-        #     "distincts": ["msrun__sample__animal__infusate__infusatetracer__concentration"],
-        #     "filter": None,
-        # },
+        {
+            "displayname": "Tracer Concentrations",
+            "distincts": [
+                "msrun__sample__animal__infusate__tracers__compound__name",
+                "msrun__sample__animal__infusate__infusatetracer__concentration",
+            ],
+            "filter": None,
+            "delimiter": ":",
+        },
     ]
     model_instances = {
         "PeakGroupSet": {
@@ -160,32 +164,33 @@ class PeakGroupsFormat(Format):
                     "displayed": True,
                     "type": "string",
                 },
-                # TODO: The following properties/cached_functions returns a dict, a type that is not (yet) supported.
-                #       Commenting out for now until I figure out how to handle it.
-                # "enrichment_fractions": {
-                #     "displayname": "Enrichment Fraction",
-                #     "searchable": False,  # Cannot search cached property
-                #     "displayed": True,
-                #     "type": "number",
-                # },
-                # "enrichment_abundances": {
-                #     "displayname": "Enrichment Abundance",
-                #     "searchable": False,  # Cannot search cached property
-                #     "displayed": True,
-                #     "type": "number",
-                # },
+                # TODO: The following properties/cached_functions each return a dict, a type that is not (yet)
+                #       supported.  The value is only used for the search interface. If these fields are changed to
+                #       searchable (e.g. made into maintained fields), this will have to be dealt with.
+                "enrichment_fractions": {
+                    "displayname": "Enrichment Fraction",
+                    "searchable": False,  # Cannot search cached property
+                    "displayed": True,
+                    "type": "number",
+                },
+                "enrichment_abundances": {
+                    "displayname": "Enrichment Abundance",
+                    "searchable": False,  # Cannot search cached property
+                    "displayed": True,
+                    "type": "number",
+                },
                 "total_abundance": {
                     "displayname": "Total Abundance",
                     "searchable": False,  # Cannot search cached property
                     "displayed": True,
                     "type": "number",
                 },
-                # "normalized_labelings": {
-                #     "displayname": "Normalized Labeling",
-                #     "searchable": False,  # Cannot search cached property
-                #     "displayed": True,
-                #     "type": "number",
-                # },
+                "normalized_labelings": {
+                    "displayname": "Normalized Labeling",
+                    "searchable": False,  # Cannot search cached property
+                    "displayed": True,
+                    "type": "number",
+                },
             },
         },
         "Protocol": {
@@ -319,8 +324,8 @@ class PeakGroupsFormat(Format):
                     "displayed": True,
                     "type": "string",
                 },
-                "tracer_infusion_rate": {
-                    "displayname": "Tracer Infusion Rate (ul/min/g)",
+                "infusion_rate": {
+                    "displayname": "Infusion Rate (ul/min/g)",
                     "searchable": True,
                     "displayed": True,
                     "type": "number",
