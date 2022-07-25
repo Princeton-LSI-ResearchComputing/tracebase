@@ -1,4 +1,4 @@
-Django==3.2.13
+Django==3.2.14
 psycopg2-binary==2.8.6
 django-environ==0.4.5
 django-validators==1.0.1
