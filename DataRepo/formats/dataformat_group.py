@@ -2,7 +2,6 @@ import json
 from copy import deepcopy
 from typing import Dict
 
-from django.apps import apps
 from django.db.models import Prefetch
 from django.db.utils import ProgrammingError
 from django.http import Http404
@@ -14,6 +13,7 @@ from DataRepo.formats.dataformat_group_query import (
     getSelectedFormat,
     setFirstEmptyQuery,
 )
+from DataRepo.models.utilities import get_model_by_name
 
 
 class FormatGroup:
@@ -539,7 +539,7 @@ class FormatGroup:
                     pf_q_exp = constructAdvancedQuery(pf_qry)
 
                     # grab the model using its name
-                    mdl = apps.get_model("DataRepo", pf_mdl)
+                    mdl = get_model_by_name(pf_mdl)
 
                     # Create the subquery queryset
                     pf_qs = mdl.objects.filter(pf_q_exp).distinct()

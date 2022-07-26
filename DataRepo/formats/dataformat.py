@@ -1,7 +1,6 @@
 from copy import deepcopy
 from typing import Dict, List, Optional
 
-from django.apps import apps
 from django.db.models import F, Model
 
 from DataRepo.formats.dataformat_group_query import (
@@ -22,6 +21,7 @@ from DataRepo.formats.dataformat_group_query import (
     splitCommon,
     splitPathName,
 )
+from DataRepo.models.utilities import dereference_field, get_model_by_name
 
 
 class Format:
@@ -333,7 +333,7 @@ class Format:
                             distinct_annot_fld = self.model_instances[mdl_inst_nm][
                                 "fields"
                             ][fld_nm]["root_annot_fld"]
-                            fld = self.dereferenceField(
+                            fld = dereference_field(
                                 fld_nm, self.model_instances[mdl_inst_nm]["model"]
                             )
                             annotations.append(
@@ -564,7 +564,7 @@ class Format:
             mdl_nm = self.model_instances[mdl_inst_nm]["model"]
 
         # Get a model object
-        mdl = apps.get_model("DataRepo", mdl_nm)
+        mdl = get_model_by_name(mdl_nm)
 
         # Retreive any custom ordering
         if "ordering" in mdl._meta.__dict__:
@@ -631,14 +631,16 @@ class Format:
         for mdl_inst_nm in self.model_instances:
             # We only need to include a field if we want to split
             if (
+                # When split_all is supplied, we only need the fields for distinct if this is a M:M model WRT the
+                # root model
                 split_all
                 and self.model_instances[mdl_inst_nm]["manytomany"]["is"]
-                or (
-                    self.model_instances[mdl_inst_nm]["manytomany"]["split_rows"]
-                    and (
-                        "distinct" not in self.model_instances[mdl_inst_nm].keys()
-                        or self.model_instances[mdl_inst_nm]["distinct"] is False
-                    )
+            ) or (
+                # Always split if split_rows is true and there aren't custum distinct fields
+                self.model_instances[mdl_inst_nm]["manytomany"]["split_rows"]
+                and (
+                    "distinct" not in self.model_instances[mdl_inst_nm].keys()
+                    or self.model_instances[mdl_inst_nm]["distinct"] is False
                 )
             ):
                 # Django's ordering fields are required when any field is provided to .distinct().  Otherwise, you
@@ -677,6 +679,7 @@ class Format:
                 )
 
             elif (
+                # Always include custom distinct fields if present
                 "distinct" in self.model_instances[mdl_inst_nm].keys()
                 and self.model_instances[mdl_inst_nm]["distinct"]
             ):
@@ -687,7 +690,7 @@ class Format:
                     fld = (
                         self.model_instances[mdl_inst_nm]["path"]
                         + "__"
-                        + self.dereferenceField(
+                        + dereference_field(
                             distinct_fld_nm, self.model_instances[mdl_inst_nm]["model"]
                         )
                     )
@@ -709,15 +712,6 @@ class Format:
             distinct_fields.append("pk")
 
         return distinct_fields
-
-    def dereferenceField(self, field_name, model_name):
-        mdl = apps.get_model("DataRepo", model_name)
-        fld = getattr(mdl, field_name)
-        deref_field = field_name
-        # If this is a foreign key (i.e. it's a model reference, not an actual DB field)
-        if fld.field.__class__.__name__ == "ForeignKey":
-            deref_field += "__pk"
-        return deref_field
 
     def getStatsParams(self):
         """Stats getter"""

@@ -332,6 +332,31 @@ class PeakGroupsFormat(Format):
                 },
             },
         },
+        "InfusateTracer": {
+            "model": "InfusateTracer",
+            "path": "msrun__sample__animal__infusate__infusatetracer",
+            "reverse_path": "infusate__animal__samples__msruns__peak_groups",
+            "manytomany": {
+                "is": True,
+                "split_rows": False,
+                "through": True,
+            },
+            "fields": {
+                "id": {
+                    "displayname": "(Internal) Infusate Tracer Link Index",
+                    "searchable": True,
+                    "displayed": False,  # Used in link
+                    "handoff": "concentration",  # This is the field that will be loaded in the search form
+                    "type": "number",
+                },
+                "concentration": {
+                    "displayname": "Tracer Concentration (mM)",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "number",
+                },
+            },
+        },
         "TracerCompound": {
             "model": "Compound",
             "path": "msrun__sample__animal__infusate__tracers__compound",

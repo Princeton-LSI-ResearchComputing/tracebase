@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Optional
 
-from django.apps import apps
 from django.core.exceptions import ValidationError
 from django.db import models
 
@@ -11,6 +10,7 @@ from DataRepo.models.maintained_model import (
     MaintainedModel,
     field_updater_function,
 )
+from DataRepo.models.utilities import get_model_by_name
 from DataRepo.utils.infusate_name_parser import TracerData
 
 
@@ -20,8 +20,8 @@ class TracerManager(models.Manager):
         tracer = self.get_tracer(tracer_data)
         created = False
         if tracer is None:
-            TracerLabel = apps.get_model("DataRepo.TracerLabel")
-            Compound = apps.get_model("DataRepo.Compound")
+            TracerLabel = get_model_by_name("TracerLabel")
+            Compound = get_model_by_name("Compound")
             compound = Compound.compound_matching_name_or_synonym(
                 tracer_data["compound_name"]
             )
@@ -37,7 +37,7 @@ class TracerManager(models.Manager):
         matching_tracer = None
 
         # First, check if the compound is found
-        Compound = apps.get_model("DataRepo.Compound")
+        Compound = get_model_by_name("Compound")
         compound = Compound.compound_matching_name_or_synonym(
             tracer_data["compound_name"]
         )

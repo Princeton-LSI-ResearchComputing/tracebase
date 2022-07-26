@@ -512,7 +512,7 @@ class MissingSerumTracerPeakGroups(Exception):
         msg = (
             f"There is not a peak group [{', '.join(final_serum_tracer_peak_groups.values_list('name', flat=True))}] "
             f"in the final serum sample [{final_serum_sample}] for animal [{animal}] for every tracer compound "
-            f"[{', '.join(tracer_compounds)}]"
+            f"[{', '.join(list(map(lambda x: x.name, tracer_compounds)))}]"
         )
         super().__init__(msg)
         self.animal = animal

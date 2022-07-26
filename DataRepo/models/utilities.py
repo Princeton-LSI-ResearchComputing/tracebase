@@ -4,6 +4,7 @@ import warnings
 import pandas as pd
 from chempy import Substance
 from chempy.util.periodic import atomic_number
+from django.apps import apps
 from django.conf import settings
 from django.core.exceptions import ValidationError
 
@@ -125,3 +126,17 @@ def get_researchers(database=settings.TRACEBASE_DB):
         )
     unique_researchers = list(pd.unique(researchers))
     return unique_researchers
+
+
+def dereference_field(field_name, model_name):
+    mdl = get_model_by_name(model_name)
+    fld = getattr(mdl, field_name)
+    deref_field = field_name
+    # If this is a foreign key (i.e. it's a model reference, not an actual DB field)
+    if fld.field.__class__.__name__ == "ForeignKey":
+        deref_field += "__pk"
+    return deref_field
+
+
+def get_model_by_name(model_name):
+    return apps.get_model("DataRepo", model_name)

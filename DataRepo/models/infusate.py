@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional
 
-from django.apps import apps
 from django.core.exceptions import ValidationError
 from django.db import models
 
@@ -10,6 +9,7 @@ from DataRepo.models.maintained_model import (
     MaintainedModel,
     field_updater_function,
 )
+from DataRepo.models.utilities import get_model_by_name
 
 if TYPE_CHECKING:
     from DataRepo.utils.infusate_name_parser import InfusateData
@@ -34,8 +34,8 @@ class InfusateManager(models.Manager):
             infusate = self.create(tracer_group_name=infusate_data["infusate_name"])
 
             # create tracers
-            Tracer = apps.get_model("DataRepo.Tracer")
-            InfusateTracer = apps.get_model("DataRepo.InfusateTracer")
+            Tracer = get_model_by_name("Tracer")
+            InfusateTracer = get_model_by_name("InfusateTracer")
             for infusate_tracer in infusate_data["tracers"]:
                 tracer = Tracer.objects.get_tracer(infusate_tracer["tracer"])
                 if tracer is None:
@@ -65,7 +65,7 @@ class InfusateManager(models.Manager):
         )
         # Check that the tracers match
         for infusate_tracer in infusate_data["tracers"]:
-            Tracer = apps.get_model("DataRepo.Tracer")
+            Tracer = get_model_by_name("Tracer")
             tracer = Tracer.objects.get_tracer(infusate_tracer["tracer"])
             infusates = infusates.filter(
                 infusatetracer__tracer=tracer,

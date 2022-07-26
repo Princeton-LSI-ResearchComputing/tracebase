@@ -205,6 +205,8 @@ class PeakGroup(HierCachedModel):
             if (
                 self.msrun.sample.animal.infusate.tracers.count() > 0
                 and self.enrichment_fractions is not None
+                and self.msrun.sample.animal.serum_tracers_enrichment_fractions
+                is not None
             ):
                 normalized_labelings = {}
                 for elem in self.enrichment_fractions.keys():
