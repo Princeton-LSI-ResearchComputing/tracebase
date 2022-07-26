@@ -629,19 +629,41 @@ class Format:
         """
         distinct_fields = []
         for mdl_inst_nm in self.model_instances:
-            # We only need to include a field if we want to split
-            if (
-                # When split_all is supplied, we only need the fields for distinct if this is a M:M model WRT the
-                # root model
+            custom_distinct_fields_exist = (
+                "distinct" in self.model_instances[mdl_inst_nm].keys()
+                and self.model_instances[mdl_inst_nm]["distinct"]
+            )
+
+            # The way to split root records into multiple records (as if it was a left join) is via the distinct
+            # method.  So to do a full left join, you would call this method with split_all=True.  It is unnecessary to
+            # do this for 1:M tables because django compiles those records automatically.  The only thing it does not
+            # handle is M:M relationships.
+
+            # If the split_all override in false and there exist custom distinct fields defined
+            if not split_all and custom_distinct_fields_exist:
+
+                for distinct_fld_nm in self.model_instances[mdl_inst_nm][
+                    "fields"
+                ].keys():
+                    fld = (
+                        self.model_instances[mdl_inst_nm]["path"]
+                        + "__"
+                        + dereference_field(
+                            distinct_fld_nm, self.model_instances[mdl_inst_nm]["model"]
+                        )
+                    )
+                    distinct_fields.append(fld)
+
+            elif (
+                # If the split_all override was supplied as true and this is a M:M model
                 split_all
                 and self.model_instances[mdl_inst_nm]["manytomany"]["is"]
             ) or (
-                # Always split if split_rows is true and there aren't custum distinct fields
+                # Always split if split_rows is true and there aren't custom distinct fields
                 self.model_instances[mdl_inst_nm]["manytomany"]["split_rows"]
-                and (
-                    "distinct" not in self.model_instances[mdl_inst_nm].keys()
-                    or self.model_instances[mdl_inst_nm]["distinct"] is False
-                )
+                and not custom_distinct_fields_exist
+                # Note if there are custom fields, split+all=True, but this model is not M:M, we are intentionally
+                # returning nothing because we want to split records that are otherwise combined by the custom fields
             ):
                 # Django's ordering fields are required when any field is provided to .distinct().  Otherwise, you
                 # get the error: `ProgrammingError: SELECT DISTINCT ON expressions must match initial ORDER BY
@@ -677,24 +699,6 @@ class Format:
                 distinct_fields.append(
                     self.model_instances[mdl_inst_nm]["path"] + "__pk"
                 )
-
-            elif (
-                # Always include custom distinct fields if present
-                "distinct" in self.model_instances[mdl_inst_nm].keys()
-                and self.model_instances[mdl_inst_nm]["distinct"]
-            ):
-
-                for distinct_fld_nm in self.model_instances[mdl_inst_nm][
-                    "fields"
-                ].keys():
-                    fld = (
-                        self.model_instances[mdl_inst_nm]["path"]
-                        + "__"
-                        + dereference_field(
-                            distinct_fld_nm, self.model_instances[mdl_inst_nm]["model"]
-                        )
-                    )
-                    distinct_fields.append(fld)
 
         # If there are any split_rows manytomany related tables, we will need to prepend the ordering (and pk) fields
         # of the root model

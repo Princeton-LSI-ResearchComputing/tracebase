@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 import pandas as pd
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
-from django.core.management import CommandError, call_command
+from django.core.management import call_command
 from django.db import IntegrityError
 from django.db.models.deletion import RestrictedError
 from django.test import override_settings, tag

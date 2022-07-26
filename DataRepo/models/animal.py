@@ -368,27 +368,27 @@ class Animal(HierCachedModel, ElementLabel):
     @cached_function
     def tracer_labeled_elements(self):
         """
-        This method returns a unique list of the labeled elements that exist among the tracers as if they were parent
-        observations (i.e. count=0 and parent=True).  This is so that Isocorr data canrecord 0 observations for parent
-        records.  Accucor data does present data for counts of 0 already.
+        This method returns a unique list of the labeled elements that exist among the tracers.
         """
-        # Assuming all samples come from 1 animal, so we're only looking at 1 (any) sample
-        tracer_labeled_elements = []
-        for tracer in self.infusate.tracers.all():
-            for label in tracer.labels.all():
-                if label.element not in tracer_labeled_elements:
-                    tracer_labeled_elements.append(label.element)
-        return tracer_labeled_elements
+        from DataRepo.models.tracer_label import TracerLabel
+
+        return list(
+            TracerLabel.objects.filter(tracer__infusates__animal=self)
+            .order_by("element")
+            .distinct("element")
+            .values_list("element", flat=True)
+        )
 
     @property  # type: ignore
     @cached_function
     def serum_tracers_enrichment_fractions(self):
         """
-        A weighted average of the fraction of labeled atoms for this PeakGroup
-        in this sample.
-        i.e. The fraction of carbons that are labeled in this PeakGroup compound
-        Sum of all (PeakData.fraction * PeakData.labeled_count) /
-            PeakGroup.Compound.num_atoms(PeakData.labeled_element)
+        This generates a dict keyed on labeled element.  For each labeled element among the tracers for this animal, it
+        computes a weighted average of the fraction of labeled atoms (among all tracers) for the final serum sample.
+        i.e. The fraction of carbons that are labeled among all the final serum sample's tracer compounds.
+        For each TracerLabel.element
+            Sum of all (PeakData.fraction * PeakDataLabel.count) /
+                Sum of all (Tracers.Compound.num_atoms(TracerLabel.element))
         """
         from DataRepo.models.peak_group import PeakGroup
         from DataRepo.models.sample import Sample
