@@ -55,7 +55,7 @@ def load_minimum_data():
     )
 
 
-@tag("multi_fixed")
+@tag("multi_working")
 class GlobalCacheTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
@@ -268,7 +268,7 @@ class GlobalCacheTests(TracebaseTestCase):
         )
 
 
-@tag("multi_fixed")
+@tag("multi_working")
 class HierCachedModelTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
@@ -567,7 +567,7 @@ class HierCachedModelTests(TracebaseTestCase):
         )
 
 
-@tag("multi_fixed")
+@tag("multi_working")
 class BuildCachesTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):

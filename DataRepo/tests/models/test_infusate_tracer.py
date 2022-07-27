@@ -1,4 +1,5 @@
 from django.db.utils import IntegrityError
+from django.test import tag
 
 from DataRepo.models.compound import Compound
 from DataRepo.models.infusate import Infusate
@@ -8,6 +9,7 @@ from DataRepo.models.tracer_label import TracerLabel
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
+@tag("multi_working")
 class InfusateTracerTests(TracebaseTestCase):
     def setUp(self):
         glu = Compound.objects.create(

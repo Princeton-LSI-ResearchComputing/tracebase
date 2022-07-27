@@ -62,16 +62,22 @@ class TissuesLoader:
     @transaction.atomic
     def load_database(self, db):
         for index, row in self.tissues.iterrows():
+            print(f"Loading tissues row {index+1}")
             try:
                 with transaction.atomic():
                     name = row["name"]
                     description = row["description"]
+                    # Note, the tsv parser returns a "nan" object when there's no value, which is evaluated as "nan" in
+                    # string context, so change back to None
+                    if str(name) == "nan":
+                        name = None
+                    if str(description) == "nan":
+                        description = None
                     # To aid in debugging the case where an editor entered spaces instead of a tab...
-                    if " " in name and description is None:
+                    if " " in str(name) and description is None:
                         raise ValidationError(
                             f"Tissue with name '{name}' cannot contain a space unless a description is provided.  "
-                            "Either the space(s) be changed to a tab character or a tab character must be appended to "
-                            "the line."
+                            "Either the space(s) must be changed to a tab character or a description must be provided."
                         )
                     if description is None:
                         description = ""
@@ -105,7 +111,7 @@ class TissuesLoader:
                             f"New description = '{description}'"
                         )
             except (IntegrityError, ValidationError) as e:
-                self.errors.append(f"Error in line {index}: {e}")
+                self.errors.append(f"Error in row {index + 1}: {e}")
         if len(self.errors) > 0:
             raise LoadingError("Errors during tissue loading")
         if self.dry_run:

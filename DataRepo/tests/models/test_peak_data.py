@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 
 from django.db.utils import IntegrityError
+from django.test import tag
 
 from DataRepo.models import (
     Animal,
@@ -16,6 +17,7 @@ from DataRepo.models import (
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
+@tag("multi_working")
 class PeakDataData(TracebaseTestCase):
     def setUp(self):
         anml = Animal.objects.create(
@@ -62,6 +64,7 @@ class PeakDataData(TracebaseTestCase):
         )
 
 
+@tag("multi_working")
 class PeakDataTests(PeakDataData):
     def test_record(self):
         rec = PeakData.objects.get(raw_abundance=1000.0)
@@ -84,6 +87,7 @@ class PeakDataTests(PeakDataData):
         self.assertEqual(pd.labels.count(), 2)
 
 
+@tag("multi_working")
 class PeakDataLabelTests(PeakDataData):
     def setUp(self):
         super().setUp()
