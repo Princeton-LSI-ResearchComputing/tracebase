@@ -1,4 +1,4 @@
-Sample Name	Date Collected	Researcher Name	Tissue	Time Collected	Animal ID	Animal Genotype	Animal Body Weight	Infusate	Infusion Rate	Tracer Concentrations	Animal State	Experiment Name	Notes
+Sample Name	Date Collected	Researcher Name	Tissue	Time Collected	Animal ID	Animal Genotype	Animal Body Weight	Infusate	Infusion Rate	Tracer Concentrations	Animal State	Study Name	Study Description
 bat-xz969	11/18/2020	Xianfeng Zeng	brown_adipose_tissue	150	969	WT	27.2	C16:0-[13C16]	0.55	8	Fasted	obob_fasted	
 Br-xz969	11/18/2020	Xianfeng Zeng	brain	150	969	WT	27.2	C16:0-[13C16]	0.55	8	Fasted	obob_fasted	
 dia-xz969	11/18/2020	Xianfeng Zeng	diaphragm	150	969	WT	27.2	C16:0-[13C16]	0.55	8	Fasted	obob_fasted	
