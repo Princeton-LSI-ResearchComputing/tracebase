@@ -9,7 +9,7 @@ from DataRepo.models.utilities import (
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
-@tag("multi_fixed")
+@tag("multi_working")
 class ModelUtilitiesTests(TracebaseTestCase):
     def test_get_all_models(self):
         """Test that we return all models"""

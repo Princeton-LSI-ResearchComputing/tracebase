@@ -17,6 +17,7 @@ from DataRepo.utils.infusate_name_parser import (
 )
 
 
+@tag("multi_working")
 class InfusateTest(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
@@ -273,6 +274,7 @@ class InfusateParsingTests(InfusateTest):
             _ = parse_isotope_string(name)
 
 
+@tag("multi_working")
 class InfusateValidationTests(InfusateTest):
     def test_tracer_creation(self):
         """Test creation of a valid tracer object from TracerData"""

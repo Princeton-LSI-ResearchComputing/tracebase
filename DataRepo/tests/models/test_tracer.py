@@ -1,3 +1,5 @@
+from django.test import tag
+
 from DataRepo.models.compound import Compound
 from DataRepo.models.maintained_model import (
     MaintainedFieldNotSettable,
@@ -8,6 +10,7 @@ from DataRepo.models.tracer_label import TracerLabel
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
+@tag("multi_working")
 class TracerTests(TracebaseTestCase):
     def setUp(self):
         glu = Compound.objects.create(

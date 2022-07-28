@@ -82,7 +82,7 @@ class Command(BaseCommand):
                     options["verbosity"],
                 )
             for exception in self.tissue_loader.errors:
-                self.stdout.write(self.style.ERROR(exception))
+                self.stdout.write(self.style.ERROR("ERROR: " + exception))
             raise CommandError(
                 f"{len(self.tissue_loader.errors)} errors loading tissue records from "
                 f"{options['tissues']} - NO RECORDS SAVED"

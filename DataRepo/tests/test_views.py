@@ -23,6 +23,7 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.views import DataValidationView
 
 
+@tag("multi_unknown")
 class ViewTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
@@ -520,6 +521,7 @@ class ViewTests(TracebaseTestCase):
         self.assertEqual(results["data_submission_accucor2.xlsx"], "PASSED")
 
 
+@tag("multi_unknown")
 class ValidationViewTests(TracebaseTestCase):
     @classmethod
     def initialize_databases(cls):

@@ -6,6 +6,7 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
 @tag("tissues")
+@tag("multi_working")
 class TissueLoadingTests(TracebaseTestCase):
     """Test Tissue Loader"""
 
@@ -15,7 +16,7 @@ class TissueLoadingTests(TracebaseTestCase):
             "load_tissues",
             tissues="DataRepo/example_data/tissues/tissues.tsv",
         )
-        self.assertEqual(Tissue.objects.count(), 36)
+        self.assertEqual(Tissue.objects.count(), 37)
 
     def test_load_tissue_command_dry_run(self):
         """Test dry run of the load_tissue management command"""
@@ -31,11 +32,12 @@ class TissueLoadingTests(TracebaseTestCase):
         """Test the load_tissue management command with file containing errors"""
         with self.assertRaisesRegex(
             CommandError,
-            r"2 errors loading tissue records from .*tissues_with_errors\.tsv - NO RECORDS SAVED",
+            r"3 errors loading tissue records from .*tissues_with_errors\.tsv - NO RECORDS SAVED",
         ):
             call_command(
                 "load_tissues",
                 tissues="DataRepo/example_data/testing_data/tissues/tissues_with_errors.tsv",
+                verbosity=2,
             )
         # If errors are found, no records should be loaded
         self.assertEqual(Tissue.objects.count(), 0)

@@ -1,4 +1,5 @@
 from django.core.management import call_command
+from django.test import tag
 
 from DataRepo.models import CompoundSynonym, PeakGroup, Study
 from DataRepo.templatetags.customtags import (
@@ -10,6 +11,7 @@ from DataRepo.templatetags.customtags import (
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
+@tag("multi_unknown")
 class CustomTagsTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):

@@ -1,3 +1,5 @@
+from django.test import tag
+
 from DataRepo.management.commands.rebuild_maintained_fields import (
     rebuild_maintained_fields,
 )
@@ -44,6 +46,7 @@ def create_infusate_records():
     InfusateTracer.objects.create(infusate=io2, tracer=c16_t, concentration=4.0)
 
 
+@tag("multi_working")
 class InfusateTests(TracebaseTestCase):
     def setUp(self):
         create_infusate_records()
@@ -103,6 +106,7 @@ class InfusateTests(TracebaseTestCase):
         Infusate.objects.get(name="C16:0-(5,6-13C2,17O2)[4];glucose-(4-17O1)[3]")
 
 
+@tag("multi_working")
 class MaintainedModelTests(TracebaseTestCase):
     def setUp(self):
         # Each test first reruns the setup and the DB load adds the same records to the buffer. The DB is emptied after
@@ -159,6 +163,7 @@ class MaintainedModelTests(TracebaseTestCase):
         Tracer.objects.get(name="lysine")
 
 
+@tag("multi_working")
 class RebuildMaintainedModelFieldsTests(TracebaseTestCase):
     def setUp(self):
         # Each test first reruns the setup and the DB load adds the same records to the buffer. The DB is emptied after

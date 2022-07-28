@@ -11,7 +11,7 @@ from DataRepo.utils.compounds_loader import CompoundExists, CompoundNotFound
 
 @tag("compounds")
 @tag("loading")
-@tag("multi_fixed")
+@tag("multi_working")
 class LoadCompoundsTests(TracebaseTestCase):
     """Tests Loading of Compounds"""
 
@@ -38,7 +38,7 @@ class LoadCompoundsTests(TracebaseTestCase):
 
 @override_settings(CACHES=settings.TEST_CACHES)
 @tag("compound_loading")
-@tag("multi_fixed")
+@tag("multi_working")
 class CompoundLoadingTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
@@ -128,7 +128,7 @@ class CompoundLoadingTests(TracebaseTestCase):
 
 @override_settings(CACHES=settings.TEST_CACHES)
 @tag("compound_loading")
-@tag("multi_fixed")
+@tag("multi_working")
 class CompoundLoadingTestErrors(TracebaseTestCase):
     """Tests loading of Compounds with errors"""
 
@@ -146,7 +146,7 @@ class CompoundLoadingTestErrors(TracebaseTestCase):
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
-@tag("multi_fixed")
+@tag("multi_working")
 class CompoundsLoaderTests(TracebaseTestCase):
     def get_dataframe(self):
         return pd.read_csv(
@@ -177,3 +177,23 @@ class CompoundsLoaderTests(TracebaseTestCase):
         cl = CompoundsLoader(df)
         with self.assertRaises(CompoundNotFound):
             cl.load_synonyms_per_db()
+
+
+@override_settings(CACHES=settings.TEST_CACHES)
+@tag("compound_loading")
+@tag("multi_unknown")
+class CompoundValidationLoadingTests(TracebaseTestCase):
+    @classmethod
+    def setUpTestData(cls):
+        call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
+        call_command(
+            "load_compounds",
+            compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
+            validate_only=True,
+            verbosity=0,
+        )
+        # validate only; nothing gets loaded
+        cls.ALL_COMPOUNDS_COUNT = 0
+
+    def test_compounds_loaded(self):
+        self.assertEqual(Compound.objects.all().count(), self.ALL_COMPOUNDS_COUNT)

@@ -2,12 +2,14 @@ import json
 
 import pandas as pd
 from django.core.management import call_command
+from django.test import tag
 from django.utils import dateparse
 
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import QuerysetToPandasDataFrame as qs2df
 
 
+@tag("multi_unknown")
 class QuerysetToPandasDataFrameTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
