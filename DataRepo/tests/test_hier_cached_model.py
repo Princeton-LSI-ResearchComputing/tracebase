@@ -237,7 +237,7 @@ class GlobalCacheTests(TracebaseTestCase):
             ],
             "Sample": ["is_serum_sample"],
             "PeakGroup": [
-                "enrichment_fraction",
+                "enrichment_fractions",
                 "enrichment_abundance",
                 "normalized_labeling",
                 "is_tracer_compound_group",
@@ -348,7 +348,8 @@ class HierCachedModelTests(TracebaseTestCase):
     def test_delete_override(self):
         delete_all_caches()
         pg = PeakGroup.objects.all().first()
-        f = "enrichment_fraction"
+        # TODO: This should currently be broken because I think that caching strategies only support primitives.  Fix
+        f = "enrichment_fractions"
 
         enable_caching_retrievals()
         enable_caching_updates()
@@ -439,7 +440,7 @@ class HierCachedModelTests(TracebaseTestCase):
     def test_get_my_cached_method_names(self):
         pg = PeakGroup.objects.all().first()
         expected = [
-            "enrichment_fraction",
+            "enrichment_fractions",
             "enrichment_abundance",
             "normalized_labeling",
             "is_tracer_compound_group",
@@ -471,7 +472,8 @@ class HierCachedModelTests(TracebaseTestCase):
         s1 = samples[0]
         s2 = samples[1]
         s2pg = PeakGroup.objects.filter(msrun__sample__id__exact=s2.id).first()
-        pgf = "enrichment_fraction"
+        # TODO: This should currently be broken because I think that caching strategies only support primitives.  Fix
+        pgf = "enrichment_fractions"
 
         res1 = s1.caches_exist()
         self.assertFalse(
@@ -482,7 +484,7 @@ class HierCachedModelTests(TracebaseTestCase):
             ),
         )
 
-        # Cache sample 2's first peak group's enrichment_fraction value
+        # Cache sample 2's first peak group's enrichment_fractions value
         enable_caching_retrievals()
         enable_caching_updates()
         getattr(s2pg, pgf)
