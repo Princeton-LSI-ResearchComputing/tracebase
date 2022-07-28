@@ -7,8 +7,11 @@ animals_samples_treatments:
 accucor_data:
   accucor_files:
     - name: "6eaafasted1_cor.xlsx"
+      isocorr_format: true
     - name: "6eaafasted2_cor.xlsx"
+      isocorr_format: true
     - name: "bcaafasted_cor.xlsx"
+      isocorr_format: true
   msrun_protocol: "HILIC_NegativeMode"
   date: "2020-11-01"
   researcher: "Xianfeng Zeng"
