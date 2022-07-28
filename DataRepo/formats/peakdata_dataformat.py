@@ -463,7 +463,7 @@ class PeakDataFormat(Format):
         "TracerCompound": {
             "model": "Compound",
             "path": "peak_group__msrun__sample__animal__infusate__tracers__compound",
-            "reverse_path": "tracer__infusates__animals__samples__msruns__peak_groups__peak_data",
+            "reverse_path": "tracers__infusates__animals__samples__msruns__peak_groups__peak_data",
             "manytomany": {
                 "is": True,
                 "split_rows": False,

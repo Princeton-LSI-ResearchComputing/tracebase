@@ -1,7 +1,6 @@
 from copy import deepcopy
 from typing import Dict, List, Optional
 
-from django.apps import apps
 from django.db.models import F, Model
 
 from DataRepo.formats.dataformat_group_query import (
@@ -22,6 +21,7 @@ from DataRepo.formats.dataformat_group_query import (
     splitCommon,
     splitPathName,
 )
+from DataRepo.models.utilities import dereference_field, get_model_by_name
 
 
 class Format:
@@ -290,7 +290,7 @@ class Format:
                 self.model_instances[mdl_inst_nm]["manytomany"]["is"]
                 and self.model_instances[mdl_inst_nm]["manytomany"]["split_rows"]
             ):
-                # If an root_annot_fld key exists in the "manytomany" dict, use it
+                # If a root_annot_fld key exists in the "manytomany" dict, use it
                 if (
                     "root_annot_fld"
                     in self.model_instances[mdl_inst_nm]["manytomany"].keys()
@@ -317,6 +317,34 @@ class Format:
                 annotations.append(
                     {annot_fld: F(self.model_instances[mdl_inst_nm]["path"] + "__pk")}
                 )
+
+                # If these fields are distinct, annotating their values makes the template cleaner
+                if (
+                    "distinct" in self.model_instances[mdl_inst_nm]
+                    and self.model_instances[mdl_inst_nm]["distinct"]
+                ):
+                    for fld_nm in self.model_instances[mdl_inst_nm]["fields"].keys():
+                        if (
+                            "root_annot_fld"
+                            in self.model_instances[mdl_inst_nm]["fields"][
+                                fld_nm
+                            ].keys()
+                        ):
+                            distinct_annot_fld = self.model_instances[mdl_inst_nm][
+                                "fields"
+                            ][fld_nm]["root_annot_fld"]
+                            fld = dereference_field(
+                                fld_nm, self.model_instances[mdl_inst_nm]["model"]
+                            )
+                            annotations.append(
+                                {
+                                    distinct_annot_fld: F(
+                                        self.model_instances[mdl_inst_nm]["path"]
+                                        + "__"
+                                        + fld
+                                    )
+                                }
+                            )
 
         return annotations
 
@@ -536,7 +564,7 @@ class Format:
             mdl_nm = self.model_instances[mdl_inst_nm]["model"]
 
         # Get a model object
-        mdl = apps.get_model("DataRepo", mdl_nm)
+        mdl = get_model_by_name(mdl_nm)
 
         # Retreive any custom ordering
         if "ordering" in mdl._meta.__dict__:
@@ -601,26 +629,79 @@ class Format:
         """
         distinct_fields = []
         for mdl_inst_nm in self.model_instances:
-            # We only need to include a field if we want to split
-            if self.model_instances[mdl_inst_nm]["manytomany"]["split_rows"] or (
-                self.model_instances[mdl_inst_nm]["manytomany"]["is"] and split_all
+            custom_distinct_fields_exist = (
+                "distinct" in self.model_instances[mdl_inst_nm].keys()
+                and self.model_instances[mdl_inst_nm]["distinct"]
+            )
+
+            # The way to split root records into multiple records (as if it was a left join) is via the distinct
+            # method.  So to do a full left join, you would call this method with split_all=True.  It is unnecessary to
+            # do this for 1:M tables because django compiles those records automatically.  The only thing it does not
+            # handle is M:M relationships.
+
+            # If the split_all override in false and there exist custom distinct fields defined
+            if not split_all and custom_distinct_fields_exist:
+
+                for distinct_fld_nm in self.model_instances[mdl_inst_nm][
+                    "fields"
+                ].keys():
+                    fld = (
+                        self.model_instances[mdl_inst_nm]["path"]
+                        + "__"
+                        + dereference_field(
+                            distinct_fld_nm, self.model_instances[mdl_inst_nm]["model"]
+                        )
+                    )
+                    distinct_fields.append(fld)
+
+            elif (
+                # If the split_all override was supplied as true and this is a M:M model
+                split_all
+                and self.model_instances[mdl_inst_nm]["manytomany"]["is"]
+            ) or (
+                # Always split if split_rows is true and there aren't custom distinct fields
+                self.model_instances[mdl_inst_nm]["manytomany"]["split_rows"]
+                and not custom_distinct_fields_exist
+                # Note if there are custom fields, split+all=True, but this model is not M:M, we are intentionally
+                # returning nothing because we want to split records that are otherwise combined by the custom fields
             ):
-                # Django's ordering fields are required when any field is provided to .distinct().  Otherwise, you get
-                # the error: `ProgrammingError: SELECT DISTINCT ON expressions must match initial ORDER BY expressions`
+                # Django's ordering fields are required when any field is provided to .distinct().  Otherwise, you
+                # get the error: `ProgrammingError: SELECT DISTINCT ON expressions must match initial ORDER BY
+                # expressions`
                 tmp_distincts = self.getOrderByFields(mdl_inst_nm)
                 for fld_nm in tmp_distincts:
-                    fld = self.model_instances[mdl_inst_nm]["path"] + "__" + fld_nm
+
+                    # Remove potential loop added to the path when ordering_fields are dereferenced
+                    # E.g. This changes "peak_data__labels__peak_data__peak_group__name" to
+                    # "peak_data__peak_group__name"
+                    field_path_array = fld_nm.split("__")
+                    model_path_array = self.model_instances[mdl_inst_nm]["path"].split(
+                        "__"
+                    )
+                    if (
+                        len(field_path_array) > 1
+                        and field_path_array[0] in model_path_array
+                    ):
+                        path_array = []
+                        first = model_path_array.index(field_path_array[0])
+                        path_array = model_path_array[0:first]
+                        path_array += field_path_array
+                        fld = "__".join(path_array)
+                    else:
+                        fld = self.model_instances[mdl_inst_nm]["path"] + "__" + fld_nm
+
                     distinct_fields.append(fld)
-                # Don't assume the ordering fields are populated/unique, so include the primary key.  Duplicate fields
-                # should be OK (though I haven't tested it).
-                # Note, this assumes that being here means we're in a related table and not the root table, so path is
-                # not an empty string
+
+                # Don't assume the ordering fields are populated/unique, so include the primary key.  Duplicate
+                # fields should be OK (though I haven't tested it).
+                # Note, this assumes that being here means we're in a related table and not the root table, so path
+                # is not an empty string
                 distinct_fields.append(
                     self.model_instances[mdl_inst_nm]["path"] + "__pk"
                 )
 
-        # If there are any split_rows manytomany related tables, we will need to prepend the ordering (and pk) fields of
-        # the root model
+        # If there are any split_rows manytomany related tables, we will need to prepend the ordering (and pk) fields
+        # of the root model
         if len(distinct_fields) > 0:
             distinct_fields.insert(0, "pk")
             tmp_distincts = self.getOrderByFields(model_name=self.rootmodel.__name__)

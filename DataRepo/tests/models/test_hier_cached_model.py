@@ -1,4 +1,5 @@
 from django.core.management import call_command
+from django.test import tag
 
 from DataRepo.management.commands.build_caches import cached_function_call
 from DataRepo.models import Animal, MSRun, PeakGroup, Sample
@@ -54,6 +55,7 @@ def load_minimum_data():
     )
 
 
+@tag("multi_fixed")
 class GlobalCacheTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
@@ -234,12 +236,15 @@ class GlobalCacheTests(TracebaseTestCase):
                 "final_serum_tracer_rate_disappearance_average_per_animal",
                 "final_serum_tracer_rate_appearance_average_per_animal",
                 "final_serum_tracer_rate_appearance_average_atom_turnover",
+                "tracer_labeled_elements",
+                "serum_tracers_enrichment_fractions",
             ],
             "Sample": ["is_serum_sample"],
             "PeakGroup": [
+                "peak_labeled_elements",
                 "enrichment_fractions",
-                "enrichment_abundance",
-                "normalized_labeling",
+                "enrichment_abundances",
+                "normalized_labelings",
                 "is_tracer_compound_group",
                 "from_serum_sample",
                 "can_compute_tracer_rates",
@@ -263,6 +268,7 @@ class GlobalCacheTests(TracebaseTestCase):
         )
 
 
+@tag("multi_fixed")
 class HierCachedModelTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
@@ -271,7 +277,7 @@ class HierCachedModelTests(TracebaseTestCase):
     def test_cached_function_decorator(self):
         delete_all_caches()
         pg = PeakGroup.objects.all().first()
-        f = "normalized_labeling"
+        f = "normalized_labelings"
 
         # Get uncached value
         disable_caching_retrievals()
@@ -281,7 +287,9 @@ class HierCachedModelTests(TracebaseTestCase):
         # Trigger caching via decorator
         enable_caching_retrievals()
         enable_caching_updates()
-        saved_return = getattr(pg, f)  # same as `saved_return = pg.normalized_labeling`
+        saved_return = getattr(
+            pg, f
+        )  # same as `saved_return = pg.normalized_labelings`
         cnl, sts = get_cache(pg, f)
         self.assertTrue(
             sts,
@@ -348,7 +356,6 @@ class HierCachedModelTests(TracebaseTestCase):
     def test_delete_override(self):
         delete_all_caches()
         pg = PeakGroup.objects.all().first()
-        # TODO: This should currently be broken because I think that caching strategies only support primitives.  Fix
         f = "enrichment_fractions"
 
         enable_caching_retrievals()
@@ -440,9 +447,10 @@ class HierCachedModelTests(TracebaseTestCase):
     def test_get_my_cached_method_names(self):
         pg = PeakGroup.objects.all().first()
         expected = [
+            "peak_labeled_elements",
             "enrichment_fractions",
-            "enrichment_abundance",
-            "normalized_labeling",
+            "enrichment_abundances",
+            "normalized_labelings",
             "is_tracer_compound_group",
             "from_serum_sample",
             "can_compute_tracer_rates",
@@ -472,7 +480,6 @@ class HierCachedModelTests(TracebaseTestCase):
         s1 = samples[0]
         s2 = samples[1]
         s2pg = PeakGroup.objects.filter(msrun__sample__id__exact=s2.id).first()
-        # TODO: This should currently be broken because I think that caching strategies only support primitives.  Fix
         pgf = "enrichment_fractions"
 
         res1 = s1.caches_exist()
@@ -560,6 +567,7 @@ class HierCachedModelTests(TracebaseTestCase):
         )
 
 
+@tag("multi_fixed")
 class BuildCachesTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):

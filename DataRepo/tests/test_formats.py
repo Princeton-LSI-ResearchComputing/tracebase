@@ -1,6 +1,5 @@
 from copy import deepcopy
 
-from django.apps import apps
 from django.core.management import call_command
 from django.db.models import F, Q
 from django.test import tag
@@ -21,6 +20,7 @@ from DataRepo.formats.peakdata_dataformat import PeakDataFormat
 from DataRepo.formats.peakgroups_dataformat import PeakGroupsFormat
 from DataRepo.formats.search_group import SearchGroup
 from DataRepo.models import CompoundSynonym, PeakGroup
+from DataRepo.models.utilities import get_model_by_name
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
@@ -152,6 +152,8 @@ class FormatsTests(TracebaseTestCase):
             ("msrun__sample__animal__feeding_status", "Feeding Status"),
             ("formula", "Formula"),
             ("msrun__sample__animal__genotype", "Genotype"),
+            ("msrun__sample__animal__infusion_rate", "Infusion Rate (ul/min/g)"),
+            ("peak_data__labels__element", "Labeled Element"),
             ("compounds__synonyms__name", "Measured Compound (Any Synonym)"),
             ("compounds__name", "Measured Compound (Primary Synonym)"),
             ("name", "Peak Group"),
@@ -161,21 +163,17 @@ class FormatsTests(TracebaseTestCase):
             ("msrun__sample__animal__studies__name", "Study"),
             ("msrun__sample__tissue__name", "Tissue"),
             (
-                "msrun__sample__animal__tracer_compound__name",
+                "msrun__sample__animal__infusate__tracers__compound__name",
                 "Tracer Compound (Primary Synonym)",
             ),
             (
-                "msrun__sample__animal__tracer_infusion_concentration",
-                "Tracer Infusion Concentration (mM)",
+                "msrun__sample__animal__infusate__infusatetracer__concentration",
+                "Tracer Concentration (mM)",
             ),
-            (
-                "msrun__sample__animal__tracer_infusion_rate",
-                "Tracer Infusion Rate (ul/min/g)",
-            ),
-            ("msrun__sample__animal__tracer_labeled_atom", "Tracer Labeled Element"),
             ("msrun__sample__animal__treatment__name", "Treatment"),
         )
 
+    @tag("multi_fixed")
     def test_getSearchFieldChoicesDict(self):
         basv = SearchGroup()
         sfcd = basv.getSearchFieldChoicesDict()
@@ -212,6 +210,7 @@ class FormatsTests(TracebaseTestCase):
         }
         self.assertDictEqual(sfcd_expected, sfcd)
 
+    @tag("multi_broken")
     def test_getAllSearchFieldChoices(self):
         basv = SearchGroup()
         sfct = basv.getAllSearchFieldChoices()
@@ -223,41 +222,47 @@ class FormatsTests(TracebaseTestCase):
                 "Time Collected (hh:mm:ss since infusion)",
             ),
         )
-        self.assertTupleEqual(sfct, sfct_expected)
+        self.assertTupleEqual(sfct_expected, sfct)
 
+    @tag("multi_fixed")
     def test_extractFldPaths(self):
         qry = self.getQueryObject()
         paths = extractFldPaths(qry)
         expected_paths = ["msrun__sample__animal__studies"]
-        self.assertEqual(paths, expected_paths)
+        self.assertEqual(expected_paths, paths)
 
+    @tag("multi_fixed")
     def test_splitCommon_hascommon(self):
         fld_path = "msrun__sample__animal__studies"
         reroot_path = "msrun__sample__animal__tracer_compound"
         common_path, remainder = splitCommon(fld_path, reroot_path)
         self.assertEqual(common_path, "msrun__sample__animal")
-        self.assertEqual(remainder, "studies")
+        self.assertEqual("studies", remainder)
 
+    @tag("multi_fixed")
     def test_splitCommon_nocommon(self):
         fld_path = "msrun__sample__animal__studies"
         reroot_path = "compounds__synonyms"
         common_path, remainder = splitCommon(fld_path, reroot_path)
         self.assertEqual(common_path, "")
-        self.assertEqual(remainder, "msrun__sample__animal__studies")
+        self.assertEqual("msrun__sample__animal__studies", remainder)
 
+    @tag("multi_fixed")
     def test_splitPathName(self):
         path, name = splitPathName("msrun__sample__animal__treatment__name")
         self.assertEqual(path, "msrun__sample__animal__treatment")
-        self.assertEqual(name, "name")
+        self.assertEqual("name", name)
 
+    @tag("multi_fixed")
     def test_reRootFieldPath(self):
         fld = "msrun__sample__animal__studies__name"
         reroot_instance_name = "CompoundSynonym"
         pgsv = PeakGroupsFormat()
         rerooted_fld = pgsv.reRootFieldPath(fld, reroot_instance_name)
         expected_fld = "compound__peak_groups__msrun__sample__animal__studies__name"
-        self.assertEqual(rerooted_fld, expected_fld)
+        self.assertEqual(expected_fld, rerooted_fld)
 
+    @tag("multi_fixed")
     def test_reRootQry(self):
         qry = self.getQueryObject2()
         qry_backup = deepcopy(qry)
@@ -271,13 +276,15 @@ class FormatsTests(TracebaseTestCase):
             "fld"
         ] = "synonyms__name"
         self.assertEqual(qry, qry_backup, msg="qry must be left unchanged")
-        self.assertEqual(new_qry, expected_qry)
+        self.assertEqual(expected_qry, new_qry)
 
+    @tag("multi_fixed")
     def test_pathToModelInstanceName(self):
         pgsv = PeakGroupsFormat()
         mi = pgsv.pathToModelInstanceName("msrun__sample__animal__studies")
-        self.assertEqual(mi, "Study")
+        self.assertEqual("Study", mi)
 
+    @tag("multi_fixed")
     def test_getTrueJoinPrefetchPathsAndQrys(self):
         qry = self.getQueryObject2()
         basv = SearchGroup()
@@ -295,7 +302,7 @@ class FormatsTests(TracebaseTestCase):
         qry["searches"][fmt]["tree"]["queryGroup"][1]["val"] = "citrate"
         prefetches = basv.getTrueJoinPrefetchPathsAndQrys(qry)
         expected_prefetches = [
-            "msrun__sample__animal__tracer_compound",
+            "msrun__sample__animal__infusate__tracers__compound",
             "msrun__sample__animal__treatment",
             "msrun__sample__animal__studies",
             "msrun__sample__tissue",
@@ -343,11 +350,13 @@ class FormatsTests(TracebaseTestCase):
                 "Compound",
             ],
             "compounds__synonyms",
+            "peak_data__labels",
             "peak_group_set",
         ]
 
-        self.assertEqual(prefetches, expected_prefetches)
+        self.assertEqual(expected_prefetches, prefetches)
 
+    @tag("multi_fixed")
     def test_getFullJoinAnnotations(self):
         basv = SearchGroup()
         fmt = "pgtemplate"
@@ -365,8 +374,9 @@ class FormatsTests(TracebaseTestCase):
         # Do the test
         annots = basv.getFullJoinAnnotations(fmt)
         expected_annots = [{annot_name: F("compounds__pk")}]
-        self.assertEqual(annots, expected_annots)
+        self.assertEqual(expected_annots, annots)
 
+    @tag("multi_fixed")
     def test_getDistinctFields(self):
         basv = SearchGroup()
         fmt = "pgtemplate"
@@ -381,13 +391,21 @@ class FormatsTests(TracebaseTestCase):
         pgsv.model_instances[mdl_inst]["manytomany"]["split_rows"] = True
 
         distincts = basv.getDistinctFields(fmt, order_by)
-        expected_distincts = [order_by, "pk", "compounds__name", "compounds__pk"]
-        self.assertEqual(distincts, expected_distincts)
+        expected_distincts = [
+            order_by,
+            "pk",
+            "peak_data__labels__element",
+            "compounds__name",
+            "compounds__pk",
+        ]
+        self.assertEqual(expected_distincts, distincts)
 
+    @tag("multi_fixed")
     def test_getDistinctFields_split_all(self):
         """
-        Ensures that meta ordering fields are expanded to real database fields.  I.e. it tests that the third returned
-        field is "compounds__synonyms__compound__name" and not "compounds__synonyms__compound"
+        Ensures that meta ordering fields are expanded to real database fields.  I.e. it tests that fields from every
+        M:M model (WRT root) like "compounds__synonyms__compound" are dereferenced to the field from that model's
+        Meta.ordering, like "compounds__synonyms__compound__name"
         """
         pgf = PeakGroupsFormat()
         self.assertIn(
@@ -396,28 +414,41 @@ class FormatsTests(TracebaseTestCase):
             msg="CompoundSynonym must have 'compound' in meta.ordering for the next assertion to be meaningful",
         )
         distincts = pgf.getDistinctFields(split_all=True)
+        # This includes fields expanded from every M:M model
         expected_distincts = [
             "name",
             "pk",
             "compounds__synonyms__compound__name",
             "compounds__synonyms__name",
             "compounds__synonyms__pk",
+            "peak_data__labels__element",
+            "peak_data__labels__count",
+            "peak_data__labels__mass_number",
+            "peak_data__peak_group__name",
+            "peak_data__corrected_abundance",
+            "peak_data__labels__pk",
+            "msrun__sample__animal__infusate__name",
+            "msrun__sample__animal__infusate__infusatetracer__tracer__name",
+            "msrun__sample__animal__infusate__infusatetracer__concentration",
+            "msrun__sample__animal__infusate__infusatetracer__pk",
             "compounds__name",
             "compounds__pk",
             "msrun__sample__animal__studies__name",
             "msrun__sample__animal__studies__pk",
         ]
-        self.assertEqual(distincts, expected_distincts)
+        self.assertEqual(expected_distincts, distincts)
 
+    @tag("multi_fixed")
     def test_getFKModelName(self):
         pgf = PeakGroupsFormat()
         mdl_name = pgf.getFKModelName(CompoundSynonym(), "compound")
-        self.assertEqual(mdl_name, "Compound")
+        self.assertEqual("Compound", mdl_name)
 
+    @tag("multi_fixed")
     def test_getOrderByFields_instance(self):
         pgsv = PeakDataFormat()
         mdl_inst = "PeakData"
-        mdl = apps.get_model("DataRepo", mdl_inst)
+        mdl = get_model_by_name(mdl_inst)
 
         # Retreive any custom ordering
         self.assertEqual(
@@ -431,16 +462,18 @@ class FormatsTests(TracebaseTestCase):
         )
         order_bys = pgsv.getOrderByFields(mdl_inst_nm=mdl_inst)
         expected_order_bys = ["peak_group__name", "corrected_abundance"]
-        self.assertEqual(order_bys, expected_order_bys)
+        self.assertEqual(expected_order_bys, order_bys)
 
+    @tag("multi_fixed")
     def test_getOrderByFields_model(self):
         pgsv = PeakGroupsFormat()
         mdl = "Compound"
 
         order_bys = pgsv.getOrderByFields(model_name=mdl)
         expected_order_bys = ["name"]
-        self.assertEqual(order_bys, expected_order_bys)
+        self.assertEqual(expected_order_bys, order_bys)
 
+    @tag("multi_fixed")
     def test_getOrderByFields_both(self):
         pgsv = PeakGroupsFormat()
         mdl_inst = "MeasuredCompound"
@@ -451,6 +484,7 @@ class FormatsTests(TracebaseTestCase):
         ):
             pgsv.getOrderByFields(mdl_inst_nm=mdl_inst, model_name=mdl)
 
+    @tag("multi_fixed")
     def test_getOrderByFields_neither(self):
         pgsv = PeakGroupsFormat()
         mdl_inst = "MeasuredCompound"
@@ -461,6 +495,7 @@ class FormatsTests(TracebaseTestCase):
         ):
             pgsv.getOrderByFields(mdl_inst_nm=mdl_inst, model_name=mdl)
 
+    @tag("multi_fixed")
     def test_createFilterGroup(self):
         got = createFilterGroup()
         expected = {
@@ -469,8 +504,9 @@ class FormatsTests(TracebaseTestCase):
             "static": False,
             "queryGroup": [],
         }
-        self.assertEqual(got, expected)
+        self.assertEqual(expected, got)
 
+    @tag("multi_fixed")
     def test_createFilterCondition(self):
         fld = "fldtest"
         ncmp = "ncmptest"
@@ -484,8 +520,9 @@ class FormatsTests(TracebaseTestCase):
             "ncmp": ncmp,
             "val": val,
         }
-        self.assertEqual(got, expected)
+        self.assertEqual(expected, got)
 
+    @tag("multi_fixed")
     def test_appendFilterToGroup(self):
         fld = "fldtest"
         ncmp = "ncmptest"
@@ -508,8 +545,9 @@ class FormatsTests(TracebaseTestCase):
                 }
             ],
         }
-        self.assertEqual(got, expected)
+        self.assertEqual(expected, got)
 
+    @tag("multi_fixed")
     def test_getStatsParams(self):
         pgsv = PeakGroupsFormat()
         stats = pgsv.getStatsParams()
@@ -519,8 +557,9 @@ class FormatsTests(TracebaseTestCase):
             "distincts": ["compounds__name"],
             "filter": None,
         }
-        self.assertEqual(got, expected_i2)
+        self.assertEqual(expected_i2, got)
 
+    @tag("multi_fixed")
     def test_getAllBrowseData(self):
         """
         Test that test_getAllBrowseData returns all data for the selected format.
@@ -529,7 +568,7 @@ class FormatsTests(TracebaseTestCase):
         pf = "msrun__sample__animal__studies"
         qs = PeakGroup.objects.all().prefetch_related(pf)
         res, cnt, stats = basv_metadata.getAllBrowseData("pgtemplate")
-        self.assertEqual(cnt, qs.count())
+        self.assertEqual(qs.count(), cnt)
 
     def get_basic_qry_inputs(self):
         qs = PeakGroup.objects.all().prefetch_related("msrun__sample__animal__studies")
@@ -576,6 +615,7 @@ class FormatsTests(TracebaseTestCase):
         }
         return tval, qry
 
+    @tag("multi_fixed")
     def test_createNewBasicQuery(self):
         """
         Test createNewBasicQuery creates a correct qry
@@ -591,6 +631,7 @@ class FormatsTests(TracebaseTestCase):
         self.maxDiff = None
         self.assertEqual(newqry, qry)
 
+    @tag("multi_fixed")
     def test_searchFieldToDisplayField(self):
         """
         Test that searchFieldToDisplayField converts Study.id to Study.name
@@ -730,11 +771,6 @@ class FormatsTests(TracebaseTestCase):
                     "filter": None,
                     "sample": [{"cnt": 2, "val": "Fasted"}],
                 },
-                "Infusion Concentrations": {
-                    "count": 1,
-                    "filter": None,
-                    "sample": [{"cnt": 2, "val": "23.2"}],
-                },
                 "Infusion Rates": {
                     "count": 1,
                     "filter": None,
@@ -776,11 +812,17 @@ class FormatsTests(TracebaseTestCase):
                     "filter": None,
                     "sample": [{"cnt": 2, "val": "lysine"}],
                 },
+                "Tracer Concentrations": {
+                    "count": 1,
+                    "filter": None,
+                    "sample": [{"cnt": 2, "val": "lysine:23.2"}],
+                },
             },
             "populated": True,
             "show": True,
         }
 
+    @tag("multi_fixed")
     def test_performQueryStats(self):
         """
         Test that performQuery returns a correct stats structure
@@ -789,8 +831,9 @@ class FormatsTests(TracebaseTestCase):
         qry = self.get_advanced_qry()
         res, cnt, stats = basv.performQuery(qry, "pgtemplate", generate_stats=True)
         expected_stats = self.getExpectedStats()
-        self.assertEqual(stats, expected_stats)
+        self.assertEqual(expected_stats, stats)
 
+    @tag("multi_fixed")
     def test_getQueryStats(self):
         """
         Test that getQueryStats returns a correct stats structure
@@ -803,8 +846,9 @@ class FormatsTests(TracebaseTestCase):
         got = basv.getQueryStats(res, qry["selectedtemplate"])
         full_stats = self.getExpectedStats()
         expected = full_stats["data"]
-        self.assertEqual(got, expected)
+        self.assertEqual(expected, got)
 
+    @tag("multi_fixed")
     def test_constructAdvancedQuery(self):
         """
         Test that constructAdvancedQuery returns a correct Q expression
@@ -812,8 +856,9 @@ class FormatsTests(TracebaseTestCase):
         qry = self.get_advanced_qry()
         q_exp = constructAdvancedQuery(qry)
         expected_q = Q(msrun__sample__tissue__name__iexact="Brain")
-        self.assertEqual(q_exp, expected_q)
+        self.assertEqual(expected_q, q_exp)
 
+    @tag("multi_fixed")
     def test_performQuery(self):
         """
         Test that performQuery returns a correct queryset
@@ -838,8 +883,9 @@ class FormatsTests(TracebaseTestCase):
             "populated": False,
             "show": False,
         }
-        self.assertEqual(stats, expected_stats)
+        self.assertEqual(expected_stats, stats)
 
+    @tag("multi_fixed")
     def test_performQuery_distinct(self):
         """
         Test that performQuery returns no duplicate root table records when M:M tables queried with multiple matches.
@@ -856,6 +902,7 @@ class FormatsTests(TracebaseTestCase):
         self.assertTrue(cnt < qs.count())
         self.assertEqual(cnt, 1)
 
+    @tag("multi_fixed")
     def test_isQryObjValid(self):
         """
         Test that isQryObjValid correctly validates a qry object.
@@ -868,6 +915,7 @@ class FormatsTests(TracebaseTestCase):
         isvalid = isQryObjValid(qry, basv_metadata.getFormatNames().keys())
         self.assertEqual(isvalid, False)
 
+    @tag("multi_fixed")
     def test_isValidQryObjPopulated(self):
         """
         Test that isValidQryObjPopulated correctly interprets the population of a subgroup.
@@ -879,6 +927,7 @@ class FormatsTests(TracebaseTestCase):
         isvalid = isValidQryObjPopulated(qry)
         self.assertEqual(isvalid, False)
 
+    @tag("multi_fixed")
     def test_getJoinedRecFieldValue(self):
         """
         Test that getJoinedRecFieldValue gets a value from a joined table
@@ -892,6 +941,7 @@ class FormatsTests(TracebaseTestCase):
         val = basv_metadata.getJoinedRecFieldValue(recs, fmt, mdl, fld, fld, "Fasted")
         self.assertEqual(val, "Fasted")
 
+    @tag("multi_fixed")
     def test_cv_getSearchFieldChoices(self):
         """
         Test getSearchFieldChoices
@@ -906,6 +956,8 @@ class FormatsTests(TracebaseTestCase):
             ("msrun__sample__animal__feeding_status", "Feeding Status"),
             ("formula", "Formula"),
             ("msrun__sample__animal__genotype", "Genotype"),
+            ("msrun__sample__animal__infusion_rate", "Infusion Rate (ul/min/g)"),
+            ("peak_data__labels__element", "Labeled Element"),
             ("compounds__synonyms__name", "Measured Compound (Any Synonym)"),
             ("compounds__name", "Measured Compound (Primary Synonym)"),
             ("name", "Peak Group"),
@@ -915,22 +967,18 @@ class FormatsTests(TracebaseTestCase):
             ("msrun__sample__animal__studies__name", "Study"),
             ("msrun__sample__tissue__name", "Tissue"),
             (
-                "msrun__sample__animal__tracer_compound__name",
+                "msrun__sample__animal__infusate__tracers__compound__name",
                 "Tracer Compound (Primary Synonym)",
             ),
             (
-                "msrun__sample__animal__tracer_infusion_concentration",
-                "Tracer Infusion Concentration (mM)",
+                "msrun__sample__animal__infusate__infusatetracer__concentration",
+                "Tracer Concentration (mM)",
             ),
-            (
-                "msrun__sample__animal__tracer_infusion_rate",
-                "Tracer Infusion Rate (ul/min/g)",
-            ),
-            ("msrun__sample__animal__tracer_labeled_atom", "Tracer Labeled Element"),
             ("msrun__sample__animal__treatment__name", "Treatment"),
         )
         self.assertEqual(res, choices)
 
+    @tag("multi_fixed")
     def test_cv_getKeyPathList(self):
         """
         Test getKeyPathList
@@ -942,6 +990,7 @@ class FormatsTests(TracebaseTestCase):
         kpl = ["msrun", "sample", "animal"]
         self.assertEqual(res, kpl)
 
+    @tag("multi_fixed")
     def test_cv_getPrefetches(self):
         """
         Test getPrefetches (which should not return the infusatetracer through model and return paths in order of
@@ -961,6 +1010,7 @@ class FormatsTests(TracebaseTestCase):
         ]
         self.assertEqual(pfl, res)
 
+    @tag("multi_fixed")
     def test_cv_getModelInstances(self):
         """
         Test getModelInstances
@@ -971,17 +1021,20 @@ class FormatsTests(TracebaseTestCase):
         ml = [
             "PeakGroupSet",
             "CompoundSynonym",
+            "PeakDataLabel",
             "PeakGroup",
             "Protocol",
             "Sample",
             "Tissue",
             "Animal",
+            "InfusateTracer",
             "TracerCompound",
             "MeasuredCompound",
             "Study",
         ]
         self.assertEqual(res, ml)
 
+    @tag("multi_fixed")
     def test_cv_getSearchFields(self):
         """
         Test getSearchFields
@@ -998,12 +1051,11 @@ class FormatsTests(TracebaseTestCase):
             "sex": "msrun__sample__animal__sex",
             "diet": "msrun__sample__animal__diet",
             "feeding_status": "msrun__sample__animal__feeding_status",
-            "tracer_labeled_atom": "msrun__sample__animal__tracer_labeled_atom",
-            "tracer_infusion_rate": "msrun__sample__animal__tracer_infusion_rate",
-            "tracer_infusion_concentration": "msrun__sample__animal__tracer_infusion_concentration",
+            "infusion_rate": "msrun__sample__animal__infusion_rate",
         }
-        self.assertEqual(res, sfd)
+        self.assertEqual(sfd, res)
 
+    @tag("multi_fixed")
     def test_cv_getDisplayFields(self):
         """
         Test getDisplayFields
@@ -1022,12 +1074,11 @@ class FormatsTests(TracebaseTestCase):
             "sex": "sex",
             "diet": "diet",
             "feeding_status": "feeding_status",
-            "tracer_labeled_atom": "tracer_labeled_atom",
-            "tracer_infusion_rate": "tracer_infusion_rate",
-            "tracer_infusion_concentration": "tracer_infusion_concentration",
+            "infusion_rate": "infusion_rate",
         }
-        self.assertEqual(res, dfd)
+        self.assertEqual(dfd, res)
 
+    @tag("multi_fixed")
     def test_cv_getFormatNames(self):
         """
         Test getFormatNames
@@ -1039,8 +1090,9 @@ class FormatsTests(TracebaseTestCase):
             "pdtemplate": "PeakData",
             "fctemplate": "Fcirc",
         }
-        self.assertEqual(res, fnd)
+        self.assertEqual(fnd, res)
 
+    @tag("multi_fixed")
     def test_cv_formatNameOrKeyToKey(self):
         """
         Test formatNameOrKeyToKey
@@ -1050,6 +1102,7 @@ class FormatsTests(TracebaseTestCase):
         res = basv_metadata.formatNameOrKeyToKey(fmt)
         self.assertEqual(res, "pgtemplate")
 
+    @tag("multi_fixed")
     def test_pathStepToPosGroupType_inner_node(self):
         """
         Convert "0-all" to [0, "all"]
@@ -1059,6 +1112,7 @@ class FormatsTests(TracebaseTestCase):
         self.assertEqual(gtype, "all")
         self.assertTrue(not static)
 
+    @tag("multi_fixed")
     def test_pathStepToPosGroupType_leaf_node(self):
         """
         Convert "0" to [0, None]
@@ -1068,6 +1122,7 @@ class FormatsTests(TracebaseTestCase):
         self.assertEqual(gtype, None)
         self.assertEqual(static, False)
 
+    @tag("multi_fixed")
     def test_rootToFormatInfo_selected(self):
         """
         Convert "pgtemplate-PeakGroups-selected" to ["pgtemplate", "PeakGroups", True]
@@ -1077,6 +1132,7 @@ class FormatsTests(TracebaseTestCase):
         self.assertEqual(name, "PeakGroups")
         self.assertEqual(sel, True)
 
+    @tag("multi_fixed")
     def test_rootToFormatInfo_unselected(self):
         """
         Convert "pdtemplate-PeakData" to ["pdtemplate", "PeakData", False]
@@ -1088,6 +1144,7 @@ class FormatsTests(TracebaseTestCase):
 
 
 @tag("search_choices")
+@tag("multi_fixed")
 class SearchFieldChoicesTests(TracebaseTestCase):
     def test_get_all_comparison_choices(self):
         base_search_view = Format()

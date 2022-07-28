@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 import pandas as pd
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
-from django.core.management import CommandError, call_command
+from django.core.management import call_command
 from django.db import IntegrityError
 from django.db.models.deletion import RestrictedError
 from django.test import override_settings, tag
@@ -17,6 +17,7 @@ from DataRepo.models import (
     InfusateTracer,
     MSRun,
     PeakData,
+    PeakDataLabel,
     PeakGroup,
     PeakGroupSet,
     Protocol,
@@ -32,8 +33,6 @@ from DataRepo.models.peak_group import NoCommonLabels
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import (
     AccuCorDataLoader,
-    AmbiguousCompoundDefinitionError,
-    CompoundsLoader,
     IsotopeObservationData,
     IsotopeObservationParsingError,
     IsotopeParsingError,
@@ -436,113 +435,6 @@ class CompoundValidationLoadingTests(TracebaseTestCase):
 
     def test_compounds_loaded(self):
         self.assertEqual(Compound.objects.all().count(), self.ALL_COMPOUNDS_COUNT)
-
-
-@override_settings(CACHES=settings.TEST_CACHES)
-@tag("compound_loading")
-class CompoundLoadingTests(TracebaseTestCase):
-    @classmethod
-    def setUpTestData(cls):
-
-        primary_compound_file = (
-            "DataRepo/example_data/consolidated_tracebase_compound_list.tsv"
-        )
-
-        call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
-        call_command(
-            "load_compounds",
-            compounds=primary_compound_file,
-            verbosity=0,
-        )
-        cls.ALL_COMPOUNDS_COUNT = 47
-
-        cls.COMPOUND_WITH_MANY_NAMES = Compound.objects.get(name="a-ketoglutarate")
-
-        # and do it again, to be able to test the class
-        compounds_df = pd.read_csv(
-            primary_compound_file, sep="\t", keep_default_na=False
-        )
-        cls.LOADER_INSTANCE = CompoundsLoader(compounds_df=compounds_df)
-
-    def test_compounds_loaded(self):
-        self.assertEqual(Compound.objects.all().count(), self.ALL_COMPOUNDS_COUNT)
-
-    def test_compound_loaded(self):
-        self.assertEqual(
-            "HMDB0000208",
-            self.COMPOUND_WITH_MANY_NAMES.hmdb_id,
-        )
-
-    def test_synonym_loaded(self):
-        cs = CompoundSynonym.objects.get(name="oxoglutarate")
-        self.assertEqual(
-            cs.compound,
-            self.COMPOUND_WITH_MANY_NAMES,
-        )
-
-    def test_synonymous_compound_retrieval(self):
-        synonymous_compound = Compound.compound_matching_name_or_synonym(
-            "alpha-ketoglutaric acid"
-        )
-        self.assertEqual(
-            synonymous_compound,
-            self.COMPOUND_WITH_MANY_NAMES,
-        )
-
-    def test_nonsense_synonym_retrieval(self):
-        synonymous_compound = Compound.compound_matching_name_or_synonym("nonsense")
-        self.assertIsNone(synonymous_compound)
-
-    @tag("compound_for_row")
-    def test_missing_compounds_keys_in_find_compound_for_row(self):
-        # this test used the SetUp-inserted data to retrieve spoofed data with
-        # only synonyms
-        dict = {
-            CompoundsLoader.KEY_COMPOUND_NAME: "nonsense",
-            CompoundsLoader.KEY_FORMULA: "nonsense",
-            CompoundsLoader.KEY_HMDB: "nonsense",
-            CompoundsLoader.KEY_SYNONYMS: "Fructose 1,6-bisphosphate;Fructose-1,6-diphosphate;"
-            "Fructose 1,6-diphosphate;Diphosphofructose",
-        }
-        # create series from dictionary
-        ser = pd.Series(dict)
-        compound = self.LOADER_INSTANCE.find_compound_for_row(ser)
-        self.assertEqual(compound.name, "fructose-1-6-bisphosphate")
-
-    @tag("compound_for_row")
-    def test_ambiguous_synonym_in_find_compound_for_row(self):
-        """
-        Test that an exception is raised when synonyms on one row refer to two
-        existing compound records in the database
-        """
-        dict = {
-            CompoundsLoader.KEY_COMPOUND_NAME: "nonsense",
-            CompoundsLoader.KEY_FORMULA: "nonsense",
-            CompoundsLoader.KEY_HMDB: "nonsense",
-            CompoundsLoader.KEY_SYNONYMS: "Fructose 1,6-bisphosphate;glucose",
-        }
-        # create series from dictionary
-        ser = pd.Series(dict)
-        with self.assertRaises(AmbiguousCompoundDefinitionError):
-            self.LOADER_INSTANCE.find_compound_for_row(ser)
-
-
-@override_settings(CACHES=settings.TEST_CACHES)
-@tag("compound_loading")
-class CompoundLoadingTestErrors(TracebaseTestCase):
-    """Tests loading of Compounds with errors"""
-
-    def testCompoundLoadingFailure(self):
-        """Test that an error during compound loading doesn't load any compounds"""
-
-        with self.assertRaisesRegex(
-            CommandError, "Validation errors when loading compounds"
-        ):
-            call_command(
-                "load_compounds",
-                compounds="DataRepo/example_data/testing_data/test_study_1/test_study_1_compounds_dupes.tsv",
-            )
-        self.assertEqual(Compound.objects.count(), 0)
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
@@ -1035,6 +927,7 @@ class PropertyTests(TracebaseTestCase):
         cls.MAIN_SERUM_ANIMAL = Animal.objects.get(name="971")
 
     @tag("serum")
+    @tag("multi_broken")
     def test_sample_peak_groups(self):
         animal = self.MAIN_SERUM_ANIMAL
         final_serum_sample = animal.final_serum_sample
@@ -1043,7 +936,7 @@ class PropertyTests(TracebaseTestCase):
         self.assertEqual(peak_groups.count(), self.SERUM_COMPOUNDS_COUNT)
         # but if limited to only the tracer, it is just 1 object in the QuerySet
         sample_tracer_peak_groups = final_serum_sample.peak_groups(
-            animal.tracer_compound
+            animal.infusate.tracers.first()
         )
         self.assertEqual(sample_tracer_peak_groups.count(), 1)
         # and test that the Animal convenience method is equivalent for this
@@ -1054,6 +947,7 @@ class PropertyTests(TracebaseTestCase):
         )
 
     @tag("serum")
+    @tag("multi_broken")
     def test_sample_peak_data(self):
         animal = self.MAIN_SERUM_ANIMAL
         final_serum_sample = animal.final_serum_sample
@@ -1061,13 +955,16 @@ class PropertyTests(TracebaseTestCase):
         # ALL the sample's peakdata objects total 85
         self.assertEqual(peakdata.count(), self.SERUM_PEAKDATA_ROWS)
         # but if limited to only the tracer's data, it is just 7 objects
-        peakdata = final_serum_sample.peak_data(animal.tracer_compound)
+        peakdata = final_serum_sample.peak_data(
+            animal.infusate.tracers.first().compound
+        )
         self.assertEqual(peakdata.count(), 7)
         # and test that the Animal convenience method is equivalent to the above
         peakdata2 = animal.final_serum_sample_tracer_peak_data
         self.assertEqual(peakdata.last().id, peakdata2.last().id)
 
     @tag("fcirc", "serum")
+    @tag("multi_fixed")
     def test_missing_serum_sample_peak_data(self):
         animal = self.MAIN_SERUM_ANIMAL
         final_serum_sample = animal.final_serum_sample
@@ -1080,7 +977,9 @@ class PropertyTests(TracebaseTestCase):
         with the msrun deleted, the 7 rows of prior peak data
         (test_sample_peak_data, above) are now 0/gone
         """
-        peakdata = final_serum_sample.peak_data(animal.tracer_compound)
+        peakdata = final_serum_sample.peak_data(
+            animal.infusate.tracers.first().compound
+        )
         self.assertEqual(peakdata.count(), 0)
         animal.final_serum_sample.delete()
         # with the sample deleted, there are no more serum records...
@@ -1125,6 +1024,7 @@ class PropertyTests(TracebaseTestCase):
                 refeshed_animal.final_serum_tracer_rate_appearance_average_per_animal
             )
 
+    @tag("multi_fixed")
     def test_peak_group_peak_data_1(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="glucose")
@@ -1136,11 +1036,16 @@ class PropertyTests(TracebaseTestCase):
         self.assertEqual(peak_data.raw_abundance, 8814287)
         self.assertAlmostEqual(peak_data.corrected_abundance, 9553199.89089051)
         self.assertAlmostEqual(peak_group.total_abundance, 9599112.684, places=3)
+        self.assertEqual(list(peak_group.enrichment_fractions.keys()), ["C"])
         self.assertAlmostEqual(peak_group.enrichment_fractions["C"], 0.001555566789)
-        # TODO: Temporarily commenting calls to methids I have not updated yet
-        # self.assertAlmostEqual(peak_group.enrichment_abundance, 14932.06089, places=5)
-        # self.assertAlmostEqual(peak_group.normalized_labeling, 0.009119978074)
+        self.assertEqual(list(peak_group.enrichment_abundances.keys()), ["C"])
+        self.assertAlmostEqual(
+            peak_group.enrichment_abundances["C"], 14932.06089, places=5
+        )
+        self.assertEqual(list(peak_group.normalized_labelings.keys()), ["C"])
+        self.assertAlmostEqual(peak_group.normalized_labelings["C"], 0.009119978074)
 
+    @tag("multi_fixed")
     def test_peak_group_peak_data_4(self):
         # null original data
         peak_group = (
@@ -1157,11 +1062,16 @@ class PropertyTests(TracebaseTestCase):
         # but presumably these are all computed from the corrected data
         self.assertAlmostEqual(peak_data.corrected_abundance, 9553199.89089051)
         self.assertAlmostEqual(peak_group.total_abundance, 9599112.684, places=3)
+        self.assertEqual(list(peak_group.enrichment_fractions.keys()), ["C"])
         self.assertAlmostEqual(peak_group.enrichment_fractions["C"], 0.001555566789)
-        # TODO: Temporarily commenting calls to methids I have not updated yet
-        # self.assertAlmostEqual(peak_group.enrichment_abundance, 14932.06089, places=5)
-        # self.assertAlmostEqual(peak_group.normalized_labeling, 0.009119978074)
+        self.assertEqual(list(peak_group.enrichment_abundances.keys()), ["C"])
+        self.assertAlmostEqual(
+            peak_group.enrichment_abundances["C"], 14932.06089, places=5
+        )
+        self.assertEqual(list(peak_group.normalized_labelings.keys()), ["C"])
+        self.assertAlmostEqual(peak_group.normalized_labelings["C"], 0.009119978074)
 
+    @tag("multi_fixed")
     def test_peak_group_peak_data_serum(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="lysine")
@@ -1172,12 +1082,17 @@ class PropertyTests(TracebaseTestCase):
         self.assertAlmostEqual(peak_data.raw_abundance, 205652.5)
         self.assertAlmostEqual(peak_data.corrected_abundance, 222028.365565823)
         self.assertAlmostEqual(peak_group.total_abundance, 267686.902436353)
+        self.assertEqual(list(peak_group.enrichment_fractions.keys()), ["C"])
         self.assertAlmostEqual(peak_group.enrichment_fractions["C"], 0.1705669439)
-        # TODO: Temporarily commenting calls to methids I have not updated yet
-        # self.assertAlmostEqual(peak_group.enrichment_abundance, 45658.53687, places=5)
-        # self.assertAlmostEqual(peak_group.normalized_labeling, 1)
+        self.assertEqual(list(peak_group.enrichment_abundances.keys()), ["C"])
+        self.assertAlmostEqual(
+            peak_group.enrichment_abundances["C"], 45658.53687, places=5
+        )
+        self.assertEqual(list(peak_group.normalized_labelings.keys()), ["C"])
+        self.assertAlmostEqual(peak_group.normalized_labelings["C"], 1)
 
-    def test_no_common_labels(self):
+    @tag("multi_fixed")
+    def test_no_peak_labeled_elements(self):
         # This creates an animal with a notrogen-labeled tracer (among others)
         call_command(
             "load_animals_and_samples",
@@ -1210,7 +1125,7 @@ class PropertyTests(TracebaseTestCase):
         # make sure we get only 1 labeled element of nitrogen
         self.assertEqual(
             ["N"],
-            pg.tracer_labeled_elements,
+            sample.animal.tracer_labeled_elements,
             msg="Make sure the tracer labeled elements are set for the animal this peak group is linked to.",
         )
 
@@ -1224,6 +1139,7 @@ class PropertyTests(TracebaseTestCase):
         ):
             pg.enrichment_fractions
 
+    @tag("multi_fixed")
     def test_enrichment_fraction_missing_compounds(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="lysine")
@@ -1234,6 +1150,7 @@ class PropertyTests(TracebaseTestCase):
         with self.assertWarns(UserWarning):
             self.assertIsNone(peak_group.enrichment_fractions)
 
+    @tag("multi_fixed")
     def test_enrichment_fraction_missing_labeled_element(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="lysine")
@@ -1249,15 +1166,17 @@ class PropertyTests(TracebaseTestCase):
         with self.assertWarns(UserWarning):
             self.assertIsNone(peak_group.enrichment_fractions)
 
-    def test_peak_group_common_labels(self):
+    @tag("multi_fixed")
+    def test_peak_group_peak_labeled_elements(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="lysine")
             .filter(msrun__sample__name="serum-xz971")
             .get()
         )
 
-        self.assertEqual(["C"], peak_group.common_labels)
+        self.assertEqual(["C"], peak_group.peak_labeled_elements)
 
+    @tag("multi_fixed")
     def test_peak_group_tracer_labeled_elements(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="lysine")
@@ -1265,8 +1184,9 @@ class PropertyTests(TracebaseTestCase):
             .get()
         )
 
-        self.assertEqual(["C"], peak_group.tracer_labeled_elements)
+        self.assertEqual(["C"], peak_group.msrun.sample.animal.tracer_labeled_elements)
 
+    @tag("multi_fixed")
     def test_normalized_labeling_latest_serum(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="glucose")
@@ -1305,7 +1225,7 @@ class PropertyTests(TracebaseTestCase):
             peak_group_set=peak_group.peak_group_set,
         )
         second_serum_peak_group.compounds.add(
-            peak_group.msrun.sample.animal.tracer_compound
+            peak_group.msrun.sample.animal.infusate.tracers.first().compound
         )
         first_serum_peak_group = (
             PeakGroup.objects.filter(compounds__name="lysine")
@@ -1313,22 +1233,27 @@ class PropertyTests(TracebaseTestCase):
             .get()
         )
         for orig_peak_data in first_serum_peak_group.peak_data.all():
-            PeakData.objects.create(
+            pdr = PeakData.objects.create(
                 raw_abundance=orig_peak_data.raw_abundance,
                 corrected_abundance=orig_peak_data.corrected_abundance,
-                labeled_element=orig_peak_data.labeled_element,
-                labeled_count=orig_peak_data.labeled_count,
                 peak_group=second_serum_peak_group,
                 med_mz=orig_peak_data.med_mz,
                 med_rt=orig_peak_data.med_rt,
             )
+            PeakDataLabel.objects.create(
+                peak_data=pdr,
+                element=orig_peak_data.labels.first().element,
+                count=orig_peak_data.labels.first().count,
+                mass_number=orig_peak_data.labels.first().mass_number,
+            )
         second_peak_data = second_serum_peak_group.peak_data.order_by(
-            "labeled_count"
+            "labels__count"
         ).last()
         second_peak_data.corrected_abundance = 100
         second_peak_data.save()
-        self.assertAlmostEqual(peak_group.normalized_labeling, 3.455355083)
+        self.assertAlmostEqual(peak_group.normalized_labelings["C"], 3.455355083)
 
+    @tag("multi_fixed")
     def test_normalized_labeling_missing_serum_peak_group(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="glucose")
@@ -1345,8 +1270,9 @@ class PropertyTests(TracebaseTestCase):
         peak_group_serum.delete()
 
         with self.assertWarns(UserWarning):
-            self.assertIsNone(peak_group.normalized_labeling)
+            self.assertIsNone(peak_group.normalized_labelings)
 
+    @tag("multi_fixed")
     def test_normalized_labeling_missing_serum_sample(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="glucose")
@@ -1361,19 +1287,21 @@ class PropertyTests(TracebaseTestCase):
         serum_sample.delete()
 
         with self.assertWarns(UserWarning):
-            self.assertIsNone(peak_group.normalized_labeling)
+            self.assertIsNone(peak_group.normalized_labelings)
 
+    @tag("multi_fixed")
     def test_peak_data_fraction(self):
         peak_data = (
             PeakGroup.objects.filter(compounds__name="glucose")
             .filter(msrun__sample__name="BAT-xz971")
             .filter(peak_group_set__filename="obob_maven_6eaas_inf.xlsx")
             .get()
-            .peak_data.filter(labeled_count=0)
+            .peak_data.filter(labels__count=0)
             .get()
         )
         self.assertAlmostEqual(peak_data.fraction, 0.9952169753)
 
+    @tag("multi_fixed")
     def test_peak_group_total_abundance_zero(self):
         # Test various calculations do not raise exceptions when total_abundance is zero
         peak_group = (
@@ -1411,13 +1339,12 @@ class PropertyTests(TracebaseTestCase):
 
         with self.assertWarns(UserWarning):
             self.assertIsNone(peak_group_zero.enrichment_fractions)
-        # TODO: Temporarily commenting calls to methids I have not updated yet
-        # self.assertIsNone(peak_group_zero.enrichment_abundance)
-        # self.assertIsNone(peak_group_zero.normalized_labeling)
-
+        self.assertIsNone(peak_group_zero.enrichment_abundances)
+        self.assertIsNone(peak_group_zero.normalized_labelings)
         self.assertEqual(peak_group_zero.total_abundance, 0)
 
     @tag("fcirc")
+    @tag("multi_broken")
     def test_peakgroup_is_tracer_compound_group_false(self):
         # get a non tracer compound from a serum sample
         compound = Compound.objects.get(name="tryptophan")
@@ -1426,6 +1353,7 @@ class PropertyTests(TracebaseTestCase):
         self.assertFalse(pg.is_tracer_compound_group)
 
     @tag("fcirc")
+    @tag("multi_broken")
     def test_peakgroup_can_compute_tracer_rates_true(self):
         # get a tracer compound from a  sample
         compound = Compound.objects.get(name="lysine")
@@ -1434,6 +1362,7 @@ class PropertyTests(TracebaseTestCase):
         self.assertTrue(pg.can_compute_tracer_rates)
 
     @tag("fcirc")
+    @tag("multi_broken")
     def test_peakgroup_can_compute_tracer_rates_false_no_rate(self):
         # get a tracer compound from a  sample
         compound = Compound.objects.get(name="lysine")
@@ -1452,6 +1381,7 @@ class PropertyTests(TracebaseTestCase):
         animal.save()
 
     @tag("fcirc")
+    @tag("multi_broken")
     def test_peakgroup_can_compute_tracer_rates_false_no_conc(self):
         # get a tracer compound from a sample
         compound = Compound.objects.get(name="lysine")
@@ -1470,12 +1400,14 @@ class PropertyTests(TracebaseTestCase):
         animal.save()
 
     @tag("fcirc")
+    @tag("multi_broken")
     def test_peakgroup_can_compute_body_weight_tracer_rates_true(self):
         animal = self.MAIN_SERUM_ANIMAL
         pg = animal.final_serum_sample_tracer_peak_group
         self.assertTrue(pg.can_compute_body_weight_tracer_rates)
 
     @tag("fcirc")
+    @tag("multi_broken")
     def test_peakgroup_can_compute_body_weight_tracer_rates_false(self):
         animal = self.MAIN_SERUM_ANIMAL
         orig_bw = animal.body_weight
@@ -1489,11 +1421,13 @@ class PropertyTests(TracebaseTestCase):
         animal.save()
 
     @tag("fcirc")
+    @tag("multi_broken")
     def test_peakgroup_can_compute_intact_tracer_rates_true(self):
         pg = self.MAIN_SERUM_ANIMAL.final_serum_sample_tracer_peak_group
         self.assertTrue(pg.can_compute_intact_tracer_rates)
 
     @tag("fcirc")
+    @tag("multi_broken")
     def test_peakgroup_can_compute_intact_tracer_rates_false(self):
         pg = self.MAIN_SERUM_ANIMAL.final_serum_sample_tracer_peak_group
         pgid = pg.id
@@ -1512,11 +1446,13 @@ class PropertyTests(TracebaseTestCase):
         intact_peakdata.save()
 
     @tag("fcirc")
+    @tag("multi_broken")
     def test_peakgroup_can_compute_average_tracer_rates_true(self):
         pg = self.MAIN_SERUM_ANIMAL.final_serum_sample_tracer_peak_group
         self.assertTrue(pg.can_compute_average_tracer_rates)
 
     @tag("fcirc")
+    @tag("multi_broken")
     def test_peakgroup_can_compute_average_tracer_rates_false(self):
         # need to invalidate the computed/cached enrichment_fractions, somehow
         pg = self.MAIN_SERUM_ANIMAL.final_serum_sample_tracer_peak_group
@@ -1526,6 +1462,79 @@ class PropertyTests(TracebaseTestCase):
         #     pg.enrichment_fractions = None
         with self.assertWarns(UserWarning):
             self.assertFalse(pg.can_compute_average_tracer_rates)
+
+
+@override_settings(CACHES=settings.TEST_CACHES)
+class MultiTracerLabelPropertyTests(TracebaseTestCase):
+    @classmethod
+    def setUpTestData(cls):
+        call_command(
+            "load_animals_and_samples",
+            animal_and_sample_table_filename=(
+                "DataRepo/example_data/obob_fasted_glc_lac_gln_ala_multiple_labels/animal_sample_table.xlsx"
+            ),
+            skip_researcher_check=True,
+        )
+        call_command(
+            "load_accucor_msruns",
+            accucor_file="DataRepo/example_data/obob_fasted_glc_lac_gln_ala_multiple_labels/"
+            "alafasted_cor.xlsx",
+            protocol="Default",
+            date="2021-04-29",
+            researcher="Xianfeng Zeng",
+            new_researcher=False,
+            isocorr_format=True,
+        )
+
+    def test_tracer_labeled_elements(self):
+        anml = Animal.objects.get(name="xzl1")
+        expected = ["C", "N"]
+        output = anml.tracer_labeled_elements
+        self.assertEqual(expected, output)
+
+    def test_serum_tracers_enrichment_fractions(self):
+        anml = Animal.objects.get(name="xzl1")
+        output = anml.serum_tracers_enrichment_fractions
+        # TODO: Fix the expected from the test failure output
+        expected = {
+            "C": 1,
+            "N": 1,
+        }
+        self.assertEqual(expected, output)
+
+    def test_peak_labeled_elements_one(self):
+        # succinate has no nitrogen
+        pg = PeakGroup.objects.get(name="succinate")
+        output = pg.peak_labeled_elements
+        # One common element
+        expected = ["C"]
+        self.assertEqual(expected, output)
+
+    def test_peak_labeled_elements_two(self):
+        pg = PeakGroup.objects.get(name="serine")
+        output = pg.peak_labeled_elements
+        expected = ["C", "N"]
+        self.assertEqual(expected, output)
+
+    def test_enrichment_abundances(self):
+        pg = PeakGroup.objects.get(name="serine")
+        output = pg.enrichment_abundances
+        # TODO: Fix the expected from the test failure output
+        expected = {
+            "C": 1,
+            "N": 1,
+        }
+        self.assertEqual(expected, output)
+
+    def test_normalized_labelings(self):
+        pg = PeakGroup.objects.get(name="serine")
+        output = pg.enrichment_abundances
+        # TODO: Fix the expected from the test failure output
+        expected = {
+            "C": 1,
+            "N": 1,
+        }
+        self.assertEqual(expected, output)
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
@@ -2213,6 +2222,30 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             msg=f"PeakData record count should be the number of peakdata rows [{PEAKDATA_ROWS}] times the number of "
             f"samples [{SAMPLES_COUNT}] = [{PEAKDATA_ROWS * SAMPLES_COUNT}].",
         )
+
+    def test_labeled_elements_common_with_compound(self):
+        """
+        Test to ensure count 0 entries are not created when measured compound doesn't have that element
+        """
+        self.load_multilabel_data()
+        call_command(
+            "load_accucor_msruns",
+            accucor_file="DataRepo/example_data/obob_fasted_glc_lac_gln_ala_multiple_labels/"
+            "alafasted_cor.xlsx",
+            protocol="Default",
+            date="2021-04-29",
+            researcher="Xianfeng Zeng",
+            new_researcher=False,
+            isocorr_format=True,
+        )
+        pg = (
+            PeakGroup.objects.filter(name__exact="succinate")
+            .filter(peak_group_set__filename="alafasted_cor.xlsx")
+            .distinct(["id", "peak_data__labels__element"])
+        )
+        self.assertEqual(pg.count(), 2)
+        self.assertEqual(pg.filter(peak_data__labels__element__exact="C").count(), 1)
+        self.assertEqual(pg.filter(peak_data__labels__element__exact="N").count(), 1)
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
