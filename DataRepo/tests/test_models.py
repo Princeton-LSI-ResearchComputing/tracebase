@@ -2141,7 +2141,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
 
 @override_settings(CACHES=settings.TEST_CACHES)
 @tag("load_study")
-@tag("multi_broken")
+@tag("multi_working")
 class StudyLoadingTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
