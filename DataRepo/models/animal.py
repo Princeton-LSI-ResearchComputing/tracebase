@@ -426,7 +426,7 @@ class Animal(HierCachedModel, ElementLabel):
                     tracer_compounds,
                 )
 
-            # Count the total numnber of each element among all the tracer compounds
+            # Count the total number of each element among all the tracer compounds
             total_atom_counts = {}
             for tracer_labeled_element in tracer_labeled_elements:
                 total_atom_counts[tracer_labeled_element] = 0

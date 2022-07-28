@@ -2141,7 +2141,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
 
 @override_settings(CACHES=settings.TEST_CACHES)
 @tag("load_study")
-@tag("multi_broken")
+@tag("multi_working")
 class StudyLoadingTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
@@ -2209,6 +2209,18 @@ class StudyLoadingTests(TracebaseTestCase):
             "load_study",
             "DataRepo/example_data/AsaelR_13C-Valine+PI3Ki_flank-KPC_2021-12_isocorr_CN-corrected/loading.yaml",
             verbosity=2,
+        )
+
+    def test_multi_tracer_isocorr_study(self):
+        call_command(
+            "load_study",
+            "DataRepo/example_data/obob_fasted_ace_glycerol_3hb_citrate_eaa_fa_multiple_tracers/loading.yaml",
+        )
+
+    def test_multi_label_isocorr_study(self):
+        call_command(
+            "load_study",
+            "DataRepo/example_data/obob_fasted_glc_lac_gln_ala_multiple_labels/loading.yaml",
         )
 
 

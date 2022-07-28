@@ -371,14 +371,16 @@ class SampleTableLoader:
                         print(f"Creating new record: Sample:{sample_name}")
                         researcher = self.getRowVal(row, self.headers.SAMPLE_RESEARCHER)
                         tc = self.getRowVal(row, self.headers.TIME_COLLECTED)
-                        if researcher is not None and tc is not None:
-                            sample = Sample(
-                                name=sample_name,
-                                researcher=researcher,
-                                time_collected=timedelta(minutes=float(tc)),
-                                animal=animal,
-                                tissue=tissue,
-                            )
+                        sample_args = {
+                            "name": sample_name,
+                            "animal": animal,
+                            "tissue": tissue,
+                        }
+                        if researcher is not None:
+                            sample_args["researcher"] = researcher
+                        if tc is not None:
+                            sample_args["time_collected"] = timedelta(minutes=float(tc))
+                        sample = Sample(**sample_args)
                         sd = self.getRowVal(
                             row, self.headers.SAMPLE_DATE, hdr_required=False
                         )

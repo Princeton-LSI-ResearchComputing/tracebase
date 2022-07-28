@@ -1,109 +1,109 @@
-Sample Name	Date Collected	Researcher Name	Tissue	Time Collected	Animal ID	Animal Genotype	Animal Body Weight	Infusate Compound	Infusate Labeled Atom	Infusate Label Atom Count	Infusion Rate	Infusate Concentration	Animal State	Experiment Name	Notes
-bat-xz969	11/18/2020	Xianfeng Zeng	brown_adipose_tissue	150	969	WT	27.2	C16:0	Carbon	16	0.55	8	Fasted	obob_fasted	
-Br-xz969	11/18/2020	Xianfeng Zeng	brain	150	969	WT	27.2	C16:0	Carbon	16	0.55	8	Fasted	obob_fasted	
-dia-xz969	11/18/2020	Xianfeng Zeng	diaphragm	150	969	WT	27.2	C16:0	Carbon	16	0.55	8	Fasted	obob_fasted	
-gas-xz969	11/18/2020	Xianfeng Zeng	gastrocnemius	150	969	WT	27.2	C16:0	Carbon	16	0.55	8	Fasted	obob_fasted	
-gwat-xz969	11/18/2020	Xianfeng Zeng	white_adipose_tissue_gonadal	150	969	WT	27.2	C16:0	Carbon	16	0.55	8	Fasted	obob_fasted	
-H-xz969	11/18/2020	Xianfeng Zeng	heart	150	969	WT	27.2	C16:0	Carbon	16	0.55	8	Fasted	obob_fasted	
-Kid-xz969	11/18/2020	Xianfeng Zeng	kidney	150	969	WT	27.2	C16:0	Carbon	16	0.55	8	Fasted	obob_fasted	
-Liv-xz969	11/18/2020	Xianfeng Zeng	liver	150	969	WT	27.2	C16:0	Carbon	16	0.55	8	Fasted	obob_fasted	
-Lu-xz969	11/18/2020	Xianfeng Zeng	lung	150	969	WT	27.2	C16:0	Carbon	16	0.55	8	Fasted	obob_fasted	
-Pc-xz969	11/18/2020	Xianfeng Zeng	pancreas	150	969	WT	27.2	C16:0	Carbon	16	0.55	8	Fasted	obob_fasted	
-q-xz969	11/18/2020	Xianfeng Zeng	quadricep	150	969	WT	27.2	C16:0	Carbon	16	0.55	8	Fasted	obob_fasted	
-si-xz969	11/18/2020	Xianfeng Zeng	small_intestine	150	969	WT	27.2	C16:0	Carbon	16	0.55	8	Fasted	obob_fasted	
-sol2-xz969	11/18/2020	Xianfeng Zeng	soleus	150	969	WT	27.2	C16:0	Carbon	16	0.55	8	Fasted	obob_fasted	
-sol-xz969	11/18/2020	Xianfeng Zeng	soleus	150	969	WT	27.2	C16:0	Carbon	16	0.55	8	Fasted	obob_fasted	
-Sp-xz969	11/18/2020	Xianfeng Zeng	spleen	150	969	WT	27.2	C16:0	Carbon	16	0.55	8	Fasted	obob_fasted	
-bat-xz970	2020-11-19	Xianfeng Zeng	brown_adipose_tissue	150	970	WT	26.8	C16:0	Carbon	16	0.56	8	Fasted	obob_fasted	
-Br-xz970	2020-11-19	Xianfeng Zeng	brain	150	970	WT	26.8	C16:0	Carbon	16	0.56	8	Fasted	obob_fasted	
-dia-xz970	2020-11-19	Xianfeng Zeng	diaphragm	150	970	WT	26.8	C16:0	Carbon	16	0.56	8	Fasted	obob_fasted	
-gas-xz970	2020-11-19	Xianfeng Zeng	gastrocnemius	150	970	WT	26.8	C16:0	Carbon	16	0.56	8	Fasted	obob_fasted	
-gwat-xz970	2020-11-19	Xianfeng Zeng	white_adipose_tissue_gonadal	150	970	WT	26.8	C16:0	Carbon	16	0.56	8	Fasted	obob_fasted	
-H-xz970	2020-11-19	Xianfeng Zeng	heart	150	970	WT	26.8	C16:0	Carbon	16	0.56	8	Fasted	obob_fasted	
-Kid-xz970	2020-11-19	Xianfeng Zeng	kidney	150	970	WT	26.8	C16:0	Carbon	16	0.56	8	Fasted	obob_fasted	
-Liv-xz970	2020-11-19	Xianfeng Zeng	liver	150	970	WT	26.8	C16:0	Carbon	16	0.56	8	Fasted	obob_fasted	
-Lu-XZ970	2020-11-19	Xianfeng Zeng	lung	150	970	WT	26.8	C16:0	Carbon	16	0.56	8	Fasted	obob_fasted	
-Pc-xz970	2020-11-19	Xianfeng Zeng	pancreas	150	970	WT	26.8	C16:0	Carbon	16	0.56	8	Fasted	obob_fasted	
-q-xz970	2020-11-19	Xianfeng Zeng	quadricep	150	970	WT	26.8	C16:0	Carbon	16	0.56	8	Fasted	obob_fasted	
-si-xz970	2020-11-19	Xianfeng Zeng	small_intestine	150	970	WT	26.8	C16:0	Carbon	16	0.56	8	Fasted	obob_fasted	
-sol-xz970	2020-11-19	Xianfeng Zeng	soleus	150	970	WT	26.8	C16:0	Carbon	16	0.56	8	Fasted	obob_fasted	
-Sp-xz970	2020-11-19	Xianfeng Zeng	spleen	150	970	WT	26.8	C16:0	Carbon	16	0.56	8	Fasted	obob_fasted	
-BAT-xz971	2020-11-19	Xianfeng Zeng	brown_adipose_tissue	150	971	WT	26.3	lysine	Carbon	6	0.11	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-Br-xz971	2020-11-19	Xianfeng Zeng	brain	150	971	WT	26.3	lysine	Carbon	6	0.11	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-Dia-xz971	2020-11-19	Xianfeng Zeng	diaphragm	150	971	WT	26.3	lysine	Carbon	6	0.11	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-gas-xz971	2020-11-19	Xianfeng Zeng	gastrocnemius	150	971	WT	26.3	lysine	Carbon	6	0.11	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-gWAT-xz971	2020-11-19	Xianfeng Zeng	white_adipose_tissue_gonadal	150	971	WT	26.3	lysine	Carbon	6	0.11	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-H-xz971	2020-11-19	Xianfeng Zeng	heart	150	971	WT	26.3	lysine	Carbon	6	0.11	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-Kid-xz971	2020-11-19	Xianfeng Zeng	kidney	150	971	WT	26.3	lysine	Carbon	6	0.11	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-Liv-xz971	2020-11-19	Xianfeng Zeng	liver	150	971	WT	26.3	lysine	Carbon	6	0.11	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-Lu-xz971	2020-11-19	Xianfeng Zeng	lung	150	971	WT	26.3	lysine	Carbon	6	0.11	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-Pc-xz971	2020-11-19	Xianfeng Zeng	pancreas	150	971	WT	26.3	lysine	Carbon	6	0.11	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-Q-xz971	2020-11-19	Xianfeng Zeng	quadricep	150	971	WT	26.3	lysine	Carbon	6	0.11	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-SI-xz971	2020-11-19	Xianfeng Zeng	small_intestine	150	971	WT	26.3	lysine	Carbon	6	0.11	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-Sol-xz971	2020-11-19	Xianfeng Zeng	soleus	150	971	WT	26.3	lysine	Carbon	6	0.11	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-Sp-xz971	2020-11-19	Xianfeng Zeng	spleen	150	971	WT	26.3	lysine	Carbon	6	0.11	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-BAT-xz972	2020-11-19	Xianfeng Zeng	brown_adipose_tissue	150	972	WT	25.6	lysine	Carbon	6	0.12	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-Br-xz972	2020-11-19	Xianfeng Zeng	brain	150	972	WT	25.6	lysine	Carbon	6	0.12	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-Dia-xz972	2020-11-19	Xianfeng Zeng	diaphragm	150	972	WT	25.6	lysine	Carbon	6	0.12	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-gas-xz972	2020-11-19	Xianfeng Zeng	gastrocnemius	150	972	WT	25.6	lysine	Carbon	6	0.12	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-gWAT-xz972	2020-11-19	Xianfeng Zeng	white_adipose_tissue_gonadal	150	972	WT	25.6	lysine	Carbon	6	0.12	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-H-xz972	2020-11-19	Xianfeng Zeng	heart	150	972	WT	25.6	lysine	Carbon	6	0.12	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-Kid-xz972	2020-11-19	Xianfeng Zeng	kidney	150	972	WT	25.6	lysine	Carbon	6	0.12	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-Liv-xz972	2020-11-19	Xianfeng Zeng	liver	150	972	WT	25.6	lysine	Carbon	6	0.12	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-Lu-xz972	2020-11-19	Xianfeng Zeng	lung	150	972	WT	25.6	lysine	Carbon	6	0.12	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-Pc-xz972	2020-11-19	Xianfeng Zeng	pancreas	150	972	WT	25.6	lysine	Carbon	6	0.12	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-Q-xz972	2020-11-19	Xianfeng Zeng	quadricep	150	972	WT	25.6	lysine	Carbon	6	0.12	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-SI-xz972	2020-11-19	Xianfeng Zeng	small_intestine	150	972	WT	25.6	lysine	Carbon	6	0.12	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-Sol-xz972	2020-11-19	Xianfeng Zeng	soleus	150	972	WT	25.6	lysine	Carbon	6	0.12	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-Sp-xz972	2020-11-19	Xianfeng Zeng	spleen	150	972	WT	25.6	lysine	Carbon	6	0.12	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-BAT-xz979	2020-12-02	Xianfeng Zeng	brown_adipose_tissue	150	979	ob/ob	53.6	C16:0	Carbon	16	0.37	8.8	Fasted	obob_fasted	
-Br-xz979	2020-12-02	Xianfeng Zeng	brain	150	979	ob/ob	53.6	C16:0	Carbon	16	0.37	8.8	Fasted	obob_fasted	
-Dia-xz979	2020-12-02	Xianfeng Zeng	diaphragm	150	979	ob/ob	53.6	C16:0	Carbon	16	0.37	8.8	Fasted	obob_fasted	
-Gas-xz979	2020-12-02	Xianfeng Zeng	gastrocnemius	150	979	ob/ob	53.6	C16:0	Carbon	16	0.37	8.8	Fasted	obob_fasted	
-gwat-xz979	2020-12-02	Xianfeng Zeng	white_adipose_tissue_gonadal	150	979	ob/ob	53.6	C16:0	Carbon	16	0.37	8.8	Fasted	obob_fasted	
-H-xz979	2020-12-02	Xianfeng Zeng	heart	150	979	ob/ob	53.6	C16:0	Carbon	16	0.37	8.8	Fasted	obob_fasted	
-Kd-xz979	2020-12-02	Xianfeng Zeng	kidney	150	979	ob/ob	53.6	C16:0	Carbon	16	0.37	8.8	Fasted	obob_fasted	
-Liv-xz979	2020-12-02	Xianfeng Zeng	liver	150	979	ob/ob	53.6	C16:0	Carbon	16	0.37	8.8	Fasted	obob_fasted	
-Lu-xz979	2020-12-02	Xianfeng Zeng	lung	150	979	ob/ob	53.6	C16:0	Carbon	16	0.37	8.8	Fasted	obob_fasted	
-Pc-xz979	2020-12-02	Xianfeng Zeng	pancreas	150	979	ob/ob	53.6	C16:0	Carbon	16	0.37	8.8	Fasted	obob_fasted	
-Q-xz979	2020-12-02	Xianfeng Zeng	quadricep	150	979	ob/ob	53.6	C16:0	Carbon	16	0.37	8.8	Fasted	obob_fasted	
-SI-xz979	2020-12-02	Xianfeng Zeng	small_intestine	150	979	ob/ob	53.6	C16:0	Carbon	16	0.37	8.8	Fasted	obob_fasted	
-Sol-xz979	2020-12-02	Xianfeng Zeng	soleus	150	979	ob/ob	53.6	C16:0	Carbon	16	0.37	8.8	Fasted	obob_fasted	
-Sp-xz979	2020-12-02	Xianfeng Zeng	spleen	150	979	ob/ob	53.6	C16:0	Carbon	16	0.37	8.8	Fasted	obob_fasted	
-BAT-xz981	2020-12-04	Xianfeng Zeng	brown_adipose_tissue	150	981	ob/ob	48.8	lysine	Carbon	6	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-Br-xz981	2020-12-04	Xianfeng Zeng	brain	150	981	ob/ob	48.8	lysine	Carbon	6	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-Dia-xz981	2020-12-04	Xianfeng Zeng	diaphragm	150	981	ob/ob	48.8	lysine	Carbon	6	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-gas-xz981	2020-12-04	Xianfeng Zeng	gastrocnemius	150	981	ob/ob	48.8	lysine	Carbon	6	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-gwat-xz981	2020-12-04	Xianfeng Zeng	white_adipose_tissue_gonadal	150	981	ob/ob	48.8	lysine	Carbon	6	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-H-xz981	2020-12-04	Xianfeng Zeng	heart	150	981	ob/ob	48.8	lysine	Carbon	6	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-Kd-xz981	2020-12-04	Xianfeng Zeng	kidney	150	981	ob/ob	48.8	lysine	Carbon	6	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-Liv-xz981	2020-12-04	Xianfeng Zeng	liver	150	981	ob/ob	48.8	lysine	Carbon	6	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-Lu-xz981	2020-12-04	Xianfeng Zeng	lung	150	981	ob/ob	48.8	lysine	Carbon	6	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-Pc-xz981	2020-12-04	Xianfeng Zeng	pancreas	150	981	ob/ob	48.8	lysine	Carbon	6	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-Q-xz981	2020-12-04	Xianfeng Zeng	quadricep	150	981	ob/ob	48.8	lysine	Carbon	6	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-SI-xz981	2020-12-04	Xianfeng Zeng	small_intestine	150	981	ob/ob	48.8	lysine	Carbon	6	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-sol-xz981	2020-12-04	Xianfeng Zeng	soleus	150	981	ob/ob	48.8	lysine	Carbon	6	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-Sp-xz981	2020-12-04	Xianfeng Zeng	spleen	150	981	ob/ob	48.8	lysine	Carbon	6	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-BAT-xz982	2020-12-04	Xianfeng Zeng	brown_adipose_tissue	150	982	ob/ob	50.2	lysine	Carbon	6	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-Br-xz982	2020-12-04	Xianfeng Zeng	brain	150	982	ob/ob	50.2	lysine	Carbon	6	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-Dia-xz982	2020-12-04	Xianfeng Zeng	diaphragm	150	982	ob/ob	50.2	lysine	Carbon	6	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-Gas-xz982	2020-12-04	Xianfeng Zeng	gastrocnemius	150	982	ob/ob	50.2	lysine	Carbon	6	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-gwat-xz982	2020-12-04	Xianfeng Zeng	white_adipose_tissue_gonadal	150	982	ob/ob	50.2	lysine	Carbon	6	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-H-xz982	2020-12-04	Xianfeng Zeng	heart	150	982	ob/ob	50.2	lysine	Carbon	6	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-Kd-xz982	2020-12-04	Xianfeng Zeng	kidney	150	982	ob/ob	50.2	lysine	Carbon	6	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-Liv-xz982	2020-12-04	Xianfeng Zeng	liver	150	982	ob/ob	50.2	lysine	Carbon	6	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-Lu-xz982	2020-12-04	Xianfeng Zeng	lung	150	982	ob/ob	50.2	lysine	Carbon	6	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-Pc-xz982	2020-12-04	Xianfeng Zeng	pancreas	150	982	ob/ob	50.2	lysine	Carbon	6	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-Q-xz982	2020-12-04	Xianfeng Zeng	quadricep	150	982	ob/ob	50.2	lysine	Carbon	6	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-SI-xz982	2020-12-04	Xianfeng Zeng	small_intestine	150	982	ob/ob	50.2	lysine	Carbon	6	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-sol-xz982	2020-12-04	Xianfeng Zeng	soleus	150	982	ob/ob	50.2	lysine	Carbon	6	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-Sp-xz982	2020-12-04	Xianfeng Zeng	spleen	150	982	ob/ob	50.2	lysine	Carbon	6	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+Sample Name	Date Collected	Researcher Name	Tissue	Collection Time	Animal ID	Animal Genotype	Animal Body Weight	Infusate	Infusion Rate	Tracer Concentrations	Animal State	Study Name	Study Description
+bat-xz969	11/18/2020	Xianfeng Zeng	brown_adipose_tissue	150	969	WT	27.2	C16:0-[13C16]	0.55	8	Fasted	obob_fasted	
+Br-xz969	11/18/2020	Xianfeng Zeng	brain	150	969	WT	27.2	C16:0-[13C16]	0.55	8	Fasted	obob_fasted	
+dia-xz969	11/18/2020	Xianfeng Zeng	diaphragm	150	969	WT	27.2	C16:0-[13C16]	0.55	8	Fasted	obob_fasted	
+gas-xz969	11/18/2020	Xianfeng Zeng	gastrocnemius	150	969	WT	27.2	C16:0-[13C16]	0.55	8	Fasted	obob_fasted	
+gwat-xz969	11/18/2020	Xianfeng Zeng	white_adipose_tissue_gonadal	150	969	WT	27.2	C16:0-[13C16]	0.55	8	Fasted	obob_fasted	
+H-xz969	11/18/2020	Xianfeng Zeng	heart	150	969	WT	27.2	C16:0-[13C16]	0.55	8	Fasted	obob_fasted	
+Kid-xz969	11/18/2020	Xianfeng Zeng	kidney	150	969	WT	27.2	C16:0-[13C16]	0.55	8	Fasted	obob_fasted	
+Liv-xz969	11/18/2020	Xianfeng Zeng	liver	150	969	WT	27.2	C16:0-[13C16]	0.55	8	Fasted	obob_fasted	
+Lu-xz969	11/18/2020	Xianfeng Zeng	lung	150	969	WT	27.2	C16:0-[13C16]	0.55	8	Fasted	obob_fasted	
+Pc-xz969	11/18/2020	Xianfeng Zeng	pancreas	150	969	WT	27.2	C16:0-[13C16]	0.55	8	Fasted	obob_fasted	
+q-xz969	11/18/2020	Xianfeng Zeng	quadricep	150	969	WT	27.2	C16:0-[13C16]	0.55	8	Fasted	obob_fasted	
+si-xz969	11/18/2020	Xianfeng Zeng	small_intestine	150	969	WT	27.2	C16:0-[13C16]	0.55	8	Fasted	obob_fasted	
+sol2-xz969	11/18/2020	Xianfeng Zeng	soleus	150	969	WT	27.2	C16:0-[13C16]	0.55	8	Fasted	obob_fasted	
+sol-xz969	11/18/2020	Xianfeng Zeng	soleus	150	969	WT	27.2	C16:0-[13C16]	0.55	8	Fasted	obob_fasted	
+Sp-xz969	11/18/2020	Xianfeng Zeng	spleen	150	969	WT	27.2	C16:0-[13C16]	0.55	8	Fasted	obob_fasted	
+bat-xz970	2020-11-19	Xianfeng Zeng	brown_adipose_tissue	150	970	WT	26.8	C16:0-[13C16]	0.56	8	Fasted	obob_fasted	
+Br-xz970	2020-11-19	Xianfeng Zeng	brain	150	970	WT	26.8	C16:0-[13C16]	0.56	8	Fasted	obob_fasted	
+dia-xz970	2020-11-19	Xianfeng Zeng	diaphragm	150	970	WT	26.8	C16:0-[13C16]	0.56	8	Fasted	obob_fasted	
+gas-xz970	2020-11-19	Xianfeng Zeng	gastrocnemius	150	970	WT	26.8	C16:0-[13C16]	0.56	8	Fasted	obob_fasted	
+gwat-xz970	2020-11-19	Xianfeng Zeng	white_adipose_tissue_gonadal	150	970	WT	26.8	C16:0-[13C16]	0.56	8	Fasted	obob_fasted	
+H-xz970	2020-11-19	Xianfeng Zeng	heart	150	970	WT	26.8	C16:0-[13C16]	0.56	8	Fasted	obob_fasted	
+Kid-xz970	2020-11-19	Xianfeng Zeng	kidney	150	970	WT	26.8	C16:0-[13C16]	0.56	8	Fasted	obob_fasted	
+Liv-xz970	2020-11-19	Xianfeng Zeng	liver	150	970	WT	26.8	C16:0-[13C16]	0.56	8	Fasted	obob_fasted	
+Lu-XZ970	2020-11-19	Xianfeng Zeng	lung	150	970	WT	26.8	C16:0-[13C16]	0.56	8	Fasted	obob_fasted	
+Pc-xz970	2020-11-19	Xianfeng Zeng	pancreas	150	970	WT	26.8	C16:0-[13C16]	0.56	8	Fasted	obob_fasted	
+q-xz970	2020-11-19	Xianfeng Zeng	quadricep	150	970	WT	26.8	C16:0-[13C16]	0.56	8	Fasted	obob_fasted	
+si-xz970	2020-11-19	Xianfeng Zeng	small_intestine	150	970	WT	26.8	C16:0-[13C16]	0.56	8	Fasted	obob_fasted	
+sol-xz970	2020-11-19	Xianfeng Zeng	soleus	150	970	WT	26.8	C16:0-[13C16]	0.56	8	Fasted	obob_fasted	
+Sp-xz970	2020-11-19	Xianfeng Zeng	spleen	150	970	WT	26.8	C16:0-[13C16]	0.56	8	Fasted	obob_fasted	
+BAT-xz971	2020-11-19	Xianfeng Zeng	brown_adipose_tissue	150	971	WT	26.3	lysine-[13C6]	0.11	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+Br-xz971	2020-11-19	Xianfeng Zeng	brain	150	971	WT	26.3	lysine-[13C6]	0.11	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+Dia-xz971	2020-11-19	Xianfeng Zeng	diaphragm	150	971	WT	26.3	lysine-[13C6]	0.11	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+gas-xz971	2020-11-19	Xianfeng Zeng	gastrocnemius	150	971	WT	26.3	lysine-[13C6]	0.11	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+gWAT-xz971	2020-11-19	Xianfeng Zeng	white_adipose_tissue_gonadal	150	971	WT	26.3	lysine-[13C6]	0.11	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+H-xz971	2020-11-19	Xianfeng Zeng	heart	150	971	WT	26.3	lysine-[13C6]	0.11	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+Kid-xz971	2020-11-19	Xianfeng Zeng	kidney	150	971	WT	26.3	lysine-[13C6]	0.11	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+Liv-xz971	2020-11-19	Xianfeng Zeng	liver	150	971	WT	26.3	lysine-[13C6]	0.11	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+Lu-xz971	2020-11-19	Xianfeng Zeng	lung	150	971	WT	26.3	lysine-[13C6]	0.11	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+Pc-xz971	2020-11-19	Xianfeng Zeng	pancreas	150	971	WT	26.3	lysine-[13C6]	0.11	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+Q-xz971	2020-11-19	Xianfeng Zeng	quadricep	150	971	WT	26.3	lysine-[13C6]	0.11	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+SI-xz971	2020-11-19	Xianfeng Zeng	small_intestine	150	971	WT	26.3	lysine-[13C6]	0.11	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+Sol-xz971	2020-11-19	Xianfeng Zeng	soleus	150	971	WT	26.3	lysine-[13C6]	0.11	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+Sp-xz971	2020-11-19	Xianfeng Zeng	spleen	150	971	WT	26.3	lysine-[13C6]	0.11	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+BAT-xz972	2020-11-19	Xianfeng Zeng	brown_adipose_tissue	150	972	WT	25.6	lysine-[13C6]	0.12	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+Br-xz972	2020-11-19	Xianfeng Zeng	brain	150	972	WT	25.6	lysine-[13C6]	0.12	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+Dia-xz972	2020-11-19	Xianfeng Zeng	diaphragm	150	972	WT	25.6	lysine-[13C6]	0.12	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+gas-xz972	2020-11-19	Xianfeng Zeng	gastrocnemius	150	972	WT	25.6	lysine-[13C6]	0.12	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+gWAT-xz972	2020-11-19	Xianfeng Zeng	white_adipose_tissue_gonadal	150	972	WT	25.6	lysine-[13C6]	0.12	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+H-xz972	2020-11-19	Xianfeng Zeng	heart	150	972	WT	25.6	lysine-[13C6]	0.12	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+Kid-xz972	2020-11-19	Xianfeng Zeng	kidney	150	972	WT	25.6	lysine-[13C6]	0.12	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+Liv-xz972	2020-11-19	Xianfeng Zeng	liver	150	972	WT	25.6	lysine-[13C6]	0.12	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+Lu-xz972	2020-11-19	Xianfeng Zeng	lung	150	972	WT	25.6	lysine-[13C6]	0.12	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+Pc-xz972	2020-11-19	Xianfeng Zeng	pancreas	150	972	WT	25.6	lysine-[13C6]	0.12	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+Q-xz972	2020-11-19	Xianfeng Zeng	quadricep	150	972	WT	25.6	lysine-[13C6]	0.12	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+SI-xz972	2020-11-19	Xianfeng Zeng	small_intestine	150	972	WT	25.6	lysine-[13C6]	0.12	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+Sol-xz972	2020-11-19	Xianfeng Zeng	soleus	150	972	WT	25.6	lysine-[13C6]	0.12	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+Sp-xz972	2020-11-19	Xianfeng Zeng	spleen	150	972	WT	25.6	lysine-[13C6]	0.12	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+BAT-xz979	2020-12-02	Xianfeng Zeng	brown_adipose_tissue	150	979	ob/ob	53.6	C16:0-[13C16]	0.37	8.8	Fasted	obob_fasted	
+Br-xz979	2020-12-02	Xianfeng Zeng	brain	150	979	ob/ob	53.6	C16:0-[13C16]	0.37	8.8	Fasted	obob_fasted	
+Dia-xz979	2020-12-02	Xianfeng Zeng	diaphragm	150	979	ob/ob	53.6	C16:0-[13C16]	0.37	8.8	Fasted	obob_fasted	
+Gas-xz979	2020-12-02	Xianfeng Zeng	gastrocnemius	150	979	ob/ob	53.6	C16:0-[13C16]	0.37	8.8	Fasted	obob_fasted	
+gwat-xz979	2020-12-02	Xianfeng Zeng	white_adipose_tissue_gonadal	150	979	ob/ob	53.6	C16:0-[13C16]	0.37	8.8	Fasted	obob_fasted	
+H-xz979	2020-12-02	Xianfeng Zeng	heart	150	979	ob/ob	53.6	C16:0-[13C16]	0.37	8.8	Fasted	obob_fasted	
+Kd-xz979	2020-12-02	Xianfeng Zeng	kidney	150	979	ob/ob	53.6	C16:0-[13C16]	0.37	8.8	Fasted	obob_fasted	
+Liv-xz979	2020-12-02	Xianfeng Zeng	liver	150	979	ob/ob	53.6	C16:0-[13C16]	0.37	8.8	Fasted	obob_fasted	
+Lu-xz979	2020-12-02	Xianfeng Zeng	lung	150	979	ob/ob	53.6	C16:0-[13C16]	0.37	8.8	Fasted	obob_fasted	
+Pc-xz979	2020-12-02	Xianfeng Zeng	pancreas	150	979	ob/ob	53.6	C16:0-[13C16]	0.37	8.8	Fasted	obob_fasted	
+Q-xz979	2020-12-02	Xianfeng Zeng	quadricep	150	979	ob/ob	53.6	C16:0-[13C16]	0.37	8.8	Fasted	obob_fasted	
+SI-xz979	2020-12-02	Xianfeng Zeng	small_intestine	150	979	ob/ob	53.6	C16:0-[13C16]	0.37	8.8	Fasted	obob_fasted	
+Sol-xz979	2020-12-02	Xianfeng Zeng	soleus	150	979	ob/ob	53.6	C16:0-[13C16]	0.37	8.8	Fasted	obob_fasted	
+Sp-xz979	2020-12-02	Xianfeng Zeng	spleen	150	979	ob/ob	53.6	C16:0-[13C16]	0.37	8.8	Fasted	obob_fasted	
+BAT-xz981	2020-12-04	Xianfeng Zeng	brown_adipose_tissue	150	981	ob/ob	48.8	lysine-[13C6]	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+Br-xz981	2020-12-04	Xianfeng Zeng	brain	150	981	ob/ob	48.8	lysine-[13C6]	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+Dia-xz981	2020-12-04	Xianfeng Zeng	diaphragm	150	981	ob/ob	48.8	lysine-[13C6]	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+gas-xz981	2020-12-04	Xianfeng Zeng	gastrocnemius	150	981	ob/ob	48.8	lysine-[13C6]	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+gwat-xz981	2020-12-04	Xianfeng Zeng	white_adipose_tissue_gonadal	150	981	ob/ob	48.8	lysine-[13C6]	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+H-xz981	2020-12-04	Xianfeng Zeng	heart	150	981	ob/ob	48.8	lysine-[13C6]	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+Kd-xz981	2020-12-04	Xianfeng Zeng	kidney	150	981	ob/ob	48.8	lysine-[13C6]	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+Liv-xz981	2020-12-04	Xianfeng Zeng	liver	150	981	ob/ob	48.8	lysine-[13C6]	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+Lu-xz981	2020-12-04	Xianfeng Zeng	lung	150	981	ob/ob	48.8	lysine-[13C6]	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+Pc-xz981	2020-12-04	Xianfeng Zeng	pancreas	150	981	ob/ob	48.8	lysine-[13C6]	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+Q-xz981	2020-12-04	Xianfeng Zeng	quadricep	150	981	ob/ob	48.8	lysine-[13C6]	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+SI-xz981	2020-12-04	Xianfeng Zeng	small_intestine	150	981	ob/ob	48.8	lysine-[13C6]	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+sol-xz981	2020-12-04	Xianfeng Zeng	soleus	150	981	ob/ob	48.8	lysine-[13C6]	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+Sp-xz981	2020-12-04	Xianfeng Zeng	spleen	150	981	ob/ob	48.8	lysine-[13C6]	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+BAT-xz982	2020-12-04	Xianfeng Zeng	brown_adipose_tissue	150	982	ob/ob	50.2	lysine-[13C6]	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+Br-xz982	2020-12-04	Xianfeng Zeng	brain	150	982	ob/ob	50.2	lysine-[13C6]	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+Dia-xz982	2020-12-04	Xianfeng Zeng	diaphragm	150	982	ob/ob	50.2	lysine-[13C6]	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+Gas-xz982	2020-12-04	Xianfeng Zeng	gastrocnemius	150	982	ob/ob	50.2	lysine-[13C6]	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+gwat-xz982	2020-12-04	Xianfeng Zeng	white_adipose_tissue_gonadal	150	982	ob/ob	50.2	lysine-[13C6]	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+H-xz982	2020-12-04	Xianfeng Zeng	heart	150	982	ob/ob	50.2	lysine-[13C6]	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+Kd-xz982	2020-12-04	Xianfeng Zeng	kidney	150	982	ob/ob	50.2	lysine-[13C6]	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+Liv-xz982	2020-12-04	Xianfeng Zeng	liver	150	982	ob/ob	50.2	lysine-[13C6]	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+Lu-xz982	2020-12-04	Xianfeng Zeng	lung	150	982	ob/ob	50.2	lysine-[13C6]	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+Pc-xz982	2020-12-04	Xianfeng Zeng	pancreas	150	982	ob/ob	50.2	lysine-[13C6]	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+Q-xz982	2020-12-04	Xianfeng Zeng	quadricep	150	982	ob/ob	50.2	lysine-[13C6]	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+SI-xz982	2020-12-04	Xianfeng Zeng	small_intestine	150	982	ob/ob	50.2	lysine-[13C6]	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+sol-xz982	2020-12-04	Xianfeng Zeng	soleus	150	982	ob/ob	50.2	lysine-[13C6]	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+Sp-xz982	2020-12-04	Xianfeng Zeng	spleen	150	982	ob/ob	50.2	lysine-[13C6]	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
 blank		Xianfeng Zeng			BLANK	BLANK		BLANK	BLANK	BLANK	BLANK	BLANK	BLANK	obob_fasted	"this sample is a quality control ""blank"" for mass spec.  It could be excluded from databse"
 bkbk1123		Xianfeng Zeng			BLANK	BLANK		BLANK	BLANK	BLANK	BLANK	BLANK	BLANK	obob_fasted	"this sample is a quality control ""blank"" for mass spec.  It could be excluded from databse"
-serum-xz971	11/19/20	Xianfeng Zeng	serum_plasma_unspecified_location	150	971	WT	26.3	lysine	Carbon	6	0.11	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-serum-xz972	11/19/20	Xianfeng Zeng	serum_plasma_unspecified_location	150	972	WT	25.6	lysine	Carbon	6	0.12	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-serum-xz981	12/04/20	Xianfeng Zeng	serum_plasma_unspecified_location	150	981	ob/ob	48.8	lysine	Carbon	6	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-serum-xz982	12/04/20	Xianfeng Zeng	serum_plasma_unspecified_location	150	982	ob/ob	50.2	lysine	Carbon	6	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
-serum-xz969	11/18/20	Xianfeng Zeng	serum_plasma_unspecified_location	150	969	WT	27.2	C16:0	Carbon	16	0.55	8	Fasted	obob_fasted	
-serum-xz970	11/19/20	Xianfeng Zeng	serum_plasma_unspecified_location	150	970	WT	26.8	C16:0	Carbon	16	0.56	8	Fasted	obob_fasted	
-serum-xz979	12/02/20	Xianfeng Zeng	serum_plasma_unspecified_location	150	979	ob/ob	53.6	C16:0	Carbon	16	0.37	8.8	Fasted	obob_fasted	
+serum-xz971	11/19/20	Xianfeng Zeng	serum_plasma_unspecified_location	150	971	WT	26.3	lysine-[13C6]	0.11	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+serum-xz972	11/19/20	Xianfeng Zeng	serum_plasma_unspecified_location	150	972	WT	25.6	lysine-[13C6]	0.12	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+serum-xz981	12/04/20	Xianfeng Zeng	serum_plasma_unspecified_location	150	981	ob/ob	48.8	lysine-[13C6]	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+serum-xz982	12/04/20	Xianfeng Zeng	serum_plasma_unspecified_location	150	982	ob/ob	50.2	lysine-[13C6]	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+serum-xz969	11/18/20	Xianfeng Zeng	serum_plasma_unspecified_location	150	969	WT	27.2	C16:0-[13C16]	0.55	8	Fasted	obob_fasted	
+serum-xz970	11/19/20	Xianfeng Zeng	serum_plasma_unspecified_location	150	970	WT	26.8	C16:0-[13C16]	0.56	8	Fasted	obob_fasted	
+serum-xz979	12/02/20	Xianfeng Zeng	serum_plasma_unspecified_location	150	979	ob/ob	53.6	C16:0-[13C16]	0.37	8.8	Fasted	obob_fasted	
