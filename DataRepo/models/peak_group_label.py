@@ -139,7 +139,6 @@ class PeakGroupLabel(HierCachedModel):
                 warnings.warn(
                     f"Unable to compute enrichment_fraction for {self.peak_group.msrun.sample}:{self}, {msg}."
                 )
-                return None
 
         return enrichment_fraction
 

@@ -1007,6 +1007,12 @@ class PropertyTests(TracebaseTestCase):
             msg="Make sure the tracer labeled elements are set for the animal this peak group is linked to.",
         )
 
+        # Create the peak group label that would be created if the accucor/isocorr data was loaded
+        PeakGroupLabel.objects.create(
+            peak_group=pg,
+            element="N",
+        )
+
         # Now try to trigger a NoCommonLabel exception
         with self.assertRaises(
             NoCommonLabel,
