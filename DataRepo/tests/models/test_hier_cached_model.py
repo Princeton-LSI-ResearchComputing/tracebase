@@ -242,9 +242,6 @@ class GlobalCacheTests(TracebaseTestCase):
             "Sample": ["is_serum_sample"],
             "PeakGroup": [
                 "peak_labeled_elements",
-                "enrichment_fractions",
-                "enrichment_abundances",
-                "normalized_labelings",
                 "is_tracer_compound_group",
                 "from_serum_sample",
                 "can_compute_tracer_rates",
@@ -259,6 +256,12 @@ class GlobalCacheTests(TracebaseTestCase):
                 "rate_disappearance_average_per_animal",
                 "rate_appearance_average_per_animal",
                 "rate_appearance_average_atom_turnover",
+            ],
+            "PeakGroupLabel": [
+                "measured_compound",
+                "enrichment_fraction",
+                "enrichment_abundance",
+                "normalized_labeling",
             ],
         }
         self.assertEqual(
@@ -276,8 +279,8 @@ class HierCachedModelTests(TracebaseTestCase):
 
     def test_cached_function_decorator(self):
         delete_all_caches()
-        pg = PeakGroup.objects.all().first()
-        f = "normalized_labelings"
+        pg = PeakGroup.objects.all().first().peak_group_labels.first()
+        f = "normalized_labeling"
 
         # Get uncached value
         disable_caching_retrievals()
@@ -287,9 +290,7 @@ class HierCachedModelTests(TracebaseTestCase):
         # Trigger caching via decorator
         enable_caching_retrievals()
         enable_caching_updates()
-        saved_return = getattr(
-            pg, f
-        )  # same as `saved_return = pg.normalized_labelings`
+        saved_return = getattr(pg, f)  # same as `saved_return = pg.normalized_labeling`
         cnl, sts = get_cache(pg, f)
         self.assertTrue(
             sts,
@@ -355,8 +356,8 @@ class HierCachedModelTests(TracebaseTestCase):
 
     def test_delete_override(self):
         delete_all_caches()
-        pg = PeakGroup.objects.all().first()
-        f = "enrichment_fractions"
+        pg = PeakGroup.objects.all().first().peak_group_labels.first()
+        f = "enrichment_fraction"
 
         enable_caching_retrievals()
         enable_caching_updates()
@@ -448,9 +449,6 @@ class HierCachedModelTests(TracebaseTestCase):
         pg = PeakGroup.objects.all().first()
         expected = [
             "peak_labeled_elements",
-            "enrichment_fractions",
-            "enrichment_abundances",
-            "normalized_labelings",
             "is_tracer_compound_group",
             "from_serum_sample",
             "can_compute_tracer_rates",
@@ -479,8 +477,12 @@ class HierCachedModelTests(TracebaseTestCase):
         samples = Sample.objects.filter(animal__id__exact=a.id)
         s1 = samples[0]
         s2 = samples[1]
-        s2pg = PeakGroup.objects.filter(msrun__sample__id__exact=s2.id).first()
-        pgf = "enrichment_fractions"
+        s2pg = (
+            PeakGroup.objects.filter(msrun__sample__id__exact=s2.id)
+            .first()
+            .peak_group_labels.first()
+        )
+        pgf = "enrichment_fraction"
 
         res1 = s1.caches_exist()
         self.assertFalse(
@@ -491,7 +493,7 @@ class HierCachedModelTests(TracebaseTestCase):
             ),
         )
 
-        # Cache sample 2's first peak group's enrichment_fractions value
+        # Cache sample 2's first peak group's enrichment_fraction value
         enable_caching_retrievals()
         enable_caching_updates()
         getattr(s2pg, pgf)

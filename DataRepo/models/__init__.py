@@ -8,6 +8,7 @@ from DataRepo.models.ms_run import MSRun
 from DataRepo.models.peak_data import PeakData
 from DataRepo.models.peak_data_label import PeakDataLabel
 from DataRepo.models.peak_group import PeakGroup
+from DataRepo.models.peak_group_label import PeakGroupLabel
 from DataRepo.models.peak_group_set import PeakGroupSet
 from DataRepo.models.protocol import Protocol
 from DataRepo.models.researcher import Researcher
@@ -24,6 +25,7 @@ __all__ = [
     "MSRun",
     "PeakData",
     "PeakGroup",
+    "PeakGroupLabel",
     "PeakGroupSet",
     "Protocol",
     "Researcher",

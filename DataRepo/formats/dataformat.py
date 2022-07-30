@@ -283,12 +283,22 @@ class Format:
         get every M:M related record with every root table record even though Django returned the number of root table
         records that would have been used in a full join.
         """
+        # TODO: Refactor the way split_rows works:
+        #       - split_rows shouldn't apply just to many-to-many fields - move it out
+        #       - Annotate every field (with a root_annot_fld or not) if the model has split_rows or distinct applied,
+        #         but error if it is a property
+        #       - Add an annotation for the model ID (with a root_annot_fld or not) if the model has split_rows or
+        #         distinct applied
+        #       - Update doc strings of getFullJoinAnnotations and getDistinctFields to describe split_rows and
+        #         distinct to be interpreted as "splitting" or "merging"
         annotations = []
         for mdl_inst_nm in self.model_instances.keys():
             # If this model is many to many related, and we want a full join
             if (
-                self.model_instances[mdl_inst_nm]["manytomany"]["is"]
-                and self.model_instances[mdl_inst_nm]["manytomany"]["split_rows"]
+                # See TODO above
+                # self.model_instances[mdl_inst_nm]["manytomany"]["is"]
+                # and
+                self.model_instances[mdl_inst_nm]["manytomany"]["split_rows"]
             ):
                 # If a root_annot_fld key exists in the "manytomany" dict, use it
                 if (
@@ -318,21 +328,24 @@ class Format:
                     {annot_fld: F(self.model_instances[mdl_inst_nm]["path"] + "__pk")}
                 )
 
-                # If these fields are distinct, annotating their values makes the template cleaner
-                if (
-                    "distinct" in self.model_instances[mdl_inst_nm]
-                    and self.model_instances[mdl_inst_nm]["distinct"]
-                ):
-                    for fld_nm in self.model_instances[mdl_inst_nm]["fields"].keys():
-                        if (
-                            "root_annot_fld"
-                            in self.model_instances[mdl_inst_nm]["fields"][
-                                fld_nm
-                            ].keys()
-                        ):
-                            distinct_annot_fld = self.model_instances[mdl_inst_nm][
-                                "fields"
-                            ][fld_nm]["root_annot_fld"]
+            # If these fields are distinct, annotating their values (if the field has a root_annot_fld) makes the
+            # template cleaner
+            if (
+                # See TODO above
+                # "distinct" in self.model_instances[mdl_inst_nm]
+                # and self.model_instances[mdl_inst_nm]["distinct"]
+                # and
+                self.model_instances[mdl_inst_nm]["manytomany"]["split_rows"]
+            ):
+                for fld_nm in self.model_instances[mdl_inst_nm]["fields"].keys():
+                    if (
+                        "root_annot_fld"
+                        in self.model_instances[mdl_inst_nm]["fields"][fld_nm].keys()
+                    ):
+                        distinct_annot_fld = self.model_instances[mdl_inst_nm][
+                            "fields"
+                        ][fld_nm]["root_annot_fld"]
+                        try:
                             fld = dereference_field(
                                 fld_nm, self.model_instances[mdl_inst_nm]["model"]
                             )
@@ -345,6 +358,10 @@ class Format:
                                     )
                                 }
                             )
+                        except AttributeError as ae:
+                            # We cannot annotate with "fields" that are properties
+                            if "'property' object" not in str(ae):
+                                raise ae
 
         return annotations
 
@@ -627,6 +644,9 @@ class Format:
         case, this method returns an empty list (as the parameters to .distinct()).  This is the default behavior.  If
         that assumption is false, supply assume_distinct=False.
         """
+        # TODO: Refactor the way distinct works so I don't need to catch AttributeErrors: put distinct in each
+        # applicable field's dict and create an isDistinct method to operate on each model instance to find out if a
+        # distinct field exists
         distinct_fields = []
         for mdl_inst_nm in self.model_instances:
             custom_distinct_fields_exist = (
@@ -645,14 +665,20 @@ class Format:
                 for distinct_fld_nm in self.model_instances[mdl_inst_nm][
                     "fields"
                 ].keys():
-                    fld = (
-                        self.model_instances[mdl_inst_nm]["path"]
-                        + "__"
-                        + dereference_field(
-                            distinct_fld_nm, self.model_instances[mdl_inst_nm]["model"]
+                    try:
+                        fld = (
+                            self.model_instances[mdl_inst_nm]["path"]
+                            + "__"
+                            + dereference_field(
+                                distinct_fld_nm,
+                                self.model_instances[mdl_inst_nm]["model"],
+                            )
                         )
-                    )
-                    distinct_fields.append(fld)
+                        distinct_fields.append(fld)
+                    except AttributeError as ae:
+                        # We can ignore/skip "fields" that are properties
+                        if "'property' object" not in str(ae):
+                            raise ae
 
             elif (
                 # If the split_all override was supplied as true and this is a M:M model

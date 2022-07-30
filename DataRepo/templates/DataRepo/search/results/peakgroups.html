@@ -280,9 +280,13 @@
                         {% for mcpd in compounds %}{% if not forloop.first %}; {% endif %}<a href="{% url 'compound_detail' mcpd.id %}">{% get_case_insensitive_synonyms mcpd.synonyms as inssyns %}{% for mcpdsyn in inssyns %}{% if not forloop.first %}/{% endif %}{{ mcpdsyn }}{% endfor %}</a>{% endfor %}
                     </td>
 
+                    <!-- This will work as intended even if pg.compound wasn't added as an annotation (e.g. if split_rows is false or root_annot_fld is not defined) -->
+                    <!-- PeakGroupLabel Records -->
+                    {% get_manytomany_rec pg.peak_group_labels pg.peak_group_label as label_recs %}
+
                     <!-- Labeled Element -->
                     <td>
-                        {{ pg.element }}
+                        {% for label_rec in label_recs %}{% if not forloop.first %}, {% endif %}{{ label_rec.element }}{% endfor %}
                     </td>
 
                     <!-- Peak Group Set Filename -->
@@ -301,23 +305,24 @@
 
                     <!-- Enrichment Fraction -->
                     <td class="text-end">
-                        <p title="{{ pg.enrichment_fractions|index:pg.element }}">{{ pg.enrichment_fractions|index:pg.element }}</p>
-                        <p title="{{ pg.enrichment_fractions|index:pg.element|floatformat:15 }}">{{ pg.enrichment_fractions|index:pg.element|floatformat:4 }}</p>
+                        {% for label_rec in label_recs %}{% if not forloop.first %}, {% endif %}<p title="{{ label_rec.enrichment_fraction|floatformat:15 }}">{{ label_rec.enrichment_fraction|floatformat:4 }}</p>{% endfor %}
                     </td>
 
                     <!-- Enrichment Abundance -->
                     <td class="text-end">
-                        <p title="{{ pg.enrichment_abundances|index:pg.element }}">{{ pg.enrichment_abundances|index:pg.element }}</p>
-                        <p title="{{ pg.enrichment_abundances|index:pg.element|floatformat:10 }}">{{ pg.enrichment_abundances|index:pg.element|floatformat:4 }}</p>
+                        {% for label_rec in label_recs %}{% if not forloop.first %}, {% endif %}<p title="{{ label_rec.enrichment_abundance|floatformat:10 }}">{{ label_rec.enrichment_abundance|floatformat:4 }}</p>{% endfor %}
                     </td>
 
                     <!-- Normalized Labeling -->
                     <td class="text-end">
-                        {% if pg.normalized_labelings is None %}
-                            <p title="PeakGroup, serum sample, or Animal Tracer not found.">None</p>
-                        {% else %}
-                            <p title="{{ pg.normalized_labelings|index:pg.element|floatformat:15 }}">{{ pg.normalized_labelings|index:pg.element|floatformat:4 }}</p>
-                        {% endif %}
+                        {% for label_rec in label_recs %}
+                            {% if not forloop.first %}, {% endif %}
+                            {% if label_rec.normalized_labeling is None %}
+                                <p title="PeakGroup, serum sample, or Animal Tracer not found.">None</p>
+                            {% else %}
+                                <p title="{{ label_rec.normalized_labeling|floatformat:15 }}">{{ label_rec.normalized_labeling|floatformat:4 }}</p>
+                            {% endif %}
+                        {% endfor %}
                     </td>
 
                     <!-- Formula -->

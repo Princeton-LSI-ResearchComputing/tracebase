@@ -233,6 +233,7 @@ def uniquify(retval, unused):
 
 
 @register.simple_tag
+# TODO: Refactor - rename this to get_related_recs
 def get_manytomany_rec(mm_set, pk):
     """
     Takes the value of a ManyToManyField (which is a queryset manager) and the value of the M:M related table primary

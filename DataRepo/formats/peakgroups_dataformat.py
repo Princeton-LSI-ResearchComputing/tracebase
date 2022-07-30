@@ -115,27 +115,6 @@ class PeakGroupsFormat(Format):
                 },
             },
         },
-        "PeakDataLabel": {
-            "model": "PeakDataLabel",
-            "path": "peak_data__labels",
-            "reverse_path": "peak_data__peak_group",
-            "manytomany": {
-                "is": True,
-                "split_rows": True,
-            },
-            "distinct": True,  # Makes all fields below distinct - warning, displayed=False fields thwart this
-            "fields": {
-                "element": {
-                    "displayname": "Labeled Element",
-                    "searchable": True,
-                    "displayed": True,
-                    "type": "enumeration",
-                    "choices": ElementLabel.LABELED_ELEMENT_CHOICES,
-                    # A datamember by this name will be available off the root record in the template
-                    "root_annot_fld": "element",  # Used to annotate root record when dinstinct=True & split_rows=True
-                },
-            },
-        },
         "PeakGroup": {
             "model": "PeakGroup",
             "path": "",
@@ -164,28 +143,47 @@ class PeakGroupsFormat(Format):
                     "displayed": True,
                     "type": "string",
                 },
-                # TODO: The following properties/cached_functions each return a dict, a type that is not (yet)
-                #       supported.  The value is only used for the search interface. If these fields are changed to
-                #       searchable (e.g. made into maintained fields), this will have to be dealt with.
-                "enrichment_fractions": {
-                    "displayname": "Enrichment Fraction",
-                    "searchable": False,  # Cannot search cached property
-                    "displayed": True,
-                    "type": "number",
-                },
-                "enrichment_abundances": {
-                    "displayname": "Enrichment Abundance",
-                    "searchable": False,  # Cannot search cached property
-                    "displayed": True,
-                    "type": "number",
-                },
                 "total_abundance": {
                     "displayname": "Total Abundance",
                     "searchable": False,  # Cannot search cached property
                     "displayed": True,
                     "type": "number",
                 },
-                "normalized_labelings": {
+            },
+        },
+        "PeakGroupLabel": {
+            "model": "PeakGroupLabel",
+            "path": "peak_group_labels",
+            "reverse_path": "peak_group",
+            "manytomany": {
+                "is": False,
+                "split_rows": True,
+                "root_annot_fld": "peak_group_label",  # Used to annotate root rec w/ subtable ID when split_rows=True
+                # TODO: I need to rework how the record is accessed. My first attempt (using root_annot_flds in the
+                #       fields below) failed because you can't use that feature with properties.
+            },
+            "fields": {
+                "element": {
+                    "displayname": "Peak Group Labeled Element",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "enumeration",
+                    "choices": ElementLabel.LABELED_ELEMENT_CHOICES,
+                    "root_annot_fld": "element",  # Used to annotate root rec split_rows=True
+                },
+                "enrichment_fraction": {
+                    "displayname": "Enrichment Fraction",
+                    "searchable": False,  # Cannot search cached property
+                    "displayed": True,
+                    "type": "number",
+                },
+                "enrichment_abundance": {
+                    "displayname": "Enrichment Abundance",
+                    "searchable": False,  # Cannot search cached property
+                    "displayed": True,
+                    "type": "number",
+                },
+                "normalized_labeling": {
                     "displayname": "Normalized Labeling",
                     "searchable": False,  # Cannot search cached property
                     "displayed": True,

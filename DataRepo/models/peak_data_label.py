@@ -1,7 +1,7 @@
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
-from .element_label import ElementLabel
+from DataRepo.models.element_label import ElementLabel
 
 
 class PeakDataLabel(models.Model, ElementLabel):

@@ -16,6 +16,7 @@ from DataRepo.models import (
     PeakData,
     PeakDataLabel,
     PeakGroup,
+    PeakGroupLabel,
     PeakGroupSet,
     Protocol,
     Sample,
@@ -622,6 +623,20 @@ class AccuCorDataLoader:
                         peak_group.compounds.all()
                     )
 
+                    # Insert PeakGroup Labels
+                    for peak_labeled_element in peak_labeled_elements:
+                        print(
+                            f"\t\tInserting {peak_labeled_element} peak group label for peak group {peak_group.name}"
+                        )
+                        peak_group_label = PeakGroupLabel(
+                            peak_group=peak_group,
+                            element=peak_labeled_element["element"],
+                        )
+                        # full_clean cannot validate (e.g. uniqueness) using a non-default database
+                        if self.db == settings.DEFAULT_DB:
+                            peak_group_label.full_clean()
+                        peak_group_label.save(using=self.db)
+
                     # cache
                     inserted_peak_group_dict[peak_group_name] = {
                         "group": peak_group,
@@ -815,7 +830,7 @@ class AccuCorDataLoader:
         if settings.DEBUG:
             print("Expiring done.")
 
-    def get_peak_labeled_elements(self, compound_recs):
+    def get_peak_labeled_elements(self, compound_recs) -> List[IsotopeObservationData]:
         """
         Gets labels present among any of the tracers in the infusate IF the elements are present in the supplied
         (measured) compounds.  Basically, if the supplied compound contains an element that is a labeled element in any

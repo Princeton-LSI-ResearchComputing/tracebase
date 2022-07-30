@@ -18,6 +18,7 @@ from DataRepo.models import (
     PeakData,
     PeakDataLabel,
     PeakGroup,
+    PeakGroupLabel,
     PeakGroupSet,
     Protocol,
     Researcher,
@@ -28,7 +29,7 @@ from DataRepo.models import (
     TracerLabel,
 )
 from DataRepo.models.hier_cached_model import set_cache
-from DataRepo.models.peak_group import NoCommonLabels
+from DataRepo.models.peak_group_label import NoCommonLabel
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import (
     AccuCorDataLoader,
@@ -904,14 +905,17 @@ class PropertyTests(TracebaseTestCase):
         self.assertEqual(peak_data.raw_abundance, 8814287)
         self.assertAlmostEqual(peak_data.corrected_abundance, 9553199.89089051)
         self.assertAlmostEqual(peak_group.total_abundance, 9599112.684, places=3)
-        self.assertEqual(list(peak_group.enrichment_fractions.keys()), ["C"])
-        self.assertAlmostEqual(peak_group.enrichment_fractions["C"], 0.001555566789)
-        self.assertEqual(list(peak_group.enrichment_abundances.keys()), ["C"])
         self.assertAlmostEqual(
-            peak_group.enrichment_abundances["C"], 14932.06089, places=5
+            peak_group.peak_group_labels.first().enrichment_fraction, 0.001555566789
         )
-        self.assertEqual(list(peak_group.normalized_labelings.keys()), ["C"])
-        self.assertAlmostEqual(peak_group.normalized_labelings["C"], 0.009119978074)
+        self.assertAlmostEqual(
+            peak_group.peak_group_labels.first().enrichment_abundance,
+            14932.06089,
+            places=5,
+        )
+        self.assertAlmostEqual(
+            peak_group.peak_group_labels.first().normalized_labeling, 0.009119978074
+        )
 
     @tag("multi_working")
     def test_peak_group_peak_data_4(self):
@@ -930,14 +934,17 @@ class PropertyTests(TracebaseTestCase):
         # but presumably these are all computed from the corrected data
         self.assertAlmostEqual(peak_data.corrected_abundance, 9553199.89089051)
         self.assertAlmostEqual(peak_group.total_abundance, 9599112.684, places=3)
-        self.assertEqual(list(peak_group.enrichment_fractions.keys()), ["C"])
-        self.assertAlmostEqual(peak_group.enrichment_fractions["C"], 0.001555566789)
-        self.assertEqual(list(peak_group.enrichment_abundances.keys()), ["C"])
         self.assertAlmostEqual(
-            peak_group.enrichment_abundances["C"], 14932.06089, places=5
+            peak_group.peak_group_labels.first().enrichment_fraction, 0.001555566789
         )
-        self.assertEqual(list(peak_group.normalized_labelings.keys()), ["C"])
-        self.assertAlmostEqual(peak_group.normalized_labelings["C"], 0.009119978074)
+        self.assertAlmostEqual(
+            peak_group.peak_group_labels.first().enrichment_abundance,
+            14932.06089,
+            places=5,
+        )
+        self.assertAlmostEqual(
+            peak_group.peak_group_labels.first().normalized_labeling, 0.009119978074
+        )
 
     @tag("multi_working")
     def test_peak_group_peak_data_serum(self):
@@ -950,14 +957,17 @@ class PropertyTests(TracebaseTestCase):
         self.assertAlmostEqual(peak_data.raw_abundance, 205652.5)
         self.assertAlmostEqual(peak_data.corrected_abundance, 222028.365565823)
         self.assertAlmostEqual(peak_group.total_abundance, 267686.902436353)
-        self.assertEqual(list(peak_group.enrichment_fractions.keys()), ["C"])
-        self.assertAlmostEqual(peak_group.enrichment_fractions["C"], 0.1705669439)
-        self.assertEqual(list(peak_group.enrichment_abundances.keys()), ["C"])
         self.assertAlmostEqual(
-            peak_group.enrichment_abundances["C"], 45658.53687, places=5
+            peak_group.peak_group_labels.first().enrichment_fraction, 0.1705669439
         )
-        self.assertEqual(list(peak_group.normalized_labelings.keys()), ["C"])
-        self.assertAlmostEqual(peak_group.normalized_labelings["C"], 1)
+        self.assertAlmostEqual(
+            peak_group.peak_group_labels.first().enrichment_abundance,
+            45658.53687,
+            places=5,
+        )
+        self.assertAlmostEqual(
+            peak_group.peak_group_labels.first().normalized_labeling, 1
+        )
 
     @tag("multi_working")
     def test_no_peak_labeled_elements(self):
@@ -997,15 +1007,15 @@ class PropertyTests(TracebaseTestCase):
             msg="Make sure the tracer labeled elements are set for the animal this peak group is linked to.",
         )
 
-        # Now try to trigger a NoCommonLabels exception
+        # Now try to trigger a NoCommonLabel exception
         with self.assertRaises(
-            NoCommonLabels,
+            NoCommonLabel,
             msg=(
-                "PeakGroup lactate found associated with a measured compound lactate that contains no elements common "
-                "with the labeled elements among the tracers in the infusate [methionine-(15N1)[200]]."
+                "PeakGroup lactate found associated with measured compounds: [lactate] that does not contain labeled "
+                "element C (from the tracers in the infusate [methionine-(15N1)[200]])."
             ),
         ):
-            pg.enrichment_fractions
+            pg.peak_group_labels.first().enrichment_fraction
 
     @tag("multi_working")
     def test_enrichment_fraction_missing_compounds(self):
@@ -1016,7 +1026,7 @@ class PropertyTests(TracebaseTestCase):
         )
         peak_group.compounds.clear()
         with self.assertWarns(UserWarning):
-            self.assertIsNone(peak_group.enrichment_fractions)
+            self.assertIsNone(peak_group.peak_group_labels.first().enrichment_fraction)
 
     @tag("multi_working")
     def test_enrichment_fraction_missing_labeled_element(self):
@@ -1032,7 +1042,7 @@ class PropertyTests(TracebaseTestCase):
             peak_data.save()
 
         with self.assertWarns(UserWarning):
-            self.assertIsNone(peak_group.enrichment_fractions)
+            self.assertIsNone(peak_group.peak_group_labels.first().enrichment_fraction)
 
     @tag("multi_working")
     def test_peak_group_peak_labeled_elements(self):
@@ -1119,7 +1129,9 @@ class PropertyTests(TracebaseTestCase):
         ).last()
         second_peak_data.corrected_abundance = 100
         second_peak_data.save()
-        self.assertAlmostEqual(peak_group.normalized_labelings["C"], 3.455355083)
+        self.assertAlmostEqual(
+            peak_group.peak_group_labels.first().normalized_labeling, 3.455355083
+        )
 
     @tag("multi_working")
     def test_normalized_labeling_missing_serum_peak_group(self):
@@ -1138,7 +1150,7 @@ class PropertyTests(TracebaseTestCase):
         peak_group_serum.delete()
 
         with self.assertWarns(UserWarning):
-            self.assertIsNone(peak_group.normalized_labelings)
+            self.assertIsNone(peak_group.peak_group_labels.first().normalized_labeling)
 
     @tag("multi_working")
     def test_normalized_labeling_missing_serum_sample(self):
@@ -1155,7 +1167,7 @@ class PropertyTests(TracebaseTestCase):
         serum_sample.delete()
 
         with self.assertWarns(UserWarning):
-            self.assertIsNone(peak_group.normalized_labelings)
+            self.assertIsNone(peak_group.peak_group_labels.first().normalized_labeling)
 
     @tag("multi_working")
     def test_peak_data_fraction(self):
@@ -1192,23 +1204,40 @@ class PropertyTests(TracebaseTestCase):
             peak_group_set=peak_group.peak_group_set,
         )
 
+        labeled_elems = []
         for orig_peak_data in peak_group.peak_data.all():
             pd = PeakData.objects.create(
                 raw_abundance=0,
                 corrected_abundance=0,
-                # labeled_element=orig_peak_data.labels.first().element,
-                # labeled_count=orig_peak_data.labels.first().count,
                 peak_group=peak_group_zero,
                 med_mz=orig_peak_data.med_mz,
                 med_rt=orig_peak_data.med_rt,
             )
             # Fraction is not defined when total_abundance is zero
             self.assertIsNone(pd.fraction)
+            for orig_peak_label in orig_peak_data.labels.all():
+                if orig_peak_label.element not in labeled_elems:
+                    labeled_elems.append(orig_peak_label.element)
+                PeakDataLabel.objects.create(
+                    peak_data=pd,
+                    element=orig_peak_label.element,
+                    mass_number=orig_peak_label.mass_number,
+                    count=orig_peak_label.count,
+                )
+        for pgl in labeled_elems:
+            PeakGroupLabel.objects.create(
+                peak_group=peak_group_zero,
+                element=pgl,
+            )
 
         with self.assertWarns(UserWarning):
-            self.assertIsNone(peak_group_zero.enrichment_fractions)
-        self.assertIsNone(peak_group_zero.enrichment_abundances)
-        self.assertIsNone(peak_group_zero.normalized_labelings)
+            self.assertIsNone(
+                peak_group_zero.peak_group_labels.first().enrichment_fraction
+            )
+        self.assertIsNone(
+            peak_group_zero.peak_group_labels.first().enrichment_abundance
+        )
+        self.assertIsNone(peak_group_zero.peak_group_labels.first().normalized_labeling)
         self.assertEqual(peak_group_zero.total_abundance, 0)
 
     @tag("fcirc")
@@ -1322,9 +1351,9 @@ class PropertyTests(TracebaseTestCase):
     @tag("fcirc")
     @tag("multi_broken")
     def test_peakgroup_can_compute_average_tracer_rates_false(self):
-        # need to invalidate the computed/cached enrichment_fractions, somehow
+        # need to invalidate the computed/cached enrichment_fraction, somehow
         pg = self.MAIN_SERUM_ANIMAL.final_serum_sample_tracer_peak_group
-        set_cache(pg, "enrichment_fractions", None)
+        set_cache(pg, "enrichment_fraction", None)
         with self.assertWarns(UserWarning):
             self.assertFalse(pg.can_compute_average_tracer_rates)
 
@@ -1392,31 +1421,29 @@ class MultiTracerLabelPropertyTests(TracebaseTestCase):
         expected = ["C", "N"]
         self.assertEqual(expected, output)
 
-    def test_enrichment_abundances(self):
+    def test_enrichment_abundance(self):
         pg = PeakGroup.objects.filter(msrun__sample__name="xzl5_panc").get(
             name="glutamine"
         )
-        output = pg.enrichment_abundances
-        expected = {
-            "C": 1369911.2746615328,
-            "N": 6571127.3714690255,
-        }
-        self.assertEqual(len(expected.keys()), len(output.keys()))
-        self.assertAlmostEqual(expected["C"], output["C"])
-        self.assertAlmostEqual(expected["N"], output["N"])
+        pgc = pg.peak_group_labels.get(element__exact="C").enrichment_abundance
+        pgn = pg.peak_group_labels.get(element__exact="N").enrichment_abundance
+        expectedc = 1369911.2746615328
+        expectedn = 6571127.3714690255
+        self.assertEqual(pg.peak_group_labels.count(), 2)
+        self.assertAlmostEqual(expectedc, pgc)
+        self.assertAlmostEqual(expectedn, pgn)
 
-    def test_normalized_labelings(self):
+    def test_normalized_labeling(self):
         pg = PeakGroup.objects.filter(msrun__sample__name="xzl5_panc").get(
             name="glutamine"
         )
-        output = pg.normalized_labelings
-        expected = {
-            "C": 0.06287501342027346,
-            "N": 0.2241489339907528,
-        }
-        self.assertEqual(len(expected.keys()), len(output.keys()))
-        self.assertAlmostEqual(expected["C"], output["C"])
-        self.assertAlmostEqual(expected["N"], output["N"])
+        pgc = pg.peak_group_labels.get(element__exact="C").normalized_labeling
+        pgn = pg.peak_group_labels.get(element__exact="N").normalized_labeling
+        expectedc = 0.06287501342027346
+        expectedn = 0.2241489339907528
+        self.assertEqual(pg.peak_group_labels.count(), 2)
+        self.assertAlmostEqual(expectedc, pgc)
+        self.assertAlmostEqual(expectedn, pgn)
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
