@@ -83,9 +83,15 @@ class AnimalLabel(HierCachedModel):
                     final_serum_tracer_peak_groups,
                     tracer_compounds,
                 )
-            final_serum_tracer_peak_group_elem = final_serum_tracer_peak_groups.get(
+            final_serum_tracer_peak_groups_elem = final_serum_tracer_peak_groups.filter(
                 peak_group_labels__element__exact=self.element,
             )
+            # tracer_compounds has only compounds with this element and this assures all necessary peak groups have the
+            # labeled element among its peak group label records
+            if final_serum_tracer_peak_groups_elem.count() != len(tracer_compounds):
+                raise MissingPeakGroupLabel(
+                    final_serum_tracer_peak_groups, self.element
+                )
 
             # Count the total number of each element among all the tracer compounds
             # This may call tracer compoundss that do not have self.element, but they just return 0
@@ -95,19 +101,24 @@ class AnimalLabel(HierCachedModel):
 
             # Sum the element enrichment across all tracer compounds
             final_serum_tracers_enrichment_sum = 0.0
-            label_pd_recs = final_serum_tracer_peak_group_elem.peak_data.filter(
-                labels__element__exact=self.element
-            )
-            # This assumes that if there are any label_pd_recs for this measured elem, the calculation is valid
-            if label_pd_recs.count() == 0:
-                raise MissingPeakData(final_serum_tracer_peak_group_elem, self.element)
-            for label_pd_rec in label_pd_recs:
-                # This assumes the PeakDataLabel unique constraint: peak_data, element
-                label_rec = label_pd_rec.labels.get(element__exact=self.element)
-                # And this assumes that label_rec must exist because of the filter above the loop
-                final_serum_tracers_enrichment_sum += (
-                    label_pd_rec.fraction * label_rec.count
+            for (
+                final_serum_tracer_peak_group_elem
+            ) in final_serum_tracer_peak_groups_elem.all():
+                label_pd_recs = final_serum_tracer_peak_group_elem.peak_data.filter(
+                    labels__element__exact=self.element
                 )
+                # This assumes that if there are any label_pd_recs for this measured elem, the calculation is valid
+                if label_pd_recs.count() == 0:
+                    raise MissingPeakData(
+                        final_serum_tracer_peak_group_elem, self.element
+                    )
+                for label_pd_rec in label_pd_recs:
+                    # This assumes the PeakDataLabel unique constraint: peak_data, element
+                    label_rec = label_pd_rec.labels.get(element__exact=self.element)
+                    # And this assumes that label_rec must exist because of the filter above the loop
+                    final_serum_tracers_enrichment_sum += (
+                        label_pd_rec.fraction * label_rec.count
+                    )
 
             tracers_enrichment_fraction = (
                 final_serum_tracers_enrichment_sum / total_atom_count
@@ -126,11 +137,6 @@ class AnimalLabel(HierCachedModel):
             raise MissingPeakDataLabel(
                 final_serum_tracer_peak_group_elem, self.element
             ) from pdldne
-        except PeakGroup.DoesNotExist as pgdne:
-            # This is not something the user can recitify via loading. This would be a bug in the loading code
-            raise MissingPeakGroupLabel(
-                final_serum_tracer_peak_groups, self.element
-            ) from pgdne
         finally:
             if error:
                 warnings.warn(

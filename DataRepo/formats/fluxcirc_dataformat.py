@@ -16,8 +16,10 @@ class FluxCircFormat(Format):
             "model": "PeakGroup",
             "path": "",
             "reverse_path": "",
-            "manytomany": {
+            "manyrelated": {
                 "is": False,
+                "through": False,
+                "manytomany": False,
                 "split_rows": False,
             },
             "fields": {
@@ -84,8 +86,10 @@ class FluxCircFormat(Format):
             "model": "Animal",
             "path": "msrun__sample__animal",
             "reverse_path": "samples__msruns__peak_groups",
-            "manytomany": {
+            "manyrelated": {
                 "is": False,
+                "through": False,
+                "manytomany": False,
                 "split_rows": False,
             },
             "fields": {
@@ -164,8 +168,10 @@ class FluxCircFormat(Format):
             "model": "Protocol",
             "path": "msrun__sample__animal__treatment",
             "reverse_path": "animals__samples__msruns__peak_groups",
-            "manytomany": {
+            "manyrelated": {
                 "is": False,
+                "through": False,
+                "manytomany": False,
                 "split_rows": False,
             },
             "fields": {
@@ -188,8 +194,10 @@ class FluxCircFormat(Format):
             "model": "Sample",
             "path": "msrun__sample",
             "reverse_path": "msruns__peak_groups",
-            "manytomany": {
+            "manyrelated": {
                 "is": False,
+                "through": False,
+                "manytomany": False,
                 "split_rows": False,
             },
             "fields": {
@@ -214,8 +222,10 @@ class FluxCircFormat(Format):
             "model": "Compound",
             "path": "msrun__sample__animal__tracer_compound",
             "reverse_path": "animals__samples__msruns__peak_groups",
-            "manytomany": {
+            "manyrelated": {
                 "is": False,
+                "through": False,
+                "manytomany": False,
                 "split_rows": False,
             },
             "fields": {
@@ -238,8 +248,10 @@ class FluxCircFormat(Format):
             "model": "Study",
             "path": "msrun__sample__animal__studies",
             "reverse_path": "animals__samples__msruns__peak_groups",
-            "manytomany": {
+            "manyrelated": {
                 "is": True,
+                "through": False,
+                "manytomany": True,
                 "split_rows": False,
                 "root_annot_fld": "study",
             },

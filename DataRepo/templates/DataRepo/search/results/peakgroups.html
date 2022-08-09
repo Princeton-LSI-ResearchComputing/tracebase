@@ -261,7 +261,7 @@
                     <!-- Measured Compound -->
                     <td>
                         <!-- This will work as intended even if pg.compound wasn't added as an annotation (e.g. if split_rows is false or root_annot_fld is not defined) -->
-                        {% get_manytomany_rec pg.compounds pg.compound as compounds %}
+                        {% get_many_related_rec pg.compounds pg.compound as compounds %}
                         <!-- Put displayed link text first for sorting -->
                         <div style="display:none;">
                             {% for mcpd in compounds %}{% if not forloop.first %}; {% endif %}{{ mcpd.name }}{% endfor %}
@@ -280,9 +280,9 @@
                         {% for mcpd in compounds %}{% if not forloop.first %}; {% endif %}<a href="{% url 'compound_detail' mcpd.id %}">{% get_case_insensitive_synonyms mcpd.synonyms as inssyns %}{% for mcpdsyn in inssyns %}{% if not forloop.first %}/{% endif %}{{ mcpdsyn }}{% endfor %}</a>{% endfor %}
                     </td>
 
-                    <!-- This will work as intended even if pg.compound wasn't added as an annotation (e.g. if split_rows is false or root_annot_fld is not defined) -->
+                    <!-- This will work as intended even if pg.peak_group_label wasn't added as an annotation (e.g. if split_rows is false or root_annot_fld is not defined) -->
                     <!-- PeakGroupLabel Records -->
-                    {% get_manytomany_rec pg.peak_group_labels pg.peak_group_label as label_recs %}
+                    {% get_many_related_rec pg.peak_group_labels pg.peak_group_label as label_recs %}
 
                     <!-- Labeled Element -->
                     <td>
@@ -389,7 +389,7 @@
                     <!-- Studies -->
                     <td>
                         <!-- This will work as intended even if pg.msrun.sample.animal.study wasn't added as an annotation (e.g. if split_rows is false or root_annot_fld is not defined) -->
-                        {% get_manytomany_rec pg.msrun.sample.animal.studies pg.msrun.sample.animal.study as studies %}
+                        {% get_many_related_rec pg.msrun.sample.animal.studies pg.msrun.sample.animal.study as studies %}
                         <!-- Put displayed link text first for sorting -->
                         <div style="display:none;">
                             {% for study in studies %}{% if not forloop.first %},<br>{% endif%}{{ study.name }}{% endfor %}

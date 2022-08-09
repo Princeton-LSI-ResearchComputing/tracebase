@@ -6,7 +6,7 @@ from DataRepo.templatetags.customtags import (
     compile_stats,
     display_filter,
     get_case_insensitive_synonyms,
-    get_manytomany_rec,
+    get_many_related_rec,
 )
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
@@ -50,22 +50,22 @@ class CustomTagsTests(TracebaseTestCase):
         csls = get_case_insensitive_synonyms(csqs)
         self.assertListEqual(csls, ["D-Glucose", "glucose", "glucose-6-phosphate"])
 
-    def test_get_manytomany_rec_value(self):
+    def test_get_many_related_rec_value(self):
         """Ensure the one record matching the pk is returned in a 1-member list."""
         pgs = PeakGroup.objects.filter(
             msrun__sample__animal__studies__name__iexact="small_obob"
         )[0:1]
         of = Study.objects.get(name__iexact="obob_fasted")
-        recs = get_manytomany_rec(pgs[0].msrun.sample.animal.studies, of.pk)
+        recs = get_many_related_rec(pgs[0].msrun.sample.animal.studies, of.pk)
         self.assertEqual(recs, [of])
 
-    def test_get_manytomany_rec_novalue(self):
+    def test_get_many_related_rec_novalue(self):
         """Ensure the supplied records are returned if pk is empty."""
         pgs = PeakGroup.objects.filter(
             msrun__sample__animal__studies__name__iexact="small_obob"
         )[0:1]
         of = Study.objects.filter(name__icontains="obob")
-        recs = get_manytomany_rec(pgs[0].msrun.sample.animal.studies, "")
+        recs = get_many_related_rec(pgs[0].msrun.sample.animal.studies, "")
         self.assertEqual(recs.count(), of.count())
         self.assertEqual(recs.count(), 2)
         self.assertEqual([recs[0].name, recs[1].name], ["obob_fasted", "small_obob"])

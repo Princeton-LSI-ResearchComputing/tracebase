@@ -295,9 +295,9 @@ class FormatsTests(TracebaseTestCase):
         mdl_inst = "MeasuredCompound"
         pgsv = basv.modeldata[fmt]
         for inst in pgsv.model_instances.keys():
-            pgsv.model_instances[inst]["manytomany"]["split_rows"] = False
+            pgsv.model_instances[inst]["manyrelated"]["split_rows"] = False
         # Set only MeasuredCompound's split_rows=True for the test
-        pgsv.model_instances[mdl_inst]["manytomany"]["split_rows"] = True
+        pgsv.model_instances[mdl_inst]["manyrelated"]["split_rows"] = True
 
         qry["searches"][fmt]["tree"]["queryGroup"][1]["fld"] = "compounds__name"
         qry["searches"][fmt]["tree"]["queryGroup"][1]["val"] = "citrate"
@@ -367,10 +367,10 @@ class FormatsTests(TracebaseTestCase):
         mdl_inst = "MeasuredCompound"
         pgsv = basv.modeldata[fmt]
         for inst in pgsv.model_instances.keys():
-            pgsv.model_instances[inst]["manytomany"]["split_rows"] = False
+            pgsv.model_instances[inst]["manyrelated"]["split_rows"] = False
         # Set only MeasuredCompound's split_rows=True and annot_name="compound" for the test
-        pgsv.model_instances[mdl_inst]["manytomany"]["split_rows"] = True
-        pgsv.model_instances[mdl_inst]["manytomany"]["root_annot_fld"] = annot_name
+        pgsv.model_instances[mdl_inst]["manyrelated"]["split_rows"] = True
+        pgsv.model_instances[mdl_inst]["manyrelated"]["root_annot_fld"] = annot_name
 
         # Do the test
         annots = basv.getFullJoinAnnotations(fmt)
@@ -387,9 +387,9 @@ class FormatsTests(TracebaseTestCase):
         mdl_inst = "MeasuredCompound"
         pgsv = basv.modeldata[fmt]
         for inst in pgsv.model_instances.keys():
-            pgsv.model_instances[inst]["manytomany"]["split_rows"] = False
+            pgsv.model_instances[inst]["manyrelated"]["split_rows"] = False
         # Set only MeasuredCompound's split_rows value to True for the test
-        pgsv.model_instances[mdl_inst]["manytomany"]["split_rows"] = True
+        pgsv.model_instances[mdl_inst]["manyrelated"]["split_rows"] = True
 
         distincts = basv.getDistinctFields(fmt, order_by)
         expected_distincts = [
