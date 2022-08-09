@@ -77,7 +77,6 @@ class InfusateManager(models.Manager):
 
 
 class Infusate(MaintainedModel):
-
     objects = InfusateManager()
 
     id = models.AutoField(primary_key=True)
@@ -214,3 +213,16 @@ class Infusate(MaintainedModel):
                 problems.append(msg)
         if len(problems) > 0:
             raise ValidationError("\n".join(problems))
+
+    def tracer_labeled_elements(self):
+        """
+        This method returns a unique list of the labeled elements that exist among the tracers.
+        """
+        from DataRepo.models.tracer_label import TracerLabel
+
+        return list(
+            TracerLabel.objects.filter(tracer__infusates__id=self.id)
+            .order_by("element")
+            .distinct("element")
+            .values_list("element", flat=True)
+        )

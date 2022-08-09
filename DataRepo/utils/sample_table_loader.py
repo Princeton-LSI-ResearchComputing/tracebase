@@ -5,7 +5,15 @@ import dateutil.parser  # type: ignore
 import pandas as pd
 from django.conf import settings
 
-from DataRepo.models import Animal, Infusate, Protocol, Sample, Study, Tissue
+from DataRepo.models import (
+    Animal,
+    AnimalLabel,
+    Infusate,
+    Protocol,
+    Sample,
+    Study,
+    Tissue,
+)
 from DataRepo.models.hier_cached_model import (
     disable_caching_updates,
     enable_caching_updates,
@@ -347,6 +355,15 @@ class SampleTableLoader:
                 except Exception as e:
                     print(f"Error saving record: Animal:{animal}")
                     raise (e)
+
+                # Animal Label - Load each unique labeled element among the tracers for this animal
+                for labeled_element in infusate.tracer_labeled_elements():
+                    print(
+                        f"Finding or inserting animal label '{labeled_element}' for '{animal}'..."
+                    )
+                    AnimalLabel.objects.using(self.db).get_or_create(
+                        animal=animal, element=labeled_element
+                    )
 
             # Sample
             sample_name = self.getRowVal(row, self.headers.SAMPLE_NAME)

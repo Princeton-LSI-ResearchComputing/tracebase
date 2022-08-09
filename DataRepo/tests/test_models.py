@@ -10,6 +10,7 @@ from django.test import override_settings, tag
 
 from DataRepo.models import (
     Animal,
+    AnimalLabel,
     Compound,
     ElementLabel,
     Infusate,
@@ -28,6 +29,7 @@ from DataRepo.models import (
     Tracer,
     TracerLabel,
 )
+from DataRepo.models.animal_label import MissingPeakGroupLabel
 from DataRepo.models.hier_cached_model import set_cache
 from DataRepo.models.peak_group_label import NoCommonLabel
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
@@ -1003,7 +1005,7 @@ class PropertyTests(TracebaseTestCase):
         # make sure we get only 1 labeled element of nitrogen
         self.assertEqual(
             ["N"],
-            sample.animal.tracer_labeled_elements,
+            sample.animal.infusate.tracer_labeled_elements(),
             msg="Make sure the tracer labeled elements are set for the animal this peak group is linked to.",
         )
 
@@ -1068,7 +1070,9 @@ class PropertyTests(TracebaseTestCase):
             .get()
         )
 
-        self.assertEqual(["C"], peak_group.msrun.sample.animal.tracer_labeled_elements)
+        self.assertEqual(
+            ["C"], peak_group.msrun.sample.animal.infusate.tracer_labeled_elements()
+        )
 
     @tag("multi_working")
     def test_normalized_labeling_latest_serum(self):
@@ -1116,6 +1120,11 @@ class PropertyTests(TracebaseTestCase):
             .filter(msrun__sample__name="serum-xz971")
             .get()
         )
+        first_serum_peak_group_label = first_serum_peak_group.peak_group_labels.first()
+        PeakGroupLabel.objects.create(
+            peak_group=second_serum_peak_group,
+            element=first_serum_peak_group_label.element,
+        )
         for orig_peak_data in first_serum_peak_group.peak_data.all():
             pdr = PeakData.objects.create(
                 raw_abundance=orig_peak_data.raw_abundance,
@@ -1135,9 +1144,92 @@ class PropertyTests(TracebaseTestCase):
         ).last()
         second_peak_data.corrected_abundance = 100
         second_peak_data.save()
+        self.assertEqual(
+            peak_group.peak_group_labels.count(), 1, msg="Assure load was complete"
+        )
         self.assertAlmostEqual(
             peak_group.peak_group_labels.first().normalized_labeling, 3.455355083
         )
+
+    @tag("multi_working")
+    def test_normalized_labeling_latest_serum_no_peakgrouplabel(self):
+        peak_group = (
+            PeakGroup.objects.filter(compounds__name="glucose")
+            .filter(msrun__sample__name="BAT-xz971")
+            .filter(peak_group_set__filename="obob_maven_6eaas_inf.xlsx")
+            .get()
+        )
+
+        first_serum_sample = Sample.objects.filter(name="serum-xz971").get()
+        second_serum_sample = Sample.objects.create(
+            date=first_serum_sample.date,
+            name="serum-xz971.3",
+            researcher=first_serum_sample.researcher,
+            animal=first_serum_sample.animal,
+            tissue=first_serum_sample.tissue,
+            time_collected=first_serum_sample.time_collected + timedelta(minutes=1),
+        )
+
+        serum_samples = first_serum_sample.animal.all_serum_samples
+        # there should now be 2 serum samples for this animal
+        self.assertEqual(serum_samples.count(), 2)
+        final_serum_sample = first_serum_sample.animal.final_serum_sample
+        # and the final one should now be the second one (just created)
+        self.assertEqual(final_serum_sample.name, second_serum_sample.name)
+
+        msrun = MSRun.objects.create(
+            researcher="John Doe",
+            date=datetime.now(),
+            protocol=first_serum_sample.msruns.first().protocol,
+            sample=second_serum_sample,
+        )
+        second_serum_peak_group = PeakGroup.objects.create(
+            name=peak_group.name,
+            formula=peak_group.formula,
+            msrun=msrun,
+            peak_group_set=peak_group.peak_group_set,
+        )
+        second_serum_peak_group.compounds.add(
+            peak_group.msrun.sample.animal.infusate.tracers.first().compound
+        )
+        first_serum_peak_group = (
+            PeakGroup.objects.filter(compounds__name="lysine")
+            .filter(msrun__sample__name="serum-xz971")
+            .get()
+        )
+        # Do not add a peak group label (i.e. make it missing)
+        for orig_peak_data in first_serum_peak_group.peak_data.all():
+            pdr = PeakData.objects.create(
+                raw_abundance=orig_peak_data.raw_abundance,
+                corrected_abundance=orig_peak_data.corrected_abundance,
+                peak_group=second_serum_peak_group,
+                med_mz=orig_peak_data.med_mz,
+                med_rt=orig_peak_data.med_rt,
+            )
+            PeakDataLabel.objects.create(
+                peak_data=pdr,
+                element=orig_peak_data.labels.first().element,
+                count=orig_peak_data.labels.first().count,
+                mass_number=orig_peak_data.labels.first().mass_number,
+            )
+        second_peak_data = second_serum_peak_group.peak_data.order_by(
+            "labels__count"
+        ).last()
+        second_peak_data.corrected_abundance = 100
+        second_peak_data.save()
+        self.assertEqual(
+            peak_group.peak_group_labels.count(), 1, msg="Assure load was complete"
+        )
+        with self.assertRaises(MissingPeakGroupLabel):
+            peak_group.peak_group_labels.first().normalized_labeling
+
+    @tag("multi_working")
+    def test_animal_label_populated(self):
+        self.assertEqual(AnimalLabel.objects.count(), 12)
+
+    @tag("multi_working")
+    def test_peak_group_label_populated(self):
+        self.assertEqual(PeakGroupLabel.objects.count(), 836)
 
     @tag("multi_working")
     def test_normalized_labeling_missing_serum_peak_group(self):
@@ -1395,19 +1487,17 @@ class MultiTracerLabelPropertyTests(TracebaseTestCase):
     def test_tracer_labeled_elements(self):
         anml = Animal.objects.get(name="xzl1")
         expected = ["C", "N"]
-        output = anml.tracer_labeled_elements
+        output = anml.infusate.tracer_labeled_elements()
         self.assertEqual(expected, output)
 
-    def test_serum_tracers_enrichment_fractions(self):
+    def test_serum_tracers_enrichment_fraction(self):
         anml = Animal.objects.get(name="xzl5")
-        output = anml.serum_tracers_enrichment_fractions
-        expected = {
-            "C": 0.2235244143081364,
-            "N": 0.30075567022988536,
-        }
-        self.assertEqual(len(expected.keys()), len(output.keys()))
-        self.assertAlmostEqual(expected["C"], output["C"])
-        self.assertAlmostEqual(expected["N"], output["N"])
+        recs = anml.animal_labels.all()
+        outputc = recs.get(element__exact="C").serum_tracers_enrichment_fraction
+        outputn = recs.get(element__exact="N").serum_tracers_enrichment_fraction
+        self.assertEqual(2, recs.count())
+        self.assertAlmostEqual(0.2235244143081364, outputc)
+        self.assertAlmostEqual(0.30075567022988536, outputn)
 
     def test_peak_labeled_elements_one(self):
         # succinate has no nitrogen

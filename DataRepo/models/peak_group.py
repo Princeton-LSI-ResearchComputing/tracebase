@@ -74,7 +74,7 @@ class PeakGroup(HierCachedModel):
         for compound_rec in compound_recs:
             for (
                 tracer_labeled_element
-            ) in self.msrun.sample.animal.tracer_labeled_elements:
+            ) in self.msrun.sample.animal.infusate.tracer_labeled_elements():
                 if (
                     compound_rec.atom_count(tracer_labeled_element) > 0
                     and tracer_labeled_element not in peak_labeled_elements

@@ -166,41 +166,31 @@ class PeakGroupLabel(HierCachedModel):
         tracer compound from the final serum timepoint.
         This.PeakGroup.enrichment_fraction / SerumTracerPeakGroup.enrichment_fraction
         """
-        from DataRepo.models.peak_group import PeakGroup
         from DataRepo.models.sample import Sample
 
         try:
-            # An animal can have no tracer_compound (#312 & #315)
-            # And without the enrichment_fractions check, deleting a tracer can result in:
-            #   TypeError: unsupported operand type(s) for /: 'NoneType' and 'float'
-            # in test: test_models.DataLoadingTests.test_peak_group_total_abundance_zero
+            serum_tracers_enrichment_fraction = (
+                self.peak_group.msrun.sample.animal.animal_labels.get(
+                    element__exact=self.element
+                ).serum_tracers_enrichment_fraction
+            )
+
             if (
                 self.peak_group.msrun.sample.animal.infusate.tracers.count() > 0
                 and self.enrichment_fraction is not None
-                and self.peak_group.msrun.sample.animal.serum_tracers_enrichment_fractions
-                is not None
+                and serum_tracers_enrichment_fraction is not None
             ):
                 normalized_labeling = (
-                    self.enrichment_fraction
-                    / self.peak_group.msrun.sample.animal.serum_tracers_enrichment_fractions[
-                        self.element
-                    ]
+                    self.enrichment_fraction / serum_tracers_enrichment_fraction
                 )
             else:
                 normalized_labeling = None
+
         except Sample.DoesNotExist:
             warnings.warn(
                 "Unable to compute normalized_labelings for "
                 f"{self.peak_group.msrun.sample}:{self}, "
                 "associated 'serum' sample not found."
-            )
-            normalized_labeling = None
-
-        except PeakGroup.DoesNotExist:
-            warnings.warn(
-                "Unable to compute normalized_labelings for "
-                f"{self.peak_group.msrun.sample}:{self}, "
-                "PeakGroup for associated 'serum' sample not found."
             )
             normalized_labeling = None
 
