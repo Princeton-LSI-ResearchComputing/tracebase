@@ -68,7 +68,12 @@ class PeakGroupLabel(HierCachedModel):
             # This assumes that multiple measured compounds for the same PeakGroup are composed of the same elements
 
             # Calculate the denominator
-            atom_count = self.label_count()
+            try:
+                atom_count = self.atom_count()
+            except ParseException as pe:
+                raise NoCommonLabel(self) from pe
+            if atom_count == 0:
+                raise NoCommonLabel(self)
 
             # Calculate the numerator
             element_enrichment_sum = 0.0
@@ -183,19 +188,8 @@ class PeakGroupLabel(HierCachedModel):
 
         return normalized_labeling
 
-    def label_count(self):
-        if self.peak_group.formula is None or self.peak_group.formula == "":
-            raise NoCommonLabel(self)
-
-        try:
-            atom_count = atom_count_in_formula(self.peak_group.formula, self.element)
-        except ParseException as pe:
-            raise NoCommonLabel(self) from pe
-
-        if atom_count == 0:
-            raise NoCommonLabel(self)
-
-        return atom_count
+    def atom_count(self):
+        return atom_count_in_formula(self.peak_group.formula, self.element)
 
 
 class NoCommonLabel(Exception):
