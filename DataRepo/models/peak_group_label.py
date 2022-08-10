@@ -4,6 +4,7 @@ from django.db import models
 
 from DataRepo.models.element_label import ElementLabel
 from DataRepo.models.hier_cached_model import HierCachedModel, cached_function
+from DataRepo.models.utilities import atom_count_in_formula
 
 
 class PeakGroupLabel(HierCachedModel):
@@ -47,20 +48,6 @@ class PeakGroupLabel(HierCachedModel):
 
     @property  # type: ignore
     @cached_function
-    def measured_compound(self):
-        """
-        Returns the first measured compound of the peakgroup containing the supplied element
-        """
-        measured_compound = None
-        measured_compounds = self.peak_group.compounds.all()
-        for compound in measured_compounds:
-            if compound.atom_count(self.element) > 0:
-                measured_compound = compound
-                break
-        return measured_compound
-
-    @property  # type: ignore
-    @cached_function
     def enrichment_fraction(self):
         """
         A weighted average of the fraction of labeled atoms for this PeakGroup
@@ -79,17 +66,22 @@ class PeakGroupLabel(HierCachedModel):
 
         try:
             # This assumes that multiple measured compounds for the same PeakGroup are composed of the same elements
-            compound = self.measured_compound
-            if compound is None:
+
+            # Calculate the denominator
+            atom_count = compound.atom_count(self.element)
+            if atom_count == 0:
                 raise NoCommonLabel(self)
+
             # Calculate the numerator
             element_enrichment_sum = 0.0
             label_pd_recs = self.peak_group.peak_data.filter(
                 labels__element__exact=self.element
             )
+
             # This assumes that if there are any label_pd_recs for this measured elem, the calculation is valid
             if label_pd_recs.count() == 0:
                 raise PeakData.DoesNotExist()
+
             for label_pd_rec in label_pd_recs:
                 # This assumes the PeakDataLabel unique constraint: peak_data, element
                 label_rec = label_pd_rec.labels.get(element__exact=self.element)
@@ -98,18 +90,15 @@ class PeakGroupLabel(HierCachedModel):
                     label_pd_rec.fraction * label_rec.count
                 )
 
-            # Calculate the denominator
-            atom_count = compound.atom_count(self.element)
-
             enrichment_fraction = element_enrichment_sum / atom_count
 
         except (AttributeError, TypeError, NoCommonLabel) as e:
             error = True
-            # The last 2 should not happen since the fields in PeakDataLabel are null=False, but to hard against
+            # The last 2 should not happen since the fields in PeakDataLabel are null=False, but to guard against
             # unexpected DB changes...
             if self.peak_group.compounds.count() == 0:
                 msg = f"No compounds were associated with PeakGroup {self.peak_group}"
-            elif e.__class__.__name__ == "NoCommonLabel":
+            elif isinstance(e, NoCommonLabel):
                 # NoCommonLabel is meaningless if there are no linked compounds (above)
                 error = False
                 raise e
@@ -128,7 +117,7 @@ class PeakGroupLabel(HierCachedModel):
             )
         except PeakDataLabel.MultipleObjectsReturned:
             error = True
-            # This should not happen bec it would violate the PeakDataLabel unique constraint, but to hard against
+            # This should not happen bec it would violate the PeakDataLabel unique constraint, but to guard against
             # unexpected DB changes...
             msg = (
                 f"PeakDataLabel returned multiple records for element {self.element} linked to the same PeakData "
@@ -195,6 +184,9 @@ class PeakGroupLabel(HierCachedModel):
             normalized_labeling = None
 
         return normalized_labeling
+
+    def atom_count(self):
+        return atom_count_in_formula(self.peak_group.formula, self.element)
 
 
 class NoCommonLabel(Exception):

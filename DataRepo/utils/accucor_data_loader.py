@@ -638,19 +638,13 @@ class AccuCorDataLoader:
                         peak_group_label.save(using=self.db)
 
                     # cache
-                    inserted_peak_group_dict[peak_group_name] = {
-                        "group": peak_group,
-                        "labels": peak_labeled_elements,
-                    }
+                    inserted_peak_group_dict[peak_group_name] = peak_group
 
             # For each PeakGroup, create PeakData rows
             for peak_group_name in inserted_peak_group_dict:
 
                 # we should have a cached PeakGroup and its labeled element now
-                peak_group = inserted_peak_group_dict[peak_group_name]["group"]
-                peak_labeled_elements = inserted_peak_group_dict[peak_group_name][
-                    "labels"
-                ]
+                peak_group = inserted_peak_group_dict[peak_group_name]
 
                 if self.accucor_original_df is not None:
 
