@@ -19,7 +19,9 @@ attention to.  E.g. There are significant logic changes in function X.
 - [ ] All issue requirements satisfied (or no linked issues)
 - [ ] [Linting passes](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/CONTRIBUTING.md#linting).
 - [ ] [Migrations created & committed *(or no model changes)*](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/CONTRIBUTING.md#migration-process)
-- [ ] [Tests implemented *(or no code changes)*](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/CONTRIBUTING.md#test-implementation)
-  - [ ] New test classes/functions tagged with `@tag("multi_working")`
-- [ ] [All (ci-run) tests pass](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/CONTRIBUTING.md#quality-control)
-  - [ ] Test function tag `@tag("multi_working")` added and test class/function tags `@tag("multi_broken")`, `@tag("multi_unknown")`, or `@tag("multi_mixed")` removed or changed.
+- Tests
+  - [ ] [Tests implemented *(or no code changes)*](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/CONTRIBUTING.md#test-implementation)
+  - [ ] [All *multi_working* tag tests pass locally](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/CONTRIBUTING.md#quality-control)
+  - [ ] All example load tests pass (remotely) *(or their failures predated and are unrelated to this branch)*
+  - [ ] `@tag("multi_working")` added to newly passing test functions/classes *(or no newly passing tests)*
+  - [ ] `@tag("multi_broken")`, `@tag("multi_unknown")`, or `@tag("multi_mixed")` removed from newly passing test functions/classes *(or no newly passing tests)*
