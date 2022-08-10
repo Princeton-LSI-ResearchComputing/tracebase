@@ -651,12 +651,15 @@ class AccuCorDataLoader:
                     peak_group_original_data = self.accucor_original_df.loc[
                         self.accucor_original_df["compound"] == peak_group_name
                     ]
+                    # If we have an accucor_original_df, it's assumed the type is accucor and there's only 1 labeled
+                    # element, hence the use of `peak_group.peak_group_labels.first().atom_count()`
+                    peak_group_label_rec = peak_group.peak_group_labels.first()
 
                     # Original data skips undetected counts, but corrected data does not, so as we march through the
                     # corrected data, we need to keep track of the corresponding row in the original data
                     orig_row_idx = 0
                     for labeled_count in range(
-                        0, peak_group.atom_count(self.labeled_element) + 1
+                        0, peak_group_label_rec.atom_count() + 1
                     ):
                         raw_abundance = 0
                         med_mz = 0
@@ -679,7 +682,7 @@ class AccuCorDataLoader:
                             for isotope in orig_isotopes:
                                 # If it's a matching row
                                 if (
-                                    isotope["element"] == self.labeled_element
+                                    isotope["element"] == peak_group_label_rec.element
                                     and isotope["count"] == labeled_count
                                 ):
                                     # We have a matching row, use it and increment row_idx
@@ -736,7 +739,7 @@ class AccuCorDataLoader:
 
                         peak_data_label = PeakDataLabel(
                             peak_data=peak_data,
-                            element=self.labeled_element,
+                            element=peak_group_label_rec.element,
                             count=labeled_count,
                             mass_number=mass_number,
                         )

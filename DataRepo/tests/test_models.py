@@ -243,7 +243,7 @@ class StudyTests(TracebaseTestCase, ExampleDataConsumer):
     def test_peak_group_atom_count(self):
         """PeakGroup atom_count"""
         t_peak_group = PeakGroup.objects.get(name=self.peak_group.name)
-        self.assertEqual(t_peak_group.atom_count("C"), 6)
+        self.assertEqual(t_peak_group.peak_group_labels.first().atom_count(), 6)
 
     def test_peak_group_unique_constraint(self):
         self.assertRaises(

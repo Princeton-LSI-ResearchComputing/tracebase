@@ -1,6 +1,7 @@
 import warnings
 
 from django.db import models
+from pyparsing.exceptions import ParseException
 
 from DataRepo.models.element_label import ElementLabel
 from DataRepo.models.hier_cached_model import HierCachedModel, cached_function
@@ -60,7 +61,6 @@ class PeakGroupLabel(HierCachedModel):
         from DataRepo.models.peak_data_label import PeakDataLabel
 
         enrichment_fraction = None
-        compound = None
         error = False
         msg = ""
 
@@ -68,9 +68,7 @@ class PeakGroupLabel(HierCachedModel):
             # This assumes that multiple measured compounds for the same PeakGroup are composed of the same elements
 
             # Calculate the denominator
-            atom_count = compound.atom_count(self.element)
-            if atom_count == 0:
-                raise NoCommonLabel(self)
+            atom_count = self.label_count()
 
             # Calculate the numerator
             element_enrichment_sum = 0.0
@@ -185,8 +183,19 @@ class PeakGroupLabel(HierCachedModel):
 
         return normalized_labeling
 
-    def atom_count(self):
-        return atom_count_in_formula(self.peak_group.formula, self.element)
+    def label_count(self):
+        if self.peak_group.formula is None or self.peak_group.formula == "":
+            raise NoCommonLabel(self)
+
+        try:
+            atom_count = atom_count_in_formula(self.peak_group.formula, self.element)
+        except ParseException as pe:
+            raise NoCommonLabel(self) from pe
+
+        if atom_count == 0:
+            raise NoCommonLabel(self)
+
+        return atom_count
 
 
 class NoCommonLabel(Exception):
