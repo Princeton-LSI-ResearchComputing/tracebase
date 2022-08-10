@@ -1026,13 +1026,13 @@ class PropertyTests(TracebaseTestCase):
             pg.peak_group_labels.first().enrichment_fraction
 
     @tag("multi_working")
-    def test_enrichment_fraction_missing_compounds(self):
+    def test_enrichment_fraction_missing_peak_group_formula(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="lysine")
             .filter(msrun__sample__name="serum-xz971")
             .get()
         )
-        peak_group.compounds.clear()
+        peak_group.formula = None
         with self.assertWarns(UserWarning):
             self.assertIsNone(peak_group.peak_group_labels.first().enrichment_fraction)
 
