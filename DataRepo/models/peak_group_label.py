@@ -61,7 +61,7 @@ class PeakGroupLabel(HierCachedModel):
         from DataRepo.models.peak_data_label import PeakDataLabel
 
         enrichment_fraction = None
-        error = False
+        warning = False
         msg = ""
 
         try:
@@ -71,6 +71,11 @@ class PeakGroupLabel(HierCachedModel):
             try:
                 atom_count = self.atom_count()
             except ParseException as pe:
+                # We're intentionally allowing AttributeError exceptions to pass through to the outer catch to issue a
+                # warning because it means there's no formula for the parent PeakGroup, meaning a compound
+                # determination could not be confidently made.  However, if there is a formula and it has a
+                # PeakGroupLabel that's not in that formula, that's an error/inconsistency which should raise an
+                # exception.
                 raise NoCommonLabel(self) from pe
             if atom_count == 0:
                 raise NoCommonLabel(self)
@@ -96,14 +101,17 @@ class PeakGroupLabel(HierCachedModel):
             enrichment_fraction = element_enrichment_sum / atom_count
 
         except (AttributeError, TypeError, NoCommonLabel) as e:
-            error = True
+            warning = True
             # The last 2 should not happen since the fields in PeakDataLabel are null=False, but to guard against
             # unexpected DB changes...
-            if self.peak_group.compounds.count() == 0:
-                msg = f"No compounds were associated with PeakGroup {self.peak_group}"
+            if (
+                self.peak_group.compounds.count() == 0
+                or self.peak_group.formula is None
+            ):
+                msg = f"No compounds or peak group formula was associated with PeakGroup {self.peak_group}"
             elif isinstance(e, NoCommonLabel):
-                # NoCommonLabel is meaningless if there are no linked compounds (above)
-                error = False
+                # NoCommonLabel is meaningless if there is no formula (above)
+                warning = False
                 raise e
             elif label_rec.count is None:
                 msg = f"Labeled count missing from PeakDataLabel record [{label_rec}]"
@@ -112,14 +120,14 @@ class PeakGroupLabel(HierCachedModel):
             else:
                 raise e
         except (PeakData.DoesNotExist, PeakDataLabel.DoesNotExist):
-            error = True
+            warning = True
             msg = (
                 f"PeakDataLabel record missing for PeakGroup [{self.peak_group}]'s element {self.element}.  There "
                 "should exist a PeakData record for every tracer labeled element common with the the measured "
                 "compound, even if the abundance is 0."
             )
         except PeakDataLabel.MultipleObjectsReturned:
-            error = True
+            warning = True
             # This should not happen bec it would violate the PeakDataLabel unique constraint, but to guard against
             # unexpected DB changes...
             msg = (
@@ -127,7 +135,7 @@ class PeakGroupLabel(HierCachedModel):
                 "record."
             )
         finally:
-            if error:
+            if warning:
                 warnings.warn(
                     f"Unable to compute enrichment_fraction for {self.peak_group.msrun.sample}:{self}, {msg}."
                 )
@@ -195,9 +203,9 @@ class PeakGroupLabel(HierCachedModel):
 class NoCommonLabel(Exception):
     def __init__(self, peakgrouplabel):
         msg = (
-            f"PeakGroup {peakgrouplabel.peak_group.name} found associated with measured compounds: "
-            f"[{','.join(list(peakgrouplabel.peak_group.compounds.all().values_list('name', flat=True)))}] that does "
-            f"not contain labeled element {peakgrouplabel.element} (from the tracers in the infusate "
+            f"PeakGroup {peakgrouplabel.peak_group.name} found associated with peak group formula: "
+            f"[{peakgrouplabel.peak_group.formula}] that does not contain the labeled element "
+            f"{peakgrouplabel.element} that is associated via PeakGroupLabel (from the tracers in the infusate "
             f"[{peakgrouplabel.peak_group.msrun.sample.animal.infusate.name}])."
         )
         super().__init__(msg)

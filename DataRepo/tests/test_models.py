@@ -1037,6 +1037,17 @@ class PropertyTests(TracebaseTestCase):
             self.assertIsNone(peak_group.peak_group_labels.first().enrichment_fraction)
 
     @tag("multi_working")
+    def test_enrichment_fraction_missing_bad_formula(self):
+        peak_group = (
+            PeakGroup.objects.filter(compounds__name="lysine")
+            .filter(msrun__sample__name="serum-xz971")
+            .get()
+        )
+        peak_group.formula = "H2O"
+        with self.assertRaises(NoCommonLabel):
+            peak_group.peak_group_labels.first().enrichment_fraction
+
+    @tag("multi_working")
     def test_enrichment_fraction_missing_labeled_element(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="lysine")
