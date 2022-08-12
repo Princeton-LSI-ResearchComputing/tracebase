@@ -209,40 +209,6 @@ class PeakGroup(HierCachedModel):
 
     @property  # type: ignore
     @cached_function
-    def rate_disappearance_intact_per_gram(self):
-        """Rate of Disappearance (intact)"""
-        if not self.can_compute_intact_tracer_rates:
-            warnings.warn(f"{self.name} cannot compute intact tracer rate.")
-            return None
-        else:
-            fraction = (
-                self.peak_data.filter(labeled_count=self.animal.tracer_labeled_count)
-                .get()
-                .fraction
-            )
-
-            return (
-                self.animal.tracer_infusion_rate
-                * self.animal.tracer_infusion_concentration
-                / fraction
-            )
-
-    @property  # type: ignore
-    @cached_function
-    def rate_appearance_intact_per_gram(self):
-        """Rate of Appearance (intact)"""
-        if not self.can_compute_intact_tracer_rates:
-            warnings.warn(f"{self.name} cannot compute intact tracer rate.")
-            return None
-        else:
-            return (
-                self.rate_disappearance_intact_per_gram
-                - self.animal.tracer_infusion_rate
-                * self.animal.tracer_infusion_concentration
-            )
-
-    @property  # type: ignore
-    @cached_function
     def rate_disappearance_intact_per_animal(self):
         """Rate of Disappearance (intact)"""
         if not self.can_compute_intact_tracer_rates:

@@ -1,6 +1,7 @@
 import warnings
 
 from django.db import models
+from django.forms.models import model_to_dict
 from pyparsing.exceptions import ParseException
 
 from DataRepo.models.element_label import ElementLabel
@@ -195,6 +196,77 @@ class PeakGroupLabel(HierCachedModel):
             normalized_labeling = None
 
         return normalized_labeling
+
+    def tracer(self):
+        try:
+            # This gets the tracer for this peakgroup (based on the compounds)
+            this_tracer = self.peak_group.msrun.sample.animal.infusate.tracers.get(
+                compound__id__in=list(self.peak_group.compounds.values_list("id", flat=True)),
+            )
+        except Exception as e:
+            raise e
+
+        return this_tracer
+
+    def tracer_label_count(self, tracer):
+        try:
+            # This gets the supplied tracer's tracer_label with this element, and returns its count
+            this_tracer_label_count = tracer.labels.get(element__exact=self.element).count
+        except Exception as e:
+            raise e
+
+        return this_tracer_label_count
+
+    def tracer_concentration(self, tracer):
+        try:
+            # This gets the supplied tracer's tracer_label with this element, and returns its count
+            conc = self.peak_group.msrun.sample.animal.infusate.tracer_links.get(tracer__exact=tracer).concentration
+        except Exception as e:
+            raise e
+
+        return conc
+
+    @property  # type: ignore
+    @cached_function
+    def rate_disappearance_intact_per_gram(self):
+        """Rate of Disappearance (intact)"""
+
+        result = None
+        this_tracer = self.tracer()
+        this_tracer_label_count = self.tracer_label_count(tracer=this_tracer)
+        this_tracer_concentration = self.tracer_concentration(this_tracer)
+
+        try:
+            fraction = self.peak_group.peak_data.filter(labels__element__exact=self.element).get(
+                labels__count=this_tracer_label_count,
+            ).fraction
+
+            result = (
+                self.peak_group.msrun.sample.animal.infusion_rate * this_tracer_concentration / fraction
+            )
+        except Exception as e:
+            raise e
+
+        return result
+
+    @property  # type: ignore
+    @cached_function
+    def rate_appearance_intact_per_gram(self):
+        """Rate of Appearance (intact)"""
+
+        result = None
+        this_tracer = self.tracer()
+        this_tracer_concentration = self.tracer_concentration(this_tracer)
+
+        try:
+            result = (
+                self.rate_disappearance_intact_per_gram
+                - self.peak_group.msrun.sample.animal.infusion_rate * this_tracer_concentration
+            )
+        except Exception as e:
+            raise e
+
+        return result
 
     def atom_count(self):
         return atom_count_in_formula(self.peak_group.formula, self.element)

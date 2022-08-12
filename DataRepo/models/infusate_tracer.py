@@ -9,8 +9,16 @@ from DataRepo.models.maintained_model import (
 
 class InfusateTracer(MaintainedModel):
     id = models.AutoField(primary_key=True)
-    infusate = models.ForeignKey("DataRepo.Infusate", on_delete=models.CASCADE)
-    tracer = models.ForeignKey("DataRepo.Tracer", on_delete=models.CASCADE)
+    infusate = models.ForeignKey(
+        "DataRepo.Infusate",
+        on_delete=models.CASCADE,
+        related_name="tracer_links",
+    )
+    tracer = models.ForeignKey(
+        "DataRepo.Tracer",
+        on_delete=models.CASCADE,
+        related_name="infusate_links",
+    )
     concentration = models.FloatField(
         null=False,
         blank=False,

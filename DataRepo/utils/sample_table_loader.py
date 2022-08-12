@@ -8,6 +8,8 @@ from django.conf import settings
 from DataRepo.models import (
     Animal,
     AnimalLabel,
+    AnimalTracer,
+    AnimalTracerLabel,
     Infusate,
     Protocol,
     Sample,
@@ -357,13 +359,28 @@ class SampleTableLoader:
                     raise (e)
 
                 # Animal Label - Load each unique labeled element among the tracers for this animal
+                # This is where enrichment_fraction, enrichment_abundance, and normalized_labeling functions live
                 for labeled_element in infusate.tracer_labeled_elements():
-                    print(
-                        f"Finding or inserting animal label '{labeled_element}' for '{animal}'..."
-                    )
+                    print(f"Finding or inserting animal label '{labeled_element}' for '{animal}'...")
                     AnimalLabel.objects.using(self.db).get_or_create(
-                        animal=animal, element=labeled_element
+                        animal=animal,
+                        element=labeled_element,
                     )
+
+                # Animal Tracer & Label - Load each unique tracer and labeled element combo
+                # These tables are where the appearance and disappearance calculation functions live
+                for tracer in infusate.tracers.all():
+                    print(f"Finding or inserting animal tracer '{tracer}' for '{animal}'...")
+                    (at, cr) = AnimalTracer.objects.using(self.db).get_or_create(
+                        animal=animal,
+                        tracer=tracer,
+                    )
+                    for label in tracer.labels.all():
+                        print(f"Finding or inserting animal tracer label '{label}' for '{animal}'...")
+                        AnimalTracerLabel.objects.using(self.db).get_or_create(
+                            animal_tracer=at,
+                            element=label.element,
+                        )
 
             # Sample
             sample_name = self.getRowVal(row, self.headers.SAMPLE_NAME)

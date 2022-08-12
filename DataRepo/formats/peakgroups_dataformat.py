@@ -60,7 +60,7 @@ class PeakGroupsFormat(Format):
             "displayname": "Tracer Concentrations",
             "distincts": [
                 "msrun__sample__animal__infusate__tracers__compound__name",
-                "msrun__sample__animal__infusate__infusatetracer__concentration",
+                "msrun__sample__animal__infusate__tracer_links__concentration",
             ],
             "filter": None,
             "delimiter": ":",
@@ -346,7 +346,7 @@ class PeakGroupsFormat(Format):
         },
         "InfusateTracer": {
             "model": "InfusateTracer",
-            "path": "msrun__sample__animal__infusate__infusatetracer",
+            "path": "msrun__sample__animal__infusate__tracer_links",
             "reverse_path": "infusate__animal__samples__msruns__peak_groups",
             "manyrelated": {
                 "is": True,
