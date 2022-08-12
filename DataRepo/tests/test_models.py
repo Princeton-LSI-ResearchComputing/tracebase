@@ -1645,8 +1645,9 @@ class TracerRateTests(TracebaseTestCase):
     @tag("fcirc")
     def test_final_serum_tracer_rate_disappearance_intact_per_gram(self):
         animal = self.MAIN_SERUM_ANIMAL
+        atl = animal.animal_tracers.first().animal_tracer_labels.first()
         self.assertAlmostEqual(
-            animal.final_serum_tracer_rate_disappearance_intact_per_gram,
+            atl.final_serum_tracer_rate_disappearance_intact_per_gram,
             38.83966501,
             places=2,
         )
@@ -1654,8 +1655,9 @@ class TracerRateTests(TracebaseTestCase):
     @tag("fcirc")
     def test_final_serum_tracer_rate_appearance_intact_per_gram(self):
         animal = self.MAIN_SERUM_ANIMAL
+        atl = animal.animal_tracers.first().animal_tracer_labels.first()
         self.assertAlmostEqual(
-            animal.final_serum_tracer_rate_appearance_intact_per_gram,
+            atl.final_serum_tracer_rate_appearance_intact_per_gram,
             34.35966501,
             places=2,
         )

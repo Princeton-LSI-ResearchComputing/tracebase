@@ -68,8 +68,8 @@ class InfusateManager(models.Manager):
             Tracer = get_model_by_name("Tracer")
             tracer = Tracer.objects.get_tracer(infusate_tracer["tracer"])
             infusates = infusates.filter(
-                infusatetracer__tracer=tracer,
-                infusatetracer__concentration=infusate_tracer["concentration"],
+                tracer_links__tracer=tracer,
+                tracer_links__concentration=infusate_tracer["concentration"],
             )
         if infusates.count() == 1:
             matching_infusate = infusates.first()

@@ -2,10 +2,10 @@ from datetime import date, timedelta
 
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.db.models import F
 
 from DataRepo.models.hier_cached_model import HierCachedModel, cached_function
 
-from .peak_data import PeakData
 from .peak_group import PeakGroup
 from .tissue import Tissue
 
@@ -59,31 +59,6 @@ class Sample(HierCachedModel):
         help_text="The time, relative to an infusion timepoint, "
         "that a sample was extracted from an animal.",
     )
-
-    def peak_groups(self, compound=None):
-        """
-        Retrieve a list of PeakGroup objects for a sample instance.  If an optional compound is passed (e.g.
-        animal.tracer_compound), then is it used to filter the PeakGroup queryset to a specific compound's peakgroup(s)
-        [if multiple PeakGroupSets exist].
-        """
-
-        peak_groups = PeakGroup.objects.filter(msrun__sample_id=self.id)
-        if compound:
-            peak_groups = peak_groups.filter(compounds__id=compound.id)
-        return peak_groups.all()
-
-    def peak_data(self, compound=None):
-        """
-        Retrieve a list of PeakData objects for a sample instance.  If an optional compound is passed (e.g.
-        animal.tracer_compound), then is it used to filter the PeakData queryset to a specific peakgroup.
-        """
-
-        peakdata = PeakData.objects.filter(peak_group__msrun__sample_id=self.id)
-
-        if compound:
-            peakdata = peakdata.filter(peak_group__compounds__id=compound.id)
-
-        return peakdata.all()
 
     @property  # type: ignore
     @cached_function
