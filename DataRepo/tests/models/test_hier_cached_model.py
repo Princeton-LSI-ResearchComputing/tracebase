@@ -235,7 +235,6 @@ class GlobalCacheTests(TracebaseTestCase):
                 "final_serum_tracer_rate_appearance_average_per_gram",
                 "final_serum_tracer_rate_disappearance_average_per_animal",
                 "final_serum_tracer_rate_appearance_average_per_animal",
-                "final_serum_tracer_rate_appearance_average_atom_turnover",
             ],
             "AnimalLabel": [
                 "serum_tracers_enrichment_fraction",
@@ -256,7 +255,6 @@ class GlobalCacheTests(TracebaseTestCase):
                 "rate_appearance_average_per_gram",
                 "rate_disappearance_average_per_animal",
                 "rate_appearance_average_per_animal",
-                "rate_appearance_average_atom_turnover",
             ],
             "PeakGroupLabel": [
                 "enrichment_fraction",
@@ -462,7 +460,6 @@ class HierCachedModelTests(TracebaseTestCase):
             "rate_appearance_average_per_gram",
             "rate_disappearance_average_per_animal",
             "rate_appearance_average_per_animal",
-            "rate_appearance_average_atom_turnover",
         ]
         self.assertEqual(
             pg.get_my_cached_method_names(),

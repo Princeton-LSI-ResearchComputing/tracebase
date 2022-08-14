@@ -314,24 +314,6 @@ class AnimalLabel(HierCachedModel):
                 ).rate_appearance_average_per_animal
             )
 
-    @property  # type: ignore
-    @cached_function
-    def final_serum_tracer_rate_appearance_average_atom_turnover(self):
-        """
-        also referred to as Fcirc_avg_atom.  Originally defined as
-        Fcirc_avg * PeakData:label_count in nmol atom / min / gram
-        turnover of atoms in this compound, e.g. "nmol carbon / min / g"
-        """
-        if not self.animal.final_serum_sample_tracer_peak_group:
-            warnings.warn(f"Animal {self.animal.name} has no final serum sample peak group.")
-            return None
-        else:
-            return (
-                self.animal.final_serum_sample_tracer_peak_group.peak_group_labels.get(
-                    element__exact=self.element,
-                ).rate_appearance_average_atom_turnover
-            )
-
 
 class MissingSerumTracerPeakGroups(Exception):
     def __init__(
