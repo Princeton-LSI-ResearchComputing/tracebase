@@ -89,7 +89,7 @@ class AnimalTracerLabel(HierCachedModel):
         final serum sample tracer's PeakGroup.
         """
         if not self.final_serum_sample_tracer_peak_group:
-            warnings.warn(f"Animal {self.animal.name} has no final serum sample peak group.")
+            warnings.warn(f"Animal {self.animal_tracer.animal.name} has no final serum sample peak group.")
             return None
         else:
             return (
@@ -98,14 +98,6 @@ class AnimalTracerLabel(HierCachedModel):
                 ).rate_appearance_intact_per_gram
             )
 
-
-
-
-
-
-
-
-
     @property  # type: ignore
     @cached_function
     def final_serum_tracer_rate_disappearance_intact_per_animal(self):
@@ -113,12 +105,12 @@ class AnimalTracerLabel(HierCachedModel):
         Rate of Disappearance (intact), also referred to as Rd_intact. This is
         calculated on the Animal's final serum sample tracer's PeakGroup.
         """
-        if not self.animal.final_serum_sample_tracer_peak_group:
-            warnings.warn(f"Animal {self.animal.name} has no final serum sample peak group.")
+        if not self.final_serum_sample_tracer_peak_group:
+            warnings.warn(f"Animal {self.animal_tracer.animal.name} has no final serum sample peak group.")
             return None
         else:
             return (
-                self.animal.final_serum_sample_tracer_peak_group.peak_group_labels.get(
+                self.final_serum_sample_tracer_peak_group.peak_group_labels.get(
                     element__exact=self.element,
                 ).rate_disappearance_intact_per_animal
             )
@@ -131,12 +123,12 @@ class AnimalTracerLabel(HierCachedModel):
         Fcirc_intact_per_mouse. This is calculated on the Animal's final serum
         sample tracer's PeakGroup.
         """
-        if not self.animal.final_serum_sample_tracer_peak_group:
-            warnings.warn(f"Animal {self.animal.name} has no final serum sample peak group.")
+        if not self.final_serum_sample_tracer_peak_group:
+            warnings.warn(f"Animal {self.animal_tracer.animal.name} has no final serum sample peak group.")
             return None
         else:
             return (
-                self.animal.final_serum_sample_tracer_peak_group.peak_group_labels.get(
+                self.final_serum_sample_tracer_peak_group.peak_group_labels.get(
                     element__exact=self.element,
                 ).rate_appearance_intact_per_animal
             )
@@ -150,12 +142,12 @@ class AnimalTracerLabel(HierCachedModel):
         Calculated for the last serum sample collected, for the last tracer
         peakgroup analyzed.
         """
-        if not self.animal.final_serum_sample_tracer_peak_group:
-            warnings.warn(f"Animal {self.animal.name} has no final serum sample peak group.")
+        if not self.final_serum_sample_tracer_peak_group:
+            warnings.warn(f"Animal {self.animal_tracer.animal.name} has no final serum sample peak group.")
             return None
         else:
             return (
-                self.animal.final_serum_sample_tracer_peak_group.peak_group_labels.get(
+                self.final_serum_sample_tracer_peak_group.peak_group_labels.get(
                     element__exact=self.element,
                 ).rate_disappearance_average_per_gram
             )
@@ -169,12 +161,12 @@ class AnimalTracerLabel(HierCachedModel):
         Calculated for the last serum sample collected, for the last tracer
         peakgroup analyzed.
         """
-        if not self.animal.final_serum_sample_tracer_peak_group:
-            warnings.warn(f"Animal {self.animal.name} has no final serum sample peak group.")
+        if not self.final_serum_sample_tracer_peak_group:
+            warnings.warn(f"Animal {self.animal_tracer.animal.name} has no final serum sample peak group.")
             return None
         else:
             return (
-                self.animal.final_serum_sample_tracer_peak_group.peak_group_labels.get(
+                self.final_serum_sample_tracer_peak_group.peak_group_labels.get(
                     element__exact=self.element,
                 ).rate_appearance_average_per_gram
             )
@@ -188,12 +180,12 @@ class AnimalTracerLabel(HierCachedModel):
         Calculated for the last serum sample collected, for the last tracer
         peakgroup analyzed.
         """
-        if not self.animal.final_serum_sample_tracer_peak_group:
-            warnings.warn(f"Animal {self.animal.name} has no final serum sample peak group.")
+        if not self.final_serum_sample_tracer_peak_group:
+            warnings.warn(f"Animal {self.animal_tracer.animal.name} has no final serum sample peak group.")
             return None
         else:
             return (
-                self.animal.final_serum_sample_tracer_peak_group.peak_group_labels.get(
+                self.final_serum_sample_tracer_peak_group.peak_group_labels.get(
                     element__exact=self.element,
                 ).rate_disappearance_average_per_animal
             )
@@ -207,30 +199,12 @@ class AnimalTracerLabel(HierCachedModel):
         Calculated for the last serum sample collected, for the last tracer
         peakgroup analyzed.
         """
-        if not self.animal.final_serum_sample_tracer_peak_group:
-            warnings.warn(f"Animal {self.animal.name} has no final serum sample peak group.")
+        if not self.final_serum_sample_tracer_peak_group:
+            warnings.warn(f"Animal {self.animal_tracer.animal.name} has no final serum sample peak group.")
             return None
         else:
             return (
-                self.animal.final_serum_sample_tracer_peak_group.peak_group_labels.get(
+                self.final_serum_sample_tracer_peak_group.peak_group_labels.get(
                     element__exact=self.element,
                 ).rate_appearance_average_per_animal
-            )
-
-    @property  # type: ignore
-    @cached_function
-    def final_serum_tracer_rate_appearance_average_atom_turnover(self):
-        """
-        also referred to as Fcirc_avg_atom.  Originally defined as
-        Fcirc_avg * PeakData:label_count in nmol atom / min / gram
-        turnover of atoms in this compound, e.g. "nmol carbon / min / g"
-        """
-        if not self.animal.final_serum_sample_tracer_peak_group:
-            warnings.warn(f"Animal {self.animal.name} has no final serum sample peak group.")
-            return None
-        else:
-            return (
-                self.animal.final_serum_sample_tracer_peak_group.peak_group_labels.get(
-                    element__exact=self.element,
-                ).rate_appearance_average_atom_turnover
             )
