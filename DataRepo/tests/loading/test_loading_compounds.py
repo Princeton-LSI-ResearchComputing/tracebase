@@ -181,7 +181,7 @@ class CompoundsLoaderTests(TracebaseTestCase):
 
 @override_settings(CACHES=settings.TEST_CACHES)
 @tag("compound_loading")
-@tag("multi_unknown")
+@tag("multi_working")
 class CompoundValidationLoadingTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):

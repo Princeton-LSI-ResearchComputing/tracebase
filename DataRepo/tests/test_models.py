@@ -43,7 +43,6 @@ from DataRepo.utils import (
 )
 
 
-@tag("multi_unknown")
 class ExampleDataConsumer:
     def get_sample_test_dataframe(self):
 
@@ -256,7 +255,7 @@ class StudyTests(TracebaseTestCase, ExampleDataConsumer):
 
 @override_settings(CACHES=settings.TEST_CACHES)
 @tag("protocol")
-@tag("multi_unknown")
+@tag("multi_working")
 class ProtocolTests(TracebaseTestCase):
     def setUp(self):
         self.p1 = Protocol.objects.create(
@@ -2510,7 +2509,7 @@ class ParseIsotopeLabelTests(TracebaseTestCase):
 @override_settings(CACHES=settings.TEST_CACHES)
 @tag("animal")
 @tag("loading")
-@tag("multi_unknown")
+@tag("multi_working")
 class AnimalLoadingTests(TracebaseTestCase):
     """Tests parsing various Animal attributes"""
 

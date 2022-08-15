@@ -9,7 +9,7 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import QuerysetToPandasDataFrame as qs2df
 
 
-@tag("multi_unknown")
+@tag("multi_broken")
 class QuerysetToPandasDataFrameTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
