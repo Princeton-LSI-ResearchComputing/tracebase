@@ -1,5 +1,3 @@
-import warnings
-
 from django.db import models
 from django.db.models import Sum
 from django.utils.functional import cached_property

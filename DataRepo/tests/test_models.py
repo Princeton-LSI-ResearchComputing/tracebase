@@ -1645,7 +1645,11 @@ class TracerRateTests(TracebaseTestCase):
     def test_nontracer_peakgroup_calculation_attempts(self):
         animal = self.MAIN_SERUM_ANIMAL
         nontracer_compound = Compound.objects.get(name="succinate")
-        non_tracer_pg_label = animal.final_serum_sample.msruns.first().peak_groups.get(compounds__exact=nontracer_compound).peak_group_labels.first()
+        non_tracer_pg_label = (
+            animal.final_serum_sample.msruns.first()
+            .peak_groups.get(compounds__exact=nontracer_compound)
+            .peak_group_labels.first()
+        )
         # # but let's get a peakgroup for a compound we know is not the tracer
         # pgs = animal.final_serum_sample.peak_groups(nontracer_compound)
         # # should only be one in this specific case
@@ -1660,7 +1664,9 @@ class TracerRateTests(TracebaseTestCase):
         with self.assertWarns(UserWarning):
             self.assertIsNone(non_tracer_pg_label.rate_disappearance_intact_per_animal)
         with self.assertWarns(UserWarning):
-            print(f"rate_appearance_intact_per_animal: {non_tracer_pg_label.rate_appearance_intact_per_animal}")
+            print(
+                f"rate_appearance_intact_per_animal: {non_tracer_pg_label.rate_appearance_intact_per_animal}"
+            )
             self.assertIsNone(non_tracer_pg_label.rate_appearance_intact_per_animal)
         with self.assertWarns(UserWarning):
             self.assertIsNone(non_tracer_pg_label.rate_disappearance_average_per_gram)

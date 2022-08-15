@@ -43,8 +43,7 @@ class AnimalTracerLabel(HierCachedModel):
         """
 
         sample_peakgroups = (
-            PeakGroup.objects
-            .filter(msrun__sample_id=sample.id)
+            PeakGroup.objects.filter(msrun__sample_id=sample.id)
             .filter(compounds__id__exact=self.animal_tracer.tracer.compound.id)
             .filter(peak_group_labels__element__exact=self.element)
             .order_by("msrun__date")
@@ -71,14 +70,14 @@ class AnimalTracerLabel(HierCachedModel):
         calculated on the Animal's final serum sample tracer's PeakGroup.
         """
         if not self.final_serum_sample_tracer_peak_group:
-            warnings.warn(f"Animal {self.animal_tracer.animal.name} has no final serum sample peak group.")
+            warnings.warn(
+                f"Animal {self.animal_tracer.animal.name} has no final serum sample peak group."
+            )
             return None
         else:
-            return (
-                self.final_serum_sample_tracer_peak_group.peak_group_labels.get(
-                    element__exact=self.element,
-                ).rate_disappearance_intact_per_gram
-            )
+            return self.final_serum_sample_tracer_peak_group.peak_group_labels.get(
+                element__exact=self.element,
+            ).rate_disappearance_intact_per_gram
 
     @property  # type: ignore
     @cached_function
@@ -89,14 +88,14 @@ class AnimalTracerLabel(HierCachedModel):
         final serum sample tracer's PeakGroup.
         """
         if not self.final_serum_sample_tracer_peak_group:
-            warnings.warn(f"Animal {self.animal_tracer.animal.name} has no final serum sample peak group.")
+            warnings.warn(
+                f"Animal {self.animal_tracer.animal.name} has no final serum sample peak group."
+            )
             return None
         else:
-            return (
-                self.final_serum_sample_tracer_peak_group.peak_group_labels.get(
-                    element__exact=self.element,
-                ).rate_appearance_intact_per_gram
-            )
+            return self.final_serum_sample_tracer_peak_group.peak_group_labels.get(
+                element__exact=self.element,
+            ).rate_appearance_intact_per_gram
 
     @property  # type: ignore
     @cached_function
@@ -106,14 +105,14 @@ class AnimalTracerLabel(HierCachedModel):
         calculated on the Animal's final serum sample tracer's PeakGroup.
         """
         if not self.final_serum_sample_tracer_peak_group:
-            warnings.warn(f"Animal {self.animal_tracer.animal.name} has no final serum sample peak group.")
+            warnings.warn(
+                f"Animal {self.animal_tracer.animal.name} has no final serum sample peak group."
+            )
             return None
         else:
-            return (
-                self.final_serum_sample_tracer_peak_group.peak_group_labels.get(
-                    element__exact=self.element,
-                ).rate_disappearance_intact_per_animal
-            )
+            return self.final_serum_sample_tracer_peak_group.peak_group_labels.get(
+                element__exact=self.element,
+            ).rate_disappearance_intact_per_animal
 
     @property  # type: ignore
     @cached_function
@@ -124,14 +123,14 @@ class AnimalTracerLabel(HierCachedModel):
         sample tracer's PeakGroup.
         """
         if not self.final_serum_sample_tracer_peak_group:
-            warnings.warn(f"Animal {self.animal_tracer.animal.name} has no final serum sample peak group.")
+            warnings.warn(
+                f"Animal {self.animal_tracer.animal.name} has no final serum sample peak group."
+            )
             return None
         else:
-            return (
-                self.final_serum_sample_tracer_peak_group.peak_group_labels.get(
-                    element__exact=self.element,
-                ).rate_appearance_intact_per_animal
-            )
+            return self.final_serum_sample_tracer_peak_group.peak_group_labels.get(
+                element__exact=self.element,
+            ).rate_appearance_intact_per_animal
 
     @property  # type: ignore
     @cached_function
@@ -143,14 +142,14 @@ class AnimalTracerLabel(HierCachedModel):
         peakgroup analyzed.
         """
         if not self.final_serum_sample_tracer_peak_group:
-            warnings.warn(f"Animal {self.animal_tracer.animal.name} has no final serum sample peak group.")
+            warnings.warn(
+                f"Animal {self.animal_tracer.animal.name} has no final serum sample peak group."
+            )
             return None
         else:
-            return (
-                self.final_serum_sample_tracer_peak_group.peak_group_labels.get(
-                    element__exact=self.element,
-                ).rate_disappearance_average_per_gram
-            )
+            return self.final_serum_sample_tracer_peak_group.peak_group_labels.get(
+                element__exact=self.element,
+            ).rate_disappearance_average_per_gram
 
     @property  # type: ignore
     @cached_function
@@ -162,14 +161,14 @@ class AnimalTracerLabel(HierCachedModel):
         peakgroup analyzed.
         """
         if not self.final_serum_sample_tracer_peak_group:
-            warnings.warn(f"Animal {self.animal_tracer.animal.name} has no final serum sample peak group.")
+            warnings.warn(
+                f"Animal {self.animal_tracer.animal.name} has no final serum sample peak group."
+            )
             return None
         else:
-            return (
-                self.final_serum_sample_tracer_peak_group.peak_group_labels.get(
-                    element__exact=self.element,
-                ).rate_appearance_average_per_gram
-            )
+            return self.final_serum_sample_tracer_peak_group.peak_group_labels.get(
+                element__exact=self.element,
+            ).rate_appearance_average_per_gram
 
     @property  # type: ignore
     @cached_function
@@ -181,14 +180,14 @@ class AnimalTracerLabel(HierCachedModel):
         peakgroup analyzed.
         """
         if not self.final_serum_sample_tracer_peak_group:
-            warnings.warn(f"Animal {self.animal_tracer.animal.name} has no final serum sample peak group.")
+            warnings.warn(
+                f"Animal {self.animal_tracer.animal.name} has no final serum sample peak group."
+            )
             return None
         else:
-            return (
-                self.final_serum_sample_tracer_peak_group.peak_group_labels.get(
-                    element__exact=self.element,
-                ).rate_disappearance_average_per_animal
-            )
+            return self.final_serum_sample_tracer_peak_group.peak_group_labels.get(
+                element__exact=self.element,
+            ).rate_disappearance_average_per_animal
 
     @property  # type: ignore
     @cached_function
@@ -200,11 +199,11 @@ class AnimalTracerLabel(HierCachedModel):
         peakgroup analyzed.
         """
         if not self.final_serum_sample_tracer_peak_group:
-            warnings.warn(f"Animal {self.animal_tracer.animal.name} has no final serum sample peak group.")
+            warnings.warn(
+                f"Animal {self.animal_tracer.animal.name} has no final serum sample peak group."
+            )
             return None
         else:
-            return (
-                self.final_serum_sample_tracer_peak_group.peak_group_labels.get(
-                    element__exact=self.element,
-                ).rate_appearance_average_per_animal
-            )
+            return self.final_serum_sample_tracer_peak_group.peak_group_labels.get(
+                element__exact=self.element,
+            ).rate_appearance_average_per_animal
