@@ -7,7 +7,7 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
-@tag("multi_unknown")
+@tag("multi_working")
 class CompoundTests(TracebaseTestCase):
     def setUp(self):
         Compound.objects.create(
@@ -42,7 +42,7 @@ class CompoundTests(TracebaseTestCase):
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
-@tag("multi_unknown")
+@tag("multi_working")
 class CompoundSynonymTests(TracebaseTestCase):
     def setUp(self):
         self.PRIMARY_COMPOUND = Compound.objects.create(

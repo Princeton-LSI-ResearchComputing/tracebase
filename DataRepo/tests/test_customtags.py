@@ -11,7 +11,7 @@ from DataRepo.templatetags.customtags import (
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
-@tag("multi_unknown")
+@tag("multi_working")
 class CustomTagsTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
