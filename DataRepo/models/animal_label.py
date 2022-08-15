@@ -11,7 +11,7 @@ class AnimalLabel(HierCachedModel):
     This class is simply a home for the calculating methods linked to the animal.  An Element field is provided for
     convenience, but it's really a foreign key to an ElementLabel record (which doesn't exist as a model.
     """
-    
+
     parent_related_key_name = "animal"
     # Leaf
 
@@ -166,7 +166,9 @@ class AnimalLabel(HierCachedModel):
         else:
             # Previously, these were ordered by the date of the msrun. I changed this to date of sample collection,
             # which I think is more correct.
-            return self.animal.final_serum_sample.final_tracer_peak_groups(self.animal.infusate.tracers, self.element)
+            return self.animal.final_serum_sample.final_tracer_peak_groups(
+                self.animal.infusate.tracers, self.element
+            )
 
     @property  # type: ignore
     @cached_function
@@ -176,14 +178,14 @@ class AnimalLabel(HierCachedModel):
         calculated on the Animal's final serum sample tracer's PeakGroup.
         """
         if not self.animal.final_serum_sample_tracer_peak_group:
-            warnings.warn(f"Animal {self.animal.name} has no final serum sample peak group.")
+            warnings.warn(
+                f"Animal {self.animal.name} has no final serum sample peak group."
+            )
             return None
         else:
-            return (
-                self.final_serum_sample_tracer_peak_group.peak_group_labels.get(
-                    element__exact=self.element,
-                ).rate_disappearance_intact_per_gram
-            )
+            return self.final_serum_sample_tracer_peak_group.peak_group_labels.get(
+                element__exact=self.element,
+            ).rate_disappearance_intact_per_gram
 
     @property  # type: ignore
     @cached_function
@@ -194,7 +196,9 @@ class AnimalLabel(HierCachedModel):
         final serum sample tracer's PeakGroup.
         """
         if not self.animal.final_serum_sample_tracer_peak_group:
-            warnings.warn(f"Animal {self.animal.name} has no final serum sample peak group.")
+            warnings.warn(
+                f"Animal {self.animal.name} has no final serum sample peak group."
+            )
             return None
         else:
             return (
@@ -211,7 +215,9 @@ class AnimalLabel(HierCachedModel):
         calculated on the Animal's final serum sample tracer's PeakGroup.
         """
         if not self.animal.final_serum_sample_tracer_peak_group:
-            warnings.warn(f"Animal {self.animal.name} has no final serum sample peak group.")
+            warnings.warn(
+                f"Animal {self.animal.name} has no final serum sample peak group."
+            )
             return None
         else:
             return (
@@ -229,7 +235,9 @@ class AnimalLabel(HierCachedModel):
         sample tracer's PeakGroup.
         """
         if not self.animal.final_serum_sample_tracer_peak_group:
-            warnings.warn(f"Animal {self.animal.name} has no final serum sample peak group.")
+            warnings.warn(
+                f"Animal {self.animal.name} has no final serum sample peak group."
+            )
             return None
         else:
             return (
@@ -248,7 +256,9 @@ class AnimalLabel(HierCachedModel):
         peakgroup analyzed.
         """
         if not self.animal.final_serum_sample_tracer_peak_group:
-            warnings.warn(f"Animal {self.animal.name} has no final serum sample peak group.")
+            warnings.warn(
+                f"Animal {self.animal.name} has no final serum sample peak group."
+            )
             return None
         else:
             return (
@@ -267,7 +277,9 @@ class AnimalLabel(HierCachedModel):
         peakgroup analyzed.
         """
         if not self.animal.final_serum_sample_tracer_peak_group:
-            warnings.warn(f"Animal {self.animal.name} has no final serum sample peak group.")
+            warnings.warn(
+                f"Animal {self.animal.name} has no final serum sample peak group."
+            )
             return None
         else:
             return (
@@ -286,7 +298,9 @@ class AnimalLabel(HierCachedModel):
         peakgroup analyzed.
         """
         if not self.animal.final_serum_sample_tracer_peak_group:
-            warnings.warn(f"Animal {self.animal.name} has no final serum sample peak group.")
+            warnings.warn(
+                f"Animal {self.animal.name} has no final serum sample peak group."
+            )
             return None
         else:
             return (
@@ -305,7 +319,9 @@ class AnimalLabel(HierCachedModel):
         peakgroup analyzed.
         """
         if not self.animal.final_serum_sample_tracer_peak_group:
-            warnings.warn(f"Animal {self.animal.name} has no final serum sample peak group.")
+            warnings.warn(
+                f"Animal {self.animal.name} has no final serum sample peak group."
+            )
             return None
         else:
             return (

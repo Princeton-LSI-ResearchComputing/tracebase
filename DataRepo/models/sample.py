@@ -2,11 +2,9 @@ from datetime import date, timedelta
 
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
-from django.db.models import F
 
 from DataRepo.models.hier_cached_model import HierCachedModel, cached_function
 
-from .peak_group import PeakGroup
 from .tissue import Tissue
 
 

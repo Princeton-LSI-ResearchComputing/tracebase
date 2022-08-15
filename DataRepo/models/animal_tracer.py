@@ -1,8 +1,7 @@
-import warnings
-
 from django.db import models
 
-from DataRepo.models.hier_cached_model import HierCachedModel, cached_function
+from DataRepo.models.hier_cached_model import HierCachedModel
+
 
 class AnimalTracer(HierCachedModel):
     parent_related_key_name = "animal"

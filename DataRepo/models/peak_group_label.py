@@ -1,7 +1,6 @@
 import warnings
 
 from django.db import models
-from django.forms.models import model_to_dict
 from django.utils.functional import cached_property
 from pyparsing.exceptions import ParseException
 
@@ -171,11 +170,9 @@ class PeakGroupLabel(HierCachedModel):
         from DataRepo.models.sample import Sample
 
         try:
-            serum_tracers_enrichment_fraction = (
-                self.animal.animal_labels.get(
-                    element__exact=self.element
-                ).serum_tracers_enrichment_fraction
-            )
+            serum_tracers_enrichment_fraction = self.animal.animal_labels.get(
+                element__exact=self.element
+            ).serum_tracers_enrichment_fraction
 
             if (
                 self.animal.infusate.tracers.count() > 0
@@ -210,7 +207,9 @@ class PeakGroupLabel(HierCachedModel):
         try:
             # This gets the tracer for this peakgroup (based on the compounds)
             this_tracer = self.animal.infusate.tracers.get(
-                compound__id__in=list(self.peak_group.compounds.values_list("id", flat=True)),
+                compound__id__in=list(
+                    self.peak_group.compounds.values_list("id", flat=True)
+                ),
             )
         except Tracer.DoesNotExist:
             this_tracer = None
@@ -222,7 +221,9 @@ class PeakGroupLabel(HierCachedModel):
 
         try:
             # This gets the supplied tracer's tracer_label with this element, and returns its count
-            this_tracer_label_count = tracer.labels.get(element__exact=self.element).count
+            this_tracer_label_count = tracer.labels.get(
+                element__exact=self.element
+            ).count
         except (AttributeError, TracerLabel.DoesNotExist):
             # We will get an AttributeError if the tracer passed in is None
             this_tracer_label_count = None
@@ -290,9 +291,7 @@ class PeakGroupLabel(HierCachedModel):
             warnings.warn(f"{self.peak_group.name} is not from a serum sample msrun.")
             return False
         elif not self.animal.infusion_rate:
-            warnings.warn(
-                f"Animal {self.animal.name} has no annotated infusion rate."
-            )
+            warnings.warn(f"Animal {self.animal.name} has no annotated infusion rate.")
             return False
         else:
             tracer_info = self.get_peak_group_label_tracer_info()
@@ -312,7 +311,9 @@ class PeakGroupLabel(HierCachedModel):
         the associated animal.body_weight
         """
         if not self.can_compute_intact_tracer_label_rates:
-            warnings.warn(f"{self.peak_group.name} cannot compute intact tracer rate for element {self.element}.")
+            warnings.warn(
+                f"{self.peak_group.name} cannot compute intact tracer rate for element {self.element}."
+            )
             return False
         elif not self.animal.body_weight:
             warnings.warn(f"Animal {self.animal.name} has no annotated body_weight.")
@@ -328,7 +329,9 @@ class PeakGroupLabel(HierCachedModel):
         the associated animal.body_weight
         """
         if not self.can_compute_average_tracer_label_rates:
-            warnings.warn(f"{self.peak_group.name} cannot compute average tracer rate for element {self.element}.")
+            warnings.warn(
+                f"{self.peak_group.name} cannot compute average tracer rate for element {self.element}."
+            )
             return False
         elif not self.animal.body_weight:
             warnings.warn(f"Animal {self.animal.name} has no annotated body_weight.")
@@ -353,7 +356,9 @@ class PeakGroupLabel(HierCachedModel):
 
         tracer_info = self.get_peak_group_label_tracer_info()
         try:
-            intact_peakdata = self.peak_group.peak_data.filter(labels__element__exact=self.element).get(
+            intact_peakdata = self.peak_group.peak_data.filter(
+                labels__element__exact=self.element
+            ).get(
                 labels__count__exact=tracer_info["count"],
             )
         except PeakData.DoesNotExist:
@@ -382,7 +387,9 @@ class PeakGroupLabel(HierCachedModel):
         measurements of a tracer's peakdata.
         """
         if not self.can_compute_tracer_label_rates:
-            warnings.warn(f"{self.peak_group.name} cannot compute tracer label rates for element {self.element}.")
+            warnings.warn(
+                f"{self.peak_group.name} cannot compute tracer label rates for element {self.element}."
+            )
             return False
 
         if self.enrichment_fraction and self.enrichment_fraction > 0:
@@ -399,25 +406,31 @@ class PeakGroupLabel(HierCachedModel):
         """Rate of Disappearance (intact)"""
 
         if not self.can_compute_intact_tracer_label_rates:
-            warnings.warn(f"{self.peak_group.name} cannot compute intact tracer rate for element {self.element}.")
+            warnings.warn(
+                f"{self.peak_group.name} cannot compute intact tracer rate for element {self.element}."
+            )
             return None
 
         tracer_info = self.get_peak_group_label_tracer_info()
 
-        fraction = self.peak_group.peak_data.filter(labels__element__exact=self.element).get(
-            labels__count=tracer_info["count"],
-        ).fraction
-
-        return (
-            self.animal.infusion_rate * tracer_info["concentration"] / fraction
+        fraction = (
+            self.peak_group.peak_data.filter(labels__element__exact=self.element)
+            .get(
+                labels__count=tracer_info["count"],
+            )
+            .fraction
         )
+
+        return self.animal.infusion_rate * tracer_info["concentration"] / fraction
 
     @property  # type: ignore
     @cached_function
     def rate_appearance_intact_per_gram(self):
         """Rate of Appearance (intact)"""
         if not self.can_compute_intact_tracer_label_rates:
-            warnings.warn(f"{self.peak_group.name} cannot compute intact tracer rate for element {self.element}.")
+            warnings.warn(
+                f"{self.peak_group.name} cannot compute intact tracer rate for element {self.element}."
+            )
             return None
 
         tracer_info = self.get_peak_group_label_tracer_info()
@@ -435,7 +448,9 @@ class PeakGroupLabel(HierCachedModel):
     def rate_disappearance_intact_per_animal(self):
         """Rate of Disappearance (intact)"""
         if not self.can_compute_body_weight_intact_tracer_label_rates:
-            warnings.warn(f"{self.peak_group.name} cannot compute intact tracer rate for element {self.element}.")
+            warnings.warn(
+                f"{self.peak_group.name} cannot compute intact tracer rate for element {self.element}."
+            )
             return None
         return self.rate_disappearance_intact_per_gram * self.animal.body_weight
 
@@ -447,7 +462,9 @@ class PeakGroupLabel(HierCachedModel):
             # Even though this warning would have been issued above, python mysteriously filters that warning in some
             # cases and issues no warning from the called method in the conditional above at all when it is expected,
             # but re-warning it here works.
-            warnings.warn(f"{self.peak_group.name} cannot compute intact tracer rate for element {self.element}.")
+            warnings.warn(
+                f"{self.peak_group.name} cannot compute intact tracer rate for element {self.element}."
+            )
             return None
         return self.rate_appearance_intact_per_gram * self.animal.body_weight
 
@@ -459,7 +476,9 @@ class PeakGroupLabel(HierCachedModel):
         in nmol/min/g
         """
         if not self.can_compute_average_tracer_label_rates:
-            warnings.warn(f"{self.peak_group.name} cannot compute intact tracer rate for element {self.element}.")
+            warnings.warn(
+                f"{self.peak_group.name} cannot compute intact tracer rate for element {self.element}."
+            )
             return None
 
         tracer_info = self.get_peak_group_label_tracer_info()
@@ -474,7 +493,7 @@ class PeakGroupLabel(HierCachedModel):
             )
         except Exception as e:
             raise e
-        
+
         return result
 
     @property  # type: ignore
@@ -484,7 +503,9 @@ class PeakGroupLabel(HierCachedModel):
         Ra_avg_g = Rd_avg_g - [Infusate] * 'Infusion Rate' in nmol/min/g
         """
         if not self.can_compute_average_tracer_label_rates:
-            warnings.warn(f"{self.peak_group.name} cannot compute intact tracer rate for element {self.element}.")
+            warnings.warn(
+                f"{self.peak_group.name} cannot compute intact tracer rate for element {self.element}."
+            )
             return None
 
         tracer_info = self.get_peak_group_label_tracer_info()
@@ -494,12 +515,11 @@ class PeakGroupLabel(HierCachedModel):
         try:
             result = (
                 self.rate_disappearance_average_per_gram
-                - tracer_info["concentration"]
-                * self.animal.infusion_rate
+                - tracer_info["concentration"] * self.animal.infusion_rate
             )
         except Exception as e:
             raise e
-        
+
         return result
 
     @property  # type: ignore
@@ -510,7 +530,9 @@ class PeakGroupLabel(HierCachedModel):
         Rd_avg = Rd_avg_g * 'Body Weight' in nmol/min
         """
         if not self.can_compute_body_weight_average_tracer_label_rates:
-            warnings.warn(f"{self.peak_group.name} cannot compute intact tracer rate for element {self.element}.")
+            warnings.warn(
+                f"{self.peak_group.name} cannot compute intact tracer rate for element {self.element}."
+            )
             return None
 
         return self.rate_disappearance_average_per_gram * self.animal.body_weight
@@ -523,7 +545,9 @@ class PeakGroupLabel(HierCachedModel):
         Ra_avg = Ra_avg_g * 'Body Weight' in nmol/min
         """
         if not self.can_compute_body_weight_average_tracer_label_rates:
-            warnings.warn(f"{self.peak_group.name} cannot compute intact tracer rate for element {self.element}.")
+            warnings.warn(
+                f"{self.peak_group.name} cannot compute intact tracer rate for element {self.element}."
+            )
             return None
 
         return self.rate_appearance_average_per_gram * self.animal.body_weight
