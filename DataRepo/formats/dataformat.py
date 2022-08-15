@@ -171,8 +171,8 @@ class Format:
             if (
                 self.model_instances[x]["path"] != ""
                 and (
-                    "through" not in self.model_instances[x]["manytomany"]
-                    or not self.model_instances[x]["manytomany"]["through"]
+                    "through" not in self.model_instances[x]["manyrelated"]
+                    or not self.model_instances[x]["manyrelated"]["through"]
                 )
             )
         ]
@@ -212,8 +212,8 @@ class Format:
         for srch_path_str in fld_paths:
             srch_model_inst_name = self.pathToModelInstanceName(srch_path_str)
             if (
-                self.model_instances[srch_model_inst_name]["manytomany"]["is"]
-                and self.model_instances[srch_model_inst_name]["manytomany"][
+                self.model_instances[srch_model_inst_name]["manyrelated"]["manytomany"]
+                and self.model_instances[srch_model_inst_name]["manyrelated"][
                     "split_rows"
                 ]
             ):
@@ -283,29 +283,21 @@ class Format:
         get every M:M related record with every root table record even though Django returned the number of root table
         records that would have been used in a full join.
         """
-        # TODO: Refactor the way split_rows works:
-        #       - split_rows shouldn't apply just to many-to-many fields - move it out
-        #       - Annotate every field (with a root_annot_fld or not) if the model has split_rows or distinct applied,
-        #         but error if it is a property
-        #       - Add an annotation for the model ID (with a root_annot_fld or not) if the model has split_rows or
-        #         distinct applied
-        #       - Update doc strings of getFullJoinAnnotations and getDistinctFields to describe split_rows and
-        #         distinct to be interpreted as "splitting" or "merging"
         annotations = []
         for mdl_inst_nm in self.model_instances.keys():
             # If this model is many to many related, and we want a full join
             if (
                 # See TODO above
-                # self.model_instances[mdl_inst_nm]["manytomany"]["is"]
+                # self.model_instances[mdl_inst_nm]["manyrelated"]["manytomany"]
                 # and
-                self.model_instances[mdl_inst_nm]["manytomany"]["split_rows"]
+                self.model_instances[mdl_inst_nm]["manyrelated"]["split_rows"]
             ):
-                # If a root_annot_fld key exists in the "manytomany" dict, use it
+                # If a root_annot_fld key exists in the "manyrelated" dict, use it
                 if (
                     "root_annot_fld"
-                    in self.model_instances[mdl_inst_nm]["manytomany"].keys()
+                    in self.model_instances[mdl_inst_nm]["manyrelated"].keys()
                 ):
-                    annot_fld = self.model_instances[mdl_inst_nm]["manytomany"][
+                    annot_fld = self.model_instances[mdl_inst_nm]["manyrelated"][
                         "root_annot_fld"
                     ]
                 else:
@@ -335,7 +327,7 @@ class Format:
                 # "distinct" in self.model_instances[mdl_inst_nm]
                 # and self.model_instances[mdl_inst_nm]["distinct"]
                 # and
-                self.model_instances[mdl_inst_nm]["manytomany"]["split_rows"]
+                self.model_instances[mdl_inst_nm]["manyrelated"]["split_rows"]
             ):
                 for fld_nm in self.model_instances[mdl_inst_nm]["fields"].keys():
                     if (
@@ -644,9 +636,6 @@ class Format:
         case, this method returns an empty list (as the parameters to .distinct()).  This is the default behavior.  If
         that assumption is false, supply assume_distinct=False.
         """
-        # TODO: Refactor the way distinct works so I don't need to catch AttributeErrors: put distinct in each
-        # applicable field's dict and create an isDistinct method to operate on each model instance to find out if a
-        # distinct field exists
         distinct_fields = []
         for mdl_inst_nm in self.model_instances:
             custom_distinct_fields_exist = (
@@ -683,10 +672,10 @@ class Format:
             elif (
                 # If the split_all override was supplied as true and this is a M:M model
                 split_all
-                and self.model_instances[mdl_inst_nm]["manytomany"]["is"]
+                and self.model_instances[mdl_inst_nm]["manyrelated"]["manytomany"]
             ) or (
                 # Always split if split_rows is true and there aren't custom distinct fields
-                self.model_instances[mdl_inst_nm]["manytomany"]["split_rows"]
+                self.model_instances[mdl_inst_nm]["manyrelated"]["split_rows"]
                 and not custom_distinct_fields_exist
                 # Note if there are custom fields, split+all=True, but this model is not M:M, we are intentionally
                 # returning nothing because we want to split records that are otherwise combined by the custom fields

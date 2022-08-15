@@ -243,7 +243,7 @@ class StudyTests(TracebaseTestCase, ExampleDataConsumer):
     def test_peak_group_atom_count(self):
         """PeakGroup atom_count"""
         t_peak_group = PeakGroup.objects.get(name=self.peak_group.name)
-        self.assertEqual(t_peak_group.atom_count("C"), 6)
+        self.assertEqual(t_peak_group.peak_group_labels.first().atom_count(), 6)
 
     def test_peak_group_unique_constraint(self):
         self.assertRaises(
@@ -1026,15 +1026,26 @@ class PropertyTests(TracebaseTestCase):
             pg.peak_group_labels.first().enrichment_fraction
 
     @tag("multi_working")
-    def test_enrichment_fraction_missing_compounds(self):
+    def test_enrichment_fraction_missing_peak_group_formula(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="lysine")
             .filter(msrun__sample__name="serum-xz971")
             .get()
         )
-        peak_group.compounds.clear()
+        peak_group.formula = None
         with self.assertWarns(UserWarning):
             self.assertIsNone(peak_group.peak_group_labels.first().enrichment_fraction)
+
+    @tag("multi_working")
+    def test_enrichment_fraction_missing_bad_formula(self):
+        peak_group = (
+            PeakGroup.objects.filter(compounds__name="lysine")
+            .filter(msrun__sample__name="serum-xz971")
+            .get()
+        )
+        peak_group.formula = "H2O"
+        with self.assertRaises(NoCommonLabel):
+            peak_group.peak_group_labels.first().enrichment_fraction
 
     @tag("multi_working")
     def test_enrichment_fraction_missing_labeled_element(self):

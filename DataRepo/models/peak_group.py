@@ -5,7 +5,6 @@ from django.db.models import Sum
 from django.utils.functional import cached_property
 
 from DataRepo.models.hier_cached_model import HierCachedModel, cached_function
-from DataRepo.models.utilities import atom_count_in_formula
 
 
 class PeakGroup(HierCachedModel):
@@ -41,9 +40,6 @@ class PeakGroup(HierCachedModel):
         related_name="peak_groups",
         help_text="The source file this PeakGroup came from.",
     )
-
-    def atom_count(self, atom):
-        return atom_count_in_formula(self.formula, atom)
 
     # @cached_function is *slower* than uncached
     @cached_property

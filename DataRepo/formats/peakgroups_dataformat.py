@@ -71,8 +71,10 @@ class PeakGroupsFormat(Format):
             "model": "PeakGroupSet",
             "path": "peak_group_set",
             "reverse_path": "peak_groups",
-            "manytomany": {
+            "manyrelated": {
                 "is": False,
+                "through": False,
+                "manytomany": False,
                 "split_rows": False,
             },
             "fields": {
@@ -95,8 +97,10 @@ class PeakGroupsFormat(Format):
             "model": "CompoundSynonym",
             "path": "compounds__synonyms",
             "reverse_path": "compound__peak_groups",
-            "manytomany": {
+            "manyrelated": {
                 "is": True,
+                "through": False,
+                "manytomany": True,
                 "split_rows": False,
             },
             "fields": {
@@ -119,8 +123,10 @@ class PeakGroupsFormat(Format):
             "model": "PeakGroup",
             "path": "",
             "reverse_path": "",
-            "manytomany": {
+            "manyrelated": {
                 "is": False,
+                "through": False,
+                "manytomany": False,
                 "split_rows": False,
             },
             "fields": {
@@ -155,12 +161,12 @@ class PeakGroupsFormat(Format):
             "model": "PeakGroupLabel",
             "path": "peak_group_labels",
             "reverse_path": "peak_group",
-            "manytomany": {
-                "is": False,
+            "manyrelated": {
+                "is": True,
+                "through": False,
+                "manytomany": False,
                 "split_rows": True,
                 "root_annot_fld": "peak_group_label",  # Used to annotate root rec w/ subtable ID when split_rows=True
-                # TODO: I need to rework how the record is accessed. My first attempt (using root_annot_flds in the
-                #       fields below) failed because you can't use that feature with properties.
             },
             "fields": {
                 "element": {
@@ -195,8 +201,10 @@ class PeakGroupsFormat(Format):
             "model": "Protocol",
             "path": "msrun__sample__animal__treatment",
             "reverse_path": "animals__samples__msruns__peak_groups",
-            "manytomany": {
+            "manyrelated": {
                 "is": False,
+                "through": False,
+                "manytomany": False,
                 "split_rows": False,
             },
             "fields": {
@@ -219,8 +227,10 @@ class PeakGroupsFormat(Format):
             "model": "Sample",
             "path": "msrun__sample",
             "reverse_path": "msruns__peak_groups",
-            "manytomany": {
+            "manyrelated": {
                 "is": False,
+                "through": False,
+                "manytomany": False,
                 "split_rows": False,
             },
             "fields": {
@@ -243,8 +253,10 @@ class PeakGroupsFormat(Format):
             "model": "Tissue",
             "path": "msrun__sample__tissue",
             "reverse_path": "samples__msruns__peak_groups",
-            "manytomany": {
+            "manyrelated": {
                 "is": False,
+                "through": False,
+                "manytomany": False,
                 "split_rows": False,
             },
             "fields": {
@@ -267,8 +279,10 @@ class PeakGroupsFormat(Format):
             "model": "Animal",
             "path": "msrun__sample__animal",
             "reverse_path": "samples__msruns__peak_groups",
-            "manytomany": {
+            "manyrelated": {
                 "is": False,
+                "through": False,
+                "manytomany": False,
                 "split_rows": False,
             },
             "fields": {
@@ -334,8 +348,9 @@ class PeakGroupsFormat(Format):
             "model": "InfusateTracer",
             "path": "msrun__sample__animal__infusate__infusatetracer",
             "reverse_path": "infusate__animal__samples__msruns__peak_groups",
-            "manytomany": {
+            "manyrelated": {
                 "is": True,
+                "manytomany": True,
                 "split_rows": False,
                 "through": True,
             },
@@ -359,8 +374,10 @@ class PeakGroupsFormat(Format):
             "model": "Compound",
             "path": "msrun__sample__animal__infusate__tracers__compound",
             "reverse_path": "tracer__infusates__animals__samples__msruns__peak_groups",
-            "manytomany": {
-                "is": False,
+            "manyrelated": {
+                "is": True,
+                "through": False,
+                "manytomany": True,
                 "split_rows": False,
             },
             "fields": {
@@ -383,8 +400,10 @@ class PeakGroupsFormat(Format):
             "model": "Compound",
             "path": "compounds",
             "reverse_path": "peak_groups",
-            "manytomany": {
+            "manyrelated": {
                 "is": True,
+                "through": False,
+                "manytomany": True,
                 "split_rows": False,
                 "root_annot_fld": "compound",
             },
@@ -408,8 +427,10 @@ class PeakGroupsFormat(Format):
             "model": "Study",
             "path": "msrun__sample__animal__studies",
             "reverse_path": "animals__samples__msruns__peak_groups",
-            "manytomany": {
+            "manyrelated": {
                 "is": True,
+                "through": False,
+                "manytomany": True,
                 "split_rows": False,
                 "root_annot_fld": "study",
             },

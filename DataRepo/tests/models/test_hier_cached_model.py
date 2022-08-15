@@ -259,7 +259,6 @@ class GlobalCacheTests(TracebaseTestCase):
                 "rate_appearance_average_atom_turnover",
             ],
             "PeakGroupLabel": [
-                "measured_compound",
                 "enrichment_fraction",
                 "enrichment_abundance",
                 "normalized_labeling",
