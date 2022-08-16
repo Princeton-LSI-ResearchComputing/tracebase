@@ -1,6 +1,5 @@
 from datetime import date, timedelta
 
-from black import InvalidInput
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
@@ -89,7 +88,7 @@ class Sample(HierCachedModel):
             elif isinstance(compound, Tracer):
                 peak_groups = peak_groups.filter(compounds__id=compound.compound.id)
             else:
-                raise InvalidInput("Argument must be a Compound or Tracer")
+                raise InvalidArgument("Argument must be a Compound or Tracer")
         return peak_groups.all()
 
     def peak_data(self, compound=None):
@@ -111,7 +110,7 @@ class Sample(HierCachedModel):
                     peak_group__compounds__id=compound.compound.id
                 )
             else:
-                raise InvalidInput("Argument must be a Compound or Tracer")
+                raise InvalidArgument("Argument must be a Compound or Tracer")
 
         return peakdata.all()
 
@@ -122,3 +121,8 @@ class Sample(HierCachedModel):
 
     def __str__(self):
         return str(self.name)
+
+
+class InvalidArgument(ValueError):
+    def __init__(self, message):
+        super().__init__(message)
