@@ -289,9 +289,9 @@ class FluxCircFormat(Format):
             #                 instance is used in a search.
             "reverse_path": "tracers__fcircs",
             "manyrelated": {
-                "is": True,
+                "is": False,
                 "through": False,
-                "manytomany": True,
+                "manytomany": False,
                 "split_rows": False,
             },
             "fields": {
