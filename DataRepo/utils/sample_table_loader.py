@@ -8,8 +8,7 @@ from django.conf import settings
 from DataRepo.models import (
     Animal,
     AnimalLabel,
-    AnimalTracer,
-    AnimalTracerLabel,
+    FCirc,
     Infusate,
     Protocol,
     Sample,
@@ -369,25 +368,6 @@ class SampleTableLoader:
                         element=labeled_element,
                     )
 
-                # Animal Tracer & Label - Load each unique tracer and labeled element combo
-                # These tables are where the appearance and disappearance calculation functions live
-                for tracer in infusate.tracers.all():
-                    print(
-                        f"Finding or inserting animal tracer '{tracer}' for '{animal}'..."
-                    )
-                    (at, cr) = AnimalTracer.objects.using(self.db).get_or_create(
-                        animal=animal,
-                        tracer=tracer,
-                    )
-                    for label in tracer.labels.all():
-                        print(
-                            f"Finding or inserting animal tracer label '{label}' for '{animal}'..."
-                        )
-                        AnimalTracerLabel.objects.using(self.db).get_or_create(
-                            animal_tracer=at,
-                            element=label.element,
-                        )
-
             # Sample
             sample_name = self.getRowVal(row, self.headers.SAMPLE_NAME)
             if sample_name is not None:
@@ -439,6 +419,20 @@ class SampleTableLoader:
                         except Exception as e:
                             print(f"Error saving record: Sample:{sample}")
                             raise (e)
+
+                if tissue.is_serum():
+                    # FCirc - Load each unique tracer and labeled element combo if this is a serum sample
+                    # These tables are where the appearance and disappearance calculation functions live
+                    for tracer in sample.animal.infusate.tracers.all():
+                        for label in tracer.labels.all():
+                            print(
+                                f"\tFinding or inserting FCirc tracer '{tracer}' and label '{label}' for '{sample}'..."
+                            )
+                            FCirc.objects.using(self.db).get_or_create(
+                                serum_sample=sample,
+                                tracer=tracer,
+                                element=label.element,
+                            )
 
         if len(self.missing_headers) > 0:
             raise (

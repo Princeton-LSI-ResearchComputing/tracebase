@@ -1,5 +1,7 @@
+# from django.db.models import F
+
 from DataRepo.formats.dataformat import Format
-from DataRepo.models import Animal, ElementLabel, PeakGroup, Tissue
+from DataRepo.models import Animal, ElementLabel, FCirc
 
 
 class FluxCircFormat(Format):
@@ -9,11 +11,11 @@ class FluxCircFormat(Format):
 
     id = "fctemplate"
     name = "Fcirc"
-    rootmodel = PeakGroup
+    rootmodel = FCirc
     stats = None
     model_instances = {
-        "PeakGroup": {
-            "model": "PeakGroup",
+        "FCirc": {
+            "model": "FCirc",
             "path": "",
             "reverse_path": "",
             "manyrelated": {
@@ -21,29 +23,6 @@ class FluxCircFormat(Format):
                 "through": False,
                 "manytomany": False,
                 "split_rows": False,
-            },
-            "fields": {
-                "id": {
-                    "displayname": "(Internal) Peak Group Index",
-                    "searchable": True,
-                    "displayed": False,  # Used in link
-                    # "handoff": "",
-                    # Using in link will expose the internal index field in the search form because there's no
-                    # searchable unique field for handoff
-                    "type": "number",
-                },
-            },
-        },
-        "PeakGroupLabel": {
-            "model": "PeakGroupLabel",
-            "path": "peak_group_labels",
-            "reverse_path": "peak_group",
-            "manyrelated": {
-                "is": True,
-                "through": False,
-                "manytomany": False,
-                "split_rows": True,
-                "root_annot_fld": "peak_group_label",  # Used to annotate root rec w/ subtable ID when split_rows=True
             },
             "fields": {
                 "element": {
@@ -104,10 +83,36 @@ class FluxCircFormat(Format):
                 },
             },
         },
+        "Tracer": {
+            "model": "Tracer",
+            "path": "tracer",
+            "reverse_path": "samples__fcircs",
+            "manyrelated": {
+                "is": False,
+                "through": False,
+                "manytomany": False,
+                "split_rows": False,
+            },
+            "fields": {
+                "id": {
+                    "displayname": "(Internal) Tracer Index",
+                    "searchable": True,
+                    "displayed": False,  # Used in link
+                    "handoff": "name",  # This is the field that will be loaded in the search form
+                    "type": "number",
+                },
+                "name": {
+                    "displayname": "Tracer",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "string",
+                },
+            },
+        },
         "Animal": {
             "model": "Animal",
-            "path": "msrun__sample__animal",
-            "reverse_path": "samples__msruns__peak_groups",
+            "path": "serum_sample__animal",
+            "reverse_path": "samples__fcircs",
             "manyrelated": {
                 "is": False,
                 "through": False,
@@ -175,13 +180,14 @@ class FluxCircFormat(Format):
         },
         "InfusateTracer": {
             "model": "InfusateTracer",
-            "path": "msrun__sample__animal__infusate__tracer_links",
-            "reverse_path": "infusate__animal__samples__msruns__peak_groups",
+            "path": "serum_sample__animal__infusate__tracer_links",
+            "reverse_path": "infusate__animals__samples__fcircs",
             "manyrelated": {
                 "is": True,
-                "manytomany": True,
-                "split_rows": False,
+                "manytomany": False,
+                "split_rows": True,
                 "through": True,
+                "root_annot_fld": "concentration",
             },
             "fields": {
                 "id": {
@@ -201,8 +207,8 @@ class FluxCircFormat(Format):
         },
         "Protocol": {
             "model": "Protocol",
-            "path": "msrun__sample__animal__treatment",
-            "reverse_path": "animals__samples__msruns__peak_groups",
+            "path": "serum_sample__animal__treatment",
+            "reverse_path": "animals__samples__fcircs",
             "manyrelated": {
                 "is": False,
                 "through": False,
@@ -227,8 +233,8 @@ class FluxCircFormat(Format):
         },
         "Sample": {
             "model": "Sample",
-            "path": "msrun__sample",
-            "reverse_path": "msruns__peak_groups",
+            "path": "serum_sample__animal__samples",
+            "reverse_path": "animal__samples__fcircs",
             "manyrelated": {
                 "is": False,
                 "through": False,
@@ -255,12 +261,15 @@ class FluxCircFormat(Format):
         },
         "Compound": {
             "model": "Compound",
-            "path": "msrun__sample__animal__infusate__tracers__compound",
-            "reverse_path": "tracer__infusates__animals__samples__msruns__peak_groups",
+            "path": "tracer__compound",
+            # NOTE: PR REVIEW... I'm not certain that the reverse path here is specific enough. Could be a problem,
+            # though looking at the code, it should only affect speed.  This is only used for rerooting queries for the
+            # prefetches, which it does to speed things up.
+            "reverse_path": "tracers__fcircs",
             "manyrelated": {
-                "is": True,
+                "is": False,
                 "through": False,
-                "manytomany": True,
+                "manytomany": False,
                 "split_rows": False,
             },
             "fields": {
@@ -281,8 +290,8 @@ class FluxCircFormat(Format):
         },
         "Study": {
             "model": "Study",
-            "path": "msrun__sample__animal__studies",
-            "reverse_path": "animals__samples__msruns__peak_groups",
+            "path": "serum_sample__animal__studies",
+            "reverse_path": "animals__samples__fcircs",
             "manyrelated": {
                 "is": True,
                 "through": False,
@@ -307,13 +316,3 @@ class FluxCircFormat(Format):
             },
         },
     }
-
-    def getRootQuerySet(self):
-        # https://stackoverflow.com/questions/3397437/manually-create-a-django-queryset-or-rather-manually-add-objects-to-a-queryset
-        serum_tracer_peakgroups = set()
-        for pg in self.rootmodel.objects.filter(
-            msrun__sample__tissue__name__istartswith=Tissue.SERUM_TISSUE_PREFIX
-        ):
-            if pg.is_tracer_compound_group:
-                serum_tracer_peakgroups.add(pg.id)
-        return self.rootmodel.objects.filter(id__in=serum_tracer_peakgroups)

@@ -797,7 +797,7 @@ class PropertyTests(TracebaseTestCase):
         cls.MAIN_SERUM_ANIMAL = Animal.objects.get(name="971")
 
     @tag("serum")
-    @tag("multi_broken")
+    @tag("multi_working")
     def test_sample_peak_groups(self):
         animal = self.MAIN_SERUM_ANIMAL
         final_serum_sample = animal.final_serum_sample
@@ -806,32 +806,14 @@ class PropertyTests(TracebaseTestCase):
         self.assertEqual(peak_groups.count(), self.SERUM_COMPOUNDS_COUNT)
         # but if limited to only the tracer, it is just 1 object in the QuerySet
         sample_tracer_peak_groups = final_serum_sample.peak_groups(
-            animal.infusate.tracers.first()
+            animal.infusate.tracers.first().compound
         )
         self.assertEqual(sample_tracer_peak_groups.count(), 1)
         # and test that the Animal convenience method is equivalent for this
         # particular sample/animal
-        animal_tracer_peak_group = animal.final_serum_sample_tracer_peak_group
-        self.assertEqual(
-            sample_tracer_peak_groups.get().id, animal_tracer_peak_group.id
-        )
-
-    @tag("serum")
-    @tag("multi_broken")
-    def test_sample_peak_data(self):
-        animal = self.MAIN_SERUM_ANIMAL
-        final_serum_sample = animal.final_serum_sample
-        peakdata = final_serum_sample.peak_data()
-        # ALL the sample's peakdata objects total 85
-        self.assertEqual(peakdata.count(), self.SERUM_PEAKDATA_ROWS)
-        # but if limited to only the tracer's data, it is just 7 objects
-        peakdata = final_serum_sample.peak_data(
-            animal.infusate.tracers.first().compound
-        )
-        self.assertEqual(peakdata.count(), 7)
-        # and test that the Animal convenience method is equivalent to the above
-        peakdata2 = animal.final_serum_sample_tracer_peak_data
-        self.assertEqual(peakdata.last().id, peakdata2.last().id)
+        pgs = animal.final_serum_sample_tracer_peak_groups
+        # animal_tracer_peak_group = animal.final_serum_sample_tracer_peak_group
+        self.assertEqual(sample_tracer_peak_groups.get().id, pgs[0].id)
 
     @tag("fcirc", "serum")
     @tag("multi_working")

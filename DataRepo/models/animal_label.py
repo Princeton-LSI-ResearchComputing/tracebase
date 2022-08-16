@@ -43,83 +43,95 @@ class AnimalLabel(HierCachedModel):
 
     @property  # type: ignore
     @cached_function
+    def final_serum_sample_tracer_label_peak_groups(self):
+        """
+        Retrieves the Peak Groups of the tracer compounds of the final serum sample that have this element
+        """
+        from DataRepo.models.peak_group import PeakGroup
+
+        # Get every tracer's compound that contains this element
+        tracer_compounds = []
+        tracer_compound_ids = []
+        for tracer in self.animal.infusate.tracers.filter(
+            labels__element__exact=self.element
+        ):
+            tracer_compounds.append(tracer.compound)
+            tracer_compound_ids.append(tracer.compound.id)
+        if len(tracer_compound_ids) == 0:
+            raise NoTracerCompounds(self.animal, self.element)
+
+        # Get the peak group of each tracer compound from the final serum sample
+        final_serum_sample = self.animal.final_serum_sample
+        # Get the Peak Groups for the tracer compounds of the final serum sample that have this element
+        final_serum_tracer_peak_groups = PeakGroup.objects.filter(
+            msrun__sample__id__exact=final_serum_sample.id
+        ).filter(compounds__id__in=tracer_compound_ids)
+        if final_serum_tracer_peak_groups.count() != len(tracer_compounds):
+            raise MissingSerumTracerPeakGroups(
+                self.animal,
+                final_serum_sample,
+                final_serum_tracer_peak_groups,
+                tracer_compounds,
+            )
+        final_serum_tracer_peak_groups_elem = final_serum_tracer_peak_groups.filter(
+            peak_group_labels__element__exact=self.element,
+        )
+        # tracer_compounds has only compounds with this element and this assures all necessary peak groups have the
+        # labeled element among its peak group label records
+        if final_serum_tracer_peak_groups_elem.count() != len(tracer_compounds):
+            raise MissingPeakGroupLabel(final_serum_tracer_peak_groups, self.element)
+
+        return final_serum_tracer_peak_groups_elem
+
+    @property  # type: ignore
+    @cached_function
     def serum_tracers_enrichment_fraction(self):
         """
-        This generates a dict keyed on labeled element.  For each labeled element among the tracers for this animal, it
-        computes a weighted average of the fraction of labeled atoms (among all tracers) for the final serum sample.
+        Computes a weighted average of the fraction of labeled atoms (among all tracers) for the final serum sample.
         i.e. The fraction of carbons that are labeled among all the final serum sample's tracer compounds.
         For each TracerLabel.element
             Sum of all (PeakData.fraction * PeakDataLabel.count) /
                 Sum of all (Tracers.Compound.num_atoms(TracerLabel.element))
         """
         from DataRepo.models.peak_data_label import PeakDataLabel
-        from DataRepo.models.peak_group import PeakGroup
-        from DataRepo.models.tissue import Tissue
 
         tracers_enrichment_fraction = None
-        tracer_compounds = None
         error = False
         msg = ""
 
         try:
-            # Get every tracer's 'compound that contains this element
-            tracer_compounds = []
-            tracer_compound_ids = []
-            for tracer in self.animal.infusate.tracers.filter(
-                labels__element__exact=self.element
-            ):
-                tracer_compounds.append(tracer.compound)
-                tracer_compound_ids.append(tracer.compound.id)
-            if len(tracer_compound_ids) == 0:
-                raise NoTracerCompounds(self.animal, self.element)
-
-            # Get the peak group of each tracer compound from the final serum sample
-            final_serum_sample = self.animal.samples.filter(
-                tissue__name__startswith=Tissue.SERUM_TISSUE_PREFIX
-            ).latest("time_collected")
-            # Get the Peak Groups for the tracer compounds of the final serum sample that have this element
-            final_serum_tracer_peak_groups = PeakGroup.objects.filter(
-                msrun__sample__id__exact=final_serum_sample.id
-            ).filter(compounds__id__in=tracer_compound_ids)
-            if final_serum_tracer_peak_groups.count() != len(tracer_compounds):
-                raise MissingSerumTracerPeakGroups(
-                    self.animal,
-                    final_serum_sample,
-                    final_serum_tracer_peak_groups,
-                    tracer_compounds,
-                )
-            final_serum_tracer_peak_groups_elem = final_serum_tracer_peak_groups.filter(
-                peak_group_labels__element__exact=self.element,
-            )
-            # tracer_compounds has only compounds with this element and this assures all necessary peak groups have the
-            # labeled element among its peak group label records
-            if final_serum_tracer_peak_groups_elem.count() != len(tracer_compounds):
-                raise MissingPeakGroupLabel(
-                    final_serum_tracer_peak_groups, self.element
-                )
-
             # Count the total number of each element among all the tracer compounds
             # This may call tracer compoundss that do not have self.element, but they just return 0
             total_atom_count = 0
-            for tracer_compound in tracer_compounds:
-                total_atom_count += tracer_compound.atom_count(self.element)
+            # Get every tracer whose compound contains this element
+            tracers = self.animal.infusate.tracers.filter(
+                labels__element__exact=self.element
+            )
+            for tracer in tracers.all():
+
+                # NOTE: PR REVIEW: This is essentially how this was calculated before... but I wonder if the
+                # total_atom_count should be the number of labeled atoms originally in the tracer.  I.e. if it wasn't
+                # fully labeled, the enrichment would never (likely) be 100%.  Is that what we *want*?
+
+                total_atom_count += tracer.compound.atom_count(self.element)
+
+            if tracers.count() == 0 or total_atom_count == 0:
+                raise NoTracerCompounds(self.animal, self.element)
 
             # Sum the element enrichment across all tracer compounds
             final_serum_tracers_enrichment_sum = 0.0
-            for (
-                final_serum_tracer_peak_group_elem
-            ) in final_serum_tracer_peak_groups_elem.all():
-                label_pd_recs = final_serum_tracer_peak_group_elem.peak_data.filter(
-                    labels__element__exact=self.element
-                )
+            for pg in self.final_serum_sample_tracer_label_peak_groups.all():
+
+                label_pd_recs = pg.peak_data.filter(labels__element__exact=self.element)
+
                 # This assumes that if there are any label_pd_recs for this measured elem, the calculation is valid
                 if label_pd_recs.count() == 0:
-                    raise MissingPeakData(
-                        final_serum_tracer_peak_group_elem, self.element
-                    )
+                    raise MissingPeakData(pg, self.element)
+
                 for label_pd_rec in label_pd_recs:
                     # This assumes the PeakDataLabel unique constraint: peak_data, element
                     label_rec = label_pd_rec.labels.get(element__exact=self.element)
+
                     # And this assumes that label_rec must exist because of the filter above the loop
                     final_serum_tracers_enrichment_sum += (
                         label_pd_rec.fraction * label_rec.count
@@ -128,6 +140,7 @@ class AnimalLabel(HierCachedModel):
             tracers_enrichment_fraction = (
                 final_serum_tracers_enrichment_sum / total_atom_count
             )
+
         except NoTracerCompounds as ntc:
             error = True
             msg = NoTracerCompounds.__name__ + " ERROR: " + str(ntc)
@@ -139,36 +152,16 @@ class AnimalLabel(HierCachedModel):
             msg = MissingPeakData.__name__ + " ERROR: " + str(mpd)
         except PeakDataLabel.DoesNotExist as pdldne:
             # This is not something the user can recitify via loading. This would be a bug in the loading code
-            raise MissingPeakDataLabel(
-                final_serum_tracer_peak_group_elem, self.element
-            ) from pdldne
+            raise MissingPeakDataLabel(pg, self.element) from pdldne
         finally:
             if error:
                 warnings.warn(
-                    f"Unable to compute serum_tracers_enrichment_fraction for serum sample {final_serum_sample}, "
-                    f"element {self.element}, and animal {self.animal}: {msg}"
+                    "Unable to compute serum_tracers_enrichment_fraction for serum sample "
+                    f"{self.animal.final_serum_sample}, element {self.element}, and animal {self.animal}: {msg}"
                 )
                 return None
 
         return tracers_enrichment_fraction
-
-    @property  # type: ignore
-    @cached_function
-    def final_serum_sample_tracer_peak_groups(self):
-        """
-        final_serum_sample_tracer_peak_group is an instance method that returns
-        the very last recorded PeakGroup obtained from the Animal's final serum
-        sample from the last date it was measured/assayed
-        """
-        if not self.animal.final_serum_sample:
-            warnings.warn(f"Animal {self.name} has no final serum sample.")
-            return None
-        else:
-            # Previously, these were ordered by the date of the msrun. I changed this to date of sample collection,
-            # which I think is more correct.
-            return self.animal.final_serum_sample.final_tracer_peak_groups(
-                self.animal.infusate.tracers, self.element
-            )
 
     @property  # type: ignore
     @cached_function
