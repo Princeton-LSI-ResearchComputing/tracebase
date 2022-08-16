@@ -224,9 +224,10 @@ class GlobalCacheTests(TracebaseTestCase):
             "Animal": [
                 "final_serum_sample",
                 "final_serum_sample_id",
-                "all_serum_samples_tracer_peak_groups",
-                "final_serum_sample_tracer_peak_group",
-                "intact_tracer_peak_data",
+            ],
+            "AnimalLabel": [
+                "final_serum_sample_tracer_label_peak_groups",
+                "serum_tracers_enrichment_fraction",
                 "final_serum_tracer_rate_disappearance_intact_per_gram",
                 "final_serum_tracer_rate_appearance_intact_per_gram",
                 "final_serum_tracer_rate_disappearance_intact_per_animal",
@@ -236,17 +237,11 @@ class GlobalCacheTests(TracebaseTestCase):
                 "final_serum_tracer_rate_disappearance_average_per_animal",
                 "final_serum_tracer_rate_appearance_average_per_animal",
             ],
-            "AnimalLabel": [
-                "serum_tracers_enrichment_fraction",
-            ],
             "Sample": ["is_serum_sample"],
-            "PeakGroup": [
-                "peak_labeled_elements",
-                "is_tracer_compound_group",
-                "from_serum_sample",
-                "can_compute_tracer_rates",
-                "can_compute_intact_tracer_rates",
-                "can_compute_average_tracer_rates",
+            "PeakGroup": ["peak_labeled_elements"],
+            "FCirc": [
+                "final_peak_group",
+                "final_serum_sample_tracer_peak_group",
                 "rate_disappearance_intact_per_gram",
                 "rate_appearance_intact_per_gram",
                 "rate_disappearance_intact_per_animal",
@@ -260,11 +255,27 @@ class GlobalCacheTests(TracebaseTestCase):
                 "enrichment_fraction",
                 "enrichment_abundance",
                 "normalized_labeling",
+                "tracer",
+                "is_tracer_label_compound_group",
+                "from_serum_sample",
+                "can_compute_tracer_label_rates",
+                "can_compute_body_weight_intact_tracer_label_rates",
+                "can_compute_body_weight_average_tracer_label_rates",
+                "can_compute_intact_tracer_label_rates",
+                "can_compute_average_tracer_label_rates",
+                "rate_disappearance_intact_per_gram",
+                "rate_appearance_intact_per_gram",
+                "rate_disappearance_intact_per_animal",
+                "rate_appearance_intact_per_animal",
+                "rate_disappearance_average_per_gram",
+                "rate_appearance_average_per_gram",
+                "rate_disappearance_average_per_animal",
+                "rate_appearance_average_per_animal",
             ],
         }
         self.assertEqual(
-            res,
             expected_structure,
+            res,
             "The methods with @cached_function decorators are not what is expected.",
         )
 
@@ -445,25 +456,10 @@ class HierCachedModelTests(TracebaseTestCase):
 
     def test_get_my_cached_method_names(self):
         pg = PeakGroup.objects.all().first()
-        expected = [
-            "peak_labeled_elements",
-            "is_tracer_compound_group",
-            "from_serum_sample",
-            "can_compute_tracer_rates",
-            "can_compute_intact_tracer_rates",
-            "can_compute_average_tracer_rates",
-            "rate_disappearance_intact_per_gram",
-            "rate_appearance_intact_per_gram",
-            "rate_disappearance_intact_per_animal",
-            "rate_appearance_intact_per_animal",
-            "rate_disappearance_average_per_gram",
-            "rate_appearance_average_per_gram",
-            "rate_disappearance_average_per_animal",
-            "rate_appearance_average_per_animal",
-        ]
+        expected = ["peak_labeled_elements"]
         self.assertEqual(
-            pg.get_my_cached_method_names(),
             expected,
+            pg.get_my_cached_method_names(),
             msg="Ensure get_my_cached_method_names returns all expected cache_functions.",
         )
 
