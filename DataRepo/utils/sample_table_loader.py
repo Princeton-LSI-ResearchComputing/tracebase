@@ -111,6 +111,7 @@ class SampleTableLoader:
                     self.db = settings.VALIDATION_DB
                 else:
                     raise ValidationDatabaseSetupError()
+        print(f"DATABASE USED: {self.db} VALIDATE?: {self.validate}")
 
     def validate_sample_table(self, data, skip_researcher_check=False):
         """
@@ -336,9 +337,9 @@ class SampleTableLoader:
                     infusate_data_object = parse_infusate_name(
                         infusate_str, tracer_concs
                     )
-                    (infusate, created) = Infusate.objects.get_or_create_infusate(
-                        infusate_data_object
-                    )
+                    (infusate, created) = Infusate.objects.using(
+                        self.db
+                    ).get_or_create_infusate(infusate_data_object)
                     animal.infusate = infusate
 
                 rate_required = infusate is not None
@@ -357,16 +358,20 @@ class SampleTableLoader:
                     print(f"Error saving record: Animal:{animal}")
                     raise (e)
 
-                # Animal Label - Load each unique labeled element among the tracers for this animal
-                # This is where enrichment_fraction, enrichment_abundance, and normalized_labeling functions live
-                for labeled_element in infusate.tracer_labeled_elements():
-                    print(
-                        f"Finding or inserting animal label '{labeled_element}' for '{animal}'..."
-                    )
-                    AnimalLabel.objects.using(self.db).get_or_create(
-                        animal=animal,
-                        element=labeled_element,
-                    )
+                # Infusate is required, but the missing headers are buffered to create an exception later
+                if infusate:
+                    # Animal Label - Load each unique labeled element among the tracers for this animal
+                    # This is where enrichment_fraction, enrichment_abundance, and normalized_labeling functions live
+                    for labeled_element in infusate.tracer_labeled_elements():
+                        print(
+                            f"Finding or inserting animal label '{labeled_element}' for '{animal}'..."
+                        )
+                        AnimalLabel.objects.using(self.db).get_or_create(
+                            animal=animal,
+                            element=labeled_element,
+                        )
+            else:
+                infusate = None
 
             # Sample
             sample_name = self.getRowVal(row, self.headers.SAMPLE_NAME)
@@ -420,13 +425,15 @@ class SampleTableLoader:
                             print(f"Error saving record: Sample:{sample}")
                             raise (e)
 
-                if tissue.is_serum():
+                # Infusate is required, but the missing headers are buffered to create an exception later
+                if tissue.is_serum() and infusate:
                     # FCirc - Load each unique tracer and labeled element combo if this is a serum sample
                     # These tables are where the appearance and disappearance calculation functions live
-                    for tracer in sample.animal.infusate.tracers.all():
+                    for tracer in infusate.tracers.all():
                         for label in tracer.labels.all():
                             print(
-                                f"\tFinding or inserting FCirc tracer '{tracer}' and label '{label}' for '{sample}'..."
+                                f"\tFinding or inserting FCirc tracer '{tracer.compound}' and label '{label.element}' "
+                                f"for '{sample}'..."
                             )
                             FCirc.objects.using(self.db).get_or_create(
                                 serum_sample=sample,
@@ -465,7 +472,7 @@ class SampleTableLoader:
         # Throw an exception in debug mode to abort the load
         assert not debug, "Debugging..."
 
-        perform_buffered_updates()
+        perform_buffered_updates(using=self.db)
         enable_autoupdates()
 
         if settings.DEBUG:

@@ -4,7 +4,6 @@ from django.db import models
 
 from DataRepo.models.element_label import ElementLabel
 from DataRepo.models.hier_cached_model import HierCachedModel, cached_function
-from DataRepo.models.peak_group import PeakGroup
 
 
 class FCirc(HierCachedModel):
@@ -48,7 +47,7 @@ class FCirc(HierCachedModel):
 
     @property  # type: ignore
     @cached_function
-    def final_peak_group(self):
+    def last_peak_group(self):
         """
         Retrieve the latest PeakGroup for a given sample and this tracer/label.
         """
@@ -58,31 +57,19 @@ class FCirc(HierCachedModel):
         # included in an msrun twice for the same serum sample, calculating based on it might be worthwhile for the
         # same reason that we show calculations for the "not last" serum sample.  If people think that's worthwhile, I
         # could hang this table off of peakGroup instead of here...
-        sample_peakgroups = (
-            PeakGroup.objects.filter(msrun__sample_id=self.serum_sample.id)
-            .filter(compounds__id__exact=self.tracer.compound.id)
+        peakgroups = (
+            self.serum_sample.peak_groups(self.tracer.compound.id)
             .filter(peak_group_labels__element__exact=self.element)
             .order_by("msrun__date")
         )
 
-        if sample_peakgroups.count() == 0:
+        if peakgroups.count() == 0:
             warnings.warn(
                 f"Serum sample {self.serum_sample.name} has no peak group for tracer {self.tracer}."
             )
             return None
 
-        return sample_peakgroups.last()
-
-    @property  # type: ignore
-    @cached_function
-    def final_serum_sample_tracer_peak_group(self):
-        """
-        final_serum_sample_tracer_peak_group is an instance method that returns
-        the very last recorded PeakGroup obtained from the Animal's final serum
-        sample from the last date it was measured/assayed
-        """
-
-        return self.final_peak_group(self.serum_sample.animal.final_serum_sample)
+        return peakgroups.last()
 
     @property  # type: ignore
     @cached_function
@@ -91,13 +78,13 @@ class FCirc(HierCachedModel):
         Rate of Disappearance (intact), also referred to as Rd_intact_g. This is
         calculated on the Animal's final serum sample tracer's PeakGroup.
         """
-        if not self.final_peak_group:
+        if not self.last_peak_group:
             warnings.warn(
                 f"Serum sample {self.serum_sample.name} has no peak group for tracer {self.tracer}."
             )
             return None
         else:
-            return self.final_peak_group.peak_group_labels.get(
+            return self.last_peak_group.peak_group_labels.get(
                 element__exact=self.element,
             ).rate_disappearance_intact_per_gram
 
@@ -109,13 +96,13 @@ class FCirc(HierCachedModel):
         sometimes Fcirc_intact. This is calculated on the Animal's
         final serum sample tracer's PeakGroup.
         """
-        if not self.final_peak_group:
+        if not self.last_peak_group:
             warnings.warn(
                 f"Serum sample {self.serum_sample.name} has no peak group for tracer {self.tracer}."
             )
             return None
         else:
-            return self.final_peak_group.peak_group_labels.get(
+            return self.last_peak_group.peak_group_labels.get(
                 element__exact=self.element,
             ).rate_appearance_intact_per_gram
 
@@ -126,13 +113,13 @@ class FCirc(HierCachedModel):
         Rate of Disappearance (intact), also referred to as Rd_intact. This is
         calculated on the Animal's final serum sample tracer's PeakGroup.
         """
-        if not self.final_peak_group:
+        if not self.last_peak_group:
             warnings.warn(
                 f"Serum sample {self.serum_sample.name} has no peak group for tracer {self.tracer}."
             )
             return None
         else:
-            return self.final_peak_group.peak_group_labels.get(
+            return self.last_peak_group.peak_group_labels.get(
                 element__exact=self.element,
             ).rate_disappearance_intact_per_animal
 
@@ -144,13 +131,13 @@ class FCirc(HierCachedModel):
         Fcirc_intact_per_mouse. This is calculated on the Animal's final serum
         sample tracer's PeakGroup.
         """
-        if not self.final_peak_group:
+        if not self.last_peak_group:
             warnings.warn(
                 f"Serum sample {self.serum_sample.name} has no peak group for tracer {self.tracer}."
             )
             return None
         else:
-            return self.final_peak_group.peak_group_labels.get(
+            return self.last_peak_group.peak_group_labels.get(
                 element__exact=self.element,
             ).rate_appearance_intact_per_animal
 
@@ -163,13 +150,13 @@ class FCirc(HierCachedModel):
         Calculated for the last serum sample collected, for the last tracer
         peakgroup analyzed.
         """
-        if not self.final_peak_group:
+        if not self.last_peak_group:
             warnings.warn(
                 f"Serum sample {self.serum_sample.name} has no peak group for tracer {self.tracer}."
             )
             return None
         else:
-            return self.final_peak_group.peak_group_labels.get(
+            return self.last_peak_group.peak_group_labels.get(
                 element__exact=self.element,
             ).rate_disappearance_average_per_gram
 
@@ -182,13 +169,13 @@ class FCirc(HierCachedModel):
         Calculated for the last serum sample collected, for the last tracer
         peakgroup analyzed.
         """
-        if not self.final_peak_group:
+        if not self.last_peak_group:
             warnings.warn(
                 f"Serum sample {self.serum_sample.name} has no peak group for tracer {self.tracer}."
             )
             return None
         else:
-            return self.final_peak_group.peak_group_labels.get(
+            return self.last_peak_group.peak_group_labels.get(
                 element__exact=self.element,
             ).rate_appearance_average_per_gram
 
@@ -201,13 +188,13 @@ class FCirc(HierCachedModel):
         Calculated for the last serum sample collected, for the last tracer
         peakgroup analyzed.
         """
-        if not self.final_peak_group:
+        if not self.last_peak_group:
             warnings.warn(
                 f"Serum sample {self.serum_sample.name} has no peak group for tracer {self.tracer}."
             )
             return None
         else:
-            return self.final_peak_group.peak_group_labels.get(
+            return self.last_peak_group.peak_group_labels.get(
                 element__exact=self.element,
             ).rate_disappearance_average_per_animal
 
@@ -220,12 +207,12 @@ class FCirc(HierCachedModel):
         Calculated for the last serum sample collected, for the last tracer
         peakgroup analyzed.
         """
-        if not self.final_peak_group:
+        if not self.last_peak_group:
             warnings.warn(
                 f"Serum sample {self.serum_sample.name} has no peak group for tracer {self.tracer}."
             )
             return None
         else:
-            return self.final_peak_group.peak_group_labels.get(
+            return self.last_peak_group.peak_group_labels.get(
                 element__exact=self.element,
             ).rate_appearance_average_per_animal

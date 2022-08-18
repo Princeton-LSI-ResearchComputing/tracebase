@@ -206,6 +206,8 @@ class DataValidationView(FormView):
                             traceback.print_exc()
                             print(estr)
                         if "Debugging" not in estr:
+                            traceback.print_exc()
+                            print(estr)
                             valid = False
                             results[af] = "FAILED"
                             errors[af].append(estr)
@@ -233,6 +235,7 @@ class DataValidationView(FormView):
 
         for mdl in get_all_models():
             if mdl not in skips:
+                print(f"Clearing out Model {mdl.__name__}")
                 mdl.objects.using(settings.VALIDATION_DB).all().delete()
 
     def validate_accucor(self, accucor_file, skip_samples):
