@@ -213,7 +213,10 @@ class MaintainedModel(Model):
         This is an override of the derived model's save method that is being used here to automatically update
         maintained fields.
         """
-
+        import inspect
+        curframe = inspect.currentframe()
+        calframe = inspect.getouterframes(curframe, 2)
+        print(f"MaintainedModel.save() called for class {self.__class__.__name__} with args: [{str(args)}] and kwargs: [{str(kwargs)}].  Called by: {', '.join(list(map(lambda x: str(x), list(calframe[1]))))}")
         # If auto-updates are turned on, a cascade of updates to linked models will occur, but if they are turned off,
         # the update will be buffered, to be manually triggered later (e.g. upon completion of loading), which
         # mitigates repeated updates to the same record
@@ -452,13 +455,14 @@ def filter_updaters(updaters_list, generation=None, label_filters=[], filter_in=
     return new_updaters_list
 
 
-def perform_buffered_updates(label_filters=[]):
+def perform_buffered_updates(label_filters=[], using=None):
     """
     Performs a mass update of records in the buffer in a breadth-first fashion without repeated updates to the same
     record over and over.
     """
     global update_buffer
     global performing_mass_autoupdates
+    db = using
 
     if auto_updates:
         raise InvalidAutoUpdateMode()
@@ -510,7 +514,10 @@ def perform_buffered_updates(label_filters=[]):
                     # decide which records should be updated.  Currently, this is not an issue because we only have 1
                     # update_label in use.  And if/when we add another label, it will only end up causing extra
                     # repeated updates of the same record.
-                    buffer_item.save()
+                    if db:
+                        buffer_item.save(using=db)
+                    else:
+                        buffer_item.save()
 
                     # keep track that this record was updated
                     updated[key] = True

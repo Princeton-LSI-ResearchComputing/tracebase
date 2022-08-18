@@ -139,7 +139,7 @@ class FormatsTests(TracebaseTestCase):
                 "Tracer Compound (Primary Synonym)",
             ),
             (
-                "peak_group__msrun__sample__animal__infusate__infusatetracer__concentration",
+                "peak_group__msrun__sample__animal__infusate__tracer_links__concentration",
                 "Tracer Concentration (mM)",
             ),
             ("peak_group__msrun__sample__animal__treatment__name", "Treatment"),
@@ -168,7 +168,7 @@ class FormatsTests(TracebaseTestCase):
                 "Tracer Compound (Primary Synonym)",
             ),
             (
-                "msrun__sample__animal__infusate__infusatetracer__concentration",
+                "msrun__sample__animal__infusate__tracer_links__concentration",
                 "Tracer Concentration (mM)",
             ),
             ("msrun__sample__animal__treatment__name", "Treatment"),
@@ -180,31 +180,26 @@ class FormatsTests(TracebaseTestCase):
         sfcd = basv.getSearchFieldChoicesDict()
         sfcd_expected = {
             "fctemplate": (
-                ("msrun__sample__animal__name", "Animal"),
-                ("msrun__sample__animal__body_weight", "Body Weight (g)"),
-                ("msrun__sample__animal__diet", "Diet"),
-                ("msrun__sample__animal__feeding_status", "Feeding Status"),
-                ("msrun__sample__animal__genotype", "Genotype"),
-                ("msrun__sample__animal__sex", "Sex"),
-                ("msrun__sample__animal__studies__name", "Study"),
+                ("serum_sample__animal__name", "Animal"),
+                ("serum_sample__animal__body_weight", "Body Weight (g)"),
+                ("serum_sample__animal__diet", "Diet"),
+                ("serum_sample__animal__feeding_status", "Feeding Status"),
+                ("serum_sample__animal__genotype", "Genotype"),
+                ("serum_sample__animal__infusion_rate", "Infusion Rate (ul/min/g)"),
+                ("element", "Peak Group Labeled Element"),
+                ("serum_sample__animal__sex", "Sex"),
+                ("serum_sample__animal__studies__name", "Study"),
                 (
-                    "msrun__sample__time_collected",
+                    "serum_sample__animal__samples__time_collected",
                     "Time Collected (hh:mm:ss since infusion)",
                 ),
-                ("msrun__sample__animal__tracer_compound__name", "Tracer Compound"),
+                ("tracer__name", "Tracer"),
+                ("tracer__compound__name", "Tracer Compound (Primary Synonym)"),
                 (
-                    "msrun__sample__animal__tracer_infusion_concentration",
-                    "Tracer Infusion Concentration (mM)",
+                    "serum_sample__animal__infusate__tracer_links__concentration",
+                    "Tracer Concentration (mM)",
                 ),
-                (
-                    "msrun__sample__animal__tracer_infusion_rate",
-                    "Tracer Infusion Rate (ul/min/g)",
-                ),
-                (
-                    "msrun__sample__animal__tracer_labeled_atom",
-                    "Tracer Labeled Element",
-                ),
-                ("msrun__sample__animal__treatment__name", "Treatment"),
+                ("serum_sample__animal__treatment__name", "Treatment"),
             ),
             "pdtemplate": self.getPdtemplateChoicesTuple(),
             "pgtemplate": self.getPgtemplateChoicesTuple(),
@@ -424,10 +419,13 @@ class FormatsTests(TracebaseTestCase):
             "compounds__synonyms__compound__name",
             "compounds__synonyms__name",
             "compounds__synonyms__pk",
+            "peak_group_labels__peak_group__name",
+            "peak_group_labels__element",
+            "peak_group_labels__pk",
             "msrun__sample__animal__infusate__name",
-            "msrun__sample__animal__infusate__infusatetracer__tracer__name",
-            "msrun__sample__animal__infusate__infusatetracer__concentration",
-            "msrun__sample__animal__infusate__infusatetracer__pk",
+            "msrun__sample__animal__infusate__tracer_links__tracer__name",
+            "msrun__sample__animal__infusate__tracer_links__concentration",
+            "msrun__sample__animal__infusate__tracer_links__pk",
             "msrun__sample__animal__infusate__tracers__compound__name",
             "msrun__sample__animal__infusate__tracers__compound__pk",
             "compounds__name",
@@ -938,7 +936,7 @@ class FormatsTests(TracebaseTestCase):
         pf = "msrun__sample__animal__studies"
         recs = PeakGroup.objects.all().prefetch_related(pf)
         val = basv_metadata.getJoinedRecFieldValue(recs, fmt, mdl, fld, fld, "Fasted")
-        self.assertEqual(val, "Fasted")
+        self.assertEqual("Fasted", val)
 
     @tag("multi_working")
     def test_cv_getSearchFieldChoices(self):
@@ -970,12 +968,12 @@ class FormatsTests(TracebaseTestCase):
                 "Tracer Compound (Primary Synonym)",
             ),
             (
-                "msrun__sample__animal__infusate__infusatetracer__concentration",
+                "msrun__sample__animal__infusate__tracer_links__concentration",
                 "Tracer Concentration (mM)",
             ),
             ("msrun__sample__animal__treatment__name", "Treatment"),
         )
-        self.assertEqual(res, choices)
+        self.assertEqual(choices, res)
 
     @tag("multi_working")
     def test_cv_getKeyPathList(self):
@@ -987,7 +985,7 @@ class FormatsTests(TracebaseTestCase):
         mdl = "Animal"
         res = basv_metadata.getKeyPathList(fmt, mdl)
         kpl = ["msrun", "sample", "animal"]
-        self.assertEqual(res, kpl)
+        self.assertEqual(kpl, res)
 
     @tag("multi_working")
     def test_cv_getPrefetches(self):

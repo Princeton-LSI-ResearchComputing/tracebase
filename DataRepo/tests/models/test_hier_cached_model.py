@@ -240,7 +240,7 @@ class GlobalCacheTests(TracebaseTestCase):
             "Sample": ["is_serum_sample"],
             "PeakGroup": ["peak_labeled_elements"],
             "FCirc": [
-                "final_peak_group",
+                "last_peak_group",
                 "final_serum_sample_tracer_peak_group",
                 "rate_disappearance_intact_per_gram",
                 "rate_appearance_intact_per_gram",

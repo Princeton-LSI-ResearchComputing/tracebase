@@ -18,38 +18,46 @@ if TYPE_CHECKING:
 CONCENTRATION_SIGNIFICANT_FIGURES = 3
 
 
-class InfusateManager(models.Manager):
+# NOTE: PR REVIEW: Had to change this to a QuerySet subclass in order to support .using(db) for the validation
+#       database.  See: https://sayari3.com/articles/32-custom-managers-and-queryset-methods-in-django/
+class InfusateQuerySet(models.QuerySet):
     def get_or_create_infusate(
         self, infusate_data: InfusateData
     ) -> tuple[Infusate, bool]:
         """Get Infusate matching the infusate_data, or create a new infusate"""
 
         # Search for matching Infusate
-        infusate = self.get_infusate(infusate_data)
+        infusate = self.using(self._db).get_infusate(infusate_data)
         created = False
 
         # Matching record not found, create new record
         if infusate is None:
             # create infusate
-            infusate = self.create(tracer_group_name=infusate_data["infusate_name"])
+            print(f"Inserting infusate {infusate_data['unparsed_string']} into database {self._db}")
+            infusate = self.using(self._db).create(tracer_group_name=infusate_data["infusate_name"])
 
             # create tracers
             Tracer = get_model_by_name("Tracer")
             InfusateTracer = get_model_by_name("InfusateTracer")
             for infusate_tracer in infusate_data["tracers"]:
-                tracer = Tracer.objects.get_tracer(infusate_tracer["tracer"])
+                tracer = Tracer.objects.using(self._db).get_tracer(
+                    infusate_tracer["tracer"]
+                )
                 if tracer is None:
-                    (tracer, _) = Tracer.objects.get_or_create_tracer(
+                    (tracer, _) = Tracer.objects.using(self._db).get_or_create_tracer(
                         infusate_tracer["tracer"]
                     )
                 # associate tracers with specific conectrations
-                InfusateTracer.objects.create(
+                InfusateTracer.objects.using(self._db).create(
                     infusate=infusate,
                     tracer=tracer,
                     concentration=infusate_tracer["concentration"],
                 )
             infusate.full_clean()
+            infusate.save(using=self._db)
             created = True
+        else:
+            print(f"Found infusate {infusate_data['unparsed_string']} in database {self._db}")
         return (infusate, created)
 
     def get_infusate(self, infusate_data: InfusateData) -> Optional[Infusate]:
@@ -57,16 +65,20 @@ class InfusateManager(models.Manager):
         matching_infusate = None
 
         # Check for infusates with the same name and same number of tracers
-        infusates = Infusate.objects.annotate(
-            num_tracers=models.Count("tracers")
-        ).filter(
-            tracer_group_name=infusate_data["infusate_name"],
-            num_tracers=len(infusate_data["tracers"]),
+        infusates = (
+            Infusate.objects.using(self._db)
+            .annotate(num_tracers=models.Count("tracers"))
+            .filter(
+                tracer_group_name=infusate_data["infusate_name"],
+                num_tracers=len(infusate_data["tracers"]),
+            )
         )
         # Check that the tracers match
         for infusate_tracer in infusate_data["tracers"]:
             Tracer = get_model_by_name("Tracer")
-            tracer = Tracer.objects.get_tracer(infusate_tracer["tracer"])
+            tracer = Tracer.objects.using(self._db).get_tracer(
+                infusate_tracer["tracer"]
+            )
             infusates = infusates.filter(
                 tracer_links__tracer=tracer,
                 tracer_links__concentration=infusate_tracer["concentration"],
@@ -77,7 +89,7 @@ class InfusateManager(models.Manager):
 
 
 class Infusate(MaintainedModel):
-    objects = InfusateManager()
+    objects = InfusateQuerySet().as_manager()
 
     id = models.AutoField(primary_key=True)
     name = models.CharField(

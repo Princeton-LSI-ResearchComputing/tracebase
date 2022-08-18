@@ -2,6 +2,7 @@ import json
 
 from django.conf import settings
 from django.core.management import call_command
+from django.db import transaction
 from django.test import override_settings, tag
 from django.urls import reverse
 
@@ -20,7 +21,7 @@ from DataRepo.models import (
     Tissue,
 )
 from DataRepo.models.utilities import get_all_models
-from DataRepo.tests.tracebase_test_case import TracebaseTestCase
+from DataRepo.tests.tracebase_test_case import TracebaseTestCase, TracebaseTransactionTestCase
 from DataRepo.views import DataValidationView
 
 
@@ -582,8 +583,17 @@ class ViewTests(TracebaseTestCase):
         self.assertEqual(results["data_submission_accucor2.xlsx"], "PASSED")
 
 
-@tag("multi_working")
-class ValidationViewTests(TracebaseTestCase):
+@tag("multi_mixed")
+class ValidationViewTests(TracebaseTransactionTestCase):
+    """
+    Note, without the TransactionTestCase (derived) class, the infusate-related model managers produce the following
+    error:
+        django.db.transaction.TransactionManagementError: An error occurred in the current transaction. You can't
+        execute queries until the end of the 'atomic' block.
+    ...associated with the outer atomic transaction of any normal test case.  See:
+    https://stackoverflow.com/questions/21458387/transactionmanagementerror-you-cant-execute-queries-until-the-end-of-the-atom
+    """
+
     @classmethod
     def initialize_databases(cls):
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
@@ -610,12 +620,14 @@ class ValidationViewTests(TracebaseTestCase):
         sum = 0
         for cnt in record_counts:
             sum += cnt
+        print(f"{sum}\tTOTAL")
         return sum
 
     @classmethod
     def get_record_counts(cls, db):
         record_counts = []
         for mdl in get_all_models():
+            print(f"{mdl.objects.using(db).all().count()}\t{db}.{mdl.__name__} record count")
             record_counts.append(mdl.objects.using(db).all().count())
         return record_counts
 
@@ -729,28 +741,38 @@ class ValidationViewTests(TracebaseTestCase):
         """
         Test to ensure that the validation database is never loaded with samples, animals, and accucor data by default
         """
-        self.clear_database(settings.TRACEBASE_DB)
-        self.clear_database(settings.VALIDATION_DB)
-        self.initialize_databases()
-        tb_init_sum = self.sum_record_counts(settings.TRACEBASE_DB)
-        vd_init_sum = self.sum_record_counts(settings.VALIDATION_DB)
-        call_command(
-            "load_samples",
-            "DataRepo/example_data/small_dataset/small_obob_sample_table.tsv",
-            sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
-        )
-        call_command(
-            "load_accucor_msruns",
-            protocol="Default",
-            accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf.xlsx",
-            date="2021-06-03",
-            researcher="Michael Neinast",
-            new_researcher=True,
-        )
-        tb_post_sum = self.sum_record_counts(settings.TRACEBASE_DB)
-        vd_post_sum = self.sum_record_counts(settings.VALIDATION_DB)
-        self.assertGreater(tb_post_sum, tb_init_sum)
-        self.assertEqual(vd_post_sum, vd_init_sum)
+        with transaction.atomic():
+            print("BEFORE INIT:")
+            tb_init_sum = self.sum_record_counts(settings.TRACEBASE_DB)
+            vd_init_sum = self.sum_record_counts(settings.VALIDATION_DB)
+            self.clear_database(settings.TRACEBASE_DB)
+            self.clear_database(settings.VALIDATION_DB)
+            self.initialize_databases()
+            print("BEFORE LOAD:")
+            tb_init_sum = self.sum_record_counts(settings.TRACEBASE_DB)
+            vd_init_sum = self.sum_record_counts(settings.VALIDATION_DB)
+            call_command(
+                "load_samples",
+                "DataRepo/example_data/small_dataset/small_obob_sample_table.tsv",
+                sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
+            )
+            call_command(
+                "load_accucor_msruns",
+                protocol="Default",
+                accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf.xlsx",
+                date="2021-06-03",
+                researcher="Michael Neinast",
+                new_researcher=True,
+            )
+            print("AFTER LOAD:")
+            from DataRepo.models import Infusate
+            from django.forms.models import model_to_dict
+            for x in Infusate.objects.using(settings.VALIDATION_DB).all():
+                print(f"VDB Infusate: {model_to_dict(x)}")
+            tb_post_sum = self.sum_record_counts(settings.TRACEBASE_DB)
+            vd_post_sum = self.sum_record_counts(settings.VALIDATION_DB)
+            self.assertGreater(tb_post_sum, tb_init_sum)
+            self.assertEqual(vd_post_sum, vd_init_sum)
 
     @tag("multi_working")
     @override_settings(VALIDATION_ENABLED=False)
@@ -799,7 +821,13 @@ def validate_some_files(testobj):
     # last possible check on the file on purpose so that everything else is guaranteed to be OK
     testobj.assertTrue(not valid)
 
-    testobj.assertEqual(results["data_submission_animal_sample_table.xlsx"], "WARNING")
+    # There should only be a warning about the researcher in the sample file not existing - no other errors
+    testobj.assertEqual(
+        results["data_submission_animal_sample_table.xlsx"],
+        "WARNING",
+        msg="There sould only be a researcher warning among the following errors:\n"
+        + "\n".join(errors["data_submission_animal_sample_table.xlsx"]),
+    )
     testobj.assertTrue(len(errors["data_submission_animal_sample_table.xlsx"]) == 1)
     testobj.assertTrue(
         "1 researchers from the sample file: [Anonymous]"

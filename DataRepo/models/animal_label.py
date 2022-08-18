@@ -62,6 +62,11 @@ class AnimalLabel(HierCachedModel):
 
         # Get the peak group of each tracer compound from the final serum sample
         final_serum_sample = self.animal.final_serum_sample
+
+        if not final_serum_sample:
+            warnings.warn(f"{self.animal} has no serum sample.")
+            return PeakGroup.objects.none()
+
         # Get the Peak Groups for the tracer compounds of the final serum sample that have this element
         final_serum_tracer_peak_groups = PeakGroup.objects.filter(
             msrun__sample__id__exact=final_serum_sample.id
@@ -118,6 +123,16 @@ class AnimalLabel(HierCachedModel):
             if tracers.count() == 0 or total_atom_count == 0:
                 raise NoTracerCompounds(self.animal, self.element)
 
+            if (
+                self.final_serum_sample_tracer_label_peak_groups.count()
+                != tracers.count()
+            ):
+                raise MissingPeakGroups(
+                    tracers,
+                    self.final_serum_sample_tracer_label_peak_groups,
+                    self.animal.final_serum_sample,
+                )
+
             # Sum the element enrichment across all tracer compounds
             final_serum_tracers_enrichment_sum = 0.0
             for pg in self.final_serum_sample_tracer_label_peak_groups.all():
@@ -150,6 +165,9 @@ class AnimalLabel(HierCachedModel):
         except MissingPeakData as mpd:
             error = True
             msg = MissingPeakData.__name__ + " ERROR: " + str(mpd)
+        except MissingPeakGroups as mpg:
+            error = True
+            msg = MissingPeakGroups.__name__ + " ERROR: " + str(mpg)
         except PeakDataLabel.DoesNotExist as pdldne:
             # This is not something the user can recitify via loading. This would be a bug in the loading code
             raise MissingPeakDataLabel(pg, self.element) from pdldne
@@ -162,166 +180,6 @@ class AnimalLabel(HierCachedModel):
                 return None
 
         return tracers_enrichment_fraction
-
-    @property  # type: ignore
-    @cached_function
-    def final_serum_tracer_rate_disappearance_intact_per_gram(self):
-        """
-        Rate of Disappearance (intact), also referred to as Rd_intact_g. This is
-        calculated on the Animal's final serum sample tracer's PeakGroup.
-        """
-        if not self.animal.final_serum_sample_tracer_peak_group:
-            warnings.warn(
-                f"Animal {self.animal.name} has no final serum sample peak group."
-            )
-            return None
-        else:
-            return self.final_serum_sample_tracer_peak_group.peak_group_labels.get(
-                element__exact=self.element,
-            ).rate_disappearance_intact_per_gram
-
-    @property  # type: ignore
-    @cached_function
-    def final_serum_tracer_rate_appearance_intact_per_gram(self):
-        """
-        Rate of Appearance (intact), also referred to as Ra_intact_g, or
-        sometimes Fcirc_intact. This is calculated on the Animal's
-        final serum sample tracer's PeakGroup.
-        """
-        if not self.animal.final_serum_sample_tracer_peak_group:
-            warnings.warn(
-                f"Animal {self.animal.name} has no final serum sample peak group."
-            )
-            return None
-        else:
-            return (
-                self.animal.final_serum_sample_tracer_peak_group.peak_group_labels.get(
-                    element__exact=self.element,
-                ).rate_appearance_intact_per_gram
-            )
-
-    @property  # type: ignore
-    @cached_function
-    def final_serum_tracer_rate_disappearance_intact_per_animal(self):
-        """
-        Rate of Disappearance (intact), also referred to as Rd_intact. This is
-        calculated on the Animal's final serum sample tracer's PeakGroup.
-        """
-        if not self.animal.final_serum_sample_tracer_peak_group:
-            warnings.warn(
-                f"Animal {self.animal.name} has no final serum sample peak group."
-            )
-            return None
-        else:
-            return (
-                self.animal.final_serum_sample_tracer_peak_group.peak_group_labels.get(
-                    element__exact=self.element,
-                ).rate_disappearance_intact_per_animal
-            )
-
-    @property  # type: ignore
-    @cached_function
-    def final_serum_tracer_rate_appearance_intact_per_animal(self):
-        """
-        Rate of Appearance (intact), also referred to as Ra_intact, or sometimes
-        Fcirc_intact_per_mouse. This is calculated on the Animal's final serum
-        sample tracer's PeakGroup.
-        """
-        if not self.animal.final_serum_sample_tracer_peak_group:
-            warnings.warn(
-                f"Animal {self.animal.name} has no final serum sample peak group."
-            )
-            return None
-        else:
-            return (
-                self.animal.final_serum_sample_tracer_peak_group.peak_group_labels.get(
-                    element__exact=self.element,
-                ).rate_appearance_intact_per_animal
-            )
-
-    @property  # type: ignore
-    @cached_function
-    def final_serum_tracer_rate_disappearance_average_per_gram(self):
-        """
-        Also referred to as Rd_avg_g = [Infusate] * 'Infusion Rate' / 'Enrichment Fraction' in
-        nmol/min/g
-        Calculated for the last serum sample collected, for the last tracer
-        peakgroup analyzed.
-        """
-        if not self.animal.final_serum_sample_tracer_peak_group:
-            warnings.warn(
-                f"Animal {self.animal.name} has no final serum sample peak group."
-            )
-            return None
-        else:
-            return (
-                self.animal.final_serum_sample_tracer_peak_group.peak_group_labels.get(
-                    element__exact=self.element,
-                ).rate_disappearance_average_per_gram
-            )
-
-    @property  # type: ignore
-    @cached_function
-    def final_serum_tracer_rate_appearance_average_per_gram(self):
-        """
-        Also referred to as Ra_avg_g, and sometimes referred to as Fcirc_avg.
-        Equivalent to Rd_avg_g - [Infusate] * 'Infusion Rate' in nmol/min/g
-        Calculated for the last serum sample collected, for the last tracer
-        peakgroup analyzed.
-        """
-        if not self.animal.final_serum_sample_tracer_peak_group:
-            warnings.warn(
-                f"Animal {self.animal.name} has no final serum sample peak group."
-            )
-            return None
-        else:
-            return (
-                self.animal.final_serum_sample_tracer_peak_group.peak_group_labels.get(
-                    element__exact=self.element,
-                ).rate_appearance_average_per_gram
-            )
-
-    @property  # type: ignore
-    @cached_function
-    def final_serum_tracer_rate_disappearance_average_per_animal(self):
-        """
-        Rate of Disappearance (avg), also referred to as Rd_avg
-        Rd_avg = Rd_avg_g * 'Body Weight' in nmol/min
-        Calculated for the last serum sample collected, for the last tracer
-        peakgroup analyzed.
-        """
-        if not self.animal.final_serum_sample_tracer_peak_group:
-            warnings.warn(
-                f"Animal {self.animal.name} has no final serum sample peak group."
-            )
-            return None
-        else:
-            return (
-                self.animal.final_serum_sample_tracer_peak_group.peak_group_labels.get(
-                    element__exact=self.element,
-                ).rate_disappearance_average_per_animal
-            )
-
-    @property  # type: ignore
-    @cached_function
-    def final_serum_tracer_rate_appearance_average_per_animal(self):
-        """
-        Rate of Appearance (avg), also referred to as Ra_avg or sometimes
-        Fcirc_avg_per_mouse. Ra_avg = Ra_avg_g * 'Body Weight'' in nmol/min
-        Calculated for the last serum sample collected, for the last tracer
-        peakgroup analyzed.
-        """
-        if not self.animal.final_serum_sample_tracer_peak_group:
-            warnings.warn(
-                f"Animal {self.animal.name} has no final serum sample peak group."
-            )
-            return None
-        else:
-            return (
-                self.animal.final_serum_sample_tracer_peak_group.peak_group_labels.get(
-                    element__exact=self.element,
-                ).rate_appearance_average_per_animal
-            )
 
 
 class MissingSerumTracerPeakGroups(Exception):
@@ -340,7 +198,7 @@ class MissingSerumTracerPeakGroups(Exception):
         )
         super().__init__(msg)
         self.animal = animal
-        self.animal.final_serum_sample = final_serum_sample
+        self.final_serum_sample = final_serum_sample
         self.final_serum_tracer_peak_groups = final_serum_tracer_peak_groups
         self.tracer_compounds = tracer_compounds
 
@@ -355,6 +213,16 @@ class MissingPeakData(Exception):
         super().__init__(msg)
         self.final_serum_tracer_peak_group = final_serum_tracer_peak_group
         self.tracer_labeled_element = tracer_labeled_element
+
+
+class MissingPeakGroups(Exception):
+    def __init__(self, tracers, peakgroups, sample):
+        msg = f"PeakGroup(s) missing for tracers in serum sample [{sample}].  There are {tracers.count()} tracers and "
+        f"{peakgroups.count()} corresponding peak groups."
+        super().__init__(msg)
+        self.tracers = tracers
+        self.peakgroups = peakgroups
+        self.sample = sample
 
 
 class NoTracerCompounds(Exception):

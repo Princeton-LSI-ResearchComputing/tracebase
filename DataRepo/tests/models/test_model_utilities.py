@@ -12,7 +12,7 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 @tag("multi_working")
 class ModelUtilitiesTests(TracebaseTestCase):
     def test_get_all_models(self):
-        """Test that we return all models"""
+        """Test that we return all models in the right order"""
         all_models = set(apps.get_app_config("DataRepo").get_models())
         test_all_models = set(get_all_models())
         # Test for duplicates
@@ -29,6 +29,14 @@ class ModelUtilitiesTests(TracebaseTestCase):
             extra_models,
             set(),
             msg="Models returned by DataRepo.models.utilities.get_all_models() includes these non-existant models.",
+        )
+        self.assertEqual(
+            list(apps.get_app_config("DataRepo").get_models()),
+            get_all_models(),
+            msg=(
+                "Models returned by DataRepo.models.utilities.get_all_models() must be returned in this safe deletion "
+                f"order: {list(map(lambda x: x.__name__, list(apps.get_app_config('DataRepo').get_models())))}."
+            ),
         )
 
     def test_dereference_field(self):

@@ -30,7 +30,16 @@ class Animal(HierCachedModel, ElementLabel):
     )
     infusate = models.ForeignKey(
         to="DataRepo.Infusate",
-        on_delete=models.RESTRICT,
+        # NOTE: PR REVIEW - This was previously RESTRICT, but I got errors during the cleanup of the validation
+        #       database that it couldn't delete some infusate records because of links to it from animal, which I
+        #       didn't expect... I thought it would delete only if there didn't exist any other links to it, and all
+        #       the animals were being deleted.  Perhaps the first time, it wouldn't delete, but the last animal that
+        #       links to it should delete the infusate...  How do I get that behavior?
+        #       Here was the error:
+        #       django.db.models.deletion.RestrictedError: ("Cannot delete some instances of model 'Infusate' because
+        #       they are referenced through restricted foreign keys: 'Animal.infusate'.", {<Animal: 090320_M1>,
+        #       <Animal: 090320_M2>, <Animal: 090320_M3>, ...
+        on_delete=models.CASCADE,
         null=True,
         blank=True,
         related_name="animal",
@@ -151,6 +160,68 @@ class Animal(HierCachedModel, ElementLabel):
         if fss and fss.id:
             id = fss.id
         return id
+
+    def last_serum_sample_peak_group(self, compound):
+        """
+        Retrieve the latest PeakGroup of this animal for a given compound (whether it's the last serum sample or not -
+        just as long as it's the last peakgroup for this compound measured in a serum sample).
+        """
+        from DataRepo.models import PeakGroup
+
+        # NOTE: PR REVIEW (TO BE DELETED): I have noted that it should be possible to calculate all the below values
+        # based on the "not last" peak group of a serum sample.  For example, if Lysine was the tracer, and it was
+        # included in an msrun twice for the same serum sample, calculating based on it might be worthwhile for the
+        # same reason that we show calculations for the "not last" serum sample.  If people think that's worthwhile, I
+        # could hang this table off of peakGroup instead of here...
+        peakgroups = (
+            PeakGroup.objects.filter(msrun__sample__animal__id__exact=self.id)
+            .filter(compounds__id__exact=compound.id)
+            .filter(msrun__sample__tissue__name__istartswith=Tissue.SERUM_TISSUE_PREFIX)
+            .order_by("msrun__sample__time_collected", "msrun__date")
+        )
+
+        if peakgroups.count() == 0:
+            warnings.warn(
+                f"Animal [{self.name}] has no serum sample peak group for compound {compound}."
+            )
+            return None
+
+        return peakgroups.last()
+
+    def last_serum_sample_peak_group_label(self, compound, element):
+        """
+        Retrieve the latest PeakGroup of this animal for a given compound (whether it's the last serum sample or not -
+        just as long as it's the last peakgroup for this compound measured in a serum sample).
+        """
+        from DataRepo.models import PeakGroupLabel
+
+        # NOTE: PR REVIEW (TO BE DELETED): I have noted that it should be possible to calculate all the below values
+        # based on the "not last" peak group of a serum sample.  For example, if Lysine was the tracer, and it was
+        # included in an msrun twice for the same serum sample, calculating based on it might be worthwhile for the
+        # same reason that we show calculations for the "not last" serum sample.  If people think that's worthwhile, I
+        # could hang this table off of peakGroup instead of here...
+        peakgrouplabels = (
+            PeakGroupLabel.objects.filter(
+                peak_group__msrun__sample__animal__id__exact=self.id
+            )
+            .filter(peak_group__compounds__id__exact=compound.id)
+            .filter(element__exact=element)
+            .filter(
+                peak_group__msrun__sample__tissue__name__istartswith=Tissue.SERUM_TISSUE_PREFIX
+            )
+            .order_by(
+                "peak_group__msrun__sample__time_collected", "peak_group__msrun__date"
+            )
+        )
+
+        if peakgrouplabels.count() == 0:
+            warnings.warn(
+                f"Animal [{self.name}] has no serum sample peak group label for compound [{compound}] and element "
+                f"[{element}]."
+            )
+            return None
+
+        return peakgrouplabels.last()
 
     class Meta:
         verbose_name = "animal"
