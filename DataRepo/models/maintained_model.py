@@ -57,6 +57,7 @@ def clear_update_buffer(generation=None, label_filters=[]):
     """
     global update_buffer
     if generation is None and len(label_filters) == 0:
+        print(f"CLEARING BUFFER CONTAINING {len(update_buffer)} ITEMS")
         update_buffer = []
         return
     new_buffer = []
@@ -283,7 +284,7 @@ class MaintainedModel(Model):
                     if current_val is None or current_val == "":
                         current_val = "<empty>"
                     print(
-                        f"Auto-updated {self.__class__.__name__}.{update_fld} using {update_fun.__qualname__} from "
+                        f"Auto-updated field {self.__class__.__name__}.{update_fld} in record {self.pk} using {update_fun.__qualname__} from "
                         f"[{current_val}] to [{new_val}]"
                     )
 
@@ -508,6 +509,7 @@ def perform_buffered_updates(label_filters=[], using=None):
                 if key not in updated and (
                     no_filters or updater_list_has_labels(updater_dicts, label_filters)
                 ):
+                    print(f"Auto-updating record: {key} from the buffer")
                     # Saving the record while performing_mass_autoupdates is True, causes auto-updates of every field
                     # included among the model's decorated functions.  It does not only update the fields indicated in
                     # decorators that contain the labels indicated in the label_filters.  The filters are only used to
@@ -534,7 +536,7 @@ def perform_buffered_updates(label_filters=[], using=None):
                                 add_to_buffer.append(tmp_buffer_item)
 
             except Exception as e:
-                raise AutoUpdateFailed(e)
+                raise AutoUpdateFailed(buffer_item, db, e)
 
         # Clear this generation from the buffer
         clear_update_buffer(generation=gen, label_filters=label_filters)
@@ -626,10 +628,12 @@ class NoDecorators(Exception):
 
 
 class AutoUpdateFailed(Exception):
-    def __init__(self, err):
+    def __init__(self, model_object, db, err):
+        database = '' if db is None else f"{db}."
         message = (
-            "Autoupdate failed.  If the record was deleted, a catch for the exception should be added and ignored (or "
-            f"the code should be edited to avoid it).  The triggering exception: [{err}]."
+            f"Autoupdate of {database}{model_object.__class__.__name__} failed.  If the record was created and "
+            "deleted before the buffered update, a catch for the exception should be added and ignored (or the code "
+            f"should be edited to avoid it).  The triggering exception: [{err}]."
         )
         super().__init__(message)
 

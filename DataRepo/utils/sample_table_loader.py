@@ -23,6 +23,7 @@ from DataRepo.models.maintained_model import (
     disable_autoupdates,
     enable_autoupdates,
     perform_buffered_updates,
+    clear_update_buffer,
 )
 from DataRepo.models.utilities import get_researchers, value_from_choices_label
 from DataRepo.utils.exceptions import (
@@ -151,7 +152,7 @@ class SampleTableLoader:
         disable_caching_updates()
         animals_to_uncache = []
 
-        # Create a list to hold the csv reader data so that iterations from validating doesn't leave the csv reader
+        # Create a list to hold the csv reader data so that iterations from validating cleardoesn't leave the csv reader
         # empty/at-the-end upon the import loop
         sample_table_data = list(data)
 
@@ -463,10 +464,19 @@ class SampleTableLoader:
                     f"researchers, add --skip-researcher-check to your command."
                 )
                 all_researcher_error_strs.append(err_msg)
+            # We're raising an exception, so we need to clear the update buffer so that the next call doesn't make
+            # auto-updates on non-existent (or incorrect) records
+            clear_update_buffer()
+            # And before we leave, we must re-enable auto-updates
+            enable_autoupdates()
             raise ResearcherError("\n".join(all_researcher_error_strs))
 
         enable_caching_updates()
         if debug:
+            # If we're in debug mode, we need to clear the update buffer so that the next call doesn't make auto-
+            # updates on non-existent (or incorrect) records
+            clear_update_buffer()
+            # And before we leave, we must re-enable auto-updates
             enable_autoupdates()
 
         # Throw an exception in debug mode to abort the load

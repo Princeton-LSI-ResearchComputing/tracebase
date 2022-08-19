@@ -18,8 +18,10 @@ if TYPE_CHECKING:
 CONCENTRATION_SIGNIFICANT_FIGURES = 3
 
 
-# NOTE: PR REVIEW: Had to change this to a QuerySet subclass in order to support .using(db) for the validation
-#       database.  See: https://sayari3.com/articles/32-custom-managers-and-queryset-methods-in-django/
+# NOTE: PR REVIEW: Had to change this to a QuerySet subclass in order to support calls to (e.g.):
+#           .using(db).get_or_create_infusate
+#       for the validation database.
+#       See: https://sayari3.com/articles/32-custom-managers-and-queryset-methods-in-django/
 class InfusateQuerySet(models.QuerySet):
     def get_or_create_infusate(
         self, infusate_data: InfusateData
@@ -137,6 +139,7 @@ class Infusate(MaintainedModel):
             return self.tracer_group_name
 
         link_recs = self.tracers.through.objects.filter(infusate__exact=self.id)
+        print(f"InfusateTracer: There are {link_recs.count()} tracers linked.")
 
         name = ";".join(
             sorted(
