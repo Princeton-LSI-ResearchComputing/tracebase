@@ -27,6 +27,7 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 @tag("multi_mixed")
 class FormatsTests(TracebaseTestCase):
     maxDiff = None
+    orig_split_rows = {}
 
     @classmethod
     def setUpTestData(cls):
@@ -61,6 +62,24 @@ class FormatsTests(TracebaseTestCase):
             researcher="Michael Neinast",
             new_researcher=False,
         )
+        basv = SearchGroup()
+        for fmt in basv.modeldata.keys():
+            cls.orig_split_rows[fmt] = {}
+            for inst in basv.modeldata[fmt].model_instances.keys():
+                cls.orig_split_rows[fmt][inst] = basv.modeldata[fmt].model_instances[inst]["manyrelated"]["split_rows"]
+
+    def restore_split_rows(self):
+        """
+        Some tests manipulate the basv.modeldata[fmt].model_instances[inst]["manyrelated"]["split_rows"] value to test
+        various functionality.  These manipulations of class variables persist from test to test, so if manipulated,
+        this method should be called to restore their original values.
+        """
+        basv = SearchGroup()
+        for fmt in basv.modeldata.keys():
+            for inst in basv.modeldata[fmt].model_instances.keys():
+                basv.modeldata[fmt].model_instances[inst]["manyrelated"]["split_rows"] = (
+                    self.orig_split_rows[fmt][inst]
+                )
 
     def getQueryObject(self):
         return {
@@ -354,6 +373,8 @@ class FormatsTests(TracebaseTestCase):
 
         self.assertEqual(expected_prefetches, prefetches)
 
+        self.restore_split_rows()
+
     @tag("multi_working")
     def test_getFullJoinAnnotations(self):
         basv = SearchGroup()
@@ -375,6 +396,8 @@ class FormatsTests(TracebaseTestCase):
         annots = basv.getFullJoinAnnotations(fmt)
         expected_annots = [{annot_name: F("compounds__pk")}]
         self.assertEqual(expected_annots, annots)
+
+        self.restore_split_rows()
 
     @tag("multi_working")
     def test_getDistinctFields(self):
@@ -400,6 +423,8 @@ class FormatsTests(TracebaseTestCase):
             "compounds__pk",
         ]
         self.assertEqual(expected_distincts, distincts)
+
+        self.restore_split_rows()
 
     @tag("multi_working")
     def test_getDistinctFields_split_all(self):
