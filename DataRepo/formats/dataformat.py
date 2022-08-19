@@ -637,11 +637,15 @@ class Format:
         that assumption is false, supply assume_distinct=False.
         """
         distinct_fields = []
+        if split_all:
+            print("In getDistinctFields")
         for mdl_inst_nm in self.model_instances:
             custom_distinct_fields_exist = (
                 "distinct" in self.model_instances[mdl_inst_nm].keys()
                 and self.model_instances[mdl_inst_nm]["distinct"]
             )
+            if split_all:
+                print(f"CUSTOM {mdl_inst_nm} DISTINCT FIELDS EXIST: {custom_distinct_fields_exist}")
 
             # The way to split root records into multiple records (as if it was a left join) is via the distinct
             # method.  So to do a full left join, you would call this method with split_all=True.  It is unnecessary to
@@ -677,9 +681,12 @@ class Format:
                 # Always split if split_rows is true and there aren't custom distinct fields
                 self.model_instances[mdl_inst_nm]["manyrelated"]["split_rows"]
                 and not custom_distinct_fields_exist
-                # Note if there are custom fields, split+all=True, but this model is not M:M, we are intentionally
-                # returning nothing because we want to split records that are otherwise combined by the custom fields
+                # Note if there are custom distinct fields and split_all=True (but this model is not M:M), we are
+                # intentionally returning nothing because we want to split records that are otherwise combined by the
+                # custom fields
             ):
+                if split_all:
+                    print(f"IN EXPECTED {mdl_inst_nm} SPLIT ALL")
                 # Django's ordering fields are required when any field is provided to .distinct().  Otherwise, you
                 # get the error: `ProgrammingError: SELECT DISTINCT ON expressions must match initial ORDER BY
                 # expressions`
