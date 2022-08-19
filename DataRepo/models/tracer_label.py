@@ -107,8 +107,7 @@ class TracerLabel(MaintainedModel, ElementLabel):
         return str(self._name())
 
     @field_updater_function(
-        # generation=3,
-        generation=2,
+        generation=3,
         update_field_name="name",
         parent_field_name="tracer",
         update_label="name",

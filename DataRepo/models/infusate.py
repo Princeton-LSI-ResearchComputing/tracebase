@@ -138,7 +138,7 @@ class Infusate(MaintainedModel):
         if self.id is None or self.tracers is None or self.tracers.count() == 0:
             return self.tracer_group_name
 
-        link_recs = self.tracers.through.objects.filter(infusate__exact=self.id)
+        link_recs = self.tracers.through.objects.filter(infusate__id__exact=self.id)
         print(f"InfusateTracer: There are {link_recs.count()} tracers linked.")
 
         name = ";".join(

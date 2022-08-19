@@ -30,9 +30,32 @@ class ModelUtilitiesTests(TracebaseTestCase):
             set(),
             msg="Models returned by DataRepo.models.utilities.get_all_models() includes these non-existant models.",
         )
+
+        #Generally, child tables are at the top and parent tables are at the bottom
+        ordered_model_name_list = [
+            "Compound",
+            "CompoundSynonym",
+            "Tissue",
+            "PeakDataLabel",
+            "PeakData",
+            "PeakGroup",
+            "PeakGroupLabel",
+            "PeakGroupSet",
+            "MSRun",
+            "FCirc",
+            "Sample",
+            "TracerLabel",
+            "Tracer",
+            "InfusateTracer",
+            "Infusate",
+            "Animal",
+            "AnimalLabel",
+            "Protocol",
+            "Study",
+        ]
         self.assertEqual(
-            list(apps.get_app_config("DataRepo").get_models()),
-            get_all_models(),
+            ordered_model_name_list,
+            list(map(lambda x: x.__name__, list(get_all_models()))),
             msg=(
                 "Models returned by DataRepo.models.utilities.get_all_models() must be returned in this safe deletion "
                 f"order: {list(map(lambda x: x.__name__, list(apps.get_app_config('DataRepo').get_models())))}."
