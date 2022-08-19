@@ -86,6 +86,7 @@ class DataValidationView(FormView):
             errors[animal_sample_name] = []
             results[animal_sample_name] = ""
             try:
+                print("ATTEMPTING SAMPLE TABLE LOAD 1 IN DEBUG MODE (i.e. REVERT)")
                 # debug=True is supposed to NOT commit the DB changes, but it IS creating the study, so even though I'm
                 # using debug here, I am also setting the database to the validation database...
                 call_command(
@@ -124,6 +125,7 @@ class DataValidationView(FormView):
                 # Load the animal and sample data into the validation database, so the data is available for the accucor
                 # file validation
                 try:
+                    print("ATTEMPTING SAMPLE TABLE LOAD 2 - A REAL LOAD INTO VALIDATION BECAUSE THE DEBUG ATTEMPT DID NOT OUTRIGHT FAIL")
                     call_command(
                         "load_animals_and_samples",
                         animal_and_sample_table_filename=animal_sample_dict[

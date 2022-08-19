@@ -545,7 +545,7 @@ class ViewTests(TracebaseTestCase):
         self.assertTrue("PeakGroups" in contentdisp)
         self.assertTrue(".tsv" in contentdisp)
 
-    @tag("multi_broken")
+    @tag("multi_working")
     def test_validate_files(self):
         """
         Do a file validation test
@@ -564,7 +564,7 @@ class ViewTests(TracebaseTestCase):
         self.assertEqual(results["data_submission_accucor2.xlsx"], "PASSED")
 
 
-@tag("multi_mixed")
+@tag("multi_working")
 class ValidationViewTests(TracebaseTransactionTestCase):
     """
     Note, without the TransactionTestCase (derived) class, the infusate-related model managers produce the following
@@ -612,7 +612,6 @@ class ValidationViewTests(TracebaseTransactionTestCase):
             record_counts.append(mdl.objects.using(db).all().count())
         return record_counts
 
-    @tag("multi_working")
     def test_validate_view(self):
         """
         Do a simple validation view test
@@ -621,7 +620,7 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "DataRepo/validate_submission.html")
 
-    @tag("multi_broken")
+    @override_settings(DEBUG=True)
     def test_validate_files(self):
         """
         Do a file validation test
@@ -655,7 +654,6 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         self.assertEqual(results["data_submission_accucor1.xlsx"], "PASSED")
         self.assertEqual(results["data_submission_accucor2.xlsx"], "PASSED")
 
-    @tag("multi_working")
     def test_databases_unchanged(self):
         """
         Test to ensure that validating user submitted data does not change either database
@@ -689,7 +687,6 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         self.assertListEqual(tb_init_counts, tb_post_counts)
         self.assertListEqual(vd_init_counts, vd_post_counts)
 
-    @tag("multi_working")
     def test_compounds_load_in_both_dbs(self):
         """
         Test to ensure that compounds load in both databases by default
@@ -707,7 +704,6 @@ class ValidationViewTests(TracebaseTransactionTestCase):
             CompoundSynonym.objects.using(settings.TRACEBASE_DB).all().count(), 0
         )
 
-    @tag("multi_working")
     def test_tissues_load_in_both_dbs(self):
         """
         Test to ensure that tissues load in both databases by default
@@ -717,7 +713,6 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
         self.assertGreater(Tissue.objects.using(settings.TRACEBASE_DB).all().count(), 0)
 
-    @tag("multi_working")
     def test_only_tracebase_loaded(self):
         """
         Test to ensure that the validation database is never loaded with samples, animals, and accucor data by default
@@ -755,7 +750,6 @@ class ValidationViewTests(TracebaseTransactionTestCase):
             self.assertGreater(tb_post_sum, tb_init_sum)
             self.assertEqual(vd_post_sum, vd_init_sum)
 
-    @tag("multi_working")
     @override_settings(VALIDATION_ENABLED=False)
     def test_validate_view_disabled_redirect(self):
         """
@@ -766,7 +760,6 @@ class ValidationViewTests(TracebaseTransactionTestCase):
             response.status_code, 302, msg="Make sure the view is redirected"
         )
 
-    @tag("multi_working")
     @override_settings(VALIDATION_ENABLED=False)
     def test_validate_view_disabled_template(self):
         """
