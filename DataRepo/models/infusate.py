@@ -37,7 +37,9 @@ class InfusateQuerySet(models.QuerySet):
             print(f"Inserting infusate {infusate_data['unparsed_string']}")
 
             # create infusate
-            infusate = self.using(self._db).create(tracer_group_name=infusate_data["infusate_name"])
+            infusate = self.using(self._db).create(
+                tracer_group_name=infusate_data["infusate_name"]
+            )
 
             # create tracers
             Tracer = get_model_by_name("Tracer")

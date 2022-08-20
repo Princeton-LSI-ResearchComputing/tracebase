@@ -46,9 +46,13 @@ class AnimalLabel(HierCachedModel):
     @cached_function
     def tracers(self):
         # Get every tracer's compound that contains this element
-        tracers = self.animal.infusate.tracers.filter(labels__element__exact=self.element)
+        tracers = self.animal.infusate.tracers.filter(
+            labels__element__exact=self.element
+        )
         if tracers.count() == 0:
-            warnings.warn(f"Animal [{self.animal}] has no tracers containing labeled element [{self.element}].")
+            warnings.warn(
+                f"Animal [{self.animal}] has no tracers containing labeled element [{self.element}]."
+            )
         return tracers
 
     @property  # type: ignore
@@ -61,23 +65,31 @@ class AnimalLabel(HierCachedModel):
 
         # Get every tracer's compound that contains this element
         if self.tracers.count() == 0:
-            warnings.warn(f"Animal [{self.animal}] has no tracers containing labeled element [{self.element}].")
+            warnings.warn(
+                f"Animal [{self.animal}] has no tracers containing labeled element [{self.element}]."
+            )
             return PeakGroup.objects.none()
 
         # Get the last peakgroup for each tracer that has this label
         last_serum_peakgroup_ids = []
         for tracer in self.tracers.all():
             tracer_peak_group = (
-                PeakGroup.objects.filter(msrun__sample__animal__id__exact=self.animal.id)
+                PeakGroup.objects.filter(
+                    msrun__sample__animal__id__exact=self.animal.id
+                )
                 .filter(compounds__id__exact=tracer.compound.id)
-                .filter(msrun__sample__tissue__name__istartswith=Tissue.SERUM_TISSUE_PREFIX)
+                .filter(
+                    msrun__sample__tissue__name__istartswith=Tissue.SERUM_TISSUE_PREFIX
+                )
                 .order_by("msrun__sample__time_collected", "msrun__date")
                 .last()
             )
             if tracer_peak_group:
                 last_serum_peakgroup_ids.append(tracer_peak_group.id)
             else:
-                warnings.warn(f"Animal {self.animal} has no serum sample peak group for {tracer.compound}.")
+                warnings.warn(
+                    f"Animal {self.animal} has no serum sample peak group for {tracer.compound}."
+                )
                 return PeakGroup.objects.none()
 
         return PeakGroup.objects.filter(id__in=last_serum_peakgroup_ids)
@@ -114,7 +126,10 @@ class AnimalLabel(HierCachedModel):
             if self.tracers.count() == 0 or total_atom_count == 0:
                 raise NoTracerCompounds(self.animal, self.element)
 
-            if self.last_serum_sample_tracer_label_peak_groups.count() != self.tracers.count():
+            if (
+                self.last_serum_sample_tracer_label_peak_groups.count()
+                != self.tracers.count()
+            ):
                 raise MissingPeakGroups(
                     self.tracers,
                     self.last_serum_sample_tracer_label_peak_groups,

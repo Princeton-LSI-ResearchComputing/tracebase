@@ -31,7 +31,7 @@ class ModelUtilitiesTests(TracebaseTestCase):
             msg="Models returned by DataRepo.models.utilities.get_all_models() includes these non-existant models.",
         )
 
-        #Generally, child tables are at the top and parent tables are at the bottom
+        # Generally, child tables are at the top and parent tables are at the bottom
         ordered_model_name_list = [
             "Compound",
             "CompoundSynonym",

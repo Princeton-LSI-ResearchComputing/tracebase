@@ -239,7 +239,9 @@ class PeakGroupLabel(HierCachedModel):
     @cached_function
     def tracer_concentration(self):
         # This gets the supplied tracer's tracer_label with this element, and returns its count
-        return self.animal.infusate.tracer_links.get(tracer__exact=self.tracer).concentration
+        return self.animal.infusate.tracer_links.get(
+            tracer__exact=self.tracer
+        ).concentration
 
     @property  # type: ignore
     @cached_function
