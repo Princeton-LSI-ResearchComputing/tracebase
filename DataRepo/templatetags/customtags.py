@@ -74,15 +74,6 @@ def getClass(state):
     return styleclass
 
 
-@register.filter
-def count_tracer_groups(res):
-    cnt = 0
-    for pg in res.all():
-        if pg.is_tracer_compound_group:
-            cnt = cnt + 1
-    return cnt
-
-
 @register.simple_tag
 def createDict():
     return {}

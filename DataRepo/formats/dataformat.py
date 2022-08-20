@@ -637,15 +637,11 @@ class Format:
         that assumption is false, supply assume_distinct=False.
         """
         distinct_fields = []
-        if split_all:
-            print("In getDistinctFields")
         for mdl_inst_nm in self.model_instances:
             custom_distinct_fields_exist = (
                 "distinct" in self.model_instances[mdl_inst_nm].keys()
                 and self.model_instances[mdl_inst_nm]["distinct"]
             )
-            if split_all:
-                print(f"CUSTOM {mdl_inst_nm} DISTINCT FIELDS EXIST: {custom_distinct_fields_exist}")
 
             # The way to split root records into multiple records (as if it was a left join) is via the distinct
             # method.  So to do a full left join, you would call this method with split_all=True.  It is unnecessary to
@@ -674,6 +670,13 @@ class Format:
                             raise ae
 
             elif (
+                # TODO: The below or'ed conditions were already refactored once and it helps, but it should be
+                #       refactoeed again to simplify it more.  I think I added the second condition in order to re-use
+                #       code code for many-related I wanted to split that wasn't M:M.  That had caused a problem with
+                #       property fields, but I can't remember what.  But I also see that while I check for custom
+                #       distinct fields, I never use them.  That was probably some code I ended up refactoring, so that
+                #       can probably be removed.
+
                 # If the split_all override was supplied as true and this is a M:M model
                 split_all
                 and self.model_instances[mdl_inst_nm]["manyrelated"]["manytomany"]
@@ -685,8 +688,6 @@ class Format:
                 # intentionally returning nothing because we want to split records that are otherwise combined by the
                 # custom fields
             ):
-                if split_all:
-                    print(f"IN EXPECTED {mdl_inst_nm} SPLIT ALL")
                 # Django's ordering fields are required when any field is provided to .distinct().  Otherwise, you
                 # get the error: `ProgrammingError: SELECT DISTINCT ON expressions must match initial ORDER BY
                 # expressions`

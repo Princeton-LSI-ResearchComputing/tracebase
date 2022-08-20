@@ -30,7 +30,7 @@ class Animal(HierCachedModel, ElementLabel):
     )
     infusate = models.ForeignKey(
         to="DataRepo.Infusate",
-        # NOTE: PR REVIEW - This was previously RESTRICT, but I got errors during the cleanup of the validation
+        # PR REVIEW NOTE: This was previously RESTRICT, but I got errors during the cleanup of the validation
         #       database that it couldn't delete some infusate records because of links to it from animal, which I
         #       didn't expect... I thought it would delete only if there didn't exist any other links to it, and all
         #       the animals were being deleted.  Perhaps the first time, it wouldn't delete, but the last animal that
@@ -168,7 +168,7 @@ class Animal(HierCachedModel, ElementLabel):
         """
         from DataRepo.models import PeakGroup
 
-        # NOTE: PR REVIEW (TO BE DELETED): I have noted that it should be possible to calculate all the below values
+        # PR REVIEW NOTE: I have noted that it should be possible to calculate all the below values
         # based on the "not last" peak group of a serum sample.  For example, if Lysine was the tracer, and it was
         # included in an msrun twice for the same serum sample, calculating based on it might be worthwhile for the
         # same reason that we show calculations for the "not last" serum sample.  If people think that's worthwhile, I
@@ -195,7 +195,7 @@ class Animal(HierCachedModel, ElementLabel):
         """
         from DataRepo.models import PeakGroupLabel
 
-        # NOTE: PR REVIEW (TO BE DELETED): I have noted that it should be possible to calculate all the below values
+        # PR REVIEW NOTE: I have noted that it should be possible to calculate all the below values
         # based on the "not last" peak group of a serum sample.  For example, if Lysine was the tracer, and it was
         # included in an msrun twice for the same serum sample, calculating based on it might be worthwhile for the
         # same reason that we show calculations for the "not last" serum sample.  If people think that's worthwhile, I

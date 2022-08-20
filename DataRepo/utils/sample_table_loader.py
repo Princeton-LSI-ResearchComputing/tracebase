@@ -112,7 +112,6 @@ class SampleTableLoader:
                     self.db = settings.VALIDATION_DB
                 else:
                     raise ValidationDatabaseSetupError()
-        print(f"DATABASE USED: {self.db} VALIDATE?: {self.validate}")
 
     def validate_sample_table(self, data, skip_researcher_check=False):
         """

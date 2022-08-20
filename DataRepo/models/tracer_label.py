@@ -12,10 +12,10 @@ from DataRepo.models.maintained_model import (
 from DataRepo.utils.infusate_name_parser import IsotopeData
 
 
-# NOTE: PR REVIEW: Had to change this to a QuerySet subclass in order to support calls to (e.g.):
-#           .using(db).create_tracer_label
-#       for the validation database.
-#       See: https://sayari3.com/articles/32-custom-managers-and-queryset-methods-in-django/
+# PR REVIEW NOTE: Had to change this to a QuerySet subclass in order to support calls to (e.g.):
+#                     .using(db).create_tracer_label
+#                 for the validation database.
+#                 See: https://sayari3.com/articles/32-custom-managers-and-queryset-methods-in-django/
 class TracerLabelQuerySet(models.QuerySet):
     def create_tracer_label(self, tracer: Tracer, isotope_data: IsotopeData):
         tracer_label = self.using(self._db).create(

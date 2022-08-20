@@ -80,7 +80,6 @@ class InfusateTests(TracebaseTestCase):
         """
         Make sure that the name field was set automatically - triggered by the InfusateTracer record creation.
         """
-        print(f"Infusate Names: {', '.join(list(map(lambda x: str(x), list(Infusate.objects.values_list('name', flat=True)))))}")
         # Throws DoesNotExist exception if not found
         Infusate.objects.get(
             name="ti {C16:0-(5,6-13C2,17O2)[2];glucose-(2,3-13C2,4-17O1)[1]}"

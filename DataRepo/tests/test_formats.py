@@ -305,8 +305,6 @@ class FormatsTests(TracebaseTestCase):
         basv = SearchGroup()
         fmt = "pgtemplate"
 
-        print(f"FIRST PGL: {str(basv.modeldata[fmt].model_instances['PeakGroupLabel'])}")
-
         # Set all split_rows values to False for the test, then...
         mdl_inst = "MeasuredCompound"
         pgsv = basv.modeldata[fmt]
@@ -381,8 +379,6 @@ class FormatsTests(TracebaseTestCase):
         fmt = "pgtemplate"
         annot_name = "compound"
 
-        print(f"SECOND PGL: {str(basv.modeldata[fmt].model_instances['PeakGroupLabel'])}")
-
         # Set all split_rows values to False for the test, then...
         mdl_inst = "MeasuredCompound"
         pgsv = basv.modeldata[fmt]
@@ -404,8 +400,6 @@ class FormatsTests(TracebaseTestCase):
         basv = SearchGroup()
         fmt = "pgtemplate"
         order_by = "name"
-
-        print(f"THIRD PGL: {str(basv.modeldata[fmt].model_instances['PeakGroupLabel'])}")
 
         # Turn off all split_rows for the test, then...
         mdl_inst = "MeasuredCompound"
@@ -442,7 +436,6 @@ class FormatsTests(TracebaseTestCase):
             CompoundSynonym._meta.__dict__["ordering"],
             msg="CompoundSynonym must have 'compound' in meta.ordering for the next assertion to be meaningful",
         )
-        print(f"PGL: {str(pgf.model_instances['PeakGroupLabel'])}")
         distincts = pgf.getDistinctFields(split_all=True)
         # This includes fields expanded from every M:M model
         expected_distincts = [

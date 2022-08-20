@@ -49,10 +49,13 @@ class FCirc(HierCachedModel):
     @cached_function
     def last_peak_group(self):
         """
-        Retrieve the latest PeakGroup for a given sample and this tracer/label.
+        Retrieve the latest PeakGroup for this serum sample, tracer, and label.  This differs from
+        Animal.last_serum_sample_peak_group_label in that it forces the calculation for this serum sample specifically
+        whereas Animal.last_serum_sample_peak_group_label gets the last peakgroup for the tracer compound in whichever
+        serum sample has it (most likely the last one).
         """
 
-        # NOTE: PR REVIEW (TO BE DELETED): I have noted that it should be possible to calculate all the below values
+        # PR REVIEW NOTE: I have noted that it should be possible to calculate all the below values
         # based on the "not last" peak group of a serum sample.  For example, if Lysine was the tracer, and it was
         # included in an msrun twice for the same serum sample, calculating based on it might be worthwhile for the
         # same reason that we show calculations for the "not last" serum sample.  If people think that's worthwhile, I
