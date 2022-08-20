@@ -20,10 +20,10 @@ from DataRepo.models.hier_cached_model import (
     enable_caching_updates,
 )
 from DataRepo.models.maintained_model import (
+    clear_update_buffer,
     disable_autoupdates,
     enable_autoupdates,
     perform_buffered_updates,
-    clear_update_buffer,
 )
 from DataRepo.models.utilities import get_researchers, value_from_choices_label
 from DataRepo.utils.exceptions import (

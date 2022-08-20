@@ -845,7 +845,7 @@ class PropertyTests(TracebaseTestCase):
         with self.assertWarns(UserWarning):
             self.assertEqual(
                 refeshed_animal_label.last_serum_sample_tracer_label_peak_groups.count(),
-                0
+                0,
             )
 
     def test_peak_group_peak_data_1(self):
@@ -1136,7 +1136,10 @@ class PropertyTests(TracebaseTestCase):
         self.assertEqual(final_serum_sample.name, second_serum_sample.name)
 
         # Confirm the original calculated normalized labeling using the existing final serum sample
-        self.assertAlmostEqual(0.00911997807399377, peak_group.peak_group_labels.first().normalized_labeling)
+        self.assertAlmostEqual(
+            0.00911997807399377,
+            peak_group.peak_group_labels.first().normalized_labeling,
+        )
 
         # Create a later msrun with the later serum sample (but no peak group)
         msrun = MSRun.objects.create(
@@ -1152,7 +1155,10 @@ class PropertyTests(TracebaseTestCase):
         # With the new logic of obtaining the last instance of a peak group among serum samples, this should still
         # produce a calculation even though the serum tracer's last peak group doesn't have a peak group. It will
         # just use the one from the first
-        self.assertAlmostEqual(0.00911997807399377, peak_group.peak_group_labels.first().normalized_labeling)
+        self.assertAlmostEqual(
+            0.00911997807399377,
+            peak_group.peak_group_labels.first().normalized_labeling,
+        )
 
         # Now add a peak group to the new last serum sample and change the corrected abundance to confirm it uses the
         # new last sample's peak group
@@ -1191,7 +1197,9 @@ class PropertyTests(TracebaseTestCase):
         second_peak_data.corrected_abundance = 100
         second_peak_data.save()
         # Now confirm the different calculated value
-        self.assertAlmostEqual(3.4553550826083774, peak_group.peak_group_labels.first().normalized_labeling)
+        self.assertAlmostEqual(
+            3.4553550826083774, peak_group.peak_group_labels.first().normalized_labeling
+        )
 
         # Now let's delete both peak groups and confirm the value can no longer be calculated and that a warning is
         # issued
@@ -1340,7 +1348,9 @@ class PropertyTests(TracebaseTestCase):
         orig_tir = animal.infusion_rate
         animal.infusion_rate = None
         animal.save()
-        pgf = animal.animal_labels.first().last_serum_sample_tracer_label_peak_groups.first()
+        pgf = (
+            animal.animal_labels.first().last_serum_sample_tracer_label_peak_groups.first()
+        )
         pglf = pgf.peak_group_labels.first()
         with self.assertWarns(UserWarning):
             self.assertFalse(pglf.can_compute_tracer_label_rates)
@@ -1402,10 +1412,10 @@ class PropertyTests(TracebaseTestCase):
         pg = animal.last_serum_sample_peak_group(compound)
         pgid = pg.id
         tracer_labeled_count = tracer.labels.first().count
-        intact_peakdata = pg.peak_data.filter(
-            labels__count=tracer_labeled_count
-        ).get()
-        intact_peakdata_label = intact_peakdata.labels.get(count__exact=tracer_labeled_count)
+        intact_peakdata = pg.peak_data.filter(labels__count=tracer_labeled_count).get()
+        intact_peakdata_label = intact_peakdata.labels.get(
+            count__exact=tracer_labeled_count
+        )
         # set to something crazy, or None
         intact_peakdata_label.count = 42
         intact_peakdata_label.save()

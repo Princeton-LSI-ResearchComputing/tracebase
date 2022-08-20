@@ -8,7 +8,7 @@ from django.apps import apps
 from django.conf import settings
 from django.core.exceptions import ValidationError
 
-#Generally, child tables are at the top and parent tables are at the bottom
+# Generally, child tables are at the top and parent tables are at the bottom
 ALL_MODELS_IN_SAFE_DELETION_ORDER = [
     "Compound",
     "CompoundSynonym",

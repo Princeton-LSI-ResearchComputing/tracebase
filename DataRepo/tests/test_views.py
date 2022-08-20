@@ -21,7 +21,10 @@ from DataRepo.models import (
     Tissue,
 )
 from DataRepo.models.utilities import get_all_models
-from DataRepo.tests.tracebase_test_case import TracebaseTestCase, TracebaseTransactionTestCase
+from DataRepo.tests.tracebase_test_case import (
+    TracebaseTestCase,
+    TracebaseTransactionTestCase,
+)
 from DataRepo.views import DataValidationView
 
 

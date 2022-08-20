@@ -676,7 +676,6 @@ class Format:
                 #       property fields, but I can't remember what.  But I also see that while I check for custom
                 #       distinct fields, I never use them.  That was probably some code I ended up refactoring, so that
                 #       can probably be removed.
-
                 # If the split_all override was supplied as true and this is a M:M model
                 split_all
                 and self.model_instances[mdl_inst_nm]["manyrelated"]["manytomany"]

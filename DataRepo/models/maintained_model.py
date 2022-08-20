@@ -280,8 +280,8 @@ class MaintainedModel(Model):
                     if current_val is None or current_val == "":
                         current_val = "<empty>"
                     print(
-                        f"Auto-updated field {self.__class__.__name__}.{update_fld} in record {self.pk} using {update_fun.__qualname__} from "
-                        f"[{current_val}] to [{new_val}]"
+                        f"Auto-updated field {self.__class__.__name__}.{update_fld} in record {self.pk} using "
+                        f"{update_fun.__qualname__} from [{current_val}] to [{new_val}]"
                     )
 
     def call_parent_updaters(self):
@@ -624,7 +624,7 @@ class NoDecorators(Exception):
 
 class AutoUpdateFailed(Exception):
     def __init__(self, model_object, db, err):
-        database = '' if db is None else f"{db}."
+        database = "" if db is None else f"{db}."
         message = (
             f"Autoupdate of {database}{model_object.__class__.__name__} failed.  If the record was created and "
             "deleted before the buffered update, a catch for the exception should be added and ignored (or the code "

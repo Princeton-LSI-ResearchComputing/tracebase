@@ -1,4 +1,5 @@
 from copy import deepcopy
+from typing import Dict
 
 from django.core.management import call_command
 from django.db.models import F, Q
@@ -27,7 +28,7 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 @tag("multi_mixed")
 class FormatsTests(TracebaseTestCase):
     maxDiff = None
-    orig_split_rows = {}
+    orig_split_rows: Dict[str, str] = {}
 
     @classmethod
     def setUpTestData(cls):
@@ -66,7 +67,9 @@ class FormatsTests(TracebaseTestCase):
         for fmt in basv.modeldata.keys():
             cls.orig_split_rows[fmt] = {}
             for inst in basv.modeldata[fmt].model_instances.keys():
-                cls.orig_split_rows[fmt][inst] = basv.modeldata[fmt].model_instances[inst]["manyrelated"]["split_rows"]
+                cls.orig_split_rows[fmt][inst] = basv.modeldata[fmt].model_instances[
+                    inst
+                ]["manyrelated"]["split_rows"]
 
     def restore_split_rows(self):
         """
@@ -77,9 +80,9 @@ class FormatsTests(TracebaseTestCase):
         basv = SearchGroup()
         for fmt in basv.modeldata.keys():
             for inst in basv.modeldata[fmt].model_instances.keys():
-                basv.modeldata[fmt].model_instances[inst]["manyrelated"]["split_rows"] = (
-                    self.orig_split_rows[fmt][inst]
-                )
+                basv.modeldata[fmt].model_instances[inst]["manyrelated"][
+                    "split_rows"
+                ] = self.orig_split_rows[fmt][inst]
 
     def getQueryObject(self):
         return {
