@@ -18,10 +18,10 @@ if TYPE_CHECKING:
 CONCENTRATION_SIGNIFICANT_FIGURES = 3
 
 
-# NOTE: PR REVIEW: Had to change this to a QuerySet subclass in order to support calls to (e.g.):
-#           .using(db).get_or_create_infusate
-#       for the validation database.
-#       See: https://sayari3.com/articles/32-custom-managers-and-queryset-methods-in-django/
+# PR REVIEW NOTE: Had to change this to a QuerySet subclass in order to support calls to (e.g.):
+#                     .using(db).get_or_create_infusate
+#                 for the validation database.
+#                 See: https://sayari3.com/articles/32-custom-managers-and-queryset-methods-in-django/
 class InfusateQuerySet(models.QuerySet):
     def get_or_create_infusate(
         self, infusate_data: InfusateData
@@ -34,8 +34,9 @@ class InfusateQuerySet(models.QuerySet):
 
         # Matching record not found, create new record
         if infusate is None:
+            print(f"Inserting infusate {infusate_data['unparsed_string']}")
+
             # create infusate
-            print(f"Inserting infusate {infusate_data['unparsed_string']} into database {self._db}")
             infusate = self.using(self._db).create(tracer_group_name=infusate_data["infusate_name"])
 
             # create tracers
@@ -58,8 +59,6 @@ class InfusateQuerySet(models.QuerySet):
             infusate.full_clean()
             infusate.save(using=self._db)
             created = True
-        else:
-            print(f"Found infusate {infusate_data['unparsed_string']} in database {self._db}")
         return (infusate, created)
 
     def get_infusate(self, infusate_data: InfusateData) -> Optional[Infusate]:
@@ -139,7 +138,6 @@ class Infusate(MaintainedModel):
             return self.tracer_group_name
 
         link_recs = self.tracers.through.objects.filter(infusate__id__exact=self.id)
-        print(f"InfusateTracer: There are {link_recs.count()} tracers linked.")
 
         name = ";".join(
             sorted(

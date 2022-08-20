@@ -601,14 +601,12 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         sum = 0
         for cnt in record_counts:
             sum += cnt
-        print(f"{sum}\tTOTAL")
         return sum
 
     @classmethod
     def get_record_counts(cls, db):
         record_counts = []
         for mdl in get_all_models():
-            print(f"{mdl.objects.using(db).all().count()}\t{db}.{mdl.__name__} record count")
             record_counts.append(mdl.objects.using(db).all().count())
         return record_counts
 
@@ -718,13 +716,11 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         Test to ensure that the validation database is never loaded with samples, animals, and accucor data by default
         """
         with transaction.atomic():
-            print("BEFORE INIT:")
             tb_init_sum = self.sum_record_counts(settings.TRACEBASE_DB)
             vd_init_sum = self.sum_record_counts(settings.VALIDATION_DB)
             self.clear_database(settings.TRACEBASE_DB)
             self.clear_database(settings.VALIDATION_DB)
             self.initialize_databases()
-            print("BEFORE LOAD:")
             tb_init_sum = self.sum_record_counts(settings.TRACEBASE_DB)
             vd_init_sum = self.sum_record_counts(settings.VALIDATION_DB)
             call_command(
@@ -740,11 +736,6 @@ class ValidationViewTests(TracebaseTransactionTestCase):
                 researcher="Michael Neinast",
                 new_researcher=True,
             )
-            print("AFTER LOAD:")
-            from DataRepo.models import Infusate
-            from django.forms.models import model_to_dict
-            for x in Infusate.objects.using(settings.VALIDATION_DB).all():
-                print(f"VDB Infusate: {model_to_dict(x)}")
             tb_post_sum = self.sum_record_counts(settings.TRACEBASE_DB)
             vd_post_sum = self.sum_record_counts(settings.VALIDATION_DB)
             self.assertGreater(tb_post_sum, tb_init_sum)

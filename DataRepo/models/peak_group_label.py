@@ -219,12 +219,14 @@ class PeakGroupLabel(HierCachedModel):
 
         return this_tracer
 
-    def tracer_label_count(self, tracer):
+    @property  # type: ignore
+    @cached_function
+    def tracer_label_count(self):
         from DataRepo.models.tracer_label import TracerLabel
 
         try:
             # This gets the supplied tracer's tracer_label with this element, and returns its count
-            this_tracer_label_count = tracer.labels.get(
+            this_tracer_label_count = self.tracer.labels.get(
                 element__exact=self.element
             ).count
         except (AttributeError, TracerLabel.DoesNotExist):
@@ -233,16 +235,20 @@ class PeakGroupLabel(HierCachedModel):
 
         return this_tracer_label_count
 
-    def tracer_concentration(self, tracer):
+    @property  # type: ignore
+    @cached_function
+    def tracer_concentration(self):
         # This gets the supplied tracer's tracer_label with this element, and returns its count
-        return self.animal.infusate.tracer_links.get(tracer__exact=tracer).concentration
+        return self.animal.infusate.tracer_links.get(tracer__exact=self.tracer).concentration
 
+    @property  # type: ignore
+    @cached_function
     def get_peak_group_label_tracer_info(self):
         this_tracer = self.tracer
 
         if this_tracer:
-            this_tracer_label_count = self.tracer_label_count(tracer=this_tracer)
-            this_tracer_concentration = self.tracer_concentration(this_tracer)
+            this_tracer_label_count = self.tracer_label_count
+            this_tracer_concentration = self.tracer_concentration
         else:
             return None
 
@@ -261,7 +267,7 @@ class PeakGroupLabel(HierCachedModel):
         calculations from calculating these values for non-tracer compounds or for labels not in the tracer.
         """
         tracer = self.tracer
-        count = self.tracer_label_count(tracer)
+        count = self.tracer_label_count
         return True if tracer and count and count > 0 else False
 
     @property  # type: ignore
@@ -297,7 +303,7 @@ class PeakGroupLabel(HierCachedModel):
             warnings.warn(f"Animal {self.animal.name} has no annotated infusion rate.")
             return False
         else:
-            tracer_info = self.get_peak_group_label_tracer_info()
+            tracer_info = self.get_peak_group_label_tracer_info
             if not tracer_info["concentration"]:
                 warnings.warn(
                     f"Animal {self.animal.name} has no annotated tracer_concentration."
@@ -359,7 +365,7 @@ class PeakGroupLabel(HierCachedModel):
             )
             return False
 
-        tracer_info = self.get_peak_group_label_tracer_info()
+        tracer_info = self.get_peak_group_label_tracer_info
 
         # This can return multiple records if there are multiple labeled elements.  An element with a specific count
         # can exist along side other elements with different counts
@@ -425,7 +431,7 @@ class PeakGroupLabel(HierCachedModel):
             )
             return None
 
-        tracer_info = self.get_peak_group_label_tracer_info()
+        tracer_info = self.get_peak_group_label_tracer_info
 
         # There cam be multiple peak_data records if there are multiple labeled elements.  A specific element with a
         # the same count can exist along side other elements with different counts.  The fraction is therefore the sum
@@ -450,7 +456,7 @@ class PeakGroupLabel(HierCachedModel):
             )
             return None
 
-        tracer_info = self.get_peak_group_label_tracer_info()
+        tracer_info = self.get_peak_group_label_tracer_info
 
         return (
             self.rate_disappearance_intact_per_gram
@@ -500,7 +506,7 @@ class PeakGroupLabel(HierCachedModel):
             )
             return None
 
-        tracer_info = self.get_peak_group_label_tracer_info()
+        tracer_info = self.get_peak_group_label_tracer_info
 
         result = None
 
@@ -528,7 +534,7 @@ class PeakGroupLabel(HierCachedModel):
             )
             return None
 
-        tracer_info = self.get_peak_group_label_tracer_info()
+        tracer_info = self.get_peak_group_label_tracer_info
 
         result = None
 

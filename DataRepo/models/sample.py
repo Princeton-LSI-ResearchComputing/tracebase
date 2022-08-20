@@ -8,7 +8,6 @@ from DataRepo.models.hier_cached_model import HierCachedModel, cached_function
 
 from .peak_data import PeakData
 from .peak_group import PeakGroup
-from .tissue import Tissue
 
 
 class Sample(HierCachedModel):
@@ -65,13 +64,7 @@ class Sample(HierCachedModel):
     @cached_function
     def is_serum_sample(self):
         """returns True if the sample is flagged as a "serum" sample"""
-        # NOTE: this logic may have to change in the future
-        if self.tissue in Tissue.objects.filter(
-            name__istartswith=Tissue.SERUM_TISSUE_PREFIX
-        ):
-            return True
-        else:
-            return False
+        return self.tissue.is_serum()
 
     def peak_groups(self, compound=None):
         """
@@ -146,5 +139,4 @@ class Sample(HierCachedModel):
 
 
 class InvalidArgument(ValueError):
-    def __init__(self, message):
-        super().__init__(message)
+    pass

@@ -262,9 +262,9 @@ class FluxCircFormat(Format):
         "Compound": {
             "model": "Compound",
             "path": "tracer__compound",
-            # NOTE: PR REVIEW... I'm not certain that the reverse path here is specific enough. Could be a problem,
-            # though looking at the code, it should only affect speed.  This is only used for rerooting queries for the
-            # prefetches, which it does to speed things up.
+            # PR REVIEW NOTE: There are multiple possible reverse paths for tracer compounds to fcirc records, but this
+            #                 one is the most direct.  It is used to expand query results when a field in this model
+            #                 instance is used in a search.
             "reverse_path": "tracers__fcircs",
             "manyrelated": {
                 "is": False,

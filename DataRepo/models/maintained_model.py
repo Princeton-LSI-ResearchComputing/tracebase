@@ -57,7 +57,6 @@ def clear_update_buffer(generation=None, label_filters=[]):
     """
     global update_buffer
     if generation is None and len(label_filters) == 0:
-        print(f"CLEARING BUFFER CONTAINING {len(update_buffer)} ITEMS")
         update_buffer = []
         return
     new_buffer = []
@@ -214,10 +213,7 @@ class MaintainedModel(Model):
         This is an override of the derived model's save method that is being used here to automatically update
         maintained fields.
         """
-        import inspect
-        curframe = inspect.currentframe()
-        calframe = inspect.getouterframes(curframe, 2)
-        print(f"MaintainedModel.save() called for class {self.__class__.__name__} with args: [{str(args)}] and kwargs: [{str(kwargs)}].  Called by: {', '.join(list(map(lambda x: str(x), list(calframe[1]))))}")
+
         # If auto-updates are turned on, a cascade of updates to linked models will occur, but if they are turned off,
         # the update will be buffered, to be manually triggered later (e.g. upon completion of loading), which
         # mitigates repeated updates to the same record
@@ -509,7 +505,6 @@ def perform_buffered_updates(label_filters=[], using=None):
                 if key not in updated and (
                     no_filters or updater_list_has_labels(updater_dicts, label_filters)
                 ):
-                    print(f"Auto-updating record: {key} from the buffer")
                     # Saving the record while performing_mass_autoupdates is True, causes auto-updates of every field
                     # included among the model's decorated functions.  It does not only update the fields indicated in
                     # decorators that contain the labels indicated in the label_filters.  The filters are only used to
