@@ -226,6 +226,7 @@ class GlobalCacheTests(TracebaseTestCase):
                 "final_serum_sample_id",
             ],
             "AnimalLabel": [
+                "tracers",
                 "last_serum_sample_tracer_label_peak_groups",
                 "serum_tracers_enrichment_fraction",
             ],
@@ -246,6 +247,10 @@ class GlobalCacheTests(TracebaseTestCase):
                 "enrichment_fraction",
                 "enrichment_abundance",
                 "normalized_labeling",
+                "tracer",
+                "tracer_label_count",
+                "tracer_concentration",
+                "get_peak_group_label_tracer_info",
                 "tracer",
                 "is_tracer_label_compound_group",
                 "from_serum_sample",
