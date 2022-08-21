@@ -81,7 +81,7 @@ class Tracer(MaintainedModel, ElementLabel):
     )
     compound = models.ForeignKey(
         to="DataRepo.Compound",
-        on_delete=models.CASCADE,
+        on_delete=models.RESTRICT,
         null=False,
         related_name="tracers",
     )
