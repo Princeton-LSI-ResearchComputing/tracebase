@@ -121,42 +121,42 @@ class Animal(HierCachedModel, ElementLabel):
 
     @property  # type: ignore
     @cached_function
-    def final_serum_sample(self):
+    def last_serum_sample(self):
         """
-        final_serum_sample in an instance method that returns the last single
+        last_serum_sample in an instance method that returns the last single
         serum sample removed from the animal, based on the time elapsed/duration
         from the initiation of infusion or treatment, typically.  If the animal
         has no serum samples or if the retrieved serum sample has no annotated
         time_collected, a warning will be issued.
         """
-        final_serum_sample = (
+        last_serum_sample = (
             self.samples.filter(tissue__name__istartswith=Tissue.SERUM_TISSUE_PREFIX)
             .order_by("time_collected")
             .last()
         )
 
-        if final_serum_sample is None:
+        if last_serum_sample is None:
             warnings.warn(f"Animal {self.name} has no 'serum' samples.")
-        elif not final_serum_sample.time_collected:
+        elif not last_serum_sample.time_collected:
             warnings.warn(
-                f"The Final serum sample {final_serum_sample.name} for "
+                f"The Final serum sample {last_serum_sample.name} for "
                 f"Animal {self.name} is missing a time_collected value."
             )
 
-        return final_serum_sample
+        return last_serum_sample
 
     @property  # type: ignore
     @cached_function
-    def final_serum_sample_id(self):
+    def last_serum_sample_id(self):
         """
-        final_serum_sample_id in an instance method that returns the id of the last single
+        last_serum_sample_id in an instance method that returns the id of the last single
         serum sample removed from the animal, based on the time elapsed/duration from the initiation of infusion or
         treatment.  If the animal has no serum samples, a warning will be issued.
         """
-        # Note: calling self.final_serum_sample here ran into linting issues with `fss.id` not "existing". Added
+        # Note: calling self.last_serum_sample here ran into linting issues with `fss.id` not "existing". Added
         # fss\..* to this list of generated-members in the pylint config to ignore it.
         id = None
-        fss = self.final_serum_sample
+        fss = self.last_serum_sample
         if fss and fss.id:
             id = fss.id
         return id
