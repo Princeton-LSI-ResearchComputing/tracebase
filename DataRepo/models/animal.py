@@ -39,7 +39,7 @@ class Animal(HierCachedModel, ElementLabel):
         #       django.db.models.deletion.RestrictedError: ("Cannot delete some instances of model 'Infusate' because
         #       they are referenced through restricted foreign keys: 'Animal.infusate'.", {<Animal: 090320_M1>,
         #       <Animal: 090320_M2>, <Animal: 090320_M3>, ...
-        on_delete=models.CASCADE,
+        on_delete=models.RESTRICT,
         null=True,
         blank=True,
         related_name="animal",
