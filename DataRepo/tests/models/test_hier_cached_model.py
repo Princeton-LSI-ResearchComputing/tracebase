@@ -251,7 +251,6 @@ class GlobalCacheTests(TracebaseTestCase):
                 "tracer_label_count",
                 "tracer_concentration",
                 "get_peak_group_label_tracer_info",
-                "tracer",
                 "is_tracer_label_compound_group",
                 "from_serum_sample",
                 "can_compute_tracer_label_rates",
