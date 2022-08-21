@@ -531,7 +531,7 @@ def perform_buffered_updates(label_filters=[], using=None):
                                 add_to_buffer.append(tmp_buffer_item)
 
             except Exception as e:
-                raise AutoUpdateFailed(buffer_item, db, e)
+                raise AutoUpdateFailed(buffer_item, e, db)
 
         # Clear this generation from the buffer
         clear_update_buffer(generation=gen, label_filters=label_filters)
@@ -623,7 +623,7 @@ class NoDecorators(Exception):
 
 
 class AutoUpdateFailed(Exception):
-    def __init__(self, model_object, db, err):
+    def __init__(self, model_object, err, db=None):
         database = "" if db is None else f"{db}."
         message = (
             f"Autoupdate of {database}{model_object.__class__.__name__} failed.  If the record was created and "
