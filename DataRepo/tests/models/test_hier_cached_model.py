@@ -63,7 +63,7 @@ class GlobalCacheTests(TracebaseTestCase):
 
     def test_load_not_cached(self):
         a = Animal.objects.all().first()
-        f = "final_serum_sample"
+        f = "last_serum_sample"
         v, s = get_cache(a, f)
         self.assertEqual(
             v,
@@ -77,15 +77,15 @@ class GlobalCacheTests(TracebaseTestCase):
 
     def test_get_cache_disabled(self):
         a = Animal.objects.all().first()
-        f = "final_serum_sample"
+        f = "last_serum_sample"
         # Ensure I get the value not using the cache
         disable_caching_retrievals()
-        v = getattr(a, f)  # same as `v = a.final_serum_sample`
+        v = getattr(a, f)  # same as `v = a.last_serum_sample`
         delete_all_caches()
         enable_caching_updates()
-        set_cache(a, "final_serum_sample", v)
+        set_cache(a, "last_serum_sample", v)
         disable_caching_retrievals()
-        res, sts = get_cache(a, "final_serum_sample")
+        res, sts = get_cache(a, "last_serum_sample")
         self.assertEqual(
             res,
             None,
@@ -98,7 +98,7 @@ class GlobalCacheTests(TracebaseTestCase):
 
     def test_get_cache_uncached(self):
         a = Animal.objects.all().first()
-        f = "final_serum_sample"
+        f = "last_serum_sample"
         delete_all_caches()
         enable_caching_retrievals()
         res, sts = get_cache(a, f)
@@ -112,15 +112,15 @@ class GlobalCacheTests(TracebaseTestCase):
 
     def test_get_cache_enabled(self):
         a = Animal.objects.all().first()
-        f = "final_serum_sample"
+        f = "last_serum_sample"
         # Ensure I get the value not using the cache
         disable_caching_retrievals()
-        v = getattr(a, f)  # same as `v = a.final_serum_sample`
+        v = getattr(a, f)  # same as `v = a.last_serum_sample`
         delete_all_caches()
         enable_caching_updates()
-        set_cache(a, "final_serum_sample", v)
+        set_cache(a, "last_serum_sample", v)
         enable_caching_retrievals()
-        res, sts = get_cache(a, "final_serum_sample")
+        res, sts = get_cache(a, "last_serum_sample")
         self.assertEqual(
             res,
             v,
@@ -133,13 +133,13 @@ class GlobalCacheTests(TracebaseTestCase):
 
     def test_set_cache_disabled(self):
         a = Animal.objects.all().first()
-        f = "final_serum_sample"
+        f = "last_serum_sample"
         # Ensure I get the value not using the cache
         disable_caching_retrievals()
-        v = getattr(a, f)  # same as `v = a.final_serum_sample`
+        v = getattr(a, f)  # same as `v = a.last_serum_sample`
         delete_all_caches()
         disable_caching_updates()
-        sts = set_cache(a, "final_serum_sample", v)
+        sts = set_cache(a, "last_serum_sample", v)
         self.assertFalse(
             sts,
             msg="Cache save status should be false when caching updates are disabled",
@@ -153,8 +153,8 @@ class GlobalCacheTests(TracebaseTestCase):
         rr, rf = a.get_representative_root_rec_and_method()
         rv = getattr(rr, rf)  # Representative value
         # Value in question
-        f = "final_serum_sample_id"  # Field
-        v = getattr(a, f)  # same as `v = a.final_serum_sample`
+        f = "last_serum_sample_id"  # Field
+        v = getattr(a, f)  # same as `v = a.last_serum_sample`
 
         delete_all_caches()
         enable_caching_retrievals()
@@ -211,7 +211,7 @@ class GlobalCacheTests(TracebaseTestCase):
 
     def test_get_cache_key(self):
         a = Animal.objects.all().first()
-        f = "final_serum_sample"
+        f = "last_serum_sample"
         expected_key = f"Animal.{a.id}.{f}"
         res = get_cache_key(a, f)
         self.assertEqual(
@@ -222,8 +222,8 @@ class GlobalCacheTests(TracebaseTestCase):
         res = get_cached_method_names()
         expected_structure = {
             "Animal": [
-                "final_serum_sample",
-                "final_serum_sample_id",
+                "last_serum_sample",
+                "last_serum_sample_id",
             ],
             "AnimalLabel": [
                 "tracers",
@@ -565,7 +565,7 @@ class BuildCachesTests(TracebaseTestCase):
 
     def test_cached_function_call(self):
         c = Animal
-        f = "final_serum_sample_id"
+        f = "last_serum_sample_id"
         a = Animal.objects.all().first()
         la = Animal.objects.all().last()
         disable_caching_retrievals()
