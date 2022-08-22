@@ -21,7 +21,7 @@ class PeakGroupLabel(HierCachedModel):
         on_delete=models.CASCADE,
         null=False,
         blank=False,
-        related_name="peak_group_labels",
+        related_name="labels",
     )
     element = models.CharField(
         max_length=1,
@@ -171,7 +171,7 @@ class PeakGroupLabel(HierCachedModel):
         from DataRepo.models.sample import Sample
 
         try:
-            serum_tracers_enrichment_fraction = self.animal.animal_labels.get(
+            serum_tracers_enrichment_fraction = self.animal.labels.get(
                 element__exact=self.element
             ).serum_tracers_enrichment_fraction
 

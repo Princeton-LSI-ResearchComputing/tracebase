@@ -283,7 +283,7 @@ class HierCachedModelTests(TracebaseTestCase):
 
     def test_cached_function_decorator(self):
         delete_all_caches()
-        pg = PeakGroup.objects.all().first().peak_group_labels.first()
+        pg = PeakGroup.objects.all().first().labels.first()
         f = "normalized_labeling"
 
         # Get uncached value
@@ -360,7 +360,7 @@ class HierCachedModelTests(TracebaseTestCase):
 
     def test_delete_override(self):
         delete_all_caches()
-        pg = PeakGroup.objects.all().first().peak_group_labels.first()
+        pg = PeakGroup.objects.all().first().labels.first()
         f = "enrichment_fraction"
 
         enable_caching_retrievals()
@@ -468,7 +468,7 @@ class HierCachedModelTests(TracebaseTestCase):
         s2pg = (
             PeakGroup.objects.filter(msrun__sample__id__exact=s2.id)
             .first()
-            .peak_group_labels.first()
+            .labels.first()
         )
         pgf = "enrichment_fraction"
 

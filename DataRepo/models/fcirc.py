@@ -62,7 +62,7 @@ class FCirc(HierCachedModel):
         # could hang this table off of peakGroup instead of here...
         peakgroups = (
             self.serum_sample.peak_groups(self.tracer.compound.id)
-            .filter(peak_group_labels__element__exact=self.element)
+            .filter(labels__element__exact=self.element)
             .order_by("msrun__date")
         )
 
@@ -87,7 +87,7 @@ class FCirc(HierCachedModel):
             )
             return None
         else:
-            return self.last_peak_group.peak_group_labels.get(
+            return self.last_peak_group.labels.get(
                 element__exact=self.element,
             ).rate_disappearance_intact_per_gram
 
@@ -105,7 +105,7 @@ class FCirc(HierCachedModel):
             )
             return None
         else:
-            return self.last_peak_group.peak_group_labels.get(
+            return self.last_peak_group.labels.get(
                 element__exact=self.element,
             ).rate_appearance_intact_per_gram
 
@@ -122,7 +122,7 @@ class FCirc(HierCachedModel):
             )
             return None
         else:
-            return self.last_peak_group.peak_group_labels.get(
+            return self.last_peak_group.labels.get(
                 element__exact=self.element,
             ).rate_disappearance_intact_per_animal
 
@@ -140,7 +140,7 @@ class FCirc(HierCachedModel):
             )
             return None
         else:
-            return self.last_peak_group.peak_group_labels.get(
+            return self.last_peak_group.labels.get(
                 element__exact=self.element,
             ).rate_appearance_intact_per_animal
 
@@ -159,7 +159,7 @@ class FCirc(HierCachedModel):
             )
             return None
         else:
-            return self.last_peak_group.peak_group_labels.get(
+            return self.last_peak_group.labels.get(
                 element__exact=self.element,
             ).rate_disappearance_average_per_gram
 
@@ -178,7 +178,7 @@ class FCirc(HierCachedModel):
             )
             return None
         else:
-            return self.last_peak_group.peak_group_labels.get(
+            return self.last_peak_group.labels.get(
                 element__exact=self.element,
             ).rate_appearance_average_per_gram
 
@@ -197,7 +197,7 @@ class FCirc(HierCachedModel):
             )
             return None
         else:
-            return self.last_peak_group.peak_group_labels.get(
+            return self.last_peak_group.labels.get(
                 element__exact=self.element,
             ).rate_disappearance_average_per_animal
 
@@ -216,6 +216,6 @@ class FCirc(HierCachedModel):
             )
             return None
         else:
-            return self.last_peak_group.peak_group_labels.get(
+            return self.last_peak_group.labels.get(
                 element__exact=self.element,
             ).rate_appearance_average_per_animal

@@ -15,7 +15,7 @@ from .tissue import Tissue
 
 class Animal(HierCachedModel, ElementLabel):
     # No parent_related_key_name, because this is a root
-    child_related_key_names = ["samples", "animal_labels"]
+    child_related_key_names = ["samples", "labels"]
 
     FEMALE = "F"
     MALE = "M"

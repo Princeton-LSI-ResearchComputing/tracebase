@@ -159,7 +159,7 @@ class PeakGroupsFormat(Format):
         },
         "PeakGroupLabel": {
             "model": "PeakGroupLabel",
-            "path": "peak_group_labels",
+            "path": "labels",
             "reverse_path": "peak_group",
             "manyrelated": {
                 "is": True,
