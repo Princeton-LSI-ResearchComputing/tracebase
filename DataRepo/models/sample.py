@@ -66,6 +66,42 @@ class Sample(HierCachedModel):
         """returns True if the sample is flagged as a "serum" sample"""
         return self.tissue.is_serum()
 
+    @property  # type: ignore
+    @cached_function
+    def last_tracer_peak_groups(self):
+        """
+        Retrieves the last Peak Group for each tracer compound that has this.element
+        """
+        from DataRepo.models.peak_group import PeakGroup
+
+        # Get every tracer's compound that contains this element
+        if self.animal.tracers.count() == 0:
+            warnings.warn(
+                f"Animal [{self.animal}] has no tracers."
+            )
+            return PeakGroup.objects.none()
+
+        # Get the last peakgroup for each tracer that has this label
+        last_peakgroup_ids = []
+        for tracer in self.animal.tracers.all():
+            tracer_peak_group = (
+                PeakGroup.objects.filter(
+                    msrun__sample__id__exact=self.id
+                )
+                .filter(compounds__id__exact=tracer.compound.id)
+                .order_by("msrun__date")
+                .last()
+            )
+            if tracer_peak_group:
+                last_peakgroup_ids.append(tracer_peak_group.id)
+            else:
+                warnings.warn(
+                    f"Sample {self} has no peak group for tracer compound: [{tracer.compound}]."
+                )
+                return PeakGroup.objects.none()
+
+        return PeakGroup.objects.filter(id__in=last_peakgroup_ids)
+
     def peak_groups(self, compound=None):
         """
         Retrieve a list of PeakGroup objects for a sample.  If an optional compound is passed (e.g.

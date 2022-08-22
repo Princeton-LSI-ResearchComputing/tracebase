@@ -49,30 +49,41 @@ class FCirc(HierCachedModel):
     @cached_function
     def last_peak_group(self):
         """
-        Retrieve the latest PeakGroup for this serum sample, tracer, and label.  This differs from
+        Retrieve the latest PeakGroup for this serum sample and tracer.  This differs from
         Animal.last_serum_sample_peak_group_label in that it forces the calculation for this serum sample specifically
         whereas Animal.last_serum_sample_peak_group_label gets the last peakgroup for the tracer compound in whichever
         serum sample has it (most likely the last one).
         """
 
-        # PR REVIEW NOTE: I have noted that it should be possible to calculate all the below values
-        # based on the "not last" peak group of a serum sample.  For example, if Lysine was the tracer, and it was
-        # included in an msrun twice for the same serum sample, calculating based on it might be worthwhile for the
-        # same reason that we show calculations for the "not last" serum sample.  If people think that's worthwhile, I
-        # could hang this table off of peakGroup instead of here...
+        peakgroups = self.serum_sample.last_tracer_peak_groups.filter(compounds__exact=self.tracer.compound)
+
+        if peakgroups.count() == 0:
+            warnings.warn(
+                f"Serum sample {self.serum_sample} has no peak group for tracer {self.tracer}."
+            )
+            return None
+
+        return peakgroups.get()
+
+    @property  # type: ignore
+    @cached_function
+    def peak_groups(self):
+        """
+        Retrieve all PeakGroups for this serum sample and tracer, regardless of msrun date.
+        """
+        from DataRepo.models.peak_group import PeakGroup
+
         peakgroups = (
-            self.serum_sample.peak_groups(self.tracer.compound.id)
-            .filter(labels__element__exact=self.element)
-            .order_by("msrun__date")
+            PeakGroup.objects.filter(msrun__sample__exact=self.serum_sample)
+            .filter(compounds__exact=self.tracer.compound).order_by("msrun__date")
         )
 
         if peakgroups.count() == 0:
             warnings.warn(
-                f"Serum sample {self.serum_sample.name} has no peak group for tracer {self.tracer}."
+                f"Serum sample {self.serum_sample} has no peak group for tracer {self.tracer}."
             )
-            return None
 
-        return peakgroups.last()
+        return peakgroups.all()
 
     @property  # type: ignore
     @cached_function
