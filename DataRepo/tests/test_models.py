@@ -474,7 +474,7 @@ class DataLoadingTests(TracebaseTestCase):
     @tag("serum")
     def test_animal_serum_sample_methods(self):
         animal = self.MAIN_SERUM_ANIMAL
-        serum_samples = animal.samples.filter(tissue__istartswith=Tissue.SERUM_TISSUE_PREFIX)
+        serum_samples = animal.samples.filter(tissue__name__istartswith=Tissue.SERUM_TISSUE_PREFIX)
         self.assertEqual(serum_samples.count(), 1)
         last_serum_sample = animal.last_serum_sample
         self.assertEqual(last_serum_sample.name, "serum-xz971")
@@ -836,7 +836,7 @@ class PropertyTests(TracebaseTestCase):
         # so if we refresh, with no cached final serum values...
         refeshed_animal = Animal.objects.get(name="971")
         refeshed_animal_label = refeshed_animal.labels.first()
-        serum_samples = refeshed_animal.samples.filter(tissue__istartswith=Tissue.SERUM_TISSUE_PREFIX)
+        serum_samples = refeshed_animal.samples.filter(tissue__name__istartswith=Tissue.SERUM_TISSUE_PREFIX)
         # so zero length list
         self.assertEqual(serum_samples.count(), 0)
         with self.assertWarns(UserWarning):
@@ -1047,7 +1047,7 @@ class PropertyTests(TracebaseTestCase):
             time_collected=first_serum_sample.time_collected + timedelta(minutes=1),
         )
 
-        serum_samples = first_serum_sample.animal.samples.filter(tissue__istartswith=Tissue.SERUM_TISSUE_PREFIX)
+        serum_samples = first_serum_sample.animal.samples.filter(tissue__name__istartswith=Tissue.SERUM_TISSUE_PREFIX)
         # there should now be 2 serum samples for this animal
         self.assertEqual(serum_samples.count(), 2)
         last_serum_sample = first_serum_sample.animal.last_serum_sample
@@ -1128,7 +1128,7 @@ class PropertyTests(TracebaseTestCase):
             time_collected=first_serum_sample.time_collected + timedelta(minutes=1),
         )
 
-        serum_samples = first_serum_sample.animal.samples.filter(tissue__istartswith=Tissue.SERUM_TISSUE_PREFIX)
+        serum_samples = first_serum_sample.animal.samples.filter(tissue__name__istartswith=Tissue.SERUM_TISSUE_PREFIX)
         # there should now be 2 serum samples for this animal
         self.assertEqual(serum_samples.count(), 2)
         last_serum_sample = first_serum_sample.animal.last_serum_sample
@@ -1567,7 +1567,7 @@ class TracerRateTests(TracebaseTestCase):
         tracer = animal.infusate.tracers.first()
         element = tracer.labels.first().element
         pg = animal.last_serum_tracer_peak_groups.first()
-        fpgl = pg.labels.filter(element=element)
+        fpgl = pg.labels.filter(element=element).first()
         self.assertTrue(fpgl.is_tracer_label_compound_group)
         self.assertEqual(fpgl.peak_group.name, "C16:0")
 
@@ -1577,7 +1577,7 @@ class TracerRateTests(TracebaseTestCase):
         tracer = animal.infusate.tracers.first()
         element = tracer.labels.first().element
         pg = animal.last_serum_tracer_peak_groups.first()
-        fpgl = pg.labels.filter(element=element)
+        fpgl = pg.labels.filter(element=element).first()
         self.assertTrue(fpgl.from_serum_sample)
 
     @tag("fcirc")
@@ -1586,7 +1586,7 @@ class TracerRateTests(TracebaseTestCase):
         tracer = animal.infusate.tracers.first()
         element = tracer.labels.first().element
         pg = animal.last_serum_tracer_peak_groups.first()
-        fpgl = pg.labels.filter(element=element)
+        fpgl = pg.labels.filter(element=element).first()
         self.assertTrue(fpgl.can_compute_tracer_label_rates)
 
     @tag("fcirc")
@@ -1595,7 +1595,7 @@ class TracerRateTests(TracebaseTestCase):
         tracer = animal.infusate.tracers.first()
         element = tracer.labels.first().element
         pg = animal.last_serum_tracer_peak_groups.first()
-        fpgl = pg.labels.filter(element=element)
+        fpgl = pg.labels.filter(element=element).first()
         self.assertTrue(fpgl.can_compute_body_weight_intact_tracer_label_rates)
 
     @tag("fcirc")
@@ -1604,7 +1604,7 @@ class TracerRateTests(TracebaseTestCase):
         tracer = animal.infusate.tracers.first()
         element = tracer.labels.first().element
         pg = animal.last_serum_tracer_peak_groups.first()
-        fpgl = pg.labels.filter(element=element)
+        fpgl = pg.labels.filter(element=element).first()
         self.assertTrue(fpgl.can_compute_body_weight_average_tracer_label_rates)
 
     @tag("fcirc")
@@ -1613,7 +1613,7 @@ class TracerRateTests(TracebaseTestCase):
         tracer = animal.infusate.tracers.first()
         element = tracer.labels.first().element
         pg = animal.last_serum_tracer_peak_groups.first()
-        fpgl = pg.labels.filter(element=element)
+        fpgl = pg.labels.filter(element=element).first()
         self.assertTrue(fpgl.can_compute_intact_tracer_label_rates)
 
     @tag("fcirc")
@@ -1622,7 +1622,7 @@ class TracerRateTests(TracebaseTestCase):
         tracer = animal.infusate.tracers.first()
         element = tracer.labels.first().element
         pg = animal.last_serum_tracer_peak_groups.first()
-        fpgl = pg.labels.filter(element=element)
+        fpgl = pg.labels.filter(element=element).first()
         self.assertTrue(fpgl.can_compute_average_tracer_label_rates)
 
     @tag("fcirc")
@@ -1664,7 +1664,7 @@ class TracerRateTests(TracebaseTestCase):
         tracer = animal.infusate.tracers.first()
         element = tracer.labels.first().element
         pg = animal.last_serum_tracer_peak_groups.first()
-        pgl = pg.labels.filter(element=element)
+        pgl = pg.labels.filter(element=element).first()
         self.assertAlmostEqual(
             pgl.rate_disappearance_intact_per_gram,
             38.83966501,
@@ -1677,7 +1677,7 @@ class TracerRateTests(TracebaseTestCase):
         tracer = animal.infusate.tracers.first()
         element = tracer.labels.first().element
         pg = animal.last_serum_tracer_peak_groups.first()
-        pgl = pg.labels.filter(element=element)
+        pgl = pg.labels.filter(element=element).first()
         self.assertAlmostEqual(
             pgl.rate_appearance_intact_per_gram,
             34.35966501,
@@ -1690,7 +1690,7 @@ class TracerRateTests(TracebaseTestCase):
         tracer = animal.infusate.tracers.first()
         element = tracer.labels.first().element
         pg = animal.last_serum_tracer_peak_groups.first()
-        pgl = pg.labels.filter(element=element)
+        pgl = pg.labels.filter(element=element).first()
         self.assertAlmostEqual(
             pgl.rate_disappearance_intact_per_animal,
             1040.903022,
@@ -1703,7 +1703,7 @@ class TracerRateTests(TracebaseTestCase):
         tracer = animal.infusate.tracers.first()
         element = tracer.labels.first().element
         pg = animal.last_serum_tracer_peak_groups.first()
-        pgl = pg.labels.filter(element=element)
+        pgl = pg.labels.filter(element=element).first()
         self.assertAlmostEqual(
             pgl.rate_appearance_intact_per_animal,
             920.8390222,
@@ -1716,7 +1716,7 @@ class TracerRateTests(TracebaseTestCase):
         tracer = animal.infusate.tracers.first()
         element = tracer.labels.first().element
         pg = animal.last_serum_tracer_peak_groups.first()
-        pgl = pg.labels.filter(element=element)
+        pgl = pg.labels.filter(element=element).first()
         self.assertAlmostEqual(
             pgl.rate_disappearance_average_per_gram,
             37.36671487,
@@ -1729,7 +1729,7 @@ class TracerRateTests(TracebaseTestCase):
         tracer = animal.infusate.tracers.first()
         element = tracer.labels.first().element
         pg = animal.last_serum_tracer_peak_groups.first()
-        pgl = pg.labels.filter(element=element)
+        pgl = pg.labels.filter(element=element).first()
         self.assertAlmostEqual(
             pgl.rate_appearance_average_per_gram,
             32.88671487,
@@ -1742,7 +1742,7 @@ class TracerRateTests(TracebaseTestCase):
         tracer = animal.infusate.tracers.first()
         element = tracer.labels.first().element
         pg = animal.last_serum_tracer_peak_groups.first()
-        pgl = pg.labels.filter(element=element)
+        pgl = pg.labels.filter(element=element).first()
         # doublecheck weight, because test is not exact but test_tracer_Rd_avg_g was fine
         self.assertAlmostEqual(
             pgl.rate_disappearance_average_per_animal,
