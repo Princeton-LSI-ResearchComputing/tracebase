@@ -4,7 +4,6 @@ from django.db import models
 
 from DataRepo.models.element_label import ElementLabel
 from DataRepo.models.hier_cached_model import HierCachedModel, cached_function
-from DataRepo.models.tissue import Tissue
 
 
 class AnimalLabel(HierCachedModel):
