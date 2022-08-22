@@ -253,6 +253,7 @@ class GlobalCacheTests(TracebaseTestCase):
             ],
             "PeakGroup": ["peak_labeled_elements"],
             "FCirc": [
+                "is_last_serum_peak_group",
                 "last_peak_group",
                 "peak_groups",
                 "rate_disappearance_intact_per_gram",
