@@ -223,6 +223,45 @@ class Animal(HierCachedModel, ElementLabel):
 
         return peakgrouplabels.last()
 
+    @property  # type: ignore
+    @cached_function
+    def last_serum_tracer_peak_groups(self):
+        """
+        Retrieves the last Peak Group for each tracer compound that has this.element
+        """
+        from DataRepo.models.peak_group import PeakGroup
+
+        # Get every tracer's compound that contains this element
+        if self.tracers.count() == 0:
+            warnings.warn(
+                f"Animal [{self.animal}] has no tracers containing labeled element [{self.element}]."
+            )
+            return PeakGroup.objects.none()
+
+        # Get the last peakgroup for each tracer that has this label
+        last_serum_peakgroup_ids = []
+        for tracer in self.tracers.all():
+            tracer_peak_group = (
+                PeakGroup.objects.filter(
+                    msrun__sample__animal__id__exact=self.id
+                )
+                .filter(compounds__id__exact=tracer.compound.id)
+                .filter(
+                    msrun__sample__tissue__name__istartswith=Tissue.SERUM_TISSUE_PREFIX
+                )
+                .order_by("msrun__sample__time_collected", "msrun__date")
+                .last()
+            )
+            if tracer_peak_group:
+                last_serum_peakgroup_ids.append(tracer_peak_group.id)
+            else:
+                warnings.warn(
+                    f"Animal {self} has no serum sample peak group for {tracer.compound}."
+                )
+                return PeakGroup.objects.none()
+
+        return PeakGroup.objects.filter(id__in=last_serum_peakgroup_ids)
+
     class Meta:
         verbose_name = "animal"
         verbose_name_plural = "animals"
