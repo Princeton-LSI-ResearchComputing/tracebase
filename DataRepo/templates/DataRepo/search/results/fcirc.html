@@ -429,7 +429,7 @@
                         {% endif %}
                     {% endwith %}
                 </th>
-                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Labeled_Element-data-visible' 'false' %}" data-field="Labeled_Element">
+                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Labeled_Element-data-visible' 'true' %}" data-field="Labeled_Element">
                     {% with "Labeled<br>Element" as colhead %}
                         {% if mode == "view" %}{{ colhead }}{% else %}
                             <div onclick="sortColumn(this)" class="sortable" id="element">{{ colhead }}</div>
@@ -486,7 +486,7 @@
 
         <tbody>
             {% for rec in res.all %}
-                <tr class="{% if rec.serum_sample.id == rec.serum_sample.animal.final_serum_sample_id %}bg-highlighted{% else %}bg-normal{% endif %}">
+                <tr class="{% if rec.is_last_serum_peak_group %}bg-highlighted{% else %}bg-normal{% endif %}">
                     <!-- Animal -->
                     <td>
                         <!-- Put displayed link text first for sorting -->

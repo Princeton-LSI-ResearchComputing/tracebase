@@ -51,10 +51,43 @@ class FCirc(HierCachedModel):
         """
 
         if not self.serum_sample.is_serum_sample:
-            raise InvalidSerumSample(f"The linked sample [{self.serum_sample}] must be a serum sample.")
+            raise InvalidSerumSample(
+                f"The linked sample [{self.serum_sample}] must be a serum sample."
+            )
 
         # Now save the updated values
         super().save(*args, **kwargs)
+
+    @property  # type: ignore
+    @cached_function
+    def is_last_serum_peak_group(self):
+        """
+        Note, there is an FCirc record for every serum sample, tracer, and label combo.  Each such combo represents a
+        single "peak group" even though there can exist multiple peak groups from different serum samples and different
+        msruns from the same serum sample.  However, multiple msruns froim the same sample are ignored - only the last
+        one is represented by a record in this table.  Michael and I (Rob) discussed whether it was worthwhile to
+        compute values for peak groups from this sample in prior msruns and Michael said no, so:
+
+        This method determines whether the peak group from the last msrun that included this tracer and label is the
+        last peakgroup when considered among multiple serum samples.  There could exist last peak groups in prior serum
+        samples that would result in a false return here.  There can also be later serum samples that don't include a
+        peak group for this tracer which would return false if it was among the peakgroups returned, but they will not
+        be among the peakgroups represented in this table.
+        """
+
+        if self.last_peak_group:
+            last_serum_tracer_peak_group = (
+                self.serum_sample.animal.last_serum_tracer_peak_groups.filter(
+                    compounds__exact=self.tracer.compound
+                ).get()
+            )
+
+            return self.last_peak_group == last_serum_tracer_peak_group
+        else:
+            warnings.warn(
+                f"Serum sample {self.serum_sample} has no peak group for tracer {self.tracer}."
+            )
+            return False
 
     @property  # type: ignore
     @cached_function
@@ -63,7 +96,9 @@ class FCirc(HierCachedModel):
         Retrieve the latest PeakGroup for this serum sample and tracer.
         """
 
-        peakgroups = self.serum_sample.last_tracer_peak_groups.filter(compounds__exact=self.tracer.compound)
+        peakgroups = self.serum_sample.last_tracer_peak_groups.filter(
+            compounds__exact=self.tracer.compound
+        )
 
         if peakgroups.count() == 0:
             warnings.warn(
@@ -78,12 +113,15 @@ class FCirc(HierCachedModel):
     def peak_groups(self):
         """
         Retrieve all PeakGroups for this serum sample and tracer, regardless of msrun date.
+
+        Currently unused - see docstring in self.is_last_serum_peak_group
         """
         from DataRepo.models.peak_group import PeakGroup
 
         peakgroups = (
             PeakGroup.objects.filter(msrun__sample__exact=self.serum_sample)
-            .filter(compounds__exact=self.tracer.compound).order_by("msrun__date")
+            .filter(compounds__exact=self.tracer.compound)
+            .order_by("msrun__date")
         )
 
         if peakgroups.count() == 0:

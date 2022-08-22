@@ -76,18 +76,14 @@ class Sample(HierCachedModel):
 
         # Get every tracer's compound that contains this element
         if self.animal.tracers.count() == 0:
-            warnings.warn(
-                f"Animal [{self.animal}] has no tracers."
-            )
+            warnings.warn(f"Animal [{self.animal}] has no tracers.")
             return PeakGroup.objects.none()
 
         # Get the last peakgroup for each tracer that has this label
         last_peakgroup_ids = []
         for tracer in self.animal.tracers.all():
             tracer_peak_group = (
-                PeakGroup.objects.filter(
-                    msrun__sample__id__exact=self.id
-                )
+                PeakGroup.objects.filter(msrun__sample__id__exact=self.id)
                 .filter(compounds__id__exact=tracer.compound.id)
                 .order_by("msrun__date")
                 .last()
