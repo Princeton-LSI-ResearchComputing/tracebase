@@ -153,7 +153,7 @@ class GlobalCacheTests(TracebaseTestCase):
         rr, rf = a.get_representative_root_rec_and_method()
         rv = getattr(rr, rf)  # Representative value
         # Value in question
-        f = "last_serum_sample_id"  # Field
+        f = "last_serum_sample"  # Field
         v = getattr(a, f)  # same as `v = a.last_serum_sample`
 
         delete_all_caches()
@@ -223,7 +223,7 @@ class GlobalCacheTests(TracebaseTestCase):
         expected_structure = {
             "Animal": [
                 "last_serum_sample",
-                "last_serum_sample_id",
+                "last_serum_tracer_peak_groups",
             ],
             "AnimalLabel": [
                 "tracers",
@@ -565,7 +565,7 @@ class BuildCachesTests(TracebaseTestCase):
 
     def test_cached_function_call(self):
         c = Animal
-        f = "last_serum_sample_id"
+        f = "last_serum_sample"
         a = Animal.objects.all().first()
         la = Animal.objects.all().last()
         disable_caching_retrievals()

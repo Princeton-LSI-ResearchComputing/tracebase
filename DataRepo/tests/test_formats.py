@@ -368,8 +368,8 @@ class FormatsTests(TracebaseTestCase):
                 "Compound",
             ],
             "compounds__synonyms",
-            "labels",
             "peak_group_set",
+            "labels",
         ]
 
         self.assertEqual(expected_prefetches, prefetches)

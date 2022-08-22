@@ -145,22 +145,6 @@ class Animal(HierCachedModel, ElementLabel):
 
         return last_serum_sample
 
-    @property  # type: ignore
-    @cached_function
-    def last_serum_sample_id(self):
-        """
-        last_serum_sample_id in an instance method that returns the id of the last single
-        serum sample removed from the animal, based on the time elapsed/duration from the initiation of infusion or
-        treatment.  If the animal has no serum samples, a warning will be issued.
-        """
-        # Note: calling self.last_serum_sample here ran into linting issues with `fss.id` not "existing". Added
-        # fss\..* to this list of generated-members in the pylint config to ignore it.
-        id = None
-        fss = self.last_serum_sample
-        if fss and fss.id:
-            id = fss.id
-        return id
-
     def last_serum_sample_peak_group(self, compound):
         """
         Retrieve the latest PeakGroup of this animal for a given compound (whether it's the last serum sample or not -
