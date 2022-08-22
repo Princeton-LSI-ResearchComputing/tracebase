@@ -63,12 +63,12 @@ class AnimalLabel(HierCachedModel):
         """
         from DataRepo.models.peak_group import PeakGroup
 
-        peakgroups = self.animal.last_serum_tracer_peak_groups().filter(labels__element__exact=self.element)
+        peakgroups = self.animal.last_serum_tracer_peak_groups.filter(labels__element__exact=self.element)
 
         if peakgroups.count() != self.tracers.count():
             warnings.warn(
-                f"Animal {self.animal} doesn't have a serum peak group for every tracer containing element "
-                f"{self.element}."
+                f"Animal {self.animal} is missing {self.tracers.count() - peakgroups.count()} serum peak groups of "
+                f"the {self.tracers.count()} tracers containing element {self.element}."
             )
             return PeakGroup.objects.none()
 

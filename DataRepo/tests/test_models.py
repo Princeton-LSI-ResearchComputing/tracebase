@@ -1176,6 +1176,10 @@ class PropertyTests(TracebaseTestCase):
             .filter(msrun__sample__name="serum-xz971")
             .get()
         )
+        PeakGroupLabel.objects.create(
+            peak_group=second_serum_peak_group,
+            element=peak_group.labels.first().element,
+        )
         # We do not need to add a peak group label (i.e. make it missing), because it's not used in this calculation
         for orig_peak_data in first_serum_peak_group.peak_data.all():
             pdr = PeakData.objects.create(

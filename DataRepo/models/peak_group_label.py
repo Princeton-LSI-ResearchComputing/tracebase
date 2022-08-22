@@ -188,9 +188,8 @@ class PeakGroupLabel(HierCachedModel):
 
         except Sample.DoesNotExist:
             warnings.warn(
-                "Unable to compute normalized_labelings for "
-                f"{self.peak_group.msrun.sample}:{self}, "
-                "associated 'serum' sample not found."
+                f"Unable to compute normalized_labelings for {self.peak_group.msrun.sample}:{self}, associated "
+                "'serum' sample not found."
             )
             normalized_labeling = None
 
