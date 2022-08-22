@@ -810,7 +810,7 @@ class PropertyTests(TracebaseTestCase):
         # and test that the Animal convenience method is equivalent for this
         # particular sample/animal
         pg = (
-            animal.labels.first().last_serum_sample_tracer_label_peak_groups.first()
+            animal.labels.first().last_serum_tracer_label_peak_groups.first()
         )
         self.assertEqual(sample_tracer_peak_groups.get().id, pg.id)
 
@@ -844,7 +844,7 @@ class PropertyTests(TracebaseTestCase):
             self.assertIsNone(refeshed_animal.last_serum_sample)
         with self.assertWarns(UserWarning):
             self.assertEqual(
-                refeshed_animal_label.last_serum_sample_tracer_label_peak_groups.count(),
+                refeshed_animal_label.last_serum_tracer_label_peak_groups.count(),
                 0,
             )
 
@@ -1349,7 +1349,7 @@ class PropertyTests(TracebaseTestCase):
         animal.infusion_rate = None
         animal.save()
         pgf = (
-            animal.labels.first().last_serum_sample_tracer_label_peak_groups.first()
+            animal.labels.first().last_serum_tracer_label_peak_groups.first()
         )
         pglf = pgf.labels.first()
         with self.assertWarns(UserWarning):
@@ -1366,7 +1366,7 @@ class PropertyTests(TracebaseTestCase):
         pg = sample.peak_groups(compound).last()
         animal = pg.animal
         al = animal.labels.first()
-        pgf = al.last_serum_sample_tracer_label_peak_groups.last()
+        pgf = al.last_serum_tracer_label_peak_groups.last()
         pglf = pgf.labels.first()
         # but if the animal tracer_concentration is not defined...
         set_cache(pglf, "tracer_concentration", None)
