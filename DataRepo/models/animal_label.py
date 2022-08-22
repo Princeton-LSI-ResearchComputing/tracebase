@@ -63,7 +63,9 @@ class AnimalLabel(HierCachedModel):
         """
         from DataRepo.models.peak_group import PeakGroup
 
-        peakgroups = self.animal.last_serum_tracer_peak_groups.filter(labels__element__exact=self.element)
+        peakgroups = self.animal.last_serum_tracer_peak_groups.filter(
+            labels__element__exact=self.element
+        )
 
         if peakgroups.count() != self.tracers.count():
             warnings.warn(
@@ -106,10 +108,7 @@ class AnimalLabel(HierCachedModel):
             if self.tracers.count() == 0 or total_atom_count == 0:
                 raise NoTracerCompounds(self.animal, self.element)
 
-            if (
-                self.last_serum_tracer_label_peak_groups.count()
-                != self.tracers.count()
-            ):
+            if self.last_serum_tracer_label_peak_groups.count() != self.tracers.count():
                 raise MissingPeakGroups(
                     self.tracers,
                     self.last_serum_tracer_label_peak_groups,

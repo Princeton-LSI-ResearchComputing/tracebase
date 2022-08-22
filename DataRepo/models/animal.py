@@ -107,9 +107,7 @@ class Animal(HierCachedModel, ElementLabel):
     @cached_function
     def tracers(self):
         if self.infusate.tracers.count() == 0:
-            warnings.warn(
-                f"Animal [{self.animal}] has no tracers."
-            )
+            warnings.warn(f"Animal [{self.animal}] has no tracers.")
         return self.infusate.tracers.all()
 
     @property  # type: ignore
@@ -154,9 +152,7 @@ class Animal(HierCachedModel, ElementLabel):
         last_serum_peakgroup_ids = []
         for tracer in self.tracers.all():
             tracer_peak_group = (
-                PeakGroup.objects.filter(
-                    msrun__sample__animal__id__exact=self.id
-                )
+                PeakGroup.objects.filter(msrun__sample__animal__id__exact=self.id)
                 .filter(compounds__id__exact=tracer.compound.id)
                 .filter(
                     msrun__sample__tissue__name__istartswith=Tissue.SERUM_TISSUE_PREFIX

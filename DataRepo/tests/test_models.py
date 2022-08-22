@@ -474,7 +474,9 @@ class DataLoadingTests(TracebaseTestCase):
     @tag("serum")
     def test_animal_serum_sample_methods(self):
         animal = self.MAIN_SERUM_ANIMAL
-        serum_samples = animal.samples.filter(tissue__name__istartswith=Tissue.SERUM_TISSUE_PREFIX)
+        serum_samples = animal.samples.filter(
+            tissue__name__istartswith=Tissue.SERUM_TISSUE_PREFIX
+        )
         self.assertEqual(serum_samples.count(), 1)
         last_serum_sample = animal.last_serum_sample
         self.assertEqual(last_serum_sample.name, "serum-xz971")
@@ -809,9 +811,7 @@ class PropertyTests(TracebaseTestCase):
         self.assertEqual(sample_tracer_peak_groups.count(), 1)
         # and test that the Animal convenience method is equivalent for this
         # particular sample/animal
-        pg = (
-            animal.labels.first().last_serum_tracer_label_peak_groups.first()
-        )
+        pg = animal.labels.first().last_serum_tracer_label_peak_groups.first()
         self.assertEqual(sample_tracer_peak_groups.get().id, pg.id)
 
     @tag("fcirc", "serum")
@@ -827,16 +827,16 @@ class PropertyTests(TracebaseTestCase):
         with the msrun deleted, the 7 rows of prior peak data
         (test_sample_peak_data, above) are now 0/gone
         """
-        peakdata = last_serum_sample.peak_data(
-            animal.infusate.tracers.first().compound
-        )
+        peakdata = last_serum_sample.peak_data(animal.infusate.tracers.first().compound)
         self.assertEqual(peakdata.count(), 0)
         animal.last_serum_sample.delete()
         # with the sample deleted, there are no more serum records...
         # so if we refresh, with no cached final serum values...
         refeshed_animal = Animal.objects.get(name="971")
         refeshed_animal_label = refeshed_animal.labels.first()
-        serum_samples = refeshed_animal.samples.filter(tissue__name__istartswith=Tissue.SERUM_TISSUE_PREFIX)
+        serum_samples = refeshed_animal.samples.filter(
+            tissue__name__istartswith=Tissue.SERUM_TISSUE_PREFIX
+        )
         # so zero length list
         self.assertEqual(serum_samples.count(), 0)
         with self.assertWarns(UserWarning):
@@ -917,9 +917,7 @@ class PropertyTests(TracebaseTestCase):
             45658.53687,
             places=5,
         )
-        self.assertAlmostEqual(
-            peak_group.labels.first().normalized_labeling, 1
-        )
+        self.assertAlmostEqual(peak_group.labels.first().normalized_labeling, 1)
 
     def test_no_peak_labeled_elements(self):
         # This creates an animal with a notrogen-labeled tracer (among others)
@@ -1047,7 +1045,9 @@ class PropertyTests(TracebaseTestCase):
             time_collected=first_serum_sample.time_collected + timedelta(minutes=1),
         )
 
-        serum_samples = first_serum_sample.animal.samples.filter(tissue__name__istartswith=Tissue.SERUM_TISSUE_PREFIX)
+        serum_samples = first_serum_sample.animal.samples.filter(
+            tissue__name__istartswith=Tissue.SERUM_TISSUE_PREFIX
+        )
         # there should now be 2 serum samples for this animal
         self.assertEqual(serum_samples.count(), 2)
         last_serum_sample = first_serum_sample.animal.last_serum_sample
@@ -1098,9 +1098,7 @@ class PropertyTests(TracebaseTestCase):
         ).last()
         second_peak_data.corrected_abundance = 100
         second_peak_data.save()
-        self.assertEqual(
-            peak_group.labels.count(), 1, msg="Assure load was complete"
-        )
+        self.assertEqual(peak_group.labels.count(), 1, msg="Assure load was complete")
         self.assertAlmostEqual(
             peak_group.labels.first().normalized_labeling, 3.455355083
         )
@@ -1128,7 +1126,9 @@ class PropertyTests(TracebaseTestCase):
             time_collected=first_serum_sample.time_collected + timedelta(minutes=1),
         )
 
-        serum_samples = first_serum_sample.animal.samples.filter(tissue__name__istartswith=Tissue.SERUM_TISSUE_PREFIX)
+        serum_samples = first_serum_sample.animal.samples.filter(
+            tissue__name__istartswith=Tissue.SERUM_TISSUE_PREFIX
+        )
         # there should now be 2 serum samples for this animal
         self.assertEqual(serum_samples.count(), 2)
         last_serum_sample = first_serum_sample.animal.last_serum_sample
@@ -1149,9 +1149,7 @@ class PropertyTests(TracebaseTestCase):
             sample=second_serum_sample,
         )
         # DO NOT CREATE A PEAKGROUP FOR THE TRACER
-        self.assertEqual(
-            peak_group.labels.count(), 1, msg="Assure load was complete"
-        )
+        self.assertEqual(peak_group.labels.count(), 1, msg="Assure load was complete")
         # With the new logic of obtaining the last instance of a peak group among serum samples, this should still
         # produce a calculation even though the serum tracer's last peak group doesn't have a peak group. It will
         # just use the one from the first
@@ -1314,12 +1312,8 @@ class PropertyTests(TracebaseTestCase):
             )
 
         with self.assertWarns(UserWarning):
-            self.assertIsNone(
-                peak_group_zero.labels.first().enrichment_fraction
-            )
-        self.assertIsNone(
-            peak_group_zero.labels.first().enrichment_abundance
-        )
+            self.assertIsNone(peak_group_zero.labels.first().enrichment_fraction)
+        self.assertIsNone(peak_group_zero.labels.first().enrichment_abundance)
         self.assertIsNone(peak_group_zero.labels.first().normalized_labeling)
         self.assertEqual(peak_group_zero.total_abundance, 0)
 
@@ -1352,9 +1346,7 @@ class PropertyTests(TracebaseTestCase):
         orig_tir = animal.infusion_rate
         animal.infusion_rate = None
         animal.save()
-        pgf = (
-            animal.labels.first().last_serum_tracer_label_peak_groups.first()
-        )
+        pgf = animal.labels.first().last_serum_tracer_label_peak_groups.first()
         pglf = pgf.labels.first()
         with self.assertWarns(UserWarning):
             self.assertFalse(pglf.can_compute_tracer_label_rates)
