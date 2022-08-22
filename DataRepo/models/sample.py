@@ -121,27 +121,6 @@ class Sample(HierCachedModel):
                 raise InvalidArgument("Argument must be a Compound or Tracer")
         return peak_groups.all()
 
-    def last_peak_group(self, compound):
-        """
-        Retrieve the latest PeakGroup of this sample for a given compound.
-        """
-
-        # NOTE: PR REVIEW (TO BE DELETED): I have noted that it should be possible to calculate all the below values
-        # based on the "not last" peak group of a serum sample.  For example, if Lysine was the tracer, and it was
-        # included in an msrun twice for the same serum sample, calculating based on it might be worthwhile for the
-        # same reason that we show calculations for the "not last" serum sample.  If people think that's worthwhile, I
-        # could hang this table off of peakGroup instead of here...
-        peakgroups = self.peak_groups(compound.id)
-        peakgroups = peakgroups.order_by("msrun__date")
-
-        if peakgroups.count() == 0:
-            warnings.warn(
-                f"Serum sample {self.name} has no peak group for compound {compound}."
-            )
-            return None
-
-        return peakgroups.last()
-
     def peak_data(self, compound=None):
         """
         Retrieve a list of PeakData objects for a sample.  If an optional compound is passed (e.g.
