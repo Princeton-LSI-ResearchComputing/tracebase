@@ -201,8 +201,24 @@ class GlobalCacheTests(TracebaseTestCase):
             msg="After cache save representative retrieval status must be true for the next assertion to be meaningful",
         )
         self.assertEqual(
-            grvres,
-            rv,
+            grvres.count(),
+            rv.count(),
+            msg=(
+                "Caching a child value should trigger a caching of the root model's representative value, which should "
+                "be the same as before it was saved in the cache"
+            ),
+        )
+        self.assertEqual(
+            grvres.count(),
+            1,
+            msg=(
+                "Caching a child value should trigger a caching of the root model's representative value, which should "
+                "be the same as before it was saved in the cache"
+            ),
+        )
+        self.assertEqual(
+            grvres.first().id,
+            rv.first().id,
             msg=(
                 "Caching a child value should trigger a caching of the root model's representative value, which should "
                 "be the same as before it was saved in the cache"
@@ -222,6 +238,7 @@ class GlobalCacheTests(TracebaseTestCase):
         res = get_cached_method_names()
         expected_structure = {
             "Animal": [
+                "tracers",
                 "last_serum_sample",
                 "last_serum_tracer_peak_groups",
             ],
@@ -230,10 +247,14 @@ class GlobalCacheTests(TracebaseTestCase):
                 "last_serum_tracer_label_peak_groups",
                 "serum_tracers_enrichment_fraction",
             ],
-            "Sample": ["is_serum_sample"],
+            "Sample": [
+                "is_serum_sample",
+                "last_tracer_peak_groups",
+            ],
             "PeakGroup": ["peak_labeled_elements"],
             "FCirc": [
                 "last_peak_group",
+                "peak_groups",
                 "rate_disappearance_intact_per_gram",
                 "rate_appearance_intact_per_gram",
                 "rate_disappearance_intact_per_animal",

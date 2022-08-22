@@ -116,11 +116,9 @@ class Animal(HierCachedModel, ElementLabel):
     @cached_property
     def all_serum_samples(self):
         """
-        all_serum_samples() in an instance method that returns all the serum
-        samples removed from the calling animal object, ordered by the time they
-        were collected from the animal, which is recorded as the time
-        elapsed/duration from the initiation of infusion or treatment,
-        typically.
+        all_serum_samples() in an instance method that returns all the serum samples removed from the calling animal
+        object, ordered by the time they were collected from the animal, which is recorded as the time elapsed/duration
+        from the initiation of infusion or treatment, typically.
         """
         return (
             self.samples.filter(tissue__name__startswith=Tissue.SERUM_TISSUE_PREFIX)
@@ -132,11 +130,9 @@ class Animal(HierCachedModel, ElementLabel):
     @cached_function
     def last_serum_sample(self):
         """
-        last_serum_sample in an instance method that returns the last single
-        serum sample removed from the animal, based on the time elapsed/duration
-        from the initiation of infusion or treatment, typically.  If the animal
-        has no serum samples or if the retrieved serum sample has no annotated
-        time_collected, a warning will be issued.
+        last_serum_sample in an instance method that returns the last single serum sample removed from the animal,
+        based on the time elapsed/duration from the initiation of infusion or treatment, typically.  If the animal has
+        no serum samples or if the retrieved serum sample has no annotated time_collected, a warning will be issued.
         """
         last_serum_sample = (
             self.samples.filter(tissue__name__istartswith=Tissue.SERUM_TISSUE_PREFIX)
@@ -148,8 +144,7 @@ class Animal(HierCachedModel, ElementLabel):
             warnings.warn(f"Animal {self.name} has no 'serum' samples.")
         elif not last_serum_sample.time_collected:
             warnings.warn(
-                f"The Final serum sample {last_serum_sample.name} for "
-                f"Animal {self.name} is missing a time_collected value."
+                f"The Final serum sample {last_serum_sample} for animal [{self}] is missing a time_collected value."
             )
 
         return last_serum_sample
