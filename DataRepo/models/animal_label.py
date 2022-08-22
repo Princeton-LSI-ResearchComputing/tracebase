@@ -20,7 +20,7 @@ class AnimalLabel(HierCachedModel):
     animal = models.ForeignKey(
         "DataRepo.Animal",
         on_delete=models.CASCADE,
-        related_name="animal_labels",
+        related_name="labels",
     )
     element = models.CharField(
         max_length=1,
@@ -33,7 +33,7 @@ class AnimalLabel(HierCachedModel):
 
     class Meta:
         verbose_name = "animal_label"
-        verbose_name_plural = "animal_labels"
+        verbose_name_plural = "labels"
         ordering = ["animal", "element"]
         constraints = [
             models.UniqueConstraint(

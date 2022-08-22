@@ -8,7 +8,7 @@ from DataRepo.models.hier_cached_model import HierCachedModel, cached_function
 class PeakGroup(HierCachedModel):
 
     parent_related_key_name = "msrun"
-    child_related_key_names = ["peak_group_labels"]
+    child_related_key_names = ["labels"]
 
     id = models.AutoField(primary_key=True)
     name = models.CharField(
