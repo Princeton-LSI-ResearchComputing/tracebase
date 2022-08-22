@@ -227,7 +227,6 @@ generated-members=
     .*\.final_serum_sample,
     fss\..*,
     .*\.animal,
-    .*\.all_serum_samples,
     .*\.peak_data,
     .*\.filter
     .*\.studies

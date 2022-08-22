@@ -60,10 +60,7 @@ class FCirc(HierCachedModel):
     @cached_function
     def last_peak_group(self):
         """
-        Retrieve the latest PeakGroup for this serum sample and tracer.  This differs from
-        Animal.last_serum_sample_peak_group_label in that it forces the calculation for this serum sample specifically
-        whereas Animal.last_serum_sample_peak_group_label gets the last peakgroup for the tracer compound in whichever
-        serum sample has it (most likely the last one).
+        Retrieve the latest PeakGroup for this serum sample and tracer.
         """
 
         peakgroups = self.serum_sample.last_tracer_peak_groups.filter(compounds__exact=self.tracer.compound)
