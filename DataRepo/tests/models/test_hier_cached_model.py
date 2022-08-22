@@ -227,7 +227,7 @@ class GlobalCacheTests(TracebaseTestCase):
             ],
             "AnimalLabel": [
                 "tracers",
-                "last_serum_sample_tracer_label_peak_groups",
+                "last_serum_tracer_label_peak_groups",
                 "serum_tracers_enrichment_fraction",
             ],
             "Sample": ["is_serum_sample"],
