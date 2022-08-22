@@ -103,6 +103,15 @@ class Animal(HierCachedModel, ElementLabel):
         help_text="The laboratory controlled label of the actions taken on an animal.",
     )
 
+    @property  # type: ignore
+    @cached_function
+    def tracers(self):
+        if self.infusate.tracers.count() == 0:
+            warnings.warn(
+                f"Animal [{self.animal}] has no tracers."
+            )
+        return self.infusate.tracers.all()
+
     # @cached_function is *slower* than uncached
     @cached_property
     def all_serum_samples(self):
