@@ -45,6 +45,17 @@ class FCirc(HierCachedModel):
             )
         ]
 
+    def save(self, *args, **kwargs):
+        """
+        This checks to make sure that self.serum_sample is in fact a serum sample.
+        """
+
+        if not self.serum_sample.is_serum_sample:
+            raise InvalidSerumSample(f"The linked sample [{self.serum_sample}] must be a serum sample.")
+
+        # Now save the updated values
+        super().save(*args, **kwargs)
+
     @property  # type: ignore
     @cached_function
     def last_peak_group(self):
@@ -230,3 +241,7 @@ class FCirc(HierCachedModel):
             return self.last_peak_group.labels.get(
                 element__exact=self.element,
             ).rate_appearance_average_per_animal
+
+
+class InvalidSerumSample(ValueError):
+    pass
