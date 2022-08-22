@@ -4,7 +4,6 @@ from datetime import timedelta
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models
-from django.utils.functional import cached_property
 
 from DataRepo.models.hier_cached_model import HierCachedModel, cached_function
 
