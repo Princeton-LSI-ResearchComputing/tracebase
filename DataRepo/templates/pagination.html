@@ -140,6 +140,34 @@
             setPageFormValue("{{ pager.page_input_id }}", pagenum)
         }
 
+        function promptForPage(curpage, num_pages){
+            valid = false
+            canceled = false
+            errmsg = ""
+            while(!valid){
+                var newpagestr = prompt(errmsg + "Enter a page number between 1 and " + num_pages + ":", curpage);
+                if(typeof newpagestr === 'undefined' || !newpagestr){
+                    canceled = true
+                    valid = true
+                } else {
+                    var newpagenum = parseInt(newpagestr);
+                    if(isNaN(newpagenum)){
+                        errmsg = "Error: [" + newpagestr + "] is not an integer.\n"
+                    } else if(newpagenum < 1) {
+                        errmsg = "Error: [" + newpagestr + "] must be greater than 0.\n"
+                    } else if(newpagenum > num_pages) {
+                        errmsg = "Error: [" + newpagestr + "] must be less than or equal to the number of pages: [" + num_pages + "].\n"
+                    } else {
+                        valid = true
+                    }
+                }
+            }
+            if(!canceled){
+                setPage(newpagenum)
+                submitForm()
+            }
+        }
+
         function setPageFormValue(elem_id, val) {
             var input_elem = document.getElementById(elem_id)
             if (typeof input_elem !== 'undefined' && input_elem) {
@@ -190,7 +218,11 @@
                                 {% else %}
                                     {% if pg.val == pager.page %}
                                         <li class="page-item active">
-                                            <a class="page-link" href="#">{{ pg.name }} <span class="sr-only">(current)</span></a>
+                                            <div class="page-link">{{ pg.name }} <span class="sr-only">(current)</span></div>
+                                        </li>
+                                    {% elif pg.name == "..." %}
+                                        <li class="page-item" onclick="promptForPage({{ pager.page }}, {{ pager.num_pages }})">
+                                            <a class="page-link" href="#">{{ pg.name }}</a>
                                         </li>
                                     {% else %}
                                         <li class="page-item disabled">

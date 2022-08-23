@@ -131,9 +131,13 @@ class Pager:
             self.other_field_ids,
         )
 
+        # Default to 1 page of results
+        self.num_pages = 1
+
         # Set up the paging controls
         if tot is not None:
             totpgs = math.ceil(tot / rows)
+            self.num_pages = totpgs
 
             # The number of pages that are shown to either side of the current page
             num_side_controls = int(self.num_buttons / 2)
