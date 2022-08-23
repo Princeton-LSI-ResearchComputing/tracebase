@@ -2,6 +2,7 @@ from DataRepo.models.animal import Animal
 from DataRepo.models.animal_label import AnimalLabel
 from DataRepo.models.compound import Compound, CompoundSynonym
 from DataRepo.models.element_label import ElementLabel
+from DataRepo.models.fcirc import FCirc
 from DataRepo.models.hier_cached_model import HierCachedModel
 from DataRepo.models.infusate import Infusate
 from DataRepo.models.infusate_tracer import InfusateTracer
@@ -22,6 +23,7 @@ from DataRepo.models.tracer_label import TracerLabel
 __all__ = [
     "Animal",
     "AnimalLabel",
+    "FCirc",
     "Compound",
     "CompoundSynonym",
     "MSRun",
