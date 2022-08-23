@@ -45,21 +45,28 @@ def create_infusate_records():
     InfusateTracer.objects.create(infusate=io2, tracer=glu_t, concentration=3.0)
     InfusateTracer.objects.create(infusate=io2, tracer=c16_t, concentration=4.0)
 
+    return io.id, io2.id
+
 
 @tag("multi_working")
 class InfusateTests(TracebaseTestCase):
     def setUp(self):
-        create_infusate_records()
+        self.INFUSATE1, self.INFUSATE2 = create_infusate_records()
 
     def test_infusate_record(self):
         infusate = Infusate.objects.first()
         infusate.full_clean()
 
     def test_infusate_name_method(self):
-        infusate = Infusate.objects.last()
+        infusate = Infusate.objects.get(id__exact=self.INFUSATE1)
         self.assertEqual(
-            infusate._name(),
             "ti {C16:0-(5,6-13C2,17O2)[2];glucose-(2,3-13C2,4-17O1)[1]}",
+            infusate._name(),
+        )
+        infusate2 = Infusate.objects.get(id__exact=self.INFUSATE2)
+        self.assertEqual(
+            "C16:0-(5,6-13C2,17O2)[4];glucose-(2,3-13C2,4-17O1)[3]",
+            infusate2._name(),
         )
 
     def test_name_not_settable(self):

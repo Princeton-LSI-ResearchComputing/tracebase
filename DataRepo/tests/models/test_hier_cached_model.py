@@ -63,7 +63,7 @@ class GlobalCacheTests(TracebaseTestCase):
 
     def test_load_not_cached(self):
         a = Animal.objects.all().first()
-        f = "final_serum_sample"
+        f = "last_serum_sample"
         v, s = get_cache(a, f)
         self.assertEqual(
             v,
@@ -77,15 +77,15 @@ class GlobalCacheTests(TracebaseTestCase):
 
     def test_get_cache_disabled(self):
         a = Animal.objects.all().first()
-        f = "final_serum_sample"
+        f = "last_serum_sample"
         # Ensure I get the value not using the cache
         disable_caching_retrievals()
-        v = getattr(a, f)  # same as `v = a.final_serum_sample`
+        v = getattr(a, f)  # same as `v = a.last_serum_sample`
         delete_all_caches()
         enable_caching_updates()
-        set_cache(a, "final_serum_sample", v)
+        set_cache(a, "last_serum_sample", v)
         disable_caching_retrievals()
-        res, sts = get_cache(a, "final_serum_sample")
+        res, sts = get_cache(a, "last_serum_sample")
         self.assertEqual(
             res,
             None,
@@ -98,7 +98,7 @@ class GlobalCacheTests(TracebaseTestCase):
 
     def test_get_cache_uncached(self):
         a = Animal.objects.all().first()
-        f = "final_serum_sample"
+        f = "last_serum_sample"
         delete_all_caches()
         enable_caching_retrievals()
         res, sts = get_cache(a, f)
@@ -112,15 +112,15 @@ class GlobalCacheTests(TracebaseTestCase):
 
     def test_get_cache_enabled(self):
         a = Animal.objects.all().first()
-        f = "final_serum_sample"
+        f = "last_serum_sample"
         # Ensure I get the value not using the cache
         disable_caching_retrievals()
-        v = getattr(a, f)  # same as `v = a.final_serum_sample`
+        v = getattr(a, f)  # same as `v = a.last_serum_sample`
         delete_all_caches()
         enable_caching_updates()
-        set_cache(a, "final_serum_sample", v)
+        set_cache(a, "last_serum_sample", v)
         enable_caching_retrievals()
-        res, sts = get_cache(a, "final_serum_sample")
+        res, sts = get_cache(a, "last_serum_sample")
         self.assertEqual(
             res,
             v,
@@ -133,13 +133,13 @@ class GlobalCacheTests(TracebaseTestCase):
 
     def test_set_cache_disabled(self):
         a = Animal.objects.all().first()
-        f = "final_serum_sample"
+        f = "last_serum_sample"
         # Ensure I get the value not using the cache
         disable_caching_retrievals()
-        v = getattr(a, f)  # same as `v = a.final_serum_sample`
+        v = getattr(a, f)  # same as `v = a.last_serum_sample`
         delete_all_caches()
         disable_caching_updates()
-        sts = set_cache(a, "final_serum_sample", v)
+        sts = set_cache(a, "last_serum_sample", v)
         self.assertFalse(
             sts,
             msg="Cache save status should be false when caching updates are disabled",
@@ -153,8 +153,8 @@ class GlobalCacheTests(TracebaseTestCase):
         rr, rf = a.get_representative_root_rec_and_method()
         rv = getattr(rr, rf)  # Representative value
         # Value in question
-        f = "final_serum_sample_id"  # Field
-        v = getattr(a, f)  # same as `v = a.final_serum_sample`
+        f = "last_serum_sample"  # Field
+        v = getattr(a, f)  # same as `v = a.last_serum_sample`
 
         delete_all_caches()
         enable_caching_retrievals()
@@ -201,8 +201,24 @@ class GlobalCacheTests(TracebaseTestCase):
             msg="After cache save representative retrieval status must be true for the next assertion to be meaningful",
         )
         self.assertEqual(
-            grvres,
-            rv,
+            grvres.count(),
+            rv.count(),
+            msg=(
+                "Caching a child value should trigger a caching of the root model's representative value, which should "
+                "be the same as before it was saved in the cache"
+            ),
+        )
+        self.assertEqual(
+            grvres.count(),
+            1,
+            msg=(
+                "Caching a child value should trigger a caching of the root model's representative value, which should "
+                "be the same as before it was saved in the cache"
+            ),
+        )
+        self.assertEqual(
+            grvres.first().id,
+            rv.first().id,
             msg=(
                 "Caching a child value should trigger a caching of the root model's representative value, which should "
                 "be the same as before it was saved in the cache"
@@ -211,7 +227,7 @@ class GlobalCacheTests(TracebaseTestCase):
 
     def test_get_cache_key(self):
         a = Animal.objects.all().first()
-        f = "final_serum_sample"
+        f = "last_serum_sample"
         expected_key = f"Animal.{a.id}.{f}"
         res = get_cache_key(a, f)
         self.assertEqual(
@@ -222,32 +238,24 @@ class GlobalCacheTests(TracebaseTestCase):
         res = get_cached_method_names()
         expected_structure = {
             "Animal": [
-                "final_serum_sample",
-                "final_serum_sample_id",
-                "all_serum_samples_tracer_peak_groups",
-                "final_serum_sample_tracer_peak_group",
-                "intact_tracer_peak_data",
-                "final_serum_tracer_rate_disappearance_intact_per_gram",
-                "final_serum_tracer_rate_appearance_intact_per_gram",
-                "final_serum_tracer_rate_disappearance_intact_per_animal",
-                "final_serum_tracer_rate_appearance_intact_per_animal",
-                "final_serum_tracer_rate_disappearance_average_per_gram",
-                "final_serum_tracer_rate_appearance_average_per_gram",
-                "final_serum_tracer_rate_disappearance_average_per_animal",
-                "final_serum_tracer_rate_appearance_average_per_animal",
-                "final_serum_tracer_rate_appearance_average_atom_turnover",
+                "tracers",
+                "last_serum_sample",
+                "last_serum_tracer_peak_groups",
             ],
             "AnimalLabel": [
+                "tracers",
+                "last_serum_tracer_label_peak_groups",
                 "serum_tracers_enrichment_fraction",
             ],
-            "Sample": ["is_serum_sample"],
-            "PeakGroup": [
-                "peak_labeled_elements",
-                "is_tracer_compound_group",
-                "from_serum_sample",
-                "can_compute_tracer_rates",
-                "can_compute_intact_tracer_rates",
-                "can_compute_average_tracer_rates",
+            "Sample": [
+                "is_serum_sample",
+                "last_tracer_peak_groups",
+            ],
+            "PeakGroup": ["peak_labeled_elements"],
+            "FCirc": [
+                "is_last_serum_peak_group",
+                "last_peak_group",
+                "peak_groups",
                 "rate_disappearance_intact_per_gram",
                 "rate_appearance_intact_per_gram",
                 "rate_disappearance_intact_per_animal",
@@ -256,17 +264,35 @@ class GlobalCacheTests(TracebaseTestCase):
                 "rate_appearance_average_per_gram",
                 "rate_disappearance_average_per_animal",
                 "rate_appearance_average_per_animal",
-                "rate_appearance_average_atom_turnover",
             ],
             "PeakGroupLabel": [
                 "enrichment_fraction",
                 "enrichment_abundance",
                 "normalized_labeling",
+                "tracer",
+                "tracer_label_count",
+                "tracer_concentration",
+                "get_peak_group_label_tracer_info",
+                "is_tracer_label_compound_group",
+                "from_serum_sample",
+                "can_compute_tracer_label_rates",
+                "can_compute_body_weight_intact_tracer_label_rates",
+                "can_compute_body_weight_average_tracer_label_rates",
+                "can_compute_intact_tracer_label_rates",
+                "can_compute_average_tracer_label_rates",
+                "rate_disappearance_intact_per_gram",
+                "rate_appearance_intact_per_gram",
+                "rate_disappearance_intact_per_animal",
+                "rate_appearance_intact_per_animal",
+                "rate_disappearance_average_per_gram",
+                "rate_appearance_average_per_gram",
+                "rate_disappearance_average_per_animal",
+                "rate_appearance_average_per_animal",
             ],
         }
         self.assertEqual(
-            res,
             expected_structure,
+            res,
             "The methods with @cached_function decorators are not what is expected.",
         )
 
@@ -279,7 +305,7 @@ class HierCachedModelTests(TracebaseTestCase):
 
     def test_cached_function_decorator(self):
         delete_all_caches()
-        pg = PeakGroup.objects.all().first().peak_group_labels.first()
+        pg = PeakGroup.objects.all().first().labels.first()
         f = "normalized_labeling"
 
         # Get uncached value
@@ -356,7 +382,7 @@ class HierCachedModelTests(TracebaseTestCase):
 
     def test_delete_override(self):
         delete_all_caches()
-        pg = PeakGroup.objects.all().first().peak_group_labels.first()
+        pg = PeakGroup.objects.all().first().labels.first()
         f = "enrichment_fraction"
 
         enable_caching_retrievals()
@@ -447,26 +473,10 @@ class HierCachedModelTests(TracebaseTestCase):
 
     def test_get_my_cached_method_names(self):
         pg = PeakGroup.objects.all().first()
-        expected = [
-            "peak_labeled_elements",
-            "is_tracer_compound_group",
-            "from_serum_sample",
-            "can_compute_tracer_rates",
-            "can_compute_intact_tracer_rates",
-            "can_compute_average_tracer_rates",
-            "rate_disappearance_intact_per_gram",
-            "rate_appearance_intact_per_gram",
-            "rate_disappearance_intact_per_animal",
-            "rate_appearance_intact_per_animal",
-            "rate_disappearance_average_per_gram",
-            "rate_appearance_average_per_gram",
-            "rate_disappearance_average_per_animal",
-            "rate_appearance_average_per_animal",
-            "rate_appearance_average_atom_turnover",
-        ]
+        expected = ["peak_labeled_elements"]
         self.assertEqual(
-            pg.get_my_cached_method_names(),
             expected,
+            pg.get_my_cached_method_names(),
             msg="Ensure get_my_cached_method_names returns all expected cache_functions.",
         )
 
@@ -480,7 +490,7 @@ class HierCachedModelTests(TracebaseTestCase):
         s2pg = (
             PeakGroup.objects.filter(msrun__sample__id__exact=s2.id)
             .first()
-            .peak_group_labels.first()
+            .labels.first()
         )
         pgf = "enrichment_fraction"
 
@@ -577,7 +587,7 @@ class BuildCachesTests(TracebaseTestCase):
 
     def test_cached_function_call(self):
         c = Animal
-        f = "final_serum_sample_id"
+        f = "last_serum_sample"
         a = Animal.objects.all().first()
         la = Animal.objects.all().last()
         disable_caching_retrievals()

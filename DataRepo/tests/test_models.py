@@ -29,7 +29,6 @@ from DataRepo.models import (
     Tracer,
     TracerLabel,
 )
-from DataRepo.models.animal_label import MissingPeakGroupLabel
 from DataRepo.models.hier_cached_model import set_cache
 from DataRepo.models.peak_group_label import NoCommonLabel
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
@@ -43,7 +42,6 @@ from DataRepo.utils import (
 )
 
 
-@tag("multi_unknown")
 class ExampleDataConsumer:
     def get_sample_test_dataframe(self):
 
@@ -243,7 +241,7 @@ class StudyTests(TracebaseTestCase, ExampleDataConsumer):
     def test_peak_group_atom_count(self):
         """PeakGroup atom_count"""
         t_peak_group = PeakGroup.objects.get(name=self.peak_group.name)
-        self.assertEqual(t_peak_group.peak_group_labels.first().atom_count(), 6)
+        self.assertEqual(t_peak_group.labels.first().atom_count(), 6)
 
     def test_peak_group_unique_constraint(self):
         self.assertRaises(
@@ -256,7 +254,7 @@ class StudyTests(TracebaseTestCase, ExampleDataConsumer):
 
 @override_settings(CACHES=settings.TEST_CACHES)
 @tag("protocol")
-@tag("multi_unknown")
+@tag("multi_working")
 class ProtocolTests(TracebaseTestCase):
     def setUp(self):
         self.p1 = Protocol.objects.create(
@@ -476,22 +474,24 @@ class DataLoadingTests(TracebaseTestCase):
     @tag("serum")
     def test_animal_serum_sample_methods(self):
         animal = self.MAIN_SERUM_ANIMAL
-        serum_samples = animal.all_serum_samples
+        serum_samples = animal.samples.filter(
+            tissue__name__istartswith=Tissue.SERUM_TISSUE_PREFIX
+        )
         self.assertEqual(serum_samples.count(), 1)
-        final_serum_sample = animal.final_serum_sample
-        self.assertEqual(final_serum_sample.name, "serum-xz971")
-        self.assertEqual(final_serum_sample.name, serum_samples.last().name)
+        last_serum_sample = animal.last_serum_sample
+        self.assertEqual(last_serum_sample.name, "serum-xz971")
+        self.assertEqual(last_serum_sample.name, serum_samples.last().name)
 
     @tag("serum")
     def test_missing_time_collected_warning(self):
-        final_serum_sample = self.MAIN_SERUM_ANIMAL.final_serum_sample
+        last_serum_sample = self.MAIN_SERUM_ANIMAL.last_serum_sample
         # pretend the time_collected did not exist
-        final_serum_sample.time_collected = None
-        final_serum_sample.save()
+        last_serum_sample.time_collected = None
+        last_serum_sample.save()
         # so if we refresh, with no cached final serum values...
         refeshed_animal = Animal.objects.get(name="971")
         with self.assertWarns(UserWarning):
-            final_serum_sample = refeshed_animal.final_serum_sample
+            last_serum_sample = refeshed_animal.last_serum_sample
 
     def test_restricted_animal_treatment_deletion(self):
         treatment = Animal.objects.get(name="exp024f_M2").treatment
@@ -675,9 +675,9 @@ class DataLoadingTests(TracebaseTestCase):
         # get a tracer compound from a non-serum sample
         compound = Compound.objects.get(name="glucose")
         sample = Sample.objects.get(name="Liv-xz982")
-        pg = sample.peak_groups(compound).last()
+        pgl = sample.peak_groups(compound).last().labels.first()
         with self.assertWarns(UserWarning):
-            self.assertFalse(pg.from_serum_sample)
+            self.assertFalse(pgl.from_serum_sample)
 
     @tag("synonym_data_loading")
     def test_valid_synonym_accucor_load(self):
@@ -715,7 +715,7 @@ class DataLoadingTests(TracebaseTestCase):
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
-@tag("multi_mixed")
+@tag("multi_working")
 class PropertyTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
@@ -798,104 +798,56 @@ class PropertyTests(TracebaseTestCase):
         cls.MAIN_SERUM_ANIMAL = Animal.objects.get(name="971")
 
     @tag("serum")
-    @tag("multi_broken")
     def test_sample_peak_groups(self):
         animal = self.MAIN_SERUM_ANIMAL
-        final_serum_sample = animal.final_serum_sample
-        peak_groups = final_serum_sample.peak_groups()
+        last_serum_sample = animal.last_serum_sample
+        peak_groups = last_serum_sample.peak_groups()
         # ALL the sample's PeakGroup objects in the QuerySet total 13
         self.assertEqual(peak_groups.count(), self.SERUM_COMPOUNDS_COUNT)
         # but if limited to only the tracer, it is just 1 object in the QuerySet
-        sample_tracer_peak_groups = final_serum_sample.peak_groups(
-            animal.infusate.tracers.first()
+        sample_tracer_peak_groups = last_serum_sample.peak_groups(
+            animal.infusate.tracers.first().compound
         )
         self.assertEqual(sample_tracer_peak_groups.count(), 1)
         # and test that the Animal convenience method is equivalent for this
         # particular sample/animal
-        animal_tracer_peak_group = animal.final_serum_sample_tracer_peak_group
-        self.assertEqual(
-            sample_tracer_peak_groups.get().id, animal_tracer_peak_group.id
-        )
-
-    @tag("serum")
-    @tag("multi_broken")
-    def test_sample_peak_data(self):
-        animal = self.MAIN_SERUM_ANIMAL
-        final_serum_sample = animal.final_serum_sample
-        peakdata = final_serum_sample.peak_data()
-        # ALL the sample's peakdata objects total 85
-        self.assertEqual(peakdata.count(), self.SERUM_PEAKDATA_ROWS)
-        # but if limited to only the tracer's data, it is just 7 objects
-        peakdata = final_serum_sample.peak_data(
-            animal.infusate.tracers.first().compound
-        )
-        self.assertEqual(peakdata.count(), 7)
-        # and test that the Animal convenience method is equivalent to the above
-        peakdata2 = animal.final_serum_sample_tracer_peak_data
-        self.assertEqual(peakdata.last().id, peakdata2.last().id)
+        pg = animal.labels.first().last_serum_tracer_label_peak_groups.first()
+        self.assertEqual(sample_tracer_peak_groups.get().id, pg.id)
 
     @tag("fcirc", "serum")
-    @tag("multi_working")
     def test_missing_serum_sample_peak_data(self):
         animal = self.MAIN_SERUM_ANIMAL
-        final_serum_sample = animal.final_serum_sample
+        last_serum_sample = animal.last_serum_sample
         # do some deletion tests
         serum_sample_msrun = MSRun.objects.filter(
-            sample__name=final_serum_sample.name
+            sample__name=last_serum_sample.name
         ).get()
         serum_sample_msrun.delete()
         """
         with the msrun deleted, the 7 rows of prior peak data
         (test_sample_peak_data, above) are now 0/gone
         """
-        peakdata = final_serum_sample.peak_data(
-            animal.infusate.tracers.first().compound
-        )
+        peakdata = last_serum_sample.peak_data(animal.infusate.tracers.first().compound)
         self.assertEqual(peakdata.count(), 0)
-        animal.final_serum_sample.delete()
+        animal.last_serum_sample.delete()
         # with the sample deleted, there are no more serum records...
         # so if we refresh, with no cached final serum values...
         refeshed_animal = Animal.objects.get(name="971")
-        serum_samples = refeshed_animal.all_serum_samples
+        refeshed_animal_label = refeshed_animal.labels.first()
+        serum_samples = refeshed_animal.samples.filter(
+            tissue__name__istartswith=Tissue.SERUM_TISSUE_PREFIX
+        )
         # so zero length list
         self.assertEqual(serum_samples.count(), 0)
         with self.assertWarns(UserWarning):
-            # and attempts to retrieve the final_serum_sample get None
-            self.assertIsNone(refeshed_animal.final_serum_sample)
+            # and attempts to retrieve the last_serum_sample get None
+            self.assertIsNone(refeshed_animal.last_serum_sample)
         with self.assertWarns(UserWarning):
-            self.assertIsNone(
-                refeshed_animal.final_serum_tracer_rate_disappearance_intact_per_gram
-            )
-        with self.assertWarns(UserWarning):
-            self.assertIsNone(
-                refeshed_animal.final_serum_tracer_rate_appearance_intact_per_gram
-            )
-        with self.assertWarns(UserWarning):
-            self.assertIsNone(
-                refeshed_animal.final_serum_tracer_rate_disappearance_intact_per_animal
-            )
-        with self.assertWarns(UserWarning):
-            self.assertIsNone(
-                refeshed_animal.final_serum_tracer_rate_appearance_intact_per_animal
-            )
-        with self.assertWarns(UserWarning):
-            self.assertIsNone(
-                refeshed_animal.final_serum_tracer_rate_disappearance_average_per_gram
-            )
-        with self.assertWarns(UserWarning):
-            self.assertIsNone(
-                refeshed_animal.final_serum_tracer_rate_appearance_average_per_gram
-            )
-        with self.assertWarns(UserWarning):
-            self.assertIsNone(
-                refeshed_animal.final_serum_tracer_rate_disappearance_average_per_animal
-            )
-        with self.assertWarns(UserWarning):
-            self.assertIsNone(
-                refeshed_animal.final_serum_tracer_rate_appearance_average_per_animal
+            self.assertEqual(
+                refeshed_animal_label.last_serum_tracer_label_peak_groups.count(),
+                0,
             )
 
-    @tag("multi_working")
     def test_peak_group_peak_data_1(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="glucose")
@@ -908,18 +860,17 @@ class PropertyTests(TracebaseTestCase):
         self.assertAlmostEqual(peak_data.corrected_abundance, 9553199.89089051)
         self.assertAlmostEqual(peak_group.total_abundance, 9599112.684, places=3)
         self.assertAlmostEqual(
-            peak_group.peak_group_labels.first().enrichment_fraction, 0.001555566789
+            peak_group.labels.first().enrichment_fraction, 0.001555566789
         )
         self.assertAlmostEqual(
-            peak_group.peak_group_labels.first().enrichment_abundance,
+            peak_group.labels.first().enrichment_abundance,
             14932.06089,
             places=5,
         )
         self.assertAlmostEqual(
-            peak_group.peak_group_labels.first().normalized_labeling, 0.009119978074
+            peak_group.labels.first().normalized_labeling, 0.009119978074
         )
 
-    @tag("multi_working")
     def test_peak_group_peak_data_4(self):
         # null original data
         peak_group = (
@@ -937,18 +888,17 @@ class PropertyTests(TracebaseTestCase):
         self.assertAlmostEqual(peak_data.corrected_abundance, 9553199.89089051)
         self.assertAlmostEqual(peak_group.total_abundance, 9599112.684, places=3)
         self.assertAlmostEqual(
-            peak_group.peak_group_labels.first().enrichment_fraction, 0.001555566789
+            peak_group.labels.first().enrichment_fraction, 0.001555566789
         )
         self.assertAlmostEqual(
-            peak_group.peak_group_labels.first().enrichment_abundance,
+            peak_group.labels.first().enrichment_abundance,
             14932.06089,
             places=5,
         )
         self.assertAlmostEqual(
-            peak_group.peak_group_labels.first().normalized_labeling, 0.009119978074
+            peak_group.labels.first().normalized_labeling, 0.009119978074
         )
 
-    @tag("multi_working")
     def test_peak_group_peak_data_serum(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="lysine")
@@ -960,18 +910,15 @@ class PropertyTests(TracebaseTestCase):
         self.assertAlmostEqual(peak_data.corrected_abundance, 222028.365565823)
         self.assertAlmostEqual(peak_group.total_abundance, 267686.902436353)
         self.assertAlmostEqual(
-            peak_group.peak_group_labels.first().enrichment_fraction, 0.1705669439
+            peak_group.labels.first().enrichment_fraction, 0.1705669439
         )
         self.assertAlmostEqual(
-            peak_group.peak_group_labels.first().enrichment_abundance,
+            peak_group.labels.first().enrichment_abundance,
             45658.53687,
             places=5,
         )
-        self.assertAlmostEqual(
-            peak_group.peak_group_labels.first().normalized_labeling, 1
-        )
+        self.assertAlmostEqual(peak_group.labels.first().normalized_labeling, 1)
 
-    @tag("multi_working")
     def test_no_peak_labeled_elements(self):
         # This creates an animal with a notrogen-labeled tracer (among others)
         call_command(
@@ -1023,9 +970,8 @@ class PropertyTests(TracebaseTestCase):
                 "element C (from the tracers in the infusate [methionine-(15N1)[200]])."
             ),
         ):
-            pg.peak_group_labels.first().enrichment_fraction
+            pg.labels.first().enrichment_fraction
 
-    @tag("multi_working")
     def test_enrichment_fraction_missing_peak_group_formula(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="lysine")
@@ -1034,9 +980,8 @@ class PropertyTests(TracebaseTestCase):
         )
         peak_group.formula = None
         with self.assertWarns(UserWarning):
-            self.assertIsNone(peak_group.peak_group_labels.first().enrichment_fraction)
+            self.assertIsNone(peak_group.labels.first().enrichment_fraction)
 
-    @tag("multi_working")
     def test_enrichment_fraction_missing_bad_formula(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="lysine")
@@ -1045,9 +990,8 @@ class PropertyTests(TracebaseTestCase):
         )
         peak_group.formula = "H2O"
         with self.assertRaises(NoCommonLabel):
-            peak_group.peak_group_labels.first().enrichment_fraction
+            peak_group.labels.first().enrichment_fraction
 
-    @tag("multi_working")
     def test_enrichment_fraction_missing_labeled_element(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="lysine")
@@ -1061,9 +1005,8 @@ class PropertyTests(TracebaseTestCase):
             peak_data.save()
 
         with self.assertWarns(UserWarning):
-            self.assertIsNone(peak_group.peak_group_labels.first().enrichment_fraction)
+            self.assertIsNone(peak_group.labels.first().enrichment_fraction)
 
-    @tag("multi_working")
     def test_peak_group_peak_labeled_elements(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="lysine")
@@ -1073,7 +1016,6 @@ class PropertyTests(TracebaseTestCase):
 
         self.assertEqual(["C"], peak_group.peak_labeled_elements)
 
-    @tag("multi_working")
     def test_peak_group_tracer_labeled_elements(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="lysine")
@@ -1085,7 +1027,6 @@ class PropertyTests(TracebaseTestCase):
             ["C"], peak_group.msrun.sample.animal.infusate.tracer_labeled_elements()
         )
 
-    @tag("multi_working")
     def test_normalized_labeling_latest_serum(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="glucose")
@@ -1104,12 +1045,14 @@ class PropertyTests(TracebaseTestCase):
             time_collected=first_serum_sample.time_collected + timedelta(minutes=1),
         )
 
-        serum_samples = first_serum_sample.animal.all_serum_samples
+        serum_samples = first_serum_sample.animal.samples.filter(
+            tissue__name__istartswith=Tissue.SERUM_TISSUE_PREFIX
+        )
         # there should now be 2 serum samples for this animal
         self.assertEqual(serum_samples.count(), 2)
-        final_serum_sample = first_serum_sample.animal.final_serum_sample
+        last_serum_sample = first_serum_sample.animal.last_serum_sample
         # and the final one should now be the second one (just created)
-        self.assertEqual(final_serum_sample.name, second_serum_sample.name)
+        self.assertEqual(last_serum_sample.name, second_serum_sample.name)
 
         msrun = MSRun.objects.create(
             researcher="John Doe",
@@ -1131,7 +1074,7 @@ class PropertyTests(TracebaseTestCase):
             .filter(msrun__sample__name="serum-xz971")
             .get()
         )
-        first_serum_peak_group_label = first_serum_peak_group.peak_group_labels.first()
+        first_serum_peak_group_label = first_serum_peak_group.labels.first()
         PeakGroupLabel.objects.create(
             peak_group=second_serum_peak_group,
             element=first_serum_peak_group_label.element,
@@ -1155,15 +1098,17 @@ class PropertyTests(TracebaseTestCase):
         ).last()
         second_peak_data.corrected_abundance = 100
         second_peak_data.save()
-        self.assertEqual(
-            peak_group.peak_group_labels.count(), 1, msg="Assure load was complete"
-        )
+        self.assertEqual(peak_group.labels.count(), 1, msg="Assure load was complete")
         self.assertAlmostEqual(
-            peak_group.peak_group_labels.first().normalized_labeling, 3.455355083
+            peak_group.labels.first().normalized_labeling, 3.455355083
         )
 
-    @tag("multi_working")
-    def test_normalized_labeling_latest_serum_no_peakgrouplabel(self):
+    def test_normalized_labeling_latest_serum_no_peakgroup(self):
+        """
+        The calculation of any peak group's normalized labeling utilizes the serum's enrichment fraction of each of the
+        tarcer peak groups involved.  This test messes with those tracer peak groups and the serum samples to make sure
+        it uses the right serum tracer peak groups and issues an error if they are missing.
+        """
         peak_group = (
             PeakGroup.objects.filter(compounds__name="glucose")
             .filter(msrun__sample__name="BAT-xz971")
@@ -1181,19 +1126,40 @@ class PropertyTests(TracebaseTestCase):
             time_collected=first_serum_sample.time_collected + timedelta(minutes=1),
         )
 
-        serum_samples = first_serum_sample.animal.all_serum_samples
+        serum_samples = first_serum_sample.animal.samples.filter(
+            tissue__name__istartswith=Tissue.SERUM_TISSUE_PREFIX
+        )
         # there should now be 2 serum samples for this animal
         self.assertEqual(serum_samples.count(), 2)
-        final_serum_sample = first_serum_sample.animal.final_serum_sample
+        last_serum_sample = first_serum_sample.animal.last_serum_sample
         # and the final one should now be the second one (just created)
-        self.assertEqual(final_serum_sample.name, second_serum_sample.name)
+        self.assertEqual(last_serum_sample.name, second_serum_sample.name)
 
+        # Confirm the original calculated normalized labeling using the existing final serum sample
+        self.assertAlmostEqual(
+            0.00911997807399377,
+            peak_group.labels.first().normalized_labeling,
+        )
+
+        # Create a later msrun with the later serum sample (but no peak group)
         msrun = MSRun.objects.create(
             researcher="John Doe",
             date=datetime.now(),
             protocol=first_serum_sample.msruns.first().protocol,
             sample=second_serum_sample,
         )
+        # DO NOT CREATE A PEAKGROUP FOR THE TRACER
+        self.assertEqual(peak_group.labels.count(), 1, msg="Assure load was complete")
+        # With the new logic of obtaining the last instance of a peak group among serum samples, this should still
+        # produce a calculation even though the serum tracer's last peak group doesn't have a peak group. It will
+        # just use the one from the first
+        self.assertAlmostEqual(
+            0.00911997807399377,
+            peak_group.labels.first().normalized_labeling,
+        )
+
+        # Now add a peak group to the new last serum sample and change the corrected abundance to confirm it uses the
+        # new last sample's peak group
         second_serum_peak_group = PeakGroup.objects.create(
             name=peak_group.name,
             formula=peak_group.formula,
@@ -1208,7 +1174,11 @@ class PropertyTests(TracebaseTestCase):
             .filter(msrun__sample__name="serum-xz971")
             .get()
         )
-        # Do not add a peak group label (i.e. make it missing)
+        PeakGroupLabel.objects.create(
+            peak_group=second_serum_peak_group,
+            element=peak_group.labels.first().element,
+        )
+        # We do not need to add a peak group label (i.e. make it missing), because it's not used in this calculation
         for orig_peak_data in first_serum_peak_group.peak_data.all():
             pdr = PeakData.objects.create(
                 raw_abundance=orig_peak_data.raw_abundance,
@@ -1228,21 +1198,26 @@ class PropertyTests(TracebaseTestCase):
         ).last()
         second_peak_data.corrected_abundance = 100
         second_peak_data.save()
-        self.assertEqual(
-            peak_group.peak_group_labels.count(), 1, msg="Assure load was complete"
+        # Now confirm the different calculated value
+        self.assertAlmostEqual(
+            3.4553550826083774, peak_group.labels.first().normalized_labeling
         )
-        with self.assertRaises(MissingPeakGroupLabel):
-            peak_group.peak_group_labels.first().normalized_labeling
 
-    @tag("multi_working")
+        # Now let's delete both peak groups and confirm the value can no longer be calculated and that a warning is
+        # issued
+
+        # Now let's delete the first serum peak group's peak group label record that still exists
+        first_serum_peak_group.delete()
+        second_serum_peak_group.delete()
+        with self.assertWarns(UserWarning):
+            self.assertIsNone(peak_group.labels.first().normalized_labeling)
+
     def test_animal_label_populated(self):
         self.assertEqual(AnimalLabel.objects.count(), 12)
 
-    @tag("multi_working")
     def test_peak_group_label_populated(self):
         self.assertEqual(PeakGroupLabel.objects.count(), 836)
 
-    @tag("multi_working")
     def test_normalized_labeling_missing_serum_peak_group(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="glucose")
@@ -1259,9 +1234,8 @@ class PropertyTests(TracebaseTestCase):
         peak_group_serum.delete()
 
         with self.assertWarns(UserWarning):
-            self.assertIsNone(peak_group.peak_group_labels.first().normalized_labeling)
+            self.assertIsNone(peak_group.labels.first().normalized_labeling)
 
-    @tag("multi_working")
     def test_normalized_labeling_missing_serum_sample(self):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="glucose")
@@ -1276,9 +1250,8 @@ class PropertyTests(TracebaseTestCase):
         serum_sample.delete()
 
         with self.assertWarns(UserWarning):
-            self.assertIsNone(peak_group.peak_group_labels.first().normalized_labeling)
+            self.assertIsNone(peak_group.labels.first().normalized_labeling)
 
-    @tag("multi_working")
     def test_peak_data_fraction(self):
         peak_data = (
             PeakGroup.objects.filter(compounds__name="glucose")
@@ -1290,7 +1263,6 @@ class PropertyTests(TracebaseTestCase):
         )
         self.assertAlmostEqual(peak_data.fraction, 0.9952169753)
 
-    @tag("multi_working")
     def test_peak_group_total_abundance_zero(self):
         # Test various calculations do not raise exceptions when total_abundance is zero
         peak_group = (
@@ -1340,131 +1312,129 @@ class PropertyTests(TracebaseTestCase):
             )
 
         with self.assertWarns(UserWarning):
-            self.assertIsNone(
-                peak_group_zero.peak_group_labels.first().enrichment_fraction
-            )
-        self.assertIsNone(
-            peak_group_zero.peak_group_labels.first().enrichment_abundance
-        )
-        self.assertIsNone(peak_group_zero.peak_group_labels.first().normalized_labeling)
+            self.assertIsNone(peak_group_zero.labels.first().enrichment_fraction)
+        self.assertIsNone(peak_group_zero.labels.first().enrichment_abundance)
+        self.assertIsNone(peak_group_zero.labels.first().normalized_labeling)
         self.assertEqual(peak_group_zero.total_abundance, 0)
 
     @tag("fcirc")
-    @tag("multi_broken")
-    def test_peakgroup_is_tracer_compound_group_false(self):
+    def test_peakgroup_is_tracer_label_compound_group_false(self):
         # get a non tracer compound from a serum sample
         compound = Compound.objects.get(name="tryptophan")
         sample = Sample.objects.get(name="serum-xz971")
         pg = sample.peak_groups(compound).last()
-        self.assertFalse(pg.is_tracer_compound_group)
+        pgl = pg.labels.first()
+        self.assertFalse(pgl.is_tracer_label_compound_group)
 
     @tag("fcirc")
-    @tag("multi_broken")
-    def test_peakgroup_can_compute_tracer_rates_true(self):
+    def test_peakgroup_can_compute_tracer_label_rates_true(self):
         # get a tracer compound from a  sample
         compound = Compound.objects.get(name="lysine")
         sample = Sample.objects.get(name="serum-xz971")
         pg = sample.peak_groups(compound).last()
-        self.assertTrue(pg.can_compute_tracer_rates)
+        pgl = pg.labels.first()
+        self.assertTrue(pgl.can_compute_tracer_label_rates)
 
     @tag("fcirc")
-    @tag("multi_broken")
-    def test_peakgroup_can_compute_tracer_rates_false_no_rate(self):
+    def test_peakgroup_can_compute_tracer_label_rates_false_no_rate(self):
         # get a tracer compound from a  sample
         compound = Compound.objects.get(name="lysine")
         sample = Sample.objects.get(name="serum-xz971")
         pg = sample.peak_groups(compound).last()
         animal = pg.animal
-        # but if the animal tracer_infusion_rate is not defined...
-        orig_tir = animal.tracer_infusion_rate
-        animal.tracer_infusion_rate = None
+        # but if the animal infusion_rate is not defined...
+        orig_tir = animal.infusion_rate
+        animal.infusion_rate = None
         animal.save()
-        pgf = animal.final_serum_sample_tracer_peak_group
+        pgf = animal.labels.first().last_serum_tracer_label_peak_groups.first()
+        pglf = pgf.labels.first()
         with self.assertWarns(UserWarning):
-            self.assertFalse(pgf.can_compute_tracer_rates)
+            self.assertFalse(pglf.can_compute_tracer_label_rates)
         # revert
-        animal.tracer_infusion_rate = orig_tir
+        animal.infusion_rate = orig_tir
         animal.save()
 
     @tag("fcirc")
-    @tag("multi_broken")
-    def test_peakgroup_can_compute_tracer_rates_false_no_conc(self):
+    def test_peakgroup_can_compute_tracer_label_rates_false_no_conc(self):
         # get a tracer compound from a sample
         compound = Compound.objects.get(name="lysine")
         sample = Sample.objects.get(name="serum-xz971")
         pg = sample.peak_groups(compound).last()
         animal = pg.animal
-        # but if the animal tracer_infusion_concentration is not defined...
-        orig_tic = animal.tracer_infusion_concentration
-        animal.tracer_infusion_concentration = None
-        animal.save()
-        pgf = animal.final_serum_sample_tracer_peak_group
+        al = animal.labels.first()
+        pgf = al.last_serum_tracer_label_peak_groups.last()
+        pglf = pgf.labels.first()
+        # but if the animal tracer_concentration is not defined...
+        set_cache(pglf, "tracer_concentration", None)
         with self.assertWarns(UserWarning):
-            self.assertFalse(pgf.can_compute_tracer_rates)
-        # revert
-        animal.tracer_infusion_concentration = orig_tic
-        animal.save()
+            self.assertFalse(pglf.can_compute_intact_tracer_label_rates)
 
     @tag("fcirc")
-    @tag("multi_broken")
-    def test_peakgroup_can_compute_body_weight_tracer_rates_true(self):
+    def test_peakgroup_can_compute_body_weight_intact_tracer_label_rates_true(self):
         animal = self.MAIN_SERUM_ANIMAL
-        pg = animal.final_serum_sample_tracer_peak_group
-        self.assertTrue(pg.can_compute_body_weight_tracer_rates)
+        pg = animal.last_serum_tracer_peak_groups.first()
+        pgl = pg.labels.first()
+        self.assertTrue(pgl.can_compute_body_weight_intact_tracer_label_rates)
 
     @tag("fcirc")
-    @tag("multi_broken")
-    def test_peakgroup_can_compute_body_weight_tracer_rates_false(self):
+    def test_peakgroup_can_compute_body_weight_tracer_label_rates_false(self):
         animal = self.MAIN_SERUM_ANIMAL
         orig_bw = animal.body_weight
         animal.body_weight = None
         animal.save()
-        pg = animal.final_serum_sample_tracer_peak_group
+        pg = animal.last_serum_tracer_peak_groups.first()
+        pgl = pg.labels.first()
         with self.assertWarns(UserWarning):
-            self.assertFalse(pg.can_compute_body_weight_tracer_rates)
+            self.assertFalse(pgl.can_compute_body_weight_intact_tracer_label_rates)
         # revert
         animal.body_weight = orig_bw
         animal.save()
 
     @tag("fcirc")
-    @tag("multi_broken")
-    def test_peakgroup_can_compute_intact_tracer_rates_true(self):
-        pg = self.MAIN_SERUM_ANIMAL.final_serum_sample_tracer_peak_group
-        self.assertTrue(pg.can_compute_intact_tracer_rates)
+    def test_peakgroup_can_compute_intact_tracer_label_rates_true(self):
+        animal = self.MAIN_SERUM_ANIMAL
+        pg = animal.last_serum_tracer_peak_groups.first()
+        pgl = pg.labels.first()
+        self.assertTrue(pgl.can_compute_intact_tracer_label_rates)
 
     @tag("fcirc")
-    @tag("multi_broken")
-    def test_peakgroup_can_compute_intact_tracer_rates_false(self):
-        pg = self.MAIN_SERUM_ANIMAL.final_serum_sample_tracer_peak_group
+    def test_peakgroup_can_compute_intact_tracer_label_rates_false(self):
+        animal = self.MAIN_SERUM_ANIMAL
+        tracer = animal.infusate.tracers.first()
+        pg = animal.last_serum_tracer_peak_groups.first()
         pgid = pg.id
-        intact_peakdata = pg.peak_data.filter(
-            labeled_count=self.MAIN_SERUM_ANIMAL.tracer_labeled_count
-        ).get()
-        orig_lc = intact_peakdata.labeled_count
+        tracer_labeled_count = tracer.labels.first().count
+        intact_peakdata = pg.peak_data.filter(labels__count=tracer_labeled_count).get()
+        intact_peakdata_label = intact_peakdata.labels.get(
+            count__exact=tracer_labeled_count
+        )
         # set to something crazy, or None
-        intact_peakdata.labeled_count = 42
-        intact_peakdata.save()
+        intact_peakdata_label.count = 42
+        intact_peakdata_label.save()
         pgf = PeakGroup.objects.get(id=pgid)
+        pglf = pgf.labels.first()
         with self.assertWarns(UserWarning):
-            self.assertFalse(pgf.can_compute_intact_tracer_rates)
+            self.assertFalse(pglf.can_compute_intact_tracer_label_rates)
         # revert
-        intact_peakdata.labeled_count = orig_lc
-        intact_peakdata.save()
+        intact_peakdata_label.count = tracer_labeled_count
+        intact_peakdata_label.save()
 
     @tag("fcirc")
-    @tag("multi_broken")
-    def test_peakgroup_can_compute_average_tracer_rates_true(self):
-        pg = self.MAIN_SERUM_ANIMAL.final_serum_sample_tracer_peak_group
-        self.assertTrue(pg.can_compute_average_tracer_rates)
+    def test_peakgroup_can_compute_average_tracer_label_rates_true(self):
+        animal = self.MAIN_SERUM_ANIMAL
+        pg = animal.last_serum_tracer_peak_groups.first()
+        pgl = pg.labels.first()
+        self.assertTrue(pgl.can_compute_average_tracer_label_rates)
 
     @tag("fcirc")
-    @tag("multi_broken")
-    def test_peakgroup_can_compute_average_tracer_rates_false(self):
+    def test_peakgroup_can_compute_average_tracer_label_rates_false(self):
         # need to invalidate the computed/cached enrichment_fraction, somehow
-        pg = self.MAIN_SERUM_ANIMAL.final_serum_sample_tracer_peak_group
-        set_cache(pg, "enrichment_fraction", None)
+        animal = self.MAIN_SERUM_ANIMAL
+        pg = animal.last_serum_tracer_peak_groups.first()
+        pgl = pg.labels.first()
+        set_cache(pgl, "enrichment_fraction", None)
         with self.assertWarns(UserWarning):
-            self.assertFalse(pg.can_compute_average_tracer_rates)
+            self.assertFalse(pgl.can_compute_average_tracer_label_rates)
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
@@ -1503,7 +1473,7 @@ class MultiTracerLabelPropertyTests(TracebaseTestCase):
 
     def test_serum_tracers_enrichment_fraction(self):
         anml = Animal.objects.get(name="xzl5")
-        recs = anml.animal_labels.all()
+        recs = anml.labels.all()
         outputc = recs.get(element__exact="C").serum_tracers_enrichment_fraction
         outputn = recs.get(element__exact="N").serum_tracers_enrichment_fraction
         self.assertEqual(2, recs.count())
@@ -1532,11 +1502,11 @@ class MultiTracerLabelPropertyTests(TracebaseTestCase):
         pg = PeakGroup.objects.filter(msrun__sample__name="xzl5_panc").get(
             name="glutamine"
         )
-        pgc = pg.peak_group_labels.get(element__exact="C").enrichment_abundance
-        pgn = pg.peak_group_labels.get(element__exact="N").enrichment_abundance
+        pgc = pg.labels.get(element__exact="C").enrichment_abundance
+        pgn = pg.labels.get(element__exact="N").enrichment_abundance
         expectedc = 1369911.2746615328
         expectedn = 6571127.3714690255
-        self.assertEqual(pg.peak_group_labels.count(), 2)
+        self.assertEqual(pg.labels.count(), 2)
         self.assertAlmostEqual(expectedc, pgc)
         self.assertAlmostEqual(expectedn, pgn)
 
@@ -1544,17 +1514,17 @@ class MultiTracerLabelPropertyTests(TracebaseTestCase):
         pg = PeakGroup.objects.filter(msrun__sample__name="xzl5_panc").get(
             name="glutamine"
         )
-        pgc = pg.peak_group_labels.get(element__exact="C").normalized_labeling
-        pgn = pg.peak_group_labels.get(element__exact="N").normalized_labeling
+        pgc = pg.labels.get(element__exact="C").normalized_labeling
+        pgn = pg.labels.get(element__exact="N").normalized_labeling
         expectedc = 0.06287501342027346
         expectedn = 0.2241489339907528
-        self.assertEqual(pg.peak_group_labels.count(), 2)
+        self.assertEqual(pg.labels.count(), 2)
         self.assertAlmostEqual(expectedc, pgc)
         self.assertAlmostEqual(expectedn, pgn)
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
-@tag("multi_broken")
+@tag("multi_working")
 class TracerRateTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
@@ -1584,133 +1554,207 @@ class TracerRateTests(TracebaseTestCase):
         cls.MAIN_SERUM_ANIMAL = Animal.objects.get(name="970")
 
     @tag("fcirc")
-    def test_peakgroup_is_tracer_compound_group(self):
-        pg = self.MAIN_SERUM_ANIMAL.final_serum_sample_tracer_peak_group
-        self.assertTrue(pg.is_tracer_compound_group)
-        self.assertEqual(pg.name, "C16:0")
+    def test_peakgroup_is_tracer_label_compound_group(self):
+        animal = self.MAIN_SERUM_ANIMAL
+        tracer = animal.infusate.tracers.first()
+        element = tracer.labels.first().element
+        pg = animal.last_serum_tracer_peak_groups.first()
+        fpgl = pg.labels.filter(element=element).first()
+        self.assertTrue(fpgl.is_tracer_label_compound_group)
+        self.assertEqual(fpgl.peak_group.name, "C16:0")
 
     @tag("fcirc")
     def test_peakgroup_from_serum_sample(self):
-        pg = self.MAIN_SERUM_ANIMAL.final_serum_sample_tracer_peak_group
-        self.assertTrue(pg.from_serum_sample)
+        animal = self.MAIN_SERUM_ANIMAL
+        tracer = animal.infusate.tracers.first()
+        element = tracer.labels.first().element
+        pg = animal.last_serum_tracer_peak_groups.first()
+        fpgl = pg.labels.filter(element=element).first()
+        self.assertTrue(fpgl.from_serum_sample)
 
     @tag("fcirc")
-    def test_peakgroup_can_compute_tracer_rates(self):
-        pg = self.MAIN_SERUM_ANIMAL.final_serum_sample_tracer_peak_group
-        self.assertTrue(pg.can_compute_tracer_rates)
+    def test_peakgroup_can_compute_tracer_label_rates(self):
+        animal = self.MAIN_SERUM_ANIMAL
+        tracer = animal.infusate.tracers.first()
+        element = tracer.labels.first().element
+        pg = animal.last_serum_tracer_peak_groups.first()
+        fpgl = pg.labels.filter(element=element).first()
+        self.assertTrue(fpgl.can_compute_tracer_label_rates)
 
     @tag("fcirc")
-    def test_peakgroup_can_compute_body_weight_tracer_rates(self):
-        pg = self.MAIN_SERUM_ANIMAL.final_serum_sample_tracer_peak_group
-        self.assertTrue(pg.can_compute_body_weight_tracer_rates)
+    def test_peakgroup_can_compute_body_weight_intact_tracer_label_rates(self):
+        animal = self.MAIN_SERUM_ANIMAL
+        tracer = animal.infusate.tracers.first()
+        element = tracer.labels.first().element
+        pg = animal.last_serum_tracer_peak_groups.first()
+        fpgl = pg.labels.filter(element=element).first()
+        self.assertTrue(fpgl.can_compute_body_weight_intact_tracer_label_rates)
 
     @tag("fcirc")
-    def test_peakgroup_can_compute_intact_tracer_rates(self):
-        pg = self.MAIN_SERUM_ANIMAL.final_serum_sample_tracer_peak_group
-        self.assertTrue(pg.can_compute_intact_tracer_rates)
+    def test_peakgroup_can_compute_body_weight_average_tracer_label_rates(self):
+        animal = self.MAIN_SERUM_ANIMAL
+        tracer = animal.infusate.tracers.first()
+        element = tracer.labels.first().element
+        pg = animal.last_serum_tracer_peak_groups.first()
+        fpgl = pg.labels.filter(element=element).first()
+        self.assertTrue(fpgl.can_compute_body_weight_average_tracer_label_rates)
 
     @tag("fcirc")
-    def test_peakgroup_can_compute_average_tracer_rates(self):
-        pg = self.MAIN_SERUM_ANIMAL.final_serum_sample_tracer_peak_group
-        self.assertTrue(pg.can_compute_average_tracer_rates)
+    def test_peakgroup_can_compute_intact_tracer_label_rates(self):
+        animal = self.MAIN_SERUM_ANIMAL
+        tracer = animal.infusate.tracers.first()
+        element = tracer.labels.first().element
+        pg = animal.last_serum_tracer_peak_groups.first()
+        fpgl = pg.labels.filter(element=element).first()
+        self.assertTrue(fpgl.can_compute_intact_tracer_label_rates)
+
+    @tag("fcirc")
+    def test_peakgroup_can_compute_average_tracer_label_rates(self):
+        animal = self.MAIN_SERUM_ANIMAL
+        tracer = animal.infusate.tracers.first()
+        element = tracer.labels.first().element
+        pg = animal.last_serum_tracer_peak_groups.first()
+        fpgl = pg.labels.filter(element=element).first()
+        self.assertTrue(fpgl.can_compute_average_tracer_label_rates)
 
     @tag("fcirc")
     def test_nontracer_peakgroup_calculation_attempts(self):
         animal = self.MAIN_SERUM_ANIMAL
         nontracer_compound = Compound.objects.get(name="succinate")
-        # but let's get a peakgroup for a compound we know is not the tracer
-        pgs = animal.final_serum_sample.peak_groups(nontracer_compound)
-        # should only be one in this specific case
-        non_tracer_pg = pgs[0]
+        non_tracer_pg_label = (
+            animal.last_serum_sample.msruns.first()
+            .peak_groups.get(compounds__exact=nontracer_compound)
+            .labels.first()
+        )
+        # # but let's get a peakgroup for a compound we know is not the tracer
+        # pgs = animal.last_serum_sample.peak_groups(nontracer_compound)
+        # # should only be one in this specific case
+        # non_tracer_pg = pgs[0]
         # tryptophan is not the tracer
-        self.assertFalse(non_tracer_pg.is_tracer_compound_group)
+        self.assertFalse(non_tracer_pg_label.is_tracer_label_compound_group)
         # and none of these should return a value
         with self.assertWarns(UserWarning):
-            self.assertIsNone(non_tracer_pg.rate_disappearance_intact_per_gram)
+            self.assertIsNone(non_tracer_pg_label.rate_disappearance_intact_per_gram)
         with self.assertWarns(UserWarning):
-            self.assertIsNone(non_tracer_pg.rate_appearance_intact_per_gram)
+            self.assertIsNone(non_tracer_pg_label.rate_appearance_intact_per_gram)
         with self.assertWarns(UserWarning):
-            self.assertIsNone(non_tracer_pg.rate_disappearance_intact_per_animal)
+            self.assertIsNone(non_tracer_pg_label.rate_disappearance_intact_per_animal)
         with self.assertWarns(UserWarning):
-            self.assertIsNone(non_tracer_pg.rate_appearance_intact_per_animal)
+            self.assertIsNone(non_tracer_pg_label.rate_appearance_intact_per_animal)
         with self.assertWarns(UserWarning):
-            self.assertIsNone(non_tracer_pg.rate_disappearance_average_per_gram)
+            self.assertIsNone(non_tracer_pg_label.rate_disappearance_average_per_gram)
         with self.assertWarns(UserWarning):
-            self.assertIsNone(non_tracer_pg.rate_appearance_average_per_gram)
+            self.assertIsNone(non_tracer_pg_label.rate_appearance_average_per_gram)
         with self.assertWarns(UserWarning):
-            self.assertIsNone(non_tracer_pg.rate_disappearance_average_per_animal)
+            self.assertIsNone(non_tracer_pg_label.rate_disappearance_average_per_animal)
         with self.assertWarns(UserWarning):
-            self.assertIsNone(non_tracer_pg.rate_appearance_average_per_animal)
+            self.assertIsNone(non_tracer_pg_label.rate_appearance_average_per_animal)
 
     @tag("fcirc")
-    def test_final_serum_tracer_rate_disappearance_intact_per_gram(self):
+    def test_last_serum_tracer_rate_disappearance_intact_per_gram(self):
         animal = self.MAIN_SERUM_ANIMAL
+        tracer = animal.infusate.tracers.first()
+        element = tracer.labels.first().element
+        pg = animal.last_serum_tracer_peak_groups.first()
+        pgl = pg.labels.filter(element=element).first()
         self.assertAlmostEqual(
-            animal.final_serum_tracer_rate_disappearance_intact_per_gram,
+            pgl.rate_disappearance_intact_per_gram,
             38.83966501,
             places=2,
         )
 
     @tag("fcirc")
-    def test_final_serum_tracer_rate_appearance_intact_per_gram(self):
+    def test_last_serum_tracer_rate_appearance_intact_per_gram(self):
         animal = self.MAIN_SERUM_ANIMAL
+        tracer = animal.infusate.tracers.first()
+        element = tracer.labels.first().element
+        pg = animal.last_serum_tracer_peak_groups.first()
+        pgl = pg.labels.filter(element=element).first()
         self.assertAlmostEqual(
-            animal.final_serum_tracer_rate_appearance_intact_per_gram,
+            pgl.rate_appearance_intact_per_gram,
             34.35966501,
             places=2,
         )
 
     @tag("fcirc")
-    def test_final_serum_tracer_rate_disappearance_intact_per_animal(self):
+    def test_last_serum_tracer_rate_disappearance_intact_per_animal(self):
         animal = self.MAIN_SERUM_ANIMAL
+        tracer = animal.infusate.tracers.first()
+        element = tracer.labels.first().element
+        pg = animal.last_serum_tracer_peak_groups.first()
+        pgl = pg.labels.filter(element=element).first()
         self.assertAlmostEqual(
-            animal.final_serum_tracer_rate_disappearance_intact_per_animal,
+            pgl.rate_disappearance_intact_per_animal,
             1040.903022,
             places=2,
         )
 
     @tag("fcirc")
-    def test_final_serum_tracer_rate_appearance_intact_per_animal(self):
+    def test_last_serum_tracer_rate_appearance_intact_per_animal(self):
         animal = self.MAIN_SERUM_ANIMAL
+        tracer = animal.infusate.tracers.first()
+        element = tracer.labels.first().element
+        pg = animal.last_serum_tracer_peak_groups.first()
+        pgl = pg.labels.filter(element=element).first()
         self.assertAlmostEqual(
-            animal.final_serum_tracer_rate_appearance_intact_per_animal,
+            pgl.rate_appearance_intact_per_animal,
             920.8390222,
             places=2,
         )
 
     @tag("fcirc")
-    def test_final_serum_tracer_rate_disappearance_average_per_gram(self):
+    def test_last_serum_tracer_rate_disappearance_average_per_gram(self):
         animal = self.MAIN_SERUM_ANIMAL
+        tracer = animal.infusate.tracers.first()
+        element = tracer.labels.first().element
+        pg = animal.last_serum_tracer_peak_groups.first()
+        pgl = pg.labels.filter(element=element).first()
         self.assertAlmostEqual(
-            animal.final_serum_tracer_rate_disappearance_average_per_gram,
+            pgl.rate_disappearance_average_per_gram,
             37.36671487,
             places=2,
         )
 
     @tag("fcirc")
-    def test_final_serum_tracer_rate_appearance_average_per_gram(self):
+    def test_last_serum_tracer_rate_appearance_average_per_gram(self):
         animal = self.MAIN_SERUM_ANIMAL
+        tracer = animal.infusate.tracers.first()
+        element = tracer.labels.first().element
+        pg = animal.last_serum_tracer_peak_groups.first()
+        pgl = pg.labels.filter(element=element).first()
         self.assertAlmostEqual(
-            animal.final_serum_tracer_rate_appearance_average_per_gram,
+            pgl.rate_appearance_average_per_gram,
             32.88671487,
             places=2,
         )
 
     @tag("fcirc")
-    def test_final_serum_tracer_rate_disappearance_average_per_animal(self):
+    def test_last_serum_tracer_rate_disappearance_average_per_animal(self):
         animal = self.MAIN_SERUM_ANIMAL
+        tracer = animal.infusate.tracers.first()
+        element = tracer.labels.first().element
+        pg = animal.last_serum_tracer_peak_groups.first()
+        pgl = pg.labels.filter(element=element).first()
         # doublecheck weight, because test is not exact but test_tracer_Rd_avg_g was fine
         self.assertAlmostEqual(
-            animal.final_serum_tracer_rate_disappearance_average_per_animal,
+            pgl.rate_disappearance_average_per_animal,
             1001.427958,
             places=2,
         )
 
     @tag("fcirc")
-    def test_final_serum_tracer_rate_appearance_average_per_animal(self):
+    def test_last_serum_tracer_rate_appearance_average_per_animal(self):
         animal = self.MAIN_SERUM_ANIMAL
+        # Uses Animal.last_serum_sample and Sample.peak_groups
+        pgl = (
+            animal.last_serum_sample.peak_groups(
+                animal.infusate.tracers.first().compound
+            )
+            .first()
+            .labels.first()
+        )
         self.assertAlmostEqual(
-            animal.final_serum_tracer_rate_appearance_average_per_animal,
+            pgl.rate_appearance_average_per_animal,
             881.3639585,
             places=2,
         )
@@ -2467,7 +2511,7 @@ class ParseIsotopeLabelTests(TracebaseTestCase):
 @override_settings(CACHES=settings.TEST_CACHES)
 @tag("animal")
 @tag("loading")
-@tag("multi_unknown")
+@tag("multi_working")
 class AnimalLoadingTests(TracebaseTestCase):
     """Tests parsing various Animal attributes"""
 
