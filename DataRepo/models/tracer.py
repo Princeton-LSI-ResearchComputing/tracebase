@@ -14,7 +14,11 @@ from DataRepo.models.utilities import get_model_by_name
 from DataRepo.utils.infusate_name_parser import TracerData
 
 
-class TracerManager(models.Manager):
+# PR REVIEW NOTE: Had to change this to a QuerySet subclass in order to support calls to (e.g.):
+#                     .using(db).get_or_create_tracer
+#                 for the validation database.
+#                 See: https://sayari3.com/articles/32-custom-managers-and-queryset-methods-in-django/
+class TracerQuerySet(models.QuerySet):
     def get_or_create_tracer(self, tracer_data: TracerData) -> tuple[Tracer, bool]:
         """Get Tracer matching the tracer_data, or create a new tracer"""
         tracer = self.get_tracer(tracer_data)
@@ -25,9 +29,11 @@ class TracerManager(models.Manager):
             compound = Compound.compound_matching_name_or_synonym(
                 tracer_data["compound_name"]
             )
-            tracer = self.create(compound=compound)
+            tracer = self.using(self._db).create(compound=compound)
             for isotope_data in tracer_data["isotopes"]:
-                TracerLabel.objects.create_tracer_label(tracer, isotope_data)
+                TracerLabel.objects.using(self._db).create_tracer_label(
+                    tracer, isotope_data
+                )
             tracer.full_clean()
             created = True
         return (tracer, created)
@@ -43,8 +49,10 @@ class TracerManager(models.Manager):
         )
         if compound:
             # Check for tracers of the compound with same number of labels
-            tracers = Tracer.objects.annotate(num_labels=models.Count("labels")).filter(
-                compound=compound, num_labels=len(tracer_data["isotopes"])
+            tracers = (
+                Tracer.objects.using(self._db)
+                .annotate(num_labels=models.Count("labels"))
+                .filter(compound=compound, num_labels=len(tracer_data["isotopes"]))
             )
             # Check that the labels match
             for tracer_label in tracer_data["isotopes"]:
@@ -61,7 +69,7 @@ class TracerManager(models.Manager):
 
 class Tracer(MaintainedModel, ElementLabel):
 
-    objects = TracerManager()
+    objects = TracerQuerySet().as_manager()
 
     id = models.AutoField(primary_key=True)
     name = models.CharField(

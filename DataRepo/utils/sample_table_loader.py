@@ -8,6 +8,7 @@ from django.conf import settings
 from DataRepo.models import (
     Animal,
     AnimalLabel,
+    FCirc,
     Infusate,
     Protocol,
     Sample,
@@ -19,6 +20,7 @@ from DataRepo.models.hier_cached_model import (
     enable_caching_updates,
 )
 from DataRepo.models.maintained_model import (
+    clear_update_buffer,
     disable_autoupdates,
     enable_autoupdates,
     perform_buffered_updates,
@@ -149,7 +151,7 @@ class SampleTableLoader:
         disable_caching_updates()
         animals_to_uncache = []
 
-        # Create a list to hold the csv reader data so that iterations from validating doesn't leave the csv reader
+        # Create a list to hold the csv reader data so that iterations from validating cleardoesn't leave the csv reader
         # empty/at-the-end upon the import loop
         sample_table_data = list(data)
 
@@ -335,9 +337,9 @@ class SampleTableLoader:
                     infusate_data_object = parse_infusate_name(
                         infusate_str, tracer_concs
                     )
-                    (infusate, created) = Infusate.objects.get_or_create_infusate(
-                        infusate_data_object
-                    )
+                    (infusate, created) = Infusate.objects.using(
+                        self.db
+                    ).get_or_create_infusate(infusate_data_object)
                     animal.infusate = infusate
 
                 rate_required = infusate is not None
@@ -356,14 +358,20 @@ class SampleTableLoader:
                     print(f"Error saving record: Animal:{animal}")
                     raise (e)
 
-                # Animal Label - Load each unique labeled element among the tracers for this animal
-                for labeled_element in infusate.tracer_labeled_elements():
-                    print(
-                        f"Finding or inserting animal label '{labeled_element}' for '{animal}'..."
-                    )
-                    AnimalLabel.objects.using(self.db).get_or_create(
-                        animal=animal, element=labeled_element
-                    )
+                # Infusate is required, but the missing headers are buffered to create an exception later
+                if infusate:
+                    # Animal Label - Load each unique labeled element among the tracers for this animal
+                    # This is where enrichment_fraction, enrichment_abundance, and normalized_labeling functions live
+                    for labeled_element in infusate.tracer_labeled_elements():
+                        print(
+                            f"Finding or inserting animal label '{labeled_element}' for '{animal}'..."
+                        )
+                        AnimalLabel.objects.using(self.db).get_or_create(
+                            animal=animal,
+                            element=labeled_element,
+                        )
+            else:
+                infusate = None
 
             # Sample
             sample_name = self.getRowVal(row, self.headers.SAMPLE_NAME)
@@ -417,6 +425,22 @@ class SampleTableLoader:
                             print(f"Error saving record: Sample:{sample}")
                             raise (e)
 
+                # Infusate is required, but the missing headers are buffered to create an exception later
+                if tissue.is_serum() and infusate:
+                    # FCirc - Load each unique tracer and labeled element combo if this is a serum sample
+                    # These tables are where the appearance and disappearance calculation functions live
+                    for tracer in infusate.tracers.all():
+                        for label in tracer.labels.all():
+                            print(
+                                f"\tFinding or inserting FCirc tracer '{tracer.compound}' and label '{label.element}' "
+                                f"for '{sample}'..."
+                            )
+                            FCirc.objects.using(self.db).get_or_create(
+                                serum_sample=sample,
+                                tracer=tracer,
+                                element=label.element,
+                            )
+
         if len(self.missing_headers) > 0:
             raise (
                 HeaderError(
@@ -439,16 +463,25 @@ class SampleTableLoader:
                     f"researchers, add --skip-researcher-check to your command."
                 )
                 all_researcher_error_strs.append(err_msg)
+            # We're raising an exception, so we need to clear the update buffer so that the next call doesn't make
+            # auto-updates on non-existent (or incorrect) records
+            clear_update_buffer()
+            # And before we leave, we must re-enable auto-updates
+            enable_autoupdates()
             raise ResearcherError("\n".join(all_researcher_error_strs))
 
         enable_caching_updates()
         if debug:
+            # If we're in debug mode, we need to clear the update buffer so that the next call doesn't make auto-
+            # updates on non-existent (or incorrect) records
+            clear_update_buffer()
+            # And before we leave, we must re-enable auto-updates
             enable_autoupdates()
 
         # Throw an exception in debug mode to abort the load
         assert not debug, "Debugging..."
 
-        perform_buffered_updates()
+        perform_buffered_updates(using=self.db)
         enable_autoupdates()
 
         if settings.DEBUG:

@@ -280,8 +280,8 @@ class MaintainedModel(Model):
                     if current_val is None or current_val == "":
                         current_val = "<empty>"
                     print(
-                        f"Auto-updated {self.__class__.__name__}.{update_fld} using {update_fun.__qualname__} from "
-                        f"[{current_val}] to [{new_val}]"
+                        f"Auto-updated field {self.__class__.__name__}.{update_fld} in record {self.pk} using "
+                        f"{update_fun.__qualname__} from [{current_val}] to [{new_val}]"
                     )
 
     def call_parent_updaters(self):
@@ -452,13 +452,14 @@ def filter_updaters(updaters_list, generation=None, label_filters=[], filter_in=
     return new_updaters_list
 
 
-def perform_buffered_updates(label_filters=[]):
+def perform_buffered_updates(label_filters=[], using=None):
     """
     Performs a mass update of records in the buffer in a breadth-first fashion without repeated updates to the same
     record over and over.
     """
     global update_buffer
     global performing_mass_autoupdates
+    db = using
 
     if auto_updates:
         raise InvalidAutoUpdateMode()
@@ -510,7 +511,10 @@ def perform_buffered_updates(label_filters=[]):
                     # decide which records should be updated.  Currently, this is not an issue because we only have 1
                     # update_label in use.  And if/when we add another label, it will only end up causing extra
                     # repeated updates of the same record.
-                    buffer_item.save()
+                    if db:
+                        buffer_item.save(using=db)
+                    else:
+                        buffer_item.save()
 
                     # keep track that this record was updated
                     updated[key] = True
@@ -527,7 +531,7 @@ def perform_buffered_updates(label_filters=[]):
                                 add_to_buffer.append(tmp_buffer_item)
 
             except Exception as e:
-                raise AutoUpdateFailed(e)
+                raise AutoUpdateFailed(buffer_item, e, db)
 
         # Clear this generation from the buffer
         clear_update_buffer(generation=gen, label_filters=label_filters)
@@ -619,10 +623,12 @@ class NoDecorators(Exception):
 
 
 class AutoUpdateFailed(Exception):
-    def __init__(self, err):
+    def __init__(self, model_object, err, db=None):
+        database = "" if db is None else f"{db}."
         message = (
-            "Autoupdate failed.  If the record was deleted, a catch for the exception should be added and ignored (or "
-            f"the code should be edited to avoid it).  The triggering exception: [{err}]."
+            f"Autoupdate of {database}{model_object.__class__.__name__} failed.  If the record was created and "
+            "deleted before the buffered update, a catch for the exception should be added and ignored (or the code "
+            f"should be edited to avoid it).  The triggering exception: [{err}]."
         )
         super().__init__(message)
 
