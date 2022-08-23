@@ -652,8 +652,8 @@ class AccuCorDataLoader:
                         self.accucor_original_df["compound"] == peak_group_name
                     ]
                     # If we have an accucor_original_df, it's assumed the type is accucor and there's only 1 labeled
-                    # element, hence the use of `peak_group.peak_group_labels.first().atom_count()`
-                    peak_group_label_rec = peak_group.peak_group_labels.first()
+                    # element, hence the use of `peak_group.labels.first().atom_count()`
+                    peak_group_label_rec = peak_group.labels.first()
 
                     # Original data skips undetected counts, but corrected data does not, so as we march through the
                     # corrected data, we need to keep track of the corresponding row in the original data

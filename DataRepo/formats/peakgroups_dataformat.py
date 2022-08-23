@@ -60,7 +60,7 @@ class PeakGroupsFormat(Format):
             "displayname": "Tracer Concentrations",
             "distincts": [
                 "msrun__sample__animal__infusate__tracers__compound__name",
-                "msrun__sample__animal__infusate__infusatetracer__concentration",
+                "msrun__sample__animal__infusate__tracer_links__concentration",
             ],
             "filter": None,
             "delimiter": ":",
@@ -99,8 +99,8 @@ class PeakGroupsFormat(Format):
             "reverse_path": "compound__peak_groups",
             "manyrelated": {
                 "is": True,
-                "through": False,
                 "manytomany": True,
+                "through": False,
                 "split_rows": False,
             },
             "fields": {
@@ -159,12 +159,12 @@ class PeakGroupsFormat(Format):
         },
         "PeakGroupLabel": {
             "model": "PeakGroupLabel",
-            "path": "peak_group_labels",
+            "path": "labels",
             "reverse_path": "peak_group",
             "manyrelated": {
                 "is": True,
+                "manytomany": False,  # searching for peakGroups via PeakGroupLabel.pk can produce only 1 peak group
                 "through": False,
-                "manytomany": False,
                 "split_rows": True,
                 "root_annot_fld": "peak_group_label",  # Used to annotate root rec w/ subtable ID when split_rows=True
             },
@@ -346,13 +346,13 @@ class PeakGroupsFormat(Format):
         },
         "InfusateTracer": {
             "model": "InfusateTracer",
-            "path": "msrun__sample__animal__infusate__infusatetracer",
+            "path": "msrun__sample__animal__infusate__tracer_links",
             "reverse_path": "infusate__animal__samples__msruns__peak_groups",
             "manyrelated": {
                 "is": True,
-                "manytomany": True,
-                "split_rows": False,
+                "manytomany": True,  # searching for peakGroups via InfusateTracer.pk can produce many peak groups
                 "through": True,
+                "split_rows": False,
             },
             "fields": {
                 "id": {
@@ -376,8 +376,8 @@ class PeakGroupsFormat(Format):
             "reverse_path": "tracer__infusates__animals__samples__msruns__peak_groups",
             "manyrelated": {
                 "is": True,
+                "manytomany": True,  # searching for peakGroups via compound.pk can produce many peak groups
                 "through": False,
-                "manytomany": True,
                 "split_rows": False,
             },
             "fields": {
@@ -402,8 +402,8 @@ class PeakGroupsFormat(Format):
             "reverse_path": "peak_groups",
             "manyrelated": {
                 "is": True,
-                "through": False,
                 "manytomany": True,
+                "through": False,
                 "split_rows": False,
                 "root_annot_fld": "compound",
             },
@@ -429,8 +429,8 @@ class PeakGroupsFormat(Format):
             "reverse_path": "animals__samples__msruns__peak_groups",
             "manyrelated": {
                 "is": True,
-                "through": False,
                 "manytomany": True,
+                "through": False,
                 "split_rows": False,
                 "root_annot_fld": "study",
             },

@@ -80,7 +80,7 @@ def rebuild_maintained_fields(label_filters=[]):
                         updated[key] = True
 
                 except Exception as e:
-                    raise AutoUpdateFailed(e)
+                    raise AutoUpdateFailed(rec, e)
 
     # We're done performing buffered updates
     disable_mass_autoupdates()

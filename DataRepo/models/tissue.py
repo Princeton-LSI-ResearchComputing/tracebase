@@ -23,3 +23,6 @@ class Tissue(models.Model):
 
     def __str__(self):
         return str(self.name)
+
+    def is_serum(self):
+        return self.name.startswith(Tissue.SERUM_TISSUE_PREFIX)
