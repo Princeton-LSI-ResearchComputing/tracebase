@@ -179,7 +179,7 @@ but this section describes how to lint your changes locally.
 
 ##### Individual linters
 
-For the most commonly used linters (*e.g.* for python, html, and markdown
+For the most commonly used linters (*e.g.* for python, HTML, and markdown
 files) it is recommended to install linters locally and run them in your
 editor. Some linters that may be useful to install locally include:
 

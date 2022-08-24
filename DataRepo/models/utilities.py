@@ -24,6 +24,7 @@ ALL_MODELS_IN_SAFE_DELETION_ORDER = [
     "Infusate",
     "InfusateTracer",
     "Animal",
+    "AnimalLabel",
     "Protocol",
     "Study",
 ]

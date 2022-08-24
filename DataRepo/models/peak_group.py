@@ -5,7 +5,6 @@ from django.db.models import Sum
 from django.utils.functional import cached_property
 
 from DataRepo.models.hier_cached_model import HierCachedModel, cached_function
-from DataRepo.models.utilities import atom_count_in_formula
 
 
 class PeakGroup(HierCachedModel):
@@ -42,9 +41,6 @@ class PeakGroup(HierCachedModel):
         help_text="The source file this PeakGroup came from.",
     )
 
-    def atom_count(self, atom):
-        return atom_count_in_formula(self.formula, atom)
-
     # @cached_function is *slower* than uncached
     @cached_property
     def total_abundance(self):
@@ -74,7 +70,7 @@ class PeakGroup(HierCachedModel):
         for compound_rec in compound_recs:
             for (
                 tracer_labeled_element
-            ) in self.msrun.sample.animal.tracer_labeled_elements:
+            ) in self.msrun.sample.animal.infusate.tracer_labeled_elements():
                 if (
                     compound_rec.atom_count(tracer_labeled_element) > 0
                     and tracer_labeled_element not in peak_labeled_elements

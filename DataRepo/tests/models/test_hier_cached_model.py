@@ -236,8 +236,9 @@ class GlobalCacheTests(TracebaseTestCase):
                 "final_serum_tracer_rate_disappearance_average_per_animal",
                 "final_serum_tracer_rate_appearance_average_per_animal",
                 "final_serum_tracer_rate_appearance_average_atom_turnover",
-                "tracer_labeled_elements",
-                "serum_tracers_enrichment_fractions",
+            ],
+            "AnimalLabel": [
+                "serum_tracers_enrichment_fraction",
             ],
             "Sample": ["is_serum_sample"],
             "PeakGroup": [
@@ -258,7 +259,6 @@ class GlobalCacheTests(TracebaseTestCase):
                 "rate_appearance_average_atom_turnover",
             ],
             "PeakGroupLabel": [
-                "measured_compound",
                 "enrichment_fraction",
                 "enrichment_abundance",
                 "normalized_labeling",

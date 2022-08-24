@@ -295,9 +295,9 @@ class FormatsTests(TracebaseTestCase):
         mdl_inst = "MeasuredCompound"
         pgsv = basv.modeldata[fmt]
         for inst in pgsv.model_instances.keys():
-            pgsv.model_instances[inst]["manytomany"]["split_rows"] = False
+            pgsv.model_instances[inst]["manyrelated"]["split_rows"] = False
         # Set only MeasuredCompound's split_rows=True for the test
-        pgsv.model_instances[mdl_inst]["manytomany"]["split_rows"] = True
+        pgsv.model_instances[mdl_inst]["manyrelated"]["split_rows"] = True
 
         qry["searches"][fmt]["tree"]["queryGroup"][1]["fld"] = "compounds__name"
         qry["searches"][fmt]["tree"]["queryGroup"][1]["val"] = "citrate"
@@ -367,10 +367,10 @@ class FormatsTests(TracebaseTestCase):
         mdl_inst = "MeasuredCompound"
         pgsv = basv.modeldata[fmt]
         for inst in pgsv.model_instances.keys():
-            pgsv.model_instances[inst]["manytomany"]["split_rows"] = False
+            pgsv.model_instances[inst]["manyrelated"]["split_rows"] = False
         # Set only MeasuredCompound's split_rows=True and annot_name="compound" for the test
-        pgsv.model_instances[mdl_inst]["manytomany"]["split_rows"] = True
-        pgsv.model_instances[mdl_inst]["manytomany"]["root_annot_fld"] = annot_name
+        pgsv.model_instances[mdl_inst]["manyrelated"]["split_rows"] = True
+        pgsv.model_instances[mdl_inst]["manyrelated"]["root_annot_fld"] = annot_name
 
         # Do the test
         annots = basv.getFullJoinAnnotations(fmt)
@@ -387,9 +387,9 @@ class FormatsTests(TracebaseTestCase):
         mdl_inst = "MeasuredCompound"
         pgsv = basv.modeldata[fmt]
         for inst in pgsv.model_instances.keys():
-            pgsv.model_instances[inst]["manytomany"]["split_rows"] = False
+            pgsv.model_instances[inst]["manyrelated"]["split_rows"] = False
         # Set only MeasuredCompound's split_rows value to True for the test
-        pgsv.model_instances[mdl_inst]["manytomany"]["split_rows"] = True
+        pgsv.model_instances[mdl_inst]["manyrelated"]["split_rows"] = True
 
         distincts = basv.getDistinctFields(fmt, order_by)
         expected_distincts = [
@@ -405,7 +405,10 @@ class FormatsTests(TracebaseTestCase):
         """
         Ensures that meta ordering fields are expanded to real database fields.  I.e. it tests that fields from every
         M:M model (WRT root) like "compounds__synonyms__compound" are dereferenced to the field from that model's
-        Meta.ordering, like "compounds__synonyms__compound__name"
+        Meta.ordering, like "compounds__synonyms__compound__name".
+
+        It also tests that every model instance whose model has ["manyrelated"]["manytomany"] as True is included in
+        the returned field set.
         """
         pgf = PeakGroupsFormat()
         self.assertIn(
@@ -425,6 +428,8 @@ class FormatsTests(TracebaseTestCase):
             "msrun__sample__animal__infusate__infusatetracer__tracer__name",
             "msrun__sample__animal__infusate__infusatetracer__concentration",
             "msrun__sample__animal__infusate__infusatetracer__pk",
+            "msrun__sample__animal__infusate__tracers__compound__name",
+            "msrun__sample__animal__infusate__tracers__compound__pk",
             "compounds__name",
             "compounds__pk",
             "msrun__sample__animal__studies__name",
