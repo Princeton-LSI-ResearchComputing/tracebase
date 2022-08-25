@@ -6,13 +6,14 @@ from django.core.validators import MinValueValidator
 from django.db import models
 
 from DataRepo.models.hier_cached_model import HierCachedModel, cached_function
+from DataRepo.models.maintained_model import MaintainedModel, field_updater_function
 
 from .element_label import ElementLabel
 from .protocol import Protocol
 from .tissue import Tissue
 
 
-class Animal(HierCachedModel, ElementLabel):
+class Animal(MaintainedModel, HierCachedModel, ElementLabel):
     # No parent_related_key_name, because this is a root
     child_related_key_names = ["samples", "labels"]
 
@@ -111,6 +112,10 @@ class Animal(HierCachedModel, ElementLabel):
 
     @property  # type: ignore
     @cached_function
+    @field_updater_function(
+        generation=0,
+        update_label="fcirc_calcs",
+    )
     def last_serum_sample(self):
         """
         last_serum_sample in an instance method that returns the last single serum sample removed from the animal,

@@ -4,9 +4,10 @@ from django.db import models
 
 from DataRepo.models.element_label import ElementLabel
 from DataRepo.models.hier_cached_model import HierCachedModel, cached_function
+from DataRepo.models.maintained_model import MaintainedModel, field_updater_function
 
 
-class FCirc(HierCachedModel):
+class FCirc(MaintainedModel, HierCachedModel):
     parent_related_key_name = "serum_sample"
     # Leaf
 
@@ -33,6 +34,13 @@ class FCirc(HierCachedModel):
         default=ElementLabel.CARBON,
         help_text='An element that is labeled in any of the tracers in this infusate (e.g. "C", "H", "O").',
     )
+    is_last = models.BooleanField(
+        default=False,
+        help_text=(
+            "This field indicates whether the last peak group of this serum sample and this tracer, is the last among "
+            "the serum samples/tracers for the associated animal. Maintained field. Do not edit/set."
+        ),
+    )
 
     class Meta:
         verbose_name = "fcirc"
@@ -58,8 +66,12 @@ class FCirc(HierCachedModel):
         # Now save the updated values
         super().save(*args, **kwargs)
 
-    @property  # type: ignore
-    @cached_function
+    @field_updater_function(
+        generation=2,
+        update_field_name="is_last",
+        parent_field_name="serum_sample",
+        update_label="fcirc_calcs",
+    )
     def is_last_serum_peak_group(self):
         """
         Note, there is an FCirc record for every serum sample, tracer, and label combo.  Each such combo represents a

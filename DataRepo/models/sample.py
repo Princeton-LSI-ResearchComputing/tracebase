@@ -5,12 +5,13 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 from DataRepo.models.hier_cached_model import HierCachedModel, cached_function
+from DataRepo.models.maintained_model import MaintainedModel, field_updater_function
 
 from .peak_data import PeakData
 from .peak_group import PeakGroup
 
 
-class Sample(HierCachedModel):
+class Sample(MaintainedModel, HierCachedModel):
     parent_related_key_name = "animal"
     child_related_key_names = ["msruns", "fcircs"]
 
@@ -62,6 +63,11 @@ class Sample(HierCachedModel):
 
     @property  # type: ignore
     @cached_function
+    @field_updater_function(
+        generation=1,
+        parent_field_name="animal",
+        update_label="fcirc_calcs",
+    )
     def is_serum_sample(self):
         """returns True if the sample is flagged as a "serum" sample"""
         return self.tissue.is_serum()
