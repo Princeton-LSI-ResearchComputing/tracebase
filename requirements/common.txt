@@ -9,3 +9,4 @@ chempy==0.7.10
 openpyxl==3.0.7
 xlrd==2.0.1
 regex==2022.7.9
+pyparsing==2.4.7
