@@ -17,9 +17,7 @@ class InfusateDetailView(DetailView):
         infusate_all_df = qs2df.get_infusate_all_df()
 
         pk = int(self.kwargs.get("pk"))
-        per_infusate_all_df = infusate_all_df[
-            infusate_all_df["infusate_id"] == pk
-        ]
+        per_infusate_all_df = infusate_all_df[infusate_all_df["infusate_id"] == pk]
         # convert DataFrame to a list of dictionary
         tracer_data = qs2df.df_to_list_of_dict(per_infusate_all_df)
         context["tracer_df"] = tracer_data
