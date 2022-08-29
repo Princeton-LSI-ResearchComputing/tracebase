@@ -137,6 +137,10 @@ def obj_hyperlink(id_name_list, obj):
         tmplt_name = "study_detail"
     elif obj == "tracer":
         tmplt_name = "compound_detail"
+    elif obj == "compound":
+        tmplt_name = "compound_detail"
+    elif obj == "infusate":
+        tmplt_name = "infusate_detail"
     elif obj == "treatment":
         tmplt_name = "protocol_detail"
 

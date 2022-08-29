@@ -30,17 +30,19 @@
                 <th data-filter-control="input" data-sortable="true" data-field="Animal">Animal</th>
                 <th data-filter-control="input" data-sortable="true" data-field="Studies">Studies</th>
                 <th data-filter-control="select" data-sortable="true" data-field="Genotype">Genotype</th>
-                <th data-filter-control="input" data-sortable="true" data-field="Tracer">Tracer</th>
                 <th data-filter-control="input" data-sortable="true" data-field="Treatment">Treatment</th>
-                <th data-filter-control="select" data-sortable="true" data-field="Labeled_Atom">Labeled Atom</th>
-                <th data-filter-control="input" data-sortable="true" data-field="Labeled_Count">Labeled Count</th>
-                <th data-filter-control="input" data-sortable="true" data-field="Infusion_Rate">Infusion Rate (ul/min/g)</th>
-                <th data-filter-control="input" data-sortable="true" data-field="Infusion_Concentration">Infusion Concentration (mM)</th>
+                <th data-filter-control="input" data-sortable="true" data-field="Infusate">Infusate</th>
+                <th data-filter-control="select" data-sortable="true" data-field="Tracer-Group">Tracer Group</th>
+                <th data-filter-control="input" data-sortable="true" data-field="Compounds">Parent Compound(s) for Tracer(s)</th>
+                <th data-filter-control="input" data-sortable="true" data-visible="false" data-field="Tracers">Tracer(s)</th>
+                <th data-filter-control="select" data-sortable="true" data-field="Labeled-Elements">Labeled Element(s)</th>
+                <th data-filter-control="input" data-sortable="true" data-visible="false" data-field="Concentrations">Infusion Concentration(s) (mM)</th>
+                <th data-filter-control="input" data-sortable="true" data-field="Infusion-Rate">Infusion Rate (ul/min/g)</th>
                 <th data-filter-control="input" data-sortable="true" data-visible="false" data-field="Body_Weight">Body Weight (g)</th>
                 <th data-filter-control="input" data-sortable="true" data-visible="false" data-field="Age">Age (weeks)</th>
                 <th data-filter-control="select" data-sortable="true" data-visible="false" data-field="Sex">Sex</th>
                 <th data-filter-control="input" data-sortable="true" data-visible="false" data-field="Diet">Diet</th>
-                <th data-filter-control="input" data-sortable="true" data-field="Feeding_Status">Feeding Status</th>
+                <th data-filter-control="input" data-sortable="true" data-field="Feeding-Status">Feeding Status</th>
                 <th data-filter-control="select" data-sortable="true" data-field="Sample-Owners">Sample Owners</th>
                 <th data-filter-control="input" data-sortable="true" data-field="Total-Tissue">Total Tissues</th>
                 <th data-filter-control="input" data-sortable="true" data-field="Total-Sample">Total Samples</th>
@@ -54,22 +56,25 @@
                 <td>{{ i.study_id_name_list |obj_hyperlink:"study" }}</td>
                 <td>{{ i.genotype }}</td>
                 <td>
-                {% if i.tracer %}
-                    <a href="{% url 'compound_detail' i.tracer_compound_id %}">{{ i.tracer }}</a></td>
-                {% else %}
-                    None
-                {% endif %}
-                <td>
-                {% if i.treatment %}
-                     <a href="{% url 'protocol_detail' i.treatment_id %}">{{ i.treatment }}</a>
-                {% else %}
-                    None
-                {% endif %}
+                    {% if i.treatment %}
+                        <a href="{% url 'protocol_detail' i.treatment_id %}">{{ i.treatment }}</a>
+                    {% else %}
+                        None
+                    {% endif %}
                 </td>
-                <td>{{ i.tracer_labeled_atom }}</td>
-                <td>{{ i.tracer_labeled_count }}</td>
-                <td>{{ i.tracer_infusion_rate }}</td>
-                <td>{{ i.tracer_infusion_concentration }}</td>
+                <td>
+                    {% if i.infusate_id %}
+                        <a href="{% url 'infusate_detail' i.infusate_id %}">{{ i.infusate_name }}</a></td>
+                    {% else %}
+                        None
+                    {% endif %}
+                </td>
+                <td>{{ i.tracer_group_name }}</td>
+                <td>{{ i.compound_id_name_list |obj_hyperlink:"compound" }}</td>
+                <td>{{ i.tracer_id_name_list |obj_hyperlink:"tracer" }}</td>
+                <td>{{ i.labeled_elements |join:"," }}</td>
+                <td>{{ i.concentrations }}</td>
+                <td>{{ i.infusion_rate }}</td>
                 <td>{{ i.body_weight }}</td>
                 <td>{{ i.age |duration_iso_to_weeks }}</td>
                 <td>{{ i.sex }}</td>

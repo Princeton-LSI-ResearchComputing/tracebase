@@ -4,6 +4,7 @@ from .models import (
     AnimalListView,
     CompoundDetailView,
     CompoundListView,
+    InfusateDetailView,
     MSRunDetailView,
     MSRunListView,
     PeakDataListView,

@@ -1,5 +1,0 @@
-Sample Name	Date Collected	Researcher Name	Tissue	Time Collected	Animal ID	Animal Genotype	Animal Age	Animal Sex	Animal Treatment	Experiment Name	Notes
-
-Br-t1-no-tracer-age	11/22/21	Matthew McBride	brain	150	t1-no-tracer-age	WT	6	male	Control diet	test_data_frames	A study for testing data frame edge cases
-
-Liv-t1-no-tracer-age	11/22/21	Matthew McBride	liver	150	t1-no-tracer-age	WT	6	male	Control diet	test_data_frames	A study for testing data frame edge cases

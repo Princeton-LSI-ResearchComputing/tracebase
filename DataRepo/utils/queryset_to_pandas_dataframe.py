@@ -3,7 +3,14 @@ import json
 import numpy as np
 import pandas as pd
 
-from DataRepo.models import Animal, CompoundSynonym, MSRun, Sample, Study
+from DataRepo.models import (
+    Animal,
+    CompoundSynonym,
+    Infusate,
+    MSRun,
+    Sample,
+    Study,
+)
 
 
 class QuerysetToPandasDataFrame:
@@ -12,15 +19,54 @@ class QuerysetToPandasDataFrame:
     DataFrames for study or animal based summary data
     """
 
+    infusate_column_names = [
+        "infusate_id",
+        "infusate_name",
+        "tracer_group_name",
+        "tracer_name",
+        "tracer_concentration",
+        "tracer_label",
+        "labeled_element",
+        "labeled_count",
+        "compound_id",
+        "compound_name",
+    ]
+
+    animal_column_names = [
+        "animal_id",
+        "animal",
+        "infusate_id",
+        "infusate_name",
+        "tracer_group_name",
+        "tracers",
+        "labeled_elements",
+        "concentrations",
+        "compound_id_name_list",
+        "tracer_id_name_list",
+        "infusion_rate",
+        "genotype",
+        "body_weight",
+        "age",
+        "sex",
+        "diet",
+        "feeding_status",
+        "treatment_id",
+        "treatment",
+        "treatment_category",
+    ]
+
     animal_tissue_sample_msrun_column_names = [
         "animal_id",
         "animal",
-        "tracer_compound_id",
-        "tracer",
-        "tracer_labeled_atom",
-        "tracer_labeled_count",
-        "tracer_infusion_rate",
-        "tracer_infusion_concentration",
+        "infusate_id",
+        "infusate_name",
+        "tracer_group_name",
+        "tracers",
+        "labeled_elements",
+        "concentrations",
+        "compound_id_name_list",
+        "tracer_id_name_list",
+        "infusion_rate",
         "genotype",
         "body_weight",
         "age",
@@ -84,6 +130,150 @@ class QuerysetToPandasDataFrame:
         return data
 
     @classmethod
+    def get_infusate_all_df(cls):
+        """
+        get joined data for all infusates, including parent compound, labeled element(s),
+        concentration for each tracer associated with an infusate
+        """
+        inf_qs = (
+            Infusate.objects.prefetch_related("tracers")
+            .all()
+            .order_by("name", "tracers__name", "tracers__labels__element")
+        )
+        qry_to_df_fields = {
+            "id": "infusate_id",
+            "name": "infusate_name",
+            "tracer_group_name": "tracer_group_name",
+            "tracers__name": "tracer_name",
+            "infusatetracer__concentration": "tracer_concentration",
+            "tracers__labels__name": "tracer_label",
+            "tracers__labels__element": "labeled_element",
+            "tracers__labels__count": "labeled_count",
+            "tracers__compound__id": "compound_id",
+            "tracers__compound__name": "compound_name",
+        }
+        infusate_all_df = cls.qs_to_df(inf_qs, qry_to_df_fields)
+
+        # re-index based on column order
+        column_names = cls.infusate_column_names
+        infusate_all_df = infusate_all_df.reindex(columns=column_names)
+        return infusate_all_df
+
+    @classmethod
+    def get_infusate_gb_tracer_df(cls):
+        """
+        get unqiue lists of labeled element(s), element:count grouped by
+        a tracer for each infusate.
+        """
+        infusate_all_df = cls.get_infusate_all_df()
+
+        # add a column to join element and count
+        infusate_all_df["element_count"] = (
+            infusate_all_df["labeled_element"]
+            + ":"
+            + infusate_all_df["labeled_count"].astype(str)
+        )
+        # group data by infusate and tracer
+        infusate_gb_df1 = (
+            infusate_all_df.groupby(
+                [
+                    "infusate_id",
+                    "compound_id",
+                    "compound_name",
+                    "tracer_name",
+                    "tracer_concentration",
+                ]
+            )
+            .agg(
+                labeled_elements=("labeled_element", "unique"),
+                element_count_list=("element_count", "unique"),
+            )
+            .reset_index()
+        )
+        # sort lists
+        infusate_gb_df1["labeled_elements"] = (
+            infusate_gb_df1["labeled_elements"].map(np.sort).map(list)
+        )
+        infusate_gb_df1["element_count_list"] = (
+            infusate_gb_df1["element_count_list"].map(np.sort).map(list)
+        )
+
+        infusate_gb_tracer_df = infusate_gb_df1.convert_dtypes()
+        return infusate_gb_tracer_df
+
+    @classmethod
+    def get_infusate_list_df(cls):
+        """
+        generate a DataFrame to include compound/tracer data grouped by an infusate,
+        which can be retrieved or merged with animal related DataFrames easily
+        """
+        infusate_all_df = cls.get_infusate_all_df()
+        infusate_gb_tracer_df = cls.get_infusate_gb_tracer_df()
+
+        infusate_gb_df1 = infusate_gb_tracer_df.copy()
+
+        infusate_gb_df1["compound_id_name"] = (
+            infusate_gb_df1["compound_id"].astype(str)
+            + "||"
+            + infusate_gb_df1["compound_name"]
+        )
+        # add a column to join compound_id and tracer_name
+        infusate_gb_df1["tracer_id_name"] = (
+            infusate_gb_df1["compound_id"].astype(str)
+            + "||"
+            + infusate_gb_df1["tracer_name"]
+        )
+        # convert array to str before grouping
+        infusate_gb_df1["elements_as_str"] = infusate_gb_df1["labeled_elements"].apply(
+            ",".join
+        )
+
+        # groupby infusate
+        infusate_list_df1 = (
+            infusate_gb_df1.groupby("infusate_id")
+            .agg(
+                tracers=("tracer_name", list),
+                concentrations=("tracer_concentration", list),
+                labeled_elements=("elements_as_str", "unique"),
+                compound_id_name_list=("compound_id_name", list),
+                tracer_id_name_list=("tracer_id_name", list),
+            )
+            .reset_index()
+        )
+        # unique infusates
+        infusate_df = infusate_all_df[
+            ["infusate_id", "infusate_name", "tracer_group_name"]
+        ].drop_duplicates()
+        # merge data frames
+        infusate_list_df2 = pd.merge(
+            infusate_df,
+            infusate_list_df1,
+            left_on="infusate_id",
+            right_on="infusate_id",
+            how="left",
+        )
+        # convert Pandas StringArray to np.array to avoid error for converting to json format
+        infusate_list_df2["tracers"] = infusate_list_df2["tracers"].apply(
+            lambda x: np.array(x)
+        )
+        infusate_list_df2["labeled_elements"] = infusate_list_df2[
+            "labeled_elements"
+        ].apply(lambda x: np.array(x))
+        infusate_list_df2["concentrations"] = infusate_list_df2["concentrations"].apply(
+            lambda x: np.array(x)
+        )
+        infusate_list_df2["compound_id_name_list"] = infusate_list_df2[
+            "compound_id_name_list"
+        ].apply(lambda x: np.array(x))
+        infusate_list_df2["tracer_id_name_list"] = infusate_list_df2[
+            "tracer_id_name_list"
+        ].apply(lambda x: np.array(x))
+        # # convert to best possible dtypes
+        infusate_list_df = infusate_list_df2.convert_dtypes()
+
+        return infusate_list_df
+
+    @classmethod
     def get_study_list_df(cls):
         """
         convert all study records to a DataFrame with defined column names
@@ -117,19 +307,15 @@ class QuerysetToPandasDataFrame:
     @classmethod
     def get_animal_list_df(cls):
         """
-        get all animal records with related fields for tracer and treatments,
+        get all animal records with related fields for infusate and treatments,
         convert to a DataFrame with defined column names
         """
-        qs = Animal.objects.select_related("compound", "protocol").all()
+        qs = Animal.objects.select_related("protocol").all()
         qry_to_df_fields = {
             "id": "animal_id",
             "name": "animal",
-            "tracer_compound_id": "tracer_compound_id",
-            "tracer_compound__name": "tracer",
-            "tracer_labeled_atom": "tracer_labeled_atom",
-            "tracer_labeled_count": "tracer_labeled_count",
-            "tracer_infusion_rate": "tracer_infusion_rate",
-            "tracer_infusion_concentration": "tracer_infusion_concentration",
+            "infusate_id": "infusate_id",
+            "infusion_rate": "infusion_rate",
             "genotype": "genotype",
             "body_weight": "body_weight",
             "age": "age",
@@ -140,7 +326,22 @@ class QuerysetToPandasDataFrame:
             "treatment__name": "treatment",
             "treatment__category": "treatment_category",
         }
-        anim_list_df = cls.qs_to_df(qs, qry_to_df_fields)
+        anim_list_df1 = cls.qs_to_df(qs, qry_to_df_fields)
+        # infusate data frame
+        infusate_list_df = cls.get_infusate_list_df()
+        # merge two data frames
+        anim_list_df2 = pd.merge(
+            anim_list_df1,
+            infusate_list_df,
+            left_on="infusate_id",
+            right_on="infusate_id",
+            how="left",
+        )
+        anim_list_df = anim_list_df2.convert_dtypes()
+
+        column_names = cls.animal_column_names
+        anim_list_df = anim_list_df.reindex(columns=column_names)
+
         return anim_list_df
 
     @classmethod
@@ -301,24 +502,7 @@ class QuerysetToPandasDataFrame:
         anim_list_stats_df = anim_list_stats_df1.convert_dtypes()
 
         # reindex with defined column names
-        column_names = [
-            "animal_id",
-            "animal",
-            "tracer_compound_id",
-            "tracer",
-            "tracer_labeled_atom",
-            "tracer_labeled_count",
-            "tracer_infusion_rate",
-            "tracer_infusion_concentration",
-            "genotype",
-            "body_weight",
-            "age",
-            "sex",
-            "diet",
-            "feeding_status",
-            "treatment_id",
-            "treatment",
-            "treatment_category",
+        stats_column_names = [
             "total_tissue",
             "total_sample",
             "total_msrun",
@@ -326,6 +510,7 @@ class QuerysetToPandasDataFrame:
             "studies",
             "study_id_name_list",
         ]
+        column_names = cls.animal_column_names + stats_column_names
         anim_list_stats_df = anim_list_stats_df.reindex(columns=column_names)
         return anim_list_stats_df
 
@@ -368,13 +553,21 @@ class QuerysetToPandasDataFrame:
         stud_list_df = cls.get_study_list_df()
         all_stud_msrun_df = cls.get_study_msrun_all_df()
 
-        # add a column to join id and name for each tracer
-        all_stud_msrun_df["tracer_id_name"] = (
-            all_stud_msrun_df["tracer_compound_id"].astype(str)
+        # convert values of array columns to strings before grouping
+        all_stud_msrun_df["compounds_as_str"] = all_stud_msrun_df[
+            "compound_id_name_list"
+        ].apply(";".join)
+        all_stud_msrun_df["elements_as_str"] = all_stud_msrun_df[
+            "labeled_elements"
+        ].apply(";".join)
+        # drop columns
+        all_stud_msrun_df.drop(columns=["compound_id_name_list", "labeled_elements"])
+        # add a column to join infusate id and name
+        all_stud_msrun_df["infusate_id_name"] = (
+            all_stud_msrun_df["infusate_id"].astype(str)
             + "||"
-            + all_stud_msrun_df["tracer"]
+            + all_stud_msrun_df["infusate_name"]
         )
-
         # add a column to join treatment_id and treatment
         all_stud_msrun_df["treatment_id_name"] = (
             all_stud_msrun_df["treatment_id"].astype(str)
@@ -392,7 +585,9 @@ class QuerysetToPandasDataFrame:
                 total_msrun=("msrun_id", "nunique"),
                 sample_owners=("sample_owner", "unique"),
                 genotypes=("genotype", "unique"),
-                tracer_id_name_list=("tracer_id_name", "unique"),
+                infusate_id_name_list=("infusate_id_name", "unique"),
+                compound_id_name_list=("compounds_as_str", "unique"),
+                labeled_elements=("elements_as_str", "unique"),
                 treatment_id_name_list=("treatment_id_name", "unique"),
             )
             .reset_index()
@@ -402,9 +597,27 @@ class QuerysetToPandasDataFrame:
             lambda x: np.array(x)
         )
         stud_gb_df1["genotypes"] = stud_gb_df1["genotypes"].apply(lambda x: np.array(x))
-        stud_gb_df1["tracer_id_name_list"] = stud_gb_df1["tracer_id_name_list"].apply(
-            lambda x: np.array(x)
+        stud_gb_df1["infusate_id_name_list"] = stud_gb_df1[
+            "infusate_id_name_list"
+        ].apply(lambda x: np.array(x))
+
+        # get unique list of compound_id_name from nested lists, avoiding using comma
+        stud_gb_df1["compound_id_name_list"] = (
+            stud_gb_df1["compound_id_name_list"]
+            .str.join(";")
+            .str.split(";")
+            .map(np.unique)
+            .map(np.sort)
         )
+        # get unique list of elements from nested lists
+        stud_gb_df1["labeled_elements"] = (
+            stud_gb_df1["labeled_elements"]
+            .str.join(",")
+            .str.split(",")
+            .map(np.unique)
+            .map(np.sort)
+        )
+
         stud_gb_df1["treatment_id_name_list"] = stud_gb_df1[
             "treatment_id_name_list"
         ].apply(lambda x: np.array(x))
@@ -425,7 +638,9 @@ class QuerysetToPandasDataFrame:
             "total_msrun",
             "sample_owners",
             "genotypes",
-            "tracer_id_name_list",
+            "infusate_id_name_list",
+            "compound_id_name_list",
+            "labeled_elements",
             "treatment_id_name_list",
         ]
         stud_list_stats_df = stud_list_stats_df.reindex(columns=column_names)
@@ -483,9 +698,13 @@ class QuerysetToPandasDataFrame:
         return all_comp_synonym_df
 
     @classmethod
-    def get_compound_synonym_list_df(cls):
+    def get_compound_list_stats_df(cls):
+        """
+        generate a DataFrame by adding columns to compound list, including counts
+            for animals and infusates grouped by a compound
+        """
         all_comp_synonym_df = cls.get_all_compound_synonym_df()
-        anim_list_stats_df = cls.get_animal_list_stats_df()
+        # anim_list_stats_df = cls.get_animal_list_stats_df()
 
         synonym_gb_comp_df1 = (
             all_comp_synonym_df.groupby(
@@ -503,21 +722,37 @@ class QuerysetToPandasDataFrame:
         # convert to best possible dtypes
         synonym_gb_comp_df = synonym_gb_comp_df1.convert_dtypes()
 
-        anim_gb_tracer_df1 = (
-            anim_list_stats_df.groupby("tracer")
+        # get infusate with associated compound(s)
+        infusate_all_df = cls.get_infusate_all_df()
+
+        animal_list_df = cls.get_animal_list_df()
+        animal_infusate_df = animal_list_df[
+            ["animal_id", "animal", "infusate_id"]
+        ].drop_duplicates()
+        anim_inf_tracer_comp_df = pd.merge(
+            animal_infusate_df,
+            infusate_all_df,
+            left_on="infusate_id",
+            right_on="infusate_id",
+            how="left",
+        )
+        # group animal by compound
+        anim_gb_comp_df1 = (
+            anim_inf_tracer_comp_df.groupby(["compound_id", "compound_name"])
             .agg(
-                total_animal_by_tracer=("animal", "nunique"),
+                total_animal_by_compound=("animal_id", "nunique"),
+                total_infusate_by_compound=("infusate_id", "nunique"),
             )
             .reset_index()
         )
         # convert to best possible dtypes
-        anim_gb_tracer_df = anim_gb_tracer_df1.convert_dtypes()
+        anim_gb_comp_df = anim_gb_comp_df1.convert_dtypes()
 
-        comp_tracer_list_df = pd.merge(
+        comp_list_stats_df1 = pd.merge(
             synonym_gb_comp_df,
-            anim_gb_tracer_df,
-            left_on="compound_name",
-            right_on="tracer",
+            anim_gb_comp_df,
+            left_on=["compound_id", "compound_name"],
+            right_on=["compound_id", "compound_name"],
             how="left",
         )
 
@@ -527,9 +762,9 @@ class QuerysetToPandasDataFrame:
             "formula",
             "hmdb_id",
             "synonyms",
-            "tracer",
-            "total_animal_by_tracer",
+            "total_animal_by_compound",
+            "total_infusate_by_compound",
         ]
-        comp_tracer_list_df = comp_tracer_list_df.reindex(columns=column_names)
+        comp_list_stats_df = comp_list_stats_df1.reindex(columns=column_names)
 
-        return comp_tracer_list_df
+        return comp_list_stats_df

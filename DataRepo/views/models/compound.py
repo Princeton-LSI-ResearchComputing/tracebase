@@ -16,9 +16,9 @@ class CompoundListView(ListView):
         # Call the base implementation first to get the context
         context = super(CompoundListView, self).get_context_data(**kwargs)
         # add data from the DataFrame to the context
-        comp_tracer_list_df = qs2df.get_compound_synonym_list_df()
+        comp_list_stats_df = qs2df.get_compound_list_stats_df()
         # convert DataFrame to a list of dictionary
-        data = qs2df.df_to_list_of_dict(comp_tracer_list_df)
+        data = qs2df.df_to_list_of_dict(comp_list_stats_df)
         context["df"] = data
         return context
 
@@ -36,12 +36,18 @@ class CompoundDetailView(DetailView):
         anim_list_stats_df = qs2df.get_animal_list_stats_df()
 
         pk = self.kwargs.get("pk")
-        per_tracer_anim_list_stats_df = anim_list_stats_df[
-            anim_list_stats_df["tracer_compound_id"] == pk
+        # get infusate(s) based on compound
+        infusate_all_df = qs2df.get_infusate_all_df()
+        inf_list = infusate_all_df[infusate_all_df["compound_id"] == pk]["infusate_id"]
+        # animal list filtered by infusate(s)
+        per_comp_anim_list_stats_df = anim_list_stats_df[
+            anim_list_stats_df["infusate_id"].isin(inf_list)
         ]
+
         # convert DataFrame to a list of dictionary
-        tracer_data = qs2df.df_to_list_of_dict(per_tracer_anim_list_stats_df)
-        context["tracer_df"] = tracer_data
+        anim_per_comp_data = qs2df.df_to_list_of_dict(per_comp_anim_list_stats_df)
+        context["anim_per_comp_df"] = anim_per_comp_data
+
         context["measured"] = (
             PeakGroup.objects.filter(compounds__id__exact=pk).count() > 0
         )
