@@ -7,7 +7,7 @@ from DataRepo.models import Tracer
 from DataRepo.models.element_label import ElementLabel
 from DataRepo.models.maintained_model import (
     MaintainedModel,
-    field_updater_function,
+    maintained_field_function,
 )
 from DataRepo.utils.infusate_name_parser import IsotopeData
 
@@ -106,7 +106,7 @@ class TracerLabel(MaintainedModel, ElementLabel):
     def __str__(self):
         return str(self._name())
 
-    @field_updater_function(
+    @maintained_field_function(
         generation=3,
         update_field_name="name",
         parent_field_name="tracer",

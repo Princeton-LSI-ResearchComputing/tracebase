@@ -8,7 +8,7 @@ from django.db import models
 from DataRepo.models.element_label import ElementLabel
 from DataRepo.models.maintained_model import (
     MaintainedModel,
-    field_updater_function,
+    maintained_field_function,
 )
 from DataRepo.models.utilities import get_model_by_name
 from DataRepo.utils.infusate_name_parser import TracerData
@@ -94,7 +94,7 @@ class Tracer(MaintainedModel, ElementLabel):
     def __str__(self):
         return str(self._name())
 
-    @field_updater_function(
+    @maintained_field_function(
         generation=2,
         update_field_name="name",
         parent_field_name="infusates",

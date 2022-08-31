@@ -1,21 +1,29 @@
 from collections import defaultdict
+from tempfile import TemporaryFile
 from typing import Dict, List
 
 from django.conf import settings
-from django.db.models import Model  # , Manager
+from django.db.models import Model
 
 auto_updates = True
 update_buffer = []
 performing_mass_autoupdates = False
+buffering = True
 updater_list: Dict[str, List] = defaultdict(list)
 
 
 def disable_autoupdates():
+    """
+    Do not allow record changes to trigger the auto-update of maintained fields.  Instead, buffer those updates.
+    """
     global auto_updates
     auto_updates = False
 
 
 def enable_autoupdates():
+    """
+    Allow record changes to trigger the auto-update of maintained fields and no longer buffer those updates.
+    """
     global auto_updates
     auto_updates = True
     if performing_mass_autoupdates:
@@ -27,15 +35,38 @@ def are_autoupdates_enabled():
 
 
 def disable_mass_autoupdates():
+    """
+    Allow autoupdates to once again be able to trigger updates to parent record fields.
+    """
     global performing_mass_autoupdates
     performing_mass_autoupdates = False
 
 
 def enable_mass_autoupdates():
+    """
+    This prevents changes from being propagated to parents.  It is mostly only used internally, but is also used in the
+    rebuild_maintained_fields script.  This can only be enabled when autoupdates are disabled,
+    """
     global performing_mass_autoupdates
     performing_mass_autoupdates = True
     if auto_updates:
         raise StaleAutoupdateMode()
+
+
+def disable_buffering():
+    """
+    Do not allow record changes to buffer pending changes to maintained fields.
+    """
+    global buffering
+    buffering = False
+
+
+def enable_buffering():
+    """
+    Allow record changes to buffer pending changes to maintained fields.
+    """
+    global buffering
+    buffering = True
 
 
 def clear_update_buffer(generation=None, label_filters=[]):
@@ -43,7 +74,7 @@ def clear_update_buffer(generation=None, label_filters=[]):
     Clears buffered auto-updates.  Use after having performed DB updates when auto_updates was False to no perform
     auto-updates.  This method is called automatically during the execution of mass autoupdates.
 
-    If a generation is provided (see the generation argument of the field_updater_function decorator), only buffered
+    If a generation is provided (see the generation argument of the maintained_field_function decorator), only buffered
     auto-updates labeled with that generation are cleared.  Note that each record can have multiple auto-update fields
     and thus multiple generation values.  Only the max generation (a leaf) is used in this check because it is assumed
     leaves are updated first during a mass update and that an auto-update updates every maintained field.
@@ -105,8 +136,75 @@ def updater_list_has_labels(updaters_list, label_filters):
     return False
 
 
-def field_updater_function(
-    generation, update_field_name=None, parent_field_name=None, update_label=None
+def maintained_model_relation(generation, parent_field_name=None, child_field_names=[], update_label=None):
+    """
+    Use this decorator to add connections between classes when it does not have any maintained fields.  For example,
+    if you only want to maintain 1 field in 1 class, but you want changes in a related class to trigger updates to
+    that field, call this method in the related class's __init__ method in order to trigger those updates of the
+    field in the other class.
+    """
+    def decorator(object):
+
+        class_name = object.__class__.__name__
+        if generation != 0:
+            # Make sure internal nodes have parent fields
+            if parent_field_name is None:
+                raise Exception("parent_field is required if generation is not 0.")
+        elif generation == 0 and parent_field_name is not None:
+            raise Exception("parent_field must not have a value when generation is 0.")
+        if parent_field_name is None and len(child_field_names) == 0:
+            raise Exception("One or both of parent_field_name or child_field_names is required.")
+
+        # No way to ensure supplied fields exist because the models aren't actually loaded yet, so while that would
+        # be nice to handle here, it will have to be handled in MaintanedModel when objects are created
+
+        func_dict = {
+            "update_function": None,
+            "update_field": None,
+            "parent_field": parent_field_name,
+            "child_fields": child_field_names,
+            "update_label": update_label,  # Used as a filter to trigger specific series' of (mass) updates
+            "generation": generation,  # Used to update from leaf to root for mass updates
+        }
+
+        # Add this info to our global updater_list
+        updater_list[class_name] += [func_dict]
+
+        # Provide some debug feedback
+        if settings.DEBUG:
+            msg = f"Added maintained_field_relation decorator to class {class_name} in order to trigger updates to"
+            if update_label is not None:
+                msg += f" {update_label}-related"
+            msg += " maintained fields in"
+            if parent_field_name is not None:
+                msg += (
+                    f" parent records via: {class_name}.{parent_field_name}"
+                )
+                if len(child_field_names) > 0:
+                    msg += " and also"
+            if len(child_field_names) > 0:
+                msg += f"child record(s) via: [{', '.join(child_field_names)}]"
+            print(f"{msg}.")
+
+        return object
+
+    return decorator
+
+
+
+
+
+
+########## TODO: I still need to propagate changes to children (specifically, FCirc objects)
+
+
+
+
+
+
+
+def maintained_field_function(
+    generation, update_field_name=None, parent_field_name=None, update_label=None, child_field_names=[],
 ):
     """
     This is a decorator factory for functions in a Model class that are identified to be used to update a supplied
@@ -119,7 +217,7 @@ def field_updater_function(
     record.
 
     The generation input is an integer indicating the hierarchy level.  E.g. if there is no parent, `generation` should
-    be 0.  Each subsequence generation should increment generation.  It us used to populate update_buffer when
+    be 0.  Each subsequence generation should increment generation.  It is used to populate update_buffer when
     auto_updates is False, so that mass updates can be triggered after all data is loaded.
 
     Note that a class can have multiple fields to update and that those updates (according to their decorators) can
@@ -132,7 +230,7 @@ def field_updater_function(
     only 1 of those decorators needs to set a parent field.
     """
 
-    if update_field_name is None and parent_field_name is None:
+    if update_field_name is None and (parent_field_name is None and generation != 0):
         raise Exception(
             "Either an update_field_name or parent_field_name argument is required."
         )
@@ -151,21 +249,22 @@ def field_updater_function(
             "update_function": fn.__name__,
             "update_field": update_field_name,
             "parent_field": parent_field_name,
+            "child_fields": child_field_names,
             "update_label": update_label,  # Used as a filter to trigger specific series' of (mass) updates
             "generation": generation,  # Used to update from leaf to root for mass updates
         }
 
-        # No way to ensure supplied fields exist, so while that would be nice to handle here, that will have to be
-        # handled in MaintanedModel when objects are created
+        # No way to ensure supplied fields exist because the models aren't actually loaded yet, so while that would be
+        # nice to handle here, it will have to be handled in MaintanedModel when objects are created
 
         # Add this info to our global updater_list
-        updater_list[class_name] = [func_dict]
+        updater_list[class_name] += [func_dict]
 
         # Provide some debug feedback
         if settings.DEBUG:
-            local_msg = ""
+            local_msg = f"Added maintained_field_function decorator to function {fn.__qualname__} in order to"
             if update_field_name is not None:
-                local_msg = f" maintain {class_name}.{update_field_name}'s value"
+                local_msg += f" maintain {class_name}.{update_field_name}'s value"
                 if parent_field_name is not None:
                     local_msg += " and also"
             parent_msg = ""
@@ -174,10 +273,7 @@ def field_updater_function(
                     f" trigger updates of maintained fields in model reference by foreign key: {class_name}."
                     f"{parent_field_name}"
                 )
-            print(
-                f"Added field_updater_function decorator to function {fn.__qualname__} in order to{local_msg}"
-                f"{parent_msg}."
-            )
+            print(f"{local_msg}{parent_msg}.")
 
         return fn
 
@@ -190,22 +286,57 @@ class MaintainedModel(Model):
     This class maintains database field values for a django.models.Model class whose values can be derived using a
     function.  If a record changes, the decorated function is used to update the field value.  It can also propagate
     changes of records in linked models.  Every function in the derived class decorated with the
-    `@field_updater_function` decorator (defined above, outside this class) will be called and the associated field
+    `@maintained_field_function` decorator (defined above, outside this class) will be called and the associated field
     will be updated.  Only methods that take no arguments are supported.  This class overrides the class's save and
     delete methods as triggers for the updates.
     """
+    maintained_model_initialized = {}  # used by the class decorator: maintained_field_relation
 
     def __init__(self, *args, **kwargs):
         """
         This over-ride of the constructor is to prevent developers from explicitly setting values for automatically
-        maintained fields.
+        maintained fields.  It also performs a one-time validation check of the updater_dicts.
         """
         class_name = self.__class__.__name__
         for updater_dict in updater_list[class_name]:
+
+            # Ensure the field being set is not a maintained field
             update_fld = updater_dict["update_field"]
-            if update_fld in kwargs:
+            if update_fld and update_fld in kwargs:
                 update_fcn = updater_dict["update_function"]
                 raise MaintainedFieldNotSettable(class_name, update_fld, update_fcn)
+
+            # Validate the field values in the updater_list
+            # First, create a signature to use to make sure we only check once
+            # The creation of a decorator signature allows multiple decorators to be added to 1 class (or function) and
+            # only have each one's updater info validated once.
+            decorator_signature = ".".join([
+                updater_dict["update_label"],
+                updater_dict["update_function"],
+                updater_dict["update_field"],
+                str(updater_dict["generation"]),
+                updater_dict["parent_field"],
+                ",".join(updater_dict["child_fields"]),
+            ])
+            if decorator_signature not in self.maintained_model_initialized:
+                self.maintained_model_initialized[decorator_signature] = True
+                # Now we can validate the fields
+                flds = {}
+                if updater_dict["update_field"]:
+                    flds[updater_dict["update_field"]] = "update field"
+                if updater_dict["parent_field"]:
+                    flds[updater_dict["parent_field"]] = "parent_field"
+                for cfld in updater_dict["child_fields"]:
+                    flds[cfld] = "child field"
+                bad_fields = []
+                for field in flds.keys():
+                    try:
+                        getattr(self, field)
+                    except AttributeError:
+                        bad_fields.append({"field": field, "type": flds[field]})
+                if len(bad_fields) > 0:
+                    raise BadModelFields(self.__class__.__name__, bad_fields, updater_dict["update_function"])
+
         super().__init__(*args, **kwargs)
 
     def save(self, *args, **kwargs):
@@ -255,22 +386,22 @@ class MaintainedModel(Model):
 
     def update_decorated_fields(self):
         """
-        Updates every field identified in each field_updater_function decorator using the decorated function that
+        Updates every field identified in each maintained_field_function decorator using the decorated function that
         generates its value.
         """
         for updater_dict in self.get_my_updaters():
-            update_fun = getattr(self, updater_dict["update_function"])
             update_fld = updater_dict["update_field"]
 
             # If there is a maintained field(s) in this model
             if update_fld is not None:
+                update_fun = getattr(self, updater_dict["update_function"])
                 current_val = None
                 # Get the field to make sure it exists in the model, and save the current value for reporting
                 try:
                     current_val = getattr(self, update_fld)
                 except AttributeError:
-                    raise BadModelField(
-                        self.__class__.__name__, update_fld, update_fun.__qualname__
+                    raise BadModelFields(
+                        self.__class__.__name__, {update_fld: "update field"}, update_fun.__qualname__
                     )
                 new_val = update_fun()
                 setattr(self, update_fld, new_val)
@@ -307,7 +438,6 @@ class MaintainedModel(Model):
         """
         parents = []
         for updater_dict in self.get_my_updaters():
-            update_fun = getattr(self, updater_dict["update_function"])
             parent_fld = updater_dict["parent_field"]
 
             # If there is a parent that should update based on this change
@@ -317,8 +447,11 @@ class MaintainedModel(Model):
                 try:
                     tmp_parent_inst = getattr(self, parent_fld)
                 except AttributeError:
-                    raise BadModelField(
-                        self.__class__.__name__, parent_fld, update_fun.__qualname__
+                    update_fun = None
+                    if updater_dict["update_function"]:
+                        update_fun = getattr(self, updater_dict["update_function"])
+                    raise BadModelFields(
+                        self.__class__.__name__, {parent_fld: "parent field"}, update_fun.__qualname__
                     )
 
                 # if a parent record exists
@@ -367,16 +500,18 @@ class MaintainedModel(Model):
         This is called when MaintainedModel.save is called (if auto_updates is False), so that maintained fields can be
         updated after loading code finishes (by calling the global method: perform_buffered_updates)
         """
-        update_buffer.append(self)
+        if buffering:
+            update_buffer.append(self)
 
     def buffer_parent_update(self):
         """
         This is called when MaintainedModel.delete is called (if auto_updates is False), so that maintained fields can
         be updated after loading code finishes (by calling the global method: perform_buffered_updates)
         """
-        parents = self.get_parent_instances()
-        for parent_inst in parents:
-            update_buffer.append(parent_inst)
+        if buffering:
+            parents = self.get_parent_instances()
+            for parent_inst in parents:
+                update_buffer.append(parent_inst)
 
     class Meta:
         abstract = True
@@ -458,7 +593,6 @@ def perform_buffered_updates(label_filters=[], using=None):
     record over and over.
     """
     global update_buffer
-    global performing_mass_autoupdates
     db = using
 
     if auto_updates:
@@ -468,7 +602,7 @@ def perform_buffered_updates(label_filters=[], using=None):
         return
 
     # This allows our updates to be saved, but prevents propagating changes up the hierarchy in a depth-first fashion
-    performing_mass_autoupdates = True
+    enable_mass_autoupdates()
     # Get the largest generation value
     youngest_generation = get_max_buffer_generation(label_filters)
     # Track what's been updated to prevent repeated updates triggered by multiple child updates
@@ -536,13 +670,18 @@ def perform_buffered_updates(label_filters=[], using=None):
         # Clear this generation from the buffer
         clear_update_buffer(generation=gen, label_filters=label_filters)
         # Add newly buffered records
-        update_buffer += add_to_buffer
+        if buffering:
+            update_buffer += add_to_buffer
 
     # We're done performing buffered updates
-    performing_mass_autoupdates = False
+    disable_mass_autoupdates()
 
 
 def get_all_updaters():
+    """
+    Retrieve a flattened list of all updater dicts.
+    Used by rebuild_maintained_fields.
+    """
     all_updaters = []
     for class_name in updater_list:
         all_updaters += updater_list[class_name]
@@ -551,14 +690,12 @@ def get_all_updaters():
 
 def get_classes(generation=None, label_filters=[]):
     """
-    Retrieve a list of classes containing maintained fields that match the given criteria
+    Retrieve a list of classes containing maintained fields that match the given criteria.
+    Used by rebuild_maintained_fields.
     """
     class_list = []
     for class_name in updater_list:
-        if (
-            len(filter_updaters(updater_list[class_name], generation, label_filters))
-            > 0
-        ):
+        if len(filter_updaters(updater_list[class_name], generation, label_filters)) > 0:
             class_list.append(class_name)
     return class_list
 
@@ -574,15 +711,23 @@ class NotMaintained(Exception):
         self.caller = caller
 
 
-class BadModelField(Exception):
-    def __init__(self, cls, fld, fcn):
-        message = (
-            f"The {cls} class does not have a field named '{fld}'.  Make sure the fields supplied to the "
-            f"@field_updater_function decorator of the function: {fcn}."
-        )
+class BadModelFields(Exception):
+    def __init__(self, cls, flds, fcn=None):
+        fld_strs = [f"{k} ({flds[k]})" for k in flds.keys()]
+        message = f"The {cls} class does not have field(s): ['{', '.join(fld_strs)}'].  "
+        if fcn:
+            message += (
+                f"Make sure the fields supplied to the @maintained_field_function decorator of the function: {fcn} are "
+                f"valid {cls} fields."
+            )
+        else:
+            message += (
+                f"Make sure the fields supplied to the @maintained_field_relation class decorator are valid {cls} "
+                "fields."
+            )
         super().__init__(message)
         self.cls = cls
-        self.fld = fld
+        self.flds = flds
         self.fcn = fcn
 
 
@@ -590,7 +735,7 @@ class MaintainedFieldNotSettable(Exception):
     def __init__(self, cls, fld, fcn):
         message = (
             f"{cls}.{fld} cannot be explicitly set.  Its value is maintained by {fcn} because it has a "
-            "@field_updater_function decorator."
+            "@maintained_field_function decorator."
         )
         super().__init__(message)
         self.cls = cls
@@ -601,7 +746,7 @@ class MaintainedFieldNotSettable(Exception):
 class InvalidRootGeneration(Exception):
     def __init__(self, cls, fld, fcn, gen):
         message = (
-            f"Invalid generation: [{gen}] for {cls}.{fld} supplied to @field_updater_function decorator of function "
+            f"Invalid generation: [{gen}] for {cls}.{fld} supplied to @maintained_field_function decorator of function "
             f"[{fcn}].  Since the parent_field_name was `None` or not supplied, generation must be 0."
         )
         super().__init__(message)
@@ -614,7 +759,7 @@ class InvalidRootGeneration(Exception):
 class NoDecorators(Exception):
     def __init__(self, cls):
         message = (
-            f"Class [{cls}] does not have any field maintenance functions yet.  Please add the field_updater_function "
+            f"Class [{cls}] does not have any field maintenance functions yet.  Please add the maintained_field_function "
             "decorator to a method in the class or remove the base class 'MaintainedModel' and an parent fields "
             "referencing this model in other models.  If this model has no field to update but its parent does, "
             "create a decorated placeholder method that sets its parent_field and generation only."

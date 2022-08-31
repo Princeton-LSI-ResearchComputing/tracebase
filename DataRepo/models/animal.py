@@ -6,7 +6,7 @@ from django.core.validators import MinValueValidator
 from django.db import models
 
 from DataRepo.models.hier_cached_model import HierCachedModel, cached_function
-from DataRepo.models.maintained_model import MaintainedModel, field_updater_function
+from DataRepo.models.maintained_model import MaintainedModel, maintained_field_function
 
 from .element_label import ElementLabel
 from .protocol import Protocol
@@ -112,8 +112,9 @@ class Animal(MaintainedModel, HierCachedModel, ElementLabel):
 
     @property  # type: ignore
     @cached_function
-    @field_updater_function(
+    @maintained_field_function(
         generation=0,
+        child_field_names=["samples"],
         update_label="fcirc_calcs",
     )
     def last_serum_sample(self):

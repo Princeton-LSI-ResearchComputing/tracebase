@@ -25,6 +25,12 @@ from DataRepo.models.hier_cached_model import (
     disable_caching_updates,
     enable_caching_updates,
 )
+from DataRepo.models.maintained_model import (
+    clear_update_buffer,
+    disable_autoupdates,
+    enable_autoupdates,
+    perform_buffered_updates,
+)
 from DataRepo.models.utilities import get_researchers
 from DataRepo.utils.exceptions import (
     MissingSamplesError,
@@ -534,6 +540,7 @@ class AccuCorDataLoader:
         """
         extract and store the data for MsRun PeakGroup and PeakData
         """
+        disable_autoupdates()
         disable_caching_updates()
         animals_to_uncache = []
 
@@ -812,8 +819,17 @@ class AccuCorDataLoader:
 
                             peak_data_label.save(using=self.db)
 
+        if self.debug:
+            # If we're in debug mode, we need to clear the update buffer so that the next call doesn't make auto-
+            # updates on non-existent (or incorrect) records
+            clear_update_buffer()
+            # And before we leave, we must re-enable auto-updates
+            enable_autoupdates()
+
         assert not self.debug, "Debugging..."
 
+        perform_buffered_updates(using=self.db)
+        enable_autoupdates()
         enable_caching_updates()
 
         if settings.DEBUG:

@@ -23,7 +23,8 @@ from DataRepo.models.maintained_model import (
     clear_update_buffer,
     disable_autoupdates,
     enable_autoupdates,
-    perform_buffered_updates,
+    enable_buffering,
+    disable_buffering,
 )
 from DataRepo.models.utilities import get_researchers, value_from_choices_label
 from DataRepo.utils.exceptions import (
@@ -148,6 +149,7 @@ class SampleTableLoader:
         self.debug = debug
 
         disable_autoupdates()
+        disable_buffering()
         disable_caching_updates()
         animals_to_uncache = []
 
@@ -477,12 +479,10 @@ class SampleTableLoader:
             clear_update_buffer()
             # And before we leave, we must re-enable auto-updates
             enable_autoupdates()
+            enable_buffering()
 
         # Throw an exception in debug mode to abort the load
         assert not debug, "Debugging..."
-
-        perform_buffered_updates(using=self.db)
-        enable_autoupdates()
 
         if settings.DEBUG:
             print("Expiring affected caches...")
@@ -492,6 +492,11 @@ class SampleTableLoader:
             animal.delete_related_caches()
         if settings.DEBUG:
             print("Expiring done.")
+
+        # Cannot perform buffered updates of FCirc, Sample, or Animal's last serum tracer peak group because no peak
+        # groups have been loaded yet
+        enable_autoupdates()
+        enable_buffering()
 
     def getRowVal(self, row, header, hdr_required=True, val_required=True):
         """

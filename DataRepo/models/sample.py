@@ -5,7 +5,7 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 from DataRepo.models.hier_cached_model import HierCachedModel, cached_function
-from DataRepo.models.maintained_model import MaintainedModel, field_updater_function
+from DataRepo.models.maintained_model import MaintainedModel, maintained_field_function
 
 from .peak_data import PeakData
 from .peak_group import PeakGroup
@@ -61,11 +61,10 @@ class Sample(MaintainedModel, HierCachedModel):
         "that a sample was extracted from an animal.",
     )
 
-    @property  # type: ignore
-    @cached_function
-    @field_updater_function(
+    @maintained_field_function(
         generation=1,
         parent_field_name="animal",
+        child_field_names=["msruns", "fcircs"],
         update_label="fcirc_calcs",
     )
     def is_serum_sample(self):

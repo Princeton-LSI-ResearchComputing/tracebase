@@ -7,7 +7,7 @@ from django.db import models
 
 from DataRepo.models.maintained_model import (
     MaintainedModel,
-    field_updater_function,
+    maintained_field_function,
 )
 from DataRepo.models.utilities import get_model_by_name
 
@@ -127,7 +127,7 @@ class Infusate(MaintainedModel):
     def __str__(self):
         return str(self._name())
 
-    @field_updater_function(generation=0, update_field_name="name", update_label="name")
+    @maintained_field_function(generation=0, update_field_name="name", update_label="name")
     def _name(self):
         # Format: `tracer_group_name{tracername;tracername}`
 
