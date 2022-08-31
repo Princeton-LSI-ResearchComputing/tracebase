@@ -370,12 +370,11 @@ class QuerysetToPandasDataFrame:
         )
         # convert Pandas StringArray to np.array to avoid error for converting to json format
         # have to apply to each column separately; got error with multiple columns
-        stud_gb_anim_df1["studies"] = stud_gb_anim_df1["studies"].apply(
-            lambda x: np.array(x)
+        # also sort array elements
+        stud_gb_anim_df1["studies"] = stud_gb_anim_df1["studies"].map(np.sort).map(list)
+        stud_gb_anim_df1["study_id_name_list"] = (
+            stud_gb_anim_df1["study_id_name_list"].map(np.sort).map(list)
         )
-        stud_gb_anim_df1["study_id_name_list"] = stud_gb_anim_df1[
-            "study_id_name_list"
-        ].apply(lambda x: np.array(x))
         # convert to best possible dtypes
         stud_gb_anim_df = stud_gb_anim_df1.convert_dtypes()
 
@@ -716,8 +715,8 @@ class QuerysetToPandasDataFrame:
             .reset_index()
         )
         # convert Pandas StringArray to np.array
-        synonym_gb_comp_df1["synonyms"] = synonym_gb_comp_df1["synonyms"].apply(
-            lambda x: np.array(x)
+        synonym_gb_comp_df1["synonyms"] = (
+            synonym_gb_comp_df1["synonyms"].map(np.sort).map(list)
         )
         # convert to best possible dtypes
         synonym_gb_comp_df = synonym_gb_comp_df1.convert_dtypes()
