@@ -41,6 +41,7 @@ __all__ = [
     "AdvancedSearchTSVView",
     "CompoundListView",
     "CompoundDetailView",
+    "InfusateDetailView",
     "StudyListView",
     "StudyDetailView",
     "study_summary",
