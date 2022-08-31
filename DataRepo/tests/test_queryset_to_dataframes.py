@@ -10,6 +10,7 @@ from DataRepo.utils import QuerysetToPandasDataFrame as qs2df
 
 
 @tag("qs2df")
+@tag("multi_working")
 class QuerysetToPandasDataFrameTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):

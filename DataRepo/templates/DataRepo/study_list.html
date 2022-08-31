@@ -30,7 +30,7 @@
                 <th data-filter-control="input" data-sortable="true" data-field="Study-Description">Description</th>
                 <th data-filter-control="select" data-sortable="true" data-field="Genotypes">Genotypes</th>
                 <th data-filter-control="input" data-sortable="true" data-field="Infusate">Infusates</th>
-                <th data-filter-control="input" data-sortable="true" data-field="Compounds">Parent Compound(s) for Tracer(s)</th>
+                <th data-filter-control="input" data-sortable="true" data-field="Compounds">Tracer Parent Compound(s)</th>
                 <th data-filter-control="select" data-sortable="true" data-field="Labeled-Elements">Labeled Elements</th>
                 <th data-filter-control="input" data-sortable="true" data-field="Treatments">Treatments</th>
                 <th data-filter-control="select" data-sortable="true" data-field="Sample-Owners">Sample Owners</th>
@@ -45,12 +45,12 @@
             <tr>
                 <td><a href="{% url 'study_detail' i.study_id %}">{{ i.study }}</a></td>
                 <td>{{ i.study_description }}</td>
-                <td>{{ i.genotypes |join:"," }}</td>
+                <td>{{ i.genotypes |join:", " }}</td>
                 <td>{{ i.infusate_id_name_list |obj_hyperlink:"infusate" }}</td>
                 <td>{{ i.compound_id_name_list |obj_hyperlink:"compound" }}</td>
-                <td>{{ i.labeled_elements |join:","}}</td>
+                <td>{{ i.labeled_elements |join:", "}}</td>
                 <td>{{ i.treatment_id_name_list |obj_hyperlink:"treatment" }}</td>
-                <td>{{ i.sample_owners  |join:","}}</td>
+                <td>{{ i.sample_owners  |join:", "}}</td>
                 <td>{{ i.total_animal }}</td>
                 <td>{{ i.total_tissue }}</td>
                 <td>{{ i.total_sample }}</td>

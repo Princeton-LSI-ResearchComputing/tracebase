@@ -44,7 +44,7 @@
                         None
                     {% endif %}
                 </td>
-                <td>{{ i.synonyms |join:";" }}</td>
+                <td>{{ i.synonyms |join:"; " }}</td>
                 <td>{{ i.total_infusate_by_compound| yesno:"yes,no" }}</td>
                 <td>{{ i.total_animal_by_compound }}</td>
             </tr>

@@ -153,7 +153,7 @@ def obj_hyperlink(id_name_list, obj):
                 k, v = x.split("||")
                 id_name_dict[k] = v
         obj_format_html = format_html_join(
-            ",",
+            ", ",
             '<a href="{}">{}</a>',
             [
                 (reverse(tmplt_name, args=[str(id)]), id_name_dict[id])
