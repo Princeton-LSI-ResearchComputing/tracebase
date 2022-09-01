@@ -6,7 +6,12 @@ from DataRepo.models.maintained_model import MaintainedModel, maintained_model_r
 from DataRepo.models.protocol import Protocol
 
 
-@maintained_model_relation(generation=2, parent_field_name="sample", child_field_names=["peak_groups"], update_label="fcirc_calcs")
+@maintained_model_relation(
+    generation=2,
+    parent_field_name="sample",
+    # child_field_names=["peak_groups"],  # Only propagate up
+    update_label="fcirc_calcs",
+)
 class MSRun(HierCachedModel, MaintainedModel):
     parent_related_key_name = "sample"
     child_related_key_names = ["peak_groups"]

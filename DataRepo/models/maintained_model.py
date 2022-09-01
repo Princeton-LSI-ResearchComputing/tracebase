@@ -1,5 +1,4 @@
 from collections import defaultdict
-from tempfile import TemporaryFile
 from typing import Dict, List
 
 from django.conf import settings
@@ -143,20 +142,17 @@ def maintained_model_relation(generation, parent_field_name=None, child_field_na
     that field, call this method in the related class's __init__ method in order to trigger those updates of the
     field in the other class.
     """
+    # Validate args
+    if generation != 0:
+        # Make sure internal nodes have parent fields
+        if parent_field_name is None:
+            raise Exception("parent_field is required if generation is not 0.")
+    elif generation == 0 and parent_field_name is not None:
+        raise ValueError("parent_field must not have a value when generation is 0.")
+    if parent_field_name is None and len(child_field_names) == 0:
+        raise ValueError("One or both of parent_field_name or child_field_names is required.")
+
     def decorator(object):
-
-        class_name = object.__class__.__name__
-        if generation != 0:
-            # Make sure internal nodes have parent fields
-            if parent_field_name is None:
-                raise Exception("parent_field is required if generation is not 0.")
-        elif generation == 0 and parent_field_name is not None:
-            raise Exception("parent_field must not have a value when generation is 0.")
-        if parent_field_name is None and len(child_field_names) == 0:
-            raise Exception("One or both of parent_field_name or child_field_names is required.")
-
-        # No way to ensure supplied fields exist because the models aren't actually loaded yet, so while that would
-        # be nice to handle here, it will have to be handled in MaintanedModel when objects are created
 
         func_dict = {
             "update_function": None,
@@ -168,11 +164,15 @@ def maintained_model_relation(generation, parent_field_name=None, child_field_na
         }
 
         # Add this info to our global updater_list
+        class_name = object.__class__.__name__
         updater_list[class_name] += [func_dict]
+
+        # No way to ensure supplied fields exist because the models aren't actually loaded yet, so while that would
+        # be nice to handle here, it will have to be handled in MaintanedModel when objects are created
 
         # Provide some debug feedback
         if settings.DEBUG:
-            msg = f"Added maintained_field_relation decorator to class {class_name} in order to trigger updates to"
+            msg = f"Added maintained_model_relation decorator to class {class_name} in order to trigger updates to"
             if update_label is not None:
                 msg += f" {update_label}-related"
             msg += " maintained fields in"
@@ -241,10 +241,12 @@ def maintained_field_function(
     def decorator(fn):
         # Get the name of the class the function belongs to
         class_name = fn.__qualname__.split(".")[0]
+
         if parent_field_name is None and generation != 0:
             raise InvalidRootGeneration(
                 class_name, update_field_name, fn.__name__, generation
             )
+
         func_dict = {
             "update_function": fn.__name__,
             "update_field": update_field_name,
@@ -290,7 +292,7 @@ class MaintainedModel(Model):
     will be updated.  Only methods that take no arguments are supported.  This class overrides the class's save and
     delete methods as triggers for the updates.
     """
-    maintained_model_initialized = {}  # used by the class decorator: maintained_field_relation
+    maintained_model_initialized = {}  # used to determine whether the fields have been validated
 
     def __init__(self, *args, **kwargs):
         """
@@ -301,12 +303,14 @@ class MaintainedModel(Model):
         for updater_dict in updater_list[class_name]:
 
             # Ensure the field being set is not a maintained field
+
             update_fld = updater_dict["update_field"]
             if update_fld and update_fld in kwargs:
                 update_fcn = updater_dict["update_function"]
                 raise MaintainedFieldNotSettable(class_name, update_fld, update_fcn)
 
             # Validate the field values in the updater_list
+
             # First, create a signature to use to make sure we only check once
             # The creation of a decorator signature allows multiple decorators to be added to 1 class (or function) and
             # only have each one's updater info validated once.
@@ -395,14 +399,7 @@ class MaintainedModel(Model):
             # If there is a maintained field(s) in this model
             if update_fld is not None:
                 update_fun = getattr(self, updater_dict["update_function"])
-                current_val = None
-                # Get the field to make sure it exists in the model, and save the current value for reporting
-                try:
-                    current_val = getattr(self, update_fld)
-                except AttributeError:
-                    raise BadModelFields(
-                        self.__class__.__name__, {update_fld: "update field"}, update_fun.__qualname__
-                    )
+                current_val = getattr(self, update_fld)
                 new_val = update_fun()
                 setattr(self, update_fld, new_val)
 
@@ -443,16 +440,8 @@ class MaintainedModel(Model):
             # If there is a parent that should update based on this change
             if parent_fld is not None:
 
-                # Get the parent instance and catch the case where it doesn't exist
-                try:
-                    tmp_parent_inst = getattr(self, parent_fld)
-                except AttributeError:
-                    update_fun = None
-                    if updater_dict["update_function"]:
-                        update_fun = getattr(self, updater_dict["update_function"])
-                    raise BadModelFields(
-                        self.__class__.__name__, {parent_fld: "parent field"}, update_fun.__qualname__
-                    )
+                # Get the parent instance
+                tmp_parent_inst = getattr(self, parent_fld)
 
                 # if a parent record exists
                 if tmp_parent_inst is not None:
@@ -722,7 +711,7 @@ class BadModelFields(Exception):
             )
         else:
             message += (
-                f"Make sure the fields supplied to the @maintained_field_relation class decorator are valid {cls} "
+                f"Make sure the fields supplied to the @maintained_model_relation class decorator are valid {cls} "
                 "fields."
             )
         super().__init__(message)

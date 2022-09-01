@@ -3,7 +3,7 @@ import warnings
 from django.db import models
 from django.forms.models import model_to_dict
 from django.utils.functional import cached_property
-from pyparsing.exceptions import ParseException
+from pyparsing import ParseException
 
 from DataRepo.models.element_label import ElementLabel
 from DataRepo.models.hier_cached_model import HierCachedModel, cached_function

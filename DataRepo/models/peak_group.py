@@ -6,7 +6,11 @@ from DataRepo.models.hier_cached_model import HierCachedModel, cached_function
 from DataRepo.models.maintained_model import MaintainedModel, maintained_model_relation
 
 
-@maintained_model_relation(generation=3, parent_field_name="msrun", update_label="fcirc_calcs")
+@maintained_model_relation(
+    generation=3,
+    parent_field_name="msrun",
+    update_label="fcirc_calcs",
+)
 class PeakGroup(HierCachedModel, MaintainedModel):
 
     parent_related_key_name = "msrun"

@@ -64,7 +64,8 @@ class Sample(MaintainedModel, HierCachedModel):
     @maintained_field_function(
         generation=1,
         parent_field_name="animal",
-        child_field_names=["msruns", "fcircs"],
+        # child_field_names=["msruns", "fcircs"],  # Only propagate up and then down to fcircs
+        child_field_names=["fcircs"],
         update_label="fcirc_calcs",
     )
     def is_serum_sample(self):
@@ -102,48 +103,6 @@ class Sample(MaintainedModel, HierCachedModel):
                 return PeakGroup.objects.none()
 
         return PeakGroup.objects.filter(id__in=last_peakgroup_ids)
-
-    def peak_groups(self, compound=None):
-        """
-        Retrieve a list of PeakGroup objects for a sample.  If an optional compound is passed (e.g.
-        animal.infusate.tracers.compound), then is it used to filter the PeakGroup queryset to a specific compound's
-        peakgroups.
-        """
-        from DataRepo.models.compound import Compound
-        from DataRepo.models.tracer import Tracer
-
-        peak_groups = PeakGroup.objects.filter(msrun__sample_id=self.id)
-        if compound:
-            if isinstance(compound, Compound):
-                peak_groups = peak_groups.filter(compounds__id=compound.id)
-            elif isinstance(compound, Tracer):
-                peak_groups = peak_groups.filter(compounds__id=compound.compound.id)
-            else:
-                raise InvalidArgument("Argument must be a Compound or Tracer")
-        return peak_groups.all()
-
-    def peak_data(self, compound=None):
-        """
-        Retrieve a list of PeakData objects for a sample.  If an optional compound is passed (e.g.
-        animal.infusate.tracers.compound), then is it used to filter the PeakData queryset to a specific compound's
-        peakgroups.
-        """
-        from DataRepo.models.compound import Compound
-        from DataRepo.models.tracer import Tracer
-
-        peakdata = PeakData.objects.filter(peak_group__msrun__sample_id=self.id)
-
-        if compound:
-            if isinstance(compound, Compound):
-                peakdata = peakdata.filter(peak_group__compounds__id=compound.id)
-            elif isinstance(compound, Tracer):
-                peakdata = peakdata.filter(
-                    peak_group__compounds__id=compound.compound.id
-                )
-            else:
-                raise InvalidArgument("Argument must be a Compound or Tracer")
-
-        return peakdata.all()
 
     class Meta:
         verbose_name = "sample"
