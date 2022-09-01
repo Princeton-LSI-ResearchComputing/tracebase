@@ -8,6 +8,10 @@ from DataRepo.models.maintained_model import MaintainedModel, maintained_field_f
 
 
 class FCirc(MaintainedModel, HierCachedModel):
+    """
+    This class is here to perform rate of appearance/disappearance calculations for every combination of serum sample,
+    tracer, and labeled element.  The last peakgroup of the given sample is used for every calculation.
+    """
     parent_related_key_name = "serum_sample"
     # Leaf
 

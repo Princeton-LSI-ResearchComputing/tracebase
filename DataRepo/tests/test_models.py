@@ -1150,7 +1150,7 @@ class PropertyTests(TracebaseTestCase):
         # DO NOT CREATE A PEAKGROUP FOR THE TRACER
         self.assertEqual(peak_group.labels.count(), 1, msg="Assure load was complete")
         # With the new logic of obtaining the last instance of a peak group among serum samples, this should still
-        # produce a calculation even though the serum tracer's last peak group doesn't have a peak group. It will
+        # produce a calculation even though the last serum sample doesn't have a peak group for the tracer. It will
         # just use the one from the first
         self.assertAlmostEqual(
             0.00911997807399377,

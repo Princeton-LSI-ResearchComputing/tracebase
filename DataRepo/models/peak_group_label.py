@@ -204,6 +204,10 @@ class PeakGroupLabel(HierCachedModel):
     @property  # type: ignore
     @cached_function
     def tracer(self):
+        """
+        If this peakgroup's compounds contains a compound that is among the tracers for this animal, it returns the
+        tracer record, otherwidse None
+        """
         from DataRepo.models.tracer import Tracer
 
         try:

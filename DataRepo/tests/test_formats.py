@@ -30,6 +30,10 @@ class FormatsTests(TracebaseTestCase):
     maxDiff = None
     orig_split_rows: Dict[str, str] = {}
 
+    def setUp(self):
+        super().setUp()
+        self.addCleanup(self.restore_split_rows)
+
     @classmethod
     def setUpTestData(cls):
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
@@ -374,7 +378,8 @@ class FormatsTests(TracebaseTestCase):
 
         self.assertEqual(expected_prefetches, prefetches)
 
-        self.restore_split_rows()
+        # Should be called after tearDown()
+        # self.restore_split_rows()
 
     @tag("multi_working")
     def test_getFullJoinAnnotations(self):
@@ -396,7 +401,8 @@ class FormatsTests(TracebaseTestCase):
         expected_annots = [{annot_name: F("compounds__pk")}]
         self.assertEqual(expected_annots, annots)
 
-        self.restore_split_rows()
+        # Should be called after tearDown()
+        # self.restore_split_rows()
 
     @tag("multi_working")
     def test_getDistinctFields(self):
@@ -421,7 +427,8 @@ class FormatsTests(TracebaseTestCase):
         ]
         self.assertEqual(expected_distincts, distincts)
 
-        self.restore_split_rows()
+        # Should be called after tearDown()
+        # self.restore_split_rows()
 
     @tag("multi_working")
     def test_getDistinctFields_split_all(self):

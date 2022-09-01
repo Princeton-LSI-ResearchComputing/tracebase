@@ -153,7 +153,7 @@ class SampleTableLoader:
         disable_caching_updates()
         animals_to_uncache = []
 
-        # Create a list to hold the csv reader data so that iterations from validating cleardoesn't leave the csv reader
+        # Create a list to hold the csv reader data so that iterations from validating doesn't leave the csv reader
         # empty/at-the-end upon the import loop
         sample_table_data = list(data)
 
