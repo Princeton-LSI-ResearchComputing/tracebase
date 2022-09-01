@@ -43,6 +43,10 @@ class Sample(MaintainedModel, HierCachedModel):
         related_name="samples",
         help_text="The tissue type this sample was taken from.",
     )
+    is_serum_sample = models.BooleanField(
+        default=False,
+        help_text="This field indicates whether this sample is a serum sample.",
+    )
 
     """
     researchers have advised that samples might have a time_collected up to a
