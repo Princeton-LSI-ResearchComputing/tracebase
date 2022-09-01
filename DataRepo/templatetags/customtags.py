@@ -137,6 +137,10 @@ def obj_hyperlink(id_name_list, obj):
         tmplt_name = "study_detail"
     elif obj == "tracer":
         tmplt_name = "compound_detail"
+    elif obj == "compound":
+        tmplt_name = "compound_detail"
+    elif obj == "infusate":
+        tmplt_name = "infusate_detail"
     elif obj == "treatment":
         tmplt_name = "protocol_detail"
 
@@ -149,7 +153,7 @@ def obj_hyperlink(id_name_list, obj):
                 k, v = x.split("||")
                 id_name_dict[k] = v
         obj_format_html = format_html_join(
-            ",",
+            ", ",
             '<a href="{}">{}</a>',
             [
                 (reverse(tmplt_name, args=[str(id)]), id_name_dict[id])

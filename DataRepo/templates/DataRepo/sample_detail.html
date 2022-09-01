@@ -32,10 +32,10 @@
             <td>{{ sample.time_collected }}</td>
         </tr>
         <tr>
-            <td>Tracer</td>
+            <td>Infusate</td>
             <td>
-                {% if sample.animal.tracer_compound %}
-                <a href="{% url 'compound_detail' sample.animal.tracer_compound.id %}">{{ sample.animal.tracer_compound }}</a>
+                {% if sample.animal.infusate_id %}
+                <a href="{% url 'infusate_detail' sample.animal.infusate_id %}">{{ sample.animal.infusate.name }}</a>
                 {% else %}
                     None
                 {% endif %}
@@ -43,11 +43,7 @@
         </tr>
         <tr>
             <td>Tracer Infusion Rate (ul/min/g)</td>
-            <td>{{ sample.animal.tracer_infusion_rate }}</td>
-        </tr>
-        <tr>
-            <td>Tracer Infusion Concentration (mM)</td>
-            <td>{{ sample.animal.tracer_infusion_concentration }}</td>
+            <td>{{ sample.animal.infusion_rate }}</td>
         </tr>
     </table>
 </div>

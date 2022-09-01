@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% load customtags %}
+
+{% block title %}Infusate Record - {{ infusate.id }}{% endblock %}
+
+{% block content %}
+<div>
+    <h4>Infusate Name:</h4>
+    <h5>{{ infusate.name }}</h5>
+    <br>
+    <h4>Tracer Group Name:</h4>
+    <h5>{{ infusate.tracer_group_name }}</h5>
+</div>
+<br>
+<div>
+    {% if tracer_df %}
+    <h4>Tracer details:</h4>
+    <table class="table table-sm table-hover table-bordered table-responsive-xl table-striped"
+        id="animal_list_by_tracer"
+        data-toggle="table"
+        data-buttons-class="primary"
+        data-buttons-align="left"
+        data-filter-control="true"
+        data-search="true"
+        data-search-align="left"
+        data-show-search-clear-button="true"
+        data-show-multi-sort="true"
+        data-show-columns="true"
+        data-show-columns-toggle-all="true"
+        data-show-fullscreen="true"
+        data-show-export="true"
+        data-export-types="['csv', 'txt', 'excel']">
+        <thead>
+            <tr>
+                <th data-filter-control="input" data-sortable="true" data-field="Compound">Parent Compound</th>
+                <th data-filter-control="input" data-sortable="true" data-field="Tracer">Tracer</th>
+                <th data-filter-control="input" data-sortable="true" data-field="Tracer_Label"> Tracer Label</th>
+                <th data-filter-control="select" data-sortable="true" data-field="Labeled_Element">Labeled Element</th>
+                <th data-filter-control="input" data-sortable="true" data-field="Labeled_Count">Labeled Count</th>
+                <th data-filter-control="input" data-sortable="true" data-field="Concentration">Tracer Concentration (mM)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for i in tracer_df %}
+            <tr>
+                <td><a href="{% url 'compound_detail' i.compound_id %}">{{ i.compound_name }}</a></td>
+                <td>{{ i.tracer_name }}</td>
+                <td>{{ i.tracer_label }}</td>
+                <td>{{ i.labeled_element }}</td>
+                <td>{{ i.labeled_count }}</td>
+                <td>{{ i.tracer_concentration }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+</div>
+{% endblock %}

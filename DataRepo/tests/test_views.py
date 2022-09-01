@@ -9,6 +9,7 @@ from DataRepo.models import (
     Animal,
     Compound,
     CompoundSynonym,
+    Infusate,
     MSRun,
     PeakData,
     PeakGroup,
@@ -114,6 +115,7 @@ class ViewTests(TracebaseTestCase):
         self.assertEqual(advance_search_url, "/DataRepo/search_advanced/")
         self.assertEqual(len(response.context["card_rows"]), 2)
 
+    @tag("compound")
     def test_compound_list(self):
         response = self.client.get(reverse("compound_list"))
         self.assertEqual(response.status_code, 200)
@@ -122,6 +124,7 @@ class ViewTests(TracebaseTestCase):
             len(response.context["compound_list"]), self.ALL_COMPOUNDS_COUNT
         )
 
+    @tag("compound")
     def test_compound_detail(self):
         lysine = Compound.objects.filter(name="lysine").get()
         response = self.client.get(reverse("compound_detail", args=[lysine.id]))
@@ -129,9 +132,23 @@ class ViewTests(TracebaseTestCase):
         self.assertTemplateUsed(response, "DataRepo/compound_detail.html")
         self.assertEqual(response.context["compound"].name, "lysine")
 
+    @tag("compound")
     def test_compound_detail_404(self):
         c = Compound.objects.order_by("id").last()
         response = self.client.get(reverse("compound_detail", args=[c.id + 1]))
+        self.assertEqual(response.status_code, 404)
+
+    @tag("compound")
+    def test_infusate_detail(self):
+        infusate = Infusate.objects.filter(name__icontains="lysine").first()
+        response = self.client.get(reverse("infusate_detail", args=[infusate.id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "DataRepo/infusate_detail.html")
+
+    @tag("compound")
+    def test_infusate_detail_404(self):
+        inf = Infusate.objects.order_by("id").last()
+        response = self.client.get(reverse("infusate_detail", args=[inf.id + 1]))
         self.assertEqual(response.status_code, 404)
 
     @tag("study")

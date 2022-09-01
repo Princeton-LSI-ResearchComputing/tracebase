@@ -29,7 +29,7 @@
                 <th data-filter-control="input" data-sortable="true" data-field="HMDB-ID">HMDB ID</th>
                 <th data-filter-control="input" data-sortable="true" data-field="Synonyms">Synonyms</th>
                 <th data-filter-control="select" data-sortable="true" data-field="Is-Tracer">Is Tracer</th>
-                <th data-filter-control="input" data-sortable="true" data-field="Total-Animal-Groupby-Tracer">Total Animal By Tracer</th>
+                <th data-filter-control="input" data-sortable="true" data-field="Total-Animal-Groupby-Compound">Total Animal By Tracer Parent Compound</th>
             </tr>
         </thead>
         <tbody>
@@ -44,9 +44,9 @@
                         None
                     {% endif %}
                 </td>
-                <td>{{ i.synonyms |join:";" }}</td>
-                <td>{{ i.tracer | yesno:"yes,no" }}</td>
-                <td>{{ i.total_animal_by_tracer }}</td>
+                <td>{{ i.synonyms |join:"; " }}</td>
+                <td>{{ i.total_infusate_by_compound| yesno:"yes,no" }}</td>
+                <td>{{ i.total_animal_by_compound }}</td>
             </tr>
             {% endfor %}
         </tbody>
