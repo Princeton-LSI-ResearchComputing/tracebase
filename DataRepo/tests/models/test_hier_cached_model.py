@@ -248,12 +248,10 @@ class GlobalCacheTests(TracebaseTestCase):
                 "serum_tracers_enrichment_fraction",
             ],
             "Sample": [
-                "is_serum_sample",
                 "last_tracer_peak_groups",
             ],
             "PeakGroup": ["peak_labeled_elements"],
             "FCirc": [
-                "is_last_serum_peak_group",
                 "last_peak_group_in_animal",
                 "last_peak_group_in_sample",
                 "peak_groups",
@@ -337,7 +335,7 @@ class HierCachedModelTests(TracebaseTestCase):
     def createASampleCache(self):
         delete_all_caches()
         smp = Sample.objects.all().first()
-        f = "is_serum_sample"
+        f = "last_tracer_peak_groups"
 
         enable_caching_retrievals()
         enable_caching_updates()

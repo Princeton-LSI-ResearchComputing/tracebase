@@ -282,7 +282,7 @@ class PeakGroupLabel(HierCachedModel):
         Instance method which returns True if a peakgroup was obtained from a
         msrun of a serum sample. Uncertain whether this is a true concern.
         """
-        if self.peak_group.msrun.sample.is_serum_sample:
+        if self.peak_group.msrun.sample._is_serum_sample():
             return True
 
         warnings.warn(f"{self.peak_group.name} is not from a serum sample msrun.")

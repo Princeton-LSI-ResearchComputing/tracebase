@@ -2,7 +2,10 @@ from django.core.exceptions import ValidationError
 from django.db import models
 
 from DataRepo.models.hier_cached_model import HierCachedModel
-from DataRepo.models.maintained_model import MaintainedModel, maintained_model_relation
+from DataRepo.models.maintained_model import (
+    MaintainedModel,
+    maintained_model_relation,
+)
 from DataRepo.models.protocol import Protocol
 
 

@@ -3,7 +3,7 @@ from datetime import timedelta
 from django.conf import settings
 from django.test import override_settings, tag
 
-from DataRepo.models import Animal
+from DataRepo.models import Animal, Infusate
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
@@ -12,6 +12,8 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 @tag("multi_working")
 class AnimalTests(TracebaseTestCase):
     def setUp(self):
+        infusate = Infusate()
+        infusate.save()
         Animal.objects.create(
             name="test_animal",
             age=timedelta(weeks=int(13)),
@@ -20,6 +22,7 @@ class AnimalTests(TracebaseTestCase):
             body_weight=200,
             diet="normal",
             feeding_status="fed",
+            infusate=infusate,
         )
 
     def test_animal_validation(self):

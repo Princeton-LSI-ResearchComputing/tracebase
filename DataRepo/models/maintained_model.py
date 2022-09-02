@@ -135,7 +135,9 @@ def updater_list_has_labels(updaters_list, label_filters):
     return False
 
 
-def maintained_model_relation(generation, parent_field_name=None, child_field_names=[], update_label=None):
+def maintained_model_relation(
+    generation, parent_field_name=None, child_field_names=[], update_label=None
+):
     """
     Use this decorator to add connections between classes when it does not have any maintained fields.  For example,
     if you only want to maintain 1 field in 1 class, but you want changes in a related class to trigger updates to
@@ -150,9 +152,11 @@ def maintained_model_relation(generation, parent_field_name=None, child_field_na
     elif generation == 0 and parent_field_name is not None:
         raise ValueError("parent_field must not have a value when generation is 0.")
     if parent_field_name is None and len(child_field_names) == 0:
-        raise ValueError("One or both of parent_field_name or child_field_names is required.")
+        raise ValueError(
+            "One or both of parent_field_name or child_field_names is required."
+        )
 
-    def decorator(object):
+    def decorator(cls):
 
         func_dict = {
             "update_function": None,
@@ -164,7 +168,7 @@ def maintained_model_relation(generation, parent_field_name=None, child_field_na
         }
 
         # Add this info to our global updater_list
-        class_name = object.__class__.__name__
+        class_name = cls.__name__
         updater_list[class_name] += [func_dict]
 
         # No way to ensure supplied fields exist because the models aren't actually loaded yet, so while that would
@@ -177,34 +181,27 @@ def maintained_model_relation(generation, parent_field_name=None, child_field_na
                 msg += f" {update_label}-related"
             msg += " maintained fields in"
             if parent_field_name is not None:
-                msg += (
-                    f" parent records via: {class_name}.{parent_field_name}"
-                )
+                msg += f" parent records via: {class_name}.{parent_field_name}"
                 if len(child_field_names) > 0:
                     msg += " and also"
             if len(child_field_names) > 0:
                 msg += f"child record(s) via: [{', '.join(child_field_names)}]"
             print(f"{msg}.")
 
-        return object
+        return cls
 
     return decorator
 
 
-
-
-
-
-########## TODO: I still need to propagate changes to children (specifically, FCirc objects)
-
-
-
-
-
+# TODO: I still need to propagate changes to children (specifically, FCirc objects)
 
 
 def maintained_field_function(
-    generation, update_field_name=None, parent_field_name=None, update_label=None, child_field_names=[],
+    generation,
+    update_field_name=None,
+    parent_field_name=None,
+    update_label=None,
+    child_field_names=[],
 ):
     """
     This is a decorator factory for functions in a Model class that are identified to be used to update a supplied
@@ -292,7 +289,9 @@ class MaintainedModel(Model):
     will be updated.  Only methods that take no arguments are supported.  This class overrides the class's save and
     delete methods as triggers for the updates.
     """
-    maintained_model_initialized = {}  # used to determine whether the fields have been validated
+
+    # used to determine whether the fields have been validated
+    maintained_model_initialized: Dict[str, bool] = {}
 
     def __init__(self, *args, **kwargs):
         """
@@ -314,14 +313,19 @@ class MaintainedModel(Model):
             # First, create a signature to use to make sure we only check once
             # The creation of a decorator signature allows multiple decorators to be added to 1 class (or function) and
             # only have each one's updater info validated once.
-            decorator_signature = ".".join([
-                updater_dict["update_label"],
-                updater_dict["update_function"],
-                updater_dict["update_field"],
-                str(updater_dict["generation"]),
-                updater_dict["parent_field"],
-                ",".join(updater_dict["child_fields"]),
-            ])
+            decorator_signature = ".".join(
+                [
+                    str(x)
+                    for x in [
+                        updater_dict["update_label"],
+                        updater_dict["update_function"],
+                        updater_dict["update_field"],
+                        str(updater_dict["generation"]),
+                        updater_dict["parent_field"],
+                        ",".join(updater_dict["child_fields"]),
+                    ]
+                ]
+            )
             if decorator_signature not in self.maintained_model_initialized:
                 self.maintained_model_initialized[decorator_signature] = True
                 # Now we can validate the fields
@@ -335,11 +339,15 @@ class MaintainedModel(Model):
                 bad_fields = []
                 for field in flds.keys():
                     try:
-                        getattr(self, field)
+                        getattr(self.__class__, field)
                     except AttributeError:
                         bad_fields.append({"field": field, "type": flds[field]})
                 if len(bad_fields) > 0:
-                    raise BadModelFields(self.__class__.__name__, bad_fields, updater_dict["update_function"])
+                    raise BadModelFields(
+                        self.__class__.__name__,
+                        bad_fields,
+                        updater_dict["update_function"],
+                    )
 
         super().__init__(*args, **kwargs)
 
@@ -482,6 +490,7 @@ class MaintainedModel(Model):
             my_updaters = updater_list[self.__name__]
         else:
             raise NoDecorators(self.__name__)
+
         return my_updaters
 
     def buffer_update(self):
@@ -684,7 +693,10 @@ def get_classes(generation=None, label_filters=[]):
     """
     class_list = []
     for class_name in updater_list:
-        if len(filter_updaters(updater_list[class_name], generation, label_filters)) > 0:
+        if (
+            len(filter_updaters(updater_list[class_name], generation, label_filters))
+            > 0
+        ):
             class_list.append(class_name)
     return class_list
 
@@ -702,12 +714,14 @@ class NotMaintained(Exception):
 
 class BadModelFields(Exception):
     def __init__(self, cls, flds, fcn=None):
-        fld_strs = [f"{k} ({flds[k]})" for k in flds.keys()]
-        message = f"The {cls} class does not have field(s): ['{', '.join(fld_strs)}'].  "
+        fld_strs = [f"{d['field']} ({d['type']})" for d in flds]
+        message = (
+            f"The {cls} class does not have field(s): ['{', '.join(fld_strs)}'].  "
+        )
         if fcn:
             message += (
-                f"Make sure the fields supplied to the @maintained_field_function decorator of the function: {fcn} are "
-                f"valid {cls} fields."
+                f"Make sure the fields supplied to the @maintained_field_function decorator of the function: {fcn} "
+                f"are valid {cls} fields."
             )
         else:
             message += (
@@ -735,8 +749,8 @@ class MaintainedFieldNotSettable(Exception):
 class InvalidRootGeneration(Exception):
     def __init__(self, cls, fld, fcn, gen):
         message = (
-            f"Invalid generation: [{gen}] for {cls}.{fld} supplied to @maintained_field_function decorator of function "
-            f"[{fcn}].  Since the parent_field_name was `None` or not supplied, generation must be 0."
+            f"Invalid generation: [{gen}] for {cls}.{fld} supplied to @maintained_field_function decorator of "
+            f"function [{fcn}].  Since the parent_field_name was `None` or not supplied, generation must be 0."
         )
         super().__init__(message)
         self.cls = cls
@@ -748,10 +762,10 @@ class InvalidRootGeneration(Exception):
 class NoDecorators(Exception):
     def __init__(self, cls):
         message = (
-            f"Class [{cls}] does not have any field maintenance functions yet.  Please add the maintained_field_function "
-            "decorator to a method in the class or remove the base class 'MaintainedModel' and an parent fields "
-            "referencing this model in other models.  If this model has no field to update but its parent does, "
-            "create a decorated placeholder method that sets its parent_field and generation only."
+            f"Class [{cls}] does not have any field maintenance functions yet.  Please add the "
+            "maintained_field_function decorator to a method in the class or remove the base class 'MaintainedModel' "
+            "and an parent fields referencing this model in other models.  If this model has no field to update but "
+            "its parent does, create a decorated placeholder method that sets its parent_field and generation only."
         )
         super().__init__(message)
 

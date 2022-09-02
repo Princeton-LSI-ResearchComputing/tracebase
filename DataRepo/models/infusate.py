@@ -123,7 +123,9 @@ class Infusate(MaintainedModel):
     def __str__(self):
         return str(self._name())
 
-    @maintained_field_function(generation=0, update_field_name="name", update_label="name")
+    @maintained_field_function(
+        generation=0, update_field_name="name", update_label="name"
+    )
     def _name(self):
         # Format: `tracer_group_name{tracername;tracername}`
 

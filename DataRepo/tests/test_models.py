@@ -418,9 +418,9 @@ class DataLoadingTests(TracebaseTestCase):
     @tag("serum")
     def test_sample_is_serum(self):
         serum = Sample.objects.get(name="serum-xz971")
-        self.assertTrue(serum.is_serum_sample)
+        self.assertTrue(serum._is_serum_sample())
         nonserum = Sample.objects.get(name="bat-xz969")
-        self.assertFalse(nonserum.is_serum_sample)
+        self.assertFalse(nonserum._is_serum_sample())
 
     def test_peak_groups_set_loaded(self):
 
@@ -674,7 +674,7 @@ class DataLoadingTests(TracebaseTestCase):
     def test_peakgroup_from_serum_sample_false(self):
         # get a tracer compound from a non-serum sample
         sample = Sample.objects.get(name="Liv-xz982")
-        pgl = sample.last_tracer_peak_groups().last().labels.first()
+        pgl = sample.msruns.last().peak_groups.last().labels.first()
         with self.assertWarns(UserWarning):
             self.assertFalse(pgl.from_serum_sample)
 
@@ -800,11 +800,13 @@ class PropertyTests(TracebaseTestCase):
     def test_sample_peak_groups(self):
         animal = self.MAIN_SERUM_ANIMAL
         last_serum_sample = animal.last_serum_sample
-        peak_groups = last_serum_sample.last_tracer_peak_groups()
+        peak_groups = PeakGroup.objects.filter(
+            msrun__sample__id__exact=last_serum_sample.id
+        )
         # ALL the sample's PeakGroup objects in the QuerySet total 13
         self.assertEqual(peak_groups.count(), self.SERUM_COMPOUNDS_COUNT)
         # but if limited to only the tracer, it is just 1 object in the QuerySet
-        sample_tracer_peak_groups = last_serum_sample.last_tracer_peak_groups()
+        sample_tracer_peak_groups = last_serum_sample.last_tracer_peak_groups
         self.assertEqual(sample_tracer_peak_groups.count(), 1)
         # and test that the Animal convenience method is equivalent for this
         # particular sample/animal
@@ -824,8 +826,10 @@ class PropertyTests(TracebaseTestCase):
         with the msrun deleted, the 7 rows of prior peak data
         (test_sample_peak_data, above) are now 0/gone
         """
-        peakdata = PeakData.objects.filter(peak_group__msrun__sample__exact=last_serum_sample).filter(
-            peak_group__compounds__id=animal.infusate.tracers.first().compound,
+        peakdata = PeakData.objects.filter(
+            peak_group__msrun__sample__exact=last_serum_sample
+        ).filter(
+            peak_group__compounds__id=animal.infusate.tracers.first().compound.id,
         )
         self.assertEqual(peakdata.count(), 0)
         animal.last_serum_sample.delete()
@@ -1320,7 +1324,7 @@ class PropertyTests(TracebaseTestCase):
     def test_peakgroup_is_tracer_label_compound_group_false(self):
         # get a non tracer compound from a serum sample
         sample = Sample.objects.get(name="serum-xz971")
-        pg = sample.last_tracer_peak_groups().last()
+        pg = sample.msruns.last().peak_groups.filter(name__exact="tryptophan").last()
         pgl = pg.labels.first()
         self.assertFalse(pgl.is_tracer_label_compound_group)
 
@@ -1328,7 +1332,7 @@ class PropertyTests(TracebaseTestCase):
     def test_peakgroup_can_compute_tracer_label_rates_true(self):
         # get a tracer compound from a  sample
         sample = Sample.objects.get(name="serum-xz971")
-        pg = sample.last_tracer_peak_groups().last()
+        pg = sample.last_tracer_peak_groups.last()
         pgl = pg.labels.first()
         self.assertTrue(pgl.can_compute_tracer_label_rates)
 
@@ -1336,7 +1340,7 @@ class PropertyTests(TracebaseTestCase):
     def test_peakgroup_can_compute_tracer_label_rates_false_no_rate(self):
         # get a tracer compound from a  sample
         sample = Sample.objects.get(name="serum-xz971")
-        pg = sample.last_tracer_peak_groups().last()
+        pg = sample.last_tracer_peak_groups.last()
         animal = pg.animal
         # but if the animal infusion_rate is not defined...
         orig_tir = animal.infusion_rate
@@ -1354,7 +1358,7 @@ class PropertyTests(TracebaseTestCase):
     def test_peakgroup_can_compute_tracer_label_rates_false_no_conc(self):
         # get a tracer compound from a sample
         sample = Sample.objects.get(name="serum-xz971")
-        pg = sample.last_tracer_peak_groups().last()
+        pg = sample.last_tracer_peak_groups.last()
         animal = pg.animal
         al = animal.labels.first()
         pgf = al.last_serum_tracer_label_peak_groups.last()
@@ -1419,6 +1423,7 @@ class PropertyTests(TracebaseTestCase):
         animal = self.MAIN_SERUM_ANIMAL
         pg = animal.last_serum_tracer_peak_groups.first()
         pgl = pg.labels.first()
+        print(f"first last serum tracer peak group: {pg.name}")
         self.assertTrue(pgl.can_compute_average_tracer_label_rates)
 
     @tag("fcirc")
@@ -1741,7 +1746,7 @@ class TracerRateTests(TracebaseTestCase):
     def test_last_serum_tracer_rate_appearance_average_per_animal(self):
         animal = self.MAIN_SERUM_ANIMAL
         # Uses Animal.last_serum_sample and Sample.peak_groups
-        pgl = animal.last_serum_sample.last_tracer_peak_groups().first().labels.first()
+        pgl = animal.last_serum_sample.last_tracer_peak_groups.first().labels.first()
         self.assertAlmostEqual(
             pgl.rate_appearance_average_per_animal,
             881.3639585,

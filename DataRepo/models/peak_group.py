@@ -3,7 +3,10 @@ from django.db.models import Sum
 from django.utils.functional import cached_property
 
 from DataRepo.models.hier_cached_model import HierCachedModel, cached_function
-from DataRepo.models.maintained_model import MaintainedModel, maintained_model_relation
+from DataRepo.models.maintained_model import (
+    MaintainedModel,
+    maintained_model_relation,
+)
 
 
 @maintained_model_relation(

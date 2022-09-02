@@ -5,10 +5,11 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 from DataRepo.models.hier_cached_model import HierCachedModel, cached_function
-from DataRepo.models.maintained_model import MaintainedModel, maintained_field_function
-
-from .peak_data import PeakData
-from .peak_group import PeakGroup
+from DataRepo.models.maintained_model import (
+    MaintainedModel,
+    maintained_field_function,
+)
+from DataRepo.models.peak_group import PeakGroup
 
 
 class Sample(MaintainedModel, HierCachedModel):
@@ -72,7 +73,7 @@ class Sample(MaintainedModel, HierCachedModel):
         child_field_names=["fcircs"],
         update_label="fcirc_calcs",
     )
-    def is_serum_sample(self):
+    def _is_serum_sample(self):
         """returns True if the sample is flagged as a "serum" sample"""
         return self.tissue.is_serum()
 
@@ -82,7 +83,6 @@ class Sample(MaintainedModel, HierCachedModel):
         """
         Retrieves the last Peak Group for each tracer compound that has this.element
         """
-        from DataRepo.models.peak_group import PeakGroup
 
         # Get every tracer's compound that contains this element
         if self.animal.tracers.count() == 0:

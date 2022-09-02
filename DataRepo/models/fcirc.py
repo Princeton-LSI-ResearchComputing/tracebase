@@ -4,7 +4,10 @@ from django.db import models
 
 from DataRepo.models.element_label import ElementLabel
 from DataRepo.models.hier_cached_model import HierCachedModel, cached_function
-from DataRepo.models.maintained_model import MaintainedModel, maintained_field_function
+from DataRepo.models.maintained_model import (
+    MaintainedModel,
+    maintained_field_function,
+)
 
 
 class FCirc(MaintainedModel, HierCachedModel):
@@ -12,6 +15,7 @@ class FCirc(MaintainedModel, HierCachedModel):
     This class is here to perform rate of appearance/disappearance calculations for every combination of serum sample,
     tracer, and labeled element.  The last peakgroup of the given sample is used for every calculation.
     """
+
     parent_related_key_name = "serum_sample"
     # Leaf
 
@@ -62,9 +66,10 @@ class FCirc(MaintainedModel, HierCachedModel):
         This checks to make sure that self.serum_sample is in fact a serum sample.
         """
 
-        if not self.serum_sample.is_serum_sample:
+        if not self.serum_sample._is_serum_sample:
             raise InvalidSerumSample(
-                f"The linked sample [{self.serum_sample}] must be a serum sample."
+                f"The linked sample [{self.serum_sample}] must be a serum sample, not a "
+                f"{self.serum_sample.tissue.name}."
             )
 
         # Now save the updated values

@@ -671,7 +671,6 @@ class Format:
 
             elif (
                 # TODO: See: https://github.com/Princeton-LSI-ResearchComputing/tracebase/issues/484
-
                 # If the split_all override was supplied as true and this is a M:M model
                 split_all
                 and self.model_instances[mdl_inst_nm]["manyrelated"]["manytomany"]

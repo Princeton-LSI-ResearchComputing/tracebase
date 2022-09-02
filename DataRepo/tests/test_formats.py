@@ -200,6 +200,30 @@ class FormatsTests(TracebaseTestCase):
             ("msrun__sample__animal__treatment__name", "Treatment"),
         )
 
+    def getFctemplateChoicesTuple(self):
+        return (
+            ("serum_sample__animal__name", "Animal"),
+            ("serum_sample__animal__body_weight", "Body Weight (g)"),
+            ("serum_sample__animal__diet", "Diet"),
+            ("serum_sample__animal__feeding_status", "Feeding Status"),
+            ("serum_sample__animal__genotype", "Genotype"),
+            ("serum_sample__animal__infusion_rate", "Infusion Rate (ul/min/g)"),
+            ("element", "Peak Group Labeled Element"),
+            ("serum_sample__animal__sex", "Sex"),
+            ("serum_sample__animal__studies__name", "Study"),
+            (
+                "serum_sample__animal__samples__time_collected",
+                "Time Collected (hh:mm:ss since infusion)",
+            ),
+            ("tracer__name", "Tracer"),
+            ("tracer__compound__name", "Tracer Compound (Primary Synonym)"),
+            (
+                "serum_sample__animal__infusate__tracer_links__concentration",
+                "Tracer Concentration (mM)",
+            ),
+            ("serum_sample__animal__treatment__name", "Treatment"),
+        )
+
     @tag("multi_working")
     def test_getSearchFieldChoicesDict(self):
         basv = SearchGroup()
@@ -237,13 +261,12 @@ class FormatsTests(TracebaseTestCase):
         basv = SearchGroup()
         sfct = basv.getAllSearchFieldChoices()
         sfct_expected = self.getPgtemplateChoicesTuple()
-        sfct_expected += self.getPdtemplateChoicesTuple()
-        sfct_expected += (
-            (
-                "msrun__sample__time_collected",
-                "Time Collected (hh:mm:ss since infusion)",
-            ),
+        sfct_expected += tuple(
+            tuple(x)
+            for x in self.getPdtemplateChoicesTuple()
+            if x != ("labels__element", "Labeled Element")
         )
+        sfct_expected += self.getFctemplateChoicesTuple()
         self.assertTupleEqual(sfct_expected, sfct)
 
     @tag("multi_working")
