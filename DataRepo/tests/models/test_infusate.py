@@ -89,16 +89,21 @@ class InfusateTests(TracebaseTestCase):
         """
         Make sure that the name field was set automatically - triggered by the InfusateTracer record creation.
         """
+        self.assertEqual(
+            "C16:0-(5,6-13C2,17O2)[4];glucose-(2,3-13C2,4-17O1)[3]",
+            Infusate.objects.get(id=self.INFUSATE2).name,
+        )
         # Throws DoesNotExist exception if not found
         Infusate.objects.get(
-            name="C16:0-(5,6-13C2,17O2)[4];glucose-(2,3-13C2,4-17O1)[3]"
+            name__exact="C16:0-(5,6-13C2,17O2)[4];glucose-(2,3-13C2,4-17O1)[3]"
         )
 
     def test_name_self_autoupdated(self):
         """
         Make sure that the name field was set automatically - triggered by the Infusate record creation.
         """
-        Infusate.objects.create(tracer_group_name="ti3")
+        ti3 = Infusate.objects.create(tracer_group_name="ti3")
+        self.assertEqual("ti3", ti3.name)
         # Throws DoesNotExist exception if not found
         Infusate.objects.get(name="ti3")
 
@@ -108,6 +113,7 @@ class InfusateTests(TracebaseTestCase):
         """
         tl = TracerLabel.objects.get(name="2,3-13C2")
         tl.delete()
+        self.assertEqual("glucose-(4-17O1)", tl.tracer.name)
         # These queries will raise an exception if the name was not auto-updated
         Tracer.objects.get(name="glucose-(4-17O1)")
         Infusate.objects.get(name="C16:0-(5,6-13C2,17O2)[4];glucose-(4-17O1)[3]")

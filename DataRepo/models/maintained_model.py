@@ -292,6 +292,7 @@ class MaintainedModel(Model):
 
     # used to determine whether the fields have been validated
     maintained_model_initialized: Dict[str, bool] = {}
+    trigger = None
 
     def __init__(self, *args, **kwargs):
         """
@@ -427,7 +428,25 @@ class MaintainedModel(Model):
         """
         parents = self.get_parent_instances()
         for parent_inst in parents:
-            parent_inst.save()
+            parent_inst.trigger = f"{self.__class__.__name__}.{self.id}"
+            # If the current instance's update was triggered - and was triggered by the same parent instance whose
+            # update we're about to trigger
+            if not self.trigger or self.trigger != parent_inst.trigger:
+                parent_inst.save()
+
+    def call_child_updaters(self):
+        """
+        This calls child record's `save` method to trigger updates to their maintained fields (if any) and further
+        propagate those changes up the hierarchy (if those records have parents)
+        """
+        children = self.get_child_instances()
+        for child_inst in children:
+            # Tell the child who triggered its update
+            child_inst.trigger = f"{self.__class__.__name__}.{self.id}"
+            # If the current instance's update was triggered - and was triggered by the same child instance whose
+            # update we're about to trigger
+            if not self.trigger or self.trigger != child_inst.trigger:
+                child_inst.save()
 
     def get_parent_instances(self):
         """
