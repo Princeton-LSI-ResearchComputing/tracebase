@@ -377,7 +377,7 @@ class MaintainedModel(Model):
         # handled differently (in a breadth-first fashion) to mitigate repeated updates of the same parent record
         if auto_updates is True:
             # Percolate changes up to the parents (if any)
-            self.call_parent_updaters()
+            self.call_dfs_related_updaters()
 
     def delete(self, *args, **kwargs):
         """
@@ -395,7 +395,7 @@ class MaintainedModel(Model):
             return
 
         # Percolate changes up to the parents (if any)
-        self.call_parent_updaters()
+        self.call_dfs_related_updaters()
 
     def update_decorated_fields(self):
         """
@@ -421,32 +421,28 @@ class MaintainedModel(Model):
                         f"{update_fun.__qualname__} from [{current_val}] to [{new_val}]"
                     )
 
-    def call_parent_updaters(self):
+    def call_dfs_related_updaters(self):
+        sig = f"{self.__class__.__name__}.{self.id}"
+        updated = [sig]
+        updated = self.call_child_updaters(updated)
+        self.call_parent_updaters(updated)
+
+    def call_parent_updaters(self, updated):
         """
         This calls parent record's `save` method to trigger updates to their maintained fields (if any) and further
-        propagate those changes up the hierarchy (if those records have parents)
+        propagate those changes up the hierarchy (if those records have parents). It skips triggering a parent's update
+        if that child was the object that triggered its update, to avoid looped repeated updates.
         """
         parents = self.get_parent_instances()
         for parent_inst in parents:
-            parent_inst.trigger = f"{self.__class__.__name__}.{self.id}"
             # If the current instance's update was triggered - and was triggered by the same parent instance whose
             # update we're about to trigger
-            if not self.trigger or self.trigger != parent_inst.trigger:
+            parent_sig = f"{parent_inst.__class__.__name__}.{parent_inst.id}"
+            if parent_sig not in updated:
+                print(f"My triggerer was {self.trigger} and I am applying my trigger sig {parent_inst.trigger} to my parent {parent_sig} whom I'm triggering")
+                updated.append(parent_sig)
                 parent_inst.save()
-
-    def call_child_updaters(self):
-        """
-        This calls child record's `save` method to trigger updates to their maintained fields (if any) and further
-        propagate those changes up the hierarchy (if those records have parents)
-        """
-        children = self.get_child_instances()
-        for child_inst in children:
-            # Tell the child who triggered its update
-            child_inst.trigger = f"{self.__class__.__name__}.{self.id}"
-            # If the current instance's update was triggered - and was triggered by the same child instance whose
-            # update we're about to trigger
-            if not self.trigger or self.trigger != child_inst.trigger:
-                child_inst.save()
+        return updated
 
     def get_parent_instances(self):
         """
@@ -480,7 +476,10 @@ class MaintainedModel(Model):
                         if parent_inst not in parents:
                             parents.append(parent_inst)
 
-                    elif tmp_parent_inst.__class__.__name__ == "ManyRelatedManager":
+                    elif (
+                        tmp_parent_inst.__class__.__name__ == "ManyRelatedManager"
+                        or tmp_parent_inst.__class__.__name__ == "RelatedManager"
+                    ):
 
                         # NOTE: This is where the `through` model is skipped
                         if tmp_parent_inst.count() > 0 and isinstance(
@@ -497,6 +496,77 @@ class MaintainedModel(Model):
                     else:
                         raise NotMaintained(tmp_parent_inst, self)
         return parents
+
+    def call_child_updaters(self, updated):
+        """
+        This calls child record's `save` method to trigger updates to their maintained fields (if any) and further
+        propagate those changes up the hierarchy (if those records have parents). It skips triggering a child's update
+        if that child was the object that triggered its update, to avoid looped repeated updates.
+        """
+        children = self.get_child_instances()
+        for child_inst in children:
+            # If the current instance's update was triggered - and was triggered by the same child instance whose
+            # update we're about to trigger
+            child_sig = f"{child_inst.__class__.__name__}.{child_inst.id}"
+            if child_sig not in updated:
+                print(f"My triggerer was {self.trigger} and I am applying my trigger sig {child_inst.trigger} to my child: {child_sig} whom I'm triggering")
+                child_inst.save()
+                updated.append(child_sig)
+        return updated
+
+    def get_child_instances(self):
+        """
+        Returns a list of parent records to the current record (self) (and the parent relationship is stored in the
+        updater_list global variable, indexed by class name) based on the parent keys indicated in every decorated
+        updater method.
+
+        Limitation: This does not return `through` model instances, though it will return parents of a through model if
+        called from a through model object.  If a through model contains decorated methods to maintain through model
+        fields, they will only ever update when the through model object is specifically saved and will not be updated
+        when their "child" object changes.  This will have to be modified to return through model instances if such
+        updates come to be required.
+        """
+        children = []
+        for updater_dict in self.get_my_updaters():
+            child_flds = updater_dict["child_fields"]
+
+            # If there is a parent that should update based on this change
+            for child_fld in child_flds:
+
+                # Get the parent instance
+                print(f"Getting field {child_fld} from {self.__class__.__name__} ID {self.id}")
+                tmp_child_inst = getattr(self, child_fld)
+
+                # if a parent record exists
+                if tmp_child_inst is not None:
+
+                    # Make sure that the (direct) parnet (or M:M related parent) *isa* MaintainedModel
+                    if isinstance(tmp_child_inst, MaintainedModel):
+
+                        child_inst = tmp_child_inst
+                        if child_inst not in children:
+                            children.append(child_inst)
+
+                    elif (
+                        tmp_child_inst.__class__.__name__ == "ManyRelatedManager"
+                        or tmp_child_inst.__class__.__name__ == "RelatedManager"
+                    ):
+
+                        # NOTE: This is where the `through` model is skipped
+                        if tmp_child_inst.count() > 0 and isinstance(
+                            tmp_child_inst.first(), MaintainedModel
+                        ):
+
+                            for mm_child_inst in tmp_child_inst.all():
+                                if mm_child_inst not in children:
+                                    children.append(mm_child_inst)
+
+                        elif tmp_child_inst.count() > 0:
+                            raise NotMaintained(tmp_child_inst.first(), self)
+
+                    else:
+                        raise NotMaintained(tmp_child_inst, self)
+        return children
 
     @classmethod
     def get_my_updaters(self):
