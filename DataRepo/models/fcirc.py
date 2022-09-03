@@ -8,6 +8,7 @@ from DataRepo.models.maintained_model import (
     MaintainedModel,
     maintained_field_function,
 )
+from DataRepo.models.utilities import create_is_null_field
 
 
 class FCirc(MaintainedModel, HierCachedModel):
@@ -142,10 +143,13 @@ class FCirc(MaintainedModel, HierCachedModel):
         """
         from DataRepo.models.peak_group import PeakGroup
 
+        (extra_args, is_null_field) = create_is_null_field("msrun__date")
+        print(f"FCirc.py PeakGroup: Extra args: {extra_args}")
         peakgroups = (
             PeakGroup.objects.filter(msrun__sample__exact=self.serum_sample)
             .filter(compounds__exact=self.tracer.compound)
-            .order_by("msrun__date")
+            .extra(**extra_args)
+            .order_by(f"-{is_null_field}", "msrun__date")
         )
 
         if peakgroups.count() == 0:

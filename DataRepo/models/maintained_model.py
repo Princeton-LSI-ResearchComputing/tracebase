@@ -193,9 +193,6 @@ def maintained_model_relation(
     return decorator
 
 
-# TODO: I still need to propagate changes to children (specifically, FCirc objects)
-
-
 def maintained_field_function(
     generation,
     update_field_name=None,
@@ -292,7 +289,6 @@ class MaintainedModel(Model):
 
     # used to determine whether the fields have been validated
     maintained_model_initialized: Dict[str, bool] = {}
-    trigger = None
 
     def __init__(self, *args, **kwargs):
         """
@@ -357,6 +353,8 @@ class MaintainedModel(Model):
         This is an override of the derived model's save method that is being used here to automatically update
         maintained fields.
         """
+        # Custom argument: propagate - Whether to propagate updates to related model objects - default True
+        propagate = kwargs.pop('propagate', True)  # Used internally. Do not supply unless you know what you're doing.
 
         # If auto-updates are turned on, a cascade of updates to linked models will occur, but if they are turned off,
         # the update will be buffered, to be manually triggered later (e.g. upon completion of loading), which
@@ -375,7 +373,7 @@ class MaintainedModel(Model):
 
         # We don't need to check performing_mass_autoupdates, because propagating changes during buffered updates is
         # handled differently (in a breadth-first fashion) to mitigate repeated updates of the same parent record
-        if auto_updates is True:
+        if auto_updates and propagate:
             # Percolate changes up to the parents (if any)
             self.call_dfs_related_updaters()
 
@@ -384,6 +382,9 @@ class MaintainedModel(Model):
         This is an override of the derived model's delete method that is being used here to automatically update
         maintained fields.
         """
+        # Custom argument: propagate - Whether to propagate updates to related model objects - default True
+        propagate = kwargs.pop('propagate', True)
+
         # Delete the record triggering this update
         super().delete(*args, **kwargs)  # Call the "real" delete() method.
 
@@ -421,11 +422,13 @@ class MaintainedModel(Model):
                         f"{update_fun.__qualname__} from [{current_val}] to [{new_val}]"
                     )
 
-    def call_dfs_related_updaters(self):
-        sig = f"{self.__class__.__name__}.{self.id}"
-        updated = [sig]
+    def call_dfs_related_updaters(self, updated=[]):
+        # Assume I've been called after I've been updated, so app myself to the updated list
+        self_sig = f"{self.__class__.__name__}.{self.id}"
+        updated.append(self_sig)
         updated = self.call_child_updaters(updated)
-        self.call_parent_updaters(updated)
+        updated = self.call_parent_updaters(updated)
+        return updated
 
     def call_parent_updaters(self, updated):
         """
@@ -439,9 +442,12 @@ class MaintainedModel(Model):
             # update we're about to trigger
             parent_sig = f"{parent_inst.__class__.__name__}.{parent_inst.id}"
             if parent_sig not in updated:
-                print(f"My triggerer was {self.trigger} and I am applying my trigger sig {parent_inst.trigger} to my parent {parent_sig} whom I'm triggering")
-                updated.append(parent_sig)
-                parent_inst.save()
+                print(f"My sig is {self.__class__.__name__}.{self.id} and I am triggering an update to my parent {parent_sig}")
+                # Don't let the save call propagate, because we cannot rely on it returning the updated list (because
+                # it could be overridden by another class that doesn't return it (at least, that's my guess as to why I
+                # was getting back None when I tried it.)
+                parent_inst.save(propagate=False)
+                updated = parent_inst.call_dfs_related_updaters(updated)
         return updated
 
     def get_parent_instances(self):
@@ -509,9 +515,12 @@ class MaintainedModel(Model):
             # update we're about to trigger
             child_sig = f"{child_inst.__class__.__name__}.{child_inst.id}"
             if child_sig not in updated:
-                print(f"My triggerer was {self.trigger} and I am applying my trigger sig {child_inst.trigger} to my child: {child_sig} whom I'm triggering")
-                child_inst.save()
-                updated.append(child_sig)
+                print(f"My sig is {self.__class__.__name__}.{self.id} and I am triggering an update to my child {child_sig}")
+                # Don't let the save call propagate, because we cannot rely on it returning the updated list (because
+                # it could be overridden by another class that doesn't return it (at least, that's my guess as to why I
+                # was getting back None when I tried it.)
+                child_inst.save(propagate=False)
+                updated = child_inst.call_dfs_related_updaters(updated)
         return updated
 
     def get_child_instances(self):

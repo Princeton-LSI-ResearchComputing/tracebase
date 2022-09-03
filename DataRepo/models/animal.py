@@ -10,6 +10,7 @@ from DataRepo.models.maintained_model import (
     MaintainedModel,
     maintained_field_function,
 )
+from DataRepo.models.utilities import create_is_null_field
 
 from .element_label import ElementLabel
 from .protocol import Protocol
@@ -96,6 +97,14 @@ class Animal(MaintainedModel, HierCachedModel, ElementLabel):
         limit_choices_to={"category": Protocol.ANIMAL_TREATMENT},
         help_text="The laboratory controlled label of the actions taken on an animal.",
     )
+    last_serum_sample = models.ForeignKey(
+        to="DataRepo.Sample",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="animals",
+        help_text="Automatically maintained field. Shortcut to the last serum sample.",
+    )
 
     @property  # type: ignore
     @cached_function
@@ -104,22 +113,24 @@ class Animal(MaintainedModel, HierCachedModel, ElementLabel):
             warnings.warn(f"Animal [{self.animal}] has no tracers.")
         return self.infusate.tracers.all()
 
-    @property  # type: ignore
-    @cached_function
     @maintained_field_function(
         generation=0,
         child_field_names=["samples"],
         update_label="fcirc_calcs",
+        update_field_name="last_serum_sample",
     )
-    def last_serum_sample(self):
+    def _last_serum_sample(self):
         """
         last_serum_sample in an instance method that returns the last single serum sample removed from the animal,
         based on the time elapsed/duration from the initiation of infusion or treatment, typically.  If the animal has
         no serum samples or if the retrieved serum sample has no annotated time_collected, a warning will be issued.
         """
+        (extra_args, is_null_field) = create_is_null_field("time_collected")
+        print(f"animal.py Samples: Extra args: {extra_args}")
         last_serum_sample = (
             self.samples.filter(tissue__name__istartswith=Tissue.SERUM_TISSUE_PREFIX)
-            .order_by("time_collected")
+            .extra(**extra_args)
+            .order_by(f"-{is_null_field}", "time_collected")
             .last()
         )
 
@@ -149,6 +160,10 @@ class Animal(MaintainedModel, HierCachedModel, ElementLabel):
 
         # Get the last peakgroup for each tracer that has this label
         last_serum_peakgroup_ids = []
+        (tc_extra_args, tc_is_null_field) = create_is_null_field("msrun__sample__time_collected")
+        (d_extra_args, d_is_null_field) = create_is_null_field("msrun__date")
+        print(f"animal.py PeakGroup: tc Extra args: {tc_extra_args}")
+        print(f"animal.py PeakGroup: d Extra args: {d_extra_args}")
         for tracer in self.tracers.all():
             tracer_peak_group = (
                 PeakGroup.objects.filter(msrun__sample__animal__id__exact=self.id)
@@ -156,7 +171,14 @@ class Animal(MaintainedModel, HierCachedModel, ElementLabel):
                 .filter(
                     msrun__sample__tissue__name__istartswith=Tissue.SERUM_TISSUE_PREFIX
                 )
-                .order_by("msrun__sample__time_collected", "msrun__date")
+                .extra(**tc_extra_args)
+                .extra(**d_extra_args)
+                .order_by(
+                    f"-{tc_is_null_field}",
+                    "msrun__sample__time_collected",
+                    f"-{d_is_null_field}",
+                    "msrun__date",
+                )
                 .last()
             )
             if tracer_peak_group:

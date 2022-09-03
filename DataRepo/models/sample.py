@@ -10,6 +10,7 @@ from DataRepo.models.maintained_model import (
     maintained_field_function,
 )
 from DataRepo.models.peak_group import PeakGroup
+from DataRepo.models.utilities import create_is_null_field
 
 
 class Sample(MaintainedModel, HierCachedModel):
@@ -69,8 +70,8 @@ class Sample(MaintainedModel, HierCachedModel):
     @maintained_field_function(
         generation=1,
         parent_field_name="animal",
-        # child_field_names=["msruns", "fcircs"],  # Only propagate up and then down to fcircs
         child_field_names=["fcircs"],
+        update_field_name="is_serum_sample",
         update_label="fcirc_calcs",
     )
     def _is_serum_sample(self):
@@ -91,11 +92,14 @@ class Sample(MaintainedModel, HierCachedModel):
 
         # Get the last peakgroup for each tracer that has this label
         last_peakgroup_ids = []
+        (extra_args, is_null_field) = create_is_null_field("msrun__date")
+        print(f"Sample.py PeakGroup: Extra args: {extra_args}")
         for tracer in self.animal.tracers.all():
             tracer_peak_group = (
                 PeakGroup.objects.filter(msrun__sample__id__exact=self.id)
                 .filter(compounds__id__exact=tracer.compound.id)
-                .order_by("msrun__date")
+                .extra(**extra_args)
+                .order_by(f"-{is_null_field}", "msrun__date")
                 .last()
             )
             if tracer_peak_group:
