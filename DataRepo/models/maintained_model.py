@@ -3,6 +3,7 @@ from typing import Dict, List
 
 from django.conf import settings
 from django.db.models import Model
+from django.db.models.signals import m2m_changed
 
 auto_updates = True
 update_buffer = []
@@ -283,6 +284,33 @@ def maintained_field_function(
     return decorator
 
 
+def m2m_propagation_handler(**kwargs):
+    """
+    Additions to M:M related models do not require a .save() to be called afterwards, thus additions like:
+        peakgroup.compounds.add(cmpd)
+    do not propagate a change to MSRun as is necessary for automatic field maintenance, expressly because
+    peakgroup.save() is not called.  To deal with this, and trigger the necessary automatic updates of maintained
+    fields, an m2m_changed signal is attached to all M:M fields in MaintainedModel.__init__ to tell us when a
+    MaintainedModel has an M:M field that has been added to.  That causes this method to be called, and from here we
+    can propagate the changes.
+    """
+    obj = kwargs.pop("instance", None)
+    frm_mdl = obj.__class__
+    act = kwargs.pop("action", None)
+    # TODO: Add controls to the call of obj.call_dfs_related_updaters() so that it is only called when auto_updates and
+    #       propagate are true.  See MaintainedModel.save().  In some cases, based on the value of reverse, the
+    #       "to model" object may need to be called instead.
+    # to_mdl = kwargs.pop("model", None)
+    # frm_id = obj.pk
+    # rev = kwargs.pop("reverse", None)
+    # db = kwargs.pop("using", None)
+    # to_id = kwargs.pop("pk_set", None)
+    if act.startswith("post_"):
+        print(f"Propagating changes made to record {frm_mdl.__name__}.{obj.id}")
+        if isinstance(obj, MaintainedModel):
+            obj.call_dfs_related_updaters()
+
+
 class MaintainedModel(Model):
     """
     This class maintains database field values for a django.models.Model class whose values can be derived using a
@@ -351,6 +379,17 @@ class MaintainedModel(Model):
                         bad_fields,
                         updater_dict["update_function"],
                     )
+                try:
+                    # Connect the m2m_propagation_handler to any m2m field change events
+                    for m2m_field in self.__class__._meta.many_to_many:
+                        print(f"Adding propagation handler to {m2m_field} {getattr(m2m_field, 'name')} {getattr(self.__class__, getattr(m2m_field, 'name'))} {getattr(getattr(self.__class__, getattr(m2m_field, 'name')), 'through')}")
+                        m2m_changed.connect(m2m_propagation_handler, sender=getattr(getattr(self.__class__, getattr(m2m_field, "name")), "through"))
+                    # m2m_changed.connect(toppings_changed, sender=Pizza.toppings.through)
+                except AttributeError as ae:
+                    if "has no attribute 'many_to_many'" not in str(ae):
+                        raise ae
+                    else:
+                        print(f"No propagation handler needed for model {self.__class__.__name__}")
 
         super().__init__(*args, **kwargs)
 
