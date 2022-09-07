@@ -106,6 +106,7 @@ class FCircTests(TracebaseTestCase):
             )
             print(f"Added new peak group (id: {pg.id}) before compound: {tracer.compound.name} added")
             pg.compounds.add(tracer.compound)
+            # This is the critical thing needed to make the assertions below do what they're expected to do.
             pg.save()
             print(f"Added new peak group (id: {pg.id}) for compound: {tracer.compound.name}")
             for label in self.lss.animal.labels.all():
