@@ -170,8 +170,8 @@ def create_is_null_field(field_with_null):
     else:
         field_with_null_ref = field_with_null
 
-    select_val={is_null_field_name: f"{field_with_null_ref} IS NULL"}
-    order_by_val=[is_null_field_name, field_with_null]
+    select_val = {is_null_field_name: f"{field_with_null_ref} IS NULL"}
+    order_by_val = [is_null_field_name, field_with_null]
 
     return (
         {

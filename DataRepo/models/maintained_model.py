@@ -354,7 +354,9 @@ class MaintainedModel(Model):
         maintained fields.
         """
         # Custom argument: propagate - Whether to propagate updates to related model objects - default True
-        propagate = kwargs.pop('propagate', True)  # Used internally. Do not supply unless you know what you're doing.
+        propagate = kwargs.pop(
+            "propagate", True
+        )  # Used internally. Do not supply unless you know what you're doing.
 
         # If auto-updates are turned on, a cascade of updates to linked models will occur, but if they are turned off,
         # the update will be buffered, to be manually triggered later (e.g. upon completion of loading), which
@@ -383,7 +385,7 @@ class MaintainedModel(Model):
         maintained fields.
         """
         # Custom argument: propagate - Whether to propagate updates to related model objects - default True
-        propagate = kwargs.pop('propagate', True)
+        propagate = kwargs.pop("propagate", True)
 
         # Delete the record triggering this update
         super().delete(*args, **kwargs)  # Call the "real" delete() method.
@@ -395,14 +397,16 @@ class MaintainedModel(Model):
             self.buffer_parent_update()
             return
 
-        # Percolate changes up to the parents (if any)
-        self.call_dfs_related_updaters()
+        if propagate:
+            # Percolate changes up to the parents (if any)
+            self.call_dfs_related_updaters()
 
     def update_decorated_fields(self):
         """
         Updates every field identified in each maintained_field_function decorator using the decorated function that
         generates its value.
         """
+        print(f"update_decorated_fields called on record {self.__class__.__name__}.{self.pk}. Changes to {len(self.get_my_updaters())} updaters should follow... settongs.DEBUG is {settings.DEBUG}.")
         for updater_dict in self.get_my_updaters():
             update_fld = updater_dict["update_field"]
 
@@ -421,6 +425,8 @@ class MaintainedModel(Model):
                         f"Auto-updated field {self.__class__.__name__}.{update_fld} in record {self.pk} using "
                         f"{update_fun.__qualname__} from [{current_val}] to [{new_val}]"
                     )
+            else:
+                print(f"update_decorated_fields of {self.__class__.__name__}.{self.pk}: update_field was None: [{updater_dict}].")
 
     def call_dfs_related_updaters(self, updated=[]):
         # Assume I've been called after I've been updated, so app myself to the updated list
@@ -442,12 +448,19 @@ class MaintainedModel(Model):
             # update we're about to trigger
             parent_sig = f"{parent_inst.__class__.__name__}.{parent_inst.id}"
             if parent_sig not in updated:
-                print(f"My sig is {self.__class__.__name__}.{self.id} and I am triggering an update to my parent {parent_sig}")
+                print(
+                    f"My sig is {self.__class__.__name__}.{self.id} and I am triggering an update to my parent {parent_sig}"
+                )
                 # Don't let the save call propagate, because we cannot rely on it returning the updated list (because
                 # it could be overridden by another class that doesn't return it (at least, that's my guess as to why I
                 # was getting back None when I tried it.)
                 parent_inst.save(propagate=False)
+                # Instead, we will propagate manually:
                 updated = parent_inst.call_dfs_related_updaters(updated)
+            else:
+                print(
+                    f"My sig is {self.__class__.__name__}.{self.id} and my parent {parent_sig} has already been updated.  Updated contains: {', '.join(updated)}"
+                )
         return updated
 
     def get_parent_instances(self):
@@ -515,12 +528,19 @@ class MaintainedModel(Model):
             # update we're about to trigger
             child_sig = f"{child_inst.__class__.__name__}.{child_inst.id}"
             if child_sig not in updated:
-                print(f"My sig is {self.__class__.__name__}.{self.id} and I am triggering an update to my child {child_sig}")
+                print(
+                    f"My sig is {self.__class__.__name__}.{self.id} and I am triggering an update to my child {child_sig}"
+                )
                 # Don't let the save call propagate, because we cannot rely on it returning the updated list (because
                 # it could be overridden by another class that doesn't return it (at least, that's my guess as to why I
                 # was getting back None when I tried it.)
                 child_inst.save(propagate=False)
+                # Instead, we will propagate manually:
                 updated = child_inst.call_dfs_related_updaters(updated)
+            else:
+                print(
+                    f"My sig is {self.__class__.__name__}.{self.id} and my child {child_sig} has already been updated"
+                )
         return updated
 
     def get_child_instances(self):
@@ -543,7 +563,6 @@ class MaintainedModel(Model):
             for child_fld in child_flds:
 
                 # Get the parent instance
-                print(f"Getting field {child_fld} from {self.__class__.__name__} ID {self.id}")
                 tmp_child_inst = getattr(self, child_fld)
 
                 # if a parent record exists
@@ -685,7 +704,7 @@ def filter_updaters(updaters_list, generation=None, label_filters=[], filter_in=
 
 def perform_buffered_updates(label_filters=[], using=None):
     """
-    Performs a mass update of records in the buffer in a breadth-first fashion without repeated updates to the same
+    Performs a mass update of records in the buffer in a depth-first fashion without repeated updates to the same
     record over and over.
     """
     global update_buffer
@@ -699,75 +718,49 @@ def perform_buffered_updates(label_filters=[], using=None):
 
     # This allows our updates to be saved, but prevents propagating changes up the hierarchy in a depth-first fashion
     enable_mass_autoupdates()
-    # Get the largest generation value
-    youngest_generation = get_max_buffer_generation(label_filters)
     # Track what's been updated to prevent repeated updates triggered by multiple child updates
-    updated = {}
+    updated = []
 
-    # For every generation from the youngest leaves/children to root/parent
-    for gen in sorted(range(youngest_generation + 1), reverse=True):
+    new_buffer = []
 
-        # Each generation will potentially add parent records to the update_buffer.  We will locally buffer those
-        # parents to be included in the next outer loop
-        add_to_buffer = []
+    # For each record in the buffer
+    for buffer_item in update_buffer:
+        updater_dicts = buffer_item.get_my_updaters()
 
-        # For each record in the buffer whose label-filtered max generation level updater matches the current
-        # generation being updated
-        for buffer_item in sorted(
-            update_buffer,
-            key=lambda x: get_max_generation(x.get_my_updaters(), label_filters),
-            reverse=True,
-        ):
-            updater_dicts = buffer_item.get_my_updaters()
+        # Track updated records to avoid repeated updates
+        key = f"{buffer_item.__class__.__name__}.{buffer_item.pk}"
 
-            # Leave the loop when the max generation present changes so that we can update the updated buffer with the
-            # parent-triggered updates that were locally buffered during the execution of this loop
-            max_gen = get_max_generation(updater_dicts, label_filters)
-            if max_gen < gen:
-                break
+        # Try to perform the update. It could fail if the affected record was deleted
+        try:
+            no_filters = len(label_filters) == 0
 
-            # Track updated records to avoid repeated updates
-            key = f"{buffer_item.__class__.__name__}.{buffer_item.pk}"
+            if key not in updated and (
+                no_filters or updater_list_has_labels(updater_dicts, label_filters)
+            ):
+                # Saving the record while performing_mass_autoupdates is True, causes auto-updates of every field
+                # included among the model's decorated functions.  It does not only update the fields indicated in
+                # decorators that contain the labels indicated in the label_filters.  The filters are only used to
+                # decide which records should be updated.  Currently, this is not an issue because we only have 1
+                # update_label in use.  And if/when we add another label, it will only end up causing extra
+                # repeated updates of the same record.
+                if db:
+                    buffer_item.save(using=db, propagate=False)
+                else:
+                    buffer_item.save(propagate=False)
 
-            # Try to perform the update. It could fail if the affected record was deleted
-            try:
-                no_filters = len(label_filters) == 0
-                if key not in updated and (
-                    no_filters or updater_list_has_labels(updater_dicts, label_filters)
-                ):
-                    # Saving the record while performing_mass_autoupdates is True, causes auto-updates of every field
-                    # included among the model's decorated functions.  It does not only update the fields indicated in
-                    # decorators that contain the labels indicated in the label_filters.  The filters are only used to
-                    # decide which records should be updated.  Currently, this is not an issue because we only have 1
-                    # update_label in use.  And if/when we add another label, it will only end up causing extra
-                    # repeated updates of the same record.
-                    if db:
-                        buffer_item.save(using=db)
-                    else:
-                        buffer_item.save()
+                # Propagate the changes (if necessary), keeping track of what is updated and what's not.
+                # Note: all the manual changes are assumed to have been made already, so auto-updates only need to
+                # be issued once per record
+                updated = buffer_item.call_dfs_related_updaters(updated)
 
-                    # keep track that this record was updated
-                    updated[key] = True
+            elif buffer_item not in new_buffer:
 
-                    # Add parent records to the local buffer (add_to_buffer)
-                    tmp_buffer = buffer_item.get_parent_instances()
-                    if len(tmp_buffer) > 0:
+                new_buffer.append(buffer_item)
 
-                        for tmp_buffer_item in tmp_buffer:
-                            if (
-                                tmp_buffer_item not in update_buffer
-                                and tmp_buffer_item not in add_to_buffer
-                            ):
-                                add_to_buffer.append(tmp_buffer_item)
+        except Exception as e:
+            raise AutoUpdateFailed(buffer_item, e, db)
 
-            except Exception as e:
-                raise AutoUpdateFailed(buffer_item, e, db)
-
-        # Clear this generation from the buffer
-        clear_update_buffer(generation=gen, label_filters=label_filters)
-        # Add newly buffered records
-        if buffering:
-            update_buffer += add_to_buffer
+    update_buffer = new_buffer
 
     # We're done performing buffered updates
     disable_mass_autoupdates()

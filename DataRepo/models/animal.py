@@ -160,7 +160,9 @@ class Animal(MaintainedModel, HierCachedModel, ElementLabel):
 
         # Get the last peakgroup for each tracer that has this label
         last_serum_peakgroup_ids = []
-        (tc_extra_args, tc_is_null_field) = create_is_null_field("msrun__sample__time_collected")
+        (tc_extra_args, tc_is_null_field) = create_is_null_field(
+            "msrun__sample__time_collected"
+        )
         (d_extra_args, d_is_null_field) = create_is_null_field("msrun__date")
         print(f"animal.py PeakGroup: tc Extra args: {tc_extra_args}")
         print(f"animal.py PeakGroup: d Extra args: {d_extra_args}")

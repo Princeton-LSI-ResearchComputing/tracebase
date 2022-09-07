@@ -66,7 +66,8 @@ class FCirc(MaintainedModel, HierCachedModel):
         """
         This checks to make sure that self.serum_sample is in fact a serum sample.
         """
-
+        # Cannot rely on auto-updates to have populated self.serum_sample.is_serum_sample, because they could be being
+        # buffered, e.g. during a mass update, so call the method here
         if not self.serum_sample._is_serum_sample:
             raise InvalidSerumSample(
                 f"The linked sample [{self.serum_sample}] must be a serum sample, not a "

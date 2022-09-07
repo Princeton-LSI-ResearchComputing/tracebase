@@ -418,9 +418,9 @@ class DataLoadingTests(TracebaseTestCase):
     @tag("serum")
     def test_sample_is_serum(self):
         serum = Sample.objects.get(name="serum-xz971")
-        self.assertTrue(serum._is_serum_sample())
+        self.assertTrue(serum.is_serum_sample)
         nonserum = Sample.objects.get(name="bat-xz969")
-        self.assertFalse(nonserum._is_serum_sample())
+        self.assertFalse(nonserum.is_serum_sample)
 
     def test_peak_groups_set_loaded(self):
 
