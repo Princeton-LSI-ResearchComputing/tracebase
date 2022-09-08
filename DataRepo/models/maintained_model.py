@@ -427,10 +427,13 @@ class MaintainedModel(Model):
             return
 
         # Update the fields that change due to the above change (if any)
-        self.update_decorated_fields()
+        num_update_fields = self.update_decorated_fields()
 
-        # Now save the updated values
-        super().save(*args, **kwargs)
+        # If there were update fields, save them (whether they changed or not - because some types of objects are not
+        # reliably equatable
+        if num_update_fields > 0:
+            # Now save the updated values
+            super().save(*args, **kwargs)
 
         # We don't need to check performing_mass_autoupdates, because propagating changes during buffered updates is
         # handled differently (in a breadth-first fashion) to mitigate repeated updates of the same parent record
@@ -474,6 +477,7 @@ class MaintainedModel(Model):
         print(
             f"update_decorated_fields called on record {self.__class__.__name__}.{self.id}."
         )
+        num_update_fields = 0
         for updater_dict in self.get_my_updaters():
             update_fld = updater_dict["update_field"]
 
@@ -484,14 +488,16 @@ class MaintainedModel(Model):
                 new_val = update_fun()
                 setattr(self, update_fld, new_val)
 
+                num_update_fields += 1
+
                 # Report the auto-update
-                # if settings.DEBUG:
                 if current_val is None or current_val == "":
                     current_val = "<empty>"
                 print(
                     f"Auto-updated field {self.__class__.__name__}.{update_fld} in record {self.pk} using "
                     f"{update_fun.__qualname__} ({update_fun.__name__}) from [{current_val}] to [{new_val}]."
                 )
+        return num_update_fields
 
     def call_dfs_related_updaters(self, updated=None):
         if not updated:
@@ -852,6 +858,7 @@ def perform_buffered_updates(label_filters=[], using=None):
                 new_buffer.append(buffer_item)
 
         except Exception as e:
+            disable_mass_autoupdates()
             raise AutoUpdateFailed(buffer_item, e, db)
 
     update_buffer = new_buffer

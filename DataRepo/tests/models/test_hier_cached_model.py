@@ -586,7 +586,7 @@ class BuildCachesTests(TracebaseTestCase):
 
     def test_cached_function_call(self):
         c = Animal
-        f = "last_serum_sample"
+        f = "tracers"
         a = Animal.objects.all().first()
         la = Animal.objects.all().last()
         disable_caching_retrievals()
@@ -606,7 +606,8 @@ class BuildCachesTests(TracebaseTestCase):
         lv, ls = get_cache(la, f)
 
         # Ensure the value was cached for both the first and last record
-        self.assertEqual(v, uv)
+        # Results are querysets, which never equate, but are equatable as lists
+        self.assertEqual(list(v), list(uv))
         self.assertTrue(s)
-        self.assertEqual(lv, uv)
+        self.assertEqual(list(lv), list(uv))
         self.assertTrue(ls)
