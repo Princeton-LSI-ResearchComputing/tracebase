@@ -1,7 +1,6 @@
 from collections import defaultdict
 from typing import Dict, List
 
-from django.conf import settings
 from django.db.models import Model
 from django.db.models.signals import m2m_changed
 
@@ -177,16 +176,15 @@ def maintained_model_relation(
 
         # Provide some debug feedback
         # if settings.DEBUG:
-        msg = f"Added maintained_model_relation decorator to class {class_name} in order to trigger updates to"
+        msg = f"Added maintained_model_relation decorator {class_name} to update"
         if update_label is not None:
-            msg += f" {update_label}-related"
-        msg += " maintained fields in"
+            msg += f" '{update_label}'-related"
         if parent_field_name is not None:
-            msg += f" parent records via: {class_name}.{parent_field_name}"
+            msg += f" parent: {class_name}.{parent_field_name}"
             if len(child_field_names) > 0:
-                msg += " and also"
+                msg += " and"
         if len(child_field_names) > 0:
-            msg += f"child record(s) via: [{', '.join(child_field_names)}]"
+            msg += f"children: [{', '.join([class_name + '.' + c for c in child_field_names])}]"
         print(f"{msg}.")
 
         return cls
@@ -203,26 +201,32 @@ def maintained_field_function(
 ):
     """
     This is a decorator factory for functions in a Model class that are identified to be used to update a supplied
-    field and field of any linked parent record (for when the record is changed).  This function returns a decorator
-    that takes the decorated function.  That function should return a value compatible with the field type supplied.
+    field and field of any linked parent/child record (for when the record is changed).  This function returns a
+    decorator that takes the decorated function.  That function should not use the value of another maintained field in
+    its calculation because the order of update is not guaranteed to occur in a favorable series.  It should return a
+    value compatible with the field type supplied.
+
     These decorated functions are identified by the MaintainedModel class, whose save and delete methods override the
     parent model and call the decorated functions to update field supplied to the factory function.  It also propagates
-    the updates to the linked dependent model's save methods (if the parent key is supplied), the assumption being that
-    a change to "this" record's maintained field necessitates a change to another maintained field in the linked parent
-    record.
+    the updates to the linked dependent model's save methods (if the parent and/or child field name is supplied), the
+    assumption being that a change to "this" record's maintained field necessitates a change to another maintained
+    field in the linked parent record.  parent and children field names should only be supplied if a change to "this"
+    record means that related foields in parent/child records will need to be recomputed.  There is no need to supply
+    parent/child field names if that is not the case.
 
     The generation input is an integer indicating the hierarchy level.  E.g. if there is no parent, `generation` should
     be 0.  Each subsequence generation should increment generation.  It is used to populate update_buffer when
     auto_updates is False, so that mass updates can be triggered after all data is loaded.
 
     Note that a class can have multiple fields to update and that those updates (according to their decorators) can
-    trigger subsequent updates in different "parent" records.  Records are always updated from the changed record,
-    upward.  If multiple update fields trigger updates to different parents, they are trigger in descending order of
-    their "generation" value.  However, this only becomes relevant when the global variable `auto_updates` is False,
-    mass database changes are made (buffering the auto-updates), and then auto-updates are explicitly triggered.
+    trigger subsequent updates in different "parent"/"child" records.  If multiple update fields trigger updates to
+    different parents, they are triggered in a depth-first fashion.  Child records are updated first, then parents.  If
+    a child links back to a parent, already-updated records prevent repeated/looped updates.  However, this only
+    becomes relevant when the global variable `auto_updates` is False, mass database changes are made (buffering the
+    auto-updates), and then auto-updates are explicitly triggered.
 
-    Note, if there are many decorated methods updating different fields, and all of the "parent" fields are the same,
-    only 1 of those decorators needs to set a parent field.
+    Note, if there are many decorated methods updating different fields, and all of the "parent"/"child" fields are the
+    same, only 1 of those decorators needs to set a parent field.
     """
 
     if update_field_name is None and (parent_field_name is None and generation != 0):
@@ -259,22 +263,19 @@ def maintained_field_function(
 
         # Provide some debug feedback
         # if settings.DEBUG:
-        msg = f"Added maintained_field_function decorator to function {fn.__qualname__} in order to"
+        msg = f"Added maintained_field_function decorator to function {fn.__qualname__} to"
         if update_field_name is not None:
-            msg += f" maintain {class_name}.{update_field_name}'s value"
+            msg += f" maintain {class_name}.{update_field_name}"
             if parent_field_name is not None or len(child_field_names) > 0:
-                msg += " and also"
+                msg += " and"
         if parent_field_name is not None:
-            msg += (
-                f" trigger updates of maintained fields in model reference by parent foreign key: {class_name}."
-                f"{parent_field_name}"
-            )
+            msg += f" trigger updates to parent: {class_name}." f"{parent_field_name}"
         if parent_field_name is not None and len(child_field_names) > 0:
             msg += " and "
-        if child_field_names is not None:
+        if child_field_names is not None and len(child_field_names) > 0:
             msg += (
-                f" trigger updates of maintained fields in model reference by child foreign keys: {class_name}.["
-                f"{', '.join(child_field_names)}]"
+                f" trigger updates to children: "
+                f"{', '.join([class_name + '.' + c for c in child_field_names])}"
             )
         print(f"{msg}.")
 
@@ -314,11 +315,11 @@ def m2m_propagation_handler(**kwargs):
 class MaintainedModel(Model):
     """
     This class maintains database field values for a django.models.Model class whose values can be derived using a
-    function.  If a record changes, the decorated function is used to update the field value.  It can also propagate
-    changes of records in linked models.  Every function in the derived class decorated with the
+    function.  If a record changes, the decorated function/class is used to update the field value.  It can also
+    propagate changes of records in linked models.  Every function in the derived class decorated with the
     `@maintained_field_function` decorator (defined above, outside this class) will be called and the associated field
     will be updated.  Only methods that take no arguments are supported.  This class overrides the class's save and
-    delete methods as triggers for the updates.
+    delete methods and uses m2m_changed signals as triggers for the updates.
     """
 
     # used to determine whether the fields have been validated
@@ -386,15 +387,14 @@ class MaintainedModel(Model):
                 try:
                     # Connect the m2m_propagation_handler to any m2m field change events
                     for m2m_field in self.__class__._meta.many_to_many:
+                        m2m_field_ref = getattr(self.__class__, m2m_field.name)
+                        through_model = getattr(m2m_field_ref, "through")
                         print(
-                            f"Adding propagation handler to {m2m_field} {getattr(m2m_field, 'name')} {getattr(self.__class__, getattr(m2m_field, 'name'))} {getattr(getattr(self.__class__, getattr(m2m_field, 'name')), 'through')}"
+                            f"Adding propagation handler to {self.__class__.__name__}.{m2m_field.name}.through"
                         )
                         m2m_changed.connect(
                             m2m_propagation_handler,
-                            sender=getattr(
-                                getattr(self.__class__, getattr(m2m_field, "name")),
-                                "through",
-                            ),
+                            sender=through_model,
                         )
                     # m2m_changed.connect(toppings_changed, sender=Pizza.toppings.through)
                 except AttributeError as ae:
@@ -472,7 +472,7 @@ class MaintainedModel(Model):
         generates its value.
         """
         print(
-            f"update_decorated_fields called on record {self.__class__.__name__}.{self.id}. Changes to {len(self.get_my_updaters())} updaters should follow... settings.DEBUG is {settings.DEBUG}."
+            f"update_decorated_fields called on record {self.__class__.__name__}.{self.id}."
         )
         for updater_dict in self.get_my_updaters():
             update_fld = updater_dict["update_field"]
@@ -490,11 +490,7 @@ class MaintainedModel(Model):
                     current_val = "<empty>"
                 print(
                     f"Auto-updated field {self.__class__.__name__}.{update_fld} in record {self.pk} using "
-                    f"{update_fun.__qualname__} ({update_fun.__name__}) from [{current_val}] to [{new_val}].  Actual value: {getattr(self, update_fld)}"
-                )
-            else:
-                print(
-                    f"update_decorated_fields of {self.__class__.__name__}.{self.pk}: update_field was None: [{updater_dict}]."
+                    f"{update_fun.__qualname__} ({update_fun.__name__}) from [{current_val}] to [{new_val}]."
                 )
 
     def call_dfs_related_updaters(self, updated=None):
@@ -523,7 +519,7 @@ class MaintainedModel(Model):
             parent_sig = f"{parent_inst.__class__.__name__}.{parent_inst.id}"
             if parent_sig not in updated:
                 print(
-                    f"My sig is {self.__class__.__name__}.{self.id} and I am triggering an update to my parent {parent_sig}"
+                    f"My sig is {self.__class__.__name__}.{self.id} & I am triggering an update to parent {parent_sig}"
                 )
                 # Don't let the save call propagate, because we cannot rely on it returning the updated list (because
                 # it could be overridden by another class that doesn't return it (at least, that's my guess as to why I
@@ -534,10 +530,7 @@ class MaintainedModel(Model):
                     f"Calling call_dfs_related_updaters from {parent_inst.__class__.__name__}.call_parent_updaters"
                 )
                 updated = parent_inst.call_dfs_related_updaters(updated=updated)
-            else:
-                print(
-                    f"My sig is {self.__class__.__name__}.{self.id} and my parent {parent_sig} has already been updated.  Updated contains: {', '.join(updated)}"
-                )
+
         return updated
 
     def get_parent_instances(self):
@@ -609,7 +602,7 @@ class MaintainedModel(Model):
             child_sig = f"{child_inst.__class__.__name__}.{child_inst.id}"
             if child_sig not in updated:
                 print(
-                    f"My sig is {self.__class__.__name__}.{self.id} and I am triggering an update to my child {child_sig}"
+                    f"My sig is {self.__class__.__name__}.{self.id} & I am triggering an update to child {child_sig}"
                 )
                 # Don't let the save call propagate, because we cannot rely on it returning the updated list (because
                 # it could be overridden by another class that doesn't return it (at least, that's my guess as to why I
