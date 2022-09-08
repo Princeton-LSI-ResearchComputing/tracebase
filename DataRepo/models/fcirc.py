@@ -99,8 +99,12 @@ class FCirc(MaintainedModel, HierCachedModel):
         """
 
         if self.last_peak_group_in_sample:
-            print(f"self.last_peak_group_in_sample ({self.last_peak_group_in_sample.id}) ==? self.last_peak_group_in_animal ({self.last_peak_group_in_animal.id}) -> {self.last_peak_group_in_sample == self.last_peak_group_in_animal}")
-            return self.last_peak_group_in_sample.id == self.last_peak_group_in_animal.id
+            print(
+                f"self.last_peak_group_in_sample ({self.last_peak_group_in_sample.id}) ==? self.last_peak_group_in_animal ({self.last_peak_group_in_animal.id}) -> {self.last_peak_group_in_sample == self.last_peak_group_in_animal}"
+            )
+            return (
+                self.last_peak_group_in_sample.id == self.last_peak_group_in_animal.id
+            )
         else:
             warnings.warn(
                 f"Serum sample {self.serum_sample} has no peak group for tracer {self.tracer}."

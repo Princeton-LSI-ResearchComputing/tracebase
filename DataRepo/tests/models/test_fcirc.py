@@ -1,18 +1,25 @@
-from datetime import datetime
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from django.conf import settings
 from django.core.management import call_command
 from django.test import override_settings, tag
 
-from DataRepo.models import Sample, Animal, MSRun, PeakGroupSet, PeakGroup, PeakGroupLabel, FCirc, Protocol
+from DataRepo.models import (
+    Animal,
+    FCirc,
+    MSRun,
+    PeakGroup,
+    PeakGroupLabel,
+    PeakGroupSet,
+    Protocol,
+    Sample,
+)
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
 @tag("multi_working")
 class FCircTests(TracebaseTestCase):
-
     def setUp(self):
         # Get an animal (assuming it has an infusate/tracers/etc)
         animal = Animal.objects.last()
@@ -27,7 +34,9 @@ class FCircTests(TracebaseTestCase):
         # Now create a new last serum sample (without any peak groups)
         tissue = lss.tissue
         tc = lss.time_collected + timedelta(seconds=1)
-        nlss = Sample.objects.create(animal=animal, name=lss.name + "_2", tissue=tissue, time_collected=tc)
+        nlss = Sample.objects.create(
+            animal=animal, name=lss.name + "_2", tissue=tissue, time_collected=tc
+        )
         print(f"Created new last serum sample: {nlss.name} in tissue: {tissue.name}")
         self.lss = lss
         self.newlss = nlss
@@ -104,18 +113,20 @@ class FCircTests(TracebaseTestCase):
                 msrun=msr,
                 peak_group_set=pgs,
             )
-            print(f"Added new peak group (id: {pg.id}) before compound: {tracer.compound.name} added")
+            print(
+                f"Added new peak group (id: {pg.id}) before compound: {tracer.compound.name} added"
+            )
             pg.compounds.add(tracer.compound)
             # This is the critical thing needed to make the assertions below do what they're expected to do.
             # pg.save()
-            print(f"Added new peak group (id: {pg.id}) for compound: {tracer.compound.name}")
+            print(
+                f"Added new peak group (id: {pg.id}) for compound: {tracer.compound.name}"
+            )
             for label in self.lss.animal.labels.all():
                 PeakGroupLabel.objects.create(peak_group=pg, element=label.element)
 
-        print(f"THERE ARE {Sample.objects.count()} SAMPLE RECORDS and {PeakGroup.objects.filter(name='lysine').count()} PEAKGROUP RECORDS")
         # Assert that the old last serum sample's is_last is now false
         for fco in self.lss.fcircs.all():
-            print(f"FCirc.{fco.id}.is_last_serum_peak_group() output = {fco.is_last_serum_peak_group()} and FCirc.{fco.id}.is_last = {fco.is_last}")
             # Assert that the method output is correct
             self.assertFalse(fco.is_last_serum_peak_group())
             # Assert that the field was updated
@@ -124,7 +135,9 @@ class FCircTests(TracebaseTestCase):
         # Create new FCirc records
         for tracer in self.lss.animal.infusate.tracers.all():
             for label in tracer.labels.all():
-                FCirc.objects.create(serum_sample=self.newlss, tracer=tracer, element=label.element)
+                FCirc.objects.create(
+                    serum_sample=self.newlss, tracer=tracer, element=label.element
+                )
 
         # Assert that the new last serum sample's is_last is true
         for fco in self.newlss.fcircs.all():
@@ -138,21 +151,25 @@ class FCircTests(TracebaseTestCase):
         We will do this by asserting that there's no function decorator for PeakGroup.  If there isn't, and
         test_new_tracer_peak_group_updates_all_is_last passes, then requirement(/test) 4 works.
         """
-        maint_fld_funcs = [x for x in PeakGroup.get_my_updaters() if x["update_function"] is not None]
+        maint_fld_funcs = [
+            x for x in PeakGroup.get_my_updaters() if x["update_function"] is not None
+        ]
         self.assertEqual(
             0,
             len(maint_fld_funcs),
             msg=(
                 "No maintained_field_function decorators means that propagation works (if "
                 "test_new_tracer_peak_group_updates_all_is_last passes)"
-            )
+            ),
         )
-        maint_mdl_rltns = [x for x in PeakGroup.get_my_updaters() if x["update_function"] is None]
+        maint_mdl_rltns = [
+            x for x in PeakGroup.get_my_updaters() if x["update_function"] is None
+        ]
         self.assertEqual(
             1,
             len(maint_mdl_rltns),
             msg=(
                 "A class maintained_model_relation decorator implies that propagation works (if "
                 "test_new_tracer_peak_group_updates_all_is_last passes)"
-            )
+            ),
         )
