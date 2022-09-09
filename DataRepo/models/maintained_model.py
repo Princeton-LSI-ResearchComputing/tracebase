@@ -1,5 +1,6 @@
 from collections import defaultdict
 from typing import Dict, List
+import warnings
 
 from django.conf import settings
 from django.db.models import Model
@@ -440,6 +441,7 @@ class MaintainedModel(Model):
                 "violates foreign key constraint" in str(uc)
                 or "duplicate key value violates unique constraint" in str(uc)
             ):
+                warnings.warn(f"Ignoring exception {uc.__class__.__name__}: {str(uc)}")
                 if settings.DEBUG:
                     print(f"Skipping sysnonymous auto-update of {self.__class__.__name__}.{self.id}")
             else:
