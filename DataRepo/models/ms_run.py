@@ -38,6 +38,12 @@ class MSRun(HierCachedModel, MaintainedModel):
     # Don't allow a Sample to be deleted if an MSRun links to it
     sample = models.ForeignKey(
         to="DataRepo.Sample",
+
+        #
+        # PR REVIEW NOTE: Seems that this should probably be CASCADE. If you delete a sample, you should delete its
+        #                 msruns...
+        #
+
         on_delete=models.RESTRICT,
         related_name="msruns",
         help_text="The sample that was run on the mass spectrometer.",

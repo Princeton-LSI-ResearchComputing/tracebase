@@ -122,6 +122,7 @@ class FCirc(MaintainedModel, HierCachedModel):
         """
         Retrieve the latest PeakGroup for this serum sample and tracer.
         """
+        print(f"Retrieving tracer compound: {self.tracer.compound.name} from serum sample {self.serum_sample.name}'s last peak groups numbering {self.serum_sample.last_tracer_peak_groups.count()}.")
         peakgroups = self.serum_sample.last_tracer_peak_groups.filter(
             compounds__exact=self.tracer.compound
         )

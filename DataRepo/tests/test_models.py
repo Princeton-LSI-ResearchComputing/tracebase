@@ -487,11 +487,11 @@ class DataLoadingTests(TracebaseTestCase):
         last_serum_sample = self.MAIN_SERUM_ANIMAL.last_serum_sample
         # pretend the time_collected did not exist
         last_serum_sample.time_collected = None
-        last_serum_sample.save()
-        # so if we refresh, with no cached final serum values...
-        refeshed_animal = Animal.objects.get(name="971")
         with self.assertWarns(UserWarning):
-            last_serum_sample = refeshed_animal.last_serum_sample
+            # The auto-update of the MaintainedField generates the warning
+            last_serum_sample.save()
+            # refeshed_animal = Animal.objects.get(name="971")
+            # last_serum_sample = refeshed_animal.last_serum_sample
 
     def test_restricted_animal_treatment_deletion(self):
         treatment = Animal.objects.get(name="exp024f_M2").treatment
@@ -832,7 +832,9 @@ class PropertyTests(TracebaseTestCase):
             peak_group__compounds__id=animal.infusate.tracers.first().compound.id,
         )
         self.assertEqual(peakdata.count(), 0)
-        animal.last_serum_sample.delete()
+        # Sample->MSRun is a restricted relationship, so the MSRuns must be deleted first
+        print(f"THIS SHOULD BE 0: {MSRun.objects.filter(sample__name=last_serum_sample.name).count()}")
+        last_serum_sample.delete()
         # with the sample deleted, there are no more serum records...
         # so if we refresh, with no cached final serum values...
         refeshed_animal = Animal.objects.get(name="971")
@@ -1250,6 +1252,7 @@ class PropertyTests(TracebaseTestCase):
         serum_sample_msrun = MSRun.objects.filter(sample__name="serum-xz971").get()
         serum_sample_msrun.delete()
         serum_sample = Sample.objects.filter(name="serum-xz971").get()
+        print(f"THIS SHOULD BE 0: {serum_sample.msruns.count()}")
         serum_sample.delete()
 
         with self.assertWarns(UserWarning):

@@ -159,8 +159,6 @@ class AccuCorDataLoader:
         """
         basic sanity/integrity checks for the data inputs
         """
-        disable_caching_updates()
-
         self.validate_dataframes()
 
         # cross validate peak_groups/compounds in database
@@ -169,8 +167,6 @@ class AccuCorDataLoader:
         self.validate_researcher()
 
         self.validate_compounds()
-
-        enable_caching_updates()
 
     def validate_researcher(self):
         # For file validation, use researcher "anonymous"
@@ -540,8 +536,6 @@ class AccuCorDataLoader:
         """
         extract and store the data for MsRun PeakGroup and PeakData
         """
-        disable_autoupdates()
-        disable_caching_updates()
         animals_to_uncache = []
 
         protocol = self.retrieve_or_create_protocol()
@@ -819,18 +813,7 @@ class AccuCorDataLoader:
 
                             peak_data_label.save(using=self.db)
 
-        if self.debug:
-            # If we're in debug mode, we need to clear the update buffer so that the next call doesn't make auto-
-            # updates on non-existent (or incorrect) records
-            clear_update_buffer()
-            # And before we leave, we must re-enable auto-updates
-            enable_autoupdates()
-
         assert not self.debug, "Debugging..."
-
-        perform_buffered_updates(using=self.db)
-        enable_autoupdates()
-        enable_caching_updates()
 
         if settings.DEBUG:
             print("Expiring affected caches...")
@@ -995,9 +978,34 @@ class AccuCorDataLoader:
 
     def load_accucor_data(self):
 
-        with transaction.atomic():
-            self.validate_data()
-            self.load_data()
+        disable_autoupdates()
+        disable_caching_updates()
+
+        try:
+            with transaction.atomic():
+                self.validate_data()
+                self.load_data()
+        except AssertionError as e:
+            if "Debugging..." in str(e):
+                # If we're in debug mode, we need to clear the update buffer so that the next call doesn't make
+                # auto-updates on non-existent (or incorrect) records
+                clear_update_buffer()
+
+                # And before we leave, we must re-enable auto-updates
+                enable_autoupdates()
+
+            raise e
+        
+        # This cannot be in the atomic block because it needs to execute queries that generate the error:
+        # An error occurred in the current transaction. You can't execute queries until the end of the 'atomic' block.
+        # It comes from trying to trigger updates in many-related records, which uses `.count()` (to see if there exist
+        # records to propagate changes), `.first()` to see if the related model is a MaintainedModel (inside an
+        # isinstance call), and `.all()` to cycle through the related records
+        if not self.debug:
+            perform_buffered_updates(using=self.db)
+
+        enable_autoupdates()
+        enable_caching_updates()
 
 
 class IsotopeObservationParsingError(Exception):

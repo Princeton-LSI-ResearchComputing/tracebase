@@ -1,8 +1,11 @@
 from collections import defaultdict
 from typing import Dict, List
 
+from django.conf import settings
 from django.db.models import Model
 from django.db.models.signals import m2m_changed
+from django.db.utils import IntegrityError
+from psycopg2.errors import ForeignKeyViolation
 
 auto_updates = True
 update_buffer = []
@@ -427,13 +430,20 @@ class MaintainedModel(Model):
             return
 
         # Update the fields that change due to the above change (if any)
-        num_update_fields = self.update_decorated_fields()
+        self.update_decorated_fields()
 
-        # If there were update fields, save them (whether they changed or not - because some types of objects are not
-        # reliably equatable
-        if num_update_fields > 0:
-            # Now save the updated values
+        # If the auto-update resulted in no change, it can produce an error about unique constraints - ignore it
+        try:
             super().save(*args, **kwargs)
+        except (IntegrityError, ForeignKeyViolation) as uc:
+            if (
+                "violates foreign key constraint" in str(uc)
+                or "duplicate key value violates unique constraint" in str(uc)
+            ):
+                if settings.DEBUG:
+                    print(f"Skipping sysnonymous auto-update of {self.__class__.__name__}.{self.id}")
+            else:
+                raise uc
 
         # We don't need to check performing_mass_autoupdates, because propagating changes during buffered updates is
         # handled differently (in a breadth-first fashion) to mitigate repeated updates of the same parent record
@@ -477,7 +487,6 @@ class MaintainedModel(Model):
         print(
             f"update_decorated_fields called on record {self.__class__.__name__}.{self.id}."
         )
-        num_update_fields = 0
         for updater_dict in self.get_my_updaters():
             update_fld = updater_dict["update_field"]
 
@@ -488,8 +497,6 @@ class MaintainedModel(Model):
                 new_val = update_fun()
                 setattr(self, update_fld, new_val)
 
-                num_update_fields += 1
-
                 # Report the auto-update
                 if current_val is None or current_val == "":
                     current_val = "<empty>"
@@ -497,7 +504,6 @@ class MaintainedModel(Model):
                     f"Auto-updated field {self.__class__.__name__}.{update_fld} in record {self.pk} using "
                     f"{update_fun.__qualname__} ({update_fun.__name__}) from [{current_val}] to [{new_val}]."
                 )
-        return num_update_fields
 
     def call_dfs_related_updaters(self, updated=None):
         if not updated:
@@ -566,6 +572,9 @@ class MaintainedModel(Model):
 
                     # Make sure that the (direct) parnet (or M:M related parent) *isa* MaintainedModel
                     if isinstance(tmp_parent_inst, MaintainedModel):
+                        print(
+                            f"Looking at parent of {self.__class__.__name__}.{self.id}: {parent_fld}.{tmp_parent_inst.pk}"
+                        )
 
                         parent_inst = tmp_parent_inst
                         if parent_inst not in parents:
@@ -582,6 +591,9 @@ class MaintainedModel(Model):
                         ):
 
                             for mm_parent_inst in tmp_parent_inst.all():
+                                print(
+                                    f"Looking at parent of {self.__class__.__name__}.{self.id}: {parent_fld}.{mm_parent_inst.pk}"
+                                )
                                 if mm_parent_inst not in parents:
                                     parents.append(mm_parent_inst)
 
@@ -642,9 +654,6 @@ class MaintainedModel(Model):
         print(f"{self.__class__.__name__} has {len(updaters)} updaters.")
         for updater_dict in updaters:
             child_flds = updater_dict["child_fields"]
-            print(
-                f"Looking at children of {self.__class__.__name__}.{self.id}: {child_flds}"
-            )
 
             # If there is a parent that should update based on this change
             for child_fld in child_flds:
@@ -657,6 +666,9 @@ class MaintainedModel(Model):
 
                     # Make sure that the (direct) parnet (or M:M related parent) *isa* MaintainedModel
                     if isinstance(tmp_child_inst, MaintainedModel):
+                        print(
+                            f"Looking at children of {self.__class__.__name__}.{self.id}: {child_fld}.{tmp_child_inst.pk}"
+                        )
 
                         child_inst = tmp_child_inst
                         if child_inst not in children:
@@ -673,6 +685,9 @@ class MaintainedModel(Model):
                         ):
 
                             for mm_child_inst in tmp_child_inst.all():
+                                print(
+                                    f"Looking at child of {self.__class__.__name__}.{self.id}: {child_fld}.{mm_child_inst.pk}"
+                                )
                                 if mm_child_inst not in children:
                                     children.append(mm_child_inst)
 
@@ -712,7 +727,9 @@ class MaintainedModel(Model):
         This is called when MaintainedModel.save is called (if auto_updates is False), so that maintained fields can be
         updated after loading code finishes (by calling the global method: perform_buffered_updates)
         """
-        if buffering:
+        # Do not buffer if it's already buffered.  Note, this class isn't designed to support auto-updates in a
+        # sepecific order.  All auto-update functions should use non-auto-update fields.
+        if buffering and self not in update_buffer:
             update_buffer.append(self)
 
     def buffer_parent_update(self):

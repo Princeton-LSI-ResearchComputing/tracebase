@@ -110,7 +110,7 @@ class Animal(MaintainedModel, HierCachedModel, ElementLabel):
     @cached_function
     def tracers(self):
         if self.infusate.tracers.count() == 0:
-            warnings.warn(f"Animal [{self.animal}] has no tracers.")
+            warnings.warn(f"Animal [{self.name}] has no tracers.")
         return self.infusate.tracers.all()
 
     @maintained_field_function(

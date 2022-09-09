@@ -45,7 +45,11 @@ def create_infusate_records():
     InfusateTracer.objects.create(infusate=io2, tracer=glu_t, concentration=3.0)
     InfusateTracer.objects.create(infusate=io2, tracer=c16_t, concentration=4.0)
 
-    return io.id, io2.id
+    print(f"OUT OF {Infusate.objects.count()} INFUSATE RECORDS...")
+    print(f"TEST INFUSATE 1 NAME: {io.name}")
+    print(f"TEST INFUSATE 2 NAME: {io2.name}")
+
+    return io, io2
 
 
 @tag("multi_working")
@@ -58,15 +62,13 @@ class InfusateTests(TracebaseTestCase):
         infusate.full_clean()
 
     def test_infusate_name_method(self):
-        infusate = Infusate.objects.get(id__exact=self.INFUSATE1)
         self.assertEqual(
             "ti {C16:0-(5,6-13C2,17O2)[2];glucose-(2,3-13C2,4-17O1)[1]}",
-            infusate._name(),
+            self.INFUSATE1._name(),
         )
-        infusate2 = Infusate.objects.get(id__exact=self.INFUSATE2)
         self.assertEqual(
             "C16:0-(5,6-13C2,17O2)[4];glucose-(2,3-13C2,4-17O1)[3]",
-            infusate2._name(),
+            self.INFUSATE2._name(),
         )
 
     def test_name_not_settable(self):
@@ -91,7 +93,7 @@ class InfusateTests(TracebaseTestCase):
         """
         self.assertEqual(
             "C16:0-(5,6-13C2,17O2)[4];glucose-(2,3-13C2,4-17O1)[3]",
-            Infusate.objects.get(id=self.INFUSATE2).name,
+            self.INFUSATE2.name,
         )
         # Throws DoesNotExist exception if not found
         Infusate.objects.get(
@@ -113,10 +115,14 @@ class InfusateTests(TracebaseTestCase):
         """
         tl = TracerLabel.objects.get(name="2,3-13C2")
         tl.delete()
+        # get fresh objects
+        i1 = Infusate.objects.get(id__exact=self.INFUSATE1.id)
+        i2 = Infusate.objects.get(id__exact=self.INFUSATE2.id)
+        # The deletion affects the tracer name (which should have been autoupdated)
         self.assertEqual("glucose-(4-17O1)", tl.tracer.name)
-        # These queries will raise an exception if the name was not auto-updated
-        Tracer.objects.get(name="glucose-(4-17O1)")
-        Infusate.objects.get(name="C16:0-(5,6-13C2,17O2)[4];glucose-(4-17O1)[3]")
+        # The deletion also affects the names of both infusates that had that tracer
+        self.assertEqual("ti {C16:0-(5,6-13C2,17O2)[2];glucose-(4-17O1)[1]}", i1.name)
+        self.assertEqual("C16:0-(5,6-13C2,17O2)[4];glucose-(4-17O1)[3]", i2.name)
 
 
 @tag("multi_working")
