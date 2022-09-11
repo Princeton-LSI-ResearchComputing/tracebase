@@ -1,4 +1,5 @@
 from django.test import tag
+from django.forms.models import model_to_dict
 
 from DataRepo.management.commands.rebuild_maintained_fields import (
     rebuild_maintained_fields,
@@ -82,6 +83,9 @@ class InfusateTests(TracebaseTestCase):
         """
         Make sure that the name field was set automatically - triggered by the InfusateTracer record creation.
         """
+        print("All Infusate records in test_name_autoupdated:")
+        for ir in Infusate.objects.all():
+            print(model_to_dict(ir))
         # Throws DoesNotExist exception if not found
         Infusate.objects.get(
             name="ti {C16:0-(5,6-13C2,17O2)[2];glucose-(2,3-13C2,4-17O1)[1]}"
@@ -91,6 +95,12 @@ class InfusateTests(TracebaseTestCase):
         """
         Make sure that the name field was set automatically - triggered by the InfusateTracer record creation.
         """
+        print("All Infusate records in test test_name_none:")
+        for ir in Infusate.objects.all():
+            print(model_to_dict(ir))
+        print("All InfusateTracer records in test test_name_none:")
+        for itr in InfusateTracer.objects.all():
+            print(model_to_dict(itr))
         self.assertEqual(
             "C16:0-(5,6-13C2,17O2)[4];glucose-(2,3-13C2,4-17O1)[3]",
             self.INFUSATE2.name,
@@ -104,6 +114,9 @@ class InfusateTests(TracebaseTestCase):
         """
         Make sure that the name field was set automatically - triggered by the Infusate record creation.
         """
+        print("All Infusate records in test_name_self_autoupdated:")
+        for ir in Infusate.objects.all():
+            print(model_to_dict(ir))
         ti3 = Infusate.objects.create(tracer_group_name="ti3")
         self.assertEqual("ti3", ti3.name)
         # Throws DoesNotExist exception if not found
@@ -113,6 +126,9 @@ class InfusateTests(TracebaseTestCase):
         """
         Make sure parent records are updated when a child record is deleted
         """
+        print("All TracerLabel records:")
+        for tlr in TracerLabel.objects.all():
+            print(model_to_dict(tlr))
         tl = TracerLabel.objects.get(name="2,3-13C2")
         tl.delete()
         # get fresh objects

@@ -3,6 +3,7 @@ from datetime import date, timedelta
 
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.forms.models import model_to_dict
 
 from DataRepo.models.hier_cached_model import HierCachedModel, cached_function
 from DataRepo.models.maintained_model import (
@@ -76,6 +77,10 @@ class Sample(MaintainedModel, HierCachedModel):
     )
     def _is_serum_sample(self):
         """returns True if the sample is flagged as a "serum" sample"""
+        try:
+            iss = self.tissue.is_serum()
+        except Exception as e:
+            print(f"ERROR: Could not determine tissue serum status in sample: {model_to_dict(self)}")
         return self.tissue.is_serum()
 
     @property  # type: ignore

@@ -42,7 +42,11 @@ class MSRun(HierCachedModel, MaintainedModel):
         #
         # PR REVIEW NOTE: Seems that this should probably be CASCADE. If you delete a sample, you should delete its
         #                 msruns...
-        #
+        #                 Changing this to CASCADE revealed a bug in update_decorated_fields.  It complained "Sample
+        #                 matching query does not exist." when it tried to set `current_val` of the related Animal
+        #                 record's last_serum_sample. I was trying to delete that record, which triggered an update of
+        #                 the Animal last_serum_sample field - as it should.  I was able to get around that by catching
+        #                 and ignoring the error. But changing it back to restrict still yields the Restricted error.
 
         on_delete=models.RESTRICT,
         related_name="msruns",

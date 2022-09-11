@@ -471,7 +471,7 @@ class ViewTests(TracebaseTestCase):
                                 "pos": "",
                                 "ncmp": "iexact",
                                 "static": "",
-                                "fld": "labeled_element",
+                                "fld": "labels__element",
                                 "val": "",
                             }
                         ],
@@ -513,7 +513,7 @@ class ViewTests(TracebaseTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "DataRepo/search/query.html")
         self.assertEqual(len(response.context["res"]), qs.count())
-        self.assertEqual(response.context["qry"], qry)
+        self.assertEqual(qry, response.context["qry"])
 
     @tag("multi_broken")
     def test_search_advanced_invalid(self):
@@ -529,7 +529,7 @@ class ViewTests(TracebaseTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "DataRepo/search/query.html")
         self.assertEqual(len(response.context["res"]), 0)
-        self.assertEqual(response.context["qry"], qry)
+        self.assertEqual(qry, response.context["qry"])
 
     @tag("multi_working")
     def test_search_advanced_tsv(self):

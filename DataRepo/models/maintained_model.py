@@ -464,6 +464,7 @@ class MaintainedModel(Model):
         # Custom argument: propagate - Whether to propagate updates to related model objects - default True
         propagate = kwargs.pop("propagate", True)
 
+        print(f"Deleting {self.__class__.__name__}.{self.id}")
         # Delete the record triggering this update
         super().delete(*args, **kwargs)  # Call the "real" delete() method.
 
@@ -495,7 +496,11 @@ class MaintainedModel(Model):
             # If there is a maintained field(s) in this model
             if update_fld is not None:
                 update_fun = getattr(self, updater_dict["update_function"])
-                current_val = getattr(self, update_fld)
+                try:
+                    current_val = getattr(self, update_fld)
+                except Exception as e:
+                    warnings.warn(f"Unknown error getting current value: [{str(e)}].  Possibly due to this being triggered by a deleted record that is linked in a related model's maintained field.")
+                    current_val = "<error>"
                 new_val = update_fun()
                 setattr(self, update_fld, new_val)
 
@@ -872,7 +877,7 @@ def perform_buffered_updates(label_filters=[], using=None):
                 )
                 updated = buffer_item.call_dfs_related_updaters(updated=updated)
 
-            elif buffer_item not in new_buffer:
+            elif key not in updated and buffer_item not in new_buffer:
 
                 new_buffer.append(buffer_item)
 

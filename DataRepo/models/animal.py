@@ -99,9 +99,9 @@ class Animal(MaintainedModel, HierCachedModel, ElementLabel):
     )
     last_serum_sample = models.ForeignKey(
         to="DataRepo.Sample",
-        on_delete=models.CASCADE,
         null=True,
         blank=True,
+        on_delete=models.SET_NULL,
         related_name="animals",
         help_text="Automatically maintained field. Shortcut to the last serum sample.",
     )

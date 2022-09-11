@@ -1,6 +1,7 @@
 import warnings
 
 from django.db import models
+from django.forms.models import model_to_dict
 
 from DataRepo.models.element_label import ElementLabel
 from DataRepo.models.hier_cached_model import HierCachedModel, cached_function
@@ -122,7 +123,7 @@ class FCirc(MaintainedModel, HierCachedModel):
         """
         Retrieve the latest PeakGroup for this serum sample and tracer.
         """
-        print(f"Retrieving tracer compound: {self.tracer.compound.name} from serum sample {self.serum_sample.name}'s last peak groups numbering {self.serum_sample.last_tracer_peak_groups.count()}.")
+        print(f"Retrieving tracer compound from THIS rec: {model_to_dict(self)} from serum sample {self.serum_sample.name}'s last peak groups numbering {self.serum_sample.last_tracer_peak_groups.count()}.")
         peakgroups = self.serum_sample.last_tracer_peak_groups.filter(
             compounds__exact=self.tracer.compound
         )
