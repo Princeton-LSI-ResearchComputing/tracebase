@@ -1,6 +1,6 @@
+import warnings
 from collections import defaultdict
 from typing import Dict, List
-import warnings
 
 from django.conf import settings
 from django.db.models import Model
@@ -300,20 +300,24 @@ def m2m_propagation_handler(**kwargs):
     can propagate the changes.
     """
     obj = kwargs.pop("instance", None)
-    frm_mdl = obj.__class__
     act = kwargs.pop("action", None)
+
     # TODO: Add controls to the call of obj.call_dfs_related_updaters() so that it is only called when auto_updates and
     #       propagate are true.  See MaintainedModel.save().  In some cases, based on the value of reverse, the
     #       "to model" object may need to be called instead.
+    # frm_mdl = obj.__class__
     # to_mdl = kwargs.pop("model", None)
     # frm_id = obj.pk
     # rev = kwargs.pop("reverse", None)
     # db = kwargs.pop("using", None)
     # to_id = kwargs.pop("pk_set", None)
-    if act.startswith("post_"):
-        print(f"Propagating changes made to record {frm_mdl.__name__}.{obj.id}")
-        if isinstance(obj, MaintainedModel):
-            obj.call_dfs_related_updaters()
+
+    # I do not need a "propagate" argument here like in save() and delete() to support not propagating during
+    # perform_buffered_updates because none of the maintained_field_functions currently use the .add() method and even
+    # if any did, I'm not sure triggering updates based on those would be necessary, because it's already propagating
+    # due to preform_buffered_updates having been called.  Regardless, it's not an issue.
+    if act.startswith("post_") and isinstance(obj, MaintainedModel) and auto_updates:
+        obj.call_dfs_related_updaters()
 
 
 class MaintainedModel(Model):
@@ -364,9 +368,12 @@ class MaintainedModel(Model):
                 ]
             )
             if decorator_signature not in self.maintained_model_initialized:
-                print(
-                    f"Validating {self.__class__.__name__} updater info: {updater_dict}"
-                )
+
+                if settings.DEBUG:
+                    print(
+                        f"Validating {self.__class__.__name__} updater: {updater_dict}"
+                    )
+
                 self.maintained_model_initialized[decorator_signature] = True
                 # Now we can validate the fields
                 flds = {}
@@ -393,9 +400,12 @@ class MaintainedModel(Model):
                     for m2m_field in self.__class__._meta.many_to_many:
                         m2m_field_ref = getattr(self.__class__, m2m_field.name)
                         through_model = getattr(m2m_field_ref, "through")
-                        print(
-                            f"Adding propagation handler to {self.__class__.__name__}.{m2m_field.name}.through"
-                        )
+
+                        if settings.DEBUG:
+                            print(
+                                f"Adding propagation handler to {self.__class__.__name__}.{m2m_field.name}.through"
+                            )
+
                         m2m_changed.connect(
                             m2m_propagation_handler,
                             sender=through_model,
@@ -404,10 +414,7 @@ class MaintainedModel(Model):
                 except AttributeError as ae:
                     if "has no attribute 'many_to_many'" not in str(ae):
                         raise ae
-                    else:
-                        print(
-                            f"No propagation handler needed for model {self.__class__.__name__}"
-                        )
+                    # Else - no propagation handler needed
 
         super().__init__(*args, **kwargs)
 
@@ -433,26 +440,23 @@ class MaintainedModel(Model):
         # Update the fields that change due to the above change (if any)
         self.update_decorated_fields()
 
-        # If the auto-update resulted in no change, it can produce an error about unique constraints - ignore it
+        # If the auto-update resulted in no change, it can produce an error about unique constraints - just skip it
         try:
             super().save(*args, **kwargs)
         except (IntegrityError, ForeignKeyViolation) as uc:
-            if (
-                "violates foreign key constraint" in str(uc)
-                or "duplicate key value violates unique constraint" in str(uc)
-            ):
-                warnings.warn(f"Ignoring exception {uc.__class__.__name__}: {str(uc)}")
-                if settings.DEBUG:
-                    print(f"Skipping sysnonymous auto-update of {self.__class__.__name__}.{self.id}")
+            if "violates foreign key constraint" in str(
+                uc
+            ) or "duplicate key value violates unique constraint" in str(uc):
+                warnings.warn(
+                    f"Ignoring {uc.__class__.__name__} exception during auto-update of {self.__class__.__name__}."
+                    f"{self.id}: [{str(uc)}]."
+                )
             else:
                 raise uc
 
         # We don't need to check performing_mass_autoupdates, because propagating changes during buffered updates is
         # handled differently (in a breadth-first fashion) to mitigate repeated updates of the same parent record
         if auto_updates and propagate:
-            print(
-                f"Calling call_dfs_related_updaters from {self.__class__.__name__}.save"
-            )
             # Percolate changes up to the parents (if any)
             self.call_dfs_related_updaters()
 
@@ -464,7 +468,6 @@ class MaintainedModel(Model):
         # Custom argument: propagate - Whether to propagate updates to related model objects - default True
         propagate = kwargs.pop("propagate", True)
 
-        print(f"Deleting {self.__class__.__name__}.{self.id}")
         # Delete the record triggering this update
         super().delete(*args, **kwargs)  # Call the "real" delete() method.
 
@@ -476,9 +479,6 @@ class MaintainedModel(Model):
             return
 
         if propagate:
-            print(
-                f"Calling call_dfs_related_updaters from {self.__class__.__name__}.delete"
-            )
             # Percolate changes up to the parents (if any)
             self.call_dfs_related_updaters()
 
@@ -487,9 +487,6 @@ class MaintainedModel(Model):
         Updates every field identified in each maintained_field_function decorator using the decorated function that
         generates its value.
         """
-        print(
-            f"update_decorated_fields called on record {self.__class__.__name__}.{self.id}."
-        )
         for updater_dict in self.get_my_updaters():
             update_fld = updater_dict["update_field"]
 
@@ -499,7 +496,10 @@ class MaintainedModel(Model):
                 try:
                     current_val = getattr(self, update_fld)
                 except Exception as e:
-                    warnings.warn(f"Unknown error getting current value: [{str(e)}].  Possibly due to this being triggered by a deleted record that is linked in a related model's maintained field.")
+                    warnings.warn(
+                        f"Unknown error getting current value: [{str(e)}].  Possibly due to this being triggered by a "
+                        "deleted record that is linked in a related model's maintained field."
+                    )
                     current_val = "<error>"
                 new_val = update_fun()
                 setattr(self, update_fld, new_val)
@@ -508,16 +508,13 @@ class MaintainedModel(Model):
                 if current_val is None or current_val == "":
                     current_val = "<empty>"
                 print(
-                    f"Auto-updated field {self.__class__.__name__}.{update_fld} in record {self.pk} using "
-                    f"{update_fun.__qualname__} ({update_fun.__name__}) from [{current_val}] to [{new_val}]."
+                    f"Auto-updated {self.__class__.__name__}.{update_fld} in {self.__class__.__name__}.{self.pk} "
+                    f"using {update_fun.__qualname__} from [{current_val}] to [{new_val}]."
                 )
 
     def call_dfs_related_updaters(self, updated=None):
         if not updated:
             updated = []
-        print(
-            f"call_dfs_related_updaters called and updated already contains: [{updated}]."
-        )
         # Assume I've been called after I've been updated, so app myself to the updated list
         self_sig = f"{self.__class__.__name__}.{self.id}"
         updated.append(self_sig)
@@ -537,17 +534,19 @@ class MaintainedModel(Model):
             # update we're about to trigger
             parent_sig = f"{parent_inst.__class__.__name__}.{parent_inst.id}"
             if parent_sig not in updated:
-                print(
-                    f"My sig is {self.__class__.__name__}.{self.id} & I am triggering an update to parent {parent_sig}"
-                )
+
+                if settings.DEBUG:
+                    self_sig = f"{self.__class__.__name__}.{self.pk}"
+                    print(
+                        f"Propagating change from child {self_sig} to parent {parent_sig}"
+                    )
+
                 # Don't let the save call propagate, because we cannot rely on it returning the updated list (because
                 # it could be overridden by another class that doesn't return it (at least, that's my guess as to why I
                 # was getting back None when I tried it.)
                 parent_inst.save(propagate=False)
                 # Instead, we will propagate manually:
-                print(
-                    f"Calling call_dfs_related_updaters from {parent_inst.__class__.__name__}.call_parent_updaters"
-                )
+                self_sig = f"{self.__class__.__name__}.{self.pk}"
                 updated = parent_inst.call_dfs_related_updaters(updated=updated)
 
         return updated
@@ -579,9 +578,6 @@ class MaintainedModel(Model):
 
                     # Make sure that the (direct) parnet (or M:M related parent) *isa* MaintainedModel
                     if isinstance(tmp_parent_inst, MaintainedModel):
-                        print(
-                            f"Looking at parent of {self.__class__.__name__}.{self.id}: {parent_fld}.{tmp_parent_inst.pk}"
-                        )
 
                         parent_inst = tmp_parent_inst
                         if parent_inst not in parents:
@@ -598,9 +594,7 @@ class MaintainedModel(Model):
                         ):
 
                             for mm_parent_inst in tmp_parent_inst.all():
-                                print(
-                                    f"Looking at parent of {self.__class__.__name__}.{self.id}: {parent_fld}.{mm_parent_inst.pk}"
-                                )
+
                                 if mm_parent_inst not in parents:
                                     parents.append(mm_parent_inst)
 
@@ -618,30 +612,27 @@ class MaintainedModel(Model):
         if that child was the object that triggered its update, to avoid looped repeated updates.
         """
         children = self.get_child_instances()
-        print(
-            f"call_child_updaters called and children contains [{len(children)}] child references."
-        )
         for child_inst in children:
+
             # If the current instance's update was triggered - and was triggered by the same child instance whose
             # update we're about to trigger
             child_sig = f"{child_inst.__class__.__name__}.{child_inst.id}"
             if child_sig not in updated:
-                print(
-                    f"My sig is {self.__class__.__name__}.{self.id} & I am triggering an update to child {child_sig}"
-                )
+
+                if settings.DEBUG:
+                    self_sig = f"{self.__class__.__name__}.{self.pk}"
+                    print(
+                        f"Propagating change from parent {self_sig} to child {child_sig}"
+                    )
+
                 # Don't let the save call propagate, because we cannot rely on it returning the updated list (because
                 # it could be overridden by another class that doesn't return it (at least, that's my guess as to why I
                 # was getting back None when I tried it.)
                 child_inst.save(propagate=False)
+
                 # Instead, we will propagate manually:
-                print(
-                    f"Calling call_dfs_related_updaters from {child_inst.__class__.__name__}.call_child_updaters"
-                )
                 updated = child_inst.call_dfs_related_updaters(updated=updated)
-            else:
-                print(
-                    f"My sig is {self.__class__.__name__}.{self.id} and my child {child_sig} has already been updated"
-                )
+
         return updated
 
     def get_child_instances(self):
@@ -658,7 +649,6 @@ class MaintainedModel(Model):
         """
         children = []
         updaters = self.get_my_updaters()
-        print(f"{self.__class__.__name__} has {len(updaters)} updaters.")
         for updater_dict in updaters:
             child_flds = updater_dict["child_fields"]
 
@@ -673,9 +663,6 @@ class MaintainedModel(Model):
 
                     # Make sure that the (direct) parnet (or M:M related parent) *isa* MaintainedModel
                     if isinstance(tmp_child_inst, MaintainedModel):
-                        print(
-                            f"Looking at children of {self.__class__.__name__}.{self.id}: {child_fld}.{tmp_child_inst.pk}"
-                        )
 
                         child_inst = tmp_child_inst
                         if child_inst not in children:
@@ -692,9 +679,7 @@ class MaintainedModel(Model):
                         ):
 
                             for mm_child_inst in tmp_child_inst.all():
-                                print(
-                                    f"Looking at child of {self.__class__.__name__}.{self.id}: {child_fld}.{mm_child_inst.pk}"
-                                )
+
                                 if mm_child_inst not in children:
                                     children.append(mm_child_inst)
 
@@ -707,11 +692,7 @@ class MaintainedModel(Model):
                     raise Exception(
                         f"Unexpected child reference for field [{child_fld}] is None."
                     )
-        print(
-            f"Returning {self.__class__.__name__} children: ["
-            + ", ".join([f"{x.__class__.__name__}.{x.id}" for x in children])
-            + "]."
-        )
+
         return children
 
     @classmethod
@@ -826,7 +807,15 @@ def filter_updaters(updaters_list, generation=None, label_filters=[], filter_in=
 def perform_buffered_updates(label_filters=[], using=None):
     """
     Performs a mass update of records in the buffer in a depth-first fashion without repeated updates to the same
-    record over and over.
+    record over and over.  It goes through the buffer in the order added and triggers each record's DFS updates, which
+    returns the signatures of every updated record.  Those updates are maintained through the traversal of the entire
+    buffer and checked before each update, thereby preventing repeated updates.  If a record has already been updated,
+    the records it triggers updates to are not propagated either.  The goal is to trigger the updates in the order
+    they were designed to follow governed by the parent/child links created in each decorator.
+
+    Note that this can fail if a record is changed and then its child (who triggers its parent) is changed (each being
+    added to the buffer during a mass auto-update).  This however is not expected to happen, as mass auto-update is
+    used for loading, which if done right, doesn't change child records after parent records have been added.
     """
     global update_buffer
     db = using
@@ -841,8 +830,8 @@ def perform_buffered_updates(label_filters=[], using=None):
     enable_mass_autoupdates()
     # Track what's been updated to prevent repeated updates triggered by multiple child updates
     updated = []
-
     new_buffer = []
+    no_filters = len(label_filters) == 0
 
     # For each record in the buffer
     for buffer_item in update_buffer:
@@ -853,8 +842,6 @@ def perform_buffered_updates(label_filters=[], using=None):
 
         # Try to perform the update. It could fail if the affected record was deleted
         try:
-            no_filters = len(label_filters) == 0
-
             if key not in updated and (
                 no_filters or updater_list_has_labels(updater_dicts, label_filters)
             ):
@@ -872,9 +859,6 @@ def perform_buffered_updates(label_filters=[], using=None):
                 # Propagate the changes (if necessary), keeping track of what is updated and what's not.
                 # Note: all the manual changes are assumed to have been made already, so auto-updates only need to
                 # be issued once per record
-                print(
-                    f"Calling call_dfs_related_updaters from {buffer_item.__class__.__name__}.perform_buffered_updates"
-                )
                 updated = buffer_item.call_dfs_related_updaters(updated=updated)
 
             elif key not in updated and buffer_item not in new_buffer:
@@ -885,6 +869,7 @@ def perform_buffered_updates(label_filters=[], using=None):
             disable_mass_autoupdates()
             raise AutoUpdateFailed(buffer_item, e, db)
 
+    # Eliminate the updated items from the buffer
     update_buffer = new_buffer
 
     # We're done performing buffered updates
@@ -1000,8 +985,8 @@ class AutoUpdateFailed(Exception):
 class InvalidAutoUpdateMode(Exception):
     def __init__(self):
         message = (
-            "Autoupdate mode must remain disabled during a mass update of maintained fields so that parent updates are "
-            "not triggered in a depth-first fashion."
+            "Autoupdate mode must remain disabled during a mass update of maintained fields so that parent updates "
+            "are not triggered in a depth-first fashion."
         )
         super().__init__(message)
 

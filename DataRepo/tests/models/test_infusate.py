@@ -1,5 +1,5 @@
-from django.test import tag
 from django.forms.models import model_to_dict
+from django.test import tag
 
 from DataRepo.management.commands.rebuild_maintained_fields import (
     rebuild_maintained_fields,
@@ -56,6 +56,7 @@ def create_infusate_records():
 @tag("multi_working")
 class InfusateTests(TracebaseTestCase):
     def setUp(self):
+        super().setUp()
         self.INFUSATE1, self.INFUSATE2 = create_infusate_records()
 
     def test_infusate_record(self):
@@ -144,6 +145,7 @@ class InfusateTests(TracebaseTestCase):
 @tag("multi_working")
 class MaintainedModelTests(TracebaseTestCase):
     def setUp(self):
+        super().setUp()
         # Each test first reruns the setup and the DB load adds the same records to the buffer. The DB is emptied after
         # the test runs, but the buffer needs to be explicitly emptied
         clear_update_buffer()
@@ -201,6 +203,7 @@ class MaintainedModelTests(TracebaseTestCase):
 @tag("multi_working")
 class RebuildMaintainedModelFieldsTests(TracebaseTestCase):
     def setUp(self):
+        super().setUp()
         # Each test first reruns the setup and the DB load adds the same records to the buffer. The DB is emptied after
         # the test runs, but the buffer needs to be explicitly emptied
         disable_autoupdates()

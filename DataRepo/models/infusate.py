@@ -135,7 +135,6 @@ class Infusate(MaintainedModel):
         # ValueError: "<Infusate: >" needs to have a value for field "id" before this many-to-many relationship can be
         # used.
         if self.id is None or self.tracers is None or self.tracers.count() == 0:
-            print(f"Updating infusate {self.id} name to ONLY {self.tracer_group_name} because either self.id is none or self.tracers is none or has 0 records")
             return self.tracer_group_name
 
         link_recs = self.tracers.through.objects.filter(infusate__id__exact=self.id)
@@ -153,7 +152,9 @@ class Infusate(MaintainedModel):
         if self.tracer_group_name is not None:
             name = f"{self.tracer_group_name} {{{name}}}"
 
-        print(f"Updating infusate {self.id} name to {name} because there are {link_recs.count()} links")
+        print(
+            f"Updating infusate {self.id} name to {name} because there are {link_recs.count()} links"
+        )
 
         return name
 

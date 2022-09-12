@@ -991,16 +991,21 @@ class AccuCorDataLoader:
                 # auto-updates on non-existent (or incorrect) records
                 clear_update_buffer()
 
-                # And before we leave, we must re-enable auto-updates
+                # And before we leave, we must re-enable things
                 enable_autoupdates()
+                enable_caching_updates()
 
             raise e
-        
+
         # This cannot be in the atomic block because it needs to execute queries that generate the error:
         # An error occurred in the current transaction. You can't execute queries until the end of the 'atomic' block.
         # It comes from trying to trigger updates in many-related records, which uses `.count()` (to see if there exist
         # records to propagate changes), `.first()` to see if the related model is a MaintainedModel (inside an
         # isinstance call), and `.all()` to cycle through the related records
+
+        # TODO: This may no longer be necessary since various bugs have been fixed.  Put this back under
+        #       transaction.atomic and re-test
+
         if not self.debug:
             perform_buffered_updates(using=self.db)
 

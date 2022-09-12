@@ -7,6 +7,7 @@ from chempy.util.periodic import atomic_number
 from django.apps import apps
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.forms.models import model_to_dict
 
 # Generally, child tables are at the top and parent tables are at the bottom
 ALL_MODELS_IN_SAFE_DELETION_ORDER = [
@@ -180,3 +181,7 @@ def create_is_null_field(field_with_null):
         },
         is_null_field_name,
     )
+
+
+def model_as_dict(obj):
+    return model_to_dict(obj)

@@ -80,8 +80,10 @@ class Sample(MaintainedModel, HierCachedModel):
         try:
             iss = self.tissue.is_serum()
         except Exception as e:
-            print(f"ERROR: Could not determine tissue serum status in sample: {model_to_dict(self)}")
-        return self.tissue.is_serum()
+            print(
+                f"ERROR: Could not determine tissue serum status in sample: {model_to_dict(self)}: {str(e)}"
+            )
+        return iss
 
     @property  # type: ignore
     @cached_function

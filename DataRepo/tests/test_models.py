@@ -89,6 +89,7 @@ class ExampleDataConsumer:
 @tag("multi_broken")
 class StudyTests(TracebaseTestCase, ExampleDataConsumer):
     def setUp(self):
+        super().setUp()
         # Get test data
         self.testdata = self.get_sample_test_dataframe()
         first = self.testdata.iloc[0]
@@ -257,6 +258,7 @@ class StudyTests(TracebaseTestCase, ExampleDataConsumer):
 @tag("multi_working")
 class ProtocolTests(TracebaseTestCase):
     def setUp(self):
+        super().setUp()
         self.p1 = Protocol.objects.create(
             name="Protocol 1",
             category=Protocol.MSRUN_PROTOCOL,
@@ -386,6 +388,8 @@ class DataLoadingTests(TracebaseTestCase):
 
         # defining a primary animal object for repeated tests
         cls.MAIN_SERUM_ANIMAL = Animal.objects.get(name="971")
+
+        super().setUpTestData()
 
     def test_compounds_loaded(self):
         self.assertEqual(Compound.objects.all().count(), self.ALL_COMPOUNDS_COUNT)
@@ -796,6 +800,8 @@ class PropertyTests(TracebaseTestCase):
         # defining a primary animal object for repeated tests
         cls.MAIN_SERUM_ANIMAL = Animal.objects.get(name="971")
 
+        super().setUpTestData()
+
     @tag("serum")
     def test_sample_peak_groups(self):
         animal = self.MAIN_SERUM_ANIMAL
@@ -833,7 +839,9 @@ class PropertyTests(TracebaseTestCase):
         )
         self.assertEqual(peakdata.count(), 0)
         # Sample->MSRun is a restricted relationship, so the MSRuns must be deleted first
-        print(f"THIS SHOULD BE 0: {MSRun.objects.filter(sample__name=last_serum_sample.name).count()}")
+        print(
+            f"THIS SHOULD BE 0: {MSRun.objects.filter(sample__name=last_serum_sample.name).count()}"
+        )
         with self.assertWarns(UserWarning):
             last_serum_sample.delete()
         # with the sample deleted, there are no more serum records...
@@ -1469,6 +1477,8 @@ class MultiTracerLabelPropertyTests(TracebaseTestCase):
             isocorr_format=True,
         )
 
+        super().setUpTestData()
+
     def test_tracer_labeled_elements(self):
         anml = Animal.objects.get(name="xzl1")
         expected = ["C", "N"]
@@ -1556,6 +1566,8 @@ class TracerRateTests(TracebaseTestCase):
 
         # defining a primary animal object for repeated tests
         cls.MAIN_SERUM_ANIMAL = Animal.objects.get(name="970")
+
+        super().setUpTestData()
 
     @tag("fcirc")
     def test_peakgroup_is_tracer_label_compound_group(self):
@@ -1770,6 +1782,8 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
         )
         cls.ALL_COMPOUNDS_COUNT = 32
 
+        super().setUpTestData()
+
     def test_animal_and_sample_load_xlsx(self):
 
         # initialize some sample-table-dependent counters
@@ -1817,6 +1831,8 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
                 "small_obob_animal_and_sample_table.xlsx"
             ),
         )
+
+        super().setUpTestData()
 
     def test_accucor_load_blank_fail(self):
         with self.assertRaises(MissingSamplesError, msg="1 samples are missing."):
@@ -1905,6 +1921,8 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             ),
             skip_researcher_check=True,
         )
+
+        super().setUpTestData()
 
     def load_multitracer_data(self):
         call_command(
@@ -2330,6 +2348,8 @@ class StudyLoadingTests(TracebaseTestCase):
         cls.SAMPLES_COUNT = 14
         cls.PEAKDATA_ROWS = 11
 
+        super().setUpTestData()
+
     def test_load_small_obob_study(self):
         self.assertEqual(
             PeakGroup.objects.all().count(), self.COMPOUNDS_COUNT * self.SAMPLES_COUNT
@@ -2421,6 +2441,8 @@ class ParseIsotopeLabelTests(TracebaseTestCase):
             "DataRepo/example_data/small_dataset/small_obob_sample_table.tsv",
             sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
         )
+
+        super().setUpTestData()
 
     def get_labeled_elements(self):
         return [
@@ -2520,6 +2542,8 @@ class AnimalLoadingTests(TracebaseTestCase):
             "load_compounds",
             compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
         )
+
+        super().setUpTestData()
 
     def testLabeledElementParsing(self):
         call_command(
