@@ -76,6 +76,8 @@ class ViewTests(TracebaseTestCase):
         cls.SERUM_PEAKDATA_ROWS = 13
         cls.SERUM_PEAKGROUP_COUNT = cls.SERUM_COMPOUNDS_COUNT * cls.SERUM_SAMPLES_COUNT
 
+        super().setUpTestData()
+
     @tag("multi_working")
     def test_home_url_exists_at_desired_location(self):
         response = self.client.get("/")

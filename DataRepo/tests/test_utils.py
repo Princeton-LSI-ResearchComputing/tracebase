@@ -62,6 +62,7 @@ class QuerysetToPandasDataFrameTests(TracebaseTestCase):
             researcher="Michael Neinast",
             new_researcher=False,
         )
+        super().setUpTestData()
 
     def get_example_study_list(self):
         return ["obob_fasted", "small_obob", "test_data_frames"]

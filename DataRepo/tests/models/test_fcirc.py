@@ -21,6 +21,7 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 @tag("multi_working")
 class FCircTests(TracebaseTestCase):
     def setUp(self):
+        super().setUp()
         # Get an animal (assuming it has an infusate/tracers/etc)
         animal = Animal.objects.last()
         # Get its last serum sample
@@ -53,14 +54,6 @@ class FCircTests(TracebaseTestCase):
             "DataRepo/example_data/small_dataset/small_obob_sample_table_serum_only.tsv",
             sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
         )
-        # call_command(
-        #     "load_accucor_msruns",
-        #     protocol="Default",
-        #     accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf.xlsx",
-        #     date="2021-06-03",
-        #     researcher="Michael Neinast",
-        #     new_researcher=True,
-        # )
         call_command(
             "load_accucor_msruns",
             protocol="Default",
@@ -69,6 +62,8 @@ class FCircTests(TracebaseTestCase):
             researcher="Michael Neinast",
             new_researcher=True,
         )
+
+        super().setUpTestData()
 
     def test_new_serum_leaves_is_last_unchanged(self):
         """

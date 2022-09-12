@@ -13,6 +13,7 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 @tag("multi_working")
 class TracerTests(TracebaseTestCase):
     def setUp(self):
+        super().setUp()
         glu = Compound.objects.create(
             name="glucose", formula="C6H12O6", hmdb_id="HMDB0000122"
         )

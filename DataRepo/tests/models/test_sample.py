@@ -12,6 +12,7 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 @tag("multi_working")
 class SampleTests(TracebaseTestCase):
     def setUp(self):
+        super().setUp()
         # Get an animal (assuming it has an infusate/tracers/etc)
         animal = Animal.objects.last()
         # Get its last serum sample
@@ -32,6 +33,7 @@ class SampleTests(TracebaseTestCase):
 
     @classmethod
     def setUpTestData(cls):
+        super().setUpTestData()
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
         call_command(
             "load_compounds",

@@ -60,6 +60,7 @@ class GlobalCacheTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
         load_data()
+        super().setUpTestData()
 
     def test_load_not_cached(self):
         a = Animal.objects.all().first()
@@ -239,7 +240,6 @@ class GlobalCacheTests(TracebaseTestCase):
         expected_structure = {
             "Animal": [
                 "tracers",
-                "last_serum_sample",
                 "last_serum_tracer_peak_groups",
             ],
             "AnimalLabel": [
@@ -301,6 +301,7 @@ class HierCachedModelTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
         load_data()
+        super().setUpTestData()
 
     def test_cached_function_decorator(self):
         delete_all_caches()
@@ -583,6 +584,7 @@ class BuildCachesTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
         load_minimum_data()
+        super().setUpTestData()
 
     def test_cached_function_call(self):
         c = Animal

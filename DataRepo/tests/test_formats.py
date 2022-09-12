@@ -74,6 +74,7 @@ class FormatsTests(TracebaseTestCase):
                 cls.orig_split_rows[fmt][inst] = basv.modeldata[fmt].model_instances[
                     inst
                 ]["manyrelated"]["split_rows"]
+        super().setUpTestData()
 
     def restore_split_rows(self):
         """

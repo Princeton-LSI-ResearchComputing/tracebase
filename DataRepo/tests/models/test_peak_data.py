@@ -21,6 +21,7 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 @tag("multi_working")
 class PeakDataData(TracebaseTestCase):
     def setUp(self):
+        super().setUp()
         inf = Infusate()
         inf.save()
         anml = Animal.objects.create(

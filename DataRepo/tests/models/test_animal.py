@@ -13,6 +13,7 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 @tag("multi_working")
 class AnimalTests(TracebaseTestCase):
     def setUp(self):
+        super().setUp()
         infusate = Infusate()
         infusate.save()
         Animal.objects.create(
@@ -54,6 +55,8 @@ class AnimalTests(TracebaseTestCase):
             researcher="Michael Neinast",
             new_researcher=False,
         )
+
+        super().setUpTestData()
 
     def createNewLastSerumSample(self):
         # Get an animal (assuming it has an infusate/tracers/etc)
