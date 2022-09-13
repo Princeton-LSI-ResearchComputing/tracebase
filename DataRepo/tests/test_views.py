@@ -640,6 +640,7 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "DataRepo/validate_submission.html")
 
+    @override_settings(DEBUG=True)
     def test_validate_files(self):
         """
         Do a file validation test
