@@ -135,6 +135,7 @@ class InfusateTest(TracebaseTestCase):
 
 
 @tag("parsing")
+@tag("multi_working")
 class InfusateParsingTests(InfusateTest):
     def test_isotope_parsing_single(self):
         """Test parsing a single isotope string"""
