@@ -180,7 +180,8 @@ class StudyTests(TracebaseTestCase, ExampleDataConsumer):
     def test_animal(self):
         self.assertEqual(self.animal.name, self.first["Animal ID"])
         self.assertEqual(
-            self.animal.infusate.tracers.first().compound.name, self.first["Tracer Compound"]
+            self.animal.infusate.tracers.first().compound.name,
+            self.first["Tracer Compound"],
         )
         self.assertEqual(self.animal.treatment, self.animal_treatment)
 
