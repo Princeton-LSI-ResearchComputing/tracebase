@@ -91,8 +91,6 @@ class Sample(MaintainedModel, HierCachedModel):
         """
         Retrieves the last Peak Group for each tracer compound that has this.element
         """
-        from DataRepo.models.compound import Compound
-        from DataRepo.models.tracer import Tracer
 
         # Get every tracer's compound that contains this element
         if self.animal.tracers.count() == 0:
