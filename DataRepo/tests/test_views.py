@@ -421,7 +421,7 @@ class ViewTests(TracebaseTestCase):
             "form-0-ncmp": "iexact",
             "form-0-val": "Brain",
             "form-1-pos": "pdtemplate-PeakData.0-all-False.0",
-            "form-1-fld": "labeled_element",
+            "form-1-fld": "labels__element",
             "form-1-ncmp": "iexact",
             "form-2-pos": "fctemplate-FCirc.0-all-False.0",
             "form-2-fld": "msrun__sample__animal__name",
@@ -502,7 +502,7 @@ class ViewTests(TracebaseTestCase):
             },
         }
 
-    @tag("multi_broken")
+    @tag("multi_working")
     def test_search_advanced_valid(self):
         """
         Do a simple advanced search and make sure the results are correct
@@ -517,7 +517,7 @@ class ViewTests(TracebaseTestCase):
         self.assertEqual(len(response.context["res"]), qs.count())
         self.assertEqual(qry, response.context["qry"])
 
-    @tag("multi_broken")
+    @tag("multi_working")
     def test_search_advanced_invalid(self):
         """
         Do a simple advanced search and make sure the results are correct
