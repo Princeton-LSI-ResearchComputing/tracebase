@@ -145,6 +145,7 @@ class Migration(migrations.Migration):
                 'verbose_name_plural': 'studies',
                 'ordering': ['name'],
             },
+            bases=(models.Model, DataRepo.models.tracer_labeled_class.TracerLabeledClass),
         ),
         migrations.CreateModel(
             name='Tissue',
@@ -158,6 +159,7 @@ class Migration(migrations.Migration):
                 'verbose_name_plural': 'tissues',
                 'ordering': ['name'],
             },
+            bases=(models.Model, DataRepo.models.tracer_labeled_class.TracerLabeledClass),
         ),
         migrations.CreateModel(
             name='Tracer',

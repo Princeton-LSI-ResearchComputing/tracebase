@@ -244,12 +244,10 @@ def maintained_field_function(
     def decorator(fn):
         # Get the name of the class the function belongs to
         class_name = fn.__qualname__.split(".")[0]
-
         if parent_field_name is None and generation != 0:
             raise InvalidRootGeneration(
                 class_name, update_field_name, fn.__name__, generation
             )
-
         func_dict = {
             "update_function": fn.__name__,
             "update_field": update_field_name,
@@ -594,7 +592,6 @@ class MaintainedModel(Model):
                         ):
 
                             for mm_parent_inst in tmp_parent_inst.all():
-
                                 if mm_parent_inst not in parents:
                                     parents.append(mm_parent_inst)
 
