@@ -77,6 +77,8 @@ class ViewTests(TracebaseTestCase):
         cls.SERUM_PEAKDATA_ROWS = 13
         cls.SERUM_PEAKGROUP_COUNT = cls.SERUM_COMPOUNDS_COUNT * cls.SERUM_SAMPLES_COUNT
 
+        super().setUpTestData()
+
     @tag("multi_working")
     def test_home_url_exists_at_desired_location(self):
         response = self.client.get("/")
@@ -438,7 +440,7 @@ class ViewTests(TracebaseTestCase):
             "form-0-ncmp": "iexact",
             "form-0-val": "Brain",
             "form-1-pos": "pdtemplate-PeakData.0-all-False.0",
-            "form-1-fld": "labeled_element",
+            "form-1-fld": "labels__element",
             "form-1-ncmp": "iexact",
             "form-2-pos": "fctemplate-FCirc.0-all-False.0",
             "form-2-fld": "msrun__sample__animal__name",
@@ -490,7 +492,7 @@ class ViewTests(TracebaseTestCase):
                                 "pos": "",
                                 "ncmp": "iexact",
                                 "static": "",
-                                "fld": "labeled_element",
+                                "fld": "labels__element",
                                 "val": "",
                             }
                         ],
@@ -519,7 +521,7 @@ class ViewTests(TracebaseTestCase):
             },
         }
 
-    @tag("multi_broken")
+    @tag("multi_working")
     def test_search_advanced_valid(self):
         """
         Do a simple advanced search and make sure the results are correct
@@ -532,9 +534,9 @@ class ViewTests(TracebaseTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "DataRepo/search/query.html")
         self.assertEqual(len(response.context["res"]), qs.count())
-        self.assertEqual(response.context["qry"], qry)
+        self.assertEqual(qry, response.context["qry"])
 
-    @tag("multi_broken")
+    @tag("multi_working")
     def test_search_advanced_invalid(self):
         """
         Do a simple advanced search and make sure the results are correct
@@ -548,7 +550,7 @@ class ViewTests(TracebaseTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "DataRepo/search/query.html")
         self.assertEqual(len(response.context["res"]), 0)
-        self.assertEqual(response.context["qry"], qry)
+        self.assertEqual(qry, response.context["qry"])
 
     @tag("multi_working")
     def test_search_advanced_tsv(self):
@@ -640,6 +642,7 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "DataRepo/validate_submission.html")
 
+    @override_settings(DEBUG=True)
     def test_validate_files(self):
         """
         Do a file validation test

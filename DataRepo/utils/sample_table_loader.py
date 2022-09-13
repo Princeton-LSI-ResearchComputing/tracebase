@@ -22,8 +22,9 @@ from DataRepo.models.hier_cached_model import (
 from DataRepo.models.maintained_model import (
     clear_update_buffer,
     disable_autoupdates,
+    disable_buffering,
     enable_autoupdates,
-    perform_buffered_updates,
+    enable_buffering,
 )
 from DataRepo.models.utilities import get_researchers, value_from_choices_label
 from DataRepo.utils.exceptions import (
@@ -148,6 +149,7 @@ class SampleTableLoader:
         self.debug = debug
 
         disable_autoupdates()
+        disable_buffering()
         disable_caching_updates()
         animals_to_uncache = []
 
@@ -206,11 +208,48 @@ class SampleTableLoader:
                     print(f"Error saving record: Study:{study}")
                     raise (e)
 
+            # Infusate/InfusateTracer/Tracer/TracerLabel
+            # Get the tracer concentrations
+            tracer_concs_str = self.getRowVal(
+                row, self.headers.TRACER_CONCENTRATIONS, hdr_required=False
+            )
+            try:
+                if tracer_concs_str is None:
+                    tracer_concs = None
+                else:
+                    # Not sure how the split results in a float, but my guess is that it's something in excel, thus
+                    # if there do exist comma-delimited items, this should actually work
+                    tracer_concs = [
+                        float(x.strip())
+                        for x in tracer_concs_str.split(CONCENTRATIONS_DELIMITER)
+                    ]
+            except AttributeError as ae:
+                if "object has no attribute 'split'" in str(ae):
+                    tracer_concs = [float(tracer_concs_str)]
+                else:
+                    raise ae
+
+            # Create the infusate record and all its tracers and labels, then link to it from the animal
+            infusate_str = self.getRowVal(row, self.headers.INFUSATE, hdr_required=True)
+            infusate = None
+            if infusate_str is not None:
+                if tracer_concs is None:
+                    raise NoConcentrations(
+                        f"{self.headers.INFUSATE} [{infusate_str}] supplied without "
+                        f"{self.headers.TRACER_CONCENTRATIONS}."
+                    )
+                infusate_data_object = parse_infusate_name(infusate_str, tracer_concs)
+                (infusate, created) = Infusate.objects.using(
+                    self.db
+                ).get_or_create_infusate(infusate_data_object)
+
             # Animal
             created = False
             name = self.getRowVal(row, self.headers.ANIMAL_NAME)
             if name is not None:
-                animal, created = Animal.objects.using(self.db).get_or_create(name=name)
+                animal, created = Animal.objects.using(self.db).get_or_create(
+                    name=name, infusate=infusate
+                )
                 if created and animal.caches_exist():
                     animals_to_uncache.append(animal)
                 elif created and settings.DEBUG:
@@ -303,45 +342,6 @@ class SampleTableLoader:
                                 feedback += f" '{animal.treatment.description}'"
                             print(f"{action} {feedback}")
 
-                # Get the tracer concentrations
-                tracer_concs_str = self.getRowVal(
-                    row, self.headers.TRACER_CONCENTRATIONS, hdr_required=False
-                )
-                try:
-                    if tracer_concs_str is None:
-                        tracer_concs = None
-                    else:
-                        # Not sure how the split results in a float, but my guess is that it's something in excel, thus
-                        # if there do exist comma-delimited items, this should actually work
-                        tracer_concs = [
-                            float(x.strip())
-                            for x in tracer_concs_str.split(CONCENTRATIONS_DELIMITER)
-                        ]
-                except AttributeError as ae:
-                    if "object has no attribute 'split'" in str(ae):
-                        tracer_concs = [float(tracer_concs_str)]
-                    else:
-                        raise ae
-
-                # Create the infusate record and all its tracers and labels, then link to it from the animal
-                infusate_str = self.getRowVal(
-                    row, self.headers.INFUSATE, hdr_required=True
-                )
-                infusate = None
-                if infusate_str is not None:
-                    if tracer_concs is None:
-                        raise NoConcentrations(
-                            f"{self.headers.INFUSATE} [{infusate_str}] supplied without "
-                            f"{self.headers.TRACER_CONCENTRATIONS}."
-                        )
-                    infusate_data_object = parse_infusate_name(
-                        infusate_str, tracer_concs
-                    )
-                    (infusate, created) = Infusate.objects.using(
-                        self.db
-                    ).get_or_create_infusate(infusate_data_object)
-                    animal.infusate = infusate
-
                 rate_required = infusate is not None
 
                 # Get the infusion rate
@@ -370,8 +370,6 @@ class SampleTableLoader:
                             animal=animal,
                             element=labeled_element,
                         )
-            else:
-                infusate = None
 
             # Sample
             sample_name = self.getRowVal(row, self.headers.SAMPLE_NAME)
@@ -477,12 +475,10 @@ class SampleTableLoader:
             clear_update_buffer()
             # And before we leave, we must re-enable auto-updates
             enable_autoupdates()
+            enable_buffering()
 
         # Throw an exception in debug mode to abort the load
         assert not debug, "Debugging..."
-
-        perform_buffered_updates(using=self.db)
-        enable_autoupdates()
 
         if settings.DEBUG:
             print("Expiring affected caches...")
@@ -492,6 +488,11 @@ class SampleTableLoader:
             animal.delete_related_caches()
         if settings.DEBUG:
             print("Expiring done.")
+
+        # Cannot perform buffered updates of FCirc, Sample, or Animal's last serum tracer peak group because no peak
+        # groups have been loaded yet
+        enable_autoupdates()
+        enable_buffering()
 
     def getRowVal(self, row, header, hdr_required=True, val_required=True):
         """

@@ -1,8 +1,13 @@
 from django.core.management import BaseCommand
 
 from DataRepo.models import (  # noqa: F401
+    Animal,
+    FCirc,
     Infusate,
     InfusateTracer,
+    MSRun,
+    PeakGroup,
+    Sample,
     Tracer,
     TracerLabel,
 )

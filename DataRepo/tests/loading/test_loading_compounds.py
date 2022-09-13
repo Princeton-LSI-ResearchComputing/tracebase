@@ -18,6 +18,7 @@ class LoadCompoundsTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
+        super().setUpTestData()
 
     def test_compound_loading(self):
         """Test the compounds and synonyms are loaded"""
@@ -62,6 +63,8 @@ class CompoundLoadingTests(TracebaseTestCase):
             primary_compound_file, sep="\t", keep_default_na=False
         )
         cls.LOADER_INSTANCE = CompoundsLoader(compounds_df=compounds_df)
+
+        super().setUpTestData()
 
     def test_compounds_loaded(self):
         self.assertEqual(Compound.objects.all().count(), self.ALL_COMPOUNDS_COUNT)
@@ -194,6 +197,8 @@ class CompoundValidationLoadingTests(TracebaseTestCase):
         )
         # validate only; nothing gets loaded
         cls.ALL_COMPOUNDS_COUNT = 0
+
+        super().setUpTestData()
 
     def test_compounds_loaded(self):
         self.assertEqual(Compound.objects.all().count(), self.ALL_COMPOUNDS_COUNT)

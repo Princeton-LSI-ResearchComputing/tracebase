@@ -10,7 +10,6 @@ liver	liver
 lung	lung
 pancreas	pancreas
 quadricep	quadricep muscle
-serum_plasma_unspecified_location	serum or plasma - only use when the source is unknown
 small_intestine	small intestine
 soleus	soleus
 skeletal_muscle_unspecified_location	unspecified skeletal muscle - only use this if source muscle is unknown
@@ -21,6 +20,7 @@ spleen	spleen
 serum_plasma_tail	serum or plasma collected from tail snip
 serum_plasma_artery	serum or plasma collected from any artery
 serum_plasma_portal	serum or plasma collected from portal vein
+serum_plasma_unspecified_location	serum or plasma - only use when the source is unknown
 thymus	thymus
 ear	outer ear, usually collected as a representative skin sample
 skin	unspecified source of skin - only use this if source of skin is unknown

@@ -7,7 +7,7 @@ from django.db import models
 
 from DataRepo.models.maintained_model import (
     MaintainedModel,
-    field_updater_function,
+    maintained_field_function,
 )
 from DataRepo.models.utilities import get_model_by_name
 
@@ -18,10 +18,6 @@ if TYPE_CHECKING:
 CONCENTRATION_SIGNIFICANT_FIGURES = 3
 
 
-# PR REVIEW NOTE: Had to change this to a QuerySet subclass in order to support calls to (e.g.):
-#                     .using(db).get_or_create_infusate
-#                 for the validation database.
-#                 See: https://sayari3.com/articles/32-custom-managers-and-queryset-methods-in-django/
 class InfusateQuerySet(models.QuerySet):
     def get_or_create_infusate(
         self, infusate_data: InfusateData
@@ -127,7 +123,9 @@ class Infusate(MaintainedModel):
     def __str__(self):
         return str(self._name())
 
-    @field_updater_function(generation=0, update_field_name="name", update_label="name")
+    @maintained_field_function(
+        generation=0, update_field_name="name", update_label="name"
+    )
     def _name(self):
         # Format: `tracer_group_name{tracername;tracername}`
 

@@ -89,6 +89,7 @@ class ExampleDataConsumer:
 @tag("multi_broken")
 class StudyTests(TracebaseTestCase, ExampleDataConsumer):
     def setUp(self):
+        super().setUp()
         # Get test data
         self.testdata = self.get_sample_test_dataframe()
         first = self.testdata.iloc[0]
@@ -179,7 +180,7 @@ class StudyTests(TracebaseTestCase, ExampleDataConsumer):
     def test_animal(self):
         self.assertEqual(self.animal.name, self.first["Animal ID"])
         self.assertEqual(
-            self.animal.tracer_compound.name, self.first["Tracer Compound"]
+            self.animal.infusate.tracers.first().compound.name, self.first["Tracer Compound"]
         )
         self.assertEqual(self.animal.treatment, self.animal_treatment)
 
@@ -257,6 +258,7 @@ class StudyTests(TracebaseTestCase, ExampleDataConsumer):
 @tag("multi_working")
 class ProtocolTests(TracebaseTestCase):
     def setUp(self):
+        super().setUp()
         self.p1 = Protocol.objects.create(
             name="Protocol 1",
             category=Protocol.MSRUN_PROTOCOL,
@@ -387,6 +389,8 @@ class DataLoadingTests(TracebaseTestCase):
         # defining a primary animal object for repeated tests
         cls.MAIN_SERUM_ANIMAL = Animal.objects.get(name="971")
 
+        super().setUpTestData()
+
     def test_compounds_loaded(self):
         self.assertEqual(Compound.objects.all().count(), self.ALL_COMPOUNDS_COUNT)
 
@@ -487,11 +491,11 @@ class DataLoadingTests(TracebaseTestCase):
         last_serum_sample = self.MAIN_SERUM_ANIMAL.last_serum_sample
         # pretend the time_collected did not exist
         last_serum_sample.time_collected = None
-        last_serum_sample.save()
-        # so if we refresh, with no cached final serum values...
-        refeshed_animal = Animal.objects.get(name="971")
         with self.assertWarns(UserWarning):
-            last_serum_sample = refeshed_animal.last_serum_sample
+            # The auto-update of the MaintainedField generates the warning
+            last_serum_sample.save()
+            # refeshed_animal = Animal.objects.get(name="971")
+            # last_serum_sample = refeshed_animal.last_serum_sample
 
     def test_restricted_animal_treatment_deletion(self):
         treatment = Animal.objects.get(name="exp024f_M2").treatment
@@ -673,9 +677,8 @@ class DataLoadingTests(TracebaseTestCase):
     @tag("fcirc")
     def test_peakgroup_from_serum_sample_false(self):
         # get a tracer compound from a non-serum sample
-        compound = Compound.objects.get(name="glucose")
         sample = Sample.objects.get(name="Liv-xz982")
-        pgl = sample.peak_groups(compound).last().labels.first()
+        pgl = sample.msruns.last().peak_groups.last().labels.first()
         with self.assertWarns(UserWarning):
             self.assertFalse(pgl.from_serum_sample)
 
@@ -797,17 +800,19 @@ class PropertyTests(TracebaseTestCase):
         # defining a primary animal object for repeated tests
         cls.MAIN_SERUM_ANIMAL = Animal.objects.get(name="971")
 
+        super().setUpTestData()
+
     @tag("serum")
     def test_sample_peak_groups(self):
         animal = self.MAIN_SERUM_ANIMAL
         last_serum_sample = animal.last_serum_sample
-        peak_groups = last_serum_sample.peak_groups()
+        peak_groups = PeakGroup.objects.filter(
+            msrun__sample__id__exact=last_serum_sample.id
+        )
         # ALL the sample's PeakGroup objects in the QuerySet total 13
         self.assertEqual(peak_groups.count(), self.SERUM_COMPOUNDS_COUNT)
         # but if limited to only the tracer, it is just 1 object in the QuerySet
-        sample_tracer_peak_groups = last_serum_sample.peak_groups(
-            animal.infusate.tracers.first().compound
-        )
+        sample_tracer_peak_groups = last_serum_sample.last_tracer_peak_groups
         self.assertEqual(sample_tracer_peak_groups.count(), 1)
         # and test that the Animal convenience method is equivalent for this
         # particular sample/animal
@@ -818,7 +823,7 @@ class PropertyTests(TracebaseTestCase):
     def test_missing_serum_sample_peak_data(self):
         animal = self.MAIN_SERUM_ANIMAL
         last_serum_sample = animal.last_serum_sample
-        # do some deletion tests
+        # Sample->MSRun is a restricted relationship, so the MSRuns must be deleted before the sample can be deleted
         serum_sample_msrun = MSRun.objects.filter(
             sample__name=last_serum_sample.name
         ).get()
@@ -827,9 +832,14 @@ class PropertyTests(TracebaseTestCase):
         with the msrun deleted, the 7 rows of prior peak data
         (test_sample_peak_data, above) are now 0/gone
         """
-        peakdata = last_serum_sample.peak_data(animal.infusate.tracers.first().compound)
+        peakdata = PeakData.objects.filter(
+            peak_group__msrun__sample__exact=last_serum_sample
+        ).filter(
+            peak_group__compounds__id=animal.infusate.tracers.first().compound.id,
+        )
         self.assertEqual(peakdata.count(), 0)
-        animal.last_serum_sample.delete()
+        with self.assertWarns(UserWarning):
+            last_serum_sample.delete()
         # with the sample deleted, there are no more serum records...
         # so if we refresh, with no cached final serum values...
         refeshed_animal = Animal.objects.get(name="971")
@@ -839,9 +849,6 @@ class PropertyTests(TracebaseTestCase):
         )
         # so zero length list
         self.assertEqual(serum_samples.count(), 0)
-        with self.assertWarns(UserWarning):
-            # and attempts to retrieve the last_serum_sample get None
-            self.assertIsNone(refeshed_animal.last_serum_sample)
         with self.assertWarns(UserWarning):
             self.assertEqual(
                 refeshed_animal_label.last_serum_tracer_label_peak_groups.count(),
@@ -1151,7 +1158,7 @@ class PropertyTests(TracebaseTestCase):
         # DO NOT CREATE A PEAKGROUP FOR THE TRACER
         self.assertEqual(peak_group.labels.count(), 1, msg="Assure load was complete")
         # With the new logic of obtaining the last instance of a peak group among serum samples, this should still
-        # produce a calculation even though the serum tracer's last peak group doesn't have a peak group. It will
+        # produce a calculation even though the last serum sample doesn't have a peak group for the tracer. It will
         # just use the one from the first
         self.assertAlmostEqual(
             0.00911997807399377,
@@ -1320,27 +1327,24 @@ class PropertyTests(TracebaseTestCase):
     @tag("fcirc")
     def test_peakgroup_is_tracer_label_compound_group_false(self):
         # get a non tracer compound from a serum sample
-        compound = Compound.objects.get(name="tryptophan")
         sample = Sample.objects.get(name="serum-xz971")
-        pg = sample.peak_groups(compound).last()
+        pg = sample.msruns.last().peak_groups.filter(name__exact="tryptophan").last()
         pgl = pg.labels.first()
         self.assertFalse(pgl.is_tracer_label_compound_group)
 
     @tag("fcirc")
     def test_peakgroup_can_compute_tracer_label_rates_true(self):
         # get a tracer compound from a  sample
-        compound = Compound.objects.get(name="lysine")
         sample = Sample.objects.get(name="serum-xz971")
-        pg = sample.peak_groups(compound).last()
+        pg = sample.last_tracer_peak_groups.last()
         pgl = pg.labels.first()
         self.assertTrue(pgl.can_compute_tracer_label_rates)
 
     @tag("fcirc")
     def test_peakgroup_can_compute_tracer_label_rates_false_no_rate(self):
         # get a tracer compound from a  sample
-        compound = Compound.objects.get(name="lysine")
         sample = Sample.objects.get(name="serum-xz971")
-        pg = sample.peak_groups(compound).last()
+        pg = sample.last_tracer_peak_groups.last()
         animal = pg.animal
         # but if the animal infusion_rate is not defined...
         orig_tir = animal.infusion_rate
@@ -1357,9 +1361,8 @@ class PropertyTests(TracebaseTestCase):
     @tag("fcirc")
     def test_peakgroup_can_compute_tracer_label_rates_false_no_conc(self):
         # get a tracer compound from a sample
-        compound = Compound.objects.get(name="lysine")
         sample = Sample.objects.get(name="serum-xz971")
-        pg = sample.peak_groups(compound).last()
+        pg = sample.last_tracer_peak_groups.last()
         animal = pg.animal
         al = animal.labels.first()
         pgf = al.last_serum_tracer_label_peak_groups.last()
@@ -1465,6 +1468,8 @@ class MultiTracerLabelPropertyTests(TracebaseTestCase):
             isocorr_format=True,
         )
 
+        super().setUpTestData()
+
     def test_tracer_labeled_elements(self):
         anml = Animal.objects.get(name="xzl1")
         expected = ["C", "N"]
@@ -1552,6 +1557,8 @@ class TracerRateTests(TracebaseTestCase):
 
         # defining a primary animal object for repeated tests
         cls.MAIN_SERUM_ANIMAL = Animal.objects.get(name="970")
+
+        super().setUpTestData()
 
     @tag("fcirc")
     def test_peakgroup_is_tracer_label_compound_group(self):
@@ -1746,13 +1753,7 @@ class TracerRateTests(TracebaseTestCase):
     def test_last_serum_tracer_rate_appearance_average_per_animal(self):
         animal = self.MAIN_SERUM_ANIMAL
         # Uses Animal.last_serum_sample and Sample.peak_groups
-        pgl = (
-            animal.last_serum_sample.peak_groups(
-                animal.infusate.tracers.first().compound
-            )
-            .first()
-            .labels.first()
-        )
+        pgl = animal.last_serum_sample.last_tracer_peak_groups.first().labels.first()
         self.assertAlmostEqual(
             pgl.rate_appearance_average_per_animal,
             881.3639585,
@@ -1771,6 +1772,8 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
             compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
         )
         cls.ALL_COMPOUNDS_COUNT = 32
+
+        super().setUpTestData()
 
     def test_animal_and_sample_load_xlsx(self):
 
@@ -1819,6 +1822,8 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
                 "small_obob_animal_and_sample_table.xlsx"
             ),
         )
+
+        super().setUpTestData()
 
     def test_accucor_load_blank_fail(self):
         with self.assertRaises(MissingSamplesError, msg="1 samples are missing."):
@@ -1907,6 +1912,8 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             ),
             skip_researcher_check=True,
         )
+
+        super().setUpTestData()
 
     def load_multitracer_data(self):
         call_command(
@@ -2332,6 +2339,8 @@ class StudyLoadingTests(TracebaseTestCase):
         cls.SAMPLES_COUNT = 14
         cls.PEAKDATA_ROWS = 11
 
+        super().setUpTestData()
+
     def test_load_small_obob_study(self):
         self.assertEqual(
             PeakGroup.objects.all().count(), self.COMPOUNDS_COUNT * self.SAMPLES_COUNT
@@ -2423,6 +2432,8 @@ class ParseIsotopeLabelTests(TracebaseTestCase):
             "DataRepo/example_data/small_dataset/small_obob_sample_table.tsv",
             sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
         )
+
+        super().setUpTestData()
 
     def get_labeled_elements(self):
         return [
@@ -2522,6 +2533,8 @@ class AnimalLoadingTests(TracebaseTestCase):
             "load_compounds",
             compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
         )
+
+        super().setUpTestData()
 
     def testLabeledElementParsing(self):
         call_command(

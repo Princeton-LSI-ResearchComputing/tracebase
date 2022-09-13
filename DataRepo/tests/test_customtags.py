@@ -38,6 +38,7 @@ class CustomTagsTests(TracebaseTestCase):
             researcher="Michael Neinast",
             new_researcher=True,
         )
+        super().setUpTestData()
 
     def test_get_case_insensitive_synonyms(self):
         csqs = CompoundSynonym.objects.filter(name__icontains="glucose")

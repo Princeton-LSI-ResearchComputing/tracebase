@@ -60,6 +60,7 @@ class GlobalCacheTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
         load_data()
+        super().setUpTestData()
 
     def test_load_not_cached(self):
         a = Animal.objects.all().first()
@@ -239,7 +240,6 @@ class GlobalCacheTests(TracebaseTestCase):
         expected_structure = {
             "Animal": [
                 "tracers",
-                "last_serum_sample",
                 "last_serum_tracer_peak_groups",
             ],
             "AnimalLabel": [
@@ -248,13 +248,12 @@ class GlobalCacheTests(TracebaseTestCase):
                 "serum_tracers_enrichment_fraction",
             ],
             "Sample": [
-                "is_serum_sample",
                 "last_tracer_peak_groups",
             ],
             "PeakGroup": ["peak_labeled_elements"],
             "FCirc": [
-                "is_last_serum_peak_group",
-                "last_peak_group",
+                "last_peak_group_in_animal",
+                "last_peak_group_in_sample",
                 "peak_groups",
                 "rate_disappearance_intact_per_gram",
                 "rate_appearance_intact_per_gram",
@@ -302,6 +301,7 @@ class HierCachedModelTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
         load_data()
+        super().setUpTestData()
 
     def test_cached_function_decorator(self):
         delete_all_caches()
@@ -336,7 +336,7 @@ class HierCachedModelTests(TracebaseTestCase):
     def createASampleCache(self):
         delete_all_caches()
         smp = Sample.objects.all().first()
-        f = "is_serum_sample"
+        f = "last_tracer_peak_groups"
 
         enable_caching_retrievals()
         enable_caching_updates()
@@ -584,10 +584,11 @@ class BuildCachesTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
         load_minimum_data()
+        super().setUpTestData()
 
     def test_cached_function_call(self):
         c = Animal
-        f = "last_serum_sample"
+        f = "tracers"
         a = Animal.objects.all().first()
         la = Animal.objects.all().last()
         disable_caching_retrievals()
@@ -607,7 +608,8 @@ class BuildCachesTests(TracebaseTestCase):
         lv, ls = get_cache(la, f)
 
         # Ensure the value was cached for both the first and last record
-        self.assertEqual(v, uv)
+        # Results are querysets, which never equate, but are equatable as lists
+        self.assertEqual(list(v), list(uv))
         self.assertTrue(s)
-        self.assertEqual(lv, uv)
+        self.assertEqual(list(lv), list(uv))
         self.assertTrue(ls)

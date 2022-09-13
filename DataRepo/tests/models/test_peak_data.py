@@ -5,6 +5,7 @@ from django.test import tag
 
 from DataRepo.models import (
     Animal,
+    Infusate,
     MSRun,
     PeakData,
     PeakDataLabel,
@@ -20,6 +21,9 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 @tag("multi_working")
 class PeakDataData(TracebaseTestCase):
     def setUp(self):
+        super().setUp()
+        inf = Infusate()
+        inf.save()
         anml = Animal.objects.create(
             name="test_animal",
             age=timedelta(weeks=int(13)),
@@ -28,6 +32,7 @@ class PeakDataData(TracebaseTestCase):
             body_weight=200,
             diet="normal",
             feeding_status="fed",
+            infusate=inf,
         )
         tsu = Tissue.objects.create(name="Brain")
         smpl = Sample.objects.create(

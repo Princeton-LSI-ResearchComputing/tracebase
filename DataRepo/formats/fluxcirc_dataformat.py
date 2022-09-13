@@ -33,28 +33,6 @@ class FluxCircFormat(Format):
                     "choices": ElementLabel.LABELED_ELEMENT_CHOICES,
                     "root_annot_fld": "element",  # Used to annotate root rec split_rows=True
                 },
-            },
-        },
-        "PeakGroupLabel": {
-            "model": "PeakGroupLabel",
-            "path": "peak_group_labels",
-            "reverse_path": "peak_group",
-            "manyrelated": {
-                "is": True,
-                "through": False,
-                "manytomany": False,
-                "split_rows": True,
-                "root_annot_fld": "peak_group_label",  # Used to annotate root rec w/ subtable ID when split_rows=True
-            },
-            "fields": {
-                "element": {
-                    "displayname": "Peak Group Labeled Element",
-                    "searchable": True,
-                    "displayed": True,
-                    "type": "enumeration",
-                    "choices": ElementLabel.LABELED_ELEMENT_CHOICES,
-                    "root_annot_fld": "element",  # Used to annotate root rec split_rows=True
-                },
                 "rate_disappearance_average_per_gram": {
                     "displayname": "Average Rd (nmol/min/g)",
                     "searchable": False,  # Cannot search cached property
@@ -284,9 +262,6 @@ class FluxCircFormat(Format):
         "Compound": {
             "model": "Compound",
             "path": "tracer__compound",
-            # PR REVIEW NOTE: There are multiple possible reverse paths for tracer compounds to fcirc records, but this
-            #                 one is the most direct.  It is used to expand query results when a field in this model
-            #                 instance is used in a search.
             "reverse_path": "tracers__fcircs",
             "manyrelated": {
                 "is": False,

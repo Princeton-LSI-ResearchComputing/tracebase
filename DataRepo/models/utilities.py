@@ -7,6 +7,7 @@ from chempy.util.periodic import atomic_number
 from django.apps import apps
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.forms.models import model_to_dict
 
 # Generally, child tables are at the top and parent tables are at the bottom
 ALL_MODELS_IN_SAFE_DELETION_ORDER = [
@@ -144,3 +145,43 @@ def dereference_field(field_name, model_name):
 
 def get_model_by_name(model_name):
     return apps.get_model("DataRepo", model_name)
+
+
+def create_is_null_field(field_with_null):
+    """
+    The Django ORM's order_by always puts null fields at the end, which can be a problem if you want the last record
+    ordered by a date field.  This method will return a dict that contains the `select` and `order_by arguments for the
+    .extra(method, along with the name of the added "is null field that you can use as an argument to `order_by`)`.
+
+    Example: extra_args, is_null_field = create_is_null_field("msrun__date")
+    MSRun.objects.extra(**extra_args).order_by(f"-{is_null_field}", "msrun__date")
+
+    Note, adding .annotate() doesn't seem to work, or rather I couldn't get it to work. See:
+    https://stackoverflow.com/questions/7749216/django-order-by-date-but-have-none-at-end
+    """
+    is_null_field_name = f"{field_with_null}_is_null"
+
+    # Build an SQL field name from the ORM field name
+    field_with_null_path_list = field_with_null.split("__")
+    if len(field_with_null_path_list) > 1:
+        field = field_with_null_path_list.pop()
+        table = field_with_null_path_list.pop()
+        field_with_null_ref = '"DataRepo_' + table + '".'
+        field_with_null_ref += f'"{field}"'
+    else:
+        field_with_null_ref = field_with_null
+
+    select_val = {is_null_field_name: f"{field_with_null_ref} IS NULL"}
+    order_by_val = [is_null_field_name, field_with_null]
+
+    return (
+        {
+            "select": select_val,
+            "order_by": order_by_val,
+        },
+        is_null_field_name,
+    )
+
+
+def model_as_dict(obj):
+    return model_to_dict(obj)

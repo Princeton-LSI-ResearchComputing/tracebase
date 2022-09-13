@@ -10,6 +10,7 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 @tag("multi_working")
 class CompoundTests(TracebaseTestCase):
     def setUp(self):
+        super().setUp()
         Compound.objects.create(
             name="alanine", formula="C3H7NO2", hmdb_id="HMDB0000161"
         )
@@ -45,6 +46,7 @@ class CompoundTests(TracebaseTestCase):
 @tag("multi_working")
 class CompoundSynonymTests(TracebaseTestCase):
     def setUp(self):
+        super().setUp()
         self.PRIMARY_COMPOUND = Compound.objects.create(
             name="hexadecanoic acid", formula="C16H32O2", hmdb_id="HMDB0000220"
         )

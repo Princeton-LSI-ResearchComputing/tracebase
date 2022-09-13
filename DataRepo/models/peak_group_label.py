@@ -3,7 +3,7 @@ import warnings
 from django.db import models
 from django.forms.models import model_to_dict
 from django.utils.functional import cached_property
-from pyparsing.exceptions import ParseException
+from pyparsing import ParseException
 
 from DataRepo.models.element_label import ElementLabel
 from DataRepo.models.hier_cached_model import HierCachedModel, cached_function
@@ -204,6 +204,10 @@ class PeakGroupLabel(HierCachedModel):
     @property  # type: ignore
     @cached_function
     def tracer(self):
+        """
+        If this peakgroup's compounds contains a compound that is among the tracers for this animal, it returns the
+        tracer record, otherwidse None
+        """
         from DataRepo.models.tracer import Tracer
 
         try:
@@ -275,13 +279,21 @@ class PeakGroupLabel(HierCachedModel):
     @cached_function
     def from_serum_sample(self):
         """
-        Instance method which returns True if a peakgroup was obtained from a
-        msrun of a serum sample. Uncertain whether this is a true concern.
+        Instance method which returns True if a peakgroup was obtained from a serum sample.
         """
-        if self.peak_group.msrun.sample.is_serum_sample:
+        if self.peak_group.msrun.sample.is_serum_sample is None:
+            warnings.warn(
+                f"Sample {self.peak_group.msrun.sample.name}'s is_serum_sample field hasn't been set."
+            )
+            fss = self.peak_group.msrun.sample._is_serum_sample()
+        else:
+            fss = self.peak_group.msrun.sample.is_serum_sample
+
+        if fss:
             return True
 
-        warnings.warn(f"{self.peak_group.name} is not from a serum sample msrun.")
+        warnings.warn(f"{self.peak_group.name} is not from a serum sample.")
+
         return False
 
     @property  # type: ignore

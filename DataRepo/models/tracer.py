@@ -8,16 +8,12 @@ from django.db import models
 from DataRepo.models.element_label import ElementLabel
 from DataRepo.models.maintained_model import (
     MaintainedModel,
-    field_updater_function,
+    maintained_field_function,
 )
 from DataRepo.models.utilities import get_model_by_name
 from DataRepo.utils.infusate_name_parser import TracerData
 
 
-# PR REVIEW NOTE: Had to change this to a QuerySet subclass in order to support calls to (e.g.):
-#                     .using(db).get_or_create_tracer
-#                 for the validation database.
-#                 See: https://sayari3.com/articles/32-custom-managers-and-queryset-methods-in-django/
 class TracerQuerySet(models.QuerySet):
     def get_or_create_tracer(self, tracer_data: TracerData) -> tuple[Tracer, bool]:
         """Get Tracer matching the tracer_data, or create a new tracer"""
@@ -94,7 +90,7 @@ class Tracer(MaintainedModel, ElementLabel):
     def __str__(self):
         return str(self._name())
 
-    @field_updater_function(
+    @maintained_field_function(
         generation=2,
         update_field_name="name",
         parent_field_name="infusates",

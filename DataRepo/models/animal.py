@@ -6,13 +6,18 @@ from django.core.validators import MinValueValidator
 from django.db import models
 
 from DataRepo.models.hier_cached_model import HierCachedModel, cached_function
+from DataRepo.models.maintained_model import (
+    MaintainedModel,
+    maintained_field_function,
+)
+from DataRepo.models.utilities import create_is_null_field
 
 from .element_label import ElementLabel
 from .protocol import Protocol
 from .tissue import Tissue
 
 
-class Animal(HierCachedModel, ElementLabel):
+class Animal(MaintainedModel, HierCachedModel, ElementLabel):
     # No parent_related_key_name, because this is a root
     child_related_key_names = ["samples", "labels"]
 
@@ -39,8 +44,8 @@ class Animal(HierCachedModel, ElementLabel):
         #       they are referenced through restricted foreign keys: 'Animal.infusate'.", {<Animal: 090320_M1>,
         #       <Animal: 090320_M2>, <Animal: 090320_M3>, ...
         on_delete=models.RESTRICT,
-        null=True,
-        blank=True,
+        null=False,
+        blank=False,
         related_name="animal",
         help_text="The solution infused into the animal containing 1 or more tracer compounds at specific "
         "concentrations.",
@@ -101,25 +106,40 @@ class Animal(HierCachedModel, ElementLabel):
         limit_choices_to={"category": Protocol.ANIMAL_TREATMENT},
         help_text="The laboratory controlled label of the actions taken on an animal.",
     )
+    last_serum_sample = models.ForeignKey(
+        to="DataRepo.Sample",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="animals",
+        help_text="Automatically maintained field. Shortcut to the last serum sample.",
+    )
 
     @property  # type: ignore
     @cached_function
     def tracers(self):
         if self.infusate.tracers.count() == 0:
-            warnings.warn(f"Animal [{self.animal}] has no tracers.")
+            warnings.warn(f"Animal [{self.name}] has no tracers.")
         return self.infusate.tracers.all()
 
-    @property  # type: ignore
-    @cached_function
-    def last_serum_sample(self):
+    @maintained_field_function(
+        generation=0,
+        child_field_names=["samples"],
+        update_label="fcirc_calcs",
+        update_field_name="last_serum_sample",
+    )
+    def _last_serum_sample(self):
         """
         last_serum_sample in an instance method that returns the last single serum sample removed from the animal,
         based on the time elapsed/duration from the initiation of infusion or treatment, typically.  If the animal has
         no serum samples or if the retrieved serum sample has no annotated time_collected, a warning will be issued.
         """
+        # Create an is_null field for time_collected to be able to sort them
+        (extra_args, is_null_field) = create_is_null_field("time_collected")
         last_serum_sample = (
             self.samples.filter(tissue__name__istartswith=Tissue.SERUM_TISSUE_PREFIX)
-            .order_by("time_collected")
+            .extra(**extra_args)
+            .order_by(f"-{is_null_field}", "time_collected")
             .last()
         )
 
@@ -149,6 +169,11 @@ class Animal(HierCachedModel, ElementLabel):
 
         # Get the last peakgroup for each tracer that has this label
         last_serum_peakgroup_ids = []
+        (tc_extra_args, tc_is_null_field) = create_is_null_field(
+            "msrun__sample__time_collected"
+        )
+        # Create an is_null field for the date to be able to sort them
+        (d_extra_args, d_is_null_field) = create_is_null_field("msrun__date")
         for tracer in self.tracers.all():
             tracer_peak_group = (
                 PeakGroup.objects.filter(msrun__sample__animal__id__exact=self.id)
@@ -156,7 +181,14 @@ class Animal(HierCachedModel, ElementLabel):
                 .filter(
                     msrun__sample__tissue__name__istartswith=Tissue.SERUM_TISSUE_PREFIX
                 )
-                .order_by("msrun__sample__time_collected", "msrun__date")
+                .extra(**tc_extra_args)
+                .extra(**d_extra_args)
+                .order_by(
+                    f"-{tc_is_null_field}",
+                    "msrun__sample__time_collected",
+                    f"-{d_is_null_field}",
+                    "msrun__date",
+                )
                 .last()
             )
             if tracer_peak_group:
