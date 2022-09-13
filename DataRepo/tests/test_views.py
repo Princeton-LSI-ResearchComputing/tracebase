@@ -33,7 +33,7 @@ class ViewTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
-        cls.ALL_TISSUES_COUNT = 36
+        cls.ALL_TISSUES_COUNT = 37
 
         call_command(
             "load_compounds",
@@ -93,7 +93,7 @@ class ViewTests(TracebaseTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "home.html")
 
-    @tag("multi_broken")
+    @tag("multi_working")
     def test_home_card_attr_list(self):
         # spot check: counts, urls for card attributes
         animal_count = Animal.objects.all().count()
@@ -102,10 +102,10 @@ class ViewTests(TracebaseTestCase):
         accucor_file_count = PeakGroupSet.objects.all().count()
         compound_count = Compound.objects.all().count()
         tracer_count = (
-            Animal.objects.exclude(tracer_compound_id__isnull=True)
-            .order_by("tracer_compound_id")
-            .values_list("tracer_compound_id")
-            .distinct("tracer_compound_id")
+            Animal.objects.exclude(infusate__tracers__compound__id__isnull=True)
+            .order_by("infusate__tracers__compound__id")
+            .values_list("infusate__tracers__compound__id")
+            .distinct("infusate__tracers__compound__id")
             .count()
         )
         comp_url = reverse("compound_list")
@@ -173,14 +173,14 @@ class ViewTests(TracebaseTestCase):
         self.assertEqual(len(response.context["study_list"]), 1)
         self.assertEqual(len(response.context["df"]), 1)
 
-    @tag("multi_broken")
+    @tag("multi_working")
     @tag("study")
     def test_study_summary(self):
         response = self.client.get("/DataRepo/studies/study_summary/")
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "DataRepo/study_summary.html")
 
-    @tag("multi_broken")
+    @tag("multi_working")
     @tag("study")
     def test_study_detail(self):
         obob_fasted = Study.objects.filter(name="obob_fasted").get()
@@ -218,7 +218,7 @@ class ViewTests(TracebaseTestCase):
         response = self.client.get(reverse("protocol_detail", args=[p.id + 1]))
         self.assertEqual(response.status_code, 404)
 
-    @tag("multi_broken")
+    @tag("multi_working")
     @tag("animal")
     def test_animal_list(self):
         response = self.client.get(reverse("animal_list"))
@@ -227,7 +227,7 @@ class ViewTests(TracebaseTestCase):
         self.assertEqual(len(response.context["animal_list"]), self.ALL_ANIMALS_COUNT)
         self.assertEqual(len(response.context["df"]), self.ALL_ANIMALS_COUNT)
 
-    @tag("multi_broken")
+    @tag("multi_working")
     @tag("animal")
     def test_animal_detail(self):
         a1 = Animal.objects.filter(name="971").get()
@@ -244,7 +244,7 @@ class ViewTests(TracebaseTestCase):
         response = self.client.get(reverse("animal_detail", args=[a.id + 1]))
         self.assertEqual(response.status_code, 404)
 
-    @tag("multi_broken")
+    @tag("multi_working")
     @tag("tissue")
     def test_tissue_list(self):
         response = self.client.get(reverse("tissue_list"))
@@ -268,7 +268,7 @@ class ViewTests(TracebaseTestCase):
         response = self.client.get(reverse("tissue_detail", args=[t.id + 1]))
         self.assertEqual(response.status_code, 404)
 
-    @tag("multi_broken")
+    @tag("multi_working")
     @tag("sample")
     def test_sample_list(self):
         response = self.client.get("/DataRepo/samples/")
@@ -277,7 +277,7 @@ class ViewTests(TracebaseTestCase):
         self.assertEqual(len(response.context["sample_list"]), self.ALL_SAMPLES_COUNT)
         self.assertEqual(len(response.context["df"]), self.ALL_SAMPLES_COUNT)
 
-    @tag("multi_broken")
+    @tag("multi_working")
     @tag("sample")
     def test_sample_list_per_animal(self):
         a1 = Animal.objects.filter(name="971").get()

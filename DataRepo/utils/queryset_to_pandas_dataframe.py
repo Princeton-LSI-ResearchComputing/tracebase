@@ -145,7 +145,7 @@ class QuerysetToPandasDataFrame:
             "name": "infusate_name",
             "tracer_group_name": "tracer_group_name",
             "tracers__name": "tracer_name",
-            "infusatetracer__concentration": "tracer_concentration",
+            "tracer_links__concentration": "tracer_concentration",
             "tracers__labels__name": "tracer_label",
             "tracers__labels__element": "labeled_element",
             "tracers__labels__count": "labeled_count",
