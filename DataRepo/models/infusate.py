@@ -152,10 +152,6 @@ class Infusate(MaintainedModel):
         if self.tracer_group_name is not None:
             name = f"{self.tracer_group_name} {{{name}}}"
 
-        print(
-            f"Updating infusate {self.id} name to {name} because there are {link_recs.count()} links"
-        )
-
         return name
 
     def clean(self, *args, **kwargs):

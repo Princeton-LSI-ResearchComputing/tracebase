@@ -823,7 +823,7 @@ class PropertyTests(TracebaseTestCase):
     def test_missing_serum_sample_peak_data(self):
         animal = self.MAIN_SERUM_ANIMAL
         last_serum_sample = animal.last_serum_sample
-        # do some deletion tests
+        # Sample->MSRun is a restricted relationship, so the MSRuns must be deleted before the sample can be deleted
         serum_sample_msrun = MSRun.objects.filter(
             sample__name=last_serum_sample.name
         ).get()
@@ -838,10 +838,6 @@ class PropertyTests(TracebaseTestCase):
             peak_group__compounds__id=animal.infusate.tracers.first().compound.id,
         )
         self.assertEqual(peakdata.count(), 0)
-        # Sample->MSRun is a restricted relationship, so the MSRuns must be deleted first
-        print(
-            f"THIS SHOULD BE 0: {MSRun.objects.filter(sample__name=last_serum_sample.name).count()}"
-        )
         with self.assertWarns(UserWarning):
             last_serum_sample.delete()
         # with the sample deleted, there are no more serum records...
@@ -853,9 +849,6 @@ class PropertyTests(TracebaseTestCase):
         )
         # so zero length list
         self.assertEqual(serum_samples.count(), 0)
-        # with self.assertWarns(UserWarning):
-        #     # and attempts to retrieve the last_serum_sample get None
-        #     self.assertIsNone(refeshed_animal.last_serum_sample)
         with self.assertWarns(UserWarning):
             self.assertEqual(
                 refeshed_animal_label.last_serum_tracer_label_peak_groups.count(),
@@ -1261,7 +1254,6 @@ class PropertyTests(TracebaseTestCase):
         serum_sample_msrun = MSRun.objects.filter(sample__name="serum-xz971").get()
         serum_sample_msrun.delete()
         serum_sample = Sample.objects.filter(name="serum-xz971").get()
-        print(f"THIS SHOULD BE 0: {serum_sample.msruns.count()}")
         serum_sample.delete()
 
         with self.assertWarns(UserWarning):
@@ -1435,7 +1427,6 @@ class PropertyTests(TracebaseTestCase):
         animal = self.MAIN_SERUM_ANIMAL
         pg = animal.last_serum_tracer_peak_groups.first()
         pgl = pg.labels.first()
-        print(f"first last serum tracer peak group: {pg.name}")
         self.assertTrue(pgl.can_compute_average_tracer_label_rates)
 
     @tag("fcirc")

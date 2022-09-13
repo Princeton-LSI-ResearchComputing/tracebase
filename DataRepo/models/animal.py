@@ -125,8 +125,8 @@ class Animal(MaintainedModel, HierCachedModel, ElementLabel):
         based on the time elapsed/duration from the initiation of infusion or treatment, typically.  If the animal has
         no serum samples or if the retrieved serum sample has no annotated time_collected, a warning will be issued.
         """
+        # Create an is_null field for time_collected to be able to sort them
         (extra_args, is_null_field) = create_is_null_field("time_collected")
-        print(f"animal.py Samples: Extra args: {extra_args}")
         last_serum_sample = (
             self.samples.filter(tissue__name__istartswith=Tissue.SERUM_TISSUE_PREFIX)
             .extra(**extra_args)
@@ -163,9 +163,8 @@ class Animal(MaintainedModel, HierCachedModel, ElementLabel):
         (tc_extra_args, tc_is_null_field) = create_is_null_field(
             "msrun__sample__time_collected"
         )
+        # Create an is_null field for the date to be able to sort them
         (d_extra_args, d_is_null_field) = create_is_null_field("msrun__date")
-        print(f"animal.py PeakGroup: tc Extra args: {tc_extra_args}")
-        print(f"animal.py PeakGroup: d Extra args: {d_extra_args}")
         for tracer in self.tracers.all():
             tracer_peak_group = (
                 PeakGroup.objects.filter(msrun__sample__animal__id__exact=self.id)

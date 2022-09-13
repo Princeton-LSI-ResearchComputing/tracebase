@@ -144,8 +144,8 @@ class FCirc(MaintainedModel, HierCachedModel):
         """
         from DataRepo.models.peak_group import PeakGroup
 
+        # Create an is_null field for msrun date to be able to sort them
         (extra_args, is_null_field) = create_is_null_field("msrun__date")
-        print(f"FCirc.py PeakGroup: Extra args: {extra_args}")
         peakgroups = (
             PeakGroup.objects.filter(msrun__sample__exact=self.serum_sample)
             .filter(compounds__exact=self.tracer.compound)
