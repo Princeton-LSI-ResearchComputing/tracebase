@@ -20,6 +20,7 @@ ISOTOPE_ENCODING_PATTERN = re.compile(
     + KNOWN_ISOTOPES
     + r"]{1,2})(?P<count>[0-9]+))"
 )
+CONCENTRATIONS_DELIMITER = ";"
 
 
 class IsotopeData(TypedDict):
@@ -163,6 +164,25 @@ def parse_isotope_string(isotopes_string: str) -> List[IsotopeData]:
         )
 
     return isotope_data
+
+
+def parse_tracer_concentrations(tracer_concs_str: str) -> List[float]:
+    try:
+        if tracer_concs_str is None:
+            tracer_concs = None
+        else:
+            # Not sure how the split results in a float, but my guess is that it's something in excel, thus
+            # if there do exist comma-delimited items, this should actually work
+            tracer_concs = [
+                float(x.strip())
+                for x in tracer_concs_str.split(CONCENTRATIONS_DELIMITER)
+            ]
+    except AttributeError as ae:
+        if "object has no attribute 'split'" in str(ae):
+            tracer_concs = [float(tracer_concs_str)]
+        else:
+            raise ae
+    return tracer_concs
 
 
 class ParsingError(Exception):

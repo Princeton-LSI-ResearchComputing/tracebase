@@ -25,7 +25,9 @@ def get_researchers(database=settings.TRACEBASE_DB):
                 model.objects.using(database).values(target_field).distinct(),
             )
         )
-    unique_researchers = list(pd.unique(researchers))
+    unique_researchers = [
+        r for r in list(pd.unique(researchers)) if r is not None and r != ""
+    ]
     return unique_researchers
 
 
@@ -39,7 +41,7 @@ class Researcher:
         Create a researcher object that will lookup items by name
         """
         if name not in get_researchers():
-            raise ObjectDoesNotExist('Researcher "{name}" not found')
+            raise ObjectDoesNotExist(f'Researcher "{name}" not found')
         else:
             self.name = name
 

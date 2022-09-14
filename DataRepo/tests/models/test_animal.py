@@ -99,3 +99,11 @@ class AnimalTests(TracebaseTestCase):
         self.createNewLastSerumSample()
         # Assert that the animal's last_serum_sample is autoupdated
         self.assertEqual(self.newlss, self.animal.last_serum_sample)
+
+    def test_last_serum_sample_queryable(self):
+        ac = (
+            Animal.objects.filter(samples__researcher="Xianfeng Zeng")
+            .distinct()
+            .count()
+        )
+        self.assertEqual(1, ac)

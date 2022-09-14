@@ -31,7 +31,7 @@ from DataRepo.models.maintained_model import (
     enable_autoupdates,
     perform_buffered_updates,
 )
-from DataRepo.models.utilities import get_researchers
+from DataRepo.models.researcher import get_researchers
 from DataRepo.utils.exceptions import (
     MissingSamplesError,
     ValidationDatabaseSetupError,

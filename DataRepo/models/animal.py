@@ -111,6 +111,7 @@ class Animal(MaintainedModel, HierCachedModel, ElementLabel):
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
+        db_column="last_serum_sample_id",  # Necessary because of Sample's link to Animal
         related_name="animals",
         help_text="Automatically maintained field. Shortcut to the last serum sample.",
     )

@@ -1,11 +1,9 @@
 import importlib
 import warnings
 
-import pandas as pd
 from chempy import Substance
 from chempy.util.periodic import atomic_number
 from django.apps import apps
-from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.forms.models import model_to_dict
 
@@ -111,26 +109,6 @@ def get_all_fields_named(target_field):
             if field.name == target_field:
                 found_fields.append([model, field])
     return found_fields
-
-
-def get_researchers(database=settings.TRACEBASE_DB):
-    """
-    Get a list of distinct researcher names that is the union of values in researcher fields from any model
-    """
-    target_field = "researcher"
-    researchers = []
-    # Get researcher names from any model containing a "researcher" field
-    fields = get_all_fields_named(target_field)
-    for field_info in fields:
-        model = field_info[0]
-        researchers += list(
-            map(
-                lambda x: x[target_field],
-                model.objects.using(database).values(target_field).distinct(),
-            )
-        )
-    unique_researchers = list(pd.unique(researchers))
-    return unique_researchers
 
 
 def dereference_field(field_name, model_name):

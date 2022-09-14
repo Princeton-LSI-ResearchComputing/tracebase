@@ -16,7 +16,11 @@ from DataRepo.utils.exceptions import (
     ResearcherError,
     ValidationDatabaseSetupError,
 )
-from DataRepo.utils.infusate_name_parser import IsotopeParsingError
+from DataRepo.utils.infusate_name_parser import (
+    IsotopeParsingError,
+    parse_infusate_name,
+    parse_tracer_concentrations,
+)
 from DataRepo.utils.queryset_to_pandas_dataframe import (
     QuerysetToPandasDataFrame,
 )
@@ -42,4 +46,6 @@ __all__ = [
     "SampleTableLoader",
     "TissuesLoader",
     "leaderboard_data",
+    "parse_infusate_name",
+    "parse_tracer_concentrations",
 ]

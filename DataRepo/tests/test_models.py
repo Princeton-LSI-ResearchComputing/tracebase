@@ -39,6 +39,8 @@ from DataRepo.utils import (
     IsotopeParsingError,
     MissingSamplesError,
     leaderboard_data,
+    parse_infusate_name,
+    parse_tracer_concentrations,
 )
 
 
@@ -56,11 +58,9 @@ class ExampleDataConsumer:
                 "Animal ID": ["969"],
                 "Animal Genotype": ["WT"],
                 "Animal Body Weight": ["27.2"],
-                "Tracer Compound": ["C16:0"],
-                "Tracer Labeled Atom": ["C"],
-                "Tracer Label Atom Count": ["16.00"],
-                "Tracer Infusion Rate": ["0.55"],
-                "Tracer Concentration": ["8.00"],
+                "Infusate": ["C16:0-[13C16]"],
+                "Infusion Rate": ["0.55"],
+                "Tracer Concentrations": ["8.00"],
                 "Animal State": ["Fasted"],
                 "Study Name": ["obob_fasted"],
             }
@@ -86,7 +86,7 @@ class ExampleDataConsumer:
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
-@tag("multi_broken")
+@tag("multi_working")
 class StudyTests(TracebaseTestCase, ExampleDataConsumer):
     def setUp(self):
         super().setUp()
@@ -96,7 +96,11 @@ class StudyTests(TracebaseTestCase, ExampleDataConsumer):
         self.first = first
 
         # Create animal with tracer
-        self.tracer = Compound.objects.create(name=first["Tracer Compound"])
+        Compound.objects.create(name="C16:0", formula="C16H32O2", hmdb_id="HMDB0000220")
+        tracer_concs = parse_tracer_concentrations(first["Tracer Concentrations"])
+        infusate_data = parse_infusate_name(first["Infusate"], tracer_concs)
+        (infusate, created) = Infusate.objects.get_or_create_infusate(infusate_data)
+        self.infusate = infusate
         self.animal_treatment = Protocol.objects.create(
             name="treatment_1",
             description="treatment_1_desc",
@@ -107,11 +111,8 @@ class StudyTests(TracebaseTestCase, ExampleDataConsumer):
             feeding_status=first["Animal State"],
             body_weight=first["Animal Body Weight"],
             genotype=first["Animal Genotype"],
-            tracer_compound=self.tracer,
-            tracer_labeled_atom=first["Tracer Labeled Atom"],
-            tracer_labeled_count=int(float(first["Tracer Label Atom Count"])),
-            tracer_infusion_rate=first["Tracer Infusion Rate"],
-            tracer_infusion_concentration=first["Tracer Concentration"],
+            infusate=self.infusate,
+            infusion_rate=first["Infusion Rate"],
             treatment=self.animal_treatment,
         )
 
@@ -172,7 +173,10 @@ class StudyTests(TracebaseTestCase, ExampleDataConsumer):
             model.save()
 
     def test_tracer(self):
-        self.assertEqual(self.tracer.name, self.first["Tracer Compound"])
+        self.assertIsNotNone(self.infusate.tracers.first().name)
+        self.assertEqual(
+            self.infusate.tracers.first().name, self.infusate.tracers.first()._name()
+        )
 
     def test_tissue(self):
         self.assertEqual(self.tissue.name, self.first["Tissue"])
@@ -181,7 +185,7 @@ class StudyTests(TracebaseTestCase, ExampleDataConsumer):
         self.assertEqual(self.animal.name, self.first["Animal ID"])
         self.assertEqual(
             self.animal.infusate.tracers.first().compound.name,
-            self.first["Tracer Compound"],
+            "C16:0",
         )
         self.assertEqual(self.animal.treatment, self.animal_treatment)
 
@@ -243,7 +247,7 @@ class StudyTests(TracebaseTestCase, ExampleDataConsumer):
     def test_peak_group_atom_count(self):
         """PeakGroup atom_count"""
         t_peak_group = PeakGroup.objects.get(name=self.peak_group.name)
-        self.assertEqual(t_peak_group.labels.first().atom_count(), 6)
+        self.assertEqual(t_peak_group.compounds.first().atom_count("C"), 6)
 
     def test_peak_group_unique_constraint(self):
         self.assertRaises(
