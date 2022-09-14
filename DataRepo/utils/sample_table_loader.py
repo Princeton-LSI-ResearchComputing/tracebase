@@ -22,9 +22,10 @@ from DataRepo.models.hier_cached_model import (
 from DataRepo.models.maintained_model import (
     clear_update_buffer,
     disable_autoupdates,
-    disable_buffering,
     enable_autoupdates,
     enable_buffering,
+    perform_buffered_updates,
+    buffer_size,
 )
 from DataRepo.models.researcher import get_researchers
 from DataRepo.models.utilities import value_from_choices_label
@@ -148,7 +149,6 @@ class SampleTableLoader:
         self.debug = debug
 
         disable_autoupdates()
-        disable_buffering()
         disable_caching_updates()
         animals_to_uncache = []
 
@@ -475,7 +475,8 @@ class SampleTableLoader:
             print("Expiring done.")
 
         # Cannot perform buffered updates of FCirc, Sample, or Animal's last serum tracer peak group because no peak
-        # groups have been loaded yet
+        # groups have been loaded yet, so only update the ones labeled "name".
+        perform_buffered_updates(labels=["name"], using=self.db)
         enable_autoupdates()
         enable_buffering()
 

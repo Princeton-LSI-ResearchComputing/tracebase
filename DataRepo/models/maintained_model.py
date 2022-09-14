@@ -801,7 +801,7 @@ def filter_updaters(updaters_list, generation=None, label_filters=[], filter_in=
     return new_updaters_list
 
 
-def perform_buffered_updates(label_filters=[], using=None):
+def perform_buffered_updates(labels=None, using=None):
     """
     Performs a mass update of records in the buffer in a depth-first fashion without repeated updates to the same
     record over and over.  It goes through the buffer in the order added and triggers each record's DFS updates, which
@@ -815,6 +815,10 @@ def perform_buffered_updates(label_filters=[], using=None):
     used for loading, which if done right, doesn't change child records after parent records have been added.
     """
     global update_buffer
+    if labels is None:
+        label_filters=[]
+    else:
+        label_filters=labels
     db = using
 
     if auto_updates:
