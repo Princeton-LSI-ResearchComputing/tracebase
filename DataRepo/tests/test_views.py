@@ -136,7 +136,7 @@ class ViewTests(TracebaseTestCase):
         )
 
     @tag("compound")
-    @tag("multi_working")
+    @tag("multi_broken")
     def test_compound_detail(self):
         lysine = Compound.objects.filter(name="lysine").get()
         response = self.client.get(reverse("compound_detail", args=[lysine.id]))
