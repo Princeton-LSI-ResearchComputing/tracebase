@@ -25,7 +25,6 @@ from DataRepo.models.maintained_model import (
     enable_autoupdates,
     enable_buffering,
     perform_buffered_updates,
-    buffer_size,
 )
 from DataRepo.models.researcher import get_researchers
 from DataRepo.models.utilities import value_from_choices_label

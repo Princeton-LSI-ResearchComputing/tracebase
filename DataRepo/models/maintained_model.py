@@ -5,6 +5,7 @@ from typing import Dict, List
 from django.conf import settings
 from django.db.models import Model
 from django.db.models.signals import m2m_changed
+from django.db.transaction import TransactionManagementError
 from django.db.utils import IntegrityError
 from psycopg2.errors import ForeignKeyViolation
 
@@ -816,9 +817,9 @@ def perform_buffered_updates(labels=None, using=None):
     """
     global update_buffer
     if labels is None:
-        label_filters=[]
+        label_filters = []
     else:
-        label_filters=labels
+        label_filters = labels
     db = using
 
     if auto_updates:
@@ -868,7 +869,11 @@ def perform_buffered_updates(labels=None, using=None):
 
         except Exception as e:
             disable_mass_autoupdates()
-            raise AutoUpdateFailed(buffer_item, e, db)
+            if isinstance(e, TransactionManagementError):
+                raise TransactionManagementUnsupported(
+                    buffer_item, e, updater_dicts, db
+                )
+            raise AutoUpdateFailed(buffer_item, e, updater_dicts, db)
 
     # Eliminate the updated items from the buffer
     update_buffer = new_buffer
@@ -973,12 +978,16 @@ class NoDecorators(Exception):
 
 
 class AutoUpdateFailed(Exception):
-    def __init__(self, model_object, err, db=None):
+    def __init__(self, model_object, err, updaters, db=None):
         database = "" if db is None else f"{db}."
+        updater_flds = [
+            d["update_field"] for d in updaters if d["update_field"] is not None
+        ]
         message = (
-            f"Autoupdate of {database}{model_object.__class__.__name__} failed.  If the record was created and "
-            "deleted before the buffered update, a catch for the exception should be added and ignored (or the code "
-            f"should be edited to avoid it).  The triggering exception: [{err}]."
+            f"Autoupdate of the {model_object.__class__.__name__} model's fields [{', '.join(updater_flds)}] in the "
+            f"{database} database failed.  If the record was created and deleted before the buffered update, a catch "
+            "for the exception should be added and ignored (or the code should be edited to avoid it).  The "
+            f"triggering exception: [{err}]."
         )
         super().__init__(message)
 
@@ -998,5 +1007,20 @@ class StaleAutoupdateMode(Exception):
             "Autoupdate mode enabled during a mass update of maintained fields.  Automated update of the global "
             "variable performing_mass_autoupdates may have been interrupted during execution of "
             "perform_buffered_updates."
+        )
+        super().__init__(message)
+
+
+class TransactionManagementUnsupported(TransactionManagementError):
+    def __init__(self, model_object, err, updaters, db=None):
+        updater_flds = [
+            d["update_field"] for d in updaters if d["update_field"] is not None
+        ]
+        database = "" if db is None else f"{db}."
+        message = (
+            f"Autoupdate of the {model_object.__class__.__name__} model's fields [{', '.join(updater_flds)}] in the "
+            f"{database} database failed.  Atomic transactions are not supported by MaintainedModel.  Please move "
+            "calls of methods like perform_buffered_updates outside of an atomic transaction block.  The triggering "
+            f"exception: [{err}]."
         )
         super().__init__(message)
