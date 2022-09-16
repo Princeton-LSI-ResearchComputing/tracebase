@@ -252,7 +252,6 @@ class QuerysetToPandasDataFrameTests(QuerysetToPandasDataFrameBaseTests):
         super().setUpTestData()
 
 
-
 @tag("multi_mixed")
 class QuerysetToPandasDataFrameNullToleranceTests(QuerysetToPandasDataFrameBaseTests):
     @classmethod
