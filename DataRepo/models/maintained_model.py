@@ -869,10 +869,6 @@ def perform_buffered_updates(labels=None, using=None):
 
         except Exception as e:
             disable_mass_autoupdates()
-            if isinstance(e, TransactionManagementError):
-                raise TransactionManagementUnsupported(
-                    buffer_item, e, updater_dicts, db
-                )
             raise AutoUpdateFailed(buffer_item, e, updater_dicts, db)
 
     # Eliminate the updated items from the buffer
@@ -985,9 +981,11 @@ class AutoUpdateFailed(Exception):
         ]
         message = (
             f"Autoupdate of the {model_object.__class__.__name__} model's fields [{', '.join(updater_flds)}] in the "
-            f"{database} database failed.  If the record was created and deleted before the buffered update, a catch "
-            "for the exception should be added and ignored (or the code should be edited to avoid it).  The "
-            f"triggering {err.__class__.__name__} exception: [{err}]."
+            f"{database} database failed for record {model_object}.  Potential causes: 1. The record was created and "
+            "deleted before the buffered update (a catch for the exception should be added and ignored).  2. The "
+            "autoupdate buffer is stale and auto-updates are being attempted on partial or deleted records (be sure "
+            "to call clear_update_buffer if only updating a subset of the buffered contents).  The triggering "
+            f"{err.__class__.__name__} exception: [{err}]."
         )
         super().__init__(message)
 
@@ -1007,20 +1005,5 @@ class StaleAutoupdateMode(Exception):
             "Autoupdate mode enabled during a mass update of maintained fields.  Automated update of the global "
             "variable performing_mass_autoupdates may have been interrupted during execution of "
             "perform_buffered_updates."
-        )
-        super().__init__(message)
-
-
-class TransactionManagementUnsupported(TransactionManagementError):
-    def __init__(self, model_object, err, updaters, db=None):
-        updater_flds = [
-            d["update_field"] for d in updaters if d["update_field"] is not None
-        ]
-        database = "unspecified" if db is None else db
-        message = (
-            f"Autoupdate of the {model_object.__class__.__name__} model's fields [{', '.join(updater_flds)}] in the "
-            f"{database} database failed.  Atomic transactions are not supported by MaintainedModel.  Please move "
-            "calls of methods like perform_buffered_updates outside of an atomic transaction block.  The triggering "
-            f"{err.__class__.__name__} exception: [{err}]."
         )
         super().__init__(message)

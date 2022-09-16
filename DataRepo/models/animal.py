@@ -119,13 +119,6 @@ class Animal(MaintainedModel, HierCachedModel, ElementLabel):
     @property  # type: ignore
     @cached_function
     def tracers(self):
-        print(f"Animal.tracers test1: self: {self}")
-        print(f"Animal.tracers test2: self.id: {self.id}")
-        print(f"Animal.tracers test3: self.name {self.name}")
-        print(f"Animal.tracers test4: self.infusate: {self.infusate}")
-        print(f"Animal.tracers test5: self.infusate.id: {self.infusate.id}")
-        print(f"Animal.tracers test6: self.infusate.tracers: {self.infusate.tracers}")
-        print(f"Animal.tracers test7: self.infusate.tracers.count(): {self.infusate.tracers.count()}")
         if self.infusate.tracers.count() == 0:
             warnings.warn(f"Animal [{self.name}] has no tracers.")
         return self.infusate.tracers.all()
