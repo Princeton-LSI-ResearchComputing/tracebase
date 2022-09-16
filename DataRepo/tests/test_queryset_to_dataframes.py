@@ -13,9 +13,11 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import QuerysetToPandasDataFrame as qs2df
 
 
-@tag("qs2df")
-@tag("multi_working")
-class QuerysetToPandasDataFrameTests(TracebaseTestCase):
+class QuerysetToPandasDataFrameBaseTests(TracebaseTestCase):
+    """
+    Do not pass or tag this class or the methods in it.  Instead override any tests in the derived classes and call
+    their `super()` version because these tests are re-used under difference conditions
+    """
     @classmethod
     def setUpTestData(cls):
         call_command("load_study", "DataRepo/example_data/test_dataframes/loading.yaml")
@@ -240,13 +242,23 @@ class QuerysetToPandasDataFrameTests(TracebaseTestCase):
         self.assertEqual(inf1_dict, example_infusate_dict)
 
 
+@tag("qs2df")
+@tag("multi_working")
+class QuerysetToPandasDataFrameTests(QuerysetToPandasDataFrameBaseTests):
+    pass
+
+
 @tag("multi_mixed")
-class QuerysetToPandasDataFrameNullToleranceTests(QuerysetToPandasDataFrameTests):
+class QuerysetToPandasDataFrameNullToleranceTests(QuerysetToPandasDataFrameBaseTests):
     @classmethod
     def setUpTestData(cls):
         # Silently dis-allow auto-updates by disabling buffering
         disable_buffering()
-        super().setUpTestData()
+        try:
+            super().setUpTestData()
+        except Exception as e:
+            enable_buffering()
+            raise e
         enable_buffering()
 
     @tag("multi_broken")

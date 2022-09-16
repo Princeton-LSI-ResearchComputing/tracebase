@@ -54,6 +54,7 @@ def create_infusate_records():
 class InfusateTests(TracebaseTestCase):
     def setUp(self):
         super().setUp()
+        clear_update_buffer()
         self.INFUSATE1, self.INFUSATE2 = create_infusate_records()
 
     @classmethod
