@@ -476,6 +476,8 @@ class SampleTableLoader:
         # Cannot perform buffered updates of FCirc, Sample, or Animal's last serum tracer peak group because no peak
         # groups have been loaded yet, so only update the ones labeled "name".
         perform_buffered_updates(labels=["name"], using=self.db)
+        # Since we only updated some of the buffered items, clear the rest of the buffer
+        clear_update_buffer()
         enable_autoupdates()
         enable_buffering()
 

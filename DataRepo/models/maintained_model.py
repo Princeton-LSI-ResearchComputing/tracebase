@@ -215,7 +215,7 @@ def maintained_field_function(
     parent model and call the decorated functions to update field supplied to the factory function.  It also propagates
     the updates to the linked dependent model's save methods (if the parent and/or child field name is supplied), the
     assumption being that a change to "this" record's maintained field necessitates a change to another maintained
-    field in the linked parent record.  parent and children field names should only be supplied if a change to "this"
+    field in the linked parent record.  Parent and child field names should only be supplied if a change to "this"
     record means that related foields in parent/child records will need to be recomputed.  There is no need to supply
     parent/child field names if that is not the case.
 
@@ -979,7 +979,7 @@ class NoDecorators(Exception):
 
 class AutoUpdateFailed(Exception):
     def __init__(self, model_object, err, updaters, db=None):
-        database = "" if db is None else f"{db}."
+        database = "unspecified" if db is None else db
         updater_flds = [
             d["update_field"] for d in updaters if d["update_field"] is not None
         ]
@@ -987,7 +987,7 @@ class AutoUpdateFailed(Exception):
             f"Autoupdate of the {model_object.__class__.__name__} model's fields [{', '.join(updater_flds)}] in the "
             f"{database} database failed.  If the record was created and deleted before the buffered update, a catch "
             "for the exception should be added and ignored (or the code should be edited to avoid it).  The "
-            f"triggering exception: [{err}]."
+            f"triggering {err.__class__.__name__} exception: [{err}]."
         )
         super().__init__(message)
 
@@ -1016,11 +1016,11 @@ class TransactionManagementUnsupported(TransactionManagementError):
         updater_flds = [
             d["update_field"] for d in updaters if d["update_field"] is not None
         ]
-        database = "" if db is None else f"{db}."
+        database = "unspecified" if db is None else db
         message = (
             f"Autoupdate of the {model_object.__class__.__name__} model's fields [{', '.join(updater_flds)}] in the "
             f"{database} database failed.  Atomic transactions are not supported by MaintainedModel.  Please move "
             "calls of methods like perform_buffered_updates outside of an atomic transaction block.  The triggering "
-            f"exception: [{err}]."
+            f"{err.__class__.__name__} exception: [{err}]."
         )
         super().__init__(message)
