@@ -100,7 +100,18 @@ class AnimalTests(TracebaseTestCase):
         # Assert that the animal's last_serum_sample is autoupdated
         self.assertEqual(self.newlss, self.animal.last_serum_sample)
 
-    def test_last_serum_sample_queryable(self):
+    def test_animal_is_queryable(self):
+        """
+        The query below needs some explanation.  It can produce an exception that references
+        "Animal.last_serum_sample".  This is the association:
+
+        This specific query exists inside DataRepo.models.researcher.Researcher.animals().  It was throwing an
+        exception about Animal.last_serum_sample_id not existing in the database. The fix was to add db_column to the
+        ForeignKey arguments.  This test assures that it is there by assuring that the query produces the expected
+        result without an exception.
+
+        The reason it happens is because every Sample links to Animal and Animal *can* link to the "last" serum sample.
+        """
         ac = (
             Animal.objects.filter(samples__researcher="Xianfeng Zeng")
             .distinct()

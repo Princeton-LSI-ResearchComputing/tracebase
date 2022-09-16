@@ -100,7 +100,7 @@ class Sample(MaintainedModel, HierCachedModel):
         # Get the last peakgroup for each tracer that has this label
         last_peakgroup_ids = []
         (extra_args, is_null_field) = create_is_null_field("msrun__date")
-        print(f"Sample.py PeakGroup: Extra args: {extra_args}")
+
         for tracer in self.animal.tracers.all():
             tracer_peak_group = (
                 PeakGroup.objects.filter(msrun__sample__id__exact=self.id)

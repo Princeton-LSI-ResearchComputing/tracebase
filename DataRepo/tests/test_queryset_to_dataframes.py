@@ -121,7 +121,7 @@ class QuerysetToPandasDataFrameBaseTests(TracebaseTestCase):
         out_df = stud1_list_stats_df[selected_columns]
         stud1_list_stats_dict = qs2df.df_to_list_of_dict(out_df)[0]
 
-        self.assertEqual(stud1_list_stats_dict, example_study_dict)
+        self.assertDictEqual(stud1_list_stats_dict, example_study_dict)
 
     def test_animal_list_stat_df(self):
         """

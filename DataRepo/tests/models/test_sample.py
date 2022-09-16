@@ -11,26 +11,6 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 @override_settings(CACHES=settings.TEST_CACHES)
 @tag("multi_working")
 class SampleTests(TracebaseTestCase):
-    def setUp(self):
-        super().setUp()
-        # Get an animal (assuming it has an infusate/tracers/etc)
-        animal = Animal.objects.last()
-        # Get its last serum sample
-        lss = animal.last_serum_sample
-
-        # For the validity of the test, assert there exist FCirc records and that they are for the last peak groups
-        self.assertTrue(lss.fcircs.count() > 0)
-        for fco in lss.fcircs.all():
-            self.assertTrue(fco.is_last)
-
-        # Now create a new last serum sample (without any peak groups)
-        tissue = lss.tissue
-        tc = lss.time_collected + timedelta(seconds=1)
-        nlss = Sample.objects.create(animal=animal, tissue=tissue, time_collected=tc)
-
-        self.lss = lss
-        self.newlss = nlss
-
     @classmethod
     def setUpTestData(cls):
         super().setUpTestData()
@@ -69,5 +49,20 @@ class SampleTests(TracebaseTestCase):
           1. Create a new serum sample whose time collected is later than existing serum samples.
             2. Confirm the new sample's Sample.is_serum_sample is True.
         """
+        # Get an animal (assuming it has an infusate/tracers/etc)
+        animal = Animal.objects.last()
+        # Get its last serum sample
+        lss = animal.last_serum_sample
+
+        # For the validity of the test, assert there exist FCirc records and that they are for the last peak groups
+        self.assertTrue(lss.fcircs.count() > 0)
+        for fco in lss.fcircs.all():
+            self.assertTrue(fco.is_last)
+
+        # Now create a new last serum sample (without any peak groups)
+        tissue = lss.tissue
+        tc = lss.time_collected + timedelta(seconds=1)
+        nlss = Sample.objects.create(animal=animal, tissue=tissue, time_collected=tc)
+
         # Assert that the new serum sample's is_serum_sample is autoupdated to True
-        self.assertTrue(self.newlss.is_serum_sample)
+        self.assertTrue(nlss.is_serum_sample)

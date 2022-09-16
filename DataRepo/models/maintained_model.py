@@ -145,8 +145,32 @@ def maintained_model_relation(
     """
     Use this decorator to add connections between classes when it does not have any maintained fields.  For example,
     if you only want to maintain 1 field in 1 class, but you want changes in a related class to trigger updates to
-    that field, call this method in the related class's __init__ method in order to trigger those updates of the
-    field in the other class.
+    that field, apply this decorator to the class and set either the parent_field_name and/or the child_field_names to
+    trigger those updates of the maintained fields in that related model class.
+
+    Refer to the doc string of the maintained_field_function decorator below for a description of the parameters.
+
+    Example:
+
+    class ModelA(MaintainedModel):
+        ...
+    @maintained_model_relation(
+        generation=1,
+        parent_field_name="modela",
+        child_field_names=["modelcs", "modelds"],
+        update_label="values",
+    )
+    class ModelB(MaintainedModel):
+        modela=ForeignKey(...)
+    class ModelC(MaintainedModel):
+        modelb = ForeignKey(... related_name="modelcs")
+    class ModelD(MaintainedModel):
+        modelb = ForeignKey(... related_name="modelds")
+
+    The class decorator in the above example links ModelB to Models A, C, and D.  So if a ModelB object changes, it
+    will trigger auto-updated to maintained fields (not shown) in its child model records (first) and it's parent model
+    A records.  Likewise, it will pass on triggered updates from those classes if they are set to pass on changes to
+    modelB though the parent/chold fields in their decorators.
     """
     # Validate args
     if generation != 0:
@@ -179,17 +203,17 @@ def maintained_model_relation(
         # be nice to handle here, it will have to be handled in MaintanedModel when objects are created
 
         # Provide some debug feedback
-        # if settings.DEBUG:
-        msg = f"Added maintained_model_relation decorator {class_name} to update"
-        if update_label is not None:
-            msg += f" '{update_label}'-related"
-        if parent_field_name is not None:
-            msg += f" parent: {class_name}.{parent_field_name}"
+        if settings.DEBUG:
+            msg = f"Added maintained_model_relation decorator {class_name} to update"
+            if update_label is not None:
+                msg += f" '{update_label}'-related"
+            if parent_field_name is not None:
+                msg += f" parent: {class_name}.{parent_field_name}"
+                if len(child_field_names) > 0:
+                    msg += " and"
             if len(child_field_names) > 0:
-                msg += " and"
-        if len(child_field_names) > 0:
-            msg += f"children: [{', '.join([class_name + '.' + c for c in child_field_names])}]"
-        print(f"{msg}.")
+                msg += f"children: [{', '.join([class_name + '.' + c for c in child_field_names])}]"
+            print(f"{msg}.")
 
         return cls
 
@@ -264,22 +288,24 @@ def maintained_field_function(
         updater_list[class_name].append(func_dict)
 
         # Provide some debug feedback
-        # if settings.DEBUG:
-        msg = f"Added maintained_field_function decorator to function {fn.__qualname__} to"
-        if update_field_name is not None:
-            msg += f" maintain {class_name}.{update_field_name}"
-            if parent_field_name is not None or len(child_field_names) > 0:
-                msg += " and"
-        if parent_field_name is not None:
-            msg += f" trigger updates to parent: {class_name}." f"{parent_field_name}"
-        if parent_field_name is not None and len(child_field_names) > 0:
-            msg += " and "
-        if child_field_names is not None and len(child_field_names) > 0:
-            msg += (
-                f" trigger updates to children: "
-                f"{', '.join([class_name + '.' + c for c in child_field_names])}"
-            )
-        print(f"{msg}.")
+        if settings.DEBUG:
+            msg = f"Added maintained_field_function decorator to function {fn.__qualname__} to"
+            if update_field_name is not None:
+                msg += f" maintain {class_name}.{update_field_name}"
+                if parent_field_name is not None or len(child_field_names) > 0:
+                    msg += " and"
+            if parent_field_name is not None:
+                msg += (
+                    f" trigger updates to parent: {class_name}." f"{parent_field_name}"
+                )
+            if parent_field_name is not None and len(child_field_names) > 0:
+                msg += " and "
+            if child_field_names is not None and len(child_field_names) > 0:
+                msg += (
+                    f" trigger updates to children: "
+                    f"{', '.join([class_name + '.' + c for c in child_field_names])}"
+                )
+            print(f"{msg}.")
 
         return fn
 
@@ -300,20 +326,6 @@ def m2m_propagation_handler(**kwargs):
     obj = kwargs.pop("instance", None)
     act = kwargs.pop("action", None)
 
-    # TODO: Add controls to the call of obj.call_dfs_related_updaters() so that it is only called when auto_updates and
-    #       propagate are true.  See MaintainedModel.save().  In some cases, based on the value of reverse, the
-    #       "to model" object may need to be called instead.
-    # frm_mdl = obj.__class__
-    # to_mdl = kwargs.pop("model", None)
-    # frm_id = obj.pk
-    # rev = kwargs.pop("reverse", None)
-    # db = kwargs.pop("using", None)
-    # to_id = kwargs.pop("pk_set", None)
-
-    # I do not need a "propagate" argument here like in save() and delete() to support not propagating during
-    # perform_buffered_updates because none of the maintained_field_functions currently use the .add() method and even
-    # if any did, I'm not sure triggering updates based on those would be necessary, because it's already propagating
-    # due to preform_buffered_updates having been called.  Regardless, it's not an issue.
     if act.startswith("post_") and isinstance(obj, MaintainedModel) and auto_updates:
         obj.call_dfs_related_updaters()
 
