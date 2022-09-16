@@ -5,7 +5,6 @@ from typing import Dict, List
 from django.conf import settings
 from django.db.models import Model
 from django.db.models.signals import m2m_changed
-from django.db.transaction import TransactionManagementError
 from django.db.utils import IntegrityError
 from psycopg2.errors import ForeignKeyViolation
 
@@ -979,9 +978,14 @@ class AutoUpdateFailed(Exception):
         updater_flds = [
             d["update_field"] for d in updaters if d["update_field"] is not None
         ]
+        try:
+            obj_str = str(model_object)
+        except Exception:
+            # Displaying the offending object is optional, so catch any error
+            obj_str = "unknown"
         message = (
             f"Autoupdate of the {model_object.__class__.__name__} model's fields [{', '.join(updater_flds)}] in the "
-            f"{database} database failed for record {model_object}.  Potential causes: 1. The record was created and "
+            f"{database} database failed for record {obj_str}.  Potential causes: 1. The record was created and "
             "deleted before the buffered update (a catch for the exception should be added and ignored).  2. The "
             "autoupdate buffer is stale and auto-updates are being attempted on partial or deleted records (be sure "
             "to call clear_update_buffer if only updating a subset of the buffered contents).  The triggering "

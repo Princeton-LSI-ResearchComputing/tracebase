@@ -1,3 +1,4 @@
+from django.core.management import call_command
 from django.test import tag
 
 from DataRepo.management.commands.rebuild_maintained_fields import (
@@ -7,6 +8,7 @@ from DataRepo.models.compound import Compound
 from DataRepo.models.infusate import Infusate
 from DataRepo.models.infusate_tracer import InfusateTracer
 from DataRepo.models.maintained_model import (
+    AutoUpdateFailed,
     MaintainedFieldNotSettable,
     buffer_size,
     clear_update_buffer,
@@ -20,12 +22,8 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
 def create_infusate_records():
-    glu = Compound.objects.create(
-        name="glucose", formula="C6H12O6", hmdb_id="HMDB0000122"
-    )
-    c16 = Compound.objects.create(
-        name="C16:0", formula="C16H32O2", hmdb_id="HMDB0000220"
-    )
+    glu = Compound.objects.get(name="glucose")
+    c16 = Compound.objects.get(name="C16:0")
     glu_t = Tracer.objects.create(compound=glu)
     c16_t = Tracer.objects.create(compound=c16)
     TracerLabel.objects.create(
@@ -53,6 +51,20 @@ class InfusateTests(TracebaseTestCase):
     def setUp(self):
         super().setUp()
         self.INFUSATE1, self.INFUSATE2 = create_infusate_records()
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command(
+            "load_study",
+            "DataRepo/example_data/tissues/loading.yaml",
+            verbosity=2,
+        )
+        call_command(
+            "load_compounds",
+            compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
+            verbosity=2,
+        )
+        super().setUpTestData()
 
     def test_infusate_record(self):
         infusate = Infusate.objects.first()
@@ -133,6 +145,20 @@ class MaintainedModelTests(TracebaseTestCase):
         create_infusate_records()
         enable_autoupdates()
 
+    @classmethod
+    def setUpTestData(cls):
+        call_command(
+            "load_study",
+            "DataRepo/example_data/tissues/loading.yaml",
+            verbosity=2,
+        )
+        call_command(
+            "load_compounds",
+            compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
+            verbosity=2,
+        )
+        super().setUpTestData()
+
     def test_nullable(self):
         """
         MaintainedModel doesn't require the update_field be nullable, but it helps to make the
@@ -175,9 +201,43 @@ class MaintainedModelTests(TracebaseTestCase):
         Ensures that the name field was constructed.
         """
         enable_autoupdates()
-        lys = Compound.objects.create(name="lysine", formula="C6H14N2O2", hmdb_id=3)
+        lys = Compound.objects.create(name="lysine2", formula="C6H14N2O2", hmdb_id=3)
         Tracer.objects.create(compound=lys)
-        Tracer.objects.get(name="lysine")
+        Tracer.objects.get(name="lysine2")
+
+    def test_buffer_cleared_after_sample_load(self):
+        """Ensure the sample load doesn't leave stuff in the buffer when it exits successfully"""
+        # The sample load only auto-updates fields with the "name" label in the decorator, so the sample_table_loader
+        # must clear the buffer when it ends successfully
+        call_command(
+            "load_animals_and_samples",
+            animal_and_sample_table_filename=(
+                "DataRepo/example_data/small_dataset/"
+                "small_obob_animal_and_sample_table.xlsx"
+            ),
+            debug=False,
+        )
+        self.assertEqual(0, buffer_size())
+        # TODO: Create a feature issue to tell the auto-update code to only buffer records with matching labels
+
+    def test_error_when_buffer_not_clear(self):
+        """Ensure that stale buffer contents before a load produces a helpful error"""
+        disable_autoupdates()
+        # Create infusate records while auto updates are disabled, so that they buffer
+        infusate1, infusate2 = create_infusate_records()
+        # Delete the records and do not clear the buffer
+        infusate1.delete()
+        infusate2.delete()
+        enable_autoupdates()
+        with self.assertRaisesRegex(AutoUpdateFailed, ".+clear_update_buffer.+"):
+            call_command(
+                "load_animals_and_samples",
+                animal_and_sample_table_filename=(
+                    "DataRepo/example_data/small_dataset/"
+                    "small_obob_animal_and_sample_table.xlsx"
+                ),
+                debug=False,
+            )
 
 
 @tag("multi_working")
