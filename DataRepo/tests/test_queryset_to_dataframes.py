@@ -5,16 +5,21 @@ from django.core.management import call_command
 from django.test import tag
 from django.utils import dateparse
 
+from DataRepo.models.maintained_model import (
+    disable_buffering,
+    enable_buffering,
+)
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import QuerysetToPandasDataFrame as qs2df
 
 
 @tag("qs2df")
-@tag("multi_mixed")
+@tag("multi_working")
 class QuerysetToPandasDataFrameTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
         call_command("load_study", "DataRepo/example_data/test_dataframes/loading.yaml")
+        super().setUpTestData()
 
     def get_example_study_dict(self):
         exmaple_study_dict = {
@@ -100,7 +105,6 @@ class QuerysetToPandasDataFrameTests(TracebaseTestCase):
         }
         return example_infusate_dict
 
-    @tag("multi_broken")
     def test_study_list_stat_df(self):
         """
         get data from the data frame for selected study with selected columns,
@@ -117,7 +121,6 @@ class QuerysetToPandasDataFrameTests(TracebaseTestCase):
 
         self.assertEqual(stud1_list_stats_dict, example_study_dict)
 
-    @tag("multi_broken")
     def test_animal_list_stat_df(self):
         """
         get data from the data frame for selected animal with selected columns,
@@ -136,7 +139,6 @@ class QuerysetToPandasDataFrameTests(TracebaseTestCase):
         anim1_list_stats_dict = qs2df.df_to_list_of_dict(out_df)[0]
         self.assertEqual(anim1_list_stats_dict, example_animal_dict)
 
-    @tag("multi_broken")
     def test_animal_sample_msrun_df(self):
         """
         get data from the data frame for selected sample with selected columns,
@@ -203,7 +205,6 @@ class QuerysetToPandasDataFrameTests(TracebaseTestCase):
         self.assertTrue(sam2_msrun_all_dict["msrun_id"] is pd.NA)
         self.assertTrue(sam2_msrun_all_dict["msrun_owner"] is pd.NA)
 
-    @tag("multi_working")
     def test_comp_list_stats_df(self):
         """
         get data from the data frame for selected compound with selected columns,
@@ -220,7 +221,6 @@ class QuerysetToPandasDataFrameTests(TracebaseTestCase):
 
         self.assertEqual(comp1_dict, example_compound_dict)
 
-    @tag("multi_broken")
     def test_infusate_list_df(self):
         """
         get data from the data frame for selected infusate with selected columns,
@@ -238,3 +238,29 @@ class QuerysetToPandasDataFrameTests(TracebaseTestCase):
         inf1_dict = qs2df.df_to_list_of_dict(out_df)[0]
 
         self.assertEqual(inf1_dict, example_infusate_dict)
+
+
+@tag("multi_mixed")
+class QuerysetToPandasDataFrameNullToleranceTests(QuerysetToPandasDataFrameTests):
+    @classmethod
+    def setUpTestData(cls):
+        # Silently dis-allow auto-updates by disabling buffering
+        disable_buffering()
+        super().setUpTestData()
+        enable_buffering()
+
+    @tag("multi_broken")
+    def test_study_list_stat_df(self):
+        super().test_study_list_stat_df()
+
+    @tag("multi_broken")
+    def test_animal_list_stat_df(self):
+        super().test_animal_list_stat_df()
+
+    @tag("multi_broken")
+    def test_animal_sample_msrun_df(self):
+        super().test_animal_sample_msrun_df()
+
+    @tag("multi_broken")
+    def test_infusate_list_df(self):
+        super().test_infusate_list_df()

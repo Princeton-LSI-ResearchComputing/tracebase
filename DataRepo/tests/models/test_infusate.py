@@ -238,6 +238,8 @@ class MaintainedModelTests(TracebaseTestCase):
                 ),
                 debug=False,
             )
+        # Now clean up the buffer
+        clear_update_buffer()
 
 
 @tag("multi_working")
