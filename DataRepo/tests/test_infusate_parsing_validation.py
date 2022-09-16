@@ -133,6 +133,8 @@ class InfusateTest(TracebaseTestCase):
             ],
         )
 
+        super().setUpTestData()
+
 
 @tag("parsing")
 @tag("multi_working")

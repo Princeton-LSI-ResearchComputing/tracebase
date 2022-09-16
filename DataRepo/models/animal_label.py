@@ -98,10 +98,6 @@ class AnimalLabel(HierCachedModel):
             # For every tracer whose compound contains this element
             for tracer in self.tracers.all():
 
-                # PR REVIEW NOTE: This is essentially how this was calculated before... but I wonder if the
-                # total_atom_count should be the number of labeled atoms originally in the tracer.  I.e. if it wasn't
-                # fully labeled, the enrichment would never (likely) be 100%.  Is that what we *want*?
-
                 total_atom_count += tracer.compound.atom_count(self.element)
 
             if self.tracers.count() == 0 or total_atom_count == 0:

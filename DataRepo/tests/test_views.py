@@ -77,6 +77,8 @@ class ViewTests(TracebaseTestCase):
         cls.SERUM_PEAKDATA_ROWS = 13
         cls.SERUM_PEAKGROUP_COUNT = cls.SERUM_COMPOUNDS_COUNT * cls.SERUM_SAMPLES_COUNT
 
+        super().setUpTestData()
+
     @tag("multi_working")
     def test_home_url_exists_at_desired_location(self):
         response = self.client.get("/")
@@ -134,7 +136,7 @@ class ViewTests(TracebaseTestCase):
         )
 
     @tag("compound")
-    @tag("multi_working")
+    @tag("multi_broken")
     def test_compound_detail(self):
         lysine = Compound.objects.filter(name="lysine").get()
         response = self.client.get(reverse("compound_detail", args=[lysine.id]))
@@ -143,14 +145,14 @@ class ViewTests(TracebaseTestCase):
         self.assertEqual(response.context["compound"].name, "lysine")
 
     @tag("compound")
-    @tag("multi_working")
+    @tag("multi_broken")
     def test_compound_detail_404(self):
         c = Compound.objects.order_by("id").last()
         response = self.client.get(reverse("compound_detail", args=[c.id + 1]))
         self.assertEqual(response.status_code, 404)
 
     @tag("compound")
-    @tag("multi_working")
+    @tag("multi_broken")
     def test_infusate_detail(self):
         infusate = Infusate.objects.filter(name__icontains="lysine").first()
         response = self.client.get(reverse("infusate_detail", args=[infusate.id]))
@@ -165,7 +167,7 @@ class ViewTests(TracebaseTestCase):
         self.assertEqual(response.status_code, 404)
 
     @tag("study")
-    @tag("multi_working")
+    @tag("multi_broken")
     def test_study_list(self):
         response = self.client.get(reverse("study_list"))
         self.assertEqual(response.status_code, 200)
@@ -173,14 +175,14 @@ class ViewTests(TracebaseTestCase):
         self.assertEqual(len(response.context["study_list"]), 1)
         self.assertEqual(len(response.context["df"]), 1)
 
-    @tag("multi_working")
+    @tag("multi_broken")
     @tag("study")
     def test_study_summary(self):
         response = self.client.get("/DataRepo/studies/study_summary/")
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "DataRepo/study_summary.html")
 
-    @tag("multi_working")
+    @tag("multi_broken")
     @tag("study")
     def test_study_detail(self):
         obob_fasted = Study.objects.filter(name="obob_fasted").get()
@@ -218,7 +220,7 @@ class ViewTests(TracebaseTestCase):
         response = self.client.get(reverse("protocol_detail", args=[p.id + 1]))
         self.assertEqual(response.status_code, 404)
 
-    @tag("multi_working")
+    @tag("multi_broken")
     @tag("animal")
     def test_animal_list(self):
         response = self.client.get(reverse("animal_list"))
@@ -438,7 +440,7 @@ class ViewTests(TracebaseTestCase):
             "form-0-ncmp": "iexact",
             "form-0-val": "Brain",
             "form-1-pos": "pdtemplate-PeakData.0-all-False.0",
-            "form-1-fld": "labeled_element",
+            "form-1-fld": "labels__element",
             "form-1-ncmp": "iexact",
             "form-2-pos": "fctemplate-FCirc.0-all-False.0",
             "form-2-fld": "msrun__sample__animal__name",
@@ -490,7 +492,7 @@ class ViewTests(TracebaseTestCase):
                                 "pos": "",
                                 "ncmp": "iexact",
                                 "static": "",
-                                "fld": "labeled_element",
+                                "fld": "labels__element",
                                 "val": "",
                             }
                         ],
@@ -519,7 +521,7 @@ class ViewTests(TracebaseTestCase):
             },
         }
 
-    @tag("multi_broken")
+    @tag("multi_working")
     def test_search_advanced_valid(self):
         """
         Do a simple advanced search and make sure the results are correct
@@ -532,9 +534,9 @@ class ViewTests(TracebaseTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "DataRepo/search/query.html")
         self.assertEqual(len(response.context["res"]), qs.count())
-        self.assertEqual(response.context["qry"], qry)
+        self.assertEqual(qry, response.context["qry"])
 
-    @tag("multi_broken")
+    @tag("multi_working")
     def test_search_advanced_invalid(self):
         """
         Do a simple advanced search and make sure the results are correct
@@ -548,7 +550,7 @@ class ViewTests(TracebaseTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "DataRepo/search/query.html")
         self.assertEqual(len(response.context["res"]), 0)
-        self.assertEqual(response.context["qry"], qry)
+        self.assertEqual(qry, response.context["qry"])
 
     @tag("multi_working")
     def test_search_advanced_tsv(self):

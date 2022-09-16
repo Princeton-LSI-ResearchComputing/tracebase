@@ -3,14 +3,18 @@ from datetime import date, timedelta
 
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.forms.models import model_to_dict
 
 from DataRepo.models.hier_cached_model import HierCachedModel, cached_function
+from DataRepo.models.maintained_model import (
+    MaintainedModel,
+    maintained_field_function,
+)
+from DataRepo.models.peak_group import PeakGroup
+from DataRepo.models.utilities import create_is_null_field
 
-from .peak_data import PeakData
-from .peak_group import PeakGroup
 
-
-class Sample(HierCachedModel):
+class Sample(MaintainedModel, HierCachedModel):
     parent_related_key_name = "animal"
     child_related_key_names = ["msruns", "fcircs"]
 
@@ -42,6 +46,10 @@ class Sample(HierCachedModel):
         related_name="samples",
         help_text="The tissue type this sample was taken from.",
     )
+    is_serum_sample = models.BooleanField(
+        default=False,
+        help_text="This field indicates whether this sample is a serum sample.",
+    )
 
     """
     researchers have advised that samples might have a time_collected up to a
@@ -60,11 +68,22 @@ class Sample(HierCachedModel):
         "that a sample was extracted from an animal.",
     )
 
-    @property  # type: ignore
-    @cached_function
-    def is_serum_sample(self):
+    @maintained_field_function(
+        generation=1,
+        parent_field_name="animal",
+        child_field_names=["fcircs"],
+        update_field_name="is_serum_sample",
+        update_label="fcirc_calcs",
+    )
+    def _is_serum_sample(self):
         """returns True if the sample is flagged as a "serum" sample"""
-        return self.tissue.is_serum()
+        try:
+            iss = self.tissue.is_serum()
+        except Exception as e:
+            print(
+                f"ERROR: Could not determine tissue serum status in sample: {model_to_dict(self)}: {str(e)}"
+            )
+        return iss
 
     @property  # type: ignore
     @cached_function
@@ -72,7 +91,6 @@ class Sample(HierCachedModel):
         """
         Retrieves the last Peak Group for each tracer compound that has this.element
         """
-        from DataRepo.models.peak_group import PeakGroup
 
         # Get every tracer's compound that contains this element
         if self.animal.tracers.count() == 0:
@@ -81,11 +99,14 @@ class Sample(HierCachedModel):
 
         # Get the last peakgroup for each tracer that has this label
         last_peakgroup_ids = []
+        (extra_args, is_null_field) = create_is_null_field("msrun__date")
+        print(f"Sample.py PeakGroup: Extra args: {extra_args}")
         for tracer in self.animal.tracers.all():
             tracer_peak_group = (
                 PeakGroup.objects.filter(msrun__sample__id__exact=self.id)
                 .filter(compounds__id__exact=tracer.compound.id)
-                .order_by("msrun__date")
+                .extra(**extra_args)
+                .order_by(f"-{is_null_field}", "msrun__date")
                 .last()
             )
             if tracer_peak_group:
@@ -97,48 +118,6 @@ class Sample(HierCachedModel):
                 return PeakGroup.objects.none()
 
         return PeakGroup.objects.filter(id__in=last_peakgroup_ids)
-
-    def peak_groups(self, compound=None):
-        """
-        Retrieve a list of PeakGroup objects for a sample.  If an optional compound is passed (e.g.
-        animal.infusate.tracers.compound), then is it used to filter the PeakGroup queryset to a specific compound's
-        peakgroups.
-        """
-        from DataRepo.models.compound import Compound
-        from DataRepo.models.tracer import Tracer
-
-        peak_groups = PeakGroup.objects.filter(msrun__sample_id=self.id)
-        if compound:
-            if isinstance(compound, Compound):
-                peak_groups = peak_groups.filter(compounds__id=compound.id)
-            elif isinstance(compound, Tracer):
-                peak_groups = peak_groups.filter(compounds__id=compound.compound.id)
-            else:
-                raise InvalidArgument("Argument must be a Compound or Tracer")
-        return peak_groups.all()
-
-    def peak_data(self, compound=None):
-        """
-        Retrieve a list of PeakData objects for a sample.  If an optional compound is passed (e.g.
-        animal.infusate.tracers.compound), then is it used to filter the PeakData queryset to a specific compound's
-        peakgroups.
-        """
-        from DataRepo.models.compound import Compound
-        from DataRepo.models.tracer import Tracer
-
-        peakdata = PeakData.objects.filter(peak_group__msrun__sample_id=self.id)
-
-        if compound:
-            if isinstance(compound, Compound):
-                peakdata = peakdata.filter(peak_group__compounds__id=compound.id)
-            elif isinstance(compound, Tracer):
-                peakdata = peakdata.filter(
-                    peak_group__compounds__id=compound.compound.id
-                )
-            else:
-                raise InvalidArgument("Argument must be a Compound or Tracer")
-
-        return peakdata.all()
 
     class Meta:
         verbose_name = "sample"

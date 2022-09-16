@@ -262,9 +262,6 @@ class FluxCircFormat(Format):
         "Compound": {
             "model": "Compound",
             "path": "tracer__compound",
-            # PR REVIEW NOTE: There are multiple possible reverse paths for tracer compounds to fcirc records, but this
-            #                 one is the most direct.  It is used to expand query results when a field in this model
-            #                 instance is used in a search.
             "reverse_path": "tracers__fcircs",
             "manyrelated": {
                 "is": False,

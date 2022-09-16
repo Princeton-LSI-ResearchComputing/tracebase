@@ -55,10 +55,10 @@ class ModelUtilitiesTests(TracebaseTestCase):
         ]
         self.assertEqual(
             ordered_model_name_list,
-            list(map(lambda x: x.__name__, list(get_all_models()))),
+            [model.__name__ for model in get_all_models()],
             msg=(
                 "Models returned by DataRepo.models.utilities.get_all_models() must be returned in this safe deletion "
-                f"order: {list(map(lambda x: x.__name__, list(apps.get_app_config('DataRepo').get_models())))}."
+                f"order: {', '.join(ordered_model_name_list)}."
             ),
         )
 

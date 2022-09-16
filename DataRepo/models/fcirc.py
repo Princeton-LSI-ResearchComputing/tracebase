@@ -4,9 +4,19 @@ from django.db import models
 
 from DataRepo.models.element_label import ElementLabel
 from DataRepo.models.hier_cached_model import HierCachedModel, cached_function
+from DataRepo.models.maintained_model import (
+    MaintainedModel,
+    maintained_field_function,
+)
+from DataRepo.models.utilities import create_is_null_field
 
 
-class FCirc(HierCachedModel):
+class FCirc(MaintainedModel, HierCachedModel):
+    """
+    This class is here to perform rate of appearance/disappearance calculations for every combination of serum sample,
+    tracer, and labeled element.  The last peakgroup of the given sample is used for every calculation.
+    """
+
     parent_related_key_name = "serum_sample"
     # Leaf
 
@@ -33,6 +43,13 @@ class FCirc(HierCachedModel):
         default=ElementLabel.CARBON,
         help_text='An element that is labeled in any of the tracers in this infusate (e.g. "C", "H", "O").',
     )
+    is_last = models.BooleanField(
+        default=False,
+        help_text=(
+            "This field indicates whether the last peak group of this serum sample and this tracer, is the last among "
+            "the serum samples/tracers for the associated animal. Maintained field. Do not edit/set."
+        ),
+    )
 
     class Meta:
         verbose_name = "fcirc"
@@ -49,22 +66,28 @@ class FCirc(HierCachedModel):
         """
         This checks to make sure that self.serum_sample is in fact a serum sample.
         """
-
-        if not self.serum_sample.is_serum_sample:
+        # Cannot rely on auto-updates to have populated self.serum_sample.is_serum_sample, because they could be being
+        # buffered, e.g. during a mass update, so call the method here
+        if not self.serum_sample._is_serum_sample:
             raise InvalidSerumSample(
-                f"The linked sample [{self.serum_sample}] must be a serum sample."
+                f"The linked sample [{self.serum_sample}] must be a serum sample, not a "
+                f"{self.serum_sample.tissue.name}."
             )
 
         # Now save the updated values
         super().save(*args, **kwargs)
 
-    @property  # type: ignore
-    @cached_function
+    @maintained_field_function(
+        generation=2,
+        update_field_name="is_last",
+        parent_field_name="serum_sample",
+        update_label="fcirc_calcs",
+    )
     def is_last_serum_peak_group(self):
         """
         Note, there is an FCirc record for every serum sample, tracer, and label combo.  Each such combo represents a
         single "peak group" even though there can exist multiple peak groups from different serum samples and different
-        msruns from the same serum sample.  However, multiple msruns froim the same sample are ignored - only the last
+        msruns from the same serum sample.  However, multiple msruns from the same sample are ignored - only the last
         one is represented by a record in this table.  Michael and I (Rob) discussed whether it was worthwhile to
         compute values for peak groups from this sample in prior msruns and Michael said no, so:
 
@@ -75,14 +98,8 @@ class FCirc(HierCachedModel):
         be among the peakgroups represented in this table.
         """
 
-        if self.last_peak_group:
-            last_serum_tracer_peak_group = (
-                self.serum_sample.animal.last_serum_tracer_peak_groups.filter(
-                    compounds__exact=self.tracer.compound
-                ).get()
-            )
-
-            return self.last_peak_group == last_serum_tracer_peak_group
+        if self.last_peak_group_in_sample:
+            return self.last_peak_group_in_sample == self.last_peak_group_in_animal
         else:
             warnings.warn(
                 f"Serum sample {self.serum_sample} has no peak group for tracer {self.tracer}."
@@ -91,11 +108,20 @@ class FCirc(HierCachedModel):
 
     @property  # type: ignore
     @cached_function
-    def last_peak_group(self):
+    def last_peak_group_in_animal(self):
+        """
+        Retrieve the latest serum sample PeakGroup for this animal and tracer.
+        """
+        return self.serum_sample.animal.last_serum_tracer_peak_groups.filter(
+            compounds__exact=self.tracer.compound
+        ).get()
+
+    @property  # type: ignore
+    @cached_function
+    def last_peak_group_in_sample(self):
         """
         Retrieve the latest PeakGroup for this serum sample and tracer.
         """
-
         peakgroups = self.serum_sample.last_tracer_peak_groups.filter(
             compounds__exact=self.tracer.compound
         )
@@ -118,10 +144,13 @@ class FCirc(HierCachedModel):
         """
         from DataRepo.models.peak_group import PeakGroup
 
+        # Create an is_null field for msrun date to be able to sort them
+        (extra_args, is_null_field) = create_is_null_field("msrun__date")
         peakgroups = (
             PeakGroup.objects.filter(msrun__sample__exact=self.serum_sample)
             .filter(compounds__exact=self.tracer.compound)
-            .order_by("msrun__date")
+            .extra(**extra_args)
+            .order_by(f"-{is_null_field}", "msrun__date")
         )
 
         if peakgroups.count() == 0:
@@ -138,13 +167,13 @@ class FCirc(HierCachedModel):
         Rate of Disappearance (intact), also referred to as Rd_intact_g. This is
         calculated on the Animal's final serum sample tracer's PeakGroup.
         """
-        if not self.last_peak_group:
+        if not self.last_peak_group_in_sample:
             warnings.warn(
                 f"Serum sample {self.serum_sample.name} has no peak group for tracer {self.tracer}."
             )
             return None
         else:
-            return self.last_peak_group.labels.get(
+            return self.last_peak_group_in_sample.labels.get(
                 element__exact=self.element,
             ).rate_disappearance_intact_per_gram
 
@@ -156,13 +185,13 @@ class FCirc(HierCachedModel):
         sometimes Fcirc_intact. This is calculated on the Animal's
         final serum sample tracer's PeakGroup.
         """
-        if not self.last_peak_group:
+        if not self.last_peak_group_in_sample:
             warnings.warn(
                 f"Serum sample {self.serum_sample.name} has no peak group for tracer {self.tracer}."
             )
             return None
         else:
-            return self.last_peak_group.labels.get(
+            return self.last_peak_group_in_sample.labels.get(
                 element__exact=self.element,
             ).rate_appearance_intact_per_gram
 
@@ -173,13 +202,13 @@ class FCirc(HierCachedModel):
         Rate of Disappearance (intact), also referred to as Rd_intact. This is
         calculated on the Animal's final serum sample tracer's PeakGroup.
         """
-        if not self.last_peak_group:
+        if not self.last_peak_group_in_sample:
             warnings.warn(
                 f"Serum sample {self.serum_sample.name} has no peak group for tracer {self.tracer}."
             )
             return None
         else:
-            return self.last_peak_group.labels.get(
+            return self.last_peak_group_in_sample.labels.get(
                 element__exact=self.element,
             ).rate_disappearance_intact_per_animal
 
@@ -191,13 +220,13 @@ class FCirc(HierCachedModel):
         Fcirc_intact_per_mouse. This is calculated on the Animal's final serum
         sample tracer's PeakGroup.
         """
-        if not self.last_peak_group:
+        if not self.last_peak_group_in_sample:
             warnings.warn(
                 f"Serum sample {self.serum_sample.name} has no peak group for tracer {self.tracer}."
             )
             return None
         else:
-            return self.last_peak_group.labels.get(
+            return self.last_peak_group_in_sample.labels.get(
                 element__exact=self.element,
             ).rate_appearance_intact_per_animal
 
@@ -210,13 +239,13 @@ class FCirc(HierCachedModel):
         Calculated for the last serum sample collected, for the last tracer
         peakgroup analyzed.
         """
-        if not self.last_peak_group:
+        if not self.last_peak_group_in_sample:
             warnings.warn(
                 f"Serum sample {self.serum_sample.name} has no peak group for tracer {self.tracer}."
             )
             return None
         else:
-            return self.last_peak_group.labels.get(
+            return self.last_peak_group_in_sample.labels.get(
                 element__exact=self.element,
             ).rate_disappearance_average_per_gram
 
@@ -229,13 +258,13 @@ class FCirc(HierCachedModel):
         Calculated for the last serum sample collected, for the last tracer
         peakgroup analyzed.
         """
-        if not self.last_peak_group:
+        if not self.last_peak_group_in_sample:
             warnings.warn(
                 f"Serum sample {self.serum_sample.name} has no peak group for tracer {self.tracer}."
             )
             return None
         else:
-            return self.last_peak_group.labels.get(
+            return self.last_peak_group_in_sample.labels.get(
                 element__exact=self.element,
             ).rate_appearance_average_per_gram
 
@@ -248,13 +277,13 @@ class FCirc(HierCachedModel):
         Calculated for the last serum sample collected, for the last tracer
         peakgroup analyzed.
         """
-        if not self.last_peak_group:
+        if not self.last_peak_group_in_sample:
             warnings.warn(
                 f"Serum sample {self.serum_sample.name} has no peak group for tracer {self.tracer}."
             )
             return None
         else:
-            return self.last_peak_group.labels.get(
+            return self.last_peak_group_in_sample.labels.get(
                 element__exact=self.element,
             ).rate_disappearance_average_per_animal
 
@@ -267,13 +296,13 @@ class FCirc(HierCachedModel):
         Calculated for the last serum sample collected, for the last tracer
         peakgroup analyzed.
         """
-        if not self.last_peak_group:
+        if not self.last_peak_group_in_sample:
             warnings.warn(
                 f"Serum sample {self.serum_sample.name} has no peak group for tracer {self.tracer}."
             )
             return None
         else:
-            return self.last_peak_group.labels.get(
+            return self.last_peak_group_in_sample.labels.get(
                 element__exact=self.element,
             ).rate_appearance_average_per_animal
 

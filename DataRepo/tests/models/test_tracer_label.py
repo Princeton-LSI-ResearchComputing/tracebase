@@ -9,6 +9,7 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 @tag("multi_working")
 class TracerLabelTests(TracebaseTestCase):
     def setUp(self):
+        super().setUp()
         glu = Compound.objects.create(name="glucose", formula="C6H12O6")
         glu_t = Tracer.objects.create(compound=glu)
         TracerLabel.objects.create(
