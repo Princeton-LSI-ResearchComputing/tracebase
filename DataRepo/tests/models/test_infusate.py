@@ -22,10 +22,10 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
 def create_infusate_records():
-    glu = Compound.objects.create(
+    (glu, gc) = Compound.objects.get_or_create(
         name="glucose", formula="C6H12O6", hmdb_id="HMDB0000122"
     )
-    c16 = Compound.objects.create(
+    (c16, cc) = Compound.objects.get_or_create(
         name="C16:0", formula="C16H32O2", hmdb_id="HMDB0000220"
     )
     glu_t = Tracer.objects.create(compound=glu)
