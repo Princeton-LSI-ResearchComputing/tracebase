@@ -26,7 +26,9 @@ from DataRepo.models.maintained_model import (
     enable_autoupdates,
     enable_buffering,
 )
-from DataRepo.models.utilities import get_researchers, value_from_choices_label
+from DataRepo.models.researcher import get_researchers
+from DataRepo.models.utilities import value_from_choices_label
+from DataRepo.utils import parse_infusate_name, parse_tracer_concentrations
 from DataRepo.utils.exceptions import (
     HeaderConfigError,
     HeaderError,
@@ -34,9 +36,6 @@ from DataRepo.utils.exceptions import (
     ResearcherError,
     ValidationDatabaseSetupError,
 )
-from DataRepo.utils.infusate_name_parser import parse_infusate_name
-
-CONCENTRATIONS_DELIMITER = ";"
 
 
 class SampleTableLoader:
@@ -213,21 +212,7 @@ class SampleTableLoader:
             tracer_concs_str = self.getRowVal(
                 row, self.headers.TRACER_CONCENTRATIONS, hdr_required=False
             )
-            try:
-                if tracer_concs_str is None:
-                    tracer_concs = None
-                else:
-                    # Not sure how the split results in a float, but my guess is that it's something in excel, thus
-                    # if there do exist comma-delimited items, this should actually work
-                    tracer_concs = [
-                        float(x.strip())
-                        for x in tracer_concs_str.split(CONCENTRATIONS_DELIMITER)
-                    ]
-            except AttributeError as ae:
-                if "object has no attribute 'split'" in str(ae):
-                    tracer_concs = [float(tracer_concs_str)]
-                else:
-                    raise ae
+            tracer_concs = parse_tracer_concentrations(tracer_concs_str)
 
             # Create the infusate record and all its tracers and labels, then link to it from the animal
             infusate_str = self.getRowVal(row, self.headers.INFUSATE, hdr_required=True)

@@ -1,7 +1,7 @@
 from collections import namedtuple
 
 from DataRepo.models import Researcher
-from DataRepo.models.utilities import get_researchers
+from DataRepo.models.researcher import get_researchers
 
 
 def leaderboard_data():
