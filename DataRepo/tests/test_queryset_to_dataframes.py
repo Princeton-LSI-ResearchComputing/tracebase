@@ -18,6 +18,7 @@ class QuerysetToPandasDataFrameBaseTests(TracebaseTestCase):
     Do not pass or tag this class or the methods in it.  Instead override any tests in the derived classes and call
     their `super()` version because these tests are re-used under difference conditions
     """
+
     @classmethod
     def setUpTestData(cls):
         call_command("load_study", "DataRepo/example_data/test_dataframes/loading.yaml")
