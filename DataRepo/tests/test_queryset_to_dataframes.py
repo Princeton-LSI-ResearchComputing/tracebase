@@ -31,7 +31,7 @@ class QuerysetToPandasDataFrameBaseTests(TracebaseTestCase):
             "total_sample": 7,
             "total_msrun": 3,
             "sample_owners": ["Xianfeng Zeng"],
-            "genotypes": ["C57BL/6N", "WT","ob/ob"],
+            "genotypes": ["C57BL/6N", "WT", "ob/ob"],
         }
         return exmaple_study_dict
 
