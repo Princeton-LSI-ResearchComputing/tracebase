@@ -31,7 +31,7 @@ class QuerysetToPandasDataFrameBaseTests(TracebaseTestCase):
             "total_sample": 7,
             "total_msrun": 3,
             "sample_owners": ["Xianfeng Zeng"],
-            "genotypes": ["ob/ob", "C57BL/6N", "WT"],
+            "genotypes": ["C57BL/6N", "WT","ob/ob"],
         }
         return exmaple_study_dict
 
@@ -120,6 +120,10 @@ class QuerysetToPandasDataFrameBaseTests(TracebaseTestCase):
         selected_columns = list(example_study_dict.keys())
         out_df = stud1_list_stats_df[selected_columns]
         stud1_list_stats_dict = qs2df.df_to_list_of_dict(out_df)[0]
+
+        # Sort the lists so that they can be equated
+        stud1_list_stats_dict["genotypes"] = sorted(stud1_list_stats_dict["genotypes"])
+        example_study_dict["genotypes"] = sorted(example_study_dict["genotypes"])
 
         self.assertEqual(stud1_list_stats_dict, example_study_dict)
 
