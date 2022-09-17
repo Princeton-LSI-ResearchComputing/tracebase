@@ -31,7 +31,7 @@ class QuerysetToPandasDataFrameBaseTests(TracebaseTestCase):
             "total_sample": 7,
             "total_msrun": 3,
             "sample_owners": ["Xianfeng Zeng"],
-            "genotypes": ["WT", "ob/ob", "C57BL/6N"],
+            "genotypes": ["ob/ob", "C57BL/6N", "WT"],
         }
         return exmaple_study_dict
 
@@ -121,7 +121,7 @@ class QuerysetToPandasDataFrameBaseTests(TracebaseTestCase):
         out_df = stud1_list_stats_df[selected_columns]
         stud1_list_stats_dict = qs2df.df_to_list_of_dict(out_df)[0]
 
-        self.assertDictEqual(stud1_list_stats_dict, example_study_dict)
+        self.assertEqual(stud1_list_stats_dict, example_study_dict)
 
     def test_animal_list_stat_df(self):
         """
