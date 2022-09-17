@@ -5,15 +5,22 @@ from django.core.management import call_command
 from django.test import tag
 from django.utils import dateparse
 
+from DataRepo.models.maintained_model import (
+    disable_buffering,
+    enable_buffering,
+)
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import QuerysetToPandasDataFrame as qs2df
 
 
-@tag("qs2df")
-@tag("multi_mixed")
-class QuerysetToPandasDataFrameTests(TracebaseTestCase):
+class QuerysetToPandasDataFrameBaseTests(TracebaseTestCase):
+    """
+    Do not pass or tag this class or the methods in it.  Instead override any tests in the derived classes and call
+    their `super()` version because these tests are re-used under difference conditions
+    """
+
     @classmethod
-    def setUpTestData(cls):
+    def load_data(self):
         call_command("load_study", "DataRepo/example_data/test_dataframes/loading.yaml")
 
     def get_example_study_dict(self):
@@ -24,7 +31,7 @@ class QuerysetToPandasDataFrameTests(TracebaseTestCase):
             "total_sample": 7,
             "total_msrun": 3,
             "sample_owners": ["Xianfeng Zeng"],
-            "genotypes": ["WT", "ob/ob", "C57BL/6N"],
+            "genotypes": ["C57BL/6N", "WT", "ob/ob"],
         }
         return exmaple_study_dict
 
@@ -100,7 +107,6 @@ class QuerysetToPandasDataFrameTests(TracebaseTestCase):
         }
         return example_infusate_dict
 
-    @tag("multi_broken")
     def test_study_list_stat_df(self):
         """
         get data from the data frame for selected study with selected columns,
@@ -115,9 +121,12 @@ class QuerysetToPandasDataFrameTests(TracebaseTestCase):
         out_df = stud1_list_stats_df[selected_columns]
         stud1_list_stats_dict = qs2df.df_to_list_of_dict(out_df)[0]
 
+        # Sort the lists so that they can be equated
+        stud1_list_stats_dict["genotypes"] = sorted(stud1_list_stats_dict["genotypes"])
+        example_study_dict["genotypes"] = sorted(example_study_dict["genotypes"])
+
         self.assertEqual(stud1_list_stats_dict, example_study_dict)
 
-    @tag("multi_broken")
     def test_animal_list_stat_df(self):
         """
         get data from the data frame for selected animal with selected columns,
@@ -136,7 +145,6 @@ class QuerysetToPandasDataFrameTests(TracebaseTestCase):
         anim1_list_stats_dict = qs2df.df_to_list_of_dict(out_df)[0]
         self.assertEqual(anim1_list_stats_dict, example_animal_dict)
 
-    @tag("multi_broken")
     def test_animal_sample_msrun_df(self):
         """
         get data from the data frame for selected sample with selected columns,
@@ -203,7 +211,6 @@ class QuerysetToPandasDataFrameTests(TracebaseTestCase):
         self.assertTrue(sam2_msrun_all_dict["msrun_id"] is pd.NA)
         self.assertTrue(sam2_msrun_all_dict["msrun_owner"] is pd.NA)
 
-    @tag("multi_working")
     def test_comp_list_stats_df(self):
         """
         get data from the data frame for selected compound with selected columns,
@@ -220,7 +227,6 @@ class QuerysetToPandasDataFrameTests(TracebaseTestCase):
 
         self.assertEqual(comp1_dict, example_compound_dict)
 
-    @tag("multi_broken")
     def test_infusate_list_df(self):
         """
         get data from the data frame for selected infusate with selected columns,
@@ -238,3 +244,44 @@ class QuerysetToPandasDataFrameTests(TracebaseTestCase):
         inf1_dict = qs2df.df_to_list_of_dict(out_df)[0]
 
         self.assertEqual(inf1_dict, example_infusate_dict)
+
+
+@tag("qs2df")
+@tag("multi_working")
+class QuerysetToPandasDataFrameTests(QuerysetToPandasDataFrameBaseTests):
+    @classmethod
+    def setUpTestData(cls):
+        enable_buffering()
+        cls.load_data()
+        super().setUpTestData()
+
+
+@tag("multi_mixed")
+class QuerysetToPandasDataFrameNullToleranceTests(QuerysetToPandasDataFrameBaseTests):
+    @classmethod
+    def setUpTestData(cls):
+        # Silently dis-allow auto-updates by disabling buffering
+        disable_buffering()
+        try:
+            cls.load_data()
+        except Exception as e:
+            enable_buffering()
+            raise e
+        enable_buffering()
+        super().setUpTestData()
+
+    @tag("multi_broken")
+    def test_study_list_stat_df(self):
+        super().test_study_list_stat_df()
+
+    @tag("multi_broken")
+    def test_animal_list_stat_df(self):
+        super().test_animal_list_stat_df()
+
+    @tag("multi_broken")
+    def test_animal_sample_msrun_df(self):
+        super().test_animal_sample_msrun_df()
+
+    @tag("multi_broken")
+    def test_infusate_list_df(self):
+        super().test_infusate_list_df()

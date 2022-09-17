@@ -25,9 +25,7 @@ def get_researchers(database=settings.TRACEBASE_DB):
                 model.objects.using(database).values(target_field).distinct(),
             )
         )
-    unique_researchers = [
-        r for r in list(pd.unique(researchers)) if r is not None and r != ""
-    ]
+    unique_researchers = list(pd.unique(list(filter(None, researchers))))
     return unique_researchers
 
 

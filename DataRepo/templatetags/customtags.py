@@ -135,7 +135,7 @@ def obj_hyperlink(id_name_list, obj):
     elif obj == "treatment":
         tmplt_name = "protocol_detail"
 
-    if id_name_list == [None]:
+    if id_name_list == [None] or id_name_list is None:
         return None
     else:
         id_name_dict = {}

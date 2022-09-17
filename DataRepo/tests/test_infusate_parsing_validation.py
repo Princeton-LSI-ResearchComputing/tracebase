@@ -13,6 +13,7 @@ from DataRepo.utils.infusate_name_parser import (
     TracerParsingError,
     parse_infusate_name,
     parse_isotope_string,
+    parse_tracer_concentrations,
     parse_tracer_string,
 )
 
@@ -275,6 +276,11 @@ class InfusateParsingTests(InfusateTest):
         name = ""
         with self.assertRaisesRegex(IsotopeParsingError, "requires a defined string"):
             _ = parse_isotope_string(name)
+
+    def test_parse_tracer_concentrations(self):
+        self.assertAlmostEqual(
+            [10.0, 20.0, 30.0], parse_tracer_concentrations("10; 20;30")
+        )
 
 
 @tag("multi_working")

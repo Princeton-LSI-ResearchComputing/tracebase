@@ -53,9 +53,6 @@ def reportRunTime(id, startTime):
     Print the runtime of a test given the test ID and start time.
     """
 
-    # TODO: When issue #480 is implemented, a test should be added here to ensure each test runs in under some
-    #       reasonable threshold.  There might even be a way to ensure the data setup runs quickly as well.
-
     t = time.time() - startTime
     heads_up = ""  # String to include for tests that run too long
 
