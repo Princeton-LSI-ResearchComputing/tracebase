@@ -107,7 +107,7 @@
                     return
                 }
 
-                updateRowSwitching()
+                updateSearch()
             })
 
             $("#shownotlast").on("click", function(e) {
@@ -120,7 +120,7 @@
                     return
                 }
 
-                updateRowSwitching()
+                updateSearch()
             })
         })
 
@@ -136,6 +136,50 @@
                 else
                     {$(this).hide()}
             })
+        }
+
+        function updateSearch() {
+            var snl = $("#shownotlast").is(":checked")
+            var sl = $("#showlast").is(":checked")
+
+            let group = {
+                type: 'group',
+                pos: '',
+                static: false,
+                val: 'all',
+            }
+            let query = {
+                type: 'query',
+                pos: '',
+                static: false,
+                ncmp: 'iexact',
+                fld: 'is_last',
+                val: 'true',
+            }
+
+            if(snl && sl) {
+                query.ncmp = 'not_isnull'
+                query.val = 'dummy'
+            } else if (!snl && sl) {
+                query.ncmp = 'iexact'
+                query.val = 'true'
+            } else if (snl && !sl) {
+                query.ncmp = 'iexact'
+                query.val = 'false'
+            } else {
+                query.ncmp = 'isnull'
+                query.val = 'dummy'
+            }
+
+            let is_empty = isSearchEmpty()
+            removeIncompleteSearchForms()
+            // This inserts a new 'and'-group at the root and appends the existing search group (formerly the root)
+            reRootSearch(group, query, 'fctemplate')
+            // Save the form and submit the search
+            var myform = document.getElementById("hierarchical-search-form")
+            saveSearchQueryHierarchy(document.querySelector('.hierarchical-search'))
+            console.log("New Form:", myform)
+            myform.submit();
         }
 
         function updateColumnSwitching() {

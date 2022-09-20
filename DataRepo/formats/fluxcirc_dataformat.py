@@ -33,6 +33,16 @@ class FluxCircFormat(Format):
                     "choices": ElementLabel.LABELED_ELEMENT_CHOICES,
                     "root_annot_fld": "element",  # Used to annotate root rec split_rows=True
                 },
+                "is_last": {
+                    "displayname": "Is Last Serum Tracer Peak Group",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "enumeration",
+                    "choices": [
+                        ("true", True),
+                        ("false", False),
+                    ],
+                },
                 "rate_disappearance_average_per_gram": {
                     "displayname": "Average Rd (nmol/min/g)",
                     "searchable": False,  # Cannot search cached property

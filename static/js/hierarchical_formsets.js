@@ -698,6 +698,8 @@ function saveSearchQueryHierarchy (divElem) { // eslint-disable-line no-unused-v
 
   let total = 0
 
+  console.log("There are", childDivs.length, "format divs")
+
   // This will traverse a hierarchy for each possible output format
   for (let i = 1; i < childDivs.length; i++) {
     total = saveSearchQueryHierarchyHelper(childDivs[i], '', total, 0, selectedformat)
@@ -837,9 +839,211 @@ function saveSearchQueryHierarchyHelper (divElem, path, count, idx, selectedform
 
   // Recurse
   // Always traverse 1 less, because there's always an empty trailing div tag
-  for (let i = 0; i < numChildren; i++) {
-    count = saveSearchQueryHierarchyHelper(childDivs[i], path, count, i, selectedformat, curfmt)
+  for (let i = 0; i < childDivs.length; i++) {
+    if (childDivs[i].innerHTML !== '') {
+      console.log("Stepping down the hierarchy to child div", childDivs[i])
+      count = saveSearchQueryHierarchyHelper(childDivs[i], path, count, i, selectedformat, curfmt)
+    }
   }
 
   return count
+}
+
+function reRootSearch(group, query, format) {
+  var divElem = document.querySelector('.hierarchical-search')
+  const childDivs = divElem.querySelectorAll(':scope > div') // - results in only 1, even if 2 items added - I think because each input is not wrapped in a div
+  const selectedformat = getSelectedFormat(childDivs[0])
+  if (typeof divElem.id !== 'undefined' && divElem.id && divElem.id.includes('-hierarchy')) {
+    curfmt = '' + divElem.id.split('-').shift()
+  }
+
+  // Start to build the new search forms
+  // Create a new query div
+  const queryDiv = document.createElement('div')
+  queryDiv.className = 'level-indent'
+  addSearchFieldForm(queryDiv, query, format)
+
+  // Create a new group div
+  const groupDiv = document.createElement('div')
+  // The new root group will not be indented
+  addGroupSelectList(groupDiv, group)
+
+  // Add the query div to the new group
+  groupDiv.appendChild(queryDiv)
+  groupDiv.id = format + '-hierarchy'
+
+  for (let i = 1; i < childDivs.length; i++) {
+    // Get current format
+    if (typeof childDivs[i].id !== 'undefined' && childDivs[i].id && childDivs[i].id.includes('-hierarchy')) {
+      curfmt = '' + childDivs[i].id.split('-').shift()
+    }
+    if (curfmt === selectedformat) {
+      curChildren = childDivs[i].querySelectorAll(':scope > div')
+      childDivs[i].remove()
+
+      // Indent the pre-existing search
+      childDivs[i].className = 'level-indent'
+      childDivs[i].id = ''
+      groupDiv.append(childDivs[i])
+    }
+  }
+
+  // Append the new group to this hierarchy
+  divElem.append(groupDiv)
+  // There is an empty div at the end, but I seem unable to remove it or insert before it, so I changed the saveSearchHierarchy to skip a div if it is empty.  Not sure whether that will have a deleterious effect
+  //childDivs[childDivs.length - 1].insertAdjacentElement('afterend', groupDiv)
+  // Append the empty div back
+}
+
+function removeIncompleteSearchForms() {
+  'use strict'
+
+  var divElem = document.querySelector('.hierarchical-search')
+
+  const childDivs = divElem.querySelectorAll(':scope > div') // - results in only 1, even if 2 items added - I think because each input is not wrapped in a div
+
+  const selectedformat = getSelectedFormat(childDivs[0])
+
+  // This will traverse a hierarchy for each possible output format
+  for (let i = 1; i < childDivs.length; i++) {
+    removeIncompleteSearchFormsHelper(childDivs[i], selectedformat)
+  }
+}
+
+// Returns true or false
+function removeIncompleteSearchFormsHelper (divElem, selectedformat, curfmt) {
+  'use strict'
+
+  // If the div has a "-hierarchy" ID, we're at the root, so we can update the format name
+  if (typeof divElem.id !== 'undefined' && divElem.id && divElem.id.includes('-hierarchy')) {
+    curfmt = '' + divElem.id.split('-').shift()
+  }
+
+  const childDivs = divElem.querySelectorAll(':scope > div') // - results in only 1, even if 2 items added - I think because each input is not wrapped in a div
+
+  // Always traverse 1 less, because there's always an empty trailing div tag
+  const numChildren = (childDivs.length - 1)
+
+  // This gets inputs belonging to the parent
+  const childInputs = divElem.childNodes
+  var numRemoved = 0
+
+  for (let i = 0; i < childInputs.length; i++) {
+    if (typeof childInputs[i].name !== 'undefined' && childInputs[i].name) {
+      console.log('Checking template:', curfmt, 'Input:', childInputs[i].name, 'Value:', childInputs[i].value)
+      if (curfmt === selectedformat && childInputs[i].name.includes('-val') && (typeof childInputs[i].value === 'undefined' || childInputs[i].value === '')) {
+        console.log('Removing incomplete form')
+        removeSearchForm(divElem)
+        numRemoved += 1
+      } else {
+        console.log('Keeping complete form')
+      }
+    }
+  }
+
+  console.log("Removed", numRemoved, "of", numChildren, "child divs")
+
+  // Recurse
+  // Always traverse 1 less, because there's always an empty trailing div tag
+  for (let i = 0; i < numChildren; i++) {
+    removeIncompleteSearchFormsHelper(childDivs[i], selectedformat, curfmt)
+    // We will use numRemoved=0 to infer this is a group div and if its children are empty, remove it
+    if (curfmt === selectedformat && numRemoved == 0 && isSearchEmptyHelper(childDivs[i], selectedformat, curfmt)) {
+      console.log("Would remove div:", childDivs[i])
+      divElem.remove()
+    }
+  }
+}
+
+function removeSearchForm(myDiv) {
+  myDiv.remove()
+}
+
+// Returns true or false
+function isSearchEmpty() {
+  'use strict'
+
+  var divElem = document.querySelector('.hierarchical-search')
+
+  const childDivs = divElem.querySelectorAll(':scope > div') // - results in only 1, even if 2 items added - I think because each input is not wrapped in a div
+
+  const selectedformat = getSelectedFormat(childDivs[0])
+
+  let empty = true
+
+  // This will traverse a hierarchy for each possible output format
+  for (let i = 1; i < childDivs.length; i++) {
+    empty = isSearchEmptyHelper(childDivs[i], selectedformat)
+    if (!empty) {
+      break;
+    }
+  }
+
+  console.log("Empty?", empty)
+
+  return empty
+}
+
+function isGroupDivEmpty(groupDiv) {
+  'use strict'
+
+  const childDivs = groupDiv.querySelectorAll(':scope > div') // - results in only 1, even if 2 items added - I think because each input is not wrapped in a div
+
+  if (typeof divElem.id !== 'undefined' && divElem.id && divElem.id.includes('-hierarchy')) {
+    const selectedformat = getSelectedFormat(childDivs[0])
+  }
+
+  let empty = true
+
+  // This will traverse a hierarchy for each possible output format
+  for (let i = 1; i < childDivs.length; i++) {
+    empty = isSearchEmptyHelper(childDivs[i], selectedformat)
+    if (!empty) {
+      break;
+    }
+  }
+
+  console.log("Empty?", empty)
+
+  return empty
+}
+
+// Returns true or false
+function isSearchEmptyHelper (divElem, selectedformat, curfmt) {
+  'use strict'
+
+  let empty = true
+
+  // If the div has a "-hierarchy" ID, we're at the root, so we can update the format name
+  if (typeof divElem.id !== 'undefined' && divElem.id && divElem.id.includes('-hierarchy')) {
+    curfmt = '' + divElem.id.split('-').shift()
+  }
+
+  const childDivs = divElem.querySelectorAll(':scope > div') // - results in only 1, even if 2 items added - I think because each input is not wrapped in a div
+
+  // Always traverse 1 less, because there's always an empty trailing div tag
+  const numChildren = (childDivs.length - 1)
+
+  // This gets inputs belonging to the parent
+  const childInputs = divElem.childNodes
+
+  for (let i = 0; i < childInputs.length; i++) {
+    if (typeof childInputs[i].name !== 'undefined' && childInputs[i].name) {
+      console.log('Checking template:', curfmt, 'Input:', childInputs[i].name, 'Value:', childInputs[i].value)
+      if (curfmt === selectedformat && childInputs[i].name.includes('-val') && childInputs[i].value !== '') {
+        return false
+      }
+    }
+  }
+
+  // Recurse
+  // Always traverse 1 less, because there's always an empty trailing div tag
+  for (let i = 0; i < numChildren; i++) {
+    empty = isSearchEmptyHelper(childDivs[i], selectedformat, curfmt)
+    if (!empty) {
+      return empty
+    }
+  }
+
+  return empty
 }
