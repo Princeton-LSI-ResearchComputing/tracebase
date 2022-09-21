@@ -39,8 +39,8 @@ class FluxCircFormat(Format):
                     "displayed": True,
                     "type": "enumeration",
                     "choices": [
-                        ("true", True),
-                        ("false", False),
+                        (True, "true"),
+                        (False, "false"),
                     ],
                 },
                 "rate_disappearance_average_per_gram": {

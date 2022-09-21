@@ -10,7 +10,6 @@
             $("#advsrchres").bootstrapTable({
                 onAll: function() {
                     updateColumnSwitching()
-                    updateRowSwitching()
                     {% if mode != 'view' %}
                         updateColumnSortControls()
                     {% endif %}
@@ -124,20 +123,6 @@
             })
         })
 
-        function updateRowSwitching() {
-            var nlcbv = $("#shownotlast").is(":checked")
-            var lcbv = $("#showlast").is(":checked")
-
-            $("#advsrchres .bg-highlighted, .bg-normal").each(function() {
-                if((nlcbv && $(this).hasClass("bg-normal"))
-                    || (lcbv && $(this).hasClass("bg-highlighted"))
-                )
-                    {$(this).show()}
-                else
-                    {$(this).hide()}
-            })
-        }
-
         function updateSearch() {
             var snl = $("#shownotlast").is(":checked")
             var sl = $("#showlast").is(":checked")
@@ -154,30 +139,35 @@
                 static: false,
                 ncmp: 'iexact',
                 fld: 'is_last',
-                val: 'true',
+                val: 'true',  // Cannot be boolean because of the way defined checks are done in javascript
             }
 
             if(snl && sl) {
+                console.log("Show both previous and last")
                 query.ncmp = 'not_isnull'
                 query.val = 'dummy'
             } else if (!snl && sl) {
+                console.log("Show last only")
                 query.ncmp = 'iexact'
-                query.val = 'true'
+                query.val = 'true'  // Cannot be boolean because of the way defined checks are done in javascript
             } else if (snl && !sl) {
+                console.log("Show previous only")
                 query.ncmp = 'iexact'
-                query.val = 'false'
+                query.val = 'false'  // Cannot be boolean because of the way defined checks are done in javascript
             } else {
+                console.log("Show null")
                 query.ncmp = 'isnull'
                 query.val = 'dummy'
             }
 
-            let is_empty = isSearchEmpty()
+            removeFieldSearchForms('is_last')
             removeIncompleteSearchForms()
             // This inserts a new 'and'-group at the root and appends the existing search group (formerly the root)
             reRootSearch(group, query, 'fctemplate')
             // Save the form and submit the search
             var myform = document.getElementById("hierarchical-search-form")
             saveSearchQueryHierarchy(document.querySelector('.hierarchical-search'))
+            console.log("New rootGroup:", rootGroup)
             console.log("New Form:", myform)
             myform.submit();
         }

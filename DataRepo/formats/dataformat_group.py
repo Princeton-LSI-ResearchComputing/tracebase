@@ -457,7 +457,9 @@ class FormatGroup:
         q_exp = None
 
         if qry is not None:
+            print(f"Qry {qry}")
             q_exp = constructAdvancedQuery(qry)
+            print(f"Q Expression: {q_exp}")
             selfmt = getSelectedFormat(qry)
             if fmt is not None and fmt != selfmt:
                 raise Exception(

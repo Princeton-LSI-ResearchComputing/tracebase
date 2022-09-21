@@ -165,6 +165,7 @@ class AdvancedSearchView(MultiFormsView):
 
         root_group = self.basv_metadata.getRootGroup()
 
+        print(f"Sending qry to search results load: {qry}")
         return self.render_to_response(
             self.get_context_data(
                 res=res,

@@ -307,6 +307,7 @@ class MultiFormMixin(ContextMixin):
                 calls.append([form_invalid_method, forms[form_name]])
 
         if self.debug and len(calls) == 0:
+            print(forms)
             print(
                 f"WARNING: ({','.join(forms.keys())})_form_invalid method(s) not found"
             )
