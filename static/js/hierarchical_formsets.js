@@ -345,15 +345,11 @@ function updateValEnumSelectList (valSelectList, dbFieldChoices, valClone) {
   }
   let initVal = 'unable to set'
   // If there is an initial value from valClone (i.e. loading the executed search results and setting up the form)
-  if (valSupplied) {
-    initVal = valClone.value
-  } else {
-    if (dbFieldChoices.length > 0) {
-      if (valExistsInChoices) {
-        initVal = valClone.value
-      } else {
-        initVal = dbFieldChoices[0][0]
-      }
+  if (dbFieldChoices.length > 0) {
+    if (valSupplied && valExistsInChoices) {
+      initVal = valClone.value
+    } else {
+      initVal = dbFieldChoices[0][0]
     }
   }
   // See if the select list os the same as it was during the initial load (because it changes when the field select
