@@ -208,6 +208,7 @@ class FormatsTests(TracebaseTestCase):
             ("serum_sample__animal__diet", "Diet"),
             ("serum_sample__animal__feeding_status", "Feeding Status"),
             ("serum_sample__animal__genotype", "Genotype"),
+            ("is_last", "Is Last Serum Tracer Peak Group"),
             ("serum_sample__animal__infusion_rate", "Infusion Rate (ul/min/g)"),
             ("element", "Peak Group Labeled Element"),
             ("serum_sample__animal__sex", "Sex"),
@@ -229,28 +230,7 @@ class FormatsTests(TracebaseTestCase):
         basv = SearchGroup()
         sfcd = basv.getSearchFieldChoicesDict()
         sfcd_expected = {
-            "fctemplate": (
-                ("serum_sample__animal__name", "Animal"),
-                ("serum_sample__animal__body_weight", "Body Weight (g)"),
-                ("serum_sample__animal__diet", "Diet"),
-                ("serum_sample__animal__feeding_status", "Feeding Status"),
-                ("serum_sample__animal__genotype", "Genotype"),
-                ("serum_sample__animal__infusion_rate", "Infusion Rate (ul/min/g)"),
-                ("element", "Peak Group Labeled Element"),
-                ("serum_sample__animal__sex", "Sex"),
-                ("serum_sample__animal__studies__name", "Study"),
-                (
-                    "serum_sample__animal__samples__time_collected",
-                    "Time Collected (hh:mm:ss since infusion)",
-                ),
-                ("tracer__name", "Tracer"),
-                ("tracer__compound__name", "Tracer Compound (Primary Synonym)"),
-                (
-                    "serum_sample__animal__infusate__tracer_links__concentration",
-                    "Tracer Concentration (mM)",
-                ),
-                ("serum_sample__animal__treatment__name", "Treatment"),
-            ),
+            "fctemplate": self.getFctemplateChoicesTuple(),
             "pdtemplate": self.getPdtemplateChoicesTuple(),
             "pgtemplate": self.getPgtemplateChoicesTuple(),
         }
