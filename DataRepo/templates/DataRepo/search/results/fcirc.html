@@ -160,15 +160,16 @@
                 query.val = 'dummy'
             }
 
+            // Remove any search terms for the is_last field
             removeFieldSearchForms('is_last')
+            // Remove incomplete search forms
             removeIncompleteSearchForms()
-            // This inserts a new 'and'-group at the root and appends the existing search group (formerly the root)
+            // Insert a new 'and'-group with a single query at the root and append the existing search group (formerly the root) as a sibling of that query, if any
             reRootSearch(group, query, 'fctemplate')
-            // Save the form and submit the search
+            // Commit (/save) the form, i.e. prepare for submission
             var myform = document.getElementById("hierarchical-search-form")
             saveSearchQueryHierarchy(document.querySelector('.hierarchical-search'))
-            console.log("New rootGroup:", rootGroup)
-            console.log("New Form:", myform)
+            // Submit the form
             myform.submit();
         }
 
@@ -342,22 +343,24 @@
                     </td>
                 </tr>
                 <tr>
-                    <td><strong>Serum Samples (rows)</strong></td>
                     <td>
-                        {% get_template_cookie selfmt 'shownotlast' 'checked' as nlstchkd %}
-                        {% if nlstchkd == "checked" %}
-                            <input type="checkbox" id="{% uniquify 'shownotlast' 1 %}" onclick="set_template_cookie('shownotlast', this.checked ? 'checked' : '')" checked />
+                        <strong>Serum Samples (rows)</strong>
+                        {% get_serum_tracer_peak_groups_first_searched qry as stpg_searched %}
+                        stpg_searched: {{ stpg_searched }}
+                    </td>
+                    <td>
+                        {% if stpg_searched == "both" or stpg_searched == "previous" %}
+                            <input type="checkbox" id="{% uniquify 'shownotlast' 1 %}" checked />
                         {% else %}
-                            <input type="checkbox" id="{% uniquify 'shownotlast' 2 %}" onclick="set_template_cookie('shownotlast', this.checked ? 'checked' : '')" />
+                            <input type="checkbox" id="{% uniquify 'shownotlast' 2 %}" />
                         {% endif %}
                         Previous
                     </td>
                     <td class="bg-highlighted">
-                        {% get_template_cookie selfmt 'showlast' 'checked' as lstchkd %}
-                        {% if lstchkd == "checked" %}
-                            <input type="checkbox" id="{% uniquify 'showlast' 1 %}" onclick="set_template_cookie('showlast', this.checked ? 'checked' : '')" checked />
+                        {% if stpg_searched == "both" or stpg_searched == "last" %}
+                            <input type="checkbox" id="{% uniquify 'showlast' 1 %}" checked />
                         {% else %}
-                            <input type="checkbox" id="{% uniquify 'showlast' 2 %}" onclick="set_template_cookie('showlast', this.checked ? 'checked' : '')" />
+                            <input type="checkbox" id="{% uniquify 'showlast' 2 %}" />
                         {% endif %}
                         Last
                     </td>
