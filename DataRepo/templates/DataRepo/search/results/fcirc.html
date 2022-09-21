@@ -143,19 +143,15 @@
             }
 
             if(snl && sl) {
-                console.log("Show both previous and last")
                 query.ncmp = 'not_isnull'
                 query.val = 'dummy'
             } else if (!snl && sl) {
-                console.log("Show last only")
                 query.ncmp = 'iexact'
                 query.val = 'true'  // Cannot be boolean because of the way defined checks are done in javascript
             } else if (snl && !sl) {
-                console.log("Show previous only")
                 query.ncmp = 'iexact'
                 query.val = 'false'  // Cannot be boolean because of the way defined checks are done in javascript
             } else {
-                console.log("Show null")
                 query.ncmp = 'isnull'
                 query.val = 'dummy'
             }
@@ -346,7 +342,6 @@
                     <td>
                         <strong>Serum Samples (rows)</strong>
                         {% get_serum_tracer_peak_groups_first_searched qry as stpg_searched %}
-                        stpg_searched: {{ stpg_searched }}
                     </td>
                     <td>
                         {% if stpg_searched == "both" or stpg_searched == "previous" %}

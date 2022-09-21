@@ -165,7 +165,6 @@ class AdvancedSearchView(MultiFormsView):
 
         root_group = self.basv_metadata.getRootGroup()
 
-        print(f"Sending qry to search results load: {qry}")
         return self.render_to_response(
             self.get_context_data(
                 res=res,
@@ -193,7 +192,7 @@ class AdvancedSearchView(MultiFormsView):
         """
         Upon invalid advanced search form submission, rescues the query to add back to the context.
         """
-        print(f"Invalid paging form: {formset}")
+        print(f"WARNING: Invalid paging form: {formset}")
 
         qry = {}
 

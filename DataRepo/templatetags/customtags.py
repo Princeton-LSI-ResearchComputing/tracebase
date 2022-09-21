@@ -219,10 +219,19 @@ def get_serum_tracer_peak_groups_first_searched(qry):
     shown = "both"
     if qry:
         if "is_last" == qry["searches"]["fctemplate"]["tree"]["queryGroup"][0]["fld"]:
-            if qry["searches"]["fctemplate"]["tree"]["queryGroup"][0]["ncmp"] == "isnull":
+            if (
+                qry["searches"]["fctemplate"]["tree"]["queryGroup"][0]["ncmp"]
+                == "isnull"
+            ):
                 shown = "neither"
-            elif qry["searches"]["fctemplate"]["tree"]["queryGroup"][0]["ncmp"] == "iexact":
-                if qry["searches"]["fctemplate"]["tree"]["queryGroup"][0]["val"] == "true":
+            elif (
+                qry["searches"]["fctemplate"]["tree"]["queryGroup"][0]["ncmp"]
+                == "iexact"
+            ):
+                if (
+                    qry["searches"]["fctemplate"]["tree"]["queryGroup"][0]["val"]
+                    == "true"
+                ):
                     shown = "last"
                 else:
                     shown = "previous"
