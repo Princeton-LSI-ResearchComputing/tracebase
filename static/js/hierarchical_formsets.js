@@ -464,27 +464,37 @@ function updateBrowseLink (templateId) {
   }
 }
 
-function addFormatSelectList (myDiv, query) {
-  updateBrowseLink(query.selectedtemplate)
+function addFormatSelectList (parentDiv, rootQueryObject) {
+  // Create the div that will contain the format select list
+  const myDiv = document.createElement('div')
+  myDiv.id = 'formatSelection'
 
-  // Create a group type select list
+  // If query is not supplied, default to the root group
+  if (typeof rootQueryObject === 'undefined' || !rootQueryObject) {
+    rootQueryObject = rootGroup
+  }
+
+  // Keep the browse link up to date with the selected format
+  updateBrowseLink(rootQueryObject.selectedtemplate)
+
+  // Create a format select list
   fmtSelectElem = document.createElement('select')
   fmtSelectElem.name = 'fmt'
-  for (const key of Object.keys(query.searches)) {
+  for (const key of Object.keys(rootQueryObject.searches)) {
     const option = document.createElement('option')
     option.value = key
-    option.text = query.searches[key].name
+    option.text = rootQueryObject.searches[key].name
     fmtSelectElem.appendChild(option)
   }
-  fmtSelectElem.value = query.selectedtemplate
+  fmtSelectElem.value = rootQueryObject.selectedtemplate
 
   // Use a change as an opportunity to dismiss previous errors
   // And keep the selected value up to date in the object
   fmtSelectElem.addEventListener('change', function (event) {
     formErrLabel.innerHTML = ''
-    query.selectedtemplate = event.target.value
-    showOutputFormatSearch(query.selectedtemplate)
-    updateBrowseLink(query.selectedtemplate)
+    rootQueryObject.selectedtemplate = event.target.value
+    showOutputFormatSearch(rootQueryObject.selectedtemplate)
+    updateBrowseLink(rootQueryObject.selectedtemplate)
   })
 
   // Put descriptive text in front of the select list
@@ -495,6 +505,8 @@ function addFormatSelectList (myDiv, query) {
   myDiv.appendChild(label1)
   myDiv.appendChild(document.createTextNode(' '))
   myDiv.appendChild(fmtSelectElem)
+
+  parentDiv.appendChild(myDiv)
 }
 
 function addGroupSelectList (myDiv, query) {
@@ -607,9 +619,7 @@ function addQueryAndGroupAddButtons (myDiv, query, parentGroup, templateId) {
 function initializeRootSearchQuery (element) { // eslint-disable-line no-unused-vars
   'use strict'
 
-  const myDiv = document.createElement('div')
-  addFormatSelectList(myDiv, rootGroup)
-  element.appendChild(myDiv)
+  addFormatSelectList(element)
 
   for (const templateId of Object.keys(rootGroup.searches)) {
     let isHidden = false
