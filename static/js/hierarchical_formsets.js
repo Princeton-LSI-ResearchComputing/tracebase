@@ -1111,3 +1111,159 @@ function removeFieldSearchFormsHelper (divElem, field, selectedformat, curfmt) {
     }
   }
 }
+
+function getFirstFieldFormNum (field) { // eslint-disable-line no-unused-vars
+  'use strict'
+
+  const divElem = document.querySelector('.hierarchical-search')
+
+  const childDivs = divElem.querySelectorAll(':scope > div') // - results in only 1, even if 2 items added - I think because each input is not wrapped in a div
+
+  const selectedformat = getSelectedFormat(childDivs[0])
+
+  // This will traverse a hierarchy for each possible output format
+  for (let i = 1; i < childDivs.length; i++) {
+    const formNum = getFirstFieldFormNumHelper(childDivs[i], field, 0, selectedformat)
+    if (formNum > 0) {
+      return formNum
+    }
+  }
+  return 0
+}
+
+// Returns true or false
+function getFirstFieldFormNumHelper (divElem, field, formNum, selectedformat, curfmt) {
+  'use strict'
+
+  // If the div has a "-hierarchy" ID, we're at the root, so we can update the format name
+  if (typeof divElem.id !== 'undefined' && divElem.id && divElem.id.includes('-hierarchy')) {
+    curfmt = '' + divElem.id.split('-').shift()
+  }
+
+  const childDivs = divElem.querySelectorAll(':scope > div') // - results in only 1, even if 2 items added - I think because each input is not wrapped in a div
+
+  // Always traverse 1 less, because there's always an empty trailing div tag
+  const numChildren = (childDivs.length - 1)
+
+  // This gets inputs belonging to the parent
+  const childInputs = divElem.childNodes
+
+  for (let i = 0; i < childInputs.length; i++) {
+    if (typeof childInputs[i].name !== 'undefined' && childInputs[i].name) {
+      if (curfmt === selectedformat && childInputs[i].name.includes('-fld')) {
+        formNum += 1
+        if (childInputs[i].value === field) {
+          return formNum
+        }
+      }
+    }
+  }
+
+  // Recurse
+  // Always traverse 1 less, because there's always an empty trailing div tag
+  for (let i = 0; i < numChildren; i++) {
+    formNum = getFirstFieldFormNumHelper(childDivs[i], field, formNum, selectedformat, curfmt)
+    if (formNum > 0) {
+      return formNum
+    }
+  }
+
+  return 0
+}
+
+// This returns the number of field forms + the number of field form groups contained in the selected root group
+function getRootGroupSize () { // eslint-disable-line no-unused-vars
+  'use strict'
+
+  const divElem = document.querySelector('.hierarchical-search')
+
+  const childDivs = divElem.querySelectorAll(':scope > div') // - results in only 1, even if 2 items added - I think because each input is not wrapped in a div
+
+  const selectedformat = getSelectedFormat(childDivs[0])
+
+  // This will traverse a hierarchy for each possible output format
+  for (let i = 1; i < childDivs.length; i++) {
+    const groupSize = getRootGroupSizeHelper(childDivs[i], selectedformat)
+    if (groupSize.members > 0) {
+      return groupSize
+    }
+  }
+  return {
+    members: 0,
+    forms: 0
+  }
+}
+
+// Returns true or false
+function getRootGroupSizeHelper (divElem, selectedformat) {
+  'use strict'
+
+  const groupSize = {
+    members: 0,
+    forms: 0
+  }
+
+  let curfmt
+  // If the div has a "-hierarchy" ID, we're at the root, so we can update the format name
+  if (typeof divElem.id !== 'undefined' && divElem.id && divElem.id.includes('-hierarchy')) {
+    curfmt = '' + divElem.id.split('-').shift()
+  } else {
+    console.error('Search form hierarchy malformed.')
+  }
+
+  if (curfmt !== selectedformat) {
+    return groupSize
+  }
+  const childDivs = divElem.querySelectorAll(':scope > div')
+
+  // Always traverse 1 less, because there's always an empty trailing div tag
+  groupSize.members = childDivs.length - 1
+
+  // This gets inputs belonging to the parent
+  for (let i = 0; i < childDivs.length; i++) {
+    const childInputs = childDivs[i].childNodes
+    for (let j = 0; j < childInputs.length; j++) {
+      if (typeof childInputs[j].name !== 'undefined' && childInputs[j].name) {
+        if (childInputs[j].name.includes('-fld')) {
+          groupSize.forms += 1
+        }
+      }
+    }
+  }
+
+  return groupSize
+}
+
+function insertFirstSearch (query, format) { // eslint-disable-line no-unused-vars
+  const divElem = document.querySelector('.hierarchical-search')
+  const childDivs = divElem.querySelectorAll(':scope > div') // - results in only 1, even if 2 items added - I think because each input is not wrapped in a div
+  const selectedformat = getSelectedFormat(childDivs[0])
+
+  // This will traverse a hierarchy for each possible output format
+  for (let i = 1; i < childDivs.length; i++) {
+    let curfmt
+    if (typeof childDivs[i].id !== 'undefined' && childDivs[i].id && childDivs[i].id.includes('-hierarchy')) {
+      curfmt = '' + childDivs[i].id.split('-').shift()
+    }
+
+    if (selectedformat === curfmt) {
+      const childNodes = childDivs[i].childNodes
+      // This assumes a grouptype select node comes before a search form
+      for (let j = 1; j < childNodes.length; j++) {
+        if (typeof childNodes[j].className !== 'undefined' && childNodes[j].className) {
+          if (childNodes[j].className === 'level-indent') {
+            // Create a new query div
+            const queryDiv = document.createElement('div')
+            queryDiv.className = 'level-indent'
+            addSearchFieldForm(queryDiv, query, format)
+
+            // Prepend the new query before the grouptype node we just found
+            childDivs[i].insertBefore(queryDiv, childNodes[j])
+
+            return
+          }
+        }
+      }
+    }
+  }
+}
