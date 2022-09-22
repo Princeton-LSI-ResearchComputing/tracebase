@@ -123,6 +123,20 @@
             })
         })
 
+        /**
+         * Creates (or modifies a previously created) new "and"-group to the search hierarchy at the root level,
+         * containing a query for the is_last field (based on the checkbox states) and the original group.  It also
+         * removes incomplete search forms and submits the search.  For example, if the search is:
+         *    Match `any`:
+         *        `animal` `is` `971`
+         *        `time_collected` `>` `00:00:01`
+         * ...and "last" is unchecked and "previous" is checked, the resulting search will be:
+         *    Match `all`:
+         *        `is_last` `is` `false`
+         *        Match `any`:
+         *            `animal` `is` `971`
+         *            `time_collected` `>` `00:00:01`
+         */
         function updateSearch() {
             var snl = $("#shownotlast").is(":checked")
             var sl = $("#showlast").is(":checked")

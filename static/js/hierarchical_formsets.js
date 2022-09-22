@@ -337,7 +337,7 @@ function updateValEnumSelectList (valSelectList, dbFieldChoices, valClone) {
     arrOptions.push('<option value="' + dbFieldChoices[i][0] + '">' + dbFieldChoices[i][1] + '</option>')
 
     // Right now, this only handles initializing the select list where the values are strings or numbers, so in order
-    // to get booleans to work, I check both the actual value: dbFieldChoices[i][0] and the item name: 
+    // to get booleans to work, I check both the actual value: dbFieldChoices[i][0] and the item name:
     // dbFieldChoices[i][1] to match the names when they are "true" or "false"
     if (valSupplied && (dbFieldChoices[i][0] === valClone.value || dbFieldChoices[i][1] === valClone.value)) {
       valExistsInChoices = true
@@ -863,6 +863,23 @@ function saveSearchQueryHierarchyHelper (divElem, path, count, idx, selectedform
   return count
 }
 
+/**
+ * Creates a new search group and adds it to the search hierarchy at the root level, and adds the supplied query as its
+ * first member.  The original search groups is made to be its second member.  For example, if the search is:
+ *    Match `any`:
+ *        `animal` `is` `971`
+ *        `time_collected` `>` `00:00:01`
+ * ...and the arguments are:
+ *    group = {type: 'group', pos: '', static: false, val: 'all'}
+ *    query = {type: 'query', pos: '', static: false, ncmp: 'iexact', fld: 'is_last', val: 'false'}
+ *    format = 'fctemplate'
+ * ...the resulting search will be:
+ *    Match `all`:
+ *        `is_last` `is` `false`
+ *        Match `any`:
+ *            `animal` `is` `971`
+ *            `time_collected` `>` `00:00:01`
+ */
 function reRootSearch (group, query, format) { // eslint-disable-line no-unused-vars
   const divElem = document.querySelector('.hierarchical-search')
   const childDivs = divElem.querySelectorAll(':scope > div') // - results in only 1, even if 2 items added - I think because each input is not wrapped in a div
@@ -906,6 +923,9 @@ function reRootSearch (group, query, format) { // eslint-disable-line no-unused-
   divElem.append(groupDiv)
 }
 
+/**
+ * Removes all form elements from the search hierarchy from the supplied "selected format" if its val field is empty
+ */
 function removeIncompleteSearchForms () { // eslint-disable-line no-unused-vars
   'use strict'
 
@@ -921,7 +941,9 @@ function removeIncompleteSearchForms () { // eslint-disable-line no-unused-vars
   }
 }
 
-// Returns true or false
+/**
+ * Recursively removes all form elements from the search hierarchy from the supplied "selected format" if its val field is empty
+ */
 function removeIncompleteSearchFormsHelper (divElem, selectedformat, curfmt) {
   'use strict'
 
@@ -959,11 +981,16 @@ function removeIncompleteSearchFormsHelper (divElem, selectedformat, curfmt) {
   }
 }
 
+/**
+ * Removes a single search form by removing the surrounding div tag
+ */
 function removeSearchForm (myDiv) {
   myDiv.remove()
 }
 
-// Returns true or false
+/**
+ * Determines if all search forms' val fields for the selected format are empty and returns true or false
+ */
 function isSearchEmpty () { // eslint-disable-line no-unused-vars
   'use strict'
 
@@ -986,7 +1013,9 @@ function isSearchEmpty () { // eslint-disable-line no-unused-vars
   return empty
 }
 
-// Returns true or false
+/**
+ * Recursively determines if all search forms' val fields in the supplied selected format are empty and returns true or false
+ */
 function isSearchEmptyHelper (divElem, selectedformat, curfmt) {
   'use strict'
 
@@ -1025,6 +1054,9 @@ function isSearchEmptyHelper (divElem, selectedformat, curfmt) {
   return empty
 }
 
+/**
+ * Removes all form elements from the search hierarchy matching the supplied field from the selected format
+ */
 function removeFieldSearchForms (field) { // eslint-disable-line no-unused-vars
   'use strict'
 
@@ -1040,7 +1072,9 @@ function removeFieldSearchForms (field) { // eslint-disable-line no-unused-vars
   }
 }
 
-// Returns true or false
+/**
+ * Recursively removes all form elements from the search hierarchy matching the supplied field from the supplied "selected format"
+ */
 function removeFieldSearchFormsHelper (divElem, field, selectedformat, curfmt) {
   'use strict'
 
