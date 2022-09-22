@@ -335,7 +335,11 @@ function updateValEnumSelectList (valSelectList, dbFieldChoices, valClone) {
   let valExistsInChoices = false
   for (let i = 0; i < dbFieldChoices.length; i++) {
     arrOptions.push('<option value="' + dbFieldChoices[i][0] + '">' + dbFieldChoices[i][1] + '</option>')
-    if (valSupplied && dbFieldChoices[i][0] === valClone.value) {
+
+    // Right now, this only handles initializing the select list where the values are strings or numbers, so in order
+    // to get booleans to work, I check both the actual value: dbFieldChoices[i][0] and the item name: 
+    // dbFieldChoices[i][1] to match the names when they are "true" or "false"
+    if (valSupplied && (dbFieldChoices[i][0] === valClone.value || dbFieldChoices[i][1] === valClone.value)) {
       valExistsInChoices = true
     }
   }
@@ -900,9 +904,6 @@ function reRootSearch (group, query, format) { // eslint-disable-line no-unused-
 
   // Append the new group to this hierarchy
   divElem.append(groupDiv)
-  // There is an empty div at the end, but I seem unable to remove it or insert before it, so I changed the saveSearchHierarchy to skip a div if it is empty.  Not sure whether that will have a deleterious effect
-  // childDivs[childDivs.length - 1].insertAdjacentElement('afterend', groupDiv)
-  // Append the empty div back
 }
 
 function removeIncompleteSearchForms () { // eslint-disable-line no-unused-vars
