@@ -2,7 +2,7 @@ from copy import deepcopy
 from typing import Dict
 
 from django.core.management import call_command
-from django.db.models import F, Q
+from django.db.models import F, Q, Value
 from django.test import tag
 
 from DataRepo.formats.dataformat import Format, splitCommon, splitPathName
@@ -213,7 +213,7 @@ class FormatsTests(TracebaseTestCase):
             ("serum_sample__animal__sex", "Sex"),
             ("serum_sample__animal__studies__name", "Study"),
             (
-                "serum_sample__animal__samples__time_collected",
+                "serum_sample__time_collected",
                 "Time Collected (hh:mm:ss since infusion)",
             ),
             ("tracer__name", "Tracer"),
@@ -240,7 +240,7 @@ class FormatsTests(TracebaseTestCase):
                 ("serum_sample__animal__sex", "Sex"),
                 ("serum_sample__animal__studies__name", "Study"),
                 (
-                    "serum_sample__animal__samples__time_collected",
+                    "serum_sample__time_collected",
                     "Time Collected (hh:mm:ss since infusion)",
                 ),
                 ("tracer__name", "Tracer"),
@@ -411,8 +411,12 @@ class FormatsTests(TracebaseTestCase):
 
         # Do the test
         annots = basv.getFullJoinAnnotations(fmt)
-        expected_annots = [{annot_name: F("compounds__pk")}]
-        self.assertEqual(expected_annots, annots)
+        expected_annots = [
+            {"peak_group_label": Value("")},
+            {"compound": F("compounds__pk")},
+            {"study": Value("")},
+        ]
+        self.assertEqual(str(expected_annots), str(annots))
 
         # Should be called after tearDown()
         # self.restore_split_rows()
