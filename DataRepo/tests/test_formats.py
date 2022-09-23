@@ -20,8 +20,9 @@ from DataRepo.formats.dataformat_group_query import (
 from DataRepo.formats.peakdata_dataformat import PeakDataFormat
 from DataRepo.formats.peakgroups_dataformat import PeakGroupsFormat
 from DataRepo.formats.search_group import SearchGroup
-from DataRepo.models import CompoundSynonym, PeakGroup
+from DataRepo.models import CompoundSynonym, PeakGroup, FCirc
 from DataRepo.models.utilities import get_model_by_name
+from DataRepo.templatetags.customtags import get_many_related_rec
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
@@ -412,11 +413,17 @@ class FormatsTests(TracebaseTestCase):
         # Do the test
         annots = basv.getFullJoinAnnotations(fmt)
         expected_annots = [
-            {"peak_group_label": Value("")},
+            {
+                "peak_group_label": Value("")
+            },  # Empty string annotation when split_rows is False
             {"compound": F("compounds__pk")},
             {"study": Value("")},
         ]
-        self.assertEqual(str(expected_annots), str(annots))
+        self.assertEqual(
+            str(expected_annots),
+            str(annots),
+            msg="Only the split_rows=True annotations have field values",
+        )
 
         # Should be called after tearDown()
         # self.restore_split_rows()
@@ -1156,6 +1163,87 @@ class FormatsTests(TracebaseTestCase):
         self.assertEqual(format, "pdtemplate")
         self.assertEqual(name, "PeakData")
         self.assertEqual(sel, False)
+
+    def test_fcirc_performQuery_tracer_links_1to1(self):
+        """
+        This test ensures that when we perform any query on the fcirc format, the means of limiting each row to a
+        single tracer works.  I.e. Calling get_many_related_rec with the tracer links and the annotated field (defined
+        by root_annot_fld to be "tracer_link") returns a list contaoining a single record.
+        """
+        # Make sure there are multiple tracers
+        call_command(
+            "load_compounds",
+            compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
+            verbosity=2,
+        )
+        call_command(
+            "load_animals_and_samples",
+            animal_and_sample_table_filename=(
+                "DataRepo/example_data/small_multitracer_data/animal_sample_table.xlsx"
+            ),
+            skip_researcher_check=True,
+        )
+        call_command(
+            "load_accucor_msruns",
+            accucor_file="DataRepo/example_data/small_multitracer_data/6eaafasted1_cor.xlsx",
+            protocol="Default",
+            date="2021-04-29",
+            researcher="Xianfeng Zeng",
+            new_researcher=False,
+            isocorr_format=True,
+        )
+        call_command(
+            "load_accucor_msruns",
+            accucor_file="DataRepo/example_data/small_multitracer_data/bcaafasted_cor.xlsx",
+            protocol="Default",
+            date="2021-04-29",
+            researcher="Xianfeng Zeng",
+            new_researcher=False,
+            isocorr_format=True,
+        )
+
+        format = "fctemplate"
+        sg = SearchGroup()
+
+        # Make sure the built in annotation field for this model instance is "tracer_link"
+        annotfld = sg.modeldata["fctemplate"].model_instances["InfusateTracer"][
+            "manyrelated"
+        ]["root_annot_fld"]
+        self.assertEqual("tracer_link", annotfld)
+
+        # Perform the query
+        (qs, junk1, junk2) = sg.performQuery(fmt=format)
+
+        # Make sure there are results
+        self.assertTrue(qs.count() > 0)
+
+        num_multitracer_recs = 0
+        for r in qs.all():
+            # Make sure there are infusate records with multiple tracers
+            if r.serum_sample.animal.infusate.tracer_links.count() > 1:
+                num_multitracer_recs += 1
+
+            # Obtain the true join records
+            recs = get_many_related_rec(
+                r.serum_sample.animal.infusate.tracer_links.all(), r.tracer_link
+            )
+
+            # Make sure there's only 1 related record (1:1)
+            self.assertEqual(1, len(recs))
+
+            # Make sure it's the correct record
+            self.assertEqual(r.tracer.id, recs[0].tracer.id)
+
+        # Make sure that there were some infusates with multiple tracers
+        self.assertTrue(
+            num_multitracer_recs > 0, msg="Make sure the test above has meaning"
+        )
+
+        # Make sure that getRootQuerySet was overridden to make:
+        #   tracer__id = serum_sample__animal__infusate__tracer_links__tracer__id
+        # so that the number of FCirc records is equal to the number of queryset records when splitting on
+        # InfusateTracer records.  This affects only the result count displayed on the page.
+        self.assertEqual(FCirc.objects.count(), qs.count())
 
 
 @tag("search_choices")
