@@ -170,12 +170,30 @@
                 query.val = 'dummy'
             }
 
+            let last_form_pos = getFirstFieldFormNum('is_last')
+            let reroot_mode = true
+            if (last_form_pos === 1) {
+                let rootSize = getRootGroupSize()
+                // If the root search hoerarchy level has 2 members and 1 is a form (that we assume is 'is_last')
+                // Note, this could be a false assumption if the first member is a group whose first form is for is_last
+                if (rootSize.members === 2 && rootSize.forms === 1) {
+                    reroot_mode = false
+                }
+            }
+
             // Remove any search terms for the is_last field
             removeFieldSearchForms('is_last')
             // Remove incomplete search forms
             removeIncompleteSearchForms()
-            // Insert a new 'and'-group with a single query at the root and append the existing search group (formerly the root) as a sibling of that query, if any
-            reRootSearch(group, query, 'fctemplate')
+
+            if (reroot_mode) {
+                // Insert a new 'and'-group with a single query at the root and append the existing search group (formerly the root) as a sibling of that query, if any
+                reRootSearch(group, query, 'fctemplate')
+            } else {
+                // This essentially does the same thing as above.  It just doesn't create or move-around the group select lists when there exists filled-out user search criteria
+                insertFirstSearch(query, 'fctemplate')
+            }
+
             // Commit (/save) the form, i.e. prepare for submission
             var myform = document.getElementById("hierarchical-search-form")
             saveSearchQueryHierarchy(document.querySelector('.hierarchical-search'))
