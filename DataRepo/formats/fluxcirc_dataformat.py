@@ -1,4 +1,4 @@
-# from django.db.models import F
+from django.db.models import F
 
 from DataRepo.formats.dataformat import Format
 from DataRepo.models import Animal, ElementLabel, FCirc
@@ -187,7 +187,7 @@ class FluxCircFormat(Format):
                 "manytomany": False,
                 "split_rows": True,
                 "through": True,
-                "root_annot_fld": "concentration",
+                "root_annot_fld": "tracer_link",
             },
             "fields": {
                 "id": {
@@ -233,8 +233,8 @@ class FluxCircFormat(Format):
         },
         "Sample": {
             "model": "Sample",
-            "path": "serum_sample__animal__samples",
-            "reverse_path": "animal__samples__fcircs",
+            "path": "serum_sample",
+            "reverse_path": "fcircs",
             "manyrelated": {
                 "is": False,
                 "through": False,
@@ -313,3 +313,14 @@ class FluxCircFormat(Format):
             },
         },
     }
+
+    def getRootQuerySet(self):
+        """
+        Ensure we only get tracer_link records that are for the infusate linked to the animal and for the tracer linked
+        in FCirc.
+        """
+        return FCirc.objects.filter(
+            tracer__id__exact=F(
+                "serum_sample__animal__infusate__tracer_links__tracer__id"
+            )
+        )

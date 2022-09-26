@@ -1,7 +1,7 @@
 from copy import deepcopy
 from typing import Dict, List, Optional
 
-from django.db.models import F, Model
+from django.db.models import CharField, F, Model, Value
 
 from DataRepo.formats.dataformat_group_query import (
     appendFilterToGroup,
@@ -285,6 +285,24 @@ class Format:
         """
         annotations = []
         for mdl_inst_nm in self.model_instances.keys():
+            if (
+                "root_annot_fld"
+                in self.model_instances[mdl_inst_nm]["manyrelated"].keys()
+                and self.model_instances[mdl_inst_nm]["manyrelated"]["root_annot_fld"]
+                and self.model_instances[mdl_inst_nm]["manyrelated"]["root_annot_fld"]
+                != ""
+                and self.model_instances[mdl_inst_nm]["manyrelated"]["is"]
+                and not self.model_instances[mdl_inst_nm]["manyrelated"]["split_rows"]
+            ):
+                annot_fld = self.model_instances[mdl_inst_nm]["manyrelated"][
+                    "root_annot_fld"
+                ]
+                # This is a special case.  When this is a many-related model (WRT the root model where the annotations
+                # are saved), and we are not splitting on this relation, setting the value to an empty string has
+                # special meaning: get every such related record to put on a single row related to the linked root
+                # record.  See the get_many_related_rec method inside customtags.py.
+                annotations.append({annot_fld: Value("", output_field=CharField())})
+
             # If this model is many to many related, and we want a full join
             if (
                 # See TODO above

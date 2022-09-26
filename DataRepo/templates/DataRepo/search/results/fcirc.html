@@ -348,7 +348,7 @@
         data-pagination="{% if mode == 'view' %}true{% else %}false{% endif %}">
         <thead>
             <tr>
-                <th colspan="14" rowspan="2"></th>
+                <th colspan="15" rowspan="2"></th>
                 <th colspan="4" class="average">Average</th>
                 <th colspan="4" class="intact">Intact</th>
             </tr>
@@ -359,6 +359,13 @@
                 <th colspan="2" data-sortable="false" class="intact nonorm">Mouse<br>Normalized<br>(nM/m)</th>
             </tr>
             <tr>
+                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Studies-data-visible' 'true' %}" data-field="Studies">
+                    {% with "Studies" as colhead %}
+                        {% if mode == "view" %}{{ colhead }}{% else %}
+                            <div onclick="sortColumn(this)" class="sortable" id="serum_sample__animal__studies__name">{{ colhead }}</div>
+                        {% endif %}
+                    {% endwith %}
+                </th>
                 <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Animal-data-visible' 'true' %}" data-field="Animal">
                     {% with "Animal" as colhead %}
                         {% if mode == "view" %}{{ colhead }}{% else %}
@@ -366,10 +373,10 @@
                         {% endif %}
                     {% endwith %}
                 </th>
-                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Studies-data-visible' 'true' %}" data-field="Studies">
-                    {% with "Studies" as colhead %}
+                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'SerumSample-data-visible' 'true' %}" data-field="Serum_Sample">
+                    {% with "Serum<br>Sample" as colhead %}
                         {% if mode == "view" %}{{ colhead }}{% else %}
-                            <div onclick="sortColumn(this)" class="sortable" id="serum_sample__animal__studies__name">{{ colhead }}</div>
+                            <div onclick="sortColumn(this)" class="sortable" id="serum_sample__name">{{ colhead }}</div>
                         {% endif %}
                     {% endwith %}
                 </th>
@@ -422,10 +429,10 @@
                         {% endif %}
                     {% endwith %}
                 </th>
-                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Tracer_Compound-data-visible' 'true' %}" data-field="Tracer_Compound">
-                    {% with "Tracer<br>Compound" as colhead %}
+                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Tracer-data-visible' 'true' %}" data-field="Tracer">
+                    {% with "Tracer" as colhead %}
                         {% if mode == "view" %}{{ colhead }}{% else %}
-                            <div onclick="sortColumn(this)" class="sortable" id="tracer__compound__name">{{ colhead }}</div>
+                            <div onclick="sortColumn(this)" class="sortable" id="tracer__name">{{ colhead }}</div>
                         {% endif %}
                     {% endwith %}
                 </th>
@@ -436,14 +443,14 @@
                         {% endif %}
                     {% endwith %}
                 </th>
-                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="numericOnly" data-visible="{% get_template_cookie selfmt 'Tracer_Infusion_Rate-data-visible' 'true' %}" data-field="Tracer_Infusion_Rate">
+                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="numericOnly" data-visible="{% get_template_cookie selfmt 'Infusion_Rate-data-visible' 'true' %}" data-field="Infusion_Rate">
                     {% with "Infusion<br>Rate<br>(ul/m/g)" as colhead %}
                         {% if mode == "view" %}{{ colhead }}{% else %}
                             <div onclick="sortColumn(this)" class="sortable" id="serum_sample__animal__infusion_rate">{{ colhead }}</div>
                         {% endif %}
                     {% endwith %}
                 </th>
-                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="numericOnly" data-visible="{% get_template_cookie selfmt 'Tracer_Infusion_Concentration-data-visible' 'true' %}" data-field="Tracer_Infusion_Concentration">
+                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="numericOnly" data-visible="{% get_template_cookie selfmt 'Tracer_Concentration-data-visible' 'true' %}" data-field="Tracer_Concentration">
                     {% with "Tracer<br>Concentration<br>(mM)" as colhead %}
                         {% if mode == "view" %}{{ colhead }}{% else %}
                             <div onclick="sortColumn(this)" class="sortable" id="serum_sample__animal__infusate__tracer_links__concentration">{{ colhead }}</div>
@@ -453,7 +460,7 @@
                 <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Time_Collected-data-visible' 'true' %}" data-field="Time_Collected">
                     {% with "Time<br>Collected<br>(m)" as colhead %}
                         {% if mode == "view" %}{{ colhead }}{% else %}
-                            <div onclick="sortColumn(this)" class="sortable" id="serum_sample__animal__samples__time_collected">{{ colhead }}</div>
+                            <div onclick="sortColumn(this)" class="sortable" id="serum_sample__time_collected">{{ colhead }}</div>
                         {% endif %}
                     {% endwith %}
                 </th>
@@ -487,6 +494,18 @@
         <tbody>
             {% for rec in res.all %}
                 <tr class="{% if rec.is_last_serum_peak_group %}bg-highlighted{% else %}bg-normal{% endif %}">
+                    <!-- Studies -->
+                    <td>
+                        <!-- This will work as intended even if rec.serum_sample.animal.study wasn't added as an annotation (e.g. if split_rows is false or root_annot_fld is not defined) -->
+                        {% get_many_related_rec rec.serum_sample.animal.studies rec.study as studies %}
+                        <!-- Put displayed link text first for sorting -->
+                        <div style="display:none;">
+                            {% for study in studies %}{% if not forloop.first %},<br>{% endif%}{{ study.name }}{% endfor %}
+                        </div>
+
+                        {% for study in studies %}{% if not forloop.first %},<br>{% endif%}<a href="{% url 'study_detail' study.id %}">{{ study.name }}</a>{% endfor %}
+                    </td>
+
                     <!-- Animal -->
                     <td>
                         <!-- Put displayed link text first for sorting -->
@@ -497,18 +516,14 @@
                         </a>
                     </td>
 
-                    <!-- Studies -->
+                    <!-- Serum Sample -->
                     <td>
-                        <!-- This will work as intended even if rec.serum_sample.animal.study wasn't added as an annotation (e.g. if split_rows is false or root_annot_fld is not defined) -->
-                        {% get_many_related_rec rec.serum_sample.animal.studies rec.serum_sample.animal.study as studies %}
                         <!-- Put displayed link text first for sorting -->
-                        <div style="display:none;">
-                            {% define True as first %}
-                            {% for study in studies %}{% if not first %},<br>{% endif%}{{ study.name }}{% define False as first %}{% endfor %}
-                        </div>
+                        <div style="display:none;">{{ rec.serum_sample.name }}</div>
 
-                        {% define True as first %}
-                        {% for study in studies %}{% if not first %},<br>{% endif%}<a href="{% url 'study_detail' study.id %}">{{ study.name }}</a>{% define False as first %}{% endfor %}
+                        <a href="{% url 'sample_detail' rec.serum_sample.id %}">
+                            {{ rec.serum_sample.name }}
+                        </a>
                     </td>
 
                     <!-- Genotype -->
@@ -555,13 +570,13 @@
                         {% endif %}
                     </td>
 
-                    <!-- Tracer Compound -->
+                    <!-- Tracer -->
                     <td>
                         <!-- Put displayed link text first for sorting -->
-                        <div style="display:none;">{{ rec.tracer.compound.name }}</div>
+                        <div style="display:none;">{{ rec.tracer.name }}</div>
 
                         <a href="{% url 'compound_detail' rec.tracer.compound.id %}">
-                            {{ rec.tracer.compound.name }}
+                            <div class="nobr">{{ rec.tracer.name }}</div>
                         </a>
                     </td>
 
@@ -577,7 +592,10 @@
 
                     <!-- Tracer Concentration (mM) -->
                     <td class="text-end">
-                        {{ rec.concentration }}
+                        <!-- This will get all tracer_link records for every tracer in the infusate, so we need to filter those for the tracer in this FCirc record -->
+                        <!-- This is not effectively a many to many relationship because of the override of getRootQuerySet in fluxcirc_dataformat.py, which forces the FCirc.tracer to match FCirc.serum_sample.animal.infusate.tracer_links.tracer -->
+                        {% get_many_related_rec rec.serum_sample.animal.infusate.tracer_links.all rec.tracer_link as tracer_links %}
+                        {% for tracer_link in tracer_links %}{% if not forloop.first %},<br>{% endif%}{{ tracer_link.concentration }}{% endfor %}
                     </td>
 
                     <!-- Time Collected (m) -->
