@@ -210,6 +210,34 @@ def get_template_cookie(context, template_name, cookie_name, cookie_default):
     return result
 
 
+@register.simple_tag
+def get_serum_tracer_peak_groups_first_searched(qry):
+    """
+    Looks at the qry object to see if the first search term in the fctemplate format is "is+last", and if so, what
+    should be shown (preious, last, both, or neither)
+    """
+    shown = "both"
+    if qry:
+        if "is_last" == qry["searches"]["fctemplate"]["tree"]["queryGroup"][0]["fld"]:
+            if (
+                qry["searches"]["fctemplate"]["tree"]["queryGroup"][0]["ncmp"]
+                == "isnull"
+            ):
+                shown = "neither"
+            elif (
+                qry["searches"]["fctemplate"]["tree"]["queryGroup"][0]["ncmp"]
+                == "iexact"
+            ):
+                if (
+                    qry["searches"]["fctemplate"]["tree"]["queryGroup"][0]["val"]
+                    == "true"
+                ):
+                    shown = "last"
+                else:
+                    shown = "previous"
+    return shown
+
+
 @register.filter
 def gt(x, y):
     """

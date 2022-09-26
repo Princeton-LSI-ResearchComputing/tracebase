@@ -192,7 +192,7 @@ class AdvancedSearchView(MultiFormsView):
         """
         Upon invalid advanced search form submission, rescues the query to add back to the context.
         """
-        print(f"Invalid paging form: {formset}")
+        print(f"WARNING: Invalid paging form: {formset}")
 
         qry = {}
 

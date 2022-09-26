@@ -187,10 +187,8 @@ function addSearchFieldForm (myDiv, query, templateId) {
 
     // Initialize the value in the hierarchy with the default
     if (typeof query[keyname] !== 'undefined' && query[keyname]) {
-      console.log('Initializing search form value for field: ', keyname, ':', query[keyname])
       clones[i].value = query[keyname]
     } else {
-      console.log('Storing search form value for field: ', keyname, ': as:', clones[i].value, 'into the qry object')
       query[clones[i].name] = clones[i].value
     }
 
@@ -290,12 +288,10 @@ function updateValFields (fldInitVal, ncmpInitVal, valClone, myDiv, templateId, 
 
   if (ncmpInitVal === 'isnull' || ncmpInitVal === 'not_isnull') {
     valClone.value = valFields.valHiddenBox.value
-    console.log('Hiding all (but hidden field) for null comparison ncmp')
     valFields.valTextBox.style = 'display:none;'
     valFields.valSelectList.style = 'display:none;'
   } else if (dbFieldType === 'string' || dbFieldType === 'number') {
     valClone.value = valFields.valTextBox.value
-    console.log('Hiding all but text box field for string/number fld type')
     valFields.valTextBox.style = ''
     valFields.valSelectList.style = 'display:none;'
     if (dbFieldType === 'string') {
@@ -304,9 +300,10 @@ function updateValFields (fldInitVal, ncmpInitVal, valClone, myDiv, templateId, 
       valFields.valTextBox.placeholder = 'search value'
     }
   } else if (dbFieldType === 'enumeration') {
-    updateValEnumSelectList(valFields.valSelectList, dbFieldChoices)
+    updateValEnumSelectList(valFields.valSelectList, dbFieldChoices, valClone)
+    // The valClone.value may change if the field was changed from its initial value, because it is a different select
+    // list, which defaults to the first option
     valClone.value = valFields.valSelectList.value
-    console.log('Hiding all but select list for enumeration fld type')
     valFields.valTextBox.style = 'display:none;'
     valFields.valSelectList.style = ''
   } else {
@@ -319,9 +316,6 @@ function updateValFields (fldInitVal, ncmpInitVal, valClone, myDiv, templateId, 
     myDiv.appendChild(valFields.valTextBox)
     myDiv.appendChild(valFields.valHiddenBox)
     myDiv.appendChild(valFields.valSelectList)
-    console.log('Created visible val fields for type:', dbFieldType)
-  } else {
-    console.log('Updated visible val fields for type:', dbFieldType)
   }
 
   if (valClone.disabled) {
@@ -332,19 +326,49 @@ function updateValFields (fldInitVal, ncmpInitVal, valClone, myDiv, templateId, 
   return valFields
 }
 
-function updateValEnumSelectList (valSelectList, dbFieldChoices) {
+function updateValEnumSelectList (valSelectList, dbFieldChoices, valClone) {
   const arrOptions = []
+  let valSupplied = false
+  if (typeof valClone !== 'undefined' && valClone && typeof valClone.value !== 'undefined' && valClone.value) {
+    valSupplied = true
+  }
+  let valExistsInChoices = false
   for (let i = 0; i < dbFieldChoices.length; i++) {
     arrOptions.push('<option value="' + dbFieldChoices[i][0] + '">' + dbFieldChoices[i][1] + '</option>')
+
+    // Right now, this only handles initializing the select list where the values are strings or numbers, so in order
+    // to get booleans to work, I check both the actual value: dbFieldChoices[i][0] and the item name:
+    // dbFieldChoices[i][1] to match the names when they are "true" or "false"
+    if (valSupplied && (dbFieldChoices[i][0] === valClone.value || dbFieldChoices[i][1] === valClone.value)) {
+      valExistsInChoices = true
+    }
   }
+  let initVal = 'unable to set'
+  // If there is an initial value from valClone (i.e. loading the executed search results and setting up the form)
+  if (dbFieldChoices.length > 0) {
+    if (valSupplied && valExistsInChoices) {
+      initVal = valClone.value
+    } else {
+      initVal = dbFieldChoices[0][0]
+    }
+  }
+  // See if the select list os the same as it was during the initial load (because it changes when the field select
+  // list or comparison select list is changed)
   const theSame = isValEnumSelectListTheSame(valSelectList, dbFieldChoices)
   if (!theSame) {
     if (dbFieldChoices.length > 0) {
       valSelectList.innerHTML = arrOptions.join('')
-      valSelectList.value = dbFieldChoices[0][0]
+      // Cannot use the valClone init val (if it was originally supplied because the select list has changed from its
+      // initial value)
+      valSelectList.value = initVal
     } else {
+      // We don't have anything to populate the select list with, so clear out the options
       valSelectList.innerHTML = ''
+      valSelectList.value = initVal
     }
+  } else {
+    // The select list is the same as it was during the initial load, so we can set the initial value
+    valSelectList.value = initVal
   }
 }
 
@@ -487,8 +511,6 @@ function addGroupSelectList (myDiv, query) {
   select.value = query.val
   if (query.static) {
     select.disabled = true
-  } else {
-    console.warn('Group', query.val, 'was not static:', query.static)
   }
 
   // Use a change as an opportunity to dismiss previous errors
@@ -630,7 +652,6 @@ function initializeRootSearchQueryHelper (element, templateId, parentNode, query
       if (!queryGroup[i].static && !parentNode.static) {
         addRemoveButton(groupDiv, queryGroup[i], parentNode)
       }
-      console.log('Recursing for template', templateId)
       initializeRootSearchQueryHelper(groupDiv, templateId, queryGroup[i], queryGroup[i].queryGroup)
 
       // Not exactly sure why, but after adding inner elements to a group, an empty div is needed so that future dynamically-added form elements are correctly created.  I did this based on the template post I followed that had a static empty div just inside where the dynamic content was being created, when stuff I was adding wasn't working right and it seems to have fixed it.
@@ -733,9 +754,6 @@ function saveSearchQueryHierarchyHelper (divElem, path, count, idx, selectedform
 
   const childDivs = divElem.querySelectorAll(':scope > div') // - results in only 1, even if 2 items added - I think because each input is not wrapped in a div
 
-  // Always traverse 1 less, because there's always an empty trailing div tag
-  const numChildren = (childDivs.length - 1)
-
   // This gets inputs belonging to the parent
   const childInputs = divElem.childNodes
 
@@ -772,7 +790,6 @@ function saveSearchQueryHierarchyHelper (divElem, path, count, idx, selectedform
         // Remove the disabled attribute so that the data submits
         childInputs[i].removeAttribute('disabled')
       }
-      console.log('Saving template:', curfmt, 'Input:', childInputs[i].name, 'Value:', childInputs[i].value)
       if (curfmt === selectedformat && childInputs[i].name.includes('-val') && childInputs[i].value === '') {
         formErrLabel.innerHTML = 'All fields are required'
       }
@@ -837,9 +854,416 @@ function saveSearchQueryHierarchyHelper (divElem, path, count, idx, selectedform
 
   // Recurse
   // Always traverse 1 less, because there's always an empty trailing div tag
-  for (let i = 0; i < numChildren; i++) {
-    count = saveSearchQueryHierarchyHelper(childDivs[i], path, count, i, selectedformat, curfmt)
+  for (let i = 0; i < childDivs.length; i++) {
+    if (childDivs[i].innerHTML !== '') {
+      count = saveSearchQueryHierarchyHelper(childDivs[i], path, count, i, selectedformat, curfmt)
+    }
   }
 
   return count
+}
+
+/**
+ * Creates a new search group and adds it to the search hierarchy at the root level, and adds the supplied query as its
+ * first member.  The original search groups is made to be its second member.  For example, if the search is:
+ *    Match `any`:
+ *        `animal` `is` `971`
+ *        `time_collected` `>` `00:00:01`
+ * ...and the arguments are:
+ *    group = {type: 'group', pos: '', static: false, val: 'all'}
+ *    query = {type: 'query', pos: '', static: false, ncmp: 'iexact', fld: 'is_last', val: 'false'}
+ *    format = 'fctemplate'
+ * ...the resulting search will be:
+ *    Match `all`:
+ *        `is_last` `is` `false`
+ *        Match `any`:
+ *            `animal` `is` `971`
+ *            `time_collected` `>` `00:00:01`
+ */
+function reRootSearch (group, query, format) { // eslint-disable-line no-unused-vars
+  const divElem = document.querySelector('.hierarchical-search')
+  const childDivs = divElem.querySelectorAll(':scope > div') // - results in only 1, even if 2 items added - I think because each input is not wrapped in a div
+  const selectedformat = getSelectedFormat(childDivs[0])
+  let curfmt
+  if (typeof divElem.id !== 'undefined' && divElem.id && divElem.id.includes('-hierarchy')) {
+    curfmt = '' + divElem.id.split('-').shift()
+  }
+
+  // Start to build the new search forms
+  // Create a new query div
+  const queryDiv = document.createElement('div')
+  queryDiv.className = 'level-indent'
+  addSearchFieldForm(queryDiv, query, format)
+
+  // Create a new group div
+  const groupDiv = document.createElement('div')
+  // The new root group will not be indented
+  addGroupSelectList(groupDiv, group)
+
+  // Add the query div to the new group
+  groupDiv.appendChild(queryDiv)
+  groupDiv.id = format + '-hierarchy'
+
+  for (let i = 1; i < childDivs.length; i++) {
+    // Get current format
+    if (typeof childDivs[i].id !== 'undefined' && childDivs[i].id && childDivs[i].id.includes('-hierarchy')) {
+      curfmt = '' + childDivs[i].id.split('-').shift()
+    }
+    if (curfmt === selectedformat) {
+      childDivs[i].remove()
+
+      // Indent the pre-existing search
+      childDivs[i].className = 'level-indent'
+      childDivs[i].id = ''
+      groupDiv.append(childDivs[i])
+    }
+  }
+
+  // Append the new group to this hierarchy
+  divElem.append(groupDiv)
+}
+
+/**
+ * Removes all form elements from the search hierarchy from the supplied "selected format" if its val field is empty
+ */
+function removeIncompleteSearchForms () { // eslint-disable-line no-unused-vars
+  'use strict'
+
+  const divElem = document.querySelector('.hierarchical-search')
+
+  const childDivs = divElem.querySelectorAll(':scope > div') // - results in only 1, even if 2 items added - I think because each input is not wrapped in a div
+
+  const selectedformat = getSelectedFormat(childDivs[0])
+
+  // This will traverse a hierarchy for each possible output format
+  for (let i = 1; i < childDivs.length; i++) {
+    removeIncompleteSearchFormsHelper(childDivs[i], selectedformat)
+  }
+}
+
+/**
+ * Recursively removes all form elements from the search hierarchy from the supplied "selected format" if its val field is empty
+ */
+function removeIncompleteSearchFormsHelper (divElem, selectedformat, curfmt) {
+  'use strict'
+
+  // If the div has a "-hierarchy" ID, we're at the root, so we can update the format name
+  if (typeof divElem.id !== 'undefined' && divElem.id && divElem.id.includes('-hierarchy')) {
+    curfmt = '' + divElem.id.split('-').shift()
+  }
+
+  const childDivs = divElem.querySelectorAll(':scope > div') // - results in only 1, even if 2 items added - I think because each input is not wrapped in a div
+
+  // Always traverse 1 less, because there's always an empty trailing div tag
+  const numChildren = (childDivs.length - 1)
+
+  // This gets inputs belonging to the parent
+  const childInputs = divElem.childNodes
+  let numRemoved = 0
+
+  for (let i = 0; i < childInputs.length; i++) {
+    if (typeof childInputs[i].name !== 'undefined' && childInputs[i].name) {
+      if (curfmt === selectedformat && childInputs[i].name.includes('-val') && (typeof childInputs[i].value === 'undefined' || childInputs[i].value === '')) {
+        removeSearchForm(divElem)
+        numRemoved += 1
+      }
+    }
+  }
+
+  // Recurse
+  // Always traverse 1 less, because there's always an empty trailing div tag
+  for (let i = 0; i < numChildren; i++) {
+    removeIncompleteSearchFormsHelper(childDivs[i], selectedformat, curfmt)
+    // We will use numRemoved=0 to infer this is a group div and if its children are empty, remove it
+    if (curfmt === selectedformat && numRemoved === 0 && isSearchEmptyHelper(childDivs[i], selectedformat, curfmt)) {
+      divElem.remove()
+    }
+  }
+}
+
+/**
+ * Removes a single search form by removing the surrounding div tag
+ */
+function removeSearchForm (myDiv) {
+  myDiv.remove()
+}
+
+/**
+ * Determines if all search forms' val fields for the selected format are empty and returns true or false
+ */
+function isSearchEmpty () { // eslint-disable-line no-unused-vars
+  'use strict'
+
+  const divElem = document.querySelector('.hierarchical-search')
+
+  const childDivs = divElem.querySelectorAll(':scope > div') // - results in only 1, even if 2 items added - I think because each input is not wrapped in a div
+
+  const selectedformat = getSelectedFormat(childDivs[0])
+
+  let empty = true
+
+  // This will traverse a hierarchy for each possible output format
+  for (let i = 1; i < childDivs.length; i++) {
+    empty = isSearchEmptyHelper(childDivs[i], selectedformat)
+    if (!empty) {
+      break
+    }
+  }
+
+  return empty
+}
+
+/**
+ * Recursively determines if all search forms' val fields in the supplied selected format are empty and returns true or false
+ */
+function isSearchEmptyHelper (divElem, selectedformat, curfmt) {
+  'use strict'
+
+  let empty = true
+
+  // If the div has a "-hierarchy" ID, we're at the root, so we can update the format name
+  if (typeof divElem.id !== 'undefined' && divElem.id && divElem.id.includes('-hierarchy')) {
+    curfmt = '' + divElem.id.split('-').shift()
+  }
+
+  const childDivs = divElem.querySelectorAll(':scope > div') // - results in only 1, even if 2 items added - I think because each input is not wrapped in a div
+
+  // Always traverse 1 less, because there's always an empty trailing div tag
+  const numChildren = (childDivs.length - 1)
+
+  // This gets inputs belonging to the parent
+  const childInputs = divElem.childNodes
+
+  for (let i = 0; i < childInputs.length; i++) {
+    if (typeof childInputs[i].name !== 'undefined' && childInputs[i].name) {
+      if (curfmt === selectedformat && childInputs[i].name.includes('-val') && childInputs[i].value !== '') {
+        return false
+      }
+    }
+  }
+
+  // Recurse
+  // Always traverse 1 less, because there's always an empty trailing div tag
+  for (let i = 0; i < numChildren; i++) {
+    empty = isSearchEmptyHelper(childDivs[i], selectedformat, curfmt)
+    if (!empty) {
+      return empty
+    }
+  }
+
+  return empty
+}
+
+/**
+ * Removes all form elements from the search hierarchy matching the supplied field from the selected format
+ */
+function removeFieldSearchForms (field) { // eslint-disable-line no-unused-vars
+  'use strict'
+
+  const divElem = document.querySelector('.hierarchical-search')
+
+  const childDivs = divElem.querySelectorAll(':scope > div') // - results in only 1, even if 2 items added - I think because each input is not wrapped in a div
+
+  const selectedformat = getSelectedFormat(childDivs[0])
+
+  // This will traverse a hierarchy for each possible output format
+  for (let i = 1; i < childDivs.length; i++) {
+    removeFieldSearchFormsHelper(childDivs[i], field, selectedformat)
+  }
+}
+
+/**
+ * Recursively removes all form elements from the search hierarchy matching the supplied field from the supplied "selected format"
+ */
+function removeFieldSearchFormsHelper (divElem, field, selectedformat, curfmt) {
+  'use strict'
+
+  // If the div has a "-hierarchy" ID, we're at the root, so we can update the format name
+  if (typeof divElem.id !== 'undefined' && divElem.id && divElem.id.includes('-hierarchy')) {
+    curfmt = '' + divElem.id.split('-').shift()
+  }
+
+  const childDivs = divElem.querySelectorAll(':scope > div') // - results in only 1, even if 2 items added - I think because each input is not wrapped in a div
+
+  // Always traverse 1 less, because there's always an empty trailing div tag
+  const numChildren = (childDivs.length - 1)
+
+  // This gets inputs belonging to the parent
+  const childInputs = divElem.childNodes
+  let numRemoved = 0
+
+  for (let i = 0; i < childInputs.length; i++) {
+    if (typeof childInputs[i].name !== 'undefined' && childInputs[i].name) {
+      if (curfmt === selectedformat && childInputs[i].name.includes('-fld') && childInputs[i].value === field) {
+        removeSearchForm(divElem)
+        numRemoved += 1
+      }
+    }
+  }
+
+  // Recurse
+  // Always traverse 1 less, because there's always an empty trailing div tag
+  for (let i = 0; i < numChildren; i++) {
+    removeFieldSearchFormsHelper(childDivs[i], field, selectedformat, curfmt)
+    // We will use numRemoved=0 to infer this is a group div and if its children are empty, remove it
+    if (curfmt === selectedformat && numRemoved === 0 && isSearchEmptyHelper(childDivs[i], selectedformat, curfmt)) {
+      divElem.remove()
+    }
+  }
+}
+
+function getFirstFieldFormNum (field) { // eslint-disable-line no-unused-vars
+  'use strict'
+
+  const divElem = document.querySelector('.hierarchical-search')
+
+  const childDivs = divElem.querySelectorAll(':scope > div') // - results in only 1, even if 2 items added - I think because each input is not wrapped in a div
+
+  const selectedformat = getSelectedFormat(childDivs[0])
+
+  // This will traverse a hierarchy for each possible output format
+  for (let i = 1; i < childDivs.length; i++) {
+    const formNum = getFirstFieldFormNumHelper(childDivs[i], field, 0, selectedformat)
+    if (formNum > 0) {
+      return formNum
+    }
+  }
+  return 0
+}
+
+// Returns true or false
+function getFirstFieldFormNumHelper (divElem, field, formNum, selectedformat, curfmt) {
+  'use strict'
+
+  // If the div has a "-hierarchy" ID, we're at the root, so we can update the format name
+  if (typeof divElem.id !== 'undefined' && divElem.id && divElem.id.includes('-hierarchy')) {
+    curfmt = '' + divElem.id.split('-').shift()
+  }
+
+  const childDivs = divElem.querySelectorAll(':scope > div') // - results in only 1, even if 2 items added - I think because each input is not wrapped in a div
+
+  // Always traverse 1 less, because there's always an empty trailing div tag
+  const numChildren = (childDivs.length - 1)
+
+  // This gets inputs belonging to the parent
+  const childInputs = divElem.childNodes
+
+  for (let i = 0; i < childInputs.length; i++) {
+    if (typeof childInputs[i].name !== 'undefined' && childInputs[i].name) {
+      if (curfmt === selectedformat && childInputs[i].name.includes('-fld')) {
+        formNum += 1
+        if (childInputs[i].value === field) {
+          return formNum
+        }
+      }
+    }
+  }
+
+  // Recurse
+  // Always traverse 1 less, because there's always an empty trailing div tag
+  for (let i = 0; i < numChildren; i++) {
+    formNum = getFirstFieldFormNumHelper(childDivs[i], field, formNum, selectedformat, curfmt)
+    if (formNum > 0) {
+      return formNum
+    }
+  }
+
+  return 0
+}
+
+// This returns the number of field forms + the number of field form groups contained in the selected root group
+function getRootGroupSize () { // eslint-disable-line no-unused-vars
+  'use strict'
+
+  const divElem = document.querySelector('.hierarchical-search')
+
+  const childDivs = divElem.querySelectorAll(':scope > div') // - results in only 1, even if 2 items added - I think because each input is not wrapped in a div
+
+  const selectedformat = getSelectedFormat(childDivs[0])
+
+  // This will traverse a hierarchy for each possible output format
+  for (let i = 1; i < childDivs.length; i++) {
+    const groupSize = getRootGroupSizeHelper(childDivs[i], selectedformat)
+    if (groupSize.members > 0) {
+      return groupSize
+    }
+  }
+  return {
+    members: 0,
+    forms: 0
+  }
+}
+
+// Returns true or false
+function getRootGroupSizeHelper (divElem, selectedformat) {
+  'use strict'
+
+  const groupSize = {
+    members: 0,
+    forms: 0
+  }
+
+  let curfmt
+  // If the div has a "-hierarchy" ID, we're at the root, so we can update the format name
+  if (typeof divElem.id !== 'undefined' && divElem.id && divElem.id.includes('-hierarchy')) {
+    curfmt = '' + divElem.id.split('-').shift()
+  } else {
+    console.error('Search form hierarchy malformed.')
+  }
+
+  if (curfmt !== selectedformat) {
+    return groupSize
+  }
+  const childDivs = divElem.querySelectorAll(':scope > div')
+
+  // Always traverse 1 less, because there's always an empty trailing div tag
+  groupSize.members = childDivs.length - 1
+
+  // This gets inputs belonging to the parent
+  for (let i = 0; i < childDivs.length; i++) {
+    const childInputs = childDivs[i].childNodes
+    for (let j = 0; j < childInputs.length; j++) {
+      if (typeof childInputs[j].name !== 'undefined' && childInputs[j].name) {
+        if (childInputs[j].name.includes('-fld')) {
+          groupSize.forms += 1
+        }
+      }
+    }
+  }
+
+  return groupSize
+}
+
+function insertFirstSearch (query, format) { // eslint-disable-line no-unused-vars
+  const divElem = document.querySelector('.hierarchical-search')
+  const childDivs = divElem.querySelectorAll(':scope > div') // - results in only 1, even if 2 items added - I think because each input is not wrapped in a div
+  const selectedformat = getSelectedFormat(childDivs[0])
+
+  // This will traverse a hierarchy for each possible output format
+  for (let i = 1; i < childDivs.length; i++) {
+    let curfmt
+    if (typeof childDivs[i].id !== 'undefined' && childDivs[i].id && childDivs[i].id.includes('-hierarchy')) {
+      curfmt = '' + childDivs[i].id.split('-').shift()
+    }
+
+    if (selectedformat === curfmt) {
+      const childNodes = childDivs[i].childNodes
+      // This assumes a grouptype select node comes before a search form
+      for (let j = 1; j < childNodes.length; j++) {
+        if (typeof childNodes[j].className !== 'undefined' && childNodes[j].className) {
+          if (childNodes[j].className === 'level-indent') {
+            // Create a new query div
+            const queryDiv = document.createElement('div')
+            queryDiv.className = 'level-indent'
+            addSearchFieldForm(queryDiv, query, format)
+
+            // Prepend the new query before the grouptype node we just found
+            childDivs[i].insertBefore(queryDiv, childNodes[j])
+
+            return
+          }
+        }
+      }
+    }
+  }
 }
