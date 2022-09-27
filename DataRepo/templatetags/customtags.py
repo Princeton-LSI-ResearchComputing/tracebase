@@ -336,5 +336,44 @@ def display_filter(filter):
     return f"{ncmp} {val}"
 
 
+@register.filter
+def default_if_empty(val, dflt="None"):
+    if val is None or str(val) == "":
+        return dflt
+    return val
+
+
+@register.simple_tag
+def get_infusate_related_name(rec, pretty=False):
+    """
+    This method works for Infusate, Tracer, and TracerLabel records
+    """
+    name = None
+    if rec:
+        if rec.name:
+            name = rec.name
+        else:
+            name = rec._name
+
+        if name is None or name == "":
+            name = f"{rec.__class__.__name__}.{rec.id} 'name' undefined"
+
+        if pretty:
+            if rec.__class__.__name__ == "Infusate":
+                lbracket = "{"
+                rbracket = "}"
+                delim = ";"
+            if rec.__class__.__name__ == "Tracer":
+                lbracket = "("
+                rbracket = ")"
+                delim = ","
+            if rec.__class__.__name__ in ["Infusate", "Tracer"]:
+                name = name.replace(delim, f"{delim}<br>")
+                name = name.replace("{", f"{lbracket}<br>")
+                name = name.replace("}", f"<br>{rbracket}")
+
+    return name
+
+
 class NotYetImplemented(Exception):
     pass

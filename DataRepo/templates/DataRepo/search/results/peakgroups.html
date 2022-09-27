@@ -376,9 +376,19 @@
 
                     <!-- Infusate -->
                     <td>
-                        <div class="nobr">
-                            {{ pg.msrun.sample.animal.infusate.name }}
-                        </div>
+                        {% if pg.msrun.sample.animal.infusate is None %}
+                            None
+                        {% else %}
+                            {% get_infusate_related_name pg.msrun.sample.animal.infusate True as infusate_name %}
+                            <!-- Put displayed link text first for sorting -->
+                            <div style="display:none;">{{ infusate_name }}</div>
+
+                            <a href="{% url 'infusate_detail' pg.msrun.sample.animal.infusate.id %}">
+                                <div class="nobr">
+                                    {{ infusate_name|safe }}
+                                </div>
+                            </a>
+                        {% endif %}
                     </td>
 
                     <!-- Infusion Rate (ul/min/g) -->
