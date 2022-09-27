@@ -313,7 +313,7 @@
 
                     <!-- Raw Abundance -->
                     <td class="text-end">
-                        <p title="{{ pd.raw_abundance|floatformat:10 }}">{{ pd.raw_abundance|floatformat:1|default_if_empty }}</p>
+                        <p title="{{ pd.raw_abundance|floatformat:10 }}">{{ pd.raw_abundance|floatformat:1|default:"None" }}</p>
                     </td>
 
                     <!-- Corrected Abundance -->
@@ -328,12 +328,12 @@
 
                     <!-- Median M/Z -->
                     <td class="text-end">
-                        <p title="{{ pd.med_mz|floatformat:10 }}">{{ pd.med_mz|floatformat:1|default_if_empty }}</p>
+                        <p title="{{ pd.med_mz|floatformat:10 }}">{{ pd.med_mz|floatformat:1|default:"None" }}</p>
                     </td>
 
                     <!-- Median RT -->
                     <td class="text-end">
-                        <p title="{{ pd.med_rt|floatformat:10 }}">{{ pd.med_rt|floatformat:1|default_if_empty }}</p>
+                        <p title="{{ pd.med_rt|floatformat:10 }}">{{ pd.med_rt|floatformat:1|default:"None" }}</p>
                     </td>
 
                     <!-- Formula -->

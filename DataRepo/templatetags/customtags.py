@@ -336,13 +336,6 @@ def display_filter(filter):
     return f"{ncmp} {val}"
 
 
-@register.filter
-def default_if_empty(val, dflt="None"):
-    if val is None or str(val) == "":
-        return dflt
-    return val
-
-
 @register.simple_tag
 def get_infusate_related_name(rec, pretty=False):
     """

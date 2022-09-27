@@ -8,7 +8,6 @@ from DataRepo.models.maintained_model import (
 )
 from DataRepo.templatetags.customtags import (
     compile_stats,
-    default_if_empty,
     display_filter,
     get_case_insensitive_synonyms,
     get_infusate_related_name,
@@ -114,18 +113,6 @@ class CustomTagsTests(TracebaseTestCase):
             "short": "testing (9), try...",
         }
         self.assertEqual(got, expected)
-
-    def test_default_if_empty_none(self):
-        self.assertEqual("None", default_if_empty(None))
-
-    def test_default_if_empty_str(self):
-        self.assertEqual("None", default_if_empty(""))
-
-    def test_default_if_empty_custom(self):
-        self.assertEqual("test", default_if_empty(None, "test"))
-
-    def test_default_if_empty_zero(self):
-        self.assertEqual(0, default_if_empty(0))
 
     def test_get_infusate_related_name_orig(self):
         """
