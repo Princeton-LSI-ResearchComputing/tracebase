@@ -67,7 +67,7 @@ function showOutputFormatSearch (shownTemplateId) {
 /**
  * This method adds a child form to the hierarchical form structure.  It either adds a single query or a group.  If adding a group, it adds either 1 or 2 queries inside the group (1 if it's the root group, 2 otherwise).  This is primarily used by the buttons via a listener.
  *   element [required] is an existing DOM object.
- *   templateId indicates the hierarchy to which a search query is being added.
+ *   templateId [required] indicates the hierarchy to which a search query is being added.
  *   query [required] is either an child object node that is being added to a data structure that tracks the hierarchy, or it is an existing sibling node after which a sibling is being added (depending on the value of 'afterMode').
  *   parentGroup [optional] is the parent object node of the hierarchy-tracking data structure used to determine where a sibling is to be inserted or a child node is to be appended (depending on the value of 'afterMode').  Root is assumed if not supplied.
  *   afterMode [optional] determines whether a sibling will be created & inserted after query (if true) or if query will be appended as a child to parentGroup (if false).  Default = false.
@@ -613,7 +613,6 @@ function createGroupSelectListDiv (templateId, group, parentGroup) {
     if (isHidden) {
       myDiv.style = 'display:none;'
     }
-    myDiv.appendChild(document.createTextNode('DEBUG(' + templateId + '): '))
   } else {
     myDiv.className = 'level-indent'
   }
