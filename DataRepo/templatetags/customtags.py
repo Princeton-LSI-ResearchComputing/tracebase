@@ -362,8 +362,8 @@ def get_infusate_related_name(rec, pretty=False):
                 delim = ","
             if rec.__class__.__name__ in ["Infusate", "Tracer"]:
                 name = name.replace(delim, f"{delim}<br>")
-                name = name.replace("{", f"{lbracket}<br>")
-                name = name.replace("}", f"<br>{rbracket}")
+                name = name.replace(lbracket, f"{lbracket}<br>")
+                name = name.replace(rbracket, f"<br>{rbracket}")
 
     return name
 
