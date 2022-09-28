@@ -379,14 +379,11 @@
                         {% if pg.msrun.sample.animal.infusate is None %}
                             None
                         {% else %}
-                            {% get_infusate_related_name pg.msrun.sample.animal.infusate True as infusate_name %}
                             <!-- Put displayed link text first for sorting -->
-                            <div style="display:none;">{{ infusate_name }}</div>
+                            <div style="display:none;">{{ pg.msrun.sample.animal.infusate.get_name }}</div>
 
                             <a href="{% url 'infusate_detail' pg.msrun.sample.animal.infusate.id %}">
-                                <div class="nobr">
-                                    {{ infusate_name|safe }}
-                                </div>
+                                <div class="newlines">{{ pg.msrun.sample.animal.infusate.pretty_name }}</div>
                             </a>
                         {% endif %}
                     </td>

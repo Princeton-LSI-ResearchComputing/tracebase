@@ -2,15 +2,10 @@ from django.core.management import call_command
 from django.test import tag
 
 from DataRepo.models import CompoundSynonym, PeakGroup, Study
-from DataRepo.models.maintained_model import (
-    disable_buffering,
-    enable_buffering,
-)
 from DataRepo.templatetags.customtags import (
     compile_stats,
     display_filter,
     get_case_insensitive_synonyms,
-    get_infusate_related_name,
     get_many_related_rec,
 )
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
@@ -113,40 +108,3 @@ class CustomTagsTests(TracebaseTestCase):
             "short": "testing (9), try...",
         }
         self.assertEqual(got, expected)
-
-    def test_get_infusate_related_name_orig(self):
-        """
-        Note, this should obtain the name from the database field, although there's no way to explicitly test that
-        that's the case (until an "override" param is added to the .save() call to allow a field controlled by
-        MaintainedModel to be set.
-        """
-        from DataRepo.tests.models.test_infusate import create_infusate_records
-
-        io, io2 = create_infusate_records()
-        expected_name = "ti {C16:0-(5,6-13C2,17O2)[2];glucose-(2,3-13C2,4-17O1)[1]}"
-        orig_name = get_infusate_related_name(io)
-        self.assertEqual(expected_name, orig_name)
-
-    def test_get_infusate_related_name_pretty(self):
-        from DataRepo.tests.models.test_infusate import create_infusate_records
-
-        io, io2 = create_infusate_records()
-        expected_name = (
-            "ti {<br>C16:0-(5,6-13C2,17O2)[2];<br>glucose-(2,3-13C2,4-17O1)[1]<br>}"
-        )
-        pretty_name = get_infusate_related_name(io, True)
-        self.assertEqual(expected_name, pretty_name)
-
-    def test_get_infusate_related_name_uses_method(self):
-        """
-        By disabling buffering, we ensure that the name field in the infusate model will be None, so it we get a value,
-        we infer it used the `._name()` method.
-        """
-        from DataRepo.tests.models.test_infusate import create_infusate_records
-
-        disable_buffering()
-        io, io2 = create_infusate_records()
-        enable_buffering()
-        expected_name = "ti {C16:0-(5,6-13C2,17O2)[2];glucose-(2,3-13C2,4-17O1)[1]}"
-        orig_name = get_infusate_related_name(io)
-        self.assertEqual(expected_name, orig_name)
