@@ -7,6 +7,7 @@ from django.db import models
 
 from DataRepo.models.maintained_model import (
     MaintainedModel,
+    are_autoupdates_enabled,
     maintained_field_function,
 )
 from DataRepo.models.utilities import get_model_by_name
@@ -16,6 +17,9 @@ if TYPE_CHECKING:
 
 
 CONCENTRATION_SIGNIFICANT_FIGURES = 3
+TRACER_DELIMETER = ";"
+TRACERS_LEFT_BRACKET = "{"
+TRACERS_RIGHT_BRACKET = "}"
 
 
 class InfusateQuerySet(models.QuerySet):
@@ -121,7 +125,7 @@ class Infusate(MaintainedModel):
         ordering = ["name"]
 
     def __str__(self):
-        return str(self._name())
+        return str(self.get_name)
 
     @maintained_field_function(
         generation=0, update_field_name="name", update_label="name"
@@ -139,7 +143,7 @@ class Infusate(MaintainedModel):
 
         link_recs = self.tracers.through.objects.filter(infusate__id__exact=self.id)
 
-        name = ";".join(
+        name = TRACER_DELIMETER.join(
             sorted(
                 map(
                     lambda o: o.tracer._name()
@@ -150,9 +154,51 @@ class Infusate(MaintainedModel):
         )
 
         if self.tracer_group_name is not None:
-            name = f"{self.tracer_group_name} {{{name}}}"
+            name = f"{self.tracer_group_name} {TRACERS_LEFT_BRACKET}{name}{TRACERS_RIGHT_BRACKET}"
 
         return name
+
+    @property
+    def get_name(self):
+        """
+        Returns the name field if populated.  If it's not populated, it populates it (in the same manner that the old
+        cache mechanism worked)
+        """
+        display_name = None
+
+        # Get the name.  Initialize if not set and auto-updates are on.
+        if self.name:
+            display_name = self.name
+        elif are_autoupdates_enabled():
+            # This triggers an auto-update
+            self.save()
+            display_name = self.name
+
+        # If it's still not set, call the method that generates the name.  It just won't be saved.
+        if not display_name:
+            display_name = self._name()
+
+        return display_name
+
+    @property
+    def pretty_name(self):
+        """
+        Returns the name with hard-returns inserted
+        """
+        display_name = self.get_name
+
+        if display_name:
+            display_name = display_name.replace(
+                TRACER_DELIMETER, f"{TRACER_DELIMETER}\n"
+            )
+            display_name = display_name.replace(
+                TRACERS_LEFT_BRACKET, f"{TRACERS_LEFT_BRACKET}\n"
+            )
+            display_name = display_name.replace(
+                TRACERS_RIGHT_BRACKET, f"\n{TRACERS_RIGHT_BRACKET}"
+            )
+
+        return display_name
 
     def clean(self, *args, **kwargs):
         """
