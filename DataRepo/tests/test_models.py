@@ -2493,6 +2493,18 @@ class ParseIsotopeLabelTests(TracebaseTestCase):
                 tracer_labeled_elements,
             )
 
+    def test_parse_isotope_label_no_carbon(self):
+        tracer_labeled_elements = [
+            IsotopeObservationData(element="N", mass_number=14, count=2, parent=True),
+            IsotopeObservationData(element="O", mass_number=16, count=1, parent=True),
+        ]
+        self.assertEqual(
+            AccuCorDataLoader.parse_isotope_string(
+                "C12 PARENT", tracer_labeled_elements
+            ),
+            tracer_labeled_elements,
+        )
+
     def test_dupe_compound_isotope_pairs(self):
         # Error must contain:
         #   all compound/isotope pairs that were dupes

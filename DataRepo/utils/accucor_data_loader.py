@@ -395,7 +395,7 @@ class AccuCorDataLoader:
     def get_tracer_labels(cls, tracer_recs) -> List[IsotopeObservationData]:
         """
         This method returns a unique list of the labeled elements that exist among the tracers as if they were parent
-        observations (i.e. count=0 and parent=True).  This is so that Isocorr data canrecord 0 observations for parent
+        observations (i.e. count=0 and parent=True).  This is so that Isocorr data can record 0 observations for parent
         records.  Accucor data does present data for counts of 0 already.
         """
         # Assuming all samples come from 1 animal, so we're only looking at 1 (any) sample
@@ -590,9 +590,8 @@ class AccuCorDataLoader:
 
                     """
                     Here we insert PeakGroup, by name (only once per file).
-                    NOTE: if the C12 PARENT/0-Labeled row encountered has any
-                    issues (for example, a null formula), then this block will
-                    fail
+                    NOTE: If the C12 PARENT/0-Labeled row encountered has any issues (for example, a null formula),
+                    then this block will fail
                     """
 
                     peak_group_name = corr_row[self.compound_header]
@@ -830,7 +829,7 @@ class AccuCorDataLoader:
         """
         Gets labels present among any of the tracers in the infusate IF the elements are present in the supplied
         (measured) compounds.  Basically, if the supplied compound contains an element that is a labeled element in any
-        of the tracers, included in the returned list.
+        of the tracers, it is included in the returned list.
         """
         peak_labeled_elements = []
         for compound_rec in compound_recs:
@@ -846,12 +845,10 @@ class AccuCorDataLoader:
         """
         Given a row of corrected data, it retrieves the labeled element, count, and mass_number using a method
         corresponding to the file format.
-
-        This assumes that "C12 PARENT" means that carbon is one of the labeled elements.  It will return carbon as an
-        observed isotope because it is parsing that element from the record.
         """
         if self.isocorr_format:
-            # Establish the set of labeled elements we're working from
+            # Establish the set of labeled elements we're working from, either all labeled elements among the tracers
+            # in the infusate (when there are no observed compounds) or those in common with the measured compound
             if observed_compound_recs is None:
                 parent_labels = self.tracer_labeled_elements
             else:
@@ -863,6 +860,9 @@ class AccuCorDataLoader:
             )
 
             # If there are any labeled elements unaccounted for, add them as zero-counts
+            # The labeled elements exclude listing elements when the count of the isotopes is zero, but the row exists
+            # if it has at least 1 labeled element.  This does not add 0 counts for missing rows - only for labeled
+            # elements on existing rows with at least 1 labeled element already.
             if len(isotopes) < len(parent_labels):
                 for parent_label in parent_labels:
                     match = [
@@ -931,8 +931,9 @@ class AccuCorDataLoader:
         """
         Parse El-Maven style isotope label string, e.g. C12 PARENT, C13-label-1, C13N15-label-2-1
         Returns a list of IsotopeObservationData objects (which is a TypedDict)
-        Note, on parent rows, a single (carbon) parent observation is returned regardless of the number of labeled
-        elements among the tracers or common with the measured compound
+        Note, on parent rows, a single (carbon) parent observation is parsed regardless of the number of labeled
+        elements among the tracers or common with the measured compound, but the isotopes returned are only those among
+        the tracers.  I.e. If there is no carbon labeled among the tracers, the parsed carbon is ignored.
         """
 
         isotope_observations = []
