@@ -20,6 +20,7 @@ class SampleListView(ListView):
     template_name = "DataRepo/sample_list.html"
     ordering = ["animal_id", "name"]
 
+    # this part of code can be removed if using server-side pagination
     def get_context_data(self, **kwargs):
         # Call the base implementation first to get the context
         context = super(SampleListView, self).get_context_data(**kwargs)
@@ -42,15 +43,16 @@ class SampleDetailView(DetailView):
 
 def sample_json_data(request):
     """
-    Get all sample data from the Pandas dataframe, and allow filtering based on
-    Bootstrap-table query parameters for search and server-side pagination.
+    Get all sample data in Pandas dataframe, and then filter the data using
+    Bootstrap-table query parameters for search and server-side pagination
+    passed through data-url.
 
-    Expected keys of query parameters of Bootstrap-Table: "offset", "limit", "search"
+    Use three query parameters of Bootstrap-Table: "offset", "limit", "search".
     Note that "limit" is the page size.
 
     It is easier to format time duration and date using Django's dateparse methods
-    than JavaScript. Therefore, a few columns are added to the pandas dataframe to store formatted values
-    before generating arrays of JSON data
+    than JavaScript. Therefore, a few columns are added to the Pandas dataframe to store
+    formatted values before generating arrays of JSON data.
     """
 
     # get Pandas dataframe for all samples
@@ -113,7 +115,7 @@ def sample_json_data(request):
     # convert data frame to dictionary
     anim_sam_data1 = qs2df.df_to_list_of_dict(anim_sam_df1)
 
-    # final output based on format required by Bootstrap-Table data-url
+    # final output using the format required by Bootstrap-Table data-url
     data_dict = {
         "totalnotfiltered": total_rows,
         "total": total_rows_with_search,
