@@ -13,7 +13,9 @@ from DataRepo.models.maintained_model import (
     buffer_size,
     clear_update_buffer,
     disable_autoupdates,
+    disable_buffering,
     enable_autoupdates,
+    enable_buffering,
     perform_buffered_updates,
 )
 from DataRepo.models.tracer import Tracer
@@ -245,6 +247,41 @@ class MaintainedModelTests(TracebaseTestCase):
             )
         # Now clean up the buffer
         clear_update_buffer()
+
+    def test_get_name_orig(self):
+        """
+        Note, this should obtain the name from the database field, although there's no way to explicitly test that
+        that's the case (until an "override" param is added to the .save() call to allow a field controlled by
+        MaintainedModel to be set.
+        """
+        io, io2 = create_infusate_records()
+        expected_name = "ti {C16:0-(5,6-13C2,17O2)[2];glucose-(2,3-13C2,4-17O1)[1]}"
+        self.assertEqual(expected_name, io.get_name)
+
+    def test_pretty_name(self):
+        io, io2 = create_infusate_records()
+        expected_name = (
+            "ti {\nC16:0-(5,6-13C2,17O2)[2];\nglucose-(2,3-13C2,4-17O1)[1]\n}"
+        )
+        self.assertEqual(expected_name, io.pretty_name)
+
+    def test_get_name_triggers_autoupdate(self):
+        """
+        By disabling buffering, we ensure that the name field in the infusate model will be None, so it we get a value,
+        we infer it used the `._name()` method.
+        """
+        disable_autoupdates()
+        disable_buffering()
+        io, io2 = create_infusate_records()
+        enable_buffering()
+        enable_autoupdates()
+        # Should be initially none
+        self.assertIsNone(io.name)
+        expected_name = "ti {C16:0-(5,6-13C2,17O2)[2];glucose-(2,3-13C2,4-17O1)[1]}"
+        # Returned value should be equal
+        self.assertEqual(expected_name, io.get_name)
+        # And now the field should be updated
+        self.assertEqual(expected_name, io.name)
 
 
 @tag("multi_working")

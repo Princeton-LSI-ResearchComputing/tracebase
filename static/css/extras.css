@@ -2,8 +2,14 @@
   --nav-bg-color: #d5f5e3;
 }
 
+/* Do not wrap in any case */
 .nobr {
   white-space: nowrap;
+}
+
+/* Do not auto-wrap, but *do* wrap where there are hard returns */
+.newlines {
+  white-space: pre;
 }
 
 .tiny {

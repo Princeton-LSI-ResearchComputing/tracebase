@@ -37,6 +37,9 @@ var formErrLabel // eslint-disable-line no-var
 var fmtSelectElem // eslint-disable-line no-var
 var fldChoices = {} // eslint-disable-line no-var
 
+/**
+ * This initializes all of the global variables.
+ */
 function init (rootGroup, ncmpChoices, fldTypes, fldChoices) { // eslint-disable-line no-unused-vars
   globalThis.rootGroup = rootGroup
   globalThis.ncmpChoices = ncmpChoices
@@ -45,6 +48,9 @@ function init (rootGroup, ncmpChoices, fldTypes, fldChoices) { // eslint-disable
   globalThis.formErrLabel = document.getElementById('formerror')
 }
 
+/**
+ * Given a format/template ID, this "shows" the search form for that format and hides all the others
+ */
 function showOutputFormatSearch (shownTemplateId) {
   const shownHierarchyId = shownTemplateId + '-hierarchy'
   for (const templateId of Object.keys(rootGroup.searches)) {
@@ -58,12 +64,14 @@ function showOutputFormatSearch (shownTemplateId) {
   }
 }
 
-// This method dynamically adds a child form to the hierarchical form structure.
-//   element [required] is an existing DOM object.
-//   templateId indicates the hierarchy to which a search query is being added.
-//   query [required] is either an child object node that is being added to a data structure that tracks the hierarchy, or it is an existing sibling node after which a sibling is being added (depending on the value of 'afterMode').
-//   parentGroup [optional] is the parent object node of the hierarchy-tracking data structure used to determine where a sibling is to be inserted or a child node is to be appended (depending on the value of 'afterMode').  Root is assumed if not supplied.
-//   afterMode [optional] determines whether a sibling will be created & inserted after query (if true) or if query will be appended as a child to parentGroup (if false).  Default = false.
+/**
+ * This method adds a child form to the hierarchical form structure.  It either adds a single query or a group.  If adding a group, it adds either 1 or 2 queries inside the group (1 if it's the root group, 2 otherwise).  This is primarily used by the buttons via a listener.
+ *   element [required] is an existing DOM object.
+ *   templateId [required] indicates the hierarchy to which a search query is being added.
+ *   query [required] is either an child object node that is being added to a data structure that tracks the hierarchy, or it is an existing sibling node after which a sibling is being added (depending on the value of 'afterMode').
+ *   parentGroup [optional] is the parent object node of the hierarchy-tracking data structure used to determine where a sibling is to be inserted or a child node is to be appended (depending on the value of 'afterMode').  Root is assumed if not supplied.
+ *   afterMode [optional] determines whether a sibling will be created & inserted after query (if true) or if query will be appended as a child to parentGroup (if false).  Default = false.
+ */
 function appendInnerSearchQuery (element, templateId, query, parentGroup, afterMode) {
   'use strict'
 
@@ -72,46 +80,20 @@ function appendInnerSearchQuery (element, templateId, query, parentGroup, afterM
   }
 
   let isRoot = true
-  let isHidden = false
   if (typeof parentGroup !== 'undefined' || parentGroup) {
     isRoot = false
-  } else {
-    if (rootGroup.selectedtemplate !== templateId) {
-      isHidden = true
-    }
-  }
-
-  const myDiv = document.createElement('div')
-  if (!isRoot) {
-    myDiv.className = 'level-indent'
-  } else {
-    const templatename = templateId + '-hierarchy'
-    myDiv.id = templatename
-    if (isHidden) {
-      myDiv.style = 'display:none;'
-    }
-    myDiv.appendChild(document.createTextNode('DEBUG(' + templateId + '): '))
   }
 
   let isGroup = false
+  let myDiv
 
   if (('' + query.type) === 'group') {
     isGroup = true
-    addGroupSelectList(myDiv, query)
+    myDiv = createGroupSelectListDiv(templateId, query, parentGroup)
   } else if (('' + query.type) === 'query') {
-    addSearchFieldForm(myDiv, query, templateId)
+    myDiv = createSearchFieldFormDiv(templateId, query, parentGroup)
   } else {
     formErrLabel.innerHTML = 'Error: Unrecognized query type: ' + query.type
-  }
-
-  if (!isRoot && !query.static) {
-    addRemoveButton(myDiv, query, parentGroup)
-  }
-
-  if (afterMode) {
-    element.after(myDiv)
-  } else {
-    element.appendChild(myDiv)
   }
 
   if (isGroup) {
@@ -140,14 +122,18 @@ function appendInnerSearchQuery (element, templateId, query, parentGroup, afterM
     if (!isRoot) {
       addQueryAndGroupAddButtons(myDiv, query, parentGroup, templateId)
     }
-  } else {
-    addQueryAndGroupAddButtons(myDiv, query, parentGroup, templateId)
   }
 
-  // Return the div that was created
-  return myDiv
+  if (afterMode) {
+    element.after(myDiv)
+  } else {
+    element.appendChild(myDiv)
+  }
 }
 
+/**
+ * This creates a form for a database field search, including a fld select list, an ncmp select list, and a series of widgets for the "val" (search term).  It adds that form to the given div.
+ */
 function addSearchFieldForm (myDiv, query, templateId) {
   // Clone the form template
   const templateDiv = document.querySelector('#' + templateId)
@@ -252,6 +238,35 @@ function addSearchFieldForm (myDiv, query, templateId) {
   })
 }
 
+/**
+ * This returns a div containing a form for a database field search, including a fld select list, an ncmp select list, and a series of widgets for the "val" (search term).  It also adds controls for creating or removing search forms and groups of forms whose terms are "and-ed" or "or-ed" together.
+ */
+function createSearchFieldFormDiv (templateId, query, parentGroup) {
+  const myDiv = document.createElement('div')
+
+  if (('' + query.type) !== 'query') {
+    console.error("The supplied query must be of type 'query'.")
+    return myDiv
+  }
+
+  myDiv.className = 'level-indent'
+
+  addSearchFieldForm(myDiv, query, templateId)
+
+  if (!query.static && !parentGroup.static) {
+    addRemoveButton(myDiv, query, parentGroup)
+  }
+
+  if (!parentGroup.static) {
+    addQueryAndGroupAddButtons(myDiv, query, parentGroup, templateId)
+  }
+
+  return myDiv
+}
+
+/**
+ * This function coordinates the update of all val form widgets, showing and hiding based on fld type and ncmp selection
+ */
 function updateValFields (fldInitVal, ncmpInitVal, valClone, myDiv, templateId, valFields) {
   const dbFieldType = getDBFieldType(templateId, fldInitVal)
   const dbFieldChoices = getDBEnumFieldChoices(templateId, fldInitVal)
@@ -326,6 +341,9 @@ function updateValFields (fldInitVal, ncmpInitVal, valClone, myDiv, templateId, 
   return valFields
 }
 
+/**
+ * This function (re)populates an enumeration type field's val select list based on the selected fld and ncmp values
+ */
 function updateValEnumSelectList (valSelectList, dbFieldChoices, valClone) {
   const arrOptions = []
   let valSupplied = false
@@ -372,10 +390,12 @@ function updateValEnumSelectList (valSelectList, dbFieldChoices, valClone) {
   }
 }
 
-// The purpose of this is to re-use the enumeration's select list if the user has switched away from an enumeration
-// field and then back to the same enumeration field.  This preserves the previous selection.  One limitation of this
-// approach is that it doesn't preserve selections when switching between different enumeration fields (but string/
-// number values aren't preserved either, so NBD).
+/**
+ * The purpose of this is to re-use the enumeration's select list if the user has switched away from an enumeration
+ * field and then back to the same enumeration field.  This preserves the previous selection.  One limitation of this
+ * approach is that it doesn't preserve selections when switching between different enumeration fields (but string/
+ * number values aren't preserved either, so NBD).
+ */
 function isValEnumSelectListTheSame (valSelectList, dbFieldChoices) {
   let theSame = true
   if (valSelectList.length === 0 || valSelectList.length !== dbFieldChoices.length) {
@@ -392,14 +412,23 @@ function isValEnumSelectListTheSame (valSelectList, dbFieldChoices) {
   return theSame
 }
 
+/**
+ * This function uses the fldTypes global to return the type of a DB field's form type (string, number, or enumeration) that is used to show/hide the correct val form widget.
+ */
 function getDBFieldType (templateId, fldInitVal) {
   return fldTypes[templateId][fldInitVal].type
 }
 
+/**
+ * For fields of type "enumeration", this function uses the fldTypes global to return the 2D choices array that can be used to populate a "val" select list
+ */
 function getDBEnumFieldChoices (templateId, fldInitVal) {
   return fldTypes[templateId][fldInitVal].choices
 }
 
+/**
+ * Uses the fldTypes global variable to (re)populate the supplied ncmp select list
+ */
 function updateNcmpChoices (fldVal, ncmpSelectElem, templateId) {
   let fldtype = ''
   let choices = []
@@ -422,12 +451,14 @@ function updateNcmpChoices (fldVal, ncmpSelectElem, templateId) {
     console.error('Template', templateId, 'not in field type lookup.')
   }
 
-  createSelectList(choices, ncmpSelectElem)
+  populateSelectList(choices, ncmpSelectElem)
 }
 
-// The fld choices for every database field select list needs to be pared down from all fields for every format to just
-// the format the database search term field is being added to.  It only needs to happen once - whenever a field select
-// list is created.
+/**
+ * The fld choices for every database field select list needs to be pared down from all fields for every format to just
+ * the format the database search term field is being added to.  It only needs to happen once - whenever a field select
+ * list is created.
+ */
 function updateFldChoices (templateId, fldSelectElem) {
   let choices = []
   if (typeof fldChoices[templateId] !== 'undefined' && fldChoices[templateId]) {
@@ -436,10 +467,13 @@ function updateFldChoices (templateId, fldSelectElem) {
     console.error('Template', templateId, 'not in field choices lookup.')
   }
 
-  createSelectList(choices, fldSelectElem)
+  populateSelectList(choices, fldSelectElem)
 }
 
-function createSelectList (choices, selectElem) {
+/**
+ * Populates a given select list with the given 2D array of choices
+ */
+function populateSelectList (choices, selectElem) {
   if (choices.length > 0) {
     const arrOptions = []
     for (let i = 0; i < choices.length; i++) {
@@ -450,6 +484,9 @@ function createSelectList (choices, selectElem) {
   }
 }
 
+/**
+ * Changes the browse link to refer to the supplied format
+ */
 function updateBrowseLink (templateId) {
   const blink = document.getElementById('browselink')
   // There is no browse link when in browse mode
@@ -464,27 +501,41 @@ function updateBrowseLink (templateId) {
   }
 }
 
-function addFormatSelectList (myDiv, query) {
-  updateBrowseLink(query.selectedtemplate)
+/**
+ * Adds the format select list to the supplied div
+ */
+function addFormatSelectList (parentDiv, rootQueryObject) {
+  // Create the div that will contain the format select list
+  const myDiv = document.createElement('div')
+  myDiv.id = 'formatSelectionDiv'
 
-  // Create a group type select list
+  // If query is not supplied, default to the root group
+  if (typeof rootQueryObject === 'undefined' || !rootQueryObject) {
+    rootQueryObject = rootGroup
+  }
+
+  // Keep the browse link up to date with the selected format
+  updateBrowseLink(rootQueryObject.selectedtemplate)
+
+  // Create a format select list
   fmtSelectElem = document.createElement('select')
   fmtSelectElem.name = 'fmt'
-  for (const key of Object.keys(query.searches)) {
+  fmtSelectElem.id = 'formatSelection'
+  for (const key of Object.keys(rootQueryObject.searches)) {
     const option = document.createElement('option')
     option.value = key
-    option.text = query.searches[key].name
+    option.text = rootQueryObject.searches[key].name
     fmtSelectElem.appendChild(option)
   }
-  fmtSelectElem.value = query.selectedtemplate
+  fmtSelectElem.value = rootQueryObject.selectedtemplate
 
   // Use a change as an opportunity to dismiss previous errors
   // And keep the selected value up to date in the object
   fmtSelectElem.addEventListener('change', function (event) {
     formErrLabel.innerHTML = ''
-    query.selectedtemplate = event.target.value
-    showOutputFormatSearch(query.selectedtemplate)
-    updateBrowseLink(query.selectedtemplate)
+    rootQueryObject.selectedtemplate = event.target.value
+    showOutputFormatSearch(rootQueryObject.selectedtemplate)
+    updateBrowseLink(rootQueryObject.selectedtemplate)
   })
 
   // Put descriptive text in front of the select list
@@ -495,9 +546,14 @@ function addFormatSelectList (myDiv, query) {
   myDiv.appendChild(label1)
   myDiv.appendChild(document.createTextNode(' '))
   myDiv.appendChild(fmtSelectElem)
+
+  parentDiv.appendChild(myDiv)
 }
 
-function addGroupSelectList (myDiv, query) {
+/**
+ * Adds an any/all select list to the supplied div.  It takes the relevant group from the rootGroup structure in order to keep it up to date.
+ */
+function addGroupSelectList (myDiv, group) {
   // Create a group type select list
   const grouptypes = ['all', 'any']
   const select = document.createElement('select')
@@ -508,15 +564,15 @@ function addGroupSelectList (myDiv, query) {
     option.text = val
     select.appendChild(option)
   }
-  select.value = query.val
-  if (query.static) {
+  select.value = group.val
+  if (group.static) {
     select.disabled = true
   }
 
   // Use a change as an opportunity to dismiss previous errors
   select.addEventListener('change', function (event) {
     formErrLabel.innerHTML = ''
-    query.val = event.target.value
+    group.val = event.target.value
   })
 
   // Put descriptive text in front of the select list
@@ -530,6 +586,49 @@ function addGroupSelectList (myDiv, query) {
   myDiv.appendChild(select)
 }
 
+/**
+ * Returns a div containing a group with an any/all select list.
+ */
+function createGroupSelectListDiv (templateId, group, parentGroup) {
+  const myDiv = document.createElement('div')
+
+  if (('' + group.type) !== 'group') {
+    console.error("The supplied group must be of type 'group'.")
+    return myDiv
+  }
+
+  let isRoot = true
+  let isHidden = false
+  if (typeof parentGroup !== 'undefined' || parentGroup) {
+    isRoot = false
+  } else {
+    if (rootGroup.selectedtemplate !== templateId) {
+      isHidden = true
+    }
+  }
+
+  if (isRoot) {
+    const templatename = templateId + '-hierarchy'
+    myDiv.id = templatename
+    if (isHidden) {
+      myDiv.style = 'display:none;'
+    }
+  } else {
+    myDiv.className = 'level-indent'
+  }
+
+  addGroupSelectList(myDiv, group)
+
+  if (!isRoot && !group.static && !parentGroup.static) {
+    addRemoveButton(myDiv, group, parentGroup)
+  }
+
+  return myDiv
+}
+
+/**
+ * Adds a remove (-) button to the supplied div. It takes the query object and its parent group in order to keep the rootGroup structure in synch when those buttons are clicked.
+ */
 function addRemoveButton (myDiv, query, parentGroup) {
   const rmBtn = document.createElement('a')
   rmBtn.href = 'javascript:void(0)'
@@ -557,6 +656,9 @@ function addRemoveButton (myDiv, query, parentGroup) {
   myDiv.appendChild(rmBtn)
 }
 
+/**
+ * Adds query (+) and group (++) buttons to the supplied div. It takes the query object and its parent group in order to keep the rootGroup structure in synch when those buttons are clicked.
+ */
 function addQueryAndGroupAddButtons (myDiv, query, parentGroup, templateId) {
   // Add query to a group (button)
   const termbtn = document.createElement('a')
@@ -602,102 +704,84 @@ function addQueryAndGroupAddButtons (myDiv, query, parentGroup, templateId) {
   myDiv.appendChild(grpbtn)
 }
 
-// This method is for building the hierarchical forms on the results page from the global rootGroup
-//   element is the DOM object to which the forms will be added
+/**
+ * This method is for building the hierarchical forms on the results page from the global rootGroup
+ *   element is the DOM object to which the forms will be added
+ */
 function initializeRootSearchQuery (element) { // eslint-disable-line no-unused-vars
   'use strict'
 
-  const myDiv = document.createElement('div')
-  addFormatSelectList(myDiv, rootGroup)
-  element.appendChild(myDiv)
+  addFormatSelectList(element)
 
   for (const templateId of Object.keys(rootGroup.searches)) {
-    let isHidden = false
-    if (rootGroup.selectedtemplate !== templateId) {
-      isHidden = true
+    initializeRootSearchQueryHelper(element, templateId, rootGroup.searches[templateId].tree)
+  }
+}
+
+/**
+ * This is a recursive method called by initializeRootSearchQuery.  It traverses the global rootGroup data structure to build the search forms.
+ *   element is the DOM object to which the forms will be added
+ *   templateId indicates the hierarchy to which a search query is being added.
+ *   parentNode is a reference to the parent of the current position in the rootGroup object.
+ *   queryGroup is the parentNode's list of children of the hierarchical form data structure.
+ */
+function initializeRootSearchQueryHelper (element, templateId, queryNode, parentNode) {
+  'use strict'
+
+  if (queryNode.type === 'group') {
+    let isRoot = true
+    if (typeof parentNode !== 'undefined' || parentNode) {
+      isRoot = false
     }
 
     // Create the group select list
-    const groupDiv = document.createElement('div')
-    const templatename = templateId + '-hierarchy'
-    groupDiv.id = templatename
-    if (isHidden) {
-      groupDiv.style = 'display:none;'
-    }
-    addGroupSelectList(groupDiv, rootGroup.searches[templateId].tree)
+    const groupDiv = createGroupSelectListDiv(templateId, queryNode, parentNode)
 
-    initializeRootSearchQueryHelper(groupDiv, templateId, rootGroup.searches[templateId].tree, rootGroup.searches[templateId].tree.queryGroup)
+    // Add this group's children recursively
+    for (let i = 0; i < queryNode.queryGroup.length; i++) {
+      initializeRootSearchQueryHelper(groupDiv, templateId, queryNode.queryGroup[i], queryNode)
+    }
+
+    // Initialization using a copied rootgroup adds items one at a time, so don't add the follow-up + and ++ buttons.  This way, the individually eppended inner forms don't go under these buttons.  This means that the initializing function must add these manually.
+    if (!isRoot && !parentNode.static) {
+      addQueryAndGroupAddButtons(groupDiv, queryNode, parentNode, templateId)
+    }
 
     element.appendChild(groupDiv)
-    // Not exactly sure why, but after adding inner elements to a group, an empty div is needed to make future dynamically-added form elements to be correctly created.  I did this based on the template post I followed that had a static empty div just inside where the dynamic content was being created, when stuff I was adding wasn't working right and it seems to have fixed it.
+
+    // Not exactly sure why, but after adding inner elements to a group, an empty div is needed so that future dynamically-added form elements are correctly created.  I did this based on the template post I followed that had a static empty div just inside where the dynamic content was being created, when stuff I was adding wasn't working right and it seems to have fixed it.
     groupDiv.append(document.createElement('div'))
+  } else if (queryNode.type === 'query') {
+    // Create the search field form
+    const queryDiv = createSearchFieldFormDiv(templateId, queryNode, parentNode)
+    element.appendChild(queryDiv)
+  } else {
+    console.error('Unknown node type:', queryNode.type)
   }
 }
 
-// This is a recursive method called by initializeRootSearchQuery.  It traverses the global rootGroup data structure to build the search forms.
-//   element is the DOM object to which the forms will be added
-//   templateId indicates the hierarchy to which a search query is being added.
-//   parentNode is a reference to the parent of the current position in the rootGroup object.
-//   queryGroup is the parentNode's list of children of the hierarchical form data structure.
-function initializeRootSearchQueryHelper (element, templateId, parentNode, queryGroup) {
-  'use strict'
-
-  for (let i = 0; i < queryGroup.length; i++) {
-    if (queryGroup[i].type === 'group') {
-      // Create the group select list
-      const groupDiv = document.createElement('div')
-      groupDiv.className = 'level-indent'
-      addGroupSelectList(groupDiv, queryGroup[i])
-
-      if (!queryGroup[i].static && !parentNode.static) {
-        addRemoveButton(groupDiv, queryGroup[i], parentNode)
-      }
-      initializeRootSearchQueryHelper(groupDiv, templateId, queryGroup[i], queryGroup[i].queryGroup)
-
-      // Not exactly sure why, but after adding inner elements to a group, an empty div is needed so that future dynamically-added form elements are correctly created.  I did this based on the template post I followed that had a static empty div just inside where the dynamic content was being created, when stuff I was adding wasn't working right and it seems to have fixed it.
-      groupDiv.append(document.createElement('div'))
-
-      if (!parentNode.static) {
-        addQueryAndGroupAddButtons(groupDiv, queryGroup[i], parentNode, templateId)
-      }
-
-      element.appendChild(groupDiv)
-    } else if (queryGroup[i].type === 'query') {
-      const queryDiv = document.createElement('div')
-      queryDiv.className = 'level-indent'
-      addSearchFieldForm(queryDiv, queryGroup[i], templateId)
-
-      if (!queryGroup[i].static) {
-        addRemoveButton(queryDiv, queryGroup[i], parentNode)
-      }
-
-      if (!parentNode.static) {
-        addQueryAndGroupAddButtons(queryDiv, queryGroup[i], parentNode, templateId)
-      }
-
-      element.appendChild(queryDiv)
-    } else {
-      console.error('Unknown node type at index ' + i + ': ', queryGroup[i].type)
+/**
+ * This function obtains the selected format from the fmt select list
+ */
+function getSelectedFormat () {
+  const fmtSelect = document.getElementById('formatSelection')
+  const selectedformat = '' + fmtSelect.value
+  let valid = false
+  for (const templateId of Object.keys(rootGroup.searches)) {
+    if (selectedformat === templateId) {
+      valid = true
     }
   }
-}
-
-function getSelectedFormat (divElem) {
-  let selectedformat = 'none'
-  const childInputs = divElem.childNodes
-  for (let i = 0; i < childInputs.length; i++) {
-    if (typeof childInputs[i].name !== 'undefined' && childInputs[i].name) {
-      if (childInputs[i].name.includes('fmt')) {
-        selectedformat = '' + childInputs[i].value
-      }
-    }
-  }
-  if (selectedformat === 'none') {
-    console.error('Could not get selected format')
+  if (!valid) {
+    console.error('Invalid selected format:', selectedformat)
+    return 'none'
   }
   return selectedformat
 }
 
+/**
+ * Given the format ID, this retrieves and returns the format's name, as recorded in the global rootGroup object.
+ */
 function getFormatName (fmt) {
   const formatName = rootGroup.searches[fmt].name
   if (formatName.includes('-') || formatName.includes('.')) {
@@ -706,16 +790,18 @@ function getFormatName (fmt) {
   return formatName
 }
 
-// saveSearchQueryHierarchy has 2 purposes:
-//   1. It renames DOM object IDs of the input form elements to indicate a serial form number in the format Django expects.  It also updates 1 meta form element that indicates the total number of forms.
-//   2. It saves each leaf's hierarchical path in a hidden input element named "pos".  The path is in the form of index.index.index... where <index> is the child index.  The single value (all or any) of inner nodes is saved in the pathin the form index-all.index-any.index, e.g. "0-all-0-any.0".
-// This method takes the outer DOM object that contains all the forms
+/**
+ * saveSearchQueryHierarchy has 2 purposes:
+ *   1. It renames DOM object IDs of the input form elements to indicate a serial form number in the format Django expects.  It also updates 1 meta form element that indicates the total number of forms.
+ *   2. It saves each leaf's hierarchical path in a hidden input element named "pos".  The path is in the form of index.index.index... where <index> is the child index.  The single value (all or any) of inner nodes is saved in the pathin the form index-all.index-any.index, e.g. "0-all-0-any.0".
+ * This method takes the outer DOM object that contains all the forms
+ */
 function saveSearchQueryHierarchy (divElem) { // eslint-disable-line no-unused-vars
   'use strict'
 
   const childDivs = divElem.querySelectorAll(':scope > div') // - results in only 1, even if 2 items added - I think because each input is not wrapped in a div
 
-  const selectedformat = getSelectedFormat(childDivs[0])
+  const selectedformat = getSelectedFormat()
 
   let total = 0
 
@@ -737,13 +823,15 @@ function saveSearchQueryHierarchy (divElem) { // eslint-disable-line no-unused-v
   }
 }
 
-// saveSearchQueryHierarchyHelper is a recursive helper method to saveSearchQueryHierarchy.  It takes:
-//   divElem - The DOM object that contains forms.
-//   path - a running path string to be stored in a leaf form's hidden 'pos' field.
-//   count - The serial form number used to set the form element ID to what Django expects.
-//   idx - The hierarchical node index, relative to the parent's child node array.
-//   selectedformat - The selected item in the fmt select list.
-//   curfmt - Should initially be undefined/unsupplied.  The format currently being saved.
+/**
+ * saveSearchQueryHierarchyHelper is a recursive helper method to saveSearchQueryHierarchy.  It takes:
+ *   divElem - The DOM object that contains forms.
+ *   path - a running path string to be stored in a leaf form's hidden 'pos' field.
+ *   count - The serial form number used to set the form element ID to what Django expects.
+ *   idx - The hierarchical node index, relative to the parent's child node array.
+ *   selectedformat - The selected item in the fmt select list.
+ *   curfmt - Should initially be undefined/unsupplied.  The format currently being saved.
+ */
 function saveSearchQueryHierarchyHelper (divElem, path, count, idx, selectedformat, curfmt) {
   'use strict'
 
@@ -883,7 +971,8 @@ function saveSearchQueryHierarchyHelper (divElem, path, count, idx, selectedform
 function reRootSearch (group, query, format) { // eslint-disable-line no-unused-vars
   const divElem = document.querySelector('.hierarchical-search')
   const childDivs = divElem.querySelectorAll(':scope > div') // - results in only 1, even if 2 items added - I think because each input is not wrapped in a div
-  const selectedformat = getSelectedFormat(childDivs[0])
+  const selectedformat = getSelectedFormat()
+
   let curfmt
   if (typeof divElem.id !== 'undefined' && divElem.id && divElem.id.includes('-hierarchy')) {
     curfmt = '' + divElem.id.split('-').shift()
@@ -891,19 +980,15 @@ function reRootSearch (group, query, format) { // eslint-disable-line no-unused-
 
   // Start to build the new search forms
   // Create a new query div
-  const queryDiv = document.createElement('div')
-  queryDiv.className = 'level-indent'
-  addSearchFieldForm(queryDiv, query, format)
+  const queryDiv = createSearchFieldFormDiv(format, query, group)
 
-  // Create a new group div
-  const groupDiv = document.createElement('div')
-  // The new root group will not be indented
-  addGroupSelectList(groupDiv, group)
+  // Create a new root group (will not be indented)
+  const groupDiv = createGroupSelectListDiv(format, group)
 
   // Add the query div to the new group
   groupDiv.appendChild(queryDiv)
-  groupDiv.id = format + '-hierarchy'
 
+  // Now remove the original (selected) root and append it to the new root group as a child
   for (let i = 1; i < childDivs.length; i++) {
     // Get current format
     if (typeof childDivs[i].id !== 'undefined' && childDivs[i].id && childDivs[i].id.includes('-hierarchy')) {
@@ -933,7 +1018,7 @@ function removeIncompleteSearchForms () { // eslint-disable-line no-unused-vars
 
   const childDivs = divElem.querySelectorAll(':scope > div') // - results in only 1, even if 2 items added - I think because each input is not wrapped in a div
 
-  const selectedformat = getSelectedFormat(childDivs[0])
+  const selectedformat = getSelectedFormat()
 
   // This will traverse a hierarchy for each possible output format
   for (let i = 1; i < childDivs.length; i++) {
@@ -998,7 +1083,7 @@ function isSearchEmpty () { // eslint-disable-line no-unused-vars
 
   const childDivs = divElem.querySelectorAll(':scope > div') // - results in only 1, even if 2 items added - I think because each input is not wrapped in a div
 
-  const selectedformat = getSelectedFormat(childDivs[0])
+  const selectedformat = getSelectedFormat()
 
   let empty = true
 
@@ -1064,7 +1149,7 @@ function removeFieldSearchForms (field) { // eslint-disable-line no-unused-vars
 
   const childDivs = divElem.querySelectorAll(':scope > div') // - results in only 1, even if 2 items added - I think because each input is not wrapped in a div
 
-  const selectedformat = getSelectedFormat(childDivs[0])
+  const selectedformat = getSelectedFormat()
 
   // This will traverse a hierarchy for each possible output format
   for (let i = 1; i < childDivs.length; i++) {
@@ -1112,6 +1197,9 @@ function removeFieldSearchFormsHelper (divElem, field, selectedformat, curfmt) {
   }
 }
 
+/**
+ * This marches through all search hierarchies to find the first occurrence on the given field in the selected format's search hierarchy.  It returns the number of that form.  If not found, it returns 0.
+ */
 function getFirstFieldFormNum (field) { // eslint-disable-line no-unused-vars
   'use strict'
 
@@ -1119,26 +1207,40 @@ function getFirstFieldFormNum (field) { // eslint-disable-line no-unused-vars
 
   const childDivs = divElem.querySelectorAll(':scope > div') // - results in only 1, even if 2 items added - I think because each input is not wrapped in a div
 
-  const selectedformat = getSelectedFormat(childDivs[0])
+  const selectedformat = getSelectedFormat()
+
+  let formatFound = false
 
   // This will traverse a hierarchy for each possible output format
   for (let i = 1; i < childDivs.length; i++) {
-    const formNum = getFirstFieldFormNumHelper(childDivs[i], field, 0, selectedformat)
-    if (formNum > 0) {
-      return formNum
+    let curfmt
+
+    // If the div has a "-hierarchy" ID, we're at the root, so we can update the format name
+    if (typeof childDivs[i].id !== 'undefined' && childDivs[i].id && childDivs[i].id.includes('-hierarchy')) {
+      curfmt = '' + childDivs[i].id.split('-').shift()
+    }
+
+    if (curfmt === selectedformat) {
+      formatFound = true
+      const formNum = getFirstFieldFormNumHelper(childDivs[i], field, 0)
+      if (formNum > 0) {
+        return formNum
+      }
     }
   }
+
+  if (!formatFound) {
+    console.error('Selected format', selectedformat, 'not found among the search hierarchies.')
+  }
+
   return 0
 }
 
-// Returns true or false
-function getFirstFieldFormNumHelper (divElem, field, formNum, selectedformat, curfmt) {
+/**
+ * Recursive helper to getFirstFieldFormNum
+ */
+function getFirstFieldFormNumHelper (divElem, field, formNum) {
   'use strict'
-
-  // If the div has a "-hierarchy" ID, we're at the root, so we can update the format name
-  if (typeof divElem.id !== 'undefined' && divElem.id && divElem.id.includes('-hierarchy')) {
-    curfmt = '' + divElem.id.split('-').shift()
-  }
 
   const childDivs = divElem.querySelectorAll(':scope > div') // - results in only 1, even if 2 items added - I think because each input is not wrapped in a div
 
@@ -1150,7 +1252,7 @@ function getFirstFieldFormNumHelper (divElem, field, formNum, selectedformat, cu
 
   for (let i = 0; i < childInputs.length; i++) {
     if (typeof childInputs[i].name !== 'undefined' && childInputs[i].name) {
-      if (curfmt === selectedformat && childInputs[i].name.includes('-fld')) {
+      if (childInputs[i].name.includes('-fld')) {
         formNum += 1
         if (childInputs[i].value === field) {
           return formNum
@@ -1162,7 +1264,7 @@ function getFirstFieldFormNumHelper (divElem, field, formNum, selectedformat, cu
   // Recurse
   // Always traverse 1 less, because there's always an empty trailing div tag
   for (let i = 0; i < numChildren; i++) {
-    formNum = getFirstFieldFormNumHelper(childDivs[i], field, formNum, selectedformat, curfmt)
+    formNum = getFirstFieldFormNumHelper(childDivs[i], field, formNum)
     if (formNum > 0) {
       return formNum
     }
@@ -1171,7 +1273,9 @@ function getFirstFieldFormNumHelper (divElem, field, formNum, selectedformat, cu
   return 0
 }
 
-// This returns the number of field forms + the number of field form groups contained in the selected root group
+/**
+ * This returns the number of field forms + the number of field form groups contained in the selected root group. Returns a hash of counts for "members" and "forms".  Members is the number of groups and an field forms that are children of the root group.  Forms is the number of search forms (excluding groups) that are children of the root group.
+ */
 function getRootGroupSize () { // eslint-disable-line no-unused-vars
   'use strict'
 
@@ -1179,7 +1283,7 @@ function getRootGroupSize () { // eslint-disable-line no-unused-vars
 
   const childDivs = divElem.querySelectorAll(':scope > div') // - results in only 1, even if 2 items added - I think because each input is not wrapped in a div
 
-  const selectedformat = getSelectedFormat(childDivs[0])
+  const selectedformat = getSelectedFormat()
 
   // This will traverse a hierarchy for each possible output format
   for (let i = 1; i < childDivs.length; i++) {
@@ -1194,7 +1298,9 @@ function getRootGroupSize () { // eslint-disable-line no-unused-vars
   }
 }
 
-// Returns true or false
+/**
+ * Recursive helper to getRootGroupSize
+ */
 function getRootGroupSizeHelper (divElem, selectedformat) {
   'use strict'
 
@@ -1234,10 +1340,13 @@ function getRootGroupSizeHelper (divElem, selectedformat) {
   return groupSize
 }
 
+/**
+ * This method inserts a search field form as the new first child of the root group.
+ */
 function insertFirstSearch (query, format) { // eslint-disable-line no-unused-vars
   const divElem = document.querySelector('.hierarchical-search')
   const childDivs = divElem.querySelectorAll(':scope > div') // - results in only 1, even if 2 items added - I think because each input is not wrapped in a div
-  const selectedformat = getSelectedFormat(childDivs[0])
+  const selectedformat = getSelectedFormat()
 
   // This will traverse a hierarchy for each possible output format
   for (let i = 1; i < childDivs.length; i++) {
@@ -1253,9 +1362,7 @@ function insertFirstSearch (query, format) { // eslint-disable-line no-unused-va
         if (typeof childNodes[j].className !== 'undefined' && childNodes[j].className) {
           if (childNodes[j].className === 'level-indent') {
             // Create a new query div
-            const queryDiv = document.createElement('div')
-            queryDiv.className = 'level-indent'
-            addSearchFieldForm(queryDiv, query, format)
+            const queryDiv = createSearchFieldFormDiv(format, query, rootGroup.searches[format].tree.queryGroup)
 
             // Prepend the new query before the grouptype node we just found
             childDivs[i].insertBefore(queryDiv, childNodes[j])

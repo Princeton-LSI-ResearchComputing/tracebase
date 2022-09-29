@@ -10,23 +10,25 @@ from DataRepo.models.tracer_label import TracerLabel
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
+def create_tracer_record():
+    glu = Compound.objects.create(
+        name="glucose", formula="C6H12O6", hmdb_id="HMDB0000122"
+    )
+    glu_t = Tracer.objects.create(compound=glu)
+    TracerLabel.objects.create(
+        tracer=glu_t, count=2, element="C", positions=[2, 3], mass_number=13
+    )
+    TracerLabel.objects.create(
+        tracer=glu_t, count=1, element="O", positions=[4], mass_number=17
+    )
+
+    return glu_t
+
+
 @tag("multi_working")
 class TracerTests(TracebaseTestCase):
-    def setUp(self):
-        super().setUp()
-        glu = Compound.objects.create(
-            name="glucose", formula="C6H12O6", hmdb_id="HMDB0000122"
-        )
-        glu_t = Tracer.objects.create(compound=glu)
-        TracerLabel.objects.create(
-            tracer=glu_t, count=2, element="C", positions=[2, 3], mass_number=13
-        )
-        TracerLabel.objects.create(
-            tracer=glu_t, count=1, element="O", positions=[4], mass_number=17
-        )
-
     def test_tracer_name(self):
-        tracer = Tracer.objects.first()
+        tracer = create_tracer_record()
         self.assertEqual(tracer._name(), "glucose-(2,3-13C2,4-17O1)")
 
     def test_name_not_settable(self):
@@ -44,4 +46,5 @@ class TracerTests(TracebaseTestCase):
         """
         # Throws DoesNotExist exception if not found
         self.assertTrue(are_autoupdates_enabled())
-        Tracer.objects.get(name="glucose-(2,3-13C2,4-17O1)")
+        to = create_tracer_record()
+        self.assertEqual("glucose-(2,3-13C2,4-17O1)", to.name)

@@ -669,74 +669,42 @@
 
                     <!-- Average Ra (nM/m/g) -->
                     <td class="text-end average weight ra">
-                        {% if rec.rate_appearance_average_per_gram is None %}
-                            None
-                        {% else %}
-                            <p title="{{ rec.rate_appearance_average_per_gram|floatformat:10 }}">{{ rec.rate_appearance_average_per_gram|floatformat:2 }}</p>
-                        {% endif %}
+                        <p title="{{ rec.rate_appearance_average_per_gram|floatformat:10 }}">{{ rec.rate_appearance_average_per_gram|floatformat:2|default:"None" }}</p>
                     </td>
 
                     <!-- Average Rd (nM/m/g) -->
                     <td class="text-end average weight rd">
-                        {% if rec.rate_disappearance_average_per_gram is None %}
-                            None
-                        {% else %}
-                            <p title="{{ rec.rate_disappearance_average_per_gram|floatformat:10 }}">{{ rec.rate_disappearance_average_per_gram|floatformat:2 }}</p>
-                        {% endif %}
+                        <p title="{{ rec.rate_disappearance_average_per_gram|floatformat:10 }}">{{ rec.rate_disappearance_average_per_gram|floatformat:2|default:"None" }}</p>
                     </td>
 
                     <!-- Average Ra (nM/m) -->
                     <td class="text-end average nonorm ra">
-                        {% if rec.rate_appearance_average_per_animal is None %}
-                            None
-                        {% else %}
-                            <p title="{{ rec.rate_appearance_average_per_animal|floatformat:10 }}">{{ rec.rate_appearance_average_per_animal|floatformat:2 }}</p>
-                        {% endif %}
+                        <p title="{{ rec.rate_appearance_average_per_animal|floatformat:10 }}">{{ rec.rate_appearance_average_per_animal|floatformat:2|default:"None" }}</p>
                     </td>
 
                     <!-- Average Rd (nM/m) -->
                     <td class="text-end average nonorm rd">
-                        {% if rec.rate_disappearance_average_per_animal is None %}
-                            None
-                        {% else %}
-                            <p title="{{ rec.rate_disappearance_average_per_animal|floatformat:10 }}">{{ rec.rate_disappearance_average_per_animal|floatformat:2 }}</p>
-                        {% endif %}
+                        <p title="{{ rec.rate_disappearance_average_per_animal|floatformat:10 }}">{{ rec.rate_disappearance_average_per_animal|floatformat:2|default:"None" }}</p>
                     </td>
 
                     <!-- Intact Ra (nM/m/g) -->
                     <td class="text-end intact weight ra">
-                        {% if rec.rate_appearance_intact_per_gram is None %}
-                            None
-                        {% else %}
-                            <p title="{{ rec.rate_appearance_intact_per_gram|floatformat:10 }}">{{ rec.rate_appearance_intact_per_gram|floatformat:2 }}</p>
-                        {% endif %}
+                        <p title="{{ rec.rate_appearance_intact_per_gram|floatformat:10 }}">{{ rec.rate_appearance_intact_per_gram|floatformat:2|default:"None" }}</p>
                     </td>
 
                     <!-- Intact Rd (nM/m/g) -->
                     <td class="text-end intact weight rd">
-                        {% if rec.rate_disappearance_intact_per_gram is None %}
-                            None
-                        {% else %}
-                            <p title="{{ rec.rate_disappearance_intact_per_gram|floatformat:10 }}">{{ rec.rate_disappearance_intact_per_gram|floatformat:2 }}</p>
-                        {% endif %}
+                        <p title="{{ rec.rate_disappearance_intact_per_gram|floatformat:10 }}">{{ rec.rate_disappearance_intact_per_gram|floatformat:2|default:"None" }}</p>
                     </td>
 
                     <!-- Intact Ra (nM/m) -->
                     <td class="text-end intact nonorm ra">
-                        {% if rec.rate_appearance_intact_per_animal is None %}
-                            None
-                        {% else %}
-                            <p title="{{ rec.rate_appearance_intact_per_animal|floatformat:10 }}">{{ rec.rate_appearance_intact_per_animal|floatformat:2 }}</p>
-                        {% endif %}
+                        <p title="{{ rec.rate_appearance_intact_per_animal|floatformat:10 }}">{{ rec.rate_appearance_intact_per_animal|floatformat:2|default:"None" }}</p>
                     </td>
 
                     <!-- Intact Rd (nM/m) -->
                     <td class="text-end intact nonorm rd">
-                        {% if rec.rate_disappearance_intact_per_animal is None %}
-                            None
-                        {% else %}
-                            <p title="{{ rec.rate_disappearance_intact_per_animal|floatformat:10 }}">{{ rec.rate_disappearance_intact_per_animal|floatformat:2 }}</p>
-                        {% endif %}
+                        <p title="{{ rec.rate_disappearance_intact_per_animal|floatformat:10 }}">{{ rec.rate_disappearance_intact_per_animal|floatformat:2|default:"None" }}</p>
                     </td>
                 </tr>
             {% endfor %}
