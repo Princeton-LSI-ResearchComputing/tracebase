@@ -6,11 +6,67 @@
 {% block content %}
 
 <div>
-<h4>List of Samples</h4>
+    <h4>List of Samples (Server-side Pagination)</h4>
+    <table 
+        id="sample_table"
+        data-height="1200"
+        data-virtual-scroll="true"
+        data-toggle="table"
+        data-buttons-class="primary"
+        data-buttons-align="left"
+        data-search="true"
+        data-search-align="left"
+        data-show-search-clear-button="true"
+        data-show-multi-sort="true"
+        data-show-columns="true"
+        data-show-columns-toggle-all="true"
+        data-show-fullscreen="true"
+        data-pagination="true"
+        data-url="{% url 'sample_json_data' %}"
+        data-side-pagination="server"
+        data-page-list="[10, 25, 50, 100, 200, 500, All]"
+        data-search="true"
+        data-query-params="queryParams"
+        data-show-export="true"
+        data-export-types="['csv', 'txt', 'excel']">
+    
+        <thead>
+            <tr>
+                <th data-field="sample" data-formatter="sampleNameFormatter">Sample</th>
+                <th data-field="animal" data-formatter="animalNameFormatter">Animal</th>    
+                <th data-field="tissue" data-formatter="tissueNameFormatter">Tissue</th>
+                <th data-field="study_id_name_list" data-formatter="studyListFormatter">Studies</th>
+                <th data-field="genotype">Genotype</th>
+                <th data-field="infusate_name" data-formatter="infusateNameFormatter">Infusate</th>
+                <th data-field="treatment" data-formatter="treatmentFormatter">Treatment</th>
+                <th data-field="labeled_elements">Labeled Element(s)</th>
+                <th data-visible="false" data-field="infusate_rate">Infusion Rate (ul/min/g)</th>
+                <th data-field="concentrations">Tracer Concentration(s) (mM)</th>
+                <th data-field="age_in_weeks">Age(weeks)</th>
+                <th data-visible="false" data-field="sex">Sex</th>
+                <th data-visible="false" data-field="diet">Diet</th>
+                <th data-visible="false" data-field="body_weight">Body Weight</th>
+                <th data-field="feeding_status">Feeding Status</th>
+                <th data-field="sample_owner">Sample Owner</th>
+                <th data-field="sample_date_formatted">Sample Date</th>
+                <th data-field="sample_time_collected_m">Sample Time Collected (m)</th>
+                <th data-field="msrun_owner">MSRun Owner</th>
+                <th data-field="msrun_date_formatted">Sample Date</th>
+                <th data-field="msrun_id" data-formatter="msrunFormatter">MSrun Detail</th>
+            </tr>
+        </thead>
+    </table>
+</div>
+<hr>
+
+<div>
+<h4>List of Samples (Client-side Pagination)</h4>
 <br>
     {% if df %}
     <table class="table table-sm table-hover table-bordered table-responsive-xl table-striped"
         id="sample_list"
+        data-height="1200"
+        data-virtual-scroll="true"
         data-toggle="table"
         data-buttons-class="primary"
         data-buttons-align="left"
@@ -21,6 +77,8 @@
         data-show-multi-sort="true"
         data-show-columns="true"
         data-show-columns-toggle-all="true"
+        data-pagination="true"
+        data-page-list="[10, 25, 50, 100, 200, 500, All]"
         data-show-fullscreen="true"
         data-show-export="true"
         data-export-types="['csv', 'txt', 'excel']">
@@ -99,5 +157,88 @@
 </div>
 {% endblock %}
 
+{% block js_extras %}
+    {{ block.super }}
+    <script>
+        $('#sample_table').bootstrapTable({
+        undefinedText: 'None'
+        });
 
+        function queryParams(params) {
+            return params
+        }
 
+        function animalNameFormatter(value, row) {
+            // got error if not using replace syntax
+            var url = "{% url 'animal_detail' 0 %}".replace(0, row.animal_id);
+            animal_with_link = "<a href=" + url + ">"+ value + "</a>";
+            return animal_with_link
+        }
+
+        function sampleNameFormatter(value, row) {
+            var url = "{% url 'sample_detail' 0 %}".replace(0, row.sample_id); 
+            sample_with_link = "<a href=" + url + ">"+ value + "</a>";
+            return sample_with_link
+        }
+        
+        function tissueNameFormatter(value, row) {
+            var url = "{% url 'tissue_detail' 0 %}".replace(0, row.tissue_id); 
+            tissue_with_link = "<a href=" + url + ">"+ value + "</a>";
+            return tissue_with_link
+        }
+
+        function infusateNameFormatter(value, row) {
+            var url = "{% url 'infusate_detail' 0 %}".replace(0, row.infusate_id); 
+            infusate_with_link = "<a href=" + url + ">"+ value + "</a>";
+            return infusate_with_link
+        }
+
+        function objListFormatter(value, obj){
+            var utl_temp =""
+            if (obj === "study") {
+                url_temp = "{% url 'study_detail' 0 %}";
+            }
+            else if (obj === "compound") {
+                url_temp = "{% url 'compound_detail' 0 %}";
+            }
+            else if (obj === "tracer") {
+                url_temp = "{% url 'compound_detail' 0 %}";
+            }
+            else if (obj === "infusate") {
+                url_temp = "{% url 'infusate_detail' 0 %}";
+            }
+            else if (obj === "treatment") {
+                url_temp = "{% url 'protocol_detail' 0 %}";
+            }
+
+            var output_with_link = []
+            
+            for (var i = 0; i < value.length; i++) {
+                var obj_array = []
+                // get id and name for each item
+                obj_id = value[i].split('||')[0];
+                obj_name = value[i].split('||')[1];
+                url = url_temp.replace(0, obj_id);
+                obj_with_link= "<a href=" + url + ">" + obj_name + "</a>";
+                output_with_link.push(obj_with_link);
+            }
+            return output_with_link
+        }
+
+        function studyListFormatter(value){
+            return objListFormatter(value, "study")
+        }
+
+        function treatmentFormatter(value, row) {
+            var url = "{% url 'protocol_detail' 0 %}".replace(0, row.treatment_id); 
+            treament_with_link = "<a href=" + url + ">"+ value + "</a>";
+            return treament_with_link
+        }
+
+        function msrunFormatter(value, row) {
+            var url = "{% url 'msrun_detail' 0 %}".replace(0, value); 
+            msrun_with_link = "<a href=" + url + ">"+ "MSRun Detail</a>";
+            return msrun_with_link
+        }
+    </script>
+{% endblock %}

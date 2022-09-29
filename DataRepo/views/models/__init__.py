@@ -6,7 +6,7 @@ from .peakdata import PeakDataListView
 from .peakgroup import PeakGroupDetailView, PeakGroupListView
 from .peakgroupset import PeakGroupSetDetailView, PeakGroupSetListView
 from .protocol import ProtocolDetailView, ProtocolListView
-from .sample import SampleDetailView, SampleListView
+from .sample import SampleDetailView, SampleListView, sample_json_data
 from .study import StudyDetailView, StudyListView, study_summary
 from .tissue import TissueDetailView, TissueListView
 
@@ -25,6 +25,7 @@ __all__ = [
     "TissueDetailView",
     "SampleListView",
     "SampleDetailView",
+    "sample_json_data",
     "MSRunListView",
     "MSRunDetailView",
     "PeakGroupSetListView",

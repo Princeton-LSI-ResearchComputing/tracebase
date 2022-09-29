@@ -48,6 +48,7 @@ urlpatterns = [
     path("tissues/<int:pk>/", views.TissueDetailView.as_view(), name="tissue_detail"),
     path("samples/", views.SampleListView.as_view(), name="sample_list"),
     path("samples/<int:pk>/", views.SampleDetailView.as_view(), name="sample_detail"),
+    path("samples/sample_json_data/", views.sample_json_data, name="sample_json_data"),
     path("msruns/", views.MSRunListView.as_view(), name="msrun_list"),
     path("msruns/<int:pk>/", views.MSRunDetailView.as_view(), name="msrun_detail"),
     path(
