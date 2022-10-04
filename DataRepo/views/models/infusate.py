@@ -43,4 +43,3 @@ class InfusateListView(ListView):
         data = qs2df.df_to_list_of_dict(infusate_list_df)
         context["df"] = data
         return context
-
