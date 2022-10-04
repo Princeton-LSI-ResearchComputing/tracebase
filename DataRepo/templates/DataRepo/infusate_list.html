@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load customtags %}
+{% load static %}
 
 {% block title %}Infusates{% endblock %}
 
@@ -24,11 +25,11 @@
         data-export-types="['csv', 'txt', 'excel']">
         <thead>
             <tr>
-                <th data-filter-control="input" data-sortable="true" data-field="Infusate">Infusate</th>
+                <th data-filter-control="input" data-sortable="true" data-sorter ="htmlSorter" data-field="Infusate">Infusate</th>
                 <th data-filter-control="input" data-sortable="true" data-field="Tracer-Group">Tracer Group</th>
                 <th data-filter-control="select" data-sortable="true" data-field="Labeled-Elements">Labeled Element(s)</th>
-                <th data-filter-control="input" data-sortable="true" data-field="Compounds">Parent Compound(s) for Tracer(s)</th>
-                <th data-filter-control="input" data-sortable="true" data-field="Tracers">Tracer(s)</th>
+                <th data-filter-control="input" data-sortable="true" data-sorter ="htmlSorter" data-field="Compounds">Parent Compound(s) for Tracer(s)</th>
+                <th data-filter-control="input" data-sortable="true" data-sorter ="htmlSorter" data-field="Tracers">Tracer(s)</th>
                 <th data-filter-control="input" data-sortable="true" data-field="Concentrations">Infusion Concentration(s) (mM)</th>
         </thead>
         <tbody>
@@ -47,4 +48,9 @@
     {% endif %}
 </div>
 
+{% endblock %}
+
+{% block js_extras %}
+    {{ block.super }}
+    <script src="{% static 'js/htmlSorter.js' %}"></script>
 {% endblock %}

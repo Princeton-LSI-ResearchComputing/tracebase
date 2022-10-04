@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load customtags %}
+{% load static %}
 
 {% block title %}Samples{% endblock %}
 
@@ -31,16 +32,16 @@
         >
         <thead>
             <tr>
-                <th data-filter-control="input" data-sortable="true" data-field="Sample">sample</th>
-                <th data-filter-control="input" data-sortable="true" data-field="Animal">Animal</th>
-                <th data-filter-control="input" data-sortable="true" data-field="Tissue">Tissue</th>
-                <th data-filter-control="input" data-sortable="true" data-field="Studies">Studies</th>
+                <th data-filter-control="input" data-sortable="true" data-sorter ="htmlSorter" data-field="Sample">sample</th>
+                <th data-filter-control="input" data-sortable="true" data-sorter ="htmlSorter" data-field="Animal">Animal</th>
+                <th data-filter-control="input" data-sortable="true" data-sorter ="htmlSorter" data-field="Tissue">Tissue</th>
+                <th data-filter-control="input" data-sortable="true" data-sorter ="htmlSorter" data-field="Studies">Studies</th>
                 <th data-filter-control="select" data-sortable="true" data-field="Genotype">Genotype</th>
-                <th data-filter-control="input" data-sortable="true" data-field="Infusate">Infusate</th>
+                <th data-filter-control="input" data-sortable="true" data-sorter ="htmlSorter" data-field="Infusate">Infusate</th>
                 <th data-filter-control="input" data-sortable="true" data-field="Tracer-Group">Tracer Group</th>
-                <th data-filter-control="input" data-sortable="true" data-field="Tracers">Tracer(s)</th>
+                <th data-filter-control="input" data-sortable="true" data-sorter ="htmlSorter" data-field="Tracers">Tracer(s)</th>
                 <th data-filter-control="select" data-sortable="true" data-field="Labeled_Elements">Labeled Element(s)</th>
-                <th data-filter-control="input" data-sortable="true" data-field="Treatment">Treatment</th>
+                <th data-filter-control="input" data-sortable="true" data-sorter ="htmlSorter" data-field="Treatment">Treatment</th>
                 <th data-filter-control="input" data-sortable="true" data-visible="false" data-field="Infusion_Rate">Infusion Rate (ul/min/g)</th>
                 <th data-filter-control="input" data-sortable="true" data-visible="false" data-field="Concentrations">Tracer Concentration(s) (mM)</th>
                 <th data-filter-control="input" data-sortable="true" data-visible="false" data-field="Body_Weight">Body Weight</th>
@@ -108,5 +109,7 @@
 </div>
 {% endblock %}
 
-
-
+{% block js_extras %}
+    {{ block.super }}
+    <script src="{% static 'js/htmlSorter.js' %}"></script>
+{% endblock %}
