@@ -1,4 +1,5 @@
 {% load customtags %}
+{% load static %}
 {% block head_extras %}
     <script src="https://cdn.jsdelivr.net/gh/wenzhixin/bootstrap-table-examples@master/utils/natural-sorting/dist/natural-sorting.js"></script>
     <script>
@@ -412,7 +413,7 @@
         data-pagination="{% if mode == 'view' %}true{% else %}false{% endif %}">
         <thead>
             <tr>
-                <th colspan="15" rowspan="2"></th>
+                <th colspan="16" rowspan="2"></th>
                 <th colspan="4" class="average">Average</th>
                 <th colspan="4" class="intact">Intact</th>
             </tr>
@@ -423,6 +424,9 @@
                 <th colspan="2" data-sortable="false" class="intact nonorm">Mouse<br>Normalized<br>(nM/m)</th>
             </tr>
             <tr>
+                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Status-data-visible' 'true' %}" data-field="Status">
+                    <p title="FCirc Calculation Status - Note: This status is not included in the data download."><img src="{% static 'images/status-good.png' %}" alt="Status" width="20"></p>
+                </th>
                 <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Studies-data-visible' 'true' %}" data-field="Studies">
                     {% with "Studies" as colhead %}
                         {% if mode == "view" %}{{ colhead }}{% else %}
@@ -558,6 +562,19 @@
         <tbody>
             {% for rec in res.all %}
                 <tr class="{% if rec.is_last_serum_peak_group %}bg-highlighted{% else %}bg-normal{% endif %}">
+                    <!-- Status -->
+                    <td class="center-all">
+                        {% if rec.serum_validity.valid %}
+                            <p title="{{ rec.serum_validity.message }}"><img src="{% static 'images/status-good.png' %}" alt="good" width="20"></p>
+                        {% else %}
+                            {% if rec.serum_validity.level == "warn" %}
+                                <p title="{{ rec.serum_validity.message }}"><img src="{% static 'images/status-warn.png' %}" alt="warning" width="20"></p>
+                            {% else %}
+                                <p title="{{ rec.serum_validity.message }}"><img src="{% static 'images/status-error.png' %}" alt="error" width="20">
+                            {% endif %}
+                        {% endif %}
+                    </td>
+
                     <!-- Studies -->
                     <td>
                         <!-- This will work as intended even if rec.serum_sample.animal.study wasn't added as an annotation (e.g. if split_rows is false or root_annot_fld is not defined) -->

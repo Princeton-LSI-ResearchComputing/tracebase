@@ -163,9 +163,7 @@ class Animal(MaintainedModel, HierCachedModel, ElementLabel):
 
         # Get every tracer's compound that contains this element
         if self.tracers.count() == 0:
-            warnings.warn(
-                f"Animal [{self.animal}] has no tracers containing labeled element [{self.element}]."
-            )
+            warnings.warn(f"Animal [{self}] has no tracers.")
             return PeakGroup.objects.none()
 
         # Get the last peakgroup for each tracer that has this label

@@ -110,7 +110,7 @@ class FCirc(MaintainedModel, HierCachedModel):
     @cached_function
     def last_peak_group_in_animal(self):
         """
-        Retrieve the latest serum sample PeakGroup for this animal and tracer.
+        Retrieve the last serum sample PeakGroup for this animal and tracer.
         """
         return self.serum_sample.animal.last_serum_tracer_peak_groups.filter(
             compounds__exact=self.tracer.compound
@@ -120,7 +120,7 @@ class FCirc(MaintainedModel, HierCachedModel):
     @cached_function
     def last_peak_group_in_sample(self):
         """
-        Retrieve the latest PeakGroup for this serum sample and tracer.
+        Retrieve the last PeakGroup for this serum sample and tracer.
         """
         peakgroups = self.serum_sample.last_tracer_peak_groups.filter(
             compounds__exact=self.tracer.compound
@@ -159,6 +159,103 @@ class FCirc(MaintainedModel, HierCachedModel):
             )
 
         return peakgroups.all()
+
+    @property  # type: ignore
+    @cached_function
+    def serum_validity(self):
+        """
+        Returns a dict containing information about the validity of this animal's serum samples, such as if all serum
+        samples have a time_collected, if the last serum sample has all tracer peak groups, if the sample's msruns all
+        have dates, etc.
+        """
+        valid = True
+        messages = []
+        level = "good"
+        last_str = "previous"
+
+        if self.last_peak_group_in_sample is None:
+            valid = False
+            level = "error"
+            messages.append(
+                f"No serum tracer peak group found for sample {self.serum_sample} and tracer {self.tracer}."
+            )
+        else:
+            # If the MSRun date is none and this sample has other MSRuns
+            if (
+                not self.last_peak_group_in_sample.msrun.date
+                and self.serum_sample.msruns.count() > 1
+            ):
+                valid = False
+                level = "warn"
+                messages.append(
+                    f"The MSRun date for this {last_str} serum tracer peak group for sample {self.serum_sample} and "
+                    f"tracer {self.tracer} used in the FCirc calculations for this record is not set, so it's possible "
+                    "these FCirc calculations could be based on an MSRun that may not actually be the last one."
+                )
+
+            # If this record's peak group (the one associated with self.serum_sample and self.tracer) used in the
+            # calculations is the animal's last such peak group
+            if self.is_last_serum_peak_group():
+                last_str = "last"
+
+                # If self.serum_sample is not the animal's last serum sample
+                if (
+                    self.serum_sample.id
+                    != self.serum_sample.animal.last_serum_sample.id
+                ):
+                    valid = False
+                    level = "warn"
+                    messages.append(
+                        f"Animal {self.serum_sample.animal}'s last serum sample "
+                        f"({self.serum_sample.animal.last_serum_sample}) is not being used for calculations for tracer "
+                        f"{self.tracer}.  {self.serum_sample} is being used instead.  The last serum sample either does "
+                        "not contain a peak group for the tracer compound or there is an issue with the sample or msrun "
+                        "date."
+                    )
+
+                # Check the sibling serum samples to see if there is adequate info to be confident that this sample is
+                # actually the last serum sample
+                for s in self.serum_sample.animal.samples.all():
+                    # This checks other "not last" serum tracer peak groups's samples.  The implication here is that if
+                    # a serum sample other than the last serum sample has a null time collected, we are not actually
+                    # sure if the selected "last serum sample" is in fact the last serum sample
+                    if (
+                        s.id != self.serum_sample.id
+                        and s._is_serum_sample()
+                        and not s.time_collected
+                    ):
+                        valid = False
+                        level = "warn"
+                        messages.append(
+                            f"Serum sample {self.serum_sample} is assumed to be last, but serum sample {s} from animal "
+                            f"{s.animal} has no recorded time collected, so it's possible these FCirc calculations could "
+                            "be based on a serum sample that may not actually be the last one."
+                        )
+
+                # Determine the number of serum samples, but don't rely on maintained fields (for robustness)
+                num_serum_samples = 0
+                for ss in self.serum_sample.animal.samples.all():
+                    if ss.tissue.is_serum():
+                        num_serum_samples += 1
+
+                # If time collected is none and there exist other serum samples for this animal
+                # Note: this level (error) is intentionally set last so that it can overwrite a warn level
+                if not self.serum_sample.time_collected and num_serum_samples > 1:
+                    valid = False
+                    level = "error"
+                    messages.append(
+                        f"The sample time collected for this last serum tracer peak group for tracer ({self.tracer}) and "
+                        f"sample ({self.serum_sample}) used in the FCirc calculations for this record is not set and this "
+                        f"animal ({self.serum_sample.animal}) has {num_serum_samples} serum samples (none of which likely "
+                        "have a set time collected), so this may not be the last serum sample."
+                    )
+
+        if valid:
+            messages.append(
+                "No problems found with the serum tracer peak group, sample collection time, or MSRun date."
+            )
+
+        return {"valid": valid, "level": level, "message": "\n\n".join(messages)}
 
     @property  # type: ignore
     @cached_function

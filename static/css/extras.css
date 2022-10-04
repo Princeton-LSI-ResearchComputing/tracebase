@@ -31,3 +31,8 @@ colgroup.metadata {
 body.development > nav.navbar {
   background-image: url("/static/images/construction.png");
 }
+
+.center-all {
+  text-align: center;
+  vertical-align: middle !important;
+}
