@@ -2,8 +2,7 @@ from datetime import datetime, timedelta
 
 from django.conf import settings
 from django.core.management import call_command
-from django.db import transaction
-from django.test import override_settings, tag, TestCase
+from django.test import override_settings, tag
 
 from DataRepo.models import (
     Animal,
@@ -15,48 +14,19 @@ from DataRepo.models import (
     Protocol,
     Sample,
 )
-from DataRepo.models.hier_cached_model import disable_caching_updates, enable_caching_updates
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
 @tag("multi_working")
 class FCircTests(TracebaseTestCase):
-    # def setUp(self):
-    #     super().setUp()
+    def setUp(self):
+        super().setUp()
 
-    #     # Get an animal (assuming it has an infusate/tracers/etc)
-    #     animal = Animal.objects.last()
-    #     # Get its last serum sample
-    #     lss = animal.last_serum_sample
-
-    #     # For the validity of the test, assert there exist FCirc records and that they are for the last peak groups
-    #     self.assertTrue(lss.fcircs.count() > 0)
-    #     for fco in lss.fcircs.all():
-    #         self.assertTrue(fco.is_last)
-
-    #     # Now create a new last serum sample (without any peak groups)
-    #     tissue = lss.tissue
-    #     tc = lss.time_collected + timedelta(seconds=1)
-    #     nlss = Sample.objects.create(
-    #         animal=animal, name=lss.name + "_2", tissue=tissue, time_collected=tc
-    #     )
-
-    #     # Create new FCirc records
-    #     new_fcircs = []
-    #     for tracer in animal.infusate.tracers.all():
-    #         for label in tracer.labels.all():
-    #             fcr = FCirc.objects.create(serum_sample=nlss, tracer=tracer, element=label.element)
-    #             new_fcircs.append(fcr)
-
-    #     self.lss = lss
-    #     self.newlss = nlss
-    #     self.new_fcircs = new_fcircs
-
-    # I tried swapping out the base class Tracebase[Transaction]TestCase with just TestCase because for some reason, setUpTestData was not getting called.  These settings were needed to make it work...
-    # maxDiff = None
-    # databases = "__all__"
-
+        # For the validity of the test, assert there exist FCirc records and that they are for the last peak groups
+        self.assertTrue(self.lss.fcircs.count() > 0)
+        for fco in self.lss.fcircs.all():
+            self.assertTrue(fco.is_last)
 
     @classmethod
     def setUpTestData(cls):
@@ -134,7 +104,6 @@ class FCircTests(TracebaseTestCase):
             1. Confirm all FCirc.is_last values related to the old serum sample are now false.
         """
 
-        disable_caching_updates()
         print(f"New last serum sample: {self.newlss}")
 
         # with transaction.atomic():
@@ -180,8 +149,6 @@ class FCircTests(TracebaseTestCase):
         # Assert that the new last serum sample's is_last is true
         for fco in self.newlss.fcircs.all():
             self.assertTrue(fco.is_last)
-
-        enable_caching_updates()
 
     def test_maintained_model_relation(self):
         """
