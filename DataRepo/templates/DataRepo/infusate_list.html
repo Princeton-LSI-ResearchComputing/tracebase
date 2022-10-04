@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% load customtags %}
+
+{% block title %}Infusates{% endblock %}
+
+{% block content %}
+<h4>List of Infusates</h4>
+<div>
+    {% if df %}
+    <table class="table table-sm table-hover table-bordered table-responsive-xl table-striped"
+        id="infusate_list"
+        data-toggle="table"
+        data-buttons-class="primary"
+        data-buttons-align="left"
+        data-filter-control="true"
+        data-search="true"
+        data-search-align="left"
+        data-show-search-clear-button="true"
+        data-show-multi-sort="true"
+        data-show-columns="true"
+        data-show-columns-toggle-all="true"
+        data-show-fullscreen="true"
+        data-show-export="true"
+        data-export-types="['csv', 'txt', 'excel']">
+        <thead>
+            <tr>
+                <th data-filter-control="input" data-sortable="true" data-field="Infusate">Infusate</th>
+                <th data-filter-control="input" data-sortable="true" data-field="Tracer-Group">Tracer Group</th>
+                <th data-filter-control="select" data-sortable="true" data-field="Labeled-Elements">Labeled Element(s)</th>
+                <th data-filter-control="input" data-sortable="true" data-field="Compounds">Parent Compound(s) for Tracer(s)</th>
+                <th data-filter-control="input" data-sortable="true" data-field="Tracers">Tracer(s)</th>
+                <th data-filter-control="input" data-sortable="true" data-field="Concentrations">Infusion Concentration(s) (mM)</th>
+        </thead>
+        <tbody>
+            {% for i in df %}
+            <tr>
+                <td><a href="{% url 'infusate_detail' i.infusate_id %}">{{ i.infusate_name }}</a></td>
+                <td>{{ i.tracer_group_name }}</td>
+                <td>{{ i.labeled_elements |join:", " }}</td>
+                <td>{{ i.compound_id_name_list |obj_hyperlink:"compound" }}</td>
+                <td>{{ i.tracer_id_name_list |obj_hyperlink:"tracer" }}</td>
+                <td>{{ i.concentrations |join:", "}}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+</div>
+
+{% endblock %}

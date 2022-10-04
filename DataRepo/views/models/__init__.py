@@ -1,6 +1,6 @@
 from .animal import AnimalDetailView, AnimalListView
 from .compound import CompoundDetailView, CompoundListView
-from .infusate import InfusateDetailView
+from .infusate import InfusateDetailView, InfusateListView
 from .msrun import MSRunDetailView, MSRunListView
 from .peakdata import PeakDataListView
 from .peakgroup import PeakGroupDetailView, PeakGroupListView
@@ -13,6 +13,7 @@ from .tissue import TissueDetailView, TissueListView
 __all__ = [
     "CompoundListView",
     "CompoundDetailView",
+    "InfusateListView",
     "InfusateDetailView",
     "StudyListView",
     "StudyDetailView",
