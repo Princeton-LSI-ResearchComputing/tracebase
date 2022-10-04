@@ -1,6 +1,5 @@
 {% extends "base.html" %}
 {% load customtags %}
-{% load static %}
 
 {% block title %}Infusates{% endblock %}
 
@@ -21,6 +20,8 @@
         data-show-columns="true"
         data-show-columns-toggle-all="true"
         data-show-fullscreen="true"
+        data-height="1200"
+        data-virtual-scroll="true"
         data-show-export="true"
         data-export-types="['csv', 'txt', 'excel']">
         <thead>
@@ -48,9 +49,4 @@
     {% endif %}
 </div>
 
-{% endblock %}
-
-{% block js_extras %}
-    {{ block.super }}
-    <script src="{% static 'js/htmlSorter.js' %}"></script>
 {% endblock %}
