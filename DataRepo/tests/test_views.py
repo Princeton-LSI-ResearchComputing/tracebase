@@ -581,8 +581,8 @@ class ViewNullToleranceTests(ViewTests):
 @tag("multi_working")
 class ValidationViewTests(TracebaseTransactionTestCase):
     """
-    Note, without the TransactionTestCase (derived) class, the infusate-related model managers produce the following
-    error:
+    Note, without the TransactionTestCase (derived) class (and the with transaction.atomic block below), the infusate-
+    related model managers produce the following error:
         django.db.transaction.TransactionManagementError: An error occurred in the current transaction. You can't
         execute queries until the end of the 'atomic' block.
     ...associated with the outer atomic transaction of any normal test case.  See:
