@@ -16,12 +16,12 @@ from DataRepo.models import (
     Sample,
 )
 from DataRepo.models.hier_cached_model import disable_caching_updates, enable_caching_updates
-from DataRepo.tests.tracebase_test_case import TracebaseTransactionTestCase
+from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
 @tag("multi_working")
-class FCircTests(TestCase):
+class FCircTests(TracebaseTestCase):
     # def setUp(self):
     #     super().setUp()
 
@@ -54,8 +54,8 @@ class FCircTests(TestCase):
     #     self.new_fcircs = new_fcircs
 
     # I tried swapping out the base class Tracebase[Transaction]TestCase with just TestCase because for some reason, setUpTestData was not getting called.  These settings were needed to make it work...
-    maxDiff = None
-    databases = "__all__"
+    # maxDiff = None
+    # databases = "__all__"
 
 
     @classmethod
