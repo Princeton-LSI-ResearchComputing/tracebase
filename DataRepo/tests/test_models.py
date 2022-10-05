@@ -1786,6 +1786,11 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
         SAMPLES_COUNT = 16
         ANIMALS_COUNT = 1
         STUDIES_COUNT = 1
+        # in the following example file, there is a single treatment
+        # "obob_fasted" used in the Animal Treatment column, but in the
+        # Treatments sheet, there is a single treatment name=="no treatment"
+        # row.  So, 2 protocols that file.
+        PROTOCOLS_COUNT = 2
 
         call_command(
             "load_animals_and_samples",
@@ -1799,7 +1804,13 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
         self.assertEqual(Sample.objects.all().count(), SAMPLES_COUNT)
         self.assertEqual(Animal.objects.all().count(), ANIMALS_COUNT)
         self.assertEqual(Study.objects.all().count(), STUDIES_COUNT)
-
+        self.assertEqual(Protocol.objects.all().count(), PROTOCOLS_COUNT)
+        # original auto-generated treatment protocol from Animals sheet
+        p = Protocol.objects.get(name="obob_fasted")
+        self.assertTrue("For protocol's full text, please consult" in p.description)
+        # treatment protocol from Treatments sheet
+        p = Protocol.objects.get(name="no treatment")
+        self.assertTrue("No treatment was applied to the animal" in p.description)
         study = Study.objects.get(name="Small OBOB")
         self.assertEqual(study.animals.count(), ANIMALS_COUNT)
 

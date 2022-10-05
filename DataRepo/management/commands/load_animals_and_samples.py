@@ -5,7 +5,8 @@ import pandas as pd
 import yaml  # type: ignore
 from django.core.management import BaseCommand, CommandError
 
-from DataRepo.utils import SampleTableLoader
+from DataRepo.models.protocol import Protocol
+from DataRepo.utils import ProtocolsLoader, SampleTableLoader
 
 
 class Command(BaseCommand):
@@ -14,6 +15,11 @@ class Command(BaseCommand):
     example_animals = examples_dir + "obob_animals_table.tsv"
     example_samples = examples_dir + "obob_samples_table.tsv"
     example_yaml = examples_dir + "sample_and_animal_tables_headers.yaml"
+
+    # default template headers and assumed category value
+    TREATMENTS_NAME_HEADER = "Animal Treatment"
+    TREATMENTS_DESC_HEADER = "Treatment Description"
+    TREATMENTS_CTGR_VALUE = Protocol.ANIMAL_TREATMENT
 
     # Show this when the user types help
     help = (
@@ -93,15 +99,20 @@ class Command(BaseCommand):
         if options["animal_and_sample_table_filename"]:
             sample_table_filename = options["animal_and_sample_table_filename"]
             animal_table_filename = options["animal_and_sample_table_filename"]
+            treatment_table_filename = options["animal_and_sample_table_filename"]
         elif options["sample_table_filename"] and options["animal_table_filename"]:
             sample_table_filename = options["sample_table_filename"]
             animal_table_filename = options["animal_table_filename"]
+            treatment_table_filename = None
         else:
             raise CommandError(
                 "You must specify either:\n"
                 "\t--animal-and-sample-table-filename or\n"
                 "\t --animal-table-filename and --sample-table-filename"
             )
+
+        if treatment_table_filename:
+            self.load_treatments(treatment_table_filename, options)
 
         self.stdout.write(self.style.MIGRATE_HEADING("Loading animals..."))
         animals = read_from_file(
@@ -138,6 +149,37 @@ class Command(BaseCommand):
         )
 
         self.stdout.write(self.style.SUCCESS("Done loading sample table"))
+
+    def load_treatments(self, xlxs_file_containing_treatments_sheet, options):
+        self.stdout.write(self.style.MIGRATE_HEADING("Loading animal treatments..."))
+        nh = self.TREATMENTS_NAME_HEADER
+        dh = self.TREATMENTS_DESC_HEADER
+        cv = self.TREATMENTS_CTGR_VALUE
+        treatments = read_from_file(
+            xlxs_file_containing_treatments_sheet,
+            dtype={
+                nh: str,
+                dh: str,
+            },
+            sheet="Treatments",
+        )
+
+        # rename template columns to ProtocolLoader expectations
+        treatments.rename(
+            inplace=True,
+            columns={
+                str(nh): "name",
+                str(dh): "description",
+            },
+        )
+
+        protocol_loader = ProtocolsLoader(
+            protocols=treatments,
+            database=options["database"],
+            validate=options["validate"],
+            category=cv,
+        )
+        protocol_loader.load()
 
 
 def read_from_file(filename, dtype, format=None, sheet=0):
