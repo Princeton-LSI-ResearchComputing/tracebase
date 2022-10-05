@@ -38,7 +38,7 @@ class ProtocolLoadingTests(TracebaseTestCase):
         protocol_loader = ProtocolsLoader(protocols=self.working_df)
 
         with self.assertRaisesRegex(LoadingError, "Errors during protocol loading"):
-            _ = protocol_loader.load()
+            protocol_loader.load()
         # If errors are found, no records should be loaded
         self.assertEqual(Protocol.objects.count(), 0)
 
@@ -49,6 +49,6 @@ class ProtocolLoadingTests(TracebaseTestCase):
             category="Some Nonsense Category",
         )
         with self.assertRaisesRegex(LoadingError, "Errors during protocol loading"):
-            _ = protocol_loader.load()
+            protocol_loader.load()
         # If errors are found, no records should be loaded
         self.assertEqual(Protocol.objects.count(), 0)
