@@ -1,5 +1,6 @@
 import warnings
 
+from django.conf import settings
 from django.db import models
 
 from DataRepo.models.element_label import ElementLabel
@@ -172,27 +173,25 @@ class FCirc(MaintainedModel, HierCachedModel):
         messages = []
         level = "good"
         last_str = "previous"
+        no_pgs = 0
+        last_ss = 0
+        stc_many_last = 0
+        stc_many_prev = 0
+        stc_sibling = 0
+        stc_one = 0  # If 1, status is still good
+        msr_date_one = 0  # If 1, status is still good
+        msr_date_many = 0
+        overall = 1
 
         if self.last_peak_group_in_sample is None:
             valid = False
             level = "error"
+            no_pgs = 1
             messages.append(
                 f"No serum tracer peak group found for sample {self.serum_sample} and tracer {self.tracer}."
             )
         else:
-            # If the MSRun date is none and this sample has other MSRuns
-            if (
-                not self.last_peak_group_in_sample.msrun.date
-                and self.serum_sample.msruns.count() > 1
-            ):
-                valid = False
-                level = "warn"
-                messages.append(
-                    f"The MSRun date for this {last_str} serum tracer peak group for sample {self.serum_sample} and "
-                    f"tracer {self.tracer} used in the FCirc calculations for this record is not set, so it's "
-                    "possible these FCirc calculations could be based on an MSRun that may not actually be the last "
-                    "one."
-                )
+            # There do exist peak groups for this sample, so we can check more things...
 
             # If this record's peak group (the one associated with self.serum_sample and self.tracer) used in the
             # calculations is the animal's last such peak group
@@ -200,22 +199,20 @@ class FCirc(MaintainedModel, HierCachedModel):
                 last_str = "last"
 
                 # If self.serum_sample is not the animal's last serum sample
-                if (
-                    self.serum_sample.id
-                    != self.serum_sample.animal.last_serum_sample.id
-                ):
+                if self.serum_sample.id != self.serum_sample.animal.last_serum_sample.id:
                     valid = False
                     level = "warn"
+                    last_ss = 1
                     messages.append(
                         f"Animal {self.serum_sample.animal}'s last serum sample "
                         f"({self.serum_sample.animal.last_serum_sample}) is not being used for calculations for "
-                        f"tracer {self.tracer}.  {self.serum_sample} is being used instead.  The last serum sample "
-                        "either does not contain a peak group for the tracer compound or there is an issue with the "
-                        "sample or msrun date."
+                        f"tracer {self.tracer}.  Sample {self.serum_sample} is being used instead.  The last serum "
+                        "sample probably does not contain a peak group for this tracer compound."
                     )
 
                 # Check the sibling serum samples to see if there is adequate info to be confident that this sample is
                 # actually the last serum sample
+                tc_none_samples = []
                 for s in self.serum_sample.animal.samples.all():
                     # This checks other "not last" serum tracer peak groups's samples.  The implication here is that if
                     # a serum sample other than the last serum sample has a null time collected, we are not actually
@@ -223,40 +220,119 @@ class FCirc(MaintainedModel, HierCachedModel):
                     if (
                         s.id != self.serum_sample.id
                         and s._is_serum_sample()
-                        and not s.time_collected
+                        and s.time_collected is None
                     ):
-                        valid = False
-                        level = "warn"
-                        messages.append(
-                            f"Serum sample {self.serum_sample} is assumed to be last, but serum sample {s} from "
-                            f"animal {s.animal} has no recorded time collected, so it's possible these FCirc "
-                            "calculations could be based on a serum sample that may not actually be the last one."
-                        )
+                        tc_none_samples.append(str(s))
 
-                # Determine the number of serum samples, but don't rely on maintained fields (for robustness)
-                num_serum_samples = 0
-                for ss in self.serum_sample.animal.samples.all():
-                    if ss.tissue.is_serum():
-                        num_serum_samples += 1
-
-                # If time collected is none and there exist other serum samples for this animal
-                # Note: this level (error) is intentionally set last so that it can overwrite a warn level
-                if not self.serum_sample.time_collected and num_serum_samples > 1:
+                if len(tc_none_samples) > 0:
                     valid = False
-                    level = "error"
+                    level = "warn"
+                    stc_sibling = 1
                     messages.append(
-                        f"The sample time collected for this last serum tracer peak group for tracer ({self.tracer}) "
-                        f"and sample ({self.serum_sample}) used in the FCirc calculations for this record is not set "
-                        f"and this animal ({self.serum_sample.animal}) has {num_serum_samples} serum samples (none of "
-                        "which likely have a set time collected), so this may not be the last serum sample."
+                        f"This serum sample {self.serum_sample} is assumed to be last, but serum sample(s) "
+                        f"[{', '.join(tc_none_samples)}] from animal {self.serum_sample.animal} have no recorded time "
+                        "collected, so it's possible these FCirc calculations could be based on a serum sample that "
+                        "may not actually be the last one."
                     )
 
+            # If the MSRun date is none and this sample has other MSRuns
+            if (
+                self.last_peak_group_in_sample.msrun.date is None
+                and self.serum_sample.msruns.count() > 1
+            ):
+                valid = False
+                level = "warn"
+                msr_date_many = 1
+                messages.append(
+                    f"The MSRun date is not set for this {last_str} serum tracer peak group for sample "
+                    f"{self.serum_sample} and tracer {self.tracer}, so it's possible these FCirc calculations should "
+                    "or should not be for the 'last' peak group for this serum sample."
+                )
+            elif self.last_peak_group_in_sample.msrun.date is None and self.serum_sample.msruns.count() == 1:
+                # This doesn't trigger/override the valid or level settings, but it does append a message
+                msr_date_one = 1
+                messages.append(
+                    f"The MSRun date is not set for this {last_str} serum tracer peak group for sample "
+                    f"{self.serum_sample} and tracer {self.tracer}, but there's only 1 MSRun for this sample, so it's "
+                    "of no real concern (yet)."
+                )
+
+            # Determine the number of serum samples, but don't rely on maintained fields (for robustness)
+            num_serum_samples = 0
+            for ss in self.serum_sample.animal.samples.all():
+                if ss.tissue.is_serum():
+                    num_serum_samples += 1
+
+            # If time collected is none and there exist other serum samples for this animal
+            # Note: this level (error) is intentionally set last so that it can overwrite a warn level
+            if self.serum_sample.time_collected is None and num_serum_samples > 1:
+                valid = False
+                if self.is_last_serum_peak_group():
+                    level = "error"
+                    stc_many_last = 1
+                else:
+                    level = "warn"
+                    stc_many_prev = 1
+                messages.append(
+                    f"The sample time collected is not set for this {last_str} serum tracer peak group for tracer "
+                    f"({self.tracer}) and sample ({self.serum_sample}).  This animal ({self.serum_sample.animal}) has "
+                    f"{num_serum_samples} serum samples, so it's possible the FCirc calculations for this record "
+                    "should or should not be for the 'last' serum sample."
+                )
+            elif self.serum_sample.time_collected is None:
+                # This doesn't trigger/override the valid or level settings, but it does append a message
+                stc_one = 1
+                messages.append(
+                    f"The sample time collected is not set for this {last_str} serum tracer peak group for tracer "
+                    f"({self.tracer}) and sample ({self.serum_sample}).  This animal ({self.serum_sample.animal}) "
+                    "only has 1 serum sample, so it's of no real concern (yet)."
+                )
+
         if valid:
-            messages.append(
-                "No problems found with the serum tracer peak group, sample collection time, or MSRun date."
+            overall = 0
+            messages.insert(
+                0,
+                "No significant problems found with the peak group, sample collection time, or MSRun date."
             )
 
-        return {"valid": valid, "level": level, "message": "\n\n".join(messages)}
+        # Any int produced from this bit str less than 000000100 should be status "good" (i.e. code < 4)
+        # Serious issues should be at the top and get less severe as you descend...
+        bit_str = "".join([str(b) for b in [
+            no_pgs,
+            stc_many_last,
+            last_ss,
+            stc_sibling,
+            stc_many_prev,
+            msr_date_many,
+            overall,
+            stc_one,
+            msr_date_one,
+        ]])
+
+        code = int(bit_str, 2)
+
+        code_str = f"Status: {level} Code: {code}."
+
+        # If we're in debug mode, include the bit string
+        if settings.DEBUG:
+            code_str += f"  Bit Code: {bit_str} Bit Names: ("
+            code_str += " ,".join([
+                "no_pgs",
+                "stc_many_last",
+                "last_ss",
+                "stc_sibling",
+                "stc_many_prev",
+                "msr_date_many",
+                "overall",
+                "stc_one",
+                "msr_date_one",
+            ])
+            code_str += ")"
+
+        # Prepend the status message to the messages array
+        messages.insert(0, code_str)
+
+        return {"valid": valid, "level": level, "code": code, "bitcode": bit_str, "message": "\n\n".join(messages)}
 
     @property  # type: ignore
     @cached_function

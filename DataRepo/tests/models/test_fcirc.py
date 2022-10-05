@@ -188,7 +188,7 @@ class FCircTests(TracebaseTestCase):
         for fcr in self.lss.fcircs.all():
             print(f"lss messages: {fcr.serum_validity['message']}")
             self.assertTrue(fcr.serum_validity["valid"])
-            self.assertIn("No problems found", fcr.serum_validity["message"])
+            self.assertIn("No significant problems found", fcr.serum_validity["message"])
             self.assertEqual("good", fcr.serum_validity["level"])
 
     def test_serum_validity_no_peakgroup(self):
@@ -227,11 +227,10 @@ class FCircTests(TracebaseTestCase):
 
         for fcr in self.lss.fcircs.all():
             self.assertFalse(fcr.serum_validity["valid"])
+            print(f"bitcode: {fcr.serum_validity['bitcode']}")
+            print(f"message: {fcr.serum_validity['message']}")
             self.assertIn(
-                (
-                    "The sample time collected for this last serum tracer peak group for tracer (lysine-(13C6)) and "
-                    "sample (serum-xz971) used in the FCirc calculations for this record is not set"
-                ),
+                "The sample time collected is not set for this last serum tracer peak group",
                 fcr.serum_validity["message"]
             )
             self.assertEqual("error", fcr.serum_validity["level"])
