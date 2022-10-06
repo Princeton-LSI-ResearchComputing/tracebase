@@ -43,7 +43,7 @@ class ProtocolLoadingTests(TracebaseTestCase):
         self.assertEqual(Protocol.objects.count(), 0)
 
     def test_protocols_loader_without_bad_category_error(self):
-        """Test the ProtocolsLoader with dataframe missing category"""
+        """Test the ProtocolsLoader with an improper category"""
         protocol_loader = ProtocolsLoader(
             protocols=self.working_df,
             category="Some Nonsense Category",
