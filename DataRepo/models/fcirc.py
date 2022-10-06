@@ -172,21 +172,21 @@ class FCirc(MaintainedModel, HierCachedModel):
         valid = True
         messages = []
         level = "good"
-        last_str = "previous"
-        no_pgs = 0
-        last_ss = 0
-        stc_many_last = 0
-        stc_many_prev = 0
-        stc_sibling = 0
-        stc_one = 0  # If 1, status is still good
-        msr_date_one = 0  # If 1, status is still good
-        msr_date_many = 0
+        prev_or_last_str = "previous"
+        srmsmpl_has_no_trcr_pgs = 0
+        last_trcr_pg_but_prev_srmsmpl = 0
+        last_trcr_pg_but_smpl_tmclctd_is_none_amng_many = 0
+        prev_smpl_tmclctd_is_none_amng_many = 0
+        sib_of_last_smpl_tmclctd_is_none = 0
+        tmclctd_is_none_but_only1_smpl = 0  # If 1, status is still good
+        msr_date_is_none_but_only1_msr_for_smpl = 0  # If 1, status is still good
+        msr_date_is_none_and_many_msrs_for_smpl = 0
         overall = 1
 
         if self.last_peak_group_in_sample is None:
             valid = False
             level = "error"
-            no_pgs = 1
+            srmsmpl_has_no_trcr_pgs = 1
             messages.append(
                 f"No serum tracer peak group found for sample {self.serum_sample} and tracer {self.tracer}."
             )
@@ -196,7 +196,7 @@ class FCirc(MaintainedModel, HierCachedModel):
             # If this record's peak group (the one associated with self.serum_sample and self.tracer) used in the
             # calculations is the animal's last such peak group
             if self.is_last_serum_peak_group():
-                last_str = "last"
+                prev_or_last_str = "last"
 
                 # If self.serum_sample is not the animal's last serum sample
                 if (
@@ -205,7 +205,7 @@ class FCirc(MaintainedModel, HierCachedModel):
                 ):
                     valid = False
                     level = "warn"
-                    last_ss = 1
+                    last_trcr_pg_but_prev_srmsmpl = 1
                     messages.append(
                         f"Animal {self.serum_sample.animal}'s last serum sample "
                         f"({self.serum_sample.animal.last_serum_sample}) is not being used for calculations for "
@@ -230,7 +230,7 @@ class FCirc(MaintainedModel, HierCachedModel):
                 if len(tc_none_samples) > 0:
                     valid = False
                     level = "warn"
-                    stc_sibling = 1
+                    sib_of_last_smpl_tmclctd_is_none = 1
                     messages.append(
                         f"This serum sample {self.serum_sample} is assumed to be last, but serum sample(s) "
                         f"[{', '.join(tc_none_samples)}] from animal {self.serum_sample.animal} have no recorded time "
@@ -245,9 +245,9 @@ class FCirc(MaintainedModel, HierCachedModel):
             ):
                 valid = False
                 level = "warn"
-                msr_date_many = 1
+                msr_date_is_none_and_many_msrs_for_smpl = 1
                 messages.append(
-                    f"The MSRun date is not set for this {last_str} serum tracer peak group for sample "
+                    f"The MSRun date is not set for this {prev_or_last_str} serum tracer peak group for sample "
                     f"{self.serum_sample} and tracer {self.tracer}, so it's possible these FCirc calculations should "
                     "or should not be for the 'last' peak group for this serum sample."
                 )
@@ -256,9 +256,9 @@ class FCirc(MaintainedModel, HierCachedModel):
                 and self.serum_sample.msruns.count() == 1
             ):
                 # This doesn't trigger/override the valid or level settings, but it does append a message
-                msr_date_one = 1
+                msr_date_is_none_but_only1_msr_for_smpl = 1
                 messages.append(
-                    f"The MSRun date is not set for this {last_str} serum tracer peak group for sample "
+                    f"The MSRun date is not set for this {prev_or_last_str} serum tracer peak group for sample "
                     f"{self.serum_sample} and tracer {self.tracer}, but there's only 1 MSRun for this sample, so it's "
                     "of no real concern (yet)."
                 )
@@ -275,23 +275,23 @@ class FCirc(MaintainedModel, HierCachedModel):
                 valid = False
                 if self.is_last_serum_peak_group():
                     level = "error"
-                    stc_many_last = 1
+                    last_trcr_pg_but_smpl_tmclctd_is_none_amng_many = 1
                 else:
                     level = "warn"
-                    stc_many_prev = 1
+                    prev_smpl_tmclctd_is_none_amng_many = 1
                 messages.append(
-                    f"The sample time collected is not set for this {last_str} serum tracer peak group for tracer "
-                    f"({self.tracer}) and sample ({self.serum_sample}).  This animal ({self.serum_sample.animal}) has "
-                    f"{num_serum_samples} serum samples, so it's possible the FCirc calculations for this record "
-                    "should or should not be for the 'last' serum sample."
+                    f"The sample time collected is not set for this {prev_or_last_str} serum tracer peak group for "
+                    f"tracer ({self.tracer}) and sample ({self.serum_sample}).  This animal "
+                    f"({self.serum_sample.animal}) has {num_serum_samples} serum samples, so it's possible the FCirc "
+                    "calculations for this record should or should not be for the 'last' serum sample."
                 )
             elif self.serum_sample.time_collected is None:
                 # This doesn't trigger/override the valid or level settings, but it does append a message
-                stc_one = 1
+                tmclctd_is_none_but_only1_smpl = 1
                 messages.append(
-                    f"The sample time collected is not set for this {last_str} serum tracer peak group for tracer "
-                    f"({self.tracer}) and sample ({self.serum_sample}).  This animal ({self.serum_sample.animal}) "
-                    "only has 1 serum sample, so it's of no real concern (yet)."
+                    f"The sample time collected is not set for this {prev_or_last_str} serum tracer peak group for "
+                    f"tracer ({self.tracer}) and sample ({self.serum_sample}).  This animal "
+                    f"({self.serum_sample.animal}) only has 1 serum sample, so it's of no real concern (yet)."
                 )
 
         if valid:
@@ -307,15 +307,15 @@ class FCirc(MaintainedModel, HierCachedModel):
             [
                 str(b)
                 for b in [
-                    no_pgs,
-                    stc_many_last,
-                    last_ss,
-                    stc_sibling,
-                    stc_many_prev,
-                    msr_date_many,
+                    srmsmpl_has_no_trcr_pgs,
+                    last_trcr_pg_but_smpl_tmclctd_is_none_amng_many,
+                    last_trcr_pg_but_prev_srmsmpl,
+                    sib_of_last_smpl_tmclctd_is_none,
+                    prev_smpl_tmclctd_is_none_amng_many,
+                    msr_date_is_none_and_many_msrs_for_smpl,
                     overall,
-                    stc_one,
-                    msr_date_one,
+                    tmclctd_is_none_but_only1_smpl,
+                    msr_date_is_none_but_only1_msr_for_smpl,
                 ]
             ]
         )
@@ -329,15 +329,15 @@ class FCirc(MaintainedModel, HierCachedModel):
             code_str += f"  Bit Code: {bit_str} Bit Names: ("
             code_str += " ,".join(
                 [
-                    "no_pgs",
-                    "stc_many_last",
-                    "last_ss",
-                    "stc_sibling",
-                    "stc_many_prev",
-                    "msr_date_many",
+                    "srmsmpl_has_no_trcr_pgs",
+                    "last_trcr_pg_but_smpl_tmclctd_is_none_amng_many",
+                    "last_trcr_pg_but_prev_srmsmpl",
+                    "sib_of_last_smpl_tmclctd_is_none",
+                    "prev_smpl_tmclctd_is_none_amng_many",
+                    "msr_date_is_none_and_many_msrs_for_smpl",
                     "overall",
-                    "stc_one",
-                    "msr_date_one",
+                    "tmclctd_is_none_but_only1_smpl",
+                    "msr_date_is_none_but_only1_msr_for_smpl",
                 ]
             )
             code_str += ")"

@@ -187,16 +187,23 @@ class FCircTests(TracebaseTestCase):
             self.assertEqual("error", fcr.serum_validity["level"])
 
             # The bits in the following test explained...
-            # 1 - no_pgs - 1 = No peak groups exist for this serum sample/tracer combo.
-            # 0 - stc_many_last - 0 = "I" am either a serum sample holding a "not last" peakgroup for my tracer or I
-            #                         have a time collected.
-            # 0 - last_ss - 0 = My serum sample has the last peakgroup for my tracer and I'm the last serum sample.
-            # 0 - stc_sibling - 0 = There are either no other serum samples or they all have a time_collected.
-            # 0 - stc_many_prev - 0 = There is either only 1 serum sample or (I'm not last and I have a time_collected).
-            # 0 - msr_date_many - 0 = This FCirc record's serum sample either has only 1 MSRun or its date has a value.
+            # 1 - srmsmpl_has_no_trcr_pgs - 1 = No peak groups exist for this serum sample/tracer combo.
+            # 0 - last_trcr_pg_but_smpl_tmclctd_is_none_amng_many - 0 = "I" am either a serum sample holding a "not
+            #                                                           last" peakgroup for my tracer or I have a time
+            #                                                           collected.
+            # 0 - srmsmpl_has_no_trcr_pgs - 0 = My serum sample has the last peakgroup for my tracer and I'm the last
+            #                                   serum sample.
+            # 0 - sib_of_last_smpl_tmclctd_is_none - 0 = There are either no other serum samples or they all have a
+            #                                            time_collected.
+            # 0 - prev_smpl_tmclctd_is_none_amng_many - 0 = There is either only 1 serum sample or (I'm not last and I
+            #                                               have a time_collected).
+            # 0 - msr_date_is_none_and_many_msrs_for_smpl - 0 = This FCirc record's serum sample either has only 1
+            #                                                   MSRun or its date has a value.
             # 1 - overall - 1 = Status is not "good" overall.
-            # 0 - stc_one - 0 = There are either multiple serum samples or there is 1 and it has a time collected.
-            # 0 - msr_date_one - 0 = There are either many MSRuns for this serum sample or there is 1 & it has a date.
+            # 0 - tmclctd_is_none_but_only1_smpl - 0 = There are either multiple serum samples or there is 1 and it has
+            #                                          a time collected.
+            # 0 - msr_date_is_none_but_only1_msr_for_smpl - 0 = There are either many MSRuns for this serum sample or
+            #                                                   there is 1 & it has a date.
             self.assertEqual("100000100", fcr.serum_validity["bitcode"])
 
     def test_serum_validity_no_time_collected(self):
@@ -217,16 +224,23 @@ class FCircTests(TracebaseTestCase):
             self.assertEqual("error", fcr.serum_validity["level"])
 
             # The bits in the following test explained...
-            # 0 - no_pgs - 0 = Peak groups exist for this serum sample/tracer combo.
-            # 1 - stc_many_last - 1 = "I" am the serum sample for the last peakgroup for this tracer, other serum
-            #                         samples exist, and "my" time collected is null.
-            # 1 - last_ss - 1 = My serum sample has the last peakgroup for my tracer but I'm not the last serum sample.
-            # 0 - stc_sibling - 0 = There are either no other serum samples or they all have a time_collected.
-            # 0 - stc_many_prev - 0 = There is either only 1 serum sample or (I'm not last and I have a time_collected).
-            # 0 - msr_date_many - 0 = This FCirc record's serum sample either has only 1 MSRun or its date has a value.
+            # 0 - srmsmpl_has_no_trcr_pgs - 0 = Peak groups exist for this serum sample/tracer combo.
+            # 1 - last_trcr_pg_but_smpl_tmclctd_is_none_amng_many - 1 = "I" am the serum sample for the last peakgroup
+            #                                                           for this tracer, other serum samples exist, and
+            #                                                           "my" time collected is null.
+            # 1 - srmsmpl_has_no_trcr_pgs - 1 = My serum sample has the last peakgroup for my tracer but I'm not the
+            #                                   last serum sample.
+            # 0 - sib_of_last_smpl_tmclctd_is_none - 0 = There are either no other serum samples or they all have a
+            #                                            time_collected.
+            # 0 - prev_smpl_tmclctd_is_none_amng_many - 0 = There is either only 1 serum sample or (I'm not last and I
+            #                                               have a time_collected).
+            # 0 - msr_date_is_none_and_many_msrs_for_smpl - 0 = This FCirc record's serum sample either has only 1
+            #                                                   MSRun or its date has a value.
             # 1 - overall - 1 = Status is not "good" overall.
-            # 0 - stc_one - 0 = There are either multiple serum samples or there is 1 and it has a time collected.
-            # 0 - msr_date_one - 0 = There are either many MSRuns for this serum sample or there is 1 & it has a date.
+            # 0 - tmclctd_is_none_but_only1_smpl - 0 = There are either multiple serum samples or there is 1 and it has
+            #                                          a time collected.
+            # 0 - msr_date_is_none_but_only1_msr_for_smpl - 0 = There are either many MSRuns for this serum sample or
+            #                                                   there is 1 & it has a date.
             self.assertEqual("011000100", fcr.serum_validity["bitcode"])
 
         self.lss.time_collected = tcbak
@@ -253,16 +267,23 @@ class FCircTests(TracebaseTestCase):
             self.assertEqual("warn", fcr.serum_validity["level"])
 
             # The bits in the following test explained...
-            # 0 - no_pgs - 0 = Peak groups exist for this serum sample/tracer combo.
-            # 0 - stc_many_last - 0 = "I" am either a serum sample holding a "not last" peakgroup for my tracer or I
-            #                         have a time collected.
-            # 0 - last_ss - 0 = My serum sample has the last peakgroup for my tracer and I'm the last serum sample.
-            # 1 - stc_sibling - 1 = There are multiple serum samples and some don't have a time_collected.
-            # 0 - stc_many_prev - 0 = There is either only 1 serum sample or (I'm not last and I have a time_collected).
-            # 0 - msr_date_many - 0 = This FCirc record's serum sample either has only 1 MSRun or its date has a value.
+            # 0 - srmsmpl_has_no_trcr_pgs - 0 = Peak groups exist for this serum sample/tracer combo.
+            # 0 - last_trcr_pg_but_smpl_tmclctd_is_none_amng_many - 0 = "I" am either a serum sample holding a "not
+            #                                                           last" peakgroup for my tracer or I have a time
+            #                                                           collected.
+            # 0 - srmsmpl_has_no_trcr_pgs - 0 = My serum sample has the last peakgroup for my tracer and I'm the last
+            #                                   serum sample.
+            # 1 - sib_of_last_smpl_tmclctd_is_none - 1 = There are multiple serum samples and some don't have a
+            #                                            time_collected.
+            # 0 - prev_smpl_tmclctd_is_none_amng_many - 0 = There is either only 1 serum sample or (I'm not last and I
+            #                                               have a time_collected).
+            # 0 - msr_date_is_none_and_many_msrs_for_smpl - 0 = This FCirc record's serum sample either has only 1
+            #                                                   MSRun or its date has a value.
             # 1 - overall - 1 = Status is not "good" overall.
-            # 0 - stc_one - 0 = There are either multiple serum samples or there is 1 and it has a time collected.
-            # 0 - msr_date_one - 0 = There are either many MSRuns for this serum sample or there is 1 & it has a date.
+            # 0 - tmclctd_is_none_but_only1_smpl - 0 = There are either multiple serum samples or there is 1 and it has
+            #                                          a time collected.
+            # 0 - msr_date_is_none_but_only1_msr_for_smpl - 0 = There are either many MSRuns for this serum sample or
+            #                                                   there is 1 & it has a date.
             self.assertEqual("000100100", fcr.serum_validity["bitcode"])
 
         self.newlss.time_collected = tcbak
@@ -273,7 +294,7 @@ class FCircTests(TracebaseTestCase):
         self.newlss.time_collected = None
         self.newlss.save()
 
-        # To get to the stc_many_prev state of 1, there must exist peakgroups for newlss
+        # To get to the prev_smpl_tmclctd_is_none_amng_many state of 1, there must exist peakgroups for newlss
         # Create new protocol, msrun, peak group, and peak group labels
         ptl = Protocol.objects.create(
             name="p1",
@@ -314,16 +335,22 @@ class FCircTests(TracebaseTestCase):
             self.assertEqual("warn", fcr.serum_validity["level"])
 
             # The bits in the following test explained...
-            # 0 - no_pgs - 0 = Peak groups exist for this serum sample/tracer combo.
-            # 0 - stc_many_last - 0 = "I" am either a serum sample holding a "not last" peakgroup for my tracer or I
-            #                         have a time collected.
-            # 0 - last_ss - 0 = My serum sample has the last peakgroup for my tracer and I'm the last serum sample.
-            # 0 - stc_sibling - 1 = There are multiple serum samples and some don't have a time_collected.
-            # 1 - stc_many_prev - 1 = There are many serum samples and my time_collected is null.
-            # 0 - msr_date_many - 0 = This FCirc record's serum sample either has only 1 MSRun or its date has a value.
+            # 0 - srmsmpl_has_no_trcr_pgs - 0 = Peak groups exist for this serum sample/tracer combo.
+            # 0 - last_trcr_pg_but_smpl_tmclctd_is_none_amng_many - 0 = "I" am either a serum sample holding a "not
+            #                                                           last" peakgroup for my tracer or I have a time
+            #                                                           collected.
+            # 0 - srmsmpl_has_no_trcr_pgs - 0 = My serum sample has the last peakgroup for my tracer and I'm the last
+            #                                   serum sample.
+            # 0 - sib_of_last_smpl_tmclctd_is_none - 1 = There are multiple serum samples and some don't have a
+            #                                            time_collected.
+            # 1 - prev_smpl_tmclctd_is_none_amng_many - 1 = There are many serum samples and my time_collected is null.
+            # 0 - msr_date_is_none_and_many_msrs_for_smpl - 0 = This FCirc record's serum sample either has only 1
+            #                                                   MSRun or its date has a value.
             # 1 - overall - 1 = Status is not "good" overall.
-            # 0 - stc_one - 0 = There are either multiple serum samples or there is 1 and it has a time collected.
-            # 0 - msr_date_one - 0 = There are either many MSRuns for this serum sample or there is 1 & it has a date.
+            # 0 - tmclctd_is_none_but_only1_smpl - 0 = There are either multiple serum samples or there is 1 and it has
+            #                                          a time collected.
+            # 0 - msr_date_is_none_but_only1_msr_for_smpl - 0 = There are either many MSRuns for this serum sample or
+            #                                                   there is 1 & it has a date.
             self.assertEqual("000010100", fcr.serum_validity["bitcode"])
 
         self.newlss.time_collected = tcbak
