@@ -54,13 +54,6 @@ class FCircTests(TracebaseTestCase):
         # Get its last serum sample
         lss = animal.last_serum_sample
 
-        # This isn't working here in setUpTestData. It was moved from setUp. For now, I'm ignoring it
-        # TODO: Make this work SOMEWHERE
-        # # For the validity of the test, assert there exist FCirc records and that they are for the last peak groups
-        # cls.assertTrue(lss.fcircs.count() > 0)
-        # for fco in lss.fcircs.all():
-        #     cls.assertTrue(fco.is_last)
-
         # Now create a new last serum sample (without any peak groups)
         tissue = lss.tissue
         tc = lss.time_collected + timedelta(seconds=1)
@@ -68,17 +61,8 @@ class FCircTests(TracebaseTestCase):
             animal=animal, name=lss.name + "_2", tissue=tissue, time_collected=tc
         )
 
-        # # Create new FCirc records
-        # new_fcircs = []
-        # for tracer in animal.infusate.tracers.all():
-        #     for label in tracer.labels.all():
-        #         fcr = FCirc.objects.create(serum_sample=nlss, tracer=tracer, element=label.element)
-        #         new_fcircs.append(fcr)
-
         cls.lss = lss
         cls.newlss = nlss
-        # cls.new_fcircs = new_fcircs
-        print(f"New last serum sample in setUpTestData: {cls.newlss}")
 
         super().setUpTestData()
 
@@ -104,9 +88,6 @@ class FCircTests(TracebaseTestCase):
             1. Confirm all FCirc.is_last values related to the old serum sample are now false.
         """
 
-        print(f"New last serum sample: {self.newlss}")
-
-        # with transaction.atomic():
         # Create new protocol, msrun, peak group, and peak group labels
         ptl = Protocol.objects.create(
             name="p1",
@@ -186,10 +167,10 @@ class FCircTests(TracebaseTestCase):
         # does not.  This depends on autoupdates to update Animal.last_serum_sample
         self.newlss.delete()
         for fcr in self.lss.fcircs.all():
-            print(f"lss messages: {fcr.serum_validity['message']}")
             self.assertTrue(fcr.serum_validity["valid"])
             self.assertIn("No significant problems found", fcr.serum_validity["message"])
             self.assertEqual("good", fcr.serum_validity["level"])
+            self.assertEqual("000000000", fcr.serum_validity["bitcode"])
 
     def test_serum_validity_no_peakgroup(self):
         # Create FCirc records for self.newlss
@@ -201,42 +182,41 @@ class FCircTests(TracebaseTestCase):
 
         self.assertTrue(self.newlss.fcircs.count() > 0)
         for fcr in self.newlss.fcircs.all():
+            print("test_serum_validity_no_peakgroup")
+            print(fcr.serum_validity["bitcode"])
+            print(fcr.serum_validity["message"])
             self.assertFalse(fcr.serum_validity["valid"])
             self.assertIn("No serum", fcr.serum_validity["message"])
             self.assertEqual("error", fcr.serum_validity["level"])
+            self.assertEqual("100000100", fcr.serum_validity["bitcode"])
 
     def test_serum_validity_no_time_collected(self):
-        # Create FCirc records for self.newlss
-        for tracer in self.lss.animal.infusate.tracers.all():
-            for label in tracer.labels.all():
-                FCirc.objects.create(
-                    serum_sample=self.newlss, tracer=tracer, element=label.element
-                )
+        # When we null the time collected for lss, newlss is still the last serun sample, but the fcirc record for the
+        # original lss is still the "last" one with peak groups - because we haven't added any peak groups to newlss
+        # for this test
 
+        tcbak = self.lss.time_collected
         self.lss.time_collected = None
         self.lss.save()
 
-        # We must set newlss's time_collected to None because there needs to be multiple serum samples to trigger this
-        # specific error.  I.e. If there is only one serum sample, the state of time_collected being None is ignored.
-        # But, if we leave newlss with a time_collected, it would be the last serum sample and its error would be
-        # related to having no peak groups.
-
-        tcbak = self.newlss.time_collected
-        self.newlss.time_collected = None
-        self.newlss.save()
-
         for fcr in self.lss.fcircs.all():
             self.assertFalse(fcr.serum_validity["valid"])
-            print(f"bitcode: {fcr.serum_validity['bitcode']}")
-            print(f"message: {fcr.serum_validity['message']}")
             self.assertIn(
                 "The sample time collected is not set for this last serum tracer peak group",
                 fcr.serum_validity["message"]
             )
             self.assertEqual("error", fcr.serum_validity["level"])
 
-        self.newlss.time_collected = tcbak
-        self.newlss.save()
+            # The first 4 bits, explained
+            # 0 - no_phgs - lss does have peak groups
+            # 1 - stc_many_last - This is the last rec used for fcirc calcs, but there is another serum sample and this
+            #                     sample has a null time colelcted
+            # 1 - last_ss - This is the last rec used for fcirc calcs, but its serum sample isn't the last serum sample
+            # 0 - stc_sibling - The sibling fcirc rec's serum sample has a time collected
+            self.assertEqual("011000100", fcr.serum_validity["bitcode"])
+
+        self.lss.time_collected = tcbak
+        self.lss.save()
 
     def test_serum_validity_previous_has_null_time_collected(self):
         tcbak = self.newlss.time_collected
@@ -256,10 +236,14 @@ class FCircTests(TracebaseTestCase):
 
         self.assertTrue(self.newlss.fcircs.count() > 0)
         for fcr in self.lss.fcircs.all():
-            print(f"lss messages: {fcr.serum_validity['message']}")
+            print("test_serum_validity_previous_has_null_time_collected")
+            print(fcr.serum_validity["bitcode"])
+            print(fcr.serum_validity["message"])
+            self.assertTrue(fcr.is_last)
             self.assertFalse(fcr.serum_validity["valid"])
             self.assertIn("may not actually be the last one", fcr.serum_validity["message"])
             self.assertEqual("warn", fcr.serum_validity["level"])
+            self.assertEqual("000100100", fcr.serum_validity["bitcode"])
 
         self.newlss.time_collected = tcbak
         self.newlss.save()
@@ -307,10 +291,13 @@ class FCircTests(TracebaseTestCase):
 
         self.assertTrue(self.newlss.fcircs.count() > 0)
         for fcr in self.lss.fcircs.all():
-            print(f"lss messages: {fcr.serum_validity['message']}")
+            print("test_serum_validity_not_last")
+            print(fcr.serum_validity["bitcode"])
+            print(fcr.serum_validity["message"])
             self.assertFalse(fcr.serum_validity["valid"])
             self.assertIn("may not actually be the last one", fcr.serum_validity["message"])
             self.assertEqual("warn", fcr.serum_validity["level"])
+            self.assertEqual("000100100", fcr.serum_validity["bitcode"])
 
         self.newlss.time_collected = tcbak
         self.newlss.save()
