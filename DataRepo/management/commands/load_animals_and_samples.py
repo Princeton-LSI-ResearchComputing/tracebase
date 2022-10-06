@@ -178,6 +178,7 @@ class Command(BaseCommand):
             database=options["database"],
             validate=options["validate"],
             category=cv,
+            dry_run=options["debug"],
         )
         protocol_loader.load()
 
