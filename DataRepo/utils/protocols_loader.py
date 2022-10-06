@@ -4,6 +4,7 @@ from django.db import IntegrityError, transaction
 
 from DataRepo.models import Protocol
 from DataRepo.utils.exceptions import (
+    DryRun,
     LoadingError,
     ValidationDatabaseSetupError,
 )
@@ -14,9 +15,10 @@ class ProtocolsLoader:
     Load the Protocols table
     """
 
-    def __init__(self, protocols, category=None, database=None, validate=False):
+    def __init__(self, protocols, category=None, database=None, validate=False, dry_run=True):
         self.protocols = protocols
         self.protocols.columns = self.protocols.columns.str.lower()
+        self.dry_run = dry_run
         self.category = category
         # List of exceptions
         self.errors = []
@@ -134,6 +136,8 @@ class ProtocolsLoader:
                 message += f"{err}\n"
 
             raise LoadingError(f"Errors during protocol loading :\n {message}")
+        if self.dry_run:
+            raise DryRun("DRY-RUN successful")
 
     def get_stats(self):
         dbs = [settings.TRACEBASE_DB]
