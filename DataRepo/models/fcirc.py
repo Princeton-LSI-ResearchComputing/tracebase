@@ -199,7 +199,10 @@ class FCirc(MaintainedModel, HierCachedModel):
                 last_str = "last"
 
                 # If self.serum_sample is not the animal's last serum sample
-                if self.serum_sample.id != self.serum_sample.animal.last_serum_sample.id:
+                if (
+                    self.serum_sample.id
+                    != self.serum_sample.animal.last_serum_sample.id
+                ):
                     valid = False
                     level = "warn"
                     last_ss = 1
@@ -248,7 +251,10 @@ class FCirc(MaintainedModel, HierCachedModel):
                     f"{self.serum_sample} and tracer {self.tracer}, so it's possible these FCirc calculations should "
                     "or should not be for the 'last' peak group for this serum sample."
                 )
-            elif self.last_peak_group_in_sample.msrun.date is None and self.serum_sample.msruns.count() == 1:
+            elif (
+                self.last_peak_group_in_sample.msrun.date is None
+                and self.serum_sample.msruns.count() == 1
+            ):
                 # This doesn't trigger/override the valid or level settings, but it does append a message
                 msr_date_one = 1
                 messages.append(
@@ -292,22 +298,27 @@ class FCirc(MaintainedModel, HierCachedModel):
             overall = 0
             messages.insert(
                 0,
-                "No significant problems found with the peak group, sample collection time, or MSRun date."
+                "No significant problems found with the peak group, sample collection time, or MSRun date.",
             )
 
         # Any int produced from this bit str less than 000000100 should be status "good" (i.e. code < 4)
         # Serious issues should be at the top and get less severe as you descend...
-        bit_str = "".join([str(b) for b in [
-            no_pgs,
-            stc_many_last,
-            last_ss,
-            stc_sibling,
-            stc_many_prev,
-            msr_date_many,
-            overall,
-            stc_one,
-            msr_date_one,
-        ]])
+        bit_str = "".join(
+            [
+                str(b)
+                for b in [
+                    no_pgs,
+                    stc_many_last,
+                    last_ss,
+                    stc_sibling,
+                    stc_many_prev,
+                    msr_date_many,
+                    overall,
+                    stc_one,
+                    msr_date_one,
+                ]
+            ]
+        )
 
         code = int(bit_str, 2)
 
@@ -316,23 +327,31 @@ class FCirc(MaintainedModel, HierCachedModel):
         # If we're in debug mode, include the bit string
         if settings.DEBUG:
             code_str += f"  Bit Code: {bit_str} Bit Names: ("
-            code_str += " ,".join([
-                "no_pgs",
-                "stc_many_last",
-                "last_ss",
-                "stc_sibling",
-                "stc_many_prev",
-                "msr_date_many",
-                "overall",
-                "stc_one",
-                "msr_date_one",
-            ])
+            code_str += " ,".join(
+                [
+                    "no_pgs",
+                    "stc_many_last",
+                    "last_ss",
+                    "stc_sibling",
+                    "stc_many_prev",
+                    "msr_date_many",
+                    "overall",
+                    "stc_one",
+                    "msr_date_one",
+                ]
+            )
             code_str += ")"
 
         # Prepend the status message to the messages array
         messages.insert(0, code_str)
 
-        return {"valid": valid, "level": level, "code": code, "bitcode": bit_str, "message": "\n\n".join(messages)}
+        return {
+            "valid": valid,
+            "level": level,
+            "code": code,
+            "bitcode": bit_str,
+            "message": "\n\n".join(messages),
+        }
 
     @property  # type: ignore
     @cached_function

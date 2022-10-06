@@ -15,14 +15,6 @@ performing_mass_autoupdates = False
 buffering = True
 updater_list: Dict[str, List] = defaultdict(list)
 
-TME_ADVICE = (
-    "Generally, auto-updates do not cause a problem, but in certain situations in tests, where the code triggering "
-    "the autoupdates is located can cause a problem due to django wrapping every test in a transaction.  It can "
-    "usually be avoided by keeping database loads inside setUpTestData and inside any specific test.  Querys inside "
-    "setUp can trigger this error.  If this is occurring outside of tests, to avoid this, the entire transaction must "
-    "be done without autoupdates by calling disable_autoupdates() before the transaction block, and after the atomic "
-    "transaction block - calling perform_mass_autoupdates() to make the updates."
-)
 
 def disable_autoupdates():
     """
@@ -463,18 +455,23 @@ class MaintainedModel(Model):
         # TransactionManagementError - just skip it
         try:
             super().save(*args, **kwargs)
-        except (IntegrityError, ForeignKeyViolation, TransactionManagementError) as uc:
-            if (
-                "violates foreign key constraint" in str(uc)
-                or "duplicate key value violates unique constraint" in str(uc)
-                or "You can't execute queries until the end of the 'atomic' block" in str(uc)
-            ):
+        except (IntegrityError, ForeignKeyViolation) as uc:
+            if "violates foreign key constraint" in str(
+                uc
+            ) or "duplicate key value violates unique constraint" in str(uc):
                 warnings.warn(
                     f"Ignoring {uc.__class__.__name__} exception during auto-update of {self.__class__.__name__}."
                     f"{self.id}: [{str(uc)}]."
                 )
             else:
                 raise uc
+        except TransactionManagementError as tme:
+            if "You can't execute queries until the end of the 'atomic' block" in str(
+                tme
+            ):
+                self.transaction_management_warning(tme, self)
+            else:
+                raise tme
 
         # We don't need to check performing_mass_autoupdates, because propagating changes during buffered updates is
         # handled differently (in a breadth-first fashion) to mitigate repeated updates of the same parent record
@@ -520,8 +517,8 @@ class MaintainedModel(Model):
                         current_val = getattr(self, update_fld)
                     except Exception as e:
                         warnings.warn(
-                            f"Unknown error getting current value: [{str(e)}].  Possibly due to this being triggered by a "
-                            "deleted record that is linked in a related model's maintained field."
+                            f"Unknown error getting current value: [{str(e)}].  Possibly due to this being triggered "
+                            "by a deleted record that is linked in a related model's maintained field."
                         )
                         current_val = "<error>"
                     new_val = update_fun()
@@ -535,13 +532,8 @@ class MaintainedModel(Model):
                         f"using {update_fun.__qualname__} from [{current_val}] to [{new_val}]."
                     )
                 except TransactionManagementError as tme:
-                    warnings.warn(
-                        f"Error while updating field ({update_fld}) using update function ({update_fun.__name__}) of "
-                        f"{self.__class__.__name__} '{self}'.\n\nThis likely involves a query on a record "
-                        "that was created in this same atomic transaction and a related record creation/edit "
-                        "is attempting to trigger its auto-update.  For now, we will ignore this auto-update and auto-"
-                        "updates can be fixed afterwards by running `python manage.py rebuild_maintained_fields`.\n\n"
-                        f"{TME_ADVICE}\n\nThe error that occurred: {tme}"
+                    self.transaction_management_warning(
+                        tme, self, None, updater_dict, "self"
                     )
 
     def call_dfs_related_updaters(self, updated=None):
@@ -636,13 +628,13 @@ class MaintainedModel(Model):
                         else:
                             raise NotMaintained(tmp_parent_inst, self)
                     except TransactionManagementError as tme:
-                        warnings.warn(
-                            f"Error while looking for parents ({parent_fld}) of {self.__class__.__name__} '{self}'."
-                            "\n\nThis is likely a query involving a record that was created in this same atomic "
-                            "transaction and a related record creation/edit is attempting to trigger its auto-"
-                            "update.  For now, we will ignore this auto-update and auto-updates can be fixed "
-                            f"afterwards by running `python manage.py rebuild_maintained_fields`.\n\n{TME_ADVICE}\n\n"
-                            f"The error that occurred: {tme}"
+                        self.transaction_management_warning(
+                            tme,
+                            self,
+                            tmp_parent_inst,
+                            updater_dict,
+                            "parent",
+                            parent_fld,
                         )
 
         return parents
@@ -729,13 +721,13 @@ class MaintainedModel(Model):
                             elif tmp_child_inst.count() > 0:
                                 raise NotMaintained(tmp_child_inst.first(), self)
                         except TransactionManagementError as tme:
-                            warnings.warn(
-                                f"Error while looking for children ({', '.join(child_flds)}) of "
-                                f"{self.__class__.__name__} '{self}'.\n\nThis is likely a query involving a record "
-                                "that was created in this same atomic transaction and a related record creation/edit "
-                                "is attempting to trigger its auto-update.  But for now, we will ignore this "
-                                "auto-update and auto-updates can be fixed afterwards by running `python manage.py "
-                                f"rebuild_maintained_fields`.\n\n{TME_ADVICE}\n\nThe error that occurred: {tme}"
+                            self.transaction_management_warning(
+                                tme,
+                                self,
+                                tmp_child_inst,
+                                updater_dict,
+                                "child",
+                                child_fld,
                             )
 
                     else:
@@ -781,6 +773,59 @@ class MaintainedModel(Model):
             parents = self.get_parent_instances()
             for parent_inst in parents:
                 update_buffer.append(parent_inst)
+
+    def transaction_management_warning(
+        self,
+        tme,
+        triggering_rec,
+        acting_rec=None,
+        update_dict=None,
+        relationship="self",
+        triggering_field=None,
+    ):
+        """
+        Debugging TransactionManagementErrors can be difficult and confusing, so this warning is an attempt to aid that
+        debugging effort in the future by encapsulating what I have learned to provide insights in how best to address
+        those issues.
+        """
+
+        if relationship == "self" and acting_rec is not None:
+            raise ValueError("acting_rec must be None if relationship is 'self'.")
+        elif relationship != "self" and (
+            acting_rec is None or triggering_field is None
+        ):
+            raise ValueError(
+                "acting_rec and triggering_field are required is relationship is not 'self'."
+            )
+
+        warning_str = "Ignoring TransactionManagementError exception and skipping auto-update.  Details:\n\n"
+
+        if relationship == "self":
+            warning_str += f"\t- Record being updated: [{triggering_rec.__class__.__name__}.{triggering_rec.id}].\n"
+        else:
+            warning_str += f"\t- Record being updated: [{acting_rec.__class__.__name__}.{acting_rec.id}].\n"
+            warning_str += f"\t- Triggering {relationship} field: "
+            warning_str += f"[{triggering_rec.__class__.__name__}.{triggering_field}.{triggering_rec.id}].\n"
+
+        if update_dict is not None:
+            warning_str += f"\t- Update field: [{update_dict['update_field']}].\n"
+            warning_str += f"\t- Update function: [{update_dict['update_function']}].\n"
+
+        explanation = (
+            "Generally, auto-updates do not cause a problem, but in certain situations (particularly in tests), auto-"
+            "updates inside an atomic transaction block can cause a problem due to performing queries on a record "
+            "that is not yet really saved.  For tests (a special case), this can usually be avoided by keeping "
+            "database loads isolated inside setUpTestData and the test function itself.  Note, querys inside setUp() "
+            "can trigger this error.  If this is occurring outside of a test run, to avoid errors, the entire "
+            "transaction should be done without autoupdates by calling disable_autoupdates() before the transaction "
+            "block, and after the atomic transaction block, call perform_mass_autoupdates() to make the updates.  If "
+            "this is a warning, note that auto-updates can be fixed afterwards by running:\n\n\tpython manage.py "
+            "rebuild_maintained_fields\n\n."
+        )
+
+        warning_str += f"\n{explanation}\n\nThe error that occurred: [{str(tme)}]."
+
+        warnings.warn(warning_str)
 
     class Meta:
         abstract = True
