@@ -28,19 +28,17 @@ class MSRun(HierCachedModel, MaintainedModel):
     date = models.DateField(
         help_text="The date that the mass spectrometer was run.",
     )
-    # Don't allow a Protocol to be deleted if an MSRun links to it
+    # Don't delete a Protocol if an MSRun that links to it is deleted
     protocol = models.ForeignKey(
         to="DataRepo.Protocol",
         on_delete=models.RESTRICT,
         limit_choices_to={"category": Protocol.MSRUN_PROTOCOL},
         help_text="The protocol that was used for this mass spectrometer run.",
     )
-    # Don't allow a Sample to be deleted if an MSRun links to it
+    # If an MSRun is deleted, delete its samples
     sample = models.ForeignKey(
         to="DataRepo.Sample",
-        # PR REVIEW NOTE: Seems that this should probably be CASCADE. If you delete a sample, you should delete its
-        #                 msruns...
-        on_delete=models.RESTRICT,
+        on_delete=models.CASCADE,
         related_name="msruns",
         help_text="The sample that was run on the mass spectrometer.",
     )
