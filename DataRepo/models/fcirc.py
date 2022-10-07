@@ -217,12 +217,16 @@ class FCirc(MaintainedModel, HierCachedModel):
                 # actually the last serum sample
                 tc_none_samples = []
                 for s in self.serum_sample.animal.samples.all():
-                    # This checks other "not last" serum tracer peak groups's samples.  The implication here is that if
-                    # a serum sample other than the last serum sample has a null time collected, we are not actually
-                    # sure if the selected "last serum sample" is in fact the last serum sample
+                    # If a serum sample other than self.serum_sample (containing the last peakgroup for self.tracer)
+                    # has a null time collected, we are not actually sure if this presumed "last serum serum tracer
+                    # peakgroup" is in fact last.  Note, we are assuming here though that the sibling serum sample we
+                    # identify actually has a peak group for self.tracer.
                     if (
-                        s.id != self.serum_sample.id
-                        and s._is_serum_sample()
+                        # If this is a serum sample
+                        s._is_serum_sample()
+                        # and is not the serum sample in this fcirc record
+                        and s.id != self.serum_sample.id
+                        # and its time_collected is null
                         and s.time_collected is None
                     ):
                         tc_none_samples.append(str(s))
@@ -238,9 +242,10 @@ class FCirc(MaintainedModel, HierCachedModel):
                         "may not actually be the last one."
                     )
 
-            # If the MSRun date is none and this sample has other MSRuns
             if (
+                # If the date of the MSRun containing the "last" self.tracer peak group is none
                 self.last_peak_group_in_sample.msrun.date is None
+                # and there exist other (potentially last) MSRuns that might contain a self.tracer peak group
                 and self.serum_sample.msruns.count() > 1
             ):
                 valid = False
