@@ -15,7 +15,9 @@ class ProtocolsLoader:
     Load the Protocols table
     """
 
-    def __init__(self, protocols, category=None, database=None, validate=False, dry_run=True):
+    def __init__(
+        self, protocols, category=None, database=None, validate=False, dry_run=True
+    ):
         self.protocols = protocols
         self.protocols.columns = self.protocols.columns.str.lower()
         self.dry_run = dry_run

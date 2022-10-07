@@ -1,7 +1,9 @@
-from DataRepo.utils import DryRun, LoadingError, ProtocolsLoader
-from django.core.management import BaseCommand, CommandError
-import pandas as pd
 import argparse
+
+import pandas as pd
+from django.core.management import BaseCommand, CommandError
+
+from DataRepo.utils import DryRun, LoadingError, ProtocolsLoader
 
 
 class Command(BaseCommand):
@@ -57,7 +59,9 @@ class Command(BaseCommand):
 
         # Keeping `na` to differentiate between intentional empty descriptions and spaces in the first column that were
         # intended to be tab characters
-        new_protocols = pd.read_csv(options["protocols"], sep="\t", keep_default_na=True)
+        new_protocols = pd.read_csv(
+            options["protocols"], sep="\t", keep_default_na=True
+        )
         # rename template columns to ProtocolLoader expectations
         new_protocols.rename(
             inplace=True,
@@ -84,7 +88,9 @@ class Command(BaseCommand):
                     options["protocols"],
                     options["verbosity"],
                 )
-            self.stdout.write(self.style.SUCCESS("DRY-RUN complete, no protocols loaded"))
+            self.stdout.write(
+                self.style.SUCCESS("DRY-RUN complete, no protocols loaded")
+            )
         except LoadingError:
             if options["verbosity"] >= 2:
                 self.print_notices(
@@ -100,7 +106,9 @@ class Command(BaseCommand):
             )
         else:
             self.print_notices(
-                self.protocol_loader.get_stats(), options["protocols"], options["verbosity"]
+                self.protocol_loader.get_stats(),
+                options["protocols"],
+                options["verbosity"],
             )
 
     def print_notices(self, stats, opt, verbosity):
