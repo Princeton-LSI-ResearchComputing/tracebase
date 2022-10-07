@@ -451,27 +451,22 @@ class MaintainedModel(Model):
         # Update the fields that change due to the above change (if any)
         self.update_decorated_fields()
 
-        # If the auto-update resulted in no change, it can produce an error about unique constraints or a
-        # TransactionManagementError - just skip it
+        # If the auto-update resulted in no change or if there exists stale buffer contents for objects that were
+        # previously saved, it can produce an error about unique constraints.  TransactionManagementErrors shpould have
+        # been handled before we got here so that this can proceed to effect the original change that prompted the
+        # save.
         try:
             super().save(*args, **kwargs)
         except (IntegrityError, ForeignKeyViolation) as uc:
-            if "violates foreign key constraint" in str(
-                uc
-            ) or "duplicate key value violates unique constraint" in str(uc):
-                warnings.warn(
-                    f"Ignoring {uc.__class__.__name__} exception during auto-update of {self.__class__.__name__}."
-                    f"{self.id}: [{str(uc)}]."
-                )
+            # If this is a unique constraint error during a mass autoupdate
+            if performing_mass_autoupdates and (
+                "violates foreign key constraint" in str(uc)
+                or "duplicate key value violates unique constraint" in str(uc)
+            ):
+                # Errors about unique constraints during mass autoupdates are often due to stale buffer contents
+                raise LikelyStaleBufferError(self)
             else:
                 raise uc
-        except TransactionManagementError as tme:
-            if "You can't execute queries until the end of the 'atomic' block" in str(
-                tme
-            ):
-                self.transaction_management_warning(tme, self)
-            else:
-                raise tme
 
         # We don't need to check performing_mass_autoupdates, because propagating changes during buffered updates is
         # handled differently (in a breadth-first fashion) to mitigate repeated updates of the same parent record
@@ -514,22 +509,24 @@ class MaintainedModel(Model):
                 try:
                     update_fun = getattr(self, updater_dict["update_function"])
                     try:
-                        current_val = getattr(self, update_fld)
+                        old_val = getattr(self, update_fld)
                     except Exception as e:
+                        if isinstance(e, TransactionManagementError):
+                            raise e
                         warnings.warn(
-                            f"Unknown error getting current value: [{str(e)}].  Possibly due to this being triggered "
-                            "by a deleted record that is linked in a related model's maintained field."
+                            f"{e.__class__.__name__} error getting current value: [{str(e)}].  Possibly due to this"
+                            "being triggered by a deleted record that is linked in a related model's maintained field."
                         )
-                        current_val = "<error>"
+                        old_val = "<error>"
                     new_val = update_fun()
                     setattr(self, update_fld, new_val)
 
                     # Report the auto-update
-                    if current_val is None or current_val == "":
-                        current_val = "<empty>"
+                    if old_val is None or old_val == "":
+                        old_val = "<empty>"
                     print(
                         f"Auto-updated {self.__class__.__name__}.{update_fld} in {self.__class__.__name__}.{self.pk} "
-                        f"using {update_fun.__qualname__} from [{current_val}] to [{new_val}]."
+                        f"using {update_fun.__qualname__} from [{old_val}] to [{new_val}]."
                     )
                 except TransactionManagementError as tme:
                     self.transaction_management_warning(
@@ -627,6 +624,7 @@ class MaintainedModel(Model):
 
                         else:
                             raise NotMaintained(tmp_parent_inst, self)
+
                     except TransactionManagementError as tme:
                         self.transaction_management_warning(
                             tme,
@@ -798,7 +796,7 @@ class MaintainedModel(Model):
                 "acting_rec and triggering_field are required is relationship is not 'self'."
             )
 
-        warning_str = "Ignoring TransactionManagementError exception and skipping auto-update.  Details:\n\n"
+        warning_str = "Ignoring TransactionManagementError and skipping auto-update.  Details:\n\n"
 
         if relationship == "self":
             warning_str += f"\t- Record being updated: [{triggering_rec.__class__.__name__}.{triggering_rec.id}].\n"
@@ -1109,5 +1107,15 @@ class StaleAutoupdateMode(Exception):
             "Autoupdate mode enabled during a mass update of maintained fields.  Automated update of the global "
             "variable performing_mass_autoupdates may have been interrupted during execution of "
             "perform_buffered_updates."
+        )
+        super().__init__(message)
+
+
+class LikelyStaleBufferError(Exception):
+    def __init__(self, model_object):
+        message = (
+            f"Uutoupdates to {model_object.__class__.__name__} encountered a unique constraint violation.  Note, this "
+            "often happens when the auto-update buffer contains stale records.  Be sure the buffer is empty before "
+            "calling disable_autoupdates() (if it is intended to be empty)."
         )
         super().__init__(message)
