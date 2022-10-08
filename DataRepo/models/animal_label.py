@@ -123,7 +123,7 @@ class AnimalLabel(HierCachedModel):
                     # This assumes the PeakDataLabel unique constraint: peak_data, element
                     label_rec = label_pd_rec.labels.get(element__exact=self.element)
 
-                    # And this assumes that label_rec must exist because of the filter above the loop
+                    # This assumes that label_rec must exist because of the filter above the loop
                     last_serum_tracers_enrichment_sum += (
                         label_pd_rec.fraction * label_rec.count
                     )
@@ -144,6 +144,12 @@ class AnimalLabel(HierCachedModel):
         except PeakDataLabel.DoesNotExist as pdldne:
             # This is not something the user can recitify via loading. This would be a bug in the loading code
             raise MissingPeakDataLabel(pg, self.element) from pdldne
+        except TypeError as te:
+            if label_pd_rec and label_pd_rec.fraction is None:
+                error = True
+                msg = f" ERROR: PeakData fraction was None.  Original Error: {TypeError.__name__}: {str(te)}"
+            else:
+                raise te
         finally:
             if error:
                 warnings.warn(

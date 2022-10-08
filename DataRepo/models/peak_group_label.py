@@ -95,7 +95,8 @@ class PeakGroupLabel(HierCachedModel):
             for label_pd_rec in label_pd_recs:
                 # This assumes the PeakDataLabel unique constraint: peak_data, element
                 label_rec = label_pd_rec.labels.get(element__exact=self.element)
-                # And this assumes that label_rec must exist because of the filter above the loop
+
+                # This assumes that label_rec must exist because of the filter above the loop
                 element_enrichment_sum = element_enrichment_sum + (
                     label_pd_rec.fraction * label_rec.count
                 )
@@ -115,6 +116,11 @@ class PeakGroupLabel(HierCachedModel):
                 # NoCommonLabel is meaningless if there is no formula (above)
                 warning = False
                 raise e
+            elif label_pd_rec.fraction is None:
+                msg = (
+                    f"PeakData fraction was None from record [{label_pd_rec}] likely because the PeakGroup total "
+                    "abundance was 0"
+                )
             elif label_rec.count is None:
                 msg = f"Labeled count missing from PeakDataLabel record [{label_rec}]"
             elif label_rec.element is None:
