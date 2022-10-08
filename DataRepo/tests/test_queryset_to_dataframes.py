@@ -38,7 +38,7 @@ class QuerysetToPandasDataFrameBaseTests(TracebaseTestCase):
     def get_example_animal_dict(self):
         exmaple_animal_dict = {
             "animal": "a1_Lys_13C",
-            "infusate_name": "lysine-(13C6)[15]",
+            "infusate_name": "lysine-[13C6][15]",
             "infusion_rate": 0.11,
             "genotype": "WT",
             "body_weight": 26.2,
@@ -58,9 +58,9 @@ class QuerysetToPandasDataFrameBaseTests(TracebaseTestCase):
     def get_example_sample1_dict(self):
         example_sample1_dict = {
             "animal": "a1_Lys_13C",
-            "infusate_name": "lysine-(13C6)[15]",
+            "infusate_name": "lysine-[13C6][15]",
             "tracer_group_name": None,
-            "tracers": ["lysine-(13C6)"],
+            "tracers": ["lysine-[13C6]"],
             "labeled_elements": ["C"],
             "concentrations": [15],
             "tissue": "kidney",
@@ -75,7 +75,7 @@ class QuerysetToPandasDataFrameBaseTests(TracebaseTestCase):
     def get_example_sample2_dict(self):
         example_sample2_dict = {
             "animal": "a2_VLI_13C15N",
-            "infusate_name": "BCAAs (VLI) {isoleucine-(13C6,15N1)[12];leucine-(13C6,15N1)[24];valine-(13C5,15N1)[20]}",
+            "infusate_name": "BCAAs (VLI) {isoleucine-[13C6,15N1][12];leucine-[13C6,15N1][24];valine-[13C5,15N1][20]}",
             "tissue": "liver",
             "sample": "a2_liv",
             "sample_owner": "Xianfeng Zeng",
@@ -95,7 +95,7 @@ class QuerysetToPandasDataFrameBaseTests(TracebaseTestCase):
 
     def get_example_infusate_dict(self):
         example_infusate_dict = {
-            "infusate_name": "BCAAs (VLI) {isoleucine-(13C6,15N1)[12];leucine-(13C6,15N1)[24];valine-(13C5,15N1)[20]}",
+            "infusate_name": "BCAAs (VLI) {isoleucine-[13C6,15N1][12];leucine-[13C6,15N1][24];valine-[13C5,15N1][20]}",
             "tracer_group_name": "BCAAs (VLI)",
             "tracers": [
                 "isoleucine-(13C6,15N1)",
