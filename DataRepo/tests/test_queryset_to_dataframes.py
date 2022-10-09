@@ -98,9 +98,9 @@ class QuerysetToPandasDataFrameBaseTests(TracebaseTestCase):
             "infusate_name": "BCAAs (VLI) {isoleucine-[13C6,15N1][12];leucine-[13C6,15N1][24];valine-[13C5,15N1][20]}",
             "tracer_group_name": "BCAAs (VLI)",
             "tracers": [
-                "isoleucine-(13C6,15N1)",
-                "leucine-(13C6,15N1)",
-                "valine-(13C5,15N1)",
+                "isoleucine-[13C6,15N1]",
+                "leucine-[13C6,15N1]",
+                "valine-[13C5,15N1]",
             ],
             "concentrations": [12, 24, 20],
             "labeled_elements": ["C,N"],

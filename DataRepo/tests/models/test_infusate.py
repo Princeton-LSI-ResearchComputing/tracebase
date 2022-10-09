@@ -83,7 +83,7 @@ class InfusateTests(TracebaseTestCase):
             self.INFUSATE1._name(),
         )
         self.assertEqual(
-            "C16:0-(5,6-13C2,17O2)[4];glucose-[2,3-13C2,4-17O1][3]",
+            "C16:0-[5,6-13C2,17O2][4];glucose-[2,3-13C2,4-17O1][3]",
             self.INFUSATE2._name(),
         )
 
@@ -108,12 +108,12 @@ class InfusateTests(TracebaseTestCase):
         Make sure that the name field was set automatically - triggered by the InfusateTracer record creation.
         """
         self.assertEqual(
-            "C16:0-(5,6-13C2,17O2)[4];glucose-[2,3-13C2,4-17O1][3]",
+            "C16:0-[5,6-13C2,17O2][4];glucose-[2,3-13C2,4-17O1][3]",
             self.INFUSATE2.name,
         )
         # Throws DoesNotExist exception if not found
         Infusate.objects.get(
-            name__exact="C16:0-(5,6-13C2,17O2)[4];glucose-[2,3-13C2,4-17O1][3]"
+            name__exact="C16:0-[5,6-13C2,17O2][4];glucose-[2,3-13C2,4-17O1][3]"
         )
 
     def test_name_self_autoupdated(self):
@@ -138,7 +138,7 @@ class InfusateTests(TracebaseTestCase):
         self.assertEqual("glucose-[4-17O1]", tl.tracer.name)
         # The deletion also affects the names of both infusates that had that tracer
         self.assertEqual("ti {C16:0-[5,6-13C2,17O2][2];glucose-[4-17O1][1]}", i1.name)
-        self.assertEqual("C16:0-(5,6-13C2,17O2)[4];glucose-[4-17O1][3]", i2.name)
+        self.assertEqual("C16:0-[5,6-13C2,17O2][4];glucose-[4-17O1][3]", i2.name)
 
 
 @tag("multi_working")
