@@ -65,6 +65,7 @@ urlpatterns = [
         name="peakgroup_detail",
     ),
     path("peakdata/", views.PeakDataListView.as_view(), name="peakdata_list"),
+    path("infusates/", views.InfusateListView.as_view(), name="infusate_list"),
     path(
         "infusates/<int:pk>/",
         views.InfusateDetailView.as_view(),

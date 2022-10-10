@@ -163,6 +163,14 @@ class ViewTests(TracebaseTestCase):
         response = self.client.get(reverse("infusate_detail", args=[inf.id + 1]))
         self.assertEqual(response.status_code, 404)
 
+    @tag("compound")
+    def test_infusate_list(self):
+        response = self.client.get(reverse("infusate_list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "DataRepo/infusate_list.html")
+        self.assertEqual(len(response.context["infusate_list"]), 1)
+        self.assertEqual(len(response.context["df"]), 1)
+
     @tag("study")
     def test_study_list(self):
         response = self.client.get(reverse("study_list"))
