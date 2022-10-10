@@ -36,13 +36,12 @@
                 <th data-filter-control="input" data-sortable="true" data-sorter ="htmlSorter" data-field="Tissue">Tissue</th>
                 <th data-filter-control="input" data-sortable="true" data-sorter ="htmlSorter" data-field="Studies">Studies</th>
                 <th data-filter-control="select" data-sortable="true" data-field="Genotype">Genotype</th>
-                <th data-filter-control="input" data-sortable="true" data-sorter ="htmlSorter" data-field="Infusate">Infusate</th>
-                <th data-filter-control="input" data-sortable="true" data-field="Tracer-Group">Tracer Group</th>
+                <th data-filter-control="input" data-field="Infusate">Infusate</th>
                 <th data-filter-control="input" data-sortable="true" data-sorter ="htmlSorter" data-field="Tracers">Tracer(s)</th>
+                <th data-filter-control="input" data-sortable="true" data-field="Concentrations">Tracer Concentration(s) (mM)</th>
                 <th data-filter-control="select" data-sortable="true" data-field="Labeled_Elements">Labeled Element(s)</th>
+                <th data-filter-control="input" data-sortable="true" data-field="Infusion_Rate">Infusion Rate (ul/min/g)</th>
                 <th data-filter-control="input" data-sortable="true" data-sorter ="htmlSorter" data-field="Treatment">Treatment</th>
-                <th data-filter-control="input" data-sortable="true" data-visible="false" data-field="Infusion_Rate">Infusion Rate (ul/min/g)</th>
-                <th data-filter-control="input" data-sortable="true" data-visible="false" data-field="Concentrations">Tracer Concentration(s) (mM)</th>
                 <th data-filter-control="input" data-sortable="true" data-visible="false" data-field="Body_Weight">Body Weight</th>
                 <th data-filter-control="input" data-sortable="true" data-visible="false" data-field="Age">Age (weeks)</th>
                 <th data-filter-control="select" data-sortable="true" data-visible="false" data-field="Sex">Sex</th>
@@ -62,18 +61,25 @@
                 <td><a href="{% url 'sample_detail' i.sample_id %}">{{ i.sample }}</a></td>
                 <td><a href="{% url 'animal_detail' i.animal_id %}">{{ i.animal }}</a></td>
                 <td><a href="{% url 'tissue_detail' i.tissue_id %}">{{ i.tissue }}</a></td>
-                <td><a>{{ i.study_id_name_list |obj_hyperlink:"study" }}</a></td>
+                <td><a>{{ i.study_id_name_list|obj_hyperlink:"study" }}</a></td>
                 <td>{{ i.genotype }}</td>
                 <td>
-                    {% if i.infusate_name %}
-                        <a href="{% url 'infusate_detail' i.infusate_id %}">{{ i.infusate_name }}</a>
+                    {% if i.infusate_id %}
+                        {% if i.tracer_group_name %}
+                            {{ i.tracer_group_name }}
+                        {% elif not i.infusate_tracer_group_name and i.infusate_name %}
+                            <a href="{% url 'infusate_detail' i.infusate_id %}">{{ i.infusate_name }}</a>
+                        {% else %}
+                            <a href="{% url 'infusate_detail' i.infusate_id %}"> Warning: need to verify name for infusate_id={{ i.infusate_name }}</a>
+                        {% endif %}
                     {% else %}
                         None
                     {% endif %}
                 </td>
-                <td>{{ i.tracer_group_name }}</td>
-                <td>{{ i.tracer_id_name_list |obj_hyperlink:"tracer" }}</td>
-                <td>{{ i.labeled_elements |join:"," }}</td>
+                <td>{{ i.tracer_id_name_list|obj_hyperlink:"tracer" }}</td>
+                <td>{{ i.concentrations|join:"," }}</td>
+                <td>{{ i.labeled_elements|join:"," }}</td>
+                <td>{{ i.infusion_rate }}</td>
                 <td>
                     {% if i.treatment %}
                         <a href="{% url 'protocol_detail' i.treatment_id %}">{{ i.treatment }}</a>
@@ -81,18 +87,16 @@
                         None
                     {% endif %}
                 </td>
-                <td>{{ i.infusion_rate }}</td>
-                <td>{{ i.concentrations }}</td>
                 <td>{{ i.body_weight }}</td>
-                <td>{{ i.age |duration_iso_to_weeks }}</td>
+                <td>{{ i.age|duration_iso_to_weeks }}</td>
                 <td>{{ i.sex }}</td>
                 <td>{{ i.diet }}</td>
                 <td>{{ i.feeding_status }}</td>
                 <td>{{ i.sample_owner }}</td>
-                <td>{{ i.sample_date |convert_iso_date }}</td>
-                <td>{{ i.sample_time_collected |duration_iso_to_mins }}</td>
+                <td>{{ i.sample_date|convert_iso_date }}</td>
+                <td>{{ i.sample_time_collected|duration_iso_to_mins }}</td>
                 <td>{{ i.msrun_owner }}</td>
-                <td>{{ i.msrun_date |convert_iso_date }}</td>
+                <td>{{ i.msrun_date|convert_iso_date }}</td>
                 <td>
                     {% if i.msrun_id %}
                         <a href="{% url 'msrun_detail' i.msrun_id %}">MSRun Detail</a>

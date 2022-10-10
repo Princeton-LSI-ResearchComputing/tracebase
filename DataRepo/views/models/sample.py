@@ -19,7 +19,7 @@ class SampleListView(ListView):
 
     def get_context_data(self, **kwargs):
         # Call the base implementation first to get the context
-        context = super(SampleListView, self).get_context_data(**kwargs)
+        context = super().get_context_data(**kwargs)
         #  add data from the DataFrame to the context
         all_anim_msrun_df = qs2df.get_animal_msrun_all_df()
 
