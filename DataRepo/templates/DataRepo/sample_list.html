@@ -70,7 +70,7 @@
                         {% elif not i.infusate_tracer_group_name and i.infusate_name %}
                             <a href="{% url 'infusate_detail' i.infusate_id %}">{{ i.infusate_name }}</a>
                         {% else %}
-                            <a href="{% url 'infusate_detail' i.infusate_id %}"> Warning: need to verify name for infusate_id={{ i.infusate_name }}</a>
+                            <a href="{% url 'infusate_detail' i.infusate_id %}"> Warning: need to verify name for infusate_id={{ i.infusate_id }}</a>
                         {% endif %}
                     {% else %}
                         None
