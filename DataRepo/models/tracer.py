@@ -97,11 +97,11 @@ class Tracer(MaintainedModel, ElementLabel):
         update_label="name",
     )
     def _name(self):
-        # format: `compound - ([) labelname,labelname,... )` (but no spaces)
+        # format: `compound - [ labelname,labelname,... ]` (but no spaces)
         if self.id is None or self.labels is None or self.labels.count() == 0:
             return self.compound.name
         labels_string = ",".join([str(label) for label in self.labels.all()])
-        return f"{self.compound.name}-({labels_string})"
+        return f"{self.compound.name}-[{labels_string}]"
 
     def clean(self):
         for label in self.labels.all():
