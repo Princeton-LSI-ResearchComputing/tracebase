@@ -27,11 +27,13 @@ def test_case_class_factory(base_class):
             reported in tearDown.
             """
             self.testStartTime = time.time()
+            super().setUp()
 
         def tearDown(self):
             """
             This method in the superclass is intended to provide run time information for each test.
             """
+            super().tearDown()
             reportRunTime(self.id(), self.testStartTime)
 
         @classmethod

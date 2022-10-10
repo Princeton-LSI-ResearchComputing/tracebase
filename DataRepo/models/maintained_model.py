@@ -5,6 +5,7 @@ from typing import Dict, List
 from django.conf import settings
 from django.db.models import Model
 from django.db.models.signals import m2m_changed
+from django.db.transaction import TransactionManagementError
 from django.db.utils import IntegrityError
 from psycopg2.errors import ForeignKeyViolation
 
@@ -450,17 +451,20 @@ class MaintainedModel(Model):
         # Update the fields that change due to the above change (if any)
         self.update_decorated_fields()
 
-        # If the auto-update resulted in no change, it can produce an error about unique constraints - just skip it
+        # If the auto-update resulted in no change or if there exists stale buffer contents for objects that were
+        # previously saved, it can produce an error about unique constraints.  TransactionManagementErrors shpould have
+        # been handled before we got here so that this can proceed to effect the original change that prompted the
+        # save.
         try:
             super().save(*args, **kwargs)
         except (IntegrityError, ForeignKeyViolation) as uc:
-            if "violates foreign key constraint" in str(
-                uc
-            ) or "duplicate key value violates unique constraint" in str(uc):
-                warnings.warn(
-                    f"Ignoring {uc.__class__.__name__} exception during auto-update of {self.__class__.__name__}."
-                    f"{self.id}: [{str(uc)}]."
-                )
+            # If this is a unique constraint error during a mass autoupdate
+            if performing_mass_autoupdates and (
+                "violates foreign key constraint" in str(uc)
+                or "duplicate key value violates unique constraint" in str(uc)
+            ):
+                # Errors about unique constraints during mass autoupdates are often due to stale buffer contents
+                raise LikelyStaleBufferError(self)
             else:
                 raise uc
 
@@ -502,25 +506,32 @@ class MaintainedModel(Model):
 
             # If there is a maintained field(s) in this model
             if update_fld is not None:
-                update_fun = getattr(self, updater_dict["update_function"])
                 try:
-                    current_val = getattr(self, update_fld)
-                except Exception as e:
-                    warnings.warn(
-                        f"Unknown error getting current value: [{str(e)}].  Possibly due to this being triggered by a "
-                        "deleted record that is linked in a related model's maintained field."
-                    )
-                    current_val = "<error>"
-                new_val = update_fun()
-                setattr(self, update_fld, new_val)
+                    update_fun = getattr(self, updater_dict["update_function"])
+                    try:
+                        old_val = getattr(self, update_fld)
+                    except Exception as e:
+                        if isinstance(e, TransactionManagementError):
+                            raise e
+                        warnings.warn(
+                            f"{e.__class__.__name__} error getting current value: [{str(e)}].  Possibly due to this"
+                            "being triggered by a deleted record that is linked in a related model's maintained field."
+                        )
+                        old_val = "<error>"
+                    new_val = update_fun()
+                    setattr(self, update_fld, new_val)
 
-                # Report the auto-update
-                if current_val is None or current_val == "":
-                    current_val = "<empty>"
-                print(
-                    f"Auto-updated {self.__class__.__name__}.{update_fld} in {self.__class__.__name__}.{self.pk} "
-                    f"using {update_fun.__qualname__} from [{current_val}] to [{new_val}]."
-                )
+                    # Report the auto-update
+                    if old_val is None or old_val == "":
+                        old_val = "<empty>"
+                    print(
+                        f"Auto-updated {self.__class__.__name__}.{update_fld} in {self.__class__.__name__}.{self.pk} "
+                        f"using {update_fun.__qualname__} from [{old_val}] to [{new_val}]."
+                    )
+                except TransactionManagementError as tme:
+                    self.transaction_management_warning(
+                        tme, self, None, updater_dict, "self"
+                    )
 
     def call_dfs_related_updaters(self, updated=None):
         if not updated:
@@ -586,32 +597,44 @@ class MaintainedModel(Model):
                 # if a parent record exists
                 if tmp_parent_inst is not None:
 
-                    # Make sure that the (direct) parnet (or M:M related parent) *isa* MaintainedModel
-                    if isinstance(tmp_parent_inst, MaintainedModel):
+                    try:
+                        # Make sure that the (direct) parnet (or M:M related parent) *isa* MaintainedModel
+                        if isinstance(tmp_parent_inst, MaintainedModel):
 
-                        parent_inst = tmp_parent_inst
-                        if parent_inst not in parents:
-                            parents.append(parent_inst)
+                            parent_inst = tmp_parent_inst
+                            if parent_inst not in parents:
+                                parents.append(parent_inst)
 
-                    elif (
-                        tmp_parent_inst.__class__.__name__ == "ManyRelatedManager"
-                        or tmp_parent_inst.__class__.__name__ == "RelatedManager"
-                    ):
-
-                        # NOTE: This is where the `through` model is skipped
-                        if tmp_parent_inst.count() > 0 and isinstance(
-                            tmp_parent_inst.first(), MaintainedModel
+                        elif (
+                            tmp_parent_inst.__class__.__name__ == "ManyRelatedManager"
+                            or tmp_parent_inst.__class__.__name__ == "RelatedManager"
                         ):
 
-                            for mm_parent_inst in tmp_parent_inst.all():
-                                if mm_parent_inst not in parents:
-                                    parents.append(mm_parent_inst)
+                            # NOTE: This is where the `through` model is skipped
+                            if tmp_parent_inst.count() > 0 and isinstance(
+                                tmp_parent_inst.first(), MaintainedModel
+                            ):
 
-                        elif tmp_parent_inst.count() > 0:
-                            raise NotMaintained(tmp_parent_inst.first(), self)
+                                for mm_parent_inst in tmp_parent_inst.all():
+                                    if mm_parent_inst not in parents:
+                                        parents.append(mm_parent_inst)
 
-                    else:
-                        raise NotMaintained(tmp_parent_inst, self)
+                            elif tmp_parent_inst.count() > 0:
+                                raise NotMaintained(tmp_parent_inst.first(), self)
+
+                        else:
+                            raise NotMaintained(tmp_parent_inst, self)
+
+                    except TransactionManagementError as tme:
+                        self.transaction_management_warning(
+                            tme,
+                            self,
+                            tmp_parent_inst,
+                            updater_dict,
+                            "parent",
+                            parent_fld,
+                        )
+
         return parents
 
     def call_child_updaters(self, updated):
@@ -646,12 +669,12 @@ class MaintainedModel(Model):
 
     def get_child_instances(self):
         """
-        Returns a list of parent records to the current record (self) (and the parent relationship is stored in the
-        updater_list global variable, indexed by class name) based on the parent keys indicated in every decorated
+        Returns a list of child records to the current record (self) (and the child relationship is stored in the
+        updater_list global variable, indexed by class name) based on the child keys indicated in every decorated
         updater method.
 
-        Limitation: This does not return `through` model instances, though it will return parents of a through model if
-        called from a through model object.  If a through model contains decorated methods to maintain through model
+        Limitation: This does not return `through` model instances, though it will return children of a through model
+        if called from a through model object.  If a through model contains decorated methods to maintain through model
         fields, they will only ever update when the through model object is specifically saved and will not be updated
         when their "child" object changes.  This will have to be modified to return through model instances if such
         updates come to be required.
@@ -661,16 +684,16 @@ class MaintainedModel(Model):
         for updater_dict in updaters:
             child_flds = updater_dict["child_fields"]
 
-            # If there is a parent that should update based on this change
+            # If there is a child that should update based on this change
             for child_fld in child_flds:
 
-                # Get the parent instance
+                # Get the child instance
                 tmp_child_inst = getattr(self, child_fld)
 
-                # if a parent record exists
+                # if a child record exists
                 if tmp_child_inst is not None:
 
-                    # Make sure that the (direct) parnet (or M:M related parent) *isa* MaintainedModel
+                    # Make sure that the (direct) parnet (or M:M related child) *isa* MaintainedModel
                     if isinstance(tmp_child_inst, MaintainedModel):
 
                         child_inst = tmp_child_inst
@@ -682,18 +705,28 @@ class MaintainedModel(Model):
                         or tmp_child_inst.__class__.__name__ == "RelatedManager"
                     ):
 
-                        # NOTE: This is where the `through` model is skipped
-                        if tmp_child_inst.count() > 0 and isinstance(
-                            tmp_child_inst.first(), MaintainedModel
-                        ):
+                        try:
+                            # NOTE: This is where the `through` model is skipped
+                            if tmp_child_inst.count() > 0 and isinstance(
+                                tmp_child_inst.first(), MaintainedModel
+                            ):
 
-                            for mm_child_inst in tmp_child_inst.all():
+                                for mm_child_inst in tmp_child_inst.all():
 
-                                if mm_child_inst not in children:
-                                    children.append(mm_child_inst)
+                                    if mm_child_inst not in children:
+                                        children.append(mm_child_inst)
 
-                        elif tmp_child_inst.count() > 0:
-                            raise NotMaintained(tmp_child_inst.first(), self)
+                            elif tmp_child_inst.count() > 0:
+                                raise NotMaintained(tmp_child_inst.first(), self)
+                        except TransactionManagementError as tme:
+                            self.transaction_management_warning(
+                                tme,
+                                self,
+                                tmp_child_inst,
+                                updater_dict,
+                                "child",
+                                child_fld,
+                            )
 
                     else:
                         raise NotMaintained(tmp_child_inst, self)
@@ -738,6 +771,59 @@ class MaintainedModel(Model):
             parents = self.get_parent_instances()
             for parent_inst in parents:
                 update_buffer.append(parent_inst)
+
+    def transaction_management_warning(
+        self,
+        tme,
+        triggering_rec,
+        acting_rec=None,
+        update_dict=None,
+        relationship="self",
+        triggering_field=None,
+    ):
+        """
+        Debugging TransactionManagementErrors can be difficult and confusing, so this warning is an attempt to aid that
+        debugging effort in the future by encapsulating what I have learned to provide insights in how best to address
+        those issues.
+        """
+
+        if relationship == "self" and acting_rec is not None:
+            raise ValueError("acting_rec must be None if relationship is 'self'.")
+        elif relationship != "self" and (
+            acting_rec is None or triggering_field is None
+        ):
+            raise ValueError(
+                "acting_rec and triggering_field are required is relationship is not 'self'."
+            )
+
+        warning_str = "Ignoring TransactionManagementError and skipping auto-update.  Details:\n\n"
+
+        if relationship == "self":
+            warning_str += f"\t- Record being updated: [{triggering_rec.__class__.__name__}.{triggering_rec.id}].\n"
+        else:
+            warning_str += f"\t- Record being updated: [{acting_rec.__class__.__name__}.{acting_rec.id}].\n"
+            warning_str += f"\t- Triggering {relationship} field: "
+            warning_str += f"[{triggering_rec.__class__.__name__}.{triggering_field}.{triggering_rec.id}].\n"
+
+        if update_dict is not None:
+            warning_str += f"\t- Update field: [{update_dict['update_field']}].\n"
+            warning_str += f"\t- Update function: [{update_dict['update_function']}].\n"
+
+        explanation = (
+            "Generally, auto-updates do not cause a problem, but in certain situations (particularly in tests), auto-"
+            "updates inside an atomic transaction block can cause a problem due to performing queries on a record "
+            "that is not yet really saved.  For tests (a special case), this can usually be avoided by keeping "
+            "database loads isolated inside setUpTestData and the test function itself.  Note, querys inside setUp() "
+            "can trigger this error.  If this is occurring outside of a test run, to avoid errors, the entire "
+            "transaction should be done without autoupdates by calling disable_autoupdates() before the transaction "
+            "block, and after the atomic transaction block, call perform_mass_autoupdates() to make the updates.  If "
+            "this is a warning, note that auto-updates can be fixed afterwards by running:\n\n\tpython manage.py "
+            "rebuild_maintained_fields\n\n."
+        )
+
+        warning_str += f"\n{explanation}\n\nThe error that occurred: [{str(tme)}]."
+
+        warnings.warn(warning_str)
 
     class Meta:
         abstract = True
@@ -1021,5 +1107,15 @@ class StaleAutoupdateMode(Exception):
             "Autoupdate mode enabled during a mass update of maintained fields.  Automated update of the global "
             "variable performing_mass_autoupdates may have been interrupted during execution of "
             "perform_buffered_updates."
+        )
+        super().__init__(message)
+
+
+class LikelyStaleBufferError(Exception):
+    def __init__(self, model_object):
+        message = (
+            f"Uutoupdates to {model_object.__class__.__name__} encountered a unique constraint violation.  Note, this "
+            "often happens when the auto-update buffer contains stale records.  Be sure the buffer is empty before "
+            "calling disable_autoupdates() (if it is intended to be empty)."
         )
         super().__init__(message)
