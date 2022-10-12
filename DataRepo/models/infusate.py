@@ -200,6 +200,27 @@ class Infusate(MaintainedModel):
 
         return display_name
 
+    @property
+    def short_name(self):
+        """
+        Returns the tracer_group_name field if populated.  If it's not populated, it returns the output of get_name()
+        """
+        if self.tracer_group_name:
+            return self.tracer_group_name
+        else:
+            return self.get_name
+
+    @property
+    def pretty_short_name(self):
+        """
+        Returns the short_name with hard-returns inserted (if tracer_group_name is null)
+        """
+        if self.tracer_group_name:
+            return self.tracer_group_name
+        else:
+            # This will do 2 unsuccessful replacements of curlies, but re-use is prioritized
+            return self.pretty_name
+
     def clean(self, *args, **kwargs):
         """
         This is an override of clean to validate the tracer_group_name of new records

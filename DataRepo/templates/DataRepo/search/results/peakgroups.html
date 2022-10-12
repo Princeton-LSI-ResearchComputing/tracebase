@@ -380,10 +380,11 @@
                             None
                         {% else %}
                             <!-- Put displayed link text first for sorting -->
+                            <!-- Sort by full name -->
                             <div style="display:none;">{{ pg.msrun.sample.animal.infusate.get_name }}</div>
 
                             <a href="{% url 'infusate_detail' pg.msrun.sample.animal.infusate.id %}">
-                                <div class="newlines">{{ pg.msrun.sample.animal.infusate.pretty_name }}</div>
+                                <div class="newlines">{{ pg.msrun.sample.animal.infusate.pretty_short_name }}</div>
                             </a>
                         {% endif %}
                     </td>
