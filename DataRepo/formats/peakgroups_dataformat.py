@@ -347,7 +347,7 @@ class PeakGroupsFormat(Format):
         "InfusateTracer": {
             "model": "InfusateTracer",
             "path": "msrun__sample__animal__infusate__tracer_links",
-            "reverse_path": "infusate__animal__samples__msruns__peak_groups",
+            "reverse_path": "infusate__animals__samples__msruns__peak_groups",
             "manyrelated": {
                 "is": True,
                 "manytomany": True,  # searching for peakGroups via InfusateTracer.pk can produce many peak groups
