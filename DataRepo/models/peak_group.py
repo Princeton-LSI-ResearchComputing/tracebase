@@ -27,6 +27,7 @@ class PeakGroup(HierCachedModel, MaintainedModel):
     )
     formula = models.CharField(
         max_length=256,
+        null=False,
         help_text='The molecular formula of the compound (e.g. "C6H12O6").',
     )
     msrun = models.ForeignKey(

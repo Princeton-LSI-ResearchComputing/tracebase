@@ -107,11 +107,6 @@ class AnimalLabel(HierCachedModel):
             total_atom_count = 0
             for pg in self.last_serum_tracer_label_peak_groups.all():
 
-                if not pg.formula:
-                    raise ValueError(
-                        f"PeakGroup {pg} for a tracer (among: {', '.join(self.tracers)}) has no formula."
-                    )
-
                 # Count the total number of this element among all the tracer compounds (via the single peakgroup
                 # formula).   This may be called on formulas that do not have self.element, but those just return 0 and
                 # that's OK.
