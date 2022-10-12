@@ -54,9 +54,9 @@ def value_from_choices_label(label, choices):
 
 def atom_count_in_formula(formula, atom):
     """
-    Return the number of specified atom in the compound.
-    Returns None if atom is not a recognized symbol
-    Returns 0 if the atom is recognized, but not found in the compound
+    Return the count of supplied atom in the compound.
+    Returns None if atom is not a recognized symbol.
+    Returns 0 if the atom is recognized, but not found in the compound.
     """
     substance = Substance.from_formula(formula)
     try:
