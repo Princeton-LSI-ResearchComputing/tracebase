@@ -471,7 +471,10 @@ class AccuCorDataLoader:
                 """
 
                 self.peak_group_dict[peak_group_name]["compounds"] = []
-                compounds_input = [compound_name.strip() for compound_name in peak_group_name.split('/')]
+                compounds_input = [
+                    compound_name.strip()
+                    for compound_name in peak_group_name.split("/")
+                ]
                 for compound_input in compounds_input:
                     try:
                         mapped_compound = Compound.compound_matching_name_or_synonym(
