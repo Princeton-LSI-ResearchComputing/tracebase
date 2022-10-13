@@ -249,12 +249,14 @@ class GlobalCacheTests(TracebaseTestCase):
             ],
             "Sample": [
                 "last_tracer_peak_groups",
+                "is_last_serum_sample",
             ],
             "PeakGroup": ["peak_labeled_elements"],
             "FCirc": [
                 "last_peak_group_in_animal",
                 "last_peak_group_in_sample",
                 "peak_groups",
+                "serum_validity",
                 "rate_disappearance_intact_per_gram",
                 "rate_appearance_intact_per_gram",
                 "rate_disappearance_intact_per_animal",

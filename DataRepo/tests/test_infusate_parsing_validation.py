@@ -291,7 +291,7 @@ class InfusateValidationTests(InfusateTest):
             self.tracer_data_l_leucine
         )
         self.assertTrue(created)
-        self.assertEqual(tracer.name, "leucine-(1,2-13C2)")
+        self.assertEqual(tracer.name, "leucine-[1,2-13C2]")
         self.assertEqual(tracer.compound.name, "leucine")
         self.assertEqual(len(tracer.labels.all()), 1)
 
@@ -331,7 +331,7 @@ class InfusateValidationTests(InfusateTest):
         (tracer, _) = Tracer.objects.get_or_create_tracer(
             tracer_data_leucine_fully_labeled
         )
-        self.assertEqual(tracer.name, "leucine-(13C6)")
+        self.assertEqual(tracer.name, "leucine-[13C6]")
 
     def test_tracer_validation_missing_positions(self):
         """Test tracer validation requires positions when partially labeled"""
@@ -351,7 +351,7 @@ class InfusateValidationTests(InfusateTest):
         self.assertTrue(created)
         self.assertEqual(
             infusate.name,
-            "BCAAs {isoleucine-(13C6,15N1)[1];leucine-(13C6,15N1)[2];valine-(13C5,15N1)[3]}",
+            "BCAAs {isoleucine-[13C6,15N1][1];leucine-[13C6,15N1][2];valine-[13C5,15N1][3]}",
         )
         self.assertEqual(infusate.tracer_group_name, "BCAAs")
         self.assertEqual(len(infusate.tracers.all()), 3)
@@ -364,7 +364,7 @@ class InfusateValidationTests(InfusateTest):
         self.assertTrue(created)
         self.assertEqual(
             infusate.name,
-            "leucine-(1,2-13C2)[1.5]",
+            "leucine-[1,2-13C2][1.5]",
         )
         self.assertEqual(infusate.tracer_group_name, None)
         self.assertEqual(len(infusate.tracers.all()), 1)

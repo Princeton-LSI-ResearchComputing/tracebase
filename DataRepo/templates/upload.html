@@ -9,7 +9,7 @@
         <ol>
             <h5 id="create-a-sample-sheet"><li>Create a Sample Sheet</li></h5>
             <ol>
-                <li><a href="https://docs.google.com/spreadsheets/d/1To3495KxJkAtnAD9KVdzc162zKbNiYuPEVyPseQPjMQ/copy?copyComments=true">Copy</a> the TraceBase Animal and Sample Table Template.
+                <li><a href="https://docs.google.com/spreadsheets/d/1ywj9BvwX76ygRc5iXHwmzBcg1CWc5eFjLGOC6NtSHo8/copy?copyComments=true">Copy</a> the TraceBase Animal and Sample Table Template.
                 </li>
                 <li>Fill in the <em>Animals</em> sheet <a class="badge text-light bg-secondary" data-bs-toggle="collapse" data-bs-target="#fill-animals">more</a>
                     <div id="fill-animals" class="collapse">
@@ -19,9 +19,8 @@
                                 there are comments in the column headers to help describe each of the
                                 fields.
                             </li>
-                            <li>Pay particular attention to the <em>Tracer Compound</em>, <em>Tracer Labeled
-                                Element</em>, <em>Tracer Label Atom Count</em>, <em>Feeding Status</em>, <em>Treatment</em>, and
-                                <em>Study</em> fields.
+                            <li>Pay particular attention to the <em>Infusate</em>, <em>Feeding Status</em>,
+                                <em>Treatment</em>, and <em>Study</em> fields.
                             </li>
                         </ol>
                     </div>
@@ -30,7 +29,7 @@
                     <div id="fill-samples" class="collapse">
                         <ol>
                             <li><strong>IMPORTANT</strong> - Ensure that the <em>Sample Name</em> column is consistent with the
-                                sample names in your AccuCor files.
+                                sample names in your AccuCor/IsoCorr files.
                             </li>
                             <li>Fill in additional sample details, making sure that the <em>Tissue</em> values
                                 match one of those in the <em>Tissue</em> sheet and the <em>Animal ID</em> values match
@@ -39,7 +38,7 @@
                         </ol>
                     </div>
                 </li>
-                <li>Fill in <em>Treatments</em> sheet (optional) <a class="badge text-light bg-secondary" data-bs-toggle="collapse" data-bs-target="#fill-treatments">more</a>
+                <li>Fill in <em>Treatments</em> sheet <a class="badge text-light bg-secondary" data-bs-toggle="collapse" data-bs-target="#fill-treatments">more</a>
                     <div id="fill-treatments" class="collapse">
                         <ol>
                             <li>Provide a list of treatments used in the study, along with a description
@@ -51,9 +50,9 @@
             <h5 id="optional-validate-your-data"><li>Optional: Validate your data</li></h5>
             <ol>
                 <li>Download your Animal and Sample Table in Excel format.</li>
-                <li><a href="{% url 'validate' %}">Validate</a> your sample table and AccuCor files</li>
+                <li><a href="{% url 'validate' %}">Validate</a> your sample table and AccuCor/IsoCorr files</li>
                 <li>If there are any errors reported, fix them in the Google spreadsheet and return to step 1.<br/>
-                    <div class="text-muted">Note: In general, you should <strong>NOT</strong> edit your AccuCor
+                    <div class="text-muted">Note: In general, you should <strong>NOT</strong> edit your AccuCor/IsoCorr
                         files. It&#39;s simplest and often best to resolve issues by
                         editing your animal and sample table file.</div>
                 </li>
@@ -69,7 +68,7 @@
                         <li>Create a new folder for this study.</li>
                     </ol>
                 </div>
-                <li>Copy the Animal and Sample spread sheet and any AccuCor files that should be included in the study</li>
+                <li>Copy the Animal and Sample spread sheet and any AccuCor/IsoCorr files that should be included in the study</li>
                 <li>Submit the <a href="https://forms.gle/vEfJEfhPbCbkybpE7">TraceBase Study Submission
                     form</a> <a class="badge text-light bg-secondary" data-bs-toggle="collapse" data-bs-target="#study-submission-details">more</a>
                     <div id="study-submission-details" class="collapse">

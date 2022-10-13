@@ -163,6 +163,14 @@ class ViewTests(TracebaseTestCase):
         response = self.client.get(reverse("infusate_detail", args=[inf.id + 1]))
         self.assertEqual(response.status_code, 404)
 
+    @tag("compound")
+    def test_infusate_list(self):
+        response = self.client.get(reverse("infusate_list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "DataRepo/infusate_list.html")
+        self.assertEqual(len(response.context["infusate_list"]), 1)
+        self.assertEqual(len(response.context["df"]), 1)
+
     @tag("study")
     def test_study_list(self):
         response = self.client.get(reverse("study_list"))
@@ -581,8 +589,8 @@ class ViewNullToleranceTests(ViewTests):
 @tag("multi_working")
 class ValidationViewTests(TracebaseTransactionTestCase):
     """
-    Note, without the TransactionTestCase (derived) class, the infusate-related model managers produce the following
-    error:
+    Note, without the TransactionTestCase (derived) class (and the with transaction.atomic block below), the infusate-
+    related model managers produce the following error:
         django.db.transaction.TransactionManagementError: An error occurred in the current transaction. You can't
         execute queries until the end of the 'atomic' block.
     ...associated with the outer atomic transaction of any normal test case.  See:

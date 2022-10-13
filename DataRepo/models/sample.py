@@ -89,18 +89,19 @@ class Sample(MaintainedModel, HierCachedModel):
     @cached_function
     def last_tracer_peak_groups(self):
         """
-        Retrieves the last Peak Group for each tracer compound that has this.element
+        Retrieves the last Peak Group for each tracer compound
         """
 
-        # Get every tracer's compound that contains this element
+        # Get every tracer's compound
         if self.animal.tracers.count() == 0:
             warnings.warn(f"Animal [{self.animal}] has no tracers.")
             return PeakGroup.objects.none()
 
-        # Get the last peakgroup for each tracer that has this label
-        last_peakgroup_ids = []
+        # Create a way to intentionally sort MSRun date's that have a None value
         (extra_args, is_null_field) = create_is_null_field("msrun__date")
 
+        # Get the last peakgroup for each tracer
+        last_peakgroup_ids = []
         for tracer in self.animal.tracers.all():
             tracer_peak_group = (
                 PeakGroup.objects.filter(msrun__sample__id__exact=self.id)
@@ -118,6 +119,14 @@ class Sample(MaintainedModel, HierCachedModel):
                 return PeakGroup.objects.none()
 
         return PeakGroup.objects.filter(id__in=last_peakgroup_ids)
+
+    @property  # type: ignore
+    @cached_function
+    def is_last_serum_sample(self):
+        """
+        Returns true if is serum sample and ID equals Animal.last_serum_sample, false otherwise
+        """
+        return self._is_serum_sample() and self.id == self.animal._last_serum_sample()
 
     class Meta:
         verbose_name = "sample"

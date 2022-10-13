@@ -4,6 +4,7 @@ from django.db import models
 
 from DataRepo.models.element_label import ElementLabel
 from DataRepo.models.hier_cached_model import HierCachedModel, cached_function
+from DataRepo.models.utilities import atom_count_in_formula
 
 
 class AnimalLabel(HierCachedModel):
@@ -92,15 +93,7 @@ class AnimalLabel(HierCachedModel):
         msg = ""
 
         try:
-            # Count the total number of each element among all the tracer compounds
-            # This may call tracer compoundss that do not have self.element, but they just return 0
-            total_atom_count = 0
-            # For every tracer whose compound contains this element
-            for tracer in self.tracers.all():
-
-                total_atom_count += tracer.compound.atom_count(self.element)
-
-            if self.tracers.count() == 0 or total_atom_count == 0:
+            if self.tracers.count() == 0:
                 raise NoTracerCompounds(self.animal, self.element)
 
             if self.last_serum_tracer_label_peak_groups.count() != self.tracers.count():
@@ -111,7 +104,13 @@ class AnimalLabel(HierCachedModel):
 
             # Sum the element enrichment across all tracer compound peak groups for this element
             last_serum_tracers_enrichment_sum = 0.0
+            total_atom_count = 0
             for pg in self.last_serum_tracer_label_peak_groups.all():
+
+                # Count the total number of this element among all the tracer compounds (via the single peakgroup
+                # formula).   This may be called on formulas that do not have self.element, but those just return 0 and
+                # that's OK.
+                total_atom_count += atom_count_in_formula(pg.formula, self.element)
 
                 label_pd_recs = pg.peak_data.filter(labels__element__exact=self.element)
 
@@ -123,10 +122,13 @@ class AnimalLabel(HierCachedModel):
                     # This assumes the PeakDataLabel unique constraint: peak_data, element
                     label_rec = label_pd_rec.labels.get(element__exact=self.element)
 
-                    # And this assumes that label_rec must exist because of the filter above the loop
+                    # This assumes that label_rec must exist because of the filter above the loop
                     last_serum_tracers_enrichment_sum += (
                         label_pd_rec.fraction * label_rec.count
                     )
+
+            if total_atom_count == 0:
+                raise NoTracerCompounds(self.animal, self.element)
 
             tracers_enrichment_fraction = (
                 last_serum_tracers_enrichment_sum / total_atom_count
@@ -144,6 +146,12 @@ class AnimalLabel(HierCachedModel):
         except PeakDataLabel.DoesNotExist as pdldne:
             # This is not something the user can recitify via loading. This would be a bug in the loading code
             raise MissingPeakDataLabel(pg, self.element) from pdldne
+        except TypeError as te:
+            if label_pd_rec and label_pd_rec.fraction is None:
+                error = True
+                msg = f" ERROR: PeakData fraction was None.  Original Error: {TypeError.__name__}: {str(te)}"
+            else:
+                raise te
         finally:
             if error:
                 warnings.warn(

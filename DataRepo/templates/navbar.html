@@ -30,19 +30,17 @@
                     {% endfor %}
                 </ul>
             </li>
-            <!-- Commenting to leave as a placeholder until this is implemented.
-            <li class="nav-item dropdown">
-                <a class="nav-link dropdown-toggle" href="#" id="dropdown-help" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                    Help
-                </a>
-            </li>
-            -->
             <li class="nav-item">
                 <a class="nav-link" href="{% url 'upload' %}">Upload</a>
             </li>
             <li class="nav-item dropdown">
                 <a class="nav-link" href="https://docs.google.com/forms/d/e/1FAIpQLSdnYe_gvKdoELXexZ9508xO8o59F1WgXcWBNh-_oxYh9WfHPg/viewform?usp=pp_url&entry.1881422913={{ request.get_full_path }}" target="_blank">
                     Feedback
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="https://drive.google.com/drive/folders/16_KYcHbX_dwoQuYgFEVBRHoyl9jlilUg?usp=sharing">
+                    Help
                 </a>
             </li>
         </ul>
