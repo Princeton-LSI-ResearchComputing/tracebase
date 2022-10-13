@@ -421,13 +421,19 @@ class MaintainedModel(Model):
                             m2m_propagation_handler,
                             sender=through_model,
                         )
-                    # m2m_changed.connect(toppings_changed, sender=Pizza.toppings.through)
                 except AttributeError as ae:
                     if "has no attribute 'many_to_many'" not in str(ae):
                         raise ae
                     # Else - no propagation handler needed
 
         super().__init__(*args, **kwargs)
+
+    def create_getter(self, updater_dict):
+        """
+        This method creates a getter method for each maintained field that initializes the field value if it is none
+        """
+        if updater_dict["update_field"]:
+            
 
     def save(self, *args, **kwargs):
         """
