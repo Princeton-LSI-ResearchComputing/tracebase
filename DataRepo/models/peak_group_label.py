@@ -606,7 +606,7 @@ class NoCommonLabel(Exception):
             f"PeakGroup {peakgrouplabel.peak_group.name} found associated with peak group formula: "
             f"[{peakgrouplabel.peak_group.formula}] that does not contain the labeled element "
             f"{peakgrouplabel.element} that is associated via PeakGroupLabel (from the tracers in the infusate "
-            f"[{peakgrouplabel.peak_group.msrun.sample.animal.infusate.name}])."
+            f"[{peakgrouplabel.peak_group.msrun.sample.animal.infusate.get_name}])."
         )
         super().__init__(msg)
         self.peak_group_label = peakgrouplabel

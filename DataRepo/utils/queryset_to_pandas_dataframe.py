@@ -703,7 +703,6 @@ class QuerysetToPandasDataFrame:
             for animals and infusates grouped by a compound
         """
         all_comp_synonym_df = cls.get_all_compound_synonym_df()
-        # anim_list_stats_df = cls.get_animal_list_stats_df()
 
         synonym_gb_comp_df1 = (
             all_comp_synonym_df.groupby(
