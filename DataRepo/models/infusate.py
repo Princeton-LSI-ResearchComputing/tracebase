@@ -7,7 +7,6 @@ from django.db import models
 
 from DataRepo.models.maintained_model import (
     MaintainedModel,
-    are_autoupdates_enabled,
     maintained_field_function,
 )
 from DataRepo.models.utilities import get_model_by_name
@@ -157,28 +156,6 @@ class Infusate(MaintainedModel):
             name = f"{self.tracer_group_name} {TRACERS_LEFT_BRACKET}{name}{TRACERS_RIGHT_BRACKET}"
 
         return name
-
-    @property
-    def get_name(self):
-        """
-        Returns the name field if populated.  If it's not populated, it populates it (in the same manner that the old
-        cache mechanism worked)
-        """
-        display_name = None
-
-        # Get the name.  Initialize if not set and auto-updates are on.
-        if self.name:
-            display_name = self.name
-        elif are_autoupdates_enabled():
-            # This triggers an auto-update
-            self.save()
-            display_name = self.name
-
-        # If it's still not set, call the method that generates the name.  It just won't be saved.
-        if not display_name:
-            display_name = self._name()
-
-        return display_name
 
     @property
     def pretty_name(self):

@@ -654,10 +654,10 @@
                     <!-- Tracer -->
                     <td>
                         <!-- Put displayed link text first for sorting -->
-                        <div style="display:none;">{{ rec.tracer.name }}</div>
+                        <div style="display:none;">{{ rec.tracer.get_name }}</div>
 
                         <a href="{% url 'compound_detail' rec.tracer.compound.id %}">
-                            <div class="nobr">{{ rec.tracer.name }}</div>
+                            <div class="nobr">{{ rec.tracer.get_name }}</div>
                         </a>
                     </td>
 

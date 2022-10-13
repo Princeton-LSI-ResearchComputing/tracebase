@@ -190,6 +190,7 @@ def maintained_model_relation(
         func_dict = {
             "update_function": None,
             "update_field": None,
+            "getter_name": None,
             "parent_field": parent_field_name,
             "child_fields": child_field_names,
             "update_label": update_label,  # Used as a filter to trigger specific series' of (mass) updates
@@ -227,6 +228,7 @@ def maintained_field_function(
     parent_field_name=None,
     update_label=None,
     child_field_names=[],
+    getter_name=None,
 ):
     """
     This is a decorator factory for functions in a Model class that are identified to be used to update a supplied
@@ -280,6 +282,7 @@ def maintained_field_function(
             "child_fields": child_field_names,
             "update_label": update_label,  # Used as a filter to trigger specific series' of (mass) updates
             "generation": generation,  # Used to update from leaf to root for mass updates
+            "getter_name": getter_name,  # Used to change the name of the getter method created by MaintainedModel
         }
 
         # No way to ensure supplied fields exist because the models aren't actually loaded yet, so while that would be
@@ -426,14 +429,114 @@ class MaintainedModel(Model):
                         raise ae
                     # Else - no propagation handler needed
 
+                self.create_get_or_init_method(updater_dict)
+
         super().__init__(*args, **kwargs)
 
-    def create_getter(self, updater_dict):
+    def create_get_or_init_method(self, updater_dict):
         """
-        This method creates a getter method for each maintained field that initializes the field value if it is none
+        This method creates a property for each maintained field.  That property is a call to a method
+        (_get_or_init_field) that checks the value of the database field and if it is null, it initializes the field
+        value using the field's updater function.
         """
-        if updater_dict["update_field"]:
-            
+        # If a maintained field and an updater function is set, we have enough to create a getter method call
+        if updater_dict["update_field"] and updater_dict["update_function"]:
+
+            # Get the desired name of the getter method, defaulting to 'get_{dbfieldname}'
+            getter_name = (
+                updater_dict["getter_name"] or f"get_{updater_dict['update_field']}"
+            )
+            refresher_name = f"refresh_{updater_dict['update_field']}"
+
+            is_property = False
+            print(f"{type(self)}, {getter_name}")
+            if hasattr(type(self), getter_name):
+                property_check = getattr(type(self), getter_name)
+                if property_check and isinstance(property_check, property):
+                    is_property = True
+
+            # If the derived class has a property or method by this name, we cannot add a method attribute because
+            # the derived class has either created an "override" method or this method name unintentionally collides
+            # with some other property or attribute.
+            if not is_property and not hasattr(self, getter_name):
+                print(
+                    f"Creating property: {self.__class__.__name__}.{getter_name} to maintain field: "
+                    f"{updater_dict['update_field']} using updater function: {updater_dict['update_function']}"
+                )
+                # Create a property added to the class that is an anonymous function that calls the self._get_or_init
+                # method and supplies refresh=None so that it refreshes the value in the DB if needed
+                setattr(
+                    type(self),
+                    getter_name,
+                    property(
+                        lambda self: self._get_or_init_field(
+                            _updater_dict=updater_dict, refresh=None
+                        )
+                    ),
+                )
+                print(
+                    f"Creating property: {self.__class__.__name__}.{refresher_name} to maintain field: "
+                    f"{updater_dict['update_field']} using updater function: {updater_dict['update_function']}"
+                )
+                # Create a property added to the class that is an anonymous function that calls the self._get_or_init
+                # method and supplies refresh=True so that it forces the value in the DB to update
+                setattr(
+                    type(self),
+                    refresher_name,
+                    lambda self: self._get_or_init_field(
+                        _updater_dict=updater_dict, refresh=True
+                    ),
+                )
+            else:
+                a_thing = "Property" if is_property else "Attribute"
+                print(
+                    f"Cannot create _get_or_init method reference: {getter_name}.  {a_thing} by that name exists."
+                )
+
+        elif updater_dict["getter_name"]:
+            raise ValueError(
+                f"'getter_name': [{updater_dict['getter_name']}] requires both 'update_field' and 'update_function'."
+            )
+
+    def _get_or_init_field(self, _updater_dict, refresh=None):
+        """
+        This method should not be explicitly called.  It is called from any instance by calling either:
+
+            self.get_{fieldname}
+            self.refresh_{fieldname}
+
+        For example, if the field being maintained is "name" in the Infusate model, you would call either:
+
+            infusate_object.get_name
+            infusate_object.refresh_name
+
+        The "get_{fieldname}" method name can be changed by supplying "getter_name" to the maintained_field_function
+        decorator.  Creating this function in the derived model class by creating a function by that getter_name
+        (custom or default), squashes this superclass method.  I.e. The dynamic MaintaimnedModel superclass method will
+        not be created.
+
+        refresh = None -> Default behavior: Refreshes the DB value if it is none
+        refresh = True -> Always refreshes the DB value
+        refresh = False -> Never refreshes the DB value
+        """
+
+        field_value = getattr(self, _updater_dict["update_field"])
+
+        if are_autoupdates_enabled() and (
+            # Always refresh the DB value if requested
+            refresh
+            # Default behavior is to refresh if the DB value is None
+            or (refresh is None and field_value is None)
+        ):
+            # This triggers an auto-update
+            self.save()
+            field_value = getattr(self, _updater_dict["update_field"])
+        elif not field_value:
+            # If there is no field value but autoupdates are off, generate the value anyway - it just won't be saved
+            value_fun = getattr(self, _updater_dict["update_function"])
+            field_value = value_fun()
+
+        return field_value
 
     def save(self, *args, **kwargs):
         """
