@@ -391,9 +391,7 @@
                             <div style="display:none;">{{ pd.peak_group.msrun.sample.animal.infusate.get_name }}</div>
 
                             <a href="{% url 'infusate_detail' pd.peak_group.msrun.sample.animal.infusate.id %}">
-                                <div class="nobr">
-                                    {{ pd.peak_group.msrun.sample.animal.infusate.pretty_name }}
-                                </div>
+                                <div class="newlines">{{ pd.peak_group.msrun.sample.animal.infusate.pretty_name }}</div>
                             </a>
                         {% endif %}
                     </td>
