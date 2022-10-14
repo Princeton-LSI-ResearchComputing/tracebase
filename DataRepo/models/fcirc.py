@@ -83,6 +83,7 @@ class FCirc(MaintainedModel, HierCachedModel):
         update_field_name="is_last",
         parent_field_name="serum_sample",
         update_label="fcirc_calcs",
+        getter_name="get_is_last",  # This is the default name, but set for readability
     )
     def is_last_serum_peak_group(self):
         """
@@ -195,20 +196,20 @@ class FCirc(MaintainedModel, HierCachedModel):
 
             # If this record's peak group (the one associated with self.serum_sample and self.tracer) used in the
             # calculations is the animal's last such peak group
-            if self.is_last_serum_peak_group():
+            if self.get_is_last:
                 prev_or_last_str = "last"
 
                 # If self.serum_sample is not the animal's last serum sample
                 if (
                     self.serum_sample.id
-                    != self.serum_sample.animal.last_serum_sample.id
+                    != self.serum_sample.animal.get_last_serum_sample.id
                 ):
                     valid = False
                     level = "warn"
                     last_trcr_pg_but_prev_srmsmpl = 1
                     messages.append(
                         f"Animal {self.serum_sample.animal}'s last serum sample "
-                        f"({self.serum_sample.animal.last_serum_sample}) is not being used for calculations for "
+                        f"({self.serum_sample.animal.get_last_serum_sample}) is not being used for calculations for "
                         f"tracer {self.tracer}.  Sample {self.serum_sample} is being used instead.  The last serum "
                         "sample probably does not contain a peak group for this tracer compound."
                     )
@@ -223,7 +224,7 @@ class FCirc(MaintainedModel, HierCachedModel):
                     # identify actually has a peak group for self.tracer.
                     if (
                         # If this is a serum sample
-                        s._is_serum_sample()
+                        s.get_is_serum_sample
                         # and is not the serum sample in this fcirc record
                         and s.id != self.serum_sample.id
                         # and its time_collected is null
@@ -278,7 +279,7 @@ class FCirc(MaintainedModel, HierCachedModel):
             # Note: this level (error) is intentionally set last so that it can overwrite a warn level
             if self.serum_sample.time_collected is None and num_serum_samples > 1:
                 valid = False
-                if self.is_last_serum_peak_group():
+                if self.get_is_last:
                     level = "error"
                     last_trcr_pg_but_smpl_tmclctd_is_none_amng_many = 1
                 else:

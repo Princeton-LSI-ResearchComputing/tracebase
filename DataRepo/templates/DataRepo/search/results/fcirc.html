@@ -561,7 +561,7 @@
 
         <tbody>
             {% for rec in res.all %}
-                <tr class="{% if rec.is_last_serum_peak_group %}bg-highlighted{% else %}bg-normal{% endif %}">
+                <tr class="{% if rec.get_is_last %}bg-highlighted{% else %}bg-normal{% endif %}">
                     <!-- Status -->
                     <td class="center-all">
                         {% if rec.serum_validity.valid %}

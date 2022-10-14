@@ -287,15 +287,7 @@ class PeakGroupLabel(HierCachedModel):
         """
         Instance method which returns True if a peakgroup was obtained from a serum sample.
         """
-        if self.peak_group.msrun.sample.is_serum_sample is None:
-            warnings.warn(
-                f"Sample {self.peak_group.msrun.sample.name}'s is_serum_sample field hasn't been set."
-            )
-            fss = self.peak_group.msrun.sample._is_serum_sample()
-        else:
-            fss = self.peak_group.msrun.sample.is_serum_sample
-
-        if fss:
+        if self.peak_group.msrun.sample.get_is_serum_sample:
             return True
 
         warnings.warn(f"{self.peak_group.name} is not from a serum sample.")
