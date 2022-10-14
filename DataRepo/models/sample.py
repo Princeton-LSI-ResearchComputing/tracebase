@@ -127,9 +127,7 @@ class Sample(MaintainedModel, HierCachedModel):
         """
         Returns true if is serum sample and ID equals Animal.last_serum_sample, false otherwise
         """
-        return (
-            self.get_is_serum_sample and self.id == self.animal.get_last_serum_sample
-        )
+        return self.get_is_serum_sample and self.id == self.animal.get_last_serum_sample
 
     class Meta:
         verbose_name = "sample"
