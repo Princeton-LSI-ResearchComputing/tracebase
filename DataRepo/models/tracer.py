@@ -104,6 +104,9 @@ class Tracer(MaintainedModel, ElementLabel):
         return f"{self.compound.name}-[{labels_string}]"
 
     def clean(self):
+        """
+        Validate this Tracer record.
+        """
         for label in self.labels.all():
             atom_count = self.compound.atom_count(label.element)
             # Ensure isotope elements exist in compound formula

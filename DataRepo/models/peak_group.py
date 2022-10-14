@@ -7,6 +7,7 @@ from DataRepo.models.maintained_model import (
     MaintainedModel,
     maintained_model_relation,
 )
+from DataRepo.models.utilities import atom_count_in_formula
 
 
 @maintained_model_relation(
@@ -26,6 +27,7 @@ class PeakGroup(HierCachedModel, MaintainedModel):
     )
     formula = models.CharField(
         max_length=256,
+        null=False,
         help_text='The molecular formula of the compound (e.g. "C6H12O6").',
     )
     msrun = models.ForeignKey(
@@ -68,21 +70,14 @@ class PeakGroup(HierCachedModel, MaintainedModel):
     @cached_function
     def peak_labeled_elements(self):
         """
-        Gets labels present among any of the tracers in the infusate IF the elements are present in the supplied
-        (measured) compounds.  Basically, if the supplied compound contains an element that is a labeled element in any
-        of the tracers, included in the returned list.
+        Gets labels present among any of the tracers in the infusate IF the elements are present in the peak group
+        formula.  Basically, if the compound contains an element that is a labeled element in any of the tracers, it is
+        included in the returned list.
         """
         peak_labeled_elements = []
-        compound_recs = self.compounds.all()
-        for compound_rec in compound_recs:
-            for (
-                tracer_labeled_element
-            ) in self.msrun.sample.animal.infusate.tracer_labeled_elements():
-                if (
-                    compound_rec.atom_count(tracer_labeled_element) > 0
-                    and tracer_labeled_element not in peak_labeled_elements
-                ):
-                    peak_labeled_elements.append(tracer_labeled_element)
+        for atom in self.msrun.sample.animal.infusate.tracer_labeled_elements():
+            if atom_count_in_formula(self.formula, atom) > 0:
+                peak_labeled_elements.append(atom)
         return peak_labeled_elements
 
     # @cached_function is *slower* than uncached
