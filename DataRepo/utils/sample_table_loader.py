@@ -1,3 +1,4 @@
+import warnings
 from collections import namedtuple
 from datetime import timedelta
 
@@ -27,7 +28,7 @@ from DataRepo.models.maintained_model import (
     perform_buffered_updates,
 )
 from DataRepo.models.researcher import get_researchers
-from DataRepo.models.utilities import value_from_choices_label
+from DataRepo.models.utilities import value_from_choices_label, get_model_by_name
 from DataRepo.utils import parse_infusate_name, parse_tracer_concentrations
 from DataRepo.utils.exceptions import (
     HeaderConfigError,
@@ -36,6 +37,7 @@ from DataRepo.utils.exceptions import (
     ResearcherError,
     ValidationDatabaseSetupError,
 )
+
 
 
 class SampleTableLoader:
@@ -147,9 +149,24 @@ class SampleTableLoader:
     def load_sample_table(self, data, skip_researcher_check=False, debug=False):
         self.debug = debug
 
+        # To avoid circular import issues...
+        Tracer = get_model_by_name("Tracer")
+        TracerLabel = get_model_by_name("TracerLabel")
+
         disable_autoupdates()
         disable_caching_updates()
         animals_to_uncache = []
+
+        # To enforce that infusate, tracer, and tracer label names aren't none, get the initial number of nones
+        init_infusate_name_nones = Infusate.objects.filter(
+            name__isnull=True
+        ).values_list("id", flat=True)
+        init_tracer_name_nones = Tracer.objects.filter(name__isnull=True).values_list(
+            "id", flat=True
+        )
+        init_label_name_nones = TracerLabel.objects.filter(
+            name__isnull=True
+        ).values_list("id", flat=True)
 
         # Create a list to hold the csv reader data so that iterations from validating cleardoesn't leave the csv reader
         # empty/at-the-end upon the import loop
@@ -481,6 +498,30 @@ class SampleTableLoader:
         enable_autoupdates()
         enable_buffering()
 
+        # To enforce that infusate, tracer, and tracer label names aren't none, get the initial number of nones
+        infusate_name_nones = Infusate.objects.filter(name__isnull=True).exclude(
+            id__in=init_infusate_name_nones
+        )
+        tracer_name_nones = Tracer.objects.filter(name__isnull=True).exclude(
+            id__in=init_tracer_name_nones
+        )
+        label_name_nones = TracerLabel.objects.filter(name__isnull=True).exclude(
+            id__in=init_label_name_nones
+        )
+
+        if (
+            infusate_name_nones.count() > 0
+            or tracer_name_nones.count() > 0
+            or label_name_nones.count() > 0
+        ):
+            warnings.warn(
+                self.get_infusates_nones_warning(
+                    infusate_recs=infusate_name_nones,
+                    tracer_recs=tracer_name_nones,
+                    label_recs=label_name_nones,
+                )
+            )
+
     def getRowVal(self, row, header, hdr_required=True, val_required=True):
         """
         Gets a value from the row, indexed by the column header.  If the header is not required but the header key is
@@ -503,6 +544,39 @@ class SampleTableLoader:
             if hdr_required and header not in self.missing_headers:
                 self.missing_headers.append(header)
         return val
+
+    def get_infusates_nones_warning(self, infusate_recs, tracer_recs, label_recs):
+        """
+        This method, given querysets of records whose name fields are None, composes and returns a warning message
+        about the fields.
+        """
+
+        msg = "WARNING: Mass auto-updates of name fields in:\n"
+
+        if infusate_recs.count() > 0:
+            msg += (
+                f"\t{infusate_recs.count()} infusate records (including these IDs: "
+                f"{','.join([str(n.id) for n in infusate_recs.all()[0:3]])})\n"
+            )
+        if tracer_recs.count() > 0:
+            msg += (
+                f"\t{tracer_recs.count()} tracer records (including these IDs: "
+                f"{','.join([str(n.id) for n in tracer_recs.all()[0:3]])})\n"
+            )
+        if label_recs.count() > 0:
+            msg += (
+                f"\t{label_recs.count()} tracer label records (including these IDs: "
+                f"{','.join([str(n.id) for n in label_recs.all()[0:3]])})\n"
+            )
+
+        msg += (
+            "failed to receive values.  There is a current bug (issue #513) that can cause certain Tracebase pages to "
+            "throw an exception when these name fields are None, and until that issue is fixed, these name fields "
+            "must be updated.  Note, the database records were successfully created.  The names of the affected "
+            "records can be updated after-the-fact by running `python manage.py rebuild_maintained_fields`."
+        )
+
+        return msg
 
 
 class NoConcentrations(Exception):
