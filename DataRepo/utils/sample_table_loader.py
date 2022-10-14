@@ -42,6 +42,7 @@ from DataRepo.utils.exceptions import (
 )
 
 
+
 class SampleTableLoader:
     """
     Load a sample table
