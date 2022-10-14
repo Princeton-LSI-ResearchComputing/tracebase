@@ -28,7 +28,10 @@ from DataRepo.models.maintained_model import (
     perform_buffered_updates,
 )
 from DataRepo.models.researcher import get_researchers
-from DataRepo.models.utilities import value_from_choices_label, get_model_by_name
+from DataRepo.models.utilities import (
+    get_model_by_name,
+    value_from_choices_label,
+)
 from DataRepo.utils import parse_infusate_name, parse_tracer_concentrations
 from DataRepo.utils.exceptions import (
     HeaderConfigError,
@@ -37,7 +40,6 @@ from DataRepo.utils.exceptions import (
     ResearcherError,
     ValidationDatabaseSetupError,
 )
-
 
 
 class SampleTableLoader:
