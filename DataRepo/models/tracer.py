@@ -88,13 +88,14 @@ class Tracer(MaintainedModel, ElementLabel):
         ordering = ["name"]
 
     def __str__(self):
-        return str(self._name())
+        return str(self.get_name)
 
     @maintained_field_function(
         generation=2,
         update_field_name="name",
         parent_field_name="infusates",
         update_label="name",
+        getter_name="get_name",  # This is the default name, but set for readability
     )
     def _name(self):
         # format: `compound - [ labelname,labelname,... ]` (but no spaces)
