@@ -74,6 +74,7 @@ class Sample(MaintainedModel, HierCachedModel):
         child_field_names=["fcircs"],
         update_field_name="is_serum_sample",
         update_label="fcirc_calcs",
+        getter_name="get_is_serum_sample",  # This is the default name, but set for readability
     )
     def _is_serum_sample(self):
         """returns True if the sample is flagged as a "serum" sample"""
@@ -126,7 +127,9 @@ class Sample(MaintainedModel, HierCachedModel):
         """
         Returns true if is serum sample and ID equals Animal.last_serum_sample, false otherwise
         """
-        return self._is_serum_sample() and self.id == self.animal._last_serum_sample()
+        return (
+            self.get_is_serum_sample and self.id == self.animal.get_last_serum_sample
+        )
 
     class Meta:
         verbose_name = "sample"
