@@ -1,6 +1,5 @@
 {% extends "base.html" %}
 
-
 {% block title %}Tissues{% endblock %}
 
 {% block content %}
@@ -10,7 +9,7 @@
 
         {% if tissue_list %}
         <br>
-        <table class="table table-sm table-hover table-bordered table-responsive table-striped w-auto mw-100"
+        <table class="table table-sm table-hover table-bordered table-responsive-xl table-striped"
             id="table"
             data-toggle="table"
             data-buttons-class="primary"
@@ -24,10 +23,15 @@
             data-show-columns-toggle-all="true"
             data-show-fullscreen="true"
             data-show-export="true"
-            data-export-types="['csv', 'txt', 'excel']">
+            data-export-types="['csv', 'txt', 'excel']"
+            data-height="1200"
+            data-virtual-scroll="true"
+            data-pagination="true"
+            data-page-size="100"
+            data-page-list="[25, 50, 100, 200, 500, All]">
             <thead>
             <tr>
-                <th data-field="Tissue" data-filter-control="input" data-sortable="true">Tissue</th>
+                <th data-field="Tissue" data-filter-control="input" data-sortable="true" data-sorter="htmlSorter">Tissue</th>
                 <th data-field="Description" data-filter-control="input" data-sortable="true">Description</th>
             </tr>
             </thead>

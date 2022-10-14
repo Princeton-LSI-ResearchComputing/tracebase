@@ -1,0 +1,105 @@
+{% load customtags %}
+{% if out_df %}
+<div>
+    <br>
+    <table class="table table-sm table-hover table-bordered table-responsive-xl table-striped"
+        id="sample_list"
+        data-toggle="table"
+        data-buttons-class="primary"
+        data-buttons-align="left"
+        data-filter-control="true"
+        data-search="true"
+        data-search-align="left"
+        data-show-search-clear-button="true"
+        data-show-multi-sort="true"
+        data-show-columns="true"
+        data-show-columns-toggle-all="true"
+        data-show-fullscreen="true"
+        data-show-export="true"
+        data-export-types="['csv', 'txt', 'excel']"
+        data-height="1200"
+        data-virtual-scroll="true"
+        data-pagination="true"
+        data-page-size="25"
+        data-page-list="[25, 50, 100, 200, 500, All]">
+        <thead>
+            <tr>
+                <th data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-field="Sample">sample</th>
+                <th data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-field="Animal">Animal</th>
+                <th data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-field="Tissue">Tissue</th>
+                <th data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-field="Studies">Studies</th>
+                <th data-filter-control="select" data-sortable="true" data-field="Genotype">Genotype</th>
+                <th data-filter-control="input" data-field="Infusate">Infusate</th>
+                <th data-filter-control="input" data-sortable="true" data-field="Tracers">Tracer(s)</th>
+                <th data-filter-control="input" data-sortable="true" data-field="Concentrations">Tracer Concentration(s) (mM)</th>
+                <th data-filter-control="select" data-sortable="true" data-field="Labeled_Elements">Labeled Element(s)</th>
+                <th data-filter-control="input" data-sortable="true" data-field="Infusion_Rate">Infusion Rate (ul/min/g)</th>
+                <th data-filter-control="input" data-sortable="true" data-sorter ="htmlSorter" data-field="Treatment">Treatment</th>
+                <th data-filter-control="input" data-sortable="true" data-visible="false" data-field="Body_Weight">Body Weight</th>
+                <th data-filter-control="input" data-sortable="true" data-visible="false" data-field="Age">Age (weeks)</th>
+                <th data-filter-control="select" data-sortable="true" data-visible="false" data-field="Sex">Sex</th>
+                <th data-filter-control="input" data-sortable="true" data-visible="false" data-field="Diet">Diet</th>
+                <th data-filter-control="select" data-sortable="true" data-field="Feeding_Status">Feeding Status</th>
+                <th data-filter-control="select" data-sortable="true" data-field="Sample-Owner">Sample Owner</th>
+                <th data-filter-control="input" data-sortable="true" data-field="Sample-Date">Sample Date</th>
+                <th data-filter-control="input" data-sortable="true" data-field="Collect-Time-Minutes">Sample Collect Time(m)</th>
+                <th data-filter-control="select" data-sortable="true" data-field="MSRun-Owner">MSRun Owner</th>
+                <th data-filter-control="input" data-sortable="true" data-field="MSRun-Date"> MSRun Date</th>
+                <th data-filter-control="input" data-sortable="true" data-field="MSRun-Detail">MSRun Detail</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for i in out_df %}
+            <tr>
+                <td><a href="{% url 'sample_detail' i.sample_id %}">{{ i.sample }}</a></td>
+                <td><a href="{% url 'animal_detail' i.animal_id %}">{{ i.animal }}</a></td>
+                <td><a href="{% url 'tissue_detail' i.tissue_id %}">{{ i.tissue }}</a></td>
+                <td><a>{{ i.study_id_name_list|obj_hyperlink:"study" }}</a></td>
+                <td>{{ i.genotype }}</td>
+                <td>
+                    {% if i.infusate_id %}
+                        {% if i.tracer_group_name %}
+                            <a href="{% url 'infusate_detail' i.infusate_id %}">{{ i.tracer_group_name }}</a>
+                        {% elif not i.infusate_tracer_group_name and i.infusate_name %}
+                            <a href="{% url 'infusate_detail' i.infusate_id %}">{{ i.infusate_name }}</a>
+                        {% else %}
+                            <a href="{% url 'infusate_detail' i.infusate_id %}"> Warning: need to verify name for infusate_id={{ i.infusate_id }}</a>
+                        {% endif %}
+                    {% else %}
+                        None
+                    {% endif %}
+                </td>
+                <td>{{ i.tracer_id_name_list|obj_hyperlink:"tracer" }}</td>
+                <td>{{ i.concentrations|join:"," }}</td>
+                <td>{{ i.labeled_elements|join:"," }}</td>
+                <td>{{ i.infusion_rate }}</td>
+                <td>
+                    {% if i.treatment %}
+                        <a href="{% url 'protocol_detail' i.treatment_id %}">{{ i.treatment }}</a>
+                    {% else %}
+                        None
+                    {% endif %}
+                </td>
+                <td>{{ i.body_weight }}</td>
+                <td>{{ i.age|duration_iso_to_weeks }}</td>
+                <td>{{ i.sex }}</td>
+                <td>{{ i.diet }}</td>
+                <td>{{ i.feeding_status }}</td>
+                <td>{{ i.sample_owner }}</td>
+                <td>{{ i.sample_date|convert_iso_date }}</td>
+                <td>{{ i.sample_time_collected|duration_iso_to_mins }}</td>
+                <td>{{ i.msrun_owner }}</td>
+                <td>{{ i.msrun_date|convert_iso_date }}</td>
+                <td>
+                    {% if i.msrun_id %}
+                        <a href="{% url 'msrun_detail' i.msrun_id %}">MSRun Detail</a>
+                    {% else %}
+                        None
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}

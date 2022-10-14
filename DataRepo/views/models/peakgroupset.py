@@ -10,7 +10,6 @@ class PeakGroupSetListView(ListView):
     context_object_name = "peakgroupset_list"
     template_name = "DataRepo/peakgroupset_list.html"
     ordering = ["id"]
-    paginate_by = 20
 
 
 class PeakGroupSetDetailView(DetailView):
