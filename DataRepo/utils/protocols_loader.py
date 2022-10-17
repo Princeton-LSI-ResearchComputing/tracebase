@@ -76,7 +76,8 @@ class ProtocolsLoader:
                         category = row["category"]
                     else:
                         category = self.category
-                    category = category.strip()
+                    if category:
+                        category = category.strip()
                     # Note, the tsv parser returns a "nan" object when there's
                     # no value, which is evaluated as "nan" in string context,
                     # so change back to None

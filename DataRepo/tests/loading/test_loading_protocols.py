@@ -28,6 +28,7 @@ class ProtocolLoadingTests(TracebaseTestCase):
         protocol_loader = ProtocolsLoader(
             protocols=self.working_df,
             category=Protocol.ANIMAL_TREATMENT,
+            dry_run=False,
         )
 
         protocol_loader.load()
