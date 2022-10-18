@@ -418,10 +418,10 @@
                 <th colspan="4" class="intact">Intact</th>
             </tr>
             <tr>
-                <th colspan="2" data-sortable="false" class="average weight">Weight<br>Normalized<br>(nM/m/g)</th>
-                <th colspan="2" data-sortable="false" class="average nonorm">Mouse<br>Normalized<br>(nM/m)</th>
-                <th colspan="2" data-sortable="false" class="intact weight">Weight<br>Normalized<br>(nM/m/g)</th>
-                <th colspan="2" data-sortable="false" class="intact nonorm">Mouse<br>Normalized<br>(nM/m)</th>
+                <th colspan="2" data-sortable="false" class="average weight">Weight<br>Normalized<br>(nmol/min/g)</th>
+                <th colspan="2" data-sortable="false" class="average nonorm">Mouse<br>Normalized<br>(nmol/min)</th>
+                <th colspan="2" data-sortable="false" class="intact weight">Weight<br>Normalized<br>(nmol/min/g)</th>
+                <th colspan="2" data-sortable="false" class="intact nonorm">Mouse<br>Normalized<br>(nmol/min)</th>
             </tr>
             <tr>
                 <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Status-data-visible' 'true' %}" data-field="Status">
@@ -684,42 +684,42 @@
                         <p title="{{ rec.serum_sample.time_collected }} (h:m:s)">{{ rec.serum_sample.time_collected|durationToMins|decimalPlaces:2 }}</p>
                     </td>
 
-                    <!-- Average Ra (nM/m/g) -->
+                    <!-- Average Ra (nmol/min/g) -->
                     <td class="text-end average weight ra">
                         <p title="{{ rec.rate_appearance_average_per_gram|floatformat:10 }}">{{ rec.rate_appearance_average_per_gram|floatformat:2|default:"None" }}</p>
                     </td>
 
-                    <!-- Average Rd (nM/m/g) -->
+                    <!-- Average Rd (nmol/min/g) -->
                     <td class="text-end average weight rd">
                         <p title="{{ rec.rate_disappearance_average_per_gram|floatformat:10 }}">{{ rec.rate_disappearance_average_per_gram|floatformat:2|default:"None" }}</p>
                     </td>
 
-                    <!-- Average Ra (nM/m) -->
+                    <!-- Average Ra (nmol/min) -->
                     <td class="text-end average nonorm ra">
                         <p title="{{ rec.rate_appearance_average_per_animal|floatformat:10 }}">{{ rec.rate_appearance_average_per_animal|floatformat:2|default:"None" }}</p>
                     </td>
 
-                    <!-- Average Rd (nM/m) -->
+                    <!-- Average Rd (nmol/min) -->
                     <td class="text-end average nonorm rd">
                         <p title="{{ rec.rate_disappearance_average_per_animal|floatformat:10 }}">{{ rec.rate_disappearance_average_per_animal|floatformat:2|default:"None" }}</p>
                     </td>
 
-                    <!-- Intact Ra (nM/m/g) -->
+                    <!-- Intact Ra (nmol/min/g) -->
                     <td class="text-end intact weight ra">
                         <p title="{{ rec.rate_appearance_intact_per_gram|floatformat:10 }}">{{ rec.rate_appearance_intact_per_gram|floatformat:2|default:"None" }}</p>
                     </td>
 
-                    <!-- Intact Rd (nM/m/g) -->
+                    <!-- Intact Rd (nmol/min/g) -->
                     <td class="text-end intact weight rd">
                         <p title="{{ rec.rate_disappearance_intact_per_gram|floatformat:10 }}">{{ rec.rate_disappearance_intact_per_gram|floatformat:2|default:"None" }}</p>
                     </td>
 
-                    <!-- Intact Ra (nM/m) -->
+                    <!-- Intact Ra (nmol/min) -->
                     <td class="text-end intact nonorm ra">
                         <p title="{{ rec.rate_appearance_intact_per_animal|floatformat:10 }}">{{ rec.rate_appearance_intact_per_animal|floatformat:2|default:"None" }}</p>
                     </td>
 
-                    <!-- Intact Rd (nM/m) -->
+                    <!-- Intact Rd (nmol/min) -->
                     <td class="text-end intact nonorm rd">
                         <p title="{{ rec.rate_disappearance_intact_per_animal|floatformat:10 }}">{{ rec.rate_disappearance_intact_per_animal|floatformat:2|default:"None" }}</p>
                     </td>
