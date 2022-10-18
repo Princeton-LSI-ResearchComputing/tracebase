@@ -32,7 +32,7 @@ from DataRepo.tests.tracebase_test_case import (
 from DataRepo.views import DataValidationView
 
 
-@tag("multi_mixed")
+@tag("multi_working")
 class ViewTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
@@ -558,7 +558,7 @@ class ViewTests(TracebaseTestCase):
         self.assertEqual(results["data_submission_accucor2.xlsx"], "PASSED")
 
 
-@tag("multi_mixed")
+@tag("multi_working")
 class ViewNullToleranceTests(ViewTests):
     """
     This class inherits from the ViewTests class above and overrides the setUpTestData method to load without auto-
@@ -575,12 +575,10 @@ class ViewNullToleranceTests(ViewTests):
         super().setUpTestData()
         enable_buffering()
 
-    @tag("multi_broken")
     def test_study_list(self):
         """Make sure this page works when infusate/tracer, and/or tracer label names are None"""
         super().test_study_list()
 
-    @tag("multi_broken")
     def test_study_detail(self):
         """Make sure this page works when infusate/tracer, and/or tracer label names are None"""
         super().test_study_detail()
