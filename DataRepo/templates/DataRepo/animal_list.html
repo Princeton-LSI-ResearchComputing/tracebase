@@ -3,6 +3,15 @@
 
 {% block title %}Animals{% endblock %}
 
+{% block head_extras %}
+    { block.super }}
+    <style>
+        .fixed-table-body {
+	        max-height: 1200px;
+        }
+    </style>
+{% endblock %}
+
 {% block content %}
 <h4>List of Animals</h4>
 <br>

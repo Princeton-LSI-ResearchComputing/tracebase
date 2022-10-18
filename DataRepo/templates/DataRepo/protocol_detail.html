@@ -2,6 +2,15 @@
 
 {% block title %}Protocol Record - {{ protocol.name }}{% endblock %}
 
+{% block head_extras %}
+    { block.super }}
+    <style>
+        .fixed-table-body {
+	        max-height: 1200px;
+        }
+    </style>
+{% endblock %}
+
 {% block content %}
 <div>
     <h4>Protocol Record - {{ protocol.name }}</h4>

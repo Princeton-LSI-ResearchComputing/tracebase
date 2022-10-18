@@ -3,6 +3,15 @@
 
 {% block title %}Compound Record - {{ compound.name }}{% endblock %}
 
+{% block head_extras %}
+    { block.super }}
+    <style>
+        .fixed-table-body {
+	        max-height: 1200px;
+        }
+    </style>
+{% endblock %}
+
 {% block content %}
 <div>
     <h4>Compound Record - {{ compound.name }}</h4>
