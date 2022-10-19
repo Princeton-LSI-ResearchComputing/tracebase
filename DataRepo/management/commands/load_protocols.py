@@ -154,7 +154,6 @@ class Command(BaseCommand):
         self.stdout.write(self.style.MIGRATE_HEADING("Loading animal treatments..."))
         nh = self.TREATMENTS_NAME_HEADER
         dh = self.TREATMENTS_DESC_HEADER
-        cv = self.TREATMENTS_CTGR_VALUE
 
         treatments = pd.read_excel(
             xlxs_file_containing_treatments_sheet,
