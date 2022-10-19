@@ -52,11 +52,10 @@
         </tbody>
     </table>
 </div>
-<br>
 <div>
-    <h5><a href="{% url 'search_basic' 'Animal' 'id' 'iexact' animal.id 'peakgroups' %}">View Peak Group Data</a></h5>
-    <h5><a href="{% url 'search_basic' 'Animal' 'id' 'iexact' animal.id 'peakdata' %}">View Peak Data</a></h5>
-    <h5><a href="{% url 'search_basic' 'Animal' 'id' 'iexact' animal.id 'fcirc' %}">View Fcirc Data</a></h5>
+    <li><a href="{% url 'search_basic' 'Animal' 'id' 'iexact' animal.id 'peakgroups' %}">Peak Groups</a></li>
+    <li><a href="{% url 'search_basic' 'Animal' 'id' 'iexact' animal.id 'peakdata' %}">Peak Data</a></li>
+    <li><a href="{% url 'search_basic' 'Animal' 'id' 'iexact' animal.id 'fcirc' %}">Fcirc Data</a></li>
 </div>
 <br>
 <div>

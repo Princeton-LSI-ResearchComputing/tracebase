@@ -2,18 +2,14 @@
 
 {% block title %}Protocol Record - {{ protocol.name }}{% endblock %}
 
-{% block head_extras %}
-    { block.super }}
-    <style>
-        .fixed-table-body {
-	        max-height: 1200px;
-        }
-    </style>
-{% endblock %}
-
 {% block content %}
 <div>
-    <h4>Protocol Record - {{ protocol.name }}</h4>
+    {% if protocol.category == "animal_treatment" %}
+        <h4>Animal Treatment - {{ protocol.name }}</h4>
+    {% elif protocol.category == "msrun_protocol" %}
+        <h4>Mass Spectrometry Protocol - {{ protocol.name }} </h4>
+    {% endif %}
+    
     <table class="table table-bordered table-hover w-auto mw-100">
         <tr>
             <td>Name</td>
@@ -32,13 +28,13 @@
 <br>
 <div>
     {% if protocol.category == "animal_treatment" %}
-        <h4>Studies using this protocol for animal treatment:</h4>
+        <h5>Studies using this protocol for animal treatment</h5>
     {% elif protocol.category == "msrun_protocol" %}
-        <h4>Studies using this protocol for MSRuns:</h4>
+        <h5>Studies using this protocol for MSRuns</h5>
     {% endif %}
     <br>
     {% with out_df=df %}
-        {% include "DataRepo/includes/study_list_stats_table.html" %}
+        {% include "DataRepo/includes/study_list_stats_table_short.html" %}
     {% endwith %}
     <br>
 </div>

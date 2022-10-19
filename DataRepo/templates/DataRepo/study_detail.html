@@ -50,14 +50,13 @@
     </table>
 </div>
 <div>
-    <br>
-    <h5><a href="{% url 'search_basic' 'Study' 'id' 'iexact' study.id 'peakgroups' %}">View Peak Group Data</a></h5>
-    <h5><a href="{% url 'search_basic' 'Study' 'id' 'iexact' study.id 'peakdata' %}">View Peak Data</a></h5>
-    <h5><a href="{% url 'search_basic' 'Study' 'id' 'iexact' study.id 'fcirc' %}">View Fcirc Data</a></h5>
+    <li><a href="{% url 'search_basic' 'Study' 'id' 'iexact' study.id 'peakgroups' %}">Peak Groups</a></li>
+    <li><a href="{% url 'search_basic' 'Study' 'id' 'iexact' study.id 'peakdata' %}">Peak Data</a></li>
+    <li><a href="{% url 'search_basic' 'Study' 'id' 'iexact' study.id 'fcirc' %}">Fcirc Data</a></li>
 </div>
 <br>
 <div>
-    <h5>Animal and Sample Data for the Study:</h5>
+    <h6>Animal and Sample Data for the Study</6>
     <br>
     {% with out_df=df %}
         {% include "DataRepo/includes/study_animal_sample_msrun_table_detailpage.html" %}
