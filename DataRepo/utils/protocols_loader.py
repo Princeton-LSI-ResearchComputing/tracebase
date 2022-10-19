@@ -20,6 +20,14 @@ class ProtocolsLoader:
     ):
         self.protocols = protocols
         self.protocols.columns = self.protocols.columns.str.lower()
+        req_cols = ["name", "description"]
+        for req in req_cols:
+            if req not in self.protocols.columns:
+                print(f"dtypes {protocols.dtypes}")
+                print(f"cols {protocols.columns} ")
+                raise KeyError(
+                    f"{protocols.dtypes} ProtocolsLoader requires the header '{req}' in its dataframe keys"
+                )
         self.dry_run = dry_run
         self.category = category
         # List of exceptions
@@ -68,8 +76,8 @@ class ProtocolsLoader:
             print(f"Loading protocols row {index+1}")
             try:
                 with transaction.atomic():
-                    name = row["name"].strip()
-                    description = row["description"].strip()
+                    name = row["name"]
+                    description = row["description"]
                     # prefer the file/dataframe-specified category, but user the
                     # loader initialization category, as a fallback
                     if "category" in row:
@@ -87,6 +95,12 @@ class ProtocolsLoader:
                         description = None
                     if str(category) == "nan":
                         category = None
+                    # strip from values
+                    if name:
+                        name = name.strip()
+                    if description:
+                        description = description.strip()
+
                     # To aid in debugging the case where an editor entered spaces instead of a tab...
                     if " " in str(name) and description is None:
                         raise ValidationError(
@@ -133,6 +147,10 @@ class ProtocolsLoader:
                         )
             except (IntegrityError, ValidationError) as e:
                 self.errors.append(f"Error in row {index + 1}: {e}")
+            except (KeyError):
+                raise ValidationError(
+                    "ProtocolLoader requires a dataframe with 'name' and 'description' headers/keys."
+                ) from None
         if len(self.errors) > 0:
             message = ""
             for err in self.errors:

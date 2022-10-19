@@ -53,6 +53,7 @@ def create_infusate_records():
 
 
 @tag("multi_working")
+@tag("load_study")
 class InfusateTests(TracebaseTestCase):
     def setUp(self):
         super().setUp()
@@ -61,6 +62,11 @@ class InfusateTests(TracebaseTestCase):
 
     @classmethod
     def setUpTestData(cls):
+        call_command(
+            "load_study",
+            "DataRepo/example_data/protocols/loading.yaml",
+            verbosity=2,
+        )
         call_command(
             "load_study",
             "DataRepo/example_data/tissues/loading.yaml",
@@ -142,6 +148,7 @@ class InfusateTests(TracebaseTestCase):
 
 
 @tag("multi_working")
+@tag("load_study")
 class MaintainedModelTests(TracebaseTestCase):
     def setUp(self):
         super().setUp()
@@ -156,12 +163,7 @@ class MaintainedModelTests(TracebaseTestCase):
     def setUpTestData(cls):
         call_command(
             "load_study",
-            "DataRepo/example_data/tissues/loading.yaml",
-            verbosity=2,
-        )
-        call_command(
-            "load_compounds",
-            compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
+            "DataRepo/example_data/small_dataset/small_obob_study_prerequisites.yaml",
             verbosity=2,
         )
         super().setUpTestData()

@@ -1,8 +1,10 @@
 import argparse
+import pathlib
 
 import pandas as pd
 from django.core.management import BaseCommand, CommandError
 
+from DataRepo.models.protocol import Protocol
 from DataRepo.utils import DryRun, LoadingError, ProtocolsLoader
 
 
@@ -14,13 +16,24 @@ class Command(BaseCommand):
     category_header = "Category"
     description_header = "Description"
 
+    # default XLXS template headers and assumed category value
+    TREATMENT_SHEET_NAME = "Treatments"
+    TREATMENTS_NAME_HEADER = "Animal Treatment"
+    TREATMENTS_DESC_HEADER = "Treatment Description"
+    TREATMENTS_CTGR_VALUE = Protocol.ANIMAL_TREATMENT
+
+    # to store if we are loading a specific batch of treaments from a template file
+    batch_category = None
+
     def add_arguments(self, parser):
         parser.add_argument(
             "--protocols",
             type=str,
             help=(
-                "Path to tab-delimited file containing the headers "
-                f"'{self.name_header}','{self.category_header}','{self.description_header}'"
+                "Path to EITHER a tab-delimited file containing the headers "
+                f"'{self.name_header}','{self.category_header}','{self.description_header}' "
+                f"OR a path to an xlxs workbook file containing the sheet named '{self.TREATMENT_SHEET_NAME}' "
+                f"with the headers '{self.TREATMENTS_NAME_HEADER}','{self.TREATMENTS_DESC_HEADER}'"
             ),
             required=True,
         )
@@ -57,27 +70,18 @@ class Command(BaseCommand):
                 self.style.MIGRATE_HEADING("DRY-RUN, NO CHANGES WILL BE SAVED")
             )
 
-        # Keeping `na` to differentiate between intentional empty descriptions and spaces in the first column that were
-        # intended to be tab characters
-        new_protocols = pd.read_csv(
-            options["protocols"], sep="\t", keep_default_na=True
-        )
-        # rename template columns to ProtocolLoader expectations
-        new_protocols.rename(
-            inplace=True,
-            columns={
-                str(self.name_header): "name",
-                str(self.category_header): "category",
-                str(self.description_header): "description",
-            },
-        )
+        self.read_from_file(options["protocols"])
 
-        self.protocol_loader = ProtocolsLoader(
-            protocols=new_protocols,
-            dry_run=options["dry_run"],
-            database=options["database"],
-            validate=options["validate"],
-        )
+        loader_args = {
+            "protocols": self.new_protocols_df,
+            "dry_run": options["dry_run"],
+            "database": options["database"],
+            "validate": options["validate"],
+        }
+        if self.batch_category:
+            loader_args["category"] = self.batch_category
+
+        self.protocol_loader = ProtocolsLoader(**loader_args)
 
         try:
             self.protocol_loader.load()
@@ -110,6 +114,69 @@ class Command(BaseCommand):
                 options["protocols"],
                 options["verbosity"],
             )
+
+    def read_from_file(self, filename, format=None):
+        """
+        Read protocols from a file and directs to storage methods
+        """
+        format_choices = ("tsv", "xlsx")
+        if format is None:
+            format = pathlib.Path(filename).suffix.strip(".")
+        if format == "tsv":
+            self.read_protocols_tsv(filename)
+        elif format == "xlsx":
+            self.extract_treatments(filename)
+        else:
+            raise CommandError(
+                'Invalid file format reading samples: "%s", expected one of %s',
+                format_choices,
+                format,
+            )
+
+    def read_protocols_tsv(self, protocols_tsv):
+
+        # Keeping `na` to differentiate between intentional empty descriptions and spaces in the first column that were
+        # intended to be tab characters
+        new_protocols = pd.read_table(protocols_tsv, dtype=str, keep_default_na=True)
+        # rename template columns to ProtocolLoader expectations
+        new_protocols.rename(
+            inplace=True,
+            columns={
+                str(self.name_header): "name",
+                str(self.category_header): "category",
+                str(self.description_header): "description",
+            },
+        )
+
+        self.new_protocols_df = new_protocols
+
+    def extract_treatments(self, xlxs_file_containing_treatments_sheet):
+        self.stdout.write(self.style.MIGRATE_HEADING("Loading animal treatments..."))
+        nh = self.TREATMENTS_NAME_HEADER
+        dh = self.TREATMENTS_DESC_HEADER
+        cv = self.TREATMENTS_CTGR_VALUE
+
+        treatments = pd.read_excel(
+            xlxs_file_containing_treatments_sheet,
+            sheet_name=self.TREATMENT_SHEET_NAME,
+            dtype={
+                nh: str,
+                dh: str,
+            },
+            keep_default_na=False,
+            engine="openpyxl",
+        )
+
+        # rename template columns to ProtocolLoader expectations
+        treatments.rename(
+            inplace=True,
+            columns={
+                str(nh): "name",
+                str(dh): "description",
+            },
+        )
+        self.new_protocols_df = treatments
+        self.batch_category = self.TREATMENTS_CTGR_VALUE
 
     def print_notices(self, stats, opt, verbosity):
 

@@ -316,6 +316,11 @@ class ProtocolTests(TracebaseTestCase):
 class DataLoadingTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
+        call_command("load_study", "DataRepo/example_data/protocols/loading.yaml")
+        call_command(
+            "load_protocols",
+            protocols="DataRepo/example_data/protocols/T3_protocol.tsv",
+        )
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
         call_command(
             "load_compounds",
@@ -727,10 +732,13 @@ class DataLoadingTests(TracebaseTestCase):
 class PropertyTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
-        call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
         call_command(
-            "load_compounds",
-            compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
+            "load_study",
+            "DataRepo/example_data/small_dataset/small_obob_study_prerequisites.yaml",
+        )
+        call_command(
+            "load_protocols",
+            protocols="DataRepo/example_data/protocols/T3_protocol.tsv",
         )
         cls.ALL_COMPOUNDS_COUNT = 47
 
@@ -1450,10 +1458,9 @@ class PropertyTests(TracebaseTestCase):
 class MultiTracerLabelPropertyTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
-        call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
         call_command(
-            "load_compounds",
-            compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
+            "load_study",
+            "DataRepo/example_data/small_dataset/small_obob_study_prerequisites.yaml",
         )
         call_command(
             "load_animals_and_samples",
@@ -1771,10 +1778,9 @@ class TracerRateTests(TracebaseTestCase):
 class AnimalAndSampleLoadingTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
-        call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
         call_command(
-            "load_compounds",
-            compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
+            "load_study",
+            "DataRepo/example_data/small_dataset/small_obob_study_prerequisites.yaml",
         )
         cls.ALL_COMPOUNDS_COUNT = 32
 
@@ -1811,12 +1817,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
     def setUpTestData(cls):
         call_command(
             "load_study",
-            "DataRepo/example_data/tissues/loading.yaml",
-            verbosity=2,
-        )
-        call_command(
-            "load_compounds",
-            compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
+            "DataRepo/example_data/small_dataset/small_obob_study_prerequisites.yaml",
             verbosity=2,
         )
 
@@ -1898,6 +1899,11 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
 class IsoCorrDataLoadingTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
+        call_command(
+            "load_study",
+            "DataRepo/example_data/protocols/loading.yaml",
+            verbosity=2,
+        )
         call_command(
             "load_study",
             "DataRepo/example_data/tissues/loading.yaml",
@@ -2335,6 +2341,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
 class StudyLoadingTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
+        call_command("load_study", "DataRepo/example_data/protocols/loading.yaml")
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
         call_command(
             "load_study",
@@ -2418,18 +2425,13 @@ class StudyLoadingTests(TracebaseTestCase):
 
 @override_settings(CACHES=settings.TEST_CACHES)
 @tag("multi_working")
+@tag("load_study")
 class ParseIsotopeLabelTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
         call_command(
             "load_study",
-            "DataRepo/example_data/tissues/loading.yaml",
-            verbosity=2,
-        )
-        call_command(
-            "load_compounds",
-            compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
-            verbosity=2,
+            "DataRepo/example_data/small_dataset/small_obob_study_prerequisites.yaml",
         )
 
         call_command(
@@ -2545,6 +2547,7 @@ class AnimalLoadingTests(TracebaseTestCase):
 
     @classmethod
     def setUpTestData(cls):
+        call_command("load_study", "DataRepo/example_data/protocols/loading.yaml")
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
         call_command(
             "load_compounds",

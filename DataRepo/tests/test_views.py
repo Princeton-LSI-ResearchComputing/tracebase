@@ -36,6 +36,12 @@ from DataRepo.views import DataValidationView
 class ViewTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
+        call_command(
+            "load_protocols",
+            protocols="DataRepo/example_data/protocols/diet_protocols.tsv",
+        )
+        cls.ALL_PROTOCOLS_COUNT = 2
+
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
         cls.ALL_TISSUES_COUNT = 37
 
@@ -63,6 +69,7 @@ class ViewTests(TracebaseTestCase):
             researcher="Michael Neinast",
             new_researcher=True,
         )
+        cls.ALL_PROTOCOLS_COUNT += 1
         cls.INF_COMPOUNDS_COUNT = 2
         cls.INF_SAMPLES_COUNT = 14
         cls.INF_PEAKDATA_ROWS = 11
@@ -204,7 +211,9 @@ class ViewTests(TracebaseTestCase):
         response = self.client.get(reverse("protocol_list"))
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "DataRepo/protocol_list.html")
-        self.assertEqual(len(response.context["protocol_list"]), 1)
+        self.assertEqual(
+            len(response.context["protocol_list"]), self.ALL_PROTOCOLS_COUNT
+        )
 
     def test_protocol_detail(self):
         p1 = Protocol.objects.filter(name="Default").get()
@@ -695,6 +704,11 @@ class ValidationViewTests(TracebaseTransactionTestCase):
             "data_submission_accucor1.xlsx": "DataRepo/example_data/data_submission_accucor1.xlsx",
             "data_submission_accucor2.xlsx": "DataRepo/example_data/data_submission_accucor2.xlsx",
         }
+        # data_submission_animal_sample_table.xlsx contains diet protocols
+        call_command(
+            "load_protocols",
+            protocols="DataRepo/example_data/protocols/diet_protocols.tsv",
+        )
 
         # Test the validate_load_files function
         vo = DataValidationView()
