@@ -13,3 +13,13 @@
     {% endwith %}
 <br>
 {% endblock %}
+
+{% block js_extras %}
+    {{ block.super }}
+    <script>
+        $('#animal_list_stats').bootstrapTable({
+            height: 1200,
+            virtualScroll: true
+        })
+    </script>
+{% endblock %}

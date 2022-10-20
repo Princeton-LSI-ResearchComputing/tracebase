@@ -71,8 +71,8 @@
                 {% endif %}
             </td>
             <td>{{ i.tracer_id_name_list|obj_hyperlink:"tracer" }}</td>
-            <td>{{ i.concentrations|join:"," }}</td>
-            <td>{{ i.labeled_elements|join:"," }}</td>
+            <td>{{ i.concentrations|join:", " }}</td>
+            <td>{{ i.labeled_elements|join:", " }}</td>
             <td>{{ i.infusion_rate }}</td>
             <td>
                 {% if i.treatment %}

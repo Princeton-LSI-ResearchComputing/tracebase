@@ -1,7 +1,6 @@
 {% load customtags %}
 {% if out_df %}
 <div>
-    <br>
     <table class="table table-sm table-hover table-bordered table-responsive-xl table-striped"
         id="sample_list"
         data-toggle="table"
@@ -35,14 +34,14 @@
                 <th data-filter-control="select" data-sortable="true" data-field="Labeled_Elements">Labeled Element(s)</th>
                 <th data-filter-control="input" data-sortable="true" data-field="Infusion_Rate">Infusion Rate (ul/min/g)</th>
                 <th data-filter-control="input" data-sortable="true" data-sorter ="htmlSorter" data-field="Treatment">Treatment</th>
-                <th data-filter-control="input" data-sortable="true" data-visible="false" data-field="Body_Weight">Body Weight</th>
+                <th data-filter-control="input" data-sortable="true" data-visible="false" data-field="Body_Weight">Body Weight (g)</th>
                 <th data-filter-control="input" data-sortable="true" data-visible="false" data-field="Age">Age (weeks)</th>
                 <th data-filter-control="select" data-sortable="true" data-visible="false" data-field="Sex">Sex</th>
                 <th data-filter-control="input" data-sortable="true" data-visible="false" data-field="Diet">Diet</th>
                 <th data-filter-control="select" data-sortable="true" data-field="Feeding_Status">Feeding Status</th>
                 <th data-filter-control="select" data-sortable="true" data-field="Sample-Owner">Sample Owner</th>
                 <th data-filter-control="input" data-sortable="true" data-field="Sample-Date">Sample Date</th>
-                <th data-filter-control="input" data-sortable="true" data-field="Collect-Time-Minutes">Sample Collect Time(m)</th>
+                <th data-filter-control="input" data-sortable="true" data-field="Collect-Time-Minutes">Time Collected (m)</th>
                 <th data-filter-control="select" data-sortable="true" data-field="MSRun-Owner">MSRun Owner</th>
                 <th data-filter-control="input" data-sortable="true" data-field="MSRun-Date">MSRun Date</th>
                 <th data-filter-control="input" data-sortable="true" data-field="MSRun-Detail">MSRun Detail</th>
@@ -70,8 +69,8 @@
                     {% endif %}
                 </td>
                 <td>{{ i.tracer_id_name_list|obj_hyperlink:"tracer" }}</td>
-                <td>{{ i.concentrations|join:"," }}</td>
-                <td>{{ i.labeled_elements|join:"," }}</td>
+                <td>{{ i.concentrations|join:", " }}</td>
+                <td>{{ i.labeled_elements|join:", " }}</td>
                 <td>{{ i.infusion_rate }}</td>
                 <td>
                     {% if i.treatment %}

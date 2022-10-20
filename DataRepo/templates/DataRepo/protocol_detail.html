@@ -9,7 +9,7 @@
     {% elif protocol.category == "msrun_protocol" %}
         <h4>Mass Spectrometry Protocol - {{ protocol.name }} </h4>
     {% endif %}
-    
+
     <table class="table table-bordered table-hover w-auto mw-100">
         <tr>
             <td>Name</td>
@@ -34,8 +34,31 @@
     {% endif %}
     <br>
     {% with out_df=df %}
-        {% include "DataRepo/includes/study_list_stats_table_short.html" %}
+        {% include "DataRepo/includes/study_list_stats_table.html" %}
     {% endwith %}
     <br>
 </div>
+{% endblock %}
+
+{% block js_extras %}
+    {{ block.super }}
+    <script>
+        let rowCount = {{ df|length }}
+        let vScroll = undefined
+        let tabHeight = undefined
+        if ( rowCount < 5 ) {
+            tabHeight = undefined
+            vScroll = undefined
+        } else if (rowCount >= 5 && rowCount < 10) {
+            tabHeight = 800
+            vScroll = true
+        } else {
+            tabHeight = 1000
+            vScroll = true
+        }
+
+        $('#study_list_stats').bootstrapTable({
+                height: tabHeight
+        })
+    </script>
 {% endblock %}

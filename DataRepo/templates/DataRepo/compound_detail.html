@@ -43,9 +43,32 @@
         <br>
         <h6>List of Animals using <b>{{ compound.name }}</b> as a tracer compound</h6>
         {% with out_df=anim_per_comp_df %}
-            {% include "DataRepo/includes/animal_list_stats_table_short.html" %}
+            {% include "DataRepo/includes/animal_list_stats_table.html" %}
         {% endwith %}
         <br>
     {% endif %}
 </div>
+{% endblock %}
+
+{% block js_extras %}
+    {{ block.super }}
+    <script>
+        let rowCount = {{ anim_per_comp_df|length }}
+        let vScroll = undefined
+        let tabHeight = undefined
+        if ( rowCount < 5 ) {
+            tabHeight = undefined
+            vScroll = undefined
+        } else if (rowCount >= 5 && rowCount < 10) {
+            tabHeight = 800
+            vScroll = true
+        } else {
+            tabHeight = 1000
+            vScroll = true
+        }
+        $('#animal_list_stats').bootstrapTable({
+            height: tabHeight,
+            virtualScroll: vScroll
+        })
+    </script>
 {% endblock %}

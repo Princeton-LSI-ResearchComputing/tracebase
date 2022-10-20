@@ -2,15 +2,6 @@
 
 {% block title %}Studies{% endblock %}
 
-{% block head_extras %}
-    { block.super }}
-    <style>
-        .fixed-table-body {
-	        max-height: 1200px;
-        }
-    </style>
-{% endblock %}
-
 {% block content %}
 <h4>List of Studies</h4>
 <br>
@@ -19,4 +10,14 @@
     {% endwith %}
 <br>
 <h5><a href="{% url 'study_summary' %}">Browse All Studies, Animals, and Samples</a></h5>
+{% endblock %}
+
+{% block js_extras %}
+    {{ block.super }}
+    <script>
+        $('#study_list_stats').bootstrapTable({
+            height: 1200,
+            virtualScroll: true
+        })
+    </script>
 {% endblock %}
