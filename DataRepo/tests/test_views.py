@@ -608,6 +608,11 @@ class ValidationViewTests(TracebaseTransactionTestCase):
 
     @classmethod
     def initialize_databases(cls):
+        # data_submission_animal_sample_table.xlsx contains diet protocols
+        call_command(
+            "load_protocols",
+            protocols="DataRepo/example_data/protocols/diet_protocols.tsv",
+        )
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
         call_command(
             "load_compounds",
@@ -704,11 +709,6 @@ class ValidationViewTests(TracebaseTransactionTestCase):
             "data_submission_accucor1.xlsx": "DataRepo/example_data/data_submission_accucor1.xlsx",
             "data_submission_accucor2.xlsx": "DataRepo/example_data/data_submission_accucor2.xlsx",
         }
-        # data_submission_animal_sample_table.xlsx contains diet protocols
-        call_command(
-            "load_protocols",
-            protocols="DataRepo/example_data/protocols/diet_protocols.tsv",
-        )
 
         # Test the validate_load_files function
         vo = DataValidationView()
@@ -746,6 +746,15 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         self.clear_database(settings.VALIDATION_DB)
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
         self.assertGreater(Tissue.objects.using(settings.TRACEBASE_DB).all().count(), 0)
+
+    def test_protocols_load_in_both_dbs(self):
+        """
+        Test to ensure that protocols load in both databases by default
+        """
+        self.clear_database(settings.TRACEBASE_DB)
+        self.clear_database(settings.VALIDATION_DB)
+        call_command("load_protocols", protocols="DataRepo/example_data/protocols/diet_protocols.tsv")
+        self.assertGreater(Protocol.objects.using(settings.TRACEBASE_DB).all().count(), 0)
 
     def test_only_tracebase_loaded(self):
         """
