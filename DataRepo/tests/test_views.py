@@ -753,8 +753,14 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         """
         self.clear_database(settings.TRACEBASE_DB)
         self.clear_database(settings.VALIDATION_DB)
-        call_command("load_protocols", protocols="DataRepo/example_data/protocols/diet_protocols.tsv")
-        self.assertGreater(Protocol.objects.using(settings.TRACEBASE_DB).all().count(), 0)
+        call_command(
+            "load_protocols",
+            protocols="DataRepo/example_data/protocols/diet_protocols.tsv",
+        )
+        tbdb_count = Protocol.objects.using(settings.TRACEBASE_DB).all().count()
+        vddb_count = Protocol.objects.using(settings.VALIDATION_DB).all().count()
+        self.assertGreater(tbdb_count, 0)
+        self.assertEqual(tbdb_count, vddb_count)
 
     def test_only_tracebase_loaded(self):
         """
