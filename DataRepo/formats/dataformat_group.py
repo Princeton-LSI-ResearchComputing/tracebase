@@ -238,15 +238,56 @@ class FormatGroup:
                     all_fld_choices = all_fld_choices + ((fld_val, fld_name),)
         return all_fld_choices
 
+    def getFieldUnitsDict(self):
+        """
+        Creates a format-keyed dict of the unit choices data, including the tuples used to create a select list.  This
+        is used to populate the units select list based on the selected field.
+
+        The returned data structure looks like this:
+
+        format: {
+            path__field: {
+                "units": unit_options_key,  # (identity, postgres_interval)
+                "default": field_default,
+                "choices": list of tuples,  # to be used in populating a select list
+                "metadata": {
+                    units_sel_list_value: {
+                        "example": example,
+                        "about": about,
+                    },
+                },
+            },
+        }
+        """
+
+        fld_units = {}
+        for fmtid in self.modeldata.keys():
+            fld_units[fmtid] = self.modeldata[fmtid].getFieldUnits()
+
+        return fld_units
+
+    def getAllFieldUnitsChoices(self):
+        """
+        Calls getAllFieldUnitsChoices of the default output format class.
+
+        All units options are the same for every Format class contained in this class, so we only need to call one.
+        """
+        return self.modeldata[self.default_format].getAllFieldUnitsChoices()
+
     def getComparisonChoices(self):
         """
         Calls getComparisonChoices of the default output format class.
+
+        All ncmp_choices are the same for every Format class contained in this class, so it doesn't matter which one we
+        use.
         """
         return self.modeldata[self.default_format].getComparisonChoices()
 
     def getAllComparisonChoices(self):
         """
         Calls getAllComparisonChoices of the default output format class.
+
+        All ncmp_choices are the same for every Format class contained in this class, so we only need to call one.
         """
         return self.modeldata[self.default_format].getAllComparisonChoices()
 

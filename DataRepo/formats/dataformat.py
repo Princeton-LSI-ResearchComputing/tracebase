@@ -70,6 +70,138 @@ class Format:
             ("isnull", "does not have a value (ie. is None)"),
         ],
     }
+    unit_options = {
+        # The following dicts are used to populate a units (or "format") select list (for fields of type "number" only)
+        # To use, set the field units in the derived class, e.g.:
+        #
+        # self.model_instances[instance_name]["fields"][field_name]["units"] = {
+        #     "type": "postgres_interval",
+        #     "default": "weeks",
+        #     "subset": ["months", "weeks", "days", "hours"],  # Order retained
+        # }
+        # This is used for any/all fields that do not have unit options
+        "identity": {
+            "default": "identity",
+            "entry_options": {
+                "identity": {
+                    "name": "identity",
+                    "value": "identity",
+                    "example": None,
+                    "convert": lambda v: v,
+                },
+            },
+        },
+        "postgres_interval": {
+            "default": "native",  # Override: model_instances[instance_name]["fields"][field_name]["units"]["default"]
+            # The following has only been tested to work with DurationField lookups and a postgres database
+            # (e.g. Animal.objects.filter(age__gt=converted_value) where converted_value is the user's entry in val
+            # with the convert method below has been applied to it)
+            # Documentation: https://www.postgresql.org/docs/current/datatype-datetime.html
+            "entry_options": {
+                "native": {
+                    # format: [nn.nn{units}{:|,}[ ]]+
+                    "name": "n.n{units},...",
+                    "value": "native",
+                    "example": "1w,1d,1:01:01.1",
+                    "convert": lambda v: v,
+                    "about": (
+                        "Values can be entered using the following format pattern: `[n{units}{:|,}]*hh:mm:ss[.f]`, "
+                        "where units can be:\n\n- c[enturies]\n- decades\n- y[ears]\n- months\n- w[eeks]\n- d[ays]\n- "
+                        "h[ours]\n- m[inutes]\n- s[econds]\n- milliseconds\n- microseconds\n\nIf milli/micro-seconds "
+                        "are not included, the last 3 units (hours, minutes, and seconds) do not need to be specified."
+                        "\n\nExamples:\n\n- 1w,1d,1:01:01.1\n- 1 year, 3 months\n- 2:30\n- 2 days, 11:29:59.999"
+                    ),
+                },
+                "calendartime": {
+                    # format: [nn.nn{units},]+
+                    "name": "ny,nm,nw,nd",
+                    "value": "calendartime",
+                    "example": "0y,1m,2w,3d",
+                    "convert": lambda v: v,
+                },
+                "clocktime": {
+                    # format: [hh:mm[:ss]]
+                    "name": "clocktime (hh:mm[:ss])",
+                    "value": "clocktime",
+                    "example": "2:30:10.1",
+                    "convert": lambda v: v,
+                },
+                "millennia": {
+                    "name": "millennia",
+                    "value": "millenniums",
+                    "example": "1.0",
+                    "convert": lambda v: f"{v}millenniums",
+                },
+                "centuries": {
+                    "name": "centuries",
+                    "value": "c",
+                    "example": "1.0",
+                    "convert": lambda v: f"{v}c",
+                },
+                "decades": {
+                    "name": "decades",
+                    "value": "decades",
+                    "example": "1.0",
+                    "convert": lambda v: f"{v}decades",
+                },
+                "years": {
+                    "name": "years",
+                    "value": "y",
+                    "example": "1.0",
+                    "convert": lambda v: f"{v}y",
+                },
+                "months": {
+                    "name": "months",
+                    "value": "months",
+                    "example": "1.0",
+                    "convert": lambda v: f"{v}months",
+                },
+                "weeks": {
+                    "name": "weeks",
+                    "value": "w",
+                    "example": "1.0",
+                    "convert": lambda v: f"{v}w",
+                },
+                "days": {
+                    "name": "days",
+                    "value": "d",
+                    "example": "1.0",
+                    "convert": lambda v: f"{v}d",
+                },
+                "hours": {
+                    "name": "hours",
+                    "value": "h",
+                    "example": "1.0",
+                    "convert": lambda v: f"{v}h",
+                },
+                "minutes": {
+                    "name": "minutes",
+                    "value": "m",
+                    "example": "1.0",
+                    "convert": lambda v: f"{v}m",
+                },
+                "seconds": {
+                    "name": "seconds",
+                    "value": "s",
+                    "example": "1.0",
+                    "convert": lambda v: f"{v}s",
+                },
+                "milliseconds": {
+                    "name": "milliseconds",
+                    "value": "milliseconds",
+                    "example": "1.0",
+                    "convert": lambda v: f"{v}milliseconds",
+                },
+                "microseconds": {
+                    "name": "microseconds",
+                    "value": "microseconds",
+                    "example": "1.0",
+                    "convert": lambda v: f"{v}microseconds",
+                },
+            },
+        },
+    }
+
     static_filter = appendFilterToGroup(
         createFilterGroup(),
         createFilterCondition("", "", ""),
@@ -131,6 +263,124 @@ class Format:
                     fname = self.model_instances[mkey]["fields"][fkey]["displayname"]
                     choices = choices + ((fpath, fname),)
         return tuple(sorted(choices, key=lambda x: x[1]))
+
+    def getFieldUnits(self):
+        """
+        Returns a dict of
+
+        path__field: {
+            "units": unit_options_key,  # (identity, postgres_interval)
+            "default": field_default,
+            "choices": list of tuples,  # to be used in populating a select list
+            "metadata": {
+                units_sel_list_value: {
+                    "example": example,
+                    "about": about,
+                },
+            },
+        }
+
+        path__field is used as the key so that the value of the selections in the fld select list can be directly used
+        to update the units select list
+        """
+
+        unitsdict = {}
+        # For each model
+        for mdl in self.model_instances.keys():
+            # Grab the path
+            path = self.model_instances[mdl]["path"]
+            # If the path has a value (i.e. it's not the root table), append the Q object separator
+            if path != "":
+                path += "__"
+            # For each field
+            for fld in self.model_instances[mdl]["fields"].keys():
+                # Create the field key (mimmicking the keys in the fld select list - but containing ALL fields)
+                fldkey = path + fld
+                unitsdict[fldkey] = {}
+
+                if "units" in self.model_instances[mdl]["fields"][fld].keys():
+                    if self.model_instances[mdl]["fields"][fld]["type"] != "number":
+                        raise TypeUnitsMismatch(
+                            self.model_instances[mdl]["fields"][fld]["type"]
+                        )
+                    key = self.model_instances[mdl]["fields"][fld]["units"]["key"]
+                    default = self.model_instances[mdl]["fields"][fld]["units"][
+                        "default"
+                    ]
+                    if "subset" in self.model_instances[mdl]["fields"][fld]["units"]:
+                        opt_keys = self.model_instances[mdl]["fields"][fld]["units"][
+                            "subset"
+                        ]
+                    else:
+                        opt_keys = self.unit_options[key]["entry_options"].keys()
+                else:
+                    key = "identity"
+                    default = "identity"
+                    opt_keys = ["identity"]
+
+                unitsdict[fldkey]["units"] = key
+                unitsdict[fldkey]["default"] = default
+                unitsdict[fldkey]["choices"] = ()
+                unitsdict[fldkey]["metadata"] = {}
+                for unit_key in opt_keys:
+                    # Populate the choices for dynamically changing the units select list
+                    unitsdict[fldkey]["choices"] = unitsdict[fldkey]["choices"] + (
+                        (
+                            self.unit_options[key]["entry_options"][unit_key]["value"],
+                            self.unit_options[key]["entry_options"][unit_key]["name"],
+                        ),
+                    )
+
+                    # Record examples and "about" info.  Example strings will be included in the field placeholder
+                    # Have to use the value as the metadatakey, because retrieval of the example/about strings will be
+                    # based on the units select list's selected value
+                    metadata_key = self.unit_options[key]["entry_options"][unit_key][
+                        "value"
+                    ]
+                    unitsdict[fldkey]["metadata"][metadata_key] = {}
+                    unitsdict[fldkey]["metadata"][metadata_key][
+                        "example"
+                    ] = self.unit_options[key]["entry_options"][unit_key]["example"]
+                    if (
+                        "about"
+                        in self.unit_options[key]["entry_options"][unit_key].keys()
+                    ):
+                        unitsdict[fldkey]["metadata"][metadata_key][
+                            "about"
+                        ] = self.unit_options[key]["entry_options"][unit_key]["about"]
+                    else:
+                        unitsdict[fldkey]["metadata"][metadata_key]["about"] = None
+
+        return unitsdict
+
+    def getAllFieldUnitsChoices(self):
+        """
+        Returns the union of all unit_options, ignoring differences in the second value. This is mainly only for form
+        validation because it only validates known values (the first value in each tuple) regardless of the particular
+        sub-population controlled by javascript in the advanced search form.
+        """
+        all_unit_choices = ()
+        seen = []
+        for fldtype in self.unit_options.keys():
+            for opt_key in self.unit_options[fldtype]["entry_options"].keys():
+                if (
+                    self.unit_options[fldtype]["entry_options"][opt_key]["value"]
+                    not in seen
+                ):
+                    seen.append(
+                        self.unit_options[fldtype]["entry_options"][opt_key]["value"]
+                    )
+                    all_unit_choices = all_unit_choices + (
+                        (
+                            self.unit_options[fldtype]["entry_options"][opt_key][
+                                "value"
+                            ],
+                            self.unit_options[fldtype]["entry_options"][opt_key][
+                                "name"
+                            ],
+                        ),
+                    )
+        return all_unit_choices
 
     def getComparisonChoices(self):
         """
@@ -411,6 +661,9 @@ class Format:
     def getFieldTypes(self):
         """
         Returns a dict of path__field -> {type -> field_type (number, string, enumeration), choices -> list of tuples}.
+
+        path__field is used as the key so that the value of the selections in the fld select list can be directly used
+        to update the ncmp select list
         """
 
         typedict = {}
@@ -436,6 +689,7 @@ class Format:
                     ]["choices"]
                 else:
                     typedict[fldkey]["choices"] = []
+
         return typedict
 
     def getSearchFields(self, mdl):
@@ -825,3 +1079,13 @@ class Format:
 
 class UnknownComparison(Exception):
     pass
+
+
+class TypeUnitsMismatch(Exception):
+    def __init__(self, type):
+        message = (
+            f"Unsupported combination of field type {type} and units.  Only fields of type 'number' can have unit "
+            "options."
+        )
+        super().__init__(message)
+        self.type = type
