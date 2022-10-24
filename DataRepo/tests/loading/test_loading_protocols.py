@@ -1,4 +1,7 @@
+from copy import deepcopy
+
 import pandas as pd
+from django.core.management import call_command
 from django.test import tag
 
 from DataRepo.models import Protocol
@@ -19,19 +22,38 @@ class ProtocolLoadingTests(TracebaseTestCase):
             ["no treatment", "No treatment was applied to the animal."],
             ["some treatment", "Animal was challenged."],
         ]
+        data_differently = deepcopy(data)
+        # change the description
+        data_differently[1][1] = "Animal was treated differently."
         template_headers = ["name", "description"]
         # Create the pandas DataFrame
         cls.working_df = pd.DataFrame(data, columns=template_headers)
+        cls.working_differently_df = pd.DataFrame(
+            data_differently, columns=template_headers
+        )
 
-    def test_protocols_loader(self):
-        """Test the ProtocolsLoader class"""
+    def load_dataframe_as_animal_treatment(self, df):
+        """Load a working dataframe to protocols table"""
         protocol_loader = ProtocolsLoader(
-            protocols=self.working_df,
+            protocols=df,
             category=Protocol.ANIMAL_TREATMENT,
             dry_run=False,
         )
-
         protocol_loader.load()
+
+    def test_protocols_loader(self):
+        """Test the ProtocolsLoader class"""
+        self.load_dataframe_as_animal_treatment(self.working_df)
+        self.assertEqual(Protocol.objects.count(), 2)
+
+    def test_protocols_loader_failing_different_descs(self):
+        """Test the ProtocolsLoader class"""
+        self.load_dataframe_as_animal_treatment(self.working_df)
+        with self.assertRaisesRegex(
+            LoadingError, "different description already exists"
+        ):
+            self.load_dataframe_as_animal_treatment(self.working_differently_df)
+        # but the other first "working" protocols are still there]
         self.assertEqual(Protocol.objects.count(), 2)
 
     def test_protocols_loader_without_category_error(self):
@@ -53,3 +75,27 @@ class ProtocolLoadingTests(TracebaseTestCase):
             protocol_loader.load()
         # If errors are found, no records should be loaded
         self.assertEqual(Protocol.objects.count(), 0)
+
+    def test_load_protocols_tsv(self):
+        """Test loading the protocols from a TSV containing previously loaded data"""
+        call_command(
+            "load_protocols",
+            protocols="DataRepo/example_data/protocols/protocols.tsv",
+        )
+        self.assertEqual(Protocol.objects.count(), 16)
+        # a few of these were msrun protocols
+        self.assertEqual(
+            Protocol.objects.filter(category=Protocol.MSRUN_PROTOCOL).count(), 8
+        )
+
+    def test_load_protocols_xlxs(self):
+        """Test loading the protocols from a Treatments sheet in the xlxs workbook"""
+        call_command(
+            "load_protocols",
+            protocols="DataRepo/example_data/small_dataset/small_obob_animal_and_sample_table.xlsx",
+        )
+        self.assertEqual(Protocol.objects.count(), 2)
+        # and these are all animal treatments
+        self.assertEqual(
+            Protocol.objects.filter(category=Protocol.ANIMAL_TREATMENT).count(), 2
+        )

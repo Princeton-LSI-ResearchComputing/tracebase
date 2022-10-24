@@ -23,8 +23,6 @@ class ProtocolsLoader:
         req_cols = ["name", "description"]
         for req in req_cols:
             if req not in self.protocols.columns:
-                print(f"dtypes {protocols.dtypes}")
-                print(f"cols {protocols.columns} ")
                 raise KeyError(
                     f"{protocols.dtypes} ProtocolsLoader requires the header '{req}' in its dataframe keys"
                 )
@@ -73,7 +71,6 @@ class ProtocolsLoader:
     @transaction.atomic
     def load_database(self, db):
         for index, row in self.protocols.iterrows():
-            print(f"Loading protocols row {index+1}")
             try:
                 with transaction.atomic():
                     name = row["name"]
