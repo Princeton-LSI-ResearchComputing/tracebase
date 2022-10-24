@@ -19,15 +19,17 @@ class ProtocolViewTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
         call_command("load_study", "DataRepo/example_data/test_dataframes/loading.yaml")
- 
+
     @tag("multi_working")
     def test_animal_treatment_list(self):
         response = self.client.get(reverse("animal_treatment_list"))
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "DataRepo/animal_treatments.html")
         self.assertEqual(len(response.context["animal_treatment_list"]), 1)
-        self.assertEqual(response.context["animal_treatment_list"][0].name, "no treatment")
-    
+        self.assertEqual(
+            response.context["animal_treatment_list"][0].name, "no treatment"
+        )
+
     @tag("multi_working")
     def test_msrun_protocol_list(self):
         response = self.client.get(reverse("msrun_protocol_list"))

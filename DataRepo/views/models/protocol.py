@@ -17,7 +17,9 @@ class AnimalTreatmentListView(ListView):
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        queryset = Protocol.objects.filter(category=Protocol.ANIMAL_TREATMENT).order_by("name")
+        queryset = Protocol.objects.filter(category=Protocol.ANIMAL_TREATMENT).order_by(
+            "name"
+        )
         return queryset
 
 
@@ -32,7 +34,9 @@ class MSRunProtocolListView(ListView):
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        queryset = Protocol.objects.filter(category=Protocol.MSRUN_PROTOCOL).order_by("name")
+        queryset = Protocol.objects.filter(category=Protocol.MSRUN_PROTOCOL).order_by(
+            "name"
+        )
         return queryset
 
 
