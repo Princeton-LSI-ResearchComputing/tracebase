@@ -5,7 +5,7 @@ from .msrun import MSRunDetailView, MSRunListView
 from .peakdata import PeakDataListView
 from .peakgroup import PeakGroupDetailView, PeakGroupListView
 from .peakgroupset import PeakGroupSetDetailView, PeakGroupSetListView
-from .protocol import ProtocolDetailView, ProtocolListView
+from .protocol import ProtocolDetailView, AnimalTreatmentListView, MSRunProtocolListView
 from .sample import SampleDetailView, SampleListView
 from .study import StudyDetailView, StudyListView, study_summary
 from .tissue import TissueDetailView, TissueListView
@@ -18,7 +18,8 @@ __all__ = [
     "StudyListView",
     "StudyDetailView",
     "study_summary",
-    "ProtocolListView",
+    "AnimalTreatmentListView",
+    "MSRunProtocolListView",
     "ProtocolDetailView",
     "AnimalListView",
     "AnimalDetailView",

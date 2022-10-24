@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block title %}Animal Treatments{% endblock %}
+
+{% block content %}
+<br>
+{% if animal_treatment_list %}
+<div>
+    <h4>Animal Treatment Protocols</h4>
+    {% with protocols=animal_treatment_list %}
+        {% include "DataRepo/includes/protocol_table.html" %}
+    {% endwith %}
+</div>
+{% else %}
+    <p>There are no protocols for animal treatment.</p>
+{% endif %}
+{% endblock %}

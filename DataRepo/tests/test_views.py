@@ -200,24 +200,6 @@ class ViewTests(TracebaseTestCase):
         response = self.client.get(reverse("study_detail", args=[s.id + 1]))
         self.assertEqual(response.status_code, 404)
 
-    def test_protocol_list(self):
-        response = self.client.get(reverse("protocol_list"))
-        self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "DataRepo/protocol_list.html")
-        self.assertEqual(len(response.context["protocol_list"]), 1)
-
-    def test_protocol_detail(self):
-        p1 = Protocol.objects.filter(name="Default").get()
-        response = self.client.get(reverse("protocol_detail", args=[p1.id]))
-        self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "DataRepo/protocol_detail.html")
-        self.assertEqual(response.context["protocol"].name, "Default")
-
-    def test_protocol_detail_404(self):
-        p = Protocol.objects.order_by("id").last()
-        response = self.client.get(reverse("protocol_detail", args=[p.id + 1]))
-        self.assertEqual(response.status_code, 404)
-
     @tag("animal")
     def test_animal_list(self):
         response = self.client.get(reverse("animal_list"))

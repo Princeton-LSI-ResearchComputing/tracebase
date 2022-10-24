@@ -36,7 +36,8 @@ urlpatterns = [
     path("studies/", views.StudyListView.as_view(), name="study_list"),
     path("studies/<int:pk>/", views.StudyDetailView.as_view(), name="study_detail"),
     path("studies/study_summary/", views.study_summary, name="study_summary"),
-    path("protocols/", views.ProtocolListView.as_view(), name="protocol_list"),
+    path("protocols/animal_treatments/", views.AnimalTreatmentListView.as_view(), name="animal_treatment_list"),
+    path("protocols/msrun_protocols/", views.MSRunProtocolListView.as_view(), name="msrun_protocol_list"),
     path(
         "protocols/<int:pk>/",
         views.ProtocolDetailView.as_view(),

@@ -6,29 +6,33 @@ from DataRepo.models import Protocol
 from DataRepo.utils import QuerysetToPandasDataFrame as qs2df
 
 
-class ProtocolListView(ListView):
-    """Generic class-based view for a list of protocols"""
+class AnimalTreatmentListView(ListView):
+    """
+    Generic class-based view for animal treatment protocols
+    """
 
     model = Protocol
-    context_object_name = "protocol_list"
-    template_name = "DataRepo/protocol_list.html"
+    context_object_name = "animal_treatment_list"
+    template_name = "DataRepo/animal_treatments.html"
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        queryset = {
-            "animal_treatment": Protocol.objects.filter(
-                category=Protocol.ANIMAL_TREATMENT
-            ).order_by("name"),
-            "msrun_protocol": Protocol.objects.filter(
-                category=Protocol.MSRUN_PROTOCOL
-            ).order_by("name"),
-            "other_category": Protocol.objects.all()
-            .exclude(
-                Q(category=Protocol.ANIMAL_TREATMENT)
-                | Q(category=Protocol.MSRUN_PROTOCOL)
-            )
-            .order_by("category", "name"),
-        }
+        queryset = Protocol.objects.filter(category=Protocol.ANIMAL_TREATMENT).order_by("name")
+        return queryset
+
+
+class MSRunProtocolListView(ListView):
+    """
+    Generic class-based view for MSRun protocols
+    """
+
+    model = Protocol
+    context_object_name = "msrun_protocol_list"
+    template_name = "DataRepo/msrun_protocols.html"
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        queryset = Protocol.objects.filter(category=Protocol.MSRUN_PROTOCOL).order_by("name")
         return queryset
 
 
@@ -44,14 +48,19 @@ class ProtocolDetailView(DetailView):
         # filter data from DataFrames and then add to the context
         stud_list_stats_df = qs2df.get_study_list_stats_df()
         stud_msrun_df = qs2df.get_study_msrun_all_df()
-        # filter study list by protocol
+
+        # filter study list by protocol category
+        # default protocol display
+        proto_display = "Protocol"
         pk = self.kwargs.get("pk")
         if self.object.category == Protocol.ANIMAL_TREATMENT:
+            proto_display = "Animal Treatment"
             study_list = stud_msrun_df[stud_msrun_df["treatment_id"] == pk]["study_id"]
             per_proto_stud_list_stats_df = stud_list_stats_df[
                 stud_list_stats_df["study_id"].isin(study_list)
             ]
         elif self.object.category == Protocol.MSRUN_PROTOCOL:
+            proto_display = "MSRun Protocol"
             study_list = stud_msrun_df[stud_msrun_df["msrun_protocol_id"] == pk][
                 "study_id"
             ]
@@ -65,4 +74,6 @@ class ProtocolDetailView(DetailView):
         # convert DataFrame to a list of dictionary
         data = qs2df.df_to_list_of_dict(per_proto_stud_list_stats_df)
         context["df"] = data
+        context["proto_display"] = proto_display
+
         return context
