@@ -1,7 +1,5 @@
-from django.conf import settings
 from django.core.management import call_command
-from django.db import transaction
-from django.test import override_settings, tag
+from django.test import tag
 from django.urls import reverse
 
 from DataRepo.models import Protocol

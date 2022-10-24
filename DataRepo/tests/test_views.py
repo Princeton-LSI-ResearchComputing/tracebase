@@ -15,7 +15,6 @@ from DataRepo.models import (
     PeakData,
     PeakGroup,
     PeakGroupSet,
-    Protocol,
     Sample,
     Study,
     Tissue,

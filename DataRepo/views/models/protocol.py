@@ -1,5 +1,4 @@
 import pandas as pd
-from django.db.models import Q
 from django.views.generic import DetailView, ListView
 
 from DataRepo.models import Protocol
