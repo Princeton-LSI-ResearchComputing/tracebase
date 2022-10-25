@@ -1157,6 +1157,10 @@ class FormatsTests(TracebaseTestCase):
             verbosity=2,
         )
         call_command(
+            "load_protocols",
+            protocols="DataRepo/example_data/small_multitracer_data/animal_sample_table.xlsx",
+        )
+        call_command(
             "load_animals_and_samples",
             animal_and_sample_table_filename=(
                 "DataRepo/example_data/small_multitracer_data/animal_sample_table.xlsx"

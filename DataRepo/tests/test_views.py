@@ -596,6 +596,7 @@ class ViewNullToleranceTests(ViewTests):
 
 
 @tag("multi_working")
+@tag("protocol_loading_broken")
 class ValidationViewTests(TracebaseTransactionTestCase):
     """
     Note, without the TransactionTestCase (derived) class (and the with transaction.atomic block below), the infusate-
@@ -608,11 +609,6 @@ class ValidationViewTests(TracebaseTransactionTestCase):
 
     @classmethod
     def initialize_databases(cls):
-        # data_submission_animal_sample_table.xlsx contains diet protocols
-        call_command(
-            "load_protocols",
-            protocols="DataRepo/example_data/protocols/diet_protocols.tsv",
-        )
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
         call_command(
             "load_compounds",
@@ -660,6 +656,13 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         Do a file validation test
         """
         self.initialize_databases()
+
+        # data_submission_animal_sample_table.xlsx protocols
+        call_command(
+            "load_protocols",
+            protocols="DataRepo/example_data/protocols/diet_protocols.tsv",
+            database=settings.VALIDATION_DB,
+        )
 
         # Load some data that should cause a researcher warning during validation
         call_command(

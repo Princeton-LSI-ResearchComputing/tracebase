@@ -1,6 +1,7 @@
 from copy import deepcopy
 
 import pandas as pd
+from django.conf import settings
 from django.core.management import call_command
 from django.test import tag
 
@@ -99,3 +100,15 @@ class ProtocolLoadingTests(TracebaseTestCase):
         self.assertEqual(
             Protocol.objects.filter(category=Protocol.ANIMAL_TREATMENT).count(), 2
         )
+
+    def test_load_protocols_xlxs_validation(self):
+        """Test loading the protocols from a Treatments sheet in the xlxs workbook"""
+        val_db = settings.VALIDATION_DB
+        call_command(
+            "load_protocols",
+            protocols="DataRepo/example_data/small_dataset/small_obob_animal_and_sample_table.xlsx",
+            database=val_db,
+        )
+        self.assertEqual(Protocol.objects.using(val_db).count(), 2)
+        # and none in default
+        self.assertEqual(Protocol.objects.count(), 0)
