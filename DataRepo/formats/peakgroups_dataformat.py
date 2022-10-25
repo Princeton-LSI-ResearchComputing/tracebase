@@ -292,7 +292,7 @@ class PeakGroupsFormat(Format):
                     "type": "number",
                     "units": {  # See dataformat.py: Format.unit_options
                         "key": "postgres_interval",
-                        "default": "w",
+                        "default": "weeks",
                         "subset": [
                             "native",
                             "calendartime",

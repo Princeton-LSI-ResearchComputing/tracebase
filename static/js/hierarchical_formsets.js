@@ -207,7 +207,6 @@ function addSearchFieldForm (myDiv, query, templateId) {
     }
 
     // Add this row to the HTML form
-    console.log('Appending', keyname, 'field')
     myDiv.appendChild(clones[i])
     myDiv.appendChild(document.createTextNode(' '))
 
@@ -230,9 +229,11 @@ function addSearchFieldForm (myDiv, query, templateId) {
   if (fldInitVal === '') {
     fldInitVal = fldClone[0].value
     ncmpInitVal = ncmpClone[0].value
+  }
+
+  if (unitsInitVal === '') {
     // fldUnits contains a default for each template/field combo
     unitsInitVal = fldUnits[templateId][fldInitVal].default
-    console.log('Init val from fldUnits dict:', unitsInitVal, 'for template/field:', templateId, fldInitVal)
   }
 
   // Initialize the ncmp choices
@@ -240,6 +241,7 @@ function addSearchFieldForm (myDiv, query, templateId) {
   ncmpClone.value = ncmpInitVal
 
   // Initialize the units choices
+  unitsClone.value = unitsInitVal
   const unitsInfoImg = document.createElement('img')
   unitsInfoImg.src = infopngpath
   unitsInfoImg.width = infopngwidth
@@ -254,8 +256,8 @@ function addSearchFieldForm (myDiv, query, templateId) {
   infoSpan.appendChild(tooltipSpan)
   myDiv.appendChild(infoSpan)
   updateUnitsChoices(fldInitVal, unitsClone, templateId)
-  updateUnitsAboutInfo(unitsClone.value, fldClone.value, templateId, infoSpan, tooltipSpan)
-  attachInfoTooltip(infoSpan, tooltipSpan)
+  updateUnitsAboutInfo(unitsInitVal, fldInitVal, templateId, infoSpan, tooltipSpan)
+  attachInfoTooltip(unitsInfoImg, tooltipSpan)
 
   // Initialize the val field(s)
   const valFields = updateValFields(fldInitVal, ncmpInitVal, unitsClone, valClone, templateId)
@@ -264,6 +266,8 @@ function addSearchFieldForm (myDiv, query, templateId) {
   fldClone.addEventListener('change', function (event) {
     updateNcmpChoices(event.target.value, ncmpClone, rootGroup.selectedtemplate)
     updateUnitsChoices(event.target.value, unitsClone, rootGroup.selectedtemplate)
+    attachInfoTooltip(unitsInfoImg, tooltipSpan)
+    updateUnitsAboutInfo(unitsClone.value, fldClone.value, rootGroup.selectedtemplate, infoSpan, tooltipSpan)
     updateValFields(event.target.value, ncmpClone.value, unitsClone, valClone, rootGroup.selectedtemplate, valFields)
   })
 
@@ -276,6 +280,7 @@ function addSearchFieldForm (myDiv, query, templateId) {
   unitsClone.addEventListener('change', function (event) {
     // This is to update the placeholder in the valFields
     updateValFields(fldClone.value, event.target.value, unitsClone, valClone, rootGroup.selectedtemplate, valFields)
+    attachInfoTooltip(unitsInfoImg, tooltipSpan)
     updateUnitsAboutInfo(event.target.value, fldClone.value, rootGroup.selectedtemplate, infoSpan, tooltipSpan)
   })
 }
@@ -314,7 +319,6 @@ function updateValFields (fldInitVal, ncmpInitVal, unitsClone, valClone, templat
   const dbFieldChoices = getDBEnumFieldChoices(templateId, fldInitVal)
 
   const unitsVal = unitsClone.value
-  console.log(unitsVal, fldUnits[templateId][fldInitVal])
   let placeholder = fldUnits[templateId][fldInitVal].metadata[unitsVal].example
   if (typeof placeholder === 'undefined' || !placeholder || placeholder === '') {
     if (dbFieldType === 'string') {
@@ -521,7 +525,6 @@ function updateUnitsChoices (fldVal, unitsSelectElem, templateId) {
 
       // fldUnits contains a default for each template/field combo
       unitsVal = fldUnits[templateId][fldVal].default
-      console.log('Init val from fldUnits dict:', unitsVal, 'in updateUnitsChoices for template/field:', templateId, fldVal)
 
       // Hide if there is only 1 option in the select list
       if (choices.length < 2) {
@@ -550,12 +553,18 @@ function updateUnitsAboutInfo (unitsVal, fldVal, templateId, infoSpan, tooltipSp
     if (typeof fldUnits[templateId][fldVal] !== 'undefined' && fldUnits[templateId][fldVal]) {
       choices = fldUnits[templateId][fldVal].choices
 
-      const tooltipContent = fldUnits[templateId][fldVal].metadata[unitsVal].about
-      tooltipSpan.innerHTML = tooltipContent
+      let tooltipContent = ''
+      if (typeof fldUnits[templateId][fldVal].metadata[unitsVal] !== 'undefined' && fldUnits[templateId][fldVal].metadata[unitsVal]) {
+        tooltipContent = fldUnits[templateId][fldVal].metadata[unitsVal].about
+        tooltipSpan.innerHTML = tooltipContent
+      } else {
+        console.warn('The supplied value for units:', unitsVal, 'is not a valid option.  Available units options for field ', fldVal, 'are:', Object.keys(fldUnits[templateId][fldVal].metadata), 'Setting about info to empty.')
+        tooltipSpan.innerHTML = ''
+      }
 
       // Hide if there is only 1 option in the select list
       if (choices.length < 2) {
-        infoSpan.style = 'display:none;'
+        infoSpan.style.display = 'none'
       } else {
         // See if there is about info
         if (typeof tooltipContent === 'undefined' || !tooltipContent || tooltipContent === 'null') {
@@ -1496,10 +1505,12 @@ function insertFirstSearch (query, format) { // eslint-disable-line no-unused-va
 function attachInfoTooltip (triggerOnHoverElem, tooltipContentElem) {
   triggerOnHoverElem.onmouseover = function () {
     const rect = triggerOnHoverElem.getBoundingClientRect()
-    const x = rect.left
-    const y = rect.bottom
-    const tipElemWidth = tooltipContentElem.offsetWidth
-    tooltipContentElem.style.top = y + 'px'
-    tooltipContentElem.style.right = (x - tipElemWidth + infopngwidth) + 'px'
+    const iconposx = rect.right
+    const iconposy = rect.bottom
+    const tooltipposx = iconposx - tooltipContentElem.offsetWidth
+    const tooltipposy = iconposy
+    tooltipContentElem.style.position = 'absolute'
+    tooltipContentElem.style.top = tooltipposy + 'px'
+    tooltipContentElem.style.left = tooltipposx + 'px'
   }
 }

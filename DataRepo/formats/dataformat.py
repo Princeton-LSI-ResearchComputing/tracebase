@@ -204,7 +204,7 @@ class Format:
 
     static_filter = appendFilterToGroup(
         createFilterGroup(),
-        createFilterCondition("", "", ""),
+        createFilterCondition("", "", "", ""),
     )  # Same as qry['tree']
 
     # static_filter example WITH static=True (below).  Note that a non-static empty query must be present in a non-
@@ -264,7 +264,34 @@ class Format:
                     choices = choices + ((fpath, fname),)
         return tuple(sorted(choices, key=lambda x: x[1]))
 
-    def getFieldUnits(self):
+    def getFieldUnitsLookup(self):
+        units_lookup = {}
+        for mdl in self.model_instances.keys():
+            for fld in self.model_instances[mdl]["fields"].keys():
+                if (
+                    self.model_instances[mdl]["path"]
+                    and self.model_instances[mdl]["path"] != ""
+                ):
+                    path_fld = f"{self.model_instances[mdl]['path']}__{fld}"
+                else:
+                    path_fld = fld
+                if "units" in self.model_instances[mdl]["fields"][fld].keys():
+                    if (
+                        "key"
+                        not in self.model_instances[mdl]["fields"][fld]["units"].keys()
+                    ):
+                        raise KeyError(
+                            f"Field 'key' is required in field {mdl}.{fld}'s units dict"
+                        )
+                    units_key = self.model_instances[mdl]["fields"][fld]["units"]["key"]
+                    units_lookup[path_fld] = self.unit_options[units_key][
+                        "entry_options"
+                    ]
+                else:
+                    units_lookup[path_fld] = None
+        return units_lookup
+
+    def getFieldUnitsDict(self):
         """
         Returns a dict of
 
@@ -304,16 +331,45 @@ class Format:
                             self.model_instances[mdl]["fields"][fld]["type"]
                         )
                     key = self.model_instances[mdl]["fields"][fld]["units"]["key"]
-                    default = self.model_instances[mdl]["fields"][fld]["units"][
+                    if (
                         "default"
-                    ]
+                        in self.model_instances[mdl]["fields"][fld]["units"].keys()
+                    ):
+                        default = self.model_instances[mdl]["fields"][fld]["units"][
+                            "default"
+                        ]
+                        if (
+                            default
+                            not in self.unit_options[key]["entry_options"].keys()
+                        ):
+                            raise KeyError(
+                                f"Invalid default value: [{default}] for field {fld} in model instance {mdl}.  Must "
+                                f"be one of: [{', '.join(self.unit_options[key]['entry_options'].keys())}]"
+                            )
                     if "subset" in self.model_instances[mdl]["fields"][fld]["units"]:
                         opt_keys = self.model_instances[mdl]["fields"][fld]["units"][
                             "subset"
                         ]
+                        bad_keys = []
+                        for opt_key in opt_keys:
+                            if (
+                                opt_key
+                                not in self.unit_options[key]["entry_options"].keys()
+                            ):
+                                bad_keys.append(opt_key)
+                        if len(bad_keys) > 0:
+                            raise ValueError(
+                                f"Bad units subset key(s): [{', '.join(bad_keys)}]"
+                            )
                     else:
                         opt_keys = self.unit_options[key]["entry_options"].keys()
+                    print(
+                        f"Setting default of {key} units to '{default}' for field {self.id}.{mdl}.{fld}"
+                    )
                 else:
+                    print(
+                        f"Setting default of 'identity' units to 'identity' for field {self.id}.{mdl}.{fld}"
+                    )
                     key = "identity"
                     default = "identity"
                     opt_keys = ["identity"]
@@ -326,7 +382,7 @@ class Format:
                     # Populate the choices for dynamically changing the units select list
                     unitsdict[fldkey]["choices"] = unitsdict[fldkey]["choices"] + (
                         (
-                            self.unit_options[key]["entry_options"][unit_key]["value"],
+                            unit_key,
                             self.unit_options[key]["entry_options"][unit_key]["name"],
                         ),
                     )
@@ -334,22 +390,19 @@ class Format:
                     # Record examples and "about" info.  Example strings will be included in the field placeholder
                     # Have to use the value as the metadatakey, because retrieval of the example/about strings will be
                     # based on the units select list's selected value
-                    metadata_key = self.unit_options[key]["entry_options"][unit_key][
-                        "value"
-                    ]
-                    unitsdict[fldkey]["metadata"][metadata_key] = {}
-                    unitsdict[fldkey]["metadata"][metadata_key][
+                    unitsdict[fldkey]["metadata"][unit_key] = {}
+                    unitsdict[fldkey]["metadata"][unit_key][
                         "example"
                     ] = self.unit_options[key]["entry_options"][unit_key]["example"]
                     if (
                         "about"
                         in self.unit_options[key]["entry_options"][unit_key].keys()
                     ):
-                        unitsdict[fldkey]["metadata"][metadata_key][
+                        unitsdict[fldkey]["metadata"][unit_key][
                             "about"
                         ] = self.unit_options[key]["entry_options"][unit_key]["about"]
                     else:
-                        unitsdict[fldkey]["metadata"][metadata_key]["about"] = None
+                        unitsdict[fldkey]["metadata"][unit_key]["about"] = None
 
         return unitsdict
 
@@ -363,23 +416,12 @@ class Format:
         seen = []
         for fldtype in self.unit_options.keys():
             for opt_key in self.unit_options[fldtype]["entry_options"].keys():
-                if (
-                    self.unit_options[fldtype]["entry_options"][opt_key]["value"]
-                    not in seen
-                ):
-                    seen.append(
-                        self.unit_options[fldtype]["entry_options"][opt_key]["value"]
-                    )
-                    all_unit_choices = all_unit_choices + (
-                        (
-                            self.unit_options[fldtype]["entry_options"][opt_key][
-                                "value"
-                            ],
-                            self.unit_options[fldtype]["entry_options"][opt_key][
-                                "name"
-                            ],
-                        ),
-                    )
+                if opt_key not in seen:
+                    seen.append(opt_key)
+                    opt_name = self.unit_options[fldtype]["entry_options"][opt_key][
+                        "name"
+                    ]
+                    all_unit_choices = all_unit_choices + ((opt_key, opt_name),)
         return all_unit_choices
 
     def getComparisonChoices(self):
@@ -442,12 +484,22 @@ class Format:
                 unique_paths.append(path)
         return unique_paths
 
-    def getTrueJoinPrefetchPathsAndQrys(self, qry):
+    def getTrueJoinPrefetchPathsAndQrys(self, qry, units_lookup=None):
         """
-        Takes a qry object and returns a list of prefetch paths.  If a prefetch path contains models that are related
-        M:M with the root model, that prefetch path will be split into multiple paths (all that end in a M:M model, and
-        the remainder (if any of the path is left)).  Any path ending in a M:M model will be represented as a 3-member
-        list containing the path, a re-rooted qry object, and the name of the new root model.
+        Takes a qry object and a units lookup dict (that maps the path version of fld [e.g. msrun__sample__animal__age]
+        to a dict that contains the units options, including most importantly, a convert function that is found via the
+        selected units key recorded in the qry) and returns a list of prefetch paths.  If a prefetch path contains
+        models that are related M:M with the root model, that prefetch path will be split into multiple paths (all that
+        end in a M:M model, and the remainder (if any of the path is left)).  Any path ending in a M:M model will be
+        represented as a 3-member list containing the path, a re-rooted qry object, and the name of the new root model.
+        The returned prefetches will be a mixed list of strings (containing simple prefetch paths for 1:1 relations)
+        and sublists containing:
+
+        - The simple prefetch path of a rerooted M:M related model
+        - A rerooted qry object in order to perform the same query using the M:M related model as the root table for an
+          independent query using `Prefetch()`
+        - The name of the new root model
+        - A new units lookup where the path keys are rerooted
         """
 
         # Sort the paths so that multiple subquery prefetches on the same path are encountered hierarchically.
@@ -467,12 +519,18 @@ class Format:
                     "split_rows"
                 ]
             ):
-                new_qry = self.reRootQry(qry, srch_model_inst_name)
+                if units_lookup:
+                    new_units_lookup = deepcopy(units_lookup)
+                else:
+                    new_units_lookup = None
+
+                new_qry = self.reRootQry(qry, srch_model_inst_name, new_units_lookup)
                 subquery_paths.append(
                     [
                         srch_path_str,
                         new_qry,
                         self.model_instances[srch_model_inst_name]["model"],
+                        new_units_lookup,
                     ]
                 )
 
@@ -490,6 +548,7 @@ class Format:
             sq_path = subquery_path[0]
             sq_qry = subquery_path[1]
             sq_mdl = subquery_path[2]
+            sq_units_lkup = subquery_path[3]
             matched = False
             for pf_str in prefetches:
                 if sq_path in pf_str:
@@ -497,7 +556,12 @@ class Format:
                         continue
                     if pf_str not in prefetch_dict.keys():
                         prefetch_dict[pf_str] = {}
-                    prefetch_dict[pf_str][sq_path] = [sq_path, sq_qry, sq_mdl]
+                    prefetch_dict[pf_str][sq_path] = [
+                        sq_path,
+                        sq_qry,
+                        sq_mdl,
+                        sq_units_lkup,
+                    ]
                     matched = True
 
         # Build the final prefetches, which is a list of items that can be either normal prefetch paths, or (possibly
@@ -744,7 +808,7 @@ class Format:
         # This should raise an exception if we got here
         self.checkPath(fld_path)
 
-    def reRootQry(self, qry, new_root_model_instance_name):
+    def reRootQry(self, qry, new_root_model_instance_name, units_lookup=None):
         """
         This takes a qry object and the name of a model instance in the composite view and re-roots the fld values,
         making all the field paths come from a different model root.  It is intended to be used for prefetch
@@ -752,22 +816,27 @@ class Format:
         """
         ret_qry = deepcopy(qry)
         self.reRootQryHelper(
-            getSearchTree(ret_qry, self.id), new_root_model_instance_name
+            getSearchTree(ret_qry, self.id), new_root_model_instance_name, units_lookup
         )
         return ret_qry
 
-    def reRootQryHelper(self, subtree, new_root_model_instance_name):
+    def reRootQryHelper(self, subtree, new_root_model_instance_name, units_lookup=None):
         """
         Recursive helper to reRootQry
         """
         if isQueryGroup(subtree):
             for child in getChildren(subtree):
-                self.reRootQryHelper(child, new_root_model_instance_name)
+                self.reRootQryHelper(child, new_root_model_instance_name, units_lookup)
         elif isQuery(subtree):
+            old_fld = getField(subtree)
             setField(
                 subtree,
-                self.reRootFieldPath(getField(subtree), new_root_model_instance_name),
+                self.reRootFieldPath(old_fld, new_root_model_instance_name),
             )
+            new_fld = getField(subtree)
+            if units_lookup and old_fld != new_fld:
+                units_lookup[new_fld] = units_lookup[old_fld]
+                units_lookup.pop(old_fld)
         else:
             type = getFilterType(subtree)
             raise Exception(f"Qry type: [{type}] must be either 'group' or 'query'.")

@@ -193,7 +193,7 @@ class FormatGroup:
         """
         return self.modeldata[format].getPrefetches()
 
-    def getTrueJoinPrefetchPathsAndQrys(self, qry, format=None):
+    def getTrueJoinPrefetchPathsAndQrys(self, qry, format=None, units_lookup=None):
         """
         Calls getTrueJoinPrefetchPathsAndQrys of the supplied ID of the search output format class.
         """
@@ -204,7 +204,7 @@ class FormatGroup:
             )
         elif format is None:
             format = selfmt
-        return self.modeldata[format].getTrueJoinPrefetchPathsAndQrys(qry)
+        return self.modeldata[format].getTrueJoinPrefetchPathsAndQrys(qry, units_lookup)
 
     def getSearchFieldChoices(self, format):
         """
@@ -238,6 +238,9 @@ class FormatGroup:
                     all_fld_choices = all_fld_choices + ((fld_val, fld_name),)
         return all_fld_choices
 
+    def getFieldUnitsLookup(self, fmt):
+        return self.modeldata[fmt].getFieldUnitsLookup()
+
     def getFieldUnitsDict(self):
         """
         Creates a format-keyed dict of the unit choices data, including the tuples used to create a select list.  This
@@ -262,7 +265,7 @@ class FormatGroup:
 
         fld_units = {}
         for fmtid in self.modeldata.keys():
-            fld_units[fmtid] = self.modeldata[fmtid].getFieldUnits()
+            fld_units[fmtid] = self.modeldata[fmtid].getFieldUnitsDict()
 
         return fld_units
 
@@ -498,8 +501,9 @@ class FormatGroup:
         q_exp = None
 
         if qry is not None:
-            q_exp = constructAdvancedQuery(qry)
             selfmt = getSelectedFormat(qry)
+            units_lookup = self.getFieldUnitsLookup(selfmt)
+            q_exp = constructAdvancedQuery(qry, units_lookup)
             if fmt is not None and fmt != selfmt:
                 raise Exception(
                     f"The selected format in the qry object: [{selfmt}] does not match the supplied format: [{fmt}]"
@@ -563,7 +567,7 @@ class FormatGroup:
             prefetches = self.getPrefetches(fmt)
         else:
             # Retrieve the prefetch data
-            prefetch_qrys = self.getTrueJoinPrefetchPathsAndQrys(qry, fmt)
+            prefetch_qrys = self.getTrueJoinPrefetchPathsAndQrys(qry, fmt, units_lookup)
 
             # Build the prefetches, including subqueries for M:M related tables to produce a "true join" if a search
             # term is from a M:M related model
@@ -575,9 +579,10 @@ class FormatGroup:
                     pf_path = pfq[0]
                     pf_qry = pfq[1]
                     pf_mdl = pfq[2]
+                    pf_units_lookup = pfq[3]
 
                     # Construct a new Q expression using the rerooted query
-                    pf_q_exp = constructAdvancedQuery(pf_qry)
+                    pf_q_exp = constructAdvancedQuery(pf_qry, pf_units_lookup)
 
                     # grab the model using its name
                     mdl = get_model_by_name(pf_mdl)

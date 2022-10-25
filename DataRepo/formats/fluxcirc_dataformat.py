@@ -162,7 +162,7 @@ class FluxCircFormat(Format):
                     "type": "number",
                     "units": {  # See dataformat.py: Format.unit_options
                         "key": "postgres_interval",
-                        "default": "w",
+                        "default": "weeks",
                         "subset": [
                             "native",
                             "calendartime",
@@ -280,7 +280,7 @@ class FluxCircFormat(Format):
                     "type": "number",
                     "units": {  # See dataformat.py: Format.unit_options
                         "key": "postgres_interval",
-                        "default": "m",
+                        "default": "minutes",
                         "subset": [
                             "native",
                             "clocktime",
