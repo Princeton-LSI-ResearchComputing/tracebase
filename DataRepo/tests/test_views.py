@@ -82,48 +82,6 @@ class ViewTests(TracebaseTestCase):
 
         super().setUpTestData()
 
-    def test_home_url_exists_at_desired_location(self):
-        response = self.client.get("/")
-        self.assertEqual(response.status_code, 200)
-
-    def test_home_url_accessible_by_name(self):
-        response = self.client.get(reverse("home"))
-        self.assertEqual(response.status_code, 200)
-
-    def test_home_uses_correct_template(self):
-        response = self.client.get(reverse("home"))
-        self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "home.html")
-
-    def test_home_card_attr_list(self):
-        # spot check: counts, urls for card attributes
-        animal_count = Animal.objects.all().count()
-        tissue_count = Tissue.objects.all().count()
-        sample_count = Sample.objects.all().count()
-        accucor_file_count = PeakGroupSet.objects.all().count()
-        compound_count = Compound.objects.all().count()
-        tracer_count = (
-            Animal.objects.exclude(infusate__tracers__compound__id__isnull=True)
-            .order_by("infusate__tracers__compound__id")
-            .values_list("infusate__tracers__compound__id")
-            .distinct("infusate__tracers__compound__id")
-            .count()
-        )
-        comp_url = reverse("compound_list")
-        accucor_file_url = reverse("peakgroupset_list")
-        advance_search_url = reverse("search_advanced")
-        response = self.client.get(reverse("home"))
-        self.assertEqual(animal_count, self.ALL_ANIMALS_COUNT)
-        self.assertEqual(tissue_count, self.ALL_TISSUES_COUNT)
-        self.assertEqual(sample_count, self.ALL_SAMPLES_COUNT)
-        self.assertEqual(accucor_file_count, 2)
-        self.assertEqual(compound_count, self.ALL_COMPOUNDS_COUNT)
-        self.assertEqual(tracer_count, 1)
-        self.assertEqual(comp_url, "/DataRepo/compounds/")
-        self.assertEqual(accucor_file_url, "/DataRepo/peakgroupsets/")
-        self.assertEqual(advance_search_url, "/DataRepo/search_advanced/")
-        self.assertEqual(len(response.context["card_rows"]), 2)
-
     @tag("compound")
     def test_compound_list(self):
         response = self.client.get(reverse("compound_list"))

@@ -15,8 +15,9 @@ from DataRepo.utils import leaderboard_data
 
 def home(request):
     """
-    Home page contains 8 cards for browsing data
-    keep card attributes in two lists for displaying cards in two rows
+    Home page contains 9 cards for browsing data
+    keep 8 card attributes in two lists for displaying cards in two rows
+    keep card for advanced search in separate row
     """
     card_attrs_list1 = []
     card_attrs_list2 = []
@@ -87,23 +88,36 @@ def home(request):
     card_attrs_list2.append(
         {
             "card_bg_color": "bg-card-1",
-            "card_body_title": str(Protocol.objects.all().count()) + " Protocols",
-            "card_foot_url": reverse("protocol_list"),
+            "card_body_title": str(
+                Protocol.objects.filter(category=Protocol.ANIMAL_TREATMENT).count()
+            )
+            + " Animal Treatments",
+            "card_foot_url": reverse("animal_treatment_list"),
         }
     )
 
     card_attrs_list2.append(
         {
-            "card_bg_color": "bg-card-2",
-            "card_body_title": "Advanced Search",
-            "card_foot_url": reverse("search_advanced"),
+            "card_bg_color": "bg-card-1",
+            "card_body_title": str(
+                Protocol.objects.filter(category=Protocol.MSRUN_PROTOCOL).count()
+            )
+            + " Mass Spectrometry Protocols",
+            "card_foot_url": reverse("msrun_protocol_list"),
         }
     )
+
+    card_adv_search = {
+        "card_bg_color": "bg-card-2",
+        "card_body_title": "Advanced Search",
+        "card_foot_url": reverse("search_advanced"),
+    }
 
     card_row_list = [card_attrs_list1, card_attrs_list2]
 
     context = {}
     context["card_rows"] = card_row_list
+    context["card_adv_search"] = card_adv_search
     context["leaderboards"] = leaderboard_data()
 
     return render(request, "home.html", context)
