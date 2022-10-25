@@ -12,6 +12,7 @@ from DataRepo.utils.exceptions import LoadingError
 
 
 @tag("protocols")
+@tag("multi_working")
 class ProtocolLoadingTests(TracebaseTestCase):
     """Test ProtocolsLoader"""
 
