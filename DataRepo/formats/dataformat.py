@@ -85,7 +85,6 @@ class Format:
             "entry_options": {
                 "identity": {
                     "name": "identity",
-                    "value": "identity",
                     "example": None,
                     "convert": lambda v: v,
                 },
@@ -101,7 +100,6 @@ class Format:
                 "native": {
                     # format: [nn.nn{units}{:|,}[ ]]+
                     "name": "n.n{units},...",
-                    "value": "native",
                     "example": "1w,1d,1:01:01.1",
                     "convert": lambda v: v,
                     "about": (
@@ -115,86 +113,72 @@ class Format:
                 "calendartime": {
                     # format: [nn.nn{units},]+
                     "name": "ny,nm,nw,nd",
-                    "value": "calendartime",
                     "example": "0y,1m,2w,3d",
                     "convert": lambda v: v,
                 },
                 "clocktime": {
                     # format: [hh:mm[:ss]]
                     "name": "clocktime (hh:mm[:ss])",
-                    "value": "clocktime",
                     "example": "2:30:10.1",
                     "convert": lambda v: v,
                 },
                 "millennia": {
                     "name": "millennia",
-                    "value": "millenniums",
                     "example": "1.0",
                     "convert": lambda v: f"{v}millenniums",
                 },
                 "centuries": {
                     "name": "centuries",
-                    "value": "c",
                     "example": "1.0",
                     "convert": lambda v: f"{v}c",
                 },
                 "decades": {
                     "name": "decades",
-                    "value": "decades",
                     "example": "1.0",
                     "convert": lambda v: f"{v}decades",
                 },
                 "years": {
                     "name": "years",
-                    "value": "y",
                     "example": "1.0",
                     "convert": lambda v: f"{v}y",
                 },
                 "months": {
                     "name": "months",
-                    "value": "months",
                     "example": "1.0",
                     "convert": lambda v: f"{v}months",
                 },
                 "weeks": {
                     "name": "weeks",
-                    "value": "w",
                     "example": "1.0",
                     "convert": lambda v: f"{v}w",
                 },
                 "days": {
                     "name": "days",
-                    "value": "d",
                     "example": "1.0",
                     "convert": lambda v: f"{v}d",
                 },
                 "hours": {
                     "name": "hours",
-                    "value": "h",
                     "example": "1.0",
                     "convert": lambda v: f"{v}h",
                 },
                 "minutes": {
                     "name": "minutes",
-                    "value": "m",
                     "example": "1.0",
                     "convert": lambda v: f"{v}m",
                 },
                 "seconds": {
                     "name": "seconds",
-                    "value": "s",
                     "example": "1.0",
                     "convert": lambda v: f"{v}s",
                 },
                 "milliseconds": {
                     "name": "milliseconds",
-                    "value": "milliseconds",
                     "example": "1.0",
                     "convert": lambda v: f"{v}milliseconds",
                 },
                 "microseconds": {
                     "name": "microseconds",
-                    "value": "microseconds",
                     "example": "1.0",
                     "convert": lambda v: f"{v}microseconds",
                 },
@@ -265,6 +249,22 @@ class Format:
         return tuple(sorted(choices, key=lambda x: x[1]))
 
     def getFieldUnitsLookup(self):
+        """
+        This method is used in the backend to handle a user's search selections (i.e. it's main utility is to be used
+        to call the correct convert function on the value the user entered in the val field to convert what they
+        entered into the units/format that is recorded in the database, e.g. change "2" to "2 weeks").  This is
+        separate from the getFieldUnitsDict method because that method's return is sent to the view/template in json
+        format, and the convert function cannot be transmitted in that context.
+
+        This creates a dict keyed on fld values (i.e. the path of each field included in a format, as indicated by the
+        fld selected by the user in the qry object) mapped to that field's defined list of units options as recorded in
+        self.unit_options, e.g.:
+
+        - self.unit_options[units_key]["entry_options"]
+
+        The value is a dict keyed on the values of the units select list and contains the selected units' name, example
+        string, and convert function.
+        """
         units_lookup = {}
         for mdl in self.model_instances.keys():
             for fld in self.model_instances[mdl]["fields"].keys():
@@ -293,6 +293,13 @@ class Format:
 
     def getFieldUnitsDict(self):
         """
+        This method is used in the frontend to populate the search interface (i.e. it's main utility is to be used to
+        create the units select list, update the val field's placeholder with a units example, and optionally provide
+        an explanation of the units format in the form of a tooltip-linked info icon.  This is separate from the
+        getFieldUnitsLookup method because this method's return is sent to the view/template in json format, and the
+        convert function that is included in the getFieldUnitsLookup method's output cannot be transmitted in that
+        context.
+
         Returns a dict of
 
         path__field: {
@@ -308,7 +315,7 @@ class Format:
         }
 
         path__field is used as the key so that the value of the selections in the fld select list can be directly used
-        to update the units select list
+        to update the units select list.
         """
 
         unitsdict = {}
