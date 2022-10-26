@@ -1,3 +1,4 @@
 Name	Category	Description
 Control diet	animal_treatment	"Untreated example data protocol."
 Ser/gly-free diet	animal_treatment	"Ser/gly-free diet example data protocol."
+Default	msrun_protocol	"For protocol's full text, please consult anonymous."
