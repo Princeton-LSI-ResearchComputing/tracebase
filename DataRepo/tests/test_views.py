@@ -619,7 +619,6 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         call_command(
             "load_protocols",
             protocols="DataRepo/example_data/protocols/diet_protocols.tsv",
-            database=settings.VALIDATION_DB,
         )
 
     @classmethod
