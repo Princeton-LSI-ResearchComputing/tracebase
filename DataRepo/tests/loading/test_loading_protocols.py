@@ -67,7 +67,7 @@ class ProtocolLoadingTests(TracebaseTestCase):
         # If errors are found, no records should be loaded
         self.assertEqual(Protocol.objects.count(), 0)
 
-    def test_protocols_loader_without_bad_category_error(self):
+    def test_protocols_loader_with_bad_category_error(self):
         """Test the ProtocolsLoader with an improper category"""
         protocol_loader = ProtocolsLoader(
             protocols=self.working_df,

@@ -321,10 +321,10 @@ class SampleTableLoader:
                                     f"with description '{animal.treatment.description}'"
                                 )
                                 print(f"{action} {feedback}")
-                        except Protocol.DoesNotExist:
+                        except Protocol.DoesNotExist as e:
                             raise Protocol.DoesNotExist(
                                 f"Could not find '{category}' protocol with name '{protocol_input}'"
-                            ) from None
+                            ).with_traceback(e.__traceback__) from None
 
                 rate_required = infusate is not None
 

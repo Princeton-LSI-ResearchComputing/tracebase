@@ -17,13 +17,15 @@ class Command(BaseCommand):
     description_header = "Description"
 
     # default XLXS template headers and assumed category value
-    TREATMENT_SHEET_NAME = "Treatments"
+    TREATMENTS_SHEET_NAME = "Treatments"
     TREATMENTS_NAME_HEADER = "Animal Treatment"
     TREATMENTS_DESC_HEADER = "Treatment Description"
-    TREATMENTS_CTGR_VALUE = Protocol.ANIMAL_TREATMENT
+    TREATMENTS_CATEGORY_VALUE = Protocol.ANIMAL_TREATMENT
 
-    # Used (e.g.) to set the category for a 2-column (name/desc) "treatments" tab in an xlsx file
-    batch_category = None
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Used (e.g.) to set the category for a 2-column (name/desc) "treatments" tab in an xlsx file
+        self.batch_category = None
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -32,7 +34,7 @@ class Command(BaseCommand):
             help=(
                 "Path to EITHER a tab-delimited file containing the headers "
                 f"'{self.name_header}','{self.category_header}','{self.description_header}' "
-                f"OR a path to an xlsx workbook file containing a sheet named '{self.TREATMENT_SHEET_NAME}' "
+                f"OR a path to an xlsx workbook file containing a sheet named '{self.TREATMENTS_SHEET_NAME}' "
                 f"with the headers '{self.TREATMENTS_NAME_HEADER}','{self.TREATMENTS_DESC_HEADER}'"
             ),
             required=True,
@@ -72,6 +74,10 @@ class Command(BaseCommand):
             )
 
         self.read_from_file(options["protocols"])
+
+        self.new_protocols_df = self.new_protocols_df.replace({"nan": None})
+        for col in self.new_protocols_df.columns:
+            self.new_protocols_df[col].str.strip()
 
         loader_args = {
             "protocols": self.new_protocols_df,
@@ -126,7 +132,7 @@ class Command(BaseCommand):
         if format == "tsv":
             self.read_protocols_tsv(filename)
         elif format == "xlsx":
-            self.extract_treatments(filename)
+            self.read_protocols_xlsx(filename)
         else:
             raise CommandError(
                 'Invalid file format reading samples: "%s", expected one of [%s].',
@@ -139,44 +145,46 @@ class Command(BaseCommand):
         # Keeping `na` to differentiate between intentional empty descriptions and spaces in the first column that were
         # intended to be tab characters
         new_protocols = pd.read_table(protocols_tsv, dtype=str, keep_default_na=True)
-        # rename template columns to ProtocolLoader expectations
+        # rename template columns to ProtocolsLoader expectations
         new_protocols.rename(
             inplace=True,
             columns={
-                str(self.name_header): "name",
-                str(self.category_header): "category",
-                str(self.description_header): "description",
+                str(self.name_header): ProtocolsLoader.STANDARD_NAME_HEADER,
+                str(self.category_header): ProtocolsLoader.STANDARD_CATEGORY_HEADER,
+                str(
+                    self.description_header
+                ): ProtocolsLoader.STANDARD_DESCRIPTION_HEADER,
             },
         )
 
         self.new_protocols_df = new_protocols
 
-    def extract_treatments(self, xlxs_file_containing_treatments_sheet):
+    def read_protocols_xlsx(self, xlxs_file_containing_treatments_sheet):
         self.stdout.write(self.style.MIGRATE_HEADING("Loading animal treatments..."))
-        nh = self.TREATMENTS_NAME_HEADER
-        dh = self.TREATMENTS_DESC_HEADER
+        name_header = self.TREATMENTS_NAME_HEADER
+        description_header = self.TREATMENTS_DESC_HEADER
 
         treatments = pd.read_excel(
             xlxs_file_containing_treatments_sheet,
-            sheet_name=self.TREATMENT_SHEET_NAME,
+            sheet_name=self.TREATMENTS_SHEET_NAME,
             dtype={
-                nh: str,
-                dh: str,
+                name_header: str,
+                description_header: str,
             },
             keep_default_na=False,
             engine="openpyxl",
         )
 
-        # rename template columns to ProtocolLoader expectations
+        # rename template columns to ProtocolsLoader expectations
         treatments.rename(
             inplace=True,
             columns={
-                str(nh): "name",
-                str(dh): "description",
+                str(name_header): ProtocolsLoader.STANDARD_NAME_HEADER,
+                str(description_header): ProtocolsLoader.STANDARD_DESCRIPTION_HEADER,
             },
         )
         self.new_protocols_df = treatments
-        self.batch_category = self.TREATMENTS_CTGR_VALUE
+        self.batch_category = self.TREATMENTS_CATEGORY_VALUE
 
     def print_notices(self, stats, opt, verbosity):
 

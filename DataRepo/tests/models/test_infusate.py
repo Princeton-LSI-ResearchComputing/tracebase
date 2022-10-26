@@ -64,11 +64,6 @@ class InfusateTests(TracebaseTestCase):
     def setUpTestData(cls):
         call_command(
             "load_study",
-            "DataRepo/example_data/protocols/loading.yaml",
-            verbosity=2,
-        )
-        call_command(
-            "load_study",
             "DataRepo/example_data/tissues/loading.yaml",
             verbosity=2,
         )

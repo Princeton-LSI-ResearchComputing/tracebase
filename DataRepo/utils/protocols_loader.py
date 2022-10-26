@@ -15,15 +15,21 @@ class ProtocolsLoader:
     Load the Protocols table
     """
 
+    STANDARD_NAME_HEADER = "name"
+    STANDARD_DESCRIPTION_HEADER = "description"
+    STANDARD_CATEGORY_HEADER = "category"
+
     def __init__(
         self, protocols, category=None, database=None, validate=False, dry_run=True
     ):
         self.protocols = protocols
         self.protocols.columns = self.protocols.columns.str.lower()
-        req_cols = ["name", "description"]
-        missing_columns = list(set(req_cols) - set (self.protocols.columns))
+        req_cols = [self.STANDARD_NAME_HEADER, self.STANDARD_DESCRIPTION_HEADER]
+        missing_columns = list(set(req_cols) - set(self.protocols.columns))
         if missing_columns:
-            raise KeyError(f"ProtocolsLoader missing required headers {missing_columns}")
+            raise KeyError(
+                f"ProtocolsLoader missing required headers {missing_columns}"
+            )
         self.dry_run = dry_run
         self.category = category
         # List of exceptions
@@ -71,28 +77,14 @@ class ProtocolsLoader:
         for index, row in self.protocols.iterrows():
             try:
                 with transaction.atomic():
-                    name = row["name"]
-                    description = row["description"]
+                    name = row[self.STANDARD_NAME_HEADER]
+                    description = row[self.STANDARD_DESCRIPTION_HEADER]
                     # prefer the file/dataframe-specified category, but user the
                     # loader initialization category, as a fallback
-                    if "category" in row:
-                        category = row["category"].strip()
+                    if self.STANDARD_CATEGORY_HEADER in row:
+                        category = row[self.STANDARD_CATEGORY_HEADER]
                     else:
-                        category = self.category.strip()
-                    # Note, the tsv parser returns a "nan" object when there's
-                    # no value, which is evaluated as "nan" in string context,
-                    # so change back to None
-                    if str(name) == "nan":
-                        name = None
-                    if str(description) == "nan":
-                        description = None
-                    if str(category) == "nan":
-                        category = None
-                    # strip from values
-                    if name:
-                        name = name.strip()
-                    if description:
-                        description = description.strip()
+                        category = self.category
 
                     # To aid in debugging the case where an editor entered spaces instead of a tab...
                     if " " in str(name) and description is None:

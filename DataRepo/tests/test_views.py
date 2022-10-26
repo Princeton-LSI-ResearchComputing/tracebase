@@ -614,6 +614,13 @@ class ValidationViewTests(TracebaseTransactionTestCase):
             "load_compounds",
             compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
         )
+        # protocols from data_submission_animal_sample_table.xlsx in both
+        # test_databases_unchanged and validate_some_files
+        call_command(
+            "load_protocols",
+            protocols="DataRepo/example_data/protocols/diet_protocols.tsv",
+            database=settings.VALIDATION_DB,
+        )
 
     @classmethod
     def clear_database(cls, db):
@@ -656,13 +663,6 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         Do a file validation test
         """
         self.initialize_databases()
-
-        # data_submission_animal_sample_table.xlsx protocols
-        call_command(
-            "load_protocols",
-            protocols="DataRepo/example_data/protocols/diet_protocols.tsv",
-            database=settings.VALIDATION_DB,
-        )
 
         # Load some data that should cause a researcher warning during validation
         call_command(

@@ -2341,7 +2341,6 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
 class StudyLoadingTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
-        call_command("load_study", "DataRepo/example_data/protocols/loading.yaml")
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
         call_command(
             "load_study",
