@@ -22,7 +22,7 @@ class Command(BaseCommand):
     TREATMENTS_DESC_HEADER = "Treatment Description"
     TREATMENTS_CTGR_VALUE = Protocol.ANIMAL_TREATMENT
 
-    # to store if we are loading a specific batch of treaments from a template file
+    # Used (e.g.) to set the category for a 2-column (name/desc) "treatments" tab in an xlsx file
     batch_category = None
 
     def add_arguments(self, parser):
@@ -32,13 +32,13 @@ class Command(BaseCommand):
             help=(
                 "Path to EITHER a tab-delimited file containing the headers "
                 f"'{self.name_header}','{self.category_header}','{self.description_header}' "
-                f"OR a path to an xlxs workbook file containing the sheet named '{self.TREATMENT_SHEET_NAME}' "
+                f"OR a path to an xlsx workbook file containing a sheet named '{self.TREATMENT_SHEET_NAME}' "
                 f"with the headers '{self.TREATMENTS_NAME_HEADER}','{self.TREATMENTS_DESC_HEADER}'"
             ),
             required=True,
         )
 
-        # optional "do work" argument; otherwise, only reports of possible work
+        # Optional flag to only show what would be loaded. Does not load in this mode
         parser.add_argument(
             "-n",
             "--dry-run",
@@ -56,7 +56,8 @@ class Command(BaseCommand):
             help=argparse.SUPPRESS,
         )
 
-        # Used internally to load necessary data into the validation database
+        # Used to explicitly load the supplied database.  This option is hidden and mentioned in error messages to
+        # resolve synch issues.
         parser.add_argument(
             "--database",
             required=False,
@@ -117,7 +118,7 @@ class Command(BaseCommand):
 
     def read_from_file(self, filename, format=None):
         """
-        Read protocols from a file and directs to storage methods
+        Read protocols from a file and buffer their contents in the instance object to be loaded later
         """
         format_choices = ("tsv", "xlsx")
         if format is None:
@@ -128,9 +129,9 @@ class Command(BaseCommand):
             self.extract_treatments(filename)
         else:
             raise CommandError(
-                'Invalid file format reading samples: "%s", expected one of %s',
-                format_choices,
+                'Invalid file format reading samples: "%s", expected one of [%s].',
                 format,
+                ", ".join(format_choices),
             )
 
     def read_protocols_tsv(self, protocols_tsv):

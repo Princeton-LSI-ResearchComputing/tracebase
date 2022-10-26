@@ -21,11 +21,9 @@ class ProtocolsLoader:
         self.protocols = protocols
         self.protocols.columns = self.protocols.columns.str.lower()
         req_cols = ["name", "description"]
-        for req in req_cols:
-            if req not in self.protocols.columns:
-                raise KeyError(
-                    f"{protocols.dtypes} ProtocolsLoader requires the header '{req}' in its dataframe keys"
-                )
+        missing_columns = list(set(req_cols) - set (self.protocols.columns))
+        if missing_columns:
+            raise KeyError(f"ProtocolsLoader missing required headers {missing_columns}")
         self.dry_run = dry_run
         self.category = category
         # List of exceptions
@@ -78,11 +76,9 @@ class ProtocolsLoader:
                     # prefer the file/dataframe-specified category, but user the
                     # loader initialization category, as a fallback
                     if "category" in row:
-                        category = row["category"]
+                        category = row["category"].strip()
                     else:
-                        category = self.category
-                    if category:
-                        category = category.strip()
+                        category = self.category.strip()
                     # Note, the tsv parser returns a "nan" object when there's
                     # no value, which is evaluated as "nan" in string context,
                     # so change back to None
