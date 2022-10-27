@@ -56,3 +56,7 @@ body.development > nav.navbar {
 .unitsinfo {
   margin: 0;
 }
+
+.main-content {
+  width: calc(100% - 9rem);
+}
