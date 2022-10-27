@@ -767,8 +767,11 @@ class MaintainedModel(Model):
         class_name = self.__name__
         if class_name in updater_list:
             for updater_dict in updater_list[class_name]:
-                if "update_field" in updater_dict.keys():
-                    my_update_fields.append(updater_list[class_name]["update_field"])
+                if (
+                    "update_field" in updater_dict.keys()
+                    and updater_dict["update_field"]
+                ):
+                    my_update_fields.append(updater_dict["update_field"])
         else:
             raise NoDecorators(class_name)
 
