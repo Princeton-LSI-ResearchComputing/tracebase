@@ -566,8 +566,8 @@ class MaintainedModel(Model):
                 # it could be overridden by another class that doesn't return it (at least, that's my guess as to why I
                 # was getting back None when I tried it.)
                 parent_inst.save(propagate=False)
+
                 # Instead, we will propagate manually:
-                self_sig = f"{self.__class__.__name__}.{self.pk}"
                 updated = parent_inst.call_dfs_related_updaters(updated=updated)
 
         return updated

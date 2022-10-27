@@ -171,7 +171,7 @@ class Infusate(MaintainedModel):
             display_name = self.name
         elif are_autoupdates_enabled():
             # This triggers an auto-update
-            self.save()
+            self.save(update_fields=["name"])
             display_name = self.name
 
         # If it's still not set, call the method that generates the name.  It just won't be saved.
