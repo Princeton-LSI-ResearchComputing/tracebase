@@ -750,7 +750,7 @@ class MaintainedModel(Model):
         else:
             raise NoDecorators(class_name)
 
-        return my_updatres
+        return my_updaters
 
     @classmethod
     def get_my_update_fields(self):
