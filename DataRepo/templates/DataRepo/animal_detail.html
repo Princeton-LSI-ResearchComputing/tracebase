@@ -44,7 +44,7 @@
                     {% endif %}
                 </td>
                 <td>{{ animal.body_weight }}</td>
-                <td>{{ animal.age |durationToWeeks }}</td>
+                <td>{{ animal.age|durationToWeeks }}</td>
                 <td>{{ animal.sex }}</td>
                 <td>{{ animal.diet }}</td>
                 <td>{{ animal.feeding_status }}</td>
@@ -52,110 +52,16 @@
         </tbody>
     </table>
 </div>
-<br>
 <div>
-    <h5><a href="{% url 'search_basic' 'Animal' 'id' 'iexact' animal.id 'peakgroups' %}">View Peak Group Data</a></h5>
-    <h5><a href="{% url 'search_basic' 'Animal' 'id' 'iexact' animal.id 'peakdata' %}">View Peak Data</a></h5>
-    <h5><a href="{% url 'search_basic' 'Animal' 'id' 'iexact' animal.id 'fcirc' %}">View Fcirc Data</a></h5>
+    <li><a href="{% url 'search_basic' 'Animal' 'id' 'iexact' animal.id 'peakgroups' %}">Peak Groups</a></li>
+    <li><a href="{% url 'search_basic' 'Animal' 'id' 'iexact' animal.id 'peakdata' %}">Peak Data</a></li>
+    <li><a href="{% url 'search_basic' 'Animal' 'id' 'iexact' animal.id 'fcirc' %}">Fcirc Data</a></li>
 </div>
 <br>
 <div>
-    <h5>Sample Data for the Animal:</h5>
-    {% if df %}
-    <table class="table table-sm table-hover table-bordered table-striped table-responsive" w-auto mw-100
-        id="sample_list_per_animal"
-        data-toggle="table"
-        data-buttons-class="primary"
-        data-buttons-align="left"
-        data-filter-control="true"
-        data-search="true"
-        data-search-align="left"
-        data-show-search-clear-button="true"
-        data-show-fullscreen="true"
-        data-show-multi-sort="true"
-        data-show-columns="true"
-        data-show-columns-toggle-all="true"
-        data-show-export="true"
-        data-export-types="['csv', 'txt', 'excel']">
-        <thead>
-            <tr>
-                <th data-filter-control="input" data-sortable="true" data-field="Animal">Animal</th>
-                <th data-filter-control="input" data-sortable="true" data-field="Study">Studies</th>
-                <th data-filter-control="select" data-sortable="true" data-field="Genotype">Genotype</th>
-                <th data-visible="false" data-field="Body-Weight">Body Weight (g)</th>
-                <th data-filter-control="input" data-sortable="true" data-visible="false" data-field="Age">Age (weeks)</th>
-                <th data-filter-control="select" data-sortable="true" data-visible="false" data-field="Sex">Sex</th>
-                <th data-filter-control="input" data-sortable="true" data-visible="false" data-field="Diet">Diet</th>
-                <th data-filter-control="select" data-sortable="true" data-visible="false" data-field="Feeding-Status">Feeding Status</th>
-                <th data-filter-control="input" data-sortable="true" data-field="Treatment">Treatment</th>
-                <th data-filter-control="input" data-sortable="true" data-field="Infusate">Infusate</th>
-                <th data-filter-control="select" data-sortable="true" data-field="Labeled-Elements">Labeled Elements</th>
-                <th data-filter-control="input" data-sortable="true" data-visible="false" data-field="Infusion-Rate">Infusion Rate (ul/min/g)</th>
-                <th data-filter-control="input" data-sortable="true" data-field="Tissue">Tissue</th>
-                <th data-filter-control="input" data-sortable="true" data-field="Sample">Sample</th>
-                <th data-filter-control="select" data-sortable="true" data-field="Sample-Owner">Sample Owner</th>
-                <th data-filter-control="input" data-sortable="true" data-field="Sample-Date">Sample Date</th>
-                <th data-filter-control="input" data-sortable="true" data-visible="false" data-field="Collect-Time-Minutes">Sample Collect Time (m)</th>
-                <th data-field="MSRun-Detail">MSRun Detail</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for i in df %}
-            <tr>
-                <td>{{ i.animal }}</td>
-                <td>{{ i.study_id_name_list |obj_hyperlink:"study" }}</td>
-                <td>{{ i.genotype }}</td>
-                <td>{{ i.body_weight }}</td>
-                <td>{{ i.age |duration_iso_to_weeks }}</td>
-                <td>{{ i.sex }}</td>
-                <td>{{ i.diet }}</td>
-                <td>{{ i.feeding_status }}</td>
-                <!--handle None value for treatement-->
-                <td>
-                {% if i.treatment %}
-                    <a href="{% url 'protocol_detail' i.treatment_id %}">{{ i.treatment }}</a>
-                {% else %}
-                    None
-                {% endif %}
-                </td>
-                <td>
-                {% if i.infusate_id %}
-                    <a href="{% url 'infusate_detail' i.infusate_id %}">{{ i.infusate_name }}</a>
-                {% else %}
-                    None
-                {% endif %}
-                </td>
-                <td>{{ i.labeled_elements |join:"," }}</td>
-                <td>{{ i.infusion_rate }}</td>
-                <td><a href="{% url 'tissue_detail' i.tissue_id %}">{{ i.tissue }}</a></td>
-                <td><a href="{% url 'sample_detail' i.sample_id %}">{{ i.sample }}</a></td>
-                <td>{{ i.sample_owner }}</td>
-                <td>{{ i.sample_date |convert_iso_date }}</td>
-                <td>{{ i.sample_time_collected |duration_iso_to_mins }}</td>
-                <td>
-                    {% if i.msrun_id %}
-                        <a href="{% url 'msrun_detail' i.msrun_id %}">MSRun Detail</a>
-                    {% else %}
-                        None
-                    {% endif %}
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% endif %}
-</div>
-{% endblock %}
-
-{% block js_extras %}
-    {{ block.super }}
-    <script>
-        var $table = $('#sample_list_per_animal')
-
-        $.extend($.fn.bootstrapTable.columnDefaults, {
-            valign: "top"
-        });
-
-        $('#sample_list_per_animal').bootstrapTable()
-    </script>
+    <h6>Sample Data for the Animal</h6>
+    {% with out_df=df %}
+        {% include "DataRepo/includes/animal_sample_msrun_table.html" %}
+    {% endwith %}
+    <br>
 {% endblock %}

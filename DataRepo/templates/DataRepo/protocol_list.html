@@ -3,29 +3,20 @@
 {% block title %}Protocols{% endblock %}
 
 {% block content %}
+<br>
 <div>
-    <ul>
-        <h4>List of Protocols</h4>
-
-        {% if protocol_list %}
-        <br>
-        <table class="table table-sm table-hover table-striped table-bordered">
-            <tr>
-            <th>Name</th>
-            <th>Category</th>
-            <th>Description</th>
-            </tr>
-            {% for protocol in protocol_list %}
-            <tr>
-            <td><a href="{% url 'protocol_detail' protocol.id %}">{{ protocol.name }}</a></td>
-            <td>{{ protocol.category }}</td>
-            <td>{{ protocol.description }}</td>
-            </tr>
-            {% endfor %}
-        </table>
+    {% for key, value in protocol_list.items %}
+        {% if key == "animal_treatment" %}
+            <h4>Animal Treatment Protocols:</h4>
+        {% elif key == "msrun_protocol" %}
+            <h4>MSRun Protocols:</h4>
         {% else %}
-        <p>There are no protocols.</p>
+            <h4>Protocols in other categories:</h4>
         {% endif %}
-    </ul>
+        {% with protocols=value %}
+            {% include "DataRepo/includes/protocol_table.html" %}
+        {% endwith %}
+        <br>
+    {% endfor %}
 </div>
 {% endblock %}
