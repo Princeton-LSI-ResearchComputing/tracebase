@@ -175,26 +175,29 @@ class FormatsTests(TracebaseTestCase):
 
     def getPgtemplateChoicesTuple(self):
         return (
+            ("msrun__sample__animal__age", "Age"),
             ("msrun__sample__animal__name", "Animal"),
             ("msrun__sample__animal__body_weight", "Body Weight (g)"),
+            ("compounds__synonyms__name", "Compound (Measured) (Any Synonym)"),
+            ("compounds__name", "Compound (Measured) (Primary Synonym)"),
+            (
+                "msrun__sample__animal__infusate__tracers__compound__name",
+                "Compound (Tracer) (Primary Synonym)",
+            ),
             ("msrun__sample__animal__diet", "Diet"),
             ("msrun__sample__animal__feeding_status", "Feeding Status"),
             ("formula", "Formula"),
             ("msrun__sample__animal__genotype", "Genotype"),
+            ("msrun__sample__animal__infusate__name", "Infusate"),
             ("msrun__sample__animal__infusion_rate", "Infusion Rate (ul/min/g)"),
-            ("compounds__synonyms__name", "Measured Compound (Any Synonym)"),
-            ("compounds__name", "Measured Compound (Primary Synonym)"),
+            ("labels__element", "Labeled Element"),
             ("name", "Peak Group"),
-            ("labels__element", "Peak Group Labeled Element"),
             ("peak_group_set__filename", "Peak Group Set Filename"),
             ("msrun__sample__name", "Sample"),
             ("msrun__sample__animal__sex", "Sex"),
             ("msrun__sample__animal__studies__name", "Study"),
             ("msrun__sample__tissue__name", "Tissue"),
-            (
-                "msrun__sample__animal__infusate__tracers__compound__name",
-                "Tracer Compound (Primary Synonym)",
-            ),
+            ("msrun__sample__animal__infusate__tracers__name", "Tracer"),
             (
                 "msrun__sample__animal__infusate__tracer_links__concentration",
                 "Tracer Concentration (mM)",
@@ -205,6 +208,7 @@ class FormatsTests(TracebaseTestCase):
     def getFctemplateChoicesTuple(self):
         return (
             ("serum_sample__animal__name", "Animal"),
+            ("serum_sample__animal__age", "Animal Age"),
             ("serum_sample__animal__body_weight", "Body Weight (g)"),
             ("serum_sample__animal__diet", "Diet"),
             ("serum_sample__animal__feeding_status", "Feeding Status"),
@@ -216,7 +220,7 @@ class FormatsTests(TracebaseTestCase):
             ("serum_sample__animal__studies__name", "Study"),
             (
                 "serum_sample__time_collected",
-                "Time Collected (hh:mm:ss since infusion)",
+                "Time Collected (since infusion)",
             ),
             ("tracer__name", "Tracer"),
             ("tracer__compound__name", "Tracer Compound (Primary Synonym)"),
@@ -453,9 +457,6 @@ class FormatsTests(TracebaseTestCase):
         expected_distincts = [
             "name",
             "pk",
-            "compounds__synonyms__compound__name",
-            "compounds__synonyms__name",
-            "compounds__synonyms__pk",
             "labels__peak_group__name",
             "labels__element",
             "labels__pk",
@@ -463,10 +464,15 @@ class FormatsTests(TracebaseTestCase):
             "msrun__sample__animal__infusate__tracer_links__tracer__name",
             "msrun__sample__animal__infusate__tracer_links__concentration",
             "msrun__sample__animal__infusate__tracer_links__pk",
+            "msrun__sample__animal__infusate__tracers__name",
+            "msrun__sample__animal__infusate__tracers__pk",
             "msrun__sample__animal__infusate__tracers__compound__name",
             "msrun__sample__animal__infusate__tracers__compound__pk",
             "compounds__name",
             "compounds__pk",
+            "compounds__synonyms__compound__name",
+            "compounds__synonyms__name",
+            "compounds__synonyms__pk",
             "msrun__sample__animal__studies__name",
             "msrun__sample__animal__studies__pk",
         ]
@@ -963,26 +969,29 @@ class FormatsTests(TracebaseTestCase):
         fmt = "pgtemplate"
         res = basv_metadata.getSearchFieldChoices(fmt)
         choices = (
+            ("msrun__sample__animal__age", "Age"),
             ("msrun__sample__animal__name", "Animal"),
             ("msrun__sample__animal__body_weight", "Body Weight (g)"),
+            ("compounds__synonyms__name", "Compound (Measured) (Any Synonym)"),
+            ("compounds__name", "Compound (Measured) (Primary Synonym)"),
+            (
+                "msrun__sample__animal__infusate__tracers__compound__name",
+                "Compound (Tracer) (Primary Synonym)",
+            ),
             ("msrun__sample__animal__diet", "Diet"),
             ("msrun__sample__animal__feeding_status", "Feeding Status"),
             ("formula", "Formula"),
             ("msrun__sample__animal__genotype", "Genotype"),
+            ("msrun__sample__animal__infusate__name", "Infusate"),
             ("msrun__sample__animal__infusion_rate", "Infusion Rate (ul/min/g)"),
-            ("compounds__synonyms__name", "Measured Compound (Any Synonym)"),
-            ("compounds__name", "Measured Compound (Primary Synonym)"),
+            ("labels__element", "Labeled Element"),
             ("name", "Peak Group"),
-            ("labels__element", "Peak Group Labeled Element"),
             ("peak_group_set__filename", "Peak Group Set Filename"),
             ("msrun__sample__name", "Sample"),
             ("msrun__sample__animal__sex", "Sex"),
             ("msrun__sample__animal__studies__name", "Study"),
             ("msrun__sample__tissue__name", "Tissue"),
-            (
-                "msrun__sample__animal__infusate__tracers__compound__name",
-                "Tracer Compound (Primary Synonym)",
-            ),
+            ("msrun__sample__animal__infusate__tracers__name", "Tracer"),
             (
                 "msrun__sample__animal__infusate__tracer_links__concentration",
                 "Tracer Concentration (mM)",
@@ -1030,19 +1039,21 @@ class FormatsTests(TracebaseTestCase):
         res = basv_metadata.getModelInstances(fmt)
         ml = [
             "PeakGroupSet",
-            "CompoundSynonym",
             "PeakGroup",
             "PeakGroupLabel",
             "Protocol",
             "Sample",
             "Tissue",
             "Animal",
+            "Infusate",
             "InfusateTracer",
+            "Tracer",
             "TracerCompound",
             "MeasuredCompound",
+            "CompoundSynonym",
             "Study",
         ]
-        self.assertEqual(res, ml)
+        self.assertEqual(ml, res)
 
     def test_cv_getSearchFields(self):
         """
@@ -1056,6 +1067,7 @@ class FormatsTests(TracebaseTestCase):
             "id": "msrun__sample__animal__id",
             "name": "msrun__sample__animal__name",
             "genotype": "msrun__sample__animal__genotype",
+            "age": "msrun__sample__animal__age",
             "body_weight": "msrun__sample__animal__body_weight",
             "sex": "msrun__sample__animal__sex",
             "diet": "msrun__sample__animal__diet",

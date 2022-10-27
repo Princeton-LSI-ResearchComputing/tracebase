@@ -34,19 +34,10 @@ class Animal(MaintainedModel, HierCachedModel, ElementLabel):
     )
     infusate = models.ForeignKey(
         to="DataRepo.Infusate",
-        # PR REVIEW NOTE: This was previously RESTRICT, but I got errors during the cleanup of the validation
-        #       database that it couldn't delete some infusate records because of links to it from animal, which I
-        #       didn't expect... I thought it would delete only if there didn't exist any other links to it, and all
-        #       the animals were being deleted.  Perhaps the first time, it wouldn't delete, but the last animal that
-        #       links to it should delete the infusate...  How do I get that behavior?
-        #       Here was the error:
-        #       django.db.models.deletion.RestrictedError: ("Cannot delete some instances of model 'Infusate' because
-        #       they are referenced through restricted foreign keys: 'Animal.infusate'.", {<Animal: 090320_M1>,
-        #       <Animal: 090320_M2>, <Animal: 090320_M3>, ...
         on_delete=models.RESTRICT,
         null=False,
         blank=False,
-        related_name="animal",
+        related_name="animals",
         help_text="The solution infused into the animal containing 1 or more tracer compounds at specific "
         "concentrations.",
     )

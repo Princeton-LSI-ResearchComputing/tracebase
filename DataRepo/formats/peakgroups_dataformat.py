@@ -93,32 +93,6 @@ class PeakGroupsFormat(Format):
                 },
             },
         },
-        "CompoundSynonym": {
-            "model": "CompoundSynonym",
-            "path": "compounds__synonyms",
-            "reverse_path": "compound__peak_groups",
-            "manyrelated": {
-                "is": True,
-                "manytomany": True,
-                "through": False,
-                "split_rows": False,
-            },
-            "fields": {
-                "id": {
-                    "displayname": "(Internal) Compound Synonym Index",
-                    "searchable": True,
-                    "displayed": False,  # Used in link
-                    "handoff": "name",  # This is the field that will be loaded in the search form
-                    "type": "number",
-                },
-                "name": {
-                    "displayname": "Measured Compound (Any Synonym)",
-                    "searchable": True,
-                    "displayed": True,
-                    "type": "string",
-                },
-            },
-        },
         "PeakGroup": {
             "model": "PeakGroup",
             "path": "",
@@ -170,7 +144,7 @@ class PeakGroupsFormat(Format):
             },
             "fields": {
                 "element": {
-                    "displayname": "Peak Group Labeled Element",
+                    "displayname": "Labeled Element",
                     "searchable": True,
                     "displayed": True,
                     "type": "enumeration",
@@ -312,10 +286,22 @@ class PeakGroupsFormat(Format):
                     "type": "number",
                 },
                 "age": {
-                    "displayname": "Age (d-hh:mm:ss)",
-                    "searchable": False,  # currently no data available for testing and a bug: issue #180
+                    "displayname": "Age",
+                    "searchable": True,
                     "displayed": True,
                     "type": "number",
+                    "units": {  # See dataformat.py: Format.unit_options
+                        "key": "postgres_interval",
+                        "default": "w",
+                        "subset": [
+                            "native",
+                            "calendartime",
+                            "months",
+                            "weeks",
+                            "days",
+                            "hours",
+                        ],
+                    },
                 },
                 "sex": {
                     "displayname": "Sex",
@@ -344,10 +330,36 @@ class PeakGroupsFormat(Format):
                 },
             },
         },
+        "Infusate": {
+            "model": "InfusateTracer",
+            "path": "msrun__sample__animal__infusate",
+            "reverse_path": "animals__samples__msruns__peak_groups",
+            "manyrelated": {
+                "is": True,  # searching for PeakGroups via Infusate.pk can produce many peak groups
+                "manytomany": False,  # but animal->infusate results in 1 infusate
+                "through": False,
+                "split_rows": False,
+            },
+            "fields": {
+                "id": {
+                    "displayname": "(Internal) Infusate Index",
+                    "searchable": True,
+                    "displayed": False,  # Used in link
+                    "handoff": "name",  # This is the field that will be loaded in the search form
+                    "type": "number",
+                },
+                "name": {
+                    "displayname": "Infusate",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "string",
+                },
+            },
+        },
         "InfusateTracer": {
             "model": "InfusateTracer",
             "path": "msrun__sample__animal__infusate__tracer_links",
-            "reverse_path": "infusate__animal__samples__msruns__peak_groups",
+            "reverse_path": "infusate__animals__samples__msruns__peak_groups",
             "manyrelated": {
                 "is": True,
                 "manytomany": True,  # searching for peakGroups via InfusateTracer.pk can produce many peak groups
@@ -370,6 +382,32 @@ class PeakGroupsFormat(Format):
                 },
             },
         },
+        "Tracer": {
+            "model": "Tracer",
+            "path": "msrun__sample__animal__infusate__tracers",
+            "reverse_path": "infusate__animals__samples__msruns__peak_groups",
+            "manyrelated": {
+                "is": True,  # searching for PeakGroups via Tracer.pk can produce many peak groups
+                "manytomany": True,  # and searching for tracers via PG.pk can also produce many tracers
+                "through": False,
+                "split_rows": False,
+            },
+            "fields": {
+                "id": {
+                    "displayname": "(Internal) Tracer Index",
+                    "searchable": True,
+                    "displayed": False,  # Used in link
+                    "handoff": "name",  # This is the field that will be loaded in the search form
+                    "type": "number",
+                },
+                "name": {
+                    "displayname": "Tracer",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "string",
+                },
+            },
+        },
         "TracerCompound": {
             "model": "Compound",
             "path": "msrun__sample__animal__infusate__tracers__compound",
@@ -382,14 +420,14 @@ class PeakGroupsFormat(Format):
             },
             "fields": {
                 "id": {
-                    "displayname": "(Internal) Tracer Compound Index",
+                    "displayname": "(Internal) Compound (Tracer) Index",
                     "searchable": True,
                     "displayed": False,  # Used in link
                     "handoff": "name",  # This is the field that will be loaded in the search form
                     "type": "number",
                 },
                 "name": {
-                    "displayname": "Tracer Compound (Primary Synonym)",
+                    "displayname": "Compound (Tracer) (Primary Synonym)",
                     "searchable": True,
                     "displayed": True,
                     "type": "string",
@@ -409,16 +447,42 @@ class PeakGroupsFormat(Format):
             },
             "fields": {
                 "id": {
-                    "displayname": "(Internal) Measured Compound Index",
+                    "displayname": "(Internal) Compound (Measured) Index",
                     "searchable": True,
                     "displayed": False,  # Used in link
                     "handoff": "name",  # This is the field that will be loaded in the search form
                     "type": "number",
                 },
                 "name": {
-                    "displayname": "Measured Compound (Primary Synonym)",
+                    "displayname": "Compound (Measured) (Primary Synonym)",
                     "searchable": True,
                     "displayed": True,  # Will display due to the handoff
+                    "type": "string",
+                },
+            },
+        },
+        "CompoundSynonym": {
+            "model": "CompoundSynonym",
+            "path": "compounds__synonyms",
+            "reverse_path": "compound__peak_groups",
+            "manyrelated": {
+                "is": True,
+                "manytomany": True,
+                "through": False,
+                "split_rows": False,
+            },
+            "fields": {
+                "id": {
+                    "displayname": "(Internal) Compound Synonym (Measured) Index",
+                    "searchable": True,
+                    "displayed": False,  # Used in link
+                    "handoff": "name",  # This is the field that will be loaded in the search form
+                    "type": "number",
+                },
+                "name": {
+                    "displayname": "Compound (Measured) (Any Synonym)",
+                    "searchable": True,
+                    "displayed": True,
                     "type": "string",
                 },
             },
