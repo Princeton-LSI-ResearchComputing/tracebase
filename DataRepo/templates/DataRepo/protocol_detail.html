@@ -1,10 +1,11 @@
 {% extends "base.html" %}
 
-{% block title %}Protocol Record - {{ protocol.name }}{% endblock %}
+{% block title %}{{ proto_display }} - {{ protocol.name }}{% endblock %}
 
 {% block content %}
 <div>
-    <h4>Protocol Record - {{ protocol.name }}</h4>
+    <h4>{{ proto_display }} - {{ protocol.name }}</h4>
+
     <table class="table table-bordered table-hover w-auto mw-100">
         <tr>
             <td>Name</td>
@@ -20,4 +21,36 @@
         </tr>
     </table>
 </div>
+<br>
+<div>
+    <h5>Studies using this {{ proto_display|lower }} </h5>
+    {% with out_df=df %}
+        {% include "DataRepo/includes/study_list_stats_table.html" %}
+    {% endwith %}
+    <br>
+</div>
+{% endblock %}
+
+{% block js_extras %}
+    {{ block.super }}
+    <script>
+        let rowCount = {{ df|length }}
+        let vScroll = undefined
+        let tabHeight = undefined
+        if ( rowCount < 5 ) {
+            tabHeight = undefined
+            vScroll = undefined
+        } else if (rowCount >= 5 && rowCount < 10) {
+            tabHeight = 800
+            vScroll = true
+        } else {
+            tabHeight = 1000
+            vScroll = true
+        }
+
+        $('#study_list_stats').bootstrapTable({
+                height: tabHeight,
+                virtualScroll: vScroll
+        })
+    </script>
 {% endblock %}

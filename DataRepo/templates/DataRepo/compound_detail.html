@@ -6,7 +6,6 @@
 {% block content %}
 <div>
     <h4>Compound Record - {{ compound.name }}</h4>
-    <br>
     <table class="table table-bordered table-hover w-auto mw-100">
         <tr>
             <td>Name</td>
@@ -29,105 +28,47 @@
             </td>
         </tr>
     </table>
-</div>
-<div>
-    <br>
     {% if measured %}
-        <h5><a href="{% url 'search_basic' 'MeasuredCompound' 'id' 'iexact' compound.id 'peakgroups' %}">View Peak Groups of this measured compound</a></h5>
-        <h5><a href="{% url 'search_basic' 'MeasuredCompound' 'id' 'iexact' compound.id 'peakdata' %}">View Peak Data of this measured compound</a></h5>
+        <li><a href="{% url 'search_basic' 'MeasuredCompound' 'id' 'iexact' compound.id 'peakgroups' %}">{{ compound.name|capfirst }} Peak Groups</a></li>
+        <li><a href="{% url 'search_basic' 'MeasuredCompound' 'id' 'iexact' compound.id 'peakdata' %}">{{ compound.name|capfirst }} Peak Data</a></li>
     {% else %}
         No measurements of this compound have yet been loaded.
     {% endif %}
-</div>
-<br>
-<div>
+    <br>
     {% if anim_per_comp_df %}
-    <h5>Measurement Data for the Animals using <b>{{ compound.name }}</b> as a tracer:</h5>
-    <br>
-    <h5><a href="{% url 'search_basic' 'Compound' 'name' 'iexact' compound.name 'peakgroups' %}">View Peak Group Data</a></h5>
-    <h5><a href="{% url 'search_basic' 'Compound' 'name' 'iexact' compound.name 'peakdata' %}">View Peak Data</a></h5>
-    <br>
-    <h5>List of Animals using <b>{{ compound.name }}</b> as a tracer:</h5>
-    <table class="table table-sm table-hover table-bordered table-responsive-xl table-striped"
-        id="animal_list_stats"
-        data-toggle="table"
-        data-buttons-class="primary"
-        data-buttons-align="left"
-        data-filter-control="true"
-        data-search="true"
-        data-search-align="left"
-        data-show-search-clear-button="true"
-        data-show-multi-sort="true"
-        data-show-columns="true"
-        data-show-columns-toggle-all="true"
-        data-show-fullscreen="true"
-        data-show-export="true"
-        data-export-types="['csv', 'txt', 'excel']">
-        <thead>
-            <tr>
-                <th data-filter-control="input" data-sortable="true" data-field="Animal">Animal</th>
-                <th data-filter-control="input" data-sortable="true" data-field="Studies">Studies</th>
-                <th data-filter-control="select" data-sortable="true" data-field="Genotype">Genotype</th>
-                <th data-filter-control="input" data-sortable="true" data-field="Treatment">Treatment</th>
-                <th data-filter-control="input" data-sortable="true" data-field="Infusate">Infusate</th>
-                <th data-filter-control="input" data-sortable="true" data-field="Tracer-Group">Tracer Group</th>
-                <th data-filter-control="input" data-sortable="true" data-field="Compounds">Parent Compound(s)</th>
-                <th data-filter-control="input" data-sortable="true" data-visible="false" data-field="Tracers">Tracer(s)</th>
-                <th data-filter-control="select" data-sortable="true" data-field="Labeled-Elements">Labeled Element(s)</th>
-                <th data-filter-control="input" data-sortable="true" data-visible="false" data-field="Labeled-Counts">Labeled Count</th>
-                <th data-filter-control="input" data-sortable="true" data-visible="false" data-field="Infusion-Concentrations">Infusion Concentration (mM)</th>
-                <th data-filter-control="input" data-sortable="true" data-field="Infusion-Rate">Infusion Rate (ul/min/g)</th>
-                <th data-filter-control="input" data-sortable="true" data-visible="false" data-field="Body_Weight">Body Weight (g)</th>
-                <th data-filter-control="input" data-sortable="true" data-visible="false" data-field="Age">Age (weeks)</th>
-                <th data-filter-control="select" data-sortable="true" data-visible="false" data-field="Sex">Sex</th>
-                <th data-filter-control="input" data-sortable="true" data-visible="false" data-field="Diet">Diet</th>
-                <th data-filter-control="input" data-sortable="true" data-field="Feeding-Status">Feeding Status</th>
-                <th data-filter-control="select" data-sortable="true" data-field="Sample-Owners">Sample Owners</th>
-                <th data-filter-control="input" data-sortable="true" data-field="Total-Tissue">Total Tissues</th>
-                <th data-filter-control="input" data-sortable="true" data-field="Total-Sample">Total Samples</th>
-                <th data-filter-control="input" data-sortable="true" data-field="Total-MSRun">Total MSRuns</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for i in anim_per_comp_df %}
-            <tr>
-                <td><a href="{% url 'animal_detail' i.animal_id %}">{{ i.animal }}</a></td>
-                <td>{{ i.study_id_name_list |obj_hyperlink:"study" }}</td>
-                <td>{{ i.genotype }}</td>
-                <td>
-                    {% if i.treatment %}
-                        <a href="{% url 'protocol_detail' i.treatment_id %}">{{ i.treatment }}</a>
-                    {% else %}
-                        None
-                    {% endif %}
-                </td>
-                <td>
-                    {% if i.infusate_id %}
-                        <a href="{% url 'infusate_detail' i.infusate_id %}">{{ i.infusate_name }}</a></td>
-                    {% else %}
-                        None
-                    {% endif %}
-                </td>
-                <td>{{ i.tracer_group_name }}</td>
-                <td>{{ i.compound_id_name_list |obj_hyperlink:"compound" }}</td>
-                <td>{{ i.tracer_id_name_list |obj_hyperlink:"tracer" }}</td>
-                <td>{{ i.labeled_elements |join:", "}}</td>
-                <td>{{ i.labeled_counts }}</td>
-                <td>{{ i.concentrations }}</td>
-                <td>{{ i.infusion_rate }}</td>
-                <td>{{ i.body_weight }}</td>
-                <td>{{ i.age |duration_iso_to_weeks }}</td>
-                <td>{{ i.sex }}</td>
-                <td>{{ i.diet }}</td>
-                <td>{{ i.feeding_status }}</td>
-                <td>{{ i.sample_owners  |join:", "}}</td>
-                <td>{{ i.total_tissue }}</td>
-                <td>{{ i.total_sample }}</td>
-                <td>{{ i.total_msrun }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+        <h6>{{ compound.name|capfirst }} used as a tracer</h6>
+        <li><a href="{% url 'search_basic' 'TracerCompound' 'name' 'iexact' compound.name 'peakgroups' %}">Peak Groups</a></li>
+        <li><a href="{% url 'search_basic' 'TracerCompound' 'name' 'iexact' compound.name 'peakdata' %}">Peak Data</a></li>
+        <li><a href="{% url 'search_basic' 'Compound' 'name' 'iexact' compound.name 'fcirc' %}">Fcirc Data</a></li>
+        <br>
+        <h6>List of Animals using <b>{{ compound.name }}</b> as a tracer compound</h6>
+        {% with out_df=anim_per_comp_df %}
+            {% include "DataRepo/includes/animal_list_stats_table.html" %}
+        {% endwith %}
+        <br>
     {% endif %}
 </div>
+{% endblock %}
+
+{% block js_extras %}
+    {{ block.super }}
+    <script>
+        let rowCount = {{ anim_per_comp_df|length }}
+        let vScroll = undefined
+        let tabHeight = undefined
+        if ( rowCount < 5 ) {
+            tabHeight = undefined
+            vScroll = undefined
+        } else if (rowCount >= 5 && rowCount < 10) {
+            tabHeight = 800
+            vScroll = true
+        } else {
+            tabHeight = 1000
+            vScroll = true
+        }
+        $('#animal_list_stats').bootstrapTable({
+            height: tabHeight,
+            virtualScroll: vScroll
+        })
+    </script>
 {% endblock %}

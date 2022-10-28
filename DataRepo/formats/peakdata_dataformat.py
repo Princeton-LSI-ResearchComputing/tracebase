@@ -440,7 +440,7 @@ class PeakDataFormat(Format):
         "InfusateTracer": {
             "model": "InfusateTracer",
             "path": "peak_group__msrun__sample__animal__infusate__tracer_links",
-            "reverse_path": "infusate__animal__samples__msruns__peak_groups__peak_data",
+            "reverse_path": "infusate__animals__samples__msruns__peak_groups__peak_data",
             "manyrelated": {
                 "is": True,
                 "manytomany": True,
