@@ -24,8 +24,11 @@ class ProtocolViewTests(TracebaseTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "DataRepo/animal_treatments.html")
         self.assertEqual(len(response.context["animal_treatment_list"]), 8)
-        self.assertEqual(
-            response.context["animal_treatment_list"][0].name, "no treatment"
+        self.assertTrue(
+            any(
+                treatment.name == "no treatment"
+                for treatment in response.context["animal_treatment_list"]
+            )
         )
 
     @tag("multi_working")
@@ -34,7 +37,12 @@ class ProtocolViewTests(TracebaseTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "DataRepo/msrun_protocols.html")
         self.assertEqual(len(response.context["msrun_protocol_list"]), 8)
-        self.assertEqual(response.context["msrun_protocol_list"][0].name, "Default")
+        self.assertTrue(
+            any(
+                msrun_protocol.name == "Default"
+                for msrun_protocol in response.context["msrun_protocol_list"]
+            )
+        )
 
     @tag("multi_working")
     def test_protocol_detail(self):
