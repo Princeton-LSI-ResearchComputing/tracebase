@@ -23,9 +23,8 @@ class ProtocolLoadingTests(TracebaseTestCase):
         data = [
             ["no treatment", "No treatment was applied to the animal."],
             ["some treatment", "Animal was challenged."],
-            ["  treatment was trimmed  ", "  Description was trimmed.  "],
         ]
-        cls.SETUP_PROTOCOL_COUNT = 3
+        cls.SETUP_PROTOCOL_COUNT = 2
         data_differently = deepcopy(data)
         # change the description
         data_differently[1][1] = "Animal was treated differently."
@@ -49,10 +48,6 @@ class ProtocolLoadingTests(TracebaseTestCase):
         """Test the ProtocolsLoader class"""
         self.load_dataframe_as_animal_treatment(self.working_df)
         self.assertEqual(Protocol.objects.count(), self.SETUP_PROTOCOL_COUNT)
-        # test data trimming
-        self.assertEqual(
-            Protocol.objects.get(name="  treatment was trimmed  ").count(), 1
-        )
 
     def test_protocols_loader_failing_different_descs(self):
         """Test the ProtocolsLoader class"""
@@ -95,6 +90,18 @@ class ProtocolLoadingTests(TracebaseTestCase):
         self.assertEqual(
             Protocol.objects.filter(category=Protocol.MSRUN_PROTOCOL).count(), 8
         )
+
+    def test_load_protocols_tsv_with_workarounds(self):
+        """Test loading the protocols from a TSV containing duplicates and mungeable data"""
+        call_command(
+            "load_protocols",
+            protocols="DataRepo/example_data/testing_data/protocols/protocols_with_workarounds.tsv",
+        )
+        self.assertEqual(Protocol.objects.count(), 2)
+        for p in Protocol.objects.all():
+            print(f"'{p.name}'")
+        # test data trimming
+        self.assertEqual(Protocol.objects.get(name="treatment was trimmed").count(), 1)
 
     def test_load_protocols_xlxs(self):
         """Test loading the protocols from a Treatments sheet in the xlxs workbook"""
