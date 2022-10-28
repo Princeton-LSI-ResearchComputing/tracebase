@@ -2,7 +2,7 @@ from copy import deepcopy
 
 import pandas as pd
 from django.conf import settings
-from django.core.management import call_command
+from django.core.management import CommandError, call_command
 from django.test import tag
 
 from DataRepo.models import Protocol
@@ -23,7 +23,9 @@ class ProtocolLoadingTests(TracebaseTestCase):
         data = [
             ["no treatment", "No treatment was applied to the animal."],
             ["some treatment", "Animal was challenged."],
+            ["  treatment was trimmed  ", "  Description was trimmed.  "],
         ]
+        cls.SETUP_PROTOCOL_COUNT = 3
         data_differently = deepcopy(data)
         # change the description
         data_differently[1][1] = "Animal was treated differently."
@@ -46,7 +48,11 @@ class ProtocolLoadingTests(TracebaseTestCase):
     def test_protocols_loader(self):
         """Test the ProtocolsLoader class"""
         self.load_dataframe_as_animal_treatment(self.working_df)
-        self.assertEqual(Protocol.objects.count(), 2)
+        self.assertEqual(Protocol.objects.count(), self.SETUP_PROTOCOL_COUNT)
+        # test data trimming
+        self.assertEqual(
+            Protocol.objects.get(name="  treatment was trimmed  ").count(), 1
+        )
 
     def test_protocols_loader_failing_different_descs(self):
         """Test the ProtocolsLoader class"""
@@ -56,7 +62,7 @@ class ProtocolLoadingTests(TracebaseTestCase):
         ):
             self.load_dataframe_as_animal_treatment(self.working_differently_df)
         # but the other first "working" protocols are still there]
-        self.assertEqual(Protocol.objects.count(), 2)
+        self.assertEqual(Protocol.objects.count(), self.SETUP_PROTOCOL_COUNT)
 
     def test_protocols_loader_without_category_error(self):
         """Test the ProtocolsLoader with dataframe missing category"""
@@ -112,4 +118,16 @@ class ProtocolLoadingTests(TracebaseTestCase):
         )
         self.assertEqual(Protocol.objects.using(val_db).count(), 2)
         # and none in default
+        self.assertEqual(Protocol.objects.count(), 0)
+
+    def test_load_protocols_with_bad_examples(self):
+        """Test loading the protocols from a TSV containing questionable data"""
+        with self.assertRaisesRegex(
+            CommandError,
+            r"2 errors loading protocol records from .*protocols_with_errors\.tsv - NO RECORDS SAVED",
+        ):
+            call_command(
+                "load_protocols",
+                protocols="DataRepo/example_data/testing_data/protocols/protocols_with_errors.tsv",
+            )
         self.assertEqual(Protocol.objects.count(), 0)
