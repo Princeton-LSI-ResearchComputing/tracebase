@@ -1,6 +1,7 @@
 import argparse
 import pathlib
 
+import numpy as np
 import pandas as pd
 from django.core.management import BaseCommand, CommandError
 
@@ -75,10 +76,9 @@ class Command(BaseCommand):
 
         self.read_from_file(options["protocols"])
 
-        self.new_protocols_df = self.new_protocols_df.replace({"nan": None})
+        self.new_protocols_df = self.new_protocols_df.replace(np.nan, "", regex=True)
         for col in self.new_protocols_df.columns:
-            self.new_protocols_df[col].str.strip()
-
+            self.new_protocols_df[col] = self.new_protocols_df[col].str.strip()
         loader_args = {
             "protocols": self.new_protocols_df,
             "dry_run": options["dry_run"],
@@ -144,7 +144,12 @@ class Command(BaseCommand):
 
         # Keeping `na` to differentiate between intentional empty descriptions and spaces in the first column that were
         # intended to be tab characters
-        new_protocols = pd.read_table(protocols_tsv, dtype=str, keep_default_na=True)
+        new_protocols = pd.read_table(
+            protocols_tsv,
+            dtype=object,
+            keep_default_na=False,
+            na_values="",
+        )
         # rename template columns to ProtocolsLoader expectations
         new_protocols.rename(
             inplace=True,

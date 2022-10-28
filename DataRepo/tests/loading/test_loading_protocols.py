@@ -91,18 +91,6 @@ class ProtocolLoadingTests(TracebaseTestCase):
             Protocol.objects.filter(category=Protocol.MSRUN_PROTOCOL).count(), 8
         )
 
-    def test_load_protocols_tsv_with_workarounds(self):
-        """Test loading the protocols from a TSV containing duplicates and mungeable data"""
-        call_command(
-            "load_protocols",
-            protocols="DataRepo/example_data/testing_data/protocols/protocols_with_workarounds.tsv",
-        )
-        self.assertEqual(Protocol.objects.count(), 2)
-        for p in Protocol.objects.all():
-            print(f"'{p.name}'")
-        # test data trimming
-        self.assertEqual(Protocol.objects.get(name="treatment was trimmed").count(), 1)
-
     def test_load_protocols_xlxs(self):
         """Test loading the protocols from a Treatments sheet in the xlxs workbook"""
         call_command(
@@ -127,14 +115,29 @@ class ProtocolLoadingTests(TracebaseTestCase):
         # and none in default
         self.assertEqual(Protocol.objects.count(), 0)
 
+    def test_load_protocols_tsv_with_workarounds(self):
+        """Test loading the protocols from a TSV containing duplicates and mungeable data"""
+        call_command(
+            "load_protocols",
+            protocols="DataRepo/example_data/testing_data/protocols/protocols_with_workarounds.tsv",
+        )
+        # two protocols loaded, but 3 lines in file (1 redundatn)
+        self.assertEqual(Protocol.objects.count(), 2)
+        # test data trimming
+        self.assertEqual(Protocol.objects.filter(name="trimmed treatment").count(), 1)
+        self.assertEqual(
+            Protocol.objects.filter(description="trimmed description").count(), 1
+        )
+
     def test_load_protocols_with_bad_examples(self):
         """Test loading the protocols from a TSV containing questionable data"""
         with self.assertRaisesRegex(
             CommandError,
-            r"2 errors loading protocol records from .*protocols_with_errors\.tsv - NO RECORDS SAVED",
+            r"3 errors loading protocol records from .*protocols_with_errors\.tsv - NO RECORDS SAVED",
         ):
             call_command(
                 "load_protocols",
                 protocols="DataRepo/example_data/testing_data/protocols/protocols_with_errors.tsv",
             )
+        # and no protocols should be loaded
         self.assertEqual(Protocol.objects.count(), 0)
