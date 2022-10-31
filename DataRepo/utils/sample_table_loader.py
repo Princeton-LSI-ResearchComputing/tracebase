@@ -423,13 +423,13 @@ class SampleTableLoader:
                                 f"\tFinding or inserting FCirc tracer '{tracer.compound}' and label '{label.element}' "
                                 f"for '{sample}' in database {self.db}..."
                             )
-                            from django.db.models.base import ModelState
-                            ms = ModelState
-                            setattr(ms, "db", self.db)
+                            # from django.db.models.base import ModelState
+                            # ms = ModelState
+                            # setattr(ms, "db", self.db)
                             print(f"current database: {self.db}\ninfusate from database: {infusate._state.db}\ntracer from database: {tracer._state.db}\nsample from database: {sample._state.db}\n_state type: {type(tracer._state)} db type: {type(tracer._state.db)}")
                             using_obj = FCirc.objects.using(self.db)
-                            setattr(using_obj, "_state", ms)
-                            print(f"using_obj database: {using_obj._state.db}")
+                            # setattr(using_obj, "_state", ms)
+                            # print(f"using_obj database: {using_obj._state.db}")
                             using_obj.get_or_create(
                                 serum_sample=sample,
                                 tracer=tracer,

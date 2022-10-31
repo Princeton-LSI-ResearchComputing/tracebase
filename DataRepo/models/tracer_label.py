@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.postgres.fields import ArrayField
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
@@ -21,7 +22,8 @@ class TracerLabelQuerySet(models.QuerySet):
             positions=isotope_data["positions"],
             mass_number=isotope_data["mass_number"],
         )
-        tracer_label.full_clean()
+        if self._db == settings.DEFAULT_DB:
+            tracer_label.full_clean()
         return tracer_label
 
 

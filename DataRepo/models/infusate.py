@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional
 
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 
@@ -58,7 +59,8 @@ class InfusateQuerySet(models.QuerySet):
                     tracer=tracer,
                     concentration=infusate_tracer["concentration"],
                 )
-            infusate.full_clean()
+            if self._db == settings.DEFAULT_DB:
+                infusate.full_clean()
             infusate.save(using=self._db)
             created = True
         return (infusate, created)
@@ -279,8 +281,10 @@ class Infusate(MaintainedModel):
         """
         from DataRepo.models.tracer_label import TracerLabel
 
+        db = self.get_using_db()
+
         return list(
-            TracerLabel.objects.filter(tracer__infusates__id=self.id)
+            TracerLabel.objects.using(db).filter(tracer__infusates__id=self.id)
             .order_by("element")
             .distinct("element")
             .values_list("element", flat=True)

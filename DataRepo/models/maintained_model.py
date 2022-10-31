@@ -496,6 +496,18 @@ class MaintainedModel(Model):
             # Percolate changes up to the parents (if any)
             self.call_dfs_related_updaters()
 
+    def get_using_db(self):
+        """
+        If an instance method makes an unrelated database query and a specific database is currently in use, this
+        method will return that database to be used in the fresh query's `.using()` call.  Otherwise, django's code
+        base will set the ModelState to the default database, which may differ from where the current model object came
+        from.
+        """
+        db = settings.DEFAULT_DB
+        if hasattr(self, "_state") and hasattr(self._state, "db"):
+            db = self._state.db
+        return db
+
     def update_decorated_fields(self):
         """
         Updates every field identified in each maintained_field_function decorator using the decorated function that
