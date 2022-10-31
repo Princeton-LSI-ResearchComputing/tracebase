@@ -10,6 +10,7 @@ from DataRepo.models.maintained_model import (
     are_autoupdates_enabled,
     maintained_field_function,
 )
+from DataRepo.models.multi_db_mixin import MultiDBMixin
 from DataRepo.models.utilities import get_model_by_name
 
 if TYPE_CHECKING:
@@ -91,7 +92,7 @@ class InfusateQuerySet(models.QuerySet):
         return matching_infusate
 
 
-class Infusate(MaintainedModel):
+class Infusate(MaintainedModel, MultiDBMixin):
     objects = InfusateQuerySet().as_manager()
 
     id = models.AutoField(primary_key=True)
@@ -300,6 +301,7 @@ class Infusate(MaintainedModel):
         """
         from DataRepo.models.tracer_label import TracerLabel
 
+        # TODO: See issue #580.  "using" will be unnecessary.
         db = self.get_using_db()
 
         return list(
