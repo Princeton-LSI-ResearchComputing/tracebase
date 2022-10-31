@@ -674,9 +674,11 @@ class MaintainedModel(Model):
                 # Don't let the save call propagate, because we cannot rely on it returning the updated list (because
                 # it could be overridden by another class that doesn't return it (at least, that's my guess as to why I
                 # was getting back None when I tried it.)
-                parent_inst.save(propagate=False)
+                parent_inst.save(
+                    propagate=False, update_fields=parent_inst.get_my_update_fields()
+                )
+
                 # Instead, we will propagate manually:
-                self_sig = f"{self.__class__.__name__}.{self.pk}"
                 updated = parent_inst.call_dfs_related_updaters(updated=updated)
 
         return updated
@@ -769,7 +771,9 @@ class MaintainedModel(Model):
                 # Don't let the save call propagate, because we cannot rely on it returning the updated list (because
                 # it could be overridden by another class that doesn't return it (at least, that's my guess as to why I
                 # was getting back None when I tried it.)
-                child_inst.save(propagate=False)
+                child_inst.save(
+                    propagate=False, update_fields=child_inst.get_my_update_fields()
+                )
 
                 # Instead, we will propagate manually:
                 updated = child_inst.call_dfs_related_updaters(updated=updated)
@@ -860,6 +864,27 @@ class MaintainedModel(Model):
             raise NoDecorators(class_name)
 
         return my_updaters
+
+    @classmethod
+    def get_my_update_fields(self):
+        """
+        Returns a list of update_fields of the current model that are marked via the maintained_field_function
+        decorators in the model.  Returns an empty list if there are none (e.g. if the only decorator in the model is
+        the maintained_model_relation decorator on the class).
+        """
+        my_update_fields = []
+        class_name = self.__name__
+        if class_name in updater_list:
+            for updater_dict in updater_list[class_name]:
+                if (
+                    "update_field" in updater_dict.keys()
+                    and updater_dict["update_field"]
+                ):
+                    my_update_fields.append(updater_dict["update_field"])
+        else:
+            raise NoDecorators(class_name)
+
+        return my_update_fields
 
     def buffer_update(self):
         """
@@ -1060,9 +1085,16 @@ def perform_buffered_updates(labels=None, using=None):
                 # update_label in use.  And if/when we add another label, it will only end up causing extra
                 # repeated updates of the same record.
                 if db:
-                    buffer_item.save(using=db, propagate=False)
+                    buffer_item.save(
+                        using=db,
+                        propagate=False,
+                        update_fields=buffer_item.get_my_update_fields(),
+                    )
                 else:
-                    buffer_item.save(propagate=False)
+                    buffer_item.save(
+                        propagate=False,
+                        update_fields=buffer_item.get_my_update_fields(),
+                    )
 
                 # Propagate the changes (if necessary), keeping track of what is updated and what's not.
                 # Note: all the manual changes are assumed to have been made already, so auto-updates only need to
