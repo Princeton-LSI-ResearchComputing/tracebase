@@ -8,7 +8,6 @@ from django.db import models
 from DataRepo.models.element_label import ElementLabel
 from DataRepo.models.maintained_model import (
     MaintainedModel,
-    are_autoupdates_enabled,
     maintained_field_function,
 )
 from DataRepo.models.utilities import get_model_by_name
