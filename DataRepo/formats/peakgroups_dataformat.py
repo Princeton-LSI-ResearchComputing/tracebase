@@ -286,22 +286,10 @@ class PeakGroupsFormat(Format):
                     "type": "number",
                 },
                 "age": {
-                    "displayname": "Age",
-                    "searchable": True,
+                    "displayname": "Age (d-hh:mm:ss)",
+                    "searchable": False,  # currently no data available for testing and a bug: issue #180
                     "displayed": True,
                     "type": "number",
-                    "units": {  # See dataformat.py: Format.unit_options
-                        "key": "postgres_interval",
-                        "default": "w",
-                        "subset": [
-                            "native",
-                            "calendartime",
-                            "months",
-                            "weeks",
-                            "days",
-                            "hours",
-                        ],
-                    },
                 },
                 "sex": {
                     "displayname": "Sex",
