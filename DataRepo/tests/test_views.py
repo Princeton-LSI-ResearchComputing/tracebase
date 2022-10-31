@@ -15,6 +15,7 @@ from DataRepo.models import (
     PeakData,
     PeakGroup,
     PeakGroupSet,
+    Protocol,
     Sample,
     Study,
     Tissue,
@@ -35,6 +36,12 @@ from DataRepo.views import DataValidationView
 class ViewTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
+        call_command(
+            "load_protocols",
+            protocols="DataRepo/example_data/protocols/diet_protocols.tsv",
+        )
+        cls.ALL_PROTOCOLS_COUNT = 2
+
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
         cls.ALL_TISSUES_COUNT = 37
 
@@ -62,6 +69,7 @@ class ViewTests(TracebaseTestCase):
             researcher="Michael Neinast",
             new_researcher=True,
         )
+        cls.ALL_PROTOCOLS_COUNT += 1
         cls.INF_COMPOUNDS_COUNT = 2
         cls.INF_SAMPLES_COUNT = 14
         cls.INF_PEAKDATA_ROWS = 11
@@ -524,6 +532,7 @@ class ViewNullToleranceTests(ViewTests):
 
 
 @tag("multi_working")
+@tag("protocol_loading_broken")
 class ValidationViewTests(TracebaseTransactionTestCase):
     """
     Note, without the TransactionTestCase (derived) class (and the with transaction.atomic block below), the infusate-
@@ -540,6 +549,12 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         call_command(
             "load_compounds",
             compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
+        )
+        # protocols from data_submission_animal_sample_table.xlsx in both
+        # test_databases_unchanged and validate_some_files
+        call_command(
+            "load_protocols",
+            protocols="DataRepo/example_data/protocols/diet_protocols.tsv",
         )
 
     @classmethod
@@ -669,6 +684,21 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         self.clear_database(settings.VALIDATION_DB)
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
         self.assertGreater(Tissue.objects.using(settings.TRACEBASE_DB).all().count(), 0)
+
+    def test_protocols_load_in_both_dbs(self):
+        """
+        Test to ensure that protocols load in both databases by default
+        """
+        self.clear_database(settings.TRACEBASE_DB)
+        self.clear_database(settings.VALIDATION_DB)
+        call_command(
+            "load_protocols",
+            protocols="DataRepo/example_data/protocols/diet_protocols.tsv",
+        )
+        tbdb_count = Protocol.objects.using(settings.TRACEBASE_DB).all().count()
+        vddb_count = Protocol.objects.using(settings.VALIDATION_DB).all().count()
+        self.assertGreater(tbdb_count, 0)
+        self.assertEqual(tbdb_count, vddb_count)
 
     def test_only_tracebase_loaded(self):
         """

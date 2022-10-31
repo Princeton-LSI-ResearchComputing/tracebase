@@ -7,7 +7,7 @@ from django.shortcuts import redirect, render
 from django.views.generic.edit import FormView
 
 from DataRepo.forms import DataSubmissionValidationForm
-from DataRepo.models import Compound, CompoundSynonym, Tissue
+from DataRepo.models import Compound, CompoundSynonym, Protocol, Tissue
 from DataRepo.models.utilities import get_all_models
 from DataRepo.utils import MissingSamplesError, ResearcherError
 
@@ -229,7 +229,7 @@ class DataValidationView(FormView):
         Clear out every table aside from compounds and tissues, which are intended to persist in the validation
         database, as they are needed to create related links for data inserted by the load animals/samples scripts
         """
-        skips = [Compound, CompoundSynonym, Tissue]
+        skips = [Compound, CompoundSynonym, Tissue, Protocol]
 
         for mdl in get_all_models():
             if mdl not in skips:

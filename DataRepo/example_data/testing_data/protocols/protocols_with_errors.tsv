@@ -1,0 +1,5 @@
+Name	Category	Description
+treatment 1	animal_treatment	a description
+treatment 1	animal_treatment	a different description should cause an error
+	animal_treatment	empty name should cause an error
+treatment 3		empty category should cause an error
