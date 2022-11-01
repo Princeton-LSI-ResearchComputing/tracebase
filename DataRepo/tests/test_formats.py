@@ -1237,6 +1237,18 @@ class FormatsTests(TracebaseTestCase):
         # InfusateTracer records.  This affects only the result count displayed on the page.
         self.assertEqual(FCirc.objects.count(), qs.count())
 
+    def test_getFieldUnitsDict(self):
+        sg = SearchGroup()
+        fld_units_dict = sg.getFieldUnitsDict()
+        expected = {}
+        self.assertEqual(expected, fld_units_dict)
+
+    def test_getAllFieldUnitsChoices(self):
+        sg = SearchGroup()
+        fld_units_choices = sg.getAllFieldUnitsChoices()
+        expected = {}
+        self.assertEqual(expected, fld_units_choices)
+
 
 @tag("search_choices")
 @tag("multi_working")

@@ -71,15 +71,17 @@ class Format:
         ],
     }
     unit_options = {
-        # The following dicts are used to populate a units (or "format") select list (for fields of type "number" only)
-        # To use, set the field units in the derived class, e.g.:
+        # The following dicts are used to populate a units select list (for fields of type "number" only).
+        # To use, set the field units in the model_instances attribute of derived class like this:
         #
-        # self.model_instances[instance_name]["fields"][field_name]["units"] = {
-        #     "type": "postgres_interval",
-        #     "default": "weeks",
-        #     "subset": ["months", "weeks", "days", "hours"],  # Order retained
-        # }
-        # This is used for any/all fields that do not have unit options
+        #     self.model_instances[instance_name]["fields"][field_name]["units"] = {
+        #         "type": "postgres_interval",  # This is the key below
+        #         "default": "weeks",  # This is the next key 1 level deeper that is to be the default units
+        #         "subset": ["months", "weeks", "days", "hours"],  # A subset of keys to include in the select list
+        #     }
+        #
+        # The values above are selected from what's below.  Note, the order of the subset is how the select list will
+        # be populated.
         "identity": {
             "default": "identity",
             "entry_options": {

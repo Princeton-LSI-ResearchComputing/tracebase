@@ -207,6 +207,7 @@ function addSearchFieldForm (myDiv, query, templateId) {
     }
 
     // Add this row to the HTML form
+    console.log('Appending', keyname, 'field')
     myDiv.appendChild(clones[i])
     myDiv.appendChild(document.createTextNode(' '))
 
@@ -229,6 +230,9 @@ function addSearchFieldForm (myDiv, query, templateId) {
   if (fldInitVal === '') {
     fldInitVal = fldClone[0].value
     ncmpInitVal = ncmpClone[0].value
+    // fldUnits contains a default for each template/field combo
+    unitsInitVal = fldUnits[templateId][fldInitVal].default
+    console.log('Init val from fldUnits dict:', unitsInitVal, 'for template/field:', templateId, fldInitVal)
   }
 
   if (unitsInitVal === '') {
