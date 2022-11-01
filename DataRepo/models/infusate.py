@@ -28,9 +28,10 @@ class InfusateQuerySet(models.QuerySet):
         self, infusate_data: InfusateData
     ) -> tuple[Infusate, bool]:
         """Get Infusate matching the infusate_data, or create a new infusate"""
+        db = self._db or settings.DEFAULT_DB
 
         # Search for matching Infusate
-        infusate = self.using(self._db).get_infusate(infusate_data)
+        infusate = self.using(db).get_infusate(infusate_data)
         created = False
 
         # Matching record not found, create new record
@@ -38,7 +39,7 @@ class InfusateQuerySet(models.QuerySet):
             print(f"Inserting infusate {infusate_data['unparsed_string']}")
 
             # create infusate
-            infusate = self.using(self._db).create(
+            infusate = self.using(db).create(
                 tracer_group_name=infusate_data["infusate_name"]
             )
 
@@ -46,31 +47,30 @@ class InfusateQuerySet(models.QuerySet):
             Tracer = get_model_by_name("Tracer")
             InfusateTracer = get_model_by_name("InfusateTracer")
             for infusate_tracer in infusate_data["tracers"]:
-                tracer = Tracer.objects.using(self._db).get_tracer(
-                    infusate_tracer["tracer"]
-                )
+                tracer = Tracer.objects.using(db).get_tracer(infusate_tracer["tracer"])
                 if tracer is None:
-                    (tracer, _) = Tracer.objects.using(self._db).get_or_create_tracer(
+                    (tracer, _) = Tracer.objects.using(db).get_or_create_tracer(
                         infusate_tracer["tracer"]
                     )
                 # associate tracers with specific conectrations
-                InfusateTracer.objects.using(self._db).create(
+                InfusateTracer.objects.using(db).create(
                     infusate=infusate,
                     tracer=tracer,
                     concentration=infusate_tracer["concentration"],
                 )
             infusate.full_clean()
-            infusate.save(using=self._db)
+            infusate.save(using=db)
             created = True
         return (infusate, created)
 
     def get_infusate(self, infusate_data: InfusateData) -> Optional[Infusate]:
         """Get Infusate matching the infusate_data"""
+        db = self._db or settings.DEFAULT_DB
         matching_infusate = None
 
         # Check for infusates with the same name and same number of tracers
         infusates = (
-            Infusate.objects.using(self._db)
+            Infusate.objects.using(db)
             .annotate(num_tracers=models.Count("tracers"))
             .filter(
                 tracer_group_name=infusate_data["infusate_name"],
@@ -80,9 +80,7 @@ class InfusateQuerySet(models.QuerySet):
         # Check that the tracers match
         for infusate_tracer in infusate_data["tracers"]:
             Tracer = get_model_by_name("Tracer")
-            tracer = Tracer.objects.using(self._db).get_tracer(
-                infusate_tracer["tracer"]
-            )
+            tracer = Tracer.objects.using(db).get_tracer(infusate_tracer["tracer"])
             infusates = infusates.filter(
                 tracer_links__tracer=tracer,
                 tracer_links__concentration=infusate_tracer["concentration"],
