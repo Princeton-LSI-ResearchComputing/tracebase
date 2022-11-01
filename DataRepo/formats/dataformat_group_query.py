@@ -391,7 +391,7 @@ def getFirstEmptyQuery(qry_ref):
     raise Http404("Type not found.")
 
 
-def setFirstEmptyQuery(qry_ref, fmt, fld, cmp, val):
+def setFirstEmptyQuery(qry_ref, fmt, fld, cmp, val, units):
     """
     This method takes the "tree" from a qry object (i.e. what you get from basv_metadata.getRootGroup(fmt)) and
     returns a reference to the single empty item of type query that should be present in a new rootGroup.
@@ -407,6 +407,7 @@ def setFirstEmptyQuery(qry_ref, fmt, fld, cmp, val):
     empty_qry["fld"] = fld
     empty_qry["ncmp"] = cmp
     empty_qry["val"] = val
+    empty_qry["units"] = units
 
 
 def getNumEmptyQueries(qry, fmt):
