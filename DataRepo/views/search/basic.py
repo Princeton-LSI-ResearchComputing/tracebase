@@ -14,7 +14,7 @@ from DataRepo.pager import Pager
 from DataRepo.views.utils import get_cookie
 
 
-def search_basic(request, mdl, fld, cmp, val, fmt):
+def search_basic(request, mdl, fld, cmp, val, fmt, units=None):
     """Generic function-based view for a basic search."""
 
     # Base Advanced Search View Metadata
@@ -49,7 +49,7 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
             f"Invalid format [{fmt}].  Must be one of: [{','.join(names.keys())},{','.join(names.values())}]"
         )
 
-    qry = basv_metadata.createNewBasicQuery(mdl, fld, cmp, val, fmtkey)
+    qry = basv_metadata.createNewBasicQuery(mdl, fld, cmp, val, units, fmtkey)
     download_form = AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
 
     rows_per_page = int(
