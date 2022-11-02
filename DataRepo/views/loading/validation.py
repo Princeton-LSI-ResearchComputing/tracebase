@@ -81,43 +81,74 @@ class DataValidationView(FormView):
         results = {}
         animal_sample_name = list(animal_sample_dict.keys())[0]
 
+        # Load consolidated protocols
+        # NOTE: PR REVIEW - What file should be supplied here - is this right?
+        call_command(
+            "load_protocols",
+            protocols="DataRepo/example_data/protocols/protocols.tsv",
+            validate=True,
+        )
+
         try:
-            # Load the animal and sample table in debug mode to check the researcher and sample name uniqueness
             errors[animal_sample_name] = []
             results[animal_sample_name] = ""
+
+            # Load the animal treatments
             try:
-                # debug=True is supposed to NOT commit the DB changes, but it IS creating the study, so even though I'm
-                # using debug here, I am also setting the database to the validation database...
                 call_command(
-                    "load_animals_and_samples",
-                    animal_and_sample_table_filename=animal_sample_dict[
+                    "load_protocols",
+                    protocols=animal_sample_dict[
                         animal_sample_name
                     ],
-                    debug=True,
                     validate=True,
+                    verbosity=2,
                 )
-                results[animal_sample_name] = "PASSED"
-            except ResearcherError as re:
-                valid = False
-                errors[animal_sample_name].append(
-                    "[The following error about a new researcher name should only be addressed if the name already "
-                    "exists in the database as a variation.  If this is a truly new researcher name in the database, "
-                    f"it may be ignored.]\n{animal_sample_name}: {str(re)}"
-                )
-                results[animal_sample_name] = "WARNING"
+                # Do not set PASSED here. If the full animal/sample table load passes, THEN this file has passed.
             except Exception as e:
-                estr = str(e)
-                # We are using the presence of the string "Debugging..." to infer that it got to the end of the load
-                # without an exception.  If there is no "Debugging" message, then an exception did not occur anyway
                 if settings.DEBUG:
                     traceback.print_exc()
-                    print(estr)
-                if "Debugging" not in estr:
-                    valid = False
-                    errors[animal_sample_name].append(f"{e.__class__.__name__}: {estr}")
-                    results[animal_sample_name] = "FAILED"
-                else:
+                    print(str(e))
+                valid = False
+                errors[animal_sample_name].append(f"{e.__class__.__name__}: {str(e)}")
+                results[animal_sample_name] = "FAILED"
+
+            # If the protocol load didn't fail...
+            if results[animal_sample_name] != "FAILED":
+                # Load the animal and sample table in debug mode to check the researcher and sample name uniqueness
+                # We are doing this debug run to be able to tell if the researcher exception should be ignored
+                try:
+                    # debug=True is supposed to NOT commit the DB changes, but it IS creating the study, so even though I'm
+                    # using debug here, I am also setting the database to the validation database...
+                    call_command(
+                        "load_animals_and_samples",
+                        animal_and_sample_table_filename=animal_sample_dict[
+                            animal_sample_name
+                        ],
+                        debug=True,
+                        validate=True,
+                    )
                     results[animal_sample_name] = "PASSED"
+                except ResearcherError as re:
+                    valid = False
+                    errors[animal_sample_name].append(
+                        "[The following error about a new researcher name should only be addressed if the name already "
+                        "exists in the database as a variation.  If this is a truly new researcher name in the database, "
+                        f"it may be ignored.]\n{animal_sample_name}: {str(re)}"
+                    )
+                    results[animal_sample_name] = "WARNING"
+                except Exception as e:
+                    estr = str(e)
+                    # We are using the presence of the string "Debugging..." to infer that it got to the end of the load
+                    # without an exception.  If there is no "Debugging" message, then an exception did not occur anyway
+                    if settings.DEBUG:
+                        traceback.print_exc()
+                        print(estr)
+                    if "Debugging" not in estr:
+                        valid = False
+                        errors[animal_sample_name].append(f"{e.__class__.__name__}: {estr}")
+                        results[animal_sample_name] = "FAILED"
+                    else:
+                        results[animal_sample_name] = "PASSED"
 
             can_proceed = False
             if results[animal_sample_name] != "FAILED":
@@ -140,16 +171,12 @@ class DataValidationView(FormView):
                     if settings.DEBUG:
                         traceback.print_exc()
                         print(estr)
-                    if "Debugging" not in estr:
-                        valid = False
-                        errors[animal_sample_name].append(
-                            f"{animal_sample_name} {e.__class__.__name__}: {str(e)}"
-                        )
-                        results[animal_sample_name] = "FAILED"
-                        can_proceed = False
-                    else:
-                        results[animal_sample_name] = "PASSED"
-                        can_proceed = True
+                    valid = False
+                    errors[animal_sample_name].append(
+                        f"{animal_sample_name} {e.__class__.__name__}: {str(e)}"
+                    )
+                    results[animal_sample_name] = "FAILED"
+                    can_proceed = False
 
             # Load the accucor file into a temporary test database in debug mode
             for af, afp in accucor_dict.items():

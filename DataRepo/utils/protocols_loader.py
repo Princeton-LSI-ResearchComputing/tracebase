@@ -132,7 +132,7 @@ class ProtocolsLoader:
                         )
             except (IntegrityError, ValidationError) as e:
                 self.errors.append(f"Error in row {index + 1}: {e}")
-            except (KeyError):
+            except KeyError:
                 raise ValidationError(
                     "ProtocolLoader requires a dataframe with 'name' and 'description' headers/keys."
                 ) from None
