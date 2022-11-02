@@ -471,7 +471,10 @@ class AccuCorDataLoader:
                 """
 
                 self.peak_group_dict[peak_group_name]["compounds"] = []
-                compounds_input = peak_group_name.split("/")
+                compounds_input = [
+                    compound_name.strip()
+                    for compound_name in peak_group_name.split("/")
+                ]
                 for compound_input in compounds_input:
                     try:
                         mapped_compound = Compound.compound_matching_name_or_synonym(
@@ -492,7 +495,7 @@ class AccuCorDataLoader:
                                 ] = mapped_compound.formula
                         else:
                             missing_compounds += 1
-                            print(f"Could not find compound {compound_input}")
+                            print(f"Could not find compound '{compound_input}'")
                     except ValidationError:
                         missing_compounds += 1
                         print(
@@ -652,7 +655,7 @@ class AccuCorDataLoader:
                         self.accucor_original_df["compound"] == peak_group_name
                     ]
                     # If we have an accucor_original_df, it's assumed the type is accucor and there's only 1 labeled
-                    # element, hence the use of `peak_group.labels.first().atom_count()`
+                    # element, hence the use of `peak_group.labels.first()`
                     peak_group_label_rec = peak_group.labels.first()
 
                     # Original data skips undetected counts, but corrected data does not, so as we march through the

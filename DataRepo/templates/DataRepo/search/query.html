@@ -24,6 +24,7 @@
         {{ ncmp_choices|json_script:"ncmp_choices" }} <!-- dynamic ncmp select list population -->
         {{ fld_types|json_script:"fld_types" }} <!-- dynamic ncmp select list population -->
         {{ fld_choices|json_script:"fld_choices" }} <!-- dynamic fld select list population -->
+        {{ fld_units|json_script:"fld_units" }} <!-- dynamic units select list population -->
 
         {% if qry %}
             <!-- qry has a value when search results are being loaded.  It is used to reconstruct the search form, so the user
@@ -42,12 +43,14 @@
                     init(JSON.parse(document.getElementById('initGroup').textContent),
                         JSON.parse(document.getElementById('ncmp_choices').textContent),
                         JSON.parse(document.getElementById('fld_types').textContent),
-                        JSON.parse(document.getElementById('fld_choices').textContent))
+                        JSON.parse(document.getElementById('fld_choices').textContent),
+                        JSON.parse(document.getElementById('fld_units').textContent))
                 {% else %}
                     init(JSON.parse(document.getElementById('root_group').textContent),
                         JSON.parse(document.getElementById('ncmp_choices').textContent),
                         JSON.parse(document.getElementById('fld_types').textContent),
-                        JSON.parse(document.getElementById('fld_choices').textContent))
+                        JSON.parse(document.getElementById('fld_choices').textContent),
+                        JSON.parse(document.getElementById('fld_units').textContent))
                     {% if format and mode and mode == "browse" and not qry %}
                         {% if format not in forms.keys %}
                             rootGroup.selectedtemplate = "{{ default_format }}"
@@ -98,6 +101,7 @@
                             {{ f.fld }}
                             {{ f.ncmp }}
                             {{ f.val }}
+                            {{ f.units }}
                             <label class="text-danger"> {{ f.val.errors }} </label>
                         </div>
                     {% endwith %}

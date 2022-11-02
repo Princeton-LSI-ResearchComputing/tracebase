@@ -238,15 +238,59 @@ class FormatGroup:
                     all_fld_choices = all_fld_choices + ((fld_val, fld_name),)
         return all_fld_choices
 
+    def getFieldUnitsLookup(self, fmt):
+        return self.modeldata[fmt].getFieldUnitsLookup()
+
+    def getFieldUnitsDict(self):
+        """
+        Creates a format-keyed dict of the unit choices data, including the tuples used to create a select list.  This
+        is used to populate the units select list based on the selected field.
+
+        The returned data structure looks like this:
+
+        format: {
+            path__field: {
+                "units": unit_options_key,  # (identity, postgres_interval)
+                "default": field_default,
+                "choices": list of tuples,  # to be used in populating a select list
+                "metadata": {
+                    units_sel_list_value: {
+                        "example": example,
+                        "about": about,
+                    },
+                },
+            },
+        }
+        """
+
+        fld_units = {}
+        for fmtid in self.modeldata.keys():
+            fld_units[fmtid] = self.modeldata[fmtid].getFieldUnitsDict()
+
+        return fld_units
+
+    def getAllFieldUnitsChoices(self):
+        """
+        Calls getAllFieldUnitsChoices of the default output format class.
+
+        All units options are the same for every Format class contained in this class, so we only need to call one.
+        """
+        return self.modeldata[self.default_format].getAllFieldUnitsChoices()
+
     def getComparisonChoices(self):
         """
         Calls getComparisonChoices of the default output format class.
+
+        All ncmp_choices are the same for every Format class contained in this class, so it doesn't matter which one we
+        use.
         """
         return self.modeldata[self.default_format].getComparisonChoices()
 
     def getAllComparisonChoices(self):
         """
         Calls getAllComparisonChoices of the default output format class.
+
+        All ncmp_choices are the same for every Format class contained in this class, so we only need to call one.
         """
         return self.modeldata[self.default_format].getAllComparisonChoices()
 
@@ -457,8 +501,9 @@ class FormatGroup:
         q_exp = None
 
         if qry is not None:
-            q_exp = constructAdvancedQuery(qry)
             selfmt = getSelectedFormat(qry)
+            units_lookup = self.getFieldUnitsLookup(selfmt)
+            q_exp = constructAdvancedQuery(qry, units_lookup)
             if fmt is not None and fmt != selfmt:
                 raise Exception(
                     f"The selected format in the qry object: [{selfmt}] does not match the supplied format: [{fmt}]"
@@ -534,9 +579,10 @@ class FormatGroup:
                     pf_path = pfq[0]
                     pf_qry = pfq[1]
                     pf_mdl = pfq[2]
+                    pf_units_lookup = pfq[3]
 
                     # Construct a new Q expression using the rerooted query
-                    pf_q_exp = constructAdvancedQuery(pf_qry)
+                    pf_q_exp = constructAdvancedQuery(pf_qry, pf_units_lookup)
 
                     # grab the model using its name
                     mdl = get_model_by_name(pf_mdl)
@@ -687,7 +733,7 @@ class FormatGroup:
             )
         return qry_list
 
-    def createNewBasicQuery(self, mdl, fld, cmp, val, fmt):
+    def createNewBasicQuery(self, mdl, fld, cmp, val, units, fmt):
         """
         Constructs a new qry object for an advanced search from basic search input.
         """
@@ -715,7 +761,7 @@ class FormatGroup:
         target_fld = sfields[fld]
         target_val = val
 
-        setFirstEmptyQuery(qry, fmt, target_fld, cmp, target_val)
+        setFirstEmptyQuery(qry, fmt, target_fld, cmp, target_val, units)
 
         dfld, dval = self.searchFieldToDisplayField(mdl, fld, val, qry)
 
@@ -726,7 +772,8 @@ class FormatGroup:
 
             # Re-create another empty copy of the qry
             qry = self.getRootGroup(fmt)
-            setFirstEmptyQuery(qry, fmt, target_fld, cmp, target_val)
+            # Note units cannot be transfered, so default should always be "identity"
+            setFirstEmptyQuery(qry, fmt, target_fld, cmp, target_val, "identity")
 
         return qry
 

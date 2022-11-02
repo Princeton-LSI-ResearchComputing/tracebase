@@ -40,7 +40,7 @@ class PeakDataFormat(Format):
             "distincts": ["corrected_abundance"],
             "filter": appendFilterToGroup(
                 createFilterGroup(),
-                createFilterCondition("corrected_abundance", "gt", 0.1),
+                createFilterCondition("corrected_abundance", "gt", 0.1, "identity"),
             ),
         },
         {
@@ -360,10 +360,22 @@ class PeakDataFormat(Format):
                     "choices": Animal.SEX_CHOICES,
                 },
                 "age": {
-                    "displayname": "Age (d-hh:mm:ss)",
-                    "searchable": False,
+                    "displayname": "Age",
+                    "searchable": True,
                     "displayed": True,
                     "type": "number",
+                    "units": {  # See dataformat.py: Format.unit_options
+                        "key": "postgres_interval",
+                        "default": "weeks",
+                        "subset": [
+                            "native",
+                            "calendartime",
+                            "months",
+                            "weeks",
+                            "days",
+                            "hours",
+                        ],
+                    },
                 },
                 "feeding_status": {
                     "displayname": "Feeding Status",
@@ -440,7 +452,7 @@ class PeakDataFormat(Format):
         "InfusateTracer": {
             "model": "InfusateTracer",
             "path": "peak_group__msrun__sample__animal__infusate__tracer_links",
-            "reverse_path": "infusate__animal__samples__msruns__peak_groups__peak_data",
+            "reverse_path": "infusate__animals__samples__msruns__peak_groups__peak_data",
             "manyrelated": {
                 "is": True,
                 "manytomany": True,
