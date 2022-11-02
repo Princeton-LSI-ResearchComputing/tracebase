@@ -32,10 +32,16 @@ from DataRepo.tests.tracebase_test_case import (
 from DataRepo.views import DataValidationView
 
 
-@tag("multi_mixed")
+@tag("multi_working")
 class ViewTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
+        call_command(
+            "load_protocols",
+            protocols="DataRepo/example_data/protocols/diet_protocols.tsv",
+        )
+        cls.ALL_PROTOCOLS_COUNT = 2
+
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
         cls.ALL_TISSUES_COUNT = 37
 
@@ -63,6 +69,7 @@ class ViewTests(TracebaseTestCase):
             researcher="Michael Neinast",
             new_researcher=True,
         )
+        cls.ALL_PROTOCOLS_COUNT += 1
         cls.INF_COMPOUNDS_COUNT = 2
         cls.INF_SAMPLES_COUNT = 14
         cls.INF_PEAKDATA_ROWS = 11
@@ -82,48 +89,6 @@ class ViewTests(TracebaseTestCase):
         cls.SERUM_PEAKGROUP_COUNT = cls.SERUM_COMPOUNDS_COUNT * cls.SERUM_SAMPLES_COUNT
 
         super().setUpTestData()
-
-    def test_home_url_exists_at_desired_location(self):
-        response = self.client.get("/")
-        self.assertEqual(response.status_code, 200)
-
-    def test_home_url_accessible_by_name(self):
-        response = self.client.get(reverse("home"))
-        self.assertEqual(response.status_code, 200)
-
-    def test_home_uses_correct_template(self):
-        response = self.client.get(reverse("home"))
-        self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "home.html")
-
-    def test_home_card_attr_list(self):
-        # spot check: counts, urls for card attributes
-        animal_count = Animal.objects.all().count()
-        tissue_count = Tissue.objects.all().count()
-        sample_count = Sample.objects.all().count()
-        accucor_file_count = PeakGroupSet.objects.all().count()
-        compound_count = Compound.objects.all().count()
-        tracer_count = (
-            Animal.objects.exclude(infusate__tracers__compound__id__isnull=True)
-            .order_by("infusate__tracers__compound__id")
-            .values_list("infusate__tracers__compound__id")
-            .distinct("infusate__tracers__compound__id")
-            .count()
-        )
-        comp_url = reverse("compound_list")
-        accucor_file_url = reverse("peakgroupset_list")
-        advance_search_url = reverse("search_advanced")
-        response = self.client.get(reverse("home"))
-        self.assertEqual(animal_count, self.ALL_ANIMALS_COUNT)
-        self.assertEqual(tissue_count, self.ALL_TISSUES_COUNT)
-        self.assertEqual(sample_count, self.ALL_SAMPLES_COUNT)
-        self.assertEqual(accucor_file_count, 2)
-        self.assertEqual(compound_count, self.ALL_COMPOUNDS_COUNT)
-        self.assertEqual(tracer_count, 1)
-        self.assertEqual(comp_url, "/DataRepo/compounds/")
-        self.assertEqual(accucor_file_url, "/DataRepo/peakgroupsets/")
-        self.assertEqual(advance_search_url, "/DataRepo/search_advanced/")
-        self.assertEqual(len(response.context["card_rows"]), 2)
 
     @tag("compound")
     def test_compound_list(self):
@@ -198,24 +163,6 @@ class ViewTests(TracebaseTestCase):
     def test_study_detail_404(self):
         s = Study.objects.order_by("id").last()
         response = self.client.get(reverse("study_detail", args=[s.id + 1]))
-        self.assertEqual(response.status_code, 404)
-
-    def test_protocol_list(self):
-        response = self.client.get(reverse("protocol_list"))
-        self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "DataRepo/protocol_list.html")
-        self.assertEqual(len(response.context["protocol_list"]), 1)
-
-    def test_protocol_detail(self):
-        p1 = Protocol.objects.filter(name="Default").get()
-        response = self.client.get(reverse("protocol_detail", args=[p1.id]))
-        self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "DataRepo/protocol_detail.html")
-        self.assertEqual(response.context["protocol"].name, "Default")
-
-    def test_protocol_detail_404(self):
-        p = Protocol.objects.order_by("id").last()
-        response = self.client.get(reverse("protocol_detail", args=[p.id + 1]))
         self.assertEqual(response.status_code, 404)
 
     @tag("animal")
@@ -413,12 +360,15 @@ class ViewTests(TracebaseTestCase):
             "form-0-fld": "msrun__sample__tissue__name",
             "form-0-ncmp": "iexact",
             "form-0-val": "Brain",
+            "form-0-units": "identity",
             "form-1-pos": "pdtemplate-PeakData.0-all-False.0",
             "form-1-fld": "labels__element",
             "form-1-ncmp": "iexact",
+            "form-1-units": "identity",
             "form-2-pos": "fctemplate-FCirc.0-all-False.0",
             "form-2-fld": "msrun__sample__animal__name",
             "form-2-ncmp": "iexact",
+            "form-2-units": "identity",
         }
         qry = self.get_advanced_qry()
         dlform = {
@@ -449,6 +399,7 @@ class ViewTests(TracebaseTestCase):
                                 "ncmp": "iexact",
                                 "static": "",
                                 "val": "Brain",
+                                "units": "identity",
                             }
                         ],
                     },
@@ -468,6 +419,7 @@ class ViewTests(TracebaseTestCase):
                                 "static": "",
                                 "fld": "labels__element",
                                 "val": "",
+                                "units": "identity",
                             }
                         ],
                     },
@@ -487,6 +439,7 @@ class ViewTests(TracebaseTestCase):
                                 "ncmp": "iexact",
                                 "static": "",
                                 "val": "",
+                                "units": "identity",
                             }
                         ],
                     },
@@ -558,7 +511,7 @@ class ViewTests(TracebaseTestCase):
         self.assertEqual(results["data_submission_accucor2.xlsx"], "PASSED")
 
 
-@tag("multi_mixed")
+@tag("multi_working")
 class ViewNullToleranceTests(ViewTests):
     """
     This class inherits from the ViewTests class above and overrides the setUpTestData method to load without auto-
@@ -575,18 +528,17 @@ class ViewNullToleranceTests(ViewTests):
         super().setUpTestData()
         enable_buffering()
 
-    @tag("multi_broken")
     def test_study_list(self):
         """Make sure this page works when infusate/tracer, and/or tracer label names are None"""
         super().test_study_list()
 
-    @tag("multi_broken")
     def test_study_detail(self):
         """Make sure this page works when infusate/tracer, and/or tracer label names are None"""
         super().test_study_detail()
 
 
 @tag("multi_working")
+@tag("protocol_loading_broken")
 class ValidationViewTests(TracebaseTransactionTestCase):
     """
     Note, without the TransactionTestCase (derived) class (and the with transaction.atomic block below), the infusate-
@@ -603,6 +555,12 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         call_command(
             "load_compounds",
             compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
+        )
+        # protocols from data_submission_animal_sample_table.xlsx in both
+        # test_databases_unchanged and validate_some_files
+        call_command(
+            "load_protocols",
+            protocols="DataRepo/example_data/protocols/diet_protocols.tsv",
         )
 
     @classmethod
@@ -732,6 +690,21 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         self.clear_database(settings.VALIDATION_DB)
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
         self.assertGreater(Tissue.objects.using(settings.TRACEBASE_DB).all().count(), 0)
+
+    def test_protocols_load_in_both_dbs(self):
+        """
+        Test to ensure that protocols load in both databases by default
+        """
+        self.clear_database(settings.TRACEBASE_DB)
+        self.clear_database(settings.VALIDATION_DB)
+        call_command(
+            "load_protocols",
+            protocols="DataRepo/example_data/protocols/diet_protocols.tsv",
+        )
+        tbdb_count = Protocol.objects.using(settings.TRACEBASE_DB).all().count()
+        vddb_count = Protocol.objects.using(settings.VALIDATION_DB).all().count()
+        self.assertGreater(tbdb_count, 0)
+        self.assertEqual(tbdb_count, vddb_count)
 
     def test_only_tracebase_loaded(self):
         """

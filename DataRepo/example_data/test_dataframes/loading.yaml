@@ -1,4 +1,5 @@
 ---
+protocols: "../protocols/protocols.tsv"
 tissues: "../tissues/tissues.tsv"
 compounds: "../consolidated_tracebase_compound_list.tsv"
 animals_samples_treatments:

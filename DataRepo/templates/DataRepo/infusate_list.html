@@ -20,10 +20,13 @@
         data-show-columns="true"
         data-show-columns-toggle-all="true"
         data-show-fullscreen="true"
+        data-show-export="true"
+        data-export-types="['csv', 'txt', 'excel']"
         data-height="1200"
         data-virtual-scroll="true"
-        data-show-export="true"
-        data-export-types="['csv', 'txt', 'excel']">
+        data-pagination="true"
+        data-page-size="100"
+        data-page-list="[25, 50, 100, 200, 500, All]">
         <thead>
             <tr>
                 <th data-filter-control="input" data-sortable="true" data-sorter ="htmlSorter" data-field="Infusate">Infusate</th>
@@ -38,10 +41,10 @@
             <tr>
                 <td><a href="{% url 'infusate_detail' i.infusate_id %}">{{ i.infusate_name }}</a></td>
                 <td>{{ i.tracer_group_name }}</td>
-                <td>{{ i.labeled_elements |join:", " }}</td>
-                <td>{{ i.compound_id_name_list |obj_hyperlink:"compound" }}</td>
-                <td>{{ i.tracer_id_name_list |obj_hyperlink:"tracer" }}</td>
-                <td>{{ i.concentrations |join:", "}}</td>
+                <td>{{ i.labeled_elements|join:", " }}</td>
+                <td>{{ i.compound_id_name_list|obj_hyperlink:"compound" }}</td>
+                <td>{{ i.tracer_id_name_list|obj_hyperlink:"tracer" }}</td>
+                <td>{{ i.concentrations|join:", "}}</td>
             </tr>
             {% endfor %}
         </tbody>
