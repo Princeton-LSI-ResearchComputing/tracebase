@@ -111,8 +111,10 @@ class DataValidationView(FormView):
 
             # If the protocol load didn't fail...
             if results[animal_sample_name] != "FAILED":
-                # Load the animal and sample table in debug mode to check the researcher and sample name uniqueness
-                # We are doing this debug run to be able to tell if the researcher exception should be ignored
+                # Load the animal and sample table in debug mode to check the researcher and sample name uniqueness.
+                # We are doing this debug run to catch researcher errors, because if there are, we can label it as a
+                # warning and run again with skip researcher check as True and catch any other exceptions that would be
+                # raised AFTER the researcher exception.
                 try:
                     # debug=True is supposed to NOT commit the DB changes, but it IS creating the study, so even though
                     # I'm using debug here, I am also setting the database to the validation database...
