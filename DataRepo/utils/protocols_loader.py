@@ -41,12 +41,10 @@ class ProtocolsLoader:
         # Pre-existing, matching protocols
         self.existing = {}
         self.db = settings.TRACEBASE_DB
-        self.loading_mode = "both"
         # If a database was explicitly supplied
         if database is not None:
             self.validate = False
             self.db = database
-            self.loading_mode = "one"
         else:
             self.validate = validate
             if validate:
@@ -54,23 +52,9 @@ class ProtocolsLoader:
                     self.db = settings.VALIDATION_DB
                 else:
                     raise ValidationDatabaseSetupError()
-                self.loading_mode = "one"
-            else:
-                self.loading_mode = "both"
 
     def load(self):
-        # "both" is the normal loading mode - always loads both the validation and tracebase databases, unless the
-        # database is explicitly supplied or --validate is supplied
-        if self.loading_mode == "both":
-            self.load_database(settings.TRACEBASE_DB)
-            if settings.VALIDATION_ENABLED:
-                self.load_database(settings.VALIDATION_DB)
-        elif self.loading_mode == "one":
-            self.load_database(self.db)
-        else:
-            raise Exception(
-                f"Internal error: Invalid loading_mode: [{self.loading_mode}]"
-            )
+        self.load_database(self.db)
 
     @transaction.atomic
     def load_database(self, db):
@@ -131,7 +115,7 @@ class ProtocolsLoader:
                             f"New description = '{description}'"
                         )
             except (IntegrityError, ValidationError) as e:
-                self.errors.append(f"Error in row {index + 1}: {e}")
+                self.errors.append(f"{type(e).__name__} on row {index + 1}: {e}")
             except KeyError:
                 raise ValidationError(
                     "ProtocolLoader requires a dataframe with 'name' and 'description' headers/keys."
