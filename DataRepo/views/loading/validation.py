@@ -81,13 +81,12 @@ class DataValidationView(FormView):
         results = {}
         animal_sample_name = list(animal_sample_dict.keys())[0]
 
-        # Load consolidated protocols
-        # NOTE: PR REVIEW - What file should be supplied here - is this right?
-        call_command(
-            "load_protocols",
-            protocols="DataRepo/example_data/protocols/protocols.tsv",
-            validate=True,
-        )
+        # Copy protocols from the tracebase database to the validation database
+        # This assumes the Protocol table in the validation database is empty, which should be valid given the call to
+        # clear_validation_database in the `finally` block below and the fact that the protocols loader does not
+        # default-load the validation database (in the current code)
+        for rec in Protocol.objects.using(settings.DEFAULT_DB).all():
+            rec.save(using=settings.VALIDATION_DB)
 
         try:
             errors[animal_sample_name] = []
@@ -97,9 +96,7 @@ class DataValidationView(FormView):
             try:
                 call_command(
                     "load_protocols",
-                    protocols=animal_sample_dict[
-                        animal_sample_name
-                    ],
+                    protocols=animal_sample_dict[animal_sample_name],
                     validate=True,
                     verbosity=2,
                 )
@@ -117,8 +114,8 @@ class DataValidationView(FormView):
                 # Load the animal and sample table in debug mode to check the researcher and sample name uniqueness
                 # We are doing this debug run to be able to tell if the researcher exception should be ignored
                 try:
-                    # debug=True is supposed to NOT commit the DB changes, but it IS creating the study, so even though I'm
-                    # using debug here, I am also setting the database to the validation database...
+                    # debug=True is supposed to NOT commit the DB changes, but it IS creating the study, so even though
+                    # I'm using debug here, I am also setting the database to the validation database...
                     call_command(
                         "load_animals_and_samples",
                         animal_and_sample_table_filename=animal_sample_dict[
@@ -131,29 +128,32 @@ class DataValidationView(FormView):
                 except ResearcherError as re:
                     valid = False
                     errors[animal_sample_name].append(
-                        "[The following error about a new researcher name should only be addressed if the name already "
-                        "exists in the database as a variation.  If this is a truly new researcher name in the database, "
-                        f"it may be ignored.]\n{animal_sample_name}: {str(re)}"
+                        "[The following error about a new researcher name should only be addressed if the name "
+                        "already exists in the database as a variation.  If this is a truly new researcher name in "
+                        f"the database, it may be ignored.]\n{animal_sample_name}: {str(re)}"
                     )
                     results[animal_sample_name] = "WARNING"
                 except Exception as e:
                     estr = str(e)
-                    # We are using the presence of the string "Debugging..." to infer that it got to the end of the load
-                    # without an exception.  If there is no "Debugging" message, then an exception did not occur anyway
+                    # We are using the presence of the string "Debugging..." to infer that it got to the end of the
+                    # load without an exception.  If there is no "Debugging" message, then an exception did not occur
+                    # anyway
                     if settings.DEBUG:
                         traceback.print_exc()
                         print(estr)
                     if "Debugging" not in estr:
                         valid = False
-                        errors[animal_sample_name].append(f"{e.__class__.__name__}: {estr}")
+                        errors[animal_sample_name].append(
+                            f"{e.__class__.__name__}: {estr}"
+                        )
                         results[animal_sample_name] = "FAILED"
                     else:
                         results[animal_sample_name] = "PASSED"
 
             can_proceed = False
             if results[animal_sample_name] != "FAILED":
-                # Load the animal and sample data into the validation database, so the data is available for the accucor
-                # file validation
+                # Load the animal and sample data into the validation database, so the data is available for the
+                # accucor file validation
                 try:
                     call_command(
                         "load_animals_and_samples",
@@ -166,8 +166,9 @@ class DataValidationView(FormView):
                     can_proceed = True
                 except Exception as e:
                     estr = str(e)
-                    # We are using the presence of the string "Debugging..." to infer that it got to the end of the load
-                    # without an exception.  If there is no "Debugging" message, then an exception did not occur anyway
+                    # We are using the presence of the string "Debugging..." to infer that it got to the end of the
+                    # load without an exception.  If there is no "Debugging" message, then an exception did not occur
+                    # anyway
                     if settings.DEBUG:
                         traceback.print_exc()
                         print(estr)
@@ -256,7 +257,7 @@ class DataValidationView(FormView):
         Clear out every table aside from compounds and tissues, which are intended to persist in the validation
         database, as they are needed to create related links for data inserted by the load animals/samples scripts
         """
-        skips = [Compound, CompoundSynonym, Tissue, Protocol]
+        skips = [Compound, CompoundSynonym, Tissue]
 
         for mdl in get_all_models():
             if mdl not in skips:
