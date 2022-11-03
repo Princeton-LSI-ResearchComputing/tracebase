@@ -1,3 +1,5 @@
+import traceback
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
@@ -84,13 +86,24 @@ class ProtocolsLoader:
                         description = ""
 
                     # We will assume that the validation DB has up-to-date protocols
-                    protocol, created = Protocol.objects.using(db).get_or_create(
-                        name=name, category=category
+                    print(
+                        f"get_or_create on db {db} for protocol {name} category {category}"
                     )
-                    if created:
-                        protocol.description = description
+                    print(
+                        f"Existing?: {Protocol.objects.using(db).filter(name=name).first()} Any? "
+                        f"{Protocol.objects.using(db).count()}"
+                    )
+                    protocol = (
+                        Protocol.objects.using(db)
+                        .filter(name=name, category=category, description=description)
+                        .first()
+                    )
+                    if not protocol:
+                        protocol = Protocol.objects.using(db).create(
+                            name=name, category=category, description=description
+                        )
                         # full_clean cannot validate (e.g. uniqueness) using a non-default database
-                        if db == settings.DEFAULT_DB:
+                        if db == settings.TRACEBASE_DB:
                             protocol.full_clean()
                         protocol.save(using=db)
                         if db in self.created:
@@ -100,7 +113,7 @@ class ProtocolsLoader:
                         self.notices.append(
                             f"Created new protocol {protocol}:{description} in the {db} database"
                         )
-                    elif protocol.description == description:
+                    else:
                         if db in self.existing:
                             self.existing[db].append(protocol)
                         else:
@@ -108,13 +121,9 @@ class ProtocolsLoader:
                         self.notices.append(
                             f"Matching protocol {protocol} already exists, skipping"
                         )
-                    else:
-                        raise ValidationError(
-                            f"Protocol with name = '{name}' but a different description already exists: "
-                            f"Existing description = '{protocol.description}' "
-                            f"New description = '{description}'"
-                        )
             except (IntegrityError, ValidationError) as e:
+                # For understanding what caused the error
+                traceback.print_exc()
                 self.errors.append(f"{type(e).__name__} on row {index + 1}: {e}")
             except KeyError:
                 raise ValidationError(
