@@ -1,5 +1,3 @@
-import traceback
-
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
@@ -85,19 +83,13 @@ class ProtocolsLoader:
                     if description is None:
                         description = ""
 
-                    # We will assume that the validation DB has up-to-date protocols
-                    print(
-                        f"get_or_create on db {db} for protocol {name} category {category}"
-                    )
-                    print(
-                        f"Existing?: {Protocol.objects.using(db).filter(name=name).first()} Any? "
-                        f"{Protocol.objects.using(db).count()}"
-                    )
+                    # Try and get the protocol
                     protocol = (
                         Protocol.objects.using(db)
                         .filter(name=name, category=category, description=description)
                         .first()
                     )
+                    # If no protocol was found, create it
                     if not protocol:
                         protocol = Protocol.objects.using(db).create(
                             name=name, category=category, description=description
@@ -122,8 +114,6 @@ class ProtocolsLoader:
                             f"Matching protocol {protocol} already exists, skipping"
                         )
             except (IntegrityError, ValidationError) as e:
-                # For understanding what caused the error
-                traceback.print_exc()
                 self.errors.append(f"{type(e).__name__} on row {index + 1}: {e}")
             except KeyError:
                 raise ValidationError(

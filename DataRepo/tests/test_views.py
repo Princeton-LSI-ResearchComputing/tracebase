@@ -25,13 +25,14 @@ from DataRepo.models.maintained_model import (
 )
 from DataRepo.models.utilities import get_all_models
 from DataRepo.tests.tracebase_test_case import (
+    TracebaseTestCase,
     TracebaseTransactionTestCase,
 )
 from DataRepo.views import DataValidationView
 
 
 @tag("multi_working")
-class ViewTests(TracebaseTransactionTestCase):
+class ViewTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
@@ -482,7 +483,7 @@ class ViewTests(TracebaseTransactionTestCase):
         """
         Do a file validation test
         """
-        # Load the necessary compounds for a successful test
+        # Load the necessary tissues & compounds for a successful test
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
         call_command(
             "load_compounds",
@@ -733,6 +734,7 @@ def validate_some_files(testobj):
 
     # Test the validate_load_files function
     vo = DataValidationView()
+    # Now try validating the load files
     [results, valid, errors] = vo.validate_load_files(animal_sample_dict, accucor_dict)
 
     # Note that even though the Study "Notes" header is missing from the input file, we don't expect to encounter
