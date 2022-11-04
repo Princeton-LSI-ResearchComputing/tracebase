@@ -125,7 +125,7 @@ class SampleTableLoader:
         Gets a unique list of researchers from the file being loaded and ensures the researchers already exist in the
         database
         """
-        db_researchers = get_researchers()
+        db_researchers = get_researchers(database=self.db)
         if len(db_researchers) != 0:
             print("Checking researchers...")
             input_researchers = []

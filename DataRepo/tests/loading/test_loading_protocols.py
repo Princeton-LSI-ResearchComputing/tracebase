@@ -52,10 +52,12 @@ class ProtocolLoadingTests(TracebaseTestCase):
     def test_protocols_loader_failing_different_descs(self):
         """Test the ProtocolsLoader class"""
         self.load_dataframe_as_animal_treatment(self.working_df)
+
         with self.assertRaisesRegex(
-            LoadingError, "different description already exists"
+            LoadingError, r"Key \(name\)=\(some treatment\) already exists."
         ):
             self.load_dataframe_as_animal_treatment(self.working_differently_df)
+
         # but the other first "working" protocols are still there]
         self.assertEqual(Protocol.objects.count(), self.SETUP_PROTOCOL_COUNT)
 

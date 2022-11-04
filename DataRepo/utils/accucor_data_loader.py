@@ -171,7 +171,7 @@ class AccuCorDataLoader:
     def validate_researcher(self):
         # For file validation, use researcher "anonymous"
         if self.researcher != "anonymous":
-            researchers = get_researchers()
+            researchers = get_researchers(database=self.db)
             nl = "\n"
             if self.new_researcher is True:
                 err_msg = (
