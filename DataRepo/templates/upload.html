@@ -47,17 +47,19 @@
                     </div>
                 </li>
             </ol>
-            <h5 id="optional-validate-your-data"><li>Optional: Validate your data</li></h5>
-            <ol>
-                <li>Download your Animal and Sample Table in Excel format.</li>
-                <li><a href="{% url 'validate' %}">Validate</a> your sample table and AccuCor/IsoCorr files</li>
-                <li>If there are any errors reported, fix them in the Google spreadsheet and return to step 1.<br/>
-                    <div class="text-muted">Note: In general, you should <strong>NOT</strong> edit your AccuCor/IsoCorr
-                        files. It&#39;s simplest and often best to resolve issues by
-                        editing your animal and sample table file.</div>
-                </li>
-            </ol>
-            <h5 id="submit-your-data-on-google-drive"><li>Submit your data on Google Drive</li></h5>
+            <!-- Commenting out until #569 is implemented
+                <h5 id="optional-validate-your-data" class="mt-2"><li>Optional: Validate your data</li></h5>
+                <ol>
+                    <li>Download your Animal and Sample Table in Excel format.</li>
+                    <li><a href="{% url 'validate' %}">Validate</a> your sample table and AccuCor/IsoCorr files</li>
+                    <li>If there are any errors reported, fix them in the Google spreadsheet and return to step 1.<br/>
+                        <div class="text-muted">Note: In general, you should <strong>NOT</strong> edit your AccuCor/IsoCorr
+                            files. It&#39;s simplest and often best to resolve issues by
+                            editing your animal and sample table file.</div>
+                    </li>
+                </ol>
+            -->
+            <h5 id="submit-your-data-on-google-drive" class="mt-2"><li>Submit your data on Google Drive</li></h5>
             <ol>
                 <li>Create a folder for your study in the <a target="_blank"
                     href="https://drive.google.com/drive/folders/1cBy3eezfr_0vmaz8RGodga6A8n3hkm1m?usp=sharing">TraceBase
@@ -88,7 +90,7 @@
                     </div>
                 </li>
             </ol>
-            <h5 id="what-happens-next"><li>What happens next</li></h5>
+            <h5 id="what-happens-next" class="mt-2"><li>What happens next</li></h5>
             <ol>
                 <li>We&#39;ll review your study to ensure that everything will load smoothly. If
                     there are any issues, we&#39;ll contact you to sort everything out.
