@@ -140,7 +140,7 @@ def obj_hyperlink(id_name_list, obj):
     else:
         id_name_dict = {}
         for x in id_name_list:
-            if x is not None:
+            if x is not None and x != "":
                 k, v = x.split("||")
                 id_name_dict[k] = v
         obj_format_html = format_html_join(

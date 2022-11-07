@@ -29,8 +29,8 @@ class HomeViewTests(TracebaseTestCase):
         cls.ALL_STUDIES_COUNT = 2
         cls.ALL_ANIMALS_COUNT = 4
         cls.ALL_SAMPLES_COUNT = 8
-        cls.ALL_ANIMALTREATMENTS_COUNT = 1
-        cls.AAL_MSRUN_PROTOCOLS_COUNT = 1
+        cls.ALL_ANIMALTREATMENTS_COUNT = 8
+        cls.ALL_MSRUN_PROTOCOLS_COUNT = 8
         cls.ALL_ACCUCOR_FILE_COUNT = 1
 
     def test_home_url_exists_at_desired_location(self):
@@ -76,7 +76,7 @@ class HomeViewTests(TracebaseTestCase):
         self.assertEqual(compound_count, self.ALL_COMPOUNDS_COUNT)
         self.assertEqual(tracer_count, self.ALL_TRACERS_COUNT)
         self.assertEqual(animal_treatment_count, self.ALL_ANIMALTREATMENTS_COUNT)
-        self.assertEqual(msrun_protocol_count, self.AAL_MSRUN_PROTOCOLS_COUNT)
+        self.assertEqual(msrun_protocol_count, self.ALL_MSRUN_PROTOCOLS_COUNT)
 
         # check url for each card
         study_url = reverse("study_list")

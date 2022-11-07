@@ -87,6 +87,19 @@ class Command(BaseCommand):
                 validate=options["validate"],
             )
 
+        if "protocols" in study_params:
+            protocols_file = os.path.join(study_dir, study_params["protocols"])
+            self.stdout.write(
+                self.style.MIGRATE_HEADING(f"Loading protocols from {protocols_file}")
+            )
+            call_command(
+                "load_protocols",
+                protocols=protocols_file,
+                database=options["database"],
+                validate=options["validate"],
+                verbosity=options["verbosity"],
+            )
+
         if "tissues" in study_params:
             tissues_file = os.path.join(study_dir, study_params["tissues"])
             self.stdout.write(

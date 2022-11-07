@@ -119,7 +119,6 @@ class AdvancedSearchView(MultiFormsView):
                 ncmp_choices=self.basv_metadata.getComparisonChoices(),
                 fld_types=self.basv_metadata.getFieldTypes(),
                 fld_choices=self.basv_metadata.getSearchFieldChoicesDict(),
-                fld_units=self.basv_metadata.getFieldUnitsDict(),
                 error="All fields are required",  # Unless hacked, this is the only thing that can go wrong
             )
         )
@@ -180,7 +179,6 @@ class AdvancedSearchView(MultiFormsView):
                 ncmp_choices=self.basv_metadata.getComparisonChoices(),
                 fld_types=self.basv_metadata.getFieldTypes(),
                 fld_choices=self.basv_metadata.getSearchFieldChoicesDict(),
-                fld_units=self.basv_metadata.getFieldUnitsDict(),
             )
         )
 
@@ -213,7 +211,6 @@ class AdvancedSearchView(MultiFormsView):
                 fld_choices=self.basv_metadata.getSearchFieldChoicesDict(),
                 error="All fields are required",  # Unless hacked, this is the only thing that can go wrong
                 fld_types=self.basv_metadata.getFieldTypes(),
-                fld_units=self.basv_metadata.getFieldUnitsDict(),
             )
         )
 
@@ -354,7 +351,6 @@ class AdvancedSearchView(MultiFormsView):
                 default_format=self.basv_metadata.default_format,
                 ncmp_choices=self.basv_metadata.getComparisonChoices(),
                 fld_types=self.basv_metadata.getFieldTypes(),
-                fld_units=self.basv_metadata.getFieldUnitsDict(),
                 fld_choices=self.basv_metadata.getSearchFieldChoicesDict(),
             )
         )
@@ -375,7 +371,6 @@ class AdvancedSearchView(MultiFormsView):
         context["ncmp_choices"] = self.basv_metadata.getComparisonChoices()
         context["fld_types"] = self.basv_metadata.getFieldTypes()
         context["fld_choices"] = self.basv_metadata.getSearchFieldChoicesDict()
-        context["fld_units"] = self.basv_metadata.getFieldUnitsDict()
 
         # Initial search page with no results
         if "qry" not in context or (

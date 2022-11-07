@@ -9,9 +9,6 @@
 const minuspngpath = '/static/images/minus.png'
 const pluspngpath = '/static/images/plus.png'
 const pluspluspngpath = '/static/images/plusplus.png'
-const infopngpath = '/static/images/status-question.png'
-const infopngwidth = 10
-const infopngheight = 10
 
 // This is the default root of the form hierarchy.
 // It should be initialized in the template.
@@ -39,17 +36,15 @@ var fldTypes = {} // eslint-disable-line no-var
 var formErrLabel // eslint-disable-line no-var
 var fmtSelectElem // eslint-disable-line no-var
 var fldChoices = {} // eslint-disable-line no-var
-var fldUnits = {} // eslint-disable-line no-var
 
 /**
  * This initializes all of the global variables.
  */
-function init (rootGroup, ncmpChoices, fldTypes, fldChoices, fldUnits) { // eslint-disable-line no-unused-vars
+function init (rootGroup, ncmpChoices, fldTypes, fldChoices) { // eslint-disable-line no-unused-vars
   globalThis.rootGroup = rootGroup
   globalThis.ncmpChoices = ncmpChoices
   globalThis.fldTypes = fldTypes
   globalThis.fldChoices = fldChoices
-  globalThis.fldUnits = fldUnits
   globalThis.formErrLabel = document.getElementById('formerror')
 }
 
@@ -153,8 +148,6 @@ function addSearchFieldForm (myDiv, query, templateId) {
   let fldInitVal = ''
   var ncmpClone // eslint-disable-line no-var
   let ncmpInitVal = ''
-  var unitsClone // eslint-disable-line no-var
-  let unitsInitVal = ''
   var valClone // eslint-disable-line no-var
   for (let i = 0; i < clones.length; i++) {
     // If an invalid form was previously submitted, we will need to present errors
@@ -192,9 +185,6 @@ function addSearchFieldForm (myDiv, query, templateId) {
     } else if (keyname === 'ncmp') {
       ncmpInitVal = clones[i].value
       ncmpClone = clones[i]
-    } else if (keyname === 'units') {
-      // clones[i].value is based on valClone.value, which has not been set yet in the loop
-      unitsClone = clones[i]
     } else if (keyname === 'val') {
       valClone = clones[i]
       // Hide the val text field
@@ -207,7 +197,6 @@ function addSearchFieldForm (myDiv, query, templateId) {
     }
 
     // Add this row to the HTML form
-    console.log('Appending', keyname, 'field')
     myDiv.appendChild(clones[i])
     myDiv.appendChild(document.createTextNode(' '))
 
@@ -230,53 +219,22 @@ function addSearchFieldForm (myDiv, query, templateId) {
   if (fldInitVal === '') {
     fldInitVal = fldClone[0].value
     ncmpInitVal = ncmpClone[0].value
-    // fldUnits contains a default for each template/field combo
-    unitsInitVal = fldUnits[templateId][fldInitVal].default
-    console.log('Init val from fldUnits dict:', unitsInitVal, 'for template/field:', templateId, fldInitVal)
   }
 
-  // Initialize the ncmp choices
+  // Initialize the ncmp choices and val field(s)
   updateNcmpChoices(fldInitVal, ncmpClone, templateId)
   ncmpClone.value = ncmpInitVal
-
-  // Initialize the units choices
-  const unitsInfoImg = document.createElement('img')
-  unitsInfoImg.src = infopngpath
-  unitsInfoImg.width = infopngwidth
-  unitsInfoImg.height = infopngheight
-  const infoSpan = document.createElement('span')
-  infoSpan.style = 'display:none;'
-  infoSpan.className = 'unitsinfo'
-  infoSpan.appendChild(unitsInfoImg)
-  infoSpan.appendChild(document.createTextNode(' '))
-  const tooltipSpan = document.createElement('span')
-  tooltipSpan.className = 'unitstooltip'
-  infoSpan.appendChild(tooltipSpan)
-  myDiv.appendChild(infoSpan)
-  updateUnitsChoices(fldInitVal, unitsClone, templateId)
-  updateUnitsAboutInfo(unitsClone.value, fldClone.value, templateId, infoSpan, tooltipSpan)
-  attachInfoTooltip(infoSpan, tooltipSpan)
-
-  // Initialize the val field(s)
-  const valFields = updateValFields(fldInitVal, ncmpInitVal, unitsClone, valClone, templateId)
+  const valFields = updateValFields(fldInitVal, ncmpInitVal, valClone, myDiv, templateId)
 
   // Keep the ncmp select list choices updated to reflect the fld value
   fldClone.addEventListener('change', function (event) {
     updateNcmpChoices(event.target.value, ncmpClone, rootGroup.selectedtemplate)
-    updateUnitsChoices(event.target.value, unitsClone, rootGroup.selectedtemplate)
-    updateValFields(event.target.value, ncmpClone.value, unitsClone, valClone, rootGroup.selectedtemplate, valFields)
+    updateValFields(event.target.value, ncmpClone.value, valClone, myDiv, rootGroup.selectedtemplate, valFields)
   })
 
   // Keep the val fields updated to also reflect the ncmp value (currently only affected by values isnull and not_isnull)
   ncmpClone.addEventListener('change', function (event) {
-    updateValFields(fldClone.value, event.target.value, unitsClone, valClone, rootGroup.selectedtemplate, valFields)
-  })
-
-  // Keep the val fields updated to also reflect the ncmp value (currently only affected by values isnull and not_isnull)
-  unitsClone.addEventListener('change', function (event) {
-    // This is to update the placeholder in the valFields
-    updateValFields(fldClone.value, event.target.value, unitsClone, valClone, rootGroup.selectedtemplate, valFields)
-    updateUnitsAboutInfo(event.target.value, fldClone.value, rootGroup.selectedtemplate, infoSpan, tooltipSpan)
+    updateValFields(fldClone.value, event.target.value, valClone, myDiv, rootGroup.selectedtemplate, valFields)
   })
 }
 
@@ -309,22 +267,9 @@ function createSearchFieldFormDiv (templateId, query, parentGroup) {
 /**
  * This function coordinates the update of all val form widgets, showing and hiding based on fld type and ncmp selection
  */
-function updateValFields (fldInitVal, ncmpInitVal, unitsClone, valClone, templateId, valFields) {
+function updateValFields (fldInitVal, ncmpInitVal, valClone, myDiv, templateId, valFields) {
   const dbFieldType = getDBFieldType(templateId, fldInitVal)
   const dbFieldChoices = getDBEnumFieldChoices(templateId, fldInitVal)
-
-  const unitsVal = unitsClone.value
-  console.log(unitsVal, fldUnits[templateId][fldInitVal])
-  let placeholder = fldUnits[templateId][fldInitVal].metadata[unitsVal].example
-  if (typeof placeholder === 'undefined' || !placeholder || placeholder === '') {
-    if (dbFieldType === 'string') {
-      placeholder = 'search term'
-    } else {
-      placeholder = 'search value'
-    }
-  } else {
-    placeholder = 'e.g. "' + placeholder + '"'
-  }
 
   let isAddMode = false
   // Create custom field for the val input, to be shown/hidden based on the other select-list selections
@@ -334,13 +279,13 @@ function updateValFields (fldInitVal, ncmpInitVal, unitsClone, valClone, templat
 
     // For string and number fld types when ncmp is not (isnull or not_isnull)
     valFields.valTextBox = document.createElement('input')
-    valFields.valTextBox.placeholder = placeholder
+    valFields.valTextBox.placeholder = valClone.placeholder
     valFields.valTextBox.value = valClone.value
 
     // For string, number, and enumeration fld types when ncmp is (isnull or not_isnull)
     valFields.valHiddenBox = document.createElement('input')
     valFields.valHiddenBox.style = 'display:none;'
-    valFields.valHiddenBox.placeholder = placeholder
+    valFields.valHiddenBox.placeholder = valClone.placeholder
     valFields.valHiddenBox.value = 'dummy'
     // No listener needed for the hidden dummy field
 
@@ -365,9 +310,9 @@ function updateValFields (fldInitVal, ncmpInitVal, unitsClone, valClone, templat
     valFields.valTextBox.style = ''
     valFields.valSelectList.style = 'display:none;'
     if (dbFieldType === 'string') {
-      valFields.valTextBox.placeholder = placeholder
+      valFields.valTextBox.placeholder = 'search term'
     } else {
-      valFields.valTextBox.placeholder = placeholder
+      valFields.valTextBox.placeholder = 'search value'
     }
   } else if (dbFieldType === 'enumeration') {
     updateValEnumSelectList(valFields.valSelectList, dbFieldChoices, valClone)
@@ -383,9 +328,9 @@ function updateValFields (fldInitVal, ncmpInitVal, unitsClone, valClone, templat
   }
 
   if (isAddMode) {
-    valClone.after(valFields.valSelectList)
-    valClone.after(valFields.valHiddenBox)
-    valClone.after(valFields.valTextBox)
+    myDiv.appendChild(valFields.valTextBox)
+    myDiv.appendChild(valFields.valHiddenBox)
+    myDiv.appendChild(valFields.valSelectList)
   }
 
   if (valClone.disabled) {
@@ -470,15 +415,15 @@ function isValEnumSelectListTheSame (valSelectList, dbFieldChoices) {
 /**
  * This function uses the fldTypes global to return the type of a DB field's form type (string, number, or enumeration) that is used to show/hide the correct val form widget.
  */
-function getDBFieldType (templateId, fldVal) {
-  return fldTypes[templateId][fldVal].type
+function getDBFieldType (templateId, fldInitVal) {
+  return fldTypes[templateId][fldInitVal].type
 }
 
 /**
  * For fields of type "enumeration", this function uses the fldTypes global to return the 2D choices array that can be used to populate a "val" select list
  */
-function getDBEnumFieldChoices (templateId, fldVal) {
-  return fldTypes[templateId][fldVal].choices
+function getDBEnumFieldChoices (templateId, fldInitVal) {
+  return fldTypes[templateId][fldInitVal].choices
 }
 
 /**
@@ -507,69 +452,6 @@ function updateNcmpChoices (fldVal, ncmpSelectElem, templateId) {
   }
 
   populateSelectList(choices, ncmpSelectElem)
-}
-
-/**
- * Uses the fldTypes global variable to (re)populate the supplied ncmp select list
- */
-function updateUnitsChoices (fldVal, unitsSelectElem, templateId) {
-  let choices = []
-  let unitsVal = ''
-  if (typeof fldUnits[templateId] !== 'undefined' && fldUnits[templateId]) {
-    if (typeof fldUnits[templateId][fldVal] !== 'undefined' && fldUnits[templateId][fldVal]) {
-      choices = fldUnits[templateId][fldVal].choices
-
-      // fldUnits contains a default for each template/field combo
-      unitsVal = fldUnits[templateId][fldVal].default
-      console.log('Init val from fldUnits dict:', unitsVal, 'in updateUnitsChoices for template/field:', templateId, fldVal)
-
-      // Hide if there is only 1 option in the select list
-      if (choices.length < 2) {
-        unitsSelectElem.style = 'display:none;'
-      } else {
-        // Show the units select list
-        unitsSelectElem.style = ''
-      }
-    } else {
-      console.error('Selected field', fldVal, 'not in field units lookup for template', templateId)
-    }
-  } else {
-    console.error('Template', templateId, 'not in field type lookup.')
-  }
-
-  populateSelectList(choices, unitsSelectElem)
-  unitsSelectElem.value = unitsVal
-}
-
-/**
- * Uses the fldTypes global variable to (re)populate the supplied ncmp select list
- */
-function updateUnitsAboutInfo (unitsVal, fldVal, templateId, infoSpan, tooltipSpan) {
-  let choices = []
-  if (typeof fldUnits[templateId] !== 'undefined' && fldUnits[templateId]) {
-    if (typeof fldUnits[templateId][fldVal] !== 'undefined' && fldUnits[templateId][fldVal]) {
-      choices = fldUnits[templateId][fldVal].choices
-
-      const tooltipContent = fldUnits[templateId][fldVal].metadata[unitsVal].about
-      tooltipSpan.innerHTML = tooltipContent
-
-      // Hide if there is only 1 option in the select list
-      if (choices.length < 2) {
-        infoSpan.style = 'display:none;'
-      } else {
-        // See if there is about info
-        if (typeof tooltipContent === 'undefined' || !tooltipContent || tooltipContent === 'null') {
-          infoSpan.style.display = 'none'
-        } else {
-          infoSpan.style.display = ''
-        }
-      }
-    } else {
-      console.error('Selected field', fldVal, 'not in field units lookup for template', templateId)
-    }
-  } else {
-    console.error('Template', templateId, 'not in field type lookup.')
-  }
 }
 
 /**
@@ -1490,16 +1372,5 @@ function insertFirstSearch (query, format) { // eslint-disable-line no-unused-va
         }
       }
     }
-  }
-}
-
-function attachInfoTooltip (triggerOnHoverElem, tooltipContentElem) {
-  triggerOnHoverElem.onmouseover = function () {
-    const rect = triggerOnHoverElem.getBoundingClientRect()
-    const x = rect.left
-    const y = rect.bottom
-    const tipElemWidth = tooltipContentElem.offsetWidth
-    tooltipContentElem.style.top = y + 'px'
-    tooltipContentElem.style.right = (x - tipElemWidth + infopngwidth) + 'px'
   }
 }

@@ -23,6 +23,7 @@ class QuerysetToPandasDataFrame:
         "infusate_id",
         "infusate_name",
         "tracer_group_name",
+        "tracer_id",
         "tracer_name",
         "tracer_concentration",
         "tracer_label",
@@ -144,6 +145,7 @@ class QuerysetToPandasDataFrame:
             "id": "infusate_id",
             "name": "infusate_name",
             "tracer_group_name": "tracer_group_name",
+            "tracers__id": "tracer_id",
             "tracers__name": "tracer_name",
             "tracer_links__concentration": "tracer_concentration",
             "tracers__labels__name": "tracer_label",
@@ -180,6 +182,7 @@ class QuerysetToPandasDataFrame:
                     "infusate_id",
                     "compound_id",
                     "compound_name",
+                    "tracer_id",
                     "tracer_name",
                     "tracer_concentration",
                 ]
@@ -215,13 +218,13 @@ class QuerysetToPandasDataFrame:
         infusate_gb_df1["compound_id_name"] = (
             infusate_gb_df1["compound_id"].astype(str)
             + "||"
-            + infusate_gb_df1["compound_name"]
+            + infusate_gb_df1["compound_name"].astype(str)
         )
         # add a column to join compound_id and tracer_name
         infusate_gb_df1["tracer_id_name"] = (
             infusate_gb_df1["compound_id"].astype(str)
             + "||"
-            + infusate_gb_df1["tracer_name"]
+            + infusate_gb_df1["tracer_name"].astype(str)
         )
         # convert array to str before grouping
         infusate_gb_df1["elements_as_str"] = infusate_gb_df1["labeled_elements"].apply(
@@ -268,7 +271,7 @@ class QuerysetToPandasDataFrame:
         infusate_list_df2["tracer_id_name_list"] = infusate_list_df2[
             "tracer_id_name_list"
         ].apply(lambda x: np.array(x))
-        # # convert to best possible dtypes
+        # convert to best possible dtypes
         infusate_list_df = infusate_list_df2.convert_dtypes()
 
         return infusate_list_df
@@ -285,6 +288,7 @@ class QuerysetToPandasDataFrame:
             "description": "study_description",
         }
         stud_list_df = cls.qs_to_df(qs, qry_to_df_fields)
+        stud_list_df.fillna({"tracer_name": ""}, inplace=True)
         return stud_list_df
 
     @classmethod
@@ -541,6 +545,7 @@ class QuerysetToPandasDataFrame:
         ]
         column_names = study_column_names + cls.animal_tissue_sample_msrun_column_names
         all_stud_msrun_df = all_stud_msrun_df.reindex(columns=column_names)
+        all_stud_msrun_df.fillna(value={"tracer_name": ""}, inplace=True)
         return all_stud_msrun_df
 
     @classmethod
@@ -551,21 +556,28 @@ class QuerysetToPandasDataFrame:
         """
         stud_list_df = cls.get_study_list_df()
         all_stud_msrun_df = cls.get_study_msrun_all_df()
-
-        # convert values of array columns to strings before grouping
-        all_stud_msrun_df["compounds_as_str"] = all_stud_msrun_df[
-            "compound_id_name_list"
-        ].apply(";".join)
-        all_stud_msrun_df["elements_as_str"] = all_stud_msrun_df[
-            "labeled_elements"
-        ].apply(";".join)
+        try:
+            # convert values of array columns to strings before grouping
+            all_stud_msrun_df["compounds_as_str"] = all_stud_msrun_df[
+                "compound_id_name_list"
+            ].apply(";".join)
+        except TypeError:
+            # When compound_id_name_list is empty, a TypeError is raised
+            all_stud_msrun_df["compounds_as_str"] = ""
+        try:
+            all_stud_msrun_df["elements_as_str"] = all_stud_msrun_df[
+                "labeled_elements"
+            ].apply(";".join)
+        except TypeError:
+            # When labeled_elements is empty, a TypeError is raised
+            all_stud_msrun_df["elements_as_str"] = ""
         # drop columns
         all_stud_msrun_df.drop(columns=["compound_id_name_list", "labeled_elements"])
         # add a column to join infusate id and name
         all_stud_msrun_df["infusate_id_name"] = (
             all_stud_msrun_df["infusate_id"].astype(str)
             + "||"
-            + all_stud_msrun_df["infusate_name"]
+            + all_stud_msrun_df["infusate_name"].astype(str)
         )
         # add a column to join treatment_id and treatment
         all_stud_msrun_df["treatment_id_name"] = (

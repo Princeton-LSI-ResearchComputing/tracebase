@@ -95,6 +95,5 @@ def search_basic(request, mdl, fld, cmp, val, fmt):
             "ncmp_choices": basv_metadata.getComparisonChoices(),
             "fld_types": basv_metadata.getFieldTypes(),
             "fld_choices": basv_metadata.getSearchFieldChoicesDict(),
-            "fld_units": basv_metadata.getFieldUnitsDict(),
         },
     )

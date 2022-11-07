@@ -175,7 +175,6 @@ class FormatsTests(TracebaseTestCase):
 
     def getPgtemplateChoicesTuple(self):
         return (
-            ("msrun__sample__animal__age", "Age"),
             ("msrun__sample__animal__name", "Animal"),
             ("msrun__sample__animal__body_weight", "Body Weight (g)"),
             ("compounds__synonyms__name", "Compound (Measured) (Any Synonym)"),
@@ -208,7 +207,6 @@ class FormatsTests(TracebaseTestCase):
     def getFctemplateChoicesTuple(self):
         return (
             ("serum_sample__animal__name", "Animal"),
-            ("serum_sample__animal__age", "Animal Age"),
             ("serum_sample__animal__body_weight", "Body Weight (g)"),
             ("serum_sample__animal__diet", "Diet"),
             ("serum_sample__animal__feeding_status", "Feeding Status"),
@@ -220,7 +218,7 @@ class FormatsTests(TracebaseTestCase):
             ("serum_sample__animal__studies__name", "Study"),
             (
                 "serum_sample__time_collected",
-                "Time Collected (since infusion)",
+                "Time Collected (hh:mm:ss since infusion)",
             ),
             ("tracer__name", "Tracer"),
             ("tracer__compound__name", "Tracer Compound (Primary Synonym)"),
@@ -969,7 +967,6 @@ class FormatsTests(TracebaseTestCase):
         fmt = "pgtemplate"
         res = basv_metadata.getSearchFieldChoices(fmt)
         choices = (
-            ("msrun__sample__animal__age", "Age"),
             ("msrun__sample__animal__name", "Animal"),
             ("msrun__sample__animal__body_weight", "Body Weight (g)"),
             ("compounds__synonyms__name", "Compound (Measured) (Any Synonym)"),
@@ -1067,7 +1064,6 @@ class FormatsTests(TracebaseTestCase):
             "id": "msrun__sample__animal__id",
             "name": "msrun__sample__animal__name",
             "genotype": "msrun__sample__animal__genotype",
-            "age": "msrun__sample__animal__age",
             "body_weight": "msrun__sample__animal__body_weight",
             "sex": "msrun__sample__animal__sex",
             "diet": "msrun__sample__animal__diet",
@@ -1167,6 +1163,10 @@ class FormatsTests(TracebaseTestCase):
             "load_compounds",
             compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
             verbosity=2,
+        )
+        call_command(
+            "load_protocols",
+            protocols="DataRepo/example_data/small_multitracer_data/animal_sample_table.xlsx",
         )
         call_command(
             "load_animals_and_samples",

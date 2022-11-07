@@ -1,0 +1,3 @@
+name	category	description
+no treatment	animal_treatment	"No manipulation besides what is already described in other fields."
+obob_fasted	animal_treatment	"ob/ob homozygous mice were fasted"
