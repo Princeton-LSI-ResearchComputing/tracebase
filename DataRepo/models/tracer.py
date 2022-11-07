@@ -32,8 +32,7 @@ class TracerQuerySet(models.QuerySet):
                 TracerLabel.objects.using(self._db).create_tracer_label(
                     tracer, isotope_data
                 )
-            if self._db == settings.TRACEBASE_DB:
-                tracer.full_clean()
+            tracer.full_clean()
             created = True
         return (tracer, created)
 

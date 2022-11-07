@@ -22,8 +22,7 @@ class TracerLabelQuerySet(models.QuerySet):
             positions=isotope_data["positions"],
             mass_number=isotope_data["mass_number"],
         )
-        if self._db == settings.TRACEBASE_DB:
-            tracer_label.full_clean()
+        tracer_label.full_clean()
         return tracer_label
 
 
