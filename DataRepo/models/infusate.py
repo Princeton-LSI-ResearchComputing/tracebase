@@ -59,7 +59,7 @@ class InfusateQuerySet(models.QuerySet):
                     tracer=tracer,
                     concentration=infusate_tracer["concentration"],
                 )
-            if self._db == settings.DEFAULT_DB:
+            if self._db == settings.TRACEBASE_DB:
                 infusate.full_clean()
             infusate.save(using=self._db)
             created = True
