@@ -305,7 +305,8 @@ class Infusate(MaintainedModel):
         db = self.get_using_db()
 
         return list(
-            TracerLabel.objects.using(db).filter(tracer__infusates__id=self.id)
+            TracerLabel.objects.using(db)
+            .filter(tracer__infusates__id=self.id)
             .order_by("element")
             .distinct("element")
             .values_list("element", flat=True)
