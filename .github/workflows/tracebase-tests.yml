@@ -75,7 +75,7 @@ jobs:
           python manage.py createcachetable \
           --database validation
       - name: Run tests
-        run: python manage.py test --tag multi_working
+        run: python manage.py test
       - name: Load initial tissue records
         run: |
           python manage.py load_study \

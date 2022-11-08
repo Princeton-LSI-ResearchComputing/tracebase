@@ -89,7 +89,6 @@ class ExampleDataConsumer:
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
-@tag("multi_working")
 class StudyTests(TracebaseTestCase, ExampleDataConsumer):
     def setUp(self):
         super().setUp()
@@ -263,7 +262,6 @@ class StudyTests(TracebaseTestCase, ExampleDataConsumer):
 
 @override_settings(CACHES=settings.TEST_CACHES)
 @tag("protocol")
-@tag("multi_working")
 class ProtocolTests(TracebaseTestCase):
     def setUp(self):
         super().setUp()
@@ -315,7 +313,6 @@ class ProtocolTests(TracebaseTestCase):
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
-@tag("multi_working")
 class DataLoadingTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
@@ -748,7 +745,6 @@ class DataLoadingTests(TracebaseTestCase):
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
-@tag("multi_working")
 class PropertyTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
@@ -1474,7 +1470,6 @@ class PropertyTests(TracebaseTestCase):
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
-@tag("multi_working")
 class MultiTracerLabelPropertyTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
@@ -1561,7 +1556,6 @@ class MultiTracerLabelPropertyTests(TracebaseTestCase):
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
-@tag("multi_working")
 class TracerRateTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
@@ -1794,7 +1788,6 @@ class TracerRateTests(TracebaseTestCase):
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
-@tag("multi_working")
 class AnimalAndSampleLoadingTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
@@ -1831,7 +1824,6 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
-@tag("multi_working")
 class AccuCorDataLoadingTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
@@ -1914,7 +1906,6 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
-@tag("multi_working")
 class IsoCorrDataLoadingTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
@@ -2356,7 +2347,6 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
 
 @override_settings(CACHES=settings.TEST_CACHES)
 @tag("load_study")
-@tag("multi_working")
 class StudyLoadingTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
@@ -2442,7 +2432,6 @@ class StudyLoadingTests(TracebaseTestCase):
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
-@tag("multi_working")
 @tag("load_study")
 class ParseIsotopeLabelTests(TracebaseTestCase):
     @classmethod
@@ -2559,7 +2548,6 @@ class ParseIsotopeLabelTests(TracebaseTestCase):
 @override_settings(CACHES=settings.TEST_CACHES)
 @tag("animal")
 @tag("loading")
-@tag("multi_working")
 class AnimalLoadingTests(TracebaseTestCase):
     """Tests parsing various Animal attributes"""
 

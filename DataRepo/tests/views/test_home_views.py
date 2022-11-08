@@ -1,5 +1,4 @@
 from django.core.management import call_command
-from django.test import tag
 from django.urls import reverse
 
 from DataRepo.models import (
@@ -15,7 +14,6 @@ from DataRepo.models.maintained_model import UncleanBufferError, buffer_size
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
-@tag("multi_working")
 class HomeViewTests(TracebaseTestCase):
     """
     Test hoem views

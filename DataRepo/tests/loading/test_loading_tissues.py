@@ -6,7 +6,6 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
 @tag("tissues")
-@tag("multi_working")
 class TissueLoadingTests(TracebaseTestCase):
     """Test Tissue Loader"""
 
