@@ -528,7 +528,6 @@ class ViewNullToleranceTests(ViewTests):
         super().test_study_detail()
 
 
-@tag("protocol_loading_broken")
 class ValidationViewTests(TracebaseTransactionTestCase):
     """
     Note, without the TransactionTestCase (derived) class (and the with transaction.atomic block below), the infusate-
