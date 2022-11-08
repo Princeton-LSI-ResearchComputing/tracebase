@@ -84,34 +84,37 @@ class ProtocolsLoader:
                         description = ""
 
                     # Try and get the protocol
-                    protocol = (
-                        Protocol.objects.using(db)
-                        .filter(name=name, category=category, description=description)
-                        .first()
-                    )
+                    protocol_rec, protocol_created = Protocol.objects.using(
+                        db
+                    ).get_or_create(name=name, category=category)
                     # If no protocol was found, create it
-                    if not protocol:
-                        protocol = Protocol.objects.using(db).create(
-                            name=name, category=category, description=description
-                        )
+                    if protocol_created:
+                        protocol_rec.description = description
+                        print("Saving protocol with description")
                         # full_clean cannot validate (e.g. uniqueness) using a non-default database
                         if db == settings.TRACEBASE_DB:
-                            protocol.full_clean()
-                        protocol.save(using=db)
+                            protocol_rec.full_clean()
+                        protocol_rec.save(using=db)
                         if db in self.created:
-                            self.created[db].append(protocol)
+                            self.created[db].append(protocol_rec)
                         else:
-                            self.created[db] = [protocol]
+                            self.created[db] = [protocol_rec]
                         self.notices.append(
-                            f"Created new protocol {protocol}:{description} in the {db} database"
+                            f"Created new protocol {protocol_rec}:{description} in the {db} database"
+                        )
+                    elif protocol_rec.description == description:
+                        if db in self.existing:
+                            self.existing[db].append(protocol_rec)
+                        else:
+                            self.existing[db] = [protocol_rec]
+                        self.notices.append(
+                            f"Matching protocol {protocol_rec} already exists, skipping"
                         )
                     else:
-                        if db in self.existing:
-                            self.existing[db].append(protocol)
-                        else:
-                            self.existing[db] = [protocol]
-                        self.notices.append(
-                            f"Matching protocol {protocol} already exists, skipping"
+                        raise ValidationError(
+                            f"Protocol with name = '{name}' but a different description already exists: "
+                            f"Existing description = '{protocol_rec.description}' "
+                            f"New description = '{description}'"
                         )
             except (IntegrityError, ValidationError) as e:
                 self.errors.append(f"{type(e).__name__} on row {index + 1}: {e}")

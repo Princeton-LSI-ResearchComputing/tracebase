@@ -54,7 +54,7 @@ class ProtocolLoadingTests(TracebaseTestCase):
         self.load_dataframe_as_animal_treatment(self.working_df)
 
         with self.assertRaisesRegex(
-            LoadingError, r"Key \(name\)=\(some treatment\) already exists."
+            LoadingError, "different description already exists"
         ):
             self.load_dataframe_as_animal_treatment(self.working_differently_df)
 
