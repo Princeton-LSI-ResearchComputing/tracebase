@@ -363,12 +363,12 @@ class SampleTableLoader:
             sample_name = self.getRowVal(row, self.headers.SAMPLE_NAME)
             if sample_name is not None:
                 try:
-                     # Assuming that duplicates among the submission are handled in the checking of the file, so we must
-                     # check against the tracebase database for pre-existing sample name duplicates
-                     sample = Sample.objects.using(settings.TRACEBASE_DB).get(
-                         name=sample_name
-                     )
-                     print(f"SKIPPING existing record: Sample:{sample_name}")
+                    # Assuming that duplicates among the submission are handled in the checking of the file, so we must
+                    # check against the tracebase database for pre-existing sample name duplicates
+                    sample = Sample.objects.using(settings.TRACEBASE_DB).get(
+                        name=sample_name
+                    )
+                    print(f"SKIPPING existing record: Sample:{sample_name}")
                 except Sample.DoesNotExist:
                     # This loop encounters this code for the same sample multiple times, so during user data validation
                     # and when getting here because the sample doesn't exist in the tracebase-proper database, we still
