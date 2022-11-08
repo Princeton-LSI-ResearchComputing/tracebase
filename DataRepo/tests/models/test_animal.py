@@ -10,7 +10,6 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 @override_settings(CACHES=settings.TEST_CACHES)
 @tag("animal")
-@tag("multi_working")
 class AnimalTests(TracebaseTestCase):
     def setUp(self):
         super().setUp()

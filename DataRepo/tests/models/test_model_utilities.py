@@ -1,5 +1,4 @@
 from django.apps import apps
-from django.test import tag
 
 from DataRepo.models.utilities import (
     dereference_field,
@@ -9,7 +8,6 @@ from DataRepo.models.utilities import (
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
-@tag("multi_working")
 class ModelUtilitiesTests(TracebaseTestCase):
     def test_get_all_models(self):
         """Test that we return all models in the right order"""
