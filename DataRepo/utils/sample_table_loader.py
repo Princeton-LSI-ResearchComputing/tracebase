@@ -454,7 +454,7 @@ class SampleTableLoader:
                     ).with_traceback(e.__traceback__)
                 )
 
-        return animal_rec, animal_created
+        return animal_rec
 
     def get_or_create_animallabel(self, animal_rec, infusate_rec):
         # Infusate is required, but the missing headers are buffered to create an exception later
