@@ -129,7 +129,7 @@ class ProtocolsLoader:
 
             raise LoadingError(f"Errors during protocol loading :\n {message}")
         if self.dry_run:
-            raise DryRun("DRY-RUN successful")
+            raise DryRun()
 
     def get_stats(self):
         dbs = [settings.TRACEBASE_DB]

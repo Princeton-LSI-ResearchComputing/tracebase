@@ -9,7 +9,7 @@ from django.views.generic.edit import FormView
 from DataRepo.forms import DataSubmissionValidationForm
 from DataRepo.models import Compound, CompoundSynonym, Protocol, Tissue
 from DataRepo.models.utilities import get_all_models
-from DataRepo.utils import MissingSamplesError, ResearcherError
+from DataRepo.utils import MissingSamplesError, UnknownResearcherError, DryRun
 
 
 class DataValidationView(FormView):
@@ -127,7 +127,7 @@ class DataValidationView(FormView):
                         validate=True,
                     )
                     results[animal_sample_name] = "PASSED"
-                except ResearcherError as re:
+                except UnknownResearcherError as re:
                     valid = False
                     errors[animal_sample_name].append(
                         "[The following error about a new researcher name should only be addressed if the name "
@@ -137,20 +137,17 @@ class DataValidationView(FormView):
                     results[animal_sample_name] = "WARNING"
                 except Exception as e:
                     estr = str(e)
-                    # We are using the presence of the string "Debugging..." to infer that it got to the end of the
-                    # load without an exception.  If there is no "Debugging" message, then an exception did not occur
-                    # anyway
                     if settings.DEBUG:
                         traceback.print_exc()
                         print(estr)
-                    if "Debugging" not in estr:
+                    if isinstance(e, DryRun):
+                        results[animal_sample_name] = "PASSED"
+                    else:
                         valid = False
                         errors[animal_sample_name].append(
                             f"{e.__class__.__name__}: {estr}"
                         )
                         results[animal_sample_name] = "FAILED"
-                    else:
-                        results[animal_sample_name] = "PASSED"
 
             can_proceed = False
             if results[animal_sample_name] != "FAILED":
