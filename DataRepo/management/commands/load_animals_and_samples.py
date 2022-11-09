@@ -130,10 +130,10 @@ class Command(BaseCommand):
             sample_table_headers=headers,
             database=options["database"],
             validate=options["validate"],
+            skip_researcher_check=options["skip_researcher_check"],
         )
         loader.load_sample_table(
             merged.to_dict("records"),
-            options["skip_researcher_check"],
             options["debug"],
         )
 

@@ -9,7 +9,7 @@ from django.views.generic.edit import FormView
 from DataRepo.forms import DataSubmissionValidationForm
 from DataRepo.models import Compound, CompoundSynonym, Protocol, Tissue
 from DataRepo.models.utilities import get_all_models
-from DataRepo.utils import MissingSamplesError, UnknownResearcherError, DryRun
+from DataRepo.utils import DryRun, MissingSamplesError, UnknownResearcherError
 
 
 class DataValidationView(FormView):

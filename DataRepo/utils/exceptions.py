@@ -1,15 +1,46 @@
 class HeaderError(Exception):
-    def __init__(self, message, headers):
-        super().__init__(message)
-        self.header_list = headers
-
-
-class HeaderConfigError(Exception):
     pass
 
 
 class RequiredValueError(Exception):
     pass
+
+
+class RequiredHeadersError(Exception):
+    def __init__(self, missing, message=None):
+        if not message:
+            message = f"Required header(s) missing: [{', '.join(missing)}]."
+        super().__init__(message)
+        self.missing = missing
+
+
+class HeaderConfigError(Exception):
+    def __init__(self, missing, message=None):
+        if not message:
+            message = (
+                "No header string is configured for the following required column(s): "
+                f"[{', '.join(missing)}]."
+            )
+        super().__init__(message)
+        self.missing = missing
+
+
+class RequiredValuesError(Exception):
+    def __init__(self, missing, message=None):
+        if not message:
+            message = "Required values missing in the following columns/rows:\n"
+            for col in missing.keys():
+                message += f"\n{col}: {', '.join(missing[col])}\n"
+        super().__init__(message)
+        self.missing = missing
+
+
+class UnknownHeadersError(Exception):
+    def __init__(self, unknowns, message=None):
+        if not message:
+            message = f"Unknown header(s) encountered: [{', '.join(unknowns)}]."
+        super().__init__(message)
+        self.unknowns = unknowns
 
 
 class UnknownResearcherError(Exception):
@@ -55,6 +86,7 @@ class LoadingError(Exception):
     """
     Exception thrown if any errors encountered during loading
     """
+
     pass
 
 
