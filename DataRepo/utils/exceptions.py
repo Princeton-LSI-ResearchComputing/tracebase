@@ -30,7 +30,7 @@ class RequiredValuesError(Exception):
         if not message:
             message = "Required values missing in the following columns/rows:\n"
             for col in missing.keys():
-                message += f"\n{col}: {', '.join(missing[col])}\n"
+                message += f"\n{col}: {', '.join([str(r) for r in missing[col]])}\n"
         super().__init__(message)
         self.missing = missing
 
@@ -96,3 +96,35 @@ class AggregatedErrors(Exception):
             message = f"{len(errors)} errors occurred."
         super().__init__(message)
         self.errors = errors
+
+
+class ConflictingValueError(Exception):
+    def __init__(
+        self,
+        model_name,
+        unique_field,
+        unique_value,
+        consistent_field,
+        existing_value,
+        differing_value,
+        message=None,
+    ):
+        if not message:
+            message = (
+                f"Conflicting value encountered for {model_name} record.  The record for {unique_field}="
+                f"'{unique_value}' should have the same {consistent_field} value, but the original value: "
+                f"[{existing_value}] differs from the new value: [{differing_value}]."
+            )
+        super().__init__(message)
+        self.model_name = model_name
+        self.unique_field = unique_field
+        self.unique_value = unique_value
+        self.consistent_field = consistent_field
+        self.existing_value = existing_value
+        self.differing_value = differing_value
+
+
+class SaveError(Exception):
+    def __init__(self, model_name, rec_name, db, e):
+        message = f"Error saving {model_name} {rec_name} to database {db}: {type(e).__name__}: {str(e)}"
+        super().__init__(message)

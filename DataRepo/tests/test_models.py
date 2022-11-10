@@ -43,6 +43,8 @@ from DataRepo.utils import (
     parse_tracer_concentrations,
 )
 
+VERBOSITY = 6
+
 
 class ExampleDataConsumer:
     def get_sample_test_dataframe(self):
@@ -338,6 +340,7 @@ class DataLoadingTests(TracebaseTestCase):
             sample_table_filename="DataRepo/example_data/obob_samples_table.tsv",
             animal_table_filename="DataRepo/example_data/obob_animals_table.tsv",
             table_headers="DataRepo/example_data/sample_and_animal_tables_headers.yaml",
+            verbosity=VERBOSITY,
         )
 
         # from DataRepo/example_data/obob_sample_table.tsv, not counting the header and BLANK samples

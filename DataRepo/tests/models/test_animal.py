@@ -7,6 +7,8 @@ from django.test import override_settings, tag
 from DataRepo.models import Animal, Infusate, Sample
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
+VERBOSITY = 5
+
 
 @override_settings(CACHES=settings.TEST_CACHES)
 @tag("animal")
@@ -38,6 +40,7 @@ class AnimalTests(TracebaseTestCase):
             "load_samples",
             "DataRepo/example_data/small_dataset/small_obob_sample_table.tsv",
             sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
+            verbosity=VERBOSITY,
         )
         call_command(
             "load_accucor_msruns",

@@ -5,6 +5,7 @@ from datetime import timedelta
 import dateutil.parser  # type: ignore
 import pandas as pd
 from django.conf import settings
+from django.db.utils import IntegrityError
 
 from DataRepo.models import (
     Animal,
@@ -32,10 +33,12 @@ from DataRepo.models.utilities import value_from_choices_label
 from DataRepo.utils import parse_infusate_name, parse_tracer_concentrations
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
+    ConflictingValueError,
     DryRun,
     HeaderConfigError,
     RequiredHeadersError,
     RequiredValuesError,
+    SaveError,
     UnknownHeadersError,
     UnknownResearcherError,
     ValidationDatabaseSetupError,
@@ -171,8 +174,8 @@ class SampleTableLoader:
         disable_autoupdates()
         disable_caching_updates()
 
-        # Create a list to hold the csv reader data so that iterations from validating cleardoesn't leave the csv reader
-        # empty/at-the-end upon the import loop
+        # Create a list to hold the csv reader data so that iterations from validating cleardoesn't leave the csv
+        # reader empty/at-the-end upon the import loop
         sample_table_data = list(data)
 
         # If there is data to load
@@ -197,7 +200,11 @@ class SampleTableLoader:
             sample_rec = self.get_or_create_sample(rownum, row, animal_rec, tissue_rec)
             self.get_or_create_fcircs(infusate_rec, sample_rec)
 
-        if not self.skip_researcher_check and len(self.unknown_researchers) > 0:
+        if (
+            not self.skip_researcher_check
+            and len(self.known_researchers) > 0
+            and len(self.unknown_researchers) > 0
+        ):
             self.errors.append(
                 UnknownResearcherError(
                     self.unknown_researchers,
@@ -212,6 +219,14 @@ class SampleTableLoader:
             self.errors.append(RequiredValuesError(self.missing_values))
 
         if len(self.errors) > 0:
+            if self.verbosity >= 5:
+                for err in self.errors:
+                    if self.verbosity >= 6:
+                        if err.__traceback__:
+                            traceback.print_exception(type(err), err, err.__traceback__)
+                        else:
+                            print("No trace available.")
+                    print(f"{type(err).__name__}: {str(err)}")
             raise AggregatedErrors(self.errors)
 
         enable_caching_updates()
@@ -267,27 +282,55 @@ class SampleTableLoader:
         study_desc = self.getRowVal(rownum, row, "STUDY_DESCRIPTION")
 
         study_created = False
+        study_rec = None
 
         if study_name:
-            study_rec, study_created = Study.objects.using(self.db).get_or_create(
-                name=study_name,
-                description=study_desc,
-            )
+            try:
+                try:
+                    study_rec, study_created = Study.objects.using(
+                        self.db
+                    ).get_or_create(
+                        name=study_name,
+                        description=study_desc,
+                    )
+                except IntegrityError as ie:
+                    estr = str(ie)
+                    if "duplicate key value violates unique constraint" in estr:
+                        self.errors.append(
+                            ConflictingValueError(
+                                Study.__name__,
+                                "name",
+                                study_name,
+                                "description",
+                                Study.objects.using(self.db).get(name=study_name),
+                                study_desc,
+                            ).with_traceback(ie.__traceback__)
+                        )
+                    else:
+                        raise ie
+            except Exception as e:
+                study_rec = None
+                self.errors.append(
+                    SaveError(Study.__name__, study_name, self.db, e).with_traceback(
+                        e.__traceback__
+                    )
+                )
 
         if study_created:
-            print(f"Created new record: Study:{study_rec}")
+            if self.verbosity >= 2:
+                print(f"Created new Study record: {study_rec}")
             try:
+                # get_or_create doesn't do a full_clean
                 # TODO: See issue #580.  This will allow full_clean to be called regardless of the database.
                 if self.db == settings.TRACEBASE_DB:
                     # full_clean does not have a using parameter. It only supports the default database
                     study_rec.full_clean()
-                study_rec.save(using=self.db)
             except Exception as e:
                 study_rec = None
                 self.errors.append(
-                    SaveError(
-                        f"Error saving record for Study: {study_name}: {type(e).__name__} - {str(e)}"
-                    ).with_traceback(e.__traceback__)
+                    SaveError(Study.__name__, study_name, self.db, e).with_traceback(
+                        e.__traceback__
+                    )
                 )
 
         # We do this here, and not in the "animal_created" block, in case the researcher is creating a new study
@@ -449,8 +492,7 @@ class SampleTableLoader:
             except Exception as e:
                 self.errors.append(
                     SaveError(
-                        f"Error saving record for Animal: {animal_rec} to database {self.db}: {type(e).__name__} "
-                        f"- {str(e)}"
+                        Animal.__name__, str(animal_rec), self.db, e
                     ).with_traceback(e.__traceback__)
                 )
 
@@ -556,7 +598,7 @@ class SampleTableLoader:
                     except Exception as e:
                         self.errors.append(
                             SaveError(
-                                f"Error saving record for Sample: {sample_rec}: {type(e).__name__} - {str(e)}"
+                                Sample.__name__, str(sample_rec), self.db, e
                             ).with_traceback(e.__traceback__)
                         )
             except Exception as e:
@@ -625,17 +667,17 @@ class SampleTableLoader:
             self.errors.append(HeaderConfigError(misconfiged_headers))
 
     def getRowVal(self, rownum, row, header_attribute):
-        val = None
+        # get the header value to use as a dict key for 'row'
         header = getattr(self.headers, header_attribute)
-        val_required = getattr(self.RequiredSampleTableValues, header_attribute)
+        val = None
 
         if header in self.headers_present:
-            try:
-                val = row[header]
-            except KeyError as ke:
-                raise Exception(f"Missing key/header: {header} row: {rownum}")
-        elif val_required and val is None:
-            self.missing_values[header].append(rownum)
+            val = row[header]
+            # We're ignoring missing headers.  Required headers check is covered in check_headers.
+            val_required = getattr(self.RequiredSampleTableValues, header_attribute)
+            if val_required and val is None:
+                self.missing_values[header].append(rownum)
+
         return val
 
 
@@ -647,10 +689,6 @@ class UnanticipatedError(Exception):
     def __init__(self, e):
         message = f"UnanticipatedError: {type(e).__name__}: {str(e)}"
         super().__init__(message)
-
-
-class SaveError(Exception):
-    pass
 
 
 class SampleError(UnanticipatedError):

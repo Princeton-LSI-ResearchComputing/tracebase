@@ -131,6 +131,7 @@ class Command(BaseCommand):
             database=options["database"],
             validate=options["validate"],
             skip_researcher_check=options["skip_researcher_check"],
+            verbosity=options["verbosity"],
         )
         loader.load_sample_table(
             merged.to_dict("records"),
