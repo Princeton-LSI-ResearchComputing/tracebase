@@ -713,7 +713,7 @@ class FormatsTests(TracebaseTestCase):
                                 "pos": "",
                                 "ncmp": "iexact",
                                 "static": "",
-                                "fld": "labeled_element",
+                                "fld": "labels__element",
                                 "val": "",
                             }
                         ],

@@ -110,7 +110,7 @@
                 <th data-valign="top" class="idgrp" data-visible="{% get_template_cookie selfmt 'Labeled_Element_Count-data-visible' 'true' %}" data-field="Labeled_Element_Count">
                     {% with colhead1="Labeled<br>Element:<br>" colhead2="Count" %}
                         {% if mode == "view" %}{{ colhead1 }}{{ colhead2 }}{% else %}
-                            <div onclick="sortColumn(this)" class="sortable" id="labeled_element">{{ colhead1 }}</div><div onclick="sortColumn(this)" class="sortable" id="labeled_count">{{ colhead2 }}</div>
+                            <div onclick="sortColumn(this)" class="sortable" id="labels__element">{{ colhead1 }}</div><div onclick="sortColumn(this)" class="sortable" id="labels__count">{{ colhead2 }}</div>
                         {% endif %}
                     {% endwith %}
                 </th>
