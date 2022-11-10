@@ -101,9 +101,7 @@ class AggregatedErrors(Exception):
 class ConflictingValueError(Exception):
     def __init__(
         self,
-        model_name,
-        unique_field,
-        unique_value,
+        rec,
         consistent_field,
         existing_value,
         differing_value,
@@ -111,14 +109,10 @@ class ConflictingValueError(Exception):
     ):
         if not message:
             message = (
-                f"Conflicting value encountered for {model_name} record.  The record for {unique_field}="
-                f"'{unique_value}' should have the same {consistent_field} value, but the original value: "
-                f"[{existing_value}] differs from the new value: [{differing_value}]."
+                f"Conflicting values encountered in {type(rec).__name__} record [{str(rec)}] for field "
+                f"{consistent_field}: original value: [{existing_value}] differs from new value: [{differing_value}]."
             )
         super().__init__(message)
-        self.model_name = model_name
-        self.unique_field = unique_field
-        self.unique_value = unique_value
         self.consistent_field = consistent_field
         self.existing_value = existing_value
         self.differing_value = differing_value

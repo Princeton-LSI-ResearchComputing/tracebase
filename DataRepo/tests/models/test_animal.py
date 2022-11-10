@@ -7,7 +7,7 @@ from django.test import override_settings, tag
 from DataRepo.models import Animal, Infusate, Sample
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
-VERBOSITY = 5
+VERBOSITY = 1
 
 
 @override_settings(CACHES=settings.TEST_CACHES)

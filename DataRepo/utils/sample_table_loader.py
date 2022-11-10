@@ -259,7 +259,7 @@ class SampleTableLoader:
     def get_tissue(self, rownum, row):
         tissue_name = self.getRowVal(rownum, row, "TISSUE_NAME")
         tissue_rec = None
-        is_blank = tissue_name == ""
+        is_blank = tissue_name is None
         if is_blank:
             if self.verbosity >= 2:
                 print("Skipping row: Tissue field is empty, assuming blank sample")
@@ -282,6 +282,7 @@ class SampleTableLoader:
         study_desc = self.getRowVal(rownum, row, "STUDY_DESCRIPTION")
 
         study_created = False
+        study_updated = False
         study_rec = None
 
         if study_name:
@@ -296,16 +297,20 @@ class SampleTableLoader:
                 except IntegrityError as ie:
                     estr = str(ie)
                     if "duplicate key value violates unique constraint" in estr:
-                        self.errors.append(
-                            ConflictingValueError(
-                                Study.__name__,
-                                "name",
-                                study_name,
-                                "description",
-                                Study.objects.using(self.db).get(name=study_name),
-                                study_desc,
-                            ).with_traceback(ie.__traceback__)
-                        )
+                        study_rec = Study.objects.using(self.db).get(name=study_name)
+                        orig_desc = study_rec.description
+                        if orig_desc and study_desc:
+                            self.errors.append(
+                                ConflictingValueError(
+                                    study_rec,
+                                    "description",
+                                    orig_desc,
+                                    study_desc,
+                                ).with_traceback(ie.__traceback__)
+                            )
+                        elif study_desc:
+                            study_rec.description = study_desc
+                            study_updated = True
                     else:
                         raise ie
             except Exception as e:
@@ -316,15 +321,21 @@ class SampleTableLoader:
                     )
                 )
 
-        if study_created:
+        if study_created or study_updated:
             if self.verbosity >= 2:
-                print(f"Created new Study record: {study_rec}")
+                if study_created:
+                    print(f"Created new Study record: {study_rec}")
+                else:
+                    print(f"Updated Study record: {study_rec}")
             try:
-                # get_or_create doesn't do a full_clean
+                # get_or_create does not perform a full clean
                 # TODO: See issue #580.  This will allow full_clean to be called regardless of the database.
                 if self.db == settings.TRACEBASE_DB:
                     # full_clean does not have a using parameter. It only supports the default database
                     study_rec.full_clean()
+                # We only need to save if there was an update.  get_or_create does a save
+                if study_updated:
+                    study_rec.save(using=self.db)
             except Exception as e:
                 study_rec = None
                 self.errors.append(
@@ -371,7 +382,7 @@ class SampleTableLoader:
         if treatment_name:
             # Animal Treatments are optional protocols
             try:
-                assert treatment_name != ""
+                assert treatment_name is not None
                 assert treatment_name != pd.isnull(treatment_name)
             except AssertionError:
                 if self.verbosity >= 2:
@@ -514,22 +525,58 @@ class SampleTableLoader:
                 )
 
     def get_or_create_sample(self, rownum, row, animal_rec, tissue_rec):
-        sample_name = self.getRowVal(rownum, row, "SAMPLE_NAME")
-        researcher = self.getRowVal(rownum, row, "SAMPLE_RESEARCHER")
-        time_collected_str = self.getRowVal(rownum, row, "TIME_COLLECTED")
-        sample_date_value = self.getRowVal(rownum, row, "SAMPLE_DATE")
-
         sample_rec = None
 
-        # Creating a sample requires a tissue
-        if sample_name and tissue_rec:
+        # Initialize raw values
+        sample_name = self.getRowVal(rownum, row, "SAMPLE_NAME")
+        researcher = self.getRowVal(rownum, row, "SAMPLE_RESEARCHER")
+        time_collected = None
+        time_collected_str = self.getRowVal(rownum, row, "TIME_COLLECTED")
+        sample_date = None
+        sample_date_value = self.getRowVal(rownum, row, "SAMPLE_DATE")
+
+        # Convert/check values as necessary
+        if (
+            researcher
+            and not self.skip_researcher_check
+            and researcher not in self.input_researchers
+        ):
+            self.input_researchers.append(researcher)
+            if researcher not in self.known_researchers:
+                self.unknown_researchers.append(researcher)
+        if time_collected_str:
+            time_collected = timedelta(minutes=float(time_collected_str))
+        if sample_date_value:
+            # Pandas may have already parsed the date
+            try:
+                sample_date = dateutil.parser.parse(sample_date_value)
+            except TypeError:
+                sample_date = sample_date_value
+
+        # Create a sample record - requires a tissue and animal record
+        if sample_name and tissue_rec and animal_rec:
             try:
                 # Assuming that duplicates among the submission are handled in the checking of the file, so we must
                 # check against the tracebase database for pre-existing sample name duplicates
                 sample_rec = Sample.objects.using(settings.TRACEBASE_DB).get(
                     name=sample_name
                 )
-                print(f"SKIPPING existing record: Sample:{sample_name}")
+
+                # Now check that the values are consistent
+                inconsistencies = self.check_for_inconsistencies(
+                    sample_rec,
+                    {
+                        "animal": animal_rec,
+                        "tissue": tissue_rec,
+                        "researcher": researcher,
+                        "time_collected": time_collected,
+                        "date": sample_date,
+                    },
+                )
+
+                if self.verbosity >= 2 and not inconsistencies:
+                    print(f"SKIPPING existing Sample record: {sample_name}")
+
             except Sample.DoesNotExist:
 
                 # This loop encounters this code for the same sample multiple times, so during user data validation
@@ -565,27 +612,13 @@ class SampleTableLoader:
                     if researcher:
                         changed = True
                         sample_rec.researcher = researcher
-                        if (
-                            not self.skip_researcher_check
-                            and researcher not in self.input_researchers
-                        ):
-                            self.input_researchers.append(researcher)
-                            if researcher not in self.known_researchers:
-                                self.unknown_researchers.append(researcher)
 
-                    if time_collected_str:
+                    if time_collected:
                         changed = True
-                        sample_rec.time_collected = timedelta(
-                            minutes=float(time_collected_str)
-                        )
+                        sample_rec.time_collected = time_collected
 
                     if sample_date_value:
                         changed = True
-                        # Pandas may have already parsed the date
-                        try:
-                            sample_date = dateutil.parser.parse(sample_date_value)
-                        except TypeError:
-                            sample_date = sample_date_value
                         sample_rec.date = sample_date
 
                     try:
@@ -627,6 +660,22 @@ class SampleTableLoader:
                         tracer=tracer_rec,
                         element=label_rec.element,
                     )
+
+    def check_for_inconsistencies(self, rec, value_dict):
+        inconsistencies = False
+        for field, new_value in enumerate(value_dict):
+            orig_value = getattr(rec, field)
+            if orig_value != new_value:
+                inconsistencies = True
+                self.errors.append(
+                    ConflictingValueError(
+                        rec,
+                        field,
+                        orig_value,
+                        new_value,
+                    ).with_traceback(traceback.format_exc())
+                )
+        return inconsistencies
 
     def check_headers(self, headers):
         known_headers = []
@@ -673,10 +722,15 @@ class SampleTableLoader:
 
         if header in self.headers_present:
             val = row[header]
+
             # We're ignoring missing headers.  Required headers check is covered in check_headers.
             val_required = getattr(self.RequiredSampleTableValues, header_attribute)
             if val_required and val is None:
                 self.missing_values[header].append(rownum)
+
+            # This will make later checks of values easier
+            if val == "":
+                val = None
 
         return val
 

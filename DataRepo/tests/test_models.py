@@ -43,7 +43,7 @@ from DataRepo.utils import (
     parse_tracer_concentrations,
 )
 
-VERBOSITY = 6
+VERBOSITY = 1
 
 
 class ExampleDataConsumer:
@@ -671,6 +671,7 @@ class DataLoadingTests(TracebaseTestCase):
             "Zeng\nIf all researchers are valid new researchers, add --skip-researcher-check to your command."
         )
         with self.assertRaises(Exception, msg=exp_err):
+            print("LOADING FILE WITH NEW RESEARCHER")
             call_command(
                 "load_samples",
                 "DataRepo/example_data/serum_lactate_timecourse_treatment_new_researcher.tsv",
@@ -2558,7 +2559,7 @@ class AnimalLoadingTests(TracebaseTestCase):
 
         super().setUpTestData()
 
-    def testLabeledElementParsing(self):
+    def test_labeled_element_parsing(self):
         call_command(
             "load_animals_and_samples",
             animal_and_sample_table_filename=(
@@ -2601,7 +2602,7 @@ class AnimalLoadingTests(TracebaseTestCase):
             "S",
         )
 
-    def testLabeledElementParsingInvalid(self):
+    def test_labeled_element_parsing_invalid(self):
         with self.assertRaisesMessage(
             IsotopeParsingError, "Encoded isotopes: [13Invalid6] cannot be parsed."
         ):
