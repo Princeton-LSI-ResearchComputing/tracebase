@@ -6,6 +6,7 @@ from DataRepo.utils.accucor_data_loader import (
 from DataRepo.utils.composite_data import leaderboard_data
 from DataRepo.utils.compounds_loader import CompoundsLoader
 from DataRepo.utils.exceptions import (
+    AggregatedErrors,
     AmbiguousCompoundDefinitionError,
     DryRun,
     HeaderConfigError,
@@ -29,6 +30,7 @@ from DataRepo.utils.sample_table_loader import SampleTableLoader
 from DataRepo.utils.tissues_loader import TissuesLoader
 
 __all__ = [
+    "AggregatedErrors",
     "AccuCorDataLoader",
     "CompoundsLoader",
     "HeaderError",

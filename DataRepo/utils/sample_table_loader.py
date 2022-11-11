@@ -74,6 +74,7 @@ class SampleTableLoader:
         ],
     )
 
+    # Configure what the headers are in the file
     DefaultSampleTableHeaders = SampleTableHeaders(
         SAMPLE_NAME="Sample Name",
         SAMPLE_DATE="Date Collected",
@@ -95,6 +96,7 @@ class SampleTableLoader:
         TRACER_CONCENTRATIONS="Tracer Concentrations",
     )
 
+    # Configure what headers are required
     RequiredSampleTableHeaders = SampleTableHeaders(
         ANIMAL_NAME=True,
         SAMPLE_NAME=True,
@@ -116,6 +118,7 @@ class SampleTableLoader:
         TRACER_CONCENTRATIONS=False,
     )
 
+    # Configure what values are required
     RequiredSampleTableValues = SampleTableHeaders(
         ANIMAL_NAME=True,
         SAMPLE_NAME=True,
@@ -145,14 +148,14 @@ class SampleTableLoader:
         verbosity=1,
         skip_researcher_check=False,
     ):
+        # Header config
         self.headers = sample_table_headers
-        self.missing_headers = []
-        self.missing_values = defaultdict(list)
         self.headers_present = []
-        self.animals_to_uncache = []
-        self.errors = []
-        self.skip_researcher_check = skip_researcher_check
+
+        # Verbosity affects log prints and error verbosity (for debugging)
         self.verbosity = verbosity
+
+        # Database config
         self.db = settings.TRACEBASE_DB
         # If a database was explicitly supplied
         if database is not None:
@@ -165,9 +168,20 @@ class SampleTableLoader:
                     self.db = settings.VALIDATION_DB
                 else:
                     raise ValidationDatabaseSetupError()
+
+        # Caching overhead
+        self.animals_to_uncache = []
+
+        # Error-tracking
+        self.errors = []
+        self.missing_headers = []
+        self.missing_values = defaultdict(list)
+
+        # Researcher consistency tracking (also a part of error-tracking)
+        self.skip_researcher_check = skip_researcher_check
+        self.known_researchers = get_researchers(database=self.db)
         self.input_researchers = []
         self.unknown_researchers = []
-        self.known_researchers = get_researchers(database=self.db)
 
     def load_sample_table(self, data, dry_run=False):
 
@@ -364,12 +378,13 @@ class SampleTableLoader:
         infusate_rec = None
         if infusate_str is not None:
             if tracer_concs is None:
-                self.errors.append(
-                    NoConcentrations(
+                try:
+                    raise NoConcentrations(
                         f"{self.headers.INFUSATE} [{infusate_str}] supplied without "
                         f"{self.headers.TRACER_CONCENTRATIONS}."
-                    ).with_traceback(traceback.format_exc())
-                )
+                    )
+                except NoConcentrations as nc:
+                    self.errors.append(nc)
             infusate_data_object = parse_infusate_name(infusate_str, tracer_concs)
             infusate_rec = Infusate.objects.using(self.db).get_or_create_infusate(
                 infusate_data_object
@@ -663,18 +678,19 @@ class SampleTableLoader:
 
     def check_for_inconsistencies(self, rec, value_dict):
         inconsistencies = False
-        for field, new_value in enumerate(value_dict):
+        for field, new_value in value_dict.items():
             orig_value = getattr(rec, field)
             if orig_value != new_value:
                 inconsistencies = True
-                self.errors.append(
-                    ConflictingValueError(
+                try:
+                    raise ConflictingValueError(
                         rec,
                         field,
                         orig_value,
                         new_value,
-                    ).with_traceback(traceback.format_exc())
-                )
+                    )
+                except ConflictingValueError as cve:
+                    self.errors.append(cve)
         return inconsistencies
 
     def check_headers(self, headers):
