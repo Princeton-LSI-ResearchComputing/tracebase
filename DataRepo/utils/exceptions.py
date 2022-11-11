@@ -109,8 +109,9 @@ class ConflictingValueError(Exception):
     ):
         if not message:
             message = (
-                f"Conflicting values encountered in {type(rec).__name__} record [{str(rec)}] for field "
-                f"{consistent_field}: original value: [{existing_value}] differs from new value: [{differing_value}]."
+                f"Conflicting values encountered in {type(rec).__name__} record [{str(rec)}] for the "
+                f"[{consistent_field}] field:\n\tdatabase value: [{existing_value}]\n\tload data value: "
+                f"[{differing_value}]."
             )
         super().__init__(message)
         self.consistent_field = consistent_field

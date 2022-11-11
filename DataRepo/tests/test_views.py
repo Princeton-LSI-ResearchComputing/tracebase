@@ -743,7 +743,8 @@ def validate_some_files(testobj):
     # Check the sample file details
     testobj.assertTrue("data_submission_animal_sample_table.xlsx" in results)
     testobj.assertTrue("data_submission_animal_sample_table.xlsx" in errors)
-
+    print("VALIDATION ERRORS:")
+    print(", ".join(errors["data_submission_animal_sample_table.xlsx"]))
     # The researcher warning technically results in a validation failure (because it's an exception), but it's the
     # last possible check on the file on purpose so that everything else is guaranteed to be OK
     testobj.assertTrue(valid)

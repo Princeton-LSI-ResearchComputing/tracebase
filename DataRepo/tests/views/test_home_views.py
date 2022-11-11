@@ -22,7 +22,11 @@ class HomeViewTests(TracebaseTestCase):
 
     @classmethod
     def setUpTestData(cls):
-        call_command("load_study", "DataRepo/example_data/test_dataframes/loading.yaml")
+        call_command(
+            "load_study",
+            "DataRepo/example_data/test_dataframes/loading.yaml",
+            verbosity=6,
+        )
         cls.ALL_TISSUES_COUNT = 37
         cls.ALL_COMPOUNDS_COUNT = 51
         cls.ALL_TRACERS_COUNT = 9

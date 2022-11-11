@@ -44,6 +44,7 @@ def load_minimum_data():
         "load_samples",
         "DataRepo/example_data/small_dataset/small_obob_sample_table_2ndstudy.tsv",
         sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
+        verbosity=6,
     )
     call_command(
         "load_accucor_msruns",

@@ -8,6 +8,7 @@ from DataRepo.utils.compounds_loader import CompoundsLoader
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     AmbiguousCompoundDefinitionError,
+    ConflictingValueError,
     DryRun,
     HeaderConfigError,
     HeaderError,
@@ -33,6 +34,7 @@ __all__ = [
     "AggregatedErrors",
     "AccuCorDataLoader",
     "CompoundsLoader",
+    "ConflictingValueError",
     "HeaderError",
     "HeaderConfigError",
     "IsotopeObservationData",

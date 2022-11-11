@@ -35,6 +35,7 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import (
     AccuCorDataLoader,
     AggregatedErrors,
+    ConflictingValueError,
     IsotopeObservationData,
     IsotopeObservationParsingError,
     IsotopeParsingError,
@@ -684,17 +685,26 @@ class DataLoadingTests(TracebaseTestCase):
             exp_err,
             str(ures[0]),
         )
-        self.assertEqual(54, len(ar.exception.errors))
+        self.assertEqual(30, len(ar.exception.errors))
 
     def test_ls_new_researcher_confirmed(self):
-        call_command(
-            "load_samples",
-            "DataRepo/example_data/serum_lactate_timecourse_treatment_new_researcher.tsv",
-            sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
-            skip_researcher_check=True,
-        )
-        # Test that basically, no exception occurred
-        self.assertTrue(True)
+        with self.assertRaises(AggregatedErrors) as ar:
+            call_command(
+                "load_samples",
+                "DataRepo/example_data/serum_lactate_timecourse_treatment_new_researcher.tsv",
+                sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
+                skip_researcher_check=True,
+            )
+        # Test that no researcher exception occurred
+        ures = [e for e in ar.exception.errors if isinstance(e, UnknownResearcherError)]
+        self.assertEqual(0, len(ures))
+        # There are 24 ConflictingValueErrors expected (Same samples with different researcher: Han Solo)
+        cves = [e for e in ar.exception.errors if isinstance(e, ConflictingValueError)]
+        self.assertIn("Han Solo", str(cves[0]))
+        self.assertEqual(24, len(cves))
+        # There are 24 expected errors total
+        self.assertEqual(24, len(ar.exception.errors))
+        self.assertEqual("24 errors occurred.", str(ar.exception))
 
     @tag("fcirc")
     def test_peakgroup_from_serum_sample_false(self):

@@ -288,7 +288,9 @@ class SampleTableLoader:
                     ).with_traceback(e.__traceback__)
                 )
             except Exception as e:
-                self.errors.append(TissueError(e).with_traceback(e.__traceback__))
+                self.errors.append(
+                    TissueError(type(e).__name__, e).with_traceback(e.__traceback__)
+                )
         return tissue_rec, is_blank
 
     def get_or_create_study(self, rownum, row, animal_rec):
@@ -428,7 +430,9 @@ class SampleTableLoader:
                     )
                 except Exception as e:
                     self.errors.append(
-                        TreatmentError(e).with_traceback(e.__traceback__)
+                        TreatmentError(type(e).__name__, e).with_traceback(
+                            e.__traceback__
+                        )
                     )
 
         elif self.verbosity >= 2:
@@ -562,11 +566,12 @@ class SampleTableLoader:
         if time_collected_str:
             time_collected = timedelta(minutes=float(time_collected_str))
         if sample_date_value:
-            # Pandas may have already parsed the date
+            # Pandas may have already parsed the date.  Note that the database returns a datetime.date, but the parser
+            # returns a datetime.datetime.  To compare them, the parsed value is cast to a datetime.date.
             try:
-                sample_date = dateutil.parser.parse(sample_date_value)
+                sample_date = dateutil.parser.parse(sample_date_value).date()
             except TypeError:
-                sample_date = sample_date_value
+                sample_date = sample_date_value.date()
 
         # Create a sample record - requires a tissue and animal record
         if sample_name and tissue_rec and animal_rec:
@@ -577,8 +582,9 @@ class SampleTableLoader:
                     name=sample_name
                 )
 
-                # Now check that the values are consistent
-                inconsistencies = self.check_for_inconsistencies(
+                # Now check that the values are consistent.  Adds conflicts to self.errors and returns update info for
+                # null fields
+                updates_dict = self.check_for_inconsistencies(
                     sample_rec,
                     {
                         "animal": animal_rec,
@@ -589,7 +595,24 @@ class SampleTableLoader:
                     },
                 )
 
-                if self.verbosity >= 2 and not inconsistencies:
+                if len(updates_dict.keys()) > 0 and self.db == settings.TRACEBASE_DB:
+                    if self.verbosity >= 2:
+                        print(
+                            f"Updating [{', '.join(updates_dict.keys())}] in Sample record: [{sample_name}]"
+                        )
+                    for f, v in updates_dict.items():
+                        setattr(sample_rec, f, v)
+                    try:
+                        # Even if there wasn't a change, get_or_create doesn't do a full_clean
+                        sample_rec.full_clean()
+                        sample_rec.save(using=self.db)
+                    except Exception as e:
+                        self.errors.append(
+                            SaveError(
+                                Sample.__name__, str(sample_rec), self.db, e
+                            ).with_traceback(e.__traceback__)
+                        )
+                elif self.verbosity >= 2:
                     print(f"SKIPPING existing Sample record: {sample_name}")
 
             except Sample.DoesNotExist:
@@ -608,14 +631,55 @@ class SampleTableLoader:
                         animal=animal_rec,
                         tissue=tissue_rec,
                     )
+                except IntegrityError:
+                    # If we get here, it means that it tried to create because not all values matched, but upon
+                    # creation, the unique sample name collided.  We just need to check_for_inconsistencies
+
+                    sample_rec = Sample.objects.using(self.db).get(name=sample_name)
+
+                    # Now check that the values are consistent.  Adds conflicts to self.errors and returns update info
+                    # for null fields
+                    updates_dict = self.check_for_inconsistencies(
+                        sample_rec,
+                        {
+                            "animal": animal_rec,
+                            "tissue": tissue_rec,
+                            "time_collected": time_collected,
+                            "date": sample_date,
+                            "researcher": researcher,
+                        },
+                    )
+
+                    if len(updates_dict.keys()) > 0:
+                        if self.verbosity >= 2:
+                            print(
+                                f"Updating [{', '.join(updates_dict.keys())}] in Sample record: [{sample_name}]"
+                            )
+                        for f, v in updates_dict.items():
+                            setattr(sample_rec, f, v)
+                        try:
+                            # Even if there wasn't a change, get_or_create doesn't do a full_clean
+                            if self.db == settings.TRACEBASE_DB:
+                                # full_clean does not have a using parameter. It only supports the default database
+                                sample_rec.full_clean()
+                            sample_rec.save(using=self.db)
+                        except Exception as e:
+                            sample_rec = None
+                            sample_created = False
+                            self.errors.append(
+                                SaveError(
+                                    Sample.__name__, str(sample_rec), self.db, e
+                                ).with_traceback(e.__traceback__)
+                            )
+                    else:
+                        sample_rec = None
+                        sample_created = False
+
                 except Exception as e:
-                    # This script is permissive, to generate as many actionable errors as possible in one run, but if
-                    # either animal or tissue are None (required in a sample record), don't generate more pointless
-                    # errors, just return None
-                    if not animal_rec or not tissue_rec:
-                        return None
+                    sample_rec = None
+                    sample_created = False
                     self.errors.append(
-                        SampleError(str(e)).with_traceback(e.__traceback__)
+                        SampleError(type(e).__name__, e).with_traceback(e.__traceback__)
                     )
 
                 if sample_created:
@@ -650,7 +714,9 @@ class SampleTableLoader:
                             ).with_traceback(e.__traceback__)
                         )
             except Exception as e:
-                self.errors.append(SampleError(e).with_traceback(e.__traceback__))
+                self.errors.append(
+                    SampleError(type(e).__name__, e).with_traceback(e.__traceback__)
+                )
 
         return sample_rec
 
@@ -677,11 +743,12 @@ class SampleTableLoader:
                     )
 
     def check_for_inconsistencies(self, rec, value_dict):
-        inconsistencies = False
+        updates_dict = {}
         for field, new_value in value_dict.items():
             orig_value = getattr(rec, field)
-            if orig_value != new_value:
-                inconsistencies = True
+            if orig_value is None and new_value is not None:
+                updates_dict[field] = new_value
+            elif orig_value != new_value:
                 try:
                     raise ConflictingValueError(
                         rec,
@@ -691,7 +758,7 @@ class SampleTableLoader:
                     )
                 except ConflictingValueError as cve:
                     self.errors.append(cve)
-        return inconsistencies
+        return updates_dict
 
     def check_headers(self, headers):
         known_headers = []
@@ -756,8 +823,8 @@ class NoConcentrations(Exception):
 
 
 class UnanticipatedError(Exception):
-    def __init__(self, e):
-        message = f"UnanticipatedError: {type(e).__name__}: {str(e)}"
+    def __init__(self, type, e):
+        message = f"{type}: {str(e)}"
         super().__init__(message)
 
 

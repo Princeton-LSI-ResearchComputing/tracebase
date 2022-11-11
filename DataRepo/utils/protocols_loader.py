@@ -117,7 +117,10 @@ class ProtocolsLoader:
                             f"New description = '{description}'"
                         )
             except (IntegrityError, ValidationError) as e:
-                self.errors.append(f"{type(e).__name__} on row {index + 1}: {e}")
+                self.errors.append(
+                    f"{type(e).__name__} in the {db} database on data row {index + 1}, creating {category} record for "
+                    f"protocol '{name}' with description '{description}': {e}"
+                )
             except KeyError:
                 raise ValidationError(
                     "ProtocolLoader requires a dataframe with 'name' and 'description' headers/keys."
