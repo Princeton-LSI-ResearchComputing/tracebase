@@ -179,7 +179,7 @@ class SampleTableLoader:
 
         # Researcher consistency tracking (also a part of error-tracking)
         self.skip_researcher_check = skip_researcher_check
-        self.known_researchers = get_researchers(database=self.db)
+        self.known_researchers = get_researchers(database=settings.TRACEBASE_DB)
         self.input_researchers = []
         self.unknown_researchers = []
 
@@ -241,6 +241,12 @@ class SampleTableLoader:
                         else:
                             print("No trace available.")
                     print(f"{type(err).__name__}: {str(err)}")
+            # If we're stopping with an exception, we need to clear the update buffer so that the next call doesn't
+            # make auto-updates on non-existent (or incorrect) records
+            clear_update_buffer()
+            # And before we leave, we must re-enable auto-updates
+            enable_autoupdates()
+            enable_buffering()
             raise AggregatedErrors(self.errors)
 
         enable_caching_updates()

@@ -46,8 +46,6 @@ from DataRepo.utils import (
 )
 from DataRepo.utils.exceptions import UnknownResearcherError
 
-VERBOSITY = 1
-
 
 class ExampleDataConsumer:
     def get_sample_test_dataframe(self):
@@ -343,7 +341,6 @@ class DataLoadingTests(TracebaseTestCase):
             sample_table_filename="DataRepo/example_data/obob_samples_table.tsv",
             animal_table_filename="DataRepo/example_data/obob_animals_table.tsv",
             table_headers="DataRepo/example_data/sample_and_animal_tables_headers.yaml",
-            verbosity=VERBOSITY,
         )
 
         # from DataRepo/example_data/obob_sample_table.tsv, not counting the header and BLANK samples
@@ -685,7 +682,8 @@ class DataLoadingTests(TracebaseTestCase):
             exp_err,
             str(ures[0]),
         )
-        self.assertEqual(30, len(ar.exception.errors))
+        # There are 24 conflicts due to this file being a copy of a file already loaded, with the reseacher changed.
+        self.assertEqual(25, len(ar.exception.errors))
 
     def test_ls_new_researcher_confirmed(self):
         with self.assertRaises(AggregatedErrors) as ar:
@@ -1840,7 +1838,6 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         call_command(
             "load_study",
             "DataRepo/example_data/small_dataset/small_obob_study_prerequisites.yaml",
-            verbosity=2,
         )
 
         call_command(

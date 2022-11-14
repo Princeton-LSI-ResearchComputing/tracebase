@@ -1174,7 +1174,6 @@ class FormatsTests(TracebaseTestCase):
                 "DataRepo/example_data/small_multitracer_data/animal_sample_table.xlsx"
             ),
             skip_researcher_check=True,
-            verbosity=6,
         )
         call_command(
             "load_accucor_msruns",

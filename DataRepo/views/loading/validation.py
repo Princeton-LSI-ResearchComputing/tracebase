@@ -101,7 +101,6 @@ class DataValidationView(FormView):
                     "load_protocols",
                     protocols=animal_sample_dict[animal_sample_name],
                     validate=True,
-                    verbosity=2,
                 )
                 # Do not set PASSED here. If the full animal/sample table load passes, THEN this file has passed.
             except Exception as e:
@@ -228,7 +227,7 @@ class DataValidationView(FormView):
                             valid = False
                             results[af] = "FAILED"
                             errors[af].append(
-                                "Samples in the accucor file are missing in the animal and sample table: "
+                                f"Samples in the accucor file [{af}] are missing in the animal and sample table: "
                                 + f"[{', '.join(real_samples)}]"
                             )
                     except Exception as e:

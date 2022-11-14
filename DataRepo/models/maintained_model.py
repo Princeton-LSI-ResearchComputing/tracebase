@@ -1115,11 +1115,11 @@ class AutoUpdateFailed(Exception):
             obj_str = "unknown"
         message = (
             f"Autoupdate of the {model_object.__class__.__name__} model's fields [{', '.join(updater_flds)}] in the "
-            f"{database} database failed for record {obj_str}.  Potential causes: 1. The record was created and "
-            "deleted before the buffered update (a catch for the exception should be added and ignored).  2. The "
-            "autoupdate buffer is stale and auto-updates are being attempted on partial or deleted records (be sure "
-            "to call clear_update_buffer if only updating a subset of the buffered contents).  The triggering "
-            f"{err.__class__.__name__} exception: [{err}]."
+            f"{database} database failed for record {obj_str}.  Potential causes:\n\t1. The record was created and "
+            "deleted before the buffered update (a catch for the exception should be added and ignored).\n\t2. The "
+            "autoupdate buffer is stale and auto-updates are being attempted on non-existent records.  Find a "
+            "previous call to a loader that performs mass auto-updates and ensure that clear_update_buffer() is "
+            f"called.\nThe triggering {err.__class__.__name__} exception: [{err}]."
         )
         super().__init__(message)
 
@@ -1146,8 +1146,18 @@ class StaleAutoupdateMode(Exception):
 class LikelyStaleBufferError(Exception):
     def __init__(self, model_object):
         message = (
-            f"Uutoupdates to {model_object.__class__.__name__} encountered a unique constraint violation.  Note, this "
+            f"Autoupdates to {model_object.__class__.__name__} encountered a unique constraint violation.  Note, this "
             "often happens when the auto-update buffer contains stale records.  Be sure the buffer is empty before "
             "calling disable_autoupdates() (if it is intended to be empty)."
         )
+        super().__init__(message)
+
+
+class UncleanBufferError(Exception):
+    def __init__(self, message=None):
+        if message is None:
+            message = (
+                "The auto-update buffer is unexpectedly populated.  Make sure failed or suspended loads clean up the "
+                "buffer when they finish."
+            )
         super().__init__(message)
