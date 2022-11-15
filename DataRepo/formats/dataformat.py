@@ -1,7 +1,10 @@
+import warnings
 from copy import deepcopy
+from datetime import timedelta
 from typing import Dict, List, Optional
 
 from django.db.models import CharField, F, Model, Value
+from pytimeparse.timeparse import timeparse
 
 from DataRepo.formats.dataformat_group_query import (
     appendFilterToGroup,
@@ -13,6 +16,7 @@ from DataRepo.formats.dataformat_group_query import (
     getField,
     getFilterType,
     getSearchTree,
+    getUnits,
     getValue,
     isAllGroup,
     isQuery,
@@ -38,8 +42,8 @@ class Format:
     stats: Optional[List[Dict]] = None
     ncmp_choices = {
         "number": [
-            ("iexact", "is"),
-            ("not_iexact", "is not"),
+            ("exact", "is"),
+            ("not_exact", "is not"),
             ("lt", "<"),
             ("lte", "<="),
             ("gt", ">"),
@@ -89,6 +93,7 @@ class Format:
                     "name": "identity",
                     "example": None,
                     "convert": lambda v: v,
+                    "pyconvert": lambda v: v,
                 },
             },
         },
@@ -105,6 +110,7 @@ class Format:
                     "name": "n.n{units},...",
                     "example": "1w,1d,1:01:01.1",
                     "convert": lambda v: v,
+                    "pyconvert": lambda v: timedelta(seconds=timeparse(v)),
                     "about": (
                         "Values can be entered using the following format pattern: `[n{units}{:|,}]*hh:mm:ss[.f]`, "
                         "where units can be:\n\n- c[enturies]\n- decades\n- y[ears]\n- months\n- w[eeks]\n- d[ays]\n- "
@@ -118,72 +124,90 @@ class Format:
                     "name": "ny,nm,nw,nd",
                     "example": "0y,1m,2w,3d",
                     "convert": lambda v: v,
+                    # NOTE: this pyconvert will raise an exception on any unit greater than weeks, but it's currently
+                    # only used for results stats, and we control that - not the user
+                    "pyconvert": lambda v: timedelta(seconds=timeparse(v)),
                 },
                 "clocktime": {
                     # format: [hh:mm[:ss]]
                     "name": "clocktime (hh:mm[:ss])",
                     "example": "2:30:10.1",
                     "convert": lambda v: v,
+                    # NOTE: this pyconvert will raise an exception on any unit greater than weeks, but it's currently
+                    # only used for results stats, and we control that - not the user
+                    "pyconvert": lambda v: timedelta(seconds=timeparse(v)),
                 },
                 "millennia": {
                     "name": "millennia",
                     "example": "1.0",
                     "convert": lambda v: f"{v}millenniums",
+                    "pyconvert": lambda v: timedelta(days=float(v) * 1000 * 365.25),
                 },
                 "centuries": {
                     "name": "centuries",
                     "example": "1.0",
                     "convert": lambda v: f"{v}c",
+                    "pyconvert": lambda v: timedelta(days=float(v) * 100 * 365.25),
                 },
                 "decades": {
                     "name": "decades",
                     "example": "1.0",
                     "convert": lambda v: f"{v}decades",
+                    "pyconvert": lambda v: timedelta(days=float(v) * 10 * 365.25),
                 },
                 "years": {
                     "name": "years",
                     "example": "1.0",
                     "convert": lambda v: f"{v}y",
+                    "pyconvert": lambda v: timedelta(days=float(v) * 365.25),
                 },
                 "months": {
                     "name": "months",
                     "example": "1.0",
                     "convert": lambda v: f"{v}months",
+                    "pyconvert": lambda v: timedelta(days=float(v) * 30.437),
                 },
                 "weeks": {
                     "name": "weeks",
                     "example": "1.0",
                     "convert": lambda v: f"{v}w",
+                    "pyconvert": lambda v: timedelta(weeks=float(v)),
                 },
                 "days": {
                     "name": "days",
                     "example": "1.0",
                     "convert": lambda v: f"{v}d",
+                    "pyconvert": lambda v: timedelta(days=float(v)),
                 },
                 "hours": {
                     "name": "hours",
                     "example": "1.0",
                     "convert": lambda v: f"{v}h",
+                    "pyconvert": lambda v: timedelta(hours=float(v)),
                 },
                 "minutes": {
                     "name": "minutes",
                     "example": "1.0",
                     "convert": lambda v: f"{v}m",
+                    "pyconvert": lambda v: timedelta(minutes=float(v)),
                 },
                 "seconds": {
                     "name": "seconds",
                     "example": "1.0",
                     "convert": lambda v: f"{v}s",
+                    "pyconvert": lambda v: timedelta(seconds=float(v)),
                 },
                 "milliseconds": {
                     "name": "milliseconds",
                     "example": "1.0",
                     "convert": lambda v: f"{v}milliseconds",
+                    "pyconvert": lambda v: timedelta(milliseconds=float(v)),
                 },
                 "microseconds": {
                     "name": "microseconds",
                     "example": "1.0",
                     "convert": lambda v: f"{v}microseconds",
+                    "pyconvert": lambda v: timedelta(microseconds=float(v)),
                 },
             },
         },
@@ -266,7 +290,28 @@ class Format:
         - self.unit_options[units_key]["entry_options"]
 
         The value is a dict keyed on the values of the units select list and contains the selected units' name, example
-        string, and convert function.
+        string, and convert function.  For example, for a key of `msrun__sample__animal__age`, a lookup of that key
+        would look like:
+
+        returned_dict["msrun__sample__animal__age"] -> {
+            ...
+            "months": {
+                "name": "months",
+                "example": "1.0",
+                "convert": lambda v: f"{v}months",
+                "pyconvert": lambda v: timedelta(days=float(v) * 30.437),
+            },
+            "weeks": {
+                "name": "weeks",
+                "example": "1.0",
+                "convert": lambda v: f"{v}w",
+                "pyconvert": lambda v: timedelta(weeks=float(v)),
+            },
+            ...
+        }
+
+        And the units value the user selected in the search form, corresponds to the keys in that dict (e.g. "months"
+        or "weeks").
         """
         units_lookup = {}
         for mdl in self.model_instances.keys():
@@ -1096,8 +1141,13 @@ class Format:
         table records exist.
         """
         if isQuery(query):
-            recval = rootrec[field_order.index(getField(query))]
-            return self.meetsCondition(recval, getComparison(query), getValue(query))
+            fld = getField(query)
+            val = getValue(query)
+            ncmp = getComparison(query)
+            units = getUnits(query)
+            recval = rootrec[field_order.index(fld)]
+            searchterm = self.matchUnits(fld, val, units)
+            return self.meetsCondition(recval, ncmp, searchterm)
         else:
             if isAllGroup(query):
                 for subquery in getChildren(query):
@@ -1112,6 +1162,34 @@ class Format:
                         return True
                 return False
 
+    def matchUnits(self, fld, val, units):
+        """
+        This is a python code version of matching units of the search term with the value returned from a query.  It
+        takes the field path, the search term value, and the units, and returns the search term value in the units/
+        format that the database returns so that they can be compared in `self.meetsCondition()`.
+
+        If
+        """
+        units_lookup = self.getFieldUnitsLookup()
+        if fld in units_lookup.keys():
+            if units in units_lookup[fld].keys():
+                try:
+                    return units_lookup[fld][units]["pyconvert"](val)
+                except Exception as e:
+                    # Gracefully fail and log the problem
+                    warnings.warn(
+                        f"Python conversion of units [{units}] for field [{fld}] value [{val}] in format "
+                        f"[{self.name}] failed with an exception: {str(e)}.  Returning original value.  Fix the "
+                        "[pyconvert] function in Format.unit_options to better handle this value."
+                    )
+            warnings.warn(
+                f"Units [{units}] dict for field [{fld}] not found for format [{self.name}]."
+            )
+        warnings.warn(
+            f"Units lookup is missing field key [{fld}] not found for format [{self.name}]."
+        )
+        return val
+
     def meetsCondition(self, recval, condition, searchterm):
         """
         Determines whether the recval and search term match, given the matching condition.
@@ -1123,6 +1201,10 @@ class Format:
             return recval.lower() == searchterm.lower()
         elif condition == "not_iexact":
             return recval.lower() != searchterm.lower()
+        elif condition == "exact":
+            return recval == searchterm
+        elif condition == "not_exact":
+            return recval != searchterm
         elif condition == "lt":
             return recval < searchterm
         elif condition == "lte":
