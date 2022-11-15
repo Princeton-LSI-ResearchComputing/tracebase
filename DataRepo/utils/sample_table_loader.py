@@ -233,9 +233,9 @@ class SampleTableLoader:
             self.errors.append(RequiredValuesError(self.missing_values))
 
         if len(self.errors) > 0:
-            if self.verbosity >= 5:
+            if self.verbosity >= 2:
                 for err in self.errors:
-                    if self.verbosity >= 6:
+                    if self.verbosity >= 3:
                         if err.__traceback__:
                             traceback.print_exception(type(err), err, err.__traceback__)
                         else:
@@ -259,13 +259,13 @@ class SampleTableLoader:
             enable_buffering()
             raise DryRun()
 
-        if self.verbosity >= 3:
+        if self.verbosity >= 2:
             print("Expiring affected caches...")
         for animal_rec in self.animals_to_uncache:
-            if self.verbosity >= 4:
+            if self.verbosity >= 3:
                 print(f"Expiring animal {animal_rec.id}'s cache")
             animal_rec.delete_related_caches()
-        if self.verbosity >= 3:
+        if self.verbosity >= 2:
             print("Expiring done.")
 
         # Cannot perform buffered updates of FCirc, Sample, or Animal's last serum tracer peak group because no peak
