@@ -369,7 +369,13 @@ function updateValFields (fldInitVal, ncmpInitVal, unitsClone, valClone, templat
     valFields.valTextBox.style = 'display:none;'
     valFields.valSelectList.style = 'display:none;'
   } else if (dbFieldType === 'string' || dbFieldType === 'number') {
-    valClone.value = valFields.valTextBox.value
+    // If the initval was 'dummy' empty it out (note, this will fail if the user actually wants to search for 'dummy')
+    if (valFields.valTextBox.value === 'dummy') {
+      valClone.value = ''
+      valFields.valTextBox.value = ''
+    } else {
+      valClone.value = valFields.valTextBox.value
+    }
     valFields.valTextBox.style = ''
     valFields.valSelectList.style = 'display:none;'
     if (dbFieldType === 'string') {
