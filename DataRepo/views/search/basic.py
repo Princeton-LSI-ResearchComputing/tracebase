@@ -15,7 +15,9 @@ from DataRepo.views.utils import get_cookie
 
 
 def search_basic(request, mdl, fld, cmp, val, fmt, units=None):
-    """Generic function-based view for a basic search."""
+    """
+    Generic function-based view for a basic search.
+    """
 
     # Base Advanced Search View Metadata
     basv_metadata = SearchGroup()
