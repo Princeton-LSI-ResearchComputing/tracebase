@@ -1,5 +1,3 @@
-from django.test import tag
-
 from DataRepo.models.compound import Compound
 from DataRepo.models.maintained_model import (
     MaintainedFieldNotSettable,
@@ -25,7 +23,6 @@ def create_tracer_record():
     return glu_t
 
 
-@tag("multi_working")
 class TracerTests(TracebaseTestCase):
     def test_tracer_name(self):
         tracer = create_tracer_record()

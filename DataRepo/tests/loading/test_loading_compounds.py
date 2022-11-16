@@ -11,7 +11,6 @@ from DataRepo.utils.compounds_loader import CompoundExists, CompoundNotFound
 
 @tag("compounds")
 @tag("loading")
-@tag("multi_working")
 class LoadCompoundsTests(TracebaseTestCase):
     """Tests Loading of Compounds"""
 
@@ -39,7 +38,6 @@ class LoadCompoundsTests(TracebaseTestCase):
 
 @override_settings(CACHES=settings.TEST_CACHES)
 @tag("compound_loading")
-@tag("multi_working")
 class CompoundLoadingTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
@@ -131,7 +129,6 @@ class CompoundLoadingTests(TracebaseTestCase):
 
 @override_settings(CACHES=settings.TEST_CACHES)
 @tag("compound_loading")
-@tag("multi_working")
 class CompoundLoadingTestErrors(TracebaseTestCase):
     """Tests loading of Compounds with errors"""
 
@@ -149,7 +146,6 @@ class CompoundLoadingTestErrors(TracebaseTestCase):
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
-@tag("multi_working")
 class CompoundsLoaderTests(TracebaseTestCase):
     def get_dataframe(self):
         return pd.read_csv(
@@ -184,7 +180,6 @@ class CompoundsLoaderTests(TracebaseTestCase):
 
 @override_settings(CACHES=settings.TEST_CACHES)
 @tag("compound_loading")
-@tag("multi_working")
 class CompoundValidationLoadingTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):

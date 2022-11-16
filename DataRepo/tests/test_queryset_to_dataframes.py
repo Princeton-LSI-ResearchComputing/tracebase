@@ -20,6 +20,10 @@ class QuerysetToPandasDataFrameBaseTests(TracebaseTestCase):
     """
 
     @classmethod
+    def setUpTestData(cls):
+        cls.load_data()
+
+    @classmethod
     def load_data(self):
         call_command("load_study", "DataRepo/example_data/test_dataframes/loading.yaml")
 
@@ -252,28 +256,24 @@ class QuerysetToPandasDataFrameBaseTests(TracebaseTestCase):
 
 
 @tag("qs2df")
-@tag("multi_working")
 class QuerysetToPandasDataFrameTests(QuerysetToPandasDataFrameBaseTests):
     @classmethod
     def setUpTestData(cls):
         enable_buffering()
-        cls.load_data()
         super().setUpTestData()
 
 
-@tag("multi_working")
 class QuerysetToPandasDataFrameNullToleranceTests(QuerysetToPandasDataFrameBaseTests):
     @classmethod
     def setUpTestData(cls):
         # Silently dis-allow auto-updates by disabling buffering
         disable_buffering()
         try:
-            cls.load_data()
+            super().setUpTestData()
         except Exception as e:
-            enable_buffering()
             raise e
-        enable_buffering()
-        super().setUpTestData()
+        finally:
+            enable_buffering()
 
     def test_study_list_stat_df(self):
         super().test_study_list_stat_df()

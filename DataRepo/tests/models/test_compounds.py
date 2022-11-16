@@ -1,13 +1,12 @@
 from django.conf import settings
 from django.db import IntegrityError
-from django.test import override_settings, tag
+from django.test import override_settings
 
 from DataRepo.models import Compound, CompoundSynonym
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
-@tag("multi_working")
 class CompoundTests(TracebaseTestCase):
     def setUp(self):
         super().setUp()
@@ -43,7 +42,6 @@ class CompoundTests(TracebaseTestCase):
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
-@tag("multi_working")
 class CompoundSynonymTests(TracebaseTestCase):
     def setUp(self):
         super().setUp()
