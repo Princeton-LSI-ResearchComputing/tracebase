@@ -41,12 +41,10 @@ class ProtocolsLoader:
         # Pre-existing, matching protocols
         self.existing = {}
         self.db = settings.TRACEBASE_DB
-        self.loading_mode = "both"
         # If a database was explicitly supplied
         if database is not None:
             self.validate = False
             self.db = database
-            self.loading_mode = "one"
         else:
             self.validate = validate
             if validate:
@@ -54,23 +52,9 @@ class ProtocolsLoader:
                     self.db = settings.VALIDATION_DB
                 else:
                     raise ValidationDatabaseSetupError()
-                self.loading_mode = "one"
-            else:
-                self.loading_mode = "both"
 
     def load(self):
-        # "both" is the normal loading mode - always loads both the validation and tracebase databases, unless the
-        # database is explicitly supplied or --validate is supplied
-        if self.loading_mode == "both":
-            self.load_database(settings.TRACEBASE_DB)
-            if settings.VALIDATION_ENABLED:
-                self.load_database(settings.VALIDATION_DB)
-        elif self.loading_mode == "one":
-            self.load_database(self.db)
-        else:
-            raise Exception(
-                f"Internal error: Invalid loading_mode: [{self.loading_mode}]"
-            )
+        self.load_database(self.db)
 
     @transaction.atomic
     def load_database(self, db):
@@ -99,40 +83,42 @@ class ProtocolsLoader:
                     if description is None:
                         description = ""
 
-                    # We will assume that the validation DB has up-to-date protocols
-                    protocol, created = Protocol.objects.using(db).get_or_create(
-                        name=name, category=category
-                    )
-                    if created:
-                        protocol.description = description
+                    # Try and get the protocol
+                    protocol_rec, protocol_created = Protocol.objects.using(
+                        db
+                    ).get_or_create(name=name, category=category)
+                    # If no protocol was found, create it
+                    if protocol_created:
+                        protocol_rec.description = description
+                        print("Saving protocol with description")
                         # full_clean cannot validate (e.g. uniqueness) using a non-default database
-                        if db == settings.DEFAULT_DB:
-                            protocol.full_clean()
-                        protocol.save(using=db)
+                        if db == settings.TRACEBASE_DB:
+                            protocol_rec.full_clean()
+                        protocol_rec.save(using=db)
                         if db in self.created:
-                            self.created[db].append(protocol)
+                            self.created[db].append(protocol_rec)
                         else:
-                            self.created[db] = [protocol]
+                            self.created[db] = [protocol_rec]
                         self.notices.append(
-                            f"Created new protocol {protocol}:{description} in the {db} database"
+                            f"Created new protocol {protocol_rec}:{description} in the {db} database"
                         )
-                    elif protocol.description == description:
+                    elif protocol_rec.description == description:
                         if db in self.existing:
-                            self.existing[db].append(protocol)
+                            self.existing[db].append(protocol_rec)
                         else:
-                            self.existing[db] = [protocol]
+                            self.existing[db] = [protocol_rec]
                         self.notices.append(
-                            f"Matching protocol {protocol} already exists, skipping"
+                            f"Matching protocol {protocol_rec} already exists, skipping"
                         )
                     else:
                         raise ValidationError(
                             f"Protocol with name = '{name}' but a different description already exists: "
-                            f"Existing description = '{protocol.description}' "
+                            f"Existing description = '{protocol_rec.description}' "
                             f"New description = '{description}'"
                         )
             except (IntegrityError, ValidationError) as e:
-                self.errors.append(f"Error in row {index + 1}: {e}")
-            except (KeyError):
+                self.errors.append(f"{type(e).__name__} on row {index + 1}: {e}")
+            except KeyError:
                 raise ValidationError(
                     "ProtocolLoader requires a dataframe with 'name' and 'description' headers/keys."
                 ) from None

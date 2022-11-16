@@ -21,7 +21,5 @@ attention to.  E.g. There are significant logic changes in function X.
 - [ ] [Migrations created & committed *(or no model changes)*](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/CONTRIBUTING.md#migration-process)
 - Tests
   - [ ] [Tests implemented *(or no code changes)*](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/CONTRIBUTING.md#test-implementation)
-  - [ ] [All *multi_working* tag tests pass locally](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/CONTRIBUTING.md#quality-control)
+  - [ ] [All tests pass](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/CONTRIBUTING.md#quality-control)
   - [ ] All example load tests pass (remotely) *(or their failures predated and are unrelated to this branch)*
-  - [ ] `@tag("multi_working")` added to newly passing test functions/classes *(or no newly passing tests)*
-  - [ ] `@tag("multi_broken")`, `@tag("multi_unknown")`, or `@tag("multi_mixed")` removed from newly passing test functions/classes *(or no newly passing tests)*

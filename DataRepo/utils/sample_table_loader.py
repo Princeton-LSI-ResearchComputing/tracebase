@@ -125,7 +125,7 @@ class SampleTableLoader:
         Gets a unique list of researchers from the file being loaded and ensures the researchers already exist in the
         database
         """
-        db_researchers = get_researchers()
+        db_researchers = get_researchers(database=self.db)
         if len(db_researchers) != 0:
             print("Checking researchers...")
             input_researchers = []
@@ -200,6 +200,7 @@ class SampleTableLoader:
                     study.description = description
                 print(f"Created new record: Study:{study}")
                 try:
+                    # TODO: See issue #580.  This will allow full_clean to be called regardless of the database.
                     if self.db == settings.TRACEBASE_DB:
                         # full_clean does not have a using parameter. It only supports the default database
                         study.full_clean()
@@ -236,6 +237,9 @@ class SampleTableLoader:
                 animal, created = Animal.objects.using(self.db).get_or_create(
                     name=name, infusate=infusate
                 )
+                # TODO: See issue #580.  The following hits the default database's cache table even if the validation
+                #       database has been set in the animal object.  This is currently tolerable because the only
+                #       effect is a cache deletion.
                 if created and animal.caches_exist():
                     animals_to_uncache.append(animal)
                 elif created and settings.DEBUG:

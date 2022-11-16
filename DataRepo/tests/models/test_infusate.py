@@ -52,7 +52,6 @@ def create_infusate_records():
     return io, io2
 
 
-@tag("multi_working")
 @tag("load_study")
 class InfusateTests(TracebaseTestCase):
     def setUp(self):
@@ -142,7 +141,6 @@ class InfusateTests(TracebaseTestCase):
         self.assertEqual("C16:0-[5,6-13C2,17O2][4];glucose-[4-17O1][3]", i2.name)
 
 
-@tag("multi_working")
 @tag("load_study")
 class MaintainedModelTests(TracebaseTestCase):
     def setUp(self):
@@ -281,7 +279,6 @@ class MaintainedModelTests(TracebaseTestCase):
         self.assertEqual(expected_name, io.name)
 
 
-@tag("multi_working")
 class RebuildMaintainedModelFieldsTests(TracebaseTestCase):
     def setUp(self):
         super().setUp()
