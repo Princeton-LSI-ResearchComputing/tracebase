@@ -194,6 +194,7 @@ function addSearchFieldForm (myDiv, query, templateId) {
       ncmpClone = clones[i]
     } else if (keyname === 'units') {
       // clones[i].value is based on valClone.value, which has not been set yet in the loop
+      unitsInitVal = clones[i].value
       unitsClone = clones[i]
     } else if (keyname === 'val') {
       valClone = clones[i]
@@ -229,8 +230,7 @@ function addSearchFieldForm (myDiv, query, templateId) {
   if (fldInitVal === '') {
     fldInitVal = fldClone[0].value
     ncmpInitVal = ncmpClone[0].value
-    // fldUnits contains a default for each template/field combo
-    unitsInitVal = fldUnits[templateId][fldInitVal].default
+    unitsInitVal = unitsClone[0].value
   }
 
   if (unitsInitVal === '') {
@@ -257,7 +257,7 @@ function addSearchFieldForm (myDiv, query, templateId) {
   tooltipSpan.className = 'unitstooltip'
   infoSpan.appendChild(tooltipSpan)
   myDiv.appendChild(infoSpan)
-  updateUnitsChoices(fldInitVal, ncmpInitVal, unitsClone, templateId)
+  updateUnitsChoices(fldInitVal, ncmpInitVal, unitsInitVal, unitsClone, templateId)
   updateUnitsAboutInfo(unitsInitVal, fldInitVal, ncmpInitVal, templateId, infoSpan, tooltipSpan)
   attachInfoTooltip(unitsInfoImg, tooltipSpan)
 
@@ -267,7 +267,7 @@ function addSearchFieldForm (myDiv, query, templateId) {
   // Keep the ncmp select list choices updated to reflect the fld value
   fldClone.addEventListener('change', function (event) {
     updateNcmpChoices(event.target.value, ncmpClone, rootGroup.selectedtemplate)
-    updateUnitsChoices(event.target.value, ncmpClone.value, unitsClone, rootGroup.selectedtemplate)
+    updateUnitsChoices(event.target.value, ncmpClone.value, '', unitsClone, rootGroup.selectedtemplate)
     attachInfoTooltip(unitsInfoImg, tooltipSpan)
     updateUnitsAboutInfo(unitsClone.value, fldClone.value, ncmpClone.value, rootGroup.selectedtemplate, infoSpan, tooltipSpan)
     updateValFields(event.target.value, ncmpClone.value, unitsClone, valClone, rootGroup.selectedtemplate, valFields)
@@ -276,7 +276,7 @@ function addSearchFieldForm (myDiv, query, templateId) {
   // Keep the val fields updated to also reflect the ncmp value (currently only affected by values isnull and not_isnull)
   ncmpClone.addEventListener('change', function (event) {
     updateValFields(fldClone.value, event.target.value, unitsClone, valClone, rootGroup.selectedtemplate, valFields)
-    updateUnitsChoices(fldClone.value, event.target.value, unitsClone, rootGroup.selectedtemplate)
+    updateUnitsChoices(fldClone.value, event.target.value, '', unitsClone, rootGroup.selectedtemplate)
     updateUnitsAboutInfo(unitsClone.value, fldClone.value, ncmpClone.value, rootGroup.selectedtemplate, infoSpan, tooltipSpan)
   })
 
@@ -526,15 +526,16 @@ function updateNcmpChoices (fldVal, ncmpSelectElem, templateId) {
 /**
  * Uses the fldTypes global variable to (re)populate the supplied ncmp select list
  */
-function updateUnitsChoices (fldVal, ncmpVal, unitsSelectElem, templateId) {
+function updateUnitsChoices (fldVal, ncmpVal, unitsVal, unitsSelectElem, templateId) {
   let choices = []
-  let unitsVal = ''
+  if (typeof unitsVal === 'undefined' || !unitsVal) {
+    // fldUnits contains a default for each template/field combo
+    unitsVal = fldUnits[templateId][fldVal].default
+  }
+
   if (typeof fldUnits[templateId] !== 'undefined' && fldUnits[templateId]) {
     if (typeof fldUnits[templateId][fldVal] !== 'undefined' && fldUnits[templateId][fldVal]) {
       choices = fldUnits[templateId][fldVal].choices
-
-      // fldUnits contains a default for each template/field combo
-      unitsVal = fldUnits[templateId][fldVal].default
 
       // Hide if there is only 1 option in the select list
       if (choices.length < 2) {
