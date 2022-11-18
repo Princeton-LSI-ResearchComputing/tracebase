@@ -368,7 +368,7 @@ class PeakDataFormat(Format):
                         "key": "postgres_interval",
                         "default": "weeks",
                         "subset": [
-                            "native",
+                            "identity",
                             "calendartime",
                             "months",
                             "weeks",

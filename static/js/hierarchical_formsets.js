@@ -156,6 +156,7 @@ function addSearchFieldForm (myDiv, query, templateId) {
   var unitsClone // eslint-disable-line no-var
   let unitsInitVal = ''
   var valClone // eslint-disable-line no-var
+  let isBlankForm = false
   for (let i = 0; i < clones.length; i++) {
     // If an invalid form was previously submitted, we will need to present errors
     const errors = []
@@ -193,10 +194,14 @@ function addSearchFieldForm (myDiv, query, templateId) {
       ncmpInitVal = clones[i].value
       ncmpClone = clones[i]
     } else if (keyname === 'units') {
-      // clones[i].value is based on valClone.value, which has not been set yet in the loop
+      // For initial blank forms, clones[i].value for units is based on valClone.value, which has not been set yet in
+      // the loop, but its initial value automatically defaults to the *first* item in the select list
       unitsInitVal = clones[i].value
       unitsClone = clones[i]
     } else if (keyname === 'val') {
+      if (clones[i].value === '') {
+        isBlankForm = true
+      }
       valClone = clones[i]
       // Hide the val text field
       clones[i].style = 'display:none;'
@@ -230,10 +235,9 @@ function addSearchFieldForm (myDiv, query, templateId) {
   if (fldInitVal === '') {
     fldInitVal = fldClone[0].value
     ncmpInitVal = ncmpClone[0].value
-    unitsInitVal = unitsClone[0].value
   }
 
-  if (unitsInitVal === '') {
+  if (isBlankForm) {
     // fldUnits contains a default for each template/field combo
     unitsInitVal = fldUnits[templateId][fldInitVal].default
   }

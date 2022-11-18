@@ -99,13 +99,13 @@ class Format:
         },
         # TODO: Enforce that "identity" always exists as a key in entry_options, because it's hard-coded in places
         "postgres_interval": {
-            "default": "native",  # Override: model_instances[instance_name]["fields"][field_name]["units"]["default"]
+            "default": "identity",  # Override:model_instances[instance_name]["fields"][field_name]["units"]["default"]
             # The following has only been tested to work with DurationField lookups and a postgres database
             # (e.g. Animal.objects.filter(age__gt=converted_value) where converted_value is the user's entry in val
             # with the convert method below has been applied to it)
             # Documentation: https://www.postgresql.org/docs/current/datatype-datetime.html
             "entry_options": {
-                "native": {
+                "identity": {
                     # format: [nn.nn{units}{:|,}[ ]]+
                     "name": "n.n{units},...",
                     "example": "1w,1d,1:01:01.1",

@@ -242,23 +242,23 @@ class FormatsTests(TracebaseTestCase):
         self.assertEqual(15, len(fld_units_lookup["serum_sample__animal__age"].keys()))
         # This "native" unit type has 5 keys: name, example, convert, pyconvert, and about
         self.assertEqual(
-            5, len(fld_units_lookup["serum_sample__animal__age"]["native"].keys())
+            5, len(fld_units_lookup["serum_sample__animal__age"]["identity"].keys())
         )
         # Check the name (displayed in the units select list)
         self.assertEqual(
             "n.n{units},...",
-            fld_units_lookup["serum_sample__animal__age"]["native"]["name"],
+            fld_units_lookup["serum_sample__animal__age"]["identity"]["name"],
         )
         # Check the example (shown as a placeholder in the val field)
         self.assertEqual(
             "1w,1d,1:01:01.1",
-            fld_units_lookup["serum_sample__animal__age"]["native"]["example"],
+            fld_units_lookup["serum_sample__animal__age"]["identity"]["example"],
         )
         # The convert key should be a function
         self.assertEqual(
             "function",
             type(
-                fld_units_lookup["serum_sample__animal__age"]["native"]["convert"]
+                fld_units_lookup["serum_sample__animal__age"]["identity"]["convert"]
             ).__name__,
         )
         # Check the about value
@@ -271,7 +271,7 @@ class FormatsTests(TracebaseTestCase):
         )
         self.assertEqual(
             expected_about,
-            fld_units_lookup["serum_sample__animal__age"]["native"]["about"],
+            fld_units_lookup["serum_sample__animal__age"]["identity"]["about"],
         )
         # The convert function should modify the value to the format needed by the database
         self.assertEqual(
@@ -287,23 +287,23 @@ class FormatsTests(TracebaseTestCase):
         self.assertEqual(15, len(fld_units_lookup["msrun__sample__animal__age"].keys()))
         # This "native" unit type has 5 keys: name, example, convert, pyconvert, and about
         self.assertEqual(
-            5, len(fld_units_lookup["msrun__sample__animal__age"]["native"].keys())
+            5, len(fld_units_lookup["msrun__sample__animal__age"]["identity"].keys())
         )
         # Check the name (displayed in the units select list)
         self.assertEqual(
             "n.n{units},...",
-            fld_units_lookup["msrun__sample__animal__age"]["native"]["name"],
+            fld_units_lookup["msrun__sample__animal__age"]["identity"]["name"],
         )
         # Check the example (shown as a placeholder in the val field)
         self.assertEqual(
             "1w,1d,1:01:01.1",
-            fld_units_lookup["msrun__sample__animal__age"]["native"]["example"],
+            fld_units_lookup["msrun__sample__animal__age"]["identity"]["example"],
         )
         # The convert key should be a function
         self.assertEqual(
             "function",
             type(
-                fld_units_lookup["msrun__sample__animal__age"]["native"]["convert"]
+                fld_units_lookup["msrun__sample__animal__age"]["identity"]["convert"]
             ).__name__,
         )
         # Check the about value
@@ -316,7 +316,7 @@ class FormatsTests(TracebaseTestCase):
         )
         self.assertEqual(
             expected_about,
-            fld_units_lookup["msrun__sample__animal__age"]["native"]["about"],
+            fld_units_lookup["msrun__sample__animal__age"]["identity"]["about"],
         )
         # The convert function should modify the value to the format needed by the database
         self.assertEqual(
@@ -1374,7 +1374,7 @@ class FormatsTests(TracebaseTestCase):
         self.assertEqual(expected_element_dict, fld_units_dict["fctemplate"]["element"])
         expected_age_dict = {
             "choices": (
-                ("native", "n.n{units},..."),
+                ("identity", "n.n{units},..."),
                 ("calendartime", "ny,nm,nw,nd"),
                 ("months", "months"),
                 ("weeks", "weeks"),
@@ -1399,7 +1399,7 @@ class FormatsTests(TracebaseTestCase):
                     "about": None,
                     "example": "1.0",
                 },
-                "native": {
+                "identity": {
                     "about": (
                         "Values can be entered using the following format pattern: `[n{units}{:|,}]*hh:mm:ss[.f]`, "
                         "where units can be:\n\n- c[enturies]\n- decades\n- y[ears]\n- months\n- w[eeks]\n- d[ays]\n- "
@@ -1428,7 +1428,7 @@ class FormatsTests(TracebaseTestCase):
         fld_units_choices = sg.getAllFieldUnitsChoices()
         expected = (
             ("identity", "identity"),
-            ("native", "n.n{units},..."),
+            ("identity", "n.n{units},..."),
             ("calendartime", "ny,nm,nw,nd"),
             ("clocktime", "clocktime (hh:mm[:ss])"),
             ("millennia", "millennia"),
