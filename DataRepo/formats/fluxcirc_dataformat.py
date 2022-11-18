@@ -164,7 +164,7 @@ class FluxCircFormat(Format):
                         "key": "postgres_interval",
                         "default": "weeks",
                         "subset": [
-                            "native",
+                            "identity",
                             "calendartime",
                             "months",
                             "weeks",
@@ -282,7 +282,7 @@ class FluxCircFormat(Format):
                         "key": "postgres_interval",
                         "default": "minutes",
                         "subset": [
-                            "native",
+                            "identity",
                             "clocktime",
                             "hours",
                             "minutes",
