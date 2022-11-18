@@ -1428,7 +1428,6 @@ class FormatsTests(TracebaseTestCase):
         fld_units_choices = sg.getAllFieldUnitsChoices()
         expected = (
             ("identity", "identity"),
-            ("identity", "n.n{units},..."),
             ("calendartime", "ny,nm,nw,nd"),
             ("clocktime", "clocktime (hh:mm[:ss])"),
             ("millennia", "millennia"),
