@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 
 from django.conf import settings
 from django.core.management import call_command
-from django.test import override_settings, tag
+from django.test import override_settings
 
 from DataRepo.models import (
     Animal,
@@ -18,7 +18,6 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
-@tag("multi_working")
 class FCircTests(TracebaseTestCase):
     def setUp(self):
         super().setUp()

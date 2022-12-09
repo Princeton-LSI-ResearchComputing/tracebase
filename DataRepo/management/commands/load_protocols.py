@@ -109,11 +109,16 @@ class Command(BaseCommand):
                     options["protocols"],
                     options["verbosity"],
                 )
+            errmsgs = ""
+            if options["verbosity"] >= 2:
+                errmsgs += ":\n"
             for exception in self.protocol_loader.errors:
                 self.stdout.write(self.style.ERROR("ERROR: " + exception))
+                if options["verbosity"] >= 2:
+                    errmsgs += f"{exception}\n"
             raise CommandError(
                 f"{len(self.protocol_loader.errors)} errors loading protocol records from "
-                f"{options['protocols']} - NO RECORDS SAVED"
+                f"{options['protocols']} - NO RECORDS SAVED{errmsgs}"
             )
         else:
             self.print_notices(

@@ -2,12 +2,14 @@ from __future__ import annotations
 
 from typing import Optional
 
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 
 from DataRepo.models.element_label import ElementLabel
 from DataRepo.models.maintained_model import (
     MaintainedModel,
+    are_autoupdates_enabled,
     maintained_field_function,
 )
 from DataRepo.models.utilities import get_model_by_name
@@ -17,6 +19,7 @@ from DataRepo.utils.infusate_name_parser import TracerData
 class TracerQuerySet(models.QuerySet):
     def get_or_create_tracer(self, tracer_data: TracerData) -> tuple[Tracer, bool]:
         """Get Tracer matching the tracer_data, or create a new tracer"""
+        db = self._db or settings.DEFAULT_DB
         tracer = self.get_tracer(tracer_data)
         created = False
         if tracer is None:
@@ -25,17 +28,16 @@ class TracerQuerySet(models.QuerySet):
             compound = Compound.compound_matching_name_or_synonym(
                 tracer_data["compound_name"]
             )
-            tracer = self.using(self._db).create(compound=compound)
+            tracer = self.using(db).create(compound=compound)
             for isotope_data in tracer_data["isotopes"]:
-                TracerLabel.objects.using(self._db).create_tracer_label(
-                    tracer, isotope_data
-                )
+                TracerLabel.objects.using(db).create_tracer_label(tracer, isotope_data)
             tracer.full_clean()
             created = True
         return (tracer, created)
 
     def get_tracer(self, tracer_data: TracerData) -> Optional[Tracer]:
         """Get Tracer matching the tracer_data"""
+        db = self._db or settings.DEFAULT_DB
         matching_tracer = None
 
         # First, check if the compound is found
@@ -46,7 +48,7 @@ class TracerQuerySet(models.QuerySet):
         if compound:
             # Check for tracers of the compound with same number of labels
             tracers = (
-                Tracer.objects.using(self._db)
+                Tracer.objects.using(db)
                 .annotate(num_labels=models.Count("labels"))
                 .filter(compound=compound, num_labels=len(tracer_data["isotopes"]))
             )
@@ -130,3 +132,25 @@ class Tracer(MaintainedModel, ElementLabel):
                     f"Labeled count ({label.count}) is less than number of {label.element} atoms "
                     f"({atom_count}) in formula ({self.compound.formula})."
                 )
+
+    @property
+    def get_name(self):
+        """
+        Returns the name field if populated.  If it's not populated, it populates it (in the same manner that the old
+        cache mechanism worked)
+        """
+        display_name = None
+
+        # Get the name.  Initialize if not set and auto-updates are on.
+        if self.name:
+            display_name = self.name
+        elif are_autoupdates_enabled():
+            # This triggers an auto-update
+            self.save(update_fields=["name"])
+            display_name = self.name
+
+        # If it's still not set, call the method that generates the name.  It just won't be saved.
+        if not display_name:
+            display_name = self._name()
+
+        return display_name

@@ -56,8 +56,7 @@ class PeakGroupLabel(HierCachedModel):
         A weighted average of the fraction of labeled atoms for this PeakGroup
         in this sample with this (labeled) element.
         i.e. The fraction of carbons that are labeled in this.PeakGroup compound
-        Sum of all (PeakData.fraction * PeakData.labeled_count) /
-            PeakGroup.Compound.num_atoms(PeakData.labeled_element)
+        Sum of all (fraction * count) / num_atoms(element)
         """
         from DataRepo.models.peak_data import PeakData
         from DataRepo.models.peak_data_label import PeakDataLabel

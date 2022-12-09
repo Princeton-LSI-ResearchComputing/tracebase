@@ -26,7 +26,6 @@ from DataRepo.templatetags.customtags import get_many_related_rec
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
-@tag("multi_working")
 class FormatsTests(TracebaseTestCase):
     maxDiff = None
     orig_split_rows: Dict[str, str] = {}
@@ -823,7 +822,7 @@ class FormatsTests(TracebaseTestCase):
                                 "pos": "",
                                 "ncmp": "iexact",
                                 "static": "",
-                                "fld": "labeled_element",
+                                "fld": "labels__element",
                                 "val": "",
                                 "units": "identity",
                             }
@@ -1437,7 +1436,6 @@ class FormatsTests(TracebaseTestCase):
 
 
 @tag("search_choices")
-@tag("multi_working")
 class SearchFieldChoicesTests(TracebaseTestCase):
     def test_get_all_comparison_choices(self):
         base_search_view = Format()

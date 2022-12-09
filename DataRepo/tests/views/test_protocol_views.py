@@ -1,5 +1,4 @@
 from django.core.management import call_command
-from django.test import tag
 from django.urls import reverse
 
 from DataRepo.models import Protocol
@@ -18,7 +17,6 @@ class ProtocolViewTests(TracebaseTestCase):
     def setUpTestData(cls):
         call_command("load_study", "DataRepo/example_data/test_dataframes/loading.yaml")
 
-    @tag("multi_working")
     def test_animal_treatment_list(self):
         response = self.client.get(reverse("animal_treatment_list"))
         self.assertEqual(response.status_code, 200)
@@ -31,7 +29,6 @@ class ProtocolViewTests(TracebaseTestCase):
             )
         )
 
-    @tag("multi_working")
     def test_msrun_protocol_list(self):
         response = self.client.get(reverse("msrun_protocol_list"))
         self.assertEqual(response.status_code, 200)
@@ -44,7 +41,6 @@ class ProtocolViewTests(TracebaseTestCase):
             )
         )
 
-    @tag("multi_working")
     def test_protocol_detail(self):
         p1 = Protocol.objects.filter(name="Default").get()
         response = self.client.get(reverse("protocol_detail", args=[p1.id]))
@@ -53,7 +49,6 @@ class ProtocolViewTests(TracebaseTestCase):
         self.assertEqual(response.context["protocol"].name, "Default")
         self.assertEqual(response.context["proto_display"], "MSRun Protocol")
 
-    @tag("multi_working")
     def test_protocol_detail_404(self):
         p = Protocol.objects.order_by("id").last()
         response = self.client.get(reverse("protocol_detail", args=[p.id + 1]))

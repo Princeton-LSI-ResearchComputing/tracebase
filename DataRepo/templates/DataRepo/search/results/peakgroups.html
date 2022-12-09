@@ -61,7 +61,7 @@
 
         <colgroup span="8" class="identdata"></colgroup>
         <colgroup span="4" class="datadata"></colgroup>
-        <colgroup span="11" class="metadata"></colgroup>
+        <colgroup span="14" class="metadata"></colgroup>
 
         <thead>
             <tr>
@@ -195,6 +195,27 @@
                     {% with "Infusate" as colhead %}
                         {% if mode == "view" %}{{ colhead }}{% else %}
                             <div onclick="sortColumn(this)" class="sortable" id="msrun__sample__animal__infusate__name">{{ colhead }}</div>
+                        {% endif %}
+                    {% endwith %}
+                </th>
+                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Tracers-data-visible' 'true' %}" data-field="Tracers" class="metagrp">
+                    {% with "Tracer(s)" as colhead %}
+                        {% if mode == "view" %}{{ colhead }}{% else %}
+                            <div onclick="sortColumn(this)" class="sortable" id="msrun__sample__animal__infusate__tracer_links__tracer__name">{{ colhead }}</div>
+                        {% endif %}
+                    {% endwith %}
+                </th>
+                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'TracerCompounds-data-visible' 'true' %}" data-field="Tracer_Compounds" class="metagrp">
+                    {% with "Tracer<br>Compound(s)" as colhead %}
+                        {% if mode == "view" %}{{ colhead }}{% else %}
+                            <div onclick="sortColumn(this)" class="sortable" id="msrun__sample__animal__infusate__tracer_links__tracer__compound__name">{{ colhead }}</div>
+                        {% endif %}
+                    {% endwith %}
+                </th>
+                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'TracerConcentrations-data-visible' 'true' %}" data-field="Tracer_Concentrations" class="metagrp">
+                    {% with "Tracer<br>Concentration(s)" as colhead %}
+                        {% if mode == "view" %}{{ colhead }}{% else %}
+                            <div onclick="sortColumn(this)" class="sortable" id="msrun__sample__animal__infusate__tracer_links__concentration">{{ colhead }}</div>
                         {% endif %}
                     {% endwith %}
                 </th>
@@ -380,11 +401,56 @@
                             None
                         {% else %}
                             <!-- Put displayed link text first for sorting -->
-                            <div style="display:none;">{{ pg.msrun.sample.animal.infusate.get_name }}</div>
+                            <div style="display:none;">{{ pg.msrun.sample.animal.infusate.pretty_short_name }}</div>
 
                             <a href="{% url 'infusate_detail' pg.msrun.sample.animal.infusate.id %}">
-                                <div class="newlines">{{ pg.msrun.sample.animal.infusate.pretty_name }}</div>
+                                <div class="newlines">{{ pg.msrun.sample.animal.infusate.pretty_short_name }}</div>
                             </a>
+                        {% endif %}
+                    </td>
+
+                    <!-- Tracer(s) -->
+                    <td>
+                        {% if pg.msrun.sample.animal.infusate is None %}
+                            None
+                        {% else %}
+                            {% for link in pg.msrun.sample.animal.infusate.tracer_links.all %}
+                                {% if link.tracer.get_name is None %}
+                                    None{% if not forloop.last %};<br>{% endif%}
+                                {% else %}
+                                    <div class="nobr">{{ link.tracer.get_name }}{% if not forloop.last %};<br>{% endif%}</div>
+                                {% endif %}
+                            {% endfor %}
+                        {% endif %}
+                    </td>
+
+                    <!-- Tracer Compound(s) -->
+                    <td>
+                        {% if pg.msrun.sample.animal.infusate is None %}
+                            None
+                        {% else %}
+                            {% for link in pg.msrun.sample.animal.infusate.tracer_links.all %}
+                                {% if link.tracer.compound.name is None %}
+                                    None{% if not forloop.last %};<br>{% endif%}
+                                {% else %}
+                                    <div class="nobr"><a href="{% url 'compound_detail' link.tracer.compound.id %}">{{ link.tracer.compound.name }}</a>{% if not forloop.last %};<br>{% endif%}</div>
+                                {% endif %}
+                            {% endfor %}
+                        {% endif %}
+                    </td>
+
+                    <!-- Tracer Concentration(s) -->
+                    <td>
+                        {% if pg.msrun.sample.animal.infusate is None %}
+                            None
+                        {% else %}
+                            {% for link in pg.msrun.sample.animal.infusate.tracer_links.all %}
+                                {% if link.concentration is None %}
+                                    None{% if not forloop.last %},<br>{% endif%}
+                                {% else %}
+                                    <div class="nobr">{{ link.concentration }}{% if not forloop.last %},<br>{% endif%}</div>
+                                {% endif %}
+                            {% endfor %}
                         {% endif %}
                     </td>
 

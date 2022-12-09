@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.postgres.fields import ArrayField
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
@@ -14,7 +15,8 @@ from DataRepo.utils.infusate_name_parser import IsotopeData
 
 class TracerLabelQuerySet(models.QuerySet):
     def create_tracer_label(self, tracer: Tracer, isotope_data: IsotopeData):
-        tracer_label = self.using(self._db).create(
+        db = self._db or settings.DEFAULT_DB
+        tracer_label = self.using(db).create(
             tracer=tracer,
             element=isotope_data["element"],
             count=isotope_data["count"],

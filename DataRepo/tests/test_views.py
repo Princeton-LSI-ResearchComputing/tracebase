@@ -15,7 +15,6 @@ from DataRepo.models import (
     PeakData,
     PeakGroup,
     PeakGroupSet,
-    Protocol,
     Sample,
     Study,
     Tissue,
@@ -32,16 +31,9 @@ from DataRepo.tests.tracebase_test_case import (
 from DataRepo.views import DataValidationView
 
 
-@tag("multi_working")
 class ViewTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
-        call_command(
-            "load_protocols",
-            protocols="DataRepo/example_data/protocols/diet_protocols.tsv",
-        )
-        cls.ALL_PROTOCOLS_COUNT = 2
-
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
         cls.ALL_TISSUES_COUNT = 37
 
@@ -69,7 +61,6 @@ class ViewTests(TracebaseTestCase):
             researcher="Michael Neinast",
             new_researcher=True,
         )
-        cls.ALL_PROTOCOLS_COUNT += 1
         cls.INF_COMPOUNDS_COUNT = 2
         cls.INF_SAMPLES_COUNT = 14
         cls.INF_PEAKDATA_ROWS = 11
@@ -497,7 +488,8 @@ class ViewTests(TracebaseTestCase):
         """
         Do a file validation test
         """
-        # Load the necessary compounds for a successful test
+        # Load the necessary tissues & compounds for a successful test
+        call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
         call_command(
             "load_compounds",
             compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
@@ -511,7 +503,6 @@ class ViewTests(TracebaseTestCase):
         self.assertEqual(results["data_submission_accucor2.xlsx"], "PASSED")
 
 
-@tag("multi_working")
 class ViewNullToleranceTests(ViewTests):
     """
     This class inherits from the ViewTests class above and overrides the setUpTestData method to load without auto-
@@ -537,8 +528,6 @@ class ViewNullToleranceTests(ViewTests):
         super().test_study_detail()
 
 
-@tag("multi_working")
-@tag("protocol_loading_broken")
 class ValidationViewTests(TracebaseTransactionTestCase):
     """
     Note, without the TransactionTestCase (derived) class (and the with transaction.atomic block below), the infusate-
@@ -555,12 +544,6 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         call_command(
             "load_compounds",
             compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
-        )
-        # protocols from data_submission_animal_sample_table.xlsx in both
-        # test_databases_unchanged and validate_some_files
-        call_command(
-            "load_protocols",
-            protocols="DataRepo/example_data/protocols/diet_protocols.tsv",
         )
 
     @classmethod
@@ -691,21 +674,6 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
         self.assertGreater(Tissue.objects.using(settings.TRACEBASE_DB).all().count(), 0)
 
-    def test_protocols_load_in_both_dbs(self):
-        """
-        Test to ensure that protocols load in both databases by default
-        """
-        self.clear_database(settings.TRACEBASE_DB)
-        self.clear_database(settings.VALIDATION_DB)
-        call_command(
-            "load_protocols",
-            protocols="DataRepo/example_data/protocols/diet_protocols.tsv",
-        )
-        tbdb_count = Protocol.objects.using(settings.TRACEBASE_DB).all().count()
-        vddb_count = Protocol.objects.using(settings.VALIDATION_DB).all().count()
-        self.assertGreater(tbdb_count, 0)
-        self.assertEqual(tbdb_count, vddb_count)
-
     def test_only_tracebase_loaded(self):
         """
         Test to ensure that the validation database is never loaded with samples, animals, and accucor data by default
@@ -768,6 +736,7 @@ def validate_some_files(testobj):
 
     # Test the validate_load_files function
     vo = DataValidationView()
+    # Now try validating the load files
     [results, valid, errors] = vo.validate_load_files(animal_sample_dict, accucor_dict)
 
     # Note that even though the Study "Notes" header is missing from the input file, we don't expect to encounter
@@ -779,20 +748,18 @@ def validate_some_files(testobj):
 
     # The researcher warning technically results in a validation failure (because it's an exception), but it's the
     # last possible check on the file on purpose so that everything else is guaranteed to be OK
-    testobj.assertTrue(not valid)
+    testobj.assertTrue(valid)
 
     # There should only be a warning about the researcher in the sample file not existing - no other errors
     testobj.assertEqual(
+        "PASSED",
         results["data_submission_animal_sample_table.xlsx"],
-        "WARNING",
-        msg="There sould only be a researcher warning among the following errors:\n"
-        + "\n".join(errors["data_submission_animal_sample_table.xlsx"]),
+        msg=(
+            "Starting from an empty test validation database, there should be no researcher warning.  Result should "
+            "be 'PASSED'"
+        ),
     )
-    testobj.assertTrue(len(errors["data_submission_animal_sample_table.xlsx"]) == 1)
-    testobj.assertTrue(
-        "1 researchers from the sample file: [Anonymous]"
-        in errors["data_submission_animal_sample_table.xlsx"][0]
-    )
+    testobj.assertEqual(0, len(errors["data_submission_animal_sample_table.xlsx"]))
 
     # Check the accucor file details
     testobj.assertTrue("data_submission_accucor1.xlsx" in results)
