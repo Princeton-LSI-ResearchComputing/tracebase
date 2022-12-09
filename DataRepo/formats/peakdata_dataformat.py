@@ -40,7 +40,7 @@ class PeakDataFormat(Format):
             "distincts": ["corrected_abundance"],
             "filter": appendFilterToGroup(
                 createFilterGroup(),
-                createFilterCondition("corrected_abundance", "gt", 0.1),
+                createFilterCondition("corrected_abundance", "gt", 0.1, "identity"),
             ),
         },
         {
@@ -360,10 +360,20 @@ class PeakDataFormat(Format):
                     "choices": Animal.SEX_CHOICES,
                 },
                 "age": {
-                    "displayname": "Age (d-hh:mm:ss)",
-                    "searchable": False,
+                    "displayname": "Age",
+                    "searchable": True,
                     "displayed": True,
                     "type": "number",
+                    "units": {  # See dataformat.py: Format.unit_options
+                        "key": "postgres_interval",
+                        "default": "weeks",
+                        "subset": [
+                            "months",
+                            "weeks",
+                            "days",
+                            "hours",
+                        ],
+                    },
                 },
                 "feeding_status": {
                     "displayname": "Feeding Status",

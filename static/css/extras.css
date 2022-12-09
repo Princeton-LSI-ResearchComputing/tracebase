@@ -37,6 +37,26 @@ body.development > nav.navbar {
   vertical-align: middle !important;
 }
 
+/* Used for the display a tooltip about units for a search term when the unitsinfo element is hovered over */
+.unitstooltip {
+  display: none;
+  background: #eee;
+  position: fixed;
+  white-space: pre;
+  font-size: x-small;
+  padding: 5px;
+  z-index: 1;
+}
+
+.unitsinfo:hover .unitstooltip {
+  display: block;
+}
+
+/* Used for the display of an info icon about units for a search term */
+.unitsinfo {
+  margin: 0;
+}
+
 .main-content {
   width: calc(100% - 9rem);
 }
