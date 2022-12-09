@@ -1374,8 +1374,6 @@ class FormatsTests(TracebaseTestCase):
         self.assertEqual(expected_element_dict, fld_units_dict["fctemplate"]["element"])
         expected_age_dict = {
             "choices": (
-                ("identity", "n.n{units},..."),
-                ("calendartime", "ny,nm,nw,nd"),
                 ("months", "months"),
                 ("weeks", "weeks"),
                 ("days", "days"),
@@ -1383,10 +1381,6 @@ class FormatsTests(TracebaseTestCase):
             ),
             "default": "weeks",
             "metadata": {
-                "calendartime": {
-                    "about": None,
-                    "example": "0y,1m,2w,3d",
-                },
                 "days": {
                     "about": None,
                     "example": "1.0",
@@ -1398,16 +1392,6 @@ class FormatsTests(TracebaseTestCase):
                 "months": {
                     "about": None,
                     "example": "1.0",
-                },
-                "identity": {
-                    "about": (
-                        "Values can be entered using the following format pattern: `[n{units}{:|,}]*hh:mm:ss[.f]`, "
-                        "where units can be:\n\n- c[enturies]\n- decades\n- y[ears]\n- months\n- w[eeks]\n- d[ays]\n- "
-                        "h[ours]\n- m[inutes]\n- s[econds]\n- milliseconds\n- microseconds\n\nIf milli/micro-seconds "
-                        "are not included, the last 3 units (hours, minutes, and seconds) do not need to be specified."
-                        "\n\nExamples:\n\n- 1w,1d,1:01:01.1\n- 1 year, 3 months\n- 2:30\n- 2 days, 11:29:59.999"
-                    ),
-                    "example": "1w,1d,1:01:01.1",
                 },
                 "weeks": {
                     "about": None,
