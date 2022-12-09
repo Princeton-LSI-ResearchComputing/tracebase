@@ -532,10 +532,8 @@ function updateNcmpChoices (fldVal, ncmpSelectElem, templateId) {
  */
 function updateUnitsChoices (fldVal, ncmpVal, unitsVal, unitsSelectElem, templateId) {
   let choices = []
-  if (typeof unitsVal === 'undefined' || !unitsVal) {
-    // fldUnits contains a default for each template/field combo
-    unitsVal = fldUnits[templateId][fldVal].default
-  }
+  const origUnitsVal = unitsSelectElem.value
+  const defUnitsVal = fldUnits[templateId][fldVal].default
 
   if (typeof fldUnits[templateId] !== 'undefined' && fldUnits[templateId]) {
     if (typeof fldUnits[templateId][fldVal] !== 'undefined' && fldUnits[templateId][fldVal]) {
@@ -557,8 +555,22 @@ function updateUnitsChoices (fldVal, ncmpVal, unitsVal, unitsSelectElem, templat
     console.error('Template', templateId, 'not in field type lookup.')
   }
 
-  populateSelectList(choices, unitsSelectElem)
-  unitsSelectElem.value = unitsVal
+  const vals = populateSelectList(choices, unitsSelectElem)
+
+  if (typeof unitsVal !== 'undefined' && unitsVal && unitsVal !== '' && vals.includes(unitsVal)) {
+    // If an explicit value was provided and it exists among the potentially changed options
+    unitsSelectElem.value = unitsVal
+  } else if (typeof origUnitsVal !== 'undefined' && origUnitsVal && vals.includes(origUnitsVal)) {
+    // If the select list had value and it still exists among the potentially changed options
+    unitsSelectElem.value = origUnitsVal
+  } else if (typeof defUnitsVal !== 'undefined' && defUnitsVal && vals.includes(defUnitsVal)) {
+    // If the default value is defined and it still exists among the potentially changed options
+    unitsSelectElem.value = defUnitsVal
+  } else if (unitsSelectElem.value === 'undefined' || !unitsSelectElem.value) {
+    // Fall back to the first item in the choices and issue an error
+    unitsSelectElem.value = vals[0]
+    console.error('Invalid or no value for units select list.  Defaulting to first item.')
+  }
 }
 
 /**
@@ -620,14 +632,17 @@ function updateFldChoices (templateId, fldSelectElem) {
  * Populates a given select list with the given 2D array of choices
  */
 function populateSelectList (choices, selectElem) {
+  const vals = []
   if (choices.length > 0) {
     const arrOptions = []
     for (let i = 0; i < choices.length; i++) {
       arrOptions.push('<option value="' + choices[i][0] + '">' + choices[i][1] + '</option>')
+      vals.push(choices[i][0])
     }
     selectElem.innerHTML = arrOptions.join('')
     selectElem.value = choices[0][0]
   }
+  return vals
 }
 
 /**
