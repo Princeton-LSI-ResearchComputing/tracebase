@@ -294,8 +294,6 @@ class PeakGroupsFormat(Format):
                         "key": "postgres_interval",
                         "default": "weeks",
                         "subset": [
-                            "identity",
-                            "calendartime",
                             "months",
                             "weeks",
                             "days",
