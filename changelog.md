@@ -34,7 +34,7 @@ none
   - Fixed an overlooked multi-tracer/label issue with the concentrations in the fcirc tsv download template.
 - Pages/views
   - Improved infusate and sample column sorting on detail/list view pages.
-  - Minor display and sort bug fixes.
+  - Minor display and sort bugfixes.
   - Improved pagination performance in Infusate and Sample list/detail view pages.
   - Changes to protocol and compound views and almost all templates for list views.
   - Added dynamic table height to some view pages.
