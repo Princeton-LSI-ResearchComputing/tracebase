@@ -3,6 +3,7 @@ from django.core.exceptions import MultipleObjectsReturned, ObjectDoesNotExist
 from django.template.defaultfilters import floatformat
 from django.urls import reverse
 from django.utils import dateparse
+from django.utils.safestring import mark_safe
 from django.utils.html import format_html_join
 
 from DataRepo.formats.search_group import SearchGroup
@@ -135,22 +136,28 @@ def obj_hyperlink(id_name_list, obj):
     elif obj == "treatment":
         tmplt_name = "protocol_detail"
 
+    # the string used to replace null for names and treatments in DataFrames
+    null_rpl_str = "None"
+
     if id_name_list == [None] or id_name_list is None:
         return None
     else:
         id_name_dict = {}
         for x in id_name_list:
-            if x is not None and x != "":
+            if x is not None and x != null_rpl_str:
                 k, v = x.split("||")
                 id_name_dict[k] = v
-        obj_format_html = format_html_join(
+        obj_format_html1 = format_html_join(
             ", ",
-            '<a href="{}">{}</a>',
+            # use defined css for "white-space: nowrap;"
+            '</div><div class="nobr"><a href="{}">{}</a>',
             [
                 (reverse(tmplt_name, args=[str(id)]), id_name_dict[id])
                 for id in id_name_dict
             ],
         )
+        # remove first "</div>" in formatted hmtl string
+        obj_format_html = mark_safe(obj_format_html1[6:])
         return obj_format_html
 
 
