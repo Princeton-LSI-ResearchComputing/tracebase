@@ -3,8 +3,8 @@ from django.core.exceptions import MultipleObjectsReturned, ObjectDoesNotExist
 from django.template.defaultfilters import floatformat
 from django.urls import reverse
 from django.utils import dateparse
-from django.utils.safestring import mark_safe
 from django.utils.html import format_html_join
+from django.utils.safestring import mark_safe
 
 from DataRepo.formats.search_group import SearchGroup
 
