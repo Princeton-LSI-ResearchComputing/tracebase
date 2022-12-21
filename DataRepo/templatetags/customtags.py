@@ -7,6 +7,7 @@ from django.utils.html import format_html_join
 from django.utils.safestring import mark_safe
 
 from DataRepo.formats.search_group import SearchGroup
+from DataRepo.utils import QuerysetToPandasDataFrame as qs2df
 
 register = template.Library()
 
@@ -137,7 +138,7 @@ def obj_hyperlink(id_name_list, obj):
         tmplt_name = "protocol_detail"
 
     # the string used to replace null for names and treatments in DataFrames
-    null_rpl_str = "None"
+    null_rpl_str = qs2df.null_rpl_str
 
     if id_name_list == [None] or id_name_list is None:
         return None
