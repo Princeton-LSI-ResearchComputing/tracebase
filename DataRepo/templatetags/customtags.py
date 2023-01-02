@@ -137,15 +137,12 @@ def obj_hyperlink(id_name_list, obj):
     elif obj == "treatment":
         tmplt_name = "protocol_detail"
 
-    # the string used to replace null for names and treatments in DataFrames
-    null_rpl_str = qs2df.null_rpl_str
-
     if id_name_list == [None] or id_name_list is None:
         return None
     else:
         id_name_dict = {}
         for x in id_name_list:
-            if x is not None and x != null_rpl_str:
+            if x is not None and x != qs2df.null_rpl_str:
                 k, v = x.split("||")
                 id_name_dict[k] = v
         obj_format_html1 = format_html_join(

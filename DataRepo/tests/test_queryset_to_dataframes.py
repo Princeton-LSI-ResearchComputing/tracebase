@@ -109,9 +109,6 @@ class QuerysetToPandasDataFrameBaseTests(TracebaseTestCase):
             "labeled_elements": ["C,N"],
         }
 
-        # defined string for replacing null values
-        cls.null_rpl_str = qs2df.null_rpl_str
-
         super().setUpTestData()
 
     def test_study_list_stat_df(self):
@@ -299,8 +296,7 @@ class QuerysetToPandasDataFrameBaseTests(TracebaseTestCase):
         anim2_treatment = Animal.objects.get(name=anim2_name).treatment
         anim2_treatment_id_name = str(anim2_treatment.id) + "||" + anim2_treatment.name
         # the treatment_id_name for animal1 was replaced by null_rpl_str in DataFrame
-        null_rpl_str = self.null_rpl_str
-        anim1_treatment_id_name = null_rpl_str
+        anim1_treatment_id_name = qs2df.null_rpl_str
         exp_treatment_id_name_list = [anim1_treatment_id_name, anim2_treatment_id_name]
         # compare sorted lists
         out_list = sorted(stud2_df.iloc[0]["treatment_id_name_list"])
@@ -316,7 +312,7 @@ class QuerysetToPandasDataFrameBaseTests(TracebaseTestCase):
           test missing names are handled properly in DataFrames, expecially for study list
         """
         # the string used to replace null value in DataFrames
-        null_rpl_str = self.null_rpl_str
+        null_rpl_str = qs2df.null_rpl_str
         # use study 2 including two animals/infusates for tests
         stud2_name = self.study2_dict["study"]
         anim1_name = self.study2_dict["animal1"]
