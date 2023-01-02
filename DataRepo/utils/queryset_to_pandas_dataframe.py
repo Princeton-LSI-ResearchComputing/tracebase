@@ -91,6 +91,10 @@ class QuerysetToPandasDataFrame:
         "msrun_protocol",
     ]
 
+    # the string for replacing null value for treatment, infusate, tracer
+    # prefer to use "None" as it's consistent with null value displayed on webpage
+    null_rpl_str = "None"
+
     @staticmethod
     def qs_to_df(qs, qry_to_df_fields):
         """
@@ -135,6 +139,11 @@ class QuerysetToPandasDataFrame:
         """
         get joined data for all infusates, including parent compound, labeled element(s),
         concentration for each tracer associated with an infusate
+        Notes:
+        Infusate.name, Tracer.name, and TracerLabel.name are allowed to be null based on current design.
+        For any missing name value, null will be replaced by the value assigned to "null_rpl_str".
+        This prevent silent error when calling "groupby" method in DataFrames to get unique list of infusates
+        or tracers.
         """
         inf_qs = (
             Infusate.objects.prefetch_related("tracers")
@@ -155,6 +164,13 @@ class QuerysetToPandasDataFrame:
             "tracers__compound__name": "compound_name",
         }
         infusate_all_df = cls.qs_to_df(inf_qs, qry_to_df_fields)
+
+        # handle possible null values for three name fields
+        infusate_all_df[
+            ["infusate_name", "tracer_name", "tracer_label"]
+        ] = infusate_all_df[["infusate_name", "tracer_name", "tracer_label"]].fillna(
+            cls.null_rpl_str
+        )
 
         # re-index based on column order
         column_names = cls.infusate_column_names
@@ -238,6 +254,7 @@ class QuerysetToPandasDataFrame:
                 tracers=("tracer_name", list),
                 concentrations=("tracer_concentration", list),
                 labeled_elements=("elements_as_str", "unique"),
+                compounds=("compound_name", list),
                 compound_id_name_list=("compound_id_name", list),
                 tracer_id_name_list=("tracer_id_name", list),
             )
@@ -288,7 +305,7 @@ class QuerysetToPandasDataFrame:
             "description": "study_description",
         }
         stud_list_df = cls.qs_to_df(qs, qry_to_df_fields)
-        stud_list_df.fillna({"tracer_name": ""}, inplace=True)
+        # stud_list_df.fillna({"tracer_name": ""}, inplace=True)
         return stud_list_df
 
     @classmethod
@@ -545,7 +562,6 @@ class QuerysetToPandasDataFrame:
         ]
         column_names = study_column_names + cls.animal_tissue_sample_msrun_column_names
         all_stud_msrun_df = all_stud_msrun_df.reindex(columns=column_names)
-        all_stud_msrun_df.fillna(value={"tracer_name": ""}, inplace=True)
         return all_stud_msrun_df
 
     @classmethod
@@ -563,14 +579,16 @@ class QuerysetToPandasDataFrame:
             ].apply(";".join)
         except TypeError:
             # When compound_id_name_list is empty, a TypeError is raised
-            all_stud_msrun_df["compounds_as_str"] = ""
+            # empty list is not expected, unless tracer data were not loaded for an infusate
+            # keep the code for handling exception just in case
+            all_stud_msrun_df["compounds_as_str"] = cls.null_rpl_str
         try:
             all_stud_msrun_df["elements_as_str"] = all_stud_msrun_df[
                 "labeled_elements"
             ].apply(";".join)
         except TypeError:
             # When labeled_elements is empty, a TypeError is raised
-            all_stud_msrun_df["elements_as_str"] = ""
+            all_stud_msrun_df["elements_as_str"] = cls.null_rpl_str
         # drop columns
         all_stud_msrun_df.drop(columns=["compound_id_name_list", "labeled_elements"])
         # add a column to join infusate id and name
@@ -580,11 +598,16 @@ class QuerysetToPandasDataFrame:
             + all_stud_msrun_df["infusate_name"].astype(str)
         )
         # add a column to join treatment_id and treatment
+        # need to handle null value for treatment id and name, since it is optional in Animal model
+        # if treatment_id or treament is pd.NA, concatenated value will be pd.NA
         all_stud_msrun_df["treatment_id_name"] = (
             all_stud_msrun_df["treatment_id"].astype(str)
             + "||"
             + all_stud_msrun_df["treatment"]
         )
+        all_stud_msrun_df["treatment_id_name"] = all_stud_msrun_df[
+            "treatment_id_name"
+        ].fillna(cls.null_rpl_str)
 
         # generate a DataFrame containing stats columns grouped by study_id
         stud_gb_df1 = (
