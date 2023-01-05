@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 none
 
-## [2.0.1] - 2022-12-12
+## [2.0.1] - 2023-01-05
 
 ### Added
 
@@ -40,6 +40,8 @@ none
   - Added dynamic table height to some view pages.
   - Split the protocol list views into two: animal treatment and msrun protocol.
   - Minor page width issue fixed to prevent confusing horizontal scrollbars from appearing.
+  - Fixed issues with handling null values in Pandas DataFrames.
+  - Improved customtag code to allow better display of infusates/tracers/compounds in list pages.
 - Data submission/loading
   - Improved protocol loading (for treatments and MSRun protocols).
   - Updated loading template.
