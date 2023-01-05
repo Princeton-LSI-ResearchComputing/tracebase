@@ -16,6 +16,7 @@ attention to.  E.g. There are significant logic changes in function X.
 
 ## Checklist
 
+- [ ] Changes have been added to the *Unreleased* section in the [`changelog.md`](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/changelog.md).
 - [ ] All issue requirements satisfied (or no linked issues)
 - [ ] [Linting passes](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/CONTRIBUTING.md#linting).
 - [ ] [Migrations created & committed *(or no model changes)*](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/CONTRIBUTING.md#migration-process)
