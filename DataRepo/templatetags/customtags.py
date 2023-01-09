@@ -139,24 +139,26 @@ def obj_hyperlink(id_name_list, obj):
 
     if id_name_list == [None] or id_name_list is None:
         return None
-    else:
-        id_name_dict = {}
-        for x in id_name_list:
-            if x is not None and x != qs2df.null_rpl_str:
-                k, v = x.split("||")
-                id_name_dict[k] = v
-        obj_format_html1 = format_html_join(
-            ", ",
-            # use defined css for "white-space: nowrap;"
-            '</div><div class="nobr"><a href="{}">{}</a>',
+
+    id_name_dict = {}
+    for x in id_name_list:
+        if x is not None and x != qs2df.null_rpl_str:
+            k, v = x.split("||")
+            id_name_dict[k] = v
+
+    obj_format_html = (
+        '<div class="newlines">'
+        + format_html_join(
+            ",\n",
+            '<a href="{}">{}</a>',
             [
                 (reverse(tmplt_name, args=[str(id)]), id_name_dict[id])
                 for id in id_name_dict
             ],
         )
-        # remove first "</div>" in formatted hmtl string
-        obj_format_html = mark_safe(obj_format_html1[6:])
-        return obj_format_html
+        + "</div>"
+    )
+    return mark_safe(obj_format_html)
 
 
 @register.filter
