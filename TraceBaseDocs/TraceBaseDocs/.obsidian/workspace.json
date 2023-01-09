@@ -1,0 +1,154 @@
+{
+  "main": {
+    "id": "e6d58b51d627ab23",
+    "type": "split",
+    "children": [
+      {
+        "id": "323acd5dfd9ef620",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "387a5d2a50793a87",
+            "type": "leaf",
+            "state": {
+              "type": "empty",
+              "state": {}
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "68e0459be7c199e6",
+    "type": "split",
+    "children": [
+      {
+        "id": "8a8f4a37083740e1",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "a9c8b53e5c1032de",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical"
+              }
+            }
+          },
+          {
+            "id": "2f1e87a612ee8a26",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              }
+            }
+          },
+          {
+            "id": "e10e161ff7b4aea7",
+            "type": "leaf",
+            "state": {
+              "type": "starred",
+              "state": {}
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "7d1ff268c2c8913b",
+    "type": "split",
+    "children": [
+      {
+        "id": "0d3a650e692ff715",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "e1092cb0d2712ca9",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              }
+            }
+          },
+          {
+            "id": "796a7adfd49fc2bf",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              }
+            }
+          },
+          {
+            "id": "25f3065cda476233",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true
+              }
+            }
+          },
+          {
+            "id": "d04bd14aecc0649f",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {}
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Open quick switcher": false,
+      "graph:Open graph view": false,
+      "canvas:Create new canvas": false,
+      "daily-notes:Open today's daily note": false,
+      "templates:Insert template": false,
+      "command-palette:Open command palette": false
+    }
+  },
+  "active": "a9c8b53e5c1032de",
+  "lastOpenFiles": [
+    "Upload/Sample Information Sheet.md",
+    "Types of Data Output/Downloaded Data Formats.md",
+    "Overview/Structure of TraceBase for the Researcher.md",
+    "Overview/Data Privacy and Attribution.md",
+    "Index.md",
+    "Untitled.md",
+    "Types of Data Output/PeakGroups.md",
+    "Values/Normalized Labeling.md",
+    "Values/Fraction.md",
+    "Values/Example of Enrichment Fraction and Abundance Calculation.md"
+  ]
+}

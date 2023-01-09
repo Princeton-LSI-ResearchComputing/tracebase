@@ -1,0 +1,10 @@
+site_name: TraceBase Documentation
+site_url: http://mneinast.github.io/TraceBaseDocs
+site_dir: public
+docs_dir: ./TraceBaseDocs
+
+theme: readthedocs
+
+plugins:
+  - search
+  - roamlinks
