@@ -28,7 +28,10 @@ from DataRepo.models.maintained_model import (
     enable_buffering,
     perform_buffered_updates,
 )
-from DataRepo.models.researcher import get_researchers
+from DataRepo.models.researcher import (
+    UnknownResearcherError,
+    validate_researchers,
+)
 from DataRepo.models.utilities import value_from_choices_label
 from DataRepo.utils import parse_infusate_name, parse_tracer_concentrations
 from DataRepo.utils.exceptions import (
@@ -40,7 +43,6 @@ from DataRepo.utils.exceptions import (
     RequiredValuesError,
     SaveError,
     UnknownHeadersError,
-    UnknownResearcherError,
     ValidationDatabaseSetupError,
 )
 
@@ -179,9 +181,7 @@ class SampleTableLoader:
 
         # Researcher consistency tracking (also a part of error-tracking)
         self.skip_researcher_check = skip_researcher_check
-        self.known_researchers = get_researchers(database=settings.TRACEBASE_DB)
         self.input_researchers = []
-        self.unknown_researchers = []
 
     def load_sample_table(self, data, dry_run=False):
 
@@ -214,20 +214,11 @@ class SampleTableLoader:
             sample_rec = self.get_or_create_sample(rownum, row, animal_rec, tissue_rec)
             self.get_or_create_fcircs(infusate_rec, sample_rec)
 
-        if (
-            not self.skip_researcher_check
-            and len(self.known_researchers) > 0
-            and len(self.unknown_researchers) > 0
-        ):
-            self.errors.append(
-                UnknownResearcherError(
-                    self.unknown_researchers,
-                    self.input_researchers,
-                    self.known_researchers,
-                    "the sample file",
-                    "If all researchers are valid new researchers, add --skip-researcher-check to your command.",
-                )
-            )
+        if not self.skip_researcher_check:
+            try:
+                validate_researchers(self.input_researchers, "--skip-researcher-check")
+            except UnknownResearcherError as ure:
+                self.errors.append(ure)
 
         if len(self.missing_values.keys()) > 0:
             self.errors.append(RequiredValuesError(self.missing_values))
@@ -561,14 +552,8 @@ class SampleTableLoader:
         sample_date_value = self.getRowVal(rownum, row, "SAMPLE_DATE")
 
         # Convert/check values as necessary
-        if (
-            researcher
-            and not self.skip_researcher_check
-            and researcher not in self.input_researchers
-        ):
+        if researcher and researcher not in self.input_researchers:
             self.input_researchers.append(researcher)
-            if researcher not in self.known_researchers:
-                self.unknown_researchers.append(researcher)
         if time_collected_str:
             time_collected = timedelta(minutes=float(time_collected_str))
         if sample_date_value:

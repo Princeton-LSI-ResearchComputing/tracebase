@@ -123,14 +123,14 @@ class Command(BaseCommand):
             peak_group_set_filename=pgs_filename,
             skip_samples=options["skip_samples"],
             sample_name_prefix=options["sample_name_prefix"],
-            debug=options["debug"],
             new_researcher=options["new_researcher"],
             database=options["database"],
             validate=options["validate"],
             isocorr_format=options["isocorr_format"],
+            verbosity=options["verbosity"],
         )
 
-        loader.load_accucor_data()
+        loader.load_accucor_data(options["debug"])
 
         print(f"Done loading {fmt} data into MsRun, PeakGroups, and PeakData")
 
