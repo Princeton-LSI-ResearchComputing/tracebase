@@ -1,5 +1,5 @@
 site_name: TraceBase Documentation
-site_url: http://mneinast.github.io/TraceBaseDocs
+site_url: http://Princeton-LSI-ResearchComputing.github.io/tracebase
 site_dir: public
 docs_dir: ./TraceBaseDocs
 
