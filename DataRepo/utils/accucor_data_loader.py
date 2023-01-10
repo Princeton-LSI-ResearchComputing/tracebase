@@ -236,7 +236,7 @@ class AccuCorDataLoader:
         if self.new_researcher is True:
             researchers = get_researchers(self.db)
             if self.researcher in researchers:
-                self.errors.append(
+                self.buffer_exception(
                     ResearcherNotNew(self.researcher, "--new-researcher", researchers)
                 )
         else:
@@ -245,7 +245,7 @@ class AccuCorDataLoader:
                     self.researcher, skip_flag="--new-researcher", database=self.db
                 )
             except UnknownResearcherError as ure:
-                self.errors.append(ure)
+                self.buffer_exception(ure)
 
     def initialize_sample_names(self):
 
@@ -290,7 +290,7 @@ class AccuCorDataLoader:
         corr_iter = collections.Counter(self.corrected_samples)
         for k, v in corr_iter.items():
             if k.startswith("Unnamed: "):
-                self.errors.append(
+                self.buffer_exception(
                     EmptyColumnsError(
                         "Corrected", list(self.accucor_corrected_df.columns)
                     )
@@ -301,7 +301,7 @@ class AccuCorDataLoader:
             orig_iter = collections.Counter(self.original_samples)
             for k, v in orig_iter.items():
                 if k.startswith("Unnamed: "):
-                    self.errors.append(
+                    self.buffer_exception(
                         EmptyColumnsError(
                             "Original", list(self.accucor_original_df.columns)
                         )
@@ -316,7 +316,7 @@ class AccuCorDataLoader:
                     set(self.corrected_samples) - set(self.original_samples)
                 )
 
-                self.errors.append(
+                self.buffer_exception(
                     SampleColumnInconsistency(
                         len(orig_iter),  # Num original sample columns
                         len(corr_iter),  # Num corrected sample columns
@@ -339,7 +339,7 @@ class AccuCorDataLoader:
             labeled_df = self.accucor_corrected_df.filter(regex=(ACCUCOR_LABEL_PATTERN))
             if len(labeled_df.columns) != 1:
                 # We can buffer this error and continue.  Only the first label column will be used.
-                self.errors.append(
+                self.buffer_exception(
                     MultipleAccucorTracerLabelColumnsError(labeled_df.columns)
                 )
 
@@ -359,7 +359,7 @@ class AccuCorDataLoader:
                     dupe_dict[dupe_key] += "," + str(index + 1)
 
             if len(dupe_dict.keys()) != 0:
-                self.errors.append(DupeCompoundIsotopeCombos(dupe_dict, "original"))
+                self.buffer_exception(DupeCompoundIsotopeCombos(dupe_dict, "original"))
 
         if self.isocorr_format:
             labeled_element_header = "isotopeLabel"
@@ -380,7 +380,7 @@ class AccuCorDataLoader:
                 dupe_dict[dupe_key] += "," + str(index + 1)
 
         if len(dupe_dict.keys()) != 0:
-            self.errors.append(DupeCompoundIsotopeCombos(dupe_dict, "corrected"))
+            self.buffer_exception(DupeCompoundIsotopeCombos(dupe_dict, "corrected"))
 
     def initialize_db_samples_dict(self):
 
@@ -409,7 +409,7 @@ class AccuCorDataLoader:
                 self.missing_samples.append(sample_name)
 
         if len(self.missing_samples) != 0:
-            self.errors.append(MissingSamplesError(self.missing_samples))
+            self.buffer_exception(MissingSamplesError(self.missing_samples))
 
         # If there are no "missing samples", but still no samples...
         if len(sample_dict.keys()) == 0:
@@ -417,11 +417,12 @@ class AccuCorDataLoader:
 
         self.db_samples_dict = sample_dict
 
-    def initialize_tracer_labeled_elements(self) -> List[IsotopeObservationData]:
+    def initialize_tracer_labeled_elements(self):
         """
-        This method queries the database and returns a unique list of the labeled elements that exist among the tracers
-        as if they were parent observations (i.e. count=0 and parent=True).  This is so that Isocorr data can record 0
-        observations for parent records.  Accucor data does present data for counts of 0 already.
+        This method queries the database and sets self.tracer_labeled_elements with a unique list of the labeled
+        elements that exist among the tracers as if they were parent observations (i.e. count=0 and parent=True).  This
+        is so that Isocorr data can record 0 observations for parent records.  Accucor data does present data for
+        counts of 0 already.
         """
         # Assuming only 1 animal is the source of all samples and arbitrarily using the first sample to get that animal
         tracer_recs = list(self.db_samples_dict.values())[
@@ -440,7 +441,8 @@ class AccuCorDataLoader:
                 )
                 if this_label not in tracer_labeled_elements:
                     tracer_labeled_elements.append(this_label)
-        return tracer_labeled_elements
+
+        self.tracer_labeled_elements = tracer_labeled_elements
 
     @classmethod
     def get_first_sample_column_index(cls, df):
@@ -621,7 +623,7 @@ class AccuCorDataLoader:
                         f"No cache exists for animal {msrun.sample.animal.id} linked to Sample {msrun.sample.id}"
                     )
             except Exception as e:
-                self.errors.append(e)
+                self.buffer_exception(e)
                 continue
 
             """
@@ -695,7 +697,7 @@ class AccuCorDataLoader:
                         inserted_peak_group_dict[peak_group_name] = peak_group
 
                 except Exception as e:
-                    self.errors.append(e)
+                    self.buffer_exception(e)
                     continue
 
             # For each PeakGroup, create PeakData rows
@@ -816,7 +818,7 @@ class AccuCorDataLoader:
 
                             peak_data_label.save(using=self.db)
                         except Exception as e:
-                            self.errors.append(e)
+                            self.buffer_exception(e)
                             continue
 
                 else:
@@ -887,11 +889,11 @@ class AccuCorDataLoader:
                                 peak_data_label.save(using=self.db)
 
                         except Exception as e:
-                            self.errors.append(e)
+                            self.buffer_exception(e)
                             continue
 
         if len(self.errors) > 0:
-            raise AggregatedErrors(self.errors)
+            raise AggregatedErrors(self.errors, verbosity=self.verbosity)
 
         if dry_run:
             raise DryRun()
@@ -987,14 +989,10 @@ class AccuCorDataLoader:
                 if x["element"] == self.labeled_element
             ]
             if len(mns) > 1:
-                raise MultipleMassNumbers(
-                    f"Labeled element [{self.labeled_element}] exists among the tracer(s) with "
-                    f"multiple mass numbers: [{','.join(mns)}]."
-                )
+                raise MultipleMassNumbers(self.labeled_element, mns)
             elif len(mns) == 0:
                 raise MassNumberNotFound(
-                    f"Labeled element [{self.labeled_element}] could not be found among the tracer(s) to retrieve its "
-                    "mass number."
+                    self.labeled_element, self.tracer_labeled_elements
                 )
             mn = mns[0]
             parent = corrected_row[self.labeled_element_header] == 0
@@ -1099,7 +1097,7 @@ class AccuCorDataLoader:
             # everything else that was stored in self.errors.  An AggregatedErrors exception is raised (in the called
             # code) when errors are allowed to accumulate, but moving on to the next step/loop is not possible.  And
             # for simplicity, fatal errors that do not allow further accumulation of errors are raised directly.
-            self.errors.append(e)
+            self.buffer_exception(e)
             raise AggregatedErrors(self.errors)
 
         # Buffered auto-updates cannot be done inside the atomic transaction block because the auto-updates associated
@@ -1118,17 +1116,41 @@ class AccuCorDataLoader:
         enable_autoupdates()
         enable_caching_updates()
 
+    def buffer_exception(self, exception):
+        if hasattr(exception, "__traceback__"):
+            self.errors.append(exception)
+        else:
+            try:
+                raise exception
+            except Exception as e:
+                self.errors.append(e)
+
 
 class IsotopeObservationParsingError(Exception):
     pass
 
 
 class MultipleMassNumbers(Exception):
-    pass
+    def __init__(self, labeled_element, mass_numbers):
+        message = (
+            f"Labeled element [{labeled_element}] exists among the tracer(s) with multiple mass numbers: "
+            f"[{','.join(mass_numbers)}]."
+        )
+        super().__init__(message)
+        self.labeled_element = labeled_element
+        self.mass_numbers = mass_numbers
 
 
 class MassNumberNotFound(Exception):
-    pass
+    def __init__(self, labeled_element, tracer_labeled_elements):
+        message = (
+            f"Labeled element [{labeled_element}] could not be found among the tracer(s) to retrieve its mass "
+            "number.  Tracer labeled elements: "
+            f"[{', '.join([x['element'] + x['mass_number'] for x in tracer_labeled_elements])}]."
+        )
+        super().__init__(message)
+        self.labeled_element = labeled_element
+        self.tracer_labeled_elements = tracer_labeled_elements
 
 
 class InvalidNumberOfLabeledElements(Exception):

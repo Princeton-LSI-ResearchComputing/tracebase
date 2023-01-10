@@ -8,8 +8,9 @@ from django.views.generic.edit import FormView
 
 from DataRepo.forms import DataSubmissionValidationForm
 from DataRepo.models import Compound, CompoundSynonym, Protocol, Tissue
+from DataRepo.models.researcher import UnknownResearcherError
 from DataRepo.models.utilities import get_all_models
-from DataRepo.utils import DryRun, MissingSamplesError, UnknownResearcherError
+from DataRepo.utils import DryRun, MissingSamplesError
 from DataRepo.utils.exceptions import AggregatedErrors
 
 

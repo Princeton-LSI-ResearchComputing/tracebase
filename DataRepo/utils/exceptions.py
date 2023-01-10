@@ -58,7 +58,10 @@ class ResearcherNotNew(Exception):
 
 class MissingSamplesError(Exception):
     def __init__(self, samples):
-        message = f"{len(samples)} samples are missing in the database: [{', '.join(samples)}].  Samples must be pre-loaded."
+        message = (
+            f"{len(samples)} samples are missing in the database: [{', '.join(samples)}].  Samples must be pre-"
+            "loaded."
+        )
         super().__init__(message)
         self.sample_list = samples
 
@@ -131,9 +134,12 @@ class LoadingError(Exception):
 
 
 class AggregatedErrors(Exception):
-    def __init__(self, errors, message=None):
+    def __init__(self, errors, message=None, verbosity=0):
         if not message:
             message = f"{len(errors)} errors occurred."
+        if verbosity > 0:
+            for i, error in enumerate(errors, start=1):
+                print(f"ERROR{i}: {type(error).__name__}: {error}")
         super().__init__(message)
         self.errors = errors
 
