@@ -192,59 +192,43 @@ class DataValidationView(FormView):
                     try:
                         self.validate_accucor(afp, [])
                         results[af] = "PASSED"
-                    except MissingSamplesError as mse:
-                        blank_samples = []
-                        real_samples = []
+                    except AggregatedErrors as aes:
 
-                        # Determine whether all the missing samples are blank samples
-                        for sample in mse.sample_list:
-                            if "blank" in sample:
-                                blank_samples.append(sample)
-                            else:
-                                real_samples.append(sample)
+                        results[af] = "PASSED"
+                        for error in aes.errors:
+                            estr = f"{type(error).__name__}: {str(error)}"
+                            if settings.DEBUG:
+                                traceback.print_exception(
+                                    type(error), error, error.__traceback__
+                                )
+                                print(estr)
+                            if isinstance(error, MissingSamplesError):
+                                blank_samples = []
+                                real_samples = []
+                                # Determine whether all the missing samples are blank samples
+                                for sample in error.sample_list:
+                                    if "blank" in sample:
+                                        blank_samples.append(sample)
+                                    else:
+                                        real_samples.append(sample)
 
-                        # Rerun ignoring blanks if all were blank samples, so we can check everything else
-                        if len(blank_samples) > 0 and len(blank_samples) == len(
-                            mse.sample_list
-                        ):
-                            try:
-                                self.validate_accucor(afp, blank_samples)
-                                results[af] = "PASSED"
-                            except Exception as e:
-                                estr = str(e)
-                                # We are using the presence of the string "Debugging..." to infer that it got to the
-                                # end of the load without an exception.  If there is no "Debugging" message, then an
-                                # exception did not occur anyway
-                                if settings.DEBUG:
-                                    traceback.print_exc()
-                                    print(estr)
-                                if "Debugging" not in estr:
+                                # Ignore blanks if all were blank samples, so we can check everything else
+                                if len(blank_samples) > 0 and len(blank_samples) != len(
+                                    error.sample_list
+                                ):
                                     valid = False
                                     results[af] = "FAILED"
-                                    errors[af].append(estr)
-                                else:
-                                    results[af] = "PASSED"
-                        else:
-                            valid = False
-                            results[af] = "FAILED"
-                            errors[af].append(
-                                f"Samples in the accucor file [{af}] are missing in the animal and sample table: "
-                                + f"[{', '.join(real_samples)}]"
-                            )
-                    except Exception as e:
-                        estr = str(e)
-                        # We are using the presence of the string "Debugging..." to infer that it got to the end of the
-                        # load without an exception.  If there is no "Debugging" message, then an exception did not
-                        # occur anyway
-                        if settings.DEBUG:
-                            traceback.print_exc()
-                            print(estr)
-                        if "Debugging" not in estr:
-                            valid = False
-                            results[af] = "FAILED"
-                            errors[af].append(estr)
-                        else:
-                            results[af] = "PASSED"
+                                    errors[af].append(
+                                        f"Samples in the accucor file [{af}] are missing in the animal and sample "
+                                        + f"table: [{', '.join(real_samples)}]"
+                                    )
+                            else:
+                                valid = False
+                                results[af] = "FAILED"
+                                errors[af].append(estr)
+
+                    except DryRun:
+                        results[af] = "PASSED"
                 else:
                     # Cannot check because the samples did not load
                     results[af] = "UNCHECKED"
