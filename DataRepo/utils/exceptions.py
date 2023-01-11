@@ -137,11 +137,13 @@ class AggregatedErrors(Exception):
     def __init__(self, errors, message=None, verbosity=0):
         if not message:
             message = f"{len(errors)} errors occurred."
-        if verbosity > 0:
-            for i, error in enumerate(errors, start=1):
-                print(f"ERROR{i}: {type(error).__name__}: {error}")
         super().__init__(message)
+        if verbosity > 0:
+            print("Aggregated error details:")
+            for i, error in enumerate(errors, start=1):
+                print(f"\tERROR{i}: {type(error).__name__}: {error}")
         self.errors = errors
+        self.verbosity = verbosity
 
 
 class ConflictingValueError(Exception):

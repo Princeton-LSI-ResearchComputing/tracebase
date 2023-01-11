@@ -31,6 +31,7 @@ from DataRepo.models import (
 )
 from DataRepo.models.hier_cached_model import set_cache
 from DataRepo.models.peak_group_label import NoCommonLabel
+from DataRepo.models.researcher import UnknownResearcherError
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import (
     AccuCorDataLoader,
@@ -44,7 +45,6 @@ from DataRepo.utils import (
     parse_infusate_name,
     parse_tracer_concentrations,
 )
-from DataRepo.utils.exceptions import UnknownResearcherError
 
 
 class ExampleDataConsumer:
@@ -663,9 +663,9 @@ class DataLoadingTests(TracebaseTestCase):
         #   Hidden flag is suggested
         #   Existing researchers are shown
         exp_err = (
-            "1 researchers from the sample file: [Han Solo] out of 1 researchers do not exist in the database.  "
-            "Please ensure they are not variants of existing researchers:\nMichael Neinast\nXianfeng Zeng\nIf all "
-            "researchers are valid new researchers, add --skip-researcher-check to your command."
+            "1 researchers: [Han Solo] out of 1 do not exist in the database.  Current researchers are:\nMichael "
+            "Neinast\nXianfeng Zeng\nIf all researchers are valid new researchers, add --skip-researcher-check to "
+            "your command."
         )
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
@@ -734,14 +734,19 @@ class DataLoadingTests(TracebaseTestCase):
     @tag("synonym_data_loading")
     def test_invalid_synonym_accucor_load(self):
         with self.assertRaises(AssertionError, msg="1 compounds are missing."):
-            # this file contains 1 invalid synonym for glucose "table sugar"
-            call_command(
-                "load_accucor_msruns",
-                protocol="Default",
-                accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_corrected_invalid_syn.csv",
-                date="2021-11-18",
-                researcher="Michael Neinast",
-            )
+            try:
+                # this file contains 1 invalid synonym for glucose "table sugar"
+                call_command(
+                    "load_accucor_msruns",
+                    protocol="Default",
+                    accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_corrected_invalid_syn.csv",
+                    date="2021-11-18",
+                    researcher="Michael Neinast",
+                )
+            except AggregatedErrors as aes:
+                self.assertEqual(1, len(aes.errors))
+                self.assertTrue(isinstance(aes.errors[0], MissingSamplesError))
+                raise
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
@@ -1843,15 +1848,20 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         super().setUpTestData()
 
     def test_accucor_load_blank_fail(self):
-        with self.assertRaises(MissingSamplesError, msg="1 samples are missing."):
-            call_command(
-                "load_accucor_msruns",
-                accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_blank_sample.xlsx",
-                protocol="Default",
-                date="2021-04-29",
-                researcher="Michael Neinast",
-                new_researcher=True,
-            )
+        with self.assertRaises(AggregatedErrors, msg="1 samples are missing."):
+            try:
+                call_command(
+                    "load_accucor_msruns",
+                    accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_blank_sample.xlsx",
+                    protocol="Default",
+                    date="2021-04-29",
+                    researcher="Michael Neinast",
+                    new_researcher=True,
+                )
+            except AggregatedErrors as aes:
+                self.assertEqual(1, len(aes.errors))
+                self.assertTrue(isinstance(aes.errors[0], MissingSamplesError))
+                raise
 
     def test_accucor_load_blank_skip(self):
         call_command(
@@ -1893,16 +1903,29 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         self.assertEqual(PeakData.objects.all().count(), PEAKDATA_ROWS * SAMPLES_COUNT)
 
     def test_accucor_load_sample_prefix_missing(self):
-        with self.assertRaises(MissingSamplesError, msg="1 samples are missing."):
-            call_command(
-                "load_accucor_msruns",
-                accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_req_prefix.xlsx",
-                skip_samples=("blank"),
-                protocol="Default",
-                date="2021-04-29",
-                researcher="Michael Neinast",
-                new_researcher=True,
-            )
+        with self.assertRaises(AggregatedErrors, msg="1 samples are missing."):
+            try:
+                call_command(
+                    "load_accucor_msruns",
+                    accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_req_prefix.xlsx",
+                    skip_samples=("blank"),
+                    protocol="Default",
+                    date="2021-04-29",
+                    researcher="Michael Neinast",
+                    new_researcher=True,
+                )
+            except AggregatedErrors as aes:
+                nl = "\n"
+                self.assertEqual(
+                    1,
+                    len(aes.errors),
+                    msg=(
+                        f"Should be 1 MissingSamplesError, but there were {len(aes.errors)}.  Errors:{nl}"
+                        f"{nl.join(list(map(lambda s: str(s), aes.errors)))}"
+                    ),
+                )
+                self.assertTrue(isinstance(aes.errors[0], MissingSamplesError))
+                raise
 
 
 @override_settings(CACHES=settings.TEST_CACHES)

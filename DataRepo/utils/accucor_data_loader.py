@@ -409,10 +409,12 @@ class AccuCorDataLoader:
                 self.missing_samples.append(sample_name)
 
         if len(self.missing_samples) != 0:
-            self.buffer_exception(MissingSamplesError(self.missing_samples))
-
-        # If there are no "missing samples", but still no samples...
-        if len(sample_dict.keys()) == 0:
+            if len(sample_dict.keys()) == 0:
+                raise MissingSamplesError(self.missing_samples)
+            else:
+                self.buffer_exception(MissingSamplesError(self.missing_samples))
+        elif len(sample_dict.keys()) == 0:
+            # If there are no "missing samples", but still no samples...
             raise NoSamplesError()
 
         self.db_samples_dict = sample_dict
@@ -1062,8 +1064,7 @@ class AccuCorDataLoader:
 
     def load_accucor_data(self, dry_run=False):
 
-        disable_autoupdates()
-        disable_caching_updates()
+        self.pre_load_setup()
 
         # Data validation and loading
         try:
@@ -1078,21 +1079,14 @@ class AccuCorDataLoader:
                 self.load_data(dry_run)
 
         except DryRun:
-            # We can assume that there were no real errors
-
-            # If we're in dry run mode, we need to clear the update buffer so that the next call doesn't make
-            # auto-updates on non-existent (or incorrect) records
-            clear_update_buffer()
-
-            # And before we leave, we must re-enable things
-            enable_autoupdates()
-            enable_caching_updates()
-
+            self.post_load_teardown()
             raise
         except AggregatedErrors:
+            self.post_load_teardown()
             # If it was an aggregated errors exception, raise it directly
             raise
         except Exception as e:
+            self.post_load_teardown()
             # If it was some other (unanticipated or a single fatal) error, we want to report it, but also include
             # everything else that was stored in self.errors.  An AggregatedErrors exception is raised (in the called
             # code) when errors are allowed to accumulate, but moving on to the next step/loop is not possible.  And
@@ -1113,6 +1107,17 @@ class AccuCorDataLoader:
         if not dry_run:
             perform_buffered_updates(using=self.db)
 
+        self.post_load_teardown()
+
+    def pre_load_setup(self):
+        disable_autoupdates()
+        disable_caching_updates()
+
+    def post_load_teardown(self):
+        # If we're in dry run mode, we need to clear the update buffer so that the next call doesn't make
+        # auto-updates on non-existent (or incorrect) records
+        clear_update_buffer()
+        # And before we leave, we must re-enable things
         enable_autoupdates()
         enable_caching_updates()
 
