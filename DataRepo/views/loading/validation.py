@@ -114,13 +114,12 @@ class DataValidationView(FormView):
 
             # If the protocol load didn't fail...
             if results[animal_sample_name] != "FAILED":
-                # Load the animal and sample table in debug mode to check the researcher and sample name uniqueness.
-                # We are doing this debug run to catch researcher errors, because if there are, we can label it as a
-                # warning and run again with skip researcher check as True and catch any other exceptions that would be
-                # raised AFTER the researcher exception.
+                # Load the animal and sample table with the researcher check so we can catch any possible
+                # UnknownResearcherErrors.  We will then run again without the researcher check so that the data
+                # actually gets loaded, thus enabling the accucor data load validation in the next step.
                 try:
                     # debug=True is supposed to NOT commit the DB changes, but it IS creating the study, so even though
-                    # I'm using debug here, I am also setting the database to the validation database...
+                    # I'm using debug here, I am also running in validate mode, which uses the validation database...
                     call_command(
                         "load_animals_and_samples",
                         animal_and_sample_table_filename=animal_sample_dict[
@@ -166,6 +165,7 @@ class DataValidationView(FormView):
                             print(estr)
                         errors[animal_sample_name].append(estr)
 
+            # Now let's run without the researcher check
             can_proceed = False
             if results[animal_sample_name] != "FAILED":
                 # Load the animal and sample data into the validation database, so the data is available for the
@@ -181,6 +181,11 @@ class DataValidationView(FormView):
                     )
                     can_proceed = True
                 except AggregatedErrors as ae:
+                    if len(ae.errors) > 0:
+                        errors[animal_sample_name].append(
+                            "An unexpected validation error has occurred.  Unable to validate the accucor file(s).  "
+                            f"The following {len(ae.errors)} errors were not raised in the researcher check run..."
+                        )
                     for err in ae.errors:
                         if settings.DEBUG:
                             traceback.print_exc()
@@ -188,6 +193,7 @@ class DataValidationView(FormView):
                         errors[animal_sample_name].append(
                             f"{animal_sample_name} {err.__class__.__name__}: {str(err)}"
                         )
+                    # We do not need to rehash the warnings that were reported in the first run
                     valid = False
                     results[animal_sample_name] = "FAILED"
                     can_proceed = False
