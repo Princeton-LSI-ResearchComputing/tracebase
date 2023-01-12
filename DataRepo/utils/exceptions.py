@@ -136,7 +136,7 @@ class LoadingError(Exception):
 class AggregatedErrors(Exception):
     def __init__(self, errors, message=None, verbosity=0):
         if not message:
-            message = f"{len(errors)} errors occurred."
+            message = f"{len(errors)} exceptions occurred."
         super().__init__(message)
         if verbosity > 0:
             print("Aggregated error details:")
@@ -178,7 +178,7 @@ class AggregatedErrors(Exception):
                 warnings.append(exception)
             else:
                 errors.append(exception)
-        if len(warnings) > 0:
+        if self.verbosity and len(warnings) > 0:
             for i, warning in enumerate(warnings):
                 print(f"WARNING{i}: {type(warning).__name__}: {str(warning)}")
         self.errors = errors
