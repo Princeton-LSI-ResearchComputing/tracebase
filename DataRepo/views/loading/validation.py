@@ -136,28 +136,35 @@ class DataValidationView(FormView):
                         print(str(dr))
                     results[animal_sample_name] = "PASSED"
                 except AggregatedErrors as ae:
-                    if len(ae.errors) == 1 and isinstance(
-                        ae.errors[0], UnknownResearcherError
-                    ):
-                        ure = ae.errors[0]
-                        valid = False
-                        errors[animal_sample_name].append(
-                            "[The following error about a new researcher name should only be addressed if the name "
-                            "already exists in the database as a variation.  If this is a truly new researcher name in "
-                            f"the database, it may be ignored.]\n{animal_sample_name}: {str(ure)}"
-                        )
+                    # Set overall validity
+                    valid = False
+
+                    # Set the exception level (WARNING or FAILED)
+                    if len(ae.errors) == 0:
                         results[animal_sample_name] = "WARNING"
                     else:
-                        for err in ae.errors:
-                            estr = str(err)
-                            if settings.DEBUG:
-                                traceback.print_exc()
-                                print(estr)
-                            errors[animal_sample_name].append(
-                                f"{err.__class__.__name__}: {estr}"
-                            )
-                        valid = False
                         results[animal_sample_name] = "FAILED"
+
+                    # Annotate the errors and warnings for the lab member
+                    for warning in ae.warnings:
+                        wstr = f"{type(warning).__name__}: {str(warning)}"
+                        if settings.DEBUG:
+                            traceback.print_exception(
+                                type(warning), warning, warning.__traceback__
+                            )
+                            print(wstr)
+                        if isinstance(warning, UnknownResearcherError):
+                            errors[animal_sample_name].append(
+                                "[The following error about a new researcher name should only be addressed if the "
+                                "name already exists in the database as a variation.  If this is a truly new "
+                                f"researcher name in the database, it may be ignored.]\n{animal_sample_name}: {wstr}"
+                            )
+                    for err in ae.errors:
+                        estr = f"{type(err).__name__}: {str(err)}"
+                        if settings.DEBUG:
+                            traceback.print_exception(type(err), err, err.__traceback__)
+                            print(estr)
+                        errors[animal_sample_name].append(estr)
 
             can_proceed = False
             if results[animal_sample_name] != "FAILED":

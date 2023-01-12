@@ -47,6 +47,7 @@ from DataRepo.utils.exceptions import (
     NoTracerLabeledElements,
     ResearcherNotNew,
     SampleColumnInconsistency,
+    UnexpectedIsotopes,
     ValidationDatabaseSetupError,
 )
 
@@ -895,7 +896,12 @@ class AccuCorDataLoader:
                             continue
 
         if len(self.errors) > 0:
-            raise AggregatedErrors(self.errors, verbosity=self.verbosity)
+            aes = AggregatedErrors(self.errors, verbosity=self.verbosity)
+            # Split into fatal errors and warnings and decide whether the exception should be raised or not (will not
+            # be raised if not in validate mode and)
+            should_raise = aes.cull_warnings(self.validate)
+            if should_raise:
+                raise aes
 
         if dry_run:
             raise DryRun()
@@ -977,9 +983,10 @@ class AccuCorDataLoader:
                 # raise Exception(f"More measured isotopes ({isotopes}) than tracer labeled elements "
                 # f"({parent_labels}) for compounds ({observed_compound_recs}).")
                 if self.verbosity >= 1:
-                    print(
-                        f"WARNING: More measured isotopes ({isotopes}) than tracer labeled elements ({parent_labels}) "
-                        f"for compounds ({observed_compound_recs})."
+                    self.buffer_exception(
+                        UnexpectedIsotopes(
+                            isotopes, parent_labels, observed_compound_recs
+                        )
                     )
 
         else:

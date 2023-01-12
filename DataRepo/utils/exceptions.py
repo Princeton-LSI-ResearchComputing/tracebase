@@ -144,6 +144,46 @@ class AggregatedErrors(Exception):
                 print(f"\tERROR{i}: {type(error).__name__}: {error}")
         self.errors = errors
         self.verbosity = verbosity
+        self.warnings = []  # Populated by cull_warnings()
+
+    def cull_warnings(self, validate):
+        """
+        This method divides the accumulated exceptions into fatal errors and warnings, based on whether we're in
+        validate mode (which is inferred to connote that this is the validation web interface being run by a user).  A
+        user cannot supply flags like "--new-researcher", so they should see a warning instead of an error, because
+        they cannot prevent the error from happening (but a curator can).
+
+        This assumes that the exception objects contain attributes "load_warning" and/or "validate_warning" IF the
+        exception should be treated as a warning.
+
+        Returns whether or not the AggregatedErrors exception should be raised.  Exceptions when load_warning is true
+        and loading is happening should only print the warning and not raise an exception.  Exceptions when
+        validate_warning is true and in validate mode *SHOULD* raise an exception so that the AggregatedErrors
+        exception can be caught and the warnings and errors should all be presented to the user.
+        """
+        warnings = []
+        errors = []
+        for exception in self.errors:
+            if (
+                hasattr(exception, "load_warning")
+                and exception.load_warning
+                and not validate
+            ):
+                warnings.append(exception)
+            elif (
+                hasattr(exception, "validate_warning")
+                and exception.validate_warning
+                and validate
+            ):
+                warnings.append(exception)
+            else:
+                errors.append(exception)
+        if len(warnings) > 0:
+            for i, warning in enumerate(warnings):
+                print(f"WARNING{i}: {type(warning).__name__}: {str(warning)}")
+        self.errors = errors
+        self.warnings = warnings
+        return len(self.errors) > 0 or (validate and len(self.warnings) > 0)
 
 
 class ConflictingValueError(Exception):
@@ -208,3 +248,27 @@ class IsotopeStringDupe(Exception):
         super().__init__(message)
         self.measurement_str = measurement_str
         self.parent_str = parent_str
+
+
+class UnexpectedIsotopes(Exception):
+    def __init__(self, detected_isotopes, labeled_isotopes, compounds):
+        message = (
+            f"Unexpected isotopes detected ({detected_isotopes}) that are not among the tracer labeled elements "
+            f"({labeled_isotopes}) for compounds ({compounds}).  There could be contamination."
+        )
+        super().__init__(message)
+        self.detected_isotopes = detected_isotopes
+        self.labeled_isotopes = labeled_isotopes
+        self.compounds = compounds
+
+        # The following are used by the loading code to decide if this exception should be fatal or treated as a
+        # warning, depending on the mode in which the loader is run.
+
+        # This exception should be treated as a warning when validate is false.
+        self.load_warning = True
+        # This exception should be treated as a warning when validate is true.
+        self.validate_warning = True
+        # These 2 values can differ based on whether this is something the user can fix or not.  For example, the
+        # validation interface does not enable the user to verify that the researcher is indeed a new researcher, so
+        # they cannot quiet an unknown researcher exception.  A curator can, so when the curator goes to load, it
+        # should be treated as an exception (curator_warning=False).
