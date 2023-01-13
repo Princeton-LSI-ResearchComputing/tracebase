@@ -21,6 +21,10 @@ quadricep | alanine | N | 97694902 | 0.019993 | 1953218 | 0.057964
 quadricep | glutamate | C | 14251992 | 0.007268 | 103580.9 | 0.026341
 quadricep | glutamate | N | 14251992 | 0.087257 | 1243586 | 0.252978
 
-If a compound does not include any nitrogen atoms (e.g. succinate C4H6O4), there is no data reported for nitrogen labeling.
+In some cases, a labeled element present in a tracer is not found in a measured compound, and Normalized Labeling is not reported.  For example, lactate (C3H6O3) can be measured in samples from an animal infused with N-labeled glutamine (C5H10N2O3), but no nitrogen enrichment or normalized labeling is reported for lactate.
 
 For infusates with multiple tracers, SerumTracerPeakGroup.enrichment_fraction = average of enrichment in each serum tracer group.
+
+The `SerumTracerPeakGroup` depends on some edge cases:
+ - if two serum samples were collected on the same date and same minutes after the start of infusion, (ie they are biological replicates), the specific value selected is arbitrary.
+ - if the same `SerumTracerPeakGroup` is repeated in multiple MSruns (appears in multiple accucor files), the most recent uploaded data is selected.

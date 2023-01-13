@@ -11,10 +11,6 @@ The upload process process ensures that samples are labeled accurately and that 
    2. Fill in the `Samples `sheet. Ensure that each `Sample Name` matches the sample names in your AccuCor/Isocorr files. If you have a Tissue that is not included in the existing list, please label it as you would like to in the `Tissues` sheet and tell the developer you have a new Tissue.
    3. Fill in Treatments sheet (optional) with any treatments not captured by other columns (ie `Diet`).  Use `no treatment` if applicable.
 Provide a list of treatments used in the study, along with a description of each.
-2. Optional: Validate your data
-   1. Download your Animal and Sample Table in Excel format.
-   2. [Validate](https://tracebase-dev.princeton.edu/DataRepo/validate) your sample table and AccuCor/IsoCorr files
-   3. If there are any errors reported, fix them in the Google spreadsheet and return to step 1.
 
 Note: In general, you should NOT edit your AccuCor files. It's simplest and often best to resolve issues by editing your animal and sample table file.
 
@@ -33,7 +29,7 @@ What happens next?
 We will review your study to ensure that everything will load smoothly. If there are any issues, we will contact you to sort everything out.
 The study data will be loaded into TraceBase and we'll send you an email with a link to view the data to make sure everything looks correct and you can start browsing your data.
 
-[Contact us](https://forms.gle/LNk4kk6RJKZWM6za9) anytime if you have any questions, concerns, or comments If, after your submission, you need to follow-up or would like to check-in on the upload status,[ let us know](https://forms.gle/LNk4kk6RJKZWM6za9).
+[Contact us](https://forms.gle/LNk4kk6RJKZWM6za9) anytime if you have any questions, concerns, or comments. If, after your submission, you need to follow-up or would like to check-in on the upload status, [let us know](https://forms.gle/LNk4kk6RJKZWM6za9).
 
 # FAQ
 
@@ -47,16 +43,16 @@ Can I upload multiple data files at once?
 * Yes!  Upload as many data files as you want.  Ideally, use only one Sample Information Sheet.
 
 My sample names in one Accucor/Isocorr file are not unique (ie `Mouse1_Q`, `Mouse2_Q`, `Mouse3_Q` in one data file for one experiment, and `Mouse1_Q`, `Mouse2_Q`, `Mouse3_Q` in a second data file for a second experiment).  Can I upload these together?
-* Not yet.  Every sample name in the data file should correspond to one unique biological sample in this `Study`.  Contact us and we can help you upload these data.
+* Yes, but we will work with you to ensure data is uploaded correctly.  Ideally, every sample name in the data file should correspond to one unique biological sample in this `Study`.  Upload what you have, then contact us and we can help you upload these data.
 
 I modified my data files before uploading them (ie added rows for sample information).  Can I upload these files?
 * Yes.  We will help you come up with an easy solution for uploading modified files.  Just upload what you have and we will contact you to confirm our solution is ok.
 
 Can I upload some data now, and upload more data from the same samples later?
-* Yes.  TraceBase will add new data to existing samples.  If the same compound is uploaded a second time, TraceBase will keep the latest upload.
+* Yes.  TraceBase will add new data to existing samples.  If the same compound is uploaded a second time, TraceBase will use the latest upload.
 
 What kind of data can be uploaded?
- - [[Input Data for TraceBase Upload]]
+ - See [[Input Data for TraceBase Upload]]
 
 
 

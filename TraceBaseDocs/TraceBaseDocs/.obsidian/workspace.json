@@ -4,15 +4,19 @@
     "type": "split",
     "children": [
       {
-        "id": "323acd5dfd9ef620",
+        "id": "fab4f1cbb63b5a3c",
         "type": "tabs",
         "children": [
           {
-            "id": "387a5d2a50793a87",
+            "id": "aac22f871302e334",
             "type": "leaf",
             "state": {
-              "type": "empty",
-              "state": {}
+              "type": "markdown",
+              "state": {
+                "file": "index.md",
+                "mode": "source",
+                "source": false
+              }
             }
           }
         ]
@@ -81,6 +85,7 @@
             "state": {
               "type": "backlink",
               "state": {
+                "file": "index.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -97,6 +102,7 @@
             "state": {
               "type": "outgoing-link",
               "state": {
+                "file": "index.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               }
@@ -118,7 +124,9 @@
             "type": "leaf",
             "state": {
               "type": "outline",
-              "state": {}
+              "state": {
+                "file": "index.md"
+              }
             }
           }
         ]
@@ -138,17 +146,17 @@
       "command-palette:Open command palette": false
     }
   },
-  "active": "a9c8b53e5c1032de",
+  "active": "aac22f871302e334",
   "lastOpenFiles": [
-    "Upload/Sample Information Sheet.md",
-    "Types of Data Output/Downloaded Data Formats.md",
     "Overview/Structure of TraceBase for the Researcher.md",
-    "Overview/Data Privacy and Attribution.md",
-    "Index.md",
-    "Untitled.md",
-    "Types of Data Output/PeakGroups.md",
+    "Values/Total Abundance.md",
     "Values/Normalized Labeling.md",
-    "Values/Fraction.md",
-    "Values/Example of Enrichment Fraction and Abundance Calculation.md"
+    "Values/Glossary of Calculated Values.md",
+    "Values/Example of Enrichment Fraction and Abundance Calculation.md",
+    "Values/Enrichment Abundance.md",
+    "Values/Enrichment.md",
+    "Values/Corrected Abundance.md",
+    "Types of Data Output/Downloaded Data Formats.md",
+    "Types of Data Output/Fcirc.md"
   ]
 }

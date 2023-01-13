@@ -1,6 +1,6 @@
 
 # TraceBase
-![](Attachments/Pasted%20image%2020221212112345.png)
+![](Attachments/TraceBase%20logo.png)
 
  TraceBase is a data repository and analysis tool for mass-spectrometry data from isotope tracing studies used to quantify metabolism in vivo. Lab members submit data corrected for natural isotope abundance (by AccuCor or IsoCorr), along with details about their experiment. TraceBase organizes this data and computes useful metrics such as enrichment, normalized labeling, and FCirc.  Data on TraceBase is easy to browse, collate, compare, and download.
 

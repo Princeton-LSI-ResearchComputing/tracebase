@@ -38,7 +38,7 @@ Individual tracers are formatted: `compound_name-[weight element count,weight el
 * If a tracer is not fully labeled for a given element, the positions of the that element must be included: `compound_name-[position,position-weight element count]`
 	   * Example: L-Leucine-\[1,2-13C2]
 
-Mixtures of compounds are formatted: `tracer_mix_name {tracer; tracer}
+Mixtures of compounds are formatted: `tracer_mix_name {tracer; tracer}`
 
   * `tracer_mix_name` is optional
   * Example: BCAAs {isoleucine-\[13C6,15N1];leucine-\[13C6,15N1];valine-\[13C5,15N1]}
@@ -65,9 +65,11 @@ Indicate the length of fasting/feeding in `Study Description`
 Short, unique identifier for animal treatment protocol.  Details are provided in the `Treatment Description` field on the `Treatments` sheet
    * Example:  “T3 in drinking water”
 
-Default animal treatment is `no treatment`
+Default animal treatment is `no treatment`.
 
 Note that diets and feeding status are indicated elsewhere, and are not indicated here.
+
+These protocol are designed to be uniquely named so that lab members can share between their studies.
 
 ### Study Name
 An identifier for the “experiment” or collection of animals that this animal belongs to.
@@ -75,22 +77,22 @@ An identifier for the “experiment” or collection of animals that this animal
 ### Study Description
 A long form description of the study.
 
-Describe here experimental design, citations if the data is published, or any other relevant information that a researcher might need to consider when looking at the data from this study
+Describe here experimental design, citations if the data is published, or any other relevant information that a researcher might need to consider when looking at the data from this study.
 
 ## Samples Tab
 ### Sample Name
-Unique identifier for the biological sample. Must match the name of a sample in Accucor or Isocorr data
+Unique identifier for the biological sample. Must match the name of a sample in Accucor or Isocorr data.
 
 ### Date collected
-Date sample was collected (YYYY-MM-DD)
+Date sample was collected (YYYY-MM-DD).
 
 ### Researcher Name
 Researcher primarily responsible for collection of this sample (FIRST LAST).  Secondary people (PI, collaborator, etc) can be mentioned in the study description.
 
 ### Tissue
 Type of tissue, matching the reference list of tissues.
-* See `Tissues` tab for reference list of tissues, or view a list of [Tissues on TraceBase](https://tracebase.princeton.edu/DataRepo/tissues/)
-* If you have a tissue that is not listed in `Tissues` tab, add your new tissue to the `Tissues` tab
+* See `Tissues` tab for reference list of tissues, or view a list of [Tissues on TraceBase](https://tracebase.princeton.edu/DataRepo/tissues/).
+* If you have a tissue that is not listed in `Tissues` tab, add your new tissue to the `Tissues` tab.
 
 ### Collection Time
 Minutes after the start of the infusion that the tissue was collected.
@@ -98,7 +100,7 @@ Minutes after the start of the infusion that the tissue was collected.
 Collection Time for samples collected before the infusion should be <= 0.
 
 ### Animal ID
-Matches to the Animal ID that this sample was collected from
+Matches to the Animal ID that this sample was collected from.
 
 
 ## Treatments Tab

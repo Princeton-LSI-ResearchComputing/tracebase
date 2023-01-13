@@ -21,7 +21,7 @@ The following workflow for labeling / organizing everything will work well with 
 
 For a new experiment, create a new identifier counting up from “study001”, and sometimes include a short identifier or name for the experiment. (e.g. "study001_hyperthyroid glucose infusion").  Now you can reference this experiment ID ("study001") elsewhere.
 
-- a different experiment may have a new identifier (e.g. "study002_hypothyroid glucose infusion")
+- A different experiment may have a new identifier (e.g. "study002_hypothyroid glucose infusion")
 - A related follow up experiment may have an extension to the identifier, e.g. “study001b_hyperthyroid lactate infusion”
 - Any text could be used in place of “study”
 
@@ -52,7 +52,7 @@ LCMS data for a single biological entity can be generated from multiple LCMS exp
 
 ### Apply this scheme everywhere
 
-These labeling schemes can be applied to your general organization of data outside of tracebase.
+These labeling schemes can be applied to your general organization of data outside of TraceBase.
 
 Data and any other information related to your experiments can be organized into one folder labeled for each study “study001_my first infusion”, “study001b_fixing my first infusion”.  Put everything related to the experiment in this folder, for example:
 
