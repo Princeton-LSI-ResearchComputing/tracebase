@@ -737,7 +737,7 @@ class DataLoadingTests(TracebaseTestCase):
     def test_invalid_synonym_accucor_load(self):
         with self.assertRaises(
             AggregatedErrors,
-            msg="Should complain about a missing compound (due to a synonym renamed to 'table sugar')"
+            msg="Should complain about a missing compound (due to a synonym renamed to 'table sugar')",
         ) as ar:
             # this file contains 1 invalid synonym for glucose "table sugar"
             call_command(
