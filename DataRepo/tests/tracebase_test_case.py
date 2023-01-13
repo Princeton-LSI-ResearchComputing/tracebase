@@ -37,12 +37,21 @@ def test_case_class_factory(base_class):
             reportRunTime(self.id(), self.testStartTime)
 
         @classmethod
+        def setUpClass(self):
+            """
+            This method in the superclass is intended to record the setUpTestData start time so that the setup run time
+            can be reported in setUpTestData.
+            """
+            self.setupStartTime = time.time()
+            super().setUpClass()
+
+        @classmethod
         def setUpTestData(self):
             """
             This method in the superclass is intended to provide run time information for the setUpTestData method.
             """
             super().setUpTestData()
-            reportRunTime(f"{self.__name__}.setUpTestData", self.classStartTime)
+            reportRunTime(f"{self.__name__}.setUpTestData", self.setupStartTime)
 
         class Meta:
             abstract = True

@@ -102,6 +102,7 @@ class DataValidationView(FormView):
                     "load_protocols",
                     protocols=animal_sample_dict[animal_sample_name],
                     validate=True,
+                    verbosity=3,
                 )
                 # Do not set PASSED here. If the full animal/sample table load passes, THEN this file has passed.
             except Exception as e:
@@ -127,6 +128,7 @@ class DataValidationView(FormView):
                         ],
                         debug=True,
                         validate=True,
+                        verbosity=3,
                     )
                     results[animal_sample_name] = "PASSED"
                 except DryRun as dr:

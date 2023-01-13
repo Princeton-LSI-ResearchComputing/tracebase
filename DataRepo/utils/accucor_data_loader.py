@@ -177,11 +177,9 @@ class AccuCorDataLoader:
         """
         Without caching updates enables, retrieve loaded matching samples and labeled elements.
         """
-        disable_caching_updates()
         # The samples/animal (and the infusate) are required to already have been loaded
         self.initialize_db_samples_dict()
         self.initialize_tracer_labeled_elements()
-        enable_caching_updates()
 
     def preprocess_data(self):
         if self.accucor_original_df is not None:
@@ -896,6 +894,13 @@ class AccuCorDataLoader:
                             continue
 
         if len(self.errors) > 0:
+            # PR REVIEW NOTE: I think it may be worthwhile to encapsulate this logic in a method of a superclass of
+            #                 SampleTableLoader and AccucorDataLoader, because I don't like that cull_warnings is in
+            #                 the exception class. I could instead do something like: decide in the fly if a problem
+            #                 should be a warning or an error when buffering the "exception" and decide in the super
+            #                 class method whether to raise the AggregatedErrors exception.  Though I'm not sure where
+            #                 to put the data members currently in the exception classes that AggregatedErrors looks at
+            #                 to decide what to do.
             aes = AggregatedErrors(self.errors, verbosity=self.verbosity)
             # Split into fatal errors and warnings and decide whether the exception should be raised or not (will not
             # be raised if not in validate mode and)

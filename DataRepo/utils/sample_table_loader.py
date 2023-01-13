@@ -238,7 +238,19 @@ class SampleTableLoader:
             # And before we leave, we must re-enable auto-updates
             enable_autoupdates()
             enable_buffering()
-            raise AggregatedErrors(self.errors)
+            # PR REVIEW NOTE: I think it may be worthwhile to encapsulate this logic in a method of a superclass of
+            #                 SampleTableLoader and AccucorDataLoader, because I don't like that cull_warnings is in
+            #                 the exception class. I could instead do something like: decide in the fly if a problem
+            #                 should be a warning or an error when buffering the "exception" and decide in the super
+            #                 class method whether to raise the AggregatedErrors exception.  Though I'm not sure where
+            #                 to put the data members currently in the exception classes that AggregatedErrors looks at
+            #                 to decide what to do.
+            aes = AggregatedErrors(self.errors, verbosity=self.verbosity)
+            # Split into fatal errors and warnings and decide whether the exception should be raised or not (will not
+            # be raised if not in validate mode and)
+            should_raise = aes.cull_warnings(self.validate)
+            if should_raise:
+                raise aes
 
         enable_caching_updates()
         if dry_run:
