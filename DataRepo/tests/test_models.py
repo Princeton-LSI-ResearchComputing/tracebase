@@ -701,7 +701,7 @@ class DataLoadingTests(TracebaseTestCase):
         self.assertEqual(24, len(cves))
         # There are 24 expected errors total
         self.assertEqual(24, len(aes.errors))
-        self.assertEqual("24 errors occurred.", str(ar.exception))
+        self.assertEqual("24 exceptions occurred.", str(ar.exception))
 
     @tag("fcirc")
     def test_peakgroup_from_serum_sample_false(self):
@@ -735,7 +735,10 @@ class DataLoadingTests(TracebaseTestCase):
 
     @tag("synonym_data_loading")
     def test_invalid_synonym_accucor_load(self):
-        with self.assertRaises(AssertionError, msg="1 compounds are missing.") as ar:
+        with self.assertRaises(
+            AggregatedErrors,
+            msg="Should complain about a missing compound (due to a synonym renamed to 'table sugar')"
+        ) as ar:
             # this file contains 1 invalid synonym for glucose "table sugar"
             call_command(
                 "load_accucor_msruns",
@@ -746,7 +749,8 @@ class DataLoadingTests(TracebaseTestCase):
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.errors))
-        self.assertTrue(isinstance(aes.errors[0], MissingSamplesError))
+        self.assertTrue(isinstance(aes.errors[0], AssertionError))
+        self.assertIn("1 compounds are missing.", str(aes.errors[0]))
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
