@@ -45,6 +45,13 @@ class Command(BaseCommand):
             type=str,
             help=argparse.SUPPRESS,
         )
+        # Intended for use by load_study to prevent individual loader autoupdates and buffer clearing, then perform all
+        # mass autoupdates/buffer-clearings after all load scripts are complete
+        parser.add_argument(
+            "--defer-autoupdates",
+            action="store_true",
+            help=argparse.SUPPRESS,
+        )
 
     def handle(self, *args, **options):
         print("Reading header definition")
@@ -64,6 +71,7 @@ class Command(BaseCommand):
             validate=options["validate"],
             skip_researcher_check=options["skip_researcher_check"],
             verbosity=options["verbosity"],
+            defer_autoupdates=options["defer_autoupdates"],
         )
         loader.load_sample_table(
             DictReader(

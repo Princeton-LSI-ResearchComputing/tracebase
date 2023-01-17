@@ -26,10 +26,16 @@ TRACERS_RIGHT_BRACKET = "}"
 
 class InfusateQuerySet(models.QuerySet):
     def get_or_create_infusate(
-        self, infusate_data: InfusateData
+        self,
+        infusate_data: InfusateData,
+        save_kwargs=None,
     ) -> tuple[Infusate, bool]:
         """Get Infusate matching the infusate_data, or create a new infusate"""
         db = self._db or settings.DEFAULT_DB
+        if save_kwargs is None:
+            save_kwargs = {"using": db}
+        elif "using" not in save_kwargs.keys():
+            save_kwargs["using"] = db
 
         # Search for matching Infusate
         infusate = self.using(db).get_infusate(infusate_data)
@@ -51,7 +57,8 @@ class InfusateQuerySet(models.QuerySet):
                 tracer = Tracer.objects.using(db).get_tracer(infusate_tracer["tracer"])
                 if tracer is None:
                     (tracer, _) = Tracer.objects.using(db).get_or_create_tracer(
-                        infusate_tracer["tracer"]
+                        infusate_tracer["tracer"],
+                        save_kwargs,
                     )
                 # associate tracers with specific conectrations
                 InfusateTracer.objects.using(db).create(
@@ -60,7 +67,7 @@ class InfusateQuerySet(models.QuerySet):
                     concentration=infusate_tracer["concentration"],
                 )
             infusate.full_clean()
-            infusate.save(using=db)
+            infusate.save(**save_kwargs)
             created = True
         return (infusate, created)
 
@@ -170,8 +177,9 @@ class Infusate(MaintainedModel, MultiDBMixin):
         if self.name:
             display_name = self.name
         elif are_autoupdates_enabled():
+            db = self._db or settings.DEFAULT_DB
             # This triggers an auto-update
-            self.save(update_fields=["name"])
+            self.save(using=db, label_filters=["name"])
             display_name = self.name
 
         # If it's still not set, call the method that generates the name.  It just won't be saved.

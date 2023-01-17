@@ -149,6 +149,7 @@ class SampleTableLoader:
         validate=False,
         verbosity=1,
         skip_researcher_check=False,
+        defer_autoupdates=False,
     ):
         # Header config
         self.headers = sample_table_headers
@@ -170,6 +171,12 @@ class SampleTableLoader:
                     self.db = settings.VALIDATION_DB
                 else:
                     raise ValidationDatabaseSetupError()
+
+        # How to handle mass autoupdates
+        self.defer_autoupdates = defer_autoupdates
+        # Only buffer (or autoupdate) fields in models with the following labels
+        # This is used as an argument to all of the .save() calls
+        self.autoupdate_labels = ["name"]
 
         # Caching overhead
         self.animals_to_uncache = []
@@ -271,11 +278,15 @@ class SampleTableLoader:
         if self.verbosity >= 2:
             print("Expiring done.")
 
-        # Cannot perform buffered updates of FCirc, Sample, or Animal's last serum tracer peak group because no peak
-        # groups have been loaded yet, so only update the ones labeled "name".
-        perform_buffered_updates(labels=["name"], using=self.db)
-        # Since we only updated some of the buffered items, clear the rest of the buffer
-        clear_update_buffer()
+        autoupdate_mode = not self.defer_autoupdates
+
+        if autoupdate_mode:
+            # No longer any need to filter based on labels, because only records containing fields with the required
+            # labels are buffered now.
+            perform_buffered_updates(using=self.db)
+            # Since we only updated some of the buffered items, clear the rest of the buffer
+            clear_update_buffer()
+
         enable_autoupdates()
         enable_buffering()
 
@@ -354,7 +365,7 @@ class SampleTableLoader:
                     study_rec.full_clean()
                 # We only need to save if there was an update.  get_or_create does a save
                 if study_updated:
-                    study_rec.save(using=self.db)
+                    study_rec.save(using=self.db, label_filters=self.autoupdate_labels)
             except Exception as e:
                 study_rec = None
                 self.buffer_exception(SaveError(Study.__name__, study_name, self.db, e))
@@ -512,7 +523,7 @@ class SampleTableLoader:
                     animal_rec.full_clean()
                 # If there was a change, save the record again
                 if changed:
-                    animal_rec.save(using=self.db)
+                    animal_rec.save(using=self.db, label_filters=self.autoupdate_labels)
             except Exception as e:
                 self.buffer_exception(
                     SaveError(Animal.__name__, str(animal_rec), self.db, e)
@@ -591,7 +602,9 @@ class SampleTableLoader:
                     try:
                         # Even if there wasn't a change, get_or_create doesn't do a full_clean
                         sample_rec.full_clean()
-                        sample_rec.save(using=self.db)
+                        sample_rec.save(
+                            using=self.db, label_filters=self.autoupdate_labels
+                        )
                     except Exception as e:
                         self.buffer_exception(
                             SaveError(Sample.__name__, str(sample_rec), self.db, e)
@@ -646,7 +659,9 @@ class SampleTableLoader:
                             if self.db == settings.TRACEBASE_DB:
                                 # full_clean does not have a using parameter. It only supports the default database
                                 sample_rec.full_clean()
-                            sample_rec.save(using=self.db)
+                            sample_rec.save(
+                                using=self.db, label_filters=self.autoupdate_labels
+                            )
                         except Exception as e:
                             sample_rec = None
                             sample_created = False
@@ -686,7 +701,9 @@ class SampleTableLoader:
                             # full_clean does not have a using parameter. It only supports the default database
                             sample_rec.full_clean()
                         if changed:
-                            sample_rec.save(using=self.db)
+                            sample_rec.save(
+                                using=self.db, label_filters=self.autoupdate_labels
+                            )
                     except Exception as e:
                         self.buffer_exception(
                             SaveError(Sample.__name__, str(sample_rec), self.db, e)

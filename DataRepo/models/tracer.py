@@ -17,9 +17,16 @@ from DataRepo.utils.infusate_name_parser import TracerData
 
 
 class TracerQuerySet(models.QuerySet):
-    def get_or_create_tracer(self, tracer_data: TracerData) -> tuple[Tracer, bool]:
+    def get_or_create_tracer(
+        self, tracer_data: TracerData, save_kwargs=None
+    ) -> tuple[Tracer, bool]:
         """Get Tracer matching the tracer_data, or create a new tracer"""
         db = self._db or settings.DEFAULT_DB
+        if save_kwargs is None:
+            save_kwargs = {"using": db}
+        elif "using" not in save_kwargs.keys():
+            save_kwargs["using"] = db
+
         tracer = self.get_tracer(tracer_data)
         created = False
         if tracer is None:
@@ -30,8 +37,9 @@ class TracerQuerySet(models.QuerySet):
             )
             tracer = self.using(db).create(compound=compound)
             for isotope_data in tracer_data["isotopes"]:
-                TracerLabel.objects.using(db).create_tracer_label(tracer, isotope_data)
+                TracerLabel.objects.using(db).create_tracer_label(tracer, isotope_data, save_kwargs)
             tracer.full_clean()
+            tracer.save(**save_kwargs)
             created = True
         return (tracer, created)
 
@@ -145,8 +153,9 @@ class Tracer(MaintainedModel, ElementLabel):
         if self.name:
             display_name = self.name
         elif are_autoupdates_enabled():
+            db = self._db or settings.DEFAULT_DB
             # This triggers an auto-update
-            self.save(update_fields=["name"])
+            self.save(using=db, label_filters=["name"])
             display_name = self.name
 
         # If it's still not set, call the method that generates the name.  It just won't be saved.

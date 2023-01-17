@@ -438,6 +438,12 @@ class MaintainedModel(Model):
         propagate = kwargs.pop(
             "propagate", True
         )  # Used internally. Do not supply unless you know what you're doing.
+        # Custom argument: label_filters - Only autoupdate fields with (or without - see filter_in) matching labels
+        label_filters = kwargs.pop("label_filters", None)
+        # Custom argument: filter_in - Only autoupdate fields with labels contained in label_filters when this is true,
+        # otherwise filter labels that are NOT in label_filters.  If label_filters is None, autoupdate everything.
+        # Default: True
+        filter_in = kwargs.pop("filter_in", True)
 
         # If auto-updates are turned on, a cascade of updates to linked models will occur, but if they are turned off,
         # the update will be buffered, to be manually triggered later (e.g. upon completion of loading), which
@@ -445,11 +451,11 @@ class MaintainedModel(Model):
         if auto_updates is False and performing_mass_autoupdates is False:
             # Set the changed value triggering this update
             super().save(*args, **kwargs)
-            self.buffer_update()
+            self.buffer_update(label_filters, filter_in)
             return
 
         # Update the fields that change due to the above change (if any)
-        self.update_decorated_fields()
+        self.update_decorated_fields(label_filters, filter_in)
 
         # If the auto-update resulted in no change or if there exists stale buffer contents for objects that were
         # previously saved, it can produce an error about unique constraints.  TransactionManagementErrors shpould have
@@ -469,9 +475,9 @@ class MaintainedModel(Model):
                 raise uc
 
         # We don't need to check performing_mass_autoupdates, because propagating changes during buffered updates is
-        # handled differently (in a breadth-first fashion) to mitigate repeated updates of the same parent record
+        # handled differently (in a breadth-first fashion) to mitigate repeated updates of the same related record
         if auto_updates and propagate:
-            # Percolate changes up to the parents (if any)
+            # Percolate changes up to the related models (if any)
             self.call_dfs_related_updaters()
 
     def delete(self, *args, **kwargs):
@@ -496,16 +502,34 @@ class MaintainedModel(Model):
             # Percolate changes up to the parents (if any)
             self.call_dfs_related_updaters()
 
-    def update_decorated_fields(self):
+    def update_decorated_fields(self, label_filters=None, filter_in=True):
         """
         Updates every field identified in each maintained_field_function decorator using the decorated function that
         generates its value.
         """
         for updater_dict in self.get_my_updaters():
             update_fld = updater_dict["update_field"]
+            update_label = updater_dict["update_label"]
 
-            # If there is a maintained field(s) in this model
-            if update_fld is not None:
+            # If there is a maintained field(s) in this model and...
+            # If auto-updates are restricted to fields by their update_label and this field matches the label
+            # filter criteria
+            if update_fld is not None and (
+                # There are no labels for filtering
+                label_filters is None
+                or len(label_filters) == 0
+                # or the update_label matches a filter-in label
+                or (
+                    filter_in
+                    and update_label is not None
+                    and update_label in label_filters
+                )
+                # or the update_label does not match a filter-out label
+                or (
+                    not filter_in
+                    and (update_label is None or update_label not in label_filters)
+                )
+            ):
                 try:
                     update_fun = getattr(self, updater_dict["update_function"])
                     try:
@@ -514,8 +538,9 @@ class MaintainedModel(Model):
                         if isinstance(e, TransactionManagementError):
                             raise e
                         warnings.warn(
-                            f"{e.__class__.__name__} error getting current value: [{str(e)}].  Possibly due to this "
-                            "being triggered by a deleted record that is linked in a related model's maintained field."
+                            f"{e.__class__.__name__} error getting current value: [{str(e)}].  Possibly due to "
+                            "this being triggered by a deleted record that is linked in a related model's "
+                            "maintained field."
                         )
                         old_val = "<error>"
                     new_val = update_fun()
@@ -562,14 +587,14 @@ class MaintainedModel(Model):
                         f"Propagating change from child {self_sig} to parent {parent_sig}"
                     )
 
-                # Don't let the save call propagate, because we cannot rely on it returning the updated list (because
-                # it could be overridden by another class that doesn't return it (at least, that's my guess as to why I
-                # was getting back None when I tried it.)
-                parent_inst.save(
-                    propagate=False, update_fields=parent_inst.get_my_update_fields()
-                )
+                # Don't let the save call propagate.  Previously, I was relying on save returning the updated list, but
+                # since .save() could be overridden by another class that doesn't return anything, I was getting back
+                # None (at least, that's my guess as to why I was getting back None when I tried it).  So instead, I
+                # implemented the propagation outside of the .save calls using the call_dfs_related_updaters call
+                # below.
+                parent_inst.save(propagate=False)
 
-                # Instead, we will propagate manually:
+                # Propagate manually
                 updated = parent_inst.call_dfs_related_updaters(updated=updated)
 
         return updated
@@ -662,9 +687,7 @@ class MaintainedModel(Model):
                 # Don't let the save call propagate, because we cannot rely on it returning the updated list (because
                 # it could be overridden by another class that doesn't return it (at least, that's my guess as to why I
                 # was getting back None when I tried it.)
-                child_inst.save(
-                    propagate=False, update_fields=child_inst.get_my_update_fields()
-                )
+                child_inst.save(propagate=False)
 
                 # Instead, we will propagate manually:
                 updated = child_inst.call_dfs_related_updaters(updated=updated)
@@ -777,11 +800,41 @@ class MaintainedModel(Model):
 
         return my_update_fields
 
-    def buffer_update(self):
+    def buffer_update(self, label_filters=None, filter_in=True):
         """
         This is called when MaintainedModel.save is called (if auto_updates is False), so that maintained fields can be
         updated after loading code finishes (by calling the global method: perform_buffered_updates)
         """
+
+        # See if this class contains a field with a matching label (if a populated label_filters array was supplied)
+        if label_filters is not None and len(label_filters) > 0:
+            do_buffer = False
+            for updater_dict in self.get_my_updaters():
+                update_label = updater_dict["update_label"]
+
+                # If there is a maintained field(s) in this model and...
+                # If auto-updates are restricted to fields by their update_label and this field matches the label
+                # filter criteria
+                if (
+                    # The update_label matches a filter-in label
+                    (
+                        filter_in
+                        and update_label is not None
+                        and update_label in label_filters
+                    )
+                    # The update_label does not match a filter-out label
+                    or (
+                        not filter_in
+                        and (update_label is None or update_label not in label_filters)
+                    )
+                ):
+                    do_buffer = True
+                    break
+
+            # If there's not a field passing the filter criteria, do not buffer (return)
+            if not do_buffer:
+                return
+
         # Do not buffer if it's already buffered.  Note, this class isn't designed to support auto-updates in a
         # sepecific order.  All auto-update functions should use non-auto-update fields.
         if buffering and self not in update_buffer:
@@ -944,8 +997,11 @@ def perform_buffered_updates(labels=None, using=None):
         label_filters = labels
     db = using
 
-    if auto_updates:
-        raise InvalidAutoUpdateMode()
+    orig_au_mode = are_autoupdates_enabled()
+    if orig_au_mode:
+        # Autoupdate mode must remain disabled during a mass update of maintained fields so that parent updates are not
+        # triggered in a depth-first fashion.
+        disable_autoupdates()
 
     if len(update_buffer) == 0:
         return
@@ -979,13 +1035,9 @@ def perform_buffered_updates(labels=None, using=None):
                     buffer_item.save(
                         using=db,
                         propagate=False,
-                        update_fields=buffer_item.get_my_update_fields(),
                     )
                 else:
-                    buffer_item.save(
-                        propagate=False,
-                        update_fields=buffer_item.get_my_update_fields(),
-                    )
+                    buffer_item.save(propagate=False)
 
                 # Propagate the changes (if necessary), keeping track of what is updated and what's not.
                 # Note: all the manual changes are assumed to have been made already, so auto-updates only need to
@@ -998,6 +1050,8 @@ def perform_buffered_updates(labels=None, using=None):
 
         except Exception as e:
             disable_mass_autoupdates()
+            if orig_au_mode:
+                enable_autoupdates()
             raise AutoUpdateFailed(buffer_item, e, updater_dicts, db)
 
     # Eliminate the updated items from the buffer
@@ -1005,6 +1059,8 @@ def perform_buffered_updates(labels=None, using=None):
 
     # We're done performing buffered updates
     disable_mass_autoupdates()
+    if orig_au_mode:
+        enable_autoupdates()
 
 
 def get_all_updaters():
@@ -1120,15 +1176,6 @@ class AutoUpdateFailed(Exception):
             "autoupdate buffer is stale and auto-updates are being attempted on non-existent records.  Find a "
             "previous call to a loader that performs mass auto-updates and ensure that clear_update_buffer() is "
             f"called.\nThe triggering {err.__class__.__name__} exception: [{err}]."
-        )
-        super().__init__(message)
-
-
-class InvalidAutoUpdateMode(Exception):
-    def __init__(self):
-        message = (
-            "Autoupdate mode must remain disabled during a mass update of maintained fields so that parent updates "
-            "are not triggered in a depth-first fashion."
         )
         super().__init__(message)
 

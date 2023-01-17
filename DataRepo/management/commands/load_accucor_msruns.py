@@ -98,6 +98,13 @@ class Command(BaseCommand):
             type=str,
             help=argparse.SUPPRESS,
         )
+        # Intended for use by load_study to prevent individual loader autoupdates and buffer clearing, then perform all
+        # mass autoupdates/buffer-clearings after all load scripts are complete
+        parser.add_argument(
+            "--defer-autoupdates",
+            action="store_true",
+            help=argparse.SUPPRESS,
+        )
 
     def handle(self, *args, **options):
         fmt = "Accucor"
@@ -128,6 +135,7 @@ class Command(BaseCommand):
             validate=options["validate"],
             isocorr_format=options["isocorr_format"],
             verbosity=options["verbosity"],
+            defer_autoupdates=options["defer_autoupdates"],
         )
 
         loader.load_accucor_data(options["debug"])
