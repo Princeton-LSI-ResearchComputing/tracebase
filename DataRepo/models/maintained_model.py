@@ -977,7 +977,7 @@ def filter_updaters(updaters_list, generation=None, label_filters=[], filter_in=
     return new_updaters_list
 
 
-def perform_buffered_updates(labels=None, using=None):
+def perform_buffered_updates(save_kwargs=None):
     """
     Performs a mass update of records in the buffer in a depth-first fashion without repeated updates to the same
     record over and over.  It goes through the buffer in the order added and triggers each record's DFS updates, which
@@ -991,11 +991,27 @@ def perform_buffered_updates(labels=None, using=None):
     used for loading, which if done right, doesn't change child records after parent records have been added.
     """
     global update_buffer
-    if labels is None:
+
+    if save_kwargs is None:
+        save_kwargs = {}
+
+    # Extract/set the filters
+    if (
+        "label_filters" not in save_kwargs.keys()
+        or save_kwargs["label_filters"] is None
+    ):
         label_filters = []
     else:
-        label_filters = labels
-    db = using
+        label_filters = save_kwargs["label_filters"]
+
+    # Extract/set the database
+    if "using" not in save_kwargs.keys():
+        db = None
+    else:
+        db = save_kwargs["using"]
+
+    # Mass autoupdates should turn off propagation for breadth-first transiting of the tree
+    save_kwargs["propagate"] = False
 
     orig_au_mode = are_autoupdates_enabled()
     if orig_au_mode:
@@ -1031,13 +1047,7 @@ def perform_buffered_updates(labels=None, using=None):
                 # decide which records should be updated.  Currently, this is not an issue because we only have 1
                 # update_label in use.  And if/when we add another label, it will only end up causing extra
                 # repeated updates of the same record.
-                if db:
-                    buffer_item.save(
-                        using=db,
-                        propagate=False,
-                    )
-                else:
-                    buffer_item.save(propagate=False)
+                buffer_item.save(**save_kwargs)
 
                 # Propagate the changes (if necessary), keeping track of what is updated and what's not.
                 # Note: all the manual changes are assumed to have been made already, so auto-updates only need to

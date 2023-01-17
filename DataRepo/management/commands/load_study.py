@@ -237,7 +237,7 @@ class Command(BaseCommand):
         # Since defer_autoupdates is supplied as True to the sample and accucor load commands, we can do all the mass
         # autoupdates in 1 go.
         disable_autoupdates()
-        perform_buffered_updates(using=db)
+        perform_buffered_updates(save_kwargs={"using": db})
         # The buffer should be clear, but just for good measure...
         clear_update_buffer()
         enable_autoupdates()

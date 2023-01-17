@@ -174,9 +174,14 @@ class SampleTableLoader:
 
         # How to handle mass autoupdates
         self.defer_autoupdates = defer_autoupdates
-        # Only buffer (or autoupdate) fields in models with the following labels
-        # This is used as an argument to all of the .save() calls
-        self.autoupdate_labels = ["name"]
+        # This is used as an argument to all of the .save() calls.
+        self.save_kwargs = {
+            "label_filters": [
+                "name"
+            ],  # Only autoupdate fields in MaintainedModels with these label_filters
+            "using": self.db,
+        }
+        # Not all models will be MaintainedModels, but the extra argument to save in those cases won't hurt.
 
         # Caching overhead
         self.animals_to_uncache = []
@@ -282,8 +287,9 @@ class SampleTableLoader:
 
         if autoupdate_mode:
             # No longer any need to filter based on labels, because only records containing fields with the required
-            # labels are buffered now.
-            perform_buffered_updates(using=self.db)
+            # labels are buffered now.  There are autoupdates for fields in Animal and Sample, but they're only needed
+            # for FCirc calculations and will be triggered by a subsequent accucor load.
+            perform_buffered_updates(save_kwargs=self.save_kwargs)
             # Since we only updated some of the buffered items, clear the rest of the buffer
             clear_update_buffer()
 
@@ -365,7 +371,7 @@ class SampleTableLoader:
                     study_rec.full_clean()
                 # We only need to save if there was an update.  get_or_create does a save
                 if study_updated:
-                    study_rec.save(using=self.db, label_filters=self.autoupdate_labels)
+                    study_rec.save(**self.save_kwargs)
             except Exception as e:
                 study_rec = None
                 self.buffer_exception(SaveError(Study.__name__, study_name, self.db, e))
@@ -398,7 +404,8 @@ class SampleTableLoader:
                 )
             infusate_data_object = parse_infusate_name(infusate_str, tracer_concs)
             infusate_rec = Infusate.objects.using(self.db).get_or_create_infusate(
-                infusate_data_object
+                infusate_data_object,
+                save_kwargs=self.save_kwargs,
             )[0]
         return infusate_rec
 
@@ -523,7 +530,7 @@ class SampleTableLoader:
                     animal_rec.full_clean()
                 # If there was a change, save the record again
                 if changed:
-                    animal_rec.save(using=self.db, label_filters=self.autoupdate_labels)
+                    animal_rec.save(**self.save_kwargs)
             except Exception as e:
                 self.buffer_exception(
                     SaveError(Animal.__name__, str(animal_rec), self.db, e)
@@ -602,9 +609,7 @@ class SampleTableLoader:
                     try:
                         # Even if there wasn't a change, get_or_create doesn't do a full_clean
                         sample_rec.full_clean()
-                        sample_rec.save(
-                            using=self.db, label_filters=self.autoupdate_labels
-                        )
+                        sample_rec.save(**self.save_kwargs)
                     except Exception as e:
                         self.buffer_exception(
                             SaveError(Sample.__name__, str(sample_rec), self.db, e)
@@ -659,9 +664,7 @@ class SampleTableLoader:
                             if self.db == settings.TRACEBASE_DB:
                                 # full_clean does not have a using parameter. It only supports the default database
                                 sample_rec.full_clean()
-                            sample_rec.save(
-                                using=self.db, label_filters=self.autoupdate_labels
-                            )
+                            sample_rec.save(**self.save_kwargs)
                         except Exception as e:
                             sample_rec = None
                             sample_created = False
@@ -701,9 +704,7 @@ class SampleTableLoader:
                             # full_clean does not have a using parameter. It only supports the default database
                             sample_rec.full_clean()
                         if changed:
-                            sample_rec.save(
-                                using=self.db, label_filters=self.autoupdate_labels
-                            )
+                            sample_rec.save(**self.save_kwargs)
                     except Exception as e:
                         self.buffer_exception(
                             SaveError(Sample.__name__, str(sample_rec), self.db, e)
