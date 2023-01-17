@@ -169,7 +169,7 @@ class Infusate(MaintainedModel, MultiDBMixin):
     def get_name(self):
         """
         Returns the name field if populated.  If it's not populated, it populates it (in the same manner that the old
-        cache mechanism worked)
+        cache mechanism worked).  Only works on the default database.
         """
         display_name = None
 
@@ -177,9 +177,8 @@ class Infusate(MaintainedModel, MultiDBMixin):
         if self.name:
             display_name = self.name
         elif are_autoupdates_enabled():
-            db = self._db or settings.DEFAULT_DB
             # This triggers an auto-update
-            self.save(using=db, label_filters=["name"])
+            self.save(label_filters=["name"])
             display_name = self.name
 
         # If it's still not set, call the method that generates the name.  It just won't be saved.
