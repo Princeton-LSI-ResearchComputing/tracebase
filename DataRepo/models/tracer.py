@@ -37,7 +37,9 @@ class TracerQuerySet(models.QuerySet):
             )
             tracer = self.using(db).create(compound=compound)
             for isotope_data in tracer_data["isotopes"]:
-                TracerLabel.objects.using(db).create_tracer_label(tracer, isotope_data, save_kwargs)
+                TracerLabel.objects.using(db).create_tracer_label(
+                    tracer, isotope_data, save_kwargs
+                )
             tracer.full_clean()
             tracer.save(**save_kwargs)
             created = True
