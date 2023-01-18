@@ -22,6 +22,7 @@ from DataRepo.models.hier_cached_model import (
     enable_caching_updates,
 )
 from DataRepo.models.maintained_model import (
+    MaintainedModel,
     clear_update_buffer,
     disable_autoupdates,
     enable_autoupdates,
@@ -175,13 +176,13 @@ class SampleTableLoader:
         # How to handle mass autoupdates
         self.defer_autoupdates = defer_autoupdates
         # This is used as an argument to all of the .save() calls.
+        # Access it using self.get_save_kwargs, which filters it for relevance
         self.save_kwargs = {
             "label_filters": [
                 "name"
             ],  # Only autoupdate fields in MaintainedModels with these label_filters
             "using": self.db,
         }
-        # Not all models will be MaintainedModels, but the extra argument to save in those cases won't hurt.
 
         # Caching overhead
         self.animals_to_uncache = []
@@ -296,6 +297,16 @@ class SampleTableLoader:
         enable_autoupdates()
         enable_buffering()
 
+    def get_save_kwargs(self, model_object):
+        """Removes the label_filters key from self.save_kwargs if the model object is not a MaintainedModel"""
+        if isinstance(model_object, MaintainedModel):
+            return self.save_kwargs
+        save_kwargs = {}
+        for k, v in self.save_kwargs.items():
+            if k != "label_filters" and k != "filter_in":
+                save_kwargs[k] = v
+        return save_kwargs
+
     def get_tissue(self, rownum, row):
         tissue_name = self.getRowVal(rownum, row, "TISSUE_NAME")
         tissue_rec = None
@@ -371,7 +382,8 @@ class SampleTableLoader:
                     study_rec.full_clean()
                 # We only need to save if there was an update.  get_or_create does a save
                 if study_updated:
-                    study_rec.save(**self.save_kwargs)
+                    save_kwargs = self.get_save_kwargs(study_rec)
+                    study_rec.save(**save_kwargs)
             except Exception as e:
                 study_rec = None
                 self.buffer_exception(SaveError(Study.__name__, study_name, self.db, e))
@@ -530,7 +542,8 @@ class SampleTableLoader:
                     animal_rec.full_clean()
                 # If there was a change, save the record again
                 if changed:
-                    animal_rec.save(**self.save_kwargs)
+                    save_kwargs = self.get_save_kwargs(animal_rec)
+                    animal_rec.save(**save_kwargs)
             except Exception as e:
                 self.buffer_exception(
                     SaveError(Animal.__name__, str(animal_rec), self.db, e)
@@ -609,7 +622,8 @@ class SampleTableLoader:
                     try:
                         # Even if there wasn't a change, get_or_create doesn't do a full_clean
                         sample_rec.full_clean()
-                        sample_rec.save(**self.save_kwargs)
+                        save_kwargs = self.get_save_kwargs(sample_rec)
+                        sample_rec.save(**save_kwargs)
                     except Exception as e:
                         self.buffer_exception(
                             SaveError(Sample.__name__, str(sample_rec), self.db, e)
@@ -664,7 +678,8 @@ class SampleTableLoader:
                             if self.db == settings.TRACEBASE_DB:
                                 # full_clean does not have a using parameter. It only supports the default database
                                 sample_rec.full_clean()
-                            sample_rec.save(**self.save_kwargs)
+                            save_kwargs = self.get_save_kwargs(sample_rec)
+                            sample_rec.save(**save_kwargs)
                         except Exception as e:
                             sample_rec = None
                             sample_created = False
@@ -704,7 +719,8 @@ class SampleTableLoader:
                             # full_clean does not have a using parameter. It only supports the default database
                             sample_rec.full_clean()
                         if changed:
-                            sample_rec.save(**self.save_kwargs)
+                            save_kwargs = self.get_save_kwargs(sample_rec)
+                            sample_rec.save(**save_kwargs)
                     except Exception as e:
                         self.buffer_exception(
                             SaveError(Sample.__name__, str(sample_rec), self.db, e)
