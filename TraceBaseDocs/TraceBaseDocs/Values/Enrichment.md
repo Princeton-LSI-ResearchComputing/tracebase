@@ -7,3 +7,8 @@ A weighted average of the fraction of labeled atoms for this PeakGroup (e.g. the
 
 For each element:
 `Sum of all (PeakData.fraction * PeakData.labeled_count) / PeakGroup.Compound.num_atoms(PeakData.labeled_element)`
+
+See this [Example of Enrichment Fraction and Abundance Calculation](Example%20of%20Enrichment%20Fraction%20and%20Abundance%20Calculation.md).
+
+
+

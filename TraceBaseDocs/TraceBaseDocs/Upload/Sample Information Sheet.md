@@ -6,6 +6,9 @@ See also [Labeling and Organizing Data](Labeling%20and%20Organizing%20Data.md)
 
 If you are unsure of how to label something, write whatever you think fits and submit anyway.  Indicate what you are unsure about in the submission form or on the information sheet.  The developer team will check the data and help you label it properly before adding to the live data on TraceBase.
 
+The key steps to remember for this sheet are to match sample names and animal IDs:
+![](../Attachments/Sample%20Information%20Sheet%20Sketch.png)
+
 ## Animals Tab
 
 ### Animal ID

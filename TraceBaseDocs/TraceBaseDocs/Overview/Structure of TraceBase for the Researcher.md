@@ -1,6 +1,6 @@
 TraceBase consists of three basic types of information: Unique, Standardized, and Calculated.
 
-![](../Attachments/Structure%20of%20Tracebase.png)
+![](../Attachments/Structure%20of%20Tracebase%20Sketch.png)
 
 
 **Unique** information consists of identifying sample information.  Individual samples are associated with an Animal, which is itself part of a Study.  A Study is the original collection of Animals as defined by the researcher who uploaded them.  This information is provided by the Researcher in the [Sample Information Sheet](../Upload/Sample%20Information%20Sheet.md).  Although samples are organized in this way, data from different studies can be searched, browsed, or downloaded together in TraceBase.

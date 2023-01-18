@@ -8,7 +8,7 @@
         "type": "tabs",
         "children": [
           {
-            "id": "aac22f871302e334",
+            "id": "827d2ac095bd148c",
             "type": "leaf",
             "state": {
               "type": "markdown",
@@ -130,11 +130,24 @@
             }
           }
         ]
+      },
+      {
+        "id": "2272f6bc9230ed94",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "b2929f0711e5b654",
+            "type": "leaf",
+            "state": {
+              "type": "graph",
+              "state": {}
+            }
+          }
+        ]
       }
     ],
     "direction": "horizontal",
-    "width": 300,
-    "collapsed": true
+    "width": 591.5
   },
   "left-ribbon": {
     "hiddenItems": {
@@ -146,17 +159,17 @@
       "command-palette:Open command palette": false
     }
   },
-  "active": "aac22f871302e334",
+  "active": "827d2ac095bd148c",
   "lastOpenFiles": [
-    "Overview/Structure of TraceBase for the Researcher.md",
-    "Values/Total Abundance.md",
-    "Values/Normalized Labeling.md",
-    "Values/Glossary of Calculated Values.md",
-    "Values/Example of Enrichment Fraction and Abundance Calculation.md",
-    "Values/Enrichment Abundance.md",
-    "Values/Enrichment.md",
-    "Values/Corrected Abundance.md",
-    "Types of Data Output/Downloaded Data Formats.md",
-    "Types of Data Output/Fcirc.md"
+    "Overview/Navigating TraceBase.md",
+    "Attachments/Snapshot Studies Table.png",
+    "Attachments/Snapshot Homepage.png",
+    "Attachments/Snapshot Advanced Search Stats Pane.png",
+    "Attachments/Snapshot Advanced Search.png",
+    "Attachments/Study Record Screenshot.png",
+    "Attachments/Snapshot List of Studies.png",
+    "index.md",
+    "Types of Data Output/How to Download.md",
+    "Types of Data Output/Downloaded Data Formats.md"
   ]
 }

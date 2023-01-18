@@ -21,11 +21,11 @@ The following workflow for labeling / organizing everything will work well with 
 
 For a new experiment, create a new identifier counting up from “study001”, and sometimes include a short identifier or name for the experiment. (e.g. "study001_hyperthyroid glucose infusion").  Now you can reference this experiment ID ("study001") elsewhere.
 
-- A different experiment may have a new identifier (e.g. "study002_hypothyroid glucose infusion")
-- A related follow up experiment may have an extension to the identifier, e.g. “study001b_hyperthyroid lactate infusion”
-- Any text could be used in place of “study”
+- A different experiment may have a new identifier (e.g. "study002_hypothyroid glucose infusion").
+- A related follow up experiment may have an extension to the identifier, e.g. “study001b_hyperthyroid lactate infusion”.
+- Any text could be used in place of “study”.
 
-Within each experiment, animal ID counts up from 001 “study001_m01, study001_m02…”
+Within each experiment, animal ID counts up from 001 “study001_m01, study001_m02…”.
 
 -   A unique sample file can then be created by adding to this animal ID:
 	- provide full animal identifier, tissue, and sometimes time collected:
@@ -37,17 +37,17 @@ Within each experiment, animal ID counts up from 001 “study001_m01, study001_m
 
 When loading samples to run LCMS, apply this labeling scheme:
 
- - create a folder for each sequence that includes the date of LCMS and experiment identifier
- - label samples according to biological entity (e.g. "study001_plasma_0")
-	 - if running the same samples multiple times (e.g. positive mode / negative mode), save each result in a different destination folder
- - when analyzed in Maven/El-Maven and processed for isotope correction, the resulting sample names will be easy to label for upload to TraceBase.
+ - Create a folder for each sequence that includes the date of LCMS and experiment identifier.
+ - Label samples according to biological entity (e.g. "study001_plasma_0")
+	 - If running the same samples multiple times (e.g. positive mode / negative mode), save each result in a different destination folder.
+ - When analyzed in Maven/El-Maven and processed for isotope correction, the resulting sample names will be easy to label for upload to TraceBase.
 
 LCMS data for a single biological entity can be generated from multiple LCMS experiments (e.g. "positive" vs "negative" mass spectrometry, alternative extraction methods, etc). There are two general methods for handling this:
 
  - Option 1:  include method information in the sample name (e.g. append "hilicPos")
  - Option 2: leave sample name the same for every biological entity, and generate separate Accucor / Isocorr files for each type of method.
-	- this requires saving results into separate folders
-	- this option is easiest to implement for upload to TraceBase because it keeps your Sample Information Sheet simple.
+	- This requires saving results into separate folders on the LCMS.
+	- This option is easiest to implement for upload to TraceBase because it keeps your Sample Information Sheet simple.
 
 
 ### Apply this scheme everywhere
@@ -68,7 +68,7 @@ In your lab notebook, create page(s) for each experiment ID.
 When working with samples in the lab, it is not feasible to label every tube with the full identifier, but shorthand can be used for intermediate tubes if everything is from the same study:
 
  - E.g. when extracting tissue from only study001, label working tubes with minimal info “Q1, Q2”.
- - Label final tubes with as much information as possible (e.g. "001_M1_Q")
+ - Label final tubes with as much information as possible (e.g. "001_M1_Q").
  - Label boxes stored in freezers with study identifier, a relevant date, and your initials
 	 - (e.g. "study001_glucose infusion", "study001b_lactate infusion"...)
 
