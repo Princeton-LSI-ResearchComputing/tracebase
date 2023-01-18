@@ -147,7 +147,7 @@ class Tracer(MaintainedModel, ElementLabel):
     def get_name(self):
         """
         Returns the name field if populated.  If it's not populated, it populates it (in the same manner that the old
-        cache mechanism worked)
+        cache mechanism worked).
         """
         display_name = None
 
@@ -155,9 +155,11 @@ class Tracer(MaintainedModel, ElementLabel):
         if self.name:
             display_name = self.name
         elif are_autoupdates_enabled():
-            db = self._db or settings.DEFAULT_DB
+            save_kwargs = {"label_filters": ["name"]}
+            if hasattr(self, "_state") and hasattr(self._state, "db"):
+                save_kwargs["using"] = self._state.db
             # This triggers an auto-update
-            self.save(using=db, label_filters=["name"])
+            self.save(**save_kwargs)
             display_name = self.name
 
         # If it's still not set, call the method that generates the name.  It just won't be saved.
