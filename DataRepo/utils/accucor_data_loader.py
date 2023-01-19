@@ -1122,7 +1122,7 @@ class AccuCorDataLoader:
 
         autoupdate_mode = not self.defer_autoupdates
         if not dry_run and autoupdate_mode:
-            perform_buffered_updates(save_kwargs={"using": self.db})
+            perform_buffered_updates(using=self.db)
 
         self.post_load_teardown(autoupdate_mode)
 

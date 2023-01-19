@@ -10,6 +10,7 @@ from DataRepo.models.element_label import ElementLabel
 from DataRepo.models.maintained_model import (
     MaintainedModel,
     are_autoupdates_enabled,
+    init_autoupdate_label_filters,
     maintained_field_function,
 )
 from DataRepo.models.utilities import get_model_by_name
@@ -17,15 +18,9 @@ from DataRepo.utils.infusate_name_parser import TracerData
 
 
 class TracerQuerySet(models.QuerySet):
-    def get_or_create_tracer(
-        self, tracer_data: TracerData, save_kwargs=None
-    ) -> tuple[Tracer, bool]:
+    def get_or_create_tracer(self, tracer_data: TracerData) -> tuple[Tracer, bool]:
         """Get Tracer matching the tracer_data, or create a new tracer"""
         db = self._db or settings.DEFAULT_DB
-        if save_kwargs is None:
-            save_kwargs = {"using": db}
-        elif "using" not in save_kwargs.keys():
-            save_kwargs["using"] = db
 
         tracer = self.get_tracer(tracer_data)
         created = False
@@ -37,11 +32,9 @@ class TracerQuerySet(models.QuerySet):
             )
             tracer = self.using(db).create(compound=compound)
             for isotope_data in tracer_data["isotopes"]:
-                TracerLabel.objects.using(db).create_tracer_label(
-                    tracer, isotope_data, save_kwargs
-                )
+                TracerLabel.objects.using(db).create_tracer_label(tracer, isotope_data)
             tracer.full_clean()
-            tracer.save(**save_kwargs)
+            tracer.save(using=db)
             created = True
         return (tracer, created)
 
@@ -155,12 +148,16 @@ class Tracer(MaintainedModel, ElementLabel):
         if self.name:
             display_name = self.name
         elif are_autoupdates_enabled():
-            save_kwargs = {"label_filters": ["name"]}
+            # Only auto-update the name field
+            init_autoupdate_label_filters(label_filters=["name"])
+            save_kwargs = {}
             if hasattr(self, "_state") and hasattr(self._state, "db"):
                 save_kwargs["using"] = self._state.db
             # This triggers an auto-update
             self.save(**save_kwargs)
             display_name = self.name
+            # Re-initialize the filters
+            init_autoupdate_label_filters()
 
         # If it's still not set, call the method that generates the name.  It just won't be saved.
         if not display_name:

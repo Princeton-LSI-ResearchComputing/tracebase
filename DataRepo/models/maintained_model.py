@@ -14,6 +14,9 @@ update_buffer = []
 performing_mass_autoupdates = False
 buffering = True
 updater_list: Dict[str, List] = defaultdict(list)
+global_label_filters = None
+global_filter_in = True
+custom_filtering = False
 
 
 def disable_autoupdates():
@@ -21,6 +24,11 @@ def disable_autoupdates():
     Do not allow record changes to trigger the auto-update of maintained fields.  Instead, buffer those updates.
     """
     global auto_updates
+
+    # If custom filtering is in effect, ensure filtering is re-initialized before auto-updates are re-enabled
+    if auto_updates and custom_filtering:
+        raise InitFiltersAfterDisablingAutoupdates()
+
     auto_updates = False
 
 
@@ -29,7 +37,15 @@ def enable_autoupdates():
     Allow record changes to trigger the auto-update of maintained fields and no longer buffer those updates.
     """
     global auto_updates
+
+    print(f"Enabling auto-updates.  Custom filtering is {custom_filtering}.")
+
+    # If custom filtering is in effect, ensure filtering is re-initialized before auto-updates are re-enabled
+    if not auto_updates and custom_filtering:
+        raise ClearFiltersBeforeEnablingAutoupdates()
+
     auto_updates = True
+
     if performing_mass_autoupdates:
         raise StaleAutoupdateMode()
 
@@ -73,7 +89,9 @@ def enable_buffering():
     buffering = True
 
 
-def clear_update_buffer(generation=None, label_filters=[]):
+def clear_update_buffer(
+    generation=None, label_filters=global_label_filters, filter_in=global_filter_in
+):
     """
     Clears buffered auto-updates.  Use after having performed DB updates when auto_updates was False to no perform
     auto-updates.  This method is called automatically during the execution of mass autoupdates.
@@ -91,7 +109,7 @@ def clear_update_buffer(generation=None, label_filters=[]):
     are cleared.
     """
     global update_buffer
-    if generation is None and len(label_filters) == 0:
+    if generation is None and (label_filters is None or len(label_filters) == 0):
         update_buffer = []
         return
     new_buffer = []
@@ -99,9 +117,9 @@ def clear_update_buffer(generation=None, label_filters=[]):
     for buffered_item in update_buffer:
         filtered_updaters = filter_updaters(
             buffered_item.get_my_updaters(),
-            generation,
-            label_filters,
-            filter_in=False,
+            generation=generation,
+            label_filters=label_filters,
+            filter_in=filter_in,
         )
 
         max_gen = 0
@@ -117,7 +135,7 @@ def clear_update_buffer(generation=None, label_filters=[]):
 
     if gen_warns > 0:
         label_str = ""
-        if len(label_filters) > 0:
+        if label_filters is not None and len(label_filters) > 0:
             label_str = f"with labels: [{', '.join(label_filters)}] "
         print(
             f"WARNING: {gen_warns} records {label_str}in the buffer are younger than the generation supplied: "
@@ -128,15 +146,48 @@ def clear_update_buffer(generation=None, label_filters=[]):
     update_buffer = new_buffer
 
 
-def updater_list_has_labels(updaters_list, label_filters):
+def init_autoupdate_label_filters(label_filters=None, filter_in=None):
     """
-    Returns True if any updater dict in updaters_list has 1 of any of the update_labels in the label_filters list.
+    Changing the filtering criteria using label_filters changes what autoupdates will be buffered.  Model objects
+    containing maintained fields with an update_label that matches the filtering criteria will be buffered for a later
+    autoupdate when auto_updates is False.  If auto_updates is True, only fields in model objects with a matching
+    update_label will be auto-updated.  And during a mass autoupdate (perform_buffered_updates), only the fields whose
+    update_label matched during buffering will be updated.
+    """
+    global global_label_filters
+    global global_filter_in
+    global custom_filtering
+
+    if label_filters is not None:
+        print("Activating custom filtering")
+        custom_filtering = True
+        if filter_in is None:
+            filter_in = True  # Default
+    else:
+        print("De-activating custom filtering")
+        custom_filtering = False
+        filter_in = True  # Default
+        # label_filters default is None
+
+    global_label_filters = label_filters
+    global_filter_in = filter_in
+
+
+def updater_list_has_labels(
+    updaters_list, label_filters=global_label_filters, filter_in=global_filter_in
+):
+    """
+    Returns True if any updater dict in updaters_list passes the label filtering criteria.
     """
     for updater_dict in updaters_list:
         label = updater_dict["update_label"]
         has_a_label = label is not None
-        if has_a_label and label in label_filters:
+        if filter_in:
+            if has_a_label and label in label_filters:
+                return True
+        elif not has_a_label or label not in label_filters:
             return True
+
     return False
 
 
@@ -349,6 +400,14 @@ class MaintainedModel(Model):
         This over-ride of the constructor is to prevent developers from explicitly setting values for automatically
         maintained fields.  It also performs a one-time validation check of the updater_dicts.
         """
+        # Members added by MaintainedModel - the global values are set via init_autoupdate_label_filters.  They are
+        # recorded in the object so that during perform_buffered_updates will know what field(s) to update when it
+        # processes the object.  An update would not have been buffered if the model did not contain a maintained field
+        # matching the label filtering.  And label filtering can change during the buffering process (e.g. different
+        # loaders), which is why this is necessary.  Note, this is not thread-safe.
+        self.label_filters = global_label_filters
+        self.filter_in = global_filter_in
+
         class_name = self.__class__.__name__
         for updater_dict in updater_list[class_name]:
 
@@ -438,24 +497,28 @@ class MaintainedModel(Model):
         propagate = kwargs.pop(
             "propagate", True
         )  # Used internally. Do not supply unless you know what you're doing.
-        # Custom argument: label_filters - Only autoupdate fields with (or without - see filter_in) matching labels
-        label_filters = kwargs.pop("label_filters", None)
-        # Custom argument: filter_in - Only autoupdate fields with labels contained in label_filters when this is true,
-        # otherwise filter labels that are NOT in label_filters.  If label_filters is None, autoupdate everything.
-        # Default: True
-        filter_in = kwargs.pop("filter_in", True)
 
         # If auto-updates are turned on, a cascade of updates to linked models will occur, but if they are turned off,
         # the update will be buffered, to be manually triggered later (e.g. upon completion of loading), which
         # mitigates repeated updates to the same record
         if auto_updates is False and performing_mass_autoupdates is False:
+            # When buffering only, apply the global label filters, to be remembered during mass autoupdate
+            self.label_filters = global_label_filters
+            self.filter_in = global_filter_in
+
             # Set the changed value triggering this update
             super().save(*args, **kwargs)
-            self.buffer_update(label_filters, filter_in)
+            self.buffer_update()
             return
+        elif auto_updates:
+            # If autoupdates are happening (and it's not a mass-autoupdate (implied)), set the label filters based on
+            # the currently set global conditions so that only fields matching the filters will be updated.
+            self.label_filters = global_label_filters
+            self.filter_in = global_filter_in
+        # Otherwise, we are performing a mass auto-update and want to update the previously set filter conditions
 
         # Update the fields that change due to the above change (if any)
-        self.update_decorated_fields(label_filters, filter_in)
+        self.update_decorated_fields()
 
         # If the auto-update resulted in no change or if there exists stale buffer contents for objects that were
         # previously saved, it can produce an error about unique constraints.  TransactionManagementErrors shpould have
@@ -502,10 +565,15 @@ class MaintainedModel(Model):
             # Percolate changes up to the parents (if any)
             self.call_dfs_related_updaters()
 
-    def update_decorated_fields(self, label_filters=None, filter_in=True):
+    def update_decorated_fields(self):
         """
         Updates every field identified in each maintained_field_function decorator using the decorated function that
         generates its value.
+
+        This uses 2 data members: self.label_filters and self.filter_in in order to determine which fields should be
+        updated.  They are initially set when the object is created and refreshed when the object is saved to reflect
+        the current filter conditions.  One exception of the refresh, is if performing a mass auto-update, in which
+        case the filters the were in effect during buffering are used.
         """
         for updater_dict in self.get_my_updaters():
             update_fld = updater_dict["update_field"]
@@ -516,18 +584,18 @@ class MaintainedModel(Model):
             # filter criteria
             if update_fld is not None and (
                 # There are no labels for filtering
-                label_filters is None
-                or len(label_filters) == 0
+                self.label_filters is None
+                or len(self.label_filters) == 0
                 # or the update_label matches a filter-in label
                 or (
-                    filter_in
+                    self.filter_in
                     and update_label is not None
-                    and update_label in label_filters
+                    and update_label in self.label_filters
                 )
                 # or the update_label does not match a filter-out label
                 or (
-                    not filter_in
-                    and (update_label is None or update_label not in label_filters)
+                    not self.filter_in
+                    and (update_label is None or update_label not in self.label_filters)
                 )
             ):
                 try:
@@ -800,14 +868,14 @@ class MaintainedModel(Model):
 
         return my_update_fields
 
-    def buffer_update(self, label_filters=None, filter_in=True):
+    def buffer_update(self):
         """
         This is called when MaintainedModel.save is called (if auto_updates is False), so that maintained fields can be
-        updated after loading code finishes (by calling the global method: perform_buffered_updates)
+        updated after loading code finishes (by calling the global method: perform_buffered_updates).
         """
 
         # See if this class contains a field with a matching label (if a populated label_filters array was supplied)
-        if label_filters is not None and len(label_filters) > 0:
+        if self.label_filters is not None and len(self.label_filters) > 0:
             do_buffer = False
             for updater_dict in self.get_my_updaters():
                 update_label = updater_dict["update_label"]
@@ -818,14 +886,17 @@ class MaintainedModel(Model):
                 if (
                     # The update_label matches a filter-in label
                     (
-                        filter_in
+                        self.filter_in
                         and update_label is not None
-                        and update_label in label_filters
+                        and update_label in self.label_filters
                     )
                     # The update_label does not match a filter-out label
                     or (
-                        not filter_in
-                        and (update_label is None or update_label not in label_filters)
+                        not self.filter_in
+                        and (
+                            update_label is None
+                            or update_label not in self.label_filters
+                        )
                     )
                 ):
                     do_buffer = True
@@ -839,6 +910,18 @@ class MaintainedModel(Model):
         # sepecific order.  All auto-update functions should use non-auto-update fields.
         if buffering and self not in update_buffer:
             update_buffer.append(self)
+        elif buffering:
+            # This allows the same object to be updated more than once (in the order encountered) if the fields to be
+            # auto-updated in each instance, differ.  This can cause redundant updates (e.g. when a field matches the
+            # filters in both cases), but given the possibility that update order may depend on the update of related
+            # records, it's better to be on the safe side and do each auto-update, so...
+            # If this is the same object but a different set of fields will be updated...
+            for same_obj in [ubo for ubo in update_buffer if ubo == self]:
+                if (
+                    same_obj.filter_in != self.filter_in
+                    or same_obj.label_filters != same_obj.label_filters
+                ):
+                    update_buffer.append(self)
 
     def buffer_parent_update(self):
         """
@@ -894,7 +977,7 @@ class MaintainedModel(Model):
             "database loads isolated inside setUpTestData and the test function itself.  Note, querys inside setUp() "
             "can trigger this error.  If this is occurring outside of a test run, to avoid errors, the entire "
             "transaction should be done without autoupdates by calling disable_autoupdates() before the transaction "
-            "block, and after the atomic transaction block, call perform_mass_autoupdates() to make the updates.  If "
+            "block, and after the atomic transaction block, call perform_buffered_updates() to make the updates.  If "
             "this is a warning, note that auto-updates can be fixed afterwards by running:\n\n\tpython manage.py "
             "rebuild_maintained_fields\n\n."
         )
@@ -907,7 +990,9 @@ class MaintainedModel(Model):
         abstract = True
 
 
-def buffer_size(generation=None, label_filters=[]):
+def buffer_size(
+    generation=None, label_filters=global_label_filters, filter_in=global_filter_in
+):
     """
     Returns the number of buffered records that contain at least 1 decorated function matching the filter criteria
     (generation and label).
@@ -918,12 +1003,15 @@ def buffer_size(generation=None, label_filters=[]):
             buffered_item.get_my_updaters(),
             generation=generation,
             label_filters=label_filters,
+            filter_in=filter_in,
         )
         cnt += len(updaters_list)
     return cnt
 
 
-def get_max_buffer_generation(label_filters=[]):
+def get_max_buffer_generation(
+    label_filters=global_label_filters, filter_in=global_filter_in
+):
     """
     Takes a list of label filters and searches the buffered records to return the max generation found among the
     decorated functions (matching the filter criteria) associated with the buffered model object's class.
@@ -933,18 +1021,26 @@ def get_max_buffer_generation(label_filters=[]):
     exploded_updater_dicts = []
     for buffered_item in update_buffer:
         exploded_updater_dicts += filter_updaters(
-            buffered_item.get_my_updaters(), label_filters=label_filters
+            buffered_item.get_my_updaters(),
+            label_filters=label_filters,
+            filter_in=filter_in,
         )
-    return get_max_generation(exploded_updater_dicts, label_filters=label_filters)
+    return get_max_generation(
+        exploded_updater_dicts, label_filters=label_filters, filter_in=filter_in
+    )
 
 
-def get_max_generation(updaters_list, label_filters=[]):
+def get_max_generation(
+    updaters_list, label_filters=global_label_filters, filter_in=global_filter_in
+):
     """
     Takes a list of updaters and a list of label filters and returns the max generation found in the updaters list.
     """
     max_gen = None
     for updater_dict in sorted(
-        filter_updaters(updaters_list, label_filters=label_filters),
+        filter_updaters(
+            updaters_list, label_filters=label_filters, filter_in=filter_in
+        ),
         key=lambda x: x["generation"],
         reverse=True,
     ):
@@ -955,20 +1051,27 @@ def get_max_generation(updaters_list, label_filters=[]):
     return max_gen
 
 
-def filter_updaters(updaters_list, generation=None, label_filters=[], filter_in=True):
+def filter_updaters(
+    updaters_list,
+    generation=None,
+    label_filters=global_label_filters,
+    filter_in=global_filter_in,
+):
     """
     Returns a sublist of the supplied updaters_list the meets both the filter criteria (generation matches and
     update_label is in the label_filters), if those filters were supplied.
     """
     new_updaters_list = []
-    no_filters = len(label_filters) == 0
+    no_filters = label_filters is None or len(label_filters) == 0
     no_generation = generation is None
     for updater_dict in updaters_list:
         gen = updater_dict["generation"]
         label = updater_dict["update_label"]
         has_label = label is not None
         if (no_generation or generation == gen) and (
-            no_filters or (has_label and label in label_filters)
+            no_filters
+            or (filter_in and has_label and label in label_filters)
+            or (not filter_in and (not has_label or label not in label_filters))
         ):
             if filter_in:
                 new_updaters_list.append(updater_dict)
@@ -977,7 +1080,7 @@ def filter_updaters(updaters_list, generation=None, label_filters=[], filter_in=
     return new_updaters_list
 
 
-def perform_buffered_updates(save_kwargs=None):
+def perform_buffered_updates(using=None, label_filters=None, filter_in=None):
     """
     Performs a mass update of records in the buffer in a depth-first fashion without repeated updates to the same
     record over and over.  It goes through the buffer in the order added and triggers each record's DFS updates, which
@@ -989,29 +1092,27 @@ def perform_buffered_updates(save_kwargs=None):
     Note that this can fail if a record is changed and then its child (who triggers its parent) is changed (each being
     added to the buffer during a mass auto-update).  This however is not expected to happen, as mass auto-update is
     used for loading, which if done right, doesn't change child records after parent records have been added.
+
+    WARNING: label_filters and filter_in should only be supplied if you know what you are doing.  Every model object
+    buffered for autoupdate saved its filtering criteria that were in effect when it was buffered and that filtering
+    criteria will be applied to selectively update only the fields matching the filtering criteria as applied to each
+    field's "update_label" in its method's decorator.
     """
     global update_buffer
 
-    if save_kwargs is None:
-        save_kwargs = {}
-
-    # Extract/set the filters
-    if (
-        "label_filters" not in save_kwargs.keys()
-        or save_kwargs["label_filters"] is None
-    ):
-        label_filters = []
-    else:
-        label_filters = save_kwargs["label_filters"]
-
-    # Extract/set the database
-    if "using" not in save_kwargs.keys():
-        db = None
-    else:
-        db = save_kwargs["using"]
-
+    save_kwargs = {}
+    db = None
+    if using:
+        db = using
+        save_kwargs["using"] = using
     # Mass autoupdates should turn off propagation for breadth-first transiting of the tree
     save_kwargs["propagate"] = False
+
+    use_object_label_filters = True
+    if label_filters is None:
+        use_object_label_filters = False
+        if filter_in is None:
+            filter_in = global_filter_in
 
     orig_au_mode = are_autoupdates_enabled()
     if orig_au_mode:
@@ -1027,11 +1128,15 @@ def perform_buffered_updates(save_kwargs=None):
     # Track what's been updated to prevent repeated updates triggered by multiple child updates
     updated = []
     new_buffer = []
-    no_filters = len(label_filters) == 0
+    no_filters = label_filters is None or len(label_filters) == 0
 
     # For each record in the buffer
     for buffer_item in update_buffer:
         updater_dicts = buffer_item.get_my_updaters()
+
+        if use_object_label_filters:
+            label_filters = buffer_item.label_filters
+            filter_in = buffer_item.filter_in
 
         # Track updated records to avoid repeated updates
         key = f"{buffer_item.__class__.__name__}.{buffer_item.pk}"
@@ -1039,7 +1144,10 @@ def perform_buffered_updates(save_kwargs=None):
         # Try to perform the update. It could fail if the affected record was deleted
         try:
             if key not in updated and (
-                no_filters or updater_list_has_labels(updater_dicts, label_filters)
+                no_filters
+                or updater_list_has_labels(
+                    updater_dicts, label_filters=label_filters, filter_in=filter_in
+                )
             ):
                 # Saving the record while performing_mass_autoupdates is True, causes auto-updates of every field
                 # included among the model's decorated functions.  It does not only update the fields indicated in
@@ -1084,7 +1192,9 @@ def get_all_updaters():
     return all_updaters
 
 
-def get_classes(generation=None, label_filters=[]):
+def get_classes(
+    generation=None, label_filters=global_label_filters, filter_in=global_filter_in
+):
     """
     Retrieve a list of classes containing maintained fields that match the given criteria.
     Used by rebuild_maintained_fields.
@@ -1092,7 +1202,14 @@ def get_classes(generation=None, label_filters=[]):
     class_list = []
     for class_name in updater_list:
         if (
-            len(filter_updaters(updater_list[class_name], generation, label_filters))
+            len(
+                filter_updaters(
+                    updater_list[class_name],
+                    generation=generation,
+                    label_filters=label_filters,
+                    filter_in=filter_in,
+                )
+            )
             > 0
         ):
             class_list.append(class_name)
@@ -1216,5 +1333,29 @@ class UncleanBufferError(Exception):
             message = (
                 "The auto-update buffer is unexpectedly populated.  Make sure failed or suspended loads clean up the "
                 "buffer when they finish."
+            )
+        super().__init__(message)
+
+
+class InitFiltersAfterDisablingAutoupdates(Exception):
+    def __init__(self, message=None):
+        if message is None:
+            message = (
+                "Custom filtering conditions must be initialized (using init_autoupdate_label_filters()) after "
+                "autoupdates are disabled (using disable_autoupdates()).  If custom filters are used by one loading "
+                "script, those filters must be cleared at the end of that script so that they are not unintentionally "
+                "applied to the next loading script."
+            )
+        super().__init__(message)
+
+
+class ClearFiltersBeforeEnablingAutoupdates(Exception):
+    def __init__(self, message=None):
+        if message is None:
+            message = (
+                "Custom filtering conditions must be cleared (using init_autoupdate_label_filters()) before "
+                "autoupdates are enabled (using enable_autoupdates()).  If custom filters are used by one loading "
+                "script, those filters must be cleared at the end of that script so that they are not unintentionally "
+                "applied to the next loading script."
             )
         super().__init__(message)
