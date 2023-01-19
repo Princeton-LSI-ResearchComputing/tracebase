@@ -7,6 +7,10 @@ from django.apps import apps
 from django.conf import settings
 from django.core.management import BaseCommand, call_command
 
+from DataRepo.models.hier_cached_model import (
+    disable_caching_updates,
+    enable_caching_updates,
+)
 from DataRepo.models.maintained_model import (
     UncleanBufferError,
     buffer_size,
@@ -237,9 +241,11 @@ class Command(BaseCommand):
         # Since defer_autoupdates is supplied as True to the sample and accucor load commands, we can do all the mass
         # autoupdates in 1 go.
         disable_autoupdates()
+        disable_caching_updates()
         perform_buffered_updates(using=db)
         # The buffer should be clear, but just for good measure...
         clear_update_buffer()
+        enable_caching_updates()
         enable_autoupdates()
 
         self.stdout.write(self.style.SUCCESS("Done loading study"))
