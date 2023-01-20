@@ -43,6 +43,14 @@ class UnknownHeadersError(Exception):
         self.unknowns = unknowns
 
 
+class DuplicateHeadersError(Exception):
+    def __init__(self, dupdict, message=None):
+        if not message:
+            message = f"Duplicate header(s) encountered: [{', '.join([f'{h} ({n})' for h, n in dupdict.items()])}]."
+        super().__init__(message)
+        self.dupdict = dupdict
+
+
 class ResearcherNotNew(Exception):
     def __init__(self, researcher, new_flag, researchers):
         nl = "\n"

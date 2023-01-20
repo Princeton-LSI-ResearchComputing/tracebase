@@ -38,6 +38,7 @@ from DataRepo.utils.exceptions import (
     AggregatedErrors,
     ConflictingValueError,
     DryRun,
+    DuplicateHeadersError,
     HeaderConfigError,
     RequiredHeadersError,
     RequiredValuesError,
@@ -754,7 +755,8 @@ class SampleTableLoader:
         known_headers = []
         missing_headers = []
         unknown_headers = []
-        misconfiged_headers = []
+        misconfiged_headers = []  # header required but no header string set
+        dupe_headers = {}
 
         rqd_hdr_tuple = self.RequiredSampleTableHeaders
         hdr_name_tuple = self.headers
@@ -772,7 +774,13 @@ class SampleTableLoader:
                     if hdr_name not in headers:
                         missing_headers.append(hdr_name)
                 if hdr_name in headers:
-                    self.headers_present.append(hdr_name)
+                    if hdr_name in self.headers_present:
+                        if hdr_name in dupe_headers.keys():
+                            dupe_headers[hdr_name] += 1
+                        else:
+                            dupe_headers[hdr_name] = 2
+                    else:
+                        self.headers_present.append(hdr_name)
             elif hdr_required:
                 misconfiged_headers.append(hdr_attr)
 
@@ -787,6 +795,8 @@ class SampleTableLoader:
             self.buffer_exception(UnknownHeadersError(unknown_headers))
         if len(misconfiged_headers) > 0:
             self.buffer_exception(HeaderConfigError(misconfiged_headers))
+        if len(dupe_headers.keys()) > 0:
+            self.buffer_exception(DuplicateHeadersError(dupe_headers))
 
     def getRowVal(self, rownum, row, header_attribute):
         # get the header value to use as a dict key for 'row'
