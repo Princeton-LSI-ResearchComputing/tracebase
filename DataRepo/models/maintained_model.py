@@ -38,8 +38,6 @@ def enable_autoupdates():
     """
     global auto_updates
 
-    print(f"Enabling auto-updates.  Custom filtering is {custom_filtering}.")
-
     # If custom filtering is in effect, ensure filtering is re-initialized before auto-updates are re-enabled
     if not auto_updates and custom_filtering:
         raise ClearFiltersBeforeEnablingAutoupdates()
@@ -159,12 +157,10 @@ def init_autoupdate_label_filters(label_filters=None, filter_in=None):
     global custom_filtering
 
     if label_filters is not None:
-        print("Activating custom filtering")
         custom_filtering = True
         if filter_in is None:
             filter_in = True  # Default
     else:
-        print("De-activating custom filtering")
         custom_filtering = False
         filter_in = True  # Default
         # label_filters default is None
