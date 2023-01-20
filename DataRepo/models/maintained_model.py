@@ -974,8 +974,8 @@ class MaintainedModel(Model):
             "can trigger this error.  If this is occurring outside of a test run, to avoid errors, the entire "
             "transaction should be done without autoupdates by calling disable_autoupdates() before the transaction "
             "block, and after the atomic transaction block, call perform_buffered_updates() to make the updates.  If "
-            "this is a warning, note that auto-updates can be fixed afterwards by running:\n\n\tpython manage.py "
-            "rebuild_maintained_fields\n\n."
+            "this is a warning, note that auto-updates can be fixed afterwards by running:\n\n"
+            "\tpython manage.py rebuild_maintained_fields\n\n."
         )
 
         warning_str += f"\n{explanation}\n\nThe error that occurred: [{str(tme)}]."
@@ -1294,11 +1294,13 @@ class AutoUpdateFailed(Exception):
             obj_str = "unknown"
         message = (
             f"Autoupdate of the {model_object.__class__.__name__} model's fields [{', '.join(updater_flds)}] in the "
-            f"{database} database failed for record {obj_str}.  Potential causes:\n\t1. The record was created and "
-            "deleted before the buffered update (a catch for the exception should be added and ignored).\n\t2. The "
-            "autoupdate buffer is stale and auto-updates are being attempted on non-existent records.  Find a "
-            "previous call to a loader that performs mass auto-updates and ensure that clear_update_buffer() is "
-            f"called.\nThe triggering {err.__class__.__name__} exception: [{err}]."
+            f"{database} database failed for record {obj_str}.  Potential causes:\n"
+            "\t1. The record was created and deleted before the buffered update (a catch for the exception should be "
+            "added and ignored).\n"
+            "\t2. The autoupdate buffer is stale and auto-updates are being attempted on non-existent records.  Find "
+            "a previous call to a loader that performs mass auto-updates and ensure that clear_update_buffer() is "
+            "called.\n"
+            f"The triggering {err.__class__.__name__} exception: [{err}]."
         )
         super().__init__(message)
 
