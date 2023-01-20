@@ -93,23 +93,21 @@ class Command(BaseCommand):
         try:
             self.protocol_loader.load()
         except DryRun:
-            if options["verbosity"] >= 2:
-                self.print_notices(
-                    self.protocol_loader.get_stats(),
-                    options["protocols"],
-                    options["verbosity"],
-                )
+            self.print_notices(
+                self.protocol_loader.get_stats(),
+                options["protocols"],
+                options["verbosity"],
+            )
             self.stdout.write(
                 self.style.SUCCESS("DRY-RUN complete, no protocols loaded")
             )
         except LoadingError as le:
-            if options["verbosity"] >= 2:
-                self.print_notices(
-                    self.protocol_loader.get_stats(),
-                    options["protocols"],
-                    options["verbosity"],
-                    False,
-                )
+            self.print_notices(
+                self.protocol_loader.get_stats(),
+                options["protocols"],
+                options["verbosity"],
+                False,
+            )
             errmsgs = ""
             if options["verbosity"] >= 2:
                 errmsgs += ":\n"
