@@ -136,7 +136,11 @@ class LoadingError(Exception):
 class AggregatedErrors(Exception):
     def __init__(self, errors, message=None, verbosity=0):
         if not message:
-            message = f"{len(errors)} exceptions occurred."
+            errtypes = []
+            for errtype in [type(e).__name__ for e in errors]:
+                if errtype not in errtypes:
+                    errtypes.append(errtype)
+            message = f"{len(errors)} exceptions occurred including type(s): [{', '.join(errtypes)}]."
         super().__init__(message)
         if verbosity > 0:
             print("Aggregated error details:")

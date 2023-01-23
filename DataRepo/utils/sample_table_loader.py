@@ -227,9 +227,10 @@ class SampleTableLoader:
         # If there is more than 1 row of data to load
         if len(sample_table_data) > 2:
             sample_name_header = getattr(self.headers, "SAMPLE_NAME")
-            # Check the in-file uniqueness of the samples
+            study_name_header = getattr(self.headers, "STUDY_NAME")
+            # Check the in-file uniqueness of the samples (per study)
             sample_dupes, row_idxs = self.get_column_dupes(
-                sample_table_data, sample_name_header
+                sample_table_data, [sample_name_header, study_name_header]
             )
             if len(sample_dupes.keys()) > 0:
                 self.buffer_exception(DuplicateValues(sample_dupes, sample_name_header))
@@ -815,17 +816,20 @@ class SampleTableLoader:
         if len(misconfiged_headers) > 0:
             self.buffer_exception(HeaderConfigError(misconfiged_headers))
 
-    def get_column_dupes(self, data, col_key):
+    def get_column_dupes(self, data, col_keys):
         """
-        Takes a list of dicts (data) keyed on col_key.
-        Returns a dict keyed on duplicate values and a list of row indexes where each value instance is found.
+        Takes a list of dicts (data) and a list of column keys (col_keys) and looks for duplicate combinations.
+        Returns a dict keyed on duplicate (composite) values and a list of row indexes where each combo instance is
+        found.
         """
         val_counts = defaultdict(list)
         dupe_dict = {}
         dupe_rows = []
-        for rowidx, val in enumerate([dct[col_key] for dct in data]):
-            val_counts[val].append(rowidx)
-        for val, row_list in val_counts.items():
+        for rowidx, row in enumerate(data):
+            composite_val = "/".join(list(map(lambda ck: f"{ck}:{row[ck]}", col_keys)))
+            val_counts[composite_val].append(rowidx)
+        for val in val_counts.keys():
+            row_list = val_counts[val]
             if len(row_list) > 1:
                 dupe_dict[val] = row_list
                 dupe_rows += row_list
