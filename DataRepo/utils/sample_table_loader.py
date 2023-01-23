@@ -226,17 +226,17 @@ class SampleTableLoader:
 
         # If there is more than 1 row of data to load
         if len(sample_table_data) > 2:
+            sample_name_header = getattr(self.headers, "SAMPLE_NAME")
             # Check the in-file uniqueness of the samples
-            sample_dupes, row_nums = self.get_column_dupes(
-                sample_table_data[1:], "SAMPLE_NAME"
+            sample_dupes, row_idxs = self.get_column_dupes(
+                sample_table_data, sample_name_header
             )
             if len(sample_dupes.keys()) > 0:
-                self.buffer_exception(
-                    DuplicateValues(sample_dupes, getattr(self.headers, "SAMPLE_NAME"))
-                )
-                self.skip_sample_rows = row_nums
+                self.buffer_exception(DuplicateValues(sample_dupes, sample_name_header))
+                self.skip_sample_rows = row_idxs
 
-        for rownum, row in enumerate(sample_table_data, start=1):
+        for rowidx, row in enumerate(sample_table_data):
+            rownum = rowidx + 1
 
             tissue_rec, is_blank = self.get_tissue(rownum, row)
 
@@ -251,11 +251,15 @@ class SampleTableLoader:
             self.get_or_create_study(rownum, row, animal_rec)
             self.get_or_create_animallabel(animal_rec, infusate_rec)
             # If the row has an issue (e.g. not unique in the file), skip it so there will not be pointless errors
-            if rownum not in self.skip_sample_rows:
+            if rowidx not in self.skip_sample_rows:
                 sample_rec = self.get_or_create_sample(
                     rownum, row, animal_rec, tissue_rec
                 )
                 self.get_or_create_fcircs(infusate_rec, sample_rec)
+            elif self.verbosity >= 2:
+                print(
+                    f"SKIPPING sample load on row {rownum} due to duplicate sample name."
+                )
 
         if not self.skip_researcher_check:
             try:
@@ -319,7 +323,7 @@ class SampleTableLoader:
         is_blank = tissue_name is None
         if is_blank:
             if self.verbosity >= 2:
-                print("Skipping row: Tissue field is empty, assuming blank sample")
+                print("Skipping row: Tissue field is empty, assuming blank sample.")
         else:
             try:
                 # Assuming that both the default and validation databases each have all current tissues
@@ -363,6 +367,7 @@ class SampleTableLoader:
                                     "description",
                                     orig_desc,
                                     study_desc,
+                                    rownum,
                                 )
                             )
                         elif study_desc:
@@ -613,6 +618,7 @@ class SampleTableLoader:
                         "time_collected": time_collected,
                         "date": sample_date,
                     },
+                    rownum + 1,
                 )
 
                 if len(updates_dict.keys()) > 0 and self.db == settings.TRACEBASE_DB:
@@ -666,6 +672,7 @@ class SampleTableLoader:
                             "date": sample_date,
                             "researcher": researcher,
                         },
+                        rownum + 1,
                     )
 
                     if len(updates_dict.keys()) > 0:
@@ -752,7 +759,7 @@ class SampleTableLoader:
                         element=label_rec.element,
                     )
 
-    def check_for_inconsistencies(self, rec, value_dict):
+    def check_for_inconsistencies(self, rec, value_dict, rownum=None):
         updates_dict = {}
         for field, new_value in value_dict.items():
             orig_value = getattr(rec, field)
@@ -765,6 +772,7 @@ class SampleTableLoader:
                         field,
                         orig_value,
                         new_value,
+                        rownum,
                     )
                 )
         return updates_dict
@@ -809,22 +817,19 @@ class SampleTableLoader:
 
     def get_column_dupes(self, data, col_key):
         """
-        Takes a list of dicts (data) keyed on col_key.  The data should not include a header row.
-        Returns a dict keyed on duplicate values and a list of row indexes (incremented once to account for the header
-        row).
+        Takes a list of dicts (data) keyed on col_key.
+        Returns a dict keyed on duplicate values and a list of row indexes where each value instance is found.
         """
-        val_counts = defaultdict(int)
+        val_counts = defaultdict(list)
         dupe_dict = {}
         dupe_rows = []
         for rowidx, val in enumerate([dct[col_key] for dct in data]):
-            # The incoming data had the header row removed
-            actual_row_idx = rowidx + 1
-            val_counts[val].append(actual_row_idx)
+            val_counts[val].append(rowidx)
         for val, row_list in val_counts.items():
             if len(row_list) > 1:
                 dupe_dict[val] = row_list
                 dupe_rows += row_list
-        return dupe_dict, row_list
+        return dupe_dict, dupe_rows
 
     def getRowVal(self, rownum, row, header_attribute):
         # get the header value to use as a dict key for 'row'

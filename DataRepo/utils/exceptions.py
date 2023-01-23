@@ -193,11 +193,15 @@ class ConflictingValueError(Exception):
         consistent_field,
         existing_value,
         differing_value,
+        rownum=None,
         message=None,
     ):
         if not message:
+            rowmsg = ""
+            if rownum:
+                rowmsg = f"on row {rownum} "
             message = (
-                f"Conflicting values encountered in {type(rec).__name__} record [{str(rec)}] for the "
+                f"Conflicting values encountered {rowmsg}in {type(rec).__name__} record [{str(rec)}] for the "
                 f"[{consistent_field}] field:\n\tdatabase value: [{existing_value}]\n\tload data value: "
                 f"[{differing_value}]."
             )
@@ -205,6 +209,7 @@ class ConflictingValueError(Exception):
         self.consistent_field = consistent_field
         self.existing_value = existing_value
         self.differing_value = differing_value
+        self.rownum = rownum
 
 
 class SaveError(Exception):
@@ -235,11 +240,13 @@ class DuplicateValues(Exception):
             # where it occurs
             dupdeets = []
             for v, l in dupe_dict.items():
-                # dupe_dict contains row indexes. This converts to row numbers
-                dupdeets.append(f"{v} ({','.join(list(map(lambda i: i + 1, l)))})")
+                # dupe_dict contains row indexes. This converts to row numbers (adds 1 for starting from 1 instead of 0
+                # and 1 for the header row)
+                dupdeets.append(f"{v} ({','.join(list(map(lambda i: str(i + 2), l)))})")
+            feed_indent = "\n\t"
             message = (
-                f"The following duplicate values were found in unique column {colname} on the indicated rows: ["
-                f"{', '.join(dupdeets)}]"
+                f"{len(dupe_dict.keys())} values were found with duplicate occurrences in the [{colname}] column, "
+                f"whose values must be unique, on the indicated rows:\n\t{feed_indent.join(dupdeets)}"
             )
         super().__init__(message)
         self.dupe_dict = dupe_dict
