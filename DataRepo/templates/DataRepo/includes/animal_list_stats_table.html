@@ -23,12 +23,12 @@
         <thead>
             <tr>
                 <th data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-field="Animal">Animal</th>
-                <th data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-field="Studies">Studies</th>
+                <th data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-width="7" data-width-unit="%" data-field="Studies">Studies</th>
                 <th data-filter-control="select" data-sortable="true" data-field="Genotype">Genotype</th>
-                <th data-filter-control="input" data-width="900" data-field="Infusate">Infusate</th>
+                <th data-filter-control="input" data-field="Infusate">Infusate</th>
                 <th data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-field="Compounds">Tracer Compound(s)</th>
                 <th data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-field="Tracers">Tracer(s)</th>
-                <th data-filter-control="input" data-sortable="true" data-field="Concentrations">Tracer Concentration(s) (mM)</th>
+                <th data-filter-control="input" data-sortable="true" data-width="5" data-width-unit="%" data-field="Concentrations">Tracer Concentration(s) (mM)</th>
                 <th data-filter-control="select" data-sortable="true" data-field="Labeled-Elements">Labeled Element(s)</th>
                 <th data-filter-control="input" data-sortable="true" data-field="Infusion-Rate">Infusion Rate (ul/min/g)</th>
                 <th data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-field="Treatment">Treatment</th>
@@ -49,7 +49,7 @@
                 <td><a href="{% url 'animal_detail' i.animal_id %}">{{ i.animal }}</a></td>
                 <td>{{ i.study_id_name_list|obj_hyperlink:"study" }}</td>
                 <td>{{ i.genotype }}</td>
-                <td>
+                <td class="nobr">
                     {% if i.infusate_id %}
                         {% if i.tracer_group_name %}
                             <a href="{% url 'infusate_detail' i.infusate_id %}">{{ i.tracer_group_name }}</a>
@@ -63,7 +63,7 @@
                     {% endif %}
                 </td>
                 <td>{{ i.compound_id_name_list|obj_hyperlink:"compound" }}</td>
-                <td>{{ i.tracer_id_name_list|obj_hyperlink:"tracer" }}</td>
+                <td>{{ i.tracer_id_name_list|obj_hyperlink:"tracer, newline" }}</td>
                 <td>{{ i.concentrations|join:", " }}</td>
                 <td>{{ i.labeled_elements|join:", " }}</td>
                 <td>{{ i.infusion_rate }}</td>

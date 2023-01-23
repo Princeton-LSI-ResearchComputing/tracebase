@@ -23,13 +23,14 @@
         <thead>
             <tr>
                 <th data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-field="Study">Study</th>
-                <th data-filter-control="input" data-field="Study-Description">Description</th>
+                <th data-filter-control="input" data-width="10" data-width-unit="%" data-field="Study-Description">Description</th>
                 <th data-filter-control="select" data-field="Genotypes">Genotypes</th>
-                <th data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-field="Infusate">Infusates</th>
+                <th data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-visible="false" data-field="Infusate">Infusates</th>
                 <th data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-field="Compounds">Tracer Compound(s)</th>
                 <th data-filter-control="select" data-sortable="true" data-field="Labeled-Elements">Labeled Elements</th>
                 <th data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-field="Treatments">Treatments</th>
                 <th data-filter-control="select" data-field="Sample-Owners">Sample Owners</th>
+                <th data-valign="top" data-field="Total-Infusate">Total Infusates</th>
                 <th data-filter-control="input" data-sortable="true" data-field="Total-Animal">Total Animals</th>
                 <th data-filter-control="input" data-sortable="true" data-field="Total-Tissue">Total Tissues</th>
                 <th data-filter-control="input" data-sortable="true" data-field="Total-Sample">Total Samples</th>
@@ -42,11 +43,23 @@
                 <td><a href="{% url 'study_detail' i.study_id %}">{{ i.study }}</a></td>
                 <td>{{ i.study_description }}</td>
                 <td>{{ i.genotypes|join:", " }}</td>
-                <td>{{ i.infusate_id_name_list|obj_hyperlink:"infusate" }}</td>
-                <td>{{ i.compound_id_name_list|obj_hyperlink:"compound" }}</td>
+                <td>{{ i.infusate_id_name_list|obj_hyperlink:"infusate, newline" }}</td>
+                <td>{{ i.compound_id_name_list|obj_hyperlink:"compound, newline" }}</td>
                 <td>{{ i.labeled_elements|join:", "}}</td>
                 <td>{{ i.treatment_id_name_list|obj_hyperlink:"treatment" }}</td>
                 <td>{{ i.sample_owners|join:", "}}</td>
+                <td>
+                    <details>
+                        <summary>
+                            {% if i.total_infusate == 1 %}
+                                {{ i.total_infusate }} Infusate
+                            {% else %}
+                                {{ i.total_infusate }} Infusates
+                            {% endif %}
+                        </summary>
+                        {{ i.infusate_id_name_list|obj_hyperlink:"infusate, newline" }}
+                    </details>
+                </td>
                 <td>{{ i.total_animal }}</td>
                 <td>{{ i.total_tissue }}</td>
                 <td>{{ i.total_sample }}</td>

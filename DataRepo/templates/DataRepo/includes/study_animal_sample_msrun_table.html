@@ -31,7 +31,7 @@
             <th data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-field="Animal">Animal</th>
             <th data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-field="Tissue">Tissue</th>
             <th data-filter-control="select" data-sortable="true" data-field="Genotype">Genotype</th>
-            <th data-filter-control="input" data-field="Infusate">Infusate</th>
+            <th data-filter-control="input" data-visible="false" data-field="Infusate">Infusate</th>
             <th data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-field="Tracers">Tracer(s)</th>
             <th data-filter-control="input" data-sortable="true" data-field="Concentrations">Tracer Concentration(s) (mM)</th>
             <th data-filter-control="select" data-sortable="true" data-field="Labeled_Elements">Labeled Element(s)</th>
@@ -71,7 +71,7 @@
                     None
                 {% endif %}
             </td>
-            <td>{{ i.tracer_id_name_list|obj_hyperlink:"tracer" }}</td>
+            <td>{{ i.tracer_id_name_list|obj_hyperlink:"tracer, newline" }}</td>
             <td>{{ i.concentrations|join:", " }}</td>
             <td>{{ i.labeled_elements|join:", " }}</td>
             <td>{{ i.infusion_rate }}</td>

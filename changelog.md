@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 none
 
+## [2.0.2] - 2023-01-23
+
+### Changed
+
+- Pages/views
+  - Made minor changes to the DataFrame for study list and stats (added total infusates)
+  - Modified code for customtag filter "obj_hyperlink" to display list with or without line breaks.
+  - Improved display of infusates in study and aninal templates.
+  - Changed column width for some columns in study and animal tables.
+
 ## [2.0.1] - 2023-01-05
 
 ### Added
