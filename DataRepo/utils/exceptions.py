@@ -140,7 +140,7 @@ class AggregatedErrors(Exception):
             for errtype in [type(e).__name__ for e in errors]:
                 if errtype not in errtypes:
                     errtypes.append(errtype)
-            message = f"{len(errors)} exceptions occurred including type(s): [{', '.join(errtypes)}]."
+            message = f"{len(errors)} exceptions occurred, including type(s): [{', '.join(errtypes)}]."
         super().__init__(message)
         if verbosity > 0:
             print("Aggregated error details:")
@@ -250,7 +250,8 @@ class DuplicateValues(Exception):
             feed_indent = "\n\t"
             message = (
                 f"{len(dupe_dict.keys())} values were found with duplicate occurrences in the [{colname}] column, "
-                f"whose values must be unique, on the indicated rows:\n\t{feed_indent.join(dupdeets)}"
+                "whose values must be unique, on the indicated rows (note, row numbers reflect a merge of the Animal "
+                f"and Sample sheet and may be inaccurate):\n\t{feed_indent.join(dupdeets)}"
             )
         super().__init__(message)
         self.dupe_dict = dupe_dict

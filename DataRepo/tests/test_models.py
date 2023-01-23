@@ -701,7 +701,10 @@ class DataLoadingTests(TracebaseTestCase):
         self.assertEqual(24, len(cves))
         # There are 24 expected errors total
         self.assertEqual(24, len(aes.errors))
-        self.assertEqual("24 exceptions occurred.", str(ar.exception))
+        self.assertEqual(
+            "24 exceptions occurred, including type(s): [ConflictingValueError].",
+            str(ar.exception),
+        )
 
     @tag("fcirc")
     def test_peakgroup_from_serum_sample_false(self):
