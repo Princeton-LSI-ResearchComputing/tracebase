@@ -228,6 +228,24 @@ class DupeCompoundIsotopeCombos(Exception):
         self.source = source
 
 
+class DuplicateValues(Exception):
+    def __init__(self, dupe_dict, colname, message=None):
+        if not message:
+            # Each value is displayed as "value (1,2,3)" where "value" is the diplicate value and 1,2,3 are the rows
+            # where it occurs
+            dupdeets = []
+            for v, l in dupe_dict.items():
+                # dupe_dict contains row indexes. This converts to row numbers
+                dupdeets.append(f"{v} ({','.join(list(map(lambda i: i + 1, l)))})")
+            message = (
+                f"The following duplicate values were found in unique column {colname} on the indicated rows: ["
+                f"{', '.join(dupdeets)}]"
+            )
+        super().__init__(message)
+        self.dupe_dict = dupe_dict
+        self.colname = colname
+
+
 class NoTracerLabeledElements(Exception):
     def __init__(self):
         message = "tracer_labeled_elements required to process PARENT entries."

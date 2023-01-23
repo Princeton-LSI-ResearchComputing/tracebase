@@ -38,6 +38,7 @@ from DataRepo.utils.exceptions import (
     AggregatedErrors,
     ConflictingValueError,
     DryRun,
+    DuplicateValues,
     HeaderConfigError,
     RequiredHeadersError,
     RequiredValuesError,
@@ -182,6 +183,8 @@ class SampleTableLoader:
         self.errors = []
         self.missing_headers = []
         self.missing_values = defaultdict(list)
+        # Skip rows that have errors
+        self.skip_sample_rows = {}
 
         # Researcher consistency tracking (also a part of error-tracking)
         self.skip_researcher_check = skip_researcher_check
@@ -212,14 +215,26 @@ class SampleTableLoader:
         enable_autoupdates()
 
     def load_data(self, data, dry_run=False):
-        # Create a list to hold the csv reader data so that iterations from validating cleardoesn't leave the csv
-        # reader empty/at-the-end upon the import loop
+        # Create a list to hold the csv reader data so that iterations from validating doesn't leave the csv reader
+        # empty/at-the-end upon the import loop
         sample_table_data = list(data)
 
-        # If there is data to load
+        # If there are headers
         if len(sample_table_data) > 0:
-            # use the first row to check the headers
+            # Use the first row to check the headers
             self.check_headers(sample_table_data[0].keys())
+
+        # If there is more than 1 row of data to load
+        if len(sample_table_data) > 2:
+            # Check the in-file uniqueness of the samples
+            sample_dupes, row_nums = self.get_column_dupes(
+                sample_table_data[1:], "SAMPLE_NAME"
+            )
+            if len(sample_dupes.keys()) > 0:
+                self.buffer_exception(
+                    DuplicateValues(sample_dupes, getattr(self.headers, "SAMPLE_NAME"))
+                )
+                self.skip_sample_rows = row_nums
 
         for rownum, row in enumerate(sample_table_data, start=1):
 
@@ -235,8 +250,12 @@ class SampleTableLoader:
             )
             self.get_or_create_study(rownum, row, animal_rec)
             self.get_or_create_animallabel(animal_rec, infusate_rec)
-            sample_rec = self.get_or_create_sample(rownum, row, animal_rec, tissue_rec)
-            self.get_or_create_fcircs(infusate_rec, sample_rec)
+            # If the row has an issue (e.g. not unique in the file), skip it so there will not be pointless errors
+            if rownum not in self.skip_sample_rows:
+                sample_rec = self.get_or_create_sample(
+                    rownum, row, animal_rec, tissue_rec
+                )
+                self.get_or_create_fcircs(infusate_rec, sample_rec)
 
         if not self.skip_researcher_check:
             try:
@@ -787,6 +806,25 @@ class SampleTableLoader:
             self.buffer_exception(UnknownHeadersError(unknown_headers))
         if len(misconfiged_headers) > 0:
             self.buffer_exception(HeaderConfigError(misconfiged_headers))
+
+    def get_column_dupes(self, data, col_key):
+        """
+        Takes a list of dicts (data) keyed on col_key.  The data should not include a header row.
+        Returns a dict keyed on duplicate values and a list of row indexes (incremented once to account for the header
+        row).
+        """
+        val_counts = defaultdict(int)
+        dupe_dict = {}
+        dupe_rows = []
+        for rowidx, val in enumerate([dct[col_key] for dct in data]):
+            # The incoming data had the header row removed
+            actual_row_idx = rowidx + 1
+            val_counts[val].append(actual_row_idx)
+        for val, row_list in val_counts.items():
+            if len(row_list) > 1:
+                dupe_dict[val] = row_list
+                dupe_rows += row_list
+        return dupe_dict, row_list
 
     def getRowVal(self, rownum, row, header_attribute):
         # get the header value to use as a dict key for 'row'
