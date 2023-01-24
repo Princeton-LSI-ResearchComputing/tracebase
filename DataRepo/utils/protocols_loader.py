@@ -125,12 +125,14 @@ class ProtocolsLoader:
                 raise ValidationError(
                     "ProtocolLoader requires a dataframe with 'name' and 'description' headers/keys."
                 ) from None
+
         if len(self.errors) > 0:
             message = ""
             for err in self.errors:
                 message += f"{err}\n"
 
             raise LoadingError(f"Errors during protocol loading :\n {message}")
+
         if self.dry_run:
             raise DryRun()
 

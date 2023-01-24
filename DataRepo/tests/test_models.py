@@ -1,3 +1,4 @@
+from collections import defaultdict
 from datetime import datetime, timedelta
 
 import pandas as pd
@@ -15,6 +16,7 @@ from DataRepo.models import (
     ElementLabel,
     Infusate,
     InfusateTracer,
+    MaintainedModel,
     MSRun,
     PeakData,
     PeakDataLabel,
@@ -28,15 +30,18 @@ from DataRepo.models import (
     Tissue,
     Tracer,
     TracerLabel,
+    buffer_size,
 )
 from DataRepo.models.hier_cached_model import set_cache
 from DataRepo.models.peak_group_label import NoCommonLabel
 from DataRepo.models.researcher import UnknownResearcherError
+from DataRepo.models.utilities import get_all_models
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import (
     AccuCorDataLoader,
     AggregatedErrors,
     ConflictingValueError,
+    DryRun,
     IsotopeObservationData,
     IsotopeObservationParsingError,
     IsotopeParsingError,
@@ -1812,6 +1817,38 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
 
         super().setUpTestData()
 
+    @classmethod
+    def get_record_counts(cls, db=settings.TRACEBASE_DB):
+        record_counts = []
+        for mdl in get_all_models():
+            record_counts.append(mdl.objects.using(db).all().count())
+        return record_counts
+
+    @classmethod
+    def get_maintained_fields(cls):
+        maintained_fields = defaultdict(lambda: defaultdict(list))
+        for mdl in get_all_models():
+            if issubclass(mdl, MaintainedModel) and len(mdl.get_my_update_fields()) > 0:
+                maintained_fields[mdl.__name__]["class"] = mdl
+                maintained_fields[mdl.__name__]["fields"] = mdl.get_my_update_fields()
+        return maintained_fields
+
+    @classmethod
+    def get_all_maintained_field_values(cls):
+        """
+        This method can be used to obtain every value of a maintained field before and after a load that raises an
+        exception to ensure that the failed load has no side-effects.  Results are stored in a list for each model in a
+        dict keyed on model.
+        """
+        all_values = {}
+        maintained_fields = cls.get_maintained_fields()
+
+        for key in maintained_fields.keys():
+            mdl = maintained_fields[key]["class"]
+            flds = maintained_fields[key]["fields"]
+            all_values[mdl.__name__] = list(mdl.objects.values_list(*flds, flat=True))
+        return all_values
+
     def test_animal_and_sample_load_xlsx(self):
 
         # initialize some sample-table-dependent counters
@@ -1834,6 +1871,53 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
 
         study = Study.objects.get(name="Small OBOB")
         self.assertEqual(study.animals.count(), ANIMALS_COUNT)
+
+    def test_animal_and_sample_load_in_debug(self):
+
+        # Load some data to ensure that none of it changes during the actual test
+        call_command(
+            "load_animals_and_samples",
+            animal_and_sample_table_filename=(
+                "DataRepo/example_data/small_multitracer_data/animal_sample_table.xlsx"
+            ),
+            skip_researcher_check=True,
+        )
+
+        pre_load_counts = self.get_record_counts()
+        pre_load_maintained_values = self.get_all_maintained_field_values()
+        self.assertGreater(
+            len(pre_load_maintained_values.keys()),
+            0,
+            msg="Ensure there is data in the database before the test",
+        )
+        self.assertEqual(0, buffer_size(), msg="Autoupdate buffer is empty to start.")
+
+        with self.assertRaises(DryRun):
+            call_command(
+                "load_animals_and_samples",
+                animal_and_sample_table_filename=(
+                    "DataRepo/example_data/small_dataset/"
+                    "small_obob_animal_and_sample_table.xlsx"
+                ),
+                debug=True,
+            )
+
+        post_load_maintained_values = self.get_all_maintained_field_values()
+        post_load_counts = self.get_record_counts()
+
+        self.assertEqual(
+            pre_load_counts,
+            post_load_counts,
+            msg="DryRun mode doesn't change any table's record count.",
+        )
+        self.assertEqual(
+            pre_load_maintained_values,
+            post_load_maintained_values,
+            msg="DryRun mode doesn't autoupdate.",
+        )
+        self.assertEqual(
+            0, buffer_size(), msg="DryRun mode doesn't leave buffered autoupdates."
+        )
 
     def test_get_column_dupes(self):
         stl = SampleTableLoader()
