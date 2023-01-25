@@ -10,14 +10,56 @@ from django.db.transaction import TransactionManagementError
 from django.db.utils import IntegrityError
 from psycopg2.errors import ForeignKeyViolation
 
+# Modes of operation
 auto_updates = True
-update_buffer = []
 performing_mass_autoupdates = False
 buffering = True
-updater_list: Dict[str, List] = defaultdict(list)
-global_label_filters = None
+disabled_mode = False
 global_filter_in = True
 custom_filtering = False
+
+# Data
+global_label_filters = None
+update_buffer = []
+updater_list: Dict[str, List] = defaultdict(list)
+
+
+def disable_maintained_models():
+    """
+    This disables everything.  It ignores filtering options, buffer contents, and the metadata in updater_list.
+    """
+    global auto_updates
+    global performing_mass_autoupdates
+    global buffering
+    global disabled_mode
+
+    # If custom filtering is in effect, ensure filtering is re-initialized before auto-updates are re-enabled
+    if not auto_updates or performing_mass_autoupdates or not buffering:
+        raise DisableOnlyWhenInDefaultModes()
+
+    auto_updates = False
+    performing_mass_autoupdates = False  # Remains the default
+    buffering = False
+
+    disabled_mode = True
+
+
+def enable_maintained_models():
+    """
+    This restores auto_updates, performing_mass_autoupdates, and buffering to their defaults.  Beware: if anything is/
+    was in filtering options, buffer contents, or the metadata in updater_list, it is now re-activated.
+    """
+    global auto_updates
+    global performing_mass_autoupdates
+    global buffering
+    global disabled_mode
+
+    # Restore defaults
+    auto_updates = True
+    performing_mass_autoupdates = False
+    buffering = True
+
+    disabled_mode = False
 
 
 def disable_autoupdates():
@@ -25,6 +67,9 @@ def disable_autoupdates():
     Do not allow record changes to trigger the auto-update of maintained fields.  Instead, buffer those updates.
     """
     global auto_updates
+
+    if disabled_mode:
+        raise ModeChangeDisallowed()
 
     # If custom filtering is in effect, ensure filtering is re-initialized before auto-updates are re-enabled
     if auto_updates and custom_filtering:
@@ -38,6 +83,9 @@ def enable_autoupdates():
     Allow record changes to trigger the auto-update of maintained fields and no longer buffer those updates.
     """
     global auto_updates
+
+    if disabled_mode:
+        raise ModeChangeDisallowed()
 
     # If custom filtering is in effect, ensure filtering is re-initialized before auto-updates are re-enabled
     if not auto_updates and custom_filtering:
@@ -58,6 +106,10 @@ def disable_mass_autoupdates():
     Allow autoupdates to once again be able to trigger updates to parent record fields.
     """
     global performing_mass_autoupdates
+
+    if disabled_mode:
+        raise ModeChangeDisallowed()
+
     performing_mass_autoupdates = False
 
 
@@ -67,7 +119,12 @@ def enable_mass_autoupdates():
     rebuild_maintained_fields script.  This can only be enabled when autoupdates are disabled,
     """
     global performing_mass_autoupdates
+
+    if disabled_mode:
+        raise ModeChangeDisallowed()
+
     performing_mass_autoupdates = True
+
     if auto_updates:
         raise StaleAutoupdateMode()
 
@@ -77,6 +134,10 @@ def disable_buffering():
     Do not allow record changes to buffer pending changes to maintained fields.
     """
     global buffering
+
+    if disabled_mode:
+        raise ModeChangeDisallowed()
+
     buffering = False
 
 
@@ -85,6 +146,10 @@ def enable_buffering():
     Allow record changes to buffer pending changes to maintained fields.
     """
     global buffering
+
+    if disabled_mode:
+        raise ModeChangeDisallowed()
+
     buffering = True
 
 
@@ -1398,5 +1463,26 @@ class ClearFiltersBeforeEnablingAutoupdates(Exception):
                 "autoupdates are enabled (using enable_autoupdates()).  If custom filters are used by one loading "
                 "script, those filters must be cleared at the end of that script so that they are not unintentionally "
                 "applied to the next loading script."
+            )
+        super().__init__(message)
+
+
+class DisableOnlyWhenInDefaultModes(Exception):
+    def __init__(self, message=None):
+        if message is None:
+            message = (
+                "disable_maintained_models() can only be called if all global variables have their default values.  "
+                "Autoupdates and buffering must be enabled and performing_mass_autoupdates must be enabled.  If any "
+                "of these are not in their default states, you might reconsider what you are doing."
+            )
+        super().__init__(message)
+
+
+class ModeChangeDisallowed(Exception):
+    def __init__(self, message=None):
+        if message is None:
+            message = (
+                "Default operating modes must be restored before they can be individually changed.  See "
+                "enable_maintained_models()."
             )
         super().__init__(message)
