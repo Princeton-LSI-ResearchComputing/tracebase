@@ -6,10 +6,7 @@ from django.core.management import CommandError, call_command
 from django.test import tag
 
 from DataRepo.models import Protocol
-from DataRepo.models.maintained_model import (
-    buffer_size,
-    get_all_maintained_field_values,
-)
+from DataRepo.models.maintained_model import buffer_size
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import ProtocolsLoader
 from DataRepo.utils.exceptions import DryRun, LoadingError
@@ -155,7 +152,6 @@ class ProtocolLoadingTests(TracebaseTestCase):
         with self.assertRaises(DryRun):
             self.load_dataframe_as_animal_treatment(self.working_df, dry_run=True)
 
-        post_load_maintained_values = get_all_maintained_field_values("DataRepo.models")
         post_load_counts = self.get_record_counts()
 
         self.assertEqual(
