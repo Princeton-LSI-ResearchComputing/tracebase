@@ -150,7 +150,7 @@ def obj_hyperlink(id_name_list, obj, newline=False):
             k, v = x.split("||")
             id_name_dict[k] = v
 
-    if newline == True:
+    if newline is True:
         obj_format_html = (
             '<div class="newlines">'
             + format_html_join(
