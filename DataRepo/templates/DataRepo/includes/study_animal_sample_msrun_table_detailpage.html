@@ -70,7 +70,7 @@
                     None
                 {% endif %}
             </td>
-            <td>{{ i.tracer_id_name_list|obj_hyperlink:"tracer, newline" }}</td>
+            <td>{% obj_hyperlink i.tracer_id_name_list "tracer" newline=True %}</td>
             <td>{{ i.concentrations|join:", " }}</td>
             <td>{{ i.labeled_elements|join:", " }}</td>
             <td>{{ i.infusion_rate }}</td>

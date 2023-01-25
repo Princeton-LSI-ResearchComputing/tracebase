@@ -111,10 +111,10 @@ def getDownloadQrys():
     return basv.getDownloadQryList()
 
 
-@register.filter
-def obj_hyperlink(id_name_list, args):
+@register.simple_tag
+def obj_hyperlink(id_name_list, obj, newline=False):
     """
-    takes an object list and returns a comma-separated list of hyperlinks.
+    returns a comma-separated list of hyperlinks.
     Notes:
     works for object_lists with defined format in Pandas DataFrames:
         obj types include study, tracer, compound, infusate, treatment
@@ -125,9 +125,8 @@ def obj_hyperlink(id_name_list, args):
         treatment list: [3||Ser/gly-free diet, 2||Control diet]
     For a study without treament data, value in DataFrame is [nan], which is [None] after converting
         to json record for rendering templates
-    If 2nd argument "args" in format like "obj, newline", it will format html with <div> tag and newline.
+    If newline=True, return html string with <div> tag and newline.
     """
-    obj = args.split(",")[0]
 
     if obj == "study":
         tmplt_name = "study_detail"
@@ -151,7 +150,7 @@ def obj_hyperlink(id_name_list, args):
             k, v = x.split("||")
             id_name_dict[k] = v
 
-    if len(args.split(",")) == 2 and args.split(",")[1].strip() == "newline":
+    if newline == True:
         obj_format_html = (
             '<div class="newlines">'
             + format_html_join(

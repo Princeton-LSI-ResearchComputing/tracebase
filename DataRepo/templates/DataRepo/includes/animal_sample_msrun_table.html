@@ -53,7 +53,7 @@
                 <td><a href="{% url 'sample_detail' i.sample_id %}">{{ i.sample }}</a></td>
                 <td><a href="{% url 'animal_detail' i.animal_id %}">{{ i.animal }}</a></td>
                 <td><a href="{% url 'tissue_detail' i.tissue_id %}">{{ i.tissue }}</a></td>
-                <td>{{ i.study_id_name_list|obj_hyperlink:"study" }}</td>
+                <td>{% obj_hyperlink i.study_id_name_list "study" %}</td>
                 <td>{{ i.genotype }}</td>
                 <td>
                     {% if i.infusate_id %}
@@ -68,7 +68,7 @@
                         None
                     {% endif %}
                 </td>
-                <td>{{ i.tracer_id_name_list|obj_hyperlink:"tracer, newline" }}</td>
+                <td>{% obj_hyperlink i.tracer_id_name_list "tracer" newline=True %}</td>
                 <td>{{ i.concentrations|join:", " }}</td>
                 <td>{{ i.labeled_elements|join:", " }}</td>
                 <td>{{ i.infusion_rate }}</td>

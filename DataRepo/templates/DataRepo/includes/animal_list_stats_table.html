@@ -47,7 +47,7 @@
             {% for i in out_df %}
             <tr>
                 <td><a href="{% url 'animal_detail' i.animal_id %}">{{ i.animal }}</a></td>
-                <td>{{ i.study_id_name_list|obj_hyperlink:"study" }}</td>
+                <td>{% obj_hyperlink i.study_id_name_list "study" %}</td>
                 <td>{{ i.genotype }}</td>
                 <td class="nobr">
                     {% if i.infusate_id %}
@@ -62,8 +62,8 @@
                         None
                     {% endif %}
                 </td>
-                <td>{{ i.compound_id_name_list|obj_hyperlink:"compound" }}</td>
-                <td>{{ i.tracer_id_name_list|obj_hyperlink:"tracer, newline" }}</td>
+                <td>{% obj_hyperlink i.compound_id_name_list "compound" newline=True %}</td>
+                <td>{% obj_hyperlink i.tracer_id_name_list "tracer" newline=True %}</td>
                 <td>{{ i.concentrations|join:", " }}</td>
                 <td>{{ i.labeled_elements|join:", " }}</td>
                 <td>{{ i.infusion_rate }}</td>

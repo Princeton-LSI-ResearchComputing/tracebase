@@ -43,10 +43,10 @@
                 <td><a href="{% url 'study_detail' i.study_id %}">{{ i.study }}</a></td>
                 <td>{{ i.study_description }}</td>
                 <td>{{ i.genotypes|join:", " }}</td>
-                <td>{{ i.infusate_id_name_list|obj_hyperlink:"infusate, newline" }}</td>
-                <td>{{ i.compound_id_name_list|obj_hyperlink:"compound, newline" }}</td>
+                <td>{% obj_hyperlink i.infusate_id_name_list "infusate" newline=True %}</td>
+                <td>{% obj_hyperlink i.compound_id_name_list "compound" newline=True %}</td>
                 <td>{{ i.labeled_elements|join:", "}}</td>
-                <td>{{ i.treatment_id_name_list|obj_hyperlink:"treatment" }}</td>
+                <td>{% obj_hyperlink i.treatment_id_name_list "treatment" %}</td>
                 <td>{{ i.sample_owners|join:", "}}</td>
                 <td>
                     <details>
@@ -57,7 +57,7 @@
                                 {{ i.total_infusate }} Infusates
                             {% endif %}
                         </summary>
-                        {{ i.infusate_id_name_list|obj_hyperlink:"infusate, newline" }}
+                        {% obj_hyperlink i.infusate_id_name_list "infusate" newline=True %}
                     </details>
                 </td>
                 <td>{{ i.total_animal }}</td>

@@ -28,8 +28,8 @@
                 <td>{{ i.study }}</td>
                 <td>{{ i.study_description }}</td>
                 <td>{{ i.genotypes|join:", " }}</td>
-                <td>{{ i.infusate_id_name_list|obj_hyperlink:"infusate" }}</td>
-                <td>{{ i.treatment_id_name_list|obj_hyperlink:"treatment" }}</td>
+                <td>{% obj_hyperlink i.infusate_id_name_list "infusate" %}</td>
+                <td>{% obj_hyperlink i.treatment_id_name_list "treatment" %}</td>
                 <td>{{ i.sample_owners|join:", "}}</td>
                 <td>{{ i.total_animal }}</td>
                 <td>{{ i.total_tissue }}</td>
