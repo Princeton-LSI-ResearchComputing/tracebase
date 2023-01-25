@@ -136,9 +136,10 @@ class Command(BaseCommand):
             isocorr_format=options["isocorr_format"],
             verbosity=options["verbosity"],
             defer_autoupdates=options["defer_autoupdates"],
+            dry_run=options["debug"],
         )
 
-        loader.load_accucor_data(options["debug"])
+        loader.load_accucor_data()
 
         print(f"Done loading {fmt} data into MsRun, PeakGroups, and PeakData")
 

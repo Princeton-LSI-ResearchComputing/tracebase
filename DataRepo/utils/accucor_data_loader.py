@@ -117,6 +117,7 @@ class AccuCorDataLoader:
         isocorr_format=False,
         verbosity=1,
         defer_autoupdates=False,
+        dry_run=False,
     ):
         # Data
         self.accucor_original_df = accucor_original_df
@@ -145,6 +146,9 @@ class AccuCorDataLoader:
 
         # Verbosity affects log prints and error verbosity (for debugging)
         self.verbosity = verbosity
+
+        # Dry Run - don't change the database
+        self.dry_run = dry_run
 
         # Database config
         self.db = settings.TRACEBASE_DB
@@ -582,7 +586,7 @@ class AccuCorDataLoader:
         peak_group_set.save(using=self.db)
         return peak_group_set
 
-    def load_data(self, dry_run=False):
+    def load_data(self):
         """
         Extract and store the data for MsRun PeakGroup and PeakData
         """
@@ -912,7 +916,7 @@ class AccuCorDataLoader:
             if should_raise:
                 raise aes
 
-        if dry_run:
+        if self.dry_run:
             raise DryRun()
 
         if settings.DEBUG or self.verbosity >= 1:
@@ -1078,7 +1082,7 @@ class AccuCorDataLoader:
 
         return isotope_observations
 
-    def load_accucor_data(self, dry_run=False):
+    def load_accucor_data(self):
 
         self.pre_load_setup()
 
@@ -1092,7 +1096,7 @@ class AccuCorDataLoader:
 
             with transaction.atomic():
                 self.validate_data()
-                self.load_data(dry_run)
+                self.load_data()
 
         except DryRun:
             self.post_load_teardown()
@@ -1122,7 +1126,7 @@ class AccuCorDataLoader:
         #  model is a MaintainedModel (inside an isinstance call), and `.all()` to cycle through the related records.
 
         autoupdate_mode = not self.defer_autoupdates
-        if not dry_run and autoupdate_mode:
+        if not self.dry_run and autoupdate_mode:
             perform_buffered_updates(using=self.db)
 
         self.post_load_teardown(autoupdate_mode)

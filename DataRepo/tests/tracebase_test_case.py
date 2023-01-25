@@ -1,6 +1,9 @@
 import time
 
+from django.conf import settings
 from django.test import TestCase, TransactionTestCase
+
+from DataRepo.models.utilities import get_all_models
 
 LONG_TEST_THRESH_SECS = 20
 LONG_TEST_ALERT_STR = f" [ALERT > {LONG_TEST_THRESH_SECS}]"
@@ -52,6 +55,16 @@ def test_case_class_factory(base_class):
             """
             super().setUpTestData()
             reportRunTime(f"{self.__name__}.setUpTestData", self.setupStartTime)
+
+        @classmethod
+        def get_record_counts(cls, db=settings.TRACEBASE_DB):
+            """
+            This can be used in any tests to check the number of records in every table.
+            """
+            record_counts = []
+            for mdl in get_all_models():
+                record_counts.append(mdl.objects.using(db).all().count())
+            return record_counts
 
         class Meta:
             abstract = True

@@ -1,3 +1,4 @@
+import importlib
 import warnings
 from collections import defaultdict
 from typing import Dict, List
@@ -376,6 +377,41 @@ def m2m_propagation_handler(**kwargs):
 
     if act.startswith("post_") and isinstance(obj, MaintainedModel) and auto_updates:
         obj.call_dfs_related_updaters()
+
+
+def get_maintained_fields(models_path):
+    """
+    Returns all of the model classes that have maintained fields and the names of those fields in a dict where the
+    class name is the key and each value is a dict containing, for example:
+
+    {"class": <model class reference>, "fields": [list of field names]}
+
+    models_path is required and must be a string like "DataRepo.models".
+    """
+    maintained_fields = defaultdict(lambda: defaultdict(list))
+    for mdl in get_classes(models_path):
+        if issubclass(mdl, MaintainedModel) and len(mdl.get_my_update_fields()) > 0:
+            maintained_fields[mdl.__name__]["class"] = mdl
+            maintained_fields[mdl.__name__]["fields"] = mdl.get_my_update_fields()
+    return maintained_fields
+
+
+def get_all_maintained_field_values(models_path):
+    """
+    This method can be used to obtain every value of a maintained field before and after a load that raises an
+    exception to ensure that the failed load has no side-effects.  Results are stored in a list for each model in a
+    dict keyed on model.
+
+    models_path is required and must be a string like "DataRepo.models".
+    """
+    all_values = {}
+    maintained_fields = get_maintained_fields(models_path)
+
+    for key in maintained_fields.keys():
+        mdl = maintained_fields[key]["class"]
+        flds = maintained_fields[key]["fields"]
+        all_values[mdl.__name__] = list(mdl.objects.values_list(*flds, flat=True))
+    return all_values
 
 
 class MaintainedModel(Model):
@@ -1189,11 +1225,16 @@ def get_all_updaters():
 
 
 def get_classes(
-    generation=None, label_filters=global_label_filters, filter_in=global_filter_in
+    models_path,
+    generation=None,
+    label_filters=global_label_filters,
+    filter_in=global_filter_in,
 ):
     """
     Retrieve a list of classes containing maintained fields that match the given criteria.
-    Used by rebuild_maintained_fields.
+    Used by rebuild_maintained_fields and get_maintained_fields.
+
+    models_path is required and must be a string like "DataRepo.models".
     """
     class_list = []
     for class_name in updater_list:
@@ -1208,7 +1249,9 @@ def get_classes(
             )
             > 0
         ):
-            class_list.append(class_name)
+            module = importlib.import_module(models_path)
+            cls = getattr(module, class_name)
+            class_list.append(cls)
     return class_list
 
 
