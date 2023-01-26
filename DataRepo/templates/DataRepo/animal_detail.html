@@ -65,3 +65,26 @@
     {% endwith %}
     <br>
 {% endblock %}
+
+{% block js_extras %}
+    {{ block.super }}
+    <script>
+        let rowCount = {{ df|length }}
+        let vScroll = undefined
+        let tabHeight = undefined
+        if ( rowCount < 5 ) {
+            tabHeight = undefined
+            vScroll = undefined
+        } else if (rowCount >= 5 && rowCount < 10) {
+            tabHeight = 800
+            vScroll = true
+        } else {
+            tabHeight = 1000
+            vScroll = true
+        }
+        $('#sample_list').bootstrapTable({
+            height: tabHeight,
+            virtualScroll: vScroll
+        })
+    </script>
+{% endblock %}

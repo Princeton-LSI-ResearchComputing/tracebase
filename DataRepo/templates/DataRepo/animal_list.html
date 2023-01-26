@@ -17,7 +17,7 @@
 {% block js_extras %}
     {{ block.super }}
     <script>
-        let rowCount = {{ anim_per_comp_df|length }}
+        let rowCount = {{ df|length }}
         let vScroll = undefined
         let tabHeight = undefined
         if ( rowCount < 5 ) {
