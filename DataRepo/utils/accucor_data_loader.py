@@ -48,6 +48,7 @@ from DataRepo.utils.exceptions import (
     ResearcherNotNew,
     SampleColumnInconsistency,
     UnexpectedIsotopes,
+    UnskippedBlanksError,
     ValidationDatabaseSetupError,
 )
 
@@ -152,17 +153,18 @@ class AccuCorDataLoader:
 
         # Database config
         self.db = settings.TRACEBASE_DB
-        # If a database was explicitly supplied
-        if database is not None:
-            self.validate = False
-            self.db = database
-        else:
-            self.validate = validate
-            if validate:
-                if settings.VALIDATION_ENABLED:
-                    self.db = settings.VALIDATION_DB
-                else:
-                    raise ValidationDatabaseSetupError()
+        # # If a database was explicitly supplied
+        # if database is not None:
+        #     self.validate = False
+        #     self.db = database
+        # else:
+        #     self.validate = validate
+        #     if validate:
+        #         if settings.VALIDATION_ENABLED:
+        #             self.db = settings.VALIDATION_DB
+        #         else:
+        #             raise ValidationDatabaseSetupError()
+        self.validate = validate
 
         # How to handle mass autoupdates
         self.defer_autoupdates = defer_autoupdates
@@ -419,7 +421,19 @@ class AccuCorDataLoader:
             if len(sample_dict.keys()) == 0:
                 raise MissingSamplesError(self.missing_samples)
             else:
-                self.buffer_exception(MissingSamplesError(self.missing_samples))
+                possible_blanks = []
+                likely_missing = []
+                for ms in self.missing_samples:
+                    if "blank" in self.missing_samples:
+                        possible_blanks.append(ms)
+                    else:
+                        likely_missing.append(ms)
+                # Do not report an exception in validate mode.  Users using the validation view cannot specify blank
+                # samples, so there's no need to alrt them to the problem.
+                if len(possible_blanks) > 0 and not self.validate:
+                    self.buffer_exception(UnskippedBlanksError(possible_blanks))
+                if len(possible_blanks) > 0:
+                    self.buffer_exception(MissingSamplesError(likely_missing))
         elif len(sample_dict.keys()) == 0:
             # If there are no "missing samples", but still no samples...
             raise NoSamplesError()

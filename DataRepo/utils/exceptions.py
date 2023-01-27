@@ -57,13 +57,36 @@ class ResearcherNotNew(Exception):
 
 
 class MissingSamplesError(Exception):
-    def __init__(self, samples):
-        message = (
-            f"{len(samples)} samples are missing in the database: [{', '.join(samples)}].  Samples must be pre-"
-            "loaded."
-        )
+    def __init__(self, samples, message=None):
+        if not message:
+            message = (
+                f"{len(samples)} samples are missing in the database: [{', '.join(samples)}].  Samples must be pre-"
+                "loaded."
+            )
         super().__init__(message)
         self.sample_list = samples
+
+
+class UnskippedBlanksError(MissingSamplesError):
+    def __init__(self, samples):
+        message = (
+            f"{len(samples)} samples that appear to possibly be blanks are missing in the database: "
+            f"[{', '.join(samples)}].  Blank samples should be skipped."
+        )
+        super().__init__(samples, message)
+
+        # The following are used by the loading code to decide if this exception should be fatal or treated as a
+        # warning, depending on the mode in which the loader is run.
+
+        # load_warning governs whether this exception should be treated as a warning when validate is false.
+        self.load_warning = False
+        # validate_warning governs whether this exception should be treated as a warning when validate is true.
+        self.validate_warning = True
+
+        # These 2 values can differ based on whether this is something the user can fix or not.  For example, the
+        # validation interface does not enable the user to verify that the researcher is indeed a new researcher, so
+        # they cannot quiet an unknown researcher exception.  A curator can, so when the curator goes to load, it
+        # should be treated as an exception (curator_warning=False).
 
 
 class NoSamplesError(Exception):
@@ -294,10 +317,11 @@ class UnexpectedIsotopes(Exception):
         # The following are used by the loading code to decide if this exception should be fatal or treated as a
         # warning, depending on the mode in which the loader is run.
 
-        # This exception should be treated as a warning when validate is false.
+        # load_warning governs whether this exception should be treated as a warning when validate is false.
         self.load_warning = True
-        # This exception should be treated as a warning when validate is true.
+        # validate_warning governs whether this exception should be treated as a warning when validate is true.
         self.validate_warning = True
+
         # These 2 values can differ based on whether this is something the user can fix or not.  For example, the
         # validation interface does not enable the user to verify that the researcher is indeed a new researcher, so
         # they cannot quiet an unknown researcher exception.  A curator can, so when the curator goes to load, it

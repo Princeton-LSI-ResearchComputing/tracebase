@@ -65,7 +65,7 @@ def getClass(state):
     styleclass = None
     if state is None:
         styleclass = ""
-    elif state == "FAILED":
+    elif state == "FAILED" or state == "ERROR":
         styleclass = "text-danger"
     elif state == "WARNING":
         styleclass = "text-warning"

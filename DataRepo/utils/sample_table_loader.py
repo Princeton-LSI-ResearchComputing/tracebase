@@ -161,17 +161,18 @@ class SampleTableLoader:
 
         # Database config
         self.db = settings.TRACEBASE_DB
-        # If a database was explicitly supplied
-        if database is not None:
-            self.validate = False
-            self.db = database
-        else:
-            self.validate = validate
-            if validate:
-                if settings.VALIDATION_ENABLED:
-                    self.db = settings.VALIDATION_DB
-                else:
-                    raise ValidationDatabaseSetupError()
+        # # If a database was explicitly supplied
+        # if database is not None:
+        #     self.validate = False
+        #     self.db = database
+        # else:
+        #     self.validate = validate
+        #     if validate:
+        #         if settings.VALIDATION_ENABLED:
+        #             self.db = settings.VALIDATION_DB
+        #         else:
+        #             raise ValidationDatabaseSetupError()
+        self.validate = validate
 
         # How to handle mass autoupdates
         self.defer_autoupdates = defer_autoupdates
