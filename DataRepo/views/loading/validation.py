@@ -8,10 +8,7 @@ from django.shortcuts import redirect, render
 from django.views.generic.edit import FormView
 
 from DataRepo.forms import DataSubmissionValidationForm
-from DataRepo.models import Compound, CompoundSynonym, Protocol, Tissue
-from DataRepo.models.researcher import UnknownResearcherError
-from DataRepo.models.utilities import get_all_models
-from DataRepo.utils import DryRun, MissingSamplesError
+from DataRepo.utils import DryRun
 from DataRepo.utils.exceptions import AggregatedErrors
 
 
@@ -168,7 +165,7 @@ class DataValidationView(FormView):
                         for err in aes.errors:
                             all_exceptions.append(err)
                             errors[af].append(f"{type(err).__name__}: {str(err)}")
-                
+
                 raise DryRun
         except DryRun:
             if settings.DEBUG:
@@ -177,9 +174,9 @@ class DataValidationView(FormView):
             # The database should roll back here, but we don't want to raise the exception for the user's view here.
             print("Validation done.")
             if settings.DEBUG:
-                for e in all_exceptions:
-                    traceback.print_exception(type(e), e, e.__traceback__)
-                    print(f"{type(e).__name__}: {str(e)}")
+                for exc in all_exceptions:
+                    traceback.print_exception(type(exc), exc, exc.__traceback__)
+                    print(f"{type(exc).__name__}: {str(exc)}")
 
         return [
             results,
@@ -187,6 +184,7 @@ class DataValidationView(FormView):
             errors,
             warnings,
         ]
+
 
 def validation_disabled(request):
     return render(request, "validation_disabled.html")

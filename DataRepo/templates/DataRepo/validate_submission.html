@@ -37,12 +37,12 @@
                         <ul>
                             {% if errors|index:file_name %}
                                     {% for error in errors|index:file_name %}
-                                        <li class='{{ err_status|getClass }}'><span class="newlines">{{ error }}</span></li>
+                                        <li class="{{ err_status|getClass }}"><span class="newlines">{{ error }}</span></li>
                                     {% endfor %}
                             {% endif %}
                             {% if warnings|index:file_name %}
                                     {% for warning in warnings|index:file_name %}
-                                        <li class='{{ wrn_status|getClass }}'><span class="newlines">{{ warning }}</span></li>
+                                        <li class="{{ wrn_status|getClass }}"><span class="newlines">{{ warning }}</span></li>
                                     {% endfor %}
                             {% endif %}
                         </ul>
