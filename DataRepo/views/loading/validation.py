@@ -34,7 +34,10 @@ class DataValidationView(FormView):
         self.animal_sample_file = sample_file
         self.accucor_files = accucor_files
         self.animal_sample_filename = sample_file_name
-        self.accucor_filenames = accucor_file_names
+        if accucor_file_names:
+            self.accucor_filenames = accucor_file_names
+        else:
+            self.accucor_filenames = []
 
     def dispatch(self, request, *args, **kwargs):
         # check if there is some video onsite
