@@ -48,7 +48,7 @@
         <tbody>
             {% for i in out_df %}
             <tr>
-                <td><a href="{% url 'sample_detail' i.sample_id %}">{{ i.sample }}</a></td>
+                <td class="text-break"><a href="{% url 'sample_detail' i.sample_id %}">{{ i.sample }}</a></td>
                 <td><a href="{% url 'animal_detail' i.animal_id %}">{{ i.animal }}</a></td>
                 <td class="text-break"><a href="{% url 'tissue_detail' i.tissue_id %}">{{ i.tissue }}</a></td>
                 <td>{% obj_hyperlink i.study_id_name_list "study" %}</td>
