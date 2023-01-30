@@ -1,7 +1,7 @@
 {% load customtags %}
 
 {% if out_df %}
-<div>
+<div id="div_out_tab">
     <table class="table table-sm table-hover table-bordered table-responsive-xl table-striped"
         id="animal_list_stats"
         data-toggle="table"
@@ -22,25 +22,25 @@
         data-page-list="[10, 25, 50, 100, 200, 500, All]">
         <thead>
             <tr>
-                <th data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-field="Animal">Animal</th>
-                <th data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-width="7" data-width-unit="%" data-field="Studies">Studies</th>
-                <th data-filter-control="select" data-sortable="true" data-field="Genotype">Genotype</th>
-                <th data-filter-control="input" data-field="Infusate">Infusate</th>
-                <th data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-field="Compounds">Tracer Compound(s)</th>
-                <th data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-field="Tracers">Tracer(s)</th>
-                <th data-filter-control="input" data-sortable="true" data-width="5" data-width-unit="%" data-field="Concentrations">Tracer Concentration(s) (mM)</th>
-                <th data-filter-control="select" data-sortable="true" data-field="Labeled-Elements">Labeled Element(s)</th>
-                <th data-filter-control="input" data-sortable="true" data-field="Infusion-Rate">Infusion Rate (ul/min/g)</th>
-                <th data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-field="Treatment">Treatment</th>
-                <th data-filter-control="input" data-sortable="true" data-visible="false" data-field="Body_Weight">Body Weight (g)</th>
-                <th data-filter-control="input" data-sortable="true" data-visible="false" data-field="Age">Age (weeks)</th>
-                <th data-filter-control="select" data-sortable="true" data-visible="false" data-field="Sex">Sex</th>
-                <th data-filter-control="input" data-sortable="true" data-visible="false" data-field="Diet">Diet</th>
-                <th data-filter-control="input" data-sortable="true" data-field="Feeding-Status">Feeding Status</th>
-                <th data-filter-control="select" data-sortable="true" data-field="Sample-Owners">Sample Owners</th>
-                <th data-filter-control="input" data-sortable="true" data-field="Total-Tissue">Total Tissues</th>
-                <th data-filter-control="input" data-sortable="true" data-field="Total-Sample">Total Samples</th>
-                <th data-filter-control="input" data-sortable="true" data-field="Total-MSRun">Total MSRuns</th>
+                <th class="min-vw-5 max-vw-10" data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-field="Animal">Animal</th>
+                <th class="min-vw-3 max-vw-10" data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-width="7" data-width-unit="%" data-field="Studies">Studies</th>
+                <th class="min-vw-3 max-vw-10" data-filter-control="select" data-sortable="true" data-field="Genotype">Genotype</th>
+                <th class="min-vw-3" data-filter-control="input" data-field="Infusate">Infusate</th>
+                <th class="min-vw-2 max-vw-10" data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-field="Compounds">Tracer Compound(s)</th>
+                <th class="min-vw-5 max-vw-10" data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-field="Tracers">Tracer(s)</th>
+                <th class="min-vw-2 max-vw-10" data-filter-control="input" data-sortable="true" data-field="Concentrations">Tracer Concentration(s) (mM)</th>
+                <th class="min-vw-2 max-vw-10" data-filter-control="select" data-sortable="true" data-field="Labeled-Elements">Labeled Element(s)</th>
+                <th class="min-vw-2 max-vw-10" data-filter-control="input" data-sortable="true" data-field="Infusion-Rate">Infusion Rate (ul/min/g)</th>
+                <th class="min-vw-2 max-vw-10" data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-field="Treatment">Treatment</th>
+                <th class="min-vw-2 max-vw-10" data-filter-control="input" data-sortable="true" data-visible="false" data-field="Body_Weight">Body Weight (g)</th>
+                <th class="min-vw-2 max-vw-10" data-filter-control="input" data-sortable="true" data-visible="false" data-field="Age">Age (weeks)</th>
+                <th class="min-vw-2 max-vw-10" data-filter-control="select" data-sortable="true" data-visible="false" data-field="Sex">Sex</th>
+                <th class="min-vw-2 max-vw-10" data-filter-control="input" data-sortable="true" data-visible="false" data-field="Diet">Diet</th>
+                <th class="min-vw-2 max-vw-10" data-filter-control="input" data-sortable="true" data-field="Feeding-Status">Feeding Status</th>
+                <th class="min-vw-2 max-vw-10" data-filter-control="select" data-sortable="true" data-field="Sample-Owners">Sample Owners</th>
+                <th class="min-vw-2 max-vw-7" data-filter-control="input" data-sortable="true" data-field="Total-Tissue">Total Tissues</th>
+                <th class="min-vw-2 max-vw-7" data-filter-control="input" data-sortable="true" data-field="Total-Sample">Total Samples</th>
+                <th class="min-vw-2 max-vw-7" data-filter-control="input" data-sortable="true" data-field="Total-MSRun">Total MSRuns</th>
             </tr>
         </thead>
         <tbody>

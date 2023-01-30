@@ -1,6 +1,11 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Studies{% endblock %}
+
+{% block head_extras %}
+    <link href="{% static 'css/bootstrap_table_cus1.css' %}" rel="stylesheet">
+{% endblock %}
 
 {% block content %}
 <h4>List of Studies</h4>
@@ -14,10 +19,17 @@
 
 {% block js_extras %}
     {{ block.super }}
+    <script src="{% static 'js/setTableHeight.js' %}"></script>
     <script>
+        let tabID = "study_list_stats";
+        let divID = "div_out_tab";
+        let pctVH = 0.70;
+        let vHeight = setTableHeight(divID, pctVH);
+
         $('#study_list_stats').bootstrapTable({
-            height: 1200,
+            height: vHeight,
             virtualScroll: true
         })
+        $('#study_list_stats').bootstrapTable('resetView')
     </script>
 {% endblock %}

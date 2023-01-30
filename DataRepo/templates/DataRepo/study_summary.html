@@ -1,11 +1,31 @@
 {% extends "base.html" %}
+{% load static %}
 {% load customtags %}
 
 {% block title %}Study Summary{% endblock %}
+
+{% block head_extras %}
+    <link href="{% static 'css/bootstrap_table_cus1.css' %}" rel="stylesheet">
+{% endblock %}
 
 {% block content %}
     <br>
     {% with out_df=df %}
         {% include "DataRepo/includes/study_animal_sample_msrun_table.html" %}
     {% endwith %}
+{% endblock %}
+
+{% block js_extras %}
+    {{ block.super }}
+    <script src="{% static 'js/setTableHeight.js' %}"></script>
+    <script>
+        let divID = "div_out_tab";
+        let pctVH = 0.80;
+        let vHeight = setTableHeight(divID, pctVH);
+        $('#study_animal_sample_msrun').bootstrapTable({
+            height: vHeight,
+            virtualScroll: true
+        })
+        $('#study_animal_sample_msrun').bootstrapTable('resetView')
+    </script>
 {% endblock %}

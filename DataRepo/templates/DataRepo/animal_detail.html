@@ -1,7 +1,12 @@
 {% extends "base.html" %}
+{% load static %}
 {% load customtags %}
 
 {% block title %}Animal Record - {{ animal.name }}{% endblock %}
+
+{% block head_extras %}
+    <link href="{% static 'css/bootstrap_table_cus1.css' %}" rel="stylesheet">
+{% endblock %}
 
 {% block content %}
 <div>
@@ -63,28 +68,19 @@
     {% with out_df=df %}
         {% include "DataRepo/includes/animal_sample_msrun_table.html" %}
     {% endwith %}
-    <br>
 {% endblock %}
 
 {% block js_extras %}
     {{ block.super }}
+    <script src="{% static 'js/setTableHeight.js' %}"></script>
     <script>
-        let rowCount = {{ df|length }}
-        let vScroll = undefined
-        let tabHeight = undefined
-        if ( rowCount < 5 ) {
-            tabHeight = undefined
-            vScroll = undefined
-        } else if (rowCount >= 5 && rowCount < 10) {
-            tabHeight = 800
-            vScroll = true
-        } else {
-            tabHeight = 1000
-            vScroll = true
-        }
+        let divID = "div_out_tab";
+        let pctVH = 0.60;
+        let vHeight = setTableHeight(divID, pctVH);
         $('#sample_list').bootstrapTable({
-            height: tabHeight,
-            virtualScroll: vScroll
+            height: vHeight,
+            virtualScroll: true
         })
+        $('#sample_list').bootstrapTable('resetView')
     </script>
 {% endblock %}
