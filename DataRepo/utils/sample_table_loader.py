@@ -30,11 +30,12 @@ from DataRepo.models.maintained_model import (
 )
 from DataRepo.models.researcher import (
     UnknownResearcherError,
+    get_researchers,
     validate_researchers,
 )
 from DataRepo.models.utilities import value_from_choices_label
 from DataRepo.utils import parse_infusate_name, parse_tracer_concentrations
-from DataRepo.utils.exceptions import (
+from DataRepo.utils.exceptions import (  # ValidationDatabaseSetupError,
     AggregatedErrors,
     ConflictingValueError,
     DryRun,
@@ -44,7 +45,6 @@ from DataRepo.utils.exceptions import (
     RequiredValuesError,
     SaveError,
     UnknownHeadersError,
-    ValidationDatabaseSetupError,
 )
 
 
@@ -147,7 +147,7 @@ class SampleTableLoader:
         self,
         sample_table_headers=DefaultSampleTableHeaders,
         database=None,
-        validate=False,
+        validate=False,  # DO NOT USE MANUALLY - THIS WILL NOT ROLL BACK UPON ERROR (handle in outer atomic transact)
         verbosity=1,
         skip_researcher_check=False,
         defer_autoupdates=False,
@@ -186,6 +186,8 @@ class SampleTableLoader:
         self.missing_values = defaultdict(list)
         # Skip rows that have errors
         self.skip_sample_rows = {}
+        # Obtain known researchers before load
+        self.known_researchers = get_researchers()
 
         # Researcher consistency tracking (also a part of error-tracking)
         self.skip_researcher_check = skip_researcher_check
@@ -199,8 +201,22 @@ class SampleTableLoader:
         init_autoupdate_label_filters(label_filters=["name"])
 
         try:
+            saved_aes = None
             with transaction.atomic():
-                self.load_data(data, dry_run)
+                try:
+                    self.load_data(data, dry_run)
+                except AggregatedErrors as aes:
+                    if not self.validate:
+                        # If we're not working for the validation interface, raise here to cause a rollback
+                        raise aes
+                    else:
+                        saved_aes = aes
+            if self.validate and saved_aes:
+                # If we're working for the validation interface, raise here to not cause a rollback (so that the
+                # accucor loader can be run to find more issues - samples must be loaded already to run the accucor
+                # loader), and provide the validation interface details on the exceptions.
+                raise saved_aes
+
         except Exception as e:
             # If we're stopping with an exception, we need to clear the update buffer so that the next call doesn't
             # make auto-updates on non-existent (or incorrect) records
@@ -266,7 +282,11 @@ class SampleTableLoader:
 
         if not self.skip_researcher_check:
             try:
-                validate_researchers(self.input_researchers, "--skip-researcher-check")
+                validate_researchers(
+                    self.input_researchers,
+                    known_researchers=self.known_researchers,
+                    skip_flag="--skip-researcher-check",
+                )
             except UnknownResearcherError as ure:
                 self.buffer_exception(ure)
 
@@ -861,8 +881,10 @@ class SampleTableLoader:
             self.errors.append(exception)
         else:
             try:
+                # Raise the exception JUST to generate the traceback in the exception object
                 raise exception
             except Exception as e:
+                # Immediatemy catch and buffer the exception
                 self.errors.append(e)
 
 

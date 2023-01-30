@@ -60,8 +60,8 @@ class MissingSamplesError(Exception):
     def __init__(self, samples, message=None):
         if not message:
             message = (
-                f"{len(samples)} samples are missing in the database: [{', '.join(samples)}].  Samples must be pre-"
-                "loaded."
+                f"{len(samples)} samples are missing in the database: [{', '.join(samples)}].  Samples must be loaded "
+                "prior to loading mass spec data."
             )
         super().__init__(message)
         self.sample_list = samples
@@ -91,7 +91,10 @@ class UnskippedBlanksError(MissingSamplesError):
 
 class NoSamplesError(Exception):
     def __init__(self):
-        message = "No samples were supplied."
+        message = (
+            "No samples were either supplied or found in the database.  Samples must be loaded before mass spec data "
+            "can be loaded."
+        )
         super().__init__(message)
 
 
@@ -253,7 +256,7 @@ class DupeCompoundIsotopeCombos(Exception):
     def __init__(self, dupe_dict, source):
         message = (
             f"The following duplicate compound/isotope combinations were found in the {source} data: ["
-            f"{'; '.join(list(map(lambda c: c + ' on rows: ' + dupe_dict[c], dupe_dict.keys())))}]"
+            f"{'; '.join(list(map(lambda c: f'{c} on rows: {dupe_dict[c]}', dupe_dict.keys())))}]"
         )
         super().__init__(message)
         self.dupe_dict = dupe_dict

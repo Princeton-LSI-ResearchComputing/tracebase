@@ -32,7 +32,7 @@ class Command(BaseCommand):
         )
         # Used internally by the DataValidationView
         parser.add_argument(
-            "--validate",
+            "--validate",  # DO NOT USE MANUALLY - THIS WILL NOT ROLL BACK UPON ERROR (handle in outer atomic transact)
             required=False,
             action="store_true",
             default=False,
@@ -68,7 +68,9 @@ class Command(BaseCommand):
         loader = SampleTableLoader(
             sample_table_headers=headers,
             database=options["database"],
-            validate=options["validate"],
+            validate=options[
+                "validate"
+            ],  # DO NOT USE MANUALLY - THIS WILL NOT ROLL BACK UPON ERROR
             skip_researcher_check=options["skip_researcher_check"],
             verbosity=options["verbosity"],
             defer_autoupdates=options["defer_autoupdates"],

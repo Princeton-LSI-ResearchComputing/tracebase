@@ -29,22 +29,25 @@ def get_researchers(database=settings.TRACEBASE_DB):
     return unique_researchers
 
 
-def validate_researchers(researchers, skip_flag=None, database=settings.TRACEBASE_DB):
+def validate_researchers(
+    input_researchers,
+    known_researchers=None,
+    skip_flag=None,
+    database=settings.TRACEBASE_DB,
+):
     """
     Raises an exception if any researchers are not already in the database (and the database has more than 0
     researchers already in it).
     """
-    if isinstance(researchers, str):
-        input_researchers = [researchers]
-    else:
-        input_researchers = researchers
-    known_researchers = get_researchers(database)
-    # Accept all input researchers if there are no known researchers
+    if not known_researchers:
+        known_researchers = get_researchers(database)
+
+    # Accept any input researchers if there are no known researchers
     if len(known_researchers) > 0:
         unknown_researchers = [
             researcher
             for researcher in input_researchers
-            if researcher not in known_researchers and researcher != "anonymous"
+            if researcher not in known_researchers and researcher.lower() != "anonymous"
         ]
         if len(unknown_researchers) > 0:
             raise UnknownResearcherError(

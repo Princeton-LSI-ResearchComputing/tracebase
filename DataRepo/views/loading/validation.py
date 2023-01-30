@@ -1,3 +1,4 @@
+import os.path
 import traceback
 from typing import List
 
@@ -16,9 +17,24 @@ class DataValidationView(FormView):
     form_class = DataSubmissionValidationForm
     template_name = "DataRepo/validate_submission.html"
     success_url = ""
+    accucor_filenames: List[str] = []
     accucor_files: List[str] = []
+    animal_sample_filename = None
     animal_sample_file = None
     submission_url = settings.DATA_SUBMISSION_URL
+
+    def set_files(
+        self, sample_file, accucor_files, sample_file_name=None, accucor_file_names=None
+    ):
+        """
+        This method allows the files to be set.  It takes 2 different optional params for file names (that are used in
+        reporting) to accommodate random temporary file names.  If file names are not supplied, the basename of the
+        actual files is used for reporting.
+        """
+        self.animal_sample_file = sample_file
+        self.accucor_files = accucor_files
+        self.animal_sample_filename = sample_file_name
+        self.accucor_filenames = accucor_file_names
 
     def dispatch(self, request, *args, **kwargs):
         # check if there is some video onsite
@@ -30,12 +46,22 @@ class DataValidationView(FormView):
     def post(self, request, *args, **kwargs):
         form_class = self.get_form_class()
         form = self.get_form(form_class)
-        self.accucor_files = request.FILES.getlist("accucor_files")
+
+        sample_file = request.FILES["animal_sample_table"]
         try:
-            self.animal_sample_file = request.FILES["animal_sample_table"]
+            accucor_files = request.FILES.getlist("accucor_files")
         except Exception:
-            # Ignore missing accucor files
+            # Ignore missing accucor files (allow user to validate just the sample file)
             print("ERROR: No accucor file")
+            accucor_files = []
+
+        self.set_files(
+            sample_file.temporary_file_path(),
+            [afp.temporary_file_path() for afp in accucor_files],
+            sample_file_name=sample_file,
+            accucor_file_names=[afp.temporary_file_path() for afp in accucor_files],
+        )
+
         if form.is_valid():
             return self.form_valid(form)
         else:
@@ -68,14 +94,29 @@ class DataValidationView(FormView):
         )
 
     def validate_load_files(self):
-        sf = self.animal_sample_file
-        sfp = sf.temporary_file_path()
+        if self.animal_sample_filename:
+            sf = self.animal_sample_filename
+        else:
+            sf = os.path.basename(self.animal_sample_file)
+        sfp = self.animal_sample_file
+
+        if self.animal_sample_file is None:
+            # The form_invalid method should prevent this via the website, but if this is called in a test or other
+            # code without calling self.set_files, this exception will be raised.
+            raise ValueError(
+                "An animal and sample table file is required.  Be sure to call set_files() before calling "
+                "validate_load_files()."
+            )
 
         valid = True
         results = {sf: "PASSED"}
         errors = {sf: []}
         warnings = {sf: []}
-        for af in self.accucor_files:
+        for i, afp in enumerate(self.accucor_files):
+            if len(self.accucor_files) == len(self.accucor_filenames):
+                af = self.accucor_filenames[i]
+            else:
+                af = os.path.basename(afp)
             errors[af] = []
             warnings[af] = []
             results[af] = "PASSED"
@@ -141,8 +182,11 @@ class DataValidationView(FormView):
                     errors[sf].append(f"{type(e).__name__}: {str(e)}")
 
                 # Load the accucor file into a temporary test database in debug mode
-                for af in self.accucor_files:
-                    afp = af.temporary_file_path()
+                for i, afp in enumerate(self.accucor_files):
+                    if len(self.accucor_files) == len(self.accucor_filenames):
+                        af = self.accucor_filenames[i]
+                    else:
+                        af = os.path.basename(afp)
                     try:
                         call_command(
                             "load_accucor_msruns",

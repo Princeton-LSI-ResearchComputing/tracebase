@@ -40,11 +40,13 @@ from DataRepo.utils import (
     AggregatedErrors,
     ConflictingValueError,
     DryRun,
+    DupeCompoundIsotopeCombos,
     IsotopeObservationData,
     IsotopeObservationParsingError,
     IsotopeParsingError,
     MissingSamplesError,
     SampleTableLoader,
+    UnskippedBlanksError,
     leaderboard_data,
     parse_infusate_name,
     parse_tracer_concentrations,
@@ -615,12 +617,7 @@ class DataLoadingTests(TracebaseTestCase):
         #   The new researcher is in the error
         #   Hidden flag is suggested
         #   Existing researchers are shown
-        exp_err = (
-            "Researcher [Luke Skywalker] does not exist.  Please either choose from the following researchers, or if "
-            "this is a new researcher, add --new-researcher to your command (leaving `--researcher Luke Skywalker` "
-            "as-is).  Current researchers are:\nMichael Neinast\nXianfeng Zeng"
-        )
-        with self.assertRaises(Exception, msg=exp_err):
+        with self.assertRaises(AggregatedErrors) as ar:
             # Now load with a new researcher (and no --new-researcher flag)
             call_command(
                 "load_accucor_msruns",
@@ -629,6 +626,11 @@ class DataLoadingTests(TracebaseTestCase):
                 date="2021-04-30",
                 researcher="Luke Skywalker",
             )
+        aes = ar.exception
+        self.assertEqual(1, len(aes.errors))
+        self.assertTrue("Luke Skywalker" in str(aes.errors[0]))
+        self.assertTrue("add --new-researcher to your command" in str(aes.errors[0]))
+        self.assertTrue("Michael Neinast\nXianfeng Zeng" in str(aes.errors[0]))
 
     def test_adl_new_researcher_confirmed(self):
         call_command(
@@ -651,7 +653,7 @@ class DataLoadingTests(TracebaseTestCase):
             "Researcher [Michael Neinast] exists.  --new-researcher cannot be used for existing researchers.  Current "
             "researchers are:\nMichael Neinast\nXianfeng Zeng"
         )
-        with self.assertRaises(Exception, msg=exp_err):
+        with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_accucor_msruns",
                 protocol="Default",
@@ -660,6 +662,9 @@ class DataLoadingTests(TracebaseTestCase):
                 researcher="Michael Neinast",
                 new_researcher=True,
             )
+        aes = ar.exception
+        self.assertEqual(1, len(aes.errors))
+        self.assertTrue(exp_err in str(aes.errors[0]))
 
     def test_ls_new_researcher_and_aggregate_errors(self):
         # The error string must include:
@@ -1928,7 +1933,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.errors))
-        self.assertTrue(isinstance(aes.errors[0], MissingSamplesError))
+        self.assertTrue(isinstance(aes.errors[0], UnskippedBlanksError))
 
     def test_accucor_load_blank_skip(self):
         call_command(
@@ -1983,11 +1988,11 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         aes = ar.exception
         nl = "\n"
         self.assertEqual(
-            1,
+            2,
             len(aes.errors),
             msg=(
-                f"Should be 1 MissingSamplesError, but there were {len(aes.errors)}.  Errors:{nl}"
-                f"{nl.join(list(map(lambda s: str(s), aes.errors)))}"
+                f"Should be 2 errors (MissingSamplesError and NoSamplesError), but there were {len(aes.errors)} "
+                f"errors:{nl}{nl.join(list(map(lambda s: str(s), aes.errors)))}"
             ),
         )
         self.assertTrue(isinstance(aes.errors[0], MissingSamplesError))
@@ -2650,17 +2655,22 @@ class ParseIsotopeLabelTests(TracebaseTestCase):
         #   all compound/isotope pairs that were dupes
         #   all line numbers the dupes were on
         exp_err = (
-            "The following duplicate compound/isotope pairs were found in the original data: [glucose & C12 PARENT on "
-            "rows: 1,2; lactate & C12 PARENT on rows: 3,4]"
+            "The following duplicate compound/isotope combinations were found in the original data: [glucose & C12 "
+            "PARENT on rows: 1,2; lactate & C12 PARENT on rows: 3,4]"
         )
-        with self.assertRaises(Exception, msg=exp_err):
+        with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_accucor_msruns",
                 protocol="Default",
                 accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_dupes.xlsx",
                 date="2021-06-03",
-                researcher="Michael",
+                researcher="Xianfeng Zeng",
             )
+        aes = ar.exception
+        print(f"ALL ERRORS: {aes.errors}")
+        self.assertEqual(2, len(aes.errors))
+        self.assertTrue(exp_err in str(aes.errors[0]))
+        self.assertTrue(isinstance(aes.errors[1], DupeCompoundIsotopeCombos))
         # Data was not loaded
         self.assertEqual(PeakGroup.objects.filter(name__exact="glucose").count(), 0)
         self.assertEqual(PeakGroup.objects.filter(name__exact="lactate").count(), 0)

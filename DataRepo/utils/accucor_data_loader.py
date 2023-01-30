@@ -1,5 +1,6 @@
 import collections
 import re
+import traceback
 from datetime import datetime
 from typing import List, TypedDict
 
@@ -35,7 +36,7 @@ from DataRepo.models.researcher import (
     get_researchers,
     validate_researchers,
 )
-from DataRepo.utils.exceptions import (
+from DataRepo.utils.exceptions import (  # ValidationDatabaseSetupError,
     AggregatedErrors,
     DryRun,
     DupeCompoundIsotopeCombos,
@@ -49,7 +50,6 @@ from DataRepo.utils.exceptions import (
     SampleColumnInconsistency,
     UnexpectedIsotopes,
     UnskippedBlanksError,
-    ValidationDatabaseSetupError,
 )
 
 # Global variables for Accucor/Isocorr corrected column names/patterns
@@ -177,6 +177,7 @@ class AccuCorDataLoader:
         self.labeled_element_header = None
         self.errors = []
         self.missing_samples = []
+        self.dupe_isotope_rows = {"original": None, "corrected": None}
 
         # Used for accucor
         self.labeled_element = None
@@ -251,7 +252,7 @@ class AccuCorDataLoader:
         else:
             try:
                 validate_researchers(
-                    self.researcher, skip_flag="--new-researcher", database=self.db
+                    [self.researcher], skip_flag="--new-researcher", database=self.db
                 )
             except UnknownResearcherError as ure:
                 self.buffer_exception(ure)
@@ -354,13 +355,18 @@ class AccuCorDataLoader:
 
     def validate_compounds(self):
 
+        self.dupe_isotope_rows["original"] = None
+        self.dupe_isotope_rows["corrected"] = None
+
         if self.accucor_original_df is not None:
             dupe_dict = {}
+            dupe_orig_rows = []
             for index, row in self.accucor_original_df[
                 self.accucor_original_df.duplicated(
                     subset=["compound", "isotopeLabel"], keep=False
                 )
             ].iterrows():
+                dupe_orig_rows.append(index)
                 dupe_key = row["compound"] + " & " + row["isotopeLabel"]
                 if dupe_key not in dupe_dict:
                     dupe_dict[dupe_key] = str(index + 1)
@@ -368,6 +374,9 @@ class AccuCorDataLoader:
                     dupe_dict[dupe_key] += "," + str(index + 1)
 
             if len(dupe_dict.keys()) != 0:
+                # Record the rows where this exception occurred so that subsequent downstream errors caused by this
+                # exception can be ignored.
+                self.dupe_isotope_rows["original"] = dupe_orig_rows
                 self.buffer_exception(DupeCompoundIsotopeCombos(dupe_dict, "original"))
 
         if self.isocorr_format:
@@ -377,18 +386,23 @@ class AccuCorDataLoader:
 
         # do it again for the corrected
         dupe_dict = {}
+        dupe_corr_rows = []
         for index, row in self.accucor_corrected_df[
             self.accucor_corrected_df.duplicated(
                 subset=[self.compound_header, labeled_element_header], keep=False
             )
         ].iterrows():
-            dupe_key = row[self.compound_header] + " & " + row[labeled_element_header]
+            dupe_corr_rows.append(index)
+            dupe_key = f"{row[self.compound_header]} & {row[labeled_element_header]}"
             if dupe_key not in dupe_dict:
                 dupe_dict[dupe_key] = str(index + 1)
             else:
                 dupe_dict[dupe_key] += "," + str(index + 1)
 
         if len(dupe_dict.keys()) != 0:
+            # Record the rows where this exception occurred so that subsequent downstream errors caused by this
+            # exception can be ignored.
+            self.dupe_isotope_rows["corrected"] = dupe_corr_rows
             self.buffer_exception(DupeCompoundIsotopeCombos(dupe_dict, "corrected"))
 
     def initialize_db_samples_dict(self):
@@ -411,29 +425,31 @@ class AccuCorDataLoader:
                 # that the samples in the accucor files are being validated against the samples that were just loaded
                 # into the validation database.  If we're not validating, then we're retrieving samples from the one
                 # database we're working with anyway
-                sample_dict[sample_name] = Sample.objects.using(self.db).get(
-                    name=prefixed_sample_name
-                )
+                # sample_dict[sample_name] = Sample.objects.using(self.db).get(
+                sample_dict[sample_name] = Sample.objects.get(name=prefixed_sample_name)
             except Sample.DoesNotExist:
                 self.missing_samples.append(sample_name)
 
         if len(self.missing_samples) != 0:
+            possible_blanks = []
+            likely_missing = []
+            for ms in self.missing_samples:
+                if "blank" in ms:
+                    possible_blanks.append(ms)
+                else:
+                    likely_missing.append(ms)
+
+            # Do not report an exception in validate mode.  Users using the validation view cannot specify blank
+            # samples, so there's no need to alrt them to the problem.
+            if len(possible_blanks) > 0 and not self.validate:
+                self.buffer_exception(UnskippedBlanksError(possible_blanks))
+            if len(likely_missing) > 0:
+                self.buffer_exception(MissingSamplesError(likely_missing))
+
             if len(sample_dict.keys()) == 0:
-                raise MissingSamplesError(self.missing_samples)
-            else:
-                possible_blanks = []
-                likely_missing = []
-                for ms in self.missing_samples:
-                    if "blank" in self.missing_samples:
-                        possible_blanks.append(ms)
-                    else:
-                        likely_missing.append(ms)
-                # Do not report an exception in validate mode.  Users using the validation view cannot specify blank
-                # samples, so there's no need to alrt them to the problem.
-                if len(possible_blanks) > 0 and not self.validate:
-                    self.buffer_exception(UnskippedBlanksError(possible_blanks))
-                if len(possible_blanks) > 0:
-                    self.buffer_exception(MissingSamplesError(likely_missing))
+                self.buffer_exception(NoSamplesError())
+                self.handle_aggregated_errors()
+
         elif len(sample_dict.keys()) == 0:
             # If there are no "missing samples", but still no samples...
             raise NoSamplesError()
@@ -719,6 +735,13 @@ class AccuCorDataLoader:
                         # cache
                         inserted_peak_group_dict[peak_group_name] = peak_group
 
+                except ValidationError as ve:
+                    if self.is_a_downstream_dupe_error(ve, index, "corrected"):
+                        # This is a redundant error caused by the existence of a DupeCompoundIsotopeCombos, so
+                        # we can ignore this error
+                        pass
+                    else:
+                        raise ve
                 except Exception as e:
                     self.buffer_exception(e)
                     continue
@@ -840,6 +863,13 @@ class AccuCorDataLoader:
                                 peak_data_label.full_clean()
 
                             peak_data_label.save(using=self.db)
+                        except ValidationError as ve:
+                            if self.is_a_downstream_dupe_error(ve, index, "original"):
+                                # This is a redundant error caused by the existence of a DupeCompoundIsotopeCombos, so
+                                # we can ignore this error
+                                pass
+                            else:
+                                raise ve
                         except Exception as e:
                             self.buffer_exception(e)
                             continue
@@ -916,19 +946,7 @@ class AccuCorDataLoader:
                             continue
 
         if len(self.errors) > 0:
-            # PR REVIEW NOTE: I think it may be worthwhile to encapsulate this logic in a method of a superclass of
-            #                 SampleTableLoader and AccucorDataLoader, because I don't like that cull_warnings is in
-            #                 the exception class. I could instead do something like: decide in the fly if a problem
-            #                 should be a warning or an error when buffering the "exception" and decide in the super
-            #                 class method whether to raise the AggregatedErrors exception.  Though I'm not sure where
-            #                 to put the data members currently in the exception classes that AggregatedErrors looks at
-            #                 to decide what to do.
-            aes = AggregatedErrors(self.errors, verbosity=self.verbosity)
-            # Split into fatal errors and warnings and decide whether the exception should be raised or not (will not
-            # be raised if not in validate mode and)
-            should_raise = aes.cull_warnings(self.validate)
-            if should_raise:
-                raise aes
+            self.handle_aggregated_errors()
 
         if self.dry_run:
             raise DryRun()
@@ -943,6 +961,42 @@ class AccuCorDataLoader:
 
         if settings.DEBUG or self.verbosity >= 1:
             print("Expiring done.")
+
+    def is_a_downstream_dupe_error(self, ve, row, sheet):
+        """
+        DupeCompoundIsotopeCombos errors cause some specific ValidationErrors.  This method takes a ValidationError
+        object and determines if this is in fact an error that arises due to a DupeCompoundIsotopeCombos error.
+        """
+        sve = str(ve)
+        if row in self.dupe_isotope_rows[sheet] and (
+            (
+                "dtype: float64" in sve
+                and "value must be a float" in sve
+                and "corrected_abundance" in sve
+            )
+            or (
+                "__all__" in sve
+                and "Peak group with this Name and Msrun already exists." in sve
+            )
+        ):
+            return True
+
+        return False
+
+    def handle_aggregated_errors(self):
+        # PR REVIEW NOTE: I think it may be worthwhile to encapsulate this logic in a method of a superclass of
+        #                 SampleTableLoader and AccucorDataLoader, because I don't like that cull_warnings is in
+        #                 the exception class. I could instead do something like: decide in the fly if a problem
+        #                 should be a warning or an error when buffering the "exception" and decide in the super
+        #                 class method whether to raise the AggregatedErrors exception.  Though I'm not sure where
+        #                 to put the data members currently in the exception classes that AggregatedErrors looks at
+        #                 to decide what to do.
+        aes = AggregatedErrors(self.errors, verbosity=self.verbosity)
+        # Split into fatal errors and warnings and decide whether the exception should be raised or not (will not
+        # be raised if not in validate mode and)
+        should_raise = aes.cull_warnings(self.validate)
+        if should_raise:
+            raise aes
 
     def get_peak_labeled_elements(self, compound_recs) -> List[IsotopeObservationData]:
         """
@@ -1159,13 +1213,16 @@ class AccuCorDataLoader:
         enable_caching_updates()
 
     def buffer_exception(self, exception):
-        if hasattr(exception, "__traceback__"):
+        tb_str = "".join(traceback.format_stack())
+        if hasattr(exception, "__traceback__") and exception.__traceback__:
+            exception.tb_str = tb_str
             self.errors.append(exception)
         else:
             try:
                 raise exception
             except Exception as e:
-                self.errors.append(e)
+                e.tb_str = tb_str
+                self.errors.append(e.with_traceback(e.__traceback__))
 
 
 class IsotopeObservationParsingError(Exception):
