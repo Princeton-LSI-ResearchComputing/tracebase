@@ -35,7 +35,7 @@ body::-webkit-scrollbar {
 }
 
 /* minimum and maximum width based on percentage of viewport width */
-.min-vw-3 {
+.min-vw-2 {
   min-width: 2vw !important;
 }
 
