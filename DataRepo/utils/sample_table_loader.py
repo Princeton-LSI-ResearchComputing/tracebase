@@ -1,4 +1,3 @@
-import traceback
 from collections import defaultdict, namedtuple
 from datetime import timedelta
 
@@ -181,7 +180,7 @@ class SampleTableLoader:
         self.animals_to_uncache = []
 
         # Error-tracking
-        self.errors = []
+        self.aggregated_errors_object = AggregatedErrors()
         self.missing_headers = []
         self.missing_values = defaultdict(list)
         # Skip rows that have errors
@@ -251,7 +250,9 @@ class SampleTableLoader:
                 sample_table_data, [sample_name_header, study_name_header]
             )
             if len(sample_dupes.keys()) > 0:
-                self.buffer_exception(DuplicateValues(sample_dupes, sample_name_header))
+                self.aggregated_errors_object.buffer_error(
+                    DuplicateValues(sample_dupes, sample_name_header)
+                )
                 self.skip_sample_rows = row_idxs
 
         for rowidx, row in enumerate(sample_table_data):
@@ -288,33 +289,19 @@ class SampleTableLoader:
                     skip_flag="--skip-researcher-check",
                 )
             except UnknownResearcherError as ure:
-                self.buffer_exception(ure)
+                self.aggregated_errors_object.buffer_exception(
+                    ure,
+                    is_error=not self.validate,  # Error in load mode, warning in validate mode
+                    is_fatal=True,  # Always raise the AggErrs exception
+                )
 
         if len(self.missing_values.keys()) > 0:
-            self.buffer_exception(RequiredValuesError(self.missing_values))
+            self.aggregated_errors_object.buffer_error(
+                RequiredValuesError(self.missing_values)
+            )
 
-        if len(self.errors) > 0:
-            if self.verbosity >= 2:
-                for err in self.errors:
-                    if self.verbosity >= 3:
-                        if err.__traceback__:
-                            traceback.print_exception(type(err), err, err.__traceback__)
-                        else:
-                            print("No trace available.")
-                    print(f"{type(err).__name__}: {str(err)}")
-            # PR REVIEW NOTE: I think it may be worthwhile to encapsulate this logic in a method of a superclass of
-            #                 SampleTableLoader and AccucorDataLoader, because I don't like that cull_warnings is in
-            #                 the exception class. I could instead do something like: decide in the fly if a problem
-            #                 should be a warning or an error when buffering the "exception" and decide in the super
-            #                 class method whether to raise the AggregatedErrors exception.  Though I'm not sure where
-            #                 to put the data members currently in the exception classes that AggregatedErrors looks at
-            #                 to decide what to do.
-            aes = AggregatedErrors(self.errors, verbosity=self.verbosity)
-            # Split into fatal errors and warnings and decide whether the exception should be raised or not (will not
-            # be raised if not in validate mode and)
-            should_raise = aes.cull_warnings(self.validate)
-            if should_raise:
-                raise aes
+        if self.aggregated_errors_object.should_raise():
+            raise self.aggregated_errors_object
 
         if dry_run:
             raise DryRun()
@@ -352,13 +339,15 @@ class SampleTableLoader:
                 # Assuming that both the default and validation databases each have all current tissues
                 tissue_rec = Tissue.objects.using(self.db).get(name=tissue_name)
             except Tissue.DoesNotExist as e:
-                self.buffer_exception(
+                self.aggregated_errors_object.buffer_error(
                     Tissue.DoesNotExist(
                         f"Invalid tissue type specified: '{tissue_name}'. Not found in database {self.db}.  {str(e)}"
                     )
                 )
             except Exception as e:
-                self.buffer_exception(TissueError(type(e).__name__, e))
+                self.aggregated_errors_object.buffer_error(
+                    TissueError(type(e).__name__, e)
+                )
         return tissue_rec, is_blank
 
     def get_or_create_study(self, rownum, row, animal_rec):
@@ -384,7 +373,7 @@ class SampleTableLoader:
                         study_rec = Study.objects.using(self.db).get(name=study_name)
                         orig_desc = study_rec.description
                         if orig_desc and study_desc:
-                            self.buffer_exception(
+                            self.aggregated_errors_object.buffer_error(
                                 ConflictingValueError(
                                     study_rec,
                                     "description",
@@ -400,7 +389,9 @@ class SampleTableLoader:
                         raise ie
             except Exception as e:
                 study_rec = None
-                self.buffer_exception(SaveError(Study.__name__, study_name, self.db, e))
+                self.aggregated_errors_object.buffer_error(
+                    SaveError(Study.__name__, study_name, self.db, e)
+                )
 
         if study_created or study_updated:
             if self.verbosity >= 2:
@@ -419,7 +410,9 @@ class SampleTableLoader:
                     study_rec.save(using=self.db)
             except Exception as e:
                 study_rec = None
-                self.buffer_exception(SaveError(Study.__name__, study_name, self.db, e))
+                self.aggregated_errors_object.buffer_error(
+                    SaveError(Study.__name__, study_name, self.db, e)
+                )
 
         # We do this here, and not in the "animal_created" block, in case the researcher is creating a new study
         # from previously-loaded animals
@@ -441,7 +434,7 @@ class SampleTableLoader:
         infusate_rec = None
         if infusate_str is not None:
             if tracer_concs is None:
-                self.buffer_exception(
+                self.aggregated_errors_object.buffer_error(
                     NoConcentrations(
                         f"{self.headers.INFUSATE} [{infusate_str}] supplied without "
                         f"{self.headers.TRACER_CONCENTRATIONS}."
@@ -482,14 +475,16 @@ class SampleTableLoader:
                         )
                         print(f"{action} {feedback}")
                 except Protocol.DoesNotExist:
-                    self.buffer_exception(
+                    self.aggregated_errors_object.buffer_error(
                         Protocol.DoesNotExist(
                             f"Could not find '{Protocol.ANIMAL_TREATMENT}' protocol with name "
                             f"'{treatment_name}'"
                         )
                     )
                 except Exception as e:
-                    self.buffer_exception(TreatmentError(type(e).__name__, e))
+                    self.aggregated_errors_object.buffer_error(
+                        TreatmentError(type(e).__name__, e)
+                    )
 
         elif self.verbosity >= 2:
             print("No animal treatment found.")
@@ -576,7 +571,7 @@ class SampleTableLoader:
                 if changed:
                     animal_rec.save(using=self.db)
             except Exception as e:
-                self.buffer_exception(
+                self.aggregated_errors_object.buffer_error(
                     SaveError(Animal.__name__, str(animal_rec), self.db, e)
                 )
 
@@ -630,8 +625,7 @@ class SampleTableLoader:
                     name=sample_name
                 )
 
-                # Now check that the values are consistent.  Adds conflicts to self.errors and returns update info for
-                # null fields
+                # Now check that the values are consistent.  Buffers exceptions and returns update info for null fields
                 updates_dict = self.check_for_inconsistencies(
                     sample_rec,
                     {
@@ -656,7 +650,7 @@ class SampleTableLoader:
                         sample_rec.full_clean()
                         sample_rec.save(using=self.db)
                     except Exception as e:
-                        self.buffer_exception(
+                        self.aggregated_errors_object.buffer_error(
                             SaveError(Sample.__name__, str(sample_rec), self.db, e)
                         )
                 elif self.verbosity >= 2:
@@ -684,8 +678,8 @@ class SampleTableLoader:
 
                     sample_rec = Sample.objects.using(self.db).get(name=sample_name)
 
-                    # Now check that the values are consistent.  Adds conflicts to self.errors and returns update info
-                    # for null fields
+                    # Now check that the values are consistent.  Buffers exceptions and returns update info for null
+                    # fields
                     updates_dict = self.check_for_inconsistencies(
                         sample_rec,
                         {
@@ -714,7 +708,7 @@ class SampleTableLoader:
                         except Exception as e:
                             sample_rec = None
                             sample_created = False
-                            self.buffer_exception(
+                            self.aggregated_errors_object.buffer_error(
                                 SaveError(Sample.__name__, str(sample_rec), self.db, e)
                             )
                     else:
@@ -724,7 +718,9 @@ class SampleTableLoader:
                 except Exception as e:
                     sample_rec = None
                     sample_created = False
-                    self.buffer_exception(SampleError(type(e).__name__, e))
+                    self.aggregated_errors_object.buffer_error(
+                        SampleError(type(e).__name__, e)
+                    )
 
                 if sample_created:
                     changed = False
@@ -752,11 +748,13 @@ class SampleTableLoader:
                         if changed:
                             sample_rec.save(using=self.db)
                     except Exception as e:
-                        self.buffer_exception(
+                        self.aggregated_errors_object.buffer_error(
                             SaveError(Sample.__name__, str(sample_rec), self.db, e)
                         )
             except Exception as e:
-                self.buffer_exception(SampleError(type(e).__name__, e))
+                self.aggregated_errors_object.buffer_error(
+                    SampleError(type(e).__name__, e)
+                )
 
         return sample_rec
 
@@ -789,7 +787,7 @@ class SampleTableLoader:
             if orig_value is None and new_value is not None:
                 updates_dict[field] = new_value
             elif orig_value != new_value:
-                self.buffer_exception(
+                self.aggregated_errors_object.buffer_error(
                     ConflictingValueError(
                         rec,
                         field,
@@ -832,11 +830,17 @@ class SampleTableLoader:
                 unknown_headers.append(hdr_name)
 
         if len(missing_headers) > 0:
-            self.buffer_exception(RequiredHeadersError(missing_headers))
+            self.aggregated_errors_object.buffer_error(
+                RequiredHeadersError(missing_headers)
+            )
         if len(unknown_headers) > 0:
-            self.buffer_exception(UnknownHeadersError(unknown_headers))
+            self.aggregated_errors_object.buffer_error(
+                UnknownHeadersError(unknown_headers)
+            )
         if len(misconfiged_headers) > 0:
-            self.buffer_exception(HeaderConfigError(misconfiged_headers))
+            self.aggregated_errors_object.buffer_error(
+                HeaderConfigError(misconfiged_headers)
+            )
 
     def get_column_dupes(self, data, col_keys):
         """
@@ -875,17 +879,6 @@ class SampleTableLoader:
                 val = None
 
         return val
-
-    def buffer_exception(self, exception):
-        if hasattr(exception, "__traceback__"):
-            self.errors.append(exception)
-        else:
-            try:
-                # Raise the exception JUST to generate the traceback in the exception object
-                raise exception
-            except Exception as e:
-                # Immediatemy catch and buffer the exception
-                self.errors.append(e)
 
 
 class NoConcentrations(Exception):

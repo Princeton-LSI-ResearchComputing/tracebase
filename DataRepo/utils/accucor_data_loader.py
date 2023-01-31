@@ -1,6 +1,5 @@
 import collections
 import re
-import traceback
 from datetime import datetime
 from typing import List, TypedDict
 
@@ -175,7 +174,7 @@ class AccuCorDataLoader:
         self.original_samples = []
         self.db_samples_dict = None
         self.labeled_element_header = None
-        self.errors = []
+        self.aggregated_errors_object = AggregatedErrors()
         self.missing_samples = []
         self.dupe_isotope_rows = {"original": None, "corrected": None}
 
@@ -246,7 +245,7 @@ class AccuCorDataLoader:
         if self.new_researcher is True:
             researchers = get_researchers(self.db)
             if self.researcher in researchers:
-                self.buffer_exception(
+                self.aggregated_errors_object.buffer_error(
                     ResearcherNotNew(self.researcher, "--new-researcher", researchers)
                 )
         else:
@@ -255,7 +254,12 @@ class AccuCorDataLoader:
                     [self.researcher], skip_flag="--new-researcher", database=self.db
                 )
             except UnknownResearcherError as ure:
-                self.buffer_exception(ure)
+                # This is a raised warning when in validate mode.  The user should know about it (so it's raised), but
+                # they can't address it if the researcher is valid.
+                # This is a raised error when not in validate mode.  The curator must know about and address the error.
+                self.aggregated_errors_object.buffer_exception(
+                    ure, is_error=not self.validate, is_fatal=True
+                )
 
     def initialize_sample_names(self):
 
@@ -300,7 +304,7 @@ class AccuCorDataLoader:
         corr_iter = collections.Counter(self.corrected_samples)
         for k, v in corr_iter.items():
             if k.startswith("Unnamed: "):
-                self.buffer_exception(
+                self.aggregated_errors_object.buffer_error(
                     EmptyColumnsError(
                         "Corrected", list(self.accucor_corrected_df.columns)
                     )
@@ -311,7 +315,7 @@ class AccuCorDataLoader:
             orig_iter = collections.Counter(self.original_samples)
             for k, v in orig_iter.items():
                 if k.startswith("Unnamed: "):
-                    self.buffer_exception(
+                    self.aggregated_errors_object.buffer_error(
                         EmptyColumnsError(
                             "Original", list(self.accucor_original_df.columns)
                         )
@@ -326,7 +330,7 @@ class AccuCorDataLoader:
                     set(self.corrected_samples) - set(self.original_samples)
                 )
 
-                self.buffer_exception(
+                self.aggregated_errors_object.buffer_error(
                     SampleColumnInconsistency(
                         len(orig_iter),  # Num original sample columns
                         len(corr_iter),  # Num corrected sample columns
@@ -349,7 +353,7 @@ class AccuCorDataLoader:
             labeled_df = self.accucor_corrected_df.filter(regex=(ACCUCOR_LABEL_PATTERN))
             if len(labeled_df.columns) != 1:
                 # We can buffer this error and continue.  Only the first label column will be used.
-                self.buffer_exception(
+                self.aggregated_errors_object.buffer_error(
                     MultipleAccucorTracerLabelColumnsError(labeled_df.columns)
                 )
 
@@ -377,7 +381,9 @@ class AccuCorDataLoader:
                 # Record the rows where this exception occurred so that subsequent downstream errors caused by this
                 # exception can be ignored.
                 self.dupe_isotope_rows["original"] = dupe_orig_rows
-                self.buffer_exception(DupeCompoundIsotopeCombos(dupe_dict, "original"))
+                self.aggregated_errors_object.buffer_error(
+                    DupeCompoundIsotopeCombos(dupe_dict, "original")
+                )
 
         if self.isocorr_format:
             labeled_element_header = "isotopeLabel"
@@ -403,7 +409,9 @@ class AccuCorDataLoader:
             # Record the rows where this exception occurred so that subsequent downstream errors caused by this
             # exception can be ignored.
             self.dupe_isotope_rows["corrected"] = dupe_corr_rows
-            self.buffer_exception(DupeCompoundIsotopeCombos(dupe_dict, "corrected"))
+            self.aggregated_errors_object.buffer_error(
+                DupeCompoundIsotopeCombos(dupe_dict, "corrected")
+            )
 
     def initialize_db_samples_dict(self):
 
@@ -441,14 +449,25 @@ class AccuCorDataLoader:
 
             # Do not report an exception in validate mode.  Users using the validation view cannot specify blank
             # samples, so there's no need to alrt them to the problem.
-            if len(possible_blanks) > 0 and not self.validate:
-                self.buffer_exception(UnskippedBlanksError(possible_blanks))
+            if (
+                len(possible_blanks) > 0 and not self.validate
+            ):  # Only buffer this exception in load mode
+                self.aggregated_errors_object.buffer_exception(
+                    UnskippedBlanksError(possible_blanks),
+                    is_error=not self.validate,  # Error in load mode, warning in validate mode
+                    is_fatal=not self.validate,  # Fatal in load mode, will not be raised/reported in validate mode
+                    #                              unless there is an accompanying fatal exception.
+                    #                              Moot unless the conditional is changed.
+                )
             if len(likely_missing) > 0:
-                self.buffer_exception(MissingSamplesError(likely_missing))
+                self.aggregated_errors_object.buffer_error(
+                    MissingSamplesError(likely_missing)
+                )
 
             if len(sample_dict.keys()) == 0:
-                self.buffer_exception(NoSamplesError())
-                self.handle_aggregated_errors()
+                self.aggregated_errors_object.buffer_error(NoSamplesError())
+                if self.aggregated_errors_object.should_raise():
+                    raise self.aggregated_errors_object
 
         elif len(sample_dict.keys()) == 0:
             # If there are no "missing samples", but still no samples...
@@ -662,7 +681,7 @@ class AccuCorDataLoader:
                         f"No cache exists for animal {msrun.sample.animal.id} linked to Sample {msrun.sample.id}"
                     )
             except Exception as e:
-                self.buffer_exception(e)
+                self.aggregated_errors_object.buffer_error(e)
                 continue
 
             """
@@ -743,7 +762,7 @@ class AccuCorDataLoader:
                     else:
                         raise ve
                 except Exception as e:
-                    self.buffer_exception(e)
+                    self.aggregated_errors_object.buffer_error(e)
                     continue
 
             # For each PeakGroup, create PeakData rows
@@ -871,7 +890,7 @@ class AccuCorDataLoader:
                             else:
                                 raise ve
                         except Exception as e:
-                            self.buffer_exception(e)
+                            self.aggregated_errors_object.buffer_error(e)
                             continue
 
                 else:
@@ -942,11 +961,11 @@ class AccuCorDataLoader:
                                 peak_data_label.save(using=self.db)
 
                         except Exception as e:
-                            self.buffer_exception(e)
+                            self.aggregated_errors_object.buffer_error(e)
                             continue
 
-        if len(self.errors) > 0:
-            self.handle_aggregated_errors()
+        if self.aggregated_errors_object.should_raise():
+            raise self.aggregated_errors_object
 
         if self.dry_run:
             raise DryRun()
@@ -982,21 +1001,6 @@ class AccuCorDataLoader:
             return True
 
         return False
-
-    def handle_aggregated_errors(self):
-        # PR REVIEW NOTE: I think it may be worthwhile to encapsulate this logic in a method of a superclass of
-        #                 SampleTableLoader and AccucorDataLoader, because I don't like that cull_warnings is in
-        #                 the exception class. I could instead do something like: decide in the fly if a problem
-        #                 should be a warning or an error when buffering the "exception" and decide in the super
-        #                 class method whether to raise the AggregatedErrors exception.  Though I'm not sure where
-        #                 to put the data members currently in the exception classes that AggregatedErrors looks at
-        #                 to decide what to do.
-        aes = AggregatedErrors(self.errors, verbosity=self.verbosity)
-        # Split into fatal errors and warnings and decide whether the exception should be raised or not (will not
-        # be raised if not in validate mode and)
-        should_raise = aes.cull_warnings(self.validate)
-        if should_raise:
-            raise aes
 
     def get_peak_labeled_elements(self, compound_recs) -> List[IsotopeObservationData]:
         """
@@ -1063,12 +1067,10 @@ class AccuCorDataLoader:
                 # the sample file and note the isotopeLabels including N15
                 # raise Exception(f"More measured isotopes ({isotopes}) than tracer labeled elements "
                 # f"({parent_labels}) for compounds ({observed_compound_recs}).")
-                if self.verbosity >= 1:
-                    self.buffer_exception(
-                        UnexpectedIsotopes(
-                            isotopes, parent_labels, observed_compound_recs
-                        )
-                    )
+                self.aggregated_errors_object.buffer_warning(
+                    UnexpectedIsotopes(isotopes, parent_labels, observed_compound_recs),
+                    is_fatal=self.validate,  # Raise AggErrs in validate mode to alert the user.  Print in load mode.
+                )
 
         else:
 
@@ -1176,11 +1178,12 @@ class AccuCorDataLoader:
         except Exception as e:
             self.post_load_teardown()
             # If it was some other (unanticipated or a single fatal) error, we want to report it, but also include
-            # everything else that was stored in self.errors.  An AggregatedErrors exception is raised (in the called
-            # code) when errors are allowed to accumulate, but moving on to the next step/loop is not possible.  And
-            # for simplicity, fatal errors that do not allow further accumulation of errors are raised directly.
-            self.buffer_exception(e)
-            raise AggregatedErrors(self.errors)
+            # everything else that was stored in self.aggregated_errors_object.  An AggregatedErrors exception is
+            # raised (in the called code) when errors are allowed to accumulate, but moving on to the next step/loop is
+            # not possible.  And for simplicity, fatal errors that do not allow further accumulation of errors are
+            # raised directly.
+            self.aggregated_errors_object.buffer_error(e)
+            raise self.aggregated_errors_object
 
         # Buffered auto-updates cannot be done inside the atomic transaction block because the auto-updates associated
         # with the models involved in an accucor load transit many-related models to perform updates of already-loaded
@@ -1211,18 +1214,6 @@ class AccuCorDataLoader:
         # And before we leave, we must re-enable things
         enable_autoupdates()
         enable_caching_updates()
-
-    def buffer_exception(self, exception):
-        tb_str = "".join(traceback.format_stack())
-        if hasattr(exception, "__traceback__") and exception.__traceback__:
-            exception.tb_str = tb_str
-            self.errors.append(exception)
-        else:
-            try:
-                raise exception
-            except Exception as e:
-                e.tb_str = tb_str
-                self.errors.append(e.with_traceback(e.__traceback__))
 
 
 class IsotopeObservationParsingError(Exception):

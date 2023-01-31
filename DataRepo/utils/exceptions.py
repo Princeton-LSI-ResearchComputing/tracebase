@@ -1,3 +1,6 @@
+import traceback
+
+
 class HeaderError(Exception):
     pass
 
@@ -75,19 +78,6 @@ class UnskippedBlanksError(MissingSamplesError):
         )
         super().__init__(samples, message)
 
-        # The following are used by the loading code to decide if this exception should be fatal or treated as a
-        # warning, depending on the mode in which the loader is run.
-
-        # load_warning governs whether this exception should be treated as a warning when validate is false.
-        self.load_warning = False
-        # validate_warning governs whether this exception should be treated as a warning when validate is true.
-        self.validate_warning = True
-
-        # These 2 values can differ based on whether this is something the user can fix or not.  For example, the
-        # validation interface does not enable the user to verify that the researcher is indeed a new researcher, so
-        # they cannot quiet an unknown researcher exception.  A curator can, so when the curator goes to load, it
-        # should be treated as an exception (curator_warning=False).
-
 
 class NoSamplesError(Exception):
     def __init__(self):
@@ -160,60 +150,165 @@ class LoadingError(Exception):
 
 
 class AggregatedErrors(Exception):
-    def __init__(self, errors, message=None, verbosity=0):
+    def __init__(
+        self, message=None, exceptions=None, errors=None, warnings=None, quiet=True
+    ):
+        if not exceptions:
+            exceptions = []
+        if not errors:
+            errors = []
+        if not warnings:
+            warnings = []
+
+        self.num_errors = len(errors)
+        self.num_warnings = len(warnings)
+
+        self.is_fatal = False  # Default to not fatal. buffer_exception can change this.
+        for exception in exceptions:
+            if not hasattr(exception, "is_error"):
+                self.ammend_buffered_exception(exception, is_error=True)
+            if exception.is_error:
+                self.num_errors += 1
+                self.is_fatal = True
+            else:
+                self.num_warnings += 1
+
+        self.exceptions = exceptions
+        for warning in warnings:
+            self.ammend_buffered_exception(warning, is_error=False)
+            self.exceptions.append(warning)
+        for error in errors:
+            self.ammend_buffered_exception(error, is_error=True)
+            self.exceptions.append(error)
+            self.is_fatal = True
+
         if not message:
+            message = self.get_default_message()
+        super().__init__(message)
+
+        self.buffered_tb_str = self.get_buffered_traceback_string()
+        self.quiet = quiet
+
+    def get_default_message(self, should_raise_called=False):
+        if len(self.exceptions) > 0:
             errtypes = []
-            for errtype in [type(e).__name__ for e in errors]:
+            for errtype in [type(e).__name__ for e in self.exceptions]:
                 if errtype not in errtypes:
                     errtypes.append(errtype)
-            message = f"{len(errors)} exceptions occurred, including type(s): [{', '.join(errtypes)}]."
+            message = f"{len(self.exceptions)} exceptions occurred, including type(s): [{', '.join(errtypes)}]."
+            if not self.is_fatal:
+                message += "  This exception should not have been raised."
+        elif not should_raise_called:
+            message = (
+                "AggregatedErrors exception.  Use self.should_raise() to initialize the message and report an errors/"
+                "warnings summary."
+            )
+        else:
+            message = (
+                "AggregatedErrors exception.  No exceptions have been buffered.  Use the return of "
+                "self.should_raise() to determine if an exception should be raised before raising this exception."
+            )
+        return message
+
+    def print_summary(self):
+        print("AggregatedErrors Summary:")
+        for i, exception in enumerate(self.exceptions, start=1):
+            print(
+                f"\tEXCEPTION{i}({exception.exc_type_str.upper()}): {type(exception).__name__}: {exception}"
+            )
+
+    @classmethod
+    def ammend_buffered_exception(cls, exception, is_error=True, buffered_tb_str=None):
+        """
+        This takes an exception that is going to be buffered and adds a few data memebers to it: buffered_tb_str (a
+        traceback string), is_error (e.g. whether it's a warning or an exception), and a string that is used to
+        classify it as a warning or an error.  The exception is returned for convenience.  The buffered_tb_str is not
+        generated here because is can be called out of the context of the exception (see the constructor).
+        """
+        exception.buffered_tb_str = buffered_tb_str
+        exception.is_error = is_error
+        exception.exc_type_str = "Warning"
+        if is_error:
+            exception.exc_type_str = "Error"
+        return exception
+
+    @classmethod
+    def get_buffered_traceback_string(cls):
+        """
+        Creates a pseudo-traceback for debugging.  Tracebacks are only built as the raised exception travels the stack
+        to where it's caught.  traceback.format_stack yields the entire stack, but that's overkill, so this loop
+        filters out anything that contains "site-packages" so that we only see our own code's steps.  This should
+        effectively show us only the bottom of the stack, though there's a chance that intermediate steps could be
+        excluded.  I don't think that's likely to happen, but we should be aware that it's a possibility.
+
+        The string is intended to only be used to debug a problem.  Print it inside an except block if you want to find
+        the cause of any particular buffered exception.
+        """
+        return "".join(
+            [step for step in traceback.format_stack() if "site-packages" not in step]
+        )
+
+    def buffer_exception(self, exception, is_error=True, is_fatal=True):
+        """
+        Don't raise this exception. Save it to report later, after more errors have been accumulated and reported as a
+        group.  Returns the buffered_exception containing a buffered_tb_str and a boolean named is_error.
+
+        is_fatal tells the AggregatedErrors object that after buffering is complete, the AggregatedErrors exception
+        should be raised and execution should stop.  By default, errors will cause AggregatedErrors to be raised and
+        warnings will not not, however, in validate mode, warnings are communicated to the validation interface by them
+        being raised.
+        """
+
+        buffered_tb_str = self.get_buffered_traceback_string()
+        buffered_exception = None
+        if hasattr(exception, "__traceback__") and exception.__traceback__:
+            buffered_exception = exception
+        else:
+            try:
+                raise exception
+            except Exception as e:
+                buffered_exception = e.with_traceback(e.__traceback__)
+
+        self.ammend_buffered_exception(
+            buffered_exception, is_error=is_error, buffered_tb_str=buffered_tb_str
+        )
+        self.exceptions.append(buffered_exception)
+
+        if buffered_exception.is_error:
+            self.num_errors += 1
+        else:
+            self.num_warnings += 1
+
+        if is_fatal:
+            self.is_fatal = True
+
+        if not self.quiet:
+            self.print_buffered_exception(buffered_exception)
+
+        return buffered_exception
+
+    def buffer_error(self, exception, is_fatal=True):
+        self.buffer_exception(exception, is_error=True, is_fatal=is_fatal)
+
+    def buffer_warning(self, exception, is_fatal=False):
+        self.buffer_exception(exception, is_error=False, is_fatal=is_fatal)
+
+    def print_buffered_exception(self, buffered_exception):
+        print(f"Buffered {buffered_exception.exc_type_str}:")
+        print(buffered_exception.buffered_tb_str.rstrip())
+        print(f"{type(buffered_exception).__name__}: {str(buffered_exception)}\n")
+
+    def should_raise(self, message=None):
+        if not message:
+            message = self.get_default_message(should_raise_called=True)
         super().__init__(message)
-        if verbosity > 0:
-            print("Aggregated error details:")
-            for i, error in enumerate(errors, start=1):
-                print(f"\tERROR{i}: {type(error).__name__}: {error}")
-        self.errors = errors
-        self.verbosity = verbosity
-        self.warnings = []  # Populated by cull_warnings()
+        return self.is_fatal
 
-    def cull_warnings(self, validate):
-        """
-        This method divides the accumulated exceptions into fatal errors and warnings, based on whether we're in
-        validate mode (which is inferred to connote that this is the validation web interface being run by a user).  A
-        user cannot supply flags like "--new-researcher", so they should see a warning instead of an error, because
-        they cannot prevent the error from happening (but a curator can).
+    def get_num_errors(self):
+        return self.num_errors
 
-        This assumes that the exception objects contain attributes "load_warning" and/or "validate_warning" IF the
-        exception should be treated as a warning.
-
-        Returns whether or not the AggregatedErrors exception should be raised.  Exceptions when load_warning is true
-        and loading is happening should only print the warning and not raise an exception.  Exceptions when
-        validate_warning is true and in validate mode *SHOULD* raise an exception so that the AggregatedErrors
-        exception can be caught and the warnings and errors should all be presented to the user.
-        """
-        warnings = []
-        errors = []
-        for exception in self.errors:
-            if (
-                hasattr(exception, "load_warning")
-                and exception.load_warning
-                and not validate
-            ):
-                warnings.append(exception)
-            elif (
-                hasattr(exception, "validate_warning")
-                and exception.validate_warning
-                and validate
-            ):
-                warnings.append(exception)
-            else:
-                errors.append(exception)
-        if self.verbosity and len(warnings) > 0:
-            for i, warning in enumerate(warnings):
-                print(f"WARNING{i}: {type(warning).__name__}: {str(warning)}")
-        self.errors = errors
-        self.warnings = warnings
-        return len(self.errors) > 0 or (validate and len(self.warnings) > 0)
+    def get_num_warnings(self):
+        return self.num_warnings
 
 
 class ConflictingValueError(Exception):
@@ -316,16 +411,3 @@ class UnexpectedIsotopes(Exception):
         self.detected_isotopes = detected_isotopes
         self.labeled_isotopes = labeled_isotopes
         self.compounds = compounds
-
-        # The following are used by the loading code to decide if this exception should be fatal or treated as a
-        # warning, depending on the mode in which the loader is run.
-
-        # load_warning governs whether this exception should be treated as a warning when validate is false.
-        self.load_warning = True
-        # validate_warning governs whether this exception should be treated as a warning when validate is true.
-        self.validate_warning = True
-
-        # These 2 values can differ based on whether this is something the user can fix or not.  For example, the
-        # validation interface does not enable the user to verify that the researcher is indeed a new researcher, so
-        # they cannot quiet an unknown researcher exception.  A curator can, so when the curator goes to load, it
-        # should be treated as an exception (curator_warning=False).

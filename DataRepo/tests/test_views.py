@@ -25,6 +25,7 @@ from DataRepo.models.maintained_model import (
     buffer_size,
     disable_buffering,
     enable_buffering,
+    get_all_maintained_field_values,
 )
 from DataRepo.models.utilities import get_all_models
 from DataRepo.tests.tracebase_test_case import (
@@ -688,24 +689,28 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         # Get initial record counts for all models
         tb_init_counts = self.get_record_counts(settings.TRACEBASE_DB)
         vd_init_counts = self.get_record_counts(settings.VALIDATION_DB)
+        pre_load_maintained_values = get_all_maintained_field_values("DataRepo.models")
 
-        # Test the validate_load_files function
-        vo = DataValidationView()
-        vo.set_files(
-            "DataRepo/example_data/data_submission_good/animal_sample_table.xlsx",
+        sample_file = (
+            "DataRepo/example_data/data_submission_good/animal_sample_table.xlsx"
+        )
+        accucor_files = (
             [
                 "DataRepo/example_data/data_submission_good/accucor1.xlsx",
                 "DataRepo/example_data/data_submission_good/accucor2.xlsx",
             ],
         )
-        vo.validate_load_files()
+
+        self.validate_some_files(sample_file, accucor_files)
 
         # Get record counts for all models
         tb_post_counts = self.get_record_counts(settings.TRACEBASE_DB)
         vd_post_counts = self.get_record_counts(settings.VALIDATION_DB)
+        post_load_maintained_values = get_all_maintained_field_values("DataRepo.models")
 
         self.assertListEqual(tb_init_counts, tb_post_counts)
         self.assertListEqual(vd_init_counts, vd_post_counts)
+        self.assertListEqual(pre_load_maintained_values, post_load_maintained_values)
 
     def test_compounds_load_in_both_dbs(self):
         """
@@ -780,6 +785,44 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         """
         response = self.client.get(reverse("validate"), follow=True)
         self.assertTemplateUsed(response, "validation_disabled.html")
+
+    def test_accucor_validation_error(self):
+        self.clear_database("default")
+        self.initialize_databases()
+
+        sample_file = "DataRepo/example_data/small_dataset/small_obob_animal_and_sample_table.xlsx"
+        accucor_files = [
+            "DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_req_prefix.xlsx",
+        ]
+        sfkey = "small_obob_animal_and_sample_table.xlsx"
+        afkey = "small_obob_maven_6eaas_inf_req_prefix.xlsx"
+        [results, valid, errors, warnings] = self.validate_some_files(
+            sample_file, accucor_files
+        )
+
+        self.assertFalse(valid)
+
+        # Sample file
+        self.assertTrue(sfkey in results)
+        self.assertEqual("PASSED", results[sfkey])
+
+        self.assertTrue(sfkey in errors)
+        self.assertEqual(0, len(errors[sfkey]))
+
+        self.assertTrue(sfkey in warnings)
+        self.assertEqual(0, len(warnings[sfkey]))
+
+        # Accucor file
+        self.assertTrue(afkey in results)
+        self.assertEqual("FAILED", results[afkey])
+
+        self.assertTrue(afkey in errors)
+        self.assertEqual(2, len(errors[afkey]))
+        self.assertTrue("MissingSamplesError" in errors[afkey][0])
+        self.assertTrue("NoSamplesError" in errors[afkey][1])
+
+        self.assertTrue(afkey in warnings)
+        self.assertEqual(0, len(warnings[afkey]))
 
     def validate_some_files(self, sample_file, accucor_files):
         # Test the validate_load_files function
