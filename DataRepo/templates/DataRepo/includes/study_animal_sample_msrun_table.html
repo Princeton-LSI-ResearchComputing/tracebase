@@ -18,8 +18,6 @@
         data-show-columns-toggle-all="true"
         data-show-export="true"
         data-export-types="['csv', 'txt', 'excel']"
-        data-height="1200"
-        data-virtual-scroll="true"
         data-pagination="true"
         data-page-size="25"
         data-page-list="[25, 50, 100, 200, 500, All]">
@@ -27,11 +25,11 @@
         <tr>
             <th class="min-vw-5 max-vw-10" data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-field="Study">Study</th>
             <th class="min-vw-5 max-vw-10" data-filter-control="input" data-sortable="true" data-visible="false" data-field="Study-Description">Description</th>
-            <th class="min-vw-7 max-vw-10" data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-field="Sample">Sample</th>
-            <th class="min-vw-5 max-vw-10" data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-field="Animal">Animal</th>
-            <th class="min-vw-5 max-vw-10" data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-field="Tissue">Tissue</th>
+            <th class="min-vw-7" data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-field="Sample">Sample</th>
+            <th class="min-vw-5" data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-field="Animal">Animal</th>
+            <th class="min-vw-5" data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-field="Tissue">Tissue</th>
             <th class="min-vw-3 max-vw-10" data-filter-control="select" data-sortable="true" data-field="Genotype">Genotype</th>
-            <th class="min-vw-5 max-vw-10" data-filter-control="input" data-visible="false" data-field="Infusate">Infusate</th>
+            <th class="min-vw-5" data-filter-control="input" data-visible="false" data-field="Infusate">Infusate</th>
             <th class="min-vw-5 max-vw-10" data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-field="Tracers">Tracer(s)</th>
             <th class="min-vw-5 max-vw-10" data-filter-control="input" data-sortable="true" data-field="Concentrations">Tracer Concentration(s) (mM)</th>
             <th class="min-vw-3 max-vw-10" data-filter-control="select" data-sortable="true" data-field="Labeled_Elements">Labeled Element(s)</th>
@@ -54,9 +52,9 @@
         <tr>
             <td><a href="{% url 'study_detail' i.study_id %}">{{ i.study }}</a></td>
             <td>{{ i.study_description }}</td>
-            <td class="text-break"><a href="{% url 'sample_detail' i.sample_id %}">{{ i.sample }}</a></td>
+            <td><a href="{% url 'sample_detail' i.sample_id %}">{{ i.sample }}</a></td>
             <td><a href="{% url 'animal_detail' i.animal_id %}">{{ i.animal }}</a></td>
-            <td class="text-break"><a href="{% url 'tissue_detail' i.tissue_id %}">{{ i.tissue }}</a></td>
+            <td><a href="{% url 'tissue_detail' i.tissue_id %}">{{ i.tissue }}</a></td>
             <td>{{ i.genotype }}</td>
             <td>
                 {% if i.infusate_id %}

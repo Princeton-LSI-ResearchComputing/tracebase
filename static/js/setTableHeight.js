@@ -18,9 +18,10 @@ function setTableHeight (divID, pctVH) { // eslint-disable-line no-unused-vars
     targetHeight = 0.75 * viewportHeight
   }
 
-  // get table height value required by Boostrap-table for fixed header feature
+  // get table height value required by Boostrap-table for fixed header with pagination
+  // fixed header height is 120 px for inspected cases
   if (divHeight < targetHeight) {
-    tabHeight = divHeight + 121
+    tabHeight = divHeight + 120
   } else {
     tabHeight = targetHeight
   }

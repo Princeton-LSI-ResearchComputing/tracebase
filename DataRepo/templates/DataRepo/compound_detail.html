@@ -60,12 +60,12 @@
     <script src="{% static 'js/setTableHeight.js' %}"></script>
     <script>
         let divID = "div_out_tab";
-        let pctVH = 0.50;
+        let pctVH = 0.45;
         let vHeight = setTableHeight(divID, pctVH);
+
         $('#animal_list_stats').bootstrapTable({
             height: vHeight,
             virtualScroll: true
         })
-        $('#animal_list_stats').bootstrapTable('resetView')
     </script>
 {% endblock %}

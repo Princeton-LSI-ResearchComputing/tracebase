@@ -23,7 +23,6 @@ body::-webkit-scrollbar {
   white-space: normal !important; /* change from nowrap to normal */
   height: 5rem; /* added new variable and value */
   min-width: 2rem !important; /* added new variable and value */
-  max-width: 12rem; /* added new variable and value */
 }
 
 /* customize Bootstrap-table settings for td */

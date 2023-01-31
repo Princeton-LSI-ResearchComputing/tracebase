@@ -22,12 +22,12 @@
         data-page-list="[10, 25, 50, 100, 200, 500, All]">
         <thead>
             <tr>
-                <th class="min-vw-5 max-vw-10" data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-field="Animal">Animal</th>
-                <th class="min-vw-3 max-vw-10" data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-width="7" data-width-unit="%" data-field="Studies">Studies</th>
+                <th class="min-vw-5" data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-field="Animal">Animal</th>
+                <th class="min-vw-3 max-vw-10" data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-field="Studies">Studies</th>
                 <th class="min-vw-3 max-vw-10" data-filter-control="select" data-sortable="true" data-field="Genotype">Genotype</th>
-                <th class="min-vw-7 max-vW-10" data-filter-control="input" data-field="Infusate">Infusate</th>
-                <th class="min-vw-2 max-vw-10" data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-field="Compounds">Tracer Compound(s)</th>
-                <th class="min-vw-5 max-vw-10" data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-field="Tracers">Tracer(s)</th>
+                <th class="min-vw-7" data-filter-control="input" data-field="Infusate">Infusate</th>
+                <th class="min-vw-2" data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-field="Compounds">Tracer Compound(s)</th>
+                <th class="min-vw-5" data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-field="Tracers">Tracer(s)</th>
                 <th class="min-vw-2 max-vw-10" data-filter-control="input" data-sortable="true" data-field="Concentrations">Tracer Concentration(s) (mM)</th>
                 <th class="min-vw-2 max-vw-10" data-filter-control="select" data-sortable="true" data-field="Labeled-Elements">Labeled Element(s)</th>
                 <th class="min-vw-2 max-vw-10" data-filter-control="input" data-sortable="true" data-field="Infusion-Rate">Infusion Rate (ul/min/g)</th>
@@ -49,7 +49,7 @@
                 <td><a href="{% url 'animal_detail' i.animal_id %}">{{ i.animal }}</a></td>
                 <td>{% obj_hyperlink i.study_id_name_list "study" %}</td>
                 <td>{{ i.genotype }}</td>
-                <td class="text-break">
+                <td>
                     {% if i.infusate_id %}
                         {% if i.tracer_group_name %}
                             <a href="{% url 'infusate_detail' i.infusate_id %}">{{ i.tracer_group_name }}</a>

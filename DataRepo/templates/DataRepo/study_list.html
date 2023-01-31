@@ -21,15 +21,13 @@
     {{ block.super }}
     <script src="{% static 'js/setTableHeight.js' %}"></script>
     <script>
-        let tabID = "study_list_stats";
         let divID = "div_out_tab";
-        let pctVH = 0.70;
+        let pctVH = 0.75;
         let vHeight = setTableHeight(divID, pctVH);
 
         $('#study_list_stats').bootstrapTable({
             height: vHeight,
             virtualScroll: true
         })
-        $('#study_list_stats').bootstrapTable('resetView')
     </script>
 {% endblock %}

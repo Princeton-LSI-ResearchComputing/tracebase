@@ -11,7 +11,6 @@
 {% block content %}
 <div>
     <h4>Study Record - {{ study.name }}</h4>
-    <br>
     <table id="study_detail_stats" class="table table-bordered table-hover w-auto mw-100">
         <thead>
             <tr>
@@ -53,7 +52,6 @@
 <br>
 <div>
     <h6>Animal and Sample Data for the Study</h6>
-    <br>
     {% with out_df=df %}
         {% include "DataRepo/includes/study_animal_sample_msrun_table_detailpage.html" %}
     {% endwith %}
@@ -71,6 +69,5 @@
             height: vHeight,
             virtualScroll: true
         })
-        $('#study_animal_sample_msrun').bootstrapTable('resetView')
     </script>
 {% endblock %}
