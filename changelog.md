@@ -10,8 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Pages/views
-  - new css file "bootstrap_table_cus1.css" to customize table settings with Bootstrap-table plugin
-  - new JavaScript "setTableHeight.js" to set table height dynamically with Bootstrap-table plugin
+  - Created CSS file "bootstrap_table_cus1.css" to customize table options with Bootstrap-table plugin.
+  - Created JavaScript "setTableHeight.js" to set table height dynamically with Bootstrap-table plugin.
 
 ### Changed
 
