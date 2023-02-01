@@ -164,19 +164,18 @@ class DataValidationView(FormView):
 
                 except AggregatedErrors as aes:
                     results[sf] = "WARNING"
-                    if len(aes.errors) > 0:
+                    if aes.num_errors > 0:
                         valid = False
                         results[sf] = "FAILED"
 
-                    # Gather the warnings to send to the template
-                    for wrn in aes.warnings:
-                        all_exceptions.append(wrn)
-                        warnings[sf].append(f"{type(wrn).__name__}: {str(wrn)}")
-
-                    # Gather the errors to send to the template
-                    for err in aes.errors:
-                        all_exceptions.append(err)
-                        errors[sf].append(f"{type(err).__name__}: {str(err)}")
+                    # Gather the errors/warnings to send to the template
+                    for exc in aes.exceptions:
+                        all_exceptions.append(exc)
+                        exc_str = f"{type(exc).__name__}: {str(exc)}"
+                        if exc.is_error:
+                            errors[sf].append(exc_str)
+                        else:
+                            warnings[sf].append(exc_str)
 
                 except Exception as e:
                     valid = False
@@ -201,17 +200,18 @@ class DataValidationView(FormView):
                         )
                     except AggregatedErrors as aes:
                         results[af] = "WARNING"
-                        if len(aes.errors) > 0:
+                        if aes.num_errors > 0:
                             valid = False
                             results[af] = "FAILED"
 
-                        for wrn in aes.warnings:
-                            all_exceptions.append(wrn)
-                            warnings[af].append(f"{type(wrn).__name__}: {str(wrn)}")
-
-                        for err in aes.errors:
-                            all_exceptions.append(err)
-                            errors[af].append(f"{type(err).__name__}: {str(err)}")
+                        # Gather the errors/warnings to send to the template
+                        for exc in aes.exceptions:
+                            all_exceptions.append(exc)
+                            exc_str = f"{type(exc).__name__}: {str(exc)}"
+                            if exc.is_error:
+                                errors[af].append(exc_str)
+                            else:
+                                warnings[af].append(exc_str)
 
                 raise DryRun
         except DryRun:

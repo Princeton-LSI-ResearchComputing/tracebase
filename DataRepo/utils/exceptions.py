@@ -150,6 +150,26 @@ class LoadingError(Exception):
 
 
 class AggregatedErrors(Exception):
+    """
+    This is not a typical exception class.  You construct it before any errors have occurred and you use it to buffer
+    exceptions using object.buffer_error(), object.buffer_warning(), and (where the error/warning can change based on a
+    boolean) object.buffer_exception(is_error=boolean_variable).  You can also decide whether a warning should be
+    raised as an exception or not using the is_fatal parameter.  This is intended to be able to report a warning to the
+    validation interface (instead of just print it).  It know whether or not the AggregatedErrors should be raised as
+    an exception or not, at the end of a script, call object.should_raise().
+
+    A caught exception can be buffered, but you can also buffer an exception class that is constructed outside of a
+    try/except block.
+
+    Note, this class annotates the exceptions it buffers.  Each exception is available in the object.exceptions array
+    and each exception contains these added data members:
+
+        buffered_tb_str - a string version of a traceback (because a regular traceback will not exist if an
+                          exception is not raised).  Note, exceptions with their traces will be printed on
+                          standard out unless object.quiet is True.
+        is_error        - a boolean indicating whether it is a warning or an exception.
+        exc_type_str    - a string ("Warning" or "Error") that can be used in custom reporting.
+    """
     def __init__(
         self, message=None, exceptions=None, errors=None, warnings=None, quiet=True
     ):

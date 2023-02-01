@@ -694,12 +694,10 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         sample_file = (
             "DataRepo/example_data/data_submission_good/animal_sample_table.xlsx"
         )
-        accucor_files = (
-            [
-                "DataRepo/example_data/data_submission_good/accucor1.xlsx",
-                "DataRepo/example_data/data_submission_good/accucor2.xlsx",
-            ],
-        )
+        accucor_files = [
+            "DataRepo/example_data/data_submission_good/accucor1.xlsx",
+            "DataRepo/example_data/data_submission_good/accucor2.xlsx",
+        ]
 
         self.validate_some_files(sample_file, accucor_files)
 
@@ -710,7 +708,7 @@ class ValidationViewTests(TracebaseTransactionTestCase):
 
         self.assertListEqual(tb_init_counts, tb_post_counts)
         self.assertListEqual(vd_init_counts, vd_post_counts)
-        self.assertListEqual(pre_load_maintained_values, post_load_maintained_values)
+        self.assertEqual(pre_load_maintained_values, post_load_maintained_values)
 
     def test_compounds_load_in_both_dbs(self):
         """
