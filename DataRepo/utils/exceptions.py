@@ -170,6 +170,7 @@ class AggregatedErrors(Exception):
         is_error        - a boolean indicating whether it is a warning or an exception.
         exc_type_str    - a string ("Warning" or "Error") that can be used in custom reporting.
     """
+
     def __init__(
         self, message=None, exceptions=None, errors=None, warnings=None, quiet=True
     ):
