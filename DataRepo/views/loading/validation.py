@@ -62,7 +62,7 @@ class DataValidationView(FormView):
             sample_file.temporary_file_path(),
             [afp.temporary_file_path() for afp in accucor_files],
             sample_file_name=sample_file,
-            accucor_file_names=[afp.temporary_file_path() for afp in accucor_files],
+            accucor_file_names=accucor_files,
         )
 
         if form.is_valid():
