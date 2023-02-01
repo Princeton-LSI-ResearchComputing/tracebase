@@ -4,7 +4,7 @@ from DataRepo.utils.exceptions import AggregatedErrors, UnexpectedIsotopes
 
 
 class ExceptionTests(TracebaseTestCase):
-    def asser_aggregated_exception_states(
+    def assert_aggregated_exception_states(
         self,
         aes,
         expected_should_raise,
@@ -35,7 +35,7 @@ class ExceptionTests(TracebaseTestCase):
         aes = AggregatedErrors()
         aes.buffer_exception(ure, is_error=not validate_mode, is_fatal=True)
 
-        self.asser_aggregated_exception_states(aes, True, aes.should_raise(), 0, 1)
+        self.assert_aggregated_exception_states(aes, True, aes.should_raise(), 0, 1)
         self.assertTrue(isinstance(aes.exceptions[0], UnknownResearcherError))
 
     def test_buffer_ure_novalidate_error_raise(self):
@@ -47,7 +47,7 @@ class ExceptionTests(TracebaseTestCase):
         aes = AggregatedErrors()
         aes.buffer_error(ure, is_fatal=True)
 
-        self.asser_aggregated_exception_states(aes, True, aes.should_raise(), 1, 0)
+        self.assert_aggregated_exception_states(aes, True, aes.should_raise(), 1, 0)
         self.assertTrue(isinstance(aes.exceptions[0], UnknownResearcherError))
 
     def test_buffer_uie_validate_warning_raise(self):
@@ -62,7 +62,7 @@ class ExceptionTests(TracebaseTestCase):
         aes = AggregatedErrors()
         aes.buffer_warning(uie, is_fatal=validate_mode)
 
-        self.asser_aggregated_exception_states(aes, True, aes.should_raise(), 0, 1)
+        self.assert_aggregated_exception_states(aes, True, aes.should_raise(), 0, 1)
         self.assertTrue(isinstance(aes.exceptions[0], UnexpectedIsotopes))
 
     def test_buffer_uie_novalidate_warning_raise(self):
@@ -77,7 +77,7 @@ class ExceptionTests(TracebaseTestCase):
         aes = AggregatedErrors()
         aes.buffer_exception(uie, is_error=False, is_fatal=validate_mode)
 
-        self.asser_aggregated_exception_states(aes, False, aes.should_raise(), 0, 1)
+        self.assert_aggregated_exception_states(aes, False, aes.should_raise(), 0, 1)
         self.assertTrue(isinstance(aes.exceptions[0], UnexpectedIsotopes))
 
     def test_get_buffered_traceback_string(self):
