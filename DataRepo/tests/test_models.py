@@ -2669,7 +2669,6 @@ class ParseIsotopeLabelTests(TracebaseTestCase):
                 researcher="Xianfeng Zeng",
             )
         aes = ar.exception
-        print(f"ALL ERRORS: {aes.exceptions}")
         self.assertEqual(2, len(aes.exceptions))
         self.assertTrue(exp_err in str(aes.exceptions[0]))
         self.assertTrue(isinstance(aes.exceptions[1], DupeCompoundIsotopeCombos))
