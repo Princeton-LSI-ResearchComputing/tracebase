@@ -291,7 +291,7 @@ class AdvSearchPageForm(forms.Form):
 
 class DataSubmissionValidationForm(forms.Form):
     """
-    Form for users to validate their Animal and Sample Table with Accucor files
+    Form for users to validate their Animal and Sample Table with Accucor and/or Isocorr files
     """
 
     def __init__(self, *args, **kwargs):
@@ -303,5 +303,8 @@ class DataSubmissionValidationForm(forms.Form):
         required=True, widget=forms.ClearableFileInput(attrs={"multiple": False})
     )
     accucor_files = forms.FileField(
+        required=False, widget=forms.ClearableFileInput(attrs={"multiple": True})
+    )
+    isocorr_files = forms.FileField(
         required=False, widget=forms.ClearableFileInput(attrs={"multiple": True})
     )

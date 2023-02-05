@@ -31,9 +31,14 @@ class HeaderConfigError(Exception):
 class RequiredValuesError(Exception):
     def __init__(self, missing, message=None):
         if not message:
-            message = "Required values missing in the following columns/rows:\n"
-            for col in missing.keys():
-                message += f"\n{col}: {', '.join([str(r) for r in missing[col]])}\n"
+            nltab = "\n\t"
+            message = (
+                "Missing required values have been detected in the following columns:\n\t"
+                f"{nltab.join(missing.keys())}\nNote, entirely empty rows are allowed, but having a single value on a "
+                "row in one sheet can cause a duplication of empty rows, so be sure you don't have stray single "
+                "values in a sheet."
+            )
+            # Row numbers are available, but not very useful given the sheet merge
         super().__init__(message)
         self.missing = missing
 
@@ -62,9 +67,10 @@ class ResearcherNotNew(Exception):
 class MissingSamplesError(Exception):
     def __init__(self, samples, message=None):
         if not message:
+            nltab = "\n\t"
             message = (
-                f"{len(samples)} samples are missing in the database: [{', '.join(samples)}].  Samples must be loaded "
-                "prior to loading mass spec data."
+                f"{len(samples)} samples are missing in the database:{nltab}{nltab.join(samples)}\nSamples must be "
+                "loaded prior to loading mass spec data."
             )
         super().__init__(message)
         self.sample_list = samples
@@ -80,11 +86,14 @@ class UnskippedBlanksError(MissingSamplesError):
 
 
 class NoSamplesError(Exception):
-    def __init__(self):
-        message = (
-            "No samples were either supplied or found in the database.  Samples must be loaded before mass spec data "
-            "can be loaded."
-        )
+    def __init__(self, num_samples=0):
+        if num_samples == 0:
+            message = "No samples were supplied."
+        else:
+            message = (
+                f"None of the {num_samples} samples were found in the database.  Samples must be loaded before mass "
+                "spec data can be loaded."
+            )
         super().__init__(message)
 
 
@@ -172,7 +181,7 @@ class AggregatedErrors(Exception):
     """
 
     def __init__(
-        self, message=None, exceptions=None, errors=None, warnings=None, quiet=True
+        self, message=None, exceptions=None, errors=None, warnings=None, quiet=False
     ):
         if not exceptions:
             exceptions = []
@@ -232,11 +241,19 @@ class AggregatedErrors(Exception):
         return message
 
     def print_summary(self):
-        print("AggregatedErrors Summary:")
-        for i, exception in enumerate(self.exceptions, start=1):
-            print(
-                f"\tEXCEPTION{i}({exception.exc_type_str.upper()}): {type(exception).__name__}: {exception}"
-            )
+        print(self.get_summary_string())
+
+    def get_summary_string(self):
+        sum_str = f"AggregatedErrors Summary ({self.num_errors} errors / {self.num_warnings} warnings):\n\t"
+        sum_str += "\n\t".join(
+            list(
+                map(
+                    lambda tpl: f"EXCEPTION{tpl[0]}({tpl[1].exc_type_str.upper()}): {type(tpl[1]).__name__}: {tpl[1]}",
+                    enumerate(self.exceptions, start=1),
+                )
+            ),
+        )
+        return sum_str
 
     @classmethod
     def ammend_buffered_exception(cls, exception, is_error=True, buffered_tb_str=None):
@@ -266,7 +283,11 @@ class AggregatedErrors(Exception):
         the cause of any particular buffered exception.
         """
         return "".join(
-            [step for step in traceback.format_stack() if "site-packages" not in step]
+            [
+                str(step)
+                for step in traceback.format_stack()
+                if "site-packages" not in step
+            ]
         )
 
     def buffer_exception(self, exception, is_error=True, is_fatal=True):
@@ -284,6 +305,10 @@ class AggregatedErrors(Exception):
         buffered_exception = None
         if hasattr(exception, "__traceback__") and exception.__traceback__:
             buffered_exception = exception
+            added_exc_str = "".join(
+                traceback.format_exception(type(exc), exc, exc.__traceback__)
+            )
+            buffered_tb_str += f"\n\nThe above caught exception had a partial traceback:\n{added_exc_str}"
         else:
             try:
                 raise exception
@@ -314,10 +339,27 @@ class AggregatedErrors(Exception):
     def buffer_warning(self, exception, is_fatal=False):
         self.buffer_exception(exception, is_error=False, is_fatal=is_fatal)
 
+    def print_all_buffered_exceptions(self):
+        for exc in self.exceptions:
+            self.print_buffered_exception(exc)
+
     def print_buffered_exception(self, buffered_exception):
-        print(f"Buffered {buffered_exception.exc_type_str}:")
-        print(buffered_exception.buffered_tb_str.rstrip())
-        print(f"{type(buffered_exception).__name__}: {str(buffered_exception)}\n")
+        print(self.get_buffered_exception_string(buffered_exception))
+
+    def get_all_buffered_exceptions_string(self):
+        return "\n".join(
+            list(
+                map(
+                    lambda exc: self.get_buffered_exception_string(exc), self.exceptions
+                )
+            )
+        )
+
+    def get_buffered_exception_string(self, buffered_exception):
+        exc_str = f"Buffered {buffered_exception.exc_type_str}:\n"
+        exc_str += buffered_exception.buffered_tb_str.rstrip() + "\n"
+        exc_str += f"{type(buffered_exception).__name__}: {str(buffered_exception)}"
+        return exc_str
 
     def should_raise(self, message=None):
         if not message:
@@ -370,9 +412,10 @@ class SaveError(Exception):
 
 class DupeCompoundIsotopeCombos(Exception):
     def __init__(self, dupe_dict, source):
+        nltab = "\n\t"
         message = (
-            f"The following duplicate compound/isotope combinations were found in the {source} data: ["
-            f"{'; '.join(list(map(lambda c: f'{c} on rows: {dupe_dict[c]}', dupe_dict.keys())))}]"
+            f"The following duplicate compound/isotope combinations were found in the {source} data:{nltab}"
+            f"{nltab.join(list(map(lambda c: f'{c} on rows: {dupe_dict[c]}', dupe_dict.keys())))}"
         )
         super().__init__(message)
         self.dupe_dict = dupe_dict
@@ -388,12 +431,14 @@ class DuplicateValues(Exception):
             for v, l in dupe_dict.items():
                 # dupe_dict contains row indexes. This converts to row numbers (adds 1 for starting from 1 instead of 0
                 # and 1 for the header row)
-                dupdeets.append(f"{v} ({','.join(list(map(lambda i: str(i + 2), l)))})")
+                dupdeets.append(
+                    f"{v} (rows*: {', '.join(list(map(lambda i: str(i + 2), l)))})"
+                )
             feed_indent = "\n\t"
             message = (
-                f"{len(dupe_dict.keys())} values were found with duplicate occurrences in the [{colname}] column, "
-                "whose values must be unique, on the indicated rows (note, row numbers reflect a merge of the Animal "
-                f"and Sample sheet and may be inaccurate):\n\t{feed_indent.join(dupdeets)}"
+                f"{len(dupe_dict.keys())} values in unique column [{colname}] were found to have duplicate "
+                "occurrences on the indicated rows (*note, row numbers reflect a merge of the Animal and Sample sheet "
+                f"and may be inaccurate):\n\t{feed_indent.join(dupdeets)}"
             )
         super().__init__(message)
         self.dupe_dict = dupe_dict
@@ -432,3 +477,27 @@ class UnexpectedIsotopes(Exception):
         self.detected_isotopes = detected_isotopes
         self.labeled_isotopes = labeled_isotopes
         self.compounds = compounds
+
+
+class MissingCompounds(Exception):
+    def __init__(self, compounds_dict, message=None):
+        """
+        Takes a dict whose keys are compound names and values are dicts containing key/value pairs of: formula/list-of-
+        strings and indexes/list-of-ints.
+        """
+        if not message:
+            nltab = "\n\t"
+            cmdps_str = nltab.join(
+                list(
+                    map(
+                        lambda c: f"{c} {compounds_dict[c]['formula']} on row(s): {compounds_dict[c]['rownums']}",
+                        compounds_dict.keys(),
+                    )
+                )
+            )
+            message = (
+                f"{len(compounds_dict.keys())} compounds were not found in the database:{nltab}{cmdps_str}\n"
+                "Compounds must be loaded prior to loading mass spec data."
+            )
+        super().__init__(message)
+        self.compounds_dict = compounds_dict

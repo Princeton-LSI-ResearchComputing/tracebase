@@ -258,6 +258,8 @@ class SampleTableLoader:
         for rowidx, row in enumerate(sample_table_data):
             rownum = rowidx + 1
 
+            self.check_required_values(rownum, row)
+
             tissue_rec, is_blank = self.get_tissue(rownum, row)
 
             if is_blank:
@@ -852,14 +854,62 @@ class SampleTableLoader:
         dupe_dict = {}
         dupe_rows = []
         for rowidx, row in enumerate(data):
-            composite_val = "/".join(list(map(lambda ck: f"{ck}:{row[ck]}", col_keys)))
+            # Ignore rows where none of the supplied columns have values
+            row_empty = True
+            num_pop = 0
+            for ck in col_keys:
+                if row[ck] and row[ck] != "":
+                    row_empty = False
+                    num_pop += 1
+                    # break
+            if row_empty:
+                # Ignore empty rows
+                continue
+            if len(col_keys) > 1 and num_pop == 1:
+                # Ignore when this is a combo of columns and only 1 has a value
+                continue
+
+            composite_val = ", ".join(
+                list(map(lambda ck: f"{ck}:[{row[ck]}]", col_keys))
+            )
             val_counts[composite_val].append(rowidx)
+
         for val in val_counts.keys():
             row_list = val_counts[val]
             if len(row_list) > 1:
                 dupe_dict[val] = row_list
                 dupe_rows += row_list
+
         return dupe_dict, dupe_rows
+
+    def check_required_values(self, rownum, row):
+        """
+        Due to some rows being skipped in specific (but not precise) instances, required values must be checked first.
+        C.I.P. A malformed file wasn't reporting problems because the rows were being skipped due to the fact that the
+        tissue field was empty.
+        """
+        rqd_vals_tuple = self.RequiredSampleTableValues
+        hdr_name_tuple = self.headers
+        header_attrs = rqd_vals_tuple._fields
+
+        row_empty = True
+        for val in row.values():
+            if val and val != "":
+                row_empty = False
+                break
+        if row_empty:
+            return
+
+        # For each header attribute
+        for hdr_attr in header_attrs:
+            hdr_name = getattr(hdr_name_tuple, hdr_attr)
+            val_reqd = getattr(rqd_vals_tuple, hdr_attr)
+
+            # If the header is present in the row and it is required
+            if hdr_name in self.headers_present and val_reqd:
+                val = row[hdr_name]
+                if val is None or val == "":
+                    self.missing_values[hdr_name].append(rownum)
 
     def getRowVal(self, rownum, row, header_attribute):
         # get the header value to use as a dict key for 'row'
@@ -868,11 +918,6 @@ class SampleTableLoader:
 
         if header in self.headers_present:
             val = row[header]
-
-            # We're ignoring missing headers.  Required headers check is covered in check_headers.
-            val_required = getattr(self.RequiredSampleTableValues, header_attribute)
-            if val_required and val is None:
-                self.missing_values[header].append(rownum)
 
             # This will make later checks of values easier
             if val == "":

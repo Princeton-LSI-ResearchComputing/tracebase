@@ -1,3 +1,4 @@
+import datetime
 import os.path
 import traceback
 from typing import List
@@ -19,12 +20,20 @@ class DataValidationView(FormView):
     success_url = ""
     accucor_filenames: List[str] = []
     accucor_files: List[str] = []
+    isocorr_filenames: List[str] = []
+    isocorr_files: List[str] = []
     animal_sample_filename = None
     animal_sample_file = None
     submission_url = settings.DATA_SUBMISSION_URL
 
     def set_files(
-        self, sample_file, accucor_files, sample_file_name=None, accucor_file_names=None
+        self,
+        sample_file,
+        accucor_files,
+        isocorr_files,
+        sample_file_name=None,
+        accucor_file_names=None,
+        isocorr_file_names=None,
     ):
         """
         This method allows the files to be set.  It takes 2 different optional params for file names (that are used in
@@ -33,11 +42,16 @@ class DataValidationView(FormView):
         """
         self.animal_sample_file = sample_file
         self.accucor_files = accucor_files
+        self.isocorr_files = isocorr_files
         self.animal_sample_filename = sample_file_name
         if accucor_file_names:
             self.accucor_filenames = accucor_file_names
         else:
             self.accucor_filenames = []
+        if isocorr_file_names:
+            self.isocorr_filenames = isocorr_file_names
+        else:
+            self.isocorr_filenames = []
 
     def dispatch(self, request, *args, **kwargs):
         # check if there is some video onsite
@@ -55,14 +69,20 @@ class DataValidationView(FormView):
             accucor_files = request.FILES.getlist("accucor_files")
         except Exception:
             # Ignore missing accucor files (allow user to validate just the sample file)
-            print("ERROR: No accucor file")
             accucor_files = []
+        try:
+            isocorr_files = request.FILES.getlist("isocorr_files")
+        except Exception:
+            # Ignore missing isocorr files (allow user to validate just the sample file)
+            isocorr_files = []
 
         self.set_files(
             sample_file.temporary_file_path(),
             [afp.temporary_file_path() for afp in accucor_files],
+            [ifp.temporary_file_path() for ifp in isocorr_files],
             sample_file_name=sample_file,
             accucor_file_names=accucor_files,
+            isocorr_file_names=isocorr_files,
         )
 
         if form.is_valid():
@@ -80,7 +100,7 @@ class DataValidationView(FormView):
         valid = True
         results = {}
 
-        debug = f"asf: {self.animal_sample_file} num afs: {len(self.accucor_files)}"
+        debug = f"asf: {self.animal_sample_file} num afs: {len(self.accucor_files)} num ifs: {len(self.isocorr_files)}"
 
         [results, valid, errors, warnings] = self.validate_load_files()
 
@@ -123,6 +143,19 @@ class DataValidationView(FormView):
             errors[af] = []
             warnings[af] = []
             results[af] = "PASSED"
+        for i, ifp in enumerate(self.isocorr_files):
+            if len(self.isocorr_files) == len(self.isocorr_filenames):
+                ifn = self.isocorr_filenames[i]
+            else:
+                ifn = os.path.basename(ifp)
+            if ifn in errors.keys():
+                raise KeyError(
+                    f"Isocorr/Accucor filename conflict: {ifn}.  All Accucor/Isocorr filenames must be "
+                    "unique."
+                )
+            errors[ifn] = []
+            warnings[ifn] = []
+            results[ifn] = "PASSED"
 
         all_exceptions = []
 
@@ -164,8 +197,8 @@ class DataValidationView(FormView):
 
                 except AggregatedErrors as aes:
                     results[sf] = "WARNING"
+                    valid = False
                     if aes.num_errors > 0:
-                        valid = False
                         results[sf] = "FAILED"
 
                     # Gather the errors/warnings to send to the template
@@ -183,7 +216,10 @@ class DataValidationView(FormView):
                     results[sf] = "FAILED"
                     errors[sf].append(f"{type(e).__name__}: {str(e)}")
 
-                # Load the accucor file into a temporary test database in debug mode
+                # Create a unique date that is unlikely to match any previously loaded MSRun
+                unique_date = datetime.datetime(1972, 11, 24, 15, 47, 0)
+
+                # Validate the accucor file using the loader in validate mode
                 for i, afp in enumerate(self.accucor_files):
                     if len(self.accucor_files) == len(self.accucor_filenames):
                         af = self.accucor_filenames[i]
@@ -194,7 +230,7 @@ class DataValidationView(FormView):
                             "load_accucor_msruns",
                             protocol="Default",
                             accucor_file=afp,
-                            date="1972-11-24",
+                            date=str(unique_date.date()),
                             researcher="anonymous",
                             validate=True,
                         )
@@ -212,6 +248,41 @@ class DataValidationView(FormView):
                                 errors[af].append(exc_str)
                             else:
                                 warnings[af].append(exc_str)
+                    finally:
+                        unique_date += datetime.timedelta(days=1)
+
+                # Load the accucor file into a temporary test database in debug mode
+                for i, ifp in enumerate(self.isocorr_files):
+                    if len(self.isocorr_files) == len(self.isocorr_filenames):
+                        ifn = self.isocorr_filenames[i]
+                    else:
+                        ifn = os.path.basename(ifp)
+                    try:
+                        call_command(
+                            "load_accucor_msruns",
+                            protocol="Default",
+                            accucor_file=ifp,
+                            date=str(unique_date.date()),
+                            researcher="anonymous",
+                            validate=True,
+                            isocorr_format=True,
+                        )
+                    except AggregatedErrors as aes:
+                        results[ifn] = "WARNING"
+                        if aes.num_errors > 0:
+                            valid = False
+                            results[ifn] = "FAILED"
+
+                        # Gather the errors/warnings to send to the template
+                        for exc in aes.exceptions:
+                            all_exceptions.append(exc)
+                            exc_str = f"{type(exc).__name__}: {str(exc)}"
+                            if exc.is_error:
+                                errors[ifn].append(exc_str)
+                            else:
+                                warnings[ifn].append(exc_str)
+                    finally:
+                        unique_date += datetime.timedelta(days=1)
 
                 raise DryRun
         except DryRun:

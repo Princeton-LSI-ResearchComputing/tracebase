@@ -104,13 +104,13 @@ class Researcher:
 
 class UnknownResearcherError(Exception):
     def __init__(self, unknown, new, known, skip_flag=None):
-        nl = "\n"  # Put \n in a var to join in an f string
+        nlt = "\n\t"  # Put \n\t in a var to join in an f string
         message = (
             f"{len(unknown)} researchers: [{','.join(sorted(unknown))}] out of {len(new)} do not exist in the "
-            f"database.  Current researchers are:{nl}{nl.join(sorted(known))}"
+            f"database.  Current researchers are:{nlt}{nlt.join(sorted(known))}"
         )
         if skip_flag is not None:
-            message += f"{nl}If all researchers are valid new researchers, add {skip_flag} to your command."
+            message += f"\nIf all researchers are valid new researchers, add {skip_flag} to your command."
         super().__init__(message)
         self.unknown = unknown
         self.new = new
