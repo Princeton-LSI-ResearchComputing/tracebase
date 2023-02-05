@@ -305,7 +305,11 @@ class AggregatedErrors(Exception):
         buffered_exception = None
         if hasattr(exception, "__traceback__") and exception.__traceback__:
             added_exc_str = "".join(
-                traceback.format_exception(type(exception), exception, exception.__traceback__)
+                traceback.format_exception(
+                    type(exception),
+                    exception,
+                    exception.__traceback__,
+                )
             )
             buffered_tb_str += f"\n\nThe above caught exception had a partial traceback:\n{added_exc_str}"
             buffered_exception = exception

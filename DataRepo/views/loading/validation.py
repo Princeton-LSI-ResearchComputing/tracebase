@@ -29,8 +29,8 @@ class DataValidationView(FormView):
     def set_files(
         self,
         sample_file,
-        accucor_files,
-        isocorr_files,
+        accucor_files=None,
+        isocorr_files=None,
         sample_file_name=None,
         accucor_file_names=None,
         isocorr_file_names=None,
@@ -41,13 +41,23 @@ class DataValidationView(FormView):
         actual files is used for reporting.
         """
         self.animal_sample_file = sample_file
-        self.accucor_files = accucor_files
-        self.isocorr_files = isocorr_files
         self.animal_sample_filename = sample_file_name
+
+        if accucor_files:
+            self.accucor_files = accucor_files
+        else:
+            self.accucor_files = []
+
+        if isocorr_files:
+            self.isocorr_files = isocorr_files
+        else:
+            self.isocorr_files = []
+
         if accucor_file_names:
             self.accucor_filenames = accucor_file_names
         else:
             self.accucor_filenames = []
+
         if isocorr_file_names:
             self.isocorr_filenames = isocorr_file_names
         else:
