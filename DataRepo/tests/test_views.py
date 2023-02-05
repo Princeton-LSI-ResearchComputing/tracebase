@@ -665,8 +665,14 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         # won't rollback the erroneous load, so the validation code wraps everything in an outer atomic transaction and
         # rolls back everything at the end.
 
-        # There is a researcher named "anonymous", but that name is ignored
-        self.assertTrue(valid)
+        # There is a researcher named "George Costanza" that should ne unknown
+        self.assertFalse(
+            valid,
+            msg=(
+                "Should be valid. The 'George Costanza' researcher should cause a warning, so there should be 1 "
+                f"warning: [{warnings}] for the sample file."
+            ),
+        )
 
         # The sample file's researcher is "Anonymous" and it's not in the database, but the researcher check ignores
         # researchers named "anonymous" (case-insensitive)
@@ -815,9 +821,8 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         self.assertEqual("FAILED", results[afkey])
 
         self.assertTrue(afkey in errors)
-        self.assertEqual(2, len(errors[afkey]))
-        self.assertTrue("MissingSamplesError" in errors[afkey][0])
-        self.assertTrue("NoSamplesError" in errors[afkey][1])
+        self.assertEqual(1, len(errors[afkey]))
+        self.assertTrue("NoSamplesError" in errors[afkey][0])
 
         self.assertTrue(afkey in warnings)
         self.assertEqual(0, len(warnings[afkey]))

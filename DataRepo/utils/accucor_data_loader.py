@@ -620,6 +620,9 @@ class AccuCorDataLoader:
         Builds the dict accepted by the MissingCompounds exception.  Row numbers are assumed to be the index plus 2 (1
         for starting from 1 and 1 for a header row).
         """
+        if not formula:
+            # formular will be none when the accucor file is a csv
+            formula = "no formula"
         if compound_input in self.missing_compounds:
             self.missing_compounds[compound_input]["rownums"].append(index + 2)
             if formula not in self.missing_compounds[compound_input]["formula"]:
