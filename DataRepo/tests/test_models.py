@@ -1909,7 +1909,7 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
             {"Sample Name": "q2", "Study Name": "TCA Flux"},
         ]
         dupes, rows = stl.get_column_dupes(data, col_keys)
-        self.assertEqual("{'Sample Name:[q2], Study Name:[TCA Flux]': [0, 1]}", dupes)
+        self.assertEqual({"Sample Name:[q2], Study Name:[TCA Flux]": [0, 1]}, dupes)
         self.assertEqual([0, 1], rows)
 
 
