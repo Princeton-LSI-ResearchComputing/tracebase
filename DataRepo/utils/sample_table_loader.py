@@ -3,6 +3,7 @@ from datetime import timedelta
 
 import dateutil.parser  # type: ignore
 import pandas as pd
+import re
 from django.conf import settings
 from django.db import IntegrityError, transaction
 
@@ -435,7 +436,9 @@ class SampleTableLoader:
         return study_rec
 
     def get_tracer_concentrations(self, rownum, row):
-        tracer_concs_str = self.getRowVal(rownum, row, "TRACER_CONCENTRATIONS", strip_units=True)
+        tracer_concs_str = self.getRowVal(
+            rownum, row, "TRACER_CONCENTRATIONS", strip_units=True
+        )
         return parse_tracer_concentrations(tracer_concs_str)
 
     def get_or_create_infusate(self, rownum, row):
@@ -503,10 +506,15 @@ class SampleTableLoader:
         return treatment_rec
 
     def strip_units(self, val, hdr_attr, rowidx):
+        """
+        This method takes a numeric value with accompanying units is string format and returns the numerical value
+        without the units, also in string format.  It buffers a warning exception, because the value could be
+        malformed, so the user should be alerted about it to potentially fix it.
+        """
         stripped_val = val
 
         united_val_pattern = re.compile(
-            r"^(?:(?P<val>[\d\.eE]+)\s*(?P<units>[a-zA-Z][a-zA-Z\/]*)$"
+            r"^(?P<val>[\d\.eE]+)\s*(?P<units>[a-zA-Z][a-zA-Z\/]*)$"
         )
         match = re.search(united_val_pattern, val)
 
@@ -540,7 +548,9 @@ class SampleTableLoader:
         age = self.getRowVal(rownum, row, "ANIMAL_AGE", strip_units=True)
         diet = self.getRowVal(rownum, row, "ANIMAL_DIET")
         animal_sex_string = self.getRowVal(rownum, row, "ANIMAL_SEX")
-        infusion_rate = self.getRowVal(rownum, row, "ANIMAL_INFUSION_RATE", strip_units=True)
+        infusion_rate = self.getRowVal(
+            rownum, row, "ANIMAL_INFUSION_RATE", strip_units=True
+        )
 
         animal_rec = None
         animal_created = False
@@ -640,7 +650,9 @@ class SampleTableLoader:
         sample_name = self.getRowVal(rownum, row, "SAMPLE_NAME")
         researcher = self.getRowVal(rownum, row, "SAMPLE_RESEARCHER")
         time_collected = None
-        time_collected_str = self.getRowVal(rownum, row, "TIME_COLLECTED", strip_units=True)
+        time_collected_str = self.getRowVal(
+            rownum, row, "TIME_COLLECTED", strip_units=True
+        )
         sample_date = None
         sample_date_value = self.getRowVal(rownum, row, "SAMPLE_DATE")
 
