@@ -533,12 +533,14 @@ class SampleTableLoader:
                     self.units_warnings[header][val] = {
                         "stripped": stripped_val,
                         "rows": [rowidx + 2],
+                        "units": the_units,
                     }
             else:
                 self.units_warnings[header] = {
                     val: {
                         "stripped": stripped_val,
                         "rows": [rowidx + 2],
+                        "units": the_units,
                     }
                 }
 
