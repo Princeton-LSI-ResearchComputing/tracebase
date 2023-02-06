@@ -373,7 +373,7 @@ class AccuCorDataLoader:
                 )
             ].iterrows():
                 dupe_orig_rows.append(index)
-                dupe_key = row["compound"] + " & " + row["isotopeLabel"]
+                dupe_key = f"Compound: [{row['compound']}], Label Count: [{row['isotopeLabel']}]"
                 if dupe_key not in dupe_dict:
                     dupe_dict[dupe_key] = str(index + 1)
                 else:
