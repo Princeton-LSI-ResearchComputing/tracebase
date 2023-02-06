@@ -1923,6 +1923,7 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
                     "3.3 ul/m/g": {
                         "stripped": "3.3",
                         "rows": [5, 6],
+                        "units": "ul/m/g",
                     },
                 },
             },
