@@ -2680,8 +2680,8 @@ class ParseIsotopeLabelTests(TracebaseTestCase):
         #   all line numbers the dupes were on
         exp_err = (
             "The following duplicate compound/isotope combinations were found in the original data:\n"
-            "\tglucose & C12 PARENT on rows: 1,2\n"
-            "\tlactate & C12 PARENT on rows: 3,4"
+            "\tCompound: [glucose], Label Count: [C12 PARENT] on rows: 1,2\n"
+            "\tCompound: [lactate], Label Count: [C12 PARENT] on rows: 3,4"
         )
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
