@@ -1922,7 +1922,7 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
                 "Infusion Rate": {
                     "3.3 ul/m/g": {
                         "stripped": "3.3",
-                        "rows": [5,6],
+                        "rows": [5, 6],
                     },
                 },
             },

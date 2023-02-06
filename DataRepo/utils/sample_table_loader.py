@@ -1,9 +1,9 @@
+import re
 from collections import defaultdict, namedtuple
 from datetime import timedelta
 
 import dateutil.parser  # type: ignore
 import pandas as pd
-import re
 from django.conf import settings
 from django.db import IntegrityError, transaction
 
@@ -511,6 +511,10 @@ class SampleTableLoader:
         without the units, also in string format.  It buffers a warning exception, because the value could be
         malformed, so the user should be alerted about it to potentially fix it.
         """
+        if type(val) != str:
+            # Assume that if it's not a string, it already doesn't contain units, because pandas converted it
+            return val
+
         stripped_val = val
 
         united_val_pattern = re.compile(
