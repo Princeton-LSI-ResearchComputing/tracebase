@@ -444,7 +444,7 @@ class AccuCorDataLoader:
             possible_blanks = []
             likely_missing = []
             for ms in self.missing_samples:
-                if "blank" in ms:
+                if "blank" in ms.lower():
                     possible_blanks.append(ms)
                 else:
                     likely_missing.append(ms)

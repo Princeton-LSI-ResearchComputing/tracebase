@@ -150,6 +150,7 @@ class SampleTableLoader:
         verbosity=1,
         skip_researcher_check=False,
         defer_autoupdates=False,
+        dry_run=False,
     ):
         # Header config
         self.headers = sample_table_headers
@@ -157,6 +158,7 @@ class SampleTableLoader:
 
         # Verbosity affects log prints and error verbosity (for debugging)
         self.verbosity = verbosity
+        self.dry_run = dry_run
 
         # Database config
         self.db = settings.TRACEBASE_DB
@@ -184,7 +186,7 @@ class SampleTableLoader:
         self.missing_headers = []
         self.missing_values = defaultdict(list)
         # Skip rows that have errors
-        self.skip_sample_rows = {}
+        self.skip_erroneous_rows = {}
         # Obtain known researchers before load
         self.known_researchers = get_researchers()
 
@@ -192,7 +194,7 @@ class SampleTableLoader:
         self.skip_researcher_check = skip_researcher_check
         self.input_researchers = []
 
-    def load_sample_table(self, data, dry_run=False):
+    def load_sample_table(self, data):
 
         disable_autoupdates()
         disable_caching_updates()
@@ -203,7 +205,7 @@ class SampleTableLoader:
             saved_aes = None
             with transaction.atomic():
                 try:
-                    self.load_data(data, dry_run)
+                    self.load_data(data)
                 except AggregatedErrors as aes:
                     if not self.validate:
                         # If we're not working for the validation interface, raise here to cause a rollback
@@ -231,7 +233,7 @@ class SampleTableLoader:
         enable_caching_updates()
         enable_autoupdates()
 
-    def load_data(self, data, dry_run=False):
+    def load_data(self, data):
         # Create a list to hold the csv reader data so that iterations from validating doesn't leave the csv reader
         # empty/at-the-end upon the import loop
         sample_table_data = list(data)
@@ -253,7 +255,7 @@ class SampleTableLoader:
                 self.aggregated_errors_object.buffer_error(
                     DuplicateValues(sample_dupes, sample_name_header)
                 )
-                self.skip_sample_rows = row_idxs
+                self.skip_erroneous_rows = row_idxs
 
         for rowidx, row in enumerate(sample_table_data):
             rownum = rowidx + 1
@@ -273,7 +275,7 @@ class SampleTableLoader:
             self.get_or_create_study(rownum, row, animal_rec)
             self.get_or_create_animallabel(animal_rec, infusate_rec)
             # If the row has an issue (e.g. not unique in the file), skip it so there will not be pointless errors
-            if rowidx not in self.skip_sample_rows:
+            if rowidx not in self.skip_erroneous_rows:
                 sample_rec = self.get_or_create_sample(
                     rownum, row, animal_rec, tissue_rec
                 )
@@ -305,7 +307,7 @@ class SampleTableLoader:
         if self.aggregated_errors_object.should_raise():
             raise self.aggregated_errors_object
 
-        if dry_run:
+        if self.dry_run:
             raise DryRun()
 
         if self.verbosity >= 2:

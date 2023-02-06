@@ -140,10 +140,10 @@ class Command(BaseCommand):
             skip_researcher_check=options["skip_researcher_check"],
             verbosity=options["verbosity"],
             defer_autoupdates=options["defer_autoupdates"],
+            dry_run=options["debug"],
         )
         loader.load_sample_table(
             merged.to_dict("records"),
-            options["debug"],
         )
 
         self.stdout.write(self.style.SUCCESS("Done loading sample table"))

@@ -52,6 +52,12 @@ class Command(BaseCommand):
             action="store_true",
             help=argparse.SUPPRESS,
         )
+        parser.add_argument(
+            "--dry-run",
+            action="store_true",
+            default=False,
+            help="Dry run mode. Will not change the database.",
+        )
 
     def handle(self, *args, **options):
         print("Reading header definition")
@@ -74,6 +80,7 @@ class Command(BaseCommand):
             skip_researcher_check=options["skip_researcher_check"],
             verbosity=options["verbosity"],
             defer_autoupdates=options["defer_autoupdates"],
+            dry_run=options["dry_run"],
         )
         loader.load_sample_table(
             DictReader(
