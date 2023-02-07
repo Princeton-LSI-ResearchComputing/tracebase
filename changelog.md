@@ -7,7 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-none
+### Added
+
+- Pages/views
+  - Created CSS file "bootstrap_table_cus1.css" to customize table options with Bootstrap-table plugin.
+  - Created JavaScript "setTableHeight.js" to set table height dynamically with Bootstrap-table plugin.
+
+### Changed
+
+- Pages/views
+  - Made minor changes to the DataFrame for study list and stats (added total infusates)
+  - Modified code for customtag filter "obj_hyperlink" to display list with or without line breaks.
+  - Improved display of infusates in study and aninal templates.
+  - Changed column width for some columns in study and animal tables.
 
 ## [2.0.1] - 2023-01-05
 

@@ -1,7 +1,12 @@
 {% extends "base.html" %}
+{% load static %}
 {% load customtags %}
 
 {% block title %}Animals{% endblock %}
+
+{% block head_extras %}
+    <link href="{% static 'css/bootstrap_table_cus1.css' %}" rel="stylesheet">
+{% endblock %}
 
 {% block content %}
 <h4>List of Animals</h4>
@@ -16,9 +21,13 @@
 
 {% block js_extras %}
     {{ block.super }}
+    <script src="{% static 'js/setTableHeight.js' %}"></script>
     <script>
+        let divID = "div_out_tab";
+        let pctVH = 0.75;
+        let vHeight = setTableHeight(divID, pctVH);
         $('#animal_list_stats').bootstrapTable({
-            height: 1200,
+            height: vHeight,
             virtualScroll: true
         })
     </script>
