@@ -146,7 +146,9 @@ class DryRun(Exception):
     Exception thrown during dry-run to ensure atomic transaction is not committed
     """
 
-    def __init__(self, message="Dry-run successful"):
+    def __init__(self, message=None):
+        if message is None:
+            message = "Dry-run successful."
         super().__init__(message)
 
 

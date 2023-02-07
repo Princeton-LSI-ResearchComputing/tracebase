@@ -178,7 +178,7 @@ class AccuCorDataLoader:
         self.aggregated_errors_object = AggregatedErrors()
         self.missing_samples = []
         self.missing_compounds = {}
-        self.dupe_isotope_rows = {"original": None, "corrected": None}
+        self.dupe_isotope_rows = {"original": [], "corrected": []}
 
         # Used for accucor
         self.labeled_element = None
@@ -361,8 +361,8 @@ class AccuCorDataLoader:
 
     def validate_compounds(self):
 
-        self.dupe_isotope_rows["original"] = None
-        self.dupe_isotope_rows["corrected"] = None
+        self.dupe_isotope_rows["original"] = []
+        self.dupe_isotope_rows["corrected"] = []
 
         if self.accucor_original_df is not None:
             dupe_dict = {}
@@ -936,6 +936,14 @@ class AccuCorDataLoader:
                                 # we can ignore this error
                                 pass
                             else:
+                                if settings.DEBUG or self.verbosity >= 1:
+                                    print(
+                                        f"orig_row_idx: [{orig_row_idx}] "
+                                        f"element: [{peak_group_label_rec}] "
+                                        f"count: [{labeled_count}] "
+                                        f"mass number: [{mass_number}] "
+                                        f"Number of atoms in the formula: {peak_group_label_rec.atom_count()}"
+                                    )
                                 raise ve
                         except Exception as e:
                             self.aggregated_errors_object.buffer_error(e)
