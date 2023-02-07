@@ -1,11 +1,16 @@
 {% extends "base.html" %}
+{% load static %}
 {% load customtags %}
 
 {% block title %}Infusates{% endblock %}
 
+{% block head_extras %}
+    <link href="{% static 'css/bootstrap_table_cus1.css' %}" rel="stylesheet">
+{% endblock %}
+
 {% block content %}
 <h4>List of Infusates</h4>
-<div>
+<div id="div_out_tab">
     {% if df %}
     <table class="table table-sm table-hover table-bordered table-responsive-xl table-striped"
         id="infusate_list"
@@ -22,8 +27,6 @@
         data-show-fullscreen="true"
         data-show-export="true"
         data-export-types="['csv', 'txt', 'excel']"
-        data-height="1200"
-        data-virtual-scroll="true"
         data-pagination="true"
         data-page-size="100"
         data-page-list="[25, 50, 100, 200, 500, All]">
@@ -32,7 +35,7 @@
                 <th data-filter-control="input" data-sortable="true" data-sorter ="htmlSorter" data-field="Infusate">Infusate</th>
                 <th data-filter-control="input" data-sortable="true" data-field="Tracer-Group">Tracer Group</th>
                 <th data-filter-control="select" data-sortable="true" data-field="Labeled-Elements">Labeled Element(s)</th>
-                <th data-filter-control="input" data-sortable="true" data-sorter ="htmlSorter" data-field="Compounds">Parent Compound(s) for Tracer(s)</th>
+                <th data-filter-control="input" data-sortable="true" data-sorter ="htmlSorter" data-field="Compounds">Tracer Compound(s)</th>
                 <th data-filter-control="input" data-sortable="true" data-sorter ="htmlSorter" data-field="Tracers">Tracer(s)</th>
                 <th data-filter-control="input" data-sortable="true" data-field="Concentrations">Infusion Concentration(s) (mM)</th>
         </thead>
@@ -52,4 +55,18 @@
     {% endif %}
 </div>
 
+{% endblock %}
+
+{% block js_extras %}
+    {{ block.super }}
+    <script src="{% static 'js/setTableHeight.js' %}"></script>
+    <script>
+        let divID = "div_out_tab";
+        let pctVH = 0.85;
+        let vHeight = setTableHeight(divID, pctVH);
+        $('#infusate_list').bootstrapTable({
+            height: vHeight,
+            virtualScroll: true
+        })
+    </script>
 {% endblock %}

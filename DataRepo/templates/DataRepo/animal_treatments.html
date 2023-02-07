@@ -1,6 +1,12 @@
 {% extends "base.html" %}
+{% load static %}
+{% load customtags %}
 
 {% block title %}Animal Treatments{% endblock %}
+
+{% block head_extras %}
+    <link href="{% static 'css/bootstrap_table_cus2.css' %}" rel="stylesheet">
+{% endblock %}
 
 {% block content %}
 <br>
@@ -14,4 +20,18 @@
 {% else %}
     <p>There are no protocols for animal treatment.</p>
 {% endif %}
+{% endblock %}
+
+{% block js_extras %}
+    {{ block.super }}
+    <script src="{% static 'js/setTableHeight.js' %}"></script>
+    <script>
+        let divID = "div_out_tab";
+        let pctVH = 0.85;
+        let vHeight = setTableHeight(divID, pctVH);
+        $('#protocol_list').bootstrapTable({
+            height: vHeight,
+            virtualScroll: true
+        })
+    </script>
 {% endblock %}

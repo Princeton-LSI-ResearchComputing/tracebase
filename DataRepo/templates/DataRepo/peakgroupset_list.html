@@ -1,11 +1,16 @@
 {% extends "base.html" %}
+{% load static %}
+{% load customtags %}
 
 {% block title %}PeakGroup Sets{% endblock %}
 
+{% block head_extras %}
+    <link href="{% static 'css/bootstrap_table_cus2.css' %}" rel="stylesheet">
+{% endblock %}
+
 {% block content %}
 <h4>List of Peak Group Sets</h4>
-<br>
-<div>
+<div id="div_out_tab">
     {% if peakgroupset_list %}
     <table class="table table-sm table-hover table-bordered table-responsive-xl table-striped"
         id="file_list"
@@ -22,8 +27,6 @@
         data-show-fullscreen="true"
         data-show-export="true"
         data-export-types="['csv', 'txt', 'excel']"
-        data-height="1200"
-        data-virtual-scroll="true"
         data-pagination="true"
         data-page-size="25"
         data-page-list="[25, 50, 100, 200, 500, All]">
@@ -54,4 +57,18 @@
         <p>There are no PeakGroup Set.</p>
     {% endif %}
 </div>
+{% endblock %}
+
+{% block js_extras %}
+    {{ block.super }}
+    <script src="{% static 'js/setTableHeight.js' %}"></script>
+    <script>
+        let divID = "div_out_tab";
+        let pctVH = 0.85;
+        let vHeight = setTableHeight(divID, pctVH);
+        $('#file_list').bootstrapTable({
+            height: vHeight,
+            virtualScroll: true
+        })
+    </script>
 {% endblock %}

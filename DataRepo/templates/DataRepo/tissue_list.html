@@ -1,16 +1,20 @@
 {% extends "base.html" %}
+{% load static %}
+{% load customtags %}
 
 {% block title %}Tissues{% endblock %}
 
-{% block content %}
-<div>
-    <ul>
-        <h4>List of Tissues</h4>
+{% block head_extras %}
+    <link href="{% static 'css/bootstrap_table_cus2.css' %}" rel="stylesheet">
+{% endblock %}
 
-        {% if tissue_list %}
-        <br>
+{% block content %}
+<h4>List of Tissues</h4>
+
+<div id="div_out_tab">
+    {% if tissue_list %}
         <table class="table table-sm table-hover table-bordered table-responsive-xl table-striped"
-            id="table"
+            id="tissue_list"
             data-toggle="table"
             data-buttons-class="primary"
             data-buttons-align="left"
@@ -24,11 +28,9 @@
             data-show-fullscreen="true"
             data-show-export="true"
             data-export-types="['csv', 'txt', 'excel']"
-            data-height="1200"
-            data-virtual-scroll="true"
             data-pagination="true"
             data-page-size="100"
-            data-page-list="[25, 50, 100, 200, 500, All]">
+            data-page-list="[10, 25, 50, 100, 200, 500, All]">
             <thead>
             <tr>
                 <th data-field="Tissue" data-filter-control="input" data-sortable="true" data-sorter="htmlSorter">Tissue</th>
@@ -44,9 +46,22 @@
                 {% endfor %}
             </tbody>
         </table>
-        {% else %}
+    {% else %}
         <p>There are no tissues.</p>
-        {% endif %}
-    </ul>
+    {% endif %}
 </div>
+{% endblock %}
+
+{% block js_extras %}
+    {{ block.super }}
+    <script src="{% static 'js/setTableHeight.js' %}"></script>
+    <script>
+        let divID = "div_out_tab";
+        let pctVH = 0.85;
+        let vHeight = setTableHeight(divID, pctVH);
+        $('#tissue_list').bootstrapTable({
+            height: vHeight,
+            virtualScroll: true
+        })
+    </script>
 {% endblock %}
