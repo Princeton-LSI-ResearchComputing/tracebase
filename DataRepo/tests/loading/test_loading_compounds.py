@@ -6,7 +6,7 @@ from django.test import override_settings, tag
 from DataRepo.models import Compound, CompoundSynonym
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import AmbiguousCompoundDefinitionError, CompoundsLoader
-from DataRepo.utils.compounds_loader import CompoundExists, CompoundNotFound
+from DataRepo.utils.compounds_loader import CompoundNotFound
 
 
 @tag("compounds")
@@ -157,19 +157,11 @@ class CompoundsLoaderTests(TracebaseTestCase):
     def test_compound_exists_error(self):
         df = self.get_dataframe()
         cl = CompoundsLoader(df)
-        new_compound = Compound(
-            name="test name",
-            formula="C5",
-            hmdb_id="1",
-        )
-        new_compound2 = Compound(
-            name="test name",
-            formula="C5",
-            hmdb_id="1",
-        )
-        cl.validated_new_compounds_for_insertion = [new_compound, new_compound2]
-        with self.assertRaises(CompoundExists):
-            cl.load_validated_compounds()
+        cl.validate_data()
+        cl.load_validated_compounds()
+        cl2 = CompoundsLoader(df)
+        cl2.validate_data()
+        self.assertEqual(0, len(cl2.validated_new_compounds_for_insertion))
 
     def test_compound_not_found_error(self):
         df = self.get_dataframe()

@@ -255,11 +255,11 @@ class CompoundsLoader:
         for compound in self.validated_new_compounds_for_insertion:
             try:
                 compound.save(using=db)
+                count += 1
             except IntegrityError:
                 # raise CompoundExists(compound.name, db)
                 skips += 1
                 continue
-            count += 1
         self.summary_messages.append(
             f"{count} compound(s) inserted, with default synonyms, into the {db} database.  "
             f"{skips} were already in the database."
