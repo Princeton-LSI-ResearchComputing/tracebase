@@ -20,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Modified code for customtag filter "obj_hyperlink" to display list with or without line breaks.
   - Improved display of infusates in study and aninal templates.
   - Changed column width for some columns in study and animal tables.
+- Models
+  - Changed the value validation for PeakDataLabel and TracerLabel count, mass_number, and positions be based on the actual attributes of the compound/element instead of static arbitrary values
 
 ## [2.0.1] - 2023-01-05
 
