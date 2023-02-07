@@ -9,14 +9,11 @@
 {% endblock %}
 
 {% block content %}
-<br>
+<h4>MSRun Protocols</h4>
 {% if msrun_protocol_list %}
-<div>
-    <h4>MSRun Protocols</h4>
     {% with protocols=msrun_protocol_list %}
         {% include "DataRepo/includes/protocol_table.html" %}
     {% endwith %}
-</div>
 {% else %}
     <p>There are no protocols for MSRuns.</p>
 {% endif %}
