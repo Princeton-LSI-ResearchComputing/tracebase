@@ -1903,13 +1903,24 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
 
     def test_get_column_dupes(self):
         stl = SampleTableLoader()
-        col_key = "Sample Name"
+        col_keys = ["Sample Name", "Study Name"]
         data = [
-            {"Sample Name": "q2"},
-            {"Sample Name": "q2"},
+            {"Sample Name": "q2", "Study Name": "TCA Flux"},
+            {"Sample Name": "q2", "Study Name": "TCA Flux"},
         ]
-        dupes, rows = stl.get_column_dupes(data, col_key)
-        self.assertEqual({"q2": [0, 1]}, dupes)
+        dupes, rows = stl.get_column_dupes(data, col_keys)
+        self.assertEqual(
+            {
+                "Sample Name: [q2], Study Name: [TCA Flux]": {
+                    "rowidxs": [0, 1],
+                    "vals": {
+                        "Sample Name": "q2",
+                        "Study Name": "TCA Flux",
+                    },
+                },
+            },
+            dupes,
+        )
         self.assertEqual([0, 1], rows)
 
 

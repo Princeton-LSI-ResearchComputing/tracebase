@@ -842,37 +842,84 @@ class SampleTableLoader:
             )
 
     def identify_infile_sample_dupe_rows(self, data):
+        """
+        An animal can belong to multiple studies.  As such, a sample from an animal can also belong to multiple
+        studies, and with the animal and sample sheet merge, the same sample will exist on 2 different rows after the
+        merge.  Therefore, we need to check that the combination of sample name and study name are unique instead of
+        just sample name.  For an example of this, look at:
+        DataRepo/example_data/test_dataframes/animal_sample_table_df_test1.xlsx.
+        """
         sample_name_header = getattr(self.headers, "SAMPLE_NAME")
-        sample_dupes, row_idxs = self.get_column_dupes(data, sample_name_header)
+        study_name_header = getattr(self.headers, "STUDY_NAME")
+        sample_dupes, row_idxs = self.get_column_dupes(
+            sample_table_data, [sample_name_header, study_name_header]
+        )
         if len(sample_dupes.keys()) > 0:
+            # Custom message to explain the case with Study name
+            dupdeets = []
+            for combo_val, l in dupe_dict.items():
+                sample = dupe_dict[combo_val]["vals"][sample_name_header]
+                # dupe_dict contains row indexes. This converts to row numbers (adds 1 for starting from 1 instead of 0
+                # and 1 for the header row)
+                dupdeets.append(
+                    f"{sample} (rows*: {', '.join(list(map(lambda i: str(i + 2), l['rowidxs'])))})"
+                )
+            nltab = "\n\t"
+            message = (
+                f"{len(dupe_dict.keys())} values in the {sample_name_header} column were found to have duplicate "
+                "occurrences on the indicated rows (*note, row numbers could reflect a sheet merge and may be "
+                f"inaccurate):{nltab}{nltab.join(dupdeets)}\nNote, a sample can be a part of multiple studies, so if "
+                "the same sample is in this list more than once, it means it's duplicated in multiple studies."
+            )
+
             self.aggregated_errors_object.buffer_error(
-                DuplicateValues(sample_dupes, sample_name_header)
+                DuplicateValues(sample_dupes, sample_name_header, message=message)
             )
             self.infile_sample_dupe_rows = row_idxs
 
-    def get_column_dupes(self, data, col_key):
+    def get_column_dupes(self, data, col_keys):
         """
-        Takes a list of dicts (data) and a list of column keys (col_keys) and looks for duplicate values.
-        Returns a dict keyed on duplicate value and a list of row indexes where each value was found.
+        Takes a list of dicts (data) and a list of column keys (col_keys) and looks for duplicate (combination) values.
+        Returns a dict keyed on the composite duplicate value (with embedded header names).  The value is a dict with
+        the keys "rowidxs" and "vals". rowidxs has a list of indexes of the rows containing the combo value and vals
+        contains a dict of the column name and value pairs.
         """
-        val_locations = defaultdict(list)
-        dupe_dict = {}
+        val_locations = defaultdict(dict)
+        dupe_dict = defaultdict(dict)
         all_rows_with_dupes = []
         for rowidx, row in enumerate(data):
             # Ignore rows where the animal name is empty
             if rowidx in self.empty_animal_rows:
                 continue
-            val = row[col_key]
-            # Ignore empty values
-            if val is None or (isinstance(val, str) and val == ""):
+
+            # Ignore empty combos
+            empty_combo = True
+            for ck in col_keys:
+                val = row[ck]
+                if val is not None or not isinstance(val, str) or val == "":
+                    empty_combo = False
+                    break
+            if empty_combo:
                 continue
-            val_locations[str(val)].append(rowidx)
+
+            composite_val = ", ".join(
+                list(map(lambda ck: f"{ck}: [{str(row[ck])}]", col_keys))
+            )
+
+            if len(val_locations[composite_val].keys()) > 0:
+                val_locations[composite_val]["rowidxs"].append(rowidx)
+            else:
+                val_locations[composite_val]["rowidxs"] = [rowidx]
+                val_locations[composite_val]["vals"] = {}
+                for ck in col_keys:
+                    val_locations[composite_val]["vals"][ck] = row[ck]
 
         # Now create the dupe dict to contain values encountered more than once
         for val in val_locations.keys():
-            row_list = val_locations[val]
+            row_list = val_locations[val]["rowidxs"]
             if len(row_list) > 1:
-                dupe_dict[val] = row_list
+                dupe_dict[val]["rowidxs"] = row_list
+                dupe_dict[val]["vals"] = val_locations[val]["vals"]
                 all_rows_with_dupes += row_list
 
         return dupe_dict, all_rows_with_dupes

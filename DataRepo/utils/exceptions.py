@@ -429,7 +429,7 @@ class DupeCompoundIsotopeCombos(Exception):
 
 
 class DuplicateValues(Exception):
-    def __init__(self, dupe_dict, colname, message=None):
+    def __init__(self, dupe_dict, colnames, message=None):
         if not message:
             # Each value is displayed as "value (rows*: 1,2,3)" where "value" is the diplicate value and 1,2,3 are the
             # rows where it occurs
@@ -440,15 +440,15 @@ class DuplicateValues(Exception):
                 dupdeets.append(
                     f"{str(v)} (rows*: {', '.join(list(map(lambda i: str(i + 2), l)))})"
                 )
-            feed_indent = "\n\t"
+            nltab = "\n\t"
             message = (
-                f"{len(dupe_dict.keys())} values in unique column [{colname}] were found to have duplicate "
+                f"{len(dupe_dict.keys())} values in unique column(s) [{colnames}] were found to have duplicate "
                 "occurrences on the indicated rows (*note, row numbers could reflect a sheet merge and may be "
-                f"inaccurate):\n\t{feed_indent.join(dupdeets)}"
+                f"inaccurate):{nltab}{nltab.join(dupdeets)}"
             )
         super().__init__(message)
         self.dupe_dict = dupe_dict
-        self.colname = colname
+        self.colnames = colnames
 
 
 class EmptyAnimalNames(Exception):
