@@ -866,8 +866,7 @@ class SampleTableLoader:
             # Ignore empty values
             if val is None or (isinstance(val, str) and val == ""):
                 continue
-            if val not in val_locations.keys():
-                val_locations[val].append(rowidx)
+            val_locations[str(val)].append(rowidx)
 
         # Now create the dupe dict to contain values encountered more than once
         for val in val_locations.keys():
@@ -890,10 +889,11 @@ class SampleTableLoader:
             val = row[animal_name_header]
             if val is None or val == "":
                 empty_animal_rows.append(rowidx)
-        self.empty_animal_rows = empty_animal_rows
-        self.aggregated_errors_object.buffer_error(
-            EmptyAnimalNames(empty_animal_rows, animal_name_header)
-        )
+        if len(empty_animal_rows) > 0:
+            self.empty_animal_rows = empty_animal_rows
+            self.aggregated_errors_object.buffer_error(
+                EmptyAnimalNames(empty_animal_rows, animal_name_header)
+            )
 
     def check_required_values(self, rownum, row):
         """
