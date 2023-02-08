@@ -431,24 +431,39 @@ class DupeCompoundIsotopeCombos(Exception):
 class DuplicateValues(Exception):
     def __init__(self, dupe_dict, colname, message=None):
         if not message:
-            # Each value is displayed as "value (1,2,3)" where "value" is the diplicate value and 1,2,3 are the rows
-            # where it occurs
+            # Each value is displayed as "value (rows*: 1,2,3)" where "value" is the diplicate value and 1,2,3 are the
+            # rows where it occurs
             dupdeets = []
             for v, l in dupe_dict.items():
                 # dupe_dict contains row indexes. This converts to row numbers (adds 1 for starting from 1 instead of 0
                 # and 1 for the header row)
                 dupdeets.append(
-                    f"{v} (rows*: {', '.join(list(map(lambda i: str(i + 2), l)))})"
+                    f"{str(v)} (rows*: {', '.join(list(map(lambda i: str(i + 2), l)))})"
                 )
             feed_indent = "\n\t"
             message = (
                 f"{len(dupe_dict.keys())} values in unique column [{colname}] were found to have duplicate "
-                "occurrences on the indicated rows (*note, row numbers reflect a merge of the Animal and Sample sheet "
-                f"and may be inaccurate):\n\t{feed_indent.join(dupdeets)}"
+                "occurrences on the indicated rows (*note, row numbers could reflect a sheet merge and may be "
+                f"inaccurate):\n\t{feed_indent.join(dupdeets)}"
             )
         super().__init__(message)
         self.dupe_dict = dupe_dict
         self.colname = colname
+
+
+class EmptyAnimalNames(Exception):
+    def __init__(self, row_idxs, animal_col_name="Animal Name", message=None):
+        if not message:
+            message = (
+                f"Rows which are missing an {animal_col_name} but have a value in some other column cause meaningless "
+                f"errors because the {animal_col_name} is used to merge the animal data with the sample data in "
+                "separate files/excel-sheets.  To avoid these errors, a row must be completely empty, or at least "
+                f"contain an {animal_col_name}.  The following rows are affected, but the row numbers can be "
+                f"inaccurate due to merges with empty rows: [{', '.join(list(map(lambda v: str(v), row_idxs)))}]."
+            )
+        super().__init__(message)
+        self.row_idxs = row_idxs
+        self.animal_col_name = animal_col_name
 
 
 class NoTracerLabeledElements(Exception):
