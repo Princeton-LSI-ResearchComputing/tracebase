@@ -852,21 +852,19 @@ class SampleTableLoader:
         sample_name_header = getattr(self.headers, "SAMPLE_NAME")
         study_name_header = getattr(self.headers, "STUDY_NAME")
         sample_dupes, row_idxs = self.get_column_dupes(
-            sample_table_data, [sample_name_header, study_name_header]
+            data, [sample_name_header, study_name_header]
         )
         if len(sample_dupes.keys()) > 0:
             # Custom message to explain the case with Study name
             dupdeets = []
-            for combo_val, l in dupe_dict.items():
-                sample = dupe_dict[combo_val]["vals"][sample_name_header]
-                # dupe_dict contains row indexes. This converts to row numbers (adds 1 for starting from 1 instead of 0
-                # and 1 for the header row)
+            for combo_val, l in sample_dupes.items():
+                sample = sample_dupes[combo_val]["vals"][sample_name_header]
                 dupdeets.append(
                     f"{sample} (rows*: {', '.join(list(map(lambda i: str(i + 2), l['rowidxs'])))})"
                 )
             nltab = "\n\t"
             message = (
-                f"{len(dupe_dict.keys())} values in the {sample_name_header} column were found to have duplicate "
+                f"{len(sample_dupes.keys())} values in the {sample_name_header} column were found to have duplicate "
                 "occurrences on the indicated rows (*note, row numbers could reflect a sheet merge and may be "
                 f"inaccurate):{nltab}{nltab.join(dupdeets)}\nNote, a sample can be a part of multiple studies, so if "
                 "the same sample is in this list more than once, it means it's duplicated in multiple studies."

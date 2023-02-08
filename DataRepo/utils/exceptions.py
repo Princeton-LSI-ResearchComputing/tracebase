@@ -431,8 +431,8 @@ class DupeCompoundIsotopeCombos(Exception):
 class DuplicateValues(Exception):
     def __init__(self, dupe_dict, colnames, message=None):
         if not message:
-            # Each value is displayed as "value (rows*: 1,2,3)" where "value" is the diplicate value and 1,2,3 are the
-            # rows where it occurs
+            # Each value is displayed as "Colname1: [value1], Colname2: [value2], ... (rows*: 1,2,3)" where 1,2,3 are
+            # the rows where the combo values are found
             dupdeets = []
             for v, l in dupe_dict.items():
                 # dupe_dict contains row indexes. This converts to row numbers (adds 1 for starting from 1 instead of 0
