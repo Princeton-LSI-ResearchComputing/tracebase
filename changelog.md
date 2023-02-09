@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Changed column width for some columns in study and animal tables.
 - Models
   - Changed the value validation for PeakDataLabel and TracerLabel count, mass_number, and positions be based on the actual attributes of the compound/element instead of static arbitrary values
+- Advanced Search
+  - Added time collected to the PeakData and PeakGroups advanced search formats.
 
 ## [2.0.1] - 2023-01-05
 
