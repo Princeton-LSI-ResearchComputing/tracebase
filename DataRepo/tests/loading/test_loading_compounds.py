@@ -5,7 +5,7 @@ from django.test import override_settings, tag
 
 from DataRepo.models import Compound, CompoundSynonym
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
-from DataRepo.utils import AmbiguousCompoundDefinitionError, CompoundsLoader
+from DataRepo.utils import AggregatedErrors, AmbiguousCompoundDefinitionError, CompoundsLoader
 from DataRepo.utils.compounds_loader import CompoundNotFound
 
 
@@ -166,8 +166,10 @@ class CompoundsLoaderTests(TracebaseTestCase):
     def test_compound_not_found_error(self):
         df = self.get_dataframe()
         cl = CompoundsLoader(df)
-        with self.assertRaises(CompoundNotFound):
-            cl.load_synonyms_per_db()
+        cl.load_synonyms_per_db()
+        aes = cl.aggregated_errors_obj
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertEqual(type(aes.exceptions[0]), CompoundNotFound)
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
