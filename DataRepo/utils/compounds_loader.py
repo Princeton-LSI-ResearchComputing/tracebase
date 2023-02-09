@@ -38,7 +38,10 @@ class CompoundsLoader:
         self.validation_warning_messages = []
         self.validation_error_messages = []
         self.summary_messages = []
-        self.validated_new_compounds_for_insertion = []
+        self.validated_new_compounds_for_insertion = {
+            settings.TRACEBASE_DB: [],
+            settings.VALIDATION_DB: [],
+        }
         self.missing_headers = []
         self.dry_run = dry_run
         self.db = settings.TRACEBASE_DB
@@ -107,7 +110,7 @@ class CompoundsLoader:
                     if self.db == settings.DEFAULT_DB:
                         try:
                             new_compound.full_clean()
-                            self.validated_new_compounds_for_insertion.append(
+                            self.validated_new_compounds_for_insertion[db].append(
                                 new_compound
                             )
                         except IntegrityError:
@@ -323,7 +326,7 @@ class CompoundsLoader:
     def load_validated_compounds_per_db(self, db=settings.TRACEBASE_DB):
         count = 0
         existing_skips = 0
-        for compound in self.validated_new_compounds_for_insertion:
+        for compound in self.validated_new_compounds_for_insertion[db]:
             try:
                 compound.save(using=db)
                 count += 1
