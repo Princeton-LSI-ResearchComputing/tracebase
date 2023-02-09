@@ -70,8 +70,7 @@ class Command(BaseCommand):
             validate=options["validate"],
         )
 
-        # Run validation
-        loader.validate_data()
+        loader.load_compounds()
 
         if options["verbosity"] >= 2:
             for msg in loader.validation_debug_messages:
@@ -107,8 +106,6 @@ class Command(BaseCommand):
 
         # Load compounds
         if not options["validate_only"]:
-            loader.load_validated_compounds()
-            loader.load_synonyms()
             for msg in loader.summary_messages:
                 self.stdout.write(self.style.MIGRATE_HEADING(msg))
 

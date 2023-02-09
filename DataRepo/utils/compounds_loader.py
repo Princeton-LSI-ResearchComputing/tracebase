@@ -1,9 +1,12 @@
 from django.conf import settings
+from django.db import transaction
 from django.db.utils import IntegrityError
 
 from DataRepo.models import Compound
 from DataRepo.utils.exceptions import (
+    AggregatedErrors,
     AmbiguousCompoundDefinitionError,
+    DryRun,
     HeaderError,
     ValidationDatabaseSetupError,
 )
@@ -22,7 +25,12 @@ class CompoundsLoader:
     REQUIRED_KEYS = [KEY_COMPOUND_NAME, KEY_FORMULA, KEY_HMDB, KEY_SYNONYMS]
 
     def __init__(
-        self, compounds_df, synonym_separator=";", database=None, validate=False
+        self,
+        compounds_df,
+        synonym_separator=";",
+        database=None,
+        validate=False,
+        dry_run=False,
     ):
         self.compounds_df = compounds_df
         self.synonym_separator = synonym_separator
@@ -32,6 +40,7 @@ class CompoundsLoader:
         self.summary_messages = []
         self.validated_new_compounds_for_insertion = []
         self.missing_headers = []
+        self.dry_run = dry_run
         self.db = settings.TRACEBASE_DB
         self.loading_mode = "both"
         # If a database was explicitly supplied
@@ -50,27 +59,40 @@ class CompoundsLoader:
             else:
                 self.loading_mode = "both"
 
-        """
-        strip any leading and trailing spaces from the headers and some
-        columns, just to normalize
-        """
-        if self.compounds_df is not None:
-            self.compounds_df.rename(columns=lambda x: x.strip())
-            self.check_required_headers()
-            for col in (
-                self.KEY_COMPOUND_NAME,
-                self.KEY_FORMULA,
-                self.KEY_HMDB,
-                self.KEY_SYNONYMS,
-            ):
-                self.compounds_df[col] = self.compounds_df[col].str.strip()
+        self.aggregated_errors_obj = AggregatedErrors()
 
     def validate_data(self):
+        if self.loading_mode == "both":
+            try:
+                self.validate_data_per_db(settings.TRACEBASE_DB)
+                if settings.VALIDATION_ENABLED:
+                    self.validate_data_per_db(settings.VALIDATION_DB)
+            except (CompoundExists, CompoundNotFound) as ce:
+                ce.message += (
+                    f"  Try loading databases {settings.TRACEBASE_DB} and {settings.VALIDATION_DB} one by "
+                    "one."
+                )
+                self.aggregated_errors_obj.buffer_error(ce)
+        elif self.loading_mode == "one":
+            try:
+                self.validate_data_per_db(self.db)
+            except Exception as e:
+                self.aggregated_errors_obj.buffer_error(e)
+        else:
+            # Cannot proceed
+            raise ValueError(
+                f"Internal error: Invalid loading_mode: [{self.loading_mode}]"
+            )
+
+    def validate_data_per_db(self, db=settings.TRACEBASE_DB):
         # validate the compounds dataframe
         self.check_for_duplicates(self.KEY_COMPOUND_NAME)
         self.check_for_duplicates(self.KEY_HMDB)
 
         if self.compounds_df is not None:
+            count = 0
+            existing_skips = 0
+            error_skips = 0
             for index, row in self.compounds_df.iterrows():
                 # capture compound attributes and synonyms
                 compound = self.find_compound_for_row(row)
@@ -83,8 +105,25 @@ class CompoundsLoader:
                     )
                     # full_clean cannot validate (e.g. uniqueness) using a non-default database
                     if self.db == settings.DEFAULT_DB:
-                        new_compound.full_clean()
-                    self.validated_new_compounds_for_insertion.append(new_compound)
+                        try:
+                            new_compound.full_clean()
+                            self.validated_new_compounds_for_insertion.append(
+                                new_compound
+                            )
+                        except IntegrityError:
+                            self.aggregated_errors_obj.buffer_warning(CompoundExists(row[self.KEY_COMPOUND_NAME], db))
+                            existing_skips += 1
+                        except Exception as e:
+                            self.aggregated_errors_obj.buffer_error(e)
+                            error_skips += 1
+            self.summary_messages.append(
+                f"{count} compound(s) will be inserted, with default synonyms, into the {db} database.  "
+                f"{existing_skips} already existed in the database and will be skipped.  {error_skips} compounds had "
+                "errors that need to be fixed before they can be loaded."
+            )
+        else:
+            # Nothing else to do, so raise
+            raise ValueError("No compound data was supplied.")
 
     def check_required_headers(self):
         for header in self.REQUIRED_KEYS:
@@ -93,6 +132,7 @@ class CompoundsLoader:
                 err_msg = f"Could not find the required header '{header}."
                 self.validation_error_messages.append(err_msg)
         if len(self.missing_headers) > 0:
+            # Cannot proceed, so not buffering
             raise (
                 HeaderError(
                     f"The following column headers were missing: {', '.join(self.missing_headers)}",
@@ -218,7 +258,10 @@ class CompoundsLoader:
         if len(all_found_compounds) > 1:
             err_msg = f"Retrieved multiple ({len(all_found_compounds)}) "
             err_msg += f"distinct compounds using names {names}"
-            raise AmbiguousCompoundDefinitionError(err_msg)
+            self.aggregated_errors_obj.buffer_error(
+                AmbiguousCompoundDefinitionError(err_msg)
+            )
+            return None
 
         return found_compound
 
@@ -227,6 +270,28 @@ class CompoundsLoader:
             synonym.strip() for synonym in synonyms_string.split(self.synonym_separator)
         ]
         return synonyms
+
+    def load_compounds(self):
+        with transaction.atomic():
+            try:
+                self._load_data()
+                # If there are buffered exceptions
+                if self.aggregated_errors_obj.should_raise():
+                    raise self.aggregated_errors_obj
+            except Exception as e:
+                self.aggregated_errors_obj.buffer_error(e)
+                # Prepare the exception message/data
+                self.aggregated_errors_obj.should_raise()
+                # We will raise in any case due to the exception
+                raise self.aggregated_errors_obj
+            if self.dry_run:
+                # Roll back everything
+                raise DryRun()
+
+    def _load_data(self):
+        self.validate_data()
+        self.load_validated_compounds()
+        self.load_synonyms()
 
     def load_validated_compounds(self):
         # "both" is the normal loading mode - always loads both the validation and tracebase databases, unless the
@@ -241,28 +306,34 @@ class CompoundsLoader:
                     f"  Try loading databases {settings.TRACEBASE_DB} and {settings.VALIDATION_DB} one by "
                     "one."
                 )
-                raise ce
+                self.aggregated_errors_obj.buffer_error(ce)
         elif self.loading_mode == "one":
-            self.load_validated_compounds_per_db(self.db)
+            try:
+                self.load_validated_compounds_per_db(self.db)
+            except Exception as e:
+                self.aggregated_errors_obj.buffer_error(e)
         else:
-            raise Exception(
+            # Should not proceed
+            raise ValueError(
                 f"Internal error: Invalid loading_mode: [{self.loading_mode}]"
             )
 
     def load_validated_compounds_per_db(self, db=settings.TRACEBASE_DB):
         count = 0
-        skips = 0
+        existing_skips = 0
         for compound in self.validated_new_compounds_for_insertion:
             try:
                 compound.save(using=db)
                 count += 1
             except IntegrityError:
-                # raise CompoundExists(compound.name, db)
-                skips += 1
+                self.aggregated_errors_obj.buffer_warning(
+                    CompoundExists(compound.name, db)
+                )
+                existing_skips += 1
                 continue
         self.summary_messages.append(
             f"{count} compound(s) inserted, with default synonyms, into the {db} database.  "
-            f"{skips} were already in the database."
+            f"{existing_skips} were already in the database."
         )
 
     def load_synonyms(self):
@@ -275,7 +346,8 @@ class CompoundsLoader:
         elif self.loading_mode == "one":
             self.load_synonyms_per_db(self.db)
         else:
-            raise Exception(
+            # Cannot proceed
+            raise ValueError(
                 f"Internal error: Invalid loading_mode: [{self.loading_mode}]"
             )
 
@@ -283,6 +355,7 @@ class CompoundsLoader:
         # if we are here, every line should either have pre-existed, or have
         # been newly inserted.
         count = 0
+        skips = 0
         for index, row in self.compounds_df.iterrows():
             # we will use the HMDB ID to retrieve
             hmdb_id = row[self.KEY_HMDB]
@@ -290,20 +363,23 @@ class CompoundsLoader:
             compound_name_from_file = row[self.KEY_COMPOUND_NAME]
             try:
                 hmdb_compound = Compound.objects.using(db).get(hmdb_id=hmdb_id)
+                synonyms_string = row[self.KEY_SYNONYMS]
+                synonyms = self.parse_synonyms(synonyms_string)
+                if hmdb_compound.name != compound_name_from_file:
+                    synonyms.append(compound_name_from_file)
+                for synonym in synonyms:
+                    (compound_synonym, created) = hmdb_compound.get_or_create_synonym(
+                        synonym, database=db
+                    )
+                    if created:
+                        count += 1
             except Compound.DoesNotExist:
-                raise CompoundNotFound(compound_name_from_file, db, hmdb_id)
-            synonyms_string = row[self.KEY_SYNONYMS]
-            synonyms = self.parse_synonyms(synonyms_string)
-            if hmdb_compound.name != compound_name_from_file:
-                synonyms.append(compound_name_from_file)
-            for synonym in synonyms:
-                (compound_synonym, created) = hmdb_compound.get_or_create_synonym(
-                    synonym, database=db
+                skips += 1
+                self.aggregated_errors_obj.buffer_error(
+                    CompoundNotFound(compound_name_from_file, db, hmdb_id)
                 )
-                if created:
-                    count += 1
         self.summary_messages.append(
-            f"{count} additional synonym(s) inserted into the {db} database."
+            f"{count} additional synonym(s) inserted into the {db} database.  {skips} skipped."
         )
 
 
