@@ -125,7 +125,7 @@ venv.bak/
 .ropeproject
 
 # mkdocs documentation
-/site
+/TraceBaseDocs/public
 
 # mypy
 .mypy_cache/
@@ -134,6 +134,3 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
-
-# obsidian settings used for vault modification of docs
-/TraceBaseDocs/TraceBaseDocs/.obsidian/
