@@ -111,7 +111,9 @@ class CompoundsLoader:
                                 new_compound
                             )
                         except IntegrityError:
-                            self.aggregated_errors_obj.buffer_warning(CompoundExists(row[self.KEY_COMPOUND_NAME], db))
+                            self.aggregated_errors_obj.buffer_warning(
+                                CompoundExists(row[self.KEY_COMPOUND_NAME], db)
+                            )
                             existing_skips += 1
                         except Exception as e:
                             self.aggregated_errors_obj.buffer_error(e)
