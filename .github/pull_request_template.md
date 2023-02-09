@@ -12,13 +12,19 @@ developer section of the linked issue(s)).
 
 ## Merge Requirements
 
-- 0 reviews requesting changes
-- All conflicts are resolved
-- At least 2 approvals
-- Approvals from: @\<specific reviewers who MUST approve>
-- Child pull requests are merged:
+This pull request will be merged once the following checked requirements are
+met *(author: edit as desired)*:
+
+- [x] Minimum approvals: 2
+- [x] Changes requested: 0
+- [ ] Specific approvals: @\<specific reviewers who MUST approve>
+- [ ] Child pull requests are merged:
   - #<pull_request_number_1>
   - #<pull_request_number_2>
+- Basic requirements
+  - [x] Linting passes
+  - [x] Tests pass
+  - [x] Conflicts resolved
 
 ## Code Review Notes
 
