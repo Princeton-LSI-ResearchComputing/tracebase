@@ -2,13 +2,13 @@
 ## Summary Change Description
 
 Briefly describe the changes in this pull request (put details in the
-developer section of the linked issue).
+developer section of the linked issue(s)).
 
-## Affected Issue/PR Numbers
+## Affected Issue/Pull Request Numbers
 
 - Resolves #<issue_number_1>
-- Resolves #<issue_number_2>
-- Depends on PR #<pr_number>
+- Partially addresses #<issue_number_2>
+- Depends on PR #<pull_request_number>
 
 ## Code Review Notes
 
@@ -25,4 +25,4 @@ attention to.  E.g. There are significant logic changes in function X.
   - [ ] [Tests implemented for new methods *(or no new methods)*](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/CONTRIBUTING.md#test-implementation)
   - [ ] Tests updated for changed methods *(or no changed methods)*
   - [ ] [All tests pass](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/CONTRIBUTING.md#quality-control)
-  - [ ] All example load tests pass (remotely) *(or their failures predated this branch)*
+  - [ ] All example load tests pass (remotely) *(or all failures predate this PR)*
