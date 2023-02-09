@@ -1,9 +1,13 @@
-
 # TraceBase
-![](Attachments/TraceBase%20logo.png)
 
- TraceBase is a data repository and analysis tool for mass-spectrometry data from isotope tracing studies used to quantify metabolism in vivo. Lab members submit data corrected for natural isotope abundance (by AccuCor or IsoCorr), along with details about their experiment. TraceBase organizes this data and computes useful metrics such as enrichment, normalized labeling, and FCirc.  Data on TraceBase is easy to browse, collate, compare, and download.
+![TraceBase logo](Attachments/TraceBase%20logo.png)
 
+TraceBase is a data repository and analysis tool for mass-spectrometry data
+from isotope tracing studies used to quantify metabolism in vivo. Lab members
+submit data corrected for natural isotope abundance (by AccuCor or IsoCorr),
+along with details about their experiment. TraceBase organizes this data and
+computes useful metrics such as enrichment, normalized labeling, and FCirc.
+Data on TraceBase is easy to browse, collate, compare, and download.
 
 ## Overview
 
@@ -37,13 +41,12 @@ Slideshow introduction:  [221011_tracebase REintroduction to lab.pptx](https://d
 
 [Example_compare normalized labeling from glucose across studies](https://docs.google.com/document/d/1I64NpjpfMwTEVJ76aL0KGDjlFXXJmgnUoTQ9S0cLSeM/edit?usp=sharing)
 
-
 ## Contact Developers and Additional Links
 
 [People Who Contributed to TraceBase Development](Overview/People%20Who%20Contributed%20to%20TraceBase%20Development.md)
 
-[Github Repository](https://github.com/Princeton-LSI-ResearchComputing/tracebase)
- - [Report a bug on github](https://docs.google.com/document/d/1adaYcywNVs2R26PxSFTlwO8sgcEsCsgk2EJoNQsZoqo/edit?usp=sharing)
+[GitHub Repository](https://github.com/Princeton-LSI-ResearchComputing/tracebase)
+
+- [Report a bug on GitHub](https://docs.google.com/document/d/1adaYcywNVs2R26PxSFTlwO8sgcEsCsgk2EJoNQsZoqo/edit?usp=sharing)
 
 [Provide feedback in a google form](https://docs.google.com/document/d/1yY17rvizxhqbs4Ol7qvW8SD3mrPpL2ZLH-d1h6lL-wU/edit?usp=sharing)
-

@@ -1,2 +1,0 @@
-# Wikilinks support
-mkdocs-roamlinks-plugin>=0.1.3

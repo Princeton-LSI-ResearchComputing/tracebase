@@ -4,8 +4,10 @@ Found in [PeakData](../Types%20of%20Data%20Output/PeakData.md)
 
 [GitHub Link](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/86fee46e86add535348a2d717324c3465b8d5d9b/DataRepo/models/peak_data.py#L44-L58)
 
-
-The corrected abundance of the labeled element in this PeakData as a fraction of the total abundance of this isotopomer in this PeakGroup. Accucor calculates this as "Normalized", but TraceBase renames it to "fraction" to avoid confusion with other variables like "normalized labeling".
+The corrected abundance of the labeled element in this PeakData as a fraction
+of the total abundance of this isotopomer in this PeakGroup. Accucor calculates
+this as "Normalized", but TraceBase renames it to "fraction" to avoid confusion
+with other variables like "normalized labeling".
 
 `fraction = peak_corrected_abundance / peak_group_total_abundance`
 
