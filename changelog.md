@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pages/views
   - Created CSS file "bootstrap_table_cus1.css" to customize table options with Bootstrap-table plugin.
   - Created JavaScript "setTableHeight.js" to set table height dynamically with Bootstrap-table plugin.
+- Documentation now in the repository and hosted on GitHub pages at
+  [https://princeton-lsi-researchcomputing.github.io/tracebase/](https://princeton-lsi-researchcomputing.github.io/tracebase/)
 
 ### Changed
 
