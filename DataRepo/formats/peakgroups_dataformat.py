@@ -221,6 +221,21 @@ class PeakGroupsFormat(Format):
                     "displayed": True,
                     "type": "string",
                 },
+                "time_collected": {
+                    "displayname": "Time Collected (since infusion)",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "number",
+                    "units": {  # See dataformat.py: Format.unit_options
+                        "key": "postgres_interval",
+                        "default": "minutes",
+                        "subset": [
+                            "hours",
+                            "minutes",
+                            "seconds",
+                        ],
+                    },
+                },
             },
         },
         "Tissue": {
