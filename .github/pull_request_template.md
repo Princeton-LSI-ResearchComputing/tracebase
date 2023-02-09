@@ -8,7 +8,17 @@ developer section of the linked issue(s)).
 
 - Resolves #<issue_number_1>
 - Partially addresses #<issue_number_2>
-- Depends on PR #<pull_request_number>
+- Depends on parent #<pull_request_number>
+
+## Merge Requirements
+
+- 0 reviews requesting changes
+- All conflicts are resolved
+- At least 2 approvals
+- Approvals from: @\<specific reviewers who MUST approve>
+- Child pull requests are merged:
+  - #<pull_request_number_1>
+  - #<pull_request_number_2>
 
 ## Code Review Notes
 
