@@ -5,7 +5,7 @@ from django.test import override_settings, tag
 
 from DataRepo.models import Compound, CompoundSynonym
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
-from DataRepo.utils import AggregatedErrors, AmbiguousCompoundDefinitionError, CompoundsLoader
+from DataRepo.utils import AggregatedErrors, AmbiguousCompoundDefinitionError, CompoundsLoader, DuplicateValues
 from DataRepo.utils.compounds_loader import CompoundNotFound
 
 
@@ -137,13 +137,18 @@ class CompoundLoadingTestErrors(TracebaseTestCase):
     def test_compound_loading_failure(self):
         """Test that an error during compound loading doesn't load any compounds"""
 
-        with self.assertRaisesRegex(
-            CommandError, "Validation errors when loading compounds"
-        ):
+        with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_compounds",
                 compounds="DataRepo/example_data/testing_data/test_study_1/test_study_1_compounds_dupes.tsv",
             )
+        aes = ar.exception
+        self.assertEqual(4, len(aes.exceptions))
+        self.assertEqual(
+            4,
+            len([exc for exc in aes.exceptions if type(exc) == DuplicateValues]),
+            msg="All 4 exceptions are about duplicate values",
+        )
         self.assertEqual(Compound.objects.count(), 0)
 
 

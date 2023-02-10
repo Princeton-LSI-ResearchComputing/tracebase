@@ -1,12 +1,14 @@
 from django.conf import settings
 from django.db import transaction
 from django.db.utils import IntegrityError
+from django.forms.models import model_to_dict
 
 from DataRepo.models import Compound
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     AmbiguousCompoundDefinitionError,
     DryRun,
+    DuplicateValues,
     HeaderError,
     ValidationDatabaseSetupError,
 )
@@ -43,6 +45,7 @@ class CompoundsLoader:
             settings.VALIDATION_DB: [],
         }
         self.missing_headers = []
+        self.bad_row_indexes = []
         self.dry_run = dry_run
         self.db = settings.TRACEBASE_DB
         self.loading_mode = "both"
@@ -97,9 +100,11 @@ class CompoundsLoader:
             existing_skips = 0
             error_skips = 0
             for index, row in self.compounds_df.iterrows():
+                if index in self.bad_row_indexes:
+                    continue
                 # capture compound attributes and synonyms
-                compound = self.find_compound_for_row(row)
-                if compound is None:
+                compound, valid = self.find_compound_for_row(row, db)
+                if compound is None and valid:
                     # data does not exist in database; record for future insertion
                     new_compound = Compound(
                         name=row[self.KEY_COMPOUND_NAME],
@@ -107,12 +112,13 @@ class CompoundsLoader:
                         hmdb_id=row[self.KEY_HMDB],
                     )
                     # full_clean cannot validate (e.g. uniqueness) using a non-default database
-                    if self.db == settings.DEFAULT_DB:
+                    if db == settings.DEFAULT_DB:
                         try:
                             new_compound.full_clean()
                             self.validated_new_compounds_for_insertion[db].append(
                                 new_compound
                             )
+                            count += 1
                         except IntegrityError:
                             self.aggregated_errors_obj.buffer_warning(
                                 CompoundExists(row[self.KEY_COMPOUND_NAME], db)
@@ -121,6 +127,13 @@ class CompoundsLoader:
                         except Exception as e:
                             self.aggregated_errors_obj.buffer_error(e)
                             error_skips += 1
+                    elif db == settings.VALIDATION_DB:
+                        self.validated_new_compounds_for_insertion[db].append(
+                            new_compound
+                        )
+                        count += 1
+                elif not valid:
+                    error_skips += 1
             self.summary_messages.append(
                 f"{count} compound(s) will be inserted, with default synonyms, into the {db} database.  "
                 f"{existing_skips} already existed in the database and will be skipped.  {error_skips} compounds had "
@@ -138,12 +151,7 @@ class CompoundsLoader:
                 self.validation_error_messages.append(err_msg)
         if len(self.missing_headers) > 0:
             # Cannot proceed, so not buffering
-            raise (
-                HeaderError(
-                    f"The following column headers were missing: {', '.join(self.missing_headers)}",
-                    self.missing_headers,
-                )
-            )
+            raise RequiredHeadersError(self.missing_headers)
 
     def check_for_duplicates(self, column_header):
 
@@ -152,20 +160,19 @@ class CompoundsLoader:
             self.compounds_df.duplicated(subset=[column_header], keep=False)
         ].iterrows():
             dupe_key = row[column_header]
+            if index not in self.bad_row_indexes:
+                self.bad_row_indexes.append(index)
             if dupe_key not in dupe_dict:
-                dupe_dict[dupe_key] = str(index + 1)
+                dupe_dict[dupe_key] = [index]
             else:
-                dupe_dict[dupe_key] += "," + str(index + 1)
+                dupe_dict[dupe_key].append(index)
 
         if len(dupe_dict.keys()) != 0:
-            err_msg = (
-                f"The following duplicate {column_header} were found in the original data: ["
-                f"{'; '.join(list(map(lambda c: c + ' on rows: ' + dupe_dict[c], dupe_dict.keys())))}]"
-            )
+            dvs = DuplicateValues(dupe_dict, [column_header])
+            self.aggregated_errors_obj.buffer_error(dvs)
+            self.validation_error_messages.append(str(dvs))
 
-            self.validation_error_messages.append(err_msg)
-
-    def find_compound_for_row(self, row):
+    def find_compound_for_row(self, row, db=settings.TRACEBASE_DB):
         """
         Find single Compound record matching data from the input row.
 
@@ -181,9 +188,9 @@ class CompoundsLoader:
         Returns:
             compound: A single compound record matching the HMDB, name, and
                 synonym records in the input row
-
+            valid: Whether there was a valid match (i.e. not an ambiguous match)
         Raises:
-            AmbiguousCompoundDefinitionError: Multiple compounds were found
+            no exceptions, but buffers errors/warnings
         """
         found_compound = None
         hmdb_compound = None
@@ -194,7 +201,7 @@ class CompoundsLoader:
         name = row[self.KEY_COMPOUND_NAME]
         synonyms_string = row[self.KEY_SYNONYMS]
         try:
-            hmdb_compound = Compound.objects.using(self.db).get(hmdb_id=hmdb_id)
+            hmdb_compound = Compound.objects.using(db).get(hmdb_id=hmdb_id)
             # preferred method of "finding because it is not a potential synonym
             found_compound = hmdb_compound
             self.validation_debug_messages.append(
@@ -207,7 +214,7 @@ class CompoundsLoader:
             self.validation_warning_messages.append(msg)
 
         try:
-            named_compound = Compound.objects.using(self.db).get(name=name)
+            named_compound = Compound.objects.using(db).get(name=name)
             if hmdb_compound is None:
                 found_compound = named_compound
                 self.validation_debug_messages.append(
@@ -222,20 +229,26 @@ class CompoundsLoader:
         # if we have any inconsistency between these two queries above, either the
         # file or the database is "wrong"
         if hmdb_compound != named_compound:
-            err_msg = f"ERROR: Data inconsistency. File input Compound={name} HMDB ID={hmdb_id} "
-            if hmdb_compound is None:
-                err_msg += "did not match a database record using the file's HMDB ID, "
-            else:
-                err_msg += f"matches a database compound (by file's HMDB ID) of Compound={hmdb_compound.name} "
-                err_msg += f"HMDB ID={hmdb_compound.hmdb_id}, "
+            if hmdb_compound:
+                cve = ConflictingValueError(
+                    hmdb_compound,
+                    "name / hmdb_id",
+                    f"{hmdb_compound.name} / {hmdb_compound.hmdb_id}",
+                    f"{name} / {hmdb_id}",
+                )
+                self.aggregated_errors_obj.buffer_error(cve)
+                self.validation_error_messages.append(str(cve))
 
-            if named_compound is None:
-                err_msg += "but did not match a named database record using the file's Compound "
-            else:
-                err_msg += f"but matches a database compound (by file's Compound) of Compound={named_compound.name} "
-                err_msg += f"HMDB ID={named_compound.hmdb_id}"
-
-            self.validation_error_messages.append(err_msg)
+            if named_compound:
+                # 2 possible concurrent errors because 2 matching database records
+                cve = ConflictingValueError(
+                    named_compound,
+                    "name / hmdb_id",
+                    f"{named_compound.name} / {named_compound.hmdb_id}",
+                    f"{name} / {hmdb_id}",
+                )
+                self.aggregated_errors_obj.buffer_error(cve)
+                self.validation_error_messages.append(str(cve))
 
         if hmdb_compound is None and named_compound is None:
             self.validation_debug_messages.append(f"Could not find {hmdb_id}")
@@ -246,7 +259,7 @@ class CompoundsLoader:
                 names.extend(synonyms)
             for name in names:
                 alt_name_compound = Compound.compound_matching_name_or_synonym(
-                    name, database=self.db
+                    name, database=db
                 )
                 if alt_name_compound is not None:
                     self.validation_debug_messages.append(
@@ -266,9 +279,9 @@ class CompoundsLoader:
             self.aggregated_errors_obj.buffer_error(
                 AmbiguousCompoundDefinitionError(err_msg)
             )
-            return None
+            return None, False
 
-        return found_compound
+        return found_compound, True
 
     def parse_synonyms(self, synonyms_string: str) -> list:
         synonyms = [
@@ -360,6 +373,8 @@ class CompoundsLoader:
         count = 0
         skips = 0
         for index, row in self.compounds_df.iterrows():
+            if index in self.bad_row_indexes:
+                continue
             # we will use the HMDB ID to retrieve
             hmdb_id = row[self.KEY_HMDB]
             # this name might always be a synonym

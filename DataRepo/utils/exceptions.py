@@ -9,7 +9,7 @@ class RequiredValueError(Exception):
     pass
 
 
-class RequiredHeadersError(Exception):
+class RequiredHeadersError(HeaderError):
     def __init__(self, missing, message=None):
         if not message:
             message = f"Required header(s) missing: [{', '.join(missing)}]."
@@ -17,7 +17,7 @@ class RequiredHeadersError(Exception):
         self.missing = missing
 
 
-class HeaderConfigError(Exception):
+class HeaderConfigError(HeaderError):
     def __init__(self, missing, message=None):
         if not message:
             message = (
@@ -43,7 +43,7 @@ class RequiredValuesError(Exception):
         self.missing = missing
 
 
-class UnknownHeadersError(Exception):
+class UnknownHeadersError(HeaderError):
     def __init__(self, unknowns, message=None):
         if not message:
             message = f"Unknown header(s) encountered: [{', '.join(unknowns)}]."
@@ -430,6 +430,9 @@ class DupeCompoundIsotopeCombos(Exception):
 
 class DuplicateValues(Exception):
     def __init__(self, dupe_dict, colnames, message=None):
+        """
+        Takes a dict whose keys are (composite, unique) values and the values are lists of row indexes
+        """
         if not message:
             # Each value is displayed as "Colname1: [value1], Colname2: [value2], ... (rows*: 1,2,3)" where 1,2,3 are
             # the rows where the combo values are found
