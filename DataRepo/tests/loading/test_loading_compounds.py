@@ -123,8 +123,10 @@ class CompoundLoadingTests(TracebaseTestCase):
         }
         # create series from dictionary
         ser = pd.Series(dict)
-        with self.assertRaises(AmbiguousCompoundDefinitionError):
-            self.LOADER_INSTANCE.find_compound_for_row(ser)
+        self.LOADER_INSTANCE.find_compound_for_row(ser)
+        aes = self.LOADER_INSTANCE.aggregated_errors_obj
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertTrue(isinstance(aes.exceptions[0], AmbiguousCompoundDefinitionError))
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
@@ -161,7 +163,7 @@ class CompoundsLoaderTests(TracebaseTestCase):
         cl.load_validated_compounds()
         cl2 = CompoundsLoader(df)
         cl2.validate_data()
-        self.assertEqual(0, len(cl2.validated_new_compounds_for_insertion))
+        self.assertEqual(0, len(cl2.validated_new_compounds_for_insertion[settings.TRACEBASE_DB]))
 
     def test_compound_not_found_error(self):
         df = self.get_dataframe()
@@ -181,7 +183,7 @@ class CompoundValidationLoadingTests(TracebaseTestCase):
         call_command(
             "load_compounds",
             compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
-            validate_only=True,
+            dry_run=True,
             verbosity=0,
         )
         # validate only; nothing gets loaded
@@ -190,4 +192,4 @@ class CompoundValidationLoadingTests(TracebaseTestCase):
         super().setUpTestData()
 
     def test_compounds_loaded(self):
-        self.assertEqual(Compound.objects.all().count(), self.ALL_COMPOUNDS_COUNT)
+        self.assertEqual(self.ALL_COMPOUNDS_COUNT, Compound.objects.all().count())

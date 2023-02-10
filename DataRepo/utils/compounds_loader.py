@@ -280,15 +280,13 @@ class CompoundsLoader:
         with transaction.atomic():
             try:
                 self._load_data()
-                # If there are buffered exceptions
-                if self.aggregated_errors_obj.should_raise():
-                    raise self.aggregated_errors_obj
             except Exception as e:
                 self.aggregated_errors_obj.buffer_error(e)
-                # Prepare the exception message/data
-                self.aggregated_errors_obj.should_raise()
-                # We will raise in any case due to the exception
+
+            # If there are buffered errors
+            if self.aggregated_errors_obj.should_raise():
                 raise self.aggregated_errors_obj
+
             if self.dry_run:
                 # Roll back everything
                 raise DryRun()
