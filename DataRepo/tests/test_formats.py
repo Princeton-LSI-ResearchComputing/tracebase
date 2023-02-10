@@ -510,7 +510,6 @@ class FormatsTests(TracebaseTestCase):
         self.assertEqual(expected_prefetches[0:4], prefetches[0:4])
         self.assertEqual(expected_prefetches[5:3], prefetches[5:3])
         self.assertEqual(expected_prefetches[4][0:3], prefetches[4][0:3])
-        print(f"PREFETCHES: {prefetches}")
         self.assertIsAPgUnitsLookupDict(prefetches[4][3])
 
         # Should be called after tearDown()
