@@ -1,6 +1,8 @@
 # People Who Contributed to TraceBase Development
 
-TraceBase is developed and maintained by the Research Computing group in the Lewis-Siglar Institute for Integrated Genomics at Princeton University, in collaboration with the laboratory of Josh Rabinowitz, M.D., Ph.D.
+TraceBase is developed and maintained by the Research Computing group in the
+Lewis-Siglar Institute for Integrated Genomics at Princeton University, in
+collaboration with the laboratory of Josh Rabinowitz, M.D., Ph.D.
 
 ## Research Software Engineers
 
@@ -13,4 +15,3 @@ TraceBase is developed and maintained by the Research Computing group in the Lew
 
 [Michael Neinast](https://scholar.princeton.edu/rabinowitz/labmembers)
 [Josh Rabinowitz](https://scholar.princeton.edu/rabinowitz/contact-us)
-
