@@ -1,15 +1,15 @@
 from django.conf import settings
 from django.db import transaction
 from django.db.utils import IntegrityError
-from django.forms.models import model_to_dict
 
 from DataRepo.models import Compound
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     AmbiguousCompoundDefinitionError,
+    ConflictingValueError,
     DryRun,
     DuplicateValues,
-    HeaderError,
+    RequiredHeadersError,
     ValidationDatabaseSetupError,
 )
 

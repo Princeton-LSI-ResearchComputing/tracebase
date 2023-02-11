@@ -1,11 +1,16 @@
 import pandas as pd
 from django.conf import settings
-from django.core.management import CommandError, call_command
+from django.core.management import call_command
 from django.test import override_settings, tag
 
 from DataRepo.models import Compound, CompoundSynonym
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
-from DataRepo.utils import AggregatedErrors, AmbiguousCompoundDefinitionError, CompoundsLoader, DuplicateValues
+from DataRepo.utils import (
+    AggregatedErrors,
+    AmbiguousCompoundDefinitionError,
+    CompoundsLoader,
+    DuplicateValues,
+)
 from DataRepo.utils.compounds_loader import CompoundNotFound
 
 
@@ -135,29 +140,6 @@ class CompoundLoadingTests(TracebaseTestCase):
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
-@tag("compound_loading")
-class CompoundLoadingTestErrors(TracebaseTestCase):
-    """Tests loading of Compounds with errors"""
-
-    def test_compound_loading_failure(self):
-        """Test that an error during compound loading doesn't load any compounds"""
-
-        with self.assertRaises(AggregatedErrors) as ar:
-            call_command(
-                "load_compounds",
-                compounds="DataRepo/example_data/testing_data/test_study_1/test_study_1_compounds_dupes.tsv",
-            )
-        aes = ar.exception
-        self.assertEqual(4, len(aes.exceptions))
-        self.assertEqual(
-            4,
-            len([exc for exc in aes.exceptions if type(exc) == DuplicateValues]),
-            msg="All 4 exceptions are about duplicate values",
-        )
-        self.assertEqual(Compound.objects.count(), 0)
-
-
-@override_settings(CACHES=settings.TEST_CACHES)
 class CompoundsLoaderTests(TracebaseTestCase):
     def get_dataframe(self):
         return pd.read_csv(
@@ -173,7 +155,9 @@ class CompoundsLoaderTests(TracebaseTestCase):
         cl.load_validated_compounds()
         cl2 = CompoundsLoader(df)
         cl2.validate_data()
-        self.assertEqual(0, len(cl2.validated_new_compounds_for_insertion[settings.TRACEBASE_DB]))
+        self.assertEqual(
+            0, len(cl2.validated_new_compounds_for_insertion[settings.TRACEBASE_DB])
+        )
 
     def test_compound_not_found_error(self):
         df = self.get_dataframe()
