@@ -25,14 +25,18 @@ class LoadCompoundsTests(TracebaseTestCase):
     def test_compound_loading_failure(self):
         """Test that an error during compound loading doesn't load any compounds"""
 
-        with self.assertRaisesRegex(
-            CommandError,
-            "Validation errors when loading compounds, no compounds were loaded",
-        ):
+        with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_compounds",
                 compounds="DataRepo/example_data/testing_data/test_study_1/test_study_1_compounds_dupes.tsv",
             )
+        aes = ar.exception
+        self.assertEqual(4, len(aes.exceptions))
+        self.assertEqual(
+            4,
+            len([exc for exc in aes.exceptions if type(exc) == DuplicateValues]),
+            msg="All 4 exceptions are about duplicate values",
+        )
         self.assertEqual(Compound.objects.count(), 0)
 
 
@@ -106,7 +110,8 @@ class CompoundLoadingTests(TracebaseTestCase):
         }
         # create series from dictionary
         ser = pd.Series(dict)
-        compound = self.LOADER_INSTANCE.find_compound_for_row(ser)
+        compound, valid = self.LOADER_INSTANCE.find_compound_for_row(ser)
+        self.assertTrue(valid)
         self.assertEqual(compound.name, "fructose-1-6-bisphosphate")
 
     @tag("compound_for_row")
