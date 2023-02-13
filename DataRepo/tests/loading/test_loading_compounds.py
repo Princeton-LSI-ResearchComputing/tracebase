@@ -56,11 +56,16 @@ class CompoundLoadingTests(TracebaseTestCase):
         )
 
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
-        call_command(
-            "load_compounds",
-            compounds=primary_compound_file,
-            verbosity=0,
-        )
+        try:
+            call_command(
+                "load_compounds",
+                compounds=primary_compound_file,
+                verbosity=0,
+            )
+        except AggregatedErrors as aes:
+            print("setUpTestData ERRORS:")
+            aes.print_summary()
+            raise aes
         cls.ALL_COMPOUNDS_COUNT = 51
 
         cls.COMPOUND_WITH_MANY_NAMES = Compound.objects.get(name="a-ketoglutarate")
@@ -107,10 +112,10 @@ class CompoundLoadingTests(TracebaseTestCase):
         # this test used the SetUp-inserted data to retrieve spoofed data with
         # only synonyms
         dict = {
-            CompoundsLoader.KEY_COMPOUND_NAME: "nonsense",
-            CompoundsLoader.KEY_FORMULA: "nonsense",
-            CompoundsLoader.KEY_HMDB: "nonsense",
-            CompoundsLoader.KEY_SYNONYMS: "Fructose 1,6-bisphosphate;Fructose-1,6-diphosphate;"
+            CompoundsLoader.NAME_HEADER: "nonsense",
+            CompoundsLoader.FORMULA_HEADER: "nonsense",
+            CompoundsLoader.HMDB_ID_HEADER: "nonsense",
+            CompoundsLoader.SYNONYMS_HEADER: "Fructose 1,6-bisphosphate;Fructose-1,6-diphosphate;"
             "Fructose 1,6-diphosphate;Diphosphofructose",
         }
         # create series from dictionary
@@ -126,10 +131,10 @@ class CompoundLoadingTests(TracebaseTestCase):
         existing compound records in the database
         """
         dict = {
-            CompoundsLoader.KEY_COMPOUND_NAME: "nonsense",
-            CompoundsLoader.KEY_FORMULA: "nonsense",
-            CompoundsLoader.KEY_HMDB: "nonsense",
-            CompoundsLoader.KEY_SYNONYMS: "Fructose 1,6-bisphosphate;glucose",
+            CompoundsLoader.NAME_HEADER: "nonsense",
+            CompoundsLoader.FORMULA_HEADER: "nonsense",
+            CompoundsLoader.HMDB_ID_HEADER: "nonsense",
+            CompoundsLoader.SYNONYMS_HEADER: "Fructose 1,6-bisphosphate;glucose",
         }
         # create series from dictionary
         ser = pd.Series(dict)

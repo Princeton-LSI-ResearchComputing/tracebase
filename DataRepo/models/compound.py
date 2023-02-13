@@ -2,6 +2,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
+from django.forms.models import model_to_dict
 
 from DataRepo.models.utilities import atom_count_in_formula
 
@@ -64,6 +65,20 @@ class Compound(models.Model):
         ucfirst_synonym = self.name[0].upper() + self.name[1:]
         (_secondary_synonym, created) = self.get_or_create_synonym(ucfirst_synonym)
 
+    def clean(self, *args, **kwargs):
+        """
+        Ensure that the compound name doesn't already exist as a synonym of a different compound.
+        Note that that super.clean will have already raised an error about existing compounds, if this entire record
+        already exists.  super.clean will give us access to self.id.
+        """
+        super().clean(*args, **kwargs)
+        db = "default"
+        if hasattr(self, "_state") and hasattr(self._state, "db"):
+            db = self._state.db
+        qs = CompoundSynonym.objects.using(db).filter(name__iexact=self.name).exclude(compound__id__exact=self.id)
+        if qs.count() > 0:
+            raise CompoundExistsAsSynonym(self.name, self, qs.first())
+
     @classmethod
     def compound_matching_name_or_synonym(cls, name, database=settings.TRACEBASE_DB):
         """
@@ -118,3 +133,35 @@ class CompoundSynonym(models.Model):
 
     def __str__(self):
         return str(self.name)
+
+    def clean(self, *args, **kwargs):
+        """
+        Ensure that this synonym doesn't already exist as a compound name for a different compound.
+        """
+        super().clean(*args, **kwargs)
+        db = "default"
+        if hasattr(self, "_state") and hasattr(self._state, "db"):
+            db = self._state.db
+        qs = Compound.objects.using(db).filter(name__iexact=self.name).exclude(id__exact=self.compound.id)
+        if qs.count() > 0:
+            raise SynonymExistsAsCompound(self.name, self.compound, qs.first())
+
+
+class CompoundExistsAsSynonym(Exception):
+    def __init__(self, name, compound, conflicting_syn_rec):
+        message = (
+            f"Compound name ({name}) for new compound: [{model_to_dict(compound)}] already exists as a synonym of a "
+            f"different compound: [{model_to_dict(conflicting_syn_rec.compound)}]."
+        )
+        super().__init__(message)
+        self.name = name
+
+
+class SynonymExistsAsCompound(Exception):
+    def __init__(self, name, compound, conflicting_cpd_rec):
+        message = (
+            f"Synonym ({name}) being added to compound: [{model_to_dict(compound)}] already exists as a name of a "
+            f"different compound: [{model_to_dict(conflicting_cpd_rec)}]."
+        )
+        super().__init__(message)
+        self.name = name

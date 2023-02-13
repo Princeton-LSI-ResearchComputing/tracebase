@@ -32,9 +32,10 @@ class RequiredValuesError(Exception):
     def __init__(self, missing, message=None):
         if not message:
             nltab = "\n\t"
+            deets = list(map(lambda k: f"{str(k)} on rows: {str(missing[k])}", missing.keys()))
             message = (
                 "Missing required values have been detected in the following columns:\n\t"
-                f"{nltab.join(missing.keys())}\nNote, entirely empty rows are allowed, but having a single value on a "
+                f"{nltab.join(deets)}\nNote, entirely empty rows are allowed, but having a single value on a "
                 "row in one sheet can cause a duplication of empty rows, so be sure you don't have stray single "
                 "values in a sheet."
             )
@@ -431,7 +432,7 @@ class DupeCompoundIsotopeCombos(Exception):
 class DuplicateValues(Exception):
     def __init__(self, dupe_dict, colnames, message=None):
         """
-        Takes a dict whose keys are (composite, unique) values and the values are lists of row indexes
+        Takes a dict whose keys are (composite, unique) strings and the values are lists of row indexes
         """
         if not message:
             # Each value is displayed as "Colname1: [value1], Colname2: [value2], ... (rows*: 1,2,3)" where 1,2,3 are
