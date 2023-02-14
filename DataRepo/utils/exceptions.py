@@ -32,7 +32,9 @@ class RequiredValuesError(Exception):
     def __init__(self, missing, message=None):
         if not message:
             nltab = "\n\t"
-            deets = list(map(lambda k: f"{str(k)} on rows: {str(missing[k])}", missing.keys()))
+            deets = list(
+                map(lambda k: f"{str(k)} on rows: {str(missing[k])}", missing.keys())
+            )
             message = (
                 "Missing required values have been detected in the following columns:\n\t"
                 f"{nltab.join(deets)}\nNote, entirely empty rows are allowed, but having a single value on a "
@@ -134,8 +136,8 @@ class MultipleAccucorTracerLabelColumnsError(Exception):
         self.columns = columns
 
 
-class AmbiguousCompoundDefinitionError(Exception):
-    pass
+# class AmbiguousCompoundDefinitionError(Exception):
+#     pass
 
 
 class ValidationDatabaseSetupError(Exception):
@@ -393,7 +395,9 @@ class ConflictingValueError(Exception):
         message=None,
     ):
         if not message:
-            rowmsg = f"on row {rownum} of the load file data " if rownum is not None else ""
+            rowmsg = (
+                f"on row {rownum} of the load file data " if rownum is not None else ""
+            )
             dbmsg = f" in database [{db}]" if db is not None else ""
             message = (
                 f"Conflicting values encountered {rowmsg}in {type(rec).__name__} record [{str(rec)}] for the "
@@ -432,7 +436,7 @@ class DupeCompoundIsotopeCombos(Exception):
 
 
 class DuplicateValues(Exception):
-    def __init__(self, dupe_dict, colnames, message=None):
+    def __init__(self, dupe_dict, colnames, message=None, addendum=None):
         """
         Takes a dict whose keys are (composite, unique) strings and the values are lists of row indexes
         """
@@ -448,13 +452,16 @@ class DuplicateValues(Exception):
                 )
             nltab = "\n\t"
             message = (
-                f"{len(dupe_dict.keys())} values in unique column(s) [{colnames}] were found to have duplicate "
+                f"{len(dupe_dict.keys())} values in unique column(s) {colnames} were found to have duplicate "
                 "occurrences on the indicated rows (*note, row numbers could reflect a sheet merge and may be "
                 f"inaccurate):{nltab}{nltab.join(dupdeets)}"
             )
+            if addendum is not None:
+                message += f"\n{addendum}"
         super().__init__(message)
         self.dupe_dict = dupe_dict
         self.colnames = colnames
+        self.addendum = addendum
 
 
 class EmptyAnimalNames(Exception):

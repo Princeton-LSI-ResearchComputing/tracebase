@@ -5,9 +5,8 @@ from DataRepo.utils.accucor_data_loader import (
 )
 from DataRepo.utils.composite_data import leaderboard_data
 from DataRepo.utils.compounds_loader import CompoundsLoader
-from DataRepo.utils.exceptions import (
+from DataRepo.utils.exceptions import (  # AmbiguousCompoundDefinitionError,
     AggregatedErrors,
-    AmbiguousCompoundDefinitionError,
     ConflictingValueError,
     DryRun,
     DupeCompoundIsotopeCombos,
@@ -19,6 +18,7 @@ from DataRepo.utils.exceptions import (
     MissingSamplesError,
     NoSamplesError,
     RequiredValueError,
+    UnknownHeadersError,
     UnskippedBlanksError,
     ValidationDatabaseSetupError,
 )
@@ -50,7 +50,7 @@ __all__ = [
     "MissingCompounds",
     "MissingSamplesError",
     "NoSamplesError",
-    "AmbiguousCompoundDefinitionError",
+    # "AmbiguousCompoundDefinitionError",
     "UnskippedBlanksError",
     "ValidationDatabaseSetupError",
     "DryRun",
@@ -58,6 +58,7 @@ __all__ = [
     "QuerysetToPandasDataFrame",
     "SampleTableLoader",
     "TissuesLoader",
+    "UnknownHeadersError",
     "leaderboard_data",
     "parse_infusate_name",
     "parse_tracer_concentrations",
