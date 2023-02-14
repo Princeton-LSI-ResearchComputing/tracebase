@@ -209,13 +209,7 @@ class CompoundLoadingTests(TracebaseTestCase):
         Test that an exception is raised when synonyms on one row refer to two
         existing compound records in the database
         """
-        print(f"CONTENTS OF DEFAULT DB SYNONYMS ({CompoundSynonym.objects.using('default').count()}):")
-        for r in CompoundSynonym.objects.using('default').all():
-            print(f"{r}")
-        print(f"CONTENTS OF VALIDATION DB SYNONYMS ({CompoundSynonym.objects.using('validation').count()}):")
-        for r in CompoundSynonym.objects.using('validation').all():
-            print(f"{r}")
-        # create series from dictionary
+        # create dataframe from dictionary
         cl = CompoundsLoader(compounds_df=pd.DataFrame.from_dict({
             CompoundsLoader.NAME_HEADER: ["nonsense"],
             CompoundsLoader.FORMULA_HEADER: ["nonsense"],
@@ -245,15 +239,29 @@ class CompoundsLoaderTests(TracebaseTestCase):
             keep_default_na=False,
         )
 
-    def test_compound_exists_error(self):
+    def test_compound_exists_skipped(self):
         df = self.get_dataframe()
         cl = CompoundsLoader(df)
-        cl.validate_data()
-        cl.load_validated_compounds()
+        cl.load_compounds()
         cl2 = CompoundsLoader(df)
-        cl2.validate_data()
+        cl2.load_compounds()
         self.assertEqual(
-            0, len(cl2.validated_new_compounds_for_insertion[settings.TRACEBASE_DB])
+            {settings.TRACEBASE_DB: 0, settings.VALIDATION_DB: 0}, cl2.num_inserted_compounds
+        )
+        self.assertEqual(
+            {settings.TRACEBASE_DB: 0, settings.VALIDATION_DB: 0}, cl2.num_erroneous_compounds
+        )
+        self.assertEqual(
+            {settings.TRACEBASE_DB: 1, settings.VALIDATION_DB: 1}, cl2.num_existing_compounds
+        )
+        self.assertEqual(
+            {settings.TRACEBASE_DB: 0, settings.VALIDATION_DB: 0}, cl2.num_inserted_synonyms
+        )
+        self.assertEqual(
+            {settings.TRACEBASE_DB: 0, settings.VALIDATION_DB: 0}, cl2.num_erroneous_synonyms
+        )
+        self.assertEqual(
+            {settings.TRACEBASE_DB: 0, settings.VALIDATION_DB: 0}, cl2.num_existing_synonyms
         )
 
     def test_compound_not_found_error(self):
