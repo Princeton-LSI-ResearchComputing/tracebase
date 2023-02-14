@@ -393,12 +393,13 @@ class ConflictingValueError(Exception):
         message=None,
     ):
         if not message:
-            rowmsg = f"on row {rownum} " if rownum is not None else ""
+            rowmsg = f"on row {rownum} of the load file data " if rownum is not None else ""
             dbmsg = f" in database [{db}]" if db is not None else ""
             message = (
                 f"Conflicting values encountered {rowmsg}in {type(rec).__name__} record [{str(rec)}] for the "
-                f"[{consistent_field}] field{dbmsg}:\n\tdatabase value: [{existing_value}]\n\tload data value: "
-                f"[{differing_value}]."
+                f"[{consistent_field}] field{dbmsg}:\n"
+                f"\tdatabase {consistent_field} value: [{existing_value}]\n"
+                f"\tfile {consistent_field} value: [{differing_value}]"
             )
         super().__init__(message)
         self.consistent_field = consistent_field

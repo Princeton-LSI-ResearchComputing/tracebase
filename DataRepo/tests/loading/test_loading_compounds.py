@@ -116,21 +116,92 @@ class CompoundLoadingTests(TracebaseTestCase):
         self.assertIsNone(synonymous_compound)
 
     @tag("compound_for_row")
-    def test_missing_compounds_keys_in_find_compound_for_row(self):
-        # this test used the SetUp-inserted data to retrieve spoofed data with
-        # only synonyms
-        # create series from dictionary
+    def test_new_synonyms_added_to_existing_compound(self):
+        """
+        This (renamed) test used to assure that the synonym is associated with a previously loaded compound when the
+        data for the compound in the load was nonsense.  However, this is no longer supported.  The data in the load
+        must be consistent and the load script should not associate a synonym with what is defined as a different
+        compound in the load file.  So instead, this test will assure that new synonyms added to a correctly defined
+        compound is associated with a previously loaded compound, to add NEW valid synonyms.
+        """
+        # create dataframe from dictionary
         cl = CompoundsLoader(compounds_df=pd.DataFrame.from_dict({
-            CompoundsLoader.NAME_HEADER: ["nonsense"],
-            CompoundsLoader.FORMULA_HEADER: ["nonsense"],
-            CompoundsLoader.HMDB_ID_HEADER: ["nonsense"],
+            CompoundsLoader.NAME_HEADER: ["fructose-1-6-bisphosphate"],
+            CompoundsLoader.FORMULA_HEADER: ["C6H14O12P2"],
+            CompoundsLoader.HMDB_ID_HEADER: ["HMDB0001058"],
             CompoundsLoader.SYNONYMS_HEADER: [(
                 "Fructose 1,6-bisphosphate;Fructose-1,6-diphosphate;"
-                "Fructose 1,6-diphosphate;Diphosphofructose"
+                "Fructose 1,6-diphosphate;Diphosphofructose;new valid synonym"
             )],
         }))
         cl.load_compounds()
-        # self.assertEqual(compound.name, "fructose-1-6-bisphosphate")
+        self.assertEqual(
+            1,
+            cl.num_existing_compounds[settings.TRACEBASE_DB],
+            msg="Compound default insert should be skipped",
+        )
+        self.assertEqual(
+            1,
+            cl.num_existing_compounds[settings.VALIDATION_DB],
+            msg="Compound validation insert should be skipped",
+        )
+        self.assertEqual(
+            0,
+            cl.num_inserted_compounds[settings.TRACEBASE_DB],
+            msg="No compounds default should be inserted",
+        )
+        self.assertEqual(
+            0,
+            cl.num_inserted_compounds[settings.VALIDATION_DB],
+            msg="No compounds validation should be inserted",
+        )
+        self.assertEqual(
+            0,
+            cl.num_erroneous_compounds[settings.TRACEBASE_DB],
+            msg="No compounds default should be in error",
+        )
+        self.assertEqual(
+            0,
+            cl.num_erroneous_compounds[settings.VALIDATION_DB],
+            msg="No compounds validation should be in error",
+        )
+
+
+        self.assertEqual(
+            4,
+            cl.num_existing_synonyms[settings.TRACEBASE_DB],
+            msg="4 synonym default inserts should be skipped",
+        )
+        self.assertEqual(
+            4,
+            cl.num_existing_synonyms[settings.VALIDATION_DB],
+            msg="4 synonym validation inserts should be skipped",
+        )
+        self.assertEqual(
+            1,
+            cl.num_inserted_synonyms[settings.TRACEBASE_DB],
+            msg="1 synonym default should be inserted",
+        )
+        self.assertEqual(
+            1,
+            cl.num_inserted_synonyms[settings.VALIDATION_DB],
+            msg="1 synonym validation should be inserted",
+        )
+        self.assertEqual(
+            0,
+            cl.num_erroneous_synonyms[settings.TRACEBASE_DB],
+            msg="No synonyms default should be in error",
+        )
+        self.assertEqual(
+            0,
+            cl.num_erroneous_synonyms[settings.VALIDATION_DB],
+            msg="No synonyms validation should be in error",
+        )
+        self.assertEqual(
+            "fructose-1-6-bisphosphate",
+            CompoundSynonym.objects.get(name__exact="new valid synonym").compound.name,
+            msg="Assure new synonym is associated with the correct existing compound record.",
+        )
 
     @tag("compound_for_row")
     def test_ambiguous_synonym_in_find_compound_for_row(self):
@@ -154,12 +225,15 @@ class CompoundLoadingTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             cl.load_compounds()
         aes = ar.exception
-        aes.print_summary()
-        self.assertEqual(4, len(aes.exceptions))
-        self.assertTrue(isinstance(aes.exceptions[0], ConflictingValueError))
-        self.assertTrue(isinstance(aes.exceptions[1], ConflictingValueError))
-        self.assertTrue(isinstance(aes.exceptions[2], ConflictingValueError))
-        self.assertTrue(isinstance(aes.exceptions[3], ConflictingValueError))
+        self.assertEqual(4, aes.num_errors)
+        self.assertEqual(
+            4,
+            len([
+                exc for exc in aes.exceptions
+                if type(exc) == ConflictingValueError and exc.consistent_field == "compound"
+            ]),
+            msg="All 8 exceptions are conflicting value errors about the compound field",
+        )
 
 
 @override_settings(CACHES=settings.TEST_CACHES)

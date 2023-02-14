@@ -52,6 +52,12 @@ class CompoundsLoader:
         }
         # self.missing_rqd_values = defaultdict(list)
         self.bad_row_indexes = []
+        self.num_inserted_compounds = {settings.TRACEBASE_DB: 0, settings.VALIDATION_DB: 0}
+        self.num_existing_compounds = {settings.TRACEBASE_DB: 0, settings.VALIDATION_DB: 0}
+        self.num_erroneous_compounds = {settings.TRACEBASE_DB: 0, settings.VALIDATION_DB: 0}
+        self.num_inserted_synonyms = {settings.TRACEBASE_DB: 0, settings.VALIDATION_DB: 0}
+        self.num_existing_synonyms = {settings.TRACEBASE_DB: 0, settings.VALIDATION_DB: 0}
+        self.num_erroneous_synonyms = {settings.TRACEBASE_DB: 0, settings.VALIDATION_DB: 0}
         self.dry_run = dry_run
         self.db = settings.TRACEBASE_DB
         self.loading_mode = "both"
@@ -396,12 +402,6 @@ class CompoundsLoader:
             hmdb_id = self.getRowVal(row, self.HMDB_ID_HEADER)
             synonyms = self.parse_synonyms(self.getRowVal(row, self.SYNONYMS_HEADER))
 
-            compound_inserts = 0
-            compound_skips = 0
-            compound_errors = 0
-            synonym_inserts = 0
-            synonym_errors = 0
-
             try:
                 compound_recdict = {
                     "name": name,
@@ -412,13 +412,15 @@ class CompoundsLoader:
                 # get_or_create does not perform a full clean
                 if compound_created:
                     compound_rec.full_clean()
-                compound_inserts += 1
+                    self.num_inserted_compounds[db] += 1
+                else:
+                    self.num_existing_compounds[db] += 1
             except IntegrityError:
                 self.aggregated_errors_obj.buffer_warning(CompoundExists(name, db))
-                compound_skips += 1
+                self.num_erroneous_compounds[db] += 1
             except Exception as e:
                 self.aggregated_errors_obj.buffer_error(e)
-                compound_errors += 1
+                self.num_erroneous_compounds[db] += 1
 
             for synonym in synonyms:
                 try:
@@ -430,7 +432,9 @@ class CompoundsLoader:
                     # get_or_create does not perform a full clean
                     if synonym_created:
                         synonym_rec.full_clean()
-                    synonym_inserts += 1
+                        self.num_inserted_synonyms[db] += 1
+                    else:
+                        self.num_existing_synonyms[db] += 1
                 except SynonymExistsAsMismatchedCompound as seamc:
                     print(f"SYNONYM {synonym} {db} COMPOUND CREATED?: {compound_created} ORIG ERROR: {seamc}")
                     self.aggregated_errors_obj.buffer_error(seamc)
@@ -449,11 +453,11 @@ class CompoundsLoader:
                             self.aggregated_errors_obj.buffer_error(ie)
                     else:
                         self.aggregated_errors_obj.buffer_warning(CompoundSynonymExists(name, db))
-                    synonym_errors += 1
+                    self.num_erroneous_synonyms[db] += 1
                     # synonym_skips += 1
                 except Exception as e:
                     self.aggregated_errors_obj.buffer_error(e)
-                    synonym_errors += 1
+                    self.num_erroneous_synonyms[db] += 1
 
     def check_for_inconsistencies(self, rec, value_dict, index=None, db=None):
         mismatches = 0
