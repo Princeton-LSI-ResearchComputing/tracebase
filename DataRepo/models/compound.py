@@ -61,9 +61,12 @@ class Compound(models.Model):
         are auto-creating afterwards
         """
         super().save(*args, **kwargs)
-        (_primary_synonym, created) = self.get_or_create_synonym()
+        db = "default"
+        if hasattr(self, "_state") and hasattr(self._state, "db"):
+            db = self._state.db
+        (_primary_synonym, created) = self.get_or_create_synonym(database=db)
         ucfirst_synonym = self.name[0].upper() + self.name[1:]
-        (_secondary_synonym, created) = self.get_or_create_synonym(ucfirst_synonym)
+        (_secondary_synonym, created) = self.get_or_create_synonym(ucfirst_synonym, database=db)
 
     def clean(self, *args, **kwargs):
         """
@@ -75,9 +78,9 @@ class Compound(models.Model):
         db = "default"
         if hasattr(self, "_state") and hasattr(self._state, "db"):
             db = self._state.db
-        qs = CompoundSynonym.objects.using(db).filter(name__iexact=self.name).exclude(compound__id__exact=self.id)
+        qs = CompoundSynonym.objects.using(db).filter(name__exact=self.name).exclude(compound__id__exact=self.id)
         if qs.count() > 0:
-            raise CompoundExistsAsSynonym(self.name, self, qs.first())
+            raise CompoundExistsAsMismatchedSynonym(self.name, self, qs.first())
 
     @classmethod
     def compound_matching_name_or_synonym(cls, name, database=settings.TRACEBASE_DB):
@@ -142,26 +145,64 @@ class CompoundSynonym(models.Model):
         db = "default"
         if hasattr(self, "_state") and hasattr(self._state, "db"):
             db = self._state.db
-        qs = Compound.objects.using(db).filter(name__iexact=self.name).exclude(id__exact=self.compound.id)
+        qs = Compound.objects.using(db).filter(name__exact=self.name).exclude(id__exact=self.compound.id)
+        print(f"Clean querying db {db} for compound name matching synonym: {self.name} num results: {qs.count()}")
         if qs.count() > 0:
-            raise SynonymExistsAsCompound(self.name, self.compound, qs.first())
+            raise SynonymExistsAsMismatchedCompound(self.name, self.compound, qs.first())
 
 
-class CompoundExistsAsSynonym(Exception):
+class CompoundExistsAsMismatchedSynonym(Exception):
     def __init__(self, name, compound, conflicting_syn_rec):
+        # Don't report the ID - it is arbitrary
+        excludes = ['id']
+        compound_dict = {k:v for k,v in model_to_dict(compound).items() if k not in excludes}
+        conflicting_syn_cpd_dict = {
+            k:v for k,v in model_to_dict(conflicting_syn_rec.compound).items() if k not in excludes
+        }
+        
+        # Determine the database
+        db = "default"
+        if hasattr(conflicting_syn_rec, "_state") and hasattr(conflicting_syn_rec._state, "db"):
+            db = conflicting_syn_rec._state.db
         message = (
-            f"Compound name ({name}) for new compound: [{model_to_dict(compound)}] already exists as a synonym of a "
-            f"different compound: [{model_to_dict(conflicting_syn_rec.compound)}]."
+            f"The compound name being loaded ({name}) already exists as a synonym in database [{db}], but the "
+            "compound being loaded does not match the compound associated with the synonym in the database:\n"
+            f"\tTo be loaded: {compound_dict}\n"
+            f"\tExisting rec: {conflicting_syn_cpd_dict}\n"
+            "Please make sure this synonym isn't being associated with different compounds.  Either fix the compound "
+            "data in the load to match, or remove this synonym."
         )
+
         super().__init__(message)
         self.name = name
+        self.db = db
+        self.compound = compound
+        self.conflicting_cpd_rec = conflicting_syn_rec
 
 
-class SynonymExistsAsCompound(Exception):
+class SynonymExistsAsMismatchedCompound(Exception):
     def __init__(self, name, compound, conflicting_cpd_rec):
+        # Don't report the ID - it is arbitrary
+        excludes = ['id']
+        compound_dict = {k:v for k,v in model_to_dict(compound).items() if k not in excludes}
+        conflicting_cpd_dict = {k:v for k,v in model_to_dict(conflicting_cpd_rec).items() if k not in excludes}
+        
+        # Determine the database
+        db = "default"
+        if hasattr(conflicting_cpd_rec, "_state") and hasattr(conflicting_cpd_rec._state, "db"):
+            db = conflicting_cpd_rec._state.db
+
         message = (
-            f"Synonym ({name}) being added to compound: [{model_to_dict(compound)}] already exists as a name of a "
-            f"different compound: [{model_to_dict(conflicting_cpd_rec)}]."
+            f"The compound synonym being loaded ({name}) already exists as a compound name in database [{db}], but "
+            "that existing compound record does not match the compound associated with the synonym in the load data:\n"
+            f"\tTo be loaded: {compound_dict}\n"
+            f"\tExisting rec: {conflicting_cpd_dict}\n"
+            "Please make sure this synonym isn't being associated with different compounds.  Either fix the compound "
+            "data in the load to match, or remove this synonym."
         )
+
         super().__init__(message)
         self.name = name
+        self.db = db
+        self.compound = compound
+        self.conflicting_cpd_rec = conflicting_cpd_rec

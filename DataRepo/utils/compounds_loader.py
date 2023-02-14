@@ -4,10 +4,11 @@ from django.db import transaction
 from django.db.utils import IntegrityError
 
 from DataRepo.models import Compound, CompoundSynonym
+from DataRepo.models.compound import SynonymExistsAsMismatchedCompound
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     # AmbiguousCompoundDefinitionError,
-    # ConflictingValueError,
+    ConflictingValueError,
     DryRun,
     DuplicateValues,
     RequiredHeadersError,
@@ -399,22 +400,21 @@ class CompoundsLoader:
             compound_skips = 0
             compound_errors = 0
             synonym_inserts = 0
-            synonym_skips = 0
             synonym_errors = 0
 
             try:
-                recdict = {
+                compound_recdict = {
                     "name": name,
                     "formula": formula,
                     "hmdb_id": hmdb_id,
                 }
-                compound_rec, compound_created = Compound.objects.using(db).get_or_create(**recdict)
+                compound_rec, compound_created = Compound.objects.using(db).get_or_create(**compound_recdict)
                 # get_or_create does not perform a full clean
                 if compound_created:
                     compound_rec.full_clean()
                 compound_inserts += 1
             except IntegrityError:
-                self.aggregated_errors_obj.buffer_warning(CompoundSynonymExists(name, db))
+                self.aggregated_errors_obj.buffer_warning(CompoundExists(name, db))
                 compound_skips += 1
             except Exception as e:
                 self.aggregated_errors_obj.buffer_error(e)
@@ -422,21 +422,56 @@ class CompoundsLoader:
 
             for synonym in synonyms:
                 try:
-                    recdict = {
+                    synonym_recdict = {
                         "name": synonym,
                         "compound": compound_rec,
                     }
-                    synonym_rec, synonym_created = CompoundSynonym.objects.using(db).get_or_create(**recdict)
+                    synonym_rec, synonym_created = CompoundSynonym.objects.using(db).get_or_create(**synonym_recdict)
                     # get_or_create does not perform a full clean
                     if synonym_created:
                         synonym_rec.full_clean()
                     synonym_inserts += 1
-                except IntegrityError:
-                    self.aggregated_errors_obj.buffer_warning(CompoundExists(name, db))
-                    synonym_skips += 1
+                except SynonymExistsAsMismatchedCompound as seamc:
+                    print(f"SYNONYM {synonym} {db} COMPOUND CREATED?: {compound_created} ORIG ERROR: {seamc}")
+                    self.aggregated_errors_obj.buffer_error(seamc)
+                except IntegrityError as ie:
+                    iestr = str(ie)
+                    print(f"SYNONYM {synonym} {db} COMPOUND CREATED?: {compound_created} ORIG ERROR: {iestr}")
+                    if "duplicate key value violates unique constraint" in iestr:
+                        # This means that the record exists (the synonym record exists, but to a different compound -
+                        # so something in the compound data in the load doesn't completely match)
+                        try:
+                            existing_synonym = CompoundSynonym.objects.using(db).get(name__exact=synonym_recdict["name"])
+                            mismatches = self.check_for_inconsistencies(existing_synonym, synonym_recdict, index, db)
+                            if mismatches == 0:
+                                self.aggregated_errors_obj.buffer_error(ie)
+                        except Exception:
+                            self.aggregated_errors_obj.buffer_error(ie)
+                    else:
+                        self.aggregated_errors_obj.buffer_warning(CompoundSynonymExists(name, db))
+                    synonym_errors += 1
+                    # synonym_skips += 1
                 except Exception as e:
                     self.aggregated_errors_obj.buffer_error(e)
                     synonym_errors += 1
+
+    def check_for_inconsistencies(self, rec, value_dict, index=None, db=None):
+        mismatches = 0
+        for field, new_value in value_dict.items():
+            orig_value = getattr(rec, field)
+            if orig_value != new_value:
+                mismatches += 1
+                self.aggregated_errors_obj.buffer_error(
+                    ConflictingValueError(
+                        rec,
+                        field,
+                        orig_value,
+                        new_value,
+                        index + 1,  # row number (starting from 1)
+                        db,
+                    )
+                )
+        return mismatches
 
     # def load_validated_compounds(self):
     #     # "both" is the normal loading mode - always loads both the validation and tracebase databases, unless the

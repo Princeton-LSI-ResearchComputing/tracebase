@@ -389,15 +389,15 @@ class ConflictingValueError(Exception):
         existing_value,
         differing_value,
         rownum=None,
+        db=None,
         message=None,
     ):
         if not message:
-            rowmsg = ""
-            if rownum:
-                rowmsg = f"on row {rownum} "
+            rowmsg = f"on row {rownum} " if rownum is not None else ""
+            dbmsg = f" in database [{db}]" if db is not None else ""
             message = (
                 f"Conflicting values encountered {rowmsg}in {type(rec).__name__} record [{str(rec)}] for the "
-                f"[{consistent_field}] field:\n\tdatabase value: [{existing_value}]\n\tload data value: "
+                f"[{consistent_field}] field{dbmsg}:\n\tdatabase value: [{existing_value}]\n\tload data value: "
                 f"[{differing_value}]."
             )
         super().__init__(message)
@@ -405,6 +405,7 @@ class ConflictingValueError(Exception):
         self.existing_value = existing_value
         self.differing_value = differing_value
         self.rownum = rownum
+        self.db = db
 
 
 class SaveError(Exception):

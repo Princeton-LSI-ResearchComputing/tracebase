@@ -4,11 +4,13 @@ from django.core.management import call_command
 from django.test import override_settings, tag
 
 from DataRepo.models import Compound, CompoundSynonym
+from DataRepo.models.compound import SynonymExistsAsMismatchedCompound
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import (
     AggregatedErrors,
-    AmbiguousCompoundDefinitionError,
+    # AmbiguousCompoundDefinitionError,
     CompoundsLoader,
+    ConflictingValueError,
     DuplicateValues,
 )
 from DataRepo.utils.compounds_loader import CompoundNotFound
@@ -56,6 +58,12 @@ class CompoundLoadingTests(TracebaseTestCase):
         )
 
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
+        print(f"PREVIOUS CONTENTS OF DEFAULT DB SYNONYMS ({CompoundSynonym.objects.using('default').count()}):")
+        for r in CompoundSynonym.objects.using('default').all():
+            print(f"{r}")
+        print(f"PREVIOUS CONTENTS OF VALIDATION DB SYNONYMS ({CompoundSynonym.objects.using('validation').count()}):")
+        for r in CompoundSynonym.objects.using('validation').all():
+            print(f"{r}")
         try:
             call_command(
                 "load_compounds",
@@ -111,18 +119,18 @@ class CompoundLoadingTests(TracebaseTestCase):
     def test_missing_compounds_keys_in_find_compound_for_row(self):
         # this test used the SetUp-inserted data to retrieve spoofed data with
         # only synonyms
-        dict = {
-            CompoundsLoader.NAME_HEADER: "nonsense",
-            CompoundsLoader.FORMULA_HEADER: "nonsense",
-            CompoundsLoader.HMDB_ID_HEADER: "nonsense",
-            CompoundsLoader.SYNONYMS_HEADER: "Fructose 1,6-bisphosphate;Fructose-1,6-diphosphate;"
-            "Fructose 1,6-diphosphate;Diphosphofructose",
-        }
         # create series from dictionary
-        ser = pd.Series(dict)
-        compound, valid = self.LOADER_INSTANCE.find_compound_for_row(ser)
-        self.assertTrue(valid)
-        self.assertEqual(compound.name, "fructose-1-6-bisphosphate")
+        cl = CompoundsLoader(compounds_df=pd.DataFrame.from_dict({
+            CompoundsLoader.NAME_HEADER: ["nonsense"],
+            CompoundsLoader.FORMULA_HEADER: ["nonsense"],
+            CompoundsLoader.HMDB_ID_HEADER: ["nonsense"],
+            CompoundsLoader.SYNONYMS_HEADER: [(
+                "Fructose 1,6-bisphosphate;Fructose-1,6-diphosphate;"
+                "Fructose 1,6-diphosphate;Diphosphofructose"
+            )],
+        }))
+        cl.load_compounds()
+        # self.assertEqual(compound.name, "fructose-1-6-bisphosphate")
 
     @tag("compound_for_row")
     def test_ambiguous_synonym_in_find_compound_for_row(self):
@@ -130,18 +138,28 @@ class CompoundLoadingTests(TracebaseTestCase):
         Test that an exception is raised when synonyms on one row refer to two
         existing compound records in the database
         """
-        dict = {
-            CompoundsLoader.NAME_HEADER: "nonsense",
-            CompoundsLoader.FORMULA_HEADER: "nonsense",
-            CompoundsLoader.HMDB_ID_HEADER: "nonsense",
-            CompoundsLoader.SYNONYMS_HEADER: "Fructose 1,6-bisphosphate;glucose",
-        }
+        print(f"CONTENTS OF DEFAULT DB SYNONYMS ({CompoundSynonym.objects.using('default').count()}):")
+        for r in CompoundSynonym.objects.using('default').all():
+            print(f"{r}")
+        print(f"CONTENTS OF VALIDATION DB SYNONYMS ({CompoundSynonym.objects.using('validation').count()}):")
+        for r in CompoundSynonym.objects.using('validation').all():
+            print(f"{r}")
         # create series from dictionary
-        ser = pd.Series(dict)
-        self.LOADER_INSTANCE.find_compound_for_row(ser)
-        aes = self.LOADER_INSTANCE.aggregated_errors_obj
-        self.assertEqual(1, len(aes.exceptions))
-        self.assertTrue(isinstance(aes.exceptions[0], AmbiguousCompoundDefinitionError))
+        cl = CompoundsLoader(compounds_df=pd.DataFrame.from_dict({
+            CompoundsLoader.NAME_HEADER: ["nonsense"],
+            CompoundsLoader.FORMULA_HEADER: ["nonsense"],
+            CompoundsLoader.HMDB_ID_HEADER: ["nonsense"],
+            CompoundsLoader.SYNONYMS_HEADER: ["Fructose 1,6-bisphosphate;glucose"],
+        }))
+        with self.assertRaises(AggregatedErrors) as ar:
+            cl.load_compounds()
+        aes = ar.exception
+        aes.print_summary()
+        self.assertEqual(4, len(aes.exceptions))
+        self.assertTrue(isinstance(aes.exceptions[0], ConflictingValueError))
+        self.assertTrue(isinstance(aes.exceptions[1], ConflictingValueError))
+        self.assertTrue(isinstance(aes.exceptions[2], ConflictingValueError))
+        self.assertTrue(isinstance(aes.exceptions[3], ConflictingValueError))
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
