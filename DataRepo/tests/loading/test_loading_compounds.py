@@ -275,7 +275,7 @@ class CompoundLoadingTests(TracebaseTestCase):
                 {
                     CompoundsLoader.NAME_HEADER: [
                         "new compound 1",
-                        "existing synonym",  # New compound name that already exists as a synonym of a different compound
+                        "existing synonym",  # New compound name that already exists as a synonym of a different cmpd
                     ],
                     CompoundsLoader.FORMULA_HEADER: [
                         "C3",
