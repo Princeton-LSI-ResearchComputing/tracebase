@@ -7,7 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-none
+## [2.0.2] - 2023-02-10
+
+### Added
+
+- Pages/views
+  - Created CSS file "bootstrap_table_cus1.css" to customize table options with Bootstrap-table plugin.
+  - Created JavaScript "setTableHeight.js" to set table height dynamically with Bootstrap-table plugin.
+- Documentation now in the repository and hosted on GitHub pages at
+  [https://princeton-lsi-researchcomputing.github.io/tracebase/](https://princeton-lsi-researchcomputing.github.io/tracebase/)
+
+### Changed
+
+- Pages/views
+  - Made minor changes to the DataFrame for study list and stats (added total infusates)
+  - Modified code for customtag filter "obj_hyperlink" to display list with or without line breaks.
+  - Improved display of infusates in study and aninal templates.
+  - Changed column width for some columns in study and animal tables.
+- Models
+  - Changed the value validation for PeakDataLabel and TracerLabel count, mass_number, and positions be based on the actual attributes of the compound/element instead of static arbitrary values
+- Advanced Search
+  - Added time collected to the PeakData and PeakGroups advanced search formats.
 
 ## [2.0.1] - 2023-01-05
 
