@@ -2,6 +2,7 @@ from django.core.management import call_command
 from django.urls import reverse
 
 from DataRepo.models import Protocol
+from DataRepo.models.maintained_model import UncleanBufferError, buffer_size
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
@@ -15,6 +16,10 @@ class ProtocolViewTests(TracebaseTestCase):
 
     @classmethod
     def setUpTestData(cls):
+        # Ensure the auto-update buffer is empty.  If it's not, then a previously run test didn't clean up after itself
+        if buffer_size() > 0:
+            raise UncleanBufferError()
+
         call_command("load_study", "DataRepo/example_data/test_dataframes/loading.yaml")
 
     def test_animal_treatment_list(self):

@@ -9,7 +9,8 @@ from django.views.generic.edit import FormView
 from DataRepo.forms import DataSubmissionValidationForm
 from DataRepo.models import Compound, CompoundSynonym, Protocol, Tissue
 from DataRepo.models.utilities import get_all_models
-from DataRepo.utils import MissingSamplesError, ResearcherError
+from DataRepo.utils import DryRun, MissingSamplesError, UnknownResearcherError
+from DataRepo.utils.exceptions import AggregatedErrors
 
 
 class DataValidationView(FormView):
@@ -85,8 +86,10 @@ class DataValidationView(FormView):
         # This assumes the Protocol table in the validation database is empty, which should be valid given the call to
         # clear_validation_database in the `finally` block below and the fact that the protocols loader does not
         # default-load the validation database (in the current code)
-        for rec in Protocol.objects.using(settings.DEFAULT_DB).all():
-            rec.save(using=settings.VALIDATION_DB)
+        for rec in Protocol.objects.using(settings.DEFAULT_DB).values():
+            # We must delete AutoField key/value pairs because it screws up the next AutoField generation
+            del rec["id"]
+            Protocol.objects.using(settings.VALIDATION_DB).create(**rec)
 
         try:
             errors[animal_sample_name] = []
@@ -98,7 +101,6 @@ class DataValidationView(FormView):
                     "load_protocols",
                     protocols=animal_sample_dict[animal_sample_name],
                     validate=True,
-                    verbosity=2,
                 )
                 # Do not set PASSED here. If the full animal/sample table load passes, THEN this file has passed.
             except Exception as e:
@@ -127,30 +129,34 @@ class DataValidationView(FormView):
                         validate=True,
                     )
                     results[animal_sample_name] = "PASSED"
-                except ResearcherError as re:
-                    valid = False
-                    errors[animal_sample_name].append(
-                        "[The following error about a new researcher name should only be addressed if the name "
-                        "already exists in the database as a variation.  If this is a truly new researcher name in "
-                        f"the database, it may be ignored.]\n{animal_sample_name}: {str(re)}"
-                    )
-                    results[animal_sample_name] = "WARNING"
-                except Exception as e:
-                    estr = str(e)
-                    # We are using the presence of the string "Debugging..." to infer that it got to the end of the
-                    # load without an exception.  If there is no "Debugging" message, then an exception did not occur
-                    # anyway
+                except DryRun as dr:
                     if settings.DEBUG:
                         traceback.print_exc()
-                        print(estr)
-                    if "Debugging" not in estr:
+                        print(str(dr))
+                    results[animal_sample_name] = "PASSED"
+                except AggregatedErrors as ae:
+                    if len(ae.errors) == 1 and isinstance(
+                        ae.errors[0], UnknownResearcherError
+                    ):
+                        ure = ae.errors[0]
                         valid = False
                         errors[animal_sample_name].append(
-                            f"{e.__class__.__name__}: {estr}"
+                            "[The following error about a new researcher name should only be addressed if the name "
+                            "already exists in the database as a variation.  If this is a truly new researcher name in "
+                            f"the database, it may be ignored.]\n{animal_sample_name}: {str(ure)}"
                         )
-                        results[animal_sample_name] = "FAILED"
+                        results[animal_sample_name] = "WARNING"
                     else:
-                        results[animal_sample_name] = "PASSED"
+                        for err in ae.errors:
+                            estr = str(err)
+                            if settings.DEBUG:
+                                traceback.print_exc()
+                                print(estr)
+                            errors[animal_sample_name].append(
+                                f"{err.__class__.__name__}: {estr}"
+                            )
+                        valid = False
+                        results[animal_sample_name] = "FAILED"
 
             can_proceed = False
             if results[animal_sample_name] != "FAILED":
@@ -166,18 +172,15 @@ class DataValidationView(FormView):
                         validate=True,
                     )
                     can_proceed = True
-                except Exception as e:
-                    estr = str(e)
-                    # We are using the presence of the string "Debugging..." to infer that it got to the end of the
-                    # load without an exception.  If there is no "Debugging" message, then an exception did not occur
-                    # anyway
-                    if settings.DEBUG:
-                        traceback.print_exc()
-                        print(estr)
+                except AggregatedErrors as ae:
+                    for err in ae.errors:
+                        if settings.DEBUG:
+                            traceback.print_exc()
+                            print(str(err))
+                        errors[animal_sample_name].append(
+                            f"{animal_sample_name} {err.__class__.__name__}: {str(err)}"
+                        )
                     valid = False
-                    errors[animal_sample_name].append(
-                        f"{animal_sample_name} {e.__class__.__name__}: {str(e)}"
-                    )
                     results[animal_sample_name] = "FAILED"
                     can_proceed = False
 
@@ -224,7 +227,7 @@ class DataValidationView(FormView):
                             valid = False
                             results[af] = "FAILED"
                             errors[af].append(
-                                "Samples in the accucor file are missing in the animal and sample table: "
+                                f"Samples in the accucor file [{af}] are missing in the animal and sample table: "
                                 + f"[{', '.join(real_samples)}]"
                             )
                     except Exception as e:

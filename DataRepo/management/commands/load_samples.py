@@ -62,12 +62,13 @@ class Command(BaseCommand):
             sample_table_headers=headers,
             database=options["database"],
             validate=options["validate"],
+            skip_researcher_check=options["skip_researcher_check"],
+            verbosity=options["verbosity"],
         )
         loader.load_sample_table(
             DictReader(
                 open(options["sample_table_filename"]),
                 dialect="excel-tab",
             ),
-            skip_researcher_check=options["skip_researcher_check"],
         )
         print("Done loading sample table")

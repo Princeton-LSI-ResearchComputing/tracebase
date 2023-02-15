@@ -6,14 +6,16 @@ from DataRepo.utils.accucor_data_loader import (
 from DataRepo.utils.composite_data import leaderboard_data
 from DataRepo.utils.compounds_loader import CompoundsLoader
 from DataRepo.utils.exceptions import (
+    AggregatedErrors,
     AmbiguousCompoundDefinitionError,
+    ConflictingValueError,
     DryRun,
     HeaderConfigError,
     HeaderError,
     LoadingError,
     MissingSamplesError,
     RequiredValueError,
-    ResearcherError,
+    UnknownResearcherError,
     ValidationDatabaseSetupError,
 )
 from DataRepo.utils.infusate_name_parser import (
@@ -29,15 +31,17 @@ from DataRepo.utils.sample_table_loader import SampleTableLoader
 from DataRepo.utils.tissues_loader import TissuesLoader
 
 __all__ = [
+    "AggregatedErrors",
     "AccuCorDataLoader",
     "CompoundsLoader",
+    "ConflictingValueError",
     "HeaderError",
     "HeaderConfigError",
     "IsotopeObservationData",
     "IsotopeParsingError",
     "IsotopeObservationParsingError",
     "RequiredValueError",
-    "ResearcherError",
+    "UnknownResearcherError",
     "MissingSamplesError",
     "AmbiguousCompoundDefinitionError",
     "ValidationDatabaseSetupError",

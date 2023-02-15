@@ -34,6 +34,8 @@ from DataRepo.models.peak_group_label import NoCommonLabel
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import (
     AccuCorDataLoader,
+    AggregatedErrors,
+    ConflictingValueError,
     IsotopeObservationData,
     IsotopeObservationParsingError,
     IsotopeParsingError,
@@ -42,6 +44,7 @@ from DataRepo.utils import (
     parse_infusate_name,
     parse_tracer_concentrations,
 )
+from DataRepo.utils.exceptions import UnknownResearcherError
 
 
 class ExampleDataConsumer:
@@ -654,32 +657,49 @@ class DataLoadingTests(TracebaseTestCase):
                 new_researcher=True,
             )
 
-    def test_ls_new_researcher(self):
+    def test_ls_new_researcher_and_aggregate_errors(self):
         # The error string must include:
         #   The new researcher is in the error
         #   Hidden flag is suggested
         #   Existing researchers are shown
         exp_err = (
             "1 researchers from the sample file: [Han Solo] out of 1 researchers do not exist in the database.  "
-            "Please ensure they are not variants of existing researchers in the database:\nMichael Neinast\nXianfeng "
-            "Zeng\nIf all researchers are valid new researchers, add --skip-researcher-check to your command."
+            "Please ensure they are not variants of existing researchers:\nMichael Neinast\nXianfeng Zeng\nIf all "
+            "researchers are valid new researchers, add --skip-researcher-check to your command."
         )
-        with self.assertRaises(Exception, msg=exp_err):
+        with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_samples",
                 "DataRepo/example_data/serum_lactate_timecourse_treatment_new_researcher.tsv",
                 sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
             )
+        ures = [e for e in ar.exception.errors if isinstance(e, UnknownResearcherError)]
+        self.assertEqual(1, len(ures))
+        self.assertIn(
+            exp_err,
+            str(ures[0]),
+        )
+        # There are 24 conflicts due to this file being a copy of a file already loaded, with the reseacher changed.
+        self.assertEqual(25, len(ar.exception.errors))
 
     def test_ls_new_researcher_confirmed(self):
-        call_command(
-            "load_samples",
-            "DataRepo/example_data/serum_lactate_timecourse_treatment_new_researcher.tsv",
-            sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
-            skip_researcher_check=True,
-        )
-        # Test that basically, no exception occurred
-        self.assertTrue(True)
+        with self.assertRaises(AggregatedErrors) as ar:
+            call_command(
+                "load_samples",
+                "DataRepo/example_data/serum_lactate_timecourse_treatment_new_researcher.tsv",
+                sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
+                skip_researcher_check=True,
+            )
+        # Test that no researcher exception occurred
+        ures = [e for e in ar.exception.errors if isinstance(e, UnknownResearcherError)]
+        self.assertEqual(0, len(ures))
+        # There are 24 ConflictingValueErrors expected (Same samples with different researcher: Han Solo)
+        cves = [e for e in ar.exception.errors if isinstance(e, ConflictingValueError)]
+        self.assertIn("Han Solo", str(cves[0]))
+        self.assertEqual(24, len(cves))
+        # There are 24 expected errors total
+        self.assertEqual(24, len(ar.exception.errors))
+        self.assertEqual("24 errors occurred.", str(ar.exception))
 
     @tag("fcirc")
     def test_peakgroup_from_serum_sample_false(self):
@@ -1810,7 +1830,6 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         call_command(
             "load_study",
             "DataRepo/example_data/small_dataset/small_obob_study_prerequisites.yaml",
-            verbosity=2,
         )
 
         call_command(
@@ -2543,7 +2562,7 @@ class AnimalLoadingTests(TracebaseTestCase):
 
         super().setUpTestData()
 
-    def testLabeledElementParsing(self):
+    def test_labeled_element_parsing(self):
         call_command(
             "load_animals_and_samples",
             animal_and_sample_table_filename=(
@@ -2586,7 +2605,7 @@ class AnimalLoadingTests(TracebaseTestCase):
             "S",
         )
 
-    def testLabeledElementParsingInvalid(self):
+    def test_labeled_element_parsing_invalid(self):
         with self.assertRaisesMessage(
             IsotopeParsingError, "Encoded isotopes: [13Invalid6] cannot be parsed."
         ):

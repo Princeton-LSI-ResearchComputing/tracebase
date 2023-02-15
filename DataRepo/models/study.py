@@ -12,6 +12,7 @@ class Study(models.Model):
     )
     description = models.TextField(
         blank=True,
+        null=True,
         help_text="A long form description for the study which may include "
         "the experimental design process, citations, and other relevant details.",
     )

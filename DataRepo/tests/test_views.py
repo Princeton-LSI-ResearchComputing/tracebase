@@ -20,6 +20,8 @@ from DataRepo.models import (
     Tissue,
 )
 from DataRepo.models.maintained_model import (
+    UncleanBufferError,
+    buffer_size,
     disable_buffering,
     enable_buffering,
 )
@@ -42,6 +44,10 @@ class ViewTests(TracebaseTestCase):
             compounds="DataRepo/example_data/small_dataset/small_obob_compounds.tsv",
         )
         cls.ALL_COMPOUNDS_COUNT = 3
+
+        # Ensure the auto-update buffer is empty.  If it's not, then a previously run test didn't clean up after itself
+        if buffer_size() > 0:
+            raise UncleanBufferError()
 
         call_command(
             "load_samples",
@@ -540,6 +546,10 @@ class ValidationViewTests(TracebaseTransactionTestCase):
 
     @classmethod
     def initialize_databases(cls):
+        # Ensure the auto-update buffer is empty.  If it's not, then a previously run test didn't clean up after itself
+        if buffer_size() > 0:
+            raise UncleanBufferError()
+
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
         call_command(
             "load_compounds",
@@ -602,6 +612,10 @@ class ValidationViewTests(TracebaseTransactionTestCase):
             researcher="Michael Neinast",
             new_researcher=True,
         )
+
+        # Ensure the auto-update buffer is empty.  If it's not, then a previously run test didn't clean up after itself
+        if buffer_size() > 0:
+            raise UncleanBufferError()
 
         results, errors = validate_some_files(self)
         self.assertTrue(
@@ -748,18 +762,14 @@ def validate_some_files(testobj):
 
     # The researcher warning technically results in a validation failure (because it's an exception), but it's the
     # last possible check on the file on purpose so that everything else is guaranteed to be OK
-    testobj.assertTrue(valid)
+    testobj.assertFalse(valid)
 
     # There should only be a warning about the researcher in the sample file not existing - no other errors
     testobj.assertEqual(
-        "PASSED",
+        "WARNING",
         results["data_submission_animal_sample_table.xlsx"],
-        msg=(
-            "Starting from an empty test validation database, there should be no researcher warning.  Result should "
-            "be 'PASSED'"
-        ),
     )
-    testobj.assertEqual(0, len(errors["data_submission_animal_sample_table.xlsx"]))
+    testobj.assertEqual(1, len(errors["data_submission_animal_sample_table.xlsx"]))
 
     # Check the accucor file details
     testobj.assertTrue("data_submission_accucor1.xlsx" in results)

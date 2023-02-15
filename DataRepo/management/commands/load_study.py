@@ -138,6 +138,7 @@ class Command(BaseCommand):
                 table_headers=headers_file,
                 skip_researcher_check=skip_researcher_check,
                 database=options["database"],
+                verbosity=options["verbosity"],
             )
 
         if "accucor_data" in study_params:
