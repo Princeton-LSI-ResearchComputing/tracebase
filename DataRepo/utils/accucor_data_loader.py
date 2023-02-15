@@ -681,6 +681,8 @@ class AccuCorDataLoader:
         protocol = self.retrieve_or_create_protocol()
         peak_group_set = self.insert_peak_group_set()
 
+        sample_msrun_dict = {}
+
         # Each sample gets its own msrun
         for sample_name in self.db_samples_dict.keys():
 
@@ -705,6 +707,10 @@ class AccuCorDataLoader:
                 if self.db == settings.DEFAULT_DB:
                     msrun.full_clean()
                 msrun.save(using=self.db)
+
+                # This will be used to iterate the sample loop below so that we don't attempt to load samples whose
+                # msrun creations failed.
+                sample_msrun_dict[sample_name] = msrun
 
                 if (
                     msrun.sample.animal not in animals_to_uncache
@@ -731,7 +737,7 @@ class AccuCorDataLoader:
                 self.aggregated_errors_object.buffer_error(e)
                 continue
 
-        # Determine whether an error should be raised about existing MSRun records
+        # Determine whether an error should be included about existing MSRun records
         if len(self.existing_msruns.keys()) > 0:
             self.aggregated_errors_object.buffer_error(ExistingMSRun(
                 self.date,
@@ -742,9 +748,11 @@ class AccuCorDataLoader:
             ))
 
         # Create all PeakGroups
-        for sample_name in self.db_samples_dict.keys():
-            # Pass through the rows once to identify the PeakGroups
+        for sample_name in sample_msrun_dict.keys():
 
+            msrun = sample_msrun_dict[sample_name]
+
+            # Pass through the rows once to identify the PeakGroups
             for index, corr_row in self.accucor_corrected_df.iterrows():
 
                 try:
@@ -1343,6 +1351,7 @@ class CorrectedCompoundHeaderMissing(Exception):
     def __init__(self):
         message = (
             "Compound header [Compound] not found in the accucor corrected data.  This may be an isocorr file.  Try "
-            "again and submit this file using the isocorr option."
+            "again and submit this file using the isocorr file upload form input (or add the --isocorr-format option "
+            "on the command line)."
         )
         super().__init__(message)

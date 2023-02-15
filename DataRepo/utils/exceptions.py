@@ -62,7 +62,9 @@ class ExistingMSRun(Exception):
             message += "\n\t\t".join(file_samples_dict[existing_file])
         message += (
             "\nThis indicates that the same samples were a part of multiple MSRuns.  The date, researcher, protocol, "
-            "(and sample name) must be unique for each MSRun.  Try changing the date of the MSRun."
+            "(and sample name) must be unique for each MSRun.  Changing the date of the MSRun should be considered, "
+            "but the load will also need a prefix defined on the command line (using --prefix) and the sample names "
+            "in the sample sheet will need to be modified to make them unique (even though they are the same sample)."
         )
         super().__init__(message)
         self.date = date
