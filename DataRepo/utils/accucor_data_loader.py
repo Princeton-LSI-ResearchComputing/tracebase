@@ -718,6 +718,8 @@ class AccuCorDataLoader:
             except ValidationError as ve:
                 vestr = str(ve)
                 if "Mass spectrometry run with this Researcher, Date, Protocol and Sample already exists" in vestr:
+                    # PR REVIEW NOTE: The file for the peak_group_set should probably be a field in the MSRun table and
+                    # be included in the UniqueConstraint.  Then we wouldn't have to tweak the dates.
                     existing_file = MSRun.objects.using(self.db).get(
                         **msrun_dict
                     ).peak_groups.first().peak_group_set.filename
