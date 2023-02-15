@@ -1,4 +1,4 @@
-import collections
+from collections import Counter, defaultdict
 import re
 from datetime import datetime
 from typing import List, TypedDict
@@ -40,6 +40,7 @@ from DataRepo.utils.exceptions import (  # ValidationDatabaseSetupError,
     DryRun,
     DupeCompoundIsotopeCombos,
     EmptyColumnsError,
+    ExistingMSRun,
     IsotopeStringDupe,
     MissingCompounds,
     MissingSamplesError,
@@ -179,6 +180,7 @@ class AccuCorDataLoader:
         self.missing_samples = []
         self.missing_compounds = {}
         self.dupe_isotope_rows = {"original": [], "corrected": []}
+        self.existing_msruns = defaultdict(list)
 
         # Used for accucor
         self.labeled_element = None
@@ -303,7 +305,7 @@ class AccuCorDataLoader:
             print("Validating data...")
 
         # Make sure all sample columns have names
-        corr_iter = collections.Counter(self.corrected_samples)
+        corr_iter = Counter(self.corrected_samples)
         for k, v in corr_iter.items():
             if k.startswith("Unnamed: "):
                 self.aggregated_errors_object.buffer_error(
@@ -314,7 +316,7 @@ class AccuCorDataLoader:
 
         if self.original_samples:
             # Make sure all sample columns have names
-            orig_iter = collections.Counter(self.original_samples)
+            orig_iter = Counter(self.original_samples)
             for k, v in orig_iter.items():
                 if k.startswith("Unnamed: "):
                     self.aggregated_errors_object.buffer_error(
@@ -435,7 +437,6 @@ class AccuCorDataLoader:
                 # that the samples in the accucor files are being validated against the samples that were just loaded
                 # into the validation database.  If we're not validating, then we're retrieving samples from the one
                 # database we're working with anyway
-                # sample_dict[sample_name] = Sample.objects.using(self.db).get(
                 sample_dict[sample_name] = Sample.objects.get(name=prefixed_sample_name)
             except Sample.DoesNotExist:
                 self.missing_samples.append(sample_name)
@@ -680,7 +681,7 @@ class AccuCorDataLoader:
         protocol = self.retrieve_or_create_protocol()
         peak_group_set = self.insert_peak_group_set()
 
-        # each sample gets its own msrun
+        # Each sample gets its own msrun
         for sample_name in self.db_samples_dict.keys():
 
             # each msrun/sample has its own set of peak groups
@@ -693,16 +694,18 @@ class AccuCorDataLoader:
                 )
 
             try:
-                msrun = MSRun(
-                    date=self.date,
-                    researcher=self.researcher,
-                    protocol=protocol,
-                    sample=self.db_samples_dict[sample_name],
-                )
+                msrun_dict = {
+                    "date": self.date,
+                    "researcher": self.researcher,
+                    "protocol": protocol,
+                    "sample": self.db_samples_dict[sample_name],
+                }
+                msrun = MSRun(**msrun_dict)
                 # full_clean cannot validate (e.g. uniqueness) using a non-default database
                 if self.db == settings.DEFAULT_DB:
                     msrun.full_clean()
                 msrun.save(using=self.db)
+
                 if (
                     msrun.sample.animal not in animals_to_uncache
                     and msrun.sample.animal.caches_exist()
@@ -712,15 +715,33 @@ class AccuCorDataLoader:
                     print(
                         f"No cache exists for animal {msrun.sample.animal.id} linked to Sample {msrun.sample.id}"
                     )
+            except ValidationError as ve:
+                vestr = str(ve)
+                if "Mass spectrometry run with this Researcher, Date, Protocol and Sample already exists" in vestr:
+                    existing_file = MSRun.objects.using(self.db).get(
+                        **msrun_dict
+                    ).peak_groups.first().peak_group_set.filename
+                    self.existing_msruns[existing_file].append(sample_name)
+                else:
+                    self.aggregated_errors_object.buffer_error(ve)
+                continue
             except Exception as e:
                 self.aggregated_errors_object.buffer_error(e)
                 continue
 
-            """
-            Create all PeakGroups
+        # Determine whether an error should be raised about existing MSRun records
+        if len(self.existing_msruns.keys()) > 0:
+            self.aggregated_errors_object.buffer_error(ExistingMSRun(
+                self.date,
+                self.researcher,
+                self.protocol_input,
+                self.existing_msruns,
+                peak_group_set.filename,
+            ))
 
-            Pass through the rows once to identify the PeakGroups
-            """
+        # Create all PeakGroups
+        for sample_name in self.db_samples_dict.keys():
+            # Pass through the rows once to identify the PeakGroups
 
             for index, corr_row in self.accucor_corrected_df.iterrows():
 
@@ -1319,7 +1340,7 @@ class SampleIndexNotFound(Exception):
 class CorrectedCompoundHeaderMissing(Exception):
     def __init__(self):
         message = (
-            "Compound header [Compound] not found in the accucor corrected data.  Did you forget to provide "
-            "--isocorr-format?"
+            "Compound header [Compound] not found in the accucor corrected data.  This may be an isocorr file.  Try "
+            "again and submit this file using the isocorr option."
         )
         super().__init__(message)
