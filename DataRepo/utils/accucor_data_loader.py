@@ -1,5 +1,5 @@
-from collections import Counter, defaultdict
 import re
+from collections import Counter, defaultdict
 from datetime import datetime
 from typing import List, TypedDict
 
@@ -723,12 +723,18 @@ class AccuCorDataLoader:
                     )
             except ValidationError as ve:
                 vestr = str(ve)
-                if "Mass spectrometry run with this Researcher, Date, Protocol and Sample already exists" in vestr:
+                if (
+                    "Mass spectrometry run with this Researcher, Date, Protocol and Sample already exists"
+                    in vestr
+                ):
                     # PR REVIEW NOTE: The file for the peak_group_set should probably be a field in the MSRun table and
                     # be included in the UniqueConstraint.  Then we wouldn't have to tweak the dates.
-                    existing_file = MSRun.objects.using(self.db).get(
-                        **msrun_dict
-                    ).peak_groups.first().peak_group_set.filename
+                    existing_file = (
+                        MSRun.objects.using(self.db)
+                        .get(**msrun_dict)
+                        .peak_groups.first()
+                        .peak_group_set.filename
+                    )
                     self.existing_msruns[existing_file].append(sample_name)
                 else:
                     self.aggregated_errors_object.buffer_error(ve)
@@ -739,13 +745,15 @@ class AccuCorDataLoader:
 
         # Determine whether an error should be included about existing MSRun records
         if len(self.existing_msruns.keys()) > 0:
-            self.aggregated_errors_object.buffer_error(ExistingMSRun(
-                self.date,
-                self.researcher,
-                self.protocol_input,
-                self.existing_msruns,
-                peak_group_set.filename,
-            ))
+            self.aggregated_errors_object.buffer_error(
+                ExistingMSRun(
+                    self.date,
+                    self.researcher,
+                    self.protocol_input,
+                    self.existing_msruns,
+                    peak_group_set.filename,
+                )
+            )
 
         # Create all PeakGroups
         for sample_name in sample_msrun_dict.keys():

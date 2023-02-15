@@ -79,4 +79,6 @@ class ModelUtilitiesTests(TracebaseTestCase):
         model = get_model_by_name(mdl_name)
         unique_field_sets = get_unique_constraint_fields(model)
         self.assertEqual(1, len(unique_field_sets))
-        self.assertEqual(("researcher", "date", "protocol", "sample"), unique_field_sets[0])
+        self.assertEqual(
+            ("researcher", "date", "protocol", "sample"), unique_field_sets[0]
+        )

@@ -1,17 +1,17 @@
 from django.conf import settings
 from django.core.management import call_command
-from django.test import override_settings, tag
+from django.test import override_settings
 
 from DataRepo.models import (
-    buffer_size,
-    get_all_maintained_field_values,
+    Infusate,
+    InfusateTracer,
     PeakData,
     PeakGroup,
     Sample,
-    Infusate,
-    InfusateTracer,
     Tracer,
     TracerLabel,
+    buffer_size,
+    get_all_maintained_field_values,
 )
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import (
@@ -344,6 +344,15 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
         self.assertEqual(1, len(aes.exceptions))
         self.assertIn("--isocorr-format", str(aes.exceptions[0]))
 
+    def get_model_counts(self):
+        return (
+            Sample.objects.count(),
+            Infusate.objects.count(),
+            InfusateTracer.objects.count(),
+            Tracer.objects.count(),
+            TracerLabel.objects.count(),
+        )
+
     def test_multitracer_sample_table_load(self):
         num_samples = 120
         num_infusates = 2
@@ -351,11 +360,13 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
         num_tracers = 9
         num_tracerlabels = 12
 
-        pre_load_sample_count = Sample.objects.count()
-        pre_load_infusate_count = Infusate.objects.count()
-        pre_load_infusatetracer_count = InfusateTracer.objects.count()
-        pre_load_tracer_count = Tracer.objects.count()
-        pre_load_tracerlabel_count = TracerLabel.objects.count()
+        (
+            pre_samples,
+            pre_infusates,
+            pre_inftrcs,
+            pre_tracers,
+            pre_trclbls,
+        ) = self.get_model_counts()
 
         call_command(
             "load_animals_and_samples",
@@ -366,24 +377,58 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             skip_researcher_check=True,
         )
 
-        post_load_sample_count = Sample.objects.count()
-        post_load_infusate_count = Infusate.objects.count()
-        post_load_infusatetracer_count = InfusateTracer.objects.count()
-        post_load_tracer_count = Tracer.objects.count()
-        post_load_tracerlabel_count = TracerLabel.objects.count()
+        (
+            post_samples,
+            post_infusates,
+            post_inftrcs,
+            post_tracers,
+            post_trclbls,
+        ) = self.get_model_counts()
 
-        self.assertEqual(num_samples, post_load_sample_count - pre_load_sample_count)
-        self.assertEqual(
-            num_infusates, post_load_infusate_count - pre_load_infusate_count
+        self.assert_model_counts(
+            num_samples,
+            num_infusates,
+            num_infusatetracers,
+            num_tracers,
+            num_tracerlabels,
+            pre_samples,
+            pre_infusates,
+            pre_inftrcs,
+            pre_tracers,
+            pre_trclbls,
+            post_samples,
+            post_infusates,
+            post_inftrcs,
+            post_tracers,
+            post_trclbls,
         )
+
+    def assert_model_counts(
+        self,
+        num_samples,
+        num_infusates,
+        num_infusatetracers,
+        num_tracers,
+        num_tracerlabels,
+        pre_samples,
+        pre_infusates,
+        pre_inftrcs,
+        pre_tracers,
+        pre_trclbls,
+        post_samples,
+        post_infusates,
+        post_inftrcs,
+        post_tracers,
+        post_trclbls,
+    ):
+        self.assertEqual(num_samples, post_samples - pre_samples)
+        self.assertEqual(num_infusates, post_infusates - pre_infusates)
         self.assertEqual(
             num_infusatetracers,
-            post_load_infusatetracer_count - pre_load_infusatetracer_count,
+            post_inftrcs - pre_inftrcs,
         )
-        self.assertEqual(num_tracers, post_load_tracer_count - pre_load_tracer_count)
-        self.assertEqual(
-            num_tracerlabels, post_load_tracerlabel_count - pre_load_tracerlabel_count
-        )
+        self.assertEqual(num_tracers, post_tracers - pre_tracers)
+        self.assertEqual(num_tracerlabels, post_trclbls - pre_trclbls)
 
     def test_multitracer_isocorr_load_1(self):
         self.load_multitracer_data()
@@ -488,11 +533,13 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
         num_tracers = 2
         num_tracerlabels = 4  # TracerLabel records are not unique. Note there would be 3 unique label records
 
-        pre_load_sample_count = Sample.objects.count()
-        pre_load_infusate_count = Infusate.objects.count()
-        pre_load_infusatetracer_count = InfusateTracer.objects.count()
-        pre_load_tracer_count = Tracer.objects.count()
-        pre_load_tracerlabel_count = TracerLabel.objects.count()
+        (
+            pre_samples,
+            pre_infusates,
+            pre_inftrcs,
+            pre_tracers,
+            pre_trclbls,
+        ) = self.get_model_counts()
 
         call_command(
             "load_animals_and_samples",
@@ -502,23 +549,32 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             skip_researcher_check=True,
         )
 
-        post_load_sample_count = Sample.objects.count()
-        post_load_infusate_count = Infusate.objects.count()
-        post_load_infusatetracer_count = InfusateTracer.objects.count()
-        post_load_tracer_count = Tracer.objects.count()
-        post_load_tracerlabel_count = TracerLabel.objects.count()
+        (
+            post_samples,
+            post_infusates,
+            post_inftrcs,
+            post_tracers,
+            post_trclbls,
+        ) = self.get_model_counts()
 
-        self.assertEqual(num_samples, post_load_sample_count - pre_load_sample_count)
-        self.assertEqual(
-            num_infusates, post_load_infusate_count - pre_load_infusate_count
-        )
-        self.assertEqual(
+        # Comment to break up JSCPD detection of clones
+
+        self.assert_model_counts(
+            num_samples,
+            num_infusates,
             num_infusatetracers,
-            post_load_infusatetracer_count - pre_load_infusatetracer_count,
-        )
-        self.assertEqual(num_tracers, post_load_tracer_count - pre_load_tracer_count)
-        self.assertEqual(
-            num_tracerlabels, post_load_tracerlabel_count - pre_load_tracerlabel_count
+            num_tracers,
+            num_tracerlabels,
+            pre_samples,
+            pre_infusates,
+            pre_inftrcs,
+            pre_tracers,
+            pre_trclbls,
+            post_samples,
+            post_infusates,
+            post_inftrcs,
+            post_tracers,
+            post_trclbls,
         )
 
     def test_multilabel_isocorr_load_1(self):
@@ -535,22 +591,9 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             isocorr_format=True,
         )
         post_load_group_count = PeakGroup.objects.count()
-        # The number of samples in the isocorr xlsx file (not the samples file)
-        SAMPLES_COUNT = 84
-        PEAKDATA_ROWS = 94
-        PARENT_REC_COUNT = 13
 
-        self.assertEqual(
-            post_load_group_count - pre_load_group_count,
-            PARENT_REC_COUNT * SAMPLES_COUNT,
-            msg=f"PeakGroup record count should be the number of C12 PARENT lines [{PARENT_REC_COUNT}] times the "
-            f"number of samples [{SAMPLES_COUNT}] = [{PARENT_REC_COUNT * SAMPLES_COUNT}].",
-        )
-        self.assertEqual(
-            PeakData.objects.count(),
-            PEAKDATA_ROWS * SAMPLES_COUNT,
-            msg=f"PeakData record count should be the number of peakdata rows [{PEAKDATA_ROWS}] times the number of "
-            f"samples [{SAMPLES_COUNT}] = [{PEAKDATA_ROWS * SAMPLES_COUNT}].",
+        self.assert_peak_group_counts(
+            pre_load_group_count, post_load_group_count, 84, 94, 13
         )
 
     def test_multilabel_isocorr_load_2(self):
@@ -567,22 +610,9 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             isocorr_format=True,
         )
         post_load_group_count = PeakGroup.objects.count()
-        # The number of samples in the isocorr xlsx file (not the samples file)
-        SAMPLES_COUNT = 36
-        PEAKDATA_ROWS = 95
-        PARENT_REC_COUNT = 13
 
-        self.assertEqual(
-            post_load_group_count - pre_load_group_count,
-            PARENT_REC_COUNT * SAMPLES_COUNT,
-            msg=f"PeakGroup record count should be the number of C12 PARENT lines [{PARENT_REC_COUNT}] times the "
-            f"number of samples [{SAMPLES_COUNT}] = [{PARENT_REC_COUNT * SAMPLES_COUNT}].",
-        )
-        self.assertEqual(
-            PeakData.objects.count(),
-            PEAKDATA_ROWS * SAMPLES_COUNT,
-            msg=f"PeakData record count should be the number of peakdata rows [{PEAKDATA_ROWS}] times the number of "
-            f"samples [{SAMPLES_COUNT}] = [{PEAKDATA_ROWS * SAMPLES_COUNT}].",
+        self.assert_peak_group_counts(
+            pre_load_group_count, post_load_group_count, 36, 95, 13
         )
 
     def test_multilabel_isocorr_load_3(self):
@@ -600,22 +630,30 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             skip_samples=("bk",),
         )
         post_load_group_count = PeakGroup.objects.count()
-        # The number of samples in the isocorr xlsx file (not the samples file)
-        SAMPLES_COUNT = 36
-        PEAKDATA_ROWS = 95
-        PARENT_REC_COUNT = 13
 
+        self.assert_peak_group_counts(
+            pre_load_group_count, post_load_group_count, 36, 95, 13
+        )
+
+    def assert_peak_group_counts(
+        self,
+        pre_load_group_count,
+        post_load_group_count,
+        samples_count,
+        peakdata_rows,
+        parent_rec_count,
+    ):
         self.assertEqual(
             post_load_group_count - pre_load_group_count,
-            PARENT_REC_COUNT * SAMPLES_COUNT,
-            msg=f"PeakGroup record count should be the number of C12 PARENT lines [{PARENT_REC_COUNT}] times the "
-            f"number of samples [{SAMPLES_COUNT}] = [{PARENT_REC_COUNT * SAMPLES_COUNT}].",
+            parent_rec_count * samples_count,
+            msg=f"PeakGroup record count should be the number of C12 PARENT lines [{parent_rec_count}] times the "
+            f"number of samples [{samples_count}] = [{parent_rec_count * samples_count}].",
         )
         self.assertEqual(
             PeakData.objects.count(),
-            PEAKDATA_ROWS * SAMPLES_COUNT,
-            msg=f"PeakData record count should be the number of peakdata rows [{PEAKDATA_ROWS}] times the number of "
-            f"samples [{SAMPLES_COUNT}] = [{PEAKDATA_ROWS * SAMPLES_COUNT}].",
+            peakdata_rows * samples_count,
+            msg=f"PeakData record count should be the number of peakdata rows [{peakdata_rows}] times the number of "
+            f"samples [{samples_count}] = [{peakdata_rows * samples_count}].",
         )
 
     def test_labeled_elements_common_with_compound(self):
@@ -646,5 +684,3 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
         self.assertEqual(pg.count(), 2)
         self.assertEqual(pg.filter(peak_data__labels__element__exact="C").count(), 1)
         self.assertEqual(pg.filter(peak_data__labels__element__exact="N").count(), 1)
-
-
