@@ -109,7 +109,7 @@ class ProtocolLoadingTests(TracebaseTestCase):
         call_command(
             "load_protocols",
             protocols="DataRepo/example_data/small_dataset/small_obob_animal_and_sample_table.xlsx",
-            dry_rum=True,
+            dry_run=True,
         )
         # none in default
         self.assertEqual(Protocol.objects.count(), 0)

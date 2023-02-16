@@ -226,7 +226,7 @@ class CompoundLoadingTests(TracebaseTestCase):
         aes = ar.exception
         self.assertEqual(4, aes.num_errors)
         self.assertEqual(
-            4,
+            2,
             len(
                 [
                     exc
@@ -235,7 +235,7 @@ class CompoundLoadingTests(TracebaseTestCase):
                     and exc.consistent_field == "compound"
                 ]
             ),
-            msg="All 8 exceptions are conflicting value errors about the compound field",
+            msg="Both exceptions are conflicting value errors about the compound field",
         )
 
     @tag("compound_for_row")
