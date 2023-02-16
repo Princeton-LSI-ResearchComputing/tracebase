@@ -1,4 +1,3 @@
-from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
@@ -46,12 +45,12 @@ class Compound(models.Model):
         """
         return atom_count_in_formula(self.formula, atom)
 
-    def get_or_create_synonym(self, synonym_name=None, database=settings.TRACEBASE_DB):
+    def get_or_create_synonym(self, synonym_name=None):
         if not synonym_name:
             synonym_name = self.name
-        (compound_synonym, created) = CompoundSynonym.objects.using(
-            database
-        ).get_or_create(name=synonym_name, compound_id=self.id)
+        (compound_synonym, created) = CompoundSynonym.objects.get_or_create(
+            name=synonym_name, compound_id=self.id
+        )
         return (compound_synonym, created)
 
     def save(self, *args, **kwargs):
@@ -61,14 +60,9 @@ class Compound(models.Model):
         are auto-creating afterwards
         """
         super().save(*args, **kwargs)
-        db = "default"
-        if hasattr(self, "_state") and hasattr(self._state, "db"):
-            db = self._state.db
-        (_primary_synonym, created) = self.get_or_create_synonym(database=db)
+        (_primary_synonym, created) = self.get_or_create_synonym()
         ucfirst_synonym = self.name[0].upper() + self.name[1:]
-        (_secondary_synonym, created) = self.get_or_create_synonym(
-            ucfirst_synonym, database=db
-        )
+        (_secondary_synonym, created) = self.get_or_create_synonym(ucfirst_synonym)
 
     def clean(self, *args, **kwargs):
         """
@@ -78,17 +72,12 @@ class Compound(models.Model):
 
         Note, calling super.clean first will give us access to self.id.
         """
-        db = "default"
-        if hasattr(self, "_state") and hasattr(self._state, "db"):
-            db = self._state.db
         try:
             super().clean(*args, **kwargs)
         except ValidationError as ve:
             raise ve
-        sqs = (
-            CompoundSynonym.objects.using(db)
-            .filter(name__exact=self.name)
-            .exclude(compound__id__exact=self.id)
+        sqs = CompoundSynonym.objects.filter(name__exact=self.name).exclude(
+            compound__id__exact=self.id
         )
         # Don't report the ID - it is arbitrary, so remove it from the record dicts
         compound_dict = {k: v for k, v in model_to_dict(self).items() if k != "id"}
@@ -98,7 +87,7 @@ class Compound(models.Model):
             )
 
     @classmethod
-    def compound_matching_name_or_synonym(cls, name, database=settings.TRACEBASE_DB):
+    def compound_matching_name_or_synonym(cls, name):
         """
         compound_matching_name_or_synonym is a class method that takes a string (name or
         synonym) and retrieves a distinct compound that matches it
@@ -108,11 +97,9 @@ class Compound(models.Model):
         """
 
         # find the distinct union of these queries
-        matching_compounds = (
-            cls.objects.using(database)
-            .filter(Q(name__iexact=name) | Q(synonyms__name__iexact=name))
-            .distinct()
-        )
+        matching_compounds = cls.objects.filter(
+            Q(name__iexact=name) | Q(synonyms__name__iexact=name)
+        ).distinct()
         if matching_compounds.count() > 1:
             raise ValidationError(
                 "compound_matching_name_or_synonym retrieved multiple "
@@ -161,13 +148,8 @@ class CompoundSynonym(models.Model):
         Note, calling super.clean first will give us access to self.id.
         """
         super().clean(*args, **kwargs)
-        db = "default"
-        if hasattr(self, "_state") and hasattr(self._state, "db"):
-            db = self._state.db
-        cqs = (
-            Compound.objects.using(db)
-            .filter(name__exact=self.name)
-            .exclude(id__exact=self.compound.id)
+        cqs = Compound.objects.filter(name__exact=self.name).exclude(
+            id__exact=self.compound.id
         )
         if cqs.count() > 0:
             raise SynonymExistsAsMismatchedCompound(
@@ -185,16 +167,10 @@ class CompoundExistsAsMismatchedSynonym(Exception):
             if k not in excludes
         }
 
-        # Determine the database
-        db = "default"
-        if hasattr(conflicting_syn_rec, "_state") and hasattr(
-            conflicting_syn_rec._state, "db"
-        ):
-            db = conflicting_syn_rec._state.db
-            nltt = "\n\t\t"
+        nltt = "\n\t\t"
         message = (
-            f"The compound name being loaded ({name}) already exists as a synonym in database [{db}], but the "
-            "compound being loaded does not match the compound associated with the synonym in the database:\n"
+            f"The compound name being loaded ({name}) already exists as a synonym, but the compound being loaded does "
+            "not match the compound associated with the synonym in the database:\n"
             f"\tTo be loaded: {compound_dict}\n"
             f"\tExisting rec: {conflicting_syn_cpd_dict}\n"
             f"\t\twith existing synonyms:\n"
@@ -205,7 +181,6 @@ class CompoundExistsAsMismatchedSynonym(Exception):
 
         super().__init__(message)
         self.name = name
-        self.db = db
         self.compound_dict = compound_dict
         self.conflicting_cpd_rec = conflicting_syn_rec
 
@@ -223,16 +198,9 @@ class SynonymExistsAsMismatchedCompound(Exception):
             if k not in excludes
         }
 
-        # Determine the database
-        db = "default"
-        if hasattr(conflicting_cpd_rec, "_state") and hasattr(
-            conflicting_cpd_rec._state, "db"
-        ):
-            db = conflicting_cpd_rec._state.db
-
         message = (
-            f"The compound synonym being loaded ({name}) already exists as a compound name in database [{db}], but "
-            "that existing compound record does not match the compound associated with the synonym in the load data:\n"
+            f"The compound synonym being loaded ({name}) already exists as a compound name, but that existing "
+            "compound record does not match the compound associated with the synonym in the load data:\n"
             f"\tTo be loaded: {compound_dict}\n"
             f"\tExisting rec: {conflicting_cpd_dict}\n"
             "Please make sure this synonym isn't being associated with different compounds.  Either fix the compound "
@@ -241,6 +209,5 @@ class SynonymExistsAsMismatchedCompound(Exception):
 
         super().__init__(message)
         self.name = name
-        self.db = db
         self.compound = compound
         self.conflicting_cpd_rec = conflicting_cpd_rec

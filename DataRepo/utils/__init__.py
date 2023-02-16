@@ -5,7 +5,7 @@ from DataRepo.utils.accucor_data_loader import (
 )
 from DataRepo.utils.composite_data import leaderboard_data
 from DataRepo.utils.compounds_loader import CompoundsLoader
-from DataRepo.utils.exceptions import (  # AmbiguousCompoundDefinitionError,
+from DataRepo.utils.exceptions import (
     AggregatedErrors,
     ConflictingValueError,
     DryRun,
@@ -21,7 +21,6 @@ from DataRepo.utils.exceptions import (  # AmbiguousCompoundDefinitionError,
     RequiredValueError,
     UnknownHeadersError,
     UnskippedBlanksError,
-    ValidationDatabaseSetupError,
 )
 from DataRepo.utils.infusate_name_parser import (
     IsotopeParsingError,
@@ -52,9 +51,7 @@ __all__ = [
     "MissingCompounds",
     "MissingSamplesError",
     "NoSamplesError",
-    # "AmbiguousCompoundDefinitionError",
     "UnskippedBlanksError",
-    "ValidationDatabaseSetupError",
     "DryRun",
     "LoadingError",
     "QuerysetToPandasDataFrame",

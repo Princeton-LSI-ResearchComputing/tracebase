@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Optional
 
-from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 
@@ -20,7 +19,6 @@ from DataRepo.utils.infusate_name_parser import TracerData
 class TracerQuerySet(models.QuerySet):
     def get_or_create_tracer(self, tracer_data: TracerData) -> tuple[Tracer, bool]:
         """Get Tracer matching the tracer_data, or create a new tracer"""
-        db = self._db or settings.DEFAULT_DB
 
         tracer = self.get_tracer(tracer_data)
         created = False
@@ -30,17 +28,16 @@ class TracerQuerySet(models.QuerySet):
             compound = Compound.compound_matching_name_or_synonym(
                 tracer_data["compound_name"]
             )
-            tracer = self.using(db).create(compound=compound)
+            tracer = self.create(compound=compound)
             for isotope_data in tracer_data["isotopes"]:
-                TracerLabel.objects.using(db).create_tracer_label(tracer, isotope_data)
+                TracerLabel.objects.create_tracer_label(tracer, isotope_data)
             tracer.full_clean()
-            tracer.save(using=db)
+            tracer.save()
             created = True
         return (tracer, created)
 
     def get_tracer(self, tracer_data: TracerData) -> Optional[Tracer]:
         """Get Tracer matching the tracer_data"""
-        db = self._db or settings.DEFAULT_DB
         matching_tracer = None
 
         # First, check if the compound is found
@@ -50,10 +47,8 @@ class TracerQuerySet(models.QuerySet):
         )
         if compound:
             # Check for tracers of the compound with same number of labels
-            tracers = (
-                Tracer.objects.using(db)
-                .annotate(num_labels=models.Count("labels"))
-                .filter(compound=compound, num_labels=len(tracer_data["isotopes"]))
+            tracers = Tracer.objects.annotate(num_labels=models.Count("labels")).filter(
+                compound=compound, num_labels=len(tracer_data["isotopes"])
             )
             # Check that the labels match
             for tracer_label in tracer_data["isotopes"]:
@@ -150,11 +145,8 @@ class Tracer(MaintainedModel, ElementLabel):
         elif are_autoupdates_enabled():
             # Only auto-update the name field
             init_autoupdate_label_filters(label_filters=["name"])
-            save_kwargs = {}
-            if hasattr(self, "_state") and hasattr(self._state, "db"):
-                save_kwargs["using"] = self._state.db
             # This triggers an auto-update
-            self.save(**save_kwargs)
+            self.save()
             display_name = self.name
             # Re-initialize the filters
             init_autoupdate_label_filters()

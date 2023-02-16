@@ -59,15 +59,6 @@ class Command(BaseCommand):
             help=argparse.SUPPRESS,
         )
 
-        # Used to explicitly load the supplied database.  This option is hidden and mentioned in error messages to
-        # resolve synch issues.
-        parser.add_argument(
-            "--database",
-            required=False,
-            type=str,
-            help=argparse.SUPPRESS,
-        )
-
     def handle(self, *args, **options):
         if options["dry_run"]:
             self.stdout.write(
@@ -82,7 +73,6 @@ class Command(BaseCommand):
         loader_args = {
             "protocols": self.new_protocols_df,
             "dry_run": options["dry_run"],
-            "database": options["database"],
             "validate": options["validate"],
         }
         if self.batch_category:
@@ -199,23 +189,20 @@ class Command(BaseCommand):
     def print_notices(self, stats, opt, verbosity, success=True):
 
         if verbosity >= 2:
-            for db in stats.keys():
-                for stat in stats[db]["created"]:
-                    self.stdout.write(
-                        self.style.SUCCESS(
-                            f"Created {db} protocol record - {stat['protocol']}:{stat['description']}"
-                        )
+            for stat in stats["created"]:
+                self.stdout.write(
+                    self.style.SUCCESS(
+                        f"Created protocol record - {stat['protocol']}:{stat['description']}"
                     )
-                for stat in stats[db]["skipped"]:
-                    self.stdout.write(
-                        f"Skipped {db} protocol record - {stat['protocol']}:{stat['description']}"
-                    )
+                )
+            for stat in stats["skipped"]:
+                self.stdout.write(
+                    f"Skipped protocol record - {stat['protocol']}:{stat['description']}"
+                )
 
         smry = "Complete"
-        for db in stats.keys():
-            smry += f", loaded {len(stats[db]['created'])} new protocols and found "
-            smry += f"{len(stats[db]['skipped'])} matching protocols "
-            smry += f"in database [{db}]"
+        smry += f", loaded {len(stats['created'])} new protocols and found "
+        smry += f"{len(stats['skipped'])} matching protocols"
         smry += f" from {opt}"
 
         if success:

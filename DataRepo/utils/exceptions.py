@@ -164,14 +164,6 @@ class MultipleAccucorTracerLabelColumnsError(Exception):
         self.columns = columns
 
 
-# class AmbiguousCompoundDefinitionError(Exception):
-#     pass
-
-
-class ValidationDatabaseSetupError(Exception):
-    message = "The validation database is not configured"
-
-
 class DryRun(Exception):
     """
     Exception thrown during dry-run to ensure atomic transaction is not committed
@@ -419,17 +411,15 @@ class ConflictingValueError(Exception):
         existing_value,
         differing_value,
         rownum=None,
-        db=None,
         message=None,
     ):
         if not message:
             rowmsg = (
                 f"on row {rownum} of the load file data " if rownum is not None else ""
             )
-            dbmsg = f" in database [{db}]" if db is not None else ""
             message = (
                 f"Conflicting values encountered {rowmsg}in {type(rec).__name__} record [{str(rec)}] for the "
-                f"[{consistent_field}] field{dbmsg}:\n"
+                f"[{consistent_field}] field:\n"
                 f"\tdatabase {consistent_field} value: [{existing_value}]\n"
                 f"\tfile {consistent_field} value: [{differing_value}]"
             )
@@ -438,16 +428,14 @@ class ConflictingValueError(Exception):
         self.existing_value = existing_value
         self.differing_value = differing_value
         self.rownum = rownum
-        self.db = db
 
 
 class SaveError(Exception):
-    def __init__(self, model_name, rec_name, db, e):
-        message = f"Error saving {model_name} {rec_name} to database {db}: {type(e).__name__}: {str(e)}"
+    def __init__(self, model_name, rec_name, e):
+        message = f"Error saving {model_name} {rec_name}: {type(e).__name__}: {str(e)}"
         super().__init__(message)
         self.model_name = model_name
         self.rec_name = rec_name
-        self.db = db
         self.orig_err = e
 
 

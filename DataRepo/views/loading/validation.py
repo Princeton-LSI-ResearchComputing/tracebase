@@ -169,15 +169,6 @@ class DataValidationView(FormView):
 
         all_exceptions = []
 
-        # Copy protocols from the tracebase database to the validation database
-        # This assumes the Protocol table in the validation database is empty, which should be valid given the call to
-        # clear_validation_database in the `finally` block below and the fact that the protocols loader does not
-        # default-load the validation database (in the current code)
-        # for rec in Protocol.objects.using(settings.DEFAULT_DB).values():
-        #     # We must delete AutoField key/value pairs because it screws up the next AutoField generation
-        #     del rec["id"]
-        #     Protocol.objects.using(settings.VALIDATION_DB).create(**rec)
-
         try:
             # Load the animal treatments
             with transaction.atomic():

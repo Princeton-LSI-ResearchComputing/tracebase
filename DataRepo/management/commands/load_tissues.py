@@ -39,14 +39,6 @@ class Command(BaseCommand):
             help=argparse.SUPPRESS,
         )
 
-        # Used internally to load necessary data into the validation database
-        parser.add_argument(
-            "--database",
-            required=False,
-            type=str,
-            help=argparse.SUPPRESS,
-        )
-
     def handle(self, *args, **options):
         if options["dry_run"]:
             self.stdout.write(
@@ -60,7 +52,6 @@ class Command(BaseCommand):
         self.tissue_loader = TissuesLoader(
             tissues=new_tissues,
             dry_run=options["dry_run"],
-            database=options["database"],
             validate=options["validate"],
         )
 
@@ -95,23 +86,20 @@ class Command(BaseCommand):
     def print_notices(self, stats, opt, verbosity):
 
         if verbosity >= 2:
-            for db in stats.keys():
-                for stat in stats[db]["created"]:
-                    self.stdout.write(
-                        self.style.SUCCESS(
-                            f"Created {db} tissue record - {stat['tissue']}:{stat['description']}"
-                        )
+            for stat in stats["created"]:
+                self.stdout.write(
+                    self.style.SUCCESS(
+                        f"Created tissue record - {stat['tissue']}:{stat['description']}"
                     )
-                for stat in stats[db]["skipped"]:
-                    self.stdout.write(
-                        f"Skipped {db} tissue record - {stat['tissue']}:{stat['description']}"
-                    )
+                )
+            for stat in stats["skipped"]:
+                self.stdout.write(
+                    f"Skipped tissue record - {stat['tissue']}:{stat['description']}"
+                )
 
         smry = "Complete"
-        for db in stats.keys():
-            smry += f", loaded {len(stats[db]['created'])} new tissues and found "
-            smry += f"{len(stats[db]['skipped'])} matching tissues "
-            smry += f"in database [{db}]"
+        smry += f", loaded {len(stats['created'])} new tissues and found "
+        smry += f"{len(stats['skipped'])} matching tissues"
         smry += f" from {opt}"
 
         self.stdout.write(self.style.SUCCESS(smry))

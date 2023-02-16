@@ -137,63 +137,63 @@ class CompoundLoadingTests(TracebaseTestCase):
         cl.load_compounds()
         self.assertEqual(
             1,
-            cl.num_existing_compounds[settings.TRACEBASE_DB],
+            cl.num_existing_compounds,
             msg="Compound default insert should be skipped",
         )
         self.assertEqual(
             1,
-            cl.num_existing_compounds[settings.VALIDATION_DB],
+            cl.num_existing_compounds,
             msg="Compound validation insert should be skipped",
         )
         self.assertEqual(
             0,
-            cl.num_inserted_compounds[settings.TRACEBASE_DB],
+            cl.num_inserted_compounds,
             msg="No compounds default should be inserted",
         )
         self.assertEqual(
             0,
-            cl.num_inserted_compounds[settings.VALIDATION_DB],
+            cl.num_inserted_compounds,
             msg="No compounds validation should be inserted",
         )
         self.assertEqual(
             0,
-            cl.num_erroneous_compounds[settings.TRACEBASE_DB],
+            cl.num_erroneous_compounds,
             msg="No compounds default should be in error",
         )
         self.assertEqual(
             0,
-            cl.num_erroneous_compounds[settings.VALIDATION_DB],
+            cl.num_erroneous_compounds,
             msg="No compounds validation should be in error",
         )
 
         self.assertEqual(
             4,
-            cl.num_existing_synonyms[settings.TRACEBASE_DB],
+            cl.num_existing_synonyms,
             msg="4 synonym default inserts should be skipped",
         )
         self.assertEqual(
             4,
-            cl.num_existing_synonyms[settings.VALIDATION_DB],
+            cl.num_existing_synonyms,
             msg="4 synonym validation inserts should be skipped",
         )
         self.assertEqual(
             1,
-            cl.num_inserted_synonyms[settings.TRACEBASE_DB],
+            cl.num_inserted_synonyms,
             msg="1 synonym default should be inserted",
         )
         self.assertEqual(
             1,
-            cl.num_inserted_synonyms[settings.VALIDATION_DB],
+            cl.num_inserted_synonyms,
             msg="1 synonym validation should be inserted",
         )
         self.assertEqual(
             0,
-            cl.num_erroneous_synonyms[settings.TRACEBASE_DB],
+            cl.num_erroneous_synonyms,
             msg="No synonyms default should be in error",
         )
         self.assertEqual(
             0,
-            cl.num_erroneous_synonyms[settings.VALIDATION_DB],
+            cl.num_erroneous_synonyms,
             msg="No synonyms validation should be in error",
         )
         self.assertEqual(
@@ -315,30 +315,12 @@ class CompoundsLoaderTests(TracebaseTestCase):
         cl.load_compounds()
         cl2 = CompoundsLoader(df)
         cl2.load_compounds()
-        self.assertEqual(
-            {settings.TRACEBASE_DB: 0, settings.VALIDATION_DB: 0},
-            cl2.num_inserted_compounds,
-        )
-        self.assertEqual(
-            {settings.TRACEBASE_DB: 0, settings.VALIDATION_DB: 0},
-            cl2.num_erroneous_compounds,
-        )
-        self.assertEqual(
-            {settings.TRACEBASE_DB: 1, settings.VALIDATION_DB: 1},
-            cl2.num_existing_compounds,
-        )
-        self.assertEqual(
-            {settings.TRACEBASE_DB: 0, settings.VALIDATION_DB: 0},
-            cl2.num_inserted_synonyms,
-        )
-        self.assertEqual(
-            {settings.TRACEBASE_DB: 0, settings.VALIDATION_DB: 0},
-            cl2.num_erroneous_synonyms,
-        )
-        self.assertEqual(
-            {settings.TRACEBASE_DB: 0, settings.VALIDATION_DB: 0},
-            cl2.num_existing_synonyms,
-        )
+        self.assertEqual(0, cl2.num_inserted_compounds)
+        self.assertEqual(0, cl2.num_erroneous_compounds)
+        self.assertEqual(1, cl2.num_existing_compounds)
+        self.assertEqual(0, cl2.num_inserted_synonyms)
+        self.assertEqual(0, cl2.num_erroneous_synonyms)
+        self.assertEqual(0, cl2.num_existing_synonyms)
 
     def test_synonym_created_from_compound_name(self):
         # Make sure the compound/synonym do not exist before the test

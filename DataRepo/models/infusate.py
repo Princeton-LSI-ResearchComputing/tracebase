@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional
 
-from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 
@@ -12,7 +11,6 @@ from DataRepo.models.maintained_model import (
     init_autoupdate_label_filters,
     maintained_field_function,
 )
-from DataRepo.models.multi_db_mixin import MultiDBMixin
 from DataRepo.models.utilities import get_model_by_name
 
 if TYPE_CHECKING:
@@ -31,10 +29,9 @@ class InfusateQuerySet(models.QuerySet):
         infusate_data: InfusateData,
     ) -> tuple[Infusate, bool]:
         """Get Infusate matching the infusate_data, or create a new infusate"""
-        db = self._db or settings.DEFAULT_DB
 
         # Search for matching Infusate
-        infusate = self.using(db).get_infusate(infusate_data)
+        infusate = self.get_infusate(infusate_data)
         created = False
 
         # Matching record not found, create new record
@@ -42,48 +39,43 @@ class InfusateQuerySet(models.QuerySet):
             print(f"Inserting infusate {infusate_data['unparsed_string']}")
 
             # create infusate
-            infusate = self.using(db).create(
-                tracer_group_name=infusate_data["infusate_name"]
-            )
+            infusate = self.create(tracer_group_name=infusate_data["infusate_name"])
 
             # create tracers
             Tracer = get_model_by_name("Tracer")
             InfusateTracer = get_model_by_name("InfusateTracer")
             for infusate_tracer in infusate_data["tracers"]:
-                tracer = Tracer.objects.using(db).get_tracer(infusate_tracer["tracer"])
+                tracer = Tracer.objects.get_tracer(infusate_tracer["tracer"])
                 if tracer is None:
-                    (tracer, _) = Tracer.objects.using(db).get_or_create_tracer(
+                    (tracer, _) = Tracer.objects.get_or_create_tracer(
                         infusate_tracer["tracer"],
                     )
                 # associate tracers with specific conectrations
-                InfusateTracer.objects.using(db).create(
+                InfusateTracer.objects.create(
                     infusate=infusate,
                     tracer=tracer,
                     concentration=infusate_tracer["concentration"],
                 )
             infusate.full_clean()
-            infusate.save(using=db)
+            infusate.save()
             created = True
         return (infusate, created)
 
     def get_infusate(self, infusate_data: InfusateData) -> Optional[Infusate]:
         """Get Infusate matching the infusate_data"""
-        db = self._db or settings.DEFAULT_DB
         matching_infusate = None
 
         # Check for infusates with the same name and same number of tracers
-        infusates = (
-            Infusate.objects.using(db)
-            .annotate(num_tracers=models.Count("tracers"))
-            .filter(
-                tracer_group_name=infusate_data["infusate_name"],
-                num_tracers=len(infusate_data["tracers"]),
-            )
+        infusates = Infusate.objects.annotate(
+            num_tracers=models.Count("tracers")
+        ).filter(
+            tracer_group_name=infusate_data["infusate_name"],
+            num_tracers=len(infusate_data["tracers"]),
         )
         # Check that the tracers match
         for infusate_tracer in infusate_data["tracers"]:
             Tracer = get_model_by_name("Tracer")
-            tracer = Tracer.objects.using(db).get_tracer(infusate_tracer["tracer"])
+            tracer = Tracer.objects.get_tracer(infusate_tracer["tracer"])
             infusates = infusates.filter(
                 tracer_links__tracer=tracer,
                 tracer_links__concentration=infusate_tracer["concentration"],
@@ -93,7 +85,7 @@ class InfusateQuerySet(models.QuerySet):
         return matching_infusate
 
 
-class Infusate(MaintainedModel, MultiDBMixin):
+class Infusate(MaintainedModel):
     objects = InfusateQuerySet().as_manager()
 
     id = models.AutoField(primary_key=True)
@@ -173,11 +165,8 @@ class Infusate(MaintainedModel, MultiDBMixin):
             display_name = self.name
         elif are_autoupdates_enabled():
             init_autoupdate_label_filters(label_filters=["name"])
-            save_kwargs = {}
-            if hasattr(self, "_state") and hasattr(self._state, "db"):
-                save_kwargs["using"] = self._state.db
             # This triggers an auto-update
-            self.save(**save_kwargs)
+            self.save()
             display_name = self.name
             init_autoupdate_label_filters()
 
@@ -307,12 +296,8 @@ class Infusate(MaintainedModel, MultiDBMixin):
         """
         from DataRepo.models.tracer_label import TracerLabel
 
-        # TODO: See issue #580.  "using" will be unnecessary.
-        db = self.get_using_db()
-
         return list(
-            TracerLabel.objects.using(db)
-            .filter(tracer__infusates__id=self.id)
+            TracerLabel.objects.filter(tracer__infusates__id=self.id)
             .order_by("element")
             .distinct("element")
             .values_list("element", flat=True)

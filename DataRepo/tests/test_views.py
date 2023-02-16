@@ -3,14 +3,12 @@ import os.path
 
 from django.conf import settings
 from django.core.management import call_command
-from django.db import transaction
 from django.test import override_settings, tag
 from django.urls import reverse
 
 from DataRepo.models import (
     Animal,
     Compound,
-    CompoundSynonym,
     Infusate,
     MSRun,
     PeakData,
@@ -541,30 +539,30 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         )
 
     @classmethod
-    def clear_database(cls, db):
+    def clear_database(cls):
         """
         Clears out the contents of the supplied database and confirms it's empty.
         """
         # Note that get_all_models is implemented to return the models in an order that facilitates this deletion
         for mdl in get_all_models():
-            mdl.objects.using(db).all().delete()
+            mdl.objects.all().delete()
         # Make sure the database is actually empty so that the tests are meaningful
-        sum = cls.sum_record_counts(db)
+        sum = cls.sum_record_counts()
         assert sum == 0
 
     @classmethod
-    def sum_record_counts(cls, db):
-        record_counts = cls.get_record_counts(db)
+    def sum_record_counts(cls):
+        record_counts = cls.get_record_counts()
         sum = 0
         for cnt in record_counts:
             sum += cnt
         return sum
 
     @classmethod
-    def get_record_counts(cls, db):
+    def get_record_counts(cls):
         record_counts = []
         for mdl in get_all_models():
-            record_counts.append(mdl.objects.using(db).all().count())
+            record_counts.append(mdl.objects.all().count())
         return record_counts
 
     def test_validate_view(self):
@@ -688,13 +686,11 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         """
         Test to ensure that validating user submitted data does not change either database
         """
-        self.clear_database(settings.TRACEBASE_DB)
-        self.clear_database(settings.VALIDATION_DB)
+        self.clear_database()
         self.initialize_databases()
 
         # Get initial record counts for all models
-        tb_init_counts = self.get_record_counts(settings.TRACEBASE_DB)
-        vd_init_counts = self.get_record_counts(settings.VALIDATION_DB)
+        tb_init_counts = self.get_record_counts()
         pre_load_maintained_values = get_all_maintained_field_values("DataRepo.models")
 
         sample_file = (
@@ -708,69 +704,19 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         self.validate_some_files(sample_file, accucor_files)
 
         # Get record counts for all models
-        tb_post_counts = self.get_record_counts(settings.TRACEBASE_DB)
-        vd_post_counts = self.get_record_counts(settings.VALIDATION_DB)
+        tb_post_counts = self.get_record_counts()
         post_load_maintained_values = get_all_maintained_field_values("DataRepo.models")
 
         self.assertListEqual(tb_init_counts, tb_post_counts)
-        self.assertListEqual(vd_init_counts, vd_post_counts)
         self.assertEqual(pre_load_maintained_values, post_load_maintained_values)
 
-    def test_compounds_load_in_both_dbs(self):
-        """
-        Test to ensure that compounds load in both databases by default
-        """
-        self.clear_database(settings.TRACEBASE_DB)
-        self.clear_database(settings.VALIDATION_DB)
-        call_command(
-            "load_compounds",
-            compounds="DataRepo/example_data/small_dataset/small_obob_compounds.tsv",
-        )
-        self.assertGreater(
-            Compound.objects.using(settings.TRACEBASE_DB).all().count(), 0
-        )
-        self.assertGreater(
-            CompoundSynonym.objects.using(settings.TRACEBASE_DB).all().count(), 0
-        )
-
-    def test_tissues_load_in_both_dbs(self):
+    def test_tissues_load(self):
         """
         Test to ensure that tissues load in both databases by default
         """
-        self.clear_database(settings.TRACEBASE_DB)
-        self.clear_database(settings.VALIDATION_DB)
+        self.clear_database()
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
-        self.assertGreater(Tissue.objects.using(settings.TRACEBASE_DB).all().count(), 0)
-
-    def test_only_tracebase_loaded(self):
-        """
-        Test to ensure that the validation database is never loaded with samples, animals, and accucor data by default
-        """
-        with transaction.atomic():
-            tb_init_sum = self.sum_record_counts(settings.TRACEBASE_DB)
-            vd_init_sum = self.sum_record_counts(settings.VALIDATION_DB)
-            self.clear_database(settings.TRACEBASE_DB)
-            self.clear_database(settings.VALIDATION_DB)
-            self.initialize_databases()
-            tb_init_sum = self.sum_record_counts(settings.TRACEBASE_DB)
-            vd_init_sum = self.sum_record_counts(settings.VALIDATION_DB)
-            call_command(
-                "load_samples",
-                "DataRepo/example_data/small_dataset/small_obob_sample_table.tsv",
-                sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
-            )
-            call_command(
-                "load_accucor_msruns",
-                protocol="Default",
-                accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf.xlsx",
-                date="2021-06-03",
-                researcher="Michael Neinast",
-                new_researcher=True,
-            )
-            tb_post_sum = self.sum_record_counts(settings.TRACEBASE_DB)
-            vd_post_sum = self.sum_record_counts(settings.VALIDATION_DB)
-            self.assertGreater(tb_post_sum, tb_init_sum)
-            self.assertEqual(vd_post_sum, vd_init_sum)
+        self.assertGreater(Tissue.objects.all().count(), 0)
 
     @override_settings(VALIDATION_ENABLED=False)
     def test_validate_view_disabled_redirect(self):
@@ -791,7 +737,7 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         self.assertTemplateUsed(response, "validation_disabled.html")
 
     def test_accucor_validation_error(self):
-        self.clear_database("default")
+        self.clear_database()
         self.initialize_databases()
 
         sample_file = "DataRepo/example_data/small_dataset/small_obob_animal_and_sample_table.xlsx"

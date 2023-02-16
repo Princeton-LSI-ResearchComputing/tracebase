@@ -1,4 +1,3 @@
-from django.conf import settings
 from django.db import models
 
 
@@ -35,7 +34,6 @@ class Protocol(models.Model):
         protocol_input,
         category=None,
         provisional_description=None,
-        database=settings.TRACEBASE_DB,
     ):
         """
         retrieve or create a protocol, based on input.
@@ -45,11 +43,11 @@ class Protocol(models.Model):
         created = False
 
         try:
-            protocol = Protocol.objects.using(database).get(id=protocol_input)
+            protocol = Protocol.objects.get(id=protocol_input)
         except ValueError:
             # protocol_input must not be an integer; try the name
             try:
-                protocol, created = Protocol.objects.using(database).get_or_create(
+                protocol, created = Protocol.objects.get_or_create(
                     name=protocol_input,
                     category=category,
                 )
@@ -57,10 +55,8 @@ class Protocol(models.Model):
                     # add the provisional description
                     if provisional_description is not None:
                         protocol.description = provisional_description
-                        # full_clean cannot validate (e.g. uniqueness) using a non-default database
-                        if database == settings.DEFAULT_DB:
-                            protocol.full_clean()
-                        protocol.save(using=database)
+                        protocol.full_clean()
+                        protocol.save()
 
             except Protocol.DoesNotExist as e:
                 raise Protocol.DoesNotExist(

@@ -21,18 +21,6 @@ jobs:
         options: >-
           --health-cmd pg_isready --health-interval 10s
           --health-timeout 5s --health-retries 5
-      postgres_validation:
-        image: postgres:10.8
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: tracebase_validation
-        ports:
-          - 5433:5432
-        # needed because the postgres container does not provide a healthcheck
-        options: >-
-          --health-cmd pg_isready --health-interval 10s
-          --health-timeout 5s --health-retries 5
     env:
       DATABASE_NAME: tracebase
       DATABASE_USER: postgres
@@ -41,12 +29,6 @@ jobs:
       DATABASE_PORT: 5432
       DEBUG: true
       CACHES: TEST_CACHES
-      VALIDATION_ENABLED: true
-      VALIDATION_DATABASE_NAME: tracebase_validation
-      VALIDATION_DATABASE_USER: postgres
-      VALIDATION_DATABASE_PASSWORD: postgres
-      VALIDATION_DATABASE_HOST: 127.0.0.1
-      VALIDATION_DATABASE_PORT: 5433
     steps:
       - uses: actions/checkout@v1
       - name: Set up Python 3.8
@@ -67,13 +49,6 @@ jobs:
         run: python manage.py migrate
       - name: Make the cache table
         run: python manage.py createcachetable
-      - name: Run the validation database migrations
-        run: |
-          python manage.py migrate --database validation
-      - name: Make the cache table in the validation database
-        run: |
-          python manage.py createcachetable \
-          --database validation
       - name: Run tests
         run: python manage.py test
       - name: Load initial tissue records

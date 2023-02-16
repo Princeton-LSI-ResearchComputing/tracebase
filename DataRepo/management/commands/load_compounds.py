@@ -45,13 +45,6 @@ class Command(BaseCommand):
             default=False,
             help=argparse.SUPPRESS,
         )
-        # Used internally to load necessary data into the validation database
-        parser.add_argument(
-            "--database",
-            required=False,
-            type=str,
-            help=argparse.SUPPRESS,
-        )
 
     def handle(self, *args, **options):
         action = "Loading"
@@ -65,7 +58,6 @@ class Command(BaseCommand):
         loader = CompoundsLoader(
             compounds_df=self.compounds_df,
             synonym_separator=options["synonym_separator"],
-            database=options["database"],
             validate=options["validate"],
             dry_run=options["dry_run"],
         )
@@ -91,21 +83,6 @@ class Command(BaseCommand):
             raise CommandError(
                 "Validation errors when loading compounds, no compounds were loaded"
             )
-
-        # report on what what work would be done by the loader
-        self.stdout.write(
-            self.style.MIGRATE_HEADING(
-                f"Work to be done: {len(loader.validated_new_compounds_for_insertion)} "
-                "new compounds will be inserted and all names/synonyms from the file "
-                "will either be found or inserted."
-            )
-        )
-        if len(loader.validated_new_compounds_for_insertion) >= 1:
-            self.stdout.write(
-                self.style.MIGRATE_HEADING("New compounds to be inserted:")
-            )
-            for compound in loader.validated_new_compounds_for_insertion:
-                self.stdout.write(self.style.MIGRATE_LABEL(str(compound)))
 
         if not options["dry_run"]:
             for msg in loader.summary_messages:

@@ -4,7 +4,6 @@ import os
 import jsonschema
 import yaml  # type: ignore
 from django.apps import apps
-from django.conf import settings
 from django.core.management import BaseCommand, call_command
 from django.db import transaction
 
@@ -20,11 +19,7 @@ from DataRepo.models.maintained_model import (
     enable_autoupdates,
     perform_buffered_updates,
 )
-from DataRepo.utils.exceptions import (
-    AggregatedErrors,
-    DryRun,
-    ValidationDatabaseSetupError,
-)
+from DataRepo.utils.exceptions import AggregatedErrors, DryRun
 
 
 class Command(BaseCommand):
@@ -78,13 +73,6 @@ class Command(BaseCommand):
         )
         # Used internally to load necessary data into the validation database
         parser.add_argument(
-            "--database",
-            required=False,
-            type=str,
-            help=argparse.SUPPRESS,
-        )
-        # Used internally to load necessary data into the validation database
-        parser.add_argument(
             "--clear-buffer",
             action="store_true",
             default=False,
@@ -129,7 +117,6 @@ class Command(BaseCommand):
                 call_command(
                     "load_compounds",
                     compounds=compounds_file,
-                    database=options["database"],
                     validate=options["validate"],
                 )
 
@@ -143,7 +130,6 @@ class Command(BaseCommand):
                 call_command(
                     "load_protocols",
                     protocols=protocols_file,
-                    database=options["database"],
                     validate=options["validate"],
                     verbosity=options["verbosity"],
                 )
@@ -156,7 +142,6 @@ class Command(BaseCommand):
                 call_command(
                     "load_tissues",
                     tissues=tissues_file,
-                    database=options["database"],
                     validate=options["validate"],
                     verbosity=options["verbosity"],
                 )
@@ -185,7 +170,6 @@ class Command(BaseCommand):
                     animal_and_sample_table_filename=animals_samples_table_file,
                     table_headers=headers_file,
                     skip_researcher_check=skip_researcher_check,
-                    database=options["database"],
                     verbosity=options["verbosity"],
                     defer_autoupdates=True,
                 )
@@ -242,7 +226,6 @@ class Command(BaseCommand):
                             new_researcher=new_researcher,
                             skip_samples=skip_samples,
                             sample_name_prefix=sample_name_prefix,
-                            database=options["database"],
                             validate=options["validate"],
                             isocorr_format=isocorr_format,
                             defer_autoupdates=True,
@@ -293,23 +276,11 @@ class Command(BaseCommand):
         # TODO: PRINT EXCEPTIONS PER FILE HERE
         # TODO: DO AUTOUPDATES HERE
 
-        # Database config
-        db = settings.TRACEBASE_DB
-        # If a database was explicitly supplied
-        if options["database"] is not None:
-            db = options["database"]
-        else:
-            if options["validate"]:
-                if settings.VALIDATION_ENABLED:
-                    db = settings.VALIDATION_DB
-                else:
-                    raise ValidationDatabaseSetupError()
-
         # Since defer_autoupdates is supplied as True to the sample and accucor load commands, we can do all the mass
         # autoupdates in 1 go.
         disable_autoupdates()
         disable_caching_updates()
-        perform_buffered_updates(using=db)
+        perform_buffered_updates()
         # The buffer should be clear, but just for good measure...
         clear_update_buffer()
         enable_caching_updates()

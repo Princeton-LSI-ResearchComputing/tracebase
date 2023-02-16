@@ -71,13 +71,6 @@ class Command(BaseCommand):
             default=False,
             help=argparse.SUPPRESS,
         )
-        # Used internally to load necessary data into the validation database
-        parser.add_argument(
-            "--database",
-            required=False,
-            type=str,
-            help=argparse.SUPPRESS,
-        )
         # Intended for use by load_study to prevent individual loader autoupdates and buffer clearing, then perform all
         # mass autoupdates/buffer-clearings after all load scripts are complete
         parser.add_argument(
@@ -135,7 +128,6 @@ class Command(BaseCommand):
         )
         loader = SampleTableLoader(
             sample_table_headers=headers,
-            database=options["database"],
             validate=options["validate"],
             skip_researcher_check=options["skip_researcher_check"],
             verbosity=options["verbosity"],
