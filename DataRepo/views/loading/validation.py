@@ -8,8 +8,9 @@ from django.views.generic.edit import FormView
 
 from DataRepo.forms import DataSubmissionValidationForm
 from DataRepo.models import Compound, CompoundSynonym, Protocol, Tissue
+from DataRepo.models.researcher import UnknownResearcherError
 from DataRepo.models.utilities import get_all_models
-from DataRepo.utils import DryRun, MissingSamplesError, UnknownResearcherError
+from DataRepo.utils import DryRun, MissingSamplesError
 from DataRepo.utils.exceptions import AggregatedErrors
 
 
@@ -101,6 +102,7 @@ class DataValidationView(FormView):
                     "load_protocols",
                     protocols=animal_sample_dict[animal_sample_name],
                     validate=True,
+                    verbosity=3,
                 )
                 # Do not set PASSED here. If the full animal/sample table load passes, THEN this file has passed.
             except Exception as e:
@@ -113,13 +115,12 @@ class DataValidationView(FormView):
 
             # If the protocol load didn't fail...
             if results[animal_sample_name] != "FAILED":
-                # Load the animal and sample table in debug mode to check the researcher and sample name uniqueness.
-                # We are doing this debug run to catch researcher errors, because if there are, we can label it as a
-                # warning and run again with skip researcher check as True and catch any other exceptions that would be
-                # raised AFTER the researcher exception.
+                # Load the animal and sample table with the researcher check so we can catch any possible
+                # UnknownResearcherErrors.  We will then run again without the researcher check so that the data
+                # actually gets loaded, thus enabling the accucor data load validation in the next step.
                 try:
                     # debug=True is supposed to NOT commit the DB changes, but it IS creating the study, so even though
-                    # I'm using debug here, I am also setting the database to the validation database...
+                    # I'm using debug here, I am also running in validate mode, which uses the validation database...
                     call_command(
                         "load_animals_and_samples",
                         animal_and_sample_table_filename=animal_sample_dict[
@@ -127,6 +128,7 @@ class DataValidationView(FormView):
                         ],
                         debug=True,
                         validate=True,
+                        verbosity=3,
                     )
                     results[animal_sample_name] = "PASSED"
                 except DryRun as dr:
@@ -135,29 +137,37 @@ class DataValidationView(FormView):
                         print(str(dr))
                     results[animal_sample_name] = "PASSED"
                 except AggregatedErrors as ae:
-                    if len(ae.errors) == 1 and isinstance(
-                        ae.errors[0], UnknownResearcherError
-                    ):
-                        ure = ae.errors[0]
-                        valid = False
-                        errors[animal_sample_name].append(
-                            "[The following error about a new researcher name should only be addressed if the name "
-                            "already exists in the database as a variation.  If this is a truly new researcher name in "
-                            f"the database, it may be ignored.]\n{animal_sample_name}: {str(ure)}"
-                        )
+                    # Set overall validity
+                    valid = False
+
+                    # Set the exception level (WARNING or FAILED)
+                    if len(ae.errors) == 0:
                         results[animal_sample_name] = "WARNING"
                     else:
-                        for err in ae.errors:
-                            estr = str(err)
-                            if settings.DEBUG:
-                                traceback.print_exc()
-                                print(estr)
-                            errors[animal_sample_name].append(
-                                f"{err.__class__.__name__}: {estr}"
-                            )
-                        valid = False
                         results[animal_sample_name] = "FAILED"
 
+                    # Annotate the errors and warnings for the lab member
+                    for warning in ae.warnings:
+                        wstr = f"{type(warning).__name__}: {str(warning)}"
+                        if settings.DEBUG:
+                            traceback.print_exception(
+                                type(warning), warning, warning.__traceback__
+                            )
+                            print(wstr)
+                        if isinstance(warning, UnknownResearcherError):
+                            errors[animal_sample_name].append(
+                                "[The following error about a new researcher name should only be addressed if the "
+                                "name already exists in the database as a variation.  If this is a truly new "
+                                f"researcher name in the database, it may be ignored.]\n{animal_sample_name}: {wstr}"
+                            )
+                    for err in ae.errors:
+                        estr = f"{type(err).__name__}: {str(err)}"
+                        if settings.DEBUG:
+                            traceback.print_exception(type(err), err, err.__traceback__)
+                            print(estr)
+                        errors[animal_sample_name].append(estr)
+
+            # Now let's run without the researcher check
             can_proceed = False
             if results[animal_sample_name] != "FAILED":
                 # Load the animal and sample data into the validation database, so the data is available for the
@@ -173,6 +183,11 @@ class DataValidationView(FormView):
                     )
                     can_proceed = True
                 except AggregatedErrors as ae:
+                    if len(ae.errors) > 0:
+                        errors[animal_sample_name].append(
+                            "An unexpected validation error has occurred.  Unable to validate the accucor file(s).  "
+                            f"The following {len(ae.errors)} errors were not raised in the researcher check run..."
+                        )
                     for err in ae.errors:
                         if settings.DEBUG:
                             traceback.print_exc()
@@ -180,6 +195,7 @@ class DataValidationView(FormView):
                         errors[animal_sample_name].append(
                             f"{animal_sample_name} {err.__class__.__name__}: {str(err)}"
                         )
+                    # We do not need to rehash the warnings that were reported in the first run
                     valid = False
                     results[animal_sample_name] = "FAILED"
                     can_proceed = False
@@ -191,59 +207,43 @@ class DataValidationView(FormView):
                     try:
                         self.validate_accucor(afp, [])
                         results[af] = "PASSED"
-                    except MissingSamplesError as mse:
-                        blank_samples = []
-                        real_samples = []
+                    except AggregatedErrors as aes:
 
-                        # Determine whether all the missing samples are blank samples
-                        for sample in mse.sample_list:
-                            if "blank" in sample:
-                                blank_samples.append(sample)
-                            else:
-                                real_samples.append(sample)
+                        results[af] = "PASSED"
+                        for error in aes.errors:
+                            estr = f"{type(error).__name__}: {str(error)}"
+                            if settings.DEBUG:
+                                traceback.print_exception(
+                                    type(error), error, error.__traceback__
+                                )
+                                print(estr)
+                            if isinstance(error, MissingSamplesError):
+                                blank_samples = []
+                                real_samples = []
+                                # Determine whether all the missing samples are blank samples
+                                for sample in error.sample_list:
+                                    if "blank" in sample:
+                                        blank_samples.append(sample)
+                                    else:
+                                        real_samples.append(sample)
 
-                        # Rerun ignoring blanks if all were blank samples, so we can check everything else
-                        if len(blank_samples) > 0 and len(blank_samples) == len(
-                            mse.sample_list
-                        ):
-                            try:
-                                self.validate_accucor(afp, blank_samples)
-                                results[af] = "PASSED"
-                            except Exception as e:
-                                estr = str(e)
-                                # We are using the presence of the string "Debugging..." to infer that it got to the
-                                # end of the load without an exception.  If there is no "Debugging" message, then an
-                                # exception did not occur anyway
-                                if settings.DEBUG:
-                                    traceback.print_exc()
-                                    print(estr)
-                                if "Debugging" not in estr:
+                                # Ignore blanks if all were blank samples, so we can check everything else
+                                if len(blank_samples) > 0 and len(blank_samples) != len(
+                                    error.sample_list
+                                ):
                                     valid = False
                                     results[af] = "FAILED"
-                                    errors[af].append(estr)
-                                else:
-                                    results[af] = "PASSED"
-                        else:
-                            valid = False
-                            results[af] = "FAILED"
-                            errors[af].append(
-                                f"Samples in the accucor file [{af}] are missing in the animal and sample table: "
-                                + f"[{', '.join(real_samples)}]"
-                            )
-                    except Exception as e:
-                        estr = str(e)
-                        # We are using the presence of the string "Debugging..." to infer that it got to the end of the
-                        # load without an exception.  If there is no "Debugging" message, then an exception did not
-                        # occur anyway
-                        if settings.DEBUG:
-                            traceback.print_exc()
-                            print(estr)
-                        if "Debugging" not in estr:
-                            valid = False
-                            results[af] = "FAILED"
-                            errors[af].append(estr)
-                        else:
-                            results[af] = "PASSED"
+                                    errors[af].append(
+                                        f"Samples in the accucor file [{af}] are missing in the animal and sample "
+                                        + f"table: [{', '.join(real_samples)}]"
+                                    )
+                            else:
+                                valid = False
+                                results[af] = "FAILED"
+                                errors[af].append(estr)
+
+                    except DryRun:
+                        results[af] = "PASSED"
                 else:
                     # Cannot check because the samples did not load
                     results[af] = "UNCHECKED"

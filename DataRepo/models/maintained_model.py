@@ -514,7 +514,7 @@ class MaintainedModel(Model):
                         if isinstance(e, TransactionManagementError):
                             raise e
                         warnings.warn(
-                            f"{e.__class__.__name__} error getting current value: [{str(e)}].  Possibly due to this"
+                            f"{e.__class__.__name__} error getting current value: [{str(e)}].  Possibly due to this "
                             "being triggered by a deleted record that is linked in a related model's maintained field."
                         )
                         old_val = "<error>"

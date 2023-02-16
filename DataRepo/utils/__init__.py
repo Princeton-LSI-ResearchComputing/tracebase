@@ -15,7 +15,6 @@ from DataRepo.utils.exceptions import (
     LoadingError,
     MissingSamplesError,
     RequiredValueError,
-    UnknownResearcherError,
     ValidationDatabaseSetupError,
 )
 from DataRepo.utils.infusate_name_parser import (
@@ -41,7 +40,6 @@ __all__ = [
     "IsotopeParsingError",
     "IsotopeObservationParsingError",
     "RequiredValueError",
-    "UnknownResearcherError",
     "MissingSamplesError",
     "AmbiguousCompoundDefinitionError",
     "ValidationDatabaseSetupError",
