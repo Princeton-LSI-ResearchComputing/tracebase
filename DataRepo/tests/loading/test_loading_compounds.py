@@ -224,7 +224,7 @@ class CompoundLoadingTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             cl.load_compounds()
         aes = ar.exception
-        self.assertEqual(4, aes.num_errors)
+        self.assertEqual(2, aes.num_errors)
         self.assertEqual(
             2,
             len(
