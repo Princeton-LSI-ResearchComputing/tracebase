@@ -939,10 +939,11 @@ class AccuCorDataLoader:
                             else:
                                 if settings.DEBUG or self.verbosity >= 1:
                                     print(
-                                        f"orig_row_idx: [{orig_row_idx}] "
-                                        f"element: [{peak_group_label_rec}] "
-                                        f"count: [{labeled_count}] "
-                                        f"mass number: [{mass_number}] "
+                                        f"rows w/ dupe compound/isotope combos: {self.dupe_isotope_rows['original']}\n"
+                                        f"orig_row_idx: [{orig_row_idx}]\n"
+                                        f"element: [{peak_group_label_rec}]\n"
+                                        f"count: [{labeled_count}]\n"
+                                        f"mass number: [{mass_number}]\n"
                                         f"Number of atoms in the formula: {peak_group_label_rec.atom_count()}"
                                     )
                                 raise ve

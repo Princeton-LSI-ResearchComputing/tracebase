@@ -311,7 +311,7 @@ class SampleTableLoader:
             clear_update_buffer()
 
     def get_tissue(self, rownum, row):
-        tissue_name = self.getRowVal(rownum, row, "TISSUE_NAME")
+        tissue_name = self.getRowVal(row, "TISSUE_NAME")
         tissue_rec = None
         is_blank = tissue_name is None
         if is_blank:
@@ -333,8 +333,8 @@ class SampleTableLoader:
         return tissue_rec, is_blank
 
     def get_or_create_study(self, rownum, row, animal_rec):
-        study_name = self.getRowVal(rownum, row, "STUDY_NAME")
-        study_desc = self.getRowVal(rownum, row, "STUDY_DESCRIPTION")
+        study_name = self.getRowVal(row, "STUDY_NAME")
+        study_desc = self.getRowVal(row, "STUDY_DESCRIPTION")
 
         study_created = False
         study_updated = False
@@ -401,12 +401,12 @@ class SampleTableLoader:
         return study_rec
 
     def get_tracer_concentrations(self, rownum, row):
-        tracer_concs_str = self.getRowVal(rownum, row, "TRACER_CONCENTRATIONS")
+        tracer_concs_str = self.getRowVal(row, "TRACER_CONCENTRATIONS")
         return parse_tracer_concentrations(tracer_concs_str)
 
     def get_or_create_infusate(self, rownum, row):
         tracer_concs = self.get_tracer_concentrations(rownum, row)
-        infusate_str = self.getRowVal(rownum, row, "INFUSATE")
+        infusate_str = self.getRowVal(row, "INFUSATE")
 
         infusate_rec = None
         if infusate_str is not None:
@@ -424,7 +424,7 @@ class SampleTableLoader:
         return infusate_rec
 
     def get_treatment(self, rownum, row):
-        treatment_name = self.getRowVal(rownum, row, "ANIMAL_TREATMENT")
+        treatment_name = self.getRowVal(row, "ANIMAL_TREATMENT")
         treatment_rec = None
         if treatment_name:
             # Animal Treatments are optional protocols
@@ -469,14 +469,14 @@ class SampleTableLoader:
         return treatment_rec
 
     def get_or_create_animal(self, rownum, row, infusate_rec, treatment_rec):
-        animal_name = self.getRowVal(rownum, row, "ANIMAL_NAME")
-        genotype = self.getRowVal(rownum, row, "ANIMAL_GENOTYPE")
-        weight = self.getRowVal(rownum, row, "ANIMAL_WEIGHT")
-        feedstatus = self.getRowVal(rownum, row, "ANIMAL_FEEDING_STATUS")
-        age = self.getRowVal(rownum, row, "ANIMAL_AGE")
-        diet = self.getRowVal(rownum, row, "ANIMAL_DIET")
-        animal_sex_string = self.getRowVal(rownum, row, "ANIMAL_SEX")
-        infusion_rate = self.getRowVal(rownum, row, "ANIMAL_INFUSION_RATE")
+        animal_name = self.getRowVal(row, "ANIMAL_NAME")
+        genotype = self.getRowVal(row, "ANIMAL_GENOTYPE")
+        weight = self.getRowVal(row, "ANIMAL_WEIGHT")
+        feedstatus = self.getRowVal(row, "ANIMAL_FEEDING_STATUS")
+        age = self.getRowVal(row, "ANIMAL_AGE")
+        diet = self.getRowVal(row, "ANIMAL_DIET")
+        animal_sex_string = self.getRowVal(row, "ANIMAL_SEX")
+        infusion_rate = self.getRowVal(row, "ANIMAL_INFUSION_RATE")
 
         animal_rec = None
         animal_created = False
@@ -568,12 +568,12 @@ class SampleTableLoader:
         sample_rec = None
 
         # Initialize raw values
-        sample_name = self.getRowVal(rownum, row, "SAMPLE_NAME")
-        researcher = self.getRowVal(rownum, row, "SAMPLE_RESEARCHER")
+        sample_name = self.getRowVal(row, "SAMPLE_NAME")
+        researcher = self.getRowVal(row, "SAMPLE_RESEARCHER")
         time_collected = None
-        time_collected_str = self.getRowVal(rownum, row, "TIME_COLLECTED")
+        time_collected_str = self.getRowVal(row, "TIME_COLLECTED")
         sample_date = None
-        sample_date_value = self.getRowVal(rownum, row, "SAMPLE_DATE")
+        sample_date_value = self.getRowVal(row, "SAMPLE_DATE")
 
         # Convert/check values as necessary
         if researcher and researcher not in self.input_researchers:
@@ -902,7 +902,7 @@ class SampleTableLoader:
                 if val is None or val == "":
                     self.missing_values[hdr_name].append(rownum)
 
-    def getRowVal(self, rownum, row, header_attribute):
+    def getRowVal(self, row, header_attribute):
         # get the header value to use as a dict key for 'row'
         header = getattr(self.headers, header_attribute)
         val = None

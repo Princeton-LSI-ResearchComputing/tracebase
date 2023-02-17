@@ -19,6 +19,7 @@ class Protocol(models.Model):
     )
     description = models.TextField(
         blank=True,
+        null=True,
         help_text="Full text of the protocol's methods.",
     )
     category = models.CharField(
