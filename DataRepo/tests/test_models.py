@@ -2092,10 +2092,15 @@ class ParseIsotopeLabelTests(TracebaseTestCase):
         # Error must contain:
         #   all compound/isotope pairs that were dupes
         #   all line numbers the dupes were on
-        exp_err = (
+        exp_orig_err = (
             "The following duplicate compound/isotope combinations were found in the original data:\n"
-            "\tglucose & C12 PARENT on rows: 1,2\n"
-            "\tlactate & C12 PARENT on rows: 3,4"
+            "\tglucose & C12 PARENT on rows: ['2-3']\n"
+            "\tlactate & C12 PARENT on rows: ['4-5']"
+        )
+        exp_corr_err = (
+            "The following duplicate compound/isotope combinations were found in the corrected data:\n"
+	        "\tglucose & 0 on rows: ['2-3']\n"
+	        "\tlactate & 0 on rows: ['4-5']"
         )
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
@@ -2106,9 +2111,13 @@ class ParseIsotopeLabelTests(TracebaseTestCase):
                 researcher="Xianfeng Zeng",
             )
         aes = ar.exception
+        aes.print_summary()
+        aes.print_all_buffered_exceptions()
         self.assertEqual(2, len(aes.exceptions))
-        self.assertTrue(exp_err in str(aes.exceptions[0]))
+        self.assertTrue(isinstance(aes.exceptions[0], DupeCompoundIsotopeCombos))
+        self.assertTrue(exp_orig_err in str(aes.exceptions[0]), msg=str(aes.exceptions[0]))
         self.assertTrue(isinstance(aes.exceptions[1], DupeCompoundIsotopeCombos))
+        self.assertTrue(exp_corr_err in str(aes.exceptions[1]), msg=str(aes.exceptions[1]))
         # Data was not loaded
         self.assertEqual(PeakGroup.objects.filter(name__exact="glucose").count(), 0)
         self.assertEqual(PeakGroup.objects.filter(name__exact="lactate").count(), 0)

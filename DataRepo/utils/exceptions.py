@@ -569,7 +569,7 @@ def summarize_int_list(intlist):
     sum_list = []
     last_num = None
     waiting_num = None
-    for num in sorted(intlist):
+    for num in [int(n) for n in sorted(intlist)]:
         if last_num is None:
             waiting_num = num
         else:

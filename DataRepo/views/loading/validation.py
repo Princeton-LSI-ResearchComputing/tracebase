@@ -257,7 +257,7 @@ class DataValidationView(FormView):
             self.errors,
             self.warnings,
         ]
-    
+
     def package_exception(self, exception, file):
         """
         Packages an exception up for sending to the template
