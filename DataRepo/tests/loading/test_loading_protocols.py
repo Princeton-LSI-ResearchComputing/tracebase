@@ -1,14 +1,20 @@
 from copy import deepcopy
 
 import pandas as pd
-from django.core.management import CommandError, call_command
+from django.core.management import call_command
 from django.test import tag
 
 from DataRepo.models import Protocol
 from DataRepo.models.maintained_model import buffer_size
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import ProtocolsLoader
-from DataRepo.utils.exceptions import DryRun, LoadingError
+from DataRepo.utils.exceptions import (
+    AggregatedErrors,
+    ConflictingValueError,
+    DryRun,
+    RequiredValuesError,
+)
+from DataRepo.utils.protocols_loader import InfileDatabaseError
 
 
 @tag("protocols")
@@ -52,11 +58,13 @@ class ProtocolLoadingTests(TracebaseTestCase):
         """Test the ProtocolsLoader class"""
         self.load_dataframe_as_animal_treatment(self.working_df)
 
-        with self.assertRaisesRegex(
-            LoadingError, "different description already exists"
-        ):
+        with self.assertRaises(AggregatedErrors) as ar:
             self.load_dataframe_as_animal_treatment(self.working_differently_df)
-
+        aes = ar.exception
+        self.assertEqual(1, aes.num_errors)
+        self.assertEqual(0, aes.num_warnings)
+        self.assertEqual(ConflictingValueError, type(aes.exceptions[0]))
+        self.assertEqual("description", aes.exceptions[0].consistent_field)
         # but the other first "working" protocols are still there]
         self.assertEqual(Protocol.objects.count(), self.SETUP_PROTOCOL_COUNT)
 
@@ -64,10 +72,15 @@ class ProtocolLoadingTests(TracebaseTestCase):
         """Test the ProtocolsLoader with dataframe missing category"""
         protocol_loader = ProtocolsLoader(protocols=self.working_df)
 
-        with self.assertRaisesRegex(LoadingError, "Errors during protocol loading"):
+        with self.assertRaises(AggregatedErrors) as ar:
             protocol_loader.load()
+        aes = ar.exception
+        self.assertEqual(1, aes.num_errors)
+        self.assertEqual(0, aes.num_warnings)
+        self.assertEqual(RequiredValuesError, type(aes.exceptions[0]))
+        self.assertIn("category", aes.exceptions[0].missing.keys())
         # If errors are found, no records should be loaded
-        self.assertEqual(Protocol.objects.count(), 0)
+        self.assertEqual(0, Protocol.objects.count())
 
     def test_protocols_loader_with_bad_category_error(self):
         """Test the ProtocolsLoader with an improper category"""
@@ -75,10 +88,16 @@ class ProtocolLoadingTests(TracebaseTestCase):
             protocols=self.working_df,
             category="Some Nonsense Category",
         )
-        with self.assertRaisesRegex(LoadingError, "Errors during protocol loading"):
+        with self.assertRaises(AggregatedErrors) as ar:
             protocol_loader.load()
+        aes = ar.exception
+        self.assertEqual(1, aes.num_errors)
+        self.assertEqual(0, aes.num_warnings)
+        self.assertEqual(InfileDatabaseError, type(aes.exceptions[0]))
+        self.assertIn("category", str(aes.exceptions[0]))
+        self.assertIn("is not a valid choice", str(aes.exceptions[0]))
         # If errors are found, no records should be loaded
-        self.assertEqual(Protocol.objects.count(), 0)
+        self.assertEqual(0, Protocol.objects.count())
 
     def test_load_protocols_tsv(self):
         """Test loading the protocols from a TSV containing previously loaded data"""
@@ -130,14 +149,24 @@ class ProtocolLoadingTests(TracebaseTestCase):
 
     def test_load_protocols_with_bad_examples(self):
         """Test loading the protocols from a TSV containing questionable data"""
-        with self.assertRaisesRegex(
-            CommandError,
-            r"3 errors loading protocol records from .*protocols_with_errors\.tsv - NO RECORDS SAVED",
-        ):
+        with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_protocols",
                 protocols="DataRepo/example_data/testing_data/protocols/protocols_with_errors.tsv",
             )
+        aes = ar.exception
+
+        self.assertEqual(2, aes.num_errors)
+        self.assertEqual(0, aes.num_warnings)
+
+        self.assertEqual(ConflictingValueError, type(aes.exceptions[0]))
+        self.assertEqual("description", aes.exceptions[0].consistent_field)
+
+        self.assertEqual(RequiredValuesError, type(aes.exceptions[1]))
+        self.assertEqual(2, len(aes.exceptions[1].missing.keys()))
+        self.assertIn("name", aes.exceptions[1].missing.keys())
+        self.assertIn("category", aes.exceptions[1].missing.keys())
+
         # and no protocols should be loaded
         self.assertEqual(Protocol.objects.count(), 0)
 

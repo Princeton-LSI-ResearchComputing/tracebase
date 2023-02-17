@@ -46,6 +46,7 @@ class ProtocolsLoader:
 
     @transaction.atomic
     def load_database(self):
+        batch_cat_err_occurred = False
         for index, row in self.protocols.iterrows():
             try:
                 name = self.getRowVal(row, self.STANDARD_NAME_HEADER)
@@ -62,9 +63,14 @@ class ProtocolsLoader:
                     self.aggregated_errors_object.buffer_error(
                         NoSpaceAllowedWhenOneColumn(name)
                     )
-                    continue
-                if category is None:
-                    self.missing_reqd_vals[self.STANDARD_CATEGORY_HEADER].append(index)
+                # Check required values
+                if name is None or category is None:
+                    if name is None:
+                        self.missing_reqd_vals[self.STANDARD_NAME_HEADER].append(index)
+                    if category is None:
+                        self.missing_reqd_vals[self.STANDARD_CATEGORY_HEADER].append(
+                            index
+                        )
                     continue
 
                 rec_dict = {
@@ -89,6 +95,8 @@ class ProtocolsLoader:
             except IntegrityError as ie:
                 iestr = str(ie)
                 if "duplicate key value violates unique constraint" in iestr:
+                    # Retrieve the protocol with the conflicting value(s) that caused the unique constraint error
+                    protocol_rec = Protocol.objects.get(name__exact=rec_dict["name"])
                     self.aggregated_errors_object.buffer_error(
                         ConflictingValueError(
                             protocol_rec,
@@ -96,6 +104,7 @@ class ProtocolsLoader:
                             protocol_rec.description,
                             description,
                             index + 2,
+                            "treatments",
                         )
                     )
                 else:
@@ -103,9 +112,22 @@ class ProtocolsLoader:
                         InfileDatabaseError(ie, index + 2, rec_dict)
                     )
             except ValidationError as ve:
-                self.aggregated_errors_object.buffer_error(
-                    InfileDatabaseError(ve, index + 2, rec_dict)
-                )
+                vestr = str(ve)
+                if (
+                    self.category is not None
+                    and "category" in vestr
+                    and "is not a valid choice" in vestr
+                ):
+                    # Only include a batch category error once
+                    if not batch_cat_err_occurred:
+                        self.aggregated_errors_object.buffer_error(
+                            InfileDatabaseError(ve, index + 2, rec_dict)
+                        )
+                    batch_cat_err_occurred = True
+                else:
+                    self.aggregated_errors_object.buffer_error(
+                        InfileDatabaseError(ve, index + 2, rec_dict)
+                    )
 
         if len(self.missing_reqd_vals.keys()) > 0:
             self.aggregated_errors_object.buffer_error(
@@ -144,7 +166,7 @@ class NoSpaceAllowedWhenOneColumn(Exception):
 class InfileDatabaseError(Exception):
     def __init__(self, exception, line_num, rec_dict):
         nltab = "\n\t"
-        deets = [f"{k}: {v}" for k, v in rec_dict]
+        deets = [f"{k}: {v}" for k, v in rec_dict.items()]
         message = (
             f"{type(exception).__name__} on infile line {line_num}, creating record:\n\t{nltab.join(deets)}\n"
             f"{str(exception)}"

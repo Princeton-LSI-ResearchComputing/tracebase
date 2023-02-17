@@ -95,8 +95,8 @@ class Command(BaseCommand):
                 )
             )
         except AggregatedErrors as aes:
-            print(aes)
             aes.print_summary()
+            raise aes
 
     def read_from_file(self, filename, format=None):
         """

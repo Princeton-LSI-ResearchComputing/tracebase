@@ -38,11 +38,11 @@ from DataRepo.utils.exceptions import (
     ConflictingValueError,
     DryRun,
     DuplicateValues,
-    EmptyAnimalNames,
     HeaderConfigError,
     RequiredHeadersError,
     RequiredValuesError,
     SaveError,
+    SheetMergeError,
     UnknownHeadersError,
 )
 
@@ -870,7 +870,7 @@ class SampleTableLoader:
         if len(empty_animal_rows) > 0:
             self.empty_animal_rows = empty_animal_rows
             self.aggregated_errors_object.buffer_error(
-                EmptyAnimalNames(empty_animal_rows, animal_name_header)
+                SheetMergeError(empty_animal_rows, animal_name_header)
             )
 
     def check_required_values(self, rownum, row):

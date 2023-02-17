@@ -1,6 +1,10 @@
 from DataRepo.models.researcher import UnknownResearcherError
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
-from DataRepo.utils.exceptions import AggregatedErrors, UnexpectedIsotopes
+from DataRepo.utils.exceptions import (
+    AggregatedErrors,
+    UnexpectedIsotopes,
+    summarize_int_list,
+)
 
 
 class ExceptionTests(TracebaseTestCase):
@@ -178,3 +182,9 @@ class ExceptionTests(TracebaseTestCase):
             "raised."
         )
         self.assertEqual(expected_message, str(aes))
+
+    def test_summarize_int_list(self):
+        il = [1, 7, 2, 3, 5, 8]
+        esl = ["1-3", "5", "7-8"]
+        sl = summarize_int_list(il)
+        self.assertEqual(esl, sl)
