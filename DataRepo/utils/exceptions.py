@@ -105,8 +105,9 @@ class MissingSamplesError(Exception):
         if not message:
             nltab = "\n\t"
             message = (
-                f"{len(samples)} samples are missing in the database:{nltab}{nltab.join(samples)}\nSamples must be "
-                "loaded prior to loading mass spec data."
+                f"{len(samples)} samples are missing in the database:{nltab}{nltab.join(samples)}\n  Samples in the "
+                "accucor/isocorr files must be present in the sample table file and loaded into the database before "
+                "they can be loaded from the mass spec data files."
             )
         super().__init__(message)
         self.sample_list = samples
@@ -127,8 +128,9 @@ class NoSamplesError(Exception):
             message = "No samples were supplied."
         else:
             message = (
-                f"None of the {num_samples} samples were found in the database.  Samples must be loaded before mass "
-                "spec data can be loaded."
+                f"None of the {num_samples} samples were found in the database/sample table file.  Samples in the "
+                "accucor/isocorr files must be present in the sample table file and loaded into the database before "
+                "they can be loaded from the mass spec data files."
             )
         super().__init__(message)
 
@@ -556,7 +558,9 @@ class MissingCompounds(Exception):
             )
             message = (
                 f"{len(compounds_dict.keys())} compounds were not found in the database:{nltab}{cmdps_str}\n"
-                "Compounds must be loaded prior to loading mass spec data."
+                "Compounds referenced in the accucor/isocorr files must be loaded into the database before "
+                "the accucor/isocorr files can be loaded.  Please take note of the compounds, select a primary name, "
+                "any synonyms, and find an HMDB ID associated with the compound to provide with your submission."
             )
         super().__init__(message)
         self.compounds_dict = compounds_dict
