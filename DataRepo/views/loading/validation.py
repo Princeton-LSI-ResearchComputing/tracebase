@@ -104,14 +104,14 @@ class DataValidationView(FormView):
         Upon valid file submission, adds validation messages to the context of the validation page.
         """
 
-        errors = {}
+        exceptions = {}
         debug = "untouched"
         valid = True
         results = {}
 
         debug = f"asf: {self.animal_sample_file} num afs: {len(self.accucor_files)} num ifs: {len(self.isocorr_files)}"
 
-        [results, valid, errors, warnings] = self.validate_load_files()
+        [results, valid, exceptions] = self.validate_load_files()
 
         return self.render_to_response(
             self.get_context_data(
@@ -119,8 +119,7 @@ class DataValidationView(FormView):
                 debug=debug,
                 valid=valid,
                 form=form,
-                errors=errors,
-                warnings=warnings,
+                exceptions=exceptions,
                 submission_url=self.submission_url,
             )
         )
@@ -142,31 +141,26 @@ class DataValidationView(FormView):
 
         self.valid = True
         self.results = {sf: "PASSED"}
-        self.errors = {sf: []}
-        self.warnings = {sf: []}
+        self.exceptions = {sf: []}
         for i, afp in enumerate(self.accucor_files):
             if len(self.accucor_files) == len(self.accucor_filenames):
-                af = self.accucor_filenames[i]
+                afn = self.accucor_filenames[i]
             else:
-                af = os.path.basename(afp)
-            self.errors[af] = []
-            self.warnings[af] = []
-            self.results[af] = "PASSED"
+                afn = os.path.basename(afp)
+            self.exceptions[afn] = []
+            self.results[afn] = "PASSED"
         for i, ifp in enumerate(self.isocorr_files):
             if len(self.isocorr_files) == len(self.isocorr_filenames):
                 ifn = self.isocorr_filenames[i]
             else:
                 ifn = os.path.basename(ifp)
-            if ifn in self.errors.keys():
+            if ifn in self.exceptions.keys():
                 raise KeyError(
                     f"Isocorr/Accucor filename conflict: {ifn}.  All Accucor/Isocorr filenames must be "
                     "unique."
                 )
-            self.errors[ifn] = []
-            self.warnings[ifn] = []
+            self.exceptions[ifn] = []
             self.results[ifn] = "PASSED"
-
-        self.all_exceptions = []
 
         try:
             # Load the animal treatments
@@ -195,27 +189,26 @@ class DataValidationView(FormView):
                     self.package_exception(e, sf)
 
                 # Create a unique date that is unlikely to match any previously loaded MSRun
-                unique_date = datetime.datetime(1972, 11, 24, 15, 47, 0)
+                unique_date_str = str(datetime.datetime(1972, 11, 24, 15, 47, 0).date())
 
                 # Validate the accucor files using the loader in validate mode
                 for i, afp in enumerate(self.accucor_files):
                     if len(self.accucor_files) == len(self.accucor_filenames):
-                        af = self.accucor_filenames[i]
+                        afn = self.accucor_filenames[i]
                     else:
-                        af = os.path.basename(afp)
+                        afn = os.path.basename(afp)
                     try:
                         call_command(
                             "load_accucor_msruns",
                             protocol="Default",
                             accucor_file=afp,
-                            date=str(unique_date.date()),
+                            accucor_file_name=afn,
+                            date=unique_date_str,
                             researcher="anonymous",
                             validate=True,
                         )
                     except Exception as e:
-                        self.package_exception(e, af)
-                    finally:
-                        unique_date += datetime.timedelta(days=1)
+                        self.package_exception(e, afn)
 
                 # Validate the isocorr files using the loader in validate mode
                 for i, ifp in enumerate(self.isocorr_files):
@@ -228,15 +221,14 @@ class DataValidationView(FormView):
                             "load_accucor_msruns",
                             protocol="Default",
                             accucor_file=ifp,
-                            date=str(unique_date.date()),
+                            accucor_file_name=ifn,
+                            date=unique_date_str,
                             researcher="anonymous",
                             validate=True,
                             isocorr_format=True,
                         )
                     except Exception as e:
-                        self.package_exception(e, af)
-                    finally:
-                        unique_date += datetime.timedelta(days=1)
+                        self.package_exception(e, afn)
 
                 raise DryRun
         except DryRun:
@@ -249,8 +241,7 @@ class DataValidationView(FormView):
         return [
             self.results,
             self.valid,
-            self.errors,
-            self.warnings,
+            self.exceptions,
         ]
 
     def package_exception(self, exception, file):
@@ -265,16 +256,18 @@ class DataValidationView(FormView):
 
             # Gather the errors/warnings to send to the template
             for exc in exception.exceptions:
-                self.all_exceptions.append(exc)
                 exc_str = f"{type(exc).__name__}: {str(exc)}"
-                if exc.is_error:
-                    self.errors[file].append(exc_str)
-                else:
-                    self.warnings[file].append(exc_str)
+                self.exceptions[file].append(
+                    {"message": exc_str, "is_error": exc.is_error}
+                )
         else:
+            # All of the AggregatedErrors are printed to the console as they are encountered, but not other exceptions,
+            # so...
+            print(exception)
+
             self.valid = False
-            self.all_exceptions.append(exception)
-            self.errors[file].append(f"{type(exception).__name__}: {str(exception)}")
+            exc_str = f"{type(exception).__name__}: {str(exception)}"
+            self.exceptions[file].append({"message": exc_str, "is_error": True})
             self.results[file] = "FAILED"
 
 

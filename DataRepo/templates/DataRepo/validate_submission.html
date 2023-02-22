@@ -53,18 +53,11 @@
                 {% with file_class=status|getClass err_status="ERROR" wrn_status="WARNING" %}
                     <li class="{{ file_class }}">
                         {{ status }}: {{ file_name }}
-                        {% if errors|index:file_name or warnings|index:file_name %}
+                        {% if exceptions|index:file_name %}
                             <ul class="ul-nopadding">
-                                {% if errors|index:file_name %}
-                                        {% for error in errors|index:file_name %}
-                                            <li class="{{ err_status|getClass }}"><span class="newlines">{{ error }}</span></li>
-                                        {% endfor %}
-                                {% endif %}
-                                {% if warnings|index:file_name %}
-                                        {% for warning in warnings|index:file_name %}
-                                            <li class="{{ wrn_status|getClass }}"><span class="newlines">{{ warning }}</span></li>
-                                        {% endfor %}
-                                {% endif %}
+                                {% for exception in exceptions|index:file_name %}
+                                    <li class="{% if exception|index:'is_error' %}{{ err_status|getClass }}{% else %}{{ wrn_status|getClass }}{% endif %}"><span class="newlines">{{ exception|index:"message" }}</span></li>
+                                {% endfor %}
                             </ul>
                         {% endif %}
                     </li>

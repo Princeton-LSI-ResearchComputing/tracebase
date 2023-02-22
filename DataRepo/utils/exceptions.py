@@ -58,18 +58,20 @@ class ExistingMSRun(Exception):
             f"\tdate: {date}\n"
             f"\tresearcher: {researcher}\n"
             f"\tprotocol: {protocol_name}\n"
-            f"for the load of the current accucor/isocorr file: [{adding_file}]\n"
-            "contains samples that were also found to be associated with the following previously (or concurrently) "
-            "loaded file(s).  The common/conflicting samples contained in each file are listed:\n"
+            f"for the load of the current accucor/isocorr file: [{adding_file}] contains samples that were also found "
+            "to be associated with the following previously (or concurrently) loaded accucor/isocorr file(s).  The "
+            "common/conflicting samples contained in each file are listed as:\n"
         )
         for existing_file in file_samples_dict.keys():
             message += f"\t{existing_file}:\n\t\t"
             message += "\n\t\t".join(file_samples_dict[existing_file])
         message += (
-            "\nThis indicates that the same samples were a part of multiple MSRuns.  The date, researcher, protocol, "
-            "(and sample name) must be unique for each MSRun.  Changing the date of the MSRun should be considered, "
-            "but the load will also need a prefix defined on the command line (using --prefix) and the sample names "
-            "in the sample sheet will need to be modified to make them unique (even though they are the same sample)."
+            "\nThe date, researcher, protocol, and sample name must be unique for each MSRun.  Changing the date of "
+            "the MSRun could resolve the conflict and allow you to retain unique and consistent sample names for "
+            "searching, but if these samples were truly scanned in multiple MSRuns on the same date, it could also be "
+            "resolved by the curators using a sample name prefix on the command line (--prefix) and changing the "
+            "sample names in the sample sheet to match (i.e. they would be saved as different samples even though "
+            "they are the same sample) - in which case, there's nothing you need to do."
         )
         super().__init__(message)
         self.date = date

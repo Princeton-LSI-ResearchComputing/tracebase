@@ -134,7 +134,7 @@ class AccuCorDataLoader:
         self.date = datetime.strptime(date.strip(), "%Y-%m-%d")
         self.researcher = researcher.strip()
         self.new_researcher = new_researcher
-        self.peak_group_set_filename_input = peak_group_set_filename.strip()
+        self.peak_group_set_filename = peak_group_set_filename
 
         # Sample Metadata
         if skip_samples is None:
@@ -646,7 +646,7 @@ class AccuCorDataLoader:
         return protocol
 
     def insert_peak_group_set(self):
-        peak_group_set = PeakGroupSet(filename=self.peak_group_set_filename_input)
+        peak_group_set = PeakGroupSet(filename=self.peak_group_set_filename)
         peak_group_set.full_clean()
         peak_group_set.save()
         return peak_group_set
@@ -725,14 +725,16 @@ class AccuCorDataLoader:
 
         # Determine whether an error should be included about existing MSRun records
         if len(self.existing_msruns.keys()) > 0:
-            self.aggregated_errors_object.buffer_error(
+            self.aggregated_errors_object.buffer_exception(
                 ExistingMSRun(
                     self.date,
                     self.researcher,
                     self.protocol_input,
                     self.existing_msruns,
                     peak_group_set.filename,
-                )
+                ),
+                is_fatal=True,
+                is_error=not self.validate,
             )
 
         # Create all PeakGroups
