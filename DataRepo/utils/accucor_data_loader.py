@@ -166,7 +166,10 @@ class AccuCorDataLoader:
         self.aggregated_errors_object = AggregatedErrors()
         self.missing_samples = []
         self.missing_compounds = {}
-        self.dupe_isotope_rows = {"original": [], "corrected": []}
+        self.dupe_isotope_compounds = {
+            "original": defaultdict(dict),
+            "corrected": defaultdict(dict),
+        }
         self.existing_msruns = defaultdict(list)
 
         # Used for accucor
@@ -348,28 +351,33 @@ class AccuCorDataLoader:
 
     def validate_compounds(self):
 
-        self.dupe_isotope_rows["original"] = []
-        self.dupe_isotope_rows["corrected"] = []
+        # In case validate_compounds is ever called more than once...
+        # These are used to skip duplicated data in the load
+        self.dupe_isotope_compounds["original"] = defaultdict(dict)
+        self.dupe_isotope_compounds["corrected"] = defaultdict(dict)
+        master_dupe_dict = defaultdict(dict)
 
         if self.accucor_original_df is not None:
-            dupe_dict = defaultdict(list)
-            dupe_orig_rows = []
+            orig_dupe_dict = defaultdict(list)
+            dupe_orig_compound_isotope_labels = defaultdict(list)
             for index, row in self.accucor_original_df[
                 self.accucor_original_df.duplicated(
                     subset=["compound", "isotopeLabel"], keep=False
                 )
             ].iterrows():
-                dupe_orig_rows.append(index)
-                dupe_key = row["compound"] + " & " + row["isotopeLabel"]
-                dupe_dict[dupe_key].append(index + 2)
+                cmpd = row["compound"]
+                lbl = row["isotopeLabel"]
+                dupe_orig_compound_isotope_labels[cmpd].append(index + 2)
+                dupe_key = f"Compound: [{cmpd}], Label: [{lbl}]"
+                orig_dupe_dict[dupe_key].append(index + 2)
 
-            if len(dupe_dict.keys()) != 0:
+            if len(orig_dupe_dict.keys()) != 0:
                 # Record the rows where this exception occurred so that subsequent downstream errors caused by this
                 # exception can be ignored.
-                self.dupe_isotope_rows["original"] = dupe_orig_rows
-                self.aggregated_errors_object.buffer_error(
-                    DupeCompoundIsotopeCombos(dupe_dict, "original")
-                )
+                self.dupe_isotope_compounds[
+                    "original"
+                ] = dupe_orig_compound_isotope_labels
+                master_dupe_dict["original"] = orig_dupe_dict
 
         if self.isocorr_format:
             labeled_element_header = "isotopeLabel"
@@ -377,23 +385,30 @@ class AccuCorDataLoader:
             labeled_element_header = self.labeled_element_header
 
         # do it again for the corrected
-        dupe_dict = defaultdict(list)
-        dupe_corr_rows = []
+        corr_dupe_dict = defaultdict(list)
+        dupe_corr_compound_isotope_counts = defaultdict(list)
         for index, row in self.accucor_corrected_df[
             self.accucor_corrected_df.duplicated(
                 subset=[self.compound_header, labeled_element_header], keep=False
             )
         ].iterrows():
-            dupe_corr_rows.append(index)
-            dupe_key = f"{row[self.compound_header]} & {row[labeled_element_header]}"
-            dupe_dict[dupe_key].append(index + 2)
+            cmpd = row[self.compound_header]
+            lbl = row[labeled_element_header]
+            dupe_corr_compound_isotope_counts[cmpd].append(index + 2)
+            dupe_key = (
+                f"{self.compound_header}: [{cmpd}], {labeled_element_header}: [{lbl}]"
+            )
+            corr_dupe_dict[dupe_key].append(index + 2)
 
-        if len(dupe_dict.keys()) != 0:
+        if len(corr_dupe_dict.keys()) != 0:
             # Record the rows where this exception occurred so that subsequent downstream errors caused by this
             # exception can be ignored.
-            self.dupe_isotope_rows["corrected"] = dupe_corr_rows
+            self.dupe_isotope_compounds["corrected"] = dupe_corr_compound_isotope_counts
+            master_dupe_dict["corrected"] = corr_dupe_dict
+
+        if len(master_dupe_dict.keys()) > 0:
             self.aggregated_errors_object.buffer_error(
-                DupeCompoundIsotopeCombos(dupe_dict, "corrected")
+                DupeCompoundIsotopeCombos(master_dupe_dict)
             )
 
     def initialize_db_samples_dict(self):
@@ -732,6 +747,15 @@ class AccuCorDataLoader:
                     obs_isotopes = self.get_observed_isotopes(corr_row)
                     peak_group_name = corr_row[self.compound_header]
 
+                    # If this is a compound that has isotope duplicates, skip it
+                    # It will already have been identified as a DupeCompoundIsotopeCombos error, so this load will
+                    # ultimately fail, but we con tinue so that we can find more errors
+                    if (
+                        peak_group_name
+                        in self.dupe_isotope_compounds["corrected"].keys()
+                    ):
+                        continue
+
                     # Assuming that if the first one is the parent, they all are.  Note that subsequent isotopes in the
                     # list may be parent=True if 0 isotopes of that element were observed.
                     # We will also skip peakgroups whose names are not keys in self.peak_group_dict.  Peak group names
@@ -794,13 +818,6 @@ class AccuCorDataLoader:
                         # cache
                         inserted_peak_group_dict[peak_group_name] = peak_group
 
-                except ValidationError as ve:
-                    if self.is_a_downstream_dupe_error(ve, index, "corrected"):
-                        # This is a redundant error caused by the existence of a DupeCompoundIsotopeCombos, so
-                        # we can ignore this error
-                        pass
-                    else:
-                        raise ve
                 except Exception as e:
                     # If we get here, a specific exception should be written to handle and explain the cause of an
                     # error.  For example, the ValidationError handled above was due to a previous error about
@@ -922,25 +939,7 @@ class AccuCorDataLoader:
 
                             peak_data_label.full_clean()
                             peak_data_label.save()
-                        except ValidationError as ve:
-                            # The orig_row_idx was incremented before the exception encountered in full_clean
-                            if self.is_a_downstream_dupe_error(
-                                ve, orig_row_idx - 1, "original"
-                            ):
-                                # This is a redundant error caused by the existence of a DupeCompoundIsotopeCombos, so
-                                # we can ignore this error
-                                pass
-                            else:
-                                if settings.DEBUG or self.verbosity >= 1:
-                                    print(
-                                        f"rows w/ dupe compound/isotope combos: {self.dupe_isotope_rows['original']}\n"
-                                        f"orig_row_idx: [{orig_row_idx}]\n"
-                                        f"element: [{peak_group_label_rec}]\n"
-                                        f"count: [{labeled_count}]\n"
-                                        f"mass number: [{mass_number}]\n"
-                                        f"Number of atoms in the formula: {peak_group_label_rec.atom_count()}"
-                                    )
-                                raise ve
+
                         except Exception as e:
                             self.aggregated_errors_object.buffer_error(e)
                             continue
@@ -1028,27 +1027,6 @@ class AccuCorDataLoader:
 
         if settings.DEBUG or self.verbosity >= 1:
             print("Expiring done.")
-
-    def is_a_downstream_dupe_error(self, ve, row, sheet):
-        """
-        DupeCompoundIsotopeCombos errors cause some specific ValidationErrors.  This method takes a ValidationError
-        object and determines if this is in fact an error that arises due to a DupeCompoundIsotopeCombos error.
-        """
-        sve = str(ve)
-        if row in self.dupe_isotope_rows[sheet] and (
-            (
-                "dtype: float64" in sve
-                and "value must be a float" in sve
-                and "corrected_abundance" in sve
-            )
-            or (
-                "__all__" in sve
-                and "Peak group with this Name and Msrun already exists." in sve
-            )
-        ):
-            return True
-
-        return False
 
     def get_peak_labeled_elements(self, compound_recs) -> List[IsotopeObservationData]:
         """

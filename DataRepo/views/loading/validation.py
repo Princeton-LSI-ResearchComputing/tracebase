@@ -1,6 +1,5 @@
 import datetime
 import os.path
-import traceback
 from typing import List
 
 from django.conf import settings
@@ -246,10 +245,6 @@ class DataValidationView(FormView):
         finally:
             # The database should roll back here, but we don't want to raise the exception for the user's view here.
             print("Validation done.")
-            if settings.DEBUG:
-                for exc in self.all_exceptions:
-                    traceback.print_exception(type(exc), exc, exc.__traceback__)
-                    print(f"{type(exc).__name__}: {str(exc)}")
 
         return [
             self.results,

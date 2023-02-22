@@ -105,7 +105,7 @@ class MissingSamplesError(Exception):
         if not message:
             nltab = "\n\t"
             message = (
-                f"{len(samples)} samples are missing in the database:{nltab}{nltab.join(samples)}\n  Samples in the "
+                f"{len(samples)} samples are missing in the database:{nltab}{nltab.join(samples)}\nSamples in the "
                 "accucor/isocorr files must be present in the sample table file and loaded into the database before "
                 "they can be loaded from the mass spec data files."
             )
@@ -222,36 +222,65 @@ class AggregatedErrors(Exception):
         if not warnings:
             warnings = []
 
+        self.exceptions = []
+
         self.num_errors = len(errors)
         self.num_warnings = len(warnings)
 
         self.is_fatal = False  # Default to not fatal. buffer_exception can change this.
+
+        # Providing exceptions, errors, and warnings is an optional alternative to using the methods: buffer_exception,
+        # buffer_error, and buffer_warning.
         for exception in exceptions:
+            is_error = True
+            # It's possible this was called and supplied exceptions from another AggregatedErrors object
             if not hasattr(exception, "is_error"):
-                self.ammend_buffered_exception(exception, is_error=True)
+                is_error = exception.is_error
+            if not hasattr(exception, "is_fatal"):
+                is_fatal = exception.is_fatal
+            else:
+                is_fatal = is_error
+            if is_fatal:
+                self.is_fatal = is_fatal
             if exception.is_error:
                 self.num_errors += 1
-                self.is_fatal = True
             else:
                 self.num_warnings += 1
+            self.exceptions.append(exception)
+            self.ammend_buffered_exception(
+                exception,
+                is_error=is_error,
+                is_fatal=is_fatal,
+                exc_no=len(self.exceptions),
+            )
 
-        self.exceptions = exceptions
         for warning in warnings:
-            self.ammend_buffered_exception(warning, is_error=False)
             self.exceptions.append(warning)
+            self.ammend_buffered_exception(
+                warning, len(self.exceptions), is_error=False
+            )
+
         for error in errors:
-            self.ammend_buffered_exception(error, is_error=True)
             self.exceptions.append(error)
+            self.ammend_buffered_exception(error, len(self.exceptions), is_error=True)
             self.is_fatal = True
 
-        if not message:
-            message = self.get_default_message()
-        super().__init__(message)
+        self.custom_message = False
+        if message:
+            self.custom_message = True
+            current_message = message
+        else:
+            current_message = self.get_default_message()
+        super().__init__(current_message)
 
         self.buffered_tb_str = self.get_buffered_traceback_string()
         self.quiet = quiet
 
-    def get_default_message(self, should_raise_called=False):
+    def get_default_message(self):
+        should_raise_message = (
+            "  Use the return of self.should_raise() to determine if an exception should be raised before raising "
+            "this exception."
+        )
         if len(self.exceptions) > 0:
             errtypes = []
             for errtype in [type(e).__name__ for e in self.exceptions]:
@@ -259,17 +288,13 @@ class AggregatedErrors(Exception):
                     errtypes.append(errtype)
             message = f"{len(self.exceptions)} exceptions occurred, including type(s): [{', '.join(errtypes)}]."
             if not self.is_fatal:
-                message += "  This exception should not have been raised."
-        elif not should_raise_called:
-            message = (
-                "AggregatedErrors exception.  Use self.should_raise() to initialize the message and report an errors/"
-                "warnings summary."
+                message += f"  This exception should not have been raised.{should_raise_message}"
+            message += (
+                f"\n{self.get_summary_string()}\nScroll up to see tracebacks for these exceptions printed as they "
+                "were encountered."
             )
         else:
-            message = (
-                "AggregatedErrors exception.  No exceptions have been buffered.  Use the return of "
-                "self.should_raise() to determine if an exception should be raised before raising this exception."
-            )
+            message = f"AggregatedErrors exception.  No exceptions have been buffered.{should_raise_message}"
         return message
 
     def print_summary(self):
@@ -288,19 +313,40 @@ class AggregatedErrors(Exception):
         return sum_str
 
     @classmethod
-    def ammend_buffered_exception(cls, exception, is_error=True, buffered_tb_str=None):
+    def ammend_buffered_exception(
+        self, exception, exc_no, is_error=True, is_fatal=None, buffered_tb_str=None
+    ):
         """
         This takes an exception that is going to be buffered and adds a few data memebers to it: buffered_tb_str (a
         traceback string), is_error (e.g. whether it's a warning or an exception), and a string that is used to
         classify it as a warning or an error.  The exception is returned for convenience.  The buffered_tb_str is not
         generated here because is can be called out of the context of the exception (see the constructor).
         """
-        exception.buffered_tb_str = buffered_tb_str
+        if buffered_tb_str is not None:
+            exception.buffered_tb_str = buffered_tb_str
+        elif not hasattr(exception, "buffered_tb_str"):
+            exception.buffered_tb_str = None
         exception.is_error = is_error
         exception.exc_type_str = "Warning"
+        if is_fatal is not None:
+            exception.is_fatal = is_fatal
+        else:
+            exception.is_fatal = is_error
         if is_error:
             exception.exc_type_str = "Error"
+        exception.exc_no = exc_no
         return exception
+
+    def get_buffered_exception_summary_string(self, buffered_exception, exc_no=None):
+        """
+        Constructs the summary string using the info stored in the exception by ammend_buffered_exception()
+        """
+        if exc_no is None:
+            exc_no = buffered_exception.exc_no
+        return (
+            f"EXCEPTION{exc_no}({buffered_exception.exc_type_str.upper()}): {type(buffered_exception).__name__}: "
+            f"{buffered_exception}"
+        )
 
     @classmethod
     def get_buffered_traceback_string(cls):
@@ -336,14 +382,8 @@ class AggregatedErrors(Exception):
         buffered_tb_str = self.get_buffered_traceback_string()
         buffered_exception = None
         if hasattr(exception, "__traceback__") and exception.__traceback__:
-            added_exc_str = "".join(
-                traceback.format_exception(
-                    type(exception),
-                    exception,
-                    exception.__traceback__,
-                )
-            )
-            buffered_tb_str += f"\n\nThe above caught exception had a partial traceback:\n{added_exc_str}"
+            added_exc_str = "".join(traceback.format_tb(exception.__traceback__))
+            buffered_tb_str += f"\nThe above caught exception had a partial traceback:\n\n{added_exc_str}"
             buffered_exception = exception
         else:
             try:
@@ -351,10 +391,14 @@ class AggregatedErrors(Exception):
             except Exception as e:
                 buffered_exception = e.with_traceback(e.__traceback__)
 
-        self.ammend_buffered_exception(
-            buffered_exception, is_error=is_error, buffered_tb_str=buffered_tb_str
-        )
         self.exceptions.append(buffered_exception)
+        self.ammend_buffered_exception(
+            buffered_exception,
+            len(self.exceptions),
+            is_error=is_error,
+            is_fatal=is_fatal,
+            buffered_tb_str=buffered_tb_str,
+        )
 
         if buffered_exception.is_error:
             self.num_errors += 1
@@ -366,6 +410,10 @@ class AggregatedErrors(Exception):
 
         if not self.quiet:
             self.print_buffered_exception(buffered_exception)
+
+        # Update the overview message
+        if not self.custom_message:
+            super().__init__(self.get_default_message())
 
         return buffered_exception
 
@@ -392,15 +440,11 @@ class AggregatedErrors(Exception):
         )
 
     def get_buffered_exception_string(self, buffered_exception):
-        exc_str = f"Buffered {buffered_exception.exc_type_str}:\n"
-        exc_str += buffered_exception.buffered_tb_str.rstrip() + "\n"
-        exc_str += f"{type(buffered_exception).__name__}: {str(buffered_exception)}"
+        exc_str = buffered_exception.buffered_tb_str.rstrip() + "\n"
+        exc_str += f"{self.get_buffered_exception_summary_string(buffered_exception)}"
         return exc_str
 
-    def should_raise(self, message=None):
-        if not message:
-            message = self.get_default_message(should_raise_called=True)
-        super().__init__(message)
+    def should_raise(self):
         return self.is_fatal
 
     def get_num_errors(self):
@@ -451,12 +495,20 @@ class SaveError(Exception):
 
 
 class DupeCompoundIsotopeCombos(Exception):
-    def __init__(self, dupe_dict, source):
+    def __init__(self, dupe_dict):
         nltab = "\n\t"
-        message = (
-            f"The following duplicate compound/isotope combinations were found in the {source} data:{nltab}"
-            f"{nltab.join(list(map(lambda c: f'{c} on rows: {summarize_int_list(dupe_dict[c])}', dupe_dict.keys())))}"
-        )
+        nltabtab = f"{nltab}\t"
+        message = "The following duplicate compound/isotope combinations were found in the data:"
+        for source in dupe_dict:
+            message += f"{nltab}{source} sheet:{nltabtab}"
+            message += nltabtab.join(
+                list(
+                    map(
+                        lambda c: f"{c} on rows: {summarize_int_list(dupe_dict[source][c])}",
+                        dupe_dict[source].keys(),
+                    )
+                )
+            )
         super().__init__(message)
         self.dupe_dict = dupe_dict
         self.source = source
