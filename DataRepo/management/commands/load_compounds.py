@@ -1,7 +1,7 @@
 import argparse
 
 import pandas as pd
-from django.core.management import BaseCommand, CommandError
+from django.core.management import BaseCommand
 
 from DataRepo.utils import CompoundsLoader, DryRun
 
@@ -66,27 +66,6 @@ class Command(BaseCommand):
             loader.load_compounds()
         except DryRun:
             pass
-
-        if options["verbosity"] >= 2:
-            for msg in loader.validation_debug_messages:
-                self.stdout.write(self.style.NOTICE(msg))
-
-        if options["verbosity"] >= 1:
-            for msg in loader.validation_warning_messages:
-                self.stdout.write(self.style.WARNING(msg))
-
-        # If validation failed, raise an exception
-        if len(loader.validation_error_messages) >= 1:
-            # report on what errors were discovered by the loader
-            for err_msg in loader.validation_error_messages:
-                self.stdout.write(self.style.ERROR(err_msg))
-            raise CommandError(
-                "Validation errors when loading compounds, no compounds were loaded"
-            )
-
-        if not options["dry_run"]:
-            for msg in loader.summary_messages:
-                self.stdout.write(self.style.MIGRATE_HEADING(msg))
 
         self.stdout.write(self.style.SUCCESS(f"{action} compound data completed"))
 

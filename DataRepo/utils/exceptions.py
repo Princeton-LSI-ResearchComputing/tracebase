@@ -234,15 +234,15 @@ class AggregatedErrors(Exception):
         for exception in exceptions:
             is_error = True
             # It's possible this was called and supplied exceptions from another AggregatedErrors object
-            if not hasattr(exception, "is_error"):
+            if hasattr(exception, "is_error"):
                 is_error = exception.is_error
-            if not hasattr(exception, "is_fatal"):
+            if hasattr(exception, "is_fatal"):
                 is_fatal = exception.is_fatal
             else:
                 is_fatal = is_error
             if is_fatal:
                 self.is_fatal = is_fatal
-            if exception.is_error:
+            if is_error:
                 self.num_errors += 1
             else:
                 self.num_warnings += 1
@@ -511,7 +511,6 @@ class DupeCompoundIsotopeCombos(Exception):
             )
         super().__init__(message)
         self.dupe_dict = dupe_dict
-        self.source = source
 
 
 class DuplicateValues(Exception):

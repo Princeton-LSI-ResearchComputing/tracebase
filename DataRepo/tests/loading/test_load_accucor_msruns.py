@@ -139,7 +139,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
                 date="2021-04-29",
                 researcher="Michael Neinast",
                 new_researcher=True,
-                debug=True,
+                dry_run=True,
             )
 
         post_load_maintained_values = get_all_maintained_field_values("DataRepo.models")

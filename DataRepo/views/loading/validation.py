@@ -172,7 +172,7 @@ class DataValidationView(FormView):
             # Load the animal treatments
             with transaction.atomic():
                 try:
-                    # Not running in debug, because these need to be loaded in order to run the next load
+                    # Not running in dry run, because these need to be loaded in order to run the next load
                     call_command(
                         "load_protocols",
                         protocols=sfp,
@@ -183,7 +183,7 @@ class DataValidationView(FormView):
                     self.package_exception(e, sf)
 
                 try:
-                    # Not running in debug, because these need to be loaded in order to run the next load
+                    # Not running in dry run, because these need to be loaded in order to run the next load
                     call_command(
                         "load_animals_and_samples",
                         animal_and_sample_table_filename=sfp,

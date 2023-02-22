@@ -67,12 +67,12 @@ class Command(BaseCommand):
             default=None,
             required=False,
         )
-        # optional debug argument
+        # optional dry run argument
         parser.add_argument(
-            "--debug",
+            "--dry-run",
             action="store_true",
             default=False,
-            help="Debug mode. Will not change the database.",
+            help="Dry run mode. Will not change the database.",
         )
         # optional new researcher argument (circumvents existing researcher check)
         parser.add_argument(
@@ -126,7 +126,7 @@ class Command(BaseCommand):
             isocorr_format=options["isocorr_format"],
             verbosity=options["verbosity"],
             defer_autoupdates=options["defer_autoupdates"],
-            dry_run=options["debug"],
+            dry_run=options["dry_run"],
         )
 
         loader.load_accucor_data()

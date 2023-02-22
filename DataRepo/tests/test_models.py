@@ -711,7 +711,7 @@ class DataLoadingTests(TracebaseTestCase):
         self.assertEqual(24, len(cves))
         # There are 24 expected errors total
         self.assertEqual(24, len(aes.exceptions))
-        self.assertEqual(
+        self.assertIn(
             "24 exceptions occurred, including type(s): [ConflictingValueError].",
             str(ar.exception),
         )
@@ -1839,7 +1839,7 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
                 "DataRepo/example_data/small_dataset/"
                 "small_obob_animal_and_sample_table.xlsx"
             ),
-            debug=False,
+            dry_run=False,
         )
 
         self.assertEqual(Sample.objects.all().count(), SAMPLES_COUNT)
@@ -1849,7 +1849,7 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
         study = Study.objects.get(name="Small OBOB")
         self.assertEqual(study.animals.count(), ANIMALS_COUNT)
 
-    def test_animal_and_sample_load_in_debug(self):
+    def test_animal_and_sample_load_in_dry_run(self):
 
         # Load some data to ensure that none of it changes during the actual test
         call_command(
@@ -1876,7 +1876,7 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
                     "DataRepo/example_data/small_dataset/"
                     "small_obob_animal_and_sample_table.xlsx"
                 ),
-                debug=True,
+                dry_run=True,
             )
 
         post_load_maintained_values = get_all_maintained_field_values("DataRepo.models")
@@ -2092,15 +2092,14 @@ class ParseIsotopeLabelTests(TracebaseTestCase):
         # Error must contain:
         #   all compound/isotope pairs that were dupes
         #   all line numbers the dupes were on
-        exp_orig_err = (
-            "The following duplicate compound/isotope combinations were found in the original data:\n"
-            "\tglucose & C12 PARENT on rows: ['2-3']\n"
-            "\tlactate & C12 PARENT on rows: ['4-5']"
-        )
-        exp_corr_err = (
-            "The following duplicate compound/isotope combinations were found in the corrected data:\n"
-            "\tglucose & 0 on rows: ['2-3']\n"
-            "\tlactate & 0 on rows: ['4-5']"
+        exp_err = (
+            "The following duplicate compound/isotope combinations were found in the data:\n"
+            "\toriginal sheet:\n"
+            "\t\tCompound: [glucose], Label: [C12 PARENT] on rows: ['2-3']\n"
+            "\t\tCompound: [lactate], Label: [C12 PARENT] on rows: ['4-5']\n"
+            "\tcorrected sheet:\n"
+            "\t\tCompound: [glucose], C_Label: [0] on rows: ['2-3']\n"
+            "\t\tCompound: [lactate], C_Label: [0] on rows: ['4-5']"
         )
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
@@ -2113,15 +2112,11 @@ class ParseIsotopeLabelTests(TracebaseTestCase):
         aes = ar.exception
         aes.print_summary()
         aes.print_all_buffered_exceptions()
-        self.assertEqual(2, len(aes.exceptions))
+        self.assertEqual(1, len(aes.exceptions))
         self.assertTrue(isinstance(aes.exceptions[0], DupeCompoundIsotopeCombos))
-        self.assertTrue(
-            exp_orig_err in str(aes.exceptions[0]), msg=str(aes.exceptions[0])
-        )
-        self.assertTrue(isinstance(aes.exceptions[1], DupeCompoundIsotopeCombos))
-        self.assertTrue(
-            exp_corr_err in str(aes.exceptions[1]), msg=str(aes.exceptions[1])
-        )
+        self.assertTrue("original" in aes.exceptions[0].dupe_dict.keys())
+        self.assertTrue("corrected" in aes.exceptions[0].dupe_dict.keys())
+        self.assertEqual(exp_err, str(aes.exceptions[0]), msg=str(aes.exceptions[0]))
         # Data was not loaded
         self.assertEqual(PeakGroup.objects.filter(name__exact="glucose").count(), 0)
         self.assertEqual(PeakGroup.objects.filter(name__exact="lactate").count(), 0)
