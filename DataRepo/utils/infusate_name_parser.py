@@ -78,6 +78,12 @@ def parse_infusate_name(
             f"Unable to parse infusate string: [{infusate_string}]"
         )
 
+    if len(tracer_strings) != len(concentrations):
+        raise InfusateParsingError(
+            f"Unable to match {len(tracer_strings)} tracers to {len(concentrations)} concentration values:\n"
+            f"\tTracers: {tracer_strings}\n"
+            f"\tConcentration values: {concentrations}"
+        )
     for (tracer_string, concentration) in zip_longest(tracer_strings, concentrations):
         infusate_tracer: InfusateTracer = {
             "tracer": parse_tracer_string(tracer_string),
@@ -100,7 +106,6 @@ def parse_tracer_string(tracer: str) -> TracerData:
         "compound_name": "",
         "isotopes": list(),
     }
-
     match = re.search(TRACER_ENCODING_PATTERN, tracer)
     if match:
         tracer_data["compound_name"] = match.group("compound_name").strip()
