@@ -48,7 +48,7 @@ class InfusateData(TypedDict):
 
 
 def parse_infusate_name(
-    infusate_string: str, concentrations: List[int] = []
+    infusate_string: str, concentrations: List[int]
 ) -> InfusateData:
     """
     Takes a complex infusate, coded as a string, and parses it into its optional
@@ -56,7 +56,7 @@ def parse_infusate_name(
 
     Args:
         infusate_string (string): A string representation of an infusate
-        concentrations (:obj:`list` of :obj:`int`, optional): A list of tracer
+        concentrations (:obj:`list` of :obj:`int`): A list of tracer
             concentrations, there must be one per tracer.
 
     Returns:
@@ -91,7 +91,7 @@ def parse_infusate_name(
         )
 
     # If concentrations were supplied, there must be one per tracer
-    if concentrations and len(tracer_strings) != len(concentrations):
+    if len(tracer_strings) != len(concentrations):
         raise InfusateParsingError(
             f"Unable to match {len(tracer_strings)} tracers to {len(concentrations)} concentration values:\n"
             f"\tTracers: {tracer_strings}\n"
