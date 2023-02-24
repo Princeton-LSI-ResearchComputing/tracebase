@@ -102,6 +102,32 @@ class ResearcherNotNew(Exception):
         self.researchers = researchers
 
 
+class AllMissingSamples(Exception):
+    """
+    This is the same as the MissingSamplesError class, but it takes a 2D dict that is used to report every file where
+    each missing sample exists.
+    """
+
+    def __init__(self, samples, message=None):
+        if not message:
+            nltab = "\n\t"
+            smpls_str = nltab.join(
+                list(
+                    map(
+                        lambda smpl: f"{smpl} in file(s): {samples[smpl]}",
+                        samples.keys(),
+                    )
+                )
+            )
+            message = (
+                f"{len(samples)} samples are missing in the database:{nltab}{smpls_str}\nSamples in the accucor/"
+                "isocorr files must be present in the sample table file and loaded into the database before they can "
+                "be loaded from the mass spec data files."
+            )
+        super().__init__(message)
+        self.samples = samples
+
+
 class MissingSamplesError(Exception):
     def __init__(self, samples, message=None):
         if not message:
@@ -112,7 +138,7 @@ class MissingSamplesError(Exception):
                 "they can be loaded from the mass spec data files."
             )
         super().__init__(message)
-        self.sample_list = samples
+        self.samples = samples
 
 
 class UnskippedBlanksError(MissingSamplesError):
@@ -180,7 +206,7 @@ class DryRun(Exception):
 
     def __init__(self, message=None):
         if message is None:
-            message = "Dry-run successful."
+            message = "Dry Run Complete."
         super().__init__(message)
 
 
@@ -190,6 +216,175 @@ class LoadingError(Exception):
     """
 
     pass
+
+
+class MultiLoadStatus(Exception):
+    """
+    This class holds the load status of multiple files and also can contain multiple file group statuses, e.g. a
+    discrete list of missing compounds across all files.  It is defined as an Exception class so that it being raised
+    from (for example) load_study will convey the load statuses to the validation interface.
+    """
+
+    def __init__(self):
+
+        self.state = "PASSED"
+        self.is_valid = True
+        self.num_errors = 0
+        self.num_warnings = 0
+        self.statuses = {}
+
+    def init_load(self, load_key):
+        self.statuses[load_key] = {
+            "aggregated_errors": None,
+            "state": "PASSED",
+            "num_errors": 0,
+            "num_warnings": 0,
+        }
+
+    def set_load_exception(self, exception, load_key, top=False):
+
+        if load_key not in self.statuses.keys():
+            self.init_load(load_key)
+
+        if not isinstance(exception, AggregatedErrors):
+            # All of the AggregatedErrors are printed to the console as they are encountered, but not other exceptions,
+            # so...
+            print(exception)
+
+            # Wrap the exception in an AggregatedErrors class
+            aes = AggregatedErrors(errors=[exception])
+        else:
+            aes = exception
+
+        # We have edited AggregatedErrors above, but we are explicitly not accounting for removed exceptions.
+        # Those will be tallied later in handle_packaged_exceptions, because for example, we only want 1 missing
+        # compounds error that accounts for all missing compounds among all the study files.
+        self.num_errors += aes.num_errors
+        self.num_warnings += aes.num_warnings
+        self.statuses[load_key]["num_errors"] = aes.num_errors
+        self.statuses[load_key]["num_warnings"] = aes.num_warnings
+        self.statuses[load_key]["top"] = top
+        aes.top = top
+        self.statuses[load_key]["aggregated_errors"] = aes
+
+        if aes.should_raise():
+            self.is_valid = False
+            self.statuses[load_key]["state"] = "FAILED"
+            self.state = "FAILED"
+        else:
+            self.statuses[load_key]["state"] = "WARNING"
+            self.state = "WARNING"
+
+    def get_success_status(self):
+        return self.is_valid
+
+    def get_final_exception(self, message=None):
+        if self.get_success_status():
+            return None
+        aggregated_errors_dict = {}
+        for load_key in self.statuses.keys():
+            aggregated_errors_dict[load_key] = self.statuses[load_key][
+                "aggregated_errors"
+            ]
+        return AggregatedErrorsSet(aggregated_errors_dict, message=message)
+
+    def get_status_message(self):
+
+        # Overall status message
+        message = f"Load {self.state}"
+        if self.num_warnings > 0:
+            message += f" {self.num_warnings} warnings"
+        if self.num_errors > 0:
+            message += f" {self.num_errors} errors"
+
+        return message, self.state
+
+    def get_status_messages(self):
+
+        messages = []
+        for load_key in sorted(
+            self.statuses, key=lambda k: self.statuses[load_key]["top"]
+        ):
+            messages.append(
+                {
+                    "message": f"{load_key}: {self.statuses[load_key]['state']}",
+                    "state": self.statuses[load_key]["state"],
+                }
+            )
+            if self.statuses[load_key]["aggregated_errors"] is not None:
+                state = (
+                    "FAILED"
+                    if self.statuses[load_key]["aggregated_errors"].num_errors > 0
+                    else "WARNING"
+                )
+                messages.append(
+                    {
+                        "message": self.statuses[load_key][
+                            "aggregated_errors"
+                        ].get_summary_string(),
+                        "state": state,
+                    }
+                )
+
+        return messages
+
+
+class AggregatedErrorsSet(Exception):
+    def __init__(self, aggregated_errors_dict, message=None):
+        self.aggregated_errors_dict = aggregated_errors_dict
+        self.num_warnings = 0
+        self.num_errors = 0
+        self.is_fatal = False
+        if len(self.aggregated_errors_dict.keys()) > 0:
+            for aes_key in self.aggregated_errors_dict.keys():
+                if self.aggregated_errors_dict[aes_key].num_errors > 0:
+                    self.num_errors += 1
+                elif self.aggregated_errors_dict[aes_key].num_warnings > 0:
+                    self.num_warnings += 1
+                if self.aggregated_errors_dict[aes_key].is_fatal:
+                    self.is_fatal = True
+        self.custom_message = False
+        if message:
+            self.custom_message = True
+            current_message = message
+        else:
+            current_message = self.get_default_message()
+        super().__init__(current_message)
+
+    def get_default_message(self):
+        should_raise_message = (
+            "  Use the return of self.should_raise() to determine if an exception should be raised before raising "
+            "this exception."
+        )
+        if len(self.aggregated_errors_dict.keys()) > 0:
+            message = (
+                f"{len(self.aggregated_errors_dict.keys())} categories had exceptions, including {self.num_errors} in "
+                f"an error state and {self.num_warnings} in a warning state."
+            )
+            if not self.is_fatal:
+                message += f"  This exception should not have been raised.{should_raise_message}"
+            message += (
+                f"\n{self.get_summary_string()}\nScroll up to see tracebacks for each exception printed as it was "
+                "encountered."
+            )
+        else:
+            message = f"AggregatedErrors exception.  No exceptions have been buffered.{should_raise_message}"
+        return message
+
+    def should_raise(self):
+        return self.is_fatal
+
+    def get_summary_string(self):
+        smry_str = ""
+        for aes_key in sorted(
+            self.aggregated_errors_dict.keys(),
+            key=lambda k: self.aggregated_errors_dict[k].top,
+        ):
+            smry_str += (
+                f"{aes_key}: "
+                + self.aggregated_errors_dict[aes_key].get_summary_string()
+            )
+        return smry_str
 
 
 class AggregatedErrors(Exception):
@@ -278,6 +473,59 @@ class AggregatedErrors(Exception):
         self.buffered_tb_str = self.get_buffered_traceback_string()
         self.quiet = quiet
 
+    def get_exception_type(self, exception_class, remove=False):
+        """
+        To support consolidation of errors across files (like MissingCompounds, MissingSamplesError, etc), this method
+        is provided to retrieve such exceptions (if they exist in the exceptions list) from this object and return them
+        for consolidation.
+
+        If remove is true, the exceptions are removed from this object.  If it's false, the exception is changed to a
+        non-fatal warning (with the assumption that a separate exception will be created that is an error).
+        """
+        matched_exceptions = []
+        unmatched_exceptions = []
+        is_fatal = False
+        num_errors = 0
+        num_warnings = 0
+
+        # Look for exceptions to remove and recompute new object values
+        for exception in self.exceptions:
+            if type(exception) == exception_class:
+                if not remove:
+                    exception.is_error = False
+                    exception.is_fatal = False
+                    num_warnings += 1
+                matched_exceptions.append(exception)
+            else:
+                if exception.is_error:
+                    num_errors += 1
+                else:
+                    num_warnings += 1
+                if exception.is_fatal:
+                    is_fatal = True
+                unmatched_exceptions.append(exception)
+
+        self.num_errors = num_errors
+        self.num_warnings = num_warnings
+        self.is_fatal = is_fatal
+
+        if remove:
+            # Reinitialize this object
+            self.exceptions = unmatched_exceptions
+            if not self.custom_message:
+                super().__init__(self.get_default_message())
+
+        # Return removed exceptions
+        return matched_exceptions
+
+    def remove_exception_type(self, exception_class):
+        """
+        To support consolidation of errors across files (like MissingCompounds, MissingSamplesError, etc), this method
+        is provided to remove such exceptions (if they exist in the exceptions list) from this object and return them
+        for consolidation.
+        """
+        return self.get_exception_type(exception_class, remove=True)
+
     def get_default_message(self):
         should_raise_message = (
             "  Use the return of self.should_raise() to determine if an exception should be raised before raising "
@@ -307,12 +555,22 @@ class AggregatedErrors(Exception):
         sum_str += "\n\t".join(
             list(
                 map(
-                    lambda tpl: f"EXCEPTION{tpl[0]}({tpl[1].exc_type_str.upper()}): {type(tpl[1]).__name__}: {tpl[1]}",
+                    lambda tpl: (
+                        f"EXCEPTION{tpl[0]}({tpl[1].exc_type_str.upper()}): "
+                        f"{self.get_exception_summary_string(tpl[1])}"
+                    ),
                     enumerate(self.exceptions, start=1),
                 )
             ),
         )
         return sum_str
+
+    def get_exception_summary_string(self, buffered_exception):
+        """
+        Returns a string like:
+        "ExceptionType: exception_string"
+        """
+        return f"{type(buffered_exception).__name__}: {buffered_exception}"
 
     @classmethod
     def ammend_buffered_exception(
@@ -591,6 +849,45 @@ class UnexpectedIsotopes(Exception):
         self.detected_isotopes = detected_isotopes
         self.labeled_isotopes = labeled_isotopes
         self.compounds = compounds
+
+
+class AllMissingCompounds(Exception):
+    """
+    This is the same as the MissingCompounds class, but it takes a 3D dict that is used to report every file (and rows
+    in that file) where each missing compound exists.
+    """
+
+    def __init__(self, compounds_dict, message=None):
+        """
+        Takes a dict whose keys are compound names and values are dicts containing key/value pairs of: formula/list-of-
+        strings and indexes/list-of-ints.
+        """
+        if not message:
+            nltab = "\n\t"
+            cmdps_str = ""
+            for compound in compounds_dict.keys():
+                cmdps_str += (
+                    f"Compound: [{compound}], Formula: [{compounds_dict[compound]['formula']}], located in the "
+                    f"following file(s):{nltab}"
+                )
+                cmdps_str += nltab.join(
+                    list(
+                        map(
+                            lambda fln: f"{fln} on row(s): {compounds_dict[compound]['files'][fln]}",
+                            compounds_dict[compound]["files"].keys(),
+                        )
+                    )
+                )
+            message = (
+                f"{len(compounds_dict.keys())} compounds were not found in the database:{nltab}{cmdps_str}\n"
+                "Compounds referenced in the accucor/isocorr files must be loaded into the database before "
+                "the accucor/isocorr files can be loaded.  Please take note of the compounds, select a primary name, "
+                "any synonyms, and find an HMDB ID associated with the compound to provide with your submission.  "
+                "Note, a warning about the missing compounds is cross-referenced under the status of each affected "
+                "individual load file containing 1 or more of these compounds."
+            )
+        super().__init__(message)
+        self.compounds_dict = compounds_dict
 
 
 class MissingCompounds(Exception):
