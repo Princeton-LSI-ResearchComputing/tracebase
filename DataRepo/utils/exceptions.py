@@ -218,6 +218,20 @@ class LoadingError(Exception):
     pass
 
 
+class LoadFileError(Exception):
+    """
+    This exception is a wrapper for other exceptions, which adds file-related context
+    """
+
+    def __init__(self, exception, line_num):
+        message = (
+            f"{type(exception).__name__} on infile line {line_num}: {str(exception)}"
+        )
+        super().__init__(message)
+        self.exception = exception
+        self.line_num = line_num
+
+
 class MultiLoadStatus(Exception):
     """
     This class holds the load status of multiple files and also can contain multiple file group statuses, e.g. a
