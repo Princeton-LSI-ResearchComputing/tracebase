@@ -243,7 +243,9 @@ class Command(BaseCommand):
                     study_protocol = study_params["accucor_data"]["msrun_protocol"]
                     study_date = study_params["accucor_data"]["date"]
                     study_researcher = study_params["accucor_data"]["researcher"]
-                    study_new_researcher = study_params["accucor_data"]["new_researcher"]
+                    study_new_researcher = study_params["accucor_data"][
+                        "new_researcher"
+                    ]
                     study_skip_samples = study_params["accucor_data"].get(
                         "skip_samples", None
                     )
@@ -259,8 +261,12 @@ class Command(BaseCommand):
                         protocol = accucor_file.get("msrun_protocol", study_protocol)
                         date = accucor_file.get("date", study_date)
                         researcher = accucor_file.get("researcher", study_researcher)
-                        new_researcher = accucor_file.get("new_researcher", study_new_researcher)
-                        skip_samples = accucor_file.get("skip_samples", study_skip_samples)
+                        new_researcher = accucor_file.get(
+                            "new_researcher", study_new_researcher
+                        )
+                        skip_samples = accucor_file.get(
+                            "skip_samples", study_skip_samples
+                        )
                         sample_name_prefix = accucor_file.get(
                             "sample_name_prefix", study_sample_name_prefix
                         )
