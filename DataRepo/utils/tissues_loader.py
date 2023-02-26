@@ -1,12 +1,12 @@
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError, transaction
+from django.db import transaction
 
 from DataRepo.models import Tissue
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
+    ConflictingValueError,
     DryRun,
     LoadFileError,
-    LoadingError,
 )
 
 
@@ -73,10 +73,14 @@ class TissuesLoader:
                             f"Matching tissue {tissue} already exists, skipping"
                         )
                     else:
-                        raise ValidationError(
-                            f"Tissue with name = '{name}' but a different description already exists:\n"
-                            f"Existing description = '{tissue.description}'\n"
-                            f"New description = '{description}'"
+                        self.aggregated_errors_object.buffer_error(
+                            ConflictingValueError(
+                                tissue,
+                                "description",
+                                tissue.description,
+                                description,
+                                rownum=index + 2,
+                            )
                         )
             except Exception as e:
                 self.aggregated_errors_object.buffer_error(LoadFileError(e, index + 2))

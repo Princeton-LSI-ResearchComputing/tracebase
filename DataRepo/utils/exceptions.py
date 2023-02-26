@@ -224,9 +224,7 @@ class LoadFileError(Exception):
     """
 
     def __init__(self, exception, line_num):
-        message = (
-            f"{type(exception).__name__} on infile line {line_num}: {str(exception)}"
-        )
+        message = f"{type(exception).__name__} on infile line {line_num}: {exception}"
         super().__init__(message)
         self.exception = exception
         self.line_num = line_num
