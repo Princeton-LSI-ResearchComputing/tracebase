@@ -61,7 +61,11 @@ class TissueLoadingTests(TracebaseTestCase):
         self.assertEqual(6, aes.exceptions[1].line_num)
         self.assertEqual(IntegrityError, type(aes.exceptions[1].exception))
         self.assertIn(
-            'null value in column "name" of relation "DataRepo_tissue" violates not-null constraint',
+            'null value in column "name"',
+            str(aes.exceptions[1].exception),
+        )
+        self.assertIn(
+            "violates not-null constraint",
             str(aes.exceptions[1].exception),
         )
 

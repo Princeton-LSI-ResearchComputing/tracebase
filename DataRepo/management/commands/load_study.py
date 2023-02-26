@@ -25,9 +25,11 @@ from DataRepo.utils.exceptions import (
     AggregatedErrorsSet,
     AllMissingCompounds,
     AllMissingSamples,
+    AllMissingTissues,
     DryRun,
     MissingCompounds,
     MissingSamplesError,
+    MissingTissues,
     MultiLoadStatus,
 )
 
@@ -102,6 +104,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
 
         self.missing_samples = defaultdict(list)
+        self.missing_tissues = defaultdict(dict)
         self.missing_compounds = defaultdict(dict)
         self.load_statuses = MultiLoadStatus()
         self.verbosity = options["verbosity"]
@@ -359,9 +362,21 @@ class Command(BaseCommand):
                 for sample in missing_sample_exception.samples:
                     self.missing_samples[sample].append(filename)
 
+            missing_tissue_exceptions = exception.get_exception_type(MissingTissues)
+            for missing_tissue_exception in missing_tissue_exceptions:
+                # Look through the sample names saved in the exception and add then to the master list
+                for tissue in missing_tissue_exception.tissues_dict.keys():
+                    self.missing_tissues["tissues"][tissue][
+                        filename
+                    ] = missing_tissue_exception.tissues_dict[tissue]
+                    if "existing" not in self.missing_tissues.keys():
+                        self.missing_tissues[
+                            "existing"
+                        ] = missing_tissue_exception.existing
+
             # Consolidate related cross-file exceptions, like missing compounds
             # Note, this can change whether the AggregatedErrors for this file are fatal or not
-            # Example result: self.missing_samples = {
+            # Example result: self.missing_compounds = {
             #     "some missing compound name": {
             #         "formula": "C2O1H4",
             #         "files": {
@@ -400,6 +415,12 @@ class Command(BaseCommand):
         if len(self.missing_samples) > 0:
             self.load_statuses.set_load_exception(
                 AllMissingSamples(self.missing_samples), "Samples", top=True
+            )
+
+        # Collect all the missing compounds in 1 error to add to the compounds file
+        if len(self.missing_tissues) > 0:
+            self.load_statuses.set_load_exception(
+                AllMissingTissues(self.missing_tissues), "Tissues", top=True
             )
 
         # Collect all the missing compounds in 1 error to add to the compounds file

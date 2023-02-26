@@ -39,6 +39,7 @@ from DataRepo.utils.exceptions import (
     DryRun,
     DuplicateValues,
     HeaderConfigError,
+    MissingTissues,
     RequiredHeadersError,
     RequiredValuesError,
     SaveError,
@@ -172,6 +173,7 @@ class SampleTableLoader:
         self.missing_values = defaultdict(list)
         self.infile_sample_dupe_rows = []
         self.empty_animal_rows = []
+        self.missing_tissues = defaultdict(list)
         # Obtain known researchers before load
         self.known_researchers = get_researchers()
 
@@ -278,6 +280,14 @@ class SampleTableLoader:
                     is_fatal=True,  # Always raise the AggErrs exception
                 )
 
+        if len(self.missing_tissues.keys()) > 0:
+            self.aggregated_errors_object.buffer_error(
+                MissingTissues(
+                    self.missing_tissues,
+                    list(Tissue.objects.values_list("name", flat=True)),
+                )
+            )
+
         if len(self.missing_values.keys()) > 0:
             self.aggregated_errors_object.buffer_error(
                 RequiredValuesError(self.missing_values)
@@ -320,12 +330,8 @@ class SampleTableLoader:
         else:
             try:
                 tissue_rec = Tissue.objects.get(name=tissue_name)
-            except Tissue.DoesNotExist as e:
-                self.aggregated_errors_object.buffer_error(
-                    Tissue.DoesNotExist(
-                        f"Invalid tissue type specified: '{tissue_name}'. Not found in database.  {str(e)}"
-                    )
-                )
+            except Tissue.DoesNotExist:
+                self.missing_tissues[tissue_name].append(rownum + 2)
             except Exception as e:
                 self.aggregated_errors_object.buffer_error(
                     TissueError(type(e).__name__, e)

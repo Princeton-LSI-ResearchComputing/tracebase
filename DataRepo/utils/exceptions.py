@@ -36,7 +36,7 @@ class RequiredValuesError(Exception):
             nltab = "\n\t"
             deets = list(
                 map(
-                    lambda k: f"{str(k)} on rows: {str(summarize_int_list(missing[k]))}",
+                    lambda k: f"{str(k)} on row(s): {str(summarize_int_list(missing[k]))}",
                     missing.keys(),
                 )
             )
@@ -776,7 +776,7 @@ class DupeCompoundIsotopeCombos(Exception):
             message += nltabtab.join(
                 list(
                     map(
-                        lambda c: f"{c} on rows: {summarize_int_list(dupe_dict[source][c])}",
+                        lambda c: f"{c} on row(s): {summarize_int_list(dupe_dict[source][c])}",
                         dupe_dict[source].keys(),
                     )
                 )
@@ -863,6 +863,39 @@ class UnexpectedIsotopes(Exception):
         self.compounds = compounds
 
 
+class AllMissingTissues(Exception):
+    """
+    This is the same as the MissingTissues class, but it takes a 3D dict that is used to report every file (and rows
+    in that file) where each missing tissue exists.
+    """
+
+    def __init__(self, tissues_dict, message=None):
+        if not message:
+            nltab = "\n\t"
+            tissues_str = ""
+            for tissue in tissues_dict["tissues"].keys():
+                tissues_str += (
+                    f"Tissue: [{tissue}], located in the following file(s):{nltab}"
+                )
+                tissues_str += nltab.join(
+                    list(
+                        map(
+                            lambda fln: f"{fln} on row(s): {summarize_int_list(tissues_dict['tissues'][tissue][fln])}",
+                            tissues_dict["tissues"][tissue].keys(),
+                        )
+                    )
+                )
+            message = (
+                f"{len(tissues_dict.keys())} compounds were not found in the database:{nltab}{tissues_str}\n"
+                f"Please check the tissue(s) against the existing tissues list:{nltab}"
+                f"{nltab.join(tissues_dict['existing'])}\n"
+                "If the tissue cannot be renamed to one of these existing tissues, a new tissue type will have to be "
+                "added to the database."
+            )
+        super().__init__(message)
+        self.tissues_dict = tissues_dict
+
+
 class AllMissingCompounds(Exception):
     """
     This is the same as the MissingCompounds class, but it takes a 3D dict that is used to report every file (and rows
@@ -885,7 +918,7 @@ class AllMissingCompounds(Exception):
                 cmdps_str += nltab.join(
                     list(
                         map(
-                            lambda fln: f"{fln} on row(s): {compounds_dict[compound]['files'][fln]}",
+                            lambda fl: f"{fl} on row(s): {summarize_int_list(compounds_dict[compound]['files'][fl])}",
                             compounds_dict[compound]["files"].keys(),
                         )
                     )
@@ -913,7 +946,10 @@ class MissingCompounds(Exception):
             cmdps_str = nltab.join(
                 list(
                     map(
-                        lambda c: f"{c} {compounds_dict[c]['formula']} on row(s): {compounds_dict[c]['rownums']}",
+                        lambda c: (
+                            f"{c} {compounds_dict[c]['formula']} on row(s): "
+                            f"{summarize_int_list(compounds_dict[c]['rownums'])}"
+                        ),
                         compounds_dict.keys(),
                     )
                 )
@@ -926,6 +962,30 @@ class MissingCompounds(Exception):
             )
         super().__init__(message)
         self.compounds_dict = compounds_dict
+
+
+class MissingTissues(Exception):
+    def __init__(self, tissues_dict, existing, message=None):
+        """
+        Takes a dict whose keys are tissue names and values are lists of row numbers.
+        """
+        if not message:
+            nltab = "\n\t"
+            deets = list(
+                map(
+                    lambda k: f"{str(k)} on row(s): {str(summarize_int_list(tissues_dict[k]))}",
+                    tissues_dict.keys(),
+                )
+            )
+            message = (
+                f"{len(tissues_dict.keys())} tissues were not found in the database:{nltab}{deets}\n"
+                f"Please check the tissue against the existing tissues list:{nltab}{nltab.join(existing)}\nIf the "
+                "tissue cannot be renamed to one of these existing tissues, a new tissue type will have to be added "
+                "to the database."
+            )
+        super().__init__(message)
+        self.tissues_dict = tissues_dict
+        self.existing = existing
 
 
 def summarize_int_list(intlist):
