@@ -175,7 +175,7 @@ class Command(BaseCommand):
                             verbosity=self.verbosity,
                         )
                     except Exception as e:
-                        self.package_group_exceptions(e, compound_file_basename)
+                        self.package_group_exceptions(e, protocol_file_basename)
 
                 if "tissues" in study_params:
 
@@ -240,14 +240,14 @@ class Command(BaseCommand):
                 if "accucor_data" in study_params:
 
                     # Get parameters for all accucor files
-                    protocol = study_params["accucor_data"]["msrun_protocol"]
-                    date = study_params["accucor_data"]["date"]
-                    researcher = study_params["accucor_data"]["researcher"]
-                    new_researcher = study_params["accucor_data"]["new_researcher"]
-                    skip_samples = study_params["accucor_data"].get(
+                    study_protocol = study_params["accucor_data"]["msrun_protocol"]
+                    study_date = study_params["accucor_data"]["date"]
+                    study_researcher = study_params["accucor_data"]["researcher"]
+                    study_new_researcher = study_params["accucor_data"]["new_researcher"]
+                    study_skip_samples = study_params["accucor_data"].get(
                         "skip_samples", None
                     )
-                    sample_name_prefix = study_params["accucor_data"].get(
+                    study_sample_name_prefix = study_params["accucor_data"].get(
                         "sample_name_prefix", None
                     )
 
@@ -256,13 +256,13 @@ class Command(BaseCommand):
 
                         # Get parameters specific to each accucor file
                         accucor_file_basename = accucor_file["name"]
-                        protocol = accucor_file.get("msrun_protocol", None)
-                        date = accucor_file.get("date", None)
-                        researcher = accucor_file.get("researcher", None)
-                        new_researcher = accucor_file.get("new_researcher", None)
-                        skip_samples = accucor_file.get("skip_samples", None)
+                        protocol = accucor_file.get("msrun_protocol", study_protocol)
+                        date = accucor_file.get("date", study_date)
+                        researcher = accucor_file.get("researcher", study_researcher)
+                        new_researcher = accucor_file.get("new_researcher", study_new_researcher)
+                        skip_samples = accucor_file.get("skip_samples", study_skip_samples)
                         sample_name_prefix = accucor_file.get(
-                            "sample_name_prefix", None
+                            "sample_name_prefix", study_sample_name_prefix
                         )
                         isocorr_format = accucor_file.get("isocorr_format", False)
 
@@ -299,7 +299,7 @@ class Command(BaseCommand):
                                     )
                                 )
                         except Exception as e:
-                            self.package_group_exceptions(e, sample_file_basename)
+                            self.package_group_exceptions(e, accucor_file_basename)
 
                 self.handle_grouped_exceptions()
 

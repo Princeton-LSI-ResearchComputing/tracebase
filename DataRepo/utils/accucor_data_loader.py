@@ -120,62 +120,67 @@ class AccuCorDataLoader:
         defer_autoupdates=False,
         dry_run=False,
     ):
-        # Data
-        self.accucor_original_df = accucor_original_df
-        self.accucor_corrected_df = accucor_corrected_df
-
-        # Data format
-        self.isocorr_format = isocorr_format
-
-        # Optional data (for batch updates)
-        self.protocol_input = protocol_input.strip()
-
-        # Metadata
-        self.date = datetime.strptime(date.strip(), "%Y-%m-%d")
-        self.researcher = researcher.strip()
-        self.new_researcher = new_researcher
-        self.peak_group_set_filename = peak_group_set_filename
-
-        # Sample Metadata
-        if skip_samples is None:
-            self.skip_samples = []
-        else:
-            self.skip_samples = skip_samples
-        if sample_name_prefix is None:
-            sample_name_prefix = ""
-        self.sample_name_prefix = sample_name_prefix
-
-        # Verbosity affects log prints and error verbosity (for debugging)
-        self.verbosity = verbosity
-
-        # Dry Run - don't change the database
-        self.dry_run = dry_run
-
-        # Validate mode
-        self.validate = validate
-
-        # How to handle mass autoupdates
-        self.defer_autoupdates = defer_autoupdates
-
-        # Tracking Data
-        self.peak_group_dict = {}
-        self.corrected_samples = []
-        self.original_samples = []
-        self.db_samples_dict = None
-        self.labeled_element_header = None
         self.aggregated_errors_object = AggregatedErrors()
-        self.missing_samples = []
-        self.missing_compounds = {}
-        self.dupe_isotope_compounds = {
-            "original": defaultdict(dict),
-            "corrected": defaultdict(dict),
-        }
-        self.existing_msruns = defaultdict(list)
 
-        # Used for accucor
-        self.labeled_element = None
-        # Used for isocorr
-        self.tracer_labeled_elements = []
+        try:
+            # Data
+            self.accucor_original_df = accucor_original_df
+            self.accucor_corrected_df = accucor_corrected_df
+
+            # Data format
+            self.isocorr_format = isocorr_format
+
+            # Optional data (for batch updates)
+            self.protocol_input = protocol_input.strip()
+
+            # Metadata
+            self.date = datetime.strptime(date.strip(), "%Y-%m-%d")
+            self.researcher = researcher.strip()
+            self.new_researcher = new_researcher
+            self.peak_group_set_filename = peak_group_set_filename.strip()
+
+            # Sample Metadata
+            if skip_samples is None:
+                self.skip_samples = []
+            else:
+                self.skip_samples = skip_samples
+            if sample_name_prefix is None:
+                sample_name_prefix = ""
+            self.sample_name_prefix = sample_name_prefix
+
+            # Verbosity affects log prints and error verbosity (for debugging)
+            self.verbosity = verbosity
+
+            # Dry Run - don't change the database
+            self.dry_run = dry_run
+
+            # Validate mode
+            self.validate = validate
+
+            # How to handle mass autoupdates
+            self.defer_autoupdates = defer_autoupdates
+
+            # Tracking Data
+            self.peak_group_dict = {}
+            self.corrected_samples = []
+            self.original_samples = []
+            self.db_samples_dict = None
+            self.labeled_element_header = None
+            self.missing_samples = []
+            self.missing_compounds = {}
+            self.dupe_isotope_compounds = {
+                "original": defaultdict(dict),
+                "corrected": defaultdict(dict),
+            }
+            self.existing_msruns = defaultdict(list)
+
+            # Used for accucor
+            self.labeled_element = None
+            # Used for isocorr
+            self.tracer_labeled_elements = []
+        except Exception as e:
+            self.aggregated_errors_object.buffer_error(e)
+            raise self.aggregated_errors_object
 
     def initialize_preloaded_animal_sample_data(self):
         """
