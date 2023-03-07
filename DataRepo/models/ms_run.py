@@ -66,8 +66,8 @@ class MSRun(HierCachedModel, MaintainedModel):
             f"MS run of sample {self.sample.name} with {self.protocol.name} by {self.researcher} on {self.date}"
         )
 
-    def clean(self):
-        super().clean()
+    def clean(self, *args, **kwargs):
+        super().clean(*args, **kwargs)
 
         if self.protocol.category != Protocol.MSRUN_PROTOCOL:
             raise ValidationError(

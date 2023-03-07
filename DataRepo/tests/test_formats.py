@@ -162,6 +162,10 @@ class FormatsTests(TracebaseTestCase):
             ("peak_group__msrun__sample__name", "Sample"),
             ("peak_group__msrun__sample__animal__sex", "Sex"),
             ("peak_group__msrun__sample__animal__studies__name", "Study"),
+            (
+                "peak_group__msrun__sample__time_collected",
+                "Time Collected (since infusion)",
+            ),
             ("peak_group__msrun__sample__tissue__name", "Tissue"),
             ("peak_group__msrun__sample__animal__infusate__tracers__name", "Tracer"),
             (
@@ -198,6 +202,10 @@ class FormatsTests(TracebaseTestCase):
             ("msrun__sample__name", "Sample"),
             ("msrun__sample__animal__sex", "Sex"),
             ("msrun__sample__animal__studies__name", "Study"),
+            (
+                "msrun__sample__time_collected",
+                "Time Collected (since infusion)",
+            ),
             ("msrun__sample__tissue__name", "Tissue"),
             ("msrun__sample__animal__infusate__tracers__name", "Tracer"),
             (
@@ -279,7 +287,8 @@ class FormatsTests(TracebaseTestCase):
 
     def assertIsAPgUnitsLookupDict(self, fld_units_lookup):
         print(fld_units_lookup)
-        self.assertEqual(38, len(fld_units_lookup.keys()))
+        # There should be 39 fields with units lookups
+        self.assertEqual(39, len(fld_units_lookup.keys()))
         # Path should be prepended to the field name
         self.assertIsNone(fld_units_lookup["msrun__sample__animal__genotype"])
         # Each value should be a dict with the units, this one having 15 keys
@@ -305,6 +314,33 @@ class FormatsTests(TracebaseTestCase):
                 fld_units_lookup["msrun__sample__animal__age"]["identity"]["convert"]
             ).__name__,
         )
+
+        # Each value should be a dict with the units, this one having 15 keys
+        self.assertEqual(
+            15, len(fld_units_lookup["msrun__sample__time_collected"].keys())
+        )
+        # This "native" unit type has 5 keys: name, example, convert, pyconvert, and about
+        self.assertEqual(
+            5, len(fld_units_lookup["msrun__sample__time_collected"]["identity"].keys())
+        )
+        # Check the name (displayed in the units select list)
+        self.assertEqual(
+            "n.n{units},...",
+            fld_units_lookup["msrun__sample__time_collected"]["identity"]["name"],
+        )
+        # Check the example (shown as a placeholder in the val field)
+        self.assertEqual(
+            "1w,1d,1:01:01.1",
+            fld_units_lookup["msrun__sample__time_collected"]["identity"]["example"],
+        )
+        # The convert key should be a function
+        self.assertEqual(
+            "function",
+            type(
+                fld_units_lookup["msrun__sample__time_collected"]["identity"]["convert"]
+            ).__name__,
+        )
+
         # Check the about value
         expected_about = (
             "Values can be entered using the following format pattern: `[n{units}{:|,}]*hh:mm:ss[.f]`, where units "
@@ -1101,6 +1137,7 @@ class FormatsTests(TracebaseTestCase):
             ("msrun__sample__name", "Sample"),
             ("msrun__sample__animal__sex", "Sex"),
             ("msrun__sample__animal__studies__name", "Study"),
+            ("msrun__sample__time_collected", "Time Collected (since infusion)"),
             ("msrun__sample__tissue__name", "Tissue"),
             ("msrun__sample__animal__infusate__tracers__name", "Tracer"),
             (
@@ -1403,8 +1440,8 @@ class FormatsTests(TracebaseTestCase):
             expected_age_dict, fld_units_dict["fctemplate"]["serum_sample__animal__age"]
         )
         self.assertEqual(31, len(fld_units_dict["fctemplate"].keys()))
-        self.assertEqual(39, len(fld_units_dict["pgtemplate"].keys()))
-        self.assertEqual(43, len(fld_units_dict["pdtemplate"].keys()))
+        self.assertEqual(40, len(fld_units_dict["pgtemplate"].keys()))
+        self.assertEqual(44, len(fld_units_dict["pdtemplate"].keys()))
 
     def test_getAllFieldUnitsChoices(self):
         sg = SearchGroup()
