@@ -9,6 +9,7 @@ from django.db import models
 from DataRepo.models.maintained_model import (
     MaintainedModel,
     are_autoupdates_enabled,
+    init_autoupdate_label_filters,
     maintained_field_function,
 )
 from DataRepo.models.multi_db_mixin import MultiDBMixin
@@ -26,7 +27,8 @@ TRACERS_RIGHT_BRACKET = "}"
 
 class InfusateQuerySet(models.QuerySet):
     def get_or_create_infusate(
-        self, infusate_data: InfusateData
+        self,
+        infusate_data: InfusateData,
     ) -> tuple[Infusate, bool]:
         """Get Infusate matching the infusate_data, or create a new infusate"""
         db = self._db or settings.DEFAULT_DB
@@ -51,7 +53,7 @@ class InfusateQuerySet(models.QuerySet):
                 tracer = Tracer.objects.using(db).get_tracer(infusate_tracer["tracer"])
                 if tracer is None:
                     (tracer, _) = Tracer.objects.using(db).get_or_create_tracer(
-                        infusate_tracer["tracer"]
+                        infusate_tracer["tracer"],
                     )
                 # associate tracers with specific conectrations
                 InfusateTracer.objects.using(db).create(
@@ -162,7 +164,7 @@ class Infusate(MaintainedModel, MultiDBMixin):
     def get_name(self):
         """
         Returns the name field if populated.  If it's not populated, it populates it (in the same manner that the old
-        cache mechanism worked)
+        cache mechanism worked).
         """
         display_name = None
 
@@ -170,9 +172,14 @@ class Infusate(MaintainedModel, MultiDBMixin):
         if self.name:
             display_name = self.name
         elif are_autoupdates_enabled():
+            init_autoupdate_label_filters(label_filters=["name"])
+            save_kwargs = {}
+            if hasattr(self, "_state") and hasattr(self._state, "db"):
+                save_kwargs["using"] = self._state.db
             # This triggers an auto-update
-            self.save(update_fields=["name"])
+            self.save(**save_kwargs)
             display_name = self.name
+            init_autoupdate_label_filters()
 
         # If it's still not set, call the method that generates the name.  It just won't be saved.
         if not display_name:

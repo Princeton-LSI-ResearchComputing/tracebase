@@ -25,7 +25,7 @@ from DataRepo.models.maintained_model import (
     clear_update_buffer,
     disable_autoupdates,
     enable_autoupdates,
-    enable_buffering,
+    init_autoupdate_label_filters,
     perform_buffered_updates,
 )
 from DataRepo.models.researcher import (
@@ -149,6 +149,7 @@ class SampleTableLoader:
         validate=False,
         verbosity=1,
         skip_researcher_check=False,
+        defer_autoupdates=False,
     ):
         # Header config
         self.headers = sample_table_headers
@@ -171,6 +172,9 @@ class SampleTableLoader:
                 else:
                     raise ValidationDatabaseSetupError()
 
+        # How to handle mass autoupdates
+        self.defer_autoupdates = defer_autoupdates
+
         # Caching overhead
         self.animals_to_uncache = []
 
@@ -187,7 +191,27 @@ class SampleTableLoader:
 
         disable_autoupdates()
         disable_caching_updates()
+        # Only auto-update fields whose update_label in the decorator is "name"
+        init_autoupdate_label_filters(label_filters=["name"])
 
+        try:
+            self.load_data(data, dry_run)
+        except Exception as e:
+            # If we're stopping with an exception, we need to clear the update buffer so that the next call doesn't
+            # make auto-updates on non-existent (or incorrect) records
+            clear_update_buffer()
+            # Re-initialize label filters to default
+            init_autoupdate_label_filters()
+            enable_caching_updates()
+            enable_autoupdates()
+            raise e
+
+        # Re-initialize label filters to default
+        init_autoupdate_label_filters()
+        enable_caching_updates()
+        enable_autoupdates()
+
+    def load_data(self, data, dry_run=False):
         # Create a list to hold the csv reader data so that iterations from validating cleardoesn't leave the csv
         # reader empty/at-the-end upon the import loop
         sample_table_data = list(data)
@@ -232,12 +256,6 @@ class SampleTableLoader:
                         else:
                             print("No trace available.")
                     print(f"{type(err).__name__}: {str(err)}")
-            # If we're stopping with an exception, we need to clear the update buffer so that the next call doesn't
-            # make auto-updates on non-existent (or incorrect) records
-            clear_update_buffer()
-            # And before we leave, we must re-enable auto-updates
-            enable_autoupdates()
-            enable_buffering()
             # PR REVIEW NOTE: I think it may be worthwhile to encapsulate this logic in a method of a superclass of
             #                 SampleTableLoader and AccucorDataLoader, because I don't like that cull_warnings is in
             #                 the exception class. I could instead do something like: decide in the fly if a problem
@@ -252,14 +270,7 @@ class SampleTableLoader:
             if should_raise:
                 raise aes
 
-        enable_caching_updates()
         if dry_run:
-            # If we're in debug mode, we need to clear the update buffer so that the next call doesn't make auto-
-            # updates on non-existent (or incorrect) records
-            clear_update_buffer()
-            # And before we leave, we must re-enable auto-updates
-            enable_autoupdates()
-            enable_buffering()
             raise DryRun()
 
         if self.verbosity >= 2:
@@ -271,13 +282,17 @@ class SampleTableLoader:
         if self.verbosity >= 2:
             print("Expiring done.")
 
-        # Cannot perform buffered updates of FCirc, Sample, or Animal's last serum tracer peak group because no peak
-        # groups have been loaded yet, so only update the ones labeled "name".
-        perform_buffered_updates(labels=["name"], using=self.db)
-        # Since we only updated some of the buffered items, clear the rest of the buffer
-        clear_update_buffer()
-        enable_autoupdates()
-        enable_buffering()
+        autoupdate_mode = not self.defer_autoupdates
+
+        if autoupdate_mode:
+            # No longer any need to explicitly filter based on labels, because only records containing fields with the
+            # required labels are buffered now, and when the records are buffered, the label filtering that was in
+            # effect at the time of buffering is saved so that only the fields matching the label filter will be
+            # updated.  There are autoupdates for fields in Animal and Sample, but they're only needed for FCirc
+            # calculations and will be triggered by a subsequent accucor load.
+            perform_buffered_updates(using=self.db)
+            # Since we only updated some of the buffered items, clear the rest of the buffer
+            clear_update_buffer()
 
     def get_tissue(self, rownum, row):
         tissue_name = self.getRowVal(rownum, row, "TISSUE_NAME")
@@ -387,7 +402,7 @@ class SampleTableLoader:
                 )
             infusate_data_object = parse_infusate_name(infusate_str, tracer_concs)
             infusate_rec = Infusate.objects.using(self.db).get_or_create_infusate(
-                infusate_data_object
+                infusate_data_object,
             )[0]
         return infusate_rec
 

@@ -116,6 +116,7 @@ class AccuCorDataLoader:
         validate=False,
         isocorr_format=False,
         verbosity=1,
+        defer_autoupdates=False,
     ):
         # Data
         self.accucor_original_df = accucor_original_df
@@ -158,6 +159,9 @@ class AccuCorDataLoader:
                     self.db = settings.VALIDATION_DB
                 else:
                     raise ValidationDatabaseSetupError()
+
+        # How to handle mass autoupdates
+        self.defer_autoupdates = defer_autoupdates
 
         # Tracking Data
         self.peak_group_dict = {}
@@ -1116,19 +1120,21 @@ class AccuCorDataLoader:
         # It uses `.count()` (to see if there exist records to propagate changes), `.first()` to see if the related
         # model is a MaintainedModel (inside an isinstance call), and `.all()` to cycle through the related records.
 
-        if not dry_run:
+        autoupdate_mode = not self.defer_autoupdates
+        if not dry_run and autoupdate_mode:
             perform_buffered_updates(using=self.db)
 
-        self.post_load_teardown()
+        self.post_load_teardown(autoupdate_mode)
 
     def pre_load_setup(self):
         disable_autoupdates()
         disable_caching_updates()
 
-    def post_load_teardown(self):
-        # If we're in dry run mode, we need to clear the update buffer so that the next call doesn't make
-        # auto-updates on non-existent (or incorrect) records
-        clear_update_buffer()
+    def post_load_teardown(self, clear_autoupdate_buffer=True):
+        if clear_autoupdate_buffer:
+            # We need to clear the update buffer so that the next call doesn't make auto-updates on non-existent (or
+            # incorrect) records
+            clear_update_buffer()
         # And before we leave, we must re-enable things
         enable_autoupdates()
         enable_caching_updates()

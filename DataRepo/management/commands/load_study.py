@@ -4,7 +4,22 @@ import os
 import jsonschema
 import yaml  # type: ignore
 from django.apps import apps
+from django.conf import settings
 from django.core.management import BaseCommand, call_command
+
+from DataRepo.models.hier_cached_model import (
+    disable_caching_updates,
+    enable_caching_updates,
+)
+from DataRepo.models.maintained_model import (
+    UncleanBufferError,
+    buffer_size,
+    clear_update_buffer,
+    disable_autoupdates,
+    enable_autoupdates,
+    perform_buffered_updates,
+)
+from DataRepo.utils.exceptions import ValidationDatabaseSetupError
 
 
 class Command(BaseCommand):
@@ -46,7 +61,6 @@ class Command(BaseCommand):
         # Used internally by the DataValidationView
         parser.add_argument(
             "--validate",
-            required=False,
             action="store_true",
             default=False,
             help=argparse.SUPPRESS,
@@ -58,8 +72,23 @@ class Command(BaseCommand):
             type=str,
             help=argparse.SUPPRESS,
         )
+        # Used internally to load necessary data into the validation database
+        parser.add_argument(
+            "--clear-buffer",
+            action="store_true",
+            default=False,
+            help=argparse.SUPPRESS,
+        )
 
     def handle(self, *args, **options):
+
+        if options["clear_buffer"]:
+            clear_update_buffer()
+        elif buffer_size() > 0:
+            raise UncleanBufferError(
+                "The auto-update buffer is unexpectedly populated.  Add --clear-buffer to your command to flush the "
+                "buffer and proceed with the load."
+            )
 
         # Read load study parameters
         study_params = yaml.safe_load(options["study_params"])
@@ -139,6 +168,7 @@ class Command(BaseCommand):
                 skip_researcher_check=skip_researcher_check,
                 database=options["database"],
                 verbosity=options["verbosity"],
+                defer_autoupdates=True,
             )
 
         if "accucor_data" in study_params:
@@ -193,6 +223,29 @@ class Command(BaseCommand):
                     database=options["database"],
                     validate=options["validate"],
                     isocorr_format=isocorr_format,
+                    defer_autoupdates=True,
                 )
+
+        # Database config
+        db = settings.TRACEBASE_DB
+        # If a database was explicitly supplied
+        if options["database"] is not None:
+            db = options["database"]
+        else:
+            if options["validate"]:
+                if settings.VALIDATION_ENABLED:
+                    db = settings.VALIDATION_DB
+                else:
+                    raise ValidationDatabaseSetupError()
+
+        # Since defer_autoupdates is supplied as True to the sample and accucor load commands, we can do all the mass
+        # autoupdates in 1 go.
+        disable_autoupdates()
+        disable_caching_updates()
+        perform_buffered_updates(using=db)
+        # The buffer should be clear, but just for good measure...
+        clear_update_buffer()
+        enable_caching_updates()
+        enable_autoupdates()
 
         self.stdout.write(self.style.SUCCESS("Done loading study"))

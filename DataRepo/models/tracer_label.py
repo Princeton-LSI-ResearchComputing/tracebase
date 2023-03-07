@@ -17,6 +17,7 @@ from DataRepo.utils.infusate_name_parser import IsotopeData
 class TracerLabelQuerySet(models.QuerySet):
     def create_tracer_label(self, tracer: Tracer, isotope_data: IsotopeData):
         db = self._db or settings.DEFAULT_DB
+
         tracer_label = self.using(db).create(
             tracer=tracer,
             element=isotope_data["element"],
@@ -25,6 +26,7 @@ class TracerLabelQuerySet(models.QuerySet):
             mass_number=isotope_data["mass_number"],
         )
         tracer_label.full_clean()
+        tracer_label.save(using=db)
         return tracer_label
 
 
