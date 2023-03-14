@@ -235,6 +235,7 @@ class Command(BaseCommand):
                             table_headers=headers_file,
                             skip_researcher_check=skip_researcher_check,
                             verbosity=self.verbosity,
+                            validate=self.validate,
                             defer_autoupdates=True,
                         )
                     except Exception as e:
@@ -340,10 +341,13 @@ class Command(BaseCommand):
 
         self.print_load_status()
 
-    def package_group_exceptions(self, exception, filename):
+    def package_group_exceptions(self, exception, filepath):
         """
         Repackages an exception for consolidated reporting
         """
+
+        # Just report the file names, not the paths, in the errors
+        filename = os.path.basename(filepath)
 
         # Compile group-level errors/warnings relevant specifically to a study load that should be reported in one
         # consolidated error based on exceptions contained in AggregatedErrors.  Note, this could potentially change
@@ -391,14 +395,14 @@ class Command(BaseCommand):
                 for compound in missing_compound_exception.compounds_dict.keys():
                     self.missing_compounds[compound][
                         "formula"
-                    ] = missing_compound_exception.compounds_dict["formula"]
+                    ] = missing_compound_exception.compounds_dict[compound]["formula"]
                     if "files" in self.missing_compounds[compound].keys():
                         self.missing_compounds[compound]["files"][
                             filename
-                        ] = missing_compound_exception.compounds_dict["rownums"]
+                        ] = missing_compound_exception.compounds_dict[compound]["rownums"]
                     else:
                         self.missing_compounds[compound]["files"] = {
-                            filename: missing_compound_exception.compounds_dict[
+                            filename: missing_compound_exception.compounds_dict[compound][
                                 "rownums"
                             ]
                         }

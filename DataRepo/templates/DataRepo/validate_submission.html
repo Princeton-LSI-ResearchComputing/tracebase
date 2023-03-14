@@ -52,7 +52,7 @@
             {% for file_name, status in results.items %}
                 {% with file_class=status|getClass err_status="ERROR" wrn_status="WARNING" %}
                     <li class="{{ file_class }}">
-                        {{ status }}: {{ file_name }}
+                        <u><b>{{ status }}: {{ file_name }}</b></u>
                         {% if exceptions|index:file_name %}
                             <ul class="ul-nopadding">
                                 {% for exception in exceptions|index:file_name %}

@@ -120,9 +120,9 @@ class AllMissingSamples(Exception):
                 )
             )
             message = (
-                f"{len(samples)} samples are missing in the database:{nltab}{smpls_str}\nSamples in the accucor/"
-                "isocorr files must be present in the sample table file and loaded into the database before they can "
-                "be loaded from the mass spec data files."
+                f"{len(samples)} samples are missing in the database/sample-table:{nltab}{smpls_str}\nSamples in the "
+                "accucor/isocorr files must be present in the sample table file and loaded into the database before "
+                "they can be loaded from the mass spec data files."
             )
         super().__init__(message)
         self.samples = samples
@@ -609,16 +609,17 @@ class AggregatedErrors(Exception):
         exception.exc_no = exc_no
         return exception
 
-    def get_buffered_exception_summary_string(self, buffered_exception, exc_no=None):
+    def get_buffered_exception_summary_string(self, buffered_exception, exc_no=None, numbered=True):
         """
         Constructs the summary string using the info stored in the exception by ammend_buffered_exception()
         """
-        if exc_no is None:
-            exc_no = buffered_exception.exc_no
-        return (
-            f"EXCEPTION{exc_no}({buffered_exception.exc_type_str.upper()}): {type(buffered_exception).__name__}: "
-            f"{buffered_exception}"
-        )
+        exc_str = ""
+        if numbered:
+            if exc_no is None:
+                exc_no = buffered_exception.exc_no
+            exc_str += f"EXCEPTION{exc_no}({buffered_exception.exc_type_str.upper()}): "
+        exc_str += f"{type(buffered_exception).__name__}: {buffered_exception}"
+        return exc_str
 
     @classmethod
     def get_buffered_traceback_string(cls):
@@ -909,13 +910,16 @@ class AllMissingCompounds(Exception):
         """
         if not message:
             nltab = "\n\t"
+            nltt = f"{nltab}\t"
             cmdps_str = ""
             for compound in compounds_dict.keys():
+                if cmdps_str != "":
+                    cmdps_str += nltab
                 cmdps_str += (
                     f"Compound: [{compound}], Formula: [{compounds_dict[compound]['formula']}], located in the "
-                    f"following file(s):{nltab}"
+                    f"following file(s):{nltt}"
                 )
-                cmdps_str += nltab.join(
+                cmdps_str += nltt.join(
                     list(
                         map(
                             lambda fl: f"{fl} on row(s): {summarize_int_list(compounds_dict[compound]['files'][fl])}",
