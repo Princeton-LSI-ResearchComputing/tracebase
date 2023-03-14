@@ -38,6 +38,7 @@ from DataRepo.utils.exceptions import (
     AggregatedErrors,
     ConflictingValueError,
     DryRun,
+    DuplicateValues,
     HeaderConfigError,
     RequiredHeadersError,
     RequiredValuesError,
@@ -182,6 +183,8 @@ class SampleTableLoader:
         self.errors = []
         self.missing_headers = []
         self.missing_values = defaultdict(list)
+        # Skip rows that have errors
+        self.skip_sample_rows = {}
 
         # Researcher consistency tracking (also a part of error-tracking)
         self.skip_researcher_check = skip_researcher_check
@@ -212,16 +215,29 @@ class SampleTableLoader:
         enable_autoupdates()
 
     def load_data(self, data, dry_run=False):
-        # Create a list to hold the csv reader data so that iterations from validating cleardoesn't leave the csv
-        # reader empty/at-the-end upon the import loop
+        # Create a list to hold the csv reader data so that iterations from validating doesn't leave the csv reader
+        # empty/at-the-end upon the import loop
         sample_table_data = list(data)
 
-        # If there is data to load
+        # If there are headers
         if len(sample_table_data) > 0:
-            # use the first row to check the headers
+            # Use the first row to check the headers
             self.check_headers(sample_table_data[0].keys())
 
-        for rownum, row in enumerate(sample_table_data, start=1):
+        # If there is more than 1 row of data to load
+        if len(sample_table_data) > 2:
+            sample_name_header = getattr(self.headers, "SAMPLE_NAME")
+            study_name_header = getattr(self.headers, "STUDY_NAME")
+            # Check the in-file uniqueness of the samples (per study)
+            sample_dupes, row_idxs = self.get_column_dupes(
+                sample_table_data, [sample_name_header, study_name_header]
+            )
+            if len(sample_dupes.keys()) > 0:
+                self.buffer_exception(DuplicateValues(sample_dupes, sample_name_header))
+                self.skip_sample_rows = row_idxs
+
+        for rowidx, row in enumerate(sample_table_data):
+            rownum = rowidx + 1
 
             tissue_rec, is_blank = self.get_tissue(rownum, row)
 
@@ -235,8 +251,16 @@ class SampleTableLoader:
             )
             self.get_or_create_study(rownum, row, animal_rec)
             self.get_or_create_animallabel(animal_rec, infusate_rec)
-            sample_rec = self.get_or_create_sample(rownum, row, animal_rec, tissue_rec)
-            self.get_or_create_fcircs(infusate_rec, sample_rec)
+            # If the row has an issue (e.g. not unique in the file), skip it so there will not be pointless errors
+            if rowidx not in self.skip_sample_rows:
+                sample_rec = self.get_or_create_sample(
+                    rownum, row, animal_rec, tissue_rec
+                )
+                self.get_or_create_fcircs(infusate_rec, sample_rec)
+            elif self.verbosity >= 2:
+                print(
+                    f"SKIPPING sample load on row {rownum} due to duplicate sample name."
+                )
 
         if not self.skip_researcher_check:
             try:
@@ -300,7 +324,7 @@ class SampleTableLoader:
         is_blank = tissue_name is None
         if is_blank:
             if self.verbosity >= 2:
-                print("Skipping row: Tissue field is empty, assuming blank sample")
+                print("Skipping row: Tissue field is empty, assuming blank sample.")
         else:
             try:
                 # Assuming that both the default and validation databases each have all current tissues
@@ -344,6 +368,7 @@ class SampleTableLoader:
                                     "description",
                                     orig_desc,
                                     study_desc,
+                                    rownum,
                                 )
                             )
                         elif study_desc:
@@ -594,6 +619,7 @@ class SampleTableLoader:
                         "time_collected": time_collected,
                         "date": sample_date,
                     },
+                    rownum + 1,
                 )
 
                 if len(updates_dict.keys()) > 0 and self.db == settings.TRACEBASE_DB:
@@ -647,6 +673,7 @@ class SampleTableLoader:
                             "date": sample_date,
                             "researcher": researcher,
                         },
+                        rownum + 1,
                     )
 
                     if len(updates_dict.keys()) > 0:
@@ -733,7 +760,7 @@ class SampleTableLoader:
                         element=label_rec.element,
                     )
 
-    def check_for_inconsistencies(self, rec, value_dict):
+    def check_for_inconsistencies(self, rec, value_dict, rownum=None):
         updates_dict = {}
         for field, new_value in value_dict.items():
             orig_value = getattr(rec, field)
@@ -746,6 +773,7 @@ class SampleTableLoader:
                         field,
                         orig_value,
                         new_value,
+                        rownum,
                     )
                 )
         return updates_dict
@@ -787,6 +815,25 @@ class SampleTableLoader:
             self.buffer_exception(UnknownHeadersError(unknown_headers))
         if len(misconfiged_headers) > 0:
             self.buffer_exception(HeaderConfigError(misconfiged_headers))
+
+    def get_column_dupes(self, data, col_keys):
+        """
+        Takes a list of dicts (data) and a list of column keys (col_keys) and looks for duplicate combinations.
+        Returns a dict keyed on duplicate (composite) values and a list of row indexes where each combo instance is
+        found.
+        """
+        val_counts = defaultdict(list)
+        dupe_dict = {}
+        dupe_rows = []
+        for rowidx, row in enumerate(data):
+            composite_val = "/".join(list(map(lambda ck: f"{ck}:{row[ck]}", col_keys)))
+            val_counts[composite_val].append(rowidx)
+        for val in val_counts.keys():
+            row_list = val_counts[val]
+            if len(row_list) > 1:
+                dupe_dict[val] = row_list
+                dupe_rows += row_list
+        return dupe_dict, dupe_rows
 
     def getRowVal(self, rownum, row, header_attribute):
         # get the header value to use as a dict key for 'row'

@@ -136,7 +136,11 @@ class LoadingError(Exception):
 class AggregatedErrors(Exception):
     def __init__(self, errors, message=None, verbosity=0):
         if not message:
-            message = f"{len(errors)} exceptions occurred."
+            errtypes = []
+            for errtype in [type(e).__name__ for e in errors]:
+                if errtype not in errtypes:
+                    errtypes.append(errtype)
+            message = f"{len(errors)} exceptions occurred, including type(s): [{', '.join(errtypes)}]."
         super().__init__(message)
         if verbosity > 0:
             print("Aggregated error details:")
@@ -193,11 +197,15 @@ class ConflictingValueError(Exception):
         consistent_field,
         existing_value,
         differing_value,
+        rownum=None,
         message=None,
     ):
         if not message:
+            rowmsg = ""
+            if rownum:
+                rowmsg = f"on row {rownum} "
             message = (
-                f"Conflicting values encountered in {type(rec).__name__} record [{str(rec)}] for the "
+                f"Conflicting values encountered {rowmsg}in {type(rec).__name__} record [{str(rec)}] for the "
                 f"[{consistent_field}] field:\n\tdatabase value: [{existing_value}]\n\tload data value: "
                 f"[{differing_value}]."
             )
@@ -205,6 +213,7 @@ class ConflictingValueError(Exception):
         self.consistent_field = consistent_field
         self.existing_value = existing_value
         self.differing_value = differing_value
+        self.rownum = rownum
 
 
 class SaveError(Exception):
@@ -226,6 +235,27 @@ class DupeCompoundIsotopeCombos(Exception):
         super().__init__(message)
         self.dupe_dict = dupe_dict
         self.source = source
+
+
+class DuplicateValues(Exception):
+    def __init__(self, dupe_dict, colname, message=None):
+        if not message:
+            # Each value is displayed as "value (1,2,3)" where "value" is the diplicate value and 1,2,3 are the rows
+            # where it occurs
+            dupdeets = []
+            for v, l in dupe_dict.items():
+                # dupe_dict contains row indexes. This converts to row numbers (adds 1 for starting from 1 instead of 0
+                # and 1 for the header row)
+                dupdeets.append(f"{v} ({','.join(list(map(lambda i: str(i + 2), l)))})")
+            feed_indent = "\n\t"
+            message = (
+                f"{len(dupe_dict.keys())} values were found with duplicate occurrences in the [{colname}] column, "
+                "whose values must be unique, on the indicated rows (note, row numbers reflect a merge of the Animal "
+                f"and Sample sheet and may be inaccurate):\n\t{feed_indent.join(dupdeets)}"
+            )
+        super().__init__(message)
+        self.dupe_dict = dupe_dict
+        self.colname = colname
 
 
 class NoTracerLabeledElements(Exception):

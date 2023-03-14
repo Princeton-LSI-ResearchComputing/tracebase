@@ -41,6 +41,7 @@ from DataRepo.utils import (
     IsotopeObservationParsingError,
     IsotopeParsingError,
     MissingSamplesError,
+    SampleTableLoader,
     leaderboard_data,
     parse_infusate_name,
     parse_tracer_concentrations,
@@ -701,7 +702,10 @@ class DataLoadingTests(TracebaseTestCase):
         self.assertEqual(24, len(cves))
         # There are 24 expected errors total
         self.assertEqual(24, len(aes.errors))
-        self.assertEqual("24 exceptions occurred.", str(ar.exception))
+        self.assertEqual(
+            "24 exceptions occurred, including type(s): [ConflictingValueError].",
+            str(ar.exception),
+        )
 
     @tag("fcirc")
     def test_peakgroup_from_serum_sample_false(self):
@@ -1830,6 +1834,17 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
 
         study = Study.objects.get(name="Small OBOB")
         self.assertEqual(study.animals.count(), ANIMALS_COUNT)
+
+    def test_get_column_dupes(self):
+        stl = SampleTableLoader()
+        col_keys = ["Sample Name", "Study Name"]
+        data = [
+            {"Sample Name": "q2", "Study Name": "TCA Flux"},
+            {"Sample Name": "q2", "Study Name": "TCA Flux"},
+        ]
+        dupes, rows = stl.get_column_dupes(data, col_keys)
+        self.assertEqual({"Sample Name:q2/Study Name:TCA Flux": [0, 1]}, dupes)
+        self.assertEqual([0, 1], rows)
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
