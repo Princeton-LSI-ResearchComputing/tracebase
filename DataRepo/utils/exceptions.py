@@ -261,6 +261,7 @@ class MultiLoadStatus(Exception):
             "state": "PASSED",
             "num_errors": 0,
             "num_warnings": 0,
+            "top": True,  # Passing files will appear first
         }
 
     def set_load_exception(self, exception, load_key, top=False):
@@ -347,9 +348,7 @@ class MultiLoadStatus(Exception):
     def get_status_messages(self):
 
         messages = []
-        for load_key in sorted(
-            self.statuses, key=lambda k: self.statuses[load_key]["top"]
-        ):
+        for load_key in sorted(self.statuses, key=lambda k: self.statuses[k]["top"]):
             messages.append(
                 {
                     "message": f"{load_key}: {self.statuses[load_key]['state']}",
