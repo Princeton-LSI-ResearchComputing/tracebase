@@ -863,20 +863,33 @@ class SampleTableLoader:
 
     def identify_empty_animal_rows(self, data):
         """
-        If the animal name is empty on a row, the pandas sheet merge will be screwed up and lots of meaningless errors
-        will be spit out.  This method identifies and stores the row numbers (indexes) where the animal name is empty,
-        so those rows can be skipped in later processing.
+        If the animal name is empty on a row but the row has non-empty values, the pandas sheet merge will be screwed
+        up and lots of meaningless errors will be spit out.  This method identifies and stores the row numbers
+        (indexes) where the animal name is empty, but the row has at least 1 actual value, so those rows can be skipped
+        in later processing.
         """
         animal_name_header = getattr(self.headers, "ANIMAL_NAME")
         empty_animal_rows = []
+        empty_animal_rows_with_vals = []
+
         for rowidx, row in enumerate(data):
             val = row[animal_name_header]
+            row_has_vals = (
+                len([v for v in row.values() if v is not None and v != ""]) > 0
+            )
             if val is None or val == "":
                 empty_animal_rows.append(rowidx)
+                if row_has_vals:
+                    empty_animal_rows_with_vals.append(rowidx)
+
+        # This will allow us to skip rows that do not have an animal ID (which includes entirely empty rows)
         if len(empty_animal_rows) > 0:
             self.empty_animal_rows = empty_animal_rows
+
+        # This will allow us to identify invalid rows (i.e. entirely empty is valid)
+        if len(empty_animal_rows_with_vals) > 0:
             self.aggregated_errors_object.buffer_error(
-                SheetMergeError(empty_animal_rows, animal_name_header)
+                SheetMergeError(empty_animal_rows_with_vals, animal_name_header)
             )
 
     def check_required_values(self, rownum, row):

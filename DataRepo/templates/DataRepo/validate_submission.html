@@ -21,15 +21,27 @@
             {{ form.management_form }}
         </form>
         <br>
-        <div class="text-muted">
-            Note, you do not have to resolve all issues with the files before submission.  Do not manually edit your AccuCor/IsoCorr files.  This is an optional check to catch simple mistakes that will speed up the loading of your data to TraceBase by reducing the number of interactions between you (the submitter) and the TraceBase curators.  After addressing issues, run your files again to see if new errors are encountered.  It may take multiple attempts.  Depending on the number and size of your files, validation may take a few minutes.  Do not reload or close the window until validation is complete.<br>
-            Once you have resolved any issues that you know how to fix (leaving any issues you do not know how to resolve), you may move on to the <a href="{{ submission_url }}">submission form</a>.
+        <div class="text-muted small">
+            Validating your submission is an optional check to catch simple mistakes that will speed up the loading of your data to TraceBase by reducing the number of interactions between you (the submitter) and the TraceBase curators.<br>
+            Once you have resolved any issues that you know how to fix (leaving any issues you do not know how to resolve), you may move on to the <a href="{{ submission_url }}">submission form</a>.<br>
+            <a class="badge text-light bg-secondary" data-bs-toggle="collapse" data-bs-target="#notes">Help</a>
+            <div id="notes" class="collapse">Take heed of the following tips when resolving issues in your submission:
+                <ul>
+                    <li>You do not have to resolve all issues with the files before submission.</li>
+                    <li>If you encounter a timeout exception, try submitting fewer files.</li>
+                    <li>Do not manually edit your AccuCor/IsoCorr files.</li>
+                    <li>Errors associated with multiple files will appear at the bottom (e.g. missing compounds/samples/tissues).</li>
+                    <li>Warnings are issues that are either innocuous, something you cannot resolve yourself, or are associated with multiple files and will appear as a consolidated error at the bottom.</li>
+                    <li>Depending on the number and size of your files, validation may take a few minutes.</li>
+                    <li>Do not reload or close the window until validation is complete.</li>
+                    <li>Some errors/warnings are skipped because a preceding error occurred.  So after addressing issues, validate your files again to see if new errors are encountered.  It may take multiple attempts.</li>
+                </ul>
+            </div>
         </div>
     </div>
 
     {% if results %}
         {% if not valid %}
-            <br>
             <br>
             <h5 class="text-danger">The following issue(s) with the file(s) were found:</h5>
             <div class="level-indent">
@@ -38,9 +50,11 @@
                     <span class="{{ 'FAILED'|getClass }}">Errors are in red.</span><br>
                     <span class="{{ 'WARNING'|getClass }}">Warnings are in yellow.</span><br>
                     <span class="{{ 'PASSED'|getClass }}">Validated files are in green.</span><br>
-                    <span class="{{ 'INFO'|getClass }}">Unchecked files are in blue.</span><br>
+                    <!-- There currently is no unchecked files possible, but planned in issue #659, hence this is commented
+                        <span class="{{ 'INFO'|getClass }}">Unchecked files are in blue.</span><br>
+                    -->
                 </div>
-                If it is not clear what the issue is, you may proceed to the <a href="{{ submission_url }}">submission form</a> and a curator will attempt to resolve the issue.
+                If it is not clear what the issue is, you may proceed to the <a href="{{ submission_url }}">submission form</a> and a curator will attempt to resolve the issue for you.
             </div>
             <hr>
         {% else %}
@@ -56,7 +70,7 @@
                         {% if exceptions|index:file_name %}
                             <ul class="ul-nopadding">
                                 {% for exception in exceptions|index:file_name %}
-                                    <li class="{% if exception|index:'is_error' %}{{ err_status|getClass }}{% else %}{{ wrn_status|getClass }}{% endif %}"><span class="newlines">{{ exception|index:"message" }}</span></li>
+                                    <li class="{% if exception|index:'is_error' %}{{ err_status|getClass }}{% else %}{{ wrn_status|getClass }}{% endif %}"><b>{{ exception|index:"type" }}</b><br><div class="level-indent"><span class="newlines">{{ exception|index:"message" }}</span></div></li>
                                 {% endfor %}
                             </ul>
                         {% endif %}

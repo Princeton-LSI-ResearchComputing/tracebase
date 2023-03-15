@@ -1,4 +1,5 @@
 import traceback
+import warnings
 
 from django.forms.models import model_to_dict
 
@@ -51,7 +52,7 @@ class RequiredValuesError(Exception):
         self.missing = missing
 
 
-class ExistingMSRun(Exception):
+class MSRunAlreadyLoadedOrNotUnique(Exception):
     def __init__(self, date, researcher, protocol_name, file_samples_dict, adding_file):
         message = (
             "The following date, researcher, and protocol:\n"
@@ -59,19 +60,23 @@ class ExistingMSRun(Exception):
             f"\tresearcher: {researcher}\n"
             f"\tprotocol: {protocol_name}\n"
             f"for the load of the current accucor/isocorr file: [{adding_file}] contains samples that were also found "
-            "to be associated with the following previously (or concurrently) loaded accucor/isocorr file(s).  The "
-            "common/conflicting samples contained in each file are listed as:\n"
+            "to be associated with the following previously (or concurrently) loaded accucor/isocorr file(s).\n"
         )
         for existing_file in file_samples_dict.keys():
-            message += f"\t{existing_file}:\n\t\t"
+            message += (
+                f"\tConflicting samples in {adding_file} and {existing_file} with the same date, researcher, and "
+                "protocol:\n\t\t"
+            )
             message += "\n\t\t".join(file_samples_dict[existing_file])
         message += (
-            "\nThe date, researcher, protocol, and sample name must be unique for each MSRun.  Changing the date of "
-            "the MSRun could resolve the conflict and allow you to retain unique and consistent sample names for "
-            "searching, but if these samples were truly scanned in multiple MSRuns on the same date, it could also be "
-            "resolved by the curators using a sample name prefix on the command line (--prefix) and changing the "
-            "sample names in the sample sheet to match (i.e. they would be saved as different samples even though "
-            "they are the same sample) - in which case, there's nothing you need to do."
+            "\nThe date, researcher, protocol, and sample name must be unique for each MSRun.  If these are the same "
+            "samples in each MSRun, change or be sure to indicate the date of the MSRun for each file to resolve the "
+            "conflict so you can retain unique and consistent sample names for searching.  If these are the same "
+            "samples and they were scanned in multiple MSRuns on the same date, we currently don't have a database "
+            "schema to support that, so reach out to a curator to decide how to resolve the issue.  If these are "
+            "different samples with the same name, notify the curators so they can change the sample names in the "
+            "sample sheet to match (i.e. they will be saved with modified sample names using a sample name prefix on "
+            "the command line (--prefix) so that the accucor/isocorr files do not need to be edited)."
         )
         super().__init__(message)
         self.date = date
@@ -237,13 +242,18 @@ class MultiLoadStatus(Exception):
     from (for example) load_study will convey the load statuses to the validation interface.
     """
 
-    def __init__(self):
+    def __init__(self, load_keys=None):
 
         self.state = "PASSED"
         self.is_valid = True
         self.num_errors = 0
         self.num_warnings = 0
         self.statuses = {}
+        # Initialize the load status of all load keys (e.g. file names).  Note, you can create arbitrary keys for group
+        # statuses, e.g. for AllMissingCompounds errors that consolidate all missing compounds
+        if load_keys:
+            for load_key in load_keys:
+                self.init_load(load_key)
 
     def init_load(self, load_key):
         self.statuses[load_key] = {
@@ -254,6 +264,13 @@ class MultiLoadStatus(Exception):
         }
 
     def set_load_exception(self, exception, load_key, top=False):
+
+        if len(self.statuses.keys()) == 0:
+            warnings.warn(
+                f"Load keys such as [{load_key}] should be pre-defined when {type(self).__name__} is constructed or "
+                "as they are encountered by calling [obj.init_load(load_key)].  A load key is by default the file "
+                "name, but can be any key can be explicitly added."
+            )
 
         if load_key not in self.statuses.keys():
             self.init_load(load_key)
@@ -279,8 +296,10 @@ class MultiLoadStatus(Exception):
         aes.top = top
         self.statuses[load_key]["aggregated_errors"] = aes
 
-        if aes.should_raise():
-            self.is_valid = False
+        # Any error or warning should make is_valid False and the user should decide whether they can ignore the
+        # warnings or not.
+        self.is_valid = False
+        if aes.is_error:
             self.statuses[load_key]["state"] = "FAILED"
             self.state = "FAILED"
         else:
@@ -291,13 +310,27 @@ class MultiLoadStatus(Exception):
         return self.is_valid
 
     def get_final_exception(self, message=None):
+
+        # If success, return None
         if self.get_success_status():
             return None
+
         aggregated_errors_dict = {}
         for load_key in self.statuses.keys():
-            aggregated_errors_dict[load_key] = self.statuses[load_key][
-                "aggregated_errors"
-            ]
+            # Only include AggregatedErrors objects if they are defined.  If they are not defined, it means there were
+            # no errors
+            if self.statuses[load_key]["aggregated_errors"] is not None:
+                aggregated_errors_dict[load_key] = self.statuses[load_key][
+                    "aggregated_errors"
+                ]
+
+        # Sanity check
+        if len(aggregated_errors_dict.keys()) == 0:
+            raise ValueError(
+                f"Success status is {self.get_success_status()} but there are no aggregated exceptions for any "
+                "files."
+            )
+
         return AggregatedErrorsSet(aggregated_errors_dict, message=message)
 
     def get_status_message(self):
@@ -347,6 +380,7 @@ class AggregatedErrorsSet(Exception):
         self.num_warnings = 0
         self.num_errors = 0
         self.is_fatal = False
+        self.is_error = False
         if len(self.aggregated_errors_dict.keys()) > 0:
             for aes_key in self.aggregated_errors_dict.keys():
                 if self.aggregated_errors_dict[aes_key].num_errors > 0:
@@ -355,6 +389,8 @@ class AggregatedErrorsSet(Exception):
                     self.num_warnings += 1
                 if self.aggregated_errors_dict[aes_key].is_fatal:
                     self.is_fatal = True
+                if self.aggregated_errors_dict[aes_key].is_error:
+                    self.is_error = True
         self.custom_message = False
         if message:
             self.custom_message = True
@@ -437,6 +473,7 @@ class AggregatedErrors(Exception):
         self.num_warnings = len(warnings)
 
         self.is_fatal = False  # Default to not fatal. buffer_exception can change this.
+        self.is_error = False  # Default to warning. buffer_exception can change this.
 
         # Providing exceptions, errors, and warnings is an optional alternative to using the methods: buffer_exception,
         # buffer_error, and buffer_warning.
@@ -451,6 +488,8 @@ class AggregatedErrors(Exception):
                 is_fatal = is_error
             if is_fatal:
                 self.is_fatal = is_fatal
+            if is_error:
+                self.is_error = is_error
             if is_error:
                 self.num_errors += 1
             else:
@@ -473,6 +512,7 @@ class AggregatedErrors(Exception):
             self.exceptions.append(error)
             self.ammend_buffered_exception(error, len(self.exceptions), is_error=True)
             self.is_fatal = True
+            self.is_error = True
 
         self.custom_message = False
         if message:
@@ -497,6 +537,7 @@ class AggregatedErrors(Exception):
         matched_exceptions = []
         unmatched_exceptions = []
         is_fatal = False
+        is_error = False
         num_errors = 0
         num_warnings = 0
 
@@ -504,6 +545,7 @@ class AggregatedErrors(Exception):
         for exception in self.exceptions:
             if type(exception) == exception_class:
                 if not remove:
+                    # Change every removed exception to a non-fatal warning
                     exception.is_error = False
                     exception.is_fatal = False
                     num_warnings += 1
@@ -515,11 +557,14 @@ class AggregatedErrors(Exception):
                     num_warnings += 1
                 if exception.is_fatal:
                     is_fatal = True
+                if exception.is_error:
+                    is_error = True
                 unmatched_exceptions.append(exception)
 
         self.num_errors = num_errors
         self.num_warnings = num_warnings
         self.is_fatal = is_fatal
+        self.is_error = is_error
 
         if remove:
             # Reinitialize this object
@@ -609,7 +654,9 @@ class AggregatedErrors(Exception):
         exception.exc_no = exc_no
         return exception
 
-    def get_buffered_exception_summary_string(self, buffered_exception, exc_no=None, numbered=True):
+    def get_buffered_exception_summary_string(
+        self, buffered_exception, exc_no=None, numbered=True, typed=True
+    ):
         """
         Constructs the summary string using the info stored in the exception by ammend_buffered_exception()
         """
@@ -618,7 +665,9 @@ class AggregatedErrors(Exception):
             if exc_no is None:
                 exc_no = buffered_exception.exc_no
             exc_str += f"EXCEPTION{exc_no}({buffered_exception.exc_type_str.upper()}): "
-        exc_str += f"{type(buffered_exception).__name__}: {buffered_exception}"
+        if typed:
+            exc_str += f"{type(buffered_exception).__name__}: "
+        exc_str += f"{buffered_exception}"
         return exc_str
 
     @classmethod
@@ -680,6 +729,8 @@ class AggregatedErrors(Exception):
 
         if is_fatal:
             self.is_fatal = True
+        if is_error:
+            self.is_error = True
 
         if not self.quiet:
             self.print_buffered_exception(buffered_exception)

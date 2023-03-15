@@ -40,10 +40,10 @@ from DataRepo.utils.exceptions import (
     DryRun,
     DupeCompoundIsotopeCombos,
     EmptyColumnsError,
-    ExistingMSRun,
     IsotopeStringDupe,
     MissingCompounds,
     MissingSamplesError,
+    MSRunAlreadyLoadedOrNotUnique,
     MultipleAccucorTracerLabelColumnsError,
     NoSamplesError,
     NoTracerLabeledElements,
@@ -731,7 +731,7 @@ class AccuCorDataLoader:
         # Determine whether an error should be included about existing MSRun records
         if len(self.existing_msruns.keys()) > 0:
             self.aggregated_errors_object.buffer_exception(
-                ExistingMSRun(
+                MSRunAlreadyLoadedOrNotUnique(
                     self.date,
                     self.researcher,
                     self.protocol_input,

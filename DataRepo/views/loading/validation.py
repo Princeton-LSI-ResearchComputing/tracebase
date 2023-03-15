@@ -2,8 +2,8 @@ import os.path
 import shutil
 import tempfile
 from typing import List
-import yaml  # type: ignore
 
+import yaml  # type: ignore
 from django.conf import settings
 from django.core.management import call_command
 from django.shortcuts import redirect, render
@@ -106,25 +106,7 @@ class DataValidationView(FormView):
 
         debug = f"asf: {self.animal_sample_file} num afs: {len(self.accucor_files)} num ifs: {len(self.isocorr_files)}"
 
-        load_status_data = self.validate_study()
-
-        valid = True
-        results = {}
-        exceptions = {}
-
-        valid = load_status_data.is_valid
-        for load_key in load_status_data.statuses.keys():
-            # The load_key is the absolute path, but we only want to report errors in the context of the file's name
-            short_load_key = os.path.basename(load_key)
-
-            results[short_load_key] = load_status_data.statuses[load_key]["state"]
-
-            exceptions[short_load_key] = []
-            # Get the AggregatedErrors object
-            aes = load_status_data.statuses[load_key]["aggregated_errors"]
-            for exc in aes.exceptions:
-                exc_str = aes.get_buffered_exception_summary_string(exc, numbered=False)
-                exceptions[short_load_key].append({"message": exc_str, "is_error": exc.is_error})
+        valid, results, exceptions = self.get_validation_results()
 
         return self.render_to_response(
             self.get_context_data(
@@ -136,6 +118,38 @@ class DataValidationView(FormView):
                 submission_url=self.submission_url,
             )
         )
+
+    def get_validation_results(self):
+        load_status_data = self.validate_study()
+
+        valid = load_status_data.is_valid
+        results = {}
+        exceptions = {}
+
+        for load_key in load_status_data.statuses.keys():
+            # The load_key is the absolute path, but we only want to report errors in the context of the file's name
+            short_load_key = os.path.basename(load_key)
+
+            results[short_load_key] = load_status_data.statuses[load_key]["state"]
+
+            exceptions[short_load_key] = []
+            # Get the AggregatedErrors object
+            aes = load_status_data.statuses[load_key]["aggregated_errors"]
+            # aes is None if there were no exceptions
+            if aes is not None:
+                for exc in aes.exceptions:
+                    exc_str = aes.get_buffered_exception_summary_string(
+                        exc, numbered=False, typed=False
+                    )
+                    exceptions[short_load_key].append(
+                        {
+                            "message": exc_str,
+                            "is_error": exc.is_error,
+                            "type": type(exc).__name__,
+                        }
+                    )
+
+        return valid, results, exceptions
 
     def validate_study(self):
         tmpdir_obj = tempfile.TemporaryDirectory()
@@ -188,14 +202,22 @@ class DataValidationView(FormView):
                 "date": "1972-11-24",
                 "researcher": "anonymous",
                 "new_researcher": False,
-            }
+            },
         }
 
         # Going to use a temp directory so we can report the user's given file names (not the randomized name supplied
         # by django forms)
         self.add_sample_data(basic_loading_data, tmpdir)
-        self.add_ms_data(basic_loading_data, tmpdir, self.accucor_files, self.accucor_filenames, False)
-        self.add_ms_data(basic_loading_data, tmpdir, self.isocorr_files, self.isocorr_filenames, True)
+        self.add_ms_data(
+            basic_loading_data,
+            tmpdir,
+            self.accucor_files,
+            self.accucor_filenames,
+            False,
+        )
+        self.add_ms_data(
+            basic_loading_data, tmpdir, self.isocorr_files, self.isocorr_filenames, True
+        )
 
         loading_yaml = os.path.join(tmpdir, "loading.yaml")
 
@@ -219,12 +241,13 @@ class DataValidationView(FormView):
         # without the user's file name to support tests that don't use a randomized temp file.
         if self.animal_sample_filename:
             sf = self.animal_sample_filename
-            sfp = os.path.join(tmpdir, str(sf))
-            shutil.copyfile(form_sample_file_path, sfp)
         else:
             # This is for non-random file names (e.g. for the test code)
             sf = os.path.basename(form_sample_file_path)
-            sfp = form_sample_file_path
+
+        # To associate the file with the yaml file created in the temp directory, we must copy it
+        sfp = os.path.join(tmpdir, str(sf))
+        shutil.copyfile(form_sample_file_path, sfp)
 
         basic_loading_data["protocols"] = sfp
         basic_loading_data["animals_samples_treatments"]["table"] = sfp
@@ -234,16 +257,21 @@ class DataValidationView(FormView):
 
             if len(files) == len(filenames):
                 fn = filenames[i]
-                fp = os.path.join(tmpdir, str(fn))
-                shutil.copyfile(form_file_path, fp)
             else:
                 # This is for non-random file names (e.g. for the test code)
-                fp = form_file_path
-                fn = os.path.basename(fp)
+                fn = os.path.basename(form_file_path)
 
-            if fn in [dct["name"] for dct in basic_loading_data["accucor_data"]["accucor_files"]]:
+            fp = os.path.join(tmpdir, str(fn))
+            shutil.copyfile(form_file_path, fp)
+
+            if fn in [
+                dct["name"]
+                for dct in basic_loading_data["accucor_data"]["accucor_files"]
+            ]:
                 ft = "Isocorr" if is_isocorr else "Accucor"
-                raise KeyError(f"{ft} filename conflict: {fn}.  All Accucor/Isocorr file names must be unique.")
+                raise KeyError(
+                    f"{ft} filename conflict: {fn}.  All Accucor/Isocorr file names must be unique."
+                )
 
             basic_loading_data["accucor_data"]["accucor_files"].append(
                 {
