@@ -41,7 +41,7 @@ from DataRepo.utils.exceptions import (
     HeaderConfigError,
     MissingTissues,
     RequiredHeadersError,
-    RequiredValuesError,
+    RequiredSampleValuesError,
     SaveError,
     SheetMergeError,
     UnknownHeadersError,
@@ -170,7 +170,7 @@ class SampleTableLoader:
         # Error-tracking
         self.aggregated_errors_object = AggregatedErrors()
         self.missing_headers = []
-        self.missing_values = defaultdict(list)
+        self.missing_values = defaultdict(dict)
         self.infile_sample_dupe_rows = []
         self.empty_animal_rows = []
         self.missing_tissues = defaultdict(list)
@@ -241,7 +241,7 @@ class SampleTableLoader:
         for rowidx, row in enumerate(sample_table_data):
             rownum = rowidx + 1
 
-            self.check_required_values(rownum, row)
+            self.check_required_values(rowidx, row)
 
             tissue_rec, is_blank = self.get_tissue(rownum, row)
 
@@ -290,7 +290,9 @@ class SampleTableLoader:
 
         if len(self.missing_values.keys()) > 0:
             self.aggregated_errors_object.buffer_error(
-                RequiredValuesError(self.missing_values)
+                RequiredSampleValuesError(
+                    self.missing_values, animal_hdr=getattr(self.headers, "ANIMAL_NAME")
+                )
             )
 
         if self.aggregated_errors_object.should_raise():
@@ -892,7 +894,7 @@ class SampleTableLoader:
                 SheetMergeError(empty_animal_rows_with_vals, animal_name_header)
             )
 
-    def check_required_values(self, rownum, row):
+    def check_required_values(self, rowidx, row):
         """
         Due to some rows being skipped in specific (but not precise) instances, required values must be checked first.
         C.I.P. A malformed file wasn't reporting problems because the rows were being skipped due to the fact that the
@@ -902,12 +904,8 @@ class SampleTableLoader:
         hdr_name_tuple = self.headers
         header_attrs = rqd_vals_tuple._fields
 
-        row_empty = True
-        for val in row.values():
-            if val and val != "":
-                row_empty = False
-                break
-        if row_empty:
+        # We will skip problematic rows that are either completely empty or are missing an animal ID
+        if rowidx in self.empty_animal_rows:
             return
 
         # For each header attribute
@@ -919,7 +917,14 @@ class SampleTableLoader:
             if hdr_name in self.headers_present and val_reqd:
                 val = row[hdr_name]
                 if val is None or val == "":
-                    self.missing_values[hdr_name].append(rownum)
+                    animal = self.getRowVal(row, "ANIMAL_NAME")
+                    if "rows" in self.missing_values[hdr_name].keys():
+                        self.missing_values[hdr_name]["rows"].append(rowidx + 1)
+                        if animal not in self.missing_values[hdr_name]["animals"]:
+                            self.missing_values[hdr_name]["animals"].append(animal)
+                    else:
+                        self.missing_values[hdr_name]["rows"] = [rowidx + 1]
+                        self.missing_values[hdr_name]["animals"] = [animal]
 
     def getRowVal(self, row, header_attribute):
         # get the header value to use as a dict key for 'row'

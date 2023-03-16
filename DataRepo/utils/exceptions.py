@@ -43,9 +43,31 @@ class RequiredValuesError(Exception):
             )
             message = (
                 "Missing required values have been detected in the following columns:\n\t"
-                f"{nltab.join(deets)}\nNote, entirely empty rows are allowed, but having a single value on a "
-                "row in one sheet can cause a duplication of empty rows, so be sure you don't have stray single "
-                "values in a sheet."
+                f"{nltab.join(deets)}\nIf you wish to skip this row, you can either remove the row entirely or enter "
+                "dummy values to avoid this error."
+            )
+            # Row numbers are available, but not very useful given the sheet merge
+        super().__init__(message)
+        self.missing = missing
+
+
+class RequiredSampleValuesError(Exception):
+    def __init__(self, missing, animal_hdr="animal", message=None):
+        if not message:
+            nltab = "\n\t"
+            deets = list(
+                map(
+                    lambda k: (
+                        f"{str(k)} on row(s): {str(summarize_int_list(missing[k]['rows']))} "
+                        f"for {animal_hdr}(s): {missing[k]['animals']}"
+                    ),
+                    missing.keys(),
+                )
+            )
+            message = (
+                "Missing required values have been detected in the following columns:\n\t"
+                f"{nltab.join(deets)}\nIf you wish to skip this row, you can either remove the row entirely or enter "
+                "dummy values to avoid this error."
             )
             # Row numbers are available, but not very useful given the sheet merge
         super().__init__(message)
@@ -348,7 +370,7 @@ class MultiLoadStatus(Exception):
     def get_status_messages(self):
 
         messages = []
-        for load_key in sorted(self.statuses, key=lambda k: self.statuses[k]["top"]):
+        for load_key in self.get_ordered_status_keys(reverse=False):
             messages.append(
                 {
                     "message": f"{load_key}: {self.statuses[load_key]['state']}",
@@ -371,6 +393,11 @@ class MultiLoadStatus(Exception):
                 )
 
         return messages
+
+    def get_ordered_status_keys(self, reverse=True):
+        return sorted(
+            self.statuses.keys(), key=lambda k: self.statuses[k]["top"], reverse=reverse
+        )
 
 
 class AggregatedErrorsSet(Exception):

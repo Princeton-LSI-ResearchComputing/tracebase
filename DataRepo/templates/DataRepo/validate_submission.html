@@ -63,13 +63,13 @@
             <h5 class="text-success">Success!  No issues found.  Please proceed to the <a href="{{ submission_url }}">submission form</a>.</h5>
         {% endif %}
         <ul class="ul-nopadding">
-            {% for file_name, status in results.items %}
-                {% with file_class=status|getClass err_status="ERROR" wrn_status="WARNING" %}
-                    <li class="{{ file_class }}">
-                        <u><b>{{ status }}: {{ file_name }}</b></u>
-                        {% if exceptions|index:file_name %}
+            {% for key in ordered_keys %}
+                {% with status=results|index:key status_class=results|index:key|getClass err_status="ERROR" wrn_status="WARNING" %}
+                    <li class="{{ status_class }}">
+                        <u><b>{{ status }}: {{ key }}</b></u>
+                        {% if exceptions|index:key %}
                             <ul class="ul-nopadding">
-                                {% for exception in exceptions|index:file_name %}
+                                {% for exception in exceptions|index:key %}
                                     <li class="{% if exception|index:'is_error' %}{{ err_status|getClass }}{% else %}{{ wrn_status|getClass }}{% endif %}"><b>{{ exception|index:"type" }}</b><br><div class="level-indent"><span class="newlines">{{ exception|index:"message" }}</span></div></li>
                                 {% endfor %}
                             </ul>

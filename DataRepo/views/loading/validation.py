@@ -106,7 +106,7 @@ class DataValidationView(FormView):
 
         debug = f"asf: {self.animal_sample_file} num afs: {len(self.accucor_files)} num ifs: {len(self.isocorr_files)}"
 
-        valid, results, exceptions = self.get_validation_results()
+        valid, results, exceptions, ordered_keys = self.get_validation_results()
 
         return self.render_to_response(
             self.get_context_data(
@@ -116,6 +116,7 @@ class DataValidationView(FormView):
                 form=form,
                 exceptions=exceptions,
                 submission_url=self.submission_url,
+                ordered_keys=ordered_keys,
             )
         )
 
@@ -125,11 +126,13 @@ class DataValidationView(FormView):
         valid = load_status_data.is_valid
         results = {}
         exceptions = {}
+        ordered_keys = []
 
-        for load_key in load_status_data.statuses.keys():
+        for load_key in load_status_data.get_ordered_status_keys():
             # The load_key is the absolute path, but we only want to report errors in the context of the file's name
             short_load_key = os.path.basename(load_key)
 
+            ordered_keys.append(short_load_key)
             results[short_load_key] = load_status_data.statuses[load_key]["state"]
 
             exceptions[short_load_key] = []
@@ -149,7 +152,7 @@ class DataValidationView(FormView):
                         }
                     )
 
-        return valid, results, exceptions
+        return valid, results, exceptions, ordered_keys
 
     def validate_study(self):
         tmpdir_obj = tempfile.TemporaryDirectory()

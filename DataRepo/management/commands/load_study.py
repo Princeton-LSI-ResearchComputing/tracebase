@@ -155,13 +155,12 @@ class Command(BaseCommand):
                         validate=self.validate,
                     )
                 except Exception as e:
-                    self.package_group_exceptions(e, compound_file_basename)
+                    self.package_group_exceptions(e, compounds_file)
 
             if "protocols" in study_params:
 
                 protocol_file_basename = study_params["protocols"]
                 protocols_file = os.path.join(study_dir, protocol_file_basename)
-                print(f"ADDING PROTOCOL LOAD STATUS FILE {protocols_file}")
                 self.load_statuses.init_load(protocols_file)
 
                 if self.verbosity > 1:
@@ -179,7 +178,7 @@ class Command(BaseCommand):
                         verbosity=self.verbosity,
                     )
                 except Exception as e:
-                    self.package_group_exceptions(e, protocol_file_basename)
+                    self.package_group_exceptions(e, protocols_file)
 
             if "tissues" in study_params:
 
@@ -202,7 +201,7 @@ class Command(BaseCommand):
                         verbosity=self.verbosity,
                     )
                 except Exception as e:
-                    self.package_group_exceptions(e, tissue_file_basename)
+                    self.package_group_exceptions(e, tissues_file)
 
             if "animals_samples_treatments" in study_params:
 
@@ -216,9 +215,6 @@ class Command(BaseCommand):
                 # If the protocols load was from the animal sample table file, don't overwrite the errors that
                 # already came from it
                 if animals_samples_table_file not in self.load_statuses.statuses.keys():
-                    print(
-                        f"ADDING ANIMAL SAMPLE LOAD STATUS FILE {animals_samples_table_file}"
-                    )
                     self.load_statuses.init_load(animals_samples_table_file)
                 headers_basename = study_params["animals_samples_treatments"].get(
                     "headers", None
@@ -248,7 +244,7 @@ class Command(BaseCommand):
                         defer_autoupdates=True,
                     )
                 except Exception as e:
-                    self.package_group_exceptions(e, sample_file_basename)
+                    self.package_group_exceptions(e, animals_samples_table_file)
 
             if "accucor_data" in study_params:
 
@@ -316,7 +312,7 @@ class Command(BaseCommand):
                                 )
                             )
                     except Exception as e:
-                        self.package_group_exceptions(e, accucor_file_basename)
+                        self.package_group_exceptions(e, accucor_file)
 
             self.create_grouped_exceptions()
 
@@ -418,7 +414,7 @@ class Command(BaseCommand):
                             ]["rownums"]
                         }
 
-        self.load_statuses.set_load_exception(exception, filename)
+        self.load_statuses.set_load_exception(exception, filepath)
 
     def create_grouped_exceptions(self):
         """
