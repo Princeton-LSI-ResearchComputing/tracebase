@@ -217,3 +217,67 @@ class ExceptionTests(TracebaseTestCase):
         esl = ["1-3", "5", "7-8"]
         sl = summarize_int_list(il)
         self.assertEqual(esl, sl)
+
+
+class MultiLoadStatusTests(TracebaseTestCase):
+    def test_init_load(self):
+        """
+        Tests that init_load creates a key in MultiLoadStatus.statuses[string] with:
+        {
+            "aggregated_errors": None,
+            "state": "PASSED",
+            "num_errors": 0,
+            "num_warnings": 0,
+            "top": True,  # Passing files will appear first
+        }
+        """
+        pass
+
+    def test_constructor_with_key_list(self):
+        """
+        Tests that constructor creates a key in MultiLoadStatus.statuses[every string in list] with:
+        {
+            "aggregated_errors": None,
+            "state": "PASSED",
+            "num_errors": 0,
+            "num_warnings": 0,
+            "top": True,  # Passing files will appear first
+        }
+        """
+        pass
+
+    def test_package_group_exceptions_aggregated_errors(self):
+        """
+        Test that package_group_exceptions(aggregated_errors_object, load_key)
+        adds AggregatedErrors exceptions to mls.statuses and updates:
+            statuses[load_key]["num_errros"]
+            statuses[load_key]["num_warnings"]
+            statuses[load_key]["top"]
+            statuses[load_key]["aggregated_errors"]
+            statuses[load_key]["state"]
+            state
+            is_valid
+        """
+        pass
+
+    def test_package_group_exceptions_other_exceptions(self):
+        """
+        Test that package_group_exceptions(exception, load_key)
+        adds non-AggregatedErrors exceptions as an AggregatedErrors exception to mls.statuses and updates:
+            statuses[load_key]["num_errros"]
+            statuses[load_key]["num_warnings"]
+            statuses[load_key]["top"]
+            statuses[load_key]["aggregated_errors"]
+            statuses[load_key]["state"]
+            state
+            is_valid
+        """
+        pass
+
+    def test_get_ordered_status_keys_forward(self):
+        """Check that passed and group exceptions are at the top"""
+        pass
+
+    def test_get_ordered_status_keys_reverse(self):
+        """Check that passed and group exceptions are at the bottom"""
+        pass

@@ -1918,6 +1918,31 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
         )
         self.assertEqual([0, 1], rows)
 
+    def test_create_grouped_exceptions(self):
+        """
+        Creates AllMissing{Tissues,Compounds,Samples} from MissingTissues, MissingCompounds, and MissingSamplesError
+        exceptions
+        """
+        pass
+
+    def test_sheet_merge_error_no_empties(self):
+        """
+        Ensures SheetMergeError doesn't include completely empty rows
+        """
+        pass
+
+    def test_required_sample_values_error(self):
+        """
+        Ensures RequiredSampleValuesError doesn't include completely empty rows or rows with a missing animal ID
+        """
+        pass
+
+    def test_check_required_values(self):
+        """
+        Check that missing required vals are added to stl.missing_values
+        """
+        pass
+
 
 @override_settings(CACHES=settings.TEST_CACHES)
 @tag("load_study")
@@ -2003,6 +2028,12 @@ class StudyLoadingTests(TracebaseTestCase):
             "load_study",
             "DataRepo/example_data/obob_fasted_glc_lac_gln_ala_multiple_labels/loading.yaml",
         )
+    
+    def test_create_grouped_exceptions(self):
+        """
+        Test that create_grouped_exceptions creates AllMissing{Tissues,Compounds,Samples} exceptions
+        """
+        pass
 
 
 @override_settings(CACHES=settings.TEST_CACHES)

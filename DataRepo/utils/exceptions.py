@@ -287,6 +287,10 @@ class MultiLoadStatus(Exception):
         }
 
     def set_load_exception(self, exception, load_key, top=False):
+        """
+        This records the status of a load in a data member called statuses.  It tracks some overall stats and can set
+        whether this load status should appear at the top of the reported statuses or not.
+        """
 
         if len(self.statuses.keys()) == 0:
             warnings.warn(
@@ -896,7 +900,7 @@ class SheetMergeError(Exception):
     def __init__(self, row_idxs, merge_col_name="Animal Name", message=None):
         if not message:
             message = (
-                f"Rows which are missing an {merge_col_name} but have a value in some other column cause meaningless "
+                f"Rows which are missing an {merge_col_name} but have a value in some other column, cause confusing "
                 f"errors because the {merge_col_name} is used to merge the data in separate files/excel-sheets.  To "
                 "avoid these errors, a row must either be completely empty, or at least contain a value in the merge "
                 f"column: [{merge_col_name}].  The following rows are affected, but the row numbers can be inaccurate "

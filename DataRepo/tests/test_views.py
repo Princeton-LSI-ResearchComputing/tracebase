@@ -839,3 +839,26 @@ class ValidationViewTests(TracebaseTransactionTestCase):
 
             self.assertTrue(afkey in exceptions)
             self.assertEqual(0, len(exceptions[afkey]))
+
+    def test_validate_study(self):
+        """Ensure validate_study returns MultiLoadStatus when successful"""
+        pass
+
+    def test_create_yaml(self):
+        """Ensure create_yaml(dir) puts a loading.yaml file in the dir"""
+        pass
+
+    def test_add_sample_data(self):
+        """Test add_sample_data(dict, tmpdir) adds dict["protocols"] and dict["animals_samples_treatments"]["table"]"""
+        pass
+
+    def test_add_ms_data(self):
+        """
+        Test add_ms_data(dict, tmpdir, files, filenames, is_isocorr) adds dict["accucor_data"]["accucor_files"].append(
+            {
+                "name": fp,
+                "isocorr_format": is_isocorr,
+            }
+        )
+        """
+        pass
