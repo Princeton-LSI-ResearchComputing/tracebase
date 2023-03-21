@@ -28,8 +28,10 @@ from DataRepo.models import (
     Tissue,
     Tracer,
     TracerLabel,
+    buffer_size,
 )
 from DataRepo.models.hier_cached_model import set_cache
+from DataRepo.models.maintained_model import get_all_maintained_field_values
 from DataRepo.models.peak_group_label import NoCommonLabel
 from DataRepo.models.researcher import UnknownResearcherError
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
@@ -37,6 +39,7 @@ from DataRepo.utils import (
     AccuCorDataLoader,
     AggregatedErrors,
     ConflictingValueError,
+    DryRun,
     IsotopeObservationData,
     IsotopeObservationParsingError,
     IsotopeParsingError,
@@ -1835,6 +1838,53 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
         study = Study.objects.get(name="Small OBOB")
         self.assertEqual(study.animals.count(), ANIMALS_COUNT)
 
+    def test_animal_and_sample_load_in_debug(self):
+
+        # Load some data to ensure that none of it changes during the actual test
+        call_command(
+            "load_animals_and_samples",
+            animal_and_sample_table_filename=(
+                "DataRepo/example_data/small_multitracer_data/animal_sample_table.xlsx"
+            ),
+            skip_researcher_check=True,
+        )
+
+        pre_load_counts = self.get_record_counts()
+        pre_load_maintained_values = get_all_maintained_field_values("DataRepo.models")
+        self.assertGreater(
+            len(pre_load_maintained_values.keys()),
+            0,
+            msg="Ensure there is data in the database before the test",
+        )
+        self.assertEqual(0, buffer_size(), msg="Autoupdate buffer is empty to start.")
+
+        with self.assertRaises(DryRun):
+            call_command(
+                "load_animals_and_samples",
+                animal_and_sample_table_filename=(
+                    "DataRepo/example_data/small_dataset/"
+                    "small_obob_animal_and_sample_table.xlsx"
+                ),
+                debug=True,
+            )
+
+        post_load_maintained_values = get_all_maintained_field_values("DataRepo.models")
+        post_load_counts = self.get_record_counts()
+
+        self.assertEqual(
+            pre_load_counts,
+            post_load_counts,
+            msg="DryRun mode doesn't change any table's record count.",
+        )
+        self.assertEqual(
+            pre_load_maintained_values,
+            post_load_maintained_values,
+            msg="DryRun mode doesn't autoupdate.",
+        )
+        self.assertEqual(
+            0, buffer_size(), msg="DryRun mode doesn't leave buffered autoupdates."
+        )
+
     def test_get_column_dupes(self):
         stl = SampleTableLoader()
         col_keys = ["Sample Name", "Study Name"]
@@ -1941,6 +1991,46 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             ),
         )
         self.assertTrue(isinstance(aes.errors[0], MissingSamplesError))
+
+    def test_accucor_load_in_debug(self):
+
+        pre_load_counts = self.get_record_counts()
+        pre_load_maintained_values = get_all_maintained_field_values("DataRepo.models")
+        self.assertGreater(
+            len(pre_load_maintained_values.keys()),
+            0,
+            msg="Ensure there is data in the database before the test",
+        )
+        self.assertEqual(0, buffer_size(), msg="Autoupdate buffer is empty to start.")
+
+        with self.assertRaises(DryRun):
+            call_command(
+                "load_accucor_msruns",
+                accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_blank_sample.xlsx",
+                skip_samples=("blank"),
+                protocol="Default",
+                date="2021-04-29",
+                researcher="Michael Neinast",
+                new_researcher=True,
+                debug=True,
+            )
+
+        post_load_maintained_values = get_all_maintained_field_values("DataRepo.models")
+        post_load_counts = self.get_record_counts()
+
+        self.assertEqual(
+            pre_load_counts,
+            post_load_counts,
+            msg="DryRun mode doesn't change any table's record count.",
+        )
+        self.assertEqual(
+            pre_load_maintained_values,
+            post_load_maintained_values,
+            msg="DryRun mode doesn't autoupdate.",
+        )
+        self.assertEqual(
+            0, buffer_size(), msg="DryRun mode doesn't leave buffered autoupdates."
+        )
 
 
 @override_settings(CACHES=settings.TEST_CACHES)

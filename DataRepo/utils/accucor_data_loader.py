@@ -117,6 +117,7 @@ class AccuCorDataLoader:
         isocorr_format=False,
         verbosity=1,
         defer_autoupdates=False,
+        dry_run=False,
     ):
         # Data
         self.accucor_original_df = accucor_original_df
@@ -145,6 +146,9 @@ class AccuCorDataLoader:
 
         # Verbosity affects log prints and error verbosity (for debugging)
         self.verbosity = verbosity
+
+        # Dry Run - don't change the database
+        self.dry_run = dry_run
 
         # Database config
         self.db = settings.TRACEBASE_DB
@@ -582,7 +586,7 @@ class AccuCorDataLoader:
         peak_group_set.save(using=self.db)
         return peak_group_set
 
-    def load_data(self, dry_run=False):
+    def load_data(self):
         """
         Extract and store the data for MsRun PeakGroup and PeakData
         """
@@ -912,7 +916,7 @@ class AccuCorDataLoader:
             if should_raise:
                 raise aes
 
-        if dry_run:
+        if self.dry_run:
             raise DryRun()
 
         if settings.DEBUG or self.verbosity >= 1:
@@ -1078,7 +1082,7 @@ class AccuCorDataLoader:
 
         return isotope_observations
 
-    def load_accucor_data(self, dry_run=False):
+    def load_accucor_data(self):
 
         self.pre_load_setup()
 
@@ -1092,7 +1096,7 @@ class AccuCorDataLoader:
 
             with transaction.atomic():
                 self.validate_data()
-                self.load_data(dry_run)
+                self.load_data()
 
         except DryRun:
             self.post_load_teardown()
@@ -1111,17 +1115,18 @@ class AccuCorDataLoader:
             raise AggregatedErrors(self.errors)
 
         # Buffered auto-updates cannot be done inside the atomic transaction block because the auto-updates associated
-        # with the models involved in an accucor load, transit many-related models to perform updates of already-loaded
+        # with the models involved in an accucor load transit many-related models to perform updates of already-loaded
         # data based on new data, which requires queries of the linked pre-loaded data, and database queries are not
         # allowed during atomic transactions.  Some auto-updates can happen inside an atomic transaction block because
         # it operates on the objects without hitting the database, but that's not the case here.  Specifically, if this
         # was called inside the transaction block, it would generate the error:
-        # An error occurred in the current transaction. You can't execute queries until the end of the 'atomic' block.
-        # It uses `.count()` (to see if there exist records to propagate changes), `.first()` to see if the related
-        # model is a MaintainedModel (inside an isinstance call), and `.all()` to cycle through the related records.
+        #
+        #  An error occurred in the current transaction. You can't execute queries until the end of the 'atomic' block.
+        #  It uses `.count()` (to see if there exist records to propagate changes), `.first()` to see if the related
+        #  model is a MaintainedModel (inside an isinstance call), and `.all()` to cycle through the related records.
 
         autoupdate_mode = not self.defer_autoupdates
-        if not dry_run and autoupdate_mode:
+        if not self.dry_run and autoupdate_mode:
             perform_buffered_updates(using=self.db)
 
         self.post_load_teardown(autoupdate_mode)

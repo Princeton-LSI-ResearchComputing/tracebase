@@ -5,7 +5,7 @@ from datetime import timedelta
 import dateutil.parser  # type: ignore
 import pandas as pd
 from django.conf import settings
-from django.db.utils import IntegrityError
+from django.db import IntegrityError, transaction
 
 from DataRepo.models import (
     Animal,
@@ -198,7 +198,8 @@ class SampleTableLoader:
         init_autoupdate_label_filters(label_filters=["name"])
 
         try:
-            self.load_data(data, dry_run)
+            with transaction.atomic():
+                self.load_data(data, dry_run)
         except Exception as e:
             # If we're stopping with an exception, we need to clear the update buffer so that the next call doesn't
             # make auto-updates on non-existent (or incorrect) records
