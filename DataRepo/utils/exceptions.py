@@ -968,8 +968,8 @@ class AllMissingTissues(Exception):
                     )
                 )
             message = (
-                f"{len(tissues_dict.keys())} compounds were not found in the database:{nltab}{tissues_str}\n"
-                f"Please check the tissue(s) against the existing tissues list:{nltab}"
+                f"{len(tissues_dict['tissues'].keys())} compounds were not found in the database:{nltab}{tissues_str}"
+                f"\nPlease check the tissue(s) against the existing tissues list:{nltab}"
                 f"{nltab.join(tissues_dict['existing'])}\n"
                 "If the tissue cannot be renamed to one of these existing tissues, a new tissue type will have to be "
                 "added to the database."

@@ -156,7 +156,6 @@ class DataValidationView(FormView):
 
     def validate_study(self):
         tmpdir_obj = tempfile.TemporaryDirectory()
-        tmpdir_obj
         tmpdir = tmpdir_obj.name
 
         # TODO: create_yaml() *could* raise ValueError or KeyError if the required sample file is not provided or if 2

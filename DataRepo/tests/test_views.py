@@ -1,5 +1,6 @@
 import json
 import os.path
+import tempfile
 
 from django.conf import settings
 from django.core.management import call_command
@@ -596,6 +597,8 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         af2key = "accucor2.xlsx"
 
         # Test the get_validation_results function
+        # This call indirectly tests that ValidationView.validate_stody returns a MultiLoadStatus object on success
+        # It also indirectly ensures that create_yaml(dir) puts a loading.yaml file in the dir
         [results, valid, exceptions, ne, nw] = self.validate_some_files(sf, afs)
 
         # There is a researcher named "anonymous", but that name is ignored
@@ -840,17 +843,55 @@ class ValidationViewTests(TracebaseTransactionTestCase):
             self.assertTrue(afkey in exceptions)
             self.assertEqual(0, len(exceptions[afkey]))
 
-    def test_validate_study(self):
-        """Ensure validate_study returns MultiLoadStatus when successful"""
-        pass
+    def create_valid_dvv(self, tmpdir):
+        basic_loading_data = {
+            "protocols": None,  # Added by self.add_sample_data()
+            "animals_samples_treatments": {
+                "table": None,  # Added by self.add_sample_data()
+                "skip_researcher_check": False,
+            },
+            "accucor_data": {
+                "accucor_files": [
+                    # {
+                    #     "name": None,  # Added by self.add_ms_data()
+                    #     "isocorr_format": False,  # Set by self.add_ms_data()
+                    # },
+                ],
+                "msrun_protocol": "Default",
+                "date": "1972-11-24",
+                "researcher": "anonymous",
+                "new_researcher": False,
+            },
+        }
 
-    def test_create_yaml(self):
-        """Ensure create_yaml(dir) puts a loading.yaml file in the dir"""
-        pass
+        sf = "DataRepo/example_data/data_submission_good/animal_sample_table.xlsx"
+        afs = [
+            "DataRepo/example_data/data_submission_good/accucor1.xlsx",
+            "DataRepo/example_data/data_submission_good/accucor2.xlsx",
+        ]
+
+        dvv = DataValidationView()
+        dvv.set_files(sf, afs)
+
+        sfn = os.path.basename(sf)
+        sfp = os.path.join(tmpdir, str(sfn))
+        afps = []
+        for af in afs:
+            afn = os.path.basename(af)
+            afps.append(os.path.join(tmpdir, str(afn)))
+
+        return dvv, basic_loading_data, sfp, afps
 
     def test_add_sample_data(self):
         """Test add_sample_data(dict, tmpdir) adds dict["protocols"] and dict["animals_samples_treatments"]["table"]"""
-        pass
+        tmpdir_obj = tempfile.TemporaryDirectory()
+        tmpdir = tmpdir_obj.name
+
+        dvv, basic_loading_data, sf, afs = self.create_valid_dvv(tmpdir)
+
+        dvv.add_sample_data(basic_loading_data, tmpdir)
+        self.assertEqual(sf, basic_loading_data["protocols"])
+        self.assertEqual(sf, basic_loading_data["animals_samples_treatments"]["table"])
 
     def test_add_ms_data(self):
         """
@@ -861,4 +902,27 @@ class ValidationViewTests(TracebaseTransactionTestCase):
             }
         )
         """
-        pass
+        tmpdir_obj = tempfile.TemporaryDirectory()
+        tmpdir = tmpdir_obj.name
+
+        dvv, basic_loading_data, sf, afs = self.create_valid_dvv(tmpdir)
+
+        dvv.add_ms_data(
+            basic_loading_data,
+            tmpdir,
+            dvv.accucor_files,
+            [],
+            False,
+        )
+        self.assertEqual(
+            afs[0], basic_loading_data["accucor_data"]["accucor_files"][0]["name"]
+        )
+        self.assertFalse(
+            basic_loading_data["accucor_data"]["accucor_files"][0]["isocorr_format"]
+        )
+        self.assertEqual(
+            afs[1], basic_loading_data["accucor_data"]["accucor_files"][1]["name"]
+        )
+        self.assertFalse(
+            basic_loading_data["accucor_data"]["accucor_files"][1]["isocorr_format"]
+        )

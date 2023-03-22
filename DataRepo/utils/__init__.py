@@ -7,6 +7,9 @@ from DataRepo.utils.composite_data import leaderboard_data
 from DataRepo.utils.compounds_loader import CompoundsLoader
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
+    AllMissingCompounds,
+    AllMissingSamples,
+    AllMissingTissues,
     ConflictingValueError,
     DryRun,
     DupeCompoundIsotopeCombos,
@@ -16,9 +19,11 @@ from DataRepo.utils.exceptions import (
     LoadingError,
     MissingCompounds,
     MissingSamplesError,
+    MissingTissues,
     MSRunAlreadyLoadedOrNotUnique,
     NoSamplesError,
     RequiredValueError,
+    SheetMergeError,
     UnknownHeadersError,
     UnskippedBlanksError,
 )
@@ -37,6 +42,9 @@ from DataRepo.utils.tissues_loader import TissuesLoader
 __all__ = [
     "AggregatedErrors",
     "AccuCorDataLoader",
+    "AllMissingCompounds",
+    "AllMissingSamples",
+    "AllMissingTissues",
     "CompoundsLoader",
     "ConflictingValueError",
     "DupeCompoundIsotopeCombos",
@@ -50,7 +58,9 @@ __all__ = [
     "RequiredValueError",
     "MissingCompounds",
     "MissingSamplesError",
+    "MissingTissues",
     "NoSamplesError",
+    "SheetMergeError",
     "UnskippedBlanksError",
     "DryRun",
     "LoadingError",

@@ -867,8 +867,19 @@ class SampleTableLoader:
         """
         If the animal name is empty on a row but the row has non-empty values, the pandas sheet merge will be screwed
         up and lots of meaningless errors will be spit out.  This method identifies and stores the row numbers
-        (indexes) where the animal name is empty, but the row has at least 1 actual value, so those rows can be skipped
-        in later processing.
+        (indexes) where the animal name is empty **in the Animals sheet only**, but the row has at least 1 actual
+        value, so those rows can be skipped in later processing.
+
+        Note, this **DOES NOT** catch sample sheet rows with missing animal IDs in 1 specific use case that meets 2
+        conditions:
+          1. the Animal ID is missing on a row in the Samples sheet
+          2. There are no empty rows between populated rows in the Animals sheet
+        This is because the sheet merge completely ignores those Samples sheet rows.  If the Anoimals sheet **DOES
+        HAVE** empty rows between populated rows, the Samples sheet rows with missing Animal IDs will be merged with
+        the empty Animals sheet row and produce the SheetMergeError raised inside this method.
+
+        What this means is that there is a silent case where Sample sheet rows with missing Animal IDs are sometimes
+        silently ignored.
         """
         animal_name_header = getattr(self.headers, "ANIMAL_NAME")
         empty_animal_rows = []
