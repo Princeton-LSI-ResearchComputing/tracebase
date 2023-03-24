@@ -49,6 +49,7 @@ from DataRepo.utils import (
     MissingCompounds,
     MissingSamplesError,
     MissingTissues,
+    RequiredSampleValuesError,
     SampleTableLoader,
     SheetMergeError,
     leaderboard_data,
@@ -1953,7 +1954,6 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
                     "small_obob_animal_and_sample_table_empty_animalid_in_animalsheet.xlsx"
                 ),
             )
-            print("NO ERROR!")
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
         self.assertTrue(isinstance(aes.exceptions[0], SheetMergeError))
@@ -1979,7 +1979,6 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
                     "small_obob_animal_and_sample_table_empty_animalid_in_samplesheet.xlsx"
                 ),
             )
-            print("NO ERROR!")
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
         self.assertTrue(isinstance(aes.exceptions[0], SheetMergeError))
@@ -2024,7 +2023,38 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
         """
         Check that missing required vals are added to stl.missing_values
         """
-        pass
+        with self.assertRaises(AggregatedErrors) as ar:
+            call_command(
+                "load_animals_and_samples",
+                animal_and_sample_table_filename=(
+                    "DataRepo/example_data/testing_data/"
+                    "small_obob_animal_and_sample_table_missing_rqd_vals.xlsx"
+                ),
+            )
+        aes = ar.exception
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertTrue(isinstance(aes.exceptions[0], RequiredSampleValuesError))
+        self.assertEqual(11, len(aes.exceptions[0].missing.keys()))
+        self.assertEqual(
+            {
+                "Sample Name": {"rows": [16], "animals": ["971"]},
+                "Date Collected": {"rows": [16], "animals": ["971"]},
+                "Researcher Name": {"rows": [16], "animals": ["971"]},
+                "Collection Time": {"rows": [16], "animals": ["971"]},
+                "Study Name": {"rows": [17, 18, 19, 20], "animals": ["972"]},
+                "Animal Body Weight": {"rows": [17, 18, 19, 20], "animals": ["972"]},
+                "Animal Genotype": {"rows": [17, 18, 19, 20], "animals": ["972"]},
+                "Feeding Status": {"rows": [17, 18, 19, 20], "animals": ["972"]},
+                "Infusate": {"rows": [17, 18, 19, 20], "animals": ["972"]},
+                "Infusion Rate": {"rows": [17, 18, 19, 20], "animals": ["972"]},
+                "Tracer Concentrations": {"rows": [17, 18, 19, 20], "animals": ["972"]},
+            },
+            aes.exceptions[0].missing,
+        )
+        self.assertIn(
+            "row numbers could reflect a sheet merge and may be inaccurate",
+            str(aes.exceptions[0]),
+        )
 
 
 @override_settings(CACHES=settings.TEST_CACHES)

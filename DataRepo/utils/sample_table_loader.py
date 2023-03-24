@@ -499,7 +499,7 @@ class SampleTableLoader:
                 try:
                     animal_rec = Animal.objects.get(name=animal_name)
                 except Animal.DoesNotExist:
-                    return animal_rec, animal_created
+                    return animal_rec
 
         # animal_created block contains all the animal attribute updates if the animal was newly created
         if animal_created:

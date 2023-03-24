@@ -52,6 +52,14 @@ class RequiredValuesError(Exception):
 
 
 class RequiredSampleValuesError(Exception):
+    """
+    This is the same as RequiredValuesError except that it indicates the animal on the row where required values are
+    missing.  This is explicitly for the sample table loader because the Animal ID is guaranteed to be there.  We know
+    that the animal ID is present, because if it wasn't, the affected rows in this error would be in a SheetMergeError
+    and those row wouldn't have been processed to be able to get into this error.  Adding the Animal can help speed up
+    the search for missing data when the row numbers may be inaccurate (if there was also a sheet merge error).
+    """
+
     def __init__(self, missing, animal_hdr="animal", message=None):
         if not message:
             nltab = "\n\t"
@@ -67,11 +75,13 @@ class RequiredSampleValuesError(Exception):
             message = (
                 "Missing required values have been detected in the following columns:\n\t"
                 f"{nltab.join(deets)}\nIf you wish to skip this row, you can either remove the row entirely or enter "
-                "dummy values to avoid this error."
+                "dummy values to avoid this error.  (Note, row numbers could reflect a sheet merge and may be "
+                f"inaccurate.)"
             )
             # Row numbers are available, but not very useful given the sheet merge
         super().__init__(message)
         self.missing = missing
+        self.animal_hdr = animal_hdr
 
 
 class MSRunAlreadyLoadedOrNotUnique(Exception):
