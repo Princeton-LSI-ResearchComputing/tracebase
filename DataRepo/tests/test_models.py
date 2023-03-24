@@ -2194,29 +2194,31 @@ class StudyLoadingTests(TracebaseTestCase):
             isinstance(
                 lsc.load_statuses.statuses["All Samples Present in Sample Table File"][
                     "aggregated_errors"
-                ]
+                ],
+                AggregatedErrors,
             ),
-            AggregatedErrors,
         )
         self.assertTrue(
             isinstance(
                 lsc.load_statuses.statuses["All Tissues Exist in the Database"][
                     "aggregated_errors"
-                ]
+                ],
+                AggregatedErrors,
             ),
-            AggregatedErrors,
         )
         self.assertTrue(
             isinstance(
                 lsc.load_statuses.statuses["All Compounds Exist in the Database"][
                     "aggregated_errors"
-                ]
+                ],
+                AggregatedErrors,
             ),
-            AggregatedErrors,
         )
         self.assertTrue(
-            isinstance(lsc.load_statuses.statuses["accucor.xlsx"]["aggregated_errors"]),
-            AggregatedErrors,
+            isinstance(
+                lsc.load_statuses.statuses["accucor.xlsx"]["aggregated_errors"],
+                AggregatedErrors,
+            ),
         )
 
         # The number of exceptions in each AggregatedErrors object is correct
@@ -2258,49 +2260,49 @@ class StudyLoadingTests(TracebaseTestCase):
             isinstance(
                 lsc.load_statuses.statuses["All Samples Present in Sample Table File"][
                     "aggregated_errors"
-                ].exceptions[0]
+                ].exceptions[0],
+                AllMissingSamples,
             ),
-            AllMissingSamples,
         )
         self.assertTrue(
             isinstance(
                 lsc.load_statuses.statuses["All Tissues Exist in the Database"][
                     "aggregated_errors"
-                ].exceptions[0]
+                ].exceptions[0],
+                AllMissingTissues,
             ),
-            AllMissingTissues,
         )
         self.assertTrue(
             isinstance(
                 lsc.load_statuses.statuses["All Compounds Exist in the Database"][
                     "aggregated_errors"
-                ].exceptions[0]
+                ].exceptions[0],
+                AllMissingCompounds,
             ),
-            AllMissingCompounds,
         )
         self.assertTrue(
             isinstance(
                 lsc.load_statuses.statuses["accucor.xlsx"][
                     "aggregated_errors"
-                ].exceptions[0]
+                ].exceptions[0],
+                MissingTissues,
             ),
-            MissingTissues,
         )
         self.assertTrue(
             isinstance(
                 lsc.load_statuses.statuses["accucor.xlsx"][
                     "aggregated_errors"
-                ].exceptions[1]
+                ].exceptions[1],
+                MissingCompounds,
             ),
-            MissingCompounds,
         )
         self.assertTrue(
             isinstance(
                 lsc.load_statuses.statuses["accucor.xlsx"][
                     "aggregated_errors"
-                ].exceptions[2]
+                ].exceptions[2],
+                MissingSamplesError,
             ),
-            MissingSamplesError,
         )
 
     def test_singly_labeled_isocorr_study(self):

@@ -1,5 +1,6 @@
 import argparse
 import os
+import sys
 
 from django.core.exceptions import ValidationError
 from django.core.management import BaseCommand, call_command
@@ -77,7 +78,7 @@ class Command(BaseCommand):
         if len(studies_skipped) > 0:
             self.stdout.write(
                 self.style.WARNING(
-                    f"Skipped loading of {len(studies_skipped)} studies:\n"
+                    f"Skipped loading of {len(studies_skipped)} (already loaded) studies:\n"
                     f"\t{nlindent.join(studies_skipped)}"
                 )
             )
@@ -88,3 +89,4 @@ class Command(BaseCommand):
                     f"\t{nlindent.join(studies_failed)}"
                 )
             )
+            sys.exit(1)

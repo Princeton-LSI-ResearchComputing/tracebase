@@ -613,7 +613,7 @@ class AccuCorDataLoader:
         for starting from 1 and 1 for a header row).
         """
         if not formula:
-            # formular will be none when the accucor file is a csv
+            # formula will be none when the accucor file is a csv
             formula = "no formula"
         if compound_input in self.missing_compounds:
             self.missing_compounds[compound_input]["rownums"].append(index + 2)
@@ -829,7 +829,7 @@ class AccuCorDataLoader:
                     # If we get here, a specific exception should be written to handle and explain the cause of an
                     # error.  For example, the ValidationError handled above was due to a previous error about
                     # duplicate compound/isotope pairs that would go away when the duplicate was fixed.  The duplicate
-                    # was causing the data to contain a pands structure where corrected_abundance should have been -
+                    # was causing the data to contain a pandas structure where corrected_abundance should have been -
                     # containing 2 values instead of 1.
                     self.aggregated_errors_object.buffer_error(e)
                     continue

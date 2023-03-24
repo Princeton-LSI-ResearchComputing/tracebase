@@ -59,6 +59,13 @@ class Command(BaseCommand):
         "Example usage: manage.py load_study config_file.yaml "
     )
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.missing_samples = defaultdict(list)
+        self.missing_tissues = defaultdict(dict)
+        self.missing_compounds = defaultdict(dict)
+        self.load_statuses = MultiLoadStatus()
+
     def add_arguments(self, parser):
         parser.add_argument(
             "study_params",
@@ -375,6 +382,8 @@ class Command(BaseCommand):
             for missing_tissue_exception in missing_tissue_exceptions:
                 # Look through the sample names saved in the exception and add then to the master list
                 for tissue in missing_tissue_exception.tissues_dict.keys():
+                    if tissue not in self.missing_tissues["tissues"].keys():
+                        self.missing_tissues["tissues"][tissue] = defaultdict(list)
                     self.missing_tissues["tissues"][tissue][
                         filename
                     ] = missing_tissue_exception.tissues_dict[tissue]
