@@ -29,15 +29,22 @@
             <br>
             <h5 class="text-success">Success!  No issues found.  Please proceed to the <a href="{{ submission_url }}">submission form</a>.</h5>
         {% endif %}
-        {% for fn, state in results.items %}
-            {% with state|getClass as state_class %}
-                <li class="{{ state_class }}">
-                    {{ state }}: {{ fn }}
-                    {% if errors|index:fn %}
-                        <ul class="{{ state_class }}">
-                            {% for error in errors|index:fn %}
-                                <li><span class="newlines">{{ error }}</span></li>
-                            {% endfor %}
+        {% for file_name, status in results.items %}
+            {% with file_class=status|getClass err_status="ERROR" wrn_status="WARNING" %}
+                <li class="{{ file_class }}">
+                    {{ status }}: {{ file_name }}
+                    {% if errors|index:file_name or warnings|index:file_name %}
+                        <ul>
+                            {% if errors|index:file_name %}
+                                    {% for error in errors|index:file_name %}
+                                        <li class="{{ err_status|getClass }}"><span class="newlines">{{ error }}</span></li>
+                                    {% endfor %}
+                            {% endif %}
+                            {% if warnings|index:file_name %}
+                                    {% for warning in warnings|index:file_name %}
+                                        <li class="{{ wrn_status|getClass }}"><span class="newlines">{{ warning }}</span></li>
+                                    {% endfor %}
+                            {% endif %}
                         </ul>
                     {% endif %}
                 </li>

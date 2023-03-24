@@ -40,11 +40,13 @@ from DataRepo.utils import (
     AggregatedErrors,
     ConflictingValueError,
     DryRun,
+    DupeCompoundIsotopeCombos,
     IsotopeObservationData,
     IsotopeObservationParsingError,
     IsotopeParsingError,
     MissingSamplesError,
     SampleTableLoader,
+    UnskippedBlanksError,
     leaderboard_data,
     parse_infusate_name,
     parse_tracer_concentrations,
@@ -615,12 +617,7 @@ class DataLoadingTests(TracebaseTestCase):
         #   The new researcher is in the error
         #   Hidden flag is suggested
         #   Existing researchers are shown
-        exp_err = (
-            "Researcher [Luke Skywalker] does not exist.  Please either choose from the following researchers, or if "
-            "this is a new researcher, add --new-researcher to your command (leaving `--researcher Luke Skywalker` "
-            "as-is).  Current researchers are:\nMichael Neinast\nXianfeng Zeng"
-        )
-        with self.assertRaises(Exception, msg=exp_err):
+        with self.assertRaises(AggregatedErrors) as ar:
             # Now load with a new researcher (and no --new-researcher flag)
             call_command(
                 "load_accucor_msruns",
@@ -629,6 +626,13 @@ class DataLoadingTests(TracebaseTestCase):
                 date="2021-04-30",
                 researcher="Luke Skywalker",
             )
+        aes = ar.exception
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertTrue("Luke Skywalker" in str(aes.exceptions[0]))
+        self.assertTrue(
+            "add --new-researcher to your command" in str(aes.exceptions[0])
+        )
+        self.assertTrue("Michael Neinast\nXianfeng Zeng" in str(aes.exceptions[0]))
 
     def test_adl_new_researcher_confirmed(self):
         call_command(
@@ -651,7 +655,7 @@ class DataLoadingTests(TracebaseTestCase):
             "Researcher [Michael Neinast] exists.  --new-researcher cannot be used for existing researchers.  Current "
             "researchers are:\nMichael Neinast\nXianfeng Zeng"
         )
-        with self.assertRaises(Exception, msg=exp_err):
+        with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_accucor_msruns",
                 protocol="Default",
@@ -660,6 +664,9 @@ class DataLoadingTests(TracebaseTestCase):
                 researcher="Michael Neinast",
                 new_researcher=True,
             )
+        aes = ar.exception
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertTrue(exp_err in str(aes.exceptions[0]))
 
     def test_ls_new_researcher_and_aggregate_errors(self):
         # The error string must include:
@@ -678,14 +685,14 @@ class DataLoadingTests(TracebaseTestCase):
                 sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
             )
         aes = ar.exception
-        ures = [e for e in aes.errors if isinstance(e, UnknownResearcherError)]
+        ures = [e for e in aes.exceptions if isinstance(e, UnknownResearcherError)]
         self.assertEqual(1, len(ures))
         self.assertIn(
             exp_err,
             str(ures[0]),
         )
         # There are 24 conflicts due to this file being a copy of a file already loaded, with the reseacher changed.
-        self.assertEqual(25, len(ar.exception.errors))
+        self.assertEqual(25, len(aes.exceptions))
 
     def test_ls_new_researcher_confirmed(self):
         with self.assertRaises(AggregatedErrors) as ar:
@@ -697,14 +704,14 @@ class DataLoadingTests(TracebaseTestCase):
             )
         aes = ar.exception
         # Test that no researcher exception occurred
-        ures = [e for e in aes.errors if isinstance(e, UnknownResearcherError)]
+        ures = [e for e in aes.exceptions if isinstance(e, UnknownResearcherError)]
         self.assertEqual(0, len(ures))
         # There are 24 ConflictingValueErrors expected (Same samples with different researcher: Han Solo)
-        cves = [e for e in aes.errors if isinstance(e, ConflictingValueError)]
+        cves = [e for e in aes.exceptions if isinstance(e, ConflictingValueError)]
         self.assertIn("Han Solo", str(cves[0]))
         self.assertEqual(24, len(cves))
         # There are 24 expected errors total
-        self.assertEqual(24, len(aes.errors))
+        self.assertEqual(24, len(aes.exceptions))
         self.assertEqual(
             "24 exceptions occurred, including type(s): [ConflictingValueError].",
             str(ar.exception),
@@ -755,9 +762,9 @@ class DataLoadingTests(TracebaseTestCase):
                 researcher="Michael Neinast",
             )
         aes = ar.exception
-        self.assertEqual(1, len(aes.errors))
-        self.assertTrue(isinstance(aes.errors[0], AssertionError))
-        self.assertIn("1 compounds are missing.", str(aes.errors[0]))
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertTrue(isinstance(aes.exceptions[0], AssertionError))
+        self.assertIn("1 compounds are missing.", str(aes.exceptions[0]))
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
@@ -1927,8 +1934,8 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
                 new_researcher=True,
             )
         aes = ar.exception
-        self.assertEqual(1, len(aes.errors))
-        self.assertTrue(isinstance(aes.errors[0], MissingSamplesError))
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertTrue(isinstance(aes.exceptions[0], UnskippedBlanksError))
 
     def test_accucor_load_blank_skip(self):
         call_command(
@@ -1983,14 +1990,14 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         aes = ar.exception
         nl = "\n"
         self.assertEqual(
-            1,
-            len(aes.errors),
+            2,
+            len(aes.exceptions),
             msg=(
-                f"Should be 1 MissingSamplesError, but there were {len(aes.errors)}.  Errors:{nl}"
-                f"{nl.join(list(map(lambda s: str(s), aes.errors)))}"
+                f"Should be 2 errors (MissingSamplesError and NoSamplesError), but there were {len(aes.exceptions)} "
+                f"errors:{nl}{nl.join(list(map(lambda s: str(s), aes.exceptions)))}"
             ),
         )
-        self.assertTrue(isinstance(aes.errors[0], MissingSamplesError))
+        self.assertTrue(isinstance(aes.exceptions[0], MissingSamplesError))
 
     def test_accucor_load_in_debug(self):
 
@@ -2169,8 +2176,8 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
                 new_researcher=True,
             )
         aes = ar.exception
-        self.assertEqual(1, len(aes.errors))
-        self.assertIn("--isocorr-format", str(aes.errors[0]))
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertIn("--isocorr-format", str(aes.exceptions[0]))
 
     def test_multitracer_sample_table_load(self):
         num_samples = 120
@@ -2650,17 +2657,21 @@ class ParseIsotopeLabelTests(TracebaseTestCase):
         #   all compound/isotope pairs that were dupes
         #   all line numbers the dupes were on
         exp_err = (
-            "The following duplicate compound/isotope pairs were found in the original data: [glucose & C12 PARENT on "
-            "rows: 1,2; lactate & C12 PARENT on rows: 3,4]"
+            "The following duplicate compound/isotope combinations were found in the original data: [glucose & C12 "
+            "PARENT on rows: 1,2; lactate & C12 PARENT on rows: 3,4]"
         )
-        with self.assertRaises(Exception, msg=exp_err):
+        with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_accucor_msruns",
                 protocol="Default",
                 accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_dupes.xlsx",
                 date="2021-06-03",
-                researcher="Michael",
+                researcher="Xianfeng Zeng",
             )
+        aes = ar.exception
+        self.assertEqual(2, len(aes.exceptions))
+        self.assertTrue(exp_err in str(aes.exceptions[0]))
+        self.assertTrue(isinstance(aes.exceptions[1], DupeCompoundIsotopeCombos))
         # Data was not loaded
         self.assertEqual(PeakGroup.objects.filter(name__exact="glucose").count(), 0)
         self.assertEqual(PeakGroup.objects.filter(name__exact="lactate").count(), 0)

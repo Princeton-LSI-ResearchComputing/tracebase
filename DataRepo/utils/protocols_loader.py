@@ -60,62 +60,61 @@ class ProtocolsLoader:
     def load_database(self, db):
         for index, row in self.protocols.iterrows():
             try:
-                with transaction.atomic():
-                    name = row[self.STANDARD_NAME_HEADER]
-                    description = row[self.STANDARD_DESCRIPTION_HEADER]
-                    # prefer the file/dataframe-specified category, but user the
-                    # loader initialization category, as a fallback
-                    if self.STANDARD_CATEGORY_HEADER in row:
-                        category = row[self.STANDARD_CATEGORY_HEADER]
-                    else:
-                        category = self.category
+                name = row[self.STANDARD_NAME_HEADER]
+                description = row[self.STANDARD_DESCRIPTION_HEADER]
+                # prefer the file/dataframe-specified category, but user the
+                # loader initialization category, as a fallback
+                if self.STANDARD_CATEGORY_HEADER in row:
+                    category = row[self.STANDARD_CATEGORY_HEADER]
+                else:
+                    category = self.category
 
-                    # To aid in debugging the case where an editor entered spaces instead of a tab...
-                    if " " in str(name) and description is None:
-                        raise ValidationError(
-                            f"Protocol with name '{name}' cannot contain a space unless a description is provided.  "
-                            "Either the space(s) must be changed to a tab character or a description must be provided."
-                        )
-                    if category is None:
-                        raise ValidationError(
-                            f"Protocol with name '{name}' is missing a specified/defined category."
-                        )
-                    if description is None:
-                        description = ""
+                # To aid in debugging the case where an editor entered spaces instead of a tab...
+                if " " in str(name) and description is None:
+                    raise ValidationError(
+                        f"Protocol with name '{name}' cannot contain a space unless a description is provided.  "
+                        "Either the space(s) must be changed to a tab character or a description must be provided."
+                    )
+                if category is None:
+                    raise ValidationError(
+                        f"Protocol with name '{name}' is missing a specified/defined category."
+                    )
+                if description is None:
+                    description = ""
 
-                    # Try and get the protocol
-                    protocol_rec, protocol_created = Protocol.objects.using(
-                        db
-                    ).get_or_create(name=name, category=category)
-                    # If no protocol was found, create it
-                    if protocol_created:
-                        protocol_rec.description = description
-                        print("Saving protocol with description")
-                        # full_clean cannot validate (e.g. uniqueness) using a non-default database
-                        if db == settings.TRACEBASE_DB:
-                            protocol_rec.full_clean()
-                        protocol_rec.save(using=db)
-                        if db in self.created:
-                            self.created[db].append(protocol_rec)
-                        else:
-                            self.created[db] = [protocol_rec]
-                        self.notices.append(
-                            f"Created new protocol {protocol_rec}:{description} in the {db} database"
-                        )
-                    elif protocol_rec.description == description:
-                        if db in self.existing:
-                            self.existing[db].append(protocol_rec)
-                        else:
-                            self.existing[db] = [protocol_rec]
-                        self.notices.append(
-                            f"Matching protocol {protocol_rec} already exists, skipping"
-                        )
+                # Try and get the protocol
+                protocol_rec, protocol_created = Protocol.objects.using(
+                    db
+                ).get_or_create(name=name, category=category)
+                # If no protocol was found, create it
+                if protocol_created:
+                    protocol_rec.description = description
+                    print("Saving protocol with description")
+                    # full_clean cannot validate (e.g. uniqueness) using a non-default database
+                    if db == settings.TRACEBASE_DB:
+                        protocol_rec.full_clean()
+                    protocol_rec.save(using=db)
+                    if db in self.created:
+                        self.created[db].append(protocol_rec)
                     else:
-                        raise ValidationError(
-                            f"Protocol with name = '{name}' but a different description already exists: "
-                            f"Existing description = '{protocol_rec.description}' "
-                            f"New description = '{description}'"
-                        )
+                        self.created[db] = [protocol_rec]
+                    self.notices.append(
+                        f"Created new protocol {protocol_rec}:{description} in the {db} database"
+                    )
+                elif protocol_rec.description == description:
+                    if db in self.existing:
+                        self.existing[db].append(protocol_rec)
+                    else:
+                        self.existing[db] = [protocol_rec]
+                    self.notices.append(
+                        f"Matching protocol {protocol_rec} already exists, skipping"
+                    )
+                else:
+                    raise ValidationError(
+                        f"Protocol with name = '{name}' but a different description already exists: "
+                        f"Existing description = '{protocol_rec.description}' "
+                        f"New description = '{description}'"
+                    )
             except (IntegrityError, ValidationError) as e:
                 self.errors.append(
                     f"{type(e).__name__} in the {db} database on data row {index + 1}, creating {category} record for "

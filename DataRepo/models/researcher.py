@@ -29,22 +29,25 @@ def get_researchers(database=settings.TRACEBASE_DB):
     return unique_researchers
 
 
-def validate_researchers(researchers, skip_flag=None, database=settings.TRACEBASE_DB):
+def validate_researchers(
+    input_researchers,
+    known_researchers=None,
+    skip_flag=None,
+    database=settings.TRACEBASE_DB,
+):
     """
     Raises an exception if any researchers are not already in the database (and the database has more than 0
     researchers already in it).
     """
-    if isinstance(researchers, str):
-        input_researchers = [researchers]
-    else:
-        input_researchers = researchers
-    known_researchers = get_researchers(database)
-    # Accept all input researchers if there are no known researchers
+    if not known_researchers:
+        known_researchers = get_researchers(database)
+
+    # Accept any input researchers if there are no known researchers
     if len(known_researchers) > 0:
         unknown_researchers = [
             researcher
             for researcher in input_researchers
-            if researcher not in known_researchers and researcher != "anonymous"
+            if researcher not in known_researchers and researcher.lower() != "anonymous"
         ]
         if len(unknown_researchers) > 0:
             raise UnknownResearcherError(
@@ -113,15 +116,3 @@ class UnknownResearcherError(Exception):
         self.new = new
         self.known = known
         self.skip_flag = skip_flag
-
-        # The following are used by the loading code to decide if this exception should be fatal or treated as a
-        # warning, depending on the mode in which the loader is run.
-
-        # This exception should be treated as a warning when validate is false.
-        self.load_warning = False
-        # This exception should be treated as a warning when validate is true.
-        self.validate_warning = True
-        # These 2 values can differ based on whether this is something the user can fix or not.  For example, the
-        # validation interface does not enable the user to verify that the researcher is indeed a new researcher, so
-        # they cannot quiet an unknown researcher exception.  A curator can, so when the curator goes to load, it
-        # should be treated as an exception (curator_warning=False).
