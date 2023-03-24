@@ -41,6 +41,7 @@ from DataRepo.utils.exceptions import (  # ValidationDatabaseSetupError,
     DupeCompoundIsotopeCombos,
     EmptyColumnsError,
     IsotopeStringDupe,
+    MissingCompounds,
     MissingSamplesError,
     MultipleAccucorTracerLabelColumnsError,
     NoSamplesError,
@@ -176,7 +177,8 @@ class AccuCorDataLoader:
         self.labeled_element_header = None
         self.aggregated_errors_object = AggregatedErrors()
         self.missing_samples = []
-        self.dupe_isotope_rows = {"original": None, "corrected": None}
+        self.missing_compounds = {}
+        self.dupe_isotope_rows = {"original": [], "corrected": []}
 
         # Used for accucor
         self.labeled_element = None
@@ -237,9 +239,9 @@ class AccuCorDataLoader:
         Basic sanity/integrity checks for the data inputs
         """
         self.validate_sample_headers()
-        self.validate_peak_groups()
         self.validate_researcher()
         self.validate_compounds()
+        self.validate_peak_groups()
 
     def validate_researcher(self):
         if self.new_researcher is True:
@@ -359,8 +361,8 @@ class AccuCorDataLoader:
 
     def validate_compounds(self):
 
-        self.dupe_isotope_rows["original"] = None
-        self.dupe_isotope_rows["corrected"] = None
+        self.dupe_isotope_rows["original"] = []
+        self.dupe_isotope_rows["corrected"] = []
 
         if self.accucor_original_df is not None:
             dupe_dict = {}
@@ -442,7 +444,7 @@ class AccuCorDataLoader:
             possible_blanks = []
             likely_missing = []
             for ms in self.missing_samples:
-                if "blank" in ms:
+                if "blank" in ms.lower():
                     possible_blanks.append(ms)
                 else:
                     likely_missing.append(ms)
@@ -459,19 +461,21 @@ class AccuCorDataLoader:
                     #                              unless there is an accompanying fatal exception.
                     #                              Moot unless the conditional is changed.
                 )
-            if len(likely_missing) > 0:
+            if len(likely_missing) > 0 and len(sample_dict.keys()) != 0:
                 self.aggregated_errors_object.buffer_error(
                     MissingSamplesError(likely_missing)
                 )
 
             if len(sample_dict.keys()) == 0:
-                self.aggregated_errors_object.buffer_error(NoSamplesError())
+                self.aggregated_errors_object.buffer_error(
+                    NoSamplesError(len(likely_missing))
+                )
                 if self.aggregated_errors_object.should_raise():
                     raise self.aggregated_errors_object
 
         elif len(sample_dict.keys()) == 0:
             # If there are no "missing samples", but still no samples...
-            raise NoSamplesError()
+            raise NoSamplesError(0)
 
         self.db_samples_dict = sample_dict
 
@@ -528,12 +532,10 @@ class AccuCorDataLoader:
 
     def validate_peak_groups(self):
         """
-        step through the original file, and note all the unique peak group
-        names/formulas and map to database compounds
+        Step through the original file, and note all the unique peak group names/formulas and map to database compounds
         """
 
         self.peak_group_dict = {}
-        missing_compounds = 0
         reference_dataframe = self.accucor_corrected_df
         peak_group_name_key = self.compound_header
         # corrected data does not have a formula column
@@ -542,6 +544,9 @@ class AccuCorDataLoader:
             reference_dataframe = self.accucor_original_df
             peak_group_name_key = "compound"
             # original data has a formula column
+            peak_group_formula_key = "formula"
+        elif self.isocorr_format:
+            # absolut data has a formula column
             peak_group_formula_key = "formula"
 
         for index, row in reference_dataframe.iterrows():
@@ -570,6 +575,7 @@ class AccuCorDataLoader:
                     compound_name.strip()
                     for compound_name in peak_group_name.split("/")
                 ]
+                compound_missing = False
                 for compound_input in compounds_input:
                     try:
                         mapped_compound = Compound.compound_matching_name_or_synonym(
@@ -589,17 +595,43 @@ class AccuCorDataLoader:
                                     "formula"
                                 ] = mapped_compound.formula
                         else:
-                            missing_compounds += 1
-                            if self.verbosity >= 1:
-                                print(f"Could not find compound '{compound_input}'")
-                    except ValidationError:
-                        missing_compounds += 1
-                        if self.verbosity >= 1:
-                            print(
-                                f"Could not uniquely identify compound using {compound_input}."
+                            compound_missing = True
+                            self.record_missing_compound(
+                                compound_input, peak_group_formula, index
                             )
+                    except ValidationError:
+                        compound_missing = True
+                        self.record_missing_compound(
+                            compound_input, peak_group_formula, index
+                        )
 
-        assert missing_compounds == 0, f"{missing_compounds} compounds are missing."
+                if compound_missing:
+                    # We want to try and load what we can, so we are going to remove this entry from the
+                    # peak_group_dict so it can be skipped in the load.
+                    self.peak_group_dict.pop(peak_group_name)
+
+        if len(self.missing_compounds.keys()) > 0:
+            self.aggregated_errors_object.buffer_error(
+                MissingCompounds(self.missing_compounds)
+            )
+
+    def record_missing_compound(self, compound_input, formula, index):
+        """
+        Builds the dict accepted by the MissingCompounds exception.  Row numbers are assumed to be the index plus 2 (1
+        for starting from 1 and 1 for a header row).
+        """
+        if not formula:
+            # formular will be none when the accucor file is a csv
+            formula = "no formula"
+        if compound_input in self.missing_compounds:
+            self.missing_compounds[compound_input]["rownums"].append(index + 2)
+            if formula not in self.missing_compounds[compound_input]["formula"]:
+                self.missing_compounds[compound_input]["formula"].append(formula)
+        else:
+            self.missing_compounds[compound_input] = {
+                "formula": [formula],
+                "rownums": [index + 2],
+            }
 
     def retrieve_or_create_protocol(self):
         """
@@ -694,10 +726,19 @@ class AccuCorDataLoader:
 
                 try:
                     obs_isotopes = self.get_observed_isotopes(corr_row)
+                    peak_group_name = corr_row[self.compound_header]
 
                     # Assuming that if the first one is the parent, they all are.  Note that subsequent isotopes in the
                     # list may be parent=True if 0 isotopes of that element were observed.
-                    if len(obs_isotopes) > 0 and obs_isotopes[0]["parent"]:
+                    # We will also skip peakgroups whose names are not keys in self.peak_group_dict.  Peak group names
+                    # are removed from the dict if there was a validation issue, in which case the load will ultimately
+                    # fail and this script only continues so it can gather more useful errors unrelated to errors
+                    # previously encountered.
+                    if (
+                        len(obs_isotopes) > 0
+                        and obs_isotopes[0]["parent"]
+                        and peak_group_name in self.peak_group_dict
+                    ):
 
                         """
                         Here we insert PeakGroup, by name (only once per file).
@@ -705,7 +746,6 @@ class AccuCorDataLoader:
                         then this block will fail
                         """
 
-                        peak_group_name = corr_row[self.compound_header]
                         if self.verbosity >= 1:
                             print(
                                 f"\tInserting {peak_group_name} peak group for sample "
@@ -762,6 +802,11 @@ class AccuCorDataLoader:
                     else:
                         raise ve
                 except Exception as e:
+                    # If we get here, a specific exception should be written to handle and explain the cause of an
+                    # error.  For example, the ValidationError handled above was due to a previous error about
+                    # duplicate compound/isotope pairs that would go away when the duplicate was fixed.  The duplicate
+                    # was causing the data to contain a pands structure where corrected_abundance should have been -
+                    # containing 2 values instead of 1.
                     self.aggregated_errors_object.buffer_error(e)
                     continue
 
@@ -883,11 +928,22 @@ class AccuCorDataLoader:
 
                             peak_data_label.save(using=self.db)
                         except ValidationError as ve:
-                            if self.is_a_downstream_dupe_error(ve, index, "original"):
+                            # The orig_row_idx was incremented before the exception encountered in full_clean
+                            if self.is_a_downstream_dupe_error(
+                                ve, orig_row_idx - 1, "original"
+                            ):
                                 # This is a redundant error caused by the existence of a DupeCompoundIsotopeCombos, so
                                 # we can ignore this error
                                 pass
                             else:
+                                if settings.DEBUG or self.verbosity >= 1:
+                                    print(
+                                        f"orig_row_idx: [{orig_row_idx}] "
+                                        f"element: [{peak_group_label_rec}] "
+                                        f"count: [{labeled_count}] "
+                                        f"mass number: [{mass_number}] "
+                                        f"Number of atoms in the formula: {peak_group_label_rec.atom_count()}"
+                                    )
                                 raise ve
                         except Exception as e:
                             self.aggregated_errors_object.buffer_error(e)
@@ -1183,6 +1239,7 @@ class AccuCorDataLoader:
             # not possible.  And for simplicity, fatal errors that do not allow further accumulation of errors are
             # raised directly.
             self.aggregated_errors_object.buffer_error(e)
+            self.aggregated_errors_object.should_raise()
             raise self.aggregated_errors_object
 
         # Buffered auto-updates cannot be done inside the atomic transaction block because the auto-updates associated

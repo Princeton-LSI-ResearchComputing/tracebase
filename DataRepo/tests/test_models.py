@@ -44,7 +44,8 @@ from DataRepo.utils import (
     IsotopeObservationData,
     IsotopeObservationParsingError,
     IsotopeParsingError,
-    MissingSamplesError,
+    MissingCompounds,
+    NoSamplesError,
     SampleTableLoader,
     UnskippedBlanksError,
     leaderboard_data,
@@ -632,7 +633,10 @@ class DataLoadingTests(TracebaseTestCase):
         self.assertTrue(
             "add --new-researcher to your command" in str(aes.exceptions[0])
         )
-        self.assertTrue("Michael Neinast\nXianfeng Zeng" in str(aes.exceptions[0]))
+        self.assertTrue(
+            "Michael Neinast\n\tXianfeng Zeng" in str(aes.exceptions[0]),
+            msg=f"String [Michael Neinast\nXianfeng Zeng] must be in {str(aes.exceptions[0])}",
+        )
 
     def test_adl_new_researcher_confirmed(self):
         call_command(
@@ -674,8 +678,8 @@ class DataLoadingTests(TracebaseTestCase):
         #   Hidden flag is suggested
         #   Existing researchers are shown
         exp_err = (
-            "1 researchers: [Han Solo] out of 1 do not exist in the database.  Current researchers are:\nMichael "
-            "Neinast\nXianfeng Zeng\nIf all researchers are valid new researchers, add --skip-researcher-check to "
+            "1 researchers: [Han Solo] out of 1 do not exist in the database.  Current researchers are:\n\tMichael "
+            "Neinast\n\tXianfeng Zeng\nIf all researchers are valid new researchers, add --skip-researcher-check to "
             "your command."
         )
         with self.assertRaises(AggregatedErrors) as ar:
@@ -763,8 +767,13 @@ class DataLoadingTests(TracebaseTestCase):
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
-        self.assertTrue(isinstance(aes.exceptions[0], AssertionError))
-        self.assertIn("1 compounds are missing.", str(aes.exceptions[0]))
+        self.assertTrue(isinstance(aes.exceptions[0], MissingCompounds))
+        exp_str = "1 compounds were not found in the database:\n\ttable sugar"
+        self.assertIn(
+            exp_str,
+            str(aes.exceptions[0]),
+            msg=f"Exception must contain {exp_str}",
+        )
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
@@ -1900,7 +1909,18 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
             {"Sample Name": "q2", "Study Name": "TCA Flux"},
         ]
         dupes, rows = stl.get_column_dupes(data, col_keys)
-        self.assertEqual({"Sample Name:q2/Study Name:TCA Flux": [0, 1]}, dupes)
+        self.assertEqual(
+            {
+                "Sample Name: [q2], Study Name: [TCA Flux]": {
+                    "rowidxs": [0, 1],
+                    "vals": {
+                        "Sample Name": "q2",
+                        "Study Name": "TCA Flux",
+                    },
+                },
+            },
+            dupes,
+        )
         self.assertEqual([0, 1], rows)
 
 
@@ -1990,14 +2010,14 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         aes = ar.exception
         nl = "\n"
         self.assertEqual(
-            2,
+            1,
             len(aes.exceptions),
             msg=(
-                f"Should be 2 errors (MissingSamplesError and NoSamplesError), but there were {len(aes.exceptions)} "
+                f"Should be 1 error (NoSamplesError), but there were {len(aes.exceptions)} "
                 f"errors:{nl}{nl.join(list(map(lambda s: str(s), aes.exceptions)))}"
             ),
         )
-        self.assertTrue(isinstance(aes.exceptions[0], MissingSamplesError))
+        self.assertTrue(isinstance(aes.exceptions[0], NoSamplesError))
 
     def test_accucor_load_in_debug(self):
 
@@ -2037,6 +2057,19 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         )
         self.assertEqual(
             0, buffer_size(), msg="DryRun mode doesn't leave buffered autoupdates."
+        )
+
+    def test_record_missing_compound(self):
+        adl = AccuCorDataLoader(None, None, "1972-11-24", "", "", "")
+        adl.record_missing_compound("new compound", "C1H4", 9)
+        self.assertEqual(
+            {
+                "new compound": {
+                    "formula": ["C1H4"],
+                    "rownums": [11],
+                }
+            },
+            adl.missing_compounds,
         )
 
 
@@ -2657,8 +2690,9 @@ class ParseIsotopeLabelTests(TracebaseTestCase):
         #   all compound/isotope pairs that were dupes
         #   all line numbers the dupes were on
         exp_err = (
-            "The following duplicate compound/isotope combinations were found in the original data: [glucose & C12 "
-            "PARENT on rows: 1,2; lactate & C12 PARENT on rows: 3,4]"
+            "The following duplicate compound/isotope combinations were found in the original data:\n"
+            "\tglucose & C12 PARENT on rows: 1,2\n"
+            "\tlactate & C12 PARENT on rows: 3,4"
         )
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
