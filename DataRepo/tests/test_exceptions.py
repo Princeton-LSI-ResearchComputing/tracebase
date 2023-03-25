@@ -2,6 +2,7 @@ from DataRepo.models.researcher import UnknownResearcherError
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
+    MultiLoadStatus,
     UnexpectedIsotopes,
     summarize_int_list,
 )
@@ -220,6 +221,8 @@ class ExceptionTests(TracebaseTestCase):
 
 
 class MultiLoadStatusTests(TracebaseTestCase):
+    maxDiff = None
+
     def test_init_load(self):
         """
         Tests that init_load creates a key in MultiLoadStatus.statuses[string] with:
@@ -231,7 +234,24 @@ class MultiLoadStatusTests(TracebaseTestCase):
             "top": True,  # Passing files will appear first
         }
         """
-        pass
+        mls = MultiLoadStatus()
+        self.assertEqual(0, len(mls.statuses.keys()))
+        mls.init_load("mykey")
+        self.assertEqual(1, len(mls.statuses.keys()))
+        self.assertEqual(
+            {
+                "mykey": {
+                    "aggregated_errors": None,
+                    "state": "PASSED",
+                    "num_errors": 0,
+                    "num_warnings": 0,
+                    "top": True,  # Passing files will appear first
+                },
+            },
+            mls.statuses,
+        )
+        self.assertTrue(mls.get_success_status())
+        self.assertEqual(("Load PASSED", "PASSED"), mls.get_status_message())
 
     def test_constructor_with_key_list(self):
         """
@@ -244,11 +264,66 @@ class MultiLoadStatusTests(TracebaseTestCase):
             "top": True,  # Passing files will appear first
         }
         """
-        pass
+        mls = MultiLoadStatus(["mykey", "mykey2"])
+        self.assertEqual(2, len(mls.statuses.keys()))
+        self.assertEqual(
+            {
+                "mykey": {
+                    "aggregated_errors": None,
+                    "state": "PASSED",
+                    "num_errors": 0,
+                    "num_warnings": 0,
+                    "top": True,  # Passing files will appear first
+                },
+                "mykey2": {
+                    "aggregated_errors": None,
+                    "state": "PASSED",
+                    "num_errors": 0,
+                    "num_warnings": 0,
+                    "top": True,  # Passing files will appear first
+                },
+            },
+            mls.statuses,
+        )
+        self.assertEqual(("Load PASSED", "PASSED"), mls.get_status_message())
 
-    def test_package_group_exceptions_aggregated_errors(self):
+    def test_set_load_exception_aggregated_errors_warning(self):
         """
-        Test that package_group_exceptions(aggregated_errors_object, load_key)
+        Test that set_load_exception(agg_errs_obj, load_key, top=False)
+        adds AggregatedErrors exceptions to mls.statuses and updates:
+            statuses[load_key]["num_errors"]
+            statuses[load_key]["num_warnings"]
+            statuses[load_key]["top"]
+            statuses[load_key]["aggregated_errors"]
+            statuses[load_key]["state"]
+            state
+            is_valid
+        """
+        mls = MultiLoadStatus()
+        aes = AggregatedErrors()
+        aes.buffer_warning(ValueError("Test warning"))
+        mls.set_load_exception(aes, "mykey", top=True)
+        self.assertEqual(1, len(mls.statuses.keys()))
+        self.assertEqual(
+            {
+                "num_errors": 0,
+                "num_warnings": 1,
+                "top": True,
+                "aggregated_errors": aes,
+                "state": "WARNING",
+            },
+            mls.statuses["mykey"],
+        )
+        self.assertFalse(mls.is_valid)
+        self.assertEqual("WARNING", mls.state)
+        self.assertFalse(mls.get_success_status())
+        self.assertEqual(
+            ("Load WARNING 1 warnings", "WARNING"), mls.get_status_message()
+        )
+
+    def test_set_load_exception_aggregated_errors_error(self):
+        """
+        Test that set_load_exception(agg_errs_obj, load_key, top=False)
         adds AggregatedErrors exceptions to mls.statuses and updates:
             statuses[load_key]["num_errros"]
             statuses[load_key]["num_warnings"]
@@ -258,11 +333,29 @@ class MultiLoadStatusTests(TracebaseTestCase):
             state
             is_valid
         """
-        pass
+        mls = MultiLoadStatus()
+        aes = AggregatedErrors()
+        aes.buffer_error(ValueError("Test error"))
+        mls.set_load_exception(aes, "mykey", top=False)
+        self.assertEqual(1, len(mls.statuses.keys()))
+        self.assertEqual(
+            {
+                "num_errors": 1,
+                "num_warnings": 0,
+                "top": False,
+                "aggregated_errors": aes,
+                "state": "FAILED",
+            },
+            mls.statuses["mykey"],
+        )
+        self.assertFalse(mls.is_valid)
+        self.assertEqual("FAILED", mls.state)
+        self.assertFalse(mls.get_success_status())
+        self.assertEqual(("Load FAILED 1 errors", "FAILED"), mls.get_status_message())
 
-    def test_package_group_exceptions_other_exceptions(self):
+    def test_set_load_exception_other_exceptions(self):
         """
-        Test that package_group_exceptions(exception, load_key)
+        Test that set_load_exception(exception, load_key, top=False)
         adds non-AggregatedErrors exceptions as an AggregatedErrors exception to mls.statuses and updates:
             statuses[load_key]["num_errros"]
             statuses[load_key]["num_warnings"]
@@ -272,12 +365,121 @@ class MultiLoadStatusTests(TracebaseTestCase):
             state
             is_valid
         """
-        pass
+        mls = MultiLoadStatus()
+        exc = ValueError("Test error")
+        mls.set_load_exception(exc, "mykey")
 
-    def test_get_ordered_status_keys_forward(self):
-        """Check that passed and group exceptions are at the top"""
-        pass
+        self.assertEqual(1, len(mls.statuses.keys()))
 
-    def test_get_ordered_status_keys_reverse(self):
-        """Check that passed and group exceptions are at the bottom"""
-        pass
+        # This is for the assertion below
+        aes = AggregatedErrors()
+        aes.buffer_error(exc)
+
+        # Make sure all these attributes of the contained AggregatedErrors object are equal to the one created above
+        # for comparison
+        attrs = [
+            "exceptions",
+            "num_errors",
+            "num_warnings",
+            "is_fatal",
+            "is_error",
+            "custom_message",
+            "quiet",
+        ]
+        for attr in attrs:
+            self.assertEqual(
+                getattr(aes, attr),
+                getattr(mls.statuses["mykey"]["aggregated_errors"], attr),
+            )
+        # The buffered_tb_str attribute won't be the same, but we'll just assert that it's there.
+        self.assertTrue(
+            hasattr(mls.statuses["mykey"]["aggregated_errors"], "buffered_tb_str")
+        )
+
+        # We will assert that the 1 status recorded has these values (excluding the AggregatedErrors object, which will
+        # differ)
+        status_vals = {
+            "num_errors": 1,
+            "num_warnings": 0,
+            "top": False,
+            "state": "FAILED",
+        }
+        for key in status_vals.keys():
+            self.assertEqual(
+                status_vals[key],
+                mls.statuses["mykey"][key],
+            )
+
+        self.assertFalse(mls.is_valid)
+        self.assertEqual("FAILED", mls.state)
+        self.assertFalse(mls.get_success_status())
+        self.assertEqual(("Load FAILED 1 errors", "FAILED"), mls.get_status_message())
+
+    def test_set_load_exception_key_exists(self):
+        """Check that if you try to add 2 exceptions with the same load key, an exception is raised"""
+        mls = MultiLoadStatus()
+        aes = AggregatedErrors()
+        aes.buffer_error(ValueError("Test error 1"))
+        mls.set_load_exception(aes, "mykey", top=False)
+        aes2 = AggregatedErrors()
+        aes2.buffer_error(ValueError("Test error 2"))
+        with self.assertRaises(ValueError):
+            mls.set_load_exception(aes2, "mykey", top=True)
+
+    def test_get_ordered_status_keys(self):
+        """Check that top=True puts grouped exceptions at the top by default"""
+        mls = MultiLoadStatus()
+        aes = AggregatedErrors()
+        aes.buffer_error(ValueError("Test error 1"))
+        mls.set_load_exception(aes, "mykey", top=False)
+        aes2 = AggregatedErrors()
+        aes2.buffer_error(ValueError("Test error 2"))
+        mls.set_load_exception(aes2, "mykey2", top=True)
+        self.assertEqual(["mykey2", "mykey"], mls.get_ordered_status_keys())
+        self.assertEqual(["mykey", "mykey2"], mls.get_ordered_status_keys(reverse=True))
+
+    def test_get_status_messages(self):
+        """
+        Makes sure that top errors are passing and those assigned top=Tue, then failing, and that all are formatted
+        correctly.  Load key state messages are followed by AggregatedErrors summaries, if any.
+        """
+        mls = MultiLoadStatus(["mykey", "mykey2", "mykey3"])
+        aes = AggregatedErrors()
+        aes.buffer_error(ValueError("Test error"))
+        mls.set_load_exception(aes, "mykey")
+        aes2 = AggregatedErrors()
+        aes2.buffer_error(ValueError("Test error 2"))
+        mls.set_load_exception(aes2, "mykey2", top=True)
+        messages = mls.get_status_messages()
+        print(f"MESSAGES:\n{messages}")
+        self.assertEqual(
+            [
+                {
+                    "message": "mykey2: FAILED",
+                    "state": "FAILED",
+                },
+                {
+                    "message": (
+                        "AggregatedErrors Summary (1 errors / 0 warnings):\n"
+                        "\tEXCEPTION1(ERROR): ValueError: Test error 2"
+                    ),
+                    "state": "FAILED",
+                },
+                {
+                    "message": "mykey3: PASSED",
+                    "state": "PASSED",
+                },
+                {
+                    "message": "mykey: FAILED",
+                    "state": "FAILED",
+                },
+                {
+                    "message": (
+                        "AggregatedErrors Summary (1 errors / 0 warnings):\n"
+                        "\tEXCEPTION1(ERROR): ValueError: Test error"
+                    ),
+                    "state": "FAILED",
+                },
+            ],
+            messages,
+        )

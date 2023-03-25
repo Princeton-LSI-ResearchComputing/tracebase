@@ -312,6 +312,13 @@ class MultiLoadStatus(Exception):
         if load_key not in self.statuses.keys():
             self.init_load(load_key)
 
+        if self.statuses[load_key]["aggregated_errors"] is not None:
+            raise ValueError(
+                f"An exception for load key [{load_key}] of type "
+                f"{type(self.statuses[load_key]['aggregated_errors']).__name__} already exists.  Adding a second one "
+                "would overwrite the first."
+            )
+
         if not isinstance(exception, AggregatedErrors):
             # All of the AggregatedErrors are printed to the console as they are encountered, but not other exceptions,
             # so...
@@ -408,9 +415,11 @@ class MultiLoadStatus(Exception):
 
         return messages
 
-    def get_ordered_status_keys(self, reverse=True):
+    def get_ordered_status_keys(self, reverse=False):
         return sorted(
-            self.statuses.keys(), key=lambda k: self.statuses[k]["top"], reverse=reverse
+            self.statuses.keys(),
+            key=lambda k: self.statuses[k]["top"],
+            reverse=not reverse,
         )
 
 
