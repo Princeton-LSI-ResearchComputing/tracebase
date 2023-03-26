@@ -93,6 +93,9 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
 
+        errors = 0
+        warnings = 0
+
         if options["clear_buffer"]:
             clear_update_buffer()
         elif buffer_size() > 0:
@@ -251,6 +254,9 @@ class Command(BaseCommand):
                         )
                     except AggregatedErrors as aes:
 
+                        errors += aes.num_errors
+                        warnings += aes.num_warnings
+
                         # TODO: BUFFER EXCEPTIONS HERE
 
                         self.stdout.write(
@@ -269,6 +275,8 @@ class Command(BaseCommand):
                             raise aes
                     except Exception as e:
 
+                        errors += 1
+
                         # TODO: BUFFER EXCEPTIONS HERE
 
                         self.stdout.write(
@@ -280,7 +288,7 @@ class Command(BaseCommand):
                             raise e
 
             if options["dry_run"]:
-                raise DryRun()
+                raise DryRun(f"Dry Run Complete.  {errors} errors {warnings} warnings")
 
         # TODO: PRINT EXCEPTIONS PER FILE HERE
         # TODO: DO AUTOUPDATES HERE

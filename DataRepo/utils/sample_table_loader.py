@@ -40,6 +40,7 @@ from DataRepo.utils.exceptions import (  # ValidationDatabaseSetupError,
     ConflictingValueError,
     DryRun,
     DuplicateValues,
+    EmptyAnimalNames,
     HeaderConfigError,
     RequiredHeadersError,
     RequiredValuesError,
@@ -187,9 +188,12 @@ class SampleTableLoader:
         self.aggregated_errors_object = AggregatedErrors()
         self.missing_headers = []
         self.missing_values = defaultdict(list)
+
         # Skip rows that have errors
-        self.skip_erroneous_rows = {}
         self.units_warnings = {}
+        self.infile_sample_dupe_rows = []
+        self.empty_animal_rows = []
+
         # Obtain known researchers before load
         self.known_researchers = get_researchers()
 
@@ -246,19 +250,13 @@ class SampleTableLoader:
             # Use the first row to check the headers
             self.check_headers(sample_table_data[0].keys())
 
-        # If there is more than 1 row of data to load
-        if len(sample_table_data) > 2:
-            sample_name_header = getattr(self.headers, "SAMPLE_NAME")
-            study_name_header = getattr(self.headers, "STUDY_NAME")
-            # Check the in-file uniqueness of the samples (per study)
-            sample_dupes, row_idxs = self.get_column_dupes(
-                sample_table_data, [sample_name_header, study_name_header]
-            )
-            if len(sample_dupes.keys()) > 0:
-                self.aggregated_errors_object.buffer_error(
-                    DuplicateValues(sample_dupes, sample_name_header)
-                )
-                self.skip_erroneous_rows = row_idxs
+        # Check for empty animal values - because it will screw up the pandas sheet merge
+        self.identify_empty_animal_rows(sample_table_data)
+
+        # Check the in-file uniqueness of the samples. With the database, you cannot tell if the sample uniqueness
+        # issue pre-existed the study this describes or is within this study.  This check clarifies that.
+        # This skips rows with empty animals identified above.
+        self.identify_infile_sample_dupe_rows(sample_table_data)
 
         for rowidx, row in enumerate(sample_table_data):
             rownum = rowidx + 1
@@ -278,7 +276,7 @@ class SampleTableLoader:
             self.get_or_create_study(rownum, row, animal_rec)
             self.get_or_create_animallabel(animal_rec, infusate_rec)
             # If the row has an issue (e.g. not unique in the file), skip it so there will not be pointless errors
-            if rowidx not in self.skip_erroneous_rows:
+            if rowidx not in self.infile_sample_dupe_rows:
                 sample_rec = self.get_or_create_sample(
                     rownum, row, animal_rec, tissue_rec
                 )
@@ -901,43 +899,104 @@ class SampleTableLoader:
                 HeaderConfigError(misconfiged_headers)
             )
 
+    def identify_infile_sample_dupe_rows(self, data):
+        """
+        An animal can belong to multiple studies.  As such, a sample from an animal can also belong to multiple
+        studies, and with the animal and sample sheet merge, the same sample will exist on 2 different rows after the
+        merge.  Therefore, we need to check that the combination of sample name and study name are unique instead of
+        just sample name.  For an example of this, look at:
+        DataRepo/example_data/test_dataframes/animal_sample_table_df_test1.xlsx.
+        """
+        sample_name_header = getattr(self.headers, "SAMPLE_NAME")
+        study_name_header = getattr(self.headers, "STUDY_NAME")
+        sample_dupes, row_idxs = self.get_column_dupes(
+            data, [sample_name_header, study_name_header]
+        )
+        if len(sample_dupes.keys()) > 0:
+            # Custom message to explain the case with Study name
+            dupdeets = []
+            for combo_val, l in sample_dupes.items():
+                sample = sample_dupes[combo_val]["vals"][sample_name_header]
+                dupdeets.append(
+                    f"{sample} (rows*: {', '.join(list(map(lambda i: str(i + 2), l['rowidxs'])))})"
+                )
+            nltab = "\n\t"
+            message = (
+                f"{len(sample_dupes.keys())} values in the {sample_name_header} column were found to have duplicate "
+                "occurrences on the indicated rows (*note, row numbers could reflect a sheet merge and may be "
+                f"inaccurate):{nltab}{nltab.join(dupdeets)}\nNote, a sample can be a part of multiple studies, so if "
+                "the same sample is in this list more than once, it means it's duplicated in multiple studies."
+            )
+
+            self.aggregated_errors_object.buffer_error(
+                DuplicateValues(sample_dupes, sample_name_header, message=message)
+            )
+            self.infile_sample_dupe_rows = row_idxs
+
     def get_column_dupes(self, data, col_keys):
         """
-        Takes a list of dicts (data) and a list of column keys (col_keys) and looks for duplicate combinations.
-        Returns a dict keyed on duplicate (composite) values and a list of row indexes where each combo instance is
-        found.
+        Takes a list of dicts (data) and a list of column keys (col_keys) and looks for duplicate (combination) values.
+        Returns a dict keyed on the composite duplicate value (with embedded header names).  The value is a dict with
+        the keys "rowidxs" and "vals". rowidxs has a list of indexes of the rows containing the combo value and vals
+        contains a dict of the column name and value pairs.
         """
-        val_counts = defaultdict(list)
-        dupe_dict = {}
-        dupe_rows = []
+        val_locations = defaultdict(dict)
+        dupe_dict = defaultdict(dict)
+        all_rows_with_dupes = []
         for rowidx, row in enumerate(data):
-            # Ignore rows where none of the supplied columns have values
-            row_empty = True
-            num_pop = 0
-            for ck in col_keys:
-                if row[ck] and row[ck] != "":
-                    row_empty = False
-                    num_pop += 1
-                    # break
-            if row_empty:
-                # Ignore empty rows
+            # Ignore rows where the animal name is empty
+            if rowidx in self.empty_animal_rows:
                 continue
-            if len(col_keys) > 1 and num_pop == 1:
-                # Ignore when this is a combo of columns and only 1 has a value
+
+            # Ignore empty combos
+            empty_combo = True
+            for ck in col_keys:
+                val = row[ck]
+                if val is not None or not isinstance(val, str) or val == "":
+                    empty_combo = False
+                    break
+            if empty_combo:
                 continue
 
             composite_val = ", ".join(
-                list(map(lambda ck: f"{ck}:[{row[ck]}]", col_keys))
+                list(map(lambda ck: f"{ck}: [{str(row[ck])}]", col_keys))
             )
-            val_counts[composite_val].append(rowidx)
 
-        for val in val_counts.keys():
-            row_list = val_counts[val]
+            if len(val_locations[composite_val].keys()) > 0:
+                val_locations[composite_val]["rowidxs"].append(rowidx)
+            else:
+                val_locations[composite_val]["rowidxs"] = [rowidx]
+                val_locations[composite_val]["vals"] = {}
+                for ck in col_keys:
+                    val_locations[composite_val]["vals"][ck] = row[ck]
+
+        # Now create the dupe dict to contain values encountered more than once
+        for val in val_locations.keys():
+            row_list = val_locations[val]["rowidxs"]
             if len(row_list) > 1:
-                dupe_dict[val] = row_list
-                dupe_rows += row_list
+                dupe_dict[val]["rowidxs"] = row_list
+                dupe_dict[val]["vals"] = val_locations[val]["vals"]
+                all_rows_with_dupes += row_list
 
-        return dupe_dict, dupe_rows
+        return dupe_dict, all_rows_with_dupes
+
+    def identify_empty_animal_rows(self, data):
+        """
+        If the animal name is empty on a row, the pandas sheet merge will be screwed up and lots of meaningless errors
+        will be spit out.  This method identifies and stores the row numbers (indexes) where the animal name is empty,
+        so those rows can be skipped in later processing.
+        """
+        animal_name_header = getattr(self.headers, "ANIMAL_NAME")
+        empty_animal_rows = []
+        for rowidx, row in enumerate(data):
+            val = row[animal_name_header]
+            if val is None or val == "":
+                empty_animal_rows.append(rowidx)
+        if len(empty_animal_rows) > 0:
+            self.empty_animal_rows = empty_animal_rows
+            self.aggregated_errors_object.buffer_error(
+                EmptyAnimalNames(empty_animal_rows, animal_name_header)
+            )
 
     def check_required_values(self, rownum, row):
         """

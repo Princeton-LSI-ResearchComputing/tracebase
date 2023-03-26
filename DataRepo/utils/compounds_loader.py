@@ -251,14 +251,18 @@ class CompoundsLoader:
 
     def load_validated_compounds_per_db(self, db=settings.TRACEBASE_DB):
         count = 0
+        skips = 0
         for compound in self.validated_new_compounds_for_insertion:
             try:
                 compound.save(using=db)
+                count += 1
             except IntegrityError:
-                raise CompoundExists(compound.name, db)
-            count += 1
+                # raise CompoundExists(compound.name, db)
+                skips += 1
+                continue
         self.summary_messages.append(
-            f"{count} compound(s) inserted, with default synonyms, into the {db} database."
+            f"{count} compound(s) inserted, with default synonyms, into the {db} database.  "
+            f"{skips} were already in the database."
         )
 
     def load_synonyms(self):
