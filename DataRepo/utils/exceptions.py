@@ -312,38 +312,41 @@ class MultiLoadStatus(Exception):
         if load_key not in self.statuses.keys():
             self.init_load(load_key)
 
-        if self.statuses[load_key]["aggregated_errors"] is not None:
-            raise ValueError(
-                f"An exception for load key [{load_key}] of type "
-                f"{type(self.statuses[load_key]['aggregated_errors']).__name__} already exists.  Adding a second one "
-                "would overwrite the first."
-            )
-
-        if not isinstance(exception, AggregatedErrors):
+        if isinstance(exception, AggregatedErrors):
+            aes = exception
+        else:
             # All of the AggregatedErrors are printed to the console as they are encountered, but not other exceptions,
             # so...
             print(exception)
 
             # Wrap the exception in an AggregatedErrors class
             aes = AggregatedErrors(errors=[exception])
+
+        if self.statuses[load_key]["aggregated_errors"] is not None:
+            self.statuses[load_key]["aggregated_errors"].merge_object(aes)
+            # Update the aes object and merge the top value
+            aes = self.statuses[load_key]["aggregated_errors"]
+            top = self.statuses[load_key]["top"] or top
         else:
-            aes = exception
+            self.statuses[load_key]["aggregated_errors"] = aes
 
         # We have edited AggregatedErrors above, but we are explicitly not accounting for removed exceptions.
         # Those will be tallied later in handle_packaged_exceptions, because for example, we only want 1 missing
         # compounds error that accounts for all missing compounds among all the study files.
-        self.num_errors += aes.num_errors
-        self.num_warnings += aes.num_warnings
-        self.statuses[load_key]["num_errors"] = aes.num_errors
-        self.statuses[load_key]["num_warnings"] = aes.num_warnings
+        self.num_errors = self.statuses[load_key]["aggregated_errors"].num_errors
+        self.num_warnings = self.statuses[load_key]["aggregated_errors"].num_warnings
+        self.statuses[load_key]["num_errors"] = self.statuses[load_key][
+            "aggregated_errors"
+        ].num_errors
+        self.statuses[load_key]["num_warnings"] = self.statuses[load_key][
+            "aggregated_errors"
+        ].num_warnings
         self.statuses[load_key]["top"] = top
-        aes.top = top
-        self.statuses[load_key]["aggregated_errors"] = aes
 
         # Any error or warning should make is_valid False and the user should decide whether they can ignore the
         # warnings or not.
         self.is_valid = False
-        if aes.is_error:
+        if self.statuses[load_key]["aggregated_errors"].is_error:
             self.statuses[load_key]["state"] = "FAILED"
             self.state = "FAILED"
         else:
@@ -573,6 +576,38 @@ class AggregatedErrors(Exception):
 
         self.buffered_tb_str = self.get_buffered_traceback_string()
         self.quiet = quiet
+
+    def merge_object(self, aes_object):
+        """
+        This is similar to a copy constructor, but instead of copying an existing oject, it merges the contents of the
+        supplied object into self
+        """
+        self.num_errors += aes_object.num_errors
+        self.num_warnings += aes_object.num_warnings
+        if aes_object.is_fatal:
+            self.is_fatal = aes_object.is_fatal
+        if aes_object.is_error:
+            self.is_error = aes_object.is_error
+        self.exceptions += aes_object.exceptions
+        if aes_object.custom_message:
+            msg = str(self)
+            if self.custom_message:
+                msg += (
+                    "\nAn additional AggregatedErrors object was merged with this one with an additional custom "
+                    f"message:\n\n{aes_object.custom_message}"
+                )
+            else:
+                self.custom_message = aes_object.custom_message
+                msg = str(aes_object)
+        else:
+            msg = self.get_default_message()
+        super().__init__(msg)
+        self.buffered_tb_str += (
+            "\nAn additional AggregatedErrors object was merged with this one.  The appended trace is:\n\n"
+            + self.get_buffered_traceback_string()
+        )
+        if aes_object.quiet:
+            self.quiet = aes_object.quiet
 
     def get_exception_type(self, exception_class, remove=False):
         """

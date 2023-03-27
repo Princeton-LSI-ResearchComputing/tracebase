@@ -483,3 +483,29 @@ class MultiLoadStatusTests(TracebaseTestCase):
             ],
             messages,
         )
+
+
+class AggregatedErrorsTests(TracebaseTestCase):
+    def test_merge_object(self):
+        aes1 = AggregatedErrors(errors=[ValueError("Test error")])
+        aes2 = AggregatedErrors(warnings=[ValueError("Test warning")])
+        aes1.merge_object(aes2)
+        self.assertEqual(2, len(aes1.exceptions))
+        self.assertTrue(aes1.is_error)
+        self.assertTrue(aes1.is_fatal)
+        self.assertFalse(aes1.custom_message)
+        self.assertEqual(1, aes1.num_errors)
+        self.assertEqual(1, aes1.num_warnings)
+        self.assertFalse(aes1.quiet)
+        expected_message = (
+            "2 exceptions occurred, including type(s): [ValueError].\n"
+            "AggregatedErrors Summary (1 errors / 1 warnings):\n"
+            "\tEXCEPTION1(ERROR): ValueError: Test error\n"
+            "\tEXCEPTION2(WARNING): ValueError: Test warning\n"
+            "Scroll up to see tracebacks for these exceptions printed as they were encountered."
+        )
+        self.assertEqual(expected_message, str(aes1))
+        self.assertIn(
+            "\nAn additional AggregatedErrors object was merged with this one.  The appended trace is:\n\n",
+            aes1.buffered_tb_str,
+        )
