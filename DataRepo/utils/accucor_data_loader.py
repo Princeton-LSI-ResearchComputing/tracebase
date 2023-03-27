@@ -483,9 +483,8 @@ class AccuCorDataLoader:
         counts of 0 already.
         """
         # Assuming only 1 animal is the source of all samples and arbitrarily using the first sample to get that animal
-        tracer_recs = list(self.db_samples_dict.values())[
-            0
-        ].animal.infusate.tracers.all()
+        animal = list(self.db_samples_dict.values())[0].animal
+        tracer_recs = animal.infusate.tracers.all()
 
         # Assuming all samples come from 1 animal, so we're only looking at 1 (any) sample
         tracer_labeled_elements = []
@@ -500,7 +499,26 @@ class AccuCorDataLoader:
                 if this_label not in tracer_labeled_elements:
                     tracer_labeled_elements.append(this_label)
 
-        self.tracer_labeled_elements = tracer_labeled_elements
+        if not self.isocorr_format:
+            # To allow animal and sample sheets to contain tracers with multiple labels, we will restrict the tracer
+            # labeled elements to just those in the Accucor file
+            accucor_labeled_elems = [
+                tle
+                for tle in tracer_labeled_elements
+                if tle["element"] == self.labeled_element
+            ]
+            if len(accucor_labeled_elems) != 1:
+                elems = ", ".join(
+                    [tle["element"] for tle in self.tracer_labeled_elements]
+                )
+                raise TracerLabeledElementNotFound(
+                    f"Unable to find the Accucor labeled element [{self.labeled_element}] in the tracer data for this "
+                    f"animal [{animal}].  The tracers cumulatively contain {len(self.tracer_labeled_elements)} "
+                    f"distinct elements: [{elems}]."
+                )
+            self.tracer_labeled_elements = accucor_labeled_elems
+        else:
+            self.tracer_labeled_elements = tracer_labeled_elements
 
     @classmethod
     def get_first_sample_column_index(cls, df):
@@ -860,13 +878,8 @@ class AccuCorDataLoader:
                             raw_abundance = 0
                             med_mz = 0
                             med_rt = 0
-                            # Ensuing code assumes a single labeled element in the tracer(s), so raise an exception if
-                            # that's not true
-                            if len(self.tracer_labeled_elements) != 1:
-                                raise InvalidNumberOfLabeledElements(
-                                    "This code only supports a single labeled element in the original data sheet. Row "
-                                    f"{orig_row_idx + 1} has {len(self.tracer_labeled_elements)}."
-                                )
+                            # We can safely assume a single tracer labeled element (because otherwise, there would have
+                            # been a TracerLabeledElementNotFound error), so...
                             mass_number = self.tracer_labeled_elements[0]["mass_number"]
 
                             # Try to get original data. If it's not there, set empty values
@@ -1277,7 +1290,7 @@ class MassNumberNotFound(Exception):
         self.tracer_labeled_elements = tracer_labeled_elements
 
 
-class InvalidNumberOfLabeledElements(Exception):
+class TracerLabeledElementNotFound(Exception):
     pass
 
 

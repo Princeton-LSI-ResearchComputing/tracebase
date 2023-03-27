@@ -20,6 +20,7 @@ from DataRepo.utils import (
     DryRun,
     MSRunAlreadyLoadedOrNotUnique,
     NoSamplesError,
+    TracerLabeledElementNotFound,
     UnskippedBlanksError,
 )
 
@@ -203,6 +204,52 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             str(aes.exceptions[0]),
             msg="References file from conflicting MSRun",
         )
+
+    def test_multiple_accucor_labels(self):
+        """
+        The infusate has tracers that cumulatively contain multiple Tracers/labels.  This tests that it loads without
+        error
+        """
+        call_command(
+            "load_animals_and_samples",
+            animal_and_sample_table_filename=(
+                "DataRepo/example_data/testing_data/accucor_with_multiple_labels/"
+                "samples.xlsx"
+            ),
+        )
+        call_command(
+            "load_accucor_msruns",
+            accucor_file="DataRepo/example_data/testing_data/accucor_with_multiple_labels/accucor.xlsx",
+            protocol="Default",
+            date="2021-04-29",
+            researcher="anonymous",
+            new_researcher=False,
+        )
+
+    def test_accucor_bad_label(self):
+        """
+        This tests that a bad label in the accucor file (containing an element not in the tracers) generates a single
+        TracerLabeledElementNotFound error
+        """
+        call_command(
+            "load_animals_and_samples",
+            animal_and_sample_table_filename=(
+                "DataRepo/example_data/testing_data/accucor_with_multiple_labels/"
+                "samples.xlsx"
+            ),
+        )
+        with self.assertRaises(AggregatedErrors) as ar:
+            call_command(
+                "load_accucor_msruns",
+                accucor_file="DataRepo/example_data/testing_data/accucor_with_multiple_labels/accucor_bad_label.xlsx",
+                protocol="Default",
+                date="2021-04-29",
+                researcher="anonymous",
+                new_researcher=False,
+            )
+        aes = ar.exception
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertTrue(isinstance(aes.exceptions[0], TracerLabeledElementNotFound))
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
