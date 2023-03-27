@@ -2143,9 +2143,10 @@ class StudyLoadingTests(TracebaseTestCase):
         # different group exceptions (AllMissingSamples, AllMissingCompounds, and AllMissingTissues) should have been
         # added
         self.assertEqual(4, len(lsc.load_statuses.statuses.keys()))
-        # 3 errors
+        # 3 errors (AllMissingSamples, AllMissingCompounds, and AllMissingTissues)
         self.assertEqual(3, lsc.load_statuses.num_errors)
-        # The file had 3 errors that should have been changed to warnings
+        # The file had 3 errors that should have been changed to warnings (MissingSamplesError, MissingCompounds, and
+        # MissingTissues)
         self.assertEqual(3, lsc.load_statuses.num_warnings)
 
         # Each of these keys should have been added as error categories

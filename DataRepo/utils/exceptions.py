@@ -313,34 +313,34 @@ class MultiLoadStatus(Exception):
             self.init_load(load_key)
 
         if isinstance(exception, AggregatedErrors):
-            aes = exception
+            new_aes = exception
         else:
             # All of the AggregatedErrors are printed to the console as they are encountered, but not other exceptions,
             # so...
             print(exception)
 
             # Wrap the exception in an AggregatedErrors class
-            aes = AggregatedErrors(errors=[exception])
+            new_aes = AggregatedErrors(errors=[exception])
 
+        new_num_errors = new_aes.num_errors
+        new_num_warnings = new_aes.num_warnings
         if self.statuses[load_key]["aggregated_errors"] is not None:
-            self.statuses[load_key]["aggregated_errors"].merge_object(aes)
+            merged_aes = self.statuses[load_key]["aggregated_errors"]
+            merged_aes.merge_object(new_aes)
             # Update the aes object and merge the top value
-            aes = self.statuses[load_key]["aggregated_errors"]
+            merged_aes = self.statuses[load_key]["aggregated_errors"]
             top = self.statuses[load_key]["top"] or top
         else:
-            self.statuses[load_key]["aggregated_errors"] = aes
+            merged_aes = new_aes
+            self.statuses[load_key]["aggregated_errors"] = merged_aes
 
         # We have edited AggregatedErrors above, but we are explicitly not accounting for removed exceptions.
         # Those will be tallied later in handle_packaged_exceptions, because for example, we only want 1 missing
         # compounds error that accounts for all missing compounds among all the study files.
-        self.num_errors = self.statuses[load_key]["aggregated_errors"].num_errors
-        self.num_warnings = self.statuses[load_key]["aggregated_errors"].num_warnings
-        self.statuses[load_key]["num_errors"] = self.statuses[load_key][
-            "aggregated_errors"
-        ].num_errors
-        self.statuses[load_key]["num_warnings"] = self.statuses[load_key][
-            "aggregated_errors"
-        ].num_warnings
+        self.num_errors += new_num_errors
+        self.num_warnings += new_num_warnings
+        self.statuses[load_key]["num_errors"] = merged_aes.num_errors
+        self.statuses[load_key]["num_warnings"] = merged_aes.num_warnings
         self.statuses[load_key]["top"] = top
 
         # Any error or warning should make is_valid False and the user should decide whether they can ignore the

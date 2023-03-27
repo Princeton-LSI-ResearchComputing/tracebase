@@ -416,15 +416,21 @@ class MultiLoadStatusTests(TracebaseTestCase):
         self.assertEqual(("Load FAILED 1 errors", "FAILED"), mls.get_status_message())
 
     def test_set_load_exception_key_exists(self):
-        """Check that if you try to add 2 exceptions with the same load key, an exception is raised"""
+        """Check that if you try to add 2 exceptions with the same load key, the errors are merged"""
         mls = MultiLoadStatus()
         aes = AggregatedErrors()
-        aes.buffer_error(ValueError("Test error 1"))
+        aes.buffer_warning(ValueError("Test warning"))
         mls.set_load_exception(aes, "mykey", top=False)
         aes2 = AggregatedErrors()
-        aes2.buffer_error(ValueError("Test error 2"))
-        with self.assertRaises(ValueError):
-            mls.set_load_exception(aes2, "mykey", top=True)
+        aes2.buffer_error(ValueError("Test error"))
+        mls.set_load_exception(aes2, "mykey", top=True)
+        self.assertEqual(1, mls.num_errors)
+        self.assertEqual(1, mls.num_warnings)
+        self.assertTrue(mls.statuses["mykey"]["top"])
+        self.assertEqual("FAILED", mls.statuses["mykey"]["state"])
+        self.assertEqual("FAILED", mls.state)
+        # The merge of the aggregated errors object is tested elsewhere
+        self.assertEqual(2, len(mls.statuses["mykey"]["aggregated_errors"].exceptions))
 
     def test_get_ordered_status_keys(self):
         """Check that top=True puts grouped exceptions at the top by default"""
