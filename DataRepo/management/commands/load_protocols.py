@@ -93,33 +93,38 @@ class Command(BaseCommand):
         try:
             self.protocol_loader.load()
         except DryRun:
-            if options["verbosity"] >= 2:
-                self.print_notices(
-                    self.protocol_loader.get_stats(),
-                    options["protocols"],
-                    options["verbosity"],
-                )
+            self.print_notices(
+                self.protocol_loader.get_stats(),
+                options["protocols"],
+                options["verbosity"],
+            )
             self.stdout.write(
                 self.style.SUCCESS("DRY-RUN complete, no protocols loaded")
             )
-        except LoadingError:
+        except LoadingError as le:
+            self.print_notices(
+                self.protocol_loader.get_stats(),
+                options["protocols"],
+                options["verbosity"],
+                False,
+            )
+            errmsgs = ""
             if options["verbosity"] >= 2:
-                self.print_notices(
-                    self.protocol_loader.get_stats(),
-                    options["protocols"],
-                    options["verbosity"],
-                )
+                errmsgs += ":\n"
             for exception in self.protocol_loader.errors:
                 self.stdout.write(self.style.ERROR("ERROR: " + exception))
+                if options["verbosity"] >= 2:
+                    errmsgs += f"{exception}\n"
             raise CommandError(
                 f"{len(self.protocol_loader.errors)} errors loading protocol records from "
-                f"{options['protocols']} - NO RECORDS SAVED"
-            )
+                f"{options['protocols']} - NO RECORDS SAVED{errmsgs}"
+            ).with_traceback(le.__traceback__)
         else:
             self.print_notices(
                 self.protocol_loader.get_stats(),
                 options["protocols"],
                 options["verbosity"],
+                False,
             )
 
     def read_from_file(self, filename, format=None):
@@ -191,7 +196,7 @@ class Command(BaseCommand):
         self.new_protocols_df = treatments
         self.batch_category = self.TREATMENTS_CATEGORY_VALUE
 
-    def print_notices(self, stats, opt, verbosity):
+    def print_notices(self, stats, opt, verbosity, success=True):
 
         if verbosity >= 2:
             for db in stats.keys():
@@ -213,4 +218,7 @@ class Command(BaseCommand):
             smry += f"in database [{db}]"
         smry += f" from {opt}"
 
-        self.stdout.write(self.style.SUCCESS(smry))
+        if success:
+            self.stdout.write(self.style.SUCCESS(smry))
+        else:
+            self.stdout.write(self.style.ERROR(smry))

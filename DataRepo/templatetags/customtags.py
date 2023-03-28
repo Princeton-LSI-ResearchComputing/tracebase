@@ -4,8 +4,10 @@ from django.template.defaultfilters import floatformat
 from django.urls import reverse
 from django.utils import dateparse
 from django.utils.html import format_html_join
+from django.utils.safestring import mark_safe
 
 from DataRepo.formats.search_group import SearchGroup
+from DataRepo.utils import QuerysetToPandasDataFrame as qs2df
 
 register = template.Library()
 
@@ -63,7 +65,7 @@ def getClass(state):
     styleclass = None
     if state is None:
         styleclass = ""
-    elif state == "FAILED":
+    elif state == "FAILED" or state == "ERROR":
         styleclass = "text-danger"
     elif state == "WARNING":
         styleclass = "text-warning"
@@ -109,13 +111,13 @@ def getDownloadQrys():
     return basv.getDownloadQryList()
 
 
-@register.filter
-def obj_hyperlink(id_name_list, obj):
+@register.simple_tag
+def obj_hyperlink(id_name_list, obj, newline=False):
     """
-    takes an object list and returns a comma-separated list of hyperlinks.
+    returns a comma-separated list of hyperlinks.
     Notes:
-    works for three types of object_list with defined format in Pandas DataFrames:
-        study, tracer, treatment
+    works for object_lists with defined format in Pandas DataFrames:
+        obj types include study, tracer, compound, infusate, treatment
         each item of object_list contains id and name seprated by "||"
     examples:
         study list:  ['1||obob_fasted']
@@ -123,7 +125,9 @@ def obj_hyperlink(id_name_list, obj):
         treatment list: [3||Ser/gly-free diet, 2||Control diet]
     For a study without treament data, value in DataFrame is [nan], which is [None] after converting
         to json record for rendering templates
+    If newline=True, return html string with <div> tag and newline.
     """
+
     if obj == "study":
         tmplt_name = "study_detail"
     elif obj == "tracer":
@@ -134,15 +138,32 @@ def obj_hyperlink(id_name_list, obj):
         tmplt_name = "infusate_detail"
     elif obj == "treatment":
         tmplt_name = "protocol_detail"
+    else:
+        return f"HTML format error: undefined object type: {obj}"
 
     if id_name_list == [None] or id_name_list is None:
         return None
+
+    id_name_dict = {}
+    for x in id_name_list:
+        if x is not None and x != qs2df.null_rpl_str:
+            k, v = x.split("||")
+            id_name_dict[k] = v
+
+    if newline is True:
+        obj_format_html = (
+            '<div class="newlines">'
+            + format_html_join(
+                ",\n",
+                '<a href="{}">{}</a>',
+                [
+                    (reverse(tmplt_name, args=[str(id)]), id_name_dict[id])
+                    for id in id_name_dict
+                ],
+            )
+            + "</div>"
+        )
     else:
-        id_name_dict = {}
-        for x in id_name_list:
-            if x is not None and x != "":
-                k, v = x.split("||")
-                id_name_dict[k] = v
         obj_format_html = format_html_join(
             ", ",
             '<a href="{}">{}</a>',
@@ -151,7 +172,7 @@ def obj_hyperlink(id_name_list, obj):
                 for id in id_name_dict
             ],
         )
-        return obj_format_html
+    return mark_safe(obj_format_html)
 
 
 @register.filter

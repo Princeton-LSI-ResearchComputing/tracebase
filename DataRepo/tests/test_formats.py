@@ -26,7 +26,6 @@ from DataRepo.templatetags.customtags import get_many_related_rec
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
-@tag("multi_working")
 class FormatsTests(TracebaseTestCase):
     maxDiff = None
     orig_split_rows: Dict[str, str] = {}
@@ -107,6 +106,7 @@ class FormatsTests(TracebaseTestCase):
                                 "ncmp": "icontains",
                                 "fld": "msrun__sample__animal__studies__name",
                                 "val": "obob_fasted",
+                                "units": "identity",
                             }
                         ],
                     },
@@ -127,12 +127,14 @@ class FormatsTests(TracebaseTestCase):
                 "ncmp": "icontains",
                 "fld": "compounds__synonyms__name",
                 "val": "glucose",
+                "units": "identity",
             }
         )
         return qry
 
     def getPdtemplateChoicesTuple(self):
         return (
+            ("peak_group__msrun__sample__animal__age", "Age"),
             ("peak_group__msrun__sample__animal__name", "Animal"),
             ("peak_group__msrun__sample__animal__body_weight", "Body Weight (g)"),
             ("corrected_abundance", "Corrected Abundance"),
@@ -160,6 +162,10 @@ class FormatsTests(TracebaseTestCase):
             ("peak_group__msrun__sample__name", "Sample"),
             ("peak_group__msrun__sample__animal__sex", "Sex"),
             ("peak_group__msrun__sample__animal__studies__name", "Study"),
+            (
+                "peak_group__msrun__sample__time_collected",
+                "Time Collected (since infusion)",
+            ),
             ("peak_group__msrun__sample__tissue__name", "Tissue"),
             ("peak_group__msrun__sample__animal__infusate__tracers__name", "Tracer"),
             (
@@ -175,6 +181,7 @@ class FormatsTests(TracebaseTestCase):
 
     def getPgtemplateChoicesTuple(self):
         return (
+            ("msrun__sample__animal__age", "Age"),
             ("msrun__sample__animal__name", "Animal"),
             ("msrun__sample__animal__body_weight", "Body Weight (g)"),
             ("compounds__synonyms__name", "Compound (Measured) (Any Synonym)"),
@@ -195,6 +202,10 @@ class FormatsTests(TracebaseTestCase):
             ("msrun__sample__name", "Sample"),
             ("msrun__sample__animal__sex", "Sex"),
             ("msrun__sample__animal__studies__name", "Study"),
+            (
+                "msrun__sample__time_collected",
+                "Time Collected (since infusion)",
+            ),
             ("msrun__sample__tissue__name", "Tissue"),
             ("msrun__sample__animal__infusate__tracers__name", "Tracer"),
             (
@@ -207,6 +218,7 @@ class FormatsTests(TracebaseTestCase):
     def getFctemplateChoicesTuple(self):
         return (
             ("serum_sample__animal__name", "Animal"),
+            ("serum_sample__animal__age", "Animal Age"),
             ("serum_sample__animal__body_weight", "Body Weight (g)"),
             ("serum_sample__animal__diet", "Diet"),
             ("serum_sample__animal__feeding_status", "Feeding Status"),
@@ -218,7 +230,7 @@ class FormatsTests(TracebaseTestCase):
             ("serum_sample__animal__studies__name", "Study"),
             (
                 "serum_sample__time_collected",
-                "Time Collected (hh:mm:ss since infusion)",
+                "Time Collected (since infusion)",
             ),
             ("tracer__name", "Tracer"),
             ("tracer__compound__name", "Tracer Compound (Primary Synonym)"),
@@ -227,6 +239,124 @@ class FormatsTests(TracebaseTestCase):
                 "Tracer Concentration (mM)",
             ),
             ("serum_sample__animal__treatment__name", "Treatment"),
+        )
+
+    def assertIsAFcUnitsLookupDict(self, fld_units_lookup):
+        self.assertEqual(31, len(fld_units_lookup.keys()))
+        # Path should be prepended to the field name
+        self.assertIsNone(fld_units_lookup["serum_sample__animal__genotype"])
+        # Each value should be a dict with the units, this one having 15 keys
+        self.assertEqual(15, len(fld_units_lookup["serum_sample__animal__age"].keys()))
+        # This "native" unit type has 5 keys: name, example, convert, pyconvert, and about
+        self.assertEqual(
+            5, len(fld_units_lookup["serum_sample__animal__age"]["identity"].keys())
+        )
+        # Check the name (displayed in the units select list)
+        self.assertEqual(
+            "n.n{units},...",
+            fld_units_lookup["serum_sample__animal__age"]["identity"]["name"],
+        )
+        # Check the example (shown as a placeholder in the val field)
+        self.assertEqual(
+            "1w,1d,1:01:01.1",
+            fld_units_lookup["serum_sample__animal__age"]["identity"]["example"],
+        )
+        # The convert key should be a function
+        self.assertEqual(
+            "function",
+            type(
+                fld_units_lookup["serum_sample__animal__age"]["identity"]["convert"]
+            ).__name__,
+        )
+        # Check the about value
+        expected_about = (
+            "Values can be entered using the following format pattern: `[n{units}{:|,}]*hh:mm:ss[.f]`, where units "
+            "can be:\n\n- c[enturies]\n- decades\n- y[ears]\n- months\n- w[eeks]\n- d[ays]\n- h[ours]\n- m[inutes]\n"
+            "- s[econds]\n- milliseconds\n- microseconds\n\nIf milli/micro-seconds are not included, the last 3 units "
+            "(hours, minutes, and seconds) do not need to be specified.\n\nExamples:\n\n- 1w,1d,1:01:01.1\n- 1 year, "
+            "3 months\n- 2:30\n- 2 days, 11:29:59.999"
+        )
+        self.assertEqual(
+            expected_about,
+            fld_units_lookup["serum_sample__animal__age"]["identity"]["about"],
+        )
+        # The convert function should modify the value to the format needed by the database
+        self.assertEqual(
+            "14w", fld_units_lookup["serum_sample__animal__age"]["weeks"]["convert"](14)
+        )
+
+    def assertIsAPgUnitsLookupDict(self, fld_units_lookup):
+        print(fld_units_lookup)
+        # There should be 39 fields with units lookups
+        self.assertEqual(39, len(fld_units_lookup.keys()))
+        # Path should be prepended to the field name
+        self.assertIsNone(fld_units_lookup["msrun__sample__animal__genotype"])
+        # Each value should be a dict with the units, this one having 15 keys
+        self.assertEqual(15, len(fld_units_lookup["msrun__sample__animal__age"].keys()))
+        # This "native" unit type has 5 keys: name, example, convert, pyconvert, and about
+        self.assertEqual(
+            5, len(fld_units_lookup["msrun__sample__animal__age"]["identity"].keys())
+        )
+        # Check the name (displayed in the units select list)
+        self.assertEqual(
+            "n.n{units},...",
+            fld_units_lookup["msrun__sample__animal__age"]["identity"]["name"],
+        )
+        # Check the example (shown as a placeholder in the val field)
+        self.assertEqual(
+            "1w,1d,1:01:01.1",
+            fld_units_lookup["msrun__sample__animal__age"]["identity"]["example"],
+        )
+        # The convert key should be a function
+        self.assertEqual(
+            "function",
+            type(
+                fld_units_lookup["msrun__sample__animal__age"]["identity"]["convert"]
+            ).__name__,
+        )
+
+        # Each value should be a dict with the units, this one having 15 keys
+        self.assertEqual(
+            15, len(fld_units_lookup["msrun__sample__time_collected"].keys())
+        )
+        # This "native" unit type has 5 keys: name, example, convert, pyconvert, and about
+        self.assertEqual(
+            5, len(fld_units_lookup["msrun__sample__time_collected"]["identity"].keys())
+        )
+        # Check the name (displayed in the units select list)
+        self.assertEqual(
+            "n.n{units},...",
+            fld_units_lookup["msrun__sample__time_collected"]["identity"]["name"],
+        )
+        # Check the example (shown as a placeholder in the val field)
+        self.assertEqual(
+            "1w,1d,1:01:01.1",
+            fld_units_lookup["msrun__sample__time_collected"]["identity"]["example"],
+        )
+        # The convert key should be a function
+        self.assertEqual(
+            "function",
+            type(
+                fld_units_lookup["msrun__sample__time_collected"]["identity"]["convert"]
+            ).__name__,
+        )
+
+        # Check the about value
+        expected_about = (
+            "Values can be entered using the following format pattern: `[n{units}{:|,}]*hh:mm:ss[.f]`, where units "
+            "can be:\n\n- c[enturies]\n- decades\n- y[ears]\n- months\n- w[eeks]\n- d[ays]\n- h[ours]\n- m[inutes]\n"
+            "- s[econds]\n- milliseconds\n- microseconds\n\nIf milli/micro-seconds are not included, the last 3 units "
+            "(hours, minutes, and seconds) do not need to be specified.\n\nExamples:\n\n- 1w,1d,1:01:01.1\n- 1 year, "
+            "3 months\n- 2:30\n- 2 days, 11:29:59.999"
+        )
+        self.assertEqual(
+            expected_about,
+            fld_units_lookup["msrun__sample__animal__age"]["identity"]["about"],
+        )
+        # The convert function should modify the value to the format needed by the database
+        self.assertEqual(
+            "14w",
+            fld_units_lookup["msrun__sample__animal__age"]["weeks"]["convert"](14),
         )
 
     def test_getSearchFieldChoicesDict(self):
@@ -348,6 +478,7 @@ class FormatsTests(TracebaseTestCase):
                                         "static": False,
                                         "type": "query",
                                         "val": "obob_fasted",
+                                        "units": "identity",
                                     },
                                     {
                                         "fld": "name",
@@ -356,6 +487,7 @@ class FormatsTests(TracebaseTestCase):
                                         "static": False,
                                         "type": "query",
                                         "val": "citrate",
+                                        "units": "identity",
                                     },
                                 ],
                                 "static": False,
@@ -373,7 +505,12 @@ class FormatsTests(TracebaseTestCase):
             "labels",
         ]
 
-        self.assertEqual(expected_prefetches, prefetches)
+        self.assertEqual(8, len(prefetches))
+        self.assertEqual("list", type(prefetches).__name__)
+        self.assertEqual(expected_prefetches[0:4], prefetches[0:4])
+        self.assertEqual(expected_prefetches[5:3], prefetches[5:3])
+        self.assertEqual(expected_prefetches[4][0:3], prefetches[4][0:3])
+        self.assertIsAPgUnitsLookupDict(prefetches[4][3])
 
         # Should be called after tearDown()
         # self.restore_split_rows()
@@ -542,7 +679,8 @@ class FormatsTests(TracebaseTestCase):
         fld = "fldtest"
         ncmp = "ncmptest"
         val = "valtest"
-        got = createFilterCondition(fld, ncmp, val)
+        units = "unitstest"
+        got = createFilterCondition(fld, ncmp, val, units)
         expected = {
             "type": "query",
             "pos": "",
@@ -550,6 +688,7 @@ class FormatsTests(TracebaseTestCase):
             "fld": fld,
             "ncmp": ncmp,
             "val": val,
+            "units": units,
         }
         self.assertEqual(expected, got)
 
@@ -557,8 +696,9 @@ class FormatsTests(TracebaseTestCase):
         fld = "fldtest"
         ncmp = "ncmptest"
         val = "valtest"
+        units = "unitstest"
         got = appendFilterToGroup(
-            createFilterGroup(), createFilterCondition(fld, ncmp, val)
+            createFilterGroup(), createFilterCondition(fld, ncmp, val, units)
         )
         expected = {
             "type": "group",
@@ -572,6 +712,7 @@ class FormatsTests(TracebaseTestCase):
                     "fld": fld,
                     "ncmp": ncmp,
                     "val": val,
+                    "units": units,
                 }
             ],
         }
@@ -613,6 +754,7 @@ class FormatsTests(TracebaseTestCase):
                     "ncmp": "",
                     "fld": "",
                     "val": "",
+                    "units": "",
                 }
             ],
         }
@@ -633,6 +775,7 @@ class FormatsTests(TracebaseTestCase):
                                 "ncmp": "iexact",
                                 "fld": "msrun__sample__animal__studies__name",
                                 "val": "obob_fasted",
+                                "units": "identity",
                             }
                         ],
                     },
@@ -654,9 +797,10 @@ class FormatsTests(TracebaseTestCase):
         cmp = "iexact"
         val = tval
         fmt = "pgtemplate"
-        newqry = basv_metadata.createNewBasicQuery(mdl, fld, cmp, val, fmt)
+        units = "identity"
+        newqry = basv_metadata.createNewBasicQuery(mdl, fld, cmp, val, units, fmt)
         self.maxDiff = None
-        self.assertEqual(newqry, qry)
+        self.assertEqual(qry, newqry)
 
     def test_searchFieldToDisplayField(self):
         """
@@ -696,6 +840,7 @@ class FormatsTests(TracebaseTestCase):
                                 "ncmp": "iexact",
                                 "static": "",
                                 "val": "Brain",
+                                "units": "identity",
                             }
                         ],
                     },
@@ -713,8 +858,9 @@ class FormatsTests(TracebaseTestCase):
                                 "pos": "",
                                 "ncmp": "iexact",
                                 "static": "",
-                                "fld": "labeled_element",
+                                "fld": "labels__element",
                                 "val": "",
+                                "units": "identity",
                             }
                         ],
                     },
@@ -734,6 +880,7 @@ class FormatsTests(TracebaseTestCase):
                                 "ncmp": "iexact",
                                 "static": "",
                                 "val": "",
+                                "units": "identity",
                             }
                         ],
                     },
@@ -764,6 +911,7 @@ class FormatsTests(TracebaseTestCase):
                         "ncmp": "iexact",
                         "fld": "msrun__sample__animal__studies__name",
                         "val": "obob_fasted",
+                        "units": "identity",
                     },
                     {
                         "type": "query",
@@ -772,6 +920,7 @@ class FormatsTests(TracebaseTestCase):
                         "ncmp": "iexact",
                         "fld": "compounds__synonyms__name",
                         "val": "glucose",
+                        "units": "identity",
                     },
                 ],
             }
@@ -967,6 +1116,7 @@ class FormatsTests(TracebaseTestCase):
         fmt = "pgtemplate"
         res = basv_metadata.getSearchFieldChoices(fmt)
         choices = (
+            ("msrun__sample__animal__age", "Age"),
             ("msrun__sample__animal__name", "Animal"),
             ("msrun__sample__animal__body_weight", "Body Weight (g)"),
             ("compounds__synonyms__name", "Compound (Measured) (Any Synonym)"),
@@ -987,6 +1137,7 @@ class FormatsTests(TracebaseTestCase):
             ("msrun__sample__name", "Sample"),
             ("msrun__sample__animal__sex", "Sex"),
             ("msrun__sample__animal__studies__name", "Study"),
+            ("msrun__sample__time_collected", "Time Collected (since infusion)"),
             ("msrun__sample__tissue__name", "Tissue"),
             ("msrun__sample__animal__infusate__tracers__name", "Tracer"),
             (
@@ -1064,6 +1215,7 @@ class FormatsTests(TracebaseTestCase):
             "id": "msrun__sample__animal__id",
             "name": "msrun__sample__animal__name",
             "genotype": "msrun__sample__animal__genotype",
+            "age": "msrun__sample__animal__age",
             "body_weight": "msrun__sample__animal__body_weight",
             "sex": "msrun__sample__animal__sex",
             "diet": "msrun__sample__animal__diet",
@@ -1237,22 +1389,105 @@ class FormatsTests(TracebaseTestCase):
         # InfusateTracer records.  This affects only the result count displayed on the page.
         self.assertEqual(FCirc.objects.count(), qs.count())
 
+    def test_getFieldUnitsDict(self):
+        """
+        Spot check a few dicts
+        """
+        sg = SearchGroup()
+        fld_units_dict = sg.getFieldUnitsDict()
+        self.assertEqual(3, len(fld_units_dict.keys()))
+        expected_element_dict = {
+            "choices": (("identity", "identity"),),
+            "default": "identity",
+            "metadata": {
+                "identity": {
+                    "about": None,
+                    "example": None,
+                },
+            },
+            "units": "identity",
+        }
+        self.assertEqual(expected_element_dict, fld_units_dict["fctemplate"]["element"])
+        expected_age_dict = {
+            "choices": (
+                ("months", "months"),
+                ("weeks", "weeks"),
+                ("days", "days"),
+                ("hours", "hours"),
+            ),
+            "default": "weeks",
+            "metadata": {
+                "days": {
+                    "about": None,
+                    "example": "1.0",
+                },
+                "hours": {
+                    "about": None,
+                    "example": "1.0",
+                },
+                "months": {
+                    "about": None,
+                    "example": "1.0",
+                },
+                "weeks": {
+                    "about": None,
+                    "example": "1.0",
+                },
+            },
+            "units": "postgres_interval",
+        }
+        self.assertEqual(
+            expected_age_dict, fld_units_dict["fctemplate"]["serum_sample__animal__age"]
+        )
+        self.assertEqual(31, len(fld_units_dict["fctemplate"].keys()))
+        self.assertEqual(40, len(fld_units_dict["pgtemplate"].keys()))
+        self.assertEqual(44, len(fld_units_dict["pdtemplate"].keys()))
+
+    def test_getAllFieldUnitsChoices(self):
+        sg = SearchGroup()
+        fld_units_choices = sg.getAllFieldUnitsChoices()
+        expected = (
+            ("identity", "identity"),
+            ("calendartime", "ny,nm,nw,nd"),
+            ("clocktime", "clocktime (hh:mm[:ss])"),
+            ("millennia", "millennia"),
+            ("centuries", "centuries"),
+            ("decades", "decades"),
+            ("years", "years"),
+            ("months", "months"),
+            ("weeks", "weeks"),
+            ("days", "days"),
+            ("hours", "hours"),
+            ("minutes", "minutes"),
+            ("seconds", "seconds"),
+            ("milliseconds", "milliseconds"),
+            ("microseconds", "microseconds"),
+        )
+        self.assertEqual(expected, fld_units_choices)
+
+    def test_getFieldUnitsLookup(self):
+        format = "fctemplate"
+        sg = SearchGroup()
+        fld_units_lookup = sg.getFieldUnitsLookup(format)
+        self.assertIsAFcUnitsLookupDict(fld_units_lookup)
+
 
 @tag("search_choices")
-@tag("multi_working")
 class SearchFieldChoicesTests(TracebaseTestCase):
     def test_get_all_comparison_choices(self):
         base_search_view = Format()
 
         all_ncmp_choices = (
-            ("iexact", "is"),
-            ("not_iexact", "is not"),
+            ("exact", "is"),
+            ("not_exact", "is not"),
             ("lt", "<"),
             ("lte", "<="),
             ("gt", ">"),
             ("gte", ">="),
             ("not_isnull", "has a value (ie. is not None)"),
             ("isnull", "does not have a value (ie. is None)"),
+            ("iexact", "is"),
+            ("not_iexact", "is not"),
             ("icontains", "contains"),
             ("not_icontains", "does not contain"),
             ("istartswith", "starts with"),
@@ -1260,4 +1495,4 @@ class SearchFieldChoicesTests(TracebaseTestCase):
             ("iendswith", "ends with"),
             ("not_iendswith", "does not end with"),
         )
-        self.assertEqual(base_search_view.getAllComparisonChoices(), all_ncmp_choices)
+        self.assertEqual(all_ncmp_choices, base_search_view.getAllComparisonChoices())

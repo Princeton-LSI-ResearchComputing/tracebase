@@ -1,24 +1,67 @@
+import datetime
+import os.path
 import traceback
 from typing import List
 
 from django.conf import settings
 from django.core.management import call_command
+from django.db import transaction
 from django.shortcuts import redirect, render
 from django.views.generic.edit import FormView
 
 from DataRepo.forms import DataSubmissionValidationForm
-from DataRepo.models import Compound, CompoundSynonym, Protocol, Tissue
-from DataRepo.models.utilities import get_all_models
-from DataRepo.utils import MissingSamplesError, ResearcherError
+from DataRepo.utils import DryRun
+from DataRepo.utils.exceptions import AggregatedErrors
 
 
 class DataValidationView(FormView):
     form_class = DataSubmissionValidationForm
     template_name = "DataRepo/validate_submission.html"
     success_url = ""
+    accucor_filenames: List[str] = []
     accucor_files: List[str] = []
+    isocorr_filenames: List[str] = []
+    isocorr_files: List[str] = []
+    animal_sample_filename = None
     animal_sample_file = None
     submission_url = settings.DATA_SUBMISSION_URL
+
+    def set_files(
+        self,
+        sample_file,
+        accucor_files=None,
+        isocorr_files=None,
+        sample_file_name=None,
+        accucor_file_names=None,
+        isocorr_file_names=None,
+    ):
+        """
+        This method allows the files to be set.  It takes 2 different optional params for file names (that are used in
+        reporting) to accommodate random temporary file names.  If file names are not supplied, the basename of the
+        actual files is used for reporting.
+        """
+        self.animal_sample_file = sample_file
+        self.animal_sample_filename = sample_file_name
+
+        if accucor_files:
+            self.accucor_files = accucor_files
+        else:
+            self.accucor_files = []
+
+        if isocorr_files:
+            self.isocorr_files = isocorr_files
+        else:
+            self.isocorr_files = []
+
+        if accucor_file_names:
+            self.accucor_filenames = accucor_file_names
+        else:
+            self.accucor_filenames = []
+
+        if isocorr_file_names:
+            self.isocorr_filenames = isocorr_file_names
+        else:
+            self.isocorr_filenames = []
 
     def dispatch(self, request, *args, **kwargs):
         # check if there is some video onsite
@@ -30,12 +73,28 @@ class DataValidationView(FormView):
     def post(self, request, *args, **kwargs):
         form_class = self.get_form_class()
         form = self.get_form(form_class)
-        self.accucor_files = request.FILES.getlist("accucor_files")
+
+        sample_file = request.FILES["animal_sample_table"]
         try:
-            self.animal_sample_file = request.FILES["animal_sample_table"]
+            accucor_files = request.FILES.getlist("accucor_files")
         except Exception:
-            # Ignore missing accucor files
-            print("ERROR: No accucor file")
+            # Ignore missing accucor files (allow user to validate just the sample file)
+            accucor_files = []
+        try:
+            isocorr_files = request.FILES.getlist("isocorr_files")
+        except Exception:
+            # Ignore missing isocorr files (allow user to validate just the sample file)
+            isocorr_files = []
+
+        self.set_files(
+            sample_file.temporary_file_path(),
+            [afp.temporary_file_path() for afp in accucor_files],
+            [ifp.temporary_file_path() for ifp in isocorr_files],
+            sample_file_name=sample_file,
+            accucor_file_names=accucor_files,
+            isocorr_file_names=isocorr_files,
+        )
+
         if form.is_valid():
             return self.form_valid(form)
         else:
@@ -51,18 +110,9 @@ class DataValidationView(FormView):
         valid = True
         results = {}
 
-        debug = f"asf: {self.animal_sample_file} num afs: {len(self.accucor_files)}"
+        debug = f"asf: {self.animal_sample_file} num afs: {len(self.accucor_files)} num ifs: {len(self.isocorr_files)}"
 
-        animal_sample_dict = {
-            str(self.animal_sample_file): self.animal_sample_file.temporary_file_path(),
-        }
-        accucor_dict = dict(
-            map(lambda x: (str(x), x.temporary_file_path()), self.accucor_files)
-        )
-
-        [results, valid, errors] = self.validate_load_files(
-            animal_sample_dict, accucor_dict
-        )
+        [results, valid, errors, warnings] = self.validate_load_files()
 
         return self.render_to_response(
             self.get_context_data(
@@ -71,192 +121,197 @@ class DataValidationView(FormView):
                 valid=valid,
                 form=form,
                 errors=errors,
+                warnings=warnings,
                 submission_url=self.submission_url,
             )
         )
 
-    def validate_load_files(self, animal_sample_dict, accucor_dict):
-        errors = {}
+    def validate_load_files(self):
+        if self.animal_sample_filename:
+            sf = self.animal_sample_filename
+        else:
+            sf = os.path.basename(self.animal_sample_file)
+        sfp = self.animal_sample_file
+
+        if self.animal_sample_file is None:
+            # The form_invalid method should prevent this via the website, but if this is called in a test or other
+            # code without calling self.set_files, this exception will be raised.
+            raise ValueError(
+                "An animal and sample table file is required.  Be sure to call set_files() before calling "
+                "validate_load_files()."
+            )
+
         valid = True
-        results = {}
-        animal_sample_name = list(animal_sample_dict.keys())[0]
+        results = {sf: "PASSED"}
+        errors = {sf: []}
+        warnings = {sf: []}
+        for i, afp in enumerate(self.accucor_files):
+            if len(self.accucor_files) == len(self.accucor_filenames):
+                af = self.accucor_filenames[i]
+            else:
+                af = os.path.basename(afp)
+            errors[af] = []
+            warnings[af] = []
+            results[af] = "PASSED"
+        for i, ifp in enumerate(self.isocorr_files):
+            if len(self.isocorr_files) == len(self.isocorr_filenames):
+                ifn = self.isocorr_filenames[i]
+            else:
+                ifn = os.path.basename(ifp)
+            if ifn in errors.keys():
+                raise KeyError(
+                    f"Isocorr/Accucor filename conflict: {ifn}.  All Accucor/Isocorr filenames must be "
+                    "unique."
+                )
+            errors[ifn] = []
+            warnings[ifn] = []
+            results[ifn] = "PASSED"
+
+        all_exceptions = []
+
+        # Copy protocols from the tracebase database to the validation database
+        # This assumes the Protocol table in the validation database is empty, which should be valid given the call to
+        # clear_validation_database in the `finally` block below and the fact that the protocols loader does not
+        # default-load the validation database (in the current code)
+        # for rec in Protocol.objects.using(settings.DEFAULT_DB).values():
+        #     # We must delete AutoField key/value pairs because it screws up the next AutoField generation
+        #     del rec["id"]
+        #     Protocol.objects.using(settings.VALIDATION_DB).create(**rec)
 
         try:
-            # Load the animal and sample table in debug mode to check the researcher and sample name uniqueness
-            errors[animal_sample_name] = []
-            results[animal_sample_name] = ""
-            try:
-                # debug=True is supposed to NOT commit the DB changes, but it IS creating the study, so even though I'm
-                # using debug here, I am also setting the database to the validation database...
-                call_command(
-                    "load_animals_and_samples",
-                    animal_and_sample_table_filename=animal_sample_dict[
-                        animal_sample_name
-                    ],
-                    debug=True,
-                    validate=True,
-                )
-                results[animal_sample_name] = "PASSED"
-            except ResearcherError as re:
-                valid = False
-                errors[animal_sample_name].append(
-                    "[The following error about a new researcher name should only be addressed if the name already "
-                    "exists in the database as a variation.  If this is a truly new researcher name in the database, "
-                    f"it may be ignored.]\n{animal_sample_name}: {str(re)}"
-                )
-                results[animal_sample_name] = "WARNING"
-            except Exception as e:
-                estr = str(e)
-                # We are using the presence of the string "Debugging..." to infer that it got to the end of the load
-                # without an exception.  If there is no "Debugging" message, then an exception did not occur anyway
-                if settings.DEBUG:
-                    traceback.print_exc()
-                    print(estr)
-                if "Debugging" not in estr:
-                    valid = False
-                    errors[animal_sample_name].append(f"{e.__class__.__name__}: {estr}")
-                    results[animal_sample_name] = "FAILED"
-                else:
-                    results[animal_sample_name] = "PASSED"
-
-            can_proceed = False
-            if results[animal_sample_name] != "FAILED":
-                # Load the animal and sample data into the validation database, so the data is available for the accucor
-                # file validation
+            # Load the animal treatments
+            with transaction.atomic():
                 try:
+                    # Not running in debug, because these need to be loaded in order to run the next load
+                    call_command(
+                        "load_protocols",
+                        protocols=sfp,
+                        verbosity=3,
+                    )
+                    # Do not set PASSED here. If the full animal/sample table load passes, THEN this file has passed.
+                except Exception as e:
+                    valid = False
+                    all_exceptions.append(e)
+                    errors[sf].append(f"{e.__class__.__name__}: {str(e)}")
+                    results[sf] = "FAILED"
+
+                try:
+                    # Not running in debug, because these need to be loaded in order to run the next load
                     call_command(
                         "load_animals_and_samples",
-                        animal_and_sample_table_filename=animal_sample_dict[
-                            animal_sample_name
-                        ],
-                        skip_researcher_check=True,
+                        animal_and_sample_table_filename=sfp,
+                        defer_autoupdates=True,
+                        verbosity=3,
                         validate=True,
                     )
-                    can_proceed = True
+
+                except AggregatedErrors as aes:
+                    results[sf] = "WARNING"
+                    valid = False
+                    if aes.num_errors > 0:
+                        results[sf] = "FAILED"
+
+                    # Gather the errors/warnings to send to the template
+                    for exc in aes.exceptions:
+                        all_exceptions.append(exc)
+                        exc_str = f"{type(exc).__name__}: {str(exc)}"
+                        if exc.is_error:
+                            errors[sf].append(exc_str)
+                        else:
+                            warnings[sf].append(exc_str)
+
                 except Exception as e:
-                    estr = str(e)
-                    # We are using the presence of the string "Debugging..." to infer that it got to the end of the load
-                    # without an exception.  If there is no "Debugging" message, then an exception did not occur anyway
-                    if settings.DEBUG:
-                        traceback.print_exc()
-                        print(estr)
-                    if "Debugging" not in estr:
-                        valid = False
-                        errors[animal_sample_name].append(
-                            f"{animal_sample_name} {e.__class__.__name__}: {str(e)}"
-                        )
-                        results[animal_sample_name] = "FAILED"
-                        can_proceed = False
+                    valid = False
+                    all_exceptions.append(e)
+                    results[sf] = "FAILED"
+                    errors[sf].append(f"{type(e).__name__}: {str(e)}")
+
+                # Create a unique date that is unlikely to match any previously loaded MSRun
+                unique_date = datetime.datetime(1972, 11, 24, 15, 47, 0)
+
+                # Validate the accucor file using the loader in validate mode
+                for i, afp in enumerate(self.accucor_files):
+                    if len(self.accucor_files) == len(self.accucor_filenames):
+                        af = self.accucor_filenames[i]
                     else:
-                        results[animal_sample_name] = "PASSED"
-                        can_proceed = True
-
-            # Load the accucor file into a temporary test database in debug mode
-            for af, afp in accucor_dict.items():
-                errors[af] = []
-                if can_proceed is True:
+                        af = os.path.basename(afp)
                     try:
-                        self.validate_accucor(afp, [])
-                        results[af] = "PASSED"
-                    except MissingSamplesError as mse:
-                        blank_samples = []
-                        real_samples = []
+                        call_command(
+                            "load_accucor_msruns",
+                            protocol="Default",
+                            accucor_file=afp,
+                            date=str(unique_date.date()),
+                            researcher="anonymous",
+                            validate=True,
+                        )
+                    except AggregatedErrors as aes:
+                        results[af] = "WARNING"
+                        if aes.num_errors > 0:
+                            valid = False
+                            results[af] = "FAILED"
 
-                        # Determine whether all the missing samples are blank samples
-                        for sample in mse.sample_list:
-                            if "blank" in sample:
-                                blank_samples.append(sample)
+                        # Gather the errors/warnings to send to the template
+                        for exc in aes.exceptions:
+                            all_exceptions.append(exc)
+                            exc_str = f"{type(exc).__name__}: {str(exc)}"
+                            if exc.is_error:
+                                errors[af].append(exc_str)
                             else:
-                                real_samples.append(sample)
+                                warnings[af].append(exc_str)
+                    finally:
+                        unique_date += datetime.timedelta(days=1)
 
-                        # Rerun ignoring blanks if all were blank samples, so we can check everything else
-                        if len(blank_samples) > 0 and len(blank_samples) == len(
-                            mse.sample_list
-                        ):
-                            try:
-                                self.validate_accucor(afp, blank_samples)
-                                results[af] = "PASSED"
-                            except Exception as e:
-                                estr = str(e)
-                                # We are using the presence of the string "Debugging..." to infer that it got to the
-                                # end of the load without an exception.  If there is no "Debugging" message, then an
-                                # exception did not occur anyway
-                                if settings.DEBUG:
-                                    traceback.print_exc()
-                                    print(estr)
-                                if "Debugging" not in estr:
-                                    valid = False
-                                    results[af] = "FAILED"
-                                    errors[af].append(estr)
-                                else:
-                                    results[af] = "PASSED"
-                        else:
+                # Load the accucor file into a temporary test database in debug mode
+                for i, ifp in enumerate(self.isocorr_files):
+                    if len(self.isocorr_files) == len(self.isocorr_filenames):
+                        ifn = self.isocorr_filenames[i]
+                    else:
+                        ifn = os.path.basename(ifp)
+                    try:
+                        call_command(
+                            "load_accucor_msruns",
+                            protocol="Default",
+                            accucor_file=ifp,
+                            date=str(unique_date.date()),
+                            researcher="anonymous",
+                            validate=True,
+                            isocorr_format=True,
+                        )
+                    except AggregatedErrors as aes:
+                        results[ifn] = "WARNING"
+                        if aes.num_errors > 0:
                             valid = False
-                            results[af] = "FAILED"
-                            errors[af].append(
-                                "Samples in the accucor file are missing in the animal and sample table: "
-                                + f"[{', '.join(real_samples)}]"
-                            )
-                    except Exception as e:
-                        estr = str(e)
-                        # We are using the presence of the string "Debugging..." to infer that it got to the end of the
-                        # load without an exception.  If there is no "Debugging" message, then an exception did not
-                        # occur anyway
-                        if settings.DEBUG:
-                            traceback.print_exc()
-                            print(estr)
-                        if "Debugging" not in estr:
-                            valid = False
-                            results[af] = "FAILED"
-                            errors[af].append(estr)
-                        else:
-                            results[af] = "PASSED"
-                else:
-                    # Cannot check because the samples did not load
-                    results[af] = "UNCHECKED"
+                            results[ifn] = "FAILED"
+
+                        # Gather the errors/warnings to send to the template
+                        for exc in aes.exceptions:
+                            all_exceptions.append(exc)
+                            exc_str = f"{type(exc).__name__}: {str(exc)}"
+                            if exc.is_error:
+                                errors[ifn].append(exc_str)
+                            else:
+                                warnings[ifn].append(exc_str)
+                    finally:
+                        unique_date += datetime.timedelta(days=1)
+
+                raise DryRun
+        except DryRun:
+            if settings.DEBUG:
+                print("Successfuly completion of validation.")
         finally:
-            # Clear out the user's validated data so that they'll be able to try again
-            self.clear_validation_database()
+            # The database should roll back here, but we don't want to raise the exception for the user's view here.
+            print("Validation done.")
+            if settings.DEBUG:
+                for exc in all_exceptions:
+                    traceback.print_exception(type(exc), exc, exc.__traceback__)
+                    print(f"{type(exc).__name__}: {str(exc)}")
 
         return [
             results,
             valid,
             errors,
+            warnings,
         ]
-
-    def clear_validation_database(self):
-        """
-        Clear out every table aside from compounds and tissues, which are intended to persist in the validation
-        database, as they are needed to create related links for data inserted by the load animals/samples scripts
-        """
-        skips = [Compound, CompoundSynonym, Tissue, Protocol]
-
-        for mdl in get_all_models():
-            if mdl not in skips:
-                mdl.objects.using(settings.VALIDATION_DB).all().delete()
-
-    def validate_accucor(self, accucor_file, skip_samples):
-        if len(skip_samples) > 0:
-            call_command(
-                "load_accucor_msruns",
-                protocol="Default",
-                accucor_file=accucor_file,
-                date="2021-09-14",
-                researcher="anonymous",
-                debug=True,
-                skip_samples=skip_samples,
-                validate=True,
-            )
-        else:
-            call_command(
-                "load_accucor_msruns",
-                protocol="Default",
-                accucor_file=accucor_file,
-                date="2021-09-13",
-                researcher="anonymous",
-                debug=True,
-                validate=True,
-            )
 
 
 def validation_disabled(request):

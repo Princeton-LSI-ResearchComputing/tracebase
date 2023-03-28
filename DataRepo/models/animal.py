@@ -30,6 +30,7 @@ class Animal(MaintainedModel, HierCachedModel, ElementLabel):
     name = models.CharField(
         max_length=256,
         unique=True,
+        null=False,
         help_text="A unique name or lab identifier of the source animal for a series of studied samples.",
     )
     infusate = models.ForeignKey(
@@ -199,8 +200,8 @@ class Animal(MaintainedModel, HierCachedModel, ElementLabel):
     def __str__(self):
         return str(self.name)
 
-    def clean(self):
-        super().clean()
+    def clean(self, *args, **kwargs):
+        super().clean(*args, **kwargs)
 
         if self.treatment is not None:
             if self.treatment.category != Protocol.ANIMAL_TREATMENT:

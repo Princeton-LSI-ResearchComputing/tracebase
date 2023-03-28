@@ -23,6 +23,7 @@ class Sample(MaintainedModel, HierCachedModel):
     name = models.CharField(
         max_length=256,
         unique=True,
+        null=False,
         help_text="The unique name of the biological sample.",
     )
     date = models.DateField(

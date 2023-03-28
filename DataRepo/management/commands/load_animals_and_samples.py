@@ -65,7 +65,7 @@ class Command(BaseCommand):
         )
         # Used internally by the DataValidationView
         parser.add_argument(
-            "--validate",
+            "--validate",  # DO NOT USE MANUALLY - THIS WILL NOT ROLL BACK UPON ERROR (handle in outer atomic transact)
             required=False,
             action="store_true",
             default=False,
@@ -76,6 +76,13 @@ class Command(BaseCommand):
             "--database",
             required=False,
             type=str,
+            help=argparse.SUPPRESS,
+        )
+        # Intended for use by load_study to prevent individual loader autoupdates and buffer clearing, then perform all
+        # mass autoupdates/buffer-clearings after all load scripts are complete
+        parser.add_argument(
+            "--defer-autoupdates",
+            action="store_true",
             help=argparse.SUPPRESS,
         )
 
@@ -130,11 +137,13 @@ class Command(BaseCommand):
             sample_table_headers=headers,
             database=options["database"],
             validate=options["validate"],
+            skip_researcher_check=options["skip_researcher_check"],
+            verbosity=options["verbosity"],
+            defer_autoupdates=options["defer_autoupdates"],
+            dry_run=options["debug"],
         )
         loader.load_sample_table(
             merged.to_dict("records"),
-            options["skip_researcher_check"],
-            options["debug"],
         )
 
         self.stdout.write(self.style.SUCCESS("Done loading sample table"))

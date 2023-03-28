@@ -59,7 +59,7 @@
         data-show-export="false"
         data-pagination="{% if mode == 'view' %}true{% else %}false{% endif %}">
 
-        <colgroup span="8" class="identdata"></colgroup>
+        <colgroup span="9" class="identdata"></colgroup>
         <colgroup span="5" class="datadata"></colgroup>
         <colgroup span="15" class="metadata"></colgroup>
 
@@ -83,6 +83,13 @@
                     {% with "Tissue" as colhead %}
                         {% if mode == "view" %}{{ colhead }}{% else %}
                             <div onclick="sortColumn(this)" class="sortable" id="peak_group__msrun__sample__tissue__name">{{ colhead }}</div>
+                        {% endif %}
+                    {% endwith %}
+                </th>
+                <th data-valign="top" class="idgrp" data-visible="{% get_template_cookie selfmt 'Time_Collected-data-visible' 'false' %}" data-field="Time_Collected">
+                    {% with "Time<br>Collected<br>(m)" as colhead %}
+                        {% if mode == "view" %}{{ colhead }}{% else %}
+                            <div onclick="sortColumn(this)" class="sortable" id="peak_group__msrun__sample__time_collected">{{ colhead }}</div>
                         {% endif %}
                     {% endwith %}
                 </th>
@@ -110,7 +117,7 @@
                 <th data-valign="top" class="idgrp" data-visible="{% get_template_cookie selfmt 'Labeled_Element_Count-data-visible' 'true' %}" data-field="Labeled_Element_Count">
                     {% with colhead1="Labeled<br>Element:<br>" colhead2="Count" %}
                         {% if mode == "view" %}{{ colhead1 }}{{ colhead2 }}{% else %}
-                            <div onclick="sortColumn(this)" class="sortable" id="labeled_element">{{ colhead1 }}</div><div onclick="sortColumn(this)" class="sortable" id="labeled_count">{{ colhead2 }}</div>
+                            <div onclick="sortColumn(this)" class="sortable" id="labels__element">{{ colhead1 }}</div><div onclick="sortColumn(this)" class="sortable" id="labels__count">{{ colhead2 }}</div>
                         {% endif %}
                     {% endwith %}
                 </th>
@@ -185,7 +192,7 @@
                 <th data-valign="top" class="metagrp" data-visible="{% get_template_cookie selfmt 'Body_Weight-data-visible' 'false' %}" data-field="Body_Weight">
                     {% with "Body<br>Weight<br>(g)" as colhead %}
                         {% if mode == "view" %}{{ colhead }}{% else %}
-                            <div onclick="sortColumn(this)" class="sortable" id="peak_group__msrun__sample__animal__body_weight">{{ colhead }}<br>(g)</div>
+                            <div onclick="sortColumn(this)" class="sortable" id="peak_group__msrun__sample__animal__body_weight">{{ colhead }}</div>
                         {% endif %}
                     {% endwith %}
                 </th>
@@ -285,6 +292,11 @@
                         <a href="{% url 'tissue_detail' pd.peak_group.msrun.sample.tissue.id %}">
                             {{ pd.peak_group.msrun.sample.tissue.name }}
                         </a>
+                    </td>
+
+                    <!-- Time Collected (m) -->
+                    <td class="text-end">
+                        <p title="{{ pd.peak_group.msrun.sample.time_collected }} (h:m:s)">{{ pd.peak_group.msrun.sample.time_collected|durationToMins|decimalPlaces:2 }}</p>
                     </td>
 
                     <!-- Peak Group -->
@@ -412,7 +424,9 @@
                             <div style="display:none;">{{ pd.peak_group.msrun.sample.animal.infusate.pretty_short_name }}</div>
 
                             <a href="{% url 'infusate_detail' pd.peak_group.msrun.sample.animal.infusate.id %}">
-                                <div class="newlines">{{ pd.peak_group.msrun.sample.animal.infusate.pretty_name }}</div>
+                                <div class="nobr">
+                                    {{ pd.peak_group.msrun.sample.animal.infusate.pretty_short_name }}
+                                </div>
                             </a>
                         {% endif %}
                     </td>

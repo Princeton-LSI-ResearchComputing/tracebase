@@ -1,4 +1,5 @@
 import json
+import os.path
 
 from django.conf import settings
 from django.core.management import call_command
@@ -15,14 +16,16 @@ from DataRepo.models import (
     PeakData,
     PeakGroup,
     PeakGroupSet,
-    Protocol,
     Sample,
     Study,
     Tissue,
 )
 from DataRepo.models.maintained_model import (
+    UncleanBufferError,
+    buffer_size,
     disable_buffering,
     enable_buffering,
+    get_all_maintained_field_values,
 )
 from DataRepo.models.utilities import get_all_models
 from DataRepo.tests.tracebase_test_case import (
@@ -32,16 +35,9 @@ from DataRepo.tests.tracebase_test_case import (
 from DataRepo.views import DataValidationView
 
 
-@tag("multi_working")
 class ViewTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
-        call_command(
-            "load_protocols",
-            protocols="DataRepo/example_data/protocols/diet_protocols.tsv",
-        )
-        cls.ALL_PROTOCOLS_COUNT = 2
-
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
         cls.ALL_TISSUES_COUNT = 37
 
@@ -50,6 +46,10 @@ class ViewTests(TracebaseTestCase):
             compounds="DataRepo/example_data/small_dataset/small_obob_compounds.tsv",
         )
         cls.ALL_COMPOUNDS_COUNT = 3
+
+        # Ensure the auto-update buffer is empty.  If it's not, then a previously run test didn't clean up after itself
+        if buffer_size() > 0:
+            raise UncleanBufferError()
 
         call_command(
             "load_samples",
@@ -69,7 +69,6 @@ class ViewTests(TracebaseTestCase):
             researcher="Michael Neinast",
             new_researcher=True,
         )
-        cls.ALL_PROTOCOLS_COUNT += 1
         cls.INF_COMPOUNDS_COUNT = 2
         cls.INF_SAMPLES_COUNT = 14
         cls.INF_PEAKDATA_ROWS = 11
@@ -360,12 +359,15 @@ class ViewTests(TracebaseTestCase):
             "form-0-fld": "msrun__sample__tissue__name",
             "form-0-ncmp": "iexact",
             "form-0-val": "Brain",
+            "form-0-units": "identity",
             "form-1-pos": "pdtemplate-PeakData.0-all-False.0",
             "form-1-fld": "labels__element",
             "form-1-ncmp": "iexact",
+            "form-1-units": "identity",
             "form-2-pos": "fctemplate-FCirc.0-all-False.0",
             "form-2-fld": "msrun__sample__animal__name",
             "form-2-ncmp": "iexact",
+            "form-2-units": "identity",
         }
         qry = self.get_advanced_qry()
         dlform = {
@@ -396,6 +398,7 @@ class ViewTests(TracebaseTestCase):
                                 "ncmp": "iexact",
                                 "static": "",
                                 "val": "Brain",
+                                "units": "identity",
                             }
                         ],
                     },
@@ -415,6 +418,7 @@ class ViewTests(TracebaseTestCase):
                                 "static": "",
                                 "fld": "labels__element",
                                 "val": "",
+                                "units": "identity",
                             }
                         ],
                     },
@@ -434,6 +438,7 @@ class ViewTests(TracebaseTestCase):
                                 "ncmp": "iexact",
                                 "static": "",
                                 "val": "",
+                                "units": "identity",
                             }
                         ],
                     },
@@ -487,25 +492,7 @@ class ViewTests(TracebaseTestCase):
         self.assertTrue("PeakGroups" in contentdisp)
         self.assertTrue(".tsv" in contentdisp)
 
-    def test_validate_files(self):
-        """
-        Do a file validation test
-        """
-        # Load the necessary compounds for a successful test
-        call_command(
-            "load_compounds",
-            compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
-        )
 
-        results, errors = validate_some_files(self)
-
-        self.assertTrue(len(errors["data_submission_accucor1.xlsx"]) == 0)
-        self.assertTrue(len(errors["data_submission_accucor2.xlsx"]) == 0)
-        self.assertEqual(results["data_submission_accucor1.xlsx"], "PASSED")
-        self.assertEqual(results["data_submission_accucor2.xlsx"], "PASSED")
-
-
-@tag("multi_working")
 class ViewNullToleranceTests(ViewTests):
     """
     This class inherits from the ViewTests class above and overrides the setUpTestData method to load without auto-
@@ -531,8 +518,6 @@ class ViewNullToleranceTests(ViewTests):
         super().test_study_detail()
 
 
-@tag("multi_working")
-@tag("protocol_loading_broken")
 class ValidationViewTests(TracebaseTransactionTestCase):
     """
     Note, without the TransactionTestCase (derived) class (and the with transaction.atomic block below), the infusate-
@@ -545,16 +530,14 @@ class ValidationViewTests(TracebaseTransactionTestCase):
 
     @classmethod
     def initialize_databases(cls):
+        # Ensure the auto-update buffer is empty.  If it's not, then a previously run test didn't clean up after itself
+        if buffer_size() > 0:
+            raise UncleanBufferError()
+
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
         call_command(
             "load_compounds",
             compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
-        )
-        # protocols from data_submission_animal_sample_table.xlsx in both
-        # test_databases_unchanged and validate_some_files
-        call_command(
-            "load_protocols",
-            protocols="DataRepo/example_data/protocols/diet_protocols.tsv",
         )
 
     @classmethod
@@ -592,14 +575,52 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "DataRepo/validate_submission.html")
 
+    def test_validate_files_good(self):
+        """
+        Do a file validation test
+        """
+        # Load the necessary tissues & compounds for a successful test
+        call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
+        call_command(
+            "load_compounds",
+            compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
+        )
+
+        # Files/inputs we will test
+        sf = "DataRepo/example_data/data_submission_good/animal_sample_table.xlsx"
+        afs = [
+            "DataRepo/example_data/data_submission_good/accucor1.xlsx",
+            "DataRepo/example_data/data_submission_good/accucor2.xlsx",
+        ]
+
+        sfkey = "animal_sample_table.xlsx"
+        af1key = "accucor1.xlsx"
+        af2key = "accucor2.xlsx"
+
+        # Test the validate_load_files function
+        [results, valid, errors, warnings] = self.validate_some_files(sf, afs)
+
+        # There is a researcher named "anonymous", but that name is ignored
+        self.assertTrue(valid)
+
+        # The sample file's researcher is "Anonymous" and it's not in the database, but the researcher check ignores
+        # researchers named "anonymous" (case-insensitive)
+        self.assertEqual("PASSED", results[sfkey])
+        self.assertEqual(0, len(warnings[sfkey]))
+        self.assertEqual(0, len(errors[sfkey]))
+
+        # Check the accucor file details
+        self.assert_accucor_files_pass([af1key, af2key], results, errors, warnings)
+
     @override_settings(DEBUG=True)
-    def test_validate_files(self):
+    def test_validate_files_with_sample_warning(self):
         """
         Do a file validation test
         """
         self.initialize_databases()
 
-        # Load some data that should cause a researcher warning during validation
+        # Load some data that should cause a researcher warning during validation (an unknown researcher error will not
+        # be raised if there are no researchers loaded in the database)
         call_command(
             "load_samples",
             "DataRepo/example_data/small_dataset/small_obob_sample_table.tsv",
@@ -614,17 +635,54 @@ class ValidationViewTests(TracebaseTransactionTestCase):
             new_researcher=True,
         )
 
-        results, errors = validate_some_files(self)
-        self.assertTrue(
-            len(errors["data_submission_accucor1.xlsx"]) == 0,
-            msg=f"Should be no errors, but got [{', '.join(errors['data_submission_accucor1.xlsx'])}]",
+        # Ensure the auto-update buffer is empty.  If it's not, then a previously run test didn't clean up after itself
+        if buffer_size() > 0:
+            raise UncleanBufferError()
+
+        # Files/inputs we will test
+        sf = "DataRepo/example_data/data_submission_sample_unkres_acc_good/animal_sample_table.xlsx"
+        afs = [
+            "DataRepo/example_data/data_submission_sample_unkres_acc_good/accucor1.xlsx",
+            "DataRepo/example_data/data_submission_sample_unkres_acc_good/accucor2.xlsx",
+        ]
+
+        sfkey = "animal_sample_table.xlsx"
+        af1key = "accucor1.xlsx"
+        af2key = "accucor2.xlsx"
+
+        # Test the validate_load_files function
+        [results, valid, errors, warnings] = self.validate_some_files(sf, afs)
+
+        if settings.DEBUG:
+            print(
+                f"VALID: {valid}\nALL RESULTS: {results}\nALL WARNINGS: {warnings}\nALL ERRORS: {errors}"
+            )
+
+        # NOTE: When the unknown researcher error is raised, the sample table load would normally be rolled back.  The
+        # subsequent accucor load would then fail (to find any more errors), because it can't find the same names in
+        # the database.  Sample table loader needs to raise the exception to communicate the issues to the validate
+        # interface, so in validation mode, it raises the exception outside of the atomic transaction block, which
+        # won't rollback the erroneous load, so the validation code wraps everything in an outer atomic transaction and
+        # rolls back everything at the end.
+
+        # There is a researcher named "George Costanza" that should ne unknown
+        self.assertFalse(
+            valid,
+            msg=(
+                "Should be valid. The 'George Costanza' researcher should cause a warning, so there should be 1 "
+                f"warning: [{warnings}] for the sample file."
+            ),
         )
-        self.assertTrue(
-            len(errors["data_submission_accucor2.xlsx"]) == 0,
-            msg=f"Should be no errors, but got [{', '.join(errors['data_submission_accucor2.xlsx'])}]",
-        )
-        self.assertEqual(results["data_submission_accucor1.xlsx"], "PASSED")
-        self.assertEqual(results["data_submission_accucor2.xlsx"], "PASSED")
+
+        # The sample file's researcher is "Anonymous" and it's not in the database, but the researcher check ignores
+        # researchers named "anonymous" (case-insensitive)
+        self.assertEqual("WARNING", results[sfkey])
+        self.assertEqual(0, len(errors[sfkey]))
+        self.assertEqual(1, len(warnings[sfkey]))
+        self.assertTrue("UnknownResearcherError" in warnings[sfkey][0])
+
+        # Check the accucor file details
+        self.assert_accucor_files_pass([af1key, af2key], results, errors, warnings)
 
     def test_databases_unchanged(self):
         """
@@ -637,27 +695,26 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         # Get initial record counts for all models
         tb_init_counts = self.get_record_counts(settings.TRACEBASE_DB)
         vd_init_counts = self.get_record_counts(settings.VALIDATION_DB)
+        pre_load_maintained_values = get_all_maintained_field_values("DataRepo.models")
 
-        # Files/inputs we will test
-        animal_sample_dict = {}
-        animal_sample_dict[
-            "data_submission_animal_sample_table.xlsx"
-        ] = "DataRepo/example_data/data_submission_animal_sample_table.xlsx"
-        accucor_dict = {
-            "data_submission_accucor1.xlsx": "DataRepo/example_data/data_submission_accucor1.xlsx",
-            "data_submission_accucor2.xlsx": "DataRepo/example_data/data_submission_accucor2.xlsx",
-        }
+        sample_file = (
+            "DataRepo/example_data/data_submission_good/animal_sample_table.xlsx"
+        )
+        accucor_files = [
+            "DataRepo/example_data/data_submission_good/accucor1.xlsx",
+            "DataRepo/example_data/data_submission_good/accucor2.xlsx",
+        ]
 
-        # Test the validate_load_files function
-        vo = DataValidationView()
-        vo.validate_load_files(animal_sample_dict, accucor_dict)
+        self.validate_some_files(sample_file, accucor_files)
 
         # Get record counts for all models
         tb_post_counts = self.get_record_counts(settings.TRACEBASE_DB)
         vd_post_counts = self.get_record_counts(settings.VALIDATION_DB)
+        post_load_maintained_values = get_all_maintained_field_values("DataRepo.models")
 
         self.assertListEqual(tb_init_counts, tb_post_counts)
         self.assertListEqual(vd_init_counts, vd_post_counts)
+        self.assertEqual(pre_load_maintained_values, post_load_maintained_values)
 
     def test_compounds_load_in_both_dbs(self):
         """
@@ -684,21 +741,6 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         self.clear_database(settings.VALIDATION_DB)
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
         self.assertGreater(Tissue.objects.using(settings.TRACEBASE_DB).all().count(), 0)
-
-    def test_protocols_load_in_both_dbs(self):
-        """
-        Test to ensure that protocols load in both databases by default
-        """
-        self.clear_database(settings.TRACEBASE_DB)
-        self.clear_database(settings.VALIDATION_DB)
-        call_command(
-            "load_protocols",
-            protocols="DataRepo/example_data/protocols/diet_protocols.tsv",
-        )
-        tbdb_count = Protocol.objects.using(settings.TRACEBASE_DB).all().count()
-        vddb_count = Protocol.objects.using(settings.VALIDATION_DB).all().count()
-        self.assertGreater(tbdb_count, 0)
-        self.assertEqual(tbdb_count, vddb_count)
 
     def test_only_tracebase_loaded(self):
         """
@@ -748,50 +790,77 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         response = self.client.get(reverse("validate"), follow=True)
         self.assertTemplateUsed(response, "validation_disabled.html")
 
+    def test_accucor_validation_error(self):
+        self.clear_database("default")
+        self.initialize_databases()
 
-def validate_some_files(testobj):
-    # Files/inputs we will test
-    animal_sample_dict = {}
-    animal_sample_dict[
-        "data_submission_animal_sample_table.xlsx"
-    ] = "DataRepo/example_data/data_submission_animal_sample_table.xlsx"
-    accucor_dict = {
-        "data_submission_accucor1.xlsx": "DataRepo/example_data/data_submission_accucor1.xlsx",
-        "data_submission_accucor2.xlsx": "DataRepo/example_data/data_submission_accucor2.xlsx",
-    }
+        sample_file = "DataRepo/example_data/small_dataset/small_obob_animal_and_sample_table.xlsx"
+        accucor_files = [
+            "DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_req_prefix.xlsx",
+        ]
+        sfkey = "small_obob_animal_and_sample_table.xlsx"
+        afkey = "small_obob_maven_6eaas_inf_req_prefix.xlsx"
+        [results, valid, errors, warnings] = self.validate_some_files(
+            sample_file, accucor_files
+        )
 
-    # Test the validate_load_files function
-    vo = DataValidationView()
-    [results, valid, errors] = vo.validate_load_files(animal_sample_dict, accucor_dict)
+        self.assertFalse(valid)
 
-    # Note that even though the Study "Notes" header is missing from the input file, we don't expect to encounter
-    # that error before the researcher warning because that column value is optional
+        # Sample file
+        self.assertTrue(sfkey in results)
+        self.assertEqual("PASSED", results[sfkey])
 
-    # Check the sample file details
-    testobj.assertTrue("data_submission_animal_sample_table.xlsx" in results)
-    testobj.assertTrue("data_submission_animal_sample_table.xlsx" in errors)
+        self.assertTrue(sfkey in errors)
+        self.assertEqual(0, len(errors[sfkey]))
 
-    # The researcher warning technically results in a validation failure (because it's an exception), but it's the
-    # last possible check on the file on purpose so that everything else is guaranteed to be OK
-    testobj.assertTrue(not valid)
+        self.assertTrue(sfkey in warnings)
+        self.assertEqual(0, len(warnings[sfkey]))
 
-    # There should only be a warning about the researcher in the sample file not existing - no other errors
-    testobj.assertEqual(
-        results["data_submission_animal_sample_table.xlsx"],
-        "WARNING",
-        msg="There sould only be a researcher warning among the following errors:\n"
-        + "\n".join(errors["data_submission_animal_sample_table.xlsx"]),
-    )
-    testobj.assertTrue(len(errors["data_submission_animal_sample_table.xlsx"]) == 1)
-    testobj.assertTrue(
-        "1 researchers from the sample file: [Anonymous]"
-        in errors["data_submission_animal_sample_table.xlsx"][0]
-    )
+        # Accucor file
+        self.assertTrue(afkey in results)
+        self.assertEqual("FAILED", results[afkey])
 
-    # Check the accucor file details
-    testobj.assertTrue("data_submission_accucor1.xlsx" in results)
-    testobj.assertTrue("data_submission_accucor1.xlsx" in errors)
-    testobj.assertTrue("data_submission_accucor2.xlsx" in results)
-    testobj.assertTrue("data_submission_accucor2.xlsx" in errors)
+        self.assertTrue(afkey in errors)
+        self.assertEqual(1, len(errors[afkey]))
+        self.assertTrue("NoSamplesError" in errors[afkey][0])
 
-    return results, errors
+        self.assertTrue(afkey in warnings)
+        self.assertEqual(0, len(warnings[afkey]))
+
+    def validate_some_files(self, sample_file, accucor_files):
+        # Test the validate_load_files function
+        vo = DataValidationView()
+        vo.set_files(sample_file, accucor_files)
+        # Now try validating the load files
+        [results, valid, errors, warnings] = vo.validate_load_files()
+
+        file_keys = []
+        file_keys.append(os.path.basename(sample_file))
+        for afile in accucor_files:
+            file_keys.append(os.path.basename(afile))
+
+        for file_key in file_keys:
+            self.assertTrue(file_key in results)
+            self.assertTrue(file_key in errors)
+            self.assertTrue(file_key in warnings)
+
+        if settings.DEBUG:
+            print(
+                f"VALID: {valid}\nALL RESULTS: {results}\nALL WARNINGS: {warnings}\nALL ERRORS: {errors}"
+            )
+
+        return results, valid, errors, warnings
+
+    def assert_accucor_files_pass(self, accucor_file_keys, results, errors, warnings):
+        for afkey in accucor_file_keys:
+            # There may be missing samples, but they should be ignored if they contain the substring "blank".  (The
+            # user should not be bothered with a warning they cannot do anything about.)  We are checking in validate
+            # mode, but if we weren't, an exception would have been raised.
+            self.assertTrue(afkey in results)
+            self.assertEqual("PASSED", results[afkey])
+
+            self.assertTrue(afkey in errors)
+            self.assertEqual(0, len(errors[afkey]))
+
+            self.assertTrue(afkey in warnings)
+            self.assertEqual(0, len(warnings[afkey]))

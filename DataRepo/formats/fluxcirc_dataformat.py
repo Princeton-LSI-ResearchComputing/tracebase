@@ -156,10 +156,20 @@ class FluxCircFormat(Format):
                     "type": "number",
                 },
                 "age": {
-                    "displayname": "Animal Age (d-hh:mm:ss)",
-                    "searchable": False,  # currently no data available for testing and a bug: issue #180
+                    "displayname": "Animal Age",
+                    "searchable": True,
                     "displayed": True,
                     "type": "number",
+                    "units": {  # See dataformat.py: Format.unit_options
+                        "key": "postgres_interval",
+                        "default": "weeks",
+                        "subset": [
+                            "months",
+                            "weeks",
+                            "days",
+                            "hours",
+                        ],
+                    },
                 },
                 "sex": {
                     "displayname": "Sex",
@@ -262,10 +272,19 @@ class FluxCircFormat(Format):
                     "type": "number",
                 },
                 "time_collected": {
-                    "displayname": "Time Collected (hh:mm:ss since infusion)",
+                    "displayname": "Time Collected (since infusion)",
                     "searchable": True,
                     "displayed": True,
                     "type": "number",
+                    "units": {  # See dataformat.py: Format.unit_options
+                        "key": "postgres_interval",
+                        "default": "minutes",
+                        "subset": [
+                            "hours",
+                            "minutes",
+                            "seconds",
+                        ],
+                    },
                 },
             },
         },

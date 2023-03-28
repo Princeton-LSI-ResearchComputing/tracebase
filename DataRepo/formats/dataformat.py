@@ -1,7 +1,10 @@
+import warnings
 from copy import deepcopy
+from datetime import timedelta
 from typing import Dict, List, Optional
 
 from django.db.models import CharField, F, Model, Value
+from pytimeparse.timeparse import timeparse
 
 from DataRepo.formats.dataformat_group_query import (
     appendFilterToGroup,
@@ -13,6 +16,7 @@ from DataRepo.formats.dataformat_group_query import (
     getField,
     getFilterType,
     getSearchTree,
+    getUnits,
     getValue,
     isAllGroup,
     isQuery,
@@ -38,8 +42,8 @@ class Format:
     stats: Optional[List[Dict]] = None
     ncmp_choices = {
         "number": [
-            ("iexact", "is"),
-            ("not_iexact", "is not"),
+            ("exact", "is"),
+            ("not_exact", "is not"),
             ("lt", "<"),
             ("lte", "<="),
             ("gt", ">"),
@@ -70,9 +74,148 @@ class Format:
             ("isnull", "does not have a value (ie. is None)"),
         ],
     }
+    unit_options = {
+        # The following dicts are used to populate a units select list (for fields of type "number" only).
+        # To use, set the field units in the model_instances attribute of derived class like this:
+        #
+        #     self.model_instances[instance_name]["fields"][field_name]["units"] = {
+        #         "type": "postgres_interval",  # This is the key below
+        #         "default": "weeks",  # This is the next key 1 level deeper that is to be the default units
+        #         "subset": ["months", "weeks", "days", "hours"],  # A subset of keys to include in the select list
+        #     }
+        #
+        # The values above are selected from what's below.  Note, the order of the subset is how the select list will
+        # be populated.
+        "identity": {
+            "default": "identity",
+            "entry_options": {
+                "identity": {
+                    "name": "identity",
+                    "example": None,
+                    "convert": lambda v: v,
+                    "pyconvert": lambda v: v,
+                },
+            },
+        },
+        # TODO: Enforce that "identity" always exists as a key in entry_options, because it's hard-coded in places
+        "postgres_interval": {
+            "default": "identity",  # Override:model_instances[instance_name]["fields"][field_name]["units"]["default"]
+            # The following has only been tested to work with DurationField lookups and a postgres database
+            # (e.g. Animal.objects.filter(age__gt=converted_value) where converted_value is the user's entry in val
+            # with the convert method below has been applied to it)
+            # Documentation: https://www.postgresql.org/docs/current/datatype-datetime.html
+            "entry_options": {
+                "identity": {
+                    # format: [nn.nn{units}{:|,}[ ]]+
+                    "name": "n.n{units},...",
+                    "example": "1w,1d,1:01:01.1",
+                    "convert": lambda v: v,
+                    "pyconvert": lambda v: timedelta(seconds=timeparse(v)),
+                    "about": (
+                        "Values can be entered using the following format pattern: `[n{units}{:|,}]*hh:mm:ss[.f]`, "
+                        "where units can be:\n\n- c[enturies]\n- decades\n- y[ears]\n- months\n- w[eeks]\n- d[ays]\n- "
+                        "h[ours]\n- m[inutes]\n- s[econds]\n- milliseconds\n- microseconds\n\nIf milli/micro-seconds "
+                        "are not included, the last 3 units (hours, minutes, and seconds) do not need to be specified."
+                        "\n\nExamples:\n\n- 1w,1d,1:01:01.1\n- 1 year, 3 months\n- 2:30\n- 2 days, 11:29:59.999"
+                    ),
+                },
+                "calendartime": {
+                    # format: [nn.nn{units},]+
+                    "name": "ny,nm,nw,nd",
+                    "example": "0y,1m,2w,3d",
+                    "convert": lambda v: v,
+                    # NOTE: this pyconvert will raise an exception on any unit greater than weeks, but it's currently
+                    # only used for results stats, and we control that - not the user
+                    "pyconvert": lambda v: timedelta(seconds=timeparse(v)),
+                },
+                "clocktime": {
+                    # format: [hh:mm[:ss]]
+                    "name": "clocktime (hh:mm[:ss])",
+                    "example": "2:30:10.1",
+                    "convert": lambda v: v,
+                    # NOTE: this pyconvert will raise an exception on any unit greater than weeks, but it's currently
+                    # only used for results stats, and we control that - not the user
+                    "pyconvert": lambda v: timedelta(seconds=timeparse(v)),
+                },
+                "millennia": {
+                    "name": "millennia",
+                    "example": "1.0",
+                    "convert": lambda v: f"{v}millenniums",
+                    "pyconvert": lambda v: timedelta(days=float(v) * 1000 * 365.25),
+                },
+                "centuries": {
+                    "name": "centuries",
+                    "example": "1.0",
+                    "convert": lambda v: f"{v}c",
+                    "pyconvert": lambda v: timedelta(days=float(v) * 100 * 365.25),
+                },
+                "decades": {
+                    "name": "decades",
+                    "example": "1.0",
+                    "convert": lambda v: f"{v}decades",
+                    "pyconvert": lambda v: timedelta(days=float(v) * 10 * 365.25),
+                },
+                "years": {
+                    "name": "years",
+                    "example": "1.0",
+                    "convert": lambda v: f"{v}y",
+                    "pyconvert": lambda v: timedelta(days=float(v) * 365.25),
+                },
+                "months": {
+                    "name": "months",
+                    "example": "1.0",
+                    "convert": lambda v: f"{v}months",
+                    "pyconvert": lambda v: timedelta(days=float(v) * 30.437),
+                },
+                "weeks": {
+                    "name": "weeks",
+                    "example": "1.0",
+                    "convert": lambda v: f"{v}w",
+                    "pyconvert": lambda v: timedelta(weeks=float(v)),
+                },
+                "days": {
+                    "name": "days",
+                    "example": "1.0",
+                    "convert": lambda v: f"{v}d",
+                    "pyconvert": lambda v: timedelta(days=float(v)),
+                },
+                "hours": {
+                    "name": "hours",
+                    "example": "1.0",
+                    "convert": lambda v: f"{v}h",
+                    "pyconvert": lambda v: timedelta(hours=float(v)),
+                },
+                "minutes": {
+                    "name": "minutes",
+                    "example": "1.0",
+                    "convert": lambda v: f"{v}m",
+                    "pyconvert": lambda v: timedelta(minutes=float(v)),
+                },
+                "seconds": {
+                    "name": "seconds",
+                    "example": "1.0",
+                    "convert": lambda v: f"{v}s",
+                    "pyconvert": lambda v: timedelta(seconds=float(v)),
+                },
+                "milliseconds": {
+                    "name": "milliseconds",
+                    "example": "1.0",
+                    "convert": lambda v: f"{v}milliseconds",
+                    "pyconvert": lambda v: timedelta(milliseconds=float(v)),
+                },
+                "microseconds": {
+                    "name": "microseconds",
+                    "example": "1.0",
+                    "convert": lambda v: f"{v}microseconds",
+                    "pyconvert": lambda v: timedelta(microseconds=float(v)),
+                },
+            },
+        },
+    }
+
     static_filter = appendFilterToGroup(
         createFilterGroup(),
-        createFilterCondition("", "", ""),
+        createFilterCondition("", "", "", ""),
     )  # Same as qry['tree']
 
     # static_filter example WITH static=True (below).  Note that a non-static empty query must be present in a non-
@@ -131,6 +274,210 @@ class Format:
                     fname = self.model_instances[mkey]["fields"][fkey]["displayname"]
                     choices = choices + ((fpath, fname),)
         return tuple(sorted(choices, key=lambda x: x[1]))
+
+    def getFieldUnitsLookup(self):
+        """
+        This method is used in the backend to handle a user's search selections (i.e. it's main utility is to be used
+        to call the correct convert function on the value the user entered in the val field to convert what they
+        entered into the units/format that is recorded in the database, e.g. change "2" to "2 weeks").  This is
+        separate from the getFieldUnitsDict method because that method's return is sent to the view/template in json
+        format, and the convert function cannot be transmitted in that context.
+
+        This creates a dict keyed on fld values (i.e. the path of each field included in a format, as indicated by the
+        fld selected by the user in the qry object) mapped to that field's defined list of units options as recorded in
+        self.unit_options, e.g.:
+
+        - self.unit_options[units_key]["entry_options"]
+
+        The value is a dict keyed on the values of the units select list and contains the selected units' name, example
+        string, and convert function.  For example, for a key of `msrun__sample__animal__age`, a lookup of that key
+        would look like:
+
+        returned_dict["msrun__sample__animal__age"] -> {
+            ...
+            "months": {
+                "name": "months",
+                "example": "1.0",
+                "convert": lambda v: f"{v}months",
+                "pyconvert": lambda v: timedelta(days=float(v) * 30.437),
+            },
+            "weeks": {
+                "name": "weeks",
+                "example": "1.0",
+                "convert": lambda v: f"{v}w",
+                "pyconvert": lambda v: timedelta(weeks=float(v)),
+            },
+            ...
+        }
+
+        And the units value the user selected in the search form, corresponds to the keys in that dict (e.g. "months"
+        or "weeks").
+        """
+        units_lookup = {}
+        for mdl in self.model_instances.keys():
+            for fld in self.model_instances[mdl]["fields"].keys():
+                if (
+                    self.model_instances[mdl]["path"]
+                    and self.model_instances[mdl]["path"] != ""
+                ):
+                    path_fld = f"{self.model_instances[mdl]['path']}__{fld}"
+                else:
+                    path_fld = fld
+                if "units" in self.model_instances[mdl]["fields"][fld].keys():
+                    if (
+                        "key"
+                        not in self.model_instances[mdl]["fields"][fld]["units"].keys()
+                    ):
+                        raise KeyError(
+                            f"Field 'key' is required in field {mdl}.{fld}'s units dict"
+                        )
+                    units_key = self.model_instances[mdl]["fields"][fld]["units"]["key"]
+                    units_lookup[path_fld] = self.unit_options[units_key][
+                        "entry_options"
+                    ]
+                else:
+                    units_lookup[path_fld] = None
+        return units_lookup
+
+    def getFieldUnitsDict(self):
+        """
+        This method is used in the frontend to populate the search interface (i.e. it's main utility is to be used to
+        create the units select list, update the val field's placeholder with a units example, and optionally provide
+        an explanation of the units format in the form of a tooltip-linked info icon.  This is separate from the
+        getFieldUnitsLookup method because this method's return is sent to the view/template in json format, and the
+        convert function that is included in the getFieldUnitsLookup method's output cannot be transmitted in that
+        context.
+
+        Returns a dict of
+
+        path__field: {
+            "units": unit_options_key,  # (identity, postgres_interval)
+            "default": field_default,
+            "choices": list of tuples,  # to be used in populating a select list
+            "metadata": {
+                units_sel_list_value: {
+                    "example": example,
+                    "about": about,
+                },
+            },
+        }
+
+        path__field is used as the key so that the value of the selections in the fld select list can be directly used
+        to update the units select list.
+        """
+
+        unitsdict = {}
+        # For each model
+        for mdl in self.model_instances.keys():
+            # Grab the path
+            path = self.model_instances[mdl]["path"]
+            # If the path has a value (i.e. it's not the root table), append the Q object separator
+            if path != "":
+                path += "__"
+            # For each field
+            for fld in self.model_instances[mdl]["fields"].keys():
+                # Create the field key (mimmicking the keys in the fld select list - but containing ALL fields)
+                fldkey = path + fld
+                unitsdict[fldkey] = {}
+
+                if "units" in self.model_instances[mdl]["fields"][fld].keys():
+                    if self.model_instances[mdl]["fields"][fld]["type"] != "number":
+                        raise TypeUnitsMismatch(
+                            self.model_instances[mdl]["fields"][fld]["type"]
+                        )
+                    key = self.model_instances[mdl]["fields"][fld]["units"]["key"]
+                    if (
+                        "default"
+                        in self.model_instances[mdl]["fields"][fld]["units"].keys()
+                    ):
+                        default = self.model_instances[mdl]["fields"][fld]["units"][
+                            "default"
+                        ]
+                        if (
+                            default
+                            not in self.unit_options[key]["entry_options"].keys()
+                        ):
+                            raise KeyError(
+                                f"Invalid default value: [{default}] for field {fld} in model instance {mdl}.  Must "
+                                f"be one of: [{', '.join(self.unit_options[key]['entry_options'].keys())}]"
+                            )
+                    if "subset" in self.model_instances[mdl]["fields"][fld]["units"]:
+                        opt_keys = self.model_instances[mdl]["fields"][fld]["units"][
+                            "subset"
+                        ]
+                        bad_keys = []
+                        for opt_key in opt_keys:
+                            if (
+                                opt_key
+                                not in self.unit_options[key]["entry_options"].keys()
+                            ):
+                                bad_keys.append(opt_key)
+                        if len(bad_keys) > 0:
+                            raise ValueError(
+                                f"Bad units subset key(s): [{', '.join(bad_keys)}]"
+                            )
+                    else:
+                        opt_keys = self.unit_options[key]["entry_options"].keys()
+                    print(
+                        f"Setting default of {key} units to '{default}' for field {self.id}.{mdl}.{fld}"
+                    )
+                else:
+                    print(
+                        f"Setting default of 'identity' units to 'identity' for field {self.id}.{mdl}.{fld}"
+                    )
+                    key = "identity"
+                    default = "identity"
+                    opt_keys = ["identity"]
+
+                unitsdict[fldkey]["units"] = key
+                unitsdict[fldkey]["default"] = default
+                unitsdict[fldkey]["choices"] = ()
+                unitsdict[fldkey]["metadata"] = {}
+                for unit_key in opt_keys:
+                    # Populate the choices for dynamically changing the units select list
+                    unitsdict[fldkey]["choices"] = unitsdict[fldkey]["choices"] + (
+                        (
+                            unit_key,
+                            self.unit_options[key]["entry_options"][unit_key]["name"],
+                        ),
+                    )
+
+                    # Record examples and "about" info.  Example strings will be included in the field placeholder
+                    # Have to use the value as the metadatakey, because retrieval of the example/about strings will be
+                    # based on the units select list's selected value
+                    unitsdict[fldkey]["metadata"][unit_key] = {}
+                    unitsdict[fldkey]["metadata"][unit_key][
+                        "example"
+                    ] = self.unit_options[key]["entry_options"][unit_key]["example"]
+                    if (
+                        "about"
+                        in self.unit_options[key]["entry_options"][unit_key].keys()
+                    ):
+                        unitsdict[fldkey]["metadata"][unit_key][
+                            "about"
+                        ] = self.unit_options[key]["entry_options"][unit_key]["about"]
+                    else:
+                        unitsdict[fldkey]["metadata"][unit_key]["about"] = None
+
+        return unitsdict
+
+    def getAllFieldUnitsChoices(self):
+        """
+        Returns the union of all unit_options, ignoring differences in the second value. This is mainly only for form
+        validation because it only validates known values (the first value in each tuple) regardless of the particular
+        sub-population controlled by javascript in the advanced search form.
+        """
+        all_unit_choices = ()
+        seen = []
+        for fldtype in self.unit_options.keys():
+            for opt_key in self.unit_options[fldtype]["entry_options"].keys():
+                if opt_key not in seen:
+                    seen.append(opt_key)
+                    opt_name = self.unit_options[fldtype]["entry_options"][opt_key][
+                        "name"
+                    ]
+                    all_unit_choices = all_unit_choices + ((opt_key, opt_name),)
+        return all_unit_choices
 
     def getComparisonChoices(self):
         """
@@ -194,10 +541,20 @@ class Format:
 
     def getTrueJoinPrefetchPathsAndQrys(self, qry):
         """
-        Takes a qry object and returns a list of prefetch paths.  If a prefetch path contains models that are related
-        M:M with the root model, that prefetch path will be split into multiple paths (all that end in a M:M model, and
-        the remainder (if any of the path is left)).  Any path ending in a M:M model will be represented as a 3-member
-        list containing the path, a re-rooted qry object, and the name of the new root model.
+        Takes a qry object and a units lookup dict (that maps the path version of fld [e.g. msrun__sample__animal__age]
+        to a dict that contains the units options, including most importantly, a convert function that is found via the
+        selected units key recorded in the qry) and returns a list of prefetch paths.  If a prefetch path contains
+        models that are related M:M with the root model, that prefetch path will be split into multiple paths (all that
+        end in a M:M model, and the remainder (if any of the path is left)).  Any path ending in a M:M model will be
+        represented as a 3-member list containing the path, a re-rooted qry object, and the name of the new root model.
+        The returned prefetches will be a mixed list of strings (containing simple prefetch paths for 1:1 relations)
+        and sublists containing:
+
+        - The simple prefetch path of a rerooted M:M related model
+        - A rerooted qry object in order to perform the same query using the M:M related model as the root table for an
+          independent query using `Prefetch()`
+        - The name of the new root model
+        - A new units lookup where the path keys are rerooted
         """
 
         # Sort the paths so that multiple subquery prefetches on the same path are encountered hierarchically.
@@ -205,6 +562,8 @@ class Format:
         # compound is filtered and then compound synonyms are filtered, the synonyms operate on the already filtered
         # compounds.  This migth be a false assumption.
         fld_paths = sorted(extractFldPaths(qry), key=len)
+
+        new_units_lookup = deepcopy(self.getFieldUnitsLookup())
 
         # Identify the fld paths that need a subquery in its prefetch and collect those paths associated with their
         # rerooted qry objects
@@ -217,12 +576,13 @@ class Format:
                     "split_rows"
                 ]
             ):
-                new_qry = self.reRootQry(qry, srch_model_inst_name)
+                new_qry = self.reRootQry(qry, srch_model_inst_name, new_units_lookup)
                 subquery_paths.append(
                     [
                         srch_path_str,
                         new_qry,
                         self.model_instances[srch_model_inst_name]["model"],
+                        new_units_lookup,
                     ]
                 )
 
@@ -240,6 +600,7 @@ class Format:
             sq_path = subquery_path[0]
             sq_qry = subquery_path[1]
             sq_mdl = subquery_path[2]
+            sq_units_lkup = subquery_path[3]
             matched = False
             for pf_str in prefetches:
                 if sq_path in pf_str:
@@ -247,7 +608,12 @@ class Format:
                         continue
                     if pf_str not in prefetch_dict.keys():
                         prefetch_dict[pf_str] = {}
-                    prefetch_dict[pf_str][sq_path] = [sq_path, sq_qry, sq_mdl]
+                    prefetch_dict[pf_str][sq_path] = [
+                        sq_path,
+                        sq_qry,
+                        sq_mdl,
+                        sq_units_lkup,
+                    ]
                     matched = True
 
         # Build the final prefetches, which is a list of items that can be either normal prefetch paths, or (possibly
@@ -411,6 +777,9 @@ class Format:
     def getFieldTypes(self):
         """
         Returns a dict of path__field -> {type -> field_type (number, string, enumeration), choices -> list of tuples}.
+
+        path__field is used as the key so that the value of the selections in the fld select list can be directly used
+        to update the ncmp select list
         """
 
         typedict = {}
@@ -436,6 +805,7 @@ class Format:
                     ]["choices"]
                 else:
                     typedict[fldkey]["choices"] = []
+
         return typedict
 
     def getSearchFields(self, mdl):
@@ -490,7 +860,7 @@ class Format:
         # This should raise an exception if we got here
         self.checkPath(fld_path)
 
-    def reRootQry(self, qry, new_root_model_instance_name):
+    def reRootQry(self, qry, new_root_model_instance_name, units_lookup=None):
         """
         This takes a qry object and the name of a model instance in the composite view and re-roots the fld values,
         making all the field paths come from a different model root.  It is intended to be used for prefetch
@@ -498,22 +868,27 @@ class Format:
         """
         ret_qry = deepcopy(qry)
         self.reRootQryHelper(
-            getSearchTree(ret_qry, self.id), new_root_model_instance_name
+            getSearchTree(ret_qry, self.id), new_root_model_instance_name, units_lookup
         )
         return ret_qry
 
-    def reRootQryHelper(self, subtree, new_root_model_instance_name):
+    def reRootQryHelper(self, subtree, new_root_model_instance_name, units_lookup=None):
         """
         Recursive helper to reRootQry
         """
         if isQueryGroup(subtree):
             for child in getChildren(subtree):
-                self.reRootQryHelper(child, new_root_model_instance_name)
+                self.reRootQryHelper(child, new_root_model_instance_name, units_lookup)
         elif isQuery(subtree):
+            old_fld = getField(subtree)
             setField(
                 subtree,
-                self.reRootFieldPath(getField(subtree), new_root_model_instance_name),
+                self.reRootFieldPath(old_fld, new_root_model_instance_name),
             )
+            new_fld = getField(subtree)
+            if units_lookup and old_fld != new_fld:
+                units_lookup[new_fld] = units_lookup[old_fld]
+                units_lookup.pop(old_fld)
         else:
             type = getFilterType(subtree)
             raise Exception(f"Qry type: [{type}] must be either 'group' or 'query'.")
@@ -766,8 +1141,13 @@ class Format:
         table records exist.
         """
         if isQuery(query):
-            recval = rootrec[field_order.index(getField(query))]
-            return self.meetsCondition(recval, getComparison(query), getValue(query))
+            fld = getField(query)
+            val = getValue(query)
+            ncmp = getComparison(query)
+            units = getUnits(query)
+            recval = rootrec[field_order.index(fld)]
+            searchterm = self.matchUnits(fld, val, units)
+            return self.meetsCondition(recval, ncmp, searchterm)
         else:
             if isAllGroup(query):
                 for subquery in getChildren(query):
@@ -782,6 +1162,34 @@ class Format:
                         return True
                 return False
 
+    def matchUnits(self, fld, val, units):
+        """
+        This is a python code version of matching units of the search term with the value returned from a query.  It
+        takes the field path, the search term value, and the units, and returns the search term value in the units/
+        format that the database returns so that they can be compared in `self.meetsCondition()`.
+
+        If
+        """
+        units_lookup = self.getFieldUnitsLookup()
+        if fld in units_lookup.keys():
+            if units in units_lookup[fld].keys():
+                try:
+                    return units_lookup[fld][units]["pyconvert"](val)
+                except Exception as e:
+                    # Gracefully fail and log the problem
+                    warnings.warn(
+                        f"Python conversion of units [{units}] for field [{fld}] value [{val}] in format "
+                        f"[{self.name}] failed with an exception: {str(e)}.  Returning original value.  Fix the "
+                        "[pyconvert] function in Format.unit_options to better handle this value."
+                    )
+            warnings.warn(
+                f"Units [{units}] dict for field [{fld}] not found for format [{self.name}]."
+            )
+        warnings.warn(
+            f"Units lookup is missing field key [{fld}] not found for format [{self.name}]."
+        )
+        return val
+
     def meetsCondition(self, recval, condition, searchterm):
         """
         Determines whether the recval and search term match, given the matching condition.
@@ -793,6 +1201,10 @@ class Format:
             return recval.lower() == searchterm.lower()
         elif condition == "not_iexact":
             return recval.lower() != searchterm.lower()
+        elif condition == "exact":
+            return recval == searchterm
+        elif condition == "not_exact":
+            return recval != searchterm
         elif condition == "lt":
             return recval < searchterm
         elif condition == "lte":
@@ -825,3 +1237,13 @@ class Format:
 
 class UnknownComparison(Exception):
     pass
+
+
+class TypeUnitsMismatch(Exception):
+    def __init__(self, type):
+        message = (
+            f"Unsupported combination of field type {type} and units.  Only fields of type 'number' can have unit "
+            "options."
+        )
+        super().__init__(message)
+        self.type = type

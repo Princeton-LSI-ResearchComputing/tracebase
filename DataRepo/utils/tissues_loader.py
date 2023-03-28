@@ -115,7 +115,7 @@ class TissuesLoader:
         if len(self.errors) > 0:
             raise LoadingError("Errors during tissue loading")
         if self.dry_run:
-            raise DryRun("DRY-RUN successful")
+            raise DryRun()
 
     def get_stats(self):
         dbs = [settings.TRACEBASE_DB]

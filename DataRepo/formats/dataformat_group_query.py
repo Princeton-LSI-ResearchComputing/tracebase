@@ -109,7 +109,7 @@ def createFilterGroup(all=True, static=False):
     }
 
 
-def createFilterCondition(fld, ncmp, val, static=False):
+def createFilterCondition(fld, ncmp, val, units, static=False):
     """
     This returns a 1-query portion of what is usually under qry[searches][<template>][tree]
     """
@@ -120,6 +120,7 @@ def createFilterCondition(fld, ncmp, val, static=False):
         "fld": fld,
         "ncmp": ncmp,
         "val": val,
+        "units": units,
     }
 
 
@@ -390,7 +391,7 @@ def getFirstEmptyQuery(qry_ref):
     raise Http404("Type not found.")
 
 
-def setFirstEmptyQuery(qry_ref, fmt, fld, cmp, val):
+def setFirstEmptyQuery(qry_ref, fmt, fld, cmp, val, units):
     """
     This method takes the "tree" from a qry object (i.e. what you get from basv_metadata.getRootGroup(fmt)) and
     returns a reference to the single empty item of type query that should be present in a new rootGroup.
@@ -406,6 +407,7 @@ def setFirstEmptyQuery(qry_ref, fmt, fld, cmp, val):
     empty_qry["fld"] = fld
     empty_qry["ncmp"] = cmp
     empty_qry["val"] = val
+    empty_qry["units"] = units
 
 
 def getNumEmptyQueries(qry, fmt):
@@ -477,6 +479,10 @@ def getValue(filter):
     return filter["val"]
 
 
+def getUnits(filter):
+    return filter["units"]
+
+
 def getComparison(filter):
     return filter["ncmp"]
 
@@ -490,16 +496,17 @@ def setField(filter, fld):
     return filter
 
 
-def constructAdvancedQuery(qryRoot):
+def constructAdvancedQuery(qryRoot, units_lookup=None):
     """
     Turns a qry object into a complex Q object by calling its helper and supplying the selected format's tree.
     """
     return constructAdvancedQueryHelper(
-        qryRoot["searches"][qryRoot["selectedtemplate"]]["tree"]
+        qryRoot["searches"][qryRoot["selectedtemplate"]]["tree"],
+        units_lookup,
     )
 
 
-def constructAdvancedQueryHelper(qry):
+def constructAdvancedQueryHelper(qry, units_lookup=None):
     """
     Recursively build a complex Q object based on a hierarchical tree defining the search terms.
     """
@@ -510,16 +517,35 @@ def constructAdvancedQueryHelper(qry):
     if qry["type"] == "query":
         cmp = qry["ncmp"].replace("not_", "", 1)
         negate = cmp != qry["ncmp"]
+        val = qry["val"]
+        fld = qry["fld"]
+        units = qry["units"]
 
         # Special case for isnull (ignores qry['val'])
         if cmp == "isnull":
             if negate:
                 negate = False
-                qry["val"] = False
+                val = False
             else:
-                qry["val"] = True
+                val = True
+        elif units_lookup:
+            # If different units options exist for this field, convert the val entered into the database's native units
+            if fld in units_lookup.keys() and units_lookup[fld]:
+                if units not in units_lookup[fld].keys():
+                    raise KeyError(
+                        f"Specified units [{units}] not in the units group for field {fld}."
+                    )
+                elif "convert" not in units_lookup[fld][units].keys():
+                    raise KeyError(
+                        f"No 'convert' function set in the units referenced by field {fld}."
+                    )
+                elif type(units_lookup[fld][units]["convert"]).__name__ != "function":
+                    raise KeyError(
+                        f"No 'convert' function set in the units referenced by field {fld}."
+                    )
+                val = units_lookup[fld][units]["convert"](val)
 
-        criteria = {"{0}__{1}".format(qry["fld"], cmp): qry["val"]}
+        criteria = {"{0}__{1}".format(fld, cmp): val}
         if negate is False:
             return Q(**criteria)
         else:
@@ -531,13 +557,13 @@ def constructAdvancedQueryHelper(qry):
         for elem in qry["queryGroup"]:
             gotone = True
             if qry["val"] == "all":
-                nq = constructAdvancedQueryHelper(elem)
+                nq = constructAdvancedQueryHelper(elem, units_lookup)
                 if nq is None:
                     return None
                 else:
                     q &= nq
             elif qry["val"] == "any":
-                nq = constructAdvancedQueryHelper(elem)
+                nq = constructAdvancedQueryHelper(elem, units_lookup)
                 if nq is None:
                     return None
                 else:

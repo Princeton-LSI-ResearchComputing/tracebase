@@ -98,6 +98,13 @@ class Command(BaseCommand):
             type=str,
             help=argparse.SUPPRESS,
         )
+        # Intended for use by load_study to prevent individual loader autoupdates and buffer clearing, then perform all
+        # mass autoupdates/buffer-clearings after all load scripts are complete
+        parser.add_argument(
+            "--defer-autoupdates",
+            action="store_true",
+            help=argparse.SUPPRESS,
+        )
 
     def handle(self, *args, **options):
         fmt = "Accucor"
@@ -123,11 +130,13 @@ class Command(BaseCommand):
             peak_group_set_filename=pgs_filename,
             skip_samples=options["skip_samples"],
             sample_name_prefix=options["sample_name_prefix"],
-            debug=options["debug"],
             new_researcher=options["new_researcher"],
             database=options["database"],
             validate=options["validate"],
             isocorr_format=options["isocorr_format"],
+            verbosity=options["verbosity"],
+            defer_autoupdates=options["defer_autoupdates"],
+            dry_run=options["debug"],
         )
 
         loader.load_accucor_data()

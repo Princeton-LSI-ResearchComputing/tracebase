@@ -41,12 +41,10 @@ class ProtocolsLoader:
         # Pre-existing, matching protocols
         self.existing = {}
         self.db = settings.TRACEBASE_DB
-        self.loading_mode = "both"
         # If a database was explicitly supplied
         if database is not None:
             self.validate = False
             self.db = database
-            self.loading_mode = "one"
         else:
             self.validate = validate
             if validate:
@@ -54,96 +52,88 @@ class ProtocolsLoader:
                     self.db = settings.VALIDATION_DB
                 else:
                     raise ValidationDatabaseSetupError()
-                self.loading_mode = "one"
-            else:
-                self.loading_mode = "both"
 
     def load(self):
-        # "both" is the normal loading mode - always loads both the validation and tracebase databases, unless the
-        # database is explicitly supplied or --validate is supplied
-        if self.loading_mode == "both":
-            self.load_database(settings.TRACEBASE_DB)
-            if settings.VALIDATION_ENABLED:
-                self.load_database(settings.VALIDATION_DB)
-        elif self.loading_mode == "one":
-            self.load_database(self.db)
-        else:
-            raise Exception(
-                f"Internal error: Invalid loading_mode: [{self.loading_mode}]"
-            )
+        self.load_database(self.db)
 
     @transaction.atomic
     def load_database(self, db):
         for index, row in self.protocols.iterrows():
             try:
-                with transaction.atomic():
-                    name = row[self.STANDARD_NAME_HEADER]
-                    description = row[self.STANDARD_DESCRIPTION_HEADER]
-                    # prefer the file/dataframe-specified category, but user the
-                    # loader initialization category, as a fallback
-                    if self.STANDARD_CATEGORY_HEADER in row:
-                        category = row[self.STANDARD_CATEGORY_HEADER]
-                    else:
-                        category = self.category
+                name = row[self.STANDARD_NAME_HEADER]
+                description = row[self.STANDARD_DESCRIPTION_HEADER]
+                # prefer the file/dataframe-specified category, but user the
+                # loader initialization category, as a fallback
+                if self.STANDARD_CATEGORY_HEADER in row:
+                    category = row[self.STANDARD_CATEGORY_HEADER]
+                else:
+                    category = self.category
 
-                    # To aid in debugging the case where an editor entered spaces instead of a tab...
-                    if " " in str(name) and description is None:
-                        raise ValidationError(
-                            f"Protocol with name '{name}' cannot contain a space unless a description is provided.  "
-                            "Either the space(s) must be changed to a tab character or a description must be provided."
-                        )
-                    if category is None:
-                        raise ValidationError(
-                            f"Protocol with name '{name}' is missing a specified/defined category."
-                        )
-                    if description is None:
-                        description = ""
-
-                    # We will assume that the validation DB has up-to-date protocols
-                    protocol, created = Protocol.objects.using(db).get_or_create(
-                        name=name, category=category
+                # To aid in debugging the case where an editor entered spaces instead of a tab...
+                if " " in str(name) and description is None:
+                    raise ValidationError(
+                        f"Protocol with name '{name}' cannot contain a space unless a description is provided.  "
+                        "Either the space(s) must be changed to a tab character or a description must be provided."
                     )
-                    if created:
-                        protocol.description = description
-                        # full_clean cannot validate (e.g. uniqueness) using a non-default database
-                        if db == settings.DEFAULT_DB:
-                            protocol.full_clean()
-                        protocol.save(using=db)
-                        if db in self.created:
-                            self.created[db].append(protocol)
-                        else:
-                            self.created[db] = [protocol]
-                        self.notices.append(
-                            f"Created new protocol {protocol}:{description} in the {db} database"
-                        )
-                    elif protocol.description == description:
-                        if db in self.existing:
-                            self.existing[db].append(protocol)
-                        else:
-                            self.existing[db] = [protocol]
-                        self.notices.append(
-                            f"Matching protocol {protocol} already exists, skipping"
-                        )
+                if category is None:
+                    raise ValidationError(
+                        f"Protocol with name '{name}' is missing a specified/defined category."
+                    )
+                if description is None:
+                    description = ""
+
+                # Try and get the protocol
+                protocol_rec, protocol_created = Protocol.objects.using(
+                    db
+                ).get_or_create(name=name, category=category)
+                # If no protocol was found, create it
+                if protocol_created:
+                    protocol_rec.description = description
+                    print("Saving protocol with description")
+                    # full_clean cannot validate (e.g. uniqueness) using a non-default database
+                    if db == settings.TRACEBASE_DB:
+                        protocol_rec.full_clean()
+                    protocol_rec.save(using=db)
+                    if db in self.created:
+                        self.created[db].append(protocol_rec)
                     else:
-                        raise ValidationError(
-                            f"Protocol with name = '{name}' but a different description already exists: "
-                            f"Existing description = '{protocol.description}' "
-                            f"New description = '{description}'"
-                        )
+                        self.created[db] = [protocol_rec]
+                    self.notices.append(
+                        f"Created new protocol {protocol_rec}:{description} in the {db} database"
+                    )
+                elif protocol_rec.description == description:
+                    if db in self.existing:
+                        self.existing[db].append(protocol_rec)
+                    else:
+                        self.existing[db] = [protocol_rec]
+                    self.notices.append(
+                        f"Matching protocol {protocol_rec} already exists, skipping"
+                    )
+                else:
+                    raise ValidationError(
+                        f"Protocol with name = '{name}' but a different description already exists: "
+                        f"Existing description = '{protocol_rec.description}' "
+                        f"New description = '{description}'"
+                    )
             except (IntegrityError, ValidationError) as e:
-                self.errors.append(f"Error in row {index + 1}: {e}")
-            except (KeyError):
+                self.errors.append(
+                    f"{type(e).__name__} in the {db} database on data row {index + 1}, creating {category} record for "
+                    f"protocol '{name}' with description '{description}': {e}"
+                )
+            except KeyError:
                 raise ValidationError(
                     "ProtocolLoader requires a dataframe with 'name' and 'description' headers/keys."
                 ) from None
+
         if len(self.errors) > 0:
             message = ""
             for err in self.errors:
                 message += f"{err}\n"
 
             raise LoadingError(f"Errors during protocol loading :\n {message}")
+
         if self.dry_run:
-            raise DryRun("DRY-RUN successful")
+            raise DryRun()
 
     def get_stats(self):
         dbs = [settings.TRACEBASE_DB]

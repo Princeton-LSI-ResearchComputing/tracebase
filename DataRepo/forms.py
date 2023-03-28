@@ -59,6 +59,9 @@ class BaseAdvSearchForm(forms.Form):
     # Note: the placeholder attribute solves issue #135
     val = forms.CharField(widget=forms.TextInput(attrs={"placeholder": "search term"}))
 
+    # This can be used to indicate the units or format of the term supplied to val, e.g. "minutes" for a DurationField
+    units = forms.ChoiceField(required=True, widget=forms.Select())
+
     def clean(self):
         """This override of super.clean is so we can reconstruct the search inputs upon form_invalid in views.py"""
         self.saved_data = self.cleaned_data
@@ -81,7 +84,8 @@ class BaseAdvSearchForm(forms.Form):
         super().__init__(*args, **kwargs)
         self.posprefix = self.format_class.id
         self.fields["fld"].choices = self.advsrch_view_class.getAllSearchFieldChoices()
-        self.fields["ncmp"].choices = self.format_class.getAllComparisonChoices()
+        self.fields["ncmp"].choices = self.advsrch_view_class.getAllComparisonChoices()
+        self.fields["units"].choices = self.advsrch_view_class.getAllFieldUnitsChoices()
 
 
 class AdvSearchPeakGroupsForm(BaseAdvSearchForm):
@@ -287,7 +291,7 @@ class AdvSearchPageForm(forms.Form):
 
 class DataSubmissionValidationForm(forms.Form):
     """
-    Form for users to validate their Animal and Sample Table with Accucor files
+    Form for users to validate their Animal and Sample Table with Accucor and/or Isocorr files
     """
 
     def __init__(self, *args, **kwargs):
@@ -299,5 +303,8 @@ class DataSubmissionValidationForm(forms.Form):
         required=True, widget=forms.ClearableFileInput(attrs={"multiple": False})
     )
     accucor_files = forms.FileField(
+        required=False, widget=forms.ClearableFileInput(attrs={"multiple": True})
+    )
+    isocorr_files = forms.FileField(
         required=False, widget=forms.ClearableFileInput(attrs={"multiple": True})
     )
