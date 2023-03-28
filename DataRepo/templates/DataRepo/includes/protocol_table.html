@@ -1,0 +1,41 @@
+{% if protocols %}
+<div>
+    <table class="table table-sm table-hover table-bordered table-responsive-xl table-striped"
+        id="protocol_table"
+        data-toggle="table"
+        data-buttons-class="primary"
+        data-buttons-align="left"
+        data-search="true"
+        data-search-align="left"
+        data-show-search-clear-button="true"
+        data-show-multi-sort="true"
+        data-show-columns="true"
+        data-show-columns-toggle-all="true"
+        data-show-fullscreen="true"
+        data-show-export="true"
+        data-export-types="['csv', 'txt', 'excel']"
+        data-virtual-scroll="true"
+        data-pagination="true"
+        data-page-size="10"
+        data-page-list="[10, 25, 50, 100, 200, 500, All]">
+    <thead>
+        <tr>
+            <th data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-field="Name">Name</th>
+            <th data-filter-control="input" data-field="Category">Category</th>
+            <th data-filter-control="input" data-field="Description">Description</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for protocol in protocols %}
+            <tr>
+                <td><a href="{% url 'protocol_detail' protocol.id %}">{{ protocol.name }}</a></td>
+                <td>{{ protocol.category }}</td>
+                <td>{{ protocol.description }}</td>
+            </tr>
+        {% endfor %}
+    </tbody>
+    </table>
+</div>
+{% else %}
+    <p>There are no protocols in this group.</p>
+{% endif %}

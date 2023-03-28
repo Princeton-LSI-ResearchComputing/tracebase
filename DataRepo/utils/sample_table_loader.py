@@ -323,27 +323,27 @@ class SampleTableLoader:
                         print("No animal treatments with empty/null values.")
                     else:
                         category = Protocol.ANIMAL_TREATMENT
-                        researcher = self.getRowVal(row, self.headers.SAMPLE_RESEARCHER)
-                        if researcher is not None:
-                            print(
-                                f"Finding or inserting {category} protocol for '{protocol_input}'..."
+
+                        print(f"Finding {category} protocol for '{protocol_input}'...")
+                        try:
+                            treatment = Protocol.objects.using(self.db).get(
+                                name=protocol_input,
+                                category=category,
                             )
-                            (
-                                animal.treatment,
-                                created,
-                            ) = Protocol.retrieve_or_create_protocol(
-                                protocol_input,
-                                category,
-                                f"For protocol's full text, please consult {researcher}.",
-                                database=self.db,
-                            )
-                            action = "Found"
-                            feedback = f"{animal.treatment.category} protocol "
-                            f"{animal.treatment.id} '{animal.treatment.name}'"
-                            if created:
-                                action = "Created"
-                                feedback += f" '{animal.treatment.description}'"
-                            print(f"{action} {feedback}")
+                            if treatment:
+                                animal.treatment = treatment
+                                action = "Found"
+                                feedback = (
+                                    f"{animal.treatment.category} protocol "
+                                    f"id '{animal.treatment.id}' "
+                                    f"named '{animal.treatment.name}' "
+                                    f"with description '{animal.treatment.description}'"
+                                )
+                                print(f"{action} {feedback}")
+                        except Protocol.DoesNotExist as e:
+                            raise Protocol.DoesNotExist(
+                                f"Could not find '{category}' protocol with name '{protocol_input}'"
+                            ).with_traceback(e.__traceback__) from None
 
                 rate_required = infusate is not None
 

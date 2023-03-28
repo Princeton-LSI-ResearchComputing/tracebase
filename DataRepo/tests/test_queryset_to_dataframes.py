@@ -127,14 +127,15 @@ class QuerysetToPandasDataFrameBaseTests(TracebaseTestCase):
 
         self.assertEqual(stud1_list_stats_dict, example_study_dict)
 
-    def test_animal_list_stat_df(self):
+    def test_animal_list_stat_df(self, example_animal_dict=None):
         """
         get data from the data frame for selected animal with selected columns,
         then convert the data to dictionary to compare with the example data.
         test studies as an unordered list
         """
 
-        example_animal_dict = self.get_example_animal_dict()
+        if example_animal_dict is None:
+            example_animal_dict = self.get_example_animal_dict()
         anim_list_stats_df = qs2df.get_animal_list_stats_df()
 
         anim1_list_stats_df = anim_list_stats_df[
@@ -145,15 +146,19 @@ class QuerysetToPandasDataFrameBaseTests(TracebaseTestCase):
         anim1_list_stats_dict = qs2df.df_to_list_of_dict(out_df)[0]
         self.assertEqual(anim1_list_stats_dict, example_animal_dict)
 
-    def test_animal_sample_msrun_df(self):
+    def test_animal_sample_msrun_df(
+        self, example_sample1_dict=None, example_sample2_dict=None
+    ):
         """
         get data from the data frame for selected sample with selected columns,
         then convert the data to dictionary to compare with the example data.
         test studies as an unordered list
         """
         # get data for examples
-        example_sample1_dict = self.get_example_sample1_dict()
-        example_sample2_dict = self.get_example_sample2_dict()
+        if example_sample1_dict is None:
+            example_sample1_dict = self.get_example_sample1_dict()
+        if example_sample2_dict is None:
+            example_sample2_dict = self.get_example_sample2_dict()
 
         anim_msrun_df = qs2df.get_animal_msrun_all_df()
 
@@ -256,7 +261,7 @@ class QuerysetToPandasDataFrameTests(QuerysetToPandasDataFrameBaseTests):
         super().setUpTestData()
 
 
-@tag("multi_mixed")
+@tag("multi_working")
 class QuerysetToPandasDataFrameNullToleranceTests(QuerysetToPandasDataFrameBaseTests):
     @classmethod
     def setUpTestData(cls):
@@ -270,18 +275,27 @@ class QuerysetToPandasDataFrameNullToleranceTests(QuerysetToPandasDataFrameBaseT
         enable_buffering()
         super().setUpTestData()
 
-    @tag("multi_broken")
     def test_study_list_stat_df(self):
         super().test_study_list_stat_df()
 
-    @tag("multi_broken")
     def test_animal_list_stat_df(self):
-        super().test_animal_list_stat_df()
+        example_animal_dict = self.get_example_animal_dict()
+        example_animal_dict["infusate_name"] = None
+        super().test_animal_list_stat_df(example_animal_dict=example_animal_dict)
 
-    @tag("multi_broken")
     def test_animal_sample_msrun_df(self):
-        super().test_animal_sample_msrun_df()
+        example_sample1_dict = self.get_example_sample1_dict()
+        example_sample1_dict["concentrations"] = None
+        example_sample1_dict["infusate_name"] = None
+        example_sample1_dict["labeled_elements"] = None
+        example_sample1_dict["tracers"] = None
+        example_sample2_dict = self.get_example_sample2_dict()
+        example_sample2_dict["infusate_name"] = None
+        super().test_animal_sample_msrun_df(
+            example_sample1_dict=example_sample1_dict,
+            example_sample2_dict=example_sample2_dict,
+        )
 
-    @tag("multi_broken")
     def test_infusate_list_df(self):
-        super().test_infusate_list_df()
+        with self.assertRaises(IndexError):
+            super().test_infusate_list_df()

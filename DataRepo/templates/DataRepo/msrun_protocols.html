@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block title %}MSRun Protocols{% endblock %}
+
+{% block content %}
+<br>
+{% if msrun_protocol_list %}
+<div>
+    <h4>MSRun Protocols</h4>
+    {% with protocols=msrun_protocol_list %}
+        {% include "DataRepo/includes/protocol_table.html" %}
+    {% endwith %}
+</div>
+{% else %}
+    <p>There are no protocols for MSRuns.</p>
+{% endif %}
+{% endblock %}

@@ -18,28 +18,26 @@
 <div>
     <div style="text-align: center;"><img src="{% static 'images/logo.png' %}" alt="TraceBase" width="700"></div>
     <br>
-    <h5>TraceBase is a data repository and analysis tool for mass-spectrometry data from isotope tracing studies used to quantify metabolism in vivo. Lab members submit peak data exported from El-Maven and processed by AccuCor or IsoCorr, along with details about their experiment. TraceBase computes useful metrics such as enrichment, normalized labeling, and estimated FCirc (rate of appearance/disappearance), making it simple to browse, collate, compare, and download the data.
-    </h5>
+    <h4>TraceBase is a data repository and analysis tool for mass-spectrometry data from isotope tracing studies used to quantify metabolism in vivo. Lab members submit peak data exported from El-Maven and processed by AccuCor or IsoCorr, along with details about their experiment. TraceBase computes useful metrics such as enrichment, normalized labeling, and estimated FCirc (rate of appearance/disappearance), making it simple to browse, collate, compare, and download the data.
+    </h4>
 </div>
 <br>
-<div>
+<div class="row">
     {% for card_row in card_rows %}
-    <div class="row">
         {% for i in card_row %}
         <div class="col-xl-3 col-md-6 mb-4">
-            <div class="card {{ i.card_bg_color }} text-dark">
-                <div class="card-body"><h4>{{ i.card_body_title }}</h4></div>
-                <div class="card-footer d-flex align-items-center justify-content-between">
-                    <a class="text-dark stretched-link" href="{{ i.card_foot_url }}">View Details</a>
-                    <div class="text-dark"><i class="fas fa-angle-right"></i></div>
-                </div>
-            </div>
+            {% include "includes/obj_count_link_card.html" %}
         </div>
         {% endfor %}
-    </div>
     {% endfor %}
-</div>
 
+    <div class ="col-xl-3">
+        {% with i=card_adv_search %}
+            {% include "includes/obj_count_link_card.html" %}
+        {% endwith %}
+    </div>
+</div>
+<br>
 <div>
     {% include "includes/leaderboards.html" %}
 </div>
