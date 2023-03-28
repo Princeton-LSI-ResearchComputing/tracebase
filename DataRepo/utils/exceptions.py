@@ -69,8 +69,8 @@ class MissingSamplesError(Exception):
         if not message:
             nltab = "\n\t"
             message = (
-                f"{len(samples)} samples are missing in the database:{nltab}{nltab.join(samples)}\nSamples must be "
-                "loaded prior to loading mass spec data."
+                f"{len(samples)} samples are missing in the database/sample-table-file:{nltab}{nltab.join(samples)}\n"
+                "Samples must be loaded prior to loading mass spec data."
             )
         super().__init__(message)
         self.sample_list = samples
