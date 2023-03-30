@@ -1,3 +1,4 @@
+from chempy.util.periodic import atomic_number
 from django.contrib.postgres.fields import ArrayField
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
