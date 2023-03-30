@@ -8,8 +8,6 @@ from django.db import models
 
 from DataRepo.models.maintained_model import (
     MaintainedModel,
-    are_autoupdates_enabled,
-    init_autoupdate_label_filters,
     maintained_field_function,
 )
 from DataRepo.models.multi_db_mixin import MultiDBMixin

@@ -1,5 +1,5 @@
-import warnings
 import re
+import warnings
 from collections import defaultdict, namedtuple
 from datetime import timedelta
 
@@ -29,14 +29,14 @@ from DataRepo.models.maintained_model import (
     init_autoupdate_label_filters,
     perform_buffered_updates,
 )
-from DataRepo.models.utilities import (
-    get_model_by_name,
-    value_from_choices_label,
-)
 from DataRepo.models.researcher import (
     UnknownResearcherError,
     get_researchers,
     validate_researchers,
+)
+from DataRepo.models.utilities import (
+    get_model_by_name,
+    value_from_choices_label,
 )
 from DataRepo.utils import parse_infusate_name, parse_tracer_concentrations
 from DataRepo.utils.exceptions import (  # ValidationDatabaseSetupError,
