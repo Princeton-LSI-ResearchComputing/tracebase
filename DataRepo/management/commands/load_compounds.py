@@ -3,7 +3,7 @@ import argparse
 import pandas as pd
 from django.core.management import BaseCommand, CommandError
 
-from DataRepo.utils import CompoundsLoader
+from DataRepo.utils import CompoundsLoader, DryRun
 
 
 class Command(BaseCommand):
@@ -28,13 +28,12 @@ class Command(BaseCommand):
             default=";",
             required=False,
         )
-        # optional "do work" argument; otherwise, only reports of possible work
         parser.add_argument(
-            "--validate-only",
+            "--dry-run",
             action="store_true",
             default=False,
             help=(
-                "Validation mode. If specified, command will not change the database, "
+                "Dry Run mode. If specified, command will not change the database, "
                 "but simply report back potential work or issues."
             ),
         )
@@ -56,7 +55,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         action = "Loading"
-        if options["validate_only"]:
+        if options["dry_run"]:
             action = "Validating"
         self.stdout.write(self.style.MIGRATE_HEADING(f"{action} compound data"))
 
@@ -68,10 +67,13 @@ class Command(BaseCommand):
             synonym_separator=options["synonym_separator"],
             database=options["database"],
             validate=options["validate"],
+            dry_run=options["dry_run"],
         )
 
-        # Run validation
-        loader.validate_data()
+        try:
+            loader.load_compounds()
+        except DryRun:
+            pass
 
         if options["verbosity"] >= 2:
             for msg in loader.validation_debug_messages:
@@ -105,10 +107,7 @@ class Command(BaseCommand):
             for compound in loader.validated_new_compounds_for_insertion:
                 self.stdout.write(self.style.MIGRATE_LABEL(str(compound)))
 
-        # Load compounds
-        if not options["validate_only"]:
-            loader.load_validated_compounds()
-            loader.load_synonyms()
+        if not options["dry_run"]:
             for msg in loader.summary_messages:
                 self.stdout.write(self.style.MIGRATE_HEADING(msg))
 
