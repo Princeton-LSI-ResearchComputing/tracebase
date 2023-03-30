@@ -527,14 +527,14 @@ class SampleTableLoader:
         animal_name = self.getRowVal(row, "ANIMAL_NAME")
         genotype = self.getRowVal(row, "ANIMAL_GENOTYPE")
         raw_weight = self.getRowVal(row, "ANIMAL_WEIGHT")
-        weight = self.getRowVal(raw_weight, "ANIMAL_WEIGHT", rownum)
+        weight = self.strip_units(raw_weight, "ANIMAL_WEIGHT", rownum)
         feedstatus = self.getRowVal(row, "ANIMAL_FEEDING_STATUS")
         raw_age = self.getRowVal(row, "ANIMAL_AGE")
-        age = self.getRowVal(raw_age, "ANIMAL_AGE", rownum)
+        age = self.strip_units(raw_age, "ANIMAL_AGE", rownum)
         diet = self.getRowVal(row, "ANIMAL_DIET")
         animal_sex_string = self.getRowVal(row, "ANIMAL_SEX")
         raw_infusion_rate = self.getRowVal(row, "ANIMAL_INFUSION_RATE")
-        infusion_rate = self.getRowVal(
+        infusion_rate = self.strip_units(
             raw_infusion_rate, "ANIMAL_INFUSION_RATE", rownum
         )
 
@@ -632,7 +632,7 @@ class SampleTableLoader:
         researcher = self.getRowVal(row, "SAMPLE_RESEARCHER")
         time_collected = None
         raw_time_collected_str = self.getRowVal(row, "TIME_COLLECTED")
-        time_collected_str = self.getRowVal(
+        time_collected_str = self.strip_units(
             raw_time_collected_str, "TIME_COLLECTED", rownum
         )
         sample_date = None
