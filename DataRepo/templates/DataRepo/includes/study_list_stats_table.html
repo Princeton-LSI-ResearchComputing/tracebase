@@ -1,8 +1,8 @@
 {% load customtags %}
 
 {% if out_df %}
-<div>
-    <table class="table table-sm table-hover table-bordered table-responsive-xl table-striped"
+<div id="div_out_tab">
+    <table class="table table-sm table-hover table-bordered table-responsive-lx table-striped"
         id="study_list_stats"
         data-toggle="table"
         data-buttons-class="primary"
@@ -22,18 +22,19 @@
         data-page-list="[25, 50, 100, 200, 500, All]">
         <thead>
             <tr>
-                <th data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-field="Study">Study</th>
-                <th data-filter-control="input" data-field="Study-Description">Description</th>
-                <th data-filter-control="select" data-field="Genotypes">Genotypes</th>
-                <th data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-field="Infusate">Infusates</th>
-                <th data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-field="Compounds">Tracer Compound(s)</th>
-                <th data-filter-control="select" data-sortable="true" data-field="Labeled-Elements">Labeled Elements</th>
-                <th data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-field="Treatments">Treatments</th>
-                <th data-filter-control="select" data-field="Sample-Owners">Sample Owners</th>
-                <th data-filter-control="input" data-sortable="true" data-field="Total-Animal">Total Animals</th>
-                <th data-filter-control="input" data-sortable="true" data-field="Total-Tissue">Total Tissues</th>
-                <th data-filter-control="input" data-sortable="true" data-field="Total-Sample">Total Samples</th>
-                <th data-filter-control="input" data-sortable="true" data-field="Total-MSRun">Total MSRuns</th>
+                <th class="min-vw-7" data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-field="Study">Study</th>
+                <th class="min-vw-7 max-vw-20" data-filter-control="input" data-field="Study-Description">Description</th>
+                <th class="min-vw-3 max-vw-10" data-filter-control="select" data-field="Genotypes">Genotypes</th>
+                <th class="min-vw-5" data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-visible="false" data-field="Infusate">Infusates</th>
+                <th class="min-vw-5" data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-field="Compounds">Tracer Compound(s)</th>
+                <th class="min-vw-3 max-vw-10" data-filter-control="select" data-sortable="true" data-field="Labeled-Elements">Labeled Elements</th>
+                <th class="min-vw-5 max-vw-10" data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-field="Treatments">Treatments</th>
+                <th class="min-vw-5 max-vw-10" data-filter-control="select" data-field="Sample-Owners">Sample Owners</th>
+                <th class="min-vw-5 max-vw-10" data-filter-control="input" data-field="Total-Infusate">Total Infusates</th>
+                <th class="min-vw-3 max-vw-10" data-filter-control="input" data-sortable="true" data-field="Total-Animal">Total Animals</th>
+                <th class="min-vw-3 max-vw-10" data-filter-control="input" data-sortable="true" data-field="Total-Tissue">Total Tissues</th>
+                <th class="min-vw-3 max-vw-10" data-filter-control="input" data-sortable="true" data-field="Total-Sample">Total Samples</th>
+                <th class="min-vw-3 max-vw-10" data-filter-control="input" data-sortable="true" data-field="Total-MSRun">Total MSRuns</th>
             </tr>
         </thead>
         <tbody>
@@ -42,11 +43,23 @@
                 <td><a href="{% url 'study_detail' i.study_id %}">{{ i.study }}</a></td>
                 <td>{{ i.study_description }}</td>
                 <td>{{ i.genotypes|join:", " }}</td>
-                <td>{{ i.infusate_id_name_list|obj_hyperlink:"infusate" }}</td>
-                <td>{{ i.compound_id_name_list|obj_hyperlink:"compound" }}</td>
+                <td>{% obj_hyperlink i.infusate_id_name_list "infusate" newline=True %}</td>
+                <td>{% obj_hyperlink i.compound_id_name_list "compound" newline=True %}</td>
                 <td>{{ i.labeled_elements|join:", "}}</td>
-                <td>{{ i.treatment_id_name_list|obj_hyperlink:"treatment" }}</td>
+                <td>{% obj_hyperlink i.treatment_id_name_list "treatment" %}</td>
                 <td>{{ i.sample_owners|join:", "}}</td>
+                <td>
+                    <details>
+                        <summary>
+                            {% if i.total_infusate == 1 %}
+                                {{ i.total_infusate }} Infusate
+                            {% else %}
+                                {{ i.total_infusate }} Infusates
+                            {% endif %}
+                        </summary>
+                        {% obj_hyperlink i.infusate_id_name_list "infusate" newline=True %}
+                    </details>
+                </td>
                 <td>{{ i.total_animal }}</td>
                 <td>{{ i.total_tissue }}</td>
                 <td>{{ i.total_sample }}</td>

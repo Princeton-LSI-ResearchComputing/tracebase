@@ -105,9 +105,8 @@ class MissingSamplesError(Exception):
         if not message:
             nltab = "\n\t"
             message = (
-                f"{len(samples)} samples are missing in the database:{nltab}{nltab.join(samples)}\n  Samples in the "
-                "accucor/isocorr files must be present in the sample table file and loaded into the database before "
-                "they can be loaded from the mass spec data files."
+                f"{len(samples)} samples are missing in the database/sample-table-file:{nltab}{nltab.join(samples)}\n"
+                "Samples must be loaded prior to loading mass spec data."
             )
         super().__init__(message)
         self.sample_list = samples
@@ -133,6 +132,26 @@ class NoSamplesError(Exception):
                 "they can be loaded from the mass spec data files."
             )
         super().__init__(message)
+
+
+class UnitsNotAllowed(Exception):
+    def __init__(self, units_dict, message=None):
+        if not message:
+            nltab = "\n\t"
+            strip_str = nltab.join(
+                list(
+                    map(
+                        lambda k: f"{k} (changed: [{units_dict[k]['stripped']}] on row(s): {units_dict[k]['rows']})",
+                        units_dict.keys(),
+                    )
+                )
+            )
+            message = (
+                f"{len(units_dict.keys())} values appear to have been supplied with units:{nltab}{strip_str}\n"
+                "Units were stripped as shown."
+            )
+        super().__init__(message)
+        self.units_dict = units_dict
 
 
 class EmptyColumnsError(Exception):

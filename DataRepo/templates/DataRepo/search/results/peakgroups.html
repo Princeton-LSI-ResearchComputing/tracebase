@@ -59,7 +59,7 @@
         data-show-export="false"
         data-pagination="{% if mode == 'view' %}true{% else %}false{% endif %}">
 
-        <colgroup span="8" class="identdata"></colgroup>
+        <colgroup span="9" class="identdata"></colgroup>
         <colgroup span="4" class="datadata"></colgroup>
         <colgroup span="14" class="metadata"></colgroup>
 
@@ -83,6 +83,13 @@
                     {% with "Tissue" as colhead %}
                         {% if mode == "view" %}{{ colhead }}{% else %}
                             <div onclick="sortColumn(this)" class="sortable" id="msrun__sample__tissue__name">{{ colhead }}</div>
+                        {% endif %}
+                    {% endwith %}
+                </th>
+                <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Time_Collected-data-visible' 'false' %}" data-field="Time_Collected" class="idgrp">
+                    {% with "Time<br>Collected<br>(m)" as colhead %}
+                        {% if mode == "view" %}{{ colhead }}{% else %}
+                            <div onclick="sortColumn(this)" class="sortable" id="msrun__sample__time_collected">{{ colhead }}</div>
                         {% endif %}
                     {% endwith %}
                 </th>
@@ -268,6 +275,11 @@
                         <a href="{% url 'tissue_detail' pg.msrun.sample.tissue.id %}">
                             {{ pg.msrun.sample.tissue.name }}
                         </a>
+                    </td>
+
+                    <!-- Time Collected (m) -->
+                    <td class="text-end">
+                        <p title="{{ pg.msrun.sample.time_collected }} (h:m:s)">{{ pg.msrun.sample.time_collected|durationToMins|decimalPlaces:2 }}</p>
                     </td>
 
                     <!-- Peak Group -->
