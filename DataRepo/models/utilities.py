@@ -97,6 +97,18 @@ def get_model_fields(model):
     )
 
 
+def get_unique_constraint_fields(model):
+    """
+    Returns a list of lists of fields involved in UniqueConstrains in a given model.
+    """
+    uflds = []
+    if hasattr(model._meta, "constraints"):
+        for constraint in model._meta.constraints:
+            if type(constraint).__name__ == "UniqueConstraint":
+                uflds.append(constraint.fields)
+    return uflds
+
+
 def get_all_fields_named(target_field):
     """
     Dynamically retrieves all fields from any model with a specific name

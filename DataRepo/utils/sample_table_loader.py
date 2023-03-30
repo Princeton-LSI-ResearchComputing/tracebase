@@ -4,7 +4,6 @@ from datetime import timedelta
 
 import dateutil.parser  # type: ignore
 import pandas as pd
-from django.conf import settings
 from django.db import IntegrityError, transaction
 
 from DataRepo.models import (
@@ -35,7 +34,7 @@ from DataRepo.models.researcher import (
 )
 from DataRepo.models.utilities import value_from_choices_label
 from DataRepo.utils import parse_infusate_name, parse_tracer_concentrations
-from DataRepo.utils.exceptions import (  # ValidationDatabaseSetupError,
+from DataRepo.utils.exceptions import (
     AggregatedErrors,
     ConflictingValueError,
     DryRun,
@@ -148,7 +147,6 @@ class SampleTableLoader:
     def __init__(
         self,
         sample_table_headers=DefaultSampleTableHeaders,
-        database=None,
         validate=False,  # DO NOT USE MANUALLY - THIS WILL NOT ROLL BACK UPON ERROR (handle in outer atomic transact)
         verbosity=1,
         skip_researcher_check=False,
@@ -159,23 +157,9 @@ class SampleTableLoader:
         self.headers = sample_table_headers
         self.headers_present = []
 
-        # Verbosity affects log prints and error verbosity (for debugging)
+        # Modes
         self.verbosity = verbosity
         self.dry_run = dry_run
-
-        # Database config
-        self.db = settings.TRACEBASE_DB
-        # # If a database was explicitly supplied
-        # if database is not None:
-        #     self.validate = False
-        #     self.db = database
-        # else:
-        #     self.validate = validate
-        #     if validate:
-        #         if settings.VALIDATION_ENABLED:
-        #             self.db = settings.VALIDATION_DB
-        #         else:
-        #             raise ValidationDatabaseSetupError()
         self.validate = validate
 
         # How to handle mass autoupdates
@@ -333,7 +317,7 @@ class SampleTableLoader:
             # effect at the time of buffering is saved so that only the fields matching the label filter will be
             # updated.  There are autoupdates for fields in Animal and Sample, but they're only needed for FCirc
             # calculations and will be triggered by a subsequent accucor load.
-            perform_buffered_updates(using=self.db)
+            perform_buffered_updates()
             # Since we only updated some of the buffered items, clear the rest of the buffer
             clear_update_buffer()
 
@@ -346,12 +330,11 @@ class SampleTableLoader:
                 print("Skipping row: Tissue field is empty, assuming blank sample.")
         else:
             try:
-                # Assuming that both the default and validation databases each have all current tissues
-                tissue_rec = Tissue.objects.using(self.db).get(name=tissue_name)
+                tissue_rec = Tissue.objects.get(name=tissue_name)
             except Tissue.DoesNotExist as e:
                 self.aggregated_errors_object.buffer_error(
                     Tissue.DoesNotExist(
-                        f"Invalid tissue type specified: '{tissue_name}'. Not found in database {self.db}.  {str(e)}"
+                        f"Invalid tissue type specified: '{tissue_name}'. Not found in database.  {str(e)}"
                     )
                 )
             except Exception as e:
@@ -371,16 +354,14 @@ class SampleTableLoader:
         if study_name:
             try:
                 try:
-                    study_rec, study_created = Study.objects.using(
-                        self.db
-                    ).get_or_create(
+                    study_rec, study_created = Study.objects.get_or_create(
                         name=study_name,
                         description=study_desc,
                     )
                 except IntegrityError as ie:
                     estr = str(ie)
                     if "duplicate key value violates unique constraint" in estr:
-                        study_rec = Study.objects.using(self.db).get(name=study_name)
+                        study_rec = Study.objects.get(name=study_name)
                         orig_desc = study_rec.description
                         if orig_desc and study_desc:
                             self.aggregated_errors_object.buffer_error(
@@ -400,7 +381,7 @@ class SampleTableLoader:
             except Exception as e:
                 study_rec = None
                 self.aggregated_errors_object.buffer_error(
-                    SaveError(Study.__name__, study_name, self.db, e)
+                    SaveError(Study.__name__, study_name, e)
                 )
 
         if study_created or study_updated:
@@ -411,17 +392,14 @@ class SampleTableLoader:
                     print(f"Updated Study record: {study_rec}")
             try:
                 # get_or_create does not perform a full clean
-                # TODO: See issue #580.  This will allow full_clean to be called regardless of the database.
-                if self.db == settings.TRACEBASE_DB:
-                    # full_clean does not have a using parameter. It only supports the default database
-                    study_rec.full_clean()
+                study_rec.full_clean()
                 # We only need to save if there was an update.  get_or_create does a save
                 if study_updated:
-                    study_rec.save(using=self.db)
+                    study_rec.save()
             except Exception as e:
                 study_rec = None
                 self.aggregated_errors_object.buffer_error(
-                    SaveError(Study.__name__, study_name, self.db, e)
+                    SaveError(Study.__name__, study_name, e)
                 )
 
         # We do this here, and not in the "animal_created" block, in case the researcher is creating a new study
@@ -453,7 +431,7 @@ class SampleTableLoader:
                     )
                 )
             infusate_data_object = parse_infusate_name(infusate_str, tracer_concs)
-            infusate_rec = Infusate.objects.using(self.db).get_or_create_infusate(
+            infusate_rec = Infusate.objects.get_or_create_infusate(
                 infusate_data_object,
             )[0]
         return infusate_rec
@@ -475,7 +453,7 @@ class SampleTableLoader:
                         f"Finding {Protocol.ANIMAL_TREATMENT} protocol for '{treatment_name}'..."
                     )
                 try:
-                    treatment_rec = Protocol.objects.using(self.db).get(
+                    treatment_rec = Protocol.objects.get(
                         name=treatment_name,
                         category=Protocol.ANIMAL_TREATMENT,
                     )
@@ -562,20 +540,17 @@ class SampleTableLoader:
         if animal_name:
             # An infusate is required to create an animal
             if infusate_rec:
-                animal_rec, animal_created = Animal.objects.using(
-                    self.db
-                ).get_or_create(name=animal_name, infusate=infusate_rec)
+                animal_rec, animal_created = Animal.objects.get_or_create(
+                    name=animal_name, infusate=infusate_rec
+                )
             else:
                 try:
-                    animal_rec = Animal.objects.using(self.db).get(name=animal_name)
+                    animal_rec = Animal.objects.get(name=animal_name)
                 except Animal.DoesNotExist:
                     return animal_rec, animal_created
 
         # animal_created block contains all the animal attribute updates if the animal was newly created
         if animal_created:
-            # TODO: See issue #580.  The following hits the default database's cache table even if the validation
-            #       database has been set in the animal object.  This is currently tolerable because the only
-            #       effect is a cache deletion.
             if animal_rec.caches_exist():
                 self.animals_to_uncache.append(animal_rec)
             elif self.verbosity >= 3:
@@ -619,15 +594,13 @@ class SampleTableLoader:
 
             try:
                 # Even if there wasn't a change, get_or_create doesn't do a full_clean
-                if self.db == settings.TRACEBASE_DB:
-                    # full_clean does not have a using parameter. It only supports the default database
-                    animal_rec.full_clean()
+                animal_rec.full_clean()
                 # If there was a change, save the record again
                 if changed:
-                    animal_rec.save(using=self.db)
+                    animal_rec.save()
             except Exception as e:
                 self.aggregated_errors_object.buffer_error(
-                    SaveError(Animal.__name__, str(animal_rec), self.db, e)
+                    SaveError(Animal.__name__, str(animal_rec), e)
                 )
 
         return animal_rec
@@ -642,7 +615,7 @@ class SampleTableLoader:
                     print(
                         f"Finding or inserting animal label '{labeled_element}' for '{animal_rec}'..."
                     )
-                AnimalLabel.objects.using(self.db).get_or_create(
+                AnimalLabel.objects.get_or_create(
                     animal=animal_rec,
                     element=labeled_element,
                 )
@@ -675,15 +648,20 @@ class SampleTableLoader:
 
         # Create a sample record - requires a tissue and animal record
         if sample_name and tissue_rec and animal_rec:
+            # PR REVIEW NOTE: This strategy should be refactored to do the get_or_create with this other (and all) data
+            #                 first and intelligently handle exceptions, but I didn't want to do that much refactoring
+            #                 in 1 go.  This would mean "check_for_inconsistencies" would become obsolete and will need
+            #                 to be replaced using the strategy I employed in the compounds loader.  It will simplify
+            #                 this code.
             try:
-                # Assuming that duplicates among the submission are handled in the checking of the file, so we must
-                # check against the tracebase database for pre-existing sample name duplicates
-                sample_rec = Sample.objects.using(settings.TRACEBASE_DB).get(
-                    name=sample_name
-                )
+                # It's worth noting that this loop encounters this code for the same sample multiple times
 
-                # Now check that the values are consistent.  Buffers exceptions and returns update info for null fields
-                updates_dict = self.check_for_inconsistencies(
+                # Assuming that duplicates among the submission are handled in the checking of the file, but not
+                # against the database, so we must check against the database for pre-existing sample name duplicates
+                sample_rec = Sample.objects.get(name=sample_name)
+
+                # Now check that the values are consistent.  Buffers exceptions.
+                self.check_for_inconsistencies(
                     sample_rec,
                     {
                         "animal": animal_rec,
@@ -695,36 +673,13 @@ class SampleTableLoader:
                     rownum + 1,
                 )
 
-                if len(updates_dict.keys()) > 0 and self.db == settings.TRACEBASE_DB:
-                    if self.verbosity >= 2:
-                        print(
-                            f"Updating [{', '.join(updates_dict.keys())}] in Sample record: [{sample_name}]"
-                        )
-                    for f, v in updates_dict.items():
-                        setattr(sample_rec, f, v)
-                    try:
-                        # Even if there wasn't a change, get_or_create doesn't do a full_clean
-                        sample_rec.full_clean()
-                        sample_rec.save(using=self.db)
-                    except Exception as e:
-                        self.aggregated_errors_object.buffer_error(
-                            SaveError(Sample.__name__, str(sample_rec), self.db, e)
-                        )
-                elif self.verbosity >= 2:
+                if self.verbosity >= 2:
                     print(f"SKIPPING existing Sample record: {sample_name}")
 
             except Sample.DoesNotExist:
 
-                # This loop encounters this code for the same sample multiple times, so during user data validation
-                # and when getting here because the sample doesn't exist in the tracebase-proper database, we still
-                # have to check the validation database before trying to create the sample so that we don't run
-                # afoul of the unique constraint
-                # In the case of actually just loading the tracebase database, this will result in a duplicate
-                # check & exception, but otherwise, it would result in dealing with duplicate code
                 try:
-                    sample_rec, sample_created = Sample.objects.using(
-                        self.db
-                    ).get_or_create(
+                    sample_rec, sample_created = Sample.objects.get_or_create(
                         name=sample_name,
                         animal=animal_rec,
                         tissue=tissue_rec,
@@ -733,11 +688,10 @@ class SampleTableLoader:
                     # If we get here, it means that it tried to create because not all values matched, but upon
                     # creation, the unique sample name collided.  We just need to check_for_inconsistencies
 
-                    sample_rec = Sample.objects.using(self.db).get(name=sample_name)
+                    sample_rec = Sample.objects.get(name=sample_name)
 
-                    # Now check that the values are consistent.  Buffers exceptions and returns update info for null
-                    # fields
-                    updates_dict = self.check_for_inconsistencies(
+                    # Now check that the values are consistent.  Buffers exceptions.
+                    self.check_for_inconsistencies(
                         sample_rec,
                         {
                             "animal": animal_rec,
@@ -749,28 +703,9 @@ class SampleTableLoader:
                         rownum + 1,
                     )
 
-                    if len(updates_dict.keys()) > 0:
-                        if self.verbosity >= 2:
-                            print(
-                                f"Updating [{', '.join(updates_dict.keys())}] in Sample record: [{sample_name}]"
-                            )
-                        for f, v in updates_dict.items():
-                            setattr(sample_rec, f, v)
-                        try:
-                            # Even if there wasn't a change, get_or_create doesn't do a full_clean
-                            if self.db == settings.TRACEBASE_DB:
-                                # full_clean does not have a using parameter. It only supports the default database
-                                sample_rec.full_clean()
-                            sample_rec.save(using=self.db)
-                        except Exception as e:
-                            sample_rec = None
-                            sample_created = False
-                            self.aggregated_errors_object.buffer_error(
-                                SaveError(Sample.__name__, str(sample_rec), self.db, e)
-                            )
-                    else:
-                        sample_rec = None
-                        sample_created = False
+                    # There was an error - clear this record value so we can continue processing
+                    sample_rec = None
+                    sample_created = False
 
                 except Exception as e:
                     sample_rec = None
@@ -799,14 +734,12 @@ class SampleTableLoader:
 
                     try:
                         # Even if there wasn't a change, get_or_create doesn't do a full_clean
-                        if self.db == settings.TRACEBASE_DB:
-                            # full_clean does not have a using parameter. It only supports the default database
-                            sample_rec.full_clean()
+                        sample_rec.full_clean()
                         if changed:
-                            sample_rec.save(using=self.db)
+                            sample_rec.save()
                     except Exception as e:
                         self.aggregated_errors_object.buffer_error(
-                            SaveError(Sample.__name__, str(sample_rec), self.db, e)
+                            SaveError(Sample.__name__, str(sample_rec), e)
                         )
             except Exception as e:
                 self.aggregated_errors_object.buffer_error(
@@ -829,9 +762,9 @@ class SampleTableLoader:
                     if self.verbosity >= 2:
                         print(
                             f"\tFinding or inserting FCirc tracer '{tracer_rec.compound}' and label "
-                            f"'{label_rec.element}' for '{sample_rec}' in database {self.db}..."
+                            f"'{label_rec.element}' for '{sample_rec}'..."
                         )
-                    FCirc.objects.using(self.db).get_or_create(
+                    FCirc.objects.get_or_create(
                         serum_sample=sample_rec,
                         tracer=tracer_rec,
                         element=label_rec.element,

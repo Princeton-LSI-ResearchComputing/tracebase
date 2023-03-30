@@ -6,7 +6,11 @@ from DataRepo.models.fcirc import FCirc
 from DataRepo.models.hier_cached_model import HierCachedModel
 from DataRepo.models.infusate import Infusate
 from DataRepo.models.infusate_tracer import InfusateTracer
-from DataRepo.models.maintained_model import MaintainedModel, buffer_size
+from DataRepo.models.maintained_model import (
+    MaintainedModel,
+    buffer_size,
+    get_all_maintained_field_values,
+)
 from DataRepo.models.ms_run import MSRun
 from DataRepo.models.peak_data import PeakData
 from DataRepo.models.peak_data_label import PeakDataLabel
@@ -26,6 +30,7 @@ __all__ = [
     "AnimalLabel",
     "buffer_size",
     "FCirc",
+    "get_all_maintained_field_values",
     "get_researchers",
     "Compound",
     "CompoundSynonym",

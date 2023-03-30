@@ -50,15 +50,6 @@ Manually create the tracebase database (`tracebase`) in postgres:
 
     createdb -U postgres tracebase
 
-Optional: Manually create the validation database (`tracebase_validation`) in
-postgres (to allow users to validate their load file submissions):
-
-    createdb -U postgres tracebase_validation
-
-Note that subsequent commands in this doc that reference tracebase_validation
-or `--database validation` are conditionally required based on your election to
-perform the step above.
-
 Create a tracebase postgres user:
 
     > create user tracebase with encrypted password 'mypass';
@@ -115,13 +106,10 @@ Copy the TraceBase environment example:
 Update the .env file to reflect the new secret key and the database credentials
 you used when setting up Postgres.
 
-Set up the project's postgres databases:
+Set up the project's postgres database:
 
     python manage.py migrate
     python manage.py createcachetable
-
-    python manage.py migrate --database validation
-    python manage.py createcachetable --database validation
 
 ### (Optional) Load Some Example Data
 
@@ -135,10 +123,6 @@ Set up the project's postgres databases:
 Make sure the project's postgres database is current:
 
     python manage.py migrate
-    python manage.py migrate --database validation
-
-Note that the the default migrations must be done in order to migrate the
-validation database.
 
 Verify you can run the development server.  Run:
 

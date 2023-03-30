@@ -42,7 +42,7 @@ class InfusateTracer(MaintainedModel):
     )
     def _name(self):
         """
-        No name field to update, but we want to changes to these records (i.e. their creation) to trigger Infusate.name
+        No name field to update, but we want changes to these records (i.e. their creation) to trigger Infusate.name
         to update.  That happens in this class's override to .save() in the MaintainedModel class, from which this
         class is derived.  But we don't actually want this method to be called because there is no field to update, so
         we leave out the update_field_name argument to the decorator.

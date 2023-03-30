@@ -1112,7 +1112,7 @@ def filter_updaters(
     return new_updaters_list
 
 
-def perform_buffered_updates(using=None, label_filters=None, filter_in=None):
+def perform_buffered_updates(label_filters=None, filter_in=None):
     """
     Performs a mass update of records in the buffer in a depth-first fashion without repeated updates to the same
     record over and over.  It goes through the buffer in the order added and triggers each record's DFS updates, which
@@ -1131,14 +1131,6 @@ def perform_buffered_updates(using=None, label_filters=None, filter_in=None):
     field's "update_label" in its method's decorator.
     """
     global update_buffer
-
-    save_kwargs = {}
-    db = None
-    if using:
-        db = using
-        save_kwargs["using"] = using
-    # Mass autoupdates should turn off propagation for breadth-first transiting of the tree
-    save_kwargs["propagate"] = False
 
     use_object_label_filters = True
     if label_filters is None:
@@ -1187,7 +1179,7 @@ def perform_buffered_updates(using=None, label_filters=None, filter_in=None):
                 # decide which records should be updated.  Currently, this is not an issue because we only have 1
                 # update_label in use.  And if/when we add another label, it will only end up causing extra
                 # repeated updates of the same record.
-                buffer_item.save(**save_kwargs)
+                buffer_item.save(propagate=False)
 
                 # Propagate the changes (if necessary), keeping track of what is updated and what's not.
                 # Note: all the manual changes are assumed to have been made already, so auto-updates only need to
@@ -1202,7 +1194,7 @@ def perform_buffered_updates(using=None, label_filters=None, filter_in=None):
             disable_mass_autoupdates()
             if orig_au_mode:
                 enable_autoupdates()
-            raise AutoUpdateFailed(buffer_item, e, updater_dicts, db)
+            raise AutoUpdateFailed(buffer_item, e, updater_dicts)
 
     # Eliminate the updated items from the buffer
     update_buffer = new_buffer
@@ -1325,8 +1317,7 @@ class NoDecorators(Exception):
 
 
 class AutoUpdateFailed(Exception):
-    def __init__(self, model_object, err, updaters, db=None):
-        database = "unspecified" if db is None else db
+    def __init__(self, model_object, err, updaters):
         updater_flds = [
             d["update_field"] for d in updaters if d["update_field"] is not None
         ]
@@ -1337,7 +1328,7 @@ class AutoUpdateFailed(Exception):
             obj_str = "unknown"
         message = (
             f"Autoupdate of the {model_object.__class__.__name__} model's fields [{', '.join(updater_flds)}] in the "
-            f"{database} database failed for record {obj_str}.  Potential causes:\n"
+            f"database failed for record {obj_str}.  Potential causes:\n"
             "\t1. The record was created and deleted before the buffered update (a catch for the exception should be "
             "added and ignored).\n"
             "\t2. The autoupdate buffer is stale and auto-updates are being attempted on non-existent records.  Find "

@@ -72,8 +72,6 @@ class Command(BaseCommand):
             "--debug",
             action="store_true",
             default=False,
-            # This issues a "debug-only" error, to abort the transaction
-            # TODO: This DOES change the database. See comments on issue #345
             help="Debug mode. Will not change the database.",
         )
         # optional new researcher argument (circumvents existing researcher check)
@@ -89,13 +87,6 @@ class Command(BaseCommand):
             required=False,
             action="store_true",
             default=False,
-            help=argparse.SUPPRESS,
-        )
-        # Used internally to load necessary data into the validation database
-        parser.add_argument(
-            "--database",
-            required=False,
-            type=str,
             help=argparse.SUPPRESS,
         )
         # Intended for use by load_study to prevent individual loader autoupdates and buffer clearing, then perform all
@@ -131,7 +122,6 @@ class Command(BaseCommand):
             skip_samples=options["skip_samples"],
             sample_name_prefix=options["sample_name_prefix"],
             new_researcher=options["new_researcher"],
-            database=options["database"],
             validate=options["validate"],
             isocorr_format=options["isocorr_format"],
             verbosity=options["verbosity"],

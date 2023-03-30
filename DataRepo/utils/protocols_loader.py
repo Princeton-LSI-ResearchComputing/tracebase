@@ -1,13 +1,8 @@
-from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 
 from DataRepo.models import Protocol
-from DataRepo.utils.exceptions import (
-    DryRun,
-    LoadingError,
-    ValidationDatabaseSetupError,
-)
+from DataRepo.utils.exceptions import DryRun, LoadingError
 
 
 class ProtocolsLoader:
@@ -19,9 +14,7 @@ class ProtocolsLoader:
     STANDARD_DESCRIPTION_HEADER = "description"
     STANDARD_CATEGORY_HEADER = "category"
 
-    def __init__(
-        self, protocols, category=None, database=None, validate=False, dry_run=True
-    ):
+    def __init__(self, protocols, category=None, validate=False, dry_run=True):
         self.protocols = protocols
         self.protocols.columns = self.protocols.columns.str.lower()
         req_cols = [self.STANDARD_NAME_HEADER, self.STANDARD_DESCRIPTION_HEADER]
@@ -37,27 +30,16 @@ class ProtocolsLoader:
         # List of strings that note what was done
         self.notices = []
         # Newly create protocols
-        self.created = {}
+        self.created = []
         # Pre-existing, matching protocols
-        self.existing = {}
-        self.db = settings.TRACEBASE_DB
-        # If a database was explicitly supplied
-        if database is not None:
-            self.validate = False
-            self.db = database
-        else:
-            self.validate = validate
-            if validate:
-                if settings.VALIDATION_ENABLED:
-                    self.db = settings.VALIDATION_DB
-                else:
-                    raise ValidationDatabaseSetupError()
+        self.existing = []
+        self.validate = validate
 
     def load(self):
-        self.load_database(self.db)
+        self.load_database()
 
     @transaction.atomic
-    def load_database(self, db):
+    def load_database(self):
         for index, row in self.protocols.iterrows():
             try:
                 name = row[self.STANDARD_NAME_HEADER]
@@ -83,29 +65,21 @@ class ProtocolsLoader:
                     description = ""
 
                 # Try and get the protocol
-                protocol_rec, protocol_created = Protocol.objects.using(
-                    db
-                ).get_or_create(name=name, category=category)
+                protocol_rec, protocol_created = Protocol.objects.get_or_create(
+                    name=name, category=category
+                )
                 # If no protocol was found, create it
                 if protocol_created:
                     protocol_rec.description = description
                     print("Saving protocol with description")
-                    # full_clean cannot validate (e.g. uniqueness) using a non-default database
-                    if db == settings.TRACEBASE_DB:
-                        protocol_rec.full_clean()
-                    protocol_rec.save(using=db)
-                    if db in self.created:
-                        self.created[db].append(protocol_rec)
-                    else:
-                        self.created[db] = [protocol_rec]
+                    protocol_rec.full_clean()
+                    protocol_rec.save()
+                    self.created.append(protocol_rec)
                     self.notices.append(
-                        f"Created new protocol {protocol_rec}:{description} in the {db} database"
+                        f"Created new protocol {protocol_rec}:{description}"
                     )
                 elif protocol_rec.description == description:
-                    if db in self.existing:
-                        self.existing[db].append(protocol_rec)
-                    else:
-                        self.existing[db] = [protocol_rec]
+                    self.existing.append(protocol_rec)
                     self.notices.append(
                         f"Matching protocol {protocol_rec} already exists, skipping"
                     )
@@ -117,7 +91,7 @@ class ProtocolsLoader:
                     )
             except (IntegrityError, ValidationError) as e:
                 self.errors.append(
-                    f"{type(e).__name__} in the {db} database on data row {index + 1}, creating {category} record for "
+                    f"{type(e).__name__} in the database on data row {index + 1}, creating {category} record for "
                     f"protocol '{name}' with description '{description}': {e}"
                 )
             except KeyError:
@@ -136,29 +110,23 @@ class ProtocolsLoader:
             raise DryRun()
 
     def get_stats(self):
-        dbs = [settings.TRACEBASE_DB]
-        if settings.VALIDATION_ENABLED:
-            dbs.append(settings.VALIDATION_DB)
         stats = {}
-        for db in dbs:
 
-            created = []
-            if db in self.created:
-                for protocol in self.created[db]:
-                    created.append(
-                        {"protocol": protocol.name, "description": protocol.description}
-                    )
+        created = []
+        for protocol in self.created:
+            created.append(
+                {"protocol": protocol.name, "description": protocol.description}
+            )
 
-            skipped = []
-            if db in self.existing:
-                for protocol in self.existing[db]:
-                    skipped.append(
-                        {"protocol": protocol.name, "description": protocol.description}
-                    )
+        skipped = []
+        for protocol in self.existing:
+            skipped.append(
+                {"protocol": protocol.name, "description": protocol.description}
+            )
 
-            stats[db] = {
-                "created": created,
-                "skipped": skipped,
-            }
+        stats = {
+            "created": created,
+            "skipped": skipped,
+        }
 
         return stats

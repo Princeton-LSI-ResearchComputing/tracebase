@@ -1,7 +1,5 @@
 from collections import defaultdict
 
-from django.conf import settings
-from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.utils import IntegrityError
 
@@ -10,7 +8,7 @@ from DataRepo.models.compound import (
     CompoundExistsAsMismatchedSynonym,
     SynonymExistsAsMismatchedCompound,
 )
-from DataRepo.utils.exceptions import (  # AmbiguousCompoundDefinitionError,
+from DataRepo.utils.exceptions import (
     AggregatedErrors,
     ConflictingValueError,
     DryRun,
@@ -18,7 +16,6 @@ from DataRepo.utils.exceptions import (  # AmbiguousCompoundDefinitionError,
     RequiredHeadersError,
     RequiredValuesError,
     UnknownHeadersError,
-    ValidationDatabaseSetupError,
 )
 
 
@@ -40,7 +37,6 @@ class CompoundsLoader:
         self,
         compounds_df,
         synonym_separator=";",
-        database=None,
         validate=False,
         dry_run=False,
     ):
@@ -50,54 +46,15 @@ class CompoundsLoader:
         self.validation_warning_messages = []
         self.validation_error_messages = []
         self.summary_messages = []
-        self.validated_new_compounds_for_insertion = {
-            settings.TRACEBASE_DB: [],
-            settings.VALIDATION_DB: [],
-        }
-        # self.missing_rqd_values = defaultdict(list)
         self.bad_row_indexes = []
-        self.num_inserted_compounds = {
-            settings.TRACEBASE_DB: 0,
-            settings.VALIDATION_DB: 0,
-        }
-        self.num_existing_compounds = {
-            settings.TRACEBASE_DB: 0,
-            settings.VALIDATION_DB: 0,
-        }
-        self.num_erroneous_compounds = {
-            settings.TRACEBASE_DB: 0,
-            settings.VALIDATION_DB: 0,
-        }
-        self.num_inserted_synonyms = {
-            settings.TRACEBASE_DB: 0,
-            settings.VALIDATION_DB: 0,
-        }
-        self.num_existing_synonyms = {
-            settings.TRACEBASE_DB: 0,
-            settings.VALIDATION_DB: 0,
-        }
-        self.num_erroneous_synonyms = {
-            settings.TRACEBASE_DB: 0,
-            settings.VALIDATION_DB: 0,
-        }
+        self.num_inserted_compounds = 0
+        self.num_existing_compounds = 0
+        self.num_erroneous_compounds = 0
+        self.num_inserted_synonyms = 0
+        self.num_existing_synonyms = 0
+        self.num_erroneous_synonyms = 0
         self.dry_run = dry_run
-        self.db = settings.TRACEBASE_DB
-        self.loading_mode = "both"
-        # If a database was explicitly supplied
-        if database is not None:
-            self.validate = False
-            self.db = database
-            self.loading_mode = "one"
-        else:
-            self.validate = validate
-            if validate:
-                if settings.VALIDATION_ENABLED:
-                    self.db = settings.VALIDATION_DB
-                else:
-                    raise ValidationDatabaseSetupError()
-                self.loading_mode = "one"
-            else:
-                self.loading_mode = "both"
+        self.validate = validate
 
         self.aggregated_errors_obj = AggregatedErrors()
 
@@ -132,7 +89,7 @@ class CompoundsLoader:
     def load_compounds(self):
         with transaction.atomic():
             try:
-                # self._load_data()
+                self.validate_infile_data()
                 self._load_data()
             except Exception as e:
                 self.aggregated_errors_obj.buffer_error(e)
@@ -144,23 +101,6 @@ class CompoundsLoader:
             if self.dry_run:
                 # Roll back everything
                 raise DryRun()
-
-    def _load_data(self):
-        self.validate_infile_data()
-        if self.loading_mode == "both":
-            self.load_compounds_per_db(settings.TRACEBASE_DB)
-            if settings.VALIDATION_ENABLED:
-                self.load_compounds_per_db(settings.VALIDATION_DB)
-        elif self.loading_mode == "one":
-            try:
-                self.load_compounds_per_db(self.db)
-            except Exception as e:
-                self.aggregated_errors_obj.buffer_error(e)
-        else:
-            # Should not proceed
-            raise ValueError(
-                f"Internal error: Invalid loading_mode: [{self.loading_mode}]"
-            )
 
     def validate_infile_data(self):
         # Check the headers
@@ -233,7 +173,7 @@ class CompoundsLoader:
 
         return val
 
-    def load_compounds_per_db(self, db=settings.TRACEBASE_DB):
+    def _load_data(self):
         for index, row in self.compounds_df.iterrows():
             if index in self.bad_row_indexes:
                 # Don't attempt load of rows where there are cross-references between compound names and synonyms or
@@ -251,23 +191,15 @@ class CompoundsLoader:
                     "formula": formula,
                     "hmdb_id": hmdb_id,
                 }
-                compound_rec, compound_created = Compound.objects.using(
-                    db
-                ).get_or_create(**compound_recdict)
+                compound_rec, compound_created = Compound.objects.get_or_create(
+                    **compound_recdict
+                )
                 # get_or_create does not perform a full clean
                 if compound_created:
-                    try:
-                        compound_rec.full_clean()
-                    except ValidationError as ve:
-                        if db == settings.VALIDATION_DB:
-                            # get_or_create saves before full_clean which cases a unique constraint issue when full
-                            # clean is called on a record added to a non-default database, so pass.
-                            pass
-                        else:
-                            raise ve
-                    self.num_inserted_compounds[db] += 1
+                    compound_rec.full_clean()
+                    self.num_inserted_compounds += 1
                 else:
-                    self.num_existing_compounds[db] += 1
+                    self.num_existing_compounds += 1
             except IntegrityError as ie:
                 iestr = str(ie)
                 if "DataRepo_compoundsynonym_pkey" in iestr:
@@ -282,10 +214,10 @@ class CompoundsLoader:
                     )
                 else:
                     self.aggregated_errors_obj.buffer_error(ie)
-                self.num_erroneous_compounds[db] += 1
+                self.num_erroneous_compounds += 1
             except Exception as e:
                 self.aggregated_errors_obj.buffer_error(e)
-                self.num_erroneous_compounds[db] += 1
+                self.num_erroneous_compounds += 1
 
             for synonym in synonyms:
                 try:
@@ -293,15 +225,16 @@ class CompoundsLoader:
                         "name": synonym,
                         "compound": compound_rec,
                     }
-                    synonym_rec, synonym_created = CompoundSynonym.objects.using(
-                        db
-                    ).get_or_create(**synonym_recdict)
+                    (
+                        synonym_rec,
+                        synonym_created,
+                    ) = CompoundSynonym.objects.get_or_create(**synonym_recdict)
                     # get_or_create does not perform a full clean
                     if synonym_created:
                         synonym_rec.full_clean()
-                        self.num_inserted_synonyms[db] += 1
+                        self.num_inserted_synonyms += 1
                     else:
-                        self.num_existing_synonyms[db] += 1
+                        self.num_existing_synonyms += 1
                 except SynonymExistsAsMismatchedCompound as seamc:
                     self.aggregated_errors_obj.buffer_error(seamc)
                 except IntegrityError as ie:
@@ -310,11 +243,11 @@ class CompoundsLoader:
                         # This means that the record exists (the synonym record exists, but to a different compound -
                         # so something in the compound data in the load doesn't completely match)
                         try:
-                            existing_synonym = CompoundSynonym.objects.using(db).get(
+                            existing_synonym = CompoundSynonym.objects.get(
                                 name__exact=synonym_recdict["name"]
                             )
                             mismatches = self.check_for_inconsistencies(
-                                existing_synonym, synonym_recdict, index, db
+                                existing_synonym, synonym_recdict, index
                             )
                             if mismatches == 0:
                                 self.aggregated_errors_obj.buffer_error(ie)
@@ -322,15 +255,15 @@ class CompoundsLoader:
                             self.aggregated_errors_obj.buffer_error(ie)
                     else:
                         self.aggregated_errors_obj.buffer_warning(
-                            CompoundSynonymExists(name, db)
+                            CompoundSynonymExists(name)
                         )
-                    self.num_erroneous_synonyms[db] += 1
+                    self.num_erroneous_synonyms += 1
                     # synonym_skips += 1
                 except Exception as e:
                     self.aggregated_errors_obj.buffer_error(e)
-                    self.num_erroneous_synonyms[db] += 1
+                    self.num_erroneous_synonyms += 1
 
-    def check_for_inconsistencies(self, rec, value_dict, index=None, db=None):
+    def check_for_inconsistencies(self, rec, value_dict, index=None):
         mismatches = 0
         for field, new_value in value_dict.items():
             orig_value = getattr(rec, field)
@@ -343,33 +276,29 @@ class CompoundsLoader:
                         orig_value,
                         new_value,
                         index + 1,  # row number (starting from 1)
-                        db,
                     )
                 )
         return mismatches
 
 
 class CompoundExists(Exception):
-    def __init__(self, cpd, db):
-        message = f"Compound [{cpd}] already exists in the {db} database."
+    def __init__(self, cpd):
+        message = f"Compound [{cpd}] already exists."
         super().__init__(message)
         self.cpd = cpd
-        self.db = db
 
 
 class CompoundSynonymExists(Exception):
-    def __init__(self, syn, db):
-        message = f"CompoundSynonym [{syn}] already exists in the {db} database."
+    def __init__(self, syn):
+        message = f"CompoundSynonym [{syn}] already exists."
         super().__init__(message)
         self.syn = syn
-        self.db = db
 
 
 # TODO: Delete this exception class (or move to exceptions.py). I don't think I need it.
 class CompoundNotFound(Exception):
-    def __init__(self, cpd, db, hmdb_id):
-        message = f"Cound not find compound [{cpd}] in database [{db}] by searching for its HMDB ID: [{hmdb_id}]."
+    def __init__(self, cpd, hmdb_id):
+        message = f"Cound not find compound [{cpd}] by searching for its HMDB ID: [{hmdb_id}]."
         super().__init__(message)
         self.cpd = cpd
-        self.db = db
         self.hmdb_id = hmdb_id

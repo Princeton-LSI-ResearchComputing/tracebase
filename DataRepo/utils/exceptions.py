@@ -46,6 +46,34 @@ class RequiredValuesError(Exception):
         self.missing = missing
 
 
+class ExistingMSRun(Exception):
+    def __init__(self, date, researcher, protocol_name, file_samples_dict, adding_file):
+        message = (
+            "The following date, researcher, and protocol:\n"
+            f"\tdate: {date}\n"
+            f"\tresearcher: {researcher}\n"
+            f"\tprotocol: {protocol_name}\n"
+            f"for the load of the current accucor/isocorr file: [{adding_file}]\n"
+            "contains samples that were also found to be associated with the following previously (or concurrently) "
+            "loaded file(s).  The common/conflicting samples contained in each file are listed:\n"
+        )
+        for existing_file in file_samples_dict.keys():
+            message += f"\t{existing_file}:\n\t\t"
+            message += "\n\t\t".join(file_samples_dict[existing_file])
+        message += (
+            "\nThis indicates that the same samples were a part of multiple MSRuns.  The date, researcher, protocol, "
+            "(and sample name) must be unique for each MSRun.  Changing the date of the MSRun should be considered, "
+            "but the load will also need a prefix defined on the command line (using --prefix) and the sample names "
+            "in the sample sheet will need to be modified to make them unique (even though they are the same sample)."
+        )
+        super().__init__(message)
+        self.date = date
+        self.researcher = researcher
+        self.protocol_name = protocol_name
+        self.file_samples_dict = file_samples_dict
+        self.adding_file = adding_file
+
+
 class UnknownHeadersError(HeaderError):
     def __init__(self, unknowns, message=None):
         if not message:
@@ -154,14 +182,6 @@ class MultipleAccucorTracerLabelColumnsError(Exception):
         )
         super().__init__(message)
         self.columns = columns
-
-
-# class AmbiguousCompoundDefinitionError(Exception):
-#     pass
-
-
-class ValidationDatabaseSetupError(Exception):
-    message = "The validation database is not configured"
 
 
 class DryRun(Exception):
@@ -411,17 +431,15 @@ class ConflictingValueError(Exception):
         existing_value,
         differing_value,
         rownum=None,
-        db=None,
         message=None,
     ):
         if not message:
             rowmsg = (
                 f"on row {rownum} of the load file data " if rownum is not None else ""
             )
-            dbmsg = f" in database [{db}]" if db is not None else ""
             message = (
                 f"Conflicting values encountered {rowmsg}in {type(rec).__name__} record [{str(rec)}] for the "
-                f"[{consistent_field}] field{dbmsg}:\n"
+                f"[{consistent_field}] field:\n"
                 f"\tdatabase {consistent_field} value: [{existing_value}]\n"
                 f"\tfile {consistent_field} value: [{differing_value}]"
             )
@@ -430,16 +448,14 @@ class ConflictingValueError(Exception):
         self.existing_value = existing_value
         self.differing_value = differing_value
         self.rownum = rownum
-        self.db = db
 
 
 class SaveError(Exception):
-    def __init__(self, model_name, rec_name, db, e):
-        message = f"Error saving {model_name} {rec_name} to database {db}: {type(e).__name__}: {str(e)}"
+    def __init__(self, model_name, rec_name, e):
+        message = f"Error saving {model_name} {rec_name}: {type(e).__name__}: {str(e)}"
         super().__init__(message)
         self.model_name = model_name
         self.rec_name = rec_name
-        self.db = db
         self.orig_err = e
 
 
