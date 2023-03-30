@@ -1,3 +1,4 @@
+import re
 from collections import defaultdict, namedtuple
 from datetime import timedelta
 
@@ -43,6 +44,7 @@ from DataRepo.utils.exceptions import (
     RequiredHeadersError,
     RequiredValuesError,
     SaveError,
+    UnitsNotAllowed,
     UnknownHeadersError,
 )
 
@@ -170,8 +172,12 @@ class SampleTableLoader:
         self.aggregated_errors_object = AggregatedErrors()
         self.missing_headers = []
         self.missing_values = defaultdict(list)
+
+        # Skip rows that have errors
+        self.units_warnings = {}
         self.infile_sample_dupe_rows = []
         self.empty_animal_rows = []
+
         # Obtain known researchers before load
         self.known_researchers = get_researchers()
 
@@ -281,6 +287,11 @@ class SampleTableLoader:
         if len(self.missing_values.keys()) > 0:
             self.aggregated_errors_object.buffer_error(
                 RequiredValuesError(self.missing_values)
+            )
+
+        if len(self.units_warnings.keys()) > 0:
+            self.aggregated_errors_object.buffer_warning(
+                UnitsNotAllowed(self.units_warnings)
             )
 
         if self.aggregated_errors_object.should_raise():
@@ -401,7 +412,9 @@ class SampleTableLoader:
         return study_rec
 
     def get_tracer_concentrations(self, rownum, row):
-        tracer_concs_str = self.getRowVal(rownum, row, "TRACER_CONCENTRATIONS")
+        tracer_concs_str = self.getRowVal(
+            rownum, row, "TRACER_CONCENTRATIONS", strip_units=True
+        )
         return parse_tracer_concentrations(tracer_concs_str)
 
     def get_or_create_infusate(self, rownum, row):
@@ -468,15 +481,58 @@ class SampleTableLoader:
 
         return treatment_rec
 
+    def strip_units(self, val, hdr_attr, rowidx):
+        """
+        This method takes a numeric value with accompanying units is string format and returns the numerical value
+        without the units, also in string format.  It buffers a warning exception, because the value could be
+        malformed, so the user should be alerted about it to potentially fix it.
+        """
+        if type(val) != str:
+            # Assume that if it's not a string, it already doesn't contain units, because pandas converted it
+            return val
+
+        stripped_val = val
+
+        united_val_pattern = re.compile(
+            r"^(?P<val>[\d\.eE]+)\s*(?P<units>[a-zA-Z][a-zA-Z\/]*)$"
+        )
+        match = re.search(united_val_pattern, val)
+
+        if match:
+            stripped_val = match.group("val")
+            the_units = match.group("units")
+            header = getattr(self.headers, hdr_attr)
+            if header in self.units_warnings:
+                if val in self.units_warnings[header]:
+                    self.units_warnings[header][val]["rows"].append(rowidx + 2)
+                else:
+                    self.units_warnings[header][val] = {
+                        "stripped": stripped_val,
+                        "rows": [rowidx + 2],
+                        "units": the_units,
+                    }
+            else:
+                self.units_warnings[header] = {
+                    val: {
+                        "stripped": stripped_val,
+                        "rows": [rowidx + 2],
+                        "units": the_units,
+                    }
+                }
+
+        return stripped_val
+
     def get_or_create_animal(self, rownum, row, infusate_rec, treatment_rec):
         animal_name = self.getRowVal(rownum, row, "ANIMAL_NAME")
         genotype = self.getRowVal(rownum, row, "ANIMAL_GENOTYPE")
-        weight = self.getRowVal(rownum, row, "ANIMAL_WEIGHT")
+        weight = self.getRowVal(rownum, row, "ANIMAL_WEIGHT", strip_units=True)
         feedstatus = self.getRowVal(rownum, row, "ANIMAL_FEEDING_STATUS")
-        age = self.getRowVal(rownum, row, "ANIMAL_AGE")
+        age = self.getRowVal(rownum, row, "ANIMAL_AGE", strip_units=True)
         diet = self.getRowVal(rownum, row, "ANIMAL_DIET")
         animal_sex_string = self.getRowVal(rownum, row, "ANIMAL_SEX")
-        infusion_rate = self.getRowVal(rownum, row, "ANIMAL_INFUSION_RATE")
+        infusion_rate = self.getRowVal(
+            rownum, row, "ANIMAL_INFUSION_RATE", strip_units=True
+        )
 
         animal_rec = None
         animal_created = False
@@ -571,7 +627,9 @@ class SampleTableLoader:
         sample_name = self.getRowVal(rownum, row, "SAMPLE_NAME")
         researcher = self.getRowVal(rownum, row, "SAMPLE_RESEARCHER")
         time_collected = None
-        time_collected_str = self.getRowVal(rownum, row, "TIME_COLLECTED")
+        time_collected_str = self.getRowVal(
+            rownum, row, "TIME_COLLECTED", strip_units=True
+        )
         sample_date = None
         sample_date_value = self.getRowVal(rownum, row, "SAMPLE_DATE")
 
@@ -902,7 +960,7 @@ class SampleTableLoader:
                 if val is None or val == "":
                     self.missing_values[hdr_name].append(rownum)
 
-    def getRowVal(self, rownum, row, header_attribute):
+    def getRowVal(self, rownum, row, header_attribute, strip_units=False):
         # get the header value to use as a dict key for 'row'
         header = getattr(self.headers, header_attribute)
         val = None
@@ -913,6 +971,9 @@ class SampleTableLoader:
             # This will make later checks of values easier
             if val == "":
                 val = None
+
+        if val and strip_units:
+            val = self.strip_units(val, header_attribute, rownum)
 
         return val
 
