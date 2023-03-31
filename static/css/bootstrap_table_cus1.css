@@ -1,0 +1,71 @@
+/*
+hide scrollbar but allow scrolling
+note: set body didn't work for Firefox, need to set for html
+*/
+html {
+  scrollbar-width: none !important;  /* for Firefox */
+}
+
+body {
+  -ms-overflow-style: none; /* for Internet Explorer, Edge */
+}
+
+body::-webkit-scrollbar {
+  display: none !important; /* for Chrome, Safari */
+}
+
+/* customize Bootstrap-table settings for th */
+.bootstrap-table .fixed-table-container .table thead th .th-inner {
+  padding: 0.75rem;
+  vertical-align: top; /* change from bottom to top  */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: normal !important; /* change from nowrap to normal */
+  height: 5rem; /* added new variable and value */
+  min-width: 2rem !important; /* added new variable and value */
+}
+
+/* customize Bootstrap-table settings for td */
+.bootstrap-table .fixed-table-container .table tbody tr.no-records-found td {
+  text-align: center;
+  overflow-wrap: word-wrap !important; /* added new variable and value */
+  word-wrap: break-all !important; /* added new variable and value */
+  word-break: break-all !important; /* added new variable and value */
+}
+
+/* minimum and maximum width based on percentage of viewport width */
+.min-vw-2 {
+  min-width: 2vw !important;
+}
+
+.min-vw-3 {
+  min-width: 3vw !important;
+}
+
+.min-vw-5 {
+  min-width: 5vw !important;
+}
+
+.min-vw-7 {
+  min-width: 7vw !important;
+}
+
+.max-vw-5 {
+  max-width: 5vw !important;
+}
+
+.max-vw-7 {
+  max-width: 7vw !important;
+}
+
+.max-vw-10 {
+  max-width: 10vw !important;
+}
+
+.max-vw-15 {
+  max-width: 15vw !important;
+}
+
+.max-vw-20 {
+  max-width: 20vw !important;
+}
