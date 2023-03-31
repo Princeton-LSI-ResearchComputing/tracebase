@@ -587,6 +587,7 @@ class MissingCompounds(Exception):
 
 def summarize_int_list(intlist):
     """
+    This method was written to make long lists of row numbers more palatable to the user.
     Turns [1,2,3,5,6,9] into ['1-3','5-6','9']
     """
     sum_list = []
