@@ -39,11 +39,11 @@ from DataRepo.utils.exceptions import (
     ConflictingValueError,
     DryRun,
     DuplicateValues,
-    EmptyAnimalNames,
     HeaderConfigError,
     RequiredHeadersError,
     RequiredValuesError,
     SaveError,
+    SheetMergeError,
     UnitsNotAllowed,
     UnknownHeadersError,
 )
@@ -322,7 +322,7 @@ class SampleTableLoader:
             clear_update_buffer()
 
     def get_tissue(self, rownum, row):
-        tissue_name = self.getRowVal(rownum, row, "TISSUE_NAME")
+        tissue_name = self.getRowVal(row, "TISSUE_NAME")
         tissue_rec = None
         is_blank = tissue_name is None
         if is_blank:
@@ -344,8 +344,8 @@ class SampleTableLoader:
         return tissue_rec, is_blank
 
     def get_or_create_study(self, rownum, row, animal_rec):
-        study_name = self.getRowVal(rownum, row, "STUDY_NAME")
-        study_desc = self.getRowVal(rownum, row, "STUDY_DESCRIPTION")
+        study_name = self.getRowVal(row, "STUDY_NAME")
+        study_desc = self.getRowVal(row, "STUDY_DESCRIPTION")
 
         study_created = False
         study_updated = False
@@ -412,14 +412,15 @@ class SampleTableLoader:
         return study_rec
 
     def get_tracer_concentrations(self, rownum, row):
-        tracer_concs_str = self.getRowVal(
-            rownum, row, "TRACER_CONCENTRATIONS", strip_units=True
+        tracer_concs_str = self.getRowVal(row, "TRACER_CONCENTRATIONS")
+        stripped_tracer_concs_str = self.strip_units(
+            tracer_concs_str, "TRACER_CONCENTRATIONS", rownum
         )
-        return parse_tracer_concentrations(tracer_concs_str)
+        return parse_tracer_concentrations(stripped_tracer_concs_str)
 
     def get_or_create_infusate(self, rownum, row):
         tracer_concs = self.get_tracer_concentrations(rownum, row)
-        infusate_str = self.getRowVal(rownum, row, "INFUSATE")
+        infusate_str = self.getRowVal(row, "INFUSATE")
 
         infusate_rec = None
         if infusate_str is not None:
@@ -437,7 +438,7 @@ class SampleTableLoader:
         return infusate_rec
 
     def get_treatment(self, rownum, row):
-        treatment_name = self.getRowVal(rownum, row, "ANIMAL_TREATMENT")
+        treatment_name = self.getRowVal(row, "ANIMAL_TREATMENT")
         treatment_rec = None
         if treatment_name:
             # Animal Treatments are optional protocols
@@ -523,15 +524,18 @@ class SampleTableLoader:
         return stripped_val
 
     def get_or_create_animal(self, rownum, row, infusate_rec, treatment_rec):
-        animal_name = self.getRowVal(rownum, row, "ANIMAL_NAME")
-        genotype = self.getRowVal(rownum, row, "ANIMAL_GENOTYPE")
-        weight = self.getRowVal(rownum, row, "ANIMAL_WEIGHT", strip_units=True)
-        feedstatus = self.getRowVal(rownum, row, "ANIMAL_FEEDING_STATUS")
-        age = self.getRowVal(rownum, row, "ANIMAL_AGE", strip_units=True)
-        diet = self.getRowVal(rownum, row, "ANIMAL_DIET")
-        animal_sex_string = self.getRowVal(rownum, row, "ANIMAL_SEX")
-        infusion_rate = self.getRowVal(
-            rownum, row, "ANIMAL_INFUSION_RATE", strip_units=True
+        animal_name = self.getRowVal(row, "ANIMAL_NAME")
+        genotype = self.getRowVal(row, "ANIMAL_GENOTYPE")
+        raw_weight = self.getRowVal(row, "ANIMAL_WEIGHT")
+        weight = self.strip_units(raw_weight, "ANIMAL_WEIGHT", rownum)
+        feedstatus = self.getRowVal(row, "ANIMAL_FEEDING_STATUS")
+        raw_age = self.getRowVal(row, "ANIMAL_AGE")
+        age = self.strip_units(raw_age, "ANIMAL_AGE", rownum)
+        diet = self.getRowVal(row, "ANIMAL_DIET")
+        animal_sex_string = self.getRowVal(row, "ANIMAL_SEX")
+        raw_infusion_rate = self.getRowVal(row, "ANIMAL_INFUSION_RATE")
+        infusion_rate = self.strip_units(
+            raw_infusion_rate, "ANIMAL_INFUSION_RATE", rownum
         )
 
         animal_rec = None
@@ -624,14 +628,15 @@ class SampleTableLoader:
         sample_rec = None
 
         # Initialize raw values
-        sample_name = self.getRowVal(rownum, row, "SAMPLE_NAME")
-        researcher = self.getRowVal(rownum, row, "SAMPLE_RESEARCHER")
+        sample_name = self.getRowVal(row, "SAMPLE_NAME")
+        researcher = self.getRowVal(row, "SAMPLE_RESEARCHER")
         time_collected = None
-        time_collected_str = self.getRowVal(
-            rownum, row, "TIME_COLLECTED", strip_units=True
+        raw_time_collected_str = self.getRowVal(row, "TIME_COLLECTED")
+        time_collected_str = self.strip_units(
+            raw_time_collected_str, "TIME_COLLECTED", rownum
         )
         sample_date = None
-        sample_date_value = self.getRowVal(rownum, row, "SAMPLE_DATE")
+        sample_date_value = self.getRowVal(row, "SAMPLE_DATE")
 
         # Convert/check values as necessary
         if researcher and researcher not in self.input_researchers:
@@ -928,7 +933,7 @@ class SampleTableLoader:
         if len(empty_animal_rows) > 0:
             self.empty_animal_rows = empty_animal_rows
             self.aggregated_errors_object.buffer_error(
-                EmptyAnimalNames(empty_animal_rows, animal_name_header)
+                SheetMergeError(empty_animal_rows, animal_name_header)
             )
 
     def check_required_values(self, rownum, row):
@@ -960,7 +965,7 @@ class SampleTableLoader:
                 if val is None or val == "":
                     self.missing_values[hdr_name].append(rownum)
 
-    def getRowVal(self, rownum, row, header_attribute, strip_units=False):
+    def getRowVal(self, row, header_attribute):
         # get the header value to use as a dict key for 'row'
         header = getattr(self.headers, header_attribute)
         val = None
@@ -971,9 +976,6 @@ class SampleTableLoader:
             # This will make later checks of values easier
             if val == "":
                 val = None
-
-        if val and strip_units:
-            val = self.strip_units(val, header_attribute, rownum)
 
         return val
 

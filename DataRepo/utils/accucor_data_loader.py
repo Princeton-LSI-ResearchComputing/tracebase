@@ -352,7 +352,7 @@ class AccuCorDataLoader:
         self.dupe_isotope_rows["corrected"] = []
 
         if self.accucor_original_df is not None:
-            dupe_dict = {}
+            dupe_dict = defaultdict(list)
             dupe_orig_rows = []
             for index, row in self.accucor_original_df[
                 self.accucor_original_df.duplicated(
@@ -361,10 +361,7 @@ class AccuCorDataLoader:
             ].iterrows():
                 dupe_orig_rows.append(index)
                 dupe_key = row["compound"] + " & " + row["isotopeLabel"]
-                if dupe_key not in dupe_dict:
-                    dupe_dict[dupe_key] = str(index + 1)
-                else:
-                    dupe_dict[dupe_key] += "," + str(index + 1)
+                dupe_dict[dupe_key].append(index + 2)
 
             if len(dupe_dict.keys()) != 0:
                 # Record the rows where this exception occurred so that subsequent downstream errors caused by this
@@ -380,7 +377,7 @@ class AccuCorDataLoader:
             labeled_element_header = self.labeled_element_header
 
         # do it again for the corrected
-        dupe_dict = {}
+        dupe_dict = defaultdict(list)
         dupe_corr_rows = []
         for index, row in self.accucor_corrected_df[
             self.accucor_corrected_df.duplicated(
@@ -389,10 +386,7 @@ class AccuCorDataLoader:
         ].iterrows():
             dupe_corr_rows.append(index)
             dupe_key = f"{row[self.compound_header]} & {row[labeled_element_header]}"
-            if dupe_key not in dupe_dict:
-                dupe_dict[dupe_key] = str(index + 1)
-            else:
-                dupe_dict[dupe_key] += "," + str(index + 1)
+            dupe_dict[dupe_key].append(index + 2)
 
         if len(dupe_dict.keys()) != 0:
             # Record the rows where this exception occurred so that subsequent downstream errors caused by this
@@ -939,10 +933,11 @@ class AccuCorDataLoader:
                             else:
                                 if settings.DEBUG or self.verbosity >= 1:
                                     print(
-                                        f"orig_row_idx: [{orig_row_idx}] "
-                                        f"element: [{peak_group_label_rec}] "
-                                        f"count: [{labeled_count}] "
-                                        f"mass number: [{mass_number}] "
+                                        f"rows w/ dupe compound/isotope combos: {self.dupe_isotope_rows['original']}\n"
+                                        f"orig_row_idx: [{orig_row_idx}]\n"
+                                        f"element: [{peak_group_label_rec}]\n"
+                                        f"count: [{labeled_count}]\n"
+                                        f"mass number: [{mass_number}]\n"
                                         f"Number of atoms in the formula: {peak_group_label_rec.atom_count()}"
                                     )
                                 raise ve

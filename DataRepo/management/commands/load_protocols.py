@@ -6,7 +6,7 @@ import pandas as pd
 from django.core.management import BaseCommand, CommandError
 
 from DataRepo.models.protocol import Protocol
-from DataRepo.utils import DryRun, LoadingError, ProtocolsLoader
+from DataRepo.utils import AggregatedErrors, DryRun, ProtocolsLoader
 
 
 class Command(BaseCommand):
@@ -25,8 +25,7 @@ class Command(BaseCommand):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Used (e.g.) to set the category for a 2-column (name/desc) "treatments" tab in an xlsx file
-        self.batch_category = None
+        self.batch_category = None  # Set from the excel spreadsheet
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -65,88 +64,78 @@ class Command(BaseCommand):
                 self.style.MIGRATE_HEADING("DRY-RUN, NO CHANGES WILL BE SAVED")
             )
 
-        self.read_from_file(options["protocols"])
+        self.protocols_df, self.batch_category = self.read_from_file(
+            options["protocols"]
+        )
 
-        self.new_protocols_df = self.new_protocols_df.replace(np.nan, "", regex=True)
-        for col in self.new_protocols_df.columns:
-            self.new_protocols_df[col] = self.new_protocols_df[col].str.strip()
         loader_args = {
-            "protocols": self.new_protocols_df,
+            "protocols": self.protocols_df,
+            "category": self.batch_category,
             "dry_run": options["dry_run"],
             "validate": options["validate"],
+            "verbosity": options["verbosity"],
         }
-        if self.batch_category:
-            loader_args["category"] = self.batch_category
 
         self.protocol_loader = ProtocolsLoader(**loader_args)
 
         try:
             self.protocol_loader.load()
-        except DryRun:
-            self.print_notices(
-                self.protocol_loader.get_stats(),
-                options["protocols"],
-                options["verbosity"],
-            )
+
             self.stdout.write(
-                self.style.SUCCESS("DRY-RUN complete, no protocols loaded")
+                self.style.SUCCESS(
+                    f"Load complete, inserted {self.protocol_loader.created} and skipped "
+                    f"{self.protocol_loader.existing} existing records"
+                )
             )
-        except LoadingError as le:
-            self.print_notices(
-                self.protocol_loader.get_stats(),
-                options["protocols"],
-                options["verbosity"],
-                False,
+        except DryRun:
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f"DRY-RUN complete, would have inserted {self.protocol_loader.created} and skipped "
+                    f"{self.protocol_loader.existing} existing records"
+                )
             )
-            errmsgs = ""
-            if options["verbosity"] >= 2:
-                errmsgs += ":\n"
-            for exception in self.protocol_loader.errors:
-                self.stdout.write(self.style.ERROR("ERROR: " + exception))
-                if options["verbosity"] >= 2:
-                    errmsgs += f"{exception}\n"
-            raise CommandError(
-                f"{len(self.protocol_loader.errors)} errors loading protocol records from "
-                f"{options['protocols']} - NO RECORDS SAVED{errmsgs}"
-            ).with_traceback(le.__traceback__)
-        else:
-            self.print_notices(
-                self.protocol_loader.get_stats(),
-                options["protocols"],
-                options["verbosity"],
-                False,
-            )
+        except AggregatedErrors as aes:
+            aes.print_summary()
+            raise aes
 
     def read_from_file(self, filename, format=None):
         """
         Read protocols from a file and buffer their contents in the instance object to be loaded later
         """
         format_choices = ("tsv", "xlsx")
+        batch_category = None
+
         if format is None:
             format = pathlib.Path(filename).suffix.strip(".")
+
         if format == "tsv":
-            self.read_protocols_tsv(filename)
+            protocols_df = self.read_protocols_tsv(filename)
         elif format == "xlsx":
-            self.read_protocols_xlsx(filename)
+            protocols_df, batch_category = self.read_protocols_xlsx(filename)
         else:
             raise CommandError(
-                'Invalid file format reading samples: "%s", expected one of [%s].',
-                format,
-                ", ".join(format_choices),
+                f"Invalid file format reading samples: [{format}], expected one of [{', '.join(format_choices)}].",
             )
+
+        # Tidy the data up
+        protocols_df = protocols_df.replace(np.nan, "", regex=True)
+        for col in protocols_df.columns:
+            protocols_df[col] = protocols_df[col].str.strip()
+
+        return protocols_df, batch_category
 
     def read_protocols_tsv(self, protocols_tsv):
 
         # Keeping `na` to differentiate between intentional empty descriptions and spaces in the first column that were
         # intended to be tab characters
-        new_protocols = pd.read_table(
+        protocols_df = pd.read_table(
             protocols_tsv,
             dtype=object,
             keep_default_na=False,
             na_values="",
         )
         # rename template columns to ProtocolsLoader expectations
-        new_protocols.rename(
+        protocols_df.rename(
             inplace=True,
             columns={
                 str(self.name_header): ProtocolsLoader.STANDARD_NAME_HEADER,
@@ -157,14 +146,14 @@ class Command(BaseCommand):
             },
         )
 
-        self.new_protocols_df = new_protocols
+        return protocols_df
 
     def read_protocols_xlsx(self, xlxs_file_containing_treatments_sheet):
         self.stdout.write(self.style.MIGRATE_HEADING("Loading animal treatments..."))
         name_header = self.TREATMENTS_NAME_HEADER
         description_header = self.TREATMENTS_DESC_HEADER
 
-        treatments = pd.read_excel(
+        protocols_df = pd.read_excel(
             xlxs_file_containing_treatments_sheet,
             sheet_name=self.TREATMENTS_SHEET_NAME,
             dtype={
@@ -176,36 +165,12 @@ class Command(BaseCommand):
         )
 
         # rename template columns to ProtocolsLoader expectations
-        treatments.rename(
+        protocols_df.rename(
             inplace=True,
             columns={
                 str(name_header): ProtocolsLoader.STANDARD_NAME_HEADER,
                 str(description_header): ProtocolsLoader.STANDARD_DESCRIPTION_HEADER,
             },
         )
-        self.new_protocols_df = treatments
-        self.batch_category = self.TREATMENTS_CATEGORY_VALUE
 
-    def print_notices(self, stats, opt, verbosity, success=True):
-
-        if verbosity >= 2:
-            for stat in stats["created"]:
-                self.stdout.write(
-                    self.style.SUCCESS(
-                        f"Created protocol record - {stat['protocol']}:{stat['description']}"
-                    )
-                )
-            for stat in stats["skipped"]:
-                self.stdout.write(
-                    f"Skipped protocol record - {stat['protocol']}:{stat['description']}"
-                )
-
-        smry = "Complete"
-        smry += f", loaded {len(stats['created'])} new protocols and found "
-        smry += f"{len(stats['skipped'])} matching protocols"
-        smry += f" from {opt}"
-
-        if success:
-            self.stdout.write(self.style.SUCCESS(smry))
-        else:
-            self.stdout.write(self.style.ERROR(smry))
+        return protocols_df, self.TREATMENTS_CATEGORY_VALUE

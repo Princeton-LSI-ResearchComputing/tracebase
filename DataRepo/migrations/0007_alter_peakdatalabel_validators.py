@@ -8,7 +8,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('DataRepo', '0005_alter_study_description'),
+        ('DataRepo', '0006_alter_protocol_description'),
     ]
 
     operations = [

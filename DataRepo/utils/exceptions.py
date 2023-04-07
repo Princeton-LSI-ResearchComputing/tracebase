@@ -1,5 +1,7 @@
 import traceback
 
+from django.forms.models import model_to_dict
+
 
 class HeaderError(Exception):
     pass
@@ -33,7 +35,10 @@ class RequiredValuesError(Exception):
         if not message:
             nltab = "\n\t"
             deets = list(
-                map(lambda k: f"{str(k)} on rows: {str(missing[k])}", missing.keys())
+                map(
+                    lambda k: f"{str(k)} on rows: {str(summarize_int_list(missing[k]))}",
+                    missing.keys(),
+                )
             )
             message = (
                 "Missing required values have been detected in the following columns:\n\t"
@@ -122,8 +127,9 @@ class NoSamplesError(Exception):
             message = "No samples were supplied."
         else:
             message = (
-                f"None of the {num_samples} samples were found in the database.  Samples must be loaded before mass "
-                "spec data can be loaded."
+                f"None of the {num_samples} samples were found in the database/sample table file.  Samples in the "
+                "accucor/isocorr files must be present in the sample table file and loaded into the database before "
+                "they can be loaded from the mass spec data files."
             )
         super().__init__(message)
 
@@ -431,23 +437,27 @@ class ConflictingValueError(Exception):
         existing_value,
         differing_value,
         rownum=None,
+        sheet=None,
         message=None,
     ):
         if not message:
             rowmsg = (
                 f"on row {rownum} of the load file data " if rownum is not None else ""
             )
+            if sheet is not None:
+                rowmsg += f"in sheet [{sheet}] "
             message = (
-                f"Conflicting values encountered {rowmsg}in {type(rec).__name__} record [{str(rec)}] for the "
-                f"[{consistent_field}] field:\n"
-                f"\tdatabase {consistent_field} value: [{existing_value}]\n"
-                f"\tfile {consistent_field} value: [{differing_value}]"
+                f"Conflicting [{consistent_field}] field values encountered {rowmsg}in {type(rec).__name__} record "
+                f"[{str(model_to_dict(rec))}]:\n"
+                f"\tdatabase: [{existing_value}]\n"
+                f"\tfile: [{differing_value}]"
             )
         super().__init__(message)
         self.consistent_field = consistent_field
         self.existing_value = existing_value
         self.differing_value = differing_value
         self.rownum = rownum
+        self.sheet = sheet
 
 
 class SaveError(Exception):
@@ -464,7 +474,7 @@ class DupeCompoundIsotopeCombos(Exception):
         nltab = "\n\t"
         message = (
             f"The following duplicate compound/isotope combinations were found in the {source} data:{nltab}"
-            f"{nltab.join(list(map(lambda c: f'{c} on rows: {dupe_dict[c]}', dupe_dict.keys())))}"
+            f"{nltab.join(list(map(lambda c: f'{c} on rows: {summarize_int_list(dupe_dict[c])}', dupe_dict.keys())))}"
         )
         super().__init__(message)
         self.dupe_dict = dupe_dict
@@ -500,19 +510,19 @@ class DuplicateValues(Exception):
         self.addendum = addendum
 
 
-class EmptyAnimalNames(Exception):
-    def __init__(self, row_idxs, animal_col_name="Animal Name", message=None):
+class SheetMergeError(Exception):
+    def __init__(self, row_idxs, merge_col_name="Animal Name", message=None):
         if not message:
             message = (
-                f"Rows which are missing an {animal_col_name} but have a value in some other column cause meaningless "
-                f"errors because the {animal_col_name} is used to merge the animal data with the sample data in "
-                "separate files/excel-sheets.  To avoid these errors, a row must be completely empty, or at least "
-                f"contain an {animal_col_name}.  The following rows are affected, but the row numbers can be "
-                f"inaccurate due to merges with empty rows: [{', '.join(list(map(lambda v: str(v), row_idxs)))}]."
+                f"Rows which are missing an {merge_col_name} but have a value in some other column cause meaningless "
+                f"errors because the {merge_col_name} is used to merge the data in separate files/excel-sheets.  To "
+                "avoid these errors, a row must either be completely empty, or at least contain a value in the merge "
+                f"column: [{merge_col_name}].  The following rows are affected, but the row numbers can be inaccurate "
+                f"due to merges with empty rows: [{', '.join(summarize_int_list(row_idxs))}]."
             )
         super().__init__(message)
         self.row_idxs = row_idxs
-        self.animal_col_name = animal_col_name
+        self.animal_col_name = merge_col_name
 
 
 class NoTracerLabeledElements(Exception):
@@ -567,7 +577,36 @@ class MissingCompounds(Exception):
             )
             message = (
                 f"{len(compounds_dict.keys())} compounds were not found in the database:{nltab}{cmdps_str}\n"
-                "Compounds must be loaded prior to loading mass spec data."
+                "Compounds referenced in the accucor/isocorr files must be loaded into the database before "
+                "the accucor/isocorr files can be loaded.  Please take note of the compounds, select a primary name, "
+                "any synonyms, and find an HMDB ID associated with the compound to provide with your submission."
             )
         super().__init__(message)
         self.compounds_dict = compounds_dict
+
+
+def summarize_int_list(intlist):
+    """
+    This method was written to make long lists of row numbers more palatable to the user.
+    Turns [1,2,3,5,6,9] into ['1-3','5-6','9']
+    """
+    sum_list = []
+    last_num = None
+    waiting_num = None
+    for num in [int(n) for n in sorted(intlist)]:
+        if last_num is None:
+            waiting_num = num
+        else:
+            if num > last_num + 1:
+                if last_num == waiting_num:
+                    sum_list.append(str(waiting_num))
+                else:
+                    sum_list.append(f"{str(waiting_num)}-{str(last_num)}")
+                waiting_num = num
+        last_num = num
+    if waiting_num is not None:
+        if last_num == waiting_num:
+            sum_list.append(str(waiting_num))
+        else:
+            sum_list.append(f"{str(waiting_num)}-{str(last_num)}")
+    return sum_list

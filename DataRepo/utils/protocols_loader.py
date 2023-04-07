@@ -1,8 +1,16 @@
+from collections import defaultdict
+
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 
 from DataRepo.models import Protocol
-from DataRepo.utils.exceptions import DryRun, LoadingError
+from DataRepo.utils.exceptions import (
+    AggregatedErrors,
+    ConflictingValueError,
+    DryRun,
+    RequiredHeadersError,
+    RequiredValuesError,
+)
 
 
 class ProtocolsLoader:
@@ -14,119 +22,156 @@ class ProtocolsLoader:
     STANDARD_DESCRIPTION_HEADER = "description"
     STANDARD_CATEGORY_HEADER = "category"
 
-    def __init__(self, protocols, category=None, validate=False, dry_run=True):
+    def __init__(
+        self, protocols, category=None, validate=False, dry_run=True, verbosity=1
+    ):
         self.protocols = protocols
         self.protocols.columns = self.protocols.columns.str.lower()
-        req_cols = [self.STANDARD_NAME_HEADER, self.STANDARD_DESCRIPTION_HEADER]
-        missing_columns = list(set(req_cols) - set(self.protocols.columns))
-        if missing_columns:
-            raise KeyError(
-                f"ProtocolsLoader missing required headers {missing_columns}"
-            )
+        self.req_cols = [self.STANDARD_NAME_HEADER, self.STANDARD_DESCRIPTION_HEADER]
+        self.missing_columns = list(set(self.req_cols) - set(self.protocols.columns))
+        if self.missing_columns:
+            raise RequiredHeadersError(self.missing_columns)
         self.dry_run = dry_run
         self.category = category
-        # List of exceptions
-        self.errors = []
-        # List of strings that note what was done
-        self.notices = []
-        # Newly create protocols
-        self.created = []
-        # Pre-existing, matching protocols
-        self.existing = []
+        self.created = 0
+        self.existing = 0
+        self.space_no_desc = []
+        self.missing_reqd_vals = defaultdict(list)
         self.validate = validate
+        self.verbosity = verbosity
+        self.aggregated_errors_object = AggregatedErrors()
 
     def load(self):
         self.load_database()
 
     @transaction.atomic
     def load_database(self):
+        batch_cat_err_occurred = False
         for index, row in self.protocols.iterrows():
             try:
-                name = row[self.STANDARD_NAME_HEADER]
-                description = row[self.STANDARD_DESCRIPTION_HEADER]
-                # prefer the file/dataframe-specified category, but user the
-                # loader initialization category, as a fallback
-                if self.STANDARD_CATEGORY_HEADER in row:
-                    category = row[self.STANDARD_CATEGORY_HEADER]
-                else:
+                name = self.getRowVal(row, self.STANDARD_NAME_HEADER)
+                category = self.getRowVal(row, self.STANDARD_CATEGORY_HEADER)
+                description = self.getRowVal(row, self.STANDARD_DESCRIPTION_HEADER)
+
+                # The command line option overrides what's in the file
+                if self.category:
                     category = self.category
 
+                # Validate the values provided in the file
                 # To aid in debugging the case where an editor entered spaces instead of a tab...
                 if " " in str(name) and description is None:
-                    raise ValidationError(
-                        f"Protocol with name '{name}' cannot contain a space unless a description is provided.  "
-                        "Either the space(s) must be changed to a tab character or a description must be provided."
+                    self.aggregated_errors_object.buffer_error(
+                        NoSpaceAllowedWhenOneColumn(name)
                     )
-                if category is None:
-                    raise ValidationError(
-                        f"Protocol with name '{name}' is missing a specified/defined category."
-                    )
-                if description is None:
-                    description = ""
+                # Check required values
+                if name is None or category is None:
+                    if name is None:
+                        self.missing_reqd_vals[self.STANDARD_NAME_HEADER].append(index)
+                    if category is None:
+                        self.missing_reqd_vals[self.STANDARD_CATEGORY_HEADER].append(
+                            index
+                        )
+                    continue
+
+                rec_dict = {
+                    "name": name,
+                    "category": category,
+                    "description": description,
+                }
 
                 # Try and get the protocol
                 protocol_rec, protocol_created = Protocol.objects.get_or_create(
-                    name=name, category=category
+                    **rec_dict
                 )
+
                 # If no protocol was found, create it
                 if protocol_created:
-                    protocol_rec.description = description
-                    print("Saving protocol with description")
                     protocol_rec.full_clean()
                     protocol_rec.save()
-                    self.created.append(protocol_rec)
-                    self.notices.append(
-                        f"Created new protocol {protocol_rec}:{description}"
-                    )
-                elif protocol_rec.description == description:
-                    self.existing.append(protocol_rec)
-                    self.notices.append(
-                        f"Matching protocol {protocol_rec} already exists, skipping"
+                    self.created += 1
+                else:
+                    self.existing += 1
+
+            except IntegrityError as ie:
+                iestr = str(ie)
+                if "duplicate key value violates unique constraint" in iestr:
+                    # Retrieve the protocol with the conflicting value(s) that caused the unique constraint error
+                    protocol_rec = Protocol.objects.get(name__exact=rec_dict["name"])
+                    self.aggregated_errors_object.buffer_error(
+                        ConflictingValueError(
+                            protocol_rec,
+                            "description",
+                            protocol_rec.description,
+                            description,
+                            index + 2,
+                            "treatments",
+                        )
                     )
                 else:
-                    raise ValidationError(
-                        f"Protocol with name = '{name}' but a different description already exists: "
-                        f"Existing description = '{protocol_rec.description}' "
-                        f"New description = '{description}'"
+                    self.aggregated_errors_object.buffer_error(
+                        InfileDatabaseError(ie, index + 2, rec_dict)
                     )
-            except (IntegrityError, ValidationError) as e:
-                self.errors.append(
-                    f"{type(e).__name__} in the database on data row {index + 1}, creating {category} record for "
-                    f"protocol '{name}' with description '{description}': {e}"
-                )
-            except KeyError:
-                raise ValidationError(
-                    "ProtocolLoader requires a dataframe with 'name' and 'description' headers/keys."
-                ) from None
+            except ValidationError as ve:
+                vestr = str(ve)
+                if (
+                    self.category is not None
+                    and "category" in vestr
+                    and "is not a valid choice" in vestr
+                ):
+                    # Only include a batch category error once
+                    if not batch_cat_err_occurred:
+                        self.aggregated_errors_object.buffer_error(
+                            InfileDatabaseError(ve, index + 2, rec_dict)
+                        )
+                    batch_cat_err_occurred = True
+                else:
+                    self.aggregated_errors_object.buffer_error(
+                        InfileDatabaseError(ve, index + 2, rec_dict)
+                    )
 
-        if len(self.errors) > 0:
-            message = ""
-            for err in self.errors:
-                message += f"{err}\n"
+        if len(self.missing_reqd_vals.keys()) > 0:
+            self.aggregated_errors_object.buffer_error(
+                RequiredValuesError(self.missing_reqd_vals)
+            )
 
-            raise LoadingError(f"Errors during protocol loading :\n {message}")
+        if self.aggregated_errors_object.should_raise():
+            raise self.aggregated_errors_object
 
         if self.dry_run:
             raise DryRun()
 
-    def get_stats(self):
-        stats = {}
+    def getRowVal(self, row, header):
+        val = None
 
-        created = []
-        for protocol in self.created:
-            created.append(
-                {"protocol": protocol.name, "description": protocol.description}
-            )
+        if header in row.keys():
+            val = row[header]
 
-        skipped = []
-        for protocol in self.existing:
-            skipped.append(
-                {"protocol": protocol.name, "description": protocol.description}
-            )
+            # This will make later checks of values easier
+            if val == "":
+                val = None
 
-        stats = {
-            "created": created,
-            "skipped": skipped,
-        }
+        return val
 
-        return stats
+
+class NoSpaceAllowedWhenOneColumn(Exception):
+    def __init__(self, name):
+        message = (
+            f"Protocol with name '{name}' cannot contain a space unless a description is provided.  "
+            "Either the space(s) must be changed to a tab character or a description must be provided."
+        )
+        super().__init__(message)
+        self.name = name
+
+
+class InfileDatabaseError(Exception):
+    def __init__(self, exception, line_num, rec_dict):
+        nltab = "\n\t"
+        deets = [f"{k}: {v}" for k, v in rec_dict.items()]
+        message = (
+            f"{type(exception).__name__} on infile line {line_num}, creating record:\n\t{nltab.join(deets)}\n"
+            f"{str(exception)}"
+        )
+        super().__init__(message)
+        self.exception = exception
+        self.line_num = line_num
+        self.rec_dict = rec_dict

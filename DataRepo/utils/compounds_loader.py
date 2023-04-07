@@ -293,12 +293,3 @@ class CompoundSynonymExists(Exception):
         message = f"CompoundSynonym [{syn}] already exists."
         super().__init__(message)
         self.syn = syn
-
-
-# TODO: Delete this exception class (or move to exceptions.py). I don't think I need it.
-class CompoundNotFound(Exception):
-    def __init__(self, cpd, hmdb_id):
-        message = f"Cound not find compound [{cpd}] by searching for its HMDB ID: [{hmdb_id}]."
-        super().__init__(message)
-        self.cpd = cpd
-        self.hmdb_id = hmdb_id

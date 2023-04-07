@@ -141,33 +141,33 @@ class DataValidationView(FormView):
                 "validate_load_files()."
             )
 
-        valid = True
-        results = {sf: "PASSED"}
-        errors = {sf: []}
-        warnings = {sf: []}
+        self.valid = True
+        self.results = {sf: "PASSED"}
+        self.errors = {sf: []}
+        self.warnings = {sf: []}
         for i, afp in enumerate(self.accucor_files):
             if len(self.accucor_files) == len(self.accucor_filenames):
                 af = self.accucor_filenames[i]
             else:
                 af = os.path.basename(afp)
-            errors[af] = []
-            warnings[af] = []
-            results[af] = "PASSED"
+            self.errors[af] = []
+            self.warnings[af] = []
+            self.results[af] = "PASSED"
         for i, ifp in enumerate(self.isocorr_files):
             if len(self.isocorr_files) == len(self.isocorr_filenames):
                 ifn = self.isocorr_filenames[i]
             else:
                 ifn = os.path.basename(ifp)
-            if ifn in errors.keys():
+            if ifn in self.errors.keys():
                 raise KeyError(
                     f"Isocorr/Accucor filename conflict: {ifn}.  All Accucor/Isocorr filenames must be "
                     "unique."
                 )
-            errors[ifn] = []
-            warnings[ifn] = []
-            results[ifn] = "PASSED"
+            self.errors[ifn] = []
+            self.warnings[ifn] = []
+            self.results[ifn] = "PASSED"
 
-        all_exceptions = []
+        self.all_exceptions = []
 
         try:
             # Load the animal treatments
@@ -181,10 +181,7 @@ class DataValidationView(FormView):
                     )
                     # Do not set PASSED here. If the full animal/sample table load passes, THEN this file has passed.
                 except Exception as e:
-                    valid = False
-                    all_exceptions.append(e)
-                    errors[sf].append(f"{e.__class__.__name__}: {str(e)}")
-                    results[sf] = "FAILED"
+                    self.package_exception(e, sf)
 
                 try:
                     # Not running in debug, because these need to be loaded in order to run the next load
@@ -195,32 +192,13 @@ class DataValidationView(FormView):
                         verbosity=3,
                         validate=True,
                     )
-
-                except AggregatedErrors as aes:
-                    results[sf] = "WARNING"
-                    valid = False
-                    if aes.num_errors > 0:
-                        results[sf] = "FAILED"
-
-                    # Gather the errors/warnings to send to the template
-                    for exc in aes.exceptions:
-                        all_exceptions.append(exc)
-                        exc_str = f"{type(exc).__name__}: {str(exc)}"
-                        if exc.is_error:
-                            errors[sf].append(exc_str)
-                        else:
-                            warnings[sf].append(exc_str)
-
                 except Exception as e:
-                    valid = False
-                    all_exceptions.append(e)
-                    results[sf] = "FAILED"
-                    errors[sf].append(f"{type(e).__name__}: {str(e)}")
+                    self.package_exception(e, sf)
 
                 # Create a unique date that is unlikely to match any previously loaded MSRun
                 unique_date = datetime.datetime(1972, 11, 24, 15, 47, 0)
 
-                # Validate the accucor file using the loader in validate mode
+                # Validate the accucor files using the loader in validate mode
                 for i, afp in enumerate(self.accucor_files):
                     if len(self.accucor_files) == len(self.accucor_filenames):
                         af = self.accucor_filenames[i]
@@ -235,24 +213,12 @@ class DataValidationView(FormView):
                             researcher="anonymous",
                             validate=True,
                         )
-                    except AggregatedErrors as aes:
-                        results[af] = "WARNING"
-                        if aes.num_errors > 0:
-                            valid = False
-                            results[af] = "FAILED"
-
-                        # Gather the errors/warnings to send to the template
-                        for exc in aes.exceptions:
-                            all_exceptions.append(exc)
-                            exc_str = f"{type(exc).__name__}: {str(exc)}"
-                            if exc.is_error:
-                                errors[af].append(exc_str)
-                            else:
-                                warnings[af].append(exc_str)
+                    except Exception as e:
+                        self.package_exception(e, af)
                     finally:
                         unique_date += datetime.timedelta(days=1)
 
-                # Load the accucor file into a temporary test database in debug mode
+                # Validate the isocorr files using the loader in validate mode
                 for i, ifp in enumerate(self.isocorr_files):
                     if len(self.isocorr_files) == len(self.isocorr_filenames):
                         ifn = self.isocorr_filenames[i]
@@ -268,20 +234,8 @@ class DataValidationView(FormView):
                             validate=True,
                             isocorr_format=True,
                         )
-                    except AggregatedErrors as aes:
-                        results[ifn] = "WARNING"
-                        if aes.num_errors > 0:
-                            valid = False
-                            results[ifn] = "FAILED"
-
-                        # Gather the errors/warnings to send to the template
-                        for exc in aes.exceptions:
-                            all_exceptions.append(exc)
-                            exc_str = f"{type(exc).__name__}: {str(exc)}"
-                            if exc.is_error:
-                                errors[ifn].append(exc_str)
-                            else:
-                                warnings[ifn].append(exc_str)
+                    except Exception as e:
+                        self.package_exception(e, af)
                     finally:
                         unique_date += datetime.timedelta(days=1)
 
@@ -293,16 +247,40 @@ class DataValidationView(FormView):
             # The database should roll back here, but we don't want to raise the exception for the user's view here.
             print("Validation done.")
             if settings.DEBUG:
-                for exc in all_exceptions:
+                for exc in self.all_exceptions:
                     traceback.print_exception(type(exc), exc, exc.__traceback__)
                     print(f"{type(exc).__name__}: {str(exc)}")
 
         return [
-            results,
-            valid,
-            errors,
-            warnings,
+            self.results,
+            self.valid,
+            self.errors,
+            self.warnings,
         ]
+
+    def package_exception(self, exception, file):
+        """
+        Packages an exception up for sending to the template
+        """
+        if isinstance(exception, AggregatedErrors):
+            self.results[file] = "WARNING"
+            self.valid = False
+            if exception.num_errors > 0:
+                self.results[file] = "FAILED"
+
+            # Gather the errors/warnings to send to the template
+            for exc in exception.exceptions:
+                self.all_exceptions.append(exc)
+                exc_str = f"{type(exc).__name__}: {str(exc)}"
+                if exc.is_error:
+                    self.errors[file].append(exc_str)
+                else:
+                    self.warnings[file].append(exc_str)
+        else:
+            self.valid = False
+            self.all_exceptions.append(exception)
+            self.errors[file].append(f"{type(exception).__name__}: {str(exception)}")
+            self.results[file] = "FAILED"
 
 
 def validation_disabled(request):

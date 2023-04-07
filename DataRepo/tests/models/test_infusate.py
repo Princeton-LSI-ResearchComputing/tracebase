@@ -220,7 +220,6 @@ class MaintainedModelTests(TracebaseTestCase):
             debug=False,
         )
         self.assertEqual(0, buffer_size())
-        # TODO: Create a feature issue to tell the auto-update code to only buffer records with matching labels
 
     def test_error_when_buffer_not_clear(self):
         """Ensure that stale buffer contents before a load produces a helpful error"""
