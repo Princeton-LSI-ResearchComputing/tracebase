@@ -217,7 +217,7 @@ class MaintainedModelTests(TracebaseTestCase):
                 "DataRepo/example_data/small_dataset/"
                 "small_obob_animal_and_sample_table.xlsx"
             ),
-            debug=False,
+            dry_run=False,
         )
         self.assertEqual(0, buffer_size())
 
@@ -237,7 +237,7 @@ class MaintainedModelTests(TracebaseTestCase):
                     "DataRepo/example_data/small_dataset/"
                     "small_obob_animal_and_sample_table.xlsx"
                 ),
-                debug=False,
+                dry_run=False,
             )
         # Now clean up the buffer
         clear_update_buffer()

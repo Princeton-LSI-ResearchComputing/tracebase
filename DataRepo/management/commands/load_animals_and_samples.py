@@ -57,11 +57,11 @@ class Command(BaseCommand):
             help=argparse.SUPPRESS,
         )
         parser.add_argument(
-            "--debug",
+            "--dry-run",
             action="store_true",
             default=False,
-            # This issues a "debug-only" error, to abort the transaction
-            help="Debug mode. Will not change the database.",
+            # This issues a DryRun error, to abort the transaction
+            help="Dry run mode. Will not change the database.",
         )
         # Used internally by the DataValidationView
         parser.add_argument(
@@ -132,7 +132,7 @@ class Command(BaseCommand):
             skip_researcher_check=options["skip_researcher_check"],
             verbosity=options["verbosity"],
             defer_autoupdates=options["defer_autoupdates"],
-            dry_run=options["debug"],
+            dry_run=options["dry_run"],
         )
         loader.load_sample_table(
             merged.to_dict("records"),

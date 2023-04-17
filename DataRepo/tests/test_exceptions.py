@@ -107,8 +107,8 @@ class ExceptionTests(TracebaseTestCase):
         except AggregatedErrors as e:
             aes = e
         expected_message = (
-            "AggregatedErrors exception.  Use self.should_raise() to initialize the message and report an errors/"
-            "warnings summary."
+            "AggregatedErrors exception.  No exceptions have been buffered.  Use the return of self.should_raise() to "
+            "determine if an exception should be raised before raising this exception."
         )
         self.assertEqual(expected_message, str(aes))
 
@@ -118,7 +118,12 @@ class ExceptionTests(TracebaseTestCase):
             raise AggregatedErrors(errors=[ValueError("Test")])
         except AggregatedErrors as e:
             aes = e
-        expected_message = "1 exceptions occurred, including type(s): [ValueError]."
+        expected_message = (
+            "1 exceptions occurred, including type(s): [ValueError].\n"
+            "AggregatedErrors Summary (1 errors / 0 warnings):\n"
+            "\tEXCEPTION1(ERROR): ValueError: Test\n"
+            "Scroll up to see tracebacks for these exceptions printed as they were encountered."
+        )
         self.assertEqual(expected_message, str(aes))
 
     def test_aes_construct_with_warnings(self):
@@ -128,8 +133,12 @@ class ExceptionTests(TracebaseTestCase):
         except AggregatedErrors as e:
             aes = e
         expected_message = (
-            "1 exceptions occurred, including type(s): [ValueError].  This exception should not have been "
-            "raised."
+            "1 exceptions occurred, including type(s): [ValueError].  This exception should not have been raised.  "
+            "Use the return of self.should_raise() to determine if an exception should be raised before raising this "
+            "exception.\n"
+            "AggregatedErrors Summary (0 errors / 1 warnings):\n"
+            "\tEXCEPTION1(WARNING): ValueError: Test\n"
+            "Scroll up to see tracebacks for these exceptions printed as they were encountered."
         )
         self.assertEqual(expected_message, str(aes))
 
@@ -139,7 +148,12 @@ class ExceptionTests(TracebaseTestCase):
             raise AggregatedErrors(exceptions=[ValueError("Test")])
         except AggregatedErrors as e:
             aes = e
-        expected_message = "1 exceptions occurred, including type(s): [ValueError]."
+        expected_message = (
+            "1 exceptions occurred, including type(s): [ValueError].\n"
+            "AggregatedErrors Summary (1 errors / 0 warnings):\n"
+            "\tEXCEPTION1(ERROR): ValueError: Test\n"
+            "Scroll up to see tracebacks for these exceptions printed as they were encountered."
+        )
         self.assertEqual(expected_message, str(aes))
 
     def test_aes_with_buffered_errors_no_should_raise(self):
@@ -151,10 +165,16 @@ class ExceptionTests(TracebaseTestCase):
         except AggregatedErrors as e:
             aes = e
         expected_message = (
-            "AggregatedErrors exception.  Use self.should_raise() to initialize the message and report an errors/"
-            "warnings summary."
+            "1 exceptions occurred, including type(s): [ValueError].\n"
+            "AggregatedErrors Summary (1 errors / 0 warnings):\n"
+            "\tEXCEPTION1(ERROR): ValueError: Test\n"
+            "Scroll up to see tracebacks for these exceptions printed as they were encountered."
         )
-        self.assertEqual(expected_message, str(aes))
+        self.assertEqual(
+            expected_message,
+            str(aes),
+            msg="Not necessary to call should_raise.  Buffering updates the exception message.",
+        )
 
     def test_aes_with_buffered_error_and_should_raise(self):
         aes = None
@@ -165,7 +185,12 @@ class ExceptionTests(TracebaseTestCase):
             raise aes
         except AggregatedErrors as e:
             aes = e
-        expected_message = "1 exceptions occurred, including type(s): [ValueError]."
+        expected_message = (
+            "1 exceptions occurred, including type(s): [ValueError].\n"
+            "AggregatedErrors Summary (1 errors / 0 warnings):\n"
+            "\tEXCEPTION1(ERROR): ValueError: Test\n"
+            "Scroll up to see tracebacks for these exceptions printed as they were encountered."
+        )
         self.assertEqual(expected_message, str(aes))
 
     def test_aes_with_buffered_warning_and_should_raise(self):
@@ -178,8 +203,12 @@ class ExceptionTests(TracebaseTestCase):
         except AggregatedErrors as e:
             aes = e
         expected_message = (
-            "1 exceptions occurred, including type(s): [ValueError].  This exception should not have been "
-            "raised."
+            "1 exceptions occurred, including type(s): [ValueError].  This exception should not have been raised.  "
+            "Use the return of self.should_raise() to determine if an exception should be raised before raising this "
+            "exception.\n"
+            "AggregatedErrors Summary (0 errors / 1 warnings):\n"
+            "\tEXCEPTION1(WARNING): ValueError: Test\n"
+            "Scroll up to see tracebacks for these exceptions printed as they were encountered."
         )
         self.assertEqual(expected_message, str(aes))
 

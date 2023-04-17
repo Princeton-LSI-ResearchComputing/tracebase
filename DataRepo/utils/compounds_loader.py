@@ -42,10 +42,6 @@ class CompoundsLoader:
     ):
         self.compounds_df = compounds_df
         self.synonym_separator = synonym_separator
-        self.validation_debug_messages = []
-        self.validation_warning_messages = []
-        self.validation_error_messages = []
-        self.summary_messages = []
         self.bad_row_indexes = []
         self.num_inserted_compounds = 0
         self.num_existing_compounds = 0

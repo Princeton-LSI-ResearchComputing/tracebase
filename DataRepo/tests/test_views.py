@@ -596,7 +596,7 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         af2key = "accucor2.xlsx"
 
         # Test the validate_load_files function
-        [results, valid, errors, warnings] = self.validate_some_files(sf, afs)
+        [results, valid, exceptions, ne, nw] = self.validate_some_files(sf, afs)
 
         # There is a researcher named "anonymous", but that name is ignored
         self.assertTrue(valid)
@@ -604,11 +604,10 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         # The sample file's researcher is "Anonymous" and it's not in the database, but the researcher check ignores
         # researchers named "anonymous" (case-insensitive)
         self.assertEqual("PASSED", results[sfkey])
-        self.assertEqual(0, len(warnings[sfkey]))
-        self.assertEqual(0, len(errors[sfkey]))
+        self.assertEqual(0, len(exceptions[sfkey]))
 
         # Check the accucor file details
-        self.assert_accucor_files_pass([af1key, af2key], results, errors, warnings)
+        self.assert_accucor_files_pass([af1key, af2key], results, exceptions)
 
     @override_settings(DEBUG=True)
     def test_validate_files_with_sample_warning(self):
@@ -649,11 +648,17 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         af2key = "accucor2.xlsx"
 
         # Test the validate_load_files function
-        [results, valid, errors, warnings] = self.validate_some_files(sf, afs)
+        [
+            results,
+            valid,
+            exceptions,
+            num_errors,
+            num_warnings,
+        ] = self.validate_some_files(sf, afs)
 
         if settings.DEBUG:
             print(
-                f"VALID: {valid}\nALL RESULTS: {results}\nALL WARNINGS: {warnings}\nALL ERRORS: {errors}"
+                f"VALID: {valid}\nALL RESULTS: {results}\nALL EXCEPTIONS: {exceptions}"
             )
 
         # NOTE: When the unknown researcher error is raised, the sample table load would normally be rolled back.  The
@@ -668,19 +673,19 @@ class ValidationViewTests(TracebaseTransactionTestCase):
             valid,
             msg=(
                 "Should be valid. The 'George Costanza' researcher should cause a warning, so there should be 1 "
-                f"warning: [{warnings}] for the sample file."
+                f"warning: [{exceptions}] for the sample file."
             ),
         )
 
         # The sample file's researcher is "Anonymous" and it's not in the database, but the researcher check ignores
         # researchers named "anonymous" (case-insensitive)
         self.assertEqual("WARNING", results[sfkey])
-        self.assertEqual(0, len(errors[sfkey]))
-        self.assertEqual(1, len(warnings[sfkey]))
-        self.assertTrue("UnknownResearcherError" in warnings[sfkey][0])
+        self.assertEqual(0, num_errors[sfkey])
+        self.assertEqual(1, num_warnings[sfkey])
+        self.assertTrue("UnknownResearcherError" in exceptions[sfkey][0]["message"])
 
         # Check the accucor file details
-        self.assert_accucor_files_pass([af1key, af2key], results, errors, warnings)
+        self.assert_accucor_files_pass([af1key, af2key], results, exceptions)
 
     def test_databases_unchanged(self):
         """
@@ -746,9 +751,13 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         ]
         sfkey = "small_obob_animal_and_sample_table.xlsx"
         afkey = "small_obob_maven_6eaas_inf_req_prefix.xlsx"
-        [results, valid, errors, warnings] = self.validate_some_files(
-            sample_file, accucor_files
-        )
+        [
+            results,
+            valid,
+            exceptions,
+            num_errors,
+            num_warnings,
+        ] = self.validate_some_files(sample_file, accucor_files)
 
         self.assertFalse(valid)
 
@@ -756,29 +765,25 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         self.assertTrue(sfkey in results)
         self.assertEqual("PASSED", results[sfkey])
 
-        self.assertTrue(sfkey in errors)
-        self.assertEqual(0, len(errors[sfkey]))
-
-        self.assertTrue(sfkey in warnings)
-        self.assertEqual(0, len(warnings[sfkey]))
+        self.assertTrue(sfkey in exceptions)
+        self.assertEqual(0, num_errors[sfkey])
+        self.assertEqual(0, num_warnings[sfkey])
 
         # Accucor file
         self.assertTrue(afkey in results)
         self.assertEqual("FAILED", results[afkey])
 
-        self.assertTrue(afkey in errors)
-        self.assertEqual(1, len(errors[afkey]))
-        self.assertTrue("NoSamplesError" in errors[afkey][0])
-
-        self.assertTrue(afkey in warnings)
-        self.assertEqual(0, len(warnings[afkey]))
+        self.assertTrue(afkey in exceptions)
+        self.assertEqual(1, num_errors[afkey])
+        self.assertTrue("NoSamplesError" in exceptions[afkey][0]["message"])
+        self.assertEqual(0, num_warnings[afkey])
 
     def validate_some_files(self, sample_file, accucor_files):
         # Test the validate_load_files function
         vo = DataValidationView()
         vo.set_files(sample_file, accucor_files)
         # Now try validating the load files
-        [results, valid, errors, warnings] = vo.validate_load_files()
+        [results, valid, exceptions] = vo.validate_load_files()
 
         file_keys = []
         file_keys.append(os.path.basename(sample_file))
@@ -787,17 +792,28 @@ class ValidationViewTests(TracebaseTransactionTestCase):
 
         for file_key in file_keys:
             self.assertTrue(file_key in results)
-            self.assertTrue(file_key in errors)
-            self.assertTrue(file_key in warnings)
+            self.assertTrue(file_key in exceptions)
+
+        num_errors = {}
+        num_warnings = {}
+        for file in exceptions.keys():
+            num_errors[file] = 0
+            num_warnings[file] = 0
+            for exc in exceptions[file]:
+                if exc["is_error"]:
+                    num_errors[file] += 1
+                else:
+                    num_warnings[file] += 1
 
         if settings.DEBUG:
             print(
-                f"VALID: {valid}\nALL RESULTS: {results}\nALL WARNINGS: {warnings}\nALL ERRORS: {errors}"
+                f"VALID: {valid}\nALL RESULTS: {results}\nALL EXCEPTIONS: {exceptions}\nNUM ERRORS: {num_errors}\n"
+                f"NUM WARNING: {num_warnings}"
             )
 
-        return results, valid, errors, warnings
+        return results, valid, exceptions, num_errors, num_warnings
 
-    def assert_accucor_files_pass(self, accucor_file_keys, results, errors, warnings):
+    def assert_accucor_files_pass(self, accucor_file_keys, results, exceptions):
         for afkey in accucor_file_keys:
             # There may be missing samples, but they should be ignored if they contain the substring "blank".  (The
             # user should not be bothered with a warning they cannot do anything about.)  We are checking in validate
@@ -805,8 +821,5 @@ class ValidationViewTests(TracebaseTransactionTestCase):
             self.assertTrue(afkey in results)
             self.assertEqual("PASSED", results[afkey])
 
-            self.assertTrue(afkey in errors)
-            self.assertEqual(0, len(errors[afkey]))
-
-            self.assertTrue(afkey in warnings)
-            self.assertEqual(0, len(warnings[afkey]))
+            self.assertTrue(afkey in exceptions)
+            self.assertEqual(0, len(exceptions[afkey]))
