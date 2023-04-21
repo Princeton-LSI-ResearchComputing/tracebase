@@ -5,7 +5,7 @@ developer section of the linked issue(s)). -->
 
 ## Affected Issues/Pull Requests
 
-- Resolves #<!--issue_number-->
+- Resolves #<!-- issue_number -->
 <!--
 - Partially addresses #issue_number
 - Depends on parent #pull_request_number
@@ -18,17 +18,17 @@ attention to.  E.g. There are significant logic changes in function X. -->
 
 ## Checklist
 <!-- If any of the checkbox requirements are not met, uncheck them and add an
-explanation. -->
+explanation. E.g. Linting errors pre-date this PR. -->
 A pull request can be merged once the following requirements are met.  The PR
 author asserts that the following (checked) requirements are met:
 
 - Review requirements
-  - Minimum approvals: 2 <!-- Author: Edit as desired -->
+  - Minimum approvals: 2 <!-- Edit as desired (e.g. based on complexity) -->
   - No changes requested
   - All blocking issues acknowledged as resolved by reviewers
   - Specific approvals required
-    <!-- Author: Approvals from the contributors you select are required
-    regardless of minimum approvals.  Check or delete as desired. -->
+    <!-- Approvals from the contributors you select are required regardless of
+    minimum approvals.  Check or delete as desired. -->
     - [ ] @cbartman1
     - [ ] @hepcat72
     - [ ] @jcmatese
@@ -44,6 +44,6 @@ author asserts that the following (checked) requirements are met:
   - [x] [All tests pass](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/CONTRIBUTING.md#quality-control)
   - [x] All conflicts resolved
 - Overhead requirements
-  - [x] [New method tests implemented *(or no new methods)*](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/CONTRIBUTING.md#test-implementation)
+  - [x] [New/changed method tests implemented/updated *(or no method changes)*](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/CONTRIBUTING.md#test-implementation)
   - [x] Added qualifying changes to *Unreleased* section of [`changelog.md`](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/changelog.md).
   - [x] [Migrations created & committed *(or no model changes)*](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/CONTRIBUTING.md#migration-process)
