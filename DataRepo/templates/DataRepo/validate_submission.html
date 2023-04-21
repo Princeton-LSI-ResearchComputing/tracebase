@@ -1,19 +1,28 @@
 {% extends "base.html" %}
 {% load customtags %}
+{% load static %}
+
+{% block head_extras %}
+    {{ block.super }}
+
+    <link href="{% static 'css/hierarchical_formsets.css' %}" rel="stylesheet">
+{% endblock %}
+
 {% block content %}
     <div>
         <h3>Validate Animal/Sample and AccuCor/IsoCorr Files for Submission</h3>
         <form action="{% url 'validate' %}" id="submission-validation" method="POST" enctype="multipart/form-data">
             {% csrf_token %}
             <label for="animal_sample_table" class="form-label">Animal and Sample Table:</label>{{ form.animal_sample_table }}<br>
-            <label for="accucor_files" class="form-label">AccuCor / IsoCorr Files:</label>{{ form.accucor_files }}<br>
+            <label for="accucor_files" class="form-label">AccuCor Files:</label>{{ form.accucor_files }}<br>
+            <label for="isocorr_files" class="form-label">IsoCorr Files:</label>{{ form.isocorr_files }}<br>
             <button type="submit" class="btn btn-primary" id="validate">Validate</button>
             {{ form.errors.val }}
             {{ form.management_form }}
         </form>
         <br>
         <div class="text-muted">
-            Note, you do not have to resolve all issues with the files before submission.  Do not manually edit your AccuCor/IsoCorr files.  This is just a quick optional check to catch simple mistakes.<br>
+            Note, you do not have to resolve all issues with the files before submission.  Do not manually edit your AccuCor/IsoCorr files.  This is an optional check to catch simple mistakes that will speed up the loading of your data to TraceBase by reducing the number of interactions between you (the submitter) and the TraceBase curators.  After addressing issues, run your files again to see if new errors are encountered.  It may take multiple attempts.  Depending on the number and size of your files, validation may take a few minutes.  Do not reload or close the window until validation is complete.<br>
             Once you have resolved any issues that you know how to fix (leaving any issues you do not know how to resolve), you may move on to the <a href="{{ submission_url }}">submission form</a>.
         </div>
     </div>
@@ -23,26 +32,38 @@
             <br>
             <br>
             <h5 class="text-danger">The following issue(s) with the file(s) were found:</h5>
-            Please address the issues below in your file and try again.  If it is not clear what the issue is, you may proceed to the <a href="{{ submission_url }}">submission form</a> and a curator will attempt to resolve the issue.
+            <div class="level-indent">
+                Please address the issues below in your file and try again.<br>
+                <div class="level-indent small">
+                    <span class="{{ 'FAILED'|getClass }}">Errors are in red.</span><br>
+                    <span class="{{ 'WARNING'|getClass }}">Warnings are in yellow.</span><br>
+                    <span class="{{ 'PASSED'|getClass }}">Validated files are in green.</span><br>
+                    <span class="{{ 'INFO'|getClass }}">Unchecked files are in blue.</span><br>
+                </div>
+                If it is not clear what the issue is, you may proceed to the <a href="{{ submission_url }}">submission form</a> and a curator will attempt to resolve the issue.
+            </div>
+            <hr>
         {% else %}
             <br>
             <br>
             <h5 class="text-success">Success!  No issues found.  Please proceed to the <a href="{{ submission_url }}">submission form</a>.</h5>
         {% endif %}
-        {% for fn, state in results.items %}
-            {% with state|getClass as state_class %}
-                <li class="{{ state_class }}">
-                    {{ state }}: {{ fn }}
-                    {% if errors|index:fn %}
-                        <ul class="{{ state_class }}">
-                            {% for error in errors|index:fn %}
-                                <li><span class="newlines">{{ error }}</span></li>
-                            {% endfor %}
-                        </ul>
-                    {% endif %}
-                </li>
-            {% endwith %}
-        {% endfor %}
+        <ul class="ul-nopadding">
+            {% for file_name, status in results.items %}
+                {% with file_class=status|getClass err_status="ERROR" wrn_status="WARNING" %}
+                    <li class="{{ file_class }}">
+                        {{ status }}: {{ file_name }}
+                        {% if exceptions|index:file_name %}
+                            <ul class="ul-nopadding">
+                                {% for exception in exceptions|index:file_name %}
+                                    <li class="{% if exception|index:'is_error' %}{{ err_status|getClass }}{% else %}{{ wrn_status|getClass }}{% endif %}"><span class="newlines">{{ exception|index:"message" }}</span></li>
+                                {% endfor %}
+                            </ul>
+                        {% endif %}
+                    </li>
+                {% endwith %}
+            {% endfor %}
+        </ul>
     {% endif %}
 
 {% endblock %}

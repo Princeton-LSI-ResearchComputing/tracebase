@@ -1,9 +1,9 @@
 import argparse
 
 import pandas as pd
-from django.core.management import BaseCommand, CommandError
+from django.core.management import BaseCommand
 
-from DataRepo.utils import CompoundsLoader
+from DataRepo.utils import CompoundsLoader, DryRun
 
 
 class Command(BaseCommand):
@@ -28,13 +28,12 @@ class Command(BaseCommand):
             default=";",
             required=False,
         )
-        # optional "do work" argument; otherwise, only reports of possible work
         parser.add_argument(
-            "--validate-only",
+            "--dry-run",
             action="store_true",
             default=False,
             help=(
-                "Validation mode. If specified, command will not change the database, "
+                "Dry Run mode. If specified, command will not change the database, "
                 "but simply report back potential work or issues."
             ),
         )
@@ -46,17 +45,10 @@ class Command(BaseCommand):
             default=False,
             help=argparse.SUPPRESS,
         )
-        # Used internally to load necessary data into the validation database
-        parser.add_argument(
-            "--database",
-            required=False,
-            type=str,
-            help=argparse.SUPPRESS,
-        )
 
     def handle(self, *args, **options):
         action = "Loading"
-        if options["validate_only"]:
+        if options["dry_run"]:
             action = "Validating"
         self.stdout.write(self.style.MIGRATE_HEADING(f"{action} compound data"))
 
@@ -66,51 +58,14 @@ class Command(BaseCommand):
         loader = CompoundsLoader(
             compounds_df=self.compounds_df,
             synonym_separator=options["synonym_separator"],
-            database=options["database"],
             validate=options["validate"],
+            dry_run=options["dry_run"],
         )
 
-        # Run validation
-        loader.validate_data()
-
-        if options["verbosity"] >= 2:
-            for msg in loader.validation_debug_messages:
-                self.stdout.write(self.style.NOTICE(msg))
-
-        if options["verbosity"] >= 1:
-            for msg in loader.validation_warning_messages:
-                self.stdout.write(self.style.WARNING(msg))
-
-        # If validation failed, raise an exception
-        if len(loader.validation_error_messages) >= 1:
-            # report on what errors were discovered by the loader
-            for err_msg in loader.validation_error_messages:
-                self.stdout.write(self.style.ERROR(err_msg))
-            raise CommandError(
-                "Validation errors when loading compounds, no compounds were loaded"
-            )
-
-        # report on what what work would be done by the loader
-        self.stdout.write(
-            self.style.MIGRATE_HEADING(
-                f"Work to be done: {len(loader.validated_new_compounds_for_insertion)} "
-                "new compounds will be inserted and all names/synonyms from the file "
-                "will either be found or inserted."
-            )
-        )
-        if len(loader.validated_new_compounds_for_insertion) >= 1:
-            self.stdout.write(
-                self.style.MIGRATE_HEADING("New compounds to be inserted:")
-            )
-            for compound in loader.validated_new_compounds_for_insertion:
-                self.stdout.write(self.style.MIGRATE_LABEL(str(compound)))
-
-        # Load compounds
-        if not options["validate_only"]:
-            loader.load_validated_compounds()
-            loader.load_synonyms()
-            for msg in loader.summary_messages:
-                self.stdout.write(self.style.MIGRATE_HEADING(msg))
+        try:
+            loader.load_compounds()
+        except DryRun:
+            pass
 
         self.stdout.write(self.style.SUCCESS(f"{action} compound data completed"))
 

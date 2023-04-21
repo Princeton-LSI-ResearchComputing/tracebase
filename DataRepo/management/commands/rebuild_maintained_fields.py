@@ -1,16 +1,5 @@
 from django.core.management import BaseCommand
 
-from DataRepo.models import (  # noqa: F401
-    Animal,
-    FCirc,
-    Infusate,
-    InfusateTracer,
-    MSRun,
-    PeakGroup,
-    Sample,
-    Tracer,
-    TracerLabel,
-)
 from DataRepo.models.maintained_model import (
     AutoUpdateFailed,
     clear_update_buffer,
@@ -23,8 +12,6 @@ from DataRepo.models.maintained_model import (
     get_max_generation,
     updater_list_has_labels,
 )
-
-# ^^^ Must import every MaintainedModel (because it's eval'd below)
 
 
 def rebuild_maintained_fields(label_filters=[]):
@@ -45,8 +32,8 @@ def rebuild_maintained_fields(label_filters=[]):
     for gen in sorted(range(youngest_generation + 1), reverse=True):
 
         # For every MaintainedModel derived class with decorated functions
-        for class_name in get_classes(gen, label_filters):
-            cls = eval(class_name)
+        for cls in get_classes("DataRepo.models", gen, label_filters):
+            class_name = cls.__name__
 
             try:
                 updater_dicts = cls.get_my_updaters()

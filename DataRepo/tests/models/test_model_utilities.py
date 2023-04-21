@@ -4,6 +4,7 @@ from DataRepo.models.utilities import (
     dereference_field,
     get_all_models,
     get_model_by_name,
+    get_unique_constraint_fields,
 )
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
@@ -72,3 +73,12 @@ class ModelUtilitiesTests(TracebaseTestCase):
         model_output = get_model_by_name(mdl_input)
         self.assertEqual(model_output.__class__.__name__, "ModelBase")
         self.assertEqual(mdl_input, model_output.__name__)
+
+    def test_get_unique_constraint_fields(self):
+        mdl_name = "MSRun"
+        model = get_model_by_name(mdl_name)
+        unique_field_sets = get_unique_constraint_fields(model)
+        self.assertEqual(1, len(unique_field_sets))
+        self.assertEqual(
+            ("researcher", "date", "protocol", "sample"), unique_field_sets[0]
+        )

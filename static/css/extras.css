@@ -60,3 +60,8 @@ body.development > nav.navbar {
 .main-content {
   width: calc(100% - 9rem);
 }
+
+.ul-nopadding {
+  padding-left: 2rem;
+  padding-bottom: 0;
+}
