@@ -1,10 +1,9 @@
 <!-- markdownlint-disable-next-line first-line-heading -->
 ## Summary Change Description
-
 <!-- Briefly describe the changes in this pull request (put details in the
 developer section of the linked issue(s)). -->
 
-## Affected Issue/Pull Request Numbers
+## Affected Issues/Pull Requests
 
 - Resolves #<!--issue_number-->
 <!--
@@ -14,14 +13,14 @@ developer section of the linked issue(s)). -->
 -->
 
 ## Code Review Notes
-
 <!-- Describe any areas of concern that code reviewers should pay particular
 attention to.  E.g. There are significant logic changes in function X. -->
 
 ## Checklist
-
+<!-- If any of the checkbox requirements are not met, uncheck them and add an
+explanation. -->
 A pull request can be merged once the following requirements are met.  The PR
-author asserts that the following requirements are met by requesting a review:
+author asserts that the following (checked) requirements are met:
 
 - Review requirements
   - Minimum approvals: 2 <!-- Author: Edit as desired -->
