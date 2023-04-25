@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Sample table loading now checks in-file sample name uniqueness
+
 ## [2.0.2] - 2023-02-10
 
 ### Added
