@@ -1,8 +1,13 @@
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError, transaction
+from django.db import transaction
 
 from DataRepo.models import Tissue
-from DataRepo.utils.exceptions import DryRun, LoadingError
+from DataRepo.utils.exceptions import (
+    AggregatedErrors,
+    ConflictingValueError,
+    DryRun,
+    LoadFileError,
+)
 
 
 class TissuesLoader:
@@ -11,18 +16,21 @@ class TissuesLoader:
     """
 
     def __init__(self, tissues, dry_run=True, validate=False):
-        self.tissues = tissues
-        self.tissues.columns = self.tissues.columns.str.lower()
-        self.dry_run = dry_run
-        # List of exceptions
-        self.errors = []
-        # List of strings that note what was done
-        self.notices = []
-        # Newly create tissues
-        self.created = []
-        # Pre-existing, matching tissues
-        self.existing = []
-        self.validate = validate
+        self.aggregated_errors_object = AggregatedErrors()
+        try:
+            self.tissues = tissues
+            self.tissues.columns = self.tissues.columns.str.lower()
+            self.dry_run = dry_run
+            # List of strings that note what was done
+            self.notices = []
+            # Newly create tissues
+            self.created = []
+            # Pre-existing, matching tissues
+            self.existing = []
+            self.validate = validate
+        except Exception as e:
+            self.aggregated_errors_object.buffer_error(e)
+            raise self.aggregated_errors_object
 
     def load(self):
         self.load_database()
@@ -65,15 +73,21 @@ class TissuesLoader:
                             f"Matching tissue {tissue} already exists, skipping"
                         )
                     else:
-                        raise ValidationError(
-                            f"Tissue with name = '{name}' but a different description already exists: "
-                            f"Existing description = '{tissue.description}' "
-                            f"New description = '{description}'"
+                        self.aggregated_errors_object.buffer_error(
+                            ConflictingValueError(
+                                tissue,
+                                "description",
+                                tissue.description,
+                                description,
+                                rownum=index + 2,
+                            )
                         )
-            except (IntegrityError, ValidationError) as e:
-                self.errors.append(f"Error in row {index + 1}: {e}")
-        if len(self.errors) > 0:
-            raise LoadingError("Errors during tissue loading")
+            except Exception as e:
+                self.aggregated_errors_object.buffer_error(LoadFileError(e, index + 2))
+
+        if self.aggregated_errors_object.should_raise():
+            raise self.aggregated_errors_object
+
         if self.dry_run:
             raise DryRun()
 
