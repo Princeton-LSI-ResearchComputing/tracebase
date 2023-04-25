@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Optional
 
-from django.core.exceptions import ValidationError
 from django.db import models
 
 from DataRepo.models.element_label import ElementLabel
@@ -102,34 +101,6 @@ class Tracer(MaintainedModel, ElementLabel):
             return self.compound.name
         labels_string = ",".join([str(label) for label in self.labels.all()])
         return f"{self.compound.name}-[{labels_string}]"
-
-    def clean(self):
-        """
-        Validate this Tracer record.
-        """
-        for label in self.labels.all():
-            atom_count = self.compound.atom_count(label.element)
-            # Ensure isotope elements exist in compound formula
-            if atom_count == 0:
-                raise ValidationError(
-                    f"Labeled element {label.element} does not exist in "
-                    f"{self.compound} formula ({self.compound.formula})"
-                )
-
-            # Ensure isotope count does not exceed count of that element in formula
-            if label.count > atom_count:
-                raise ValidationError(
-                    f"Count of labeled element {label.element} exceeds the number of "
-                    f"{label.element} atoms in {self.compound} formula ({self.compound.formula})"
-                )
-
-            # Ensure positions exist if count < count of that element in formula
-            if label.count < atom_count and not label.positions:
-                raise ValidationError(
-                    f"Positions required for partially labeled tracer compound {self.compound.name}. "
-                    f"Labeled count ({label.count}) is less than number of {label.element} atoms "
-                    f"({atom_count}) in formula ({self.compound.formula})."
-                )
 
     @property
     def get_name(self):
