@@ -495,7 +495,7 @@ class AggregatedErrorsTests(TracebaseTestCase):
     def test_merge_object(self):
         aes1 = AggregatedErrors(errors=[ValueError("Test error")])
         aes2 = AggregatedErrors(warnings=[ValueError("Test warning")])
-        aes1.merge_object(aes2)
+        aes1.merge_aggregated_errors_object(aes2)
         self.assertEqual(2, len(aes1.exceptions))
         self.assertTrue(aes1.is_error)
         self.assertTrue(aes1.is_fatal)

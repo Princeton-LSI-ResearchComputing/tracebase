@@ -1,3 +1,4 @@
+from __future__ import annotations
 import traceback
 import warnings
 
@@ -596,7 +597,7 @@ class AggregatedErrors(Exception):
         self.buffered_tb_str = self.get_buffered_traceback_string()
         self.quiet = quiet
 
-    def merge_object(self, aes_object):
+    def merge_aggregated_errors_object(self, aes_object: AggregatedErrors):
         """
         This is similar to a copy constructor, but instead of copying an existing oject, it merges the contents of the
         supplied object into self
