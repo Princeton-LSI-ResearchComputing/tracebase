@@ -347,7 +347,7 @@ class MultiLoadStatus(Exception):
         new_num_warnings = new_aes.num_warnings
         if self.statuses[load_key]["aggregated_errors"] is not None:
             merged_aes = self.statuses[load_key]["aggregated_errors"]
-            merged_aes.merge_object(new_aes)
+            merged_aes.merge_aggregated_errors_object(new_aes)
             # Update the aes object and merge the top value
             merged_aes = self.statuses[load_key]["aggregated_errors"]
             top = self.statuses[load_key]["top"] or top

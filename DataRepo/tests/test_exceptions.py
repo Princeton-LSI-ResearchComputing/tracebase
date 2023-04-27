@@ -492,7 +492,7 @@ class MultiLoadStatusTests(TracebaseTestCase):
 
 
 class AggregatedErrorsTests(TracebaseTestCase):
-    def test_merge_object(self):
+    def test_merge_aggregated_errors_object(self):
         aes1 = AggregatedErrors(errors=[ValueError("Test error")])
         aes2 = AggregatedErrors(warnings=[ValueError("Test warning")])
         aes1.merge_aggregated_errors_object(aes2)
