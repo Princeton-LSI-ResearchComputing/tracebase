@@ -48,11 +48,23 @@ class InfusateData(TypedDict):
 
 
 def parse_infusate_name(
-    infusate_string: str, concentrations: List[int] = []
+    infusate_string: str, concentrations: List[int]
 ) -> InfusateData:
     """
     Takes a complex infusate, coded as a string, and parses it into its optional
     name, lists of tracer(s) and compounds.
+
+    Args:
+        infusate_string (string): A string representation of an infusate
+        concentrations (:obj:`list` of :obj:`int`): A list of tracer
+            concentrations, there must be one per tracer.
+
+    Returns:
+        An InfusateData object built using the parsed values
+
+    Raises:
+        InfusateParsingError: If unable to properly parse the infusate_string
+            and list of concentrations.
     """
 
     # defaults
@@ -78,6 +90,13 @@ def parse_infusate_name(
             f"Unable to parse infusate string: [{infusate_string}]"
         )
 
+    # If concentrations were supplied, there must be one per tracer
+    if len(tracer_strings) != len(concentrations):
+        raise InfusateParsingError(
+            f"Unable to match {len(tracer_strings)} tracers to {len(concentrations)} concentration values:\n"
+            f"\tTracers: {tracer_strings}\n"
+            f"\tConcentration values: {concentrations}"
+        )
     for (tracer_string, concentration) in zip_longest(tracer_strings, concentrations):
         infusate_tracer: InfusateTracer = {
             "tracer": parse_tracer_string(tracer_string),
@@ -100,7 +119,6 @@ def parse_tracer_string(tracer: str) -> TracerData:
         "compound_name": "",
         "isotopes": list(),
     }
-
     match = re.search(TRACER_ENCODING_PATTERN, tracer)
     if match:
         tracer_data["compound_name"] = match.group("compound_name").strip()
