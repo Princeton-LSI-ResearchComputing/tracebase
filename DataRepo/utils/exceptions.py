@@ -166,17 +166,40 @@ class UnitsNotAllowed(Exception):
     def __init__(self, units_dict, message=None):
         if not message:
             nltab = "\n\t"
+            print(f"HEREHERE: {units_dict}")
             strip_str = nltab.join(
                 list(
-                    map(
-                        lambda k: f"{k} (changed: [{units_dict[k]['stripped']}] on row(s): {units_dict[k]['rows']})",
-                        units_dict.keys(),
+                    (
+                        f"{k} (example: [{units_dict[k]['example_val']}] changed to: "
+                        f"[{units_dict[k]['example_stripped']}] on row(s): {units_dict[k]['rows']})"
                     )
+                    for k in units_dict.keys()
                 )
             )
             message = (
-                f"{len(units_dict.keys())} values appear to have been supplied with units:{nltab}{strip_str}\n"
-                "Units were stripped as shown."
+                f"Units were stripped from values in {len(units_dict.keys())} columns:{nltab}{strip_str}\n"
+                "Units are not allowed."
+            )
+        super().__init__(message)
+        self.units_dict = units_dict
+
+
+class UnitsWrong(Exception):
+    def __init__(self, units_dict, message=None):
+        if not message:
+            nltab = "\n\t"
+            row_str = nltab.join(
+                list(
+                    (
+                        f"{k} (example: [{units_dict[k]['example_val']}] does not match units: "
+                        f"[{units_dict[k]['expected']}] on row(s): {units_dict[k]['rows']})"
+                    )
+                    for k in units_dict.keys()
+                )
+            )
+            message = (
+                f"Unexpected units were found in {len(units_dict.keys())} columns:{nltab}{row_str}\n"
+                "Units are not allowed, but these also appear to be the wrong units."
             )
         super().__init__(message)
         self.units_dict = units_dict

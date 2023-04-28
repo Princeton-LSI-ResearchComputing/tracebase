@@ -3,6 +3,8 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     UnexpectedIsotopes,
+    UnitsNotAllowed,
+    UnitsWrong,
     summarize_int_list,
 )
 
@@ -217,3 +219,45 @@ class ExceptionTests(TracebaseTestCase):
         esl = ["1-3", "5", "7-8"]
         sl = summarize_int_list(il)
         self.assertEqual(esl, sl)
+
+    def test_units_wrong(self):
+        units_dict = {
+            "Infusion Rate": {
+                "example_val": "3.3 non/sense",
+                "expected": "ul/m/g",
+                "rows": [5, 6],
+                "units": "non/sense",
+            },
+        }
+        uw = UnitsWrong(units_dict)
+        self.assertEqual(
+            (
+                "Unexpected units were found in 1 columns:\n"
+                "\tInfusion Rate (example: [3.3 non/sense] does not match units: [ul/m/g] on row(s): [5, 6])\n"
+                "Units are not allowed, but these also appear to be the wrong units."
+            ),
+            str(uw),
+        )
+        self.assertTrue(hasattr(uw, "units_dict"))
+        self.assertEqual(uw.units_dict, units_dict)
+
+    def test_units_not_allowed(self):
+        units_dict = {
+            "Infusion Rate": {
+                "example_val": "3.3 ul/m/g",
+                "example_stripped": "3.3",
+                "rows": [5, 6],
+                "units": "ul/m/g",
+            },
+        }
+        una = UnitsNotAllowed(units_dict)
+        self.assertEqual(
+            (
+                "Units were stripped from values in 1 columns:\n"
+                "\tInfusion Rate (example: [3.3 ul/m/g] changed to: [3.3] on row(s): [5, 6])\n"
+                "Units are not allowed."
+            ),
+            str(una),
+        )
+        self.assertTrue(hasattr(una, "units_dict"))
+        self.assertEqual(una.units_dict, units_dict)
