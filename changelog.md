@@ -1,3 +1,4 @@
+<!-- markdownlint-disable no-duplicate-heading -->
 # Changelog
 
 All notable changes to this project will be documented in this file.
@@ -10,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Sample table loading now checks in-file sample name uniqueness
+
+### Changed
+
+- Stripped units in the sample table loader now generate an error if the units are deemed to be incorrect.
 
 ## [2.0.2] - 2023-02-10
 
