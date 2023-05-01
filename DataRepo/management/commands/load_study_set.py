@@ -5,7 +5,7 @@ import sys
 from django.core.exceptions import ValidationError
 from django.core.management import BaseCommand, call_command
 
-from DataRepo.utils.exceptions import AggregatedErrors
+from DataRepo.utils.exceptions import AggregatedErrorsSet
 
 
 class Command(BaseCommand):
@@ -44,15 +44,15 @@ class Command(BaseCommand):
                         "load_study", study_path, verbosity=options["verbosity"]
                     )
                     studies_loaded.append(study_dir_name)
-                except AggregatedErrors as aes:
+                except AggregatedErrorsSet as aes:
                     # The first error that should be encountered if a study was already loaded is a ValidationError
                     # containing the following string.  The theory is that it would have been rolled back if the
                     # previous load had failed and there wouldn't have been this error.
                     if (
                         aes.num_errors == 1
-                        and isinstance(aes.exceptions[0], ValidationError)
+                        and isinstance(aes.aggregated_errors_dict.values()[0].exceptions[0], ValidationError)
                         and "Peak group set with this Filename already exists."
-                        in str(aes.exceptions[0])
+                        in str(aes.aggregated_errors_dict.values()[0].exceptions[0])
                     ):
                         self.stdout.write(
                             self.style.WARNING(
