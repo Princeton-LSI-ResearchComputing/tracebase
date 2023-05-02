@@ -80,7 +80,7 @@ class Command(BaseCommand):
                 except AggregatedErrorsSet as aes:
                     # Grab the parameters of this study to be able to tell whether the study was previously loaded or
                     # if this was a failed load due to some new error
-                    study_params = yaml.safe_load(options["study_params"])
+                    study_params = yaml.safe_load(study_path)
                     # Basically, we just need the number of accucor + isocorr files
                     num_peak_files = len(study_params["accucor_data"]["accucor_files"])
                     # We need to assure that there's only 1 error in each load file
