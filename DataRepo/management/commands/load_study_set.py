@@ -82,11 +82,13 @@ class Command(BaseCommand):
                     # Basically, we just need the number of accucor + isocorr files
                     num_peak_files = len(study_params["accucor_data"]["accucor_files"])
                     # We need to assure that there's only 1 error in each load file
-                    num_peak_files_with_1_err = len(list(
-                        x
-                        for x in list(aes.aggregated_errors_dict.values())
-                        if x.num_errors == 1
-                    ))
+                    num_peak_files_with_1_err = len(
+                        list(
+                            x
+                            for x in list(aes.aggregated_errors_dict.values())
+                            if x.num_errors == 1
+                        )
+                    )
                     # And that that one error is a ValidationError that says "Peak group set with this Filename already
                     # exists."
                     first_pgse_exceptions = list(
