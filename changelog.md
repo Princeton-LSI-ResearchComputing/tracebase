@@ -11,6 +11,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Sample table loading now checks in-file sample name uniqueness
 
+### Changed
+
+- Massive refactor to loading scripts
+  - As many errors as possible are buffered and reported en masse at the end
+  - Data associated with previous errors are now skipped
+  - Unknown headers now cause errors
+  - Autoupdates are now deferred to the calling script/method
+  - All loading code is now wrapped in atomic transactions
+  - Units are now stripped from fields with a warning
+  - Repeated exceptions are now consolidated into single exceptions
+  - Debug mode loading side effects were eliminated
+  - --debug was changed to --dry-run for all loaders for consistency
+- Massive refactor to the validation interface
+  - load_study (called in --validate mode) is now used for validation
+  - Isocorr files now have a separate file field
+  - A loading yaml is now automatically created
+  - Exceptions are now all now presented in chronological order (errors and warnings)
+  - Many exceptions are now multi-indented-lines
+- Improvements in loading exceptions
+  - Many custom exceptions were added (e.g. SheetMergeError)
+  - Exception messages improved to include more data (e.g. field and row number references and valid values where appropriate)
+  - Cross-file exception groups were created for the same errors coming from multiple files
+  - New MultiLoadStatus exception class was created for communication between the loading code and the validation page
+  - Some exceptions now suggest resolutions (e.g. e.g. add the iscorr flag)
+  - If all samples are missing, a NoSamplesError is now generated for brevity
+  - Sample name uniqueness errors now describe suggested resolutions based on the different resolutions (fudge the date versus prefix the name)
+- A couple null=True model changes were made where unsearchable empty strings were being stored
+- Example data was updated to adhere to new restrictions (e.g. no unknown headers)
+- Documentation updates associated with the loading and validation refactor
+- Tissue "blank" is now case insensitive
+- Max labaeled atoms is now determined using the formula instead of a static value
+
+### Removed
+
+- Validation database
+- All references to the validation database
+
 ## [2.0.2] - 2023-02-10
 
 ### Added

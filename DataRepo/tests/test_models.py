@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from unittest import skipIf
 
 import pandas as pd
 from django.conf import settings
@@ -8,6 +9,7 @@ from django.db import IntegrityError
 from django.db.models.deletion import RestrictedError
 from django.test import override_settings, tag
 
+from DataRepo.management.commands.load_study import Command as LoadStudyCommand
 from DataRepo.models import (
     Animal,
     AnimalLabel,
@@ -35,6 +37,9 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import (
     AccuCorDataLoader,
     AggregatedErrors,
+    AllMissingCompounds,
+    AllMissingSamples,
+    AllMissingTissues,
     ConflictingValueError,
     DryRun,
     DupeCompoundIsotopeCombos,
@@ -42,7 +47,11 @@ from DataRepo.utils import (
     IsotopeObservationParsingError,
     IsotopeParsingError,
     MissingCompounds,
+    MissingSamplesError,
+    MissingTissues,
+    RequiredSampleValuesError,
     SampleTableLoader,
+    SheetMergeError,
     leaderboard_data,
     parse_infusate_name,
     parse_tracer_concentrations,
@@ -1918,6 +1927,135 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
         )
         self.assertEqual([0, 1], rows)
 
+    def test_empty_row(self):
+        """
+        Ensures SheetMergeError doesn't include completely empty rows - asserted by an animal sample table with an
+        empty row raising no error at all.
+
+        Also ensures RequiredSampleValuesError doesn't include completely empty rows
+        """
+        call_command(
+            "load_animals_and_samples",
+            animal_and_sample_table_filename=(
+                "DataRepo/example_data/testing_data/small_obob_animal_and_sample_table_empty_row.xlsx"
+            ),
+        )
+
+    def test_required_sample_values_error_ignores_emptyanimal_animalsheet(self):
+        """
+        Ensures RequiredSampleValuesError doesn't include rows with a missing animal ID (but has other values).
+        Note, this should raise a SheetMergeError
+        """
+        with self.assertRaises(AggregatedErrors) as ar:
+            call_command(
+                "load_animals_and_samples",
+                animal_and_sample_table_filename=(
+                    "DataRepo/example_data/testing_data/"
+                    "small_obob_animal_and_sample_table_empty_animalid_in_animalsheet.xlsx"
+                ),
+            )
+        aes = ar.exception
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertTrue(isinstance(aes.exceptions[0], SheetMergeError))
+        self.assertEqual(1, len(aes.exceptions[0].row_idxs))
+        self.assertEqual("Animal ID", aes.exceptions[0].animal_col_name)
+
+        # Since there's a sheet merge error, the sample row with the empty animal ID will be merged with every empty
+        # row in the animal sheet.  This test ensures that that logic is correct and that the user is warned about the
+        # row number inaccuracy in this case.
+        self.assertEqual(16, aes.exceptions[0].row_idxs[0])
+        self.assertIn("row numbers can be inaccurate", str(aes.exceptions[0]))
+
+    def test_required_sample_values_error_ignores_emptyanimal_samplesheet(self):
+        """
+        Ensures RequiredSampleValuesError doesn't include rows with a missing animal ID (but has other values).
+        Note, this should raise a SheetMergeError
+        """
+        with self.assertRaises(AggregatedErrors) as ar:
+            call_command(
+                "load_animals_and_samples",
+                animal_and_sample_table_filename=(
+                    "DataRepo/example_data/testing_data/"
+                    "small_obob_animal_and_sample_table_empty_animalid_in_samplesheet.xlsx"
+                ),
+            )
+        aes = ar.exception
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertTrue(isinstance(aes.exceptions[0], SheetMergeError))
+        self.assertEqual(1, len(aes.exceptions[0].row_idxs))
+        self.assertEqual("Animal ID", aes.exceptions[0].animal_col_name)
+
+        # Since there's a sheet merge error, the sample row with the empty animal ID will be merged with every empty
+        # row in the animal sheet.  This test ensures that that logic is correct and that the user is warned about the
+        # row number inaccuracy in this case.
+        self.assertEqual(18, aes.exceptions[0].row_idxs[0])
+        self.assertIn("row numbers can be inaccurate", str(aes.exceptions[0]))
+
+    @tag("broken")
+    @skipIf(True, "This test demonstrates a current bug.")
+    def test_unraised_samplesheet_error_case(self):
+        """
+        This test demonstrates a current bug.  If there are no empty rows between populated rows in the Animals sheet,
+        then a row in the Samples sheet that has an empty Animal ID is completely ignored and that sample is never
+        loaded.  This should generate an error, but it does not.
+        """
+        with self.assertRaises(AggregatedErrors) as ar:
+            call_command(
+                "load_animals_and_samples",
+                animal_and_sample_table_filename=(
+                    "DataRepo/example_data/testing_data/"
+                    "small_obob_animal_and_sample_table_empty_animalid_in_samplesheet_silent.xlsx"
+                ),
+            )
+        aes = ar.exception
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertTrue(isinstance(aes.exceptions[0], SheetMergeError))
+        self.assertEqual(1, len(aes.exceptions[0].row_idxs))
+        self.assertEqual("Animal ID", aes.exceptions[0].animal_col_name)
+
+        # Since there's a sheet merge error, the sample row with the empty animal ID will be merged with every empty
+        # row in the animal sheet.  This test ensures that that logic is correct and that the user is warned about the
+        # row number inaccuracy in this case.
+        self.assertEqual(18, aes.exceptions[0].row_idxs[0])
+        self.assertIn("row numbers can be inaccurate", str(aes.exceptions[0]))
+
+    def test_check_required_values(self):
+        """
+        Check that missing required vals are added to stl.missing_values
+        """
+        with self.assertRaises(AggregatedErrors) as ar:
+            call_command(
+                "load_animals_and_samples",
+                animal_and_sample_table_filename=(
+                    "DataRepo/example_data/testing_data/"
+                    "small_obob_animal_and_sample_table_missing_rqd_vals.xlsx"
+                ),
+            )
+        aes = ar.exception
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertTrue(isinstance(aes.exceptions[0], RequiredSampleValuesError))
+        self.assertEqual(11, len(aes.exceptions[0].missing.keys()))
+        self.assertEqual(
+            {
+                "Sample Name": {"rows": [16], "animals": ["971"]},
+                "Date Collected": {"rows": [16], "animals": ["971"]},
+                "Researcher Name": {"rows": [16], "animals": ["971"]},
+                "Collection Time": {"rows": [16], "animals": ["971"]},
+                "Study Name": {"rows": [17, 18, 19, 20], "animals": ["972"]},
+                "Animal Body Weight": {"rows": [17, 18, 19, 20], "animals": ["972"]},
+                "Animal Genotype": {"rows": [17, 18, 19, 20], "animals": ["972"]},
+                "Feeding Status": {"rows": [17, 18, 19, 20], "animals": ["972"]},
+                "Infusate": {"rows": [17, 18, 19, 20], "animals": ["972"]},
+                "Infusion Rate": {"rows": [17, 18, 19, 20], "animals": ["972"]},
+                "Tracer Concentrations": {"rows": [17, 18, 19, 20], "animals": ["972"]},
+            },
+            aes.exceptions[0].missing,
+        )
+        self.assertIn(
+            "row numbers could reflect a sheet merge and may be inaccurate",
+            str(aes.exceptions[0]),
+        )
+
     def test_strip_units(self):
         stl = SampleTableLoader()
         stripped_val = stl.strip_units("3.3 ul/m/g", "ANIMAL_INFUSION_RATE", 3)
@@ -2002,6 +2140,219 @@ class StudyLoadingTests(TracebaseTestCase):
         }
         self.maxDiff = None
         self.assertDictEqual(expected_leaderboard, leaderboard_data())
+
+    def test_create_grouped_exceptions(self):
+        """
+        Assures that every MissingTissues, MissingCompounds, and MissingSamplesError exception brings about the
+        creation of AllMissing{Tissues,Compounds,Samples} exceptions and that the original exceptions are changed to a
+        warning status (technically - if they are the only exception)
+        """
+        lsc = LoadStudyCommand()
+        exceptions = [
+            MissingTissues({"spleen": [1, 2]}, ["brain", "butt"]),
+            MissingCompounds({"lysine": {"formula": "C2N2O2", "rownums": [3, 4]}}),
+            MissingSamplesError(["a", "b"]),
+        ]
+        aes = AggregatedErrors(exceptions=exceptions)
+        lsc.package_group_exceptions(aes, "accucor.xlsx")
+        lsc.create_grouped_exceptions()
+
+        # There should be 4 keys (one for the file "accucor.xlsx", which should have been changed to a warning and 3
+        # different group exceptions (AllMissingSamples, AllMissingCompounds, and AllMissingTissues) should have been
+        # added
+        self.assertEqual(4, len(lsc.load_statuses.statuses.keys()))
+        # 3 errors (AllMissingSamples, AllMissingCompounds, and AllMissingTissues)
+        self.assertEqual(3, lsc.load_statuses.num_errors)
+        # The file had 3 errors that should have been changed to warnings (MissingSamplesError, MissingCompounds, and
+        # MissingTissues)
+        self.assertEqual(3, lsc.load_statuses.num_warnings)
+
+        # Each of these keys should have been added as error categories
+        self.assertIn(
+            "All Samples Present in Sample Table File",
+            lsc.load_statuses.statuses.keys(),
+        )
+        self.assertIn(
+            "All Tissues Exist in the Database", lsc.load_statuses.statuses.keys()
+        )
+        self.assertIn(
+            "All Compounds Exist in the Database", lsc.load_statuses.statuses.keys()
+        )
+        self.assertIn("accucor.xlsx", lsc.load_statuses.statuses.keys())
+
+        # Each one should be designated as occurring at the top of the error output except the file
+        self.assertTrue(
+            lsc.load_statuses.statuses["All Samples Present in Sample Table File"][
+                "top"
+            ]
+        )
+        self.assertTrue(
+            lsc.load_statuses.statuses["All Tissues Exist in the Database"]["top"]
+        )
+        self.assertTrue(
+            lsc.load_statuses.statuses["All Compounds Exist in the Database"]["top"]
+        )
+        self.assertFalse(lsc.load_statuses.statuses["accucor.xlsx"]["top"])
+
+        # Number of errors in the MultiLoadStatus objects is correct (the accucor file's errors were changed to
+        # warnings)
+        self.assertEqual(
+            1,
+            lsc.load_statuses.statuses["All Samples Present in Sample Table File"][
+                "num_errors"
+            ],
+        )
+        self.assertEqual(
+            1,
+            lsc.load_statuses.statuses["All Tissues Exist in the Database"][
+                "num_errors"
+            ],
+        )
+        self.assertEqual(
+            1,
+            lsc.load_statuses.statuses["All Compounds Exist in the Database"][
+                "num_errors"
+            ],
+        )
+        self.assertEqual(0, lsc.load_statuses.statuses["accucor.xlsx"]["num_errors"])
+
+        # Number of warnings in the MultiLoadStatus objects is correct (the accucor file's errors were changed to
+        # warnings)
+        self.assertEqual(
+            0,
+            lsc.load_statuses.statuses["All Samples Present in Sample Table File"][
+                "num_warnings"
+            ],
+        )
+        self.assertEqual(
+            0,
+            lsc.load_statuses.statuses["All Tissues Exist in the Database"][
+                "num_warnings"
+            ],
+        )
+        self.assertEqual(
+            0,
+            lsc.load_statuses.statuses["All Compounds Exist in the Database"][
+                "num_warnings"
+            ],
+        )
+        self.assertEqual(3, lsc.load_statuses.statuses["accucor.xlsx"]["num_warnings"])
+
+        # Every error/warning group is inside an AggregatedErrors object
+        self.assertTrue(
+            isinstance(
+                lsc.load_statuses.statuses["All Samples Present in Sample Table File"][
+                    "aggregated_errors"
+                ],
+                AggregatedErrors,
+            ),
+        )
+        self.assertTrue(
+            isinstance(
+                lsc.load_statuses.statuses["All Tissues Exist in the Database"][
+                    "aggregated_errors"
+                ],
+                AggregatedErrors,
+            ),
+        )
+        self.assertTrue(
+            isinstance(
+                lsc.load_statuses.statuses["All Compounds Exist in the Database"][
+                    "aggregated_errors"
+                ],
+                AggregatedErrors,
+            ),
+        )
+        self.assertTrue(
+            isinstance(
+                lsc.load_statuses.statuses["accucor.xlsx"]["aggregated_errors"],
+                AggregatedErrors,
+            ),
+        )
+
+        # The number of exceptions in each AggregatedErrors object is correct
+        self.assertEqual(
+            1,
+            len(
+                lsc.load_statuses.statuses["All Samples Present in Sample Table File"][
+                    "aggregated_errors"
+                ].exceptions
+            ),
+        )
+        self.assertEqual(
+            1,
+            len(
+                lsc.load_statuses.statuses["All Tissues Exist in the Database"][
+                    "aggregated_errors"
+                ].exceptions
+            ),
+        )
+        self.assertEqual(
+            1,
+            len(
+                lsc.load_statuses.statuses["All Compounds Exist in the Database"][
+                    "aggregated_errors"
+                ].exceptions
+            ),
+        )
+        self.assertEqual(
+            3,
+            len(
+                lsc.load_statuses.statuses["accucor.xlsx"][
+                    "aggregated_errors"
+                ].exceptions
+            ),
+        )
+
+        # The exceptions contained in the AggregatedErrors objects are correct
+        self.assertTrue(
+            isinstance(
+                lsc.load_statuses.statuses["All Samples Present in Sample Table File"][
+                    "aggregated_errors"
+                ].exceptions[0],
+                AllMissingSamples,
+            ),
+        )
+        self.assertTrue(
+            isinstance(
+                lsc.load_statuses.statuses["All Tissues Exist in the Database"][
+                    "aggregated_errors"
+                ].exceptions[0],
+                AllMissingTissues,
+            ),
+        )
+        self.assertTrue(
+            isinstance(
+                lsc.load_statuses.statuses["All Compounds Exist in the Database"][
+                    "aggregated_errors"
+                ].exceptions[0],
+                AllMissingCompounds,
+            ),
+        )
+        self.assertTrue(
+            isinstance(
+                lsc.load_statuses.statuses["accucor.xlsx"][
+                    "aggregated_errors"
+                ].exceptions[0],
+                MissingTissues,
+            ),
+        )
+        self.assertTrue(
+            isinstance(
+                lsc.load_statuses.statuses["accucor.xlsx"][
+                    "aggregated_errors"
+                ].exceptions[1],
+                MissingCompounds,
+            ),
+        )
+        self.assertTrue(
+            isinstance(
+                lsc.load_statuses.statuses["accucor.xlsx"][
+                    "aggregated_errors"
+                ].exceptions[2],
+                MissingSamplesError,
+            ),
+        )
 
     def test_singly_labeled_isocorr_study(self):
         call_command(

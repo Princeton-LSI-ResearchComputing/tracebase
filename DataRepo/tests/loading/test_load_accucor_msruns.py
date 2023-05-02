@@ -18,7 +18,7 @@ from DataRepo.utils import (
     AccuCorDataLoader,
     AggregatedErrors,
     DryRun,
-    ExistingMSRun,
+    MSRunAlreadyLoadedOrNotUnique,
     NoSamplesError,
     UnskippedBlanksError,
 )
@@ -197,7 +197,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             )
         aes = ar.exception
         self.assertEqual(1, aes.num_errors)
-        self.assertEqual(ExistingMSRun, type(aes.exceptions[0]))
+        self.assertEqual(MSRunAlreadyLoadedOrNotUnique, type(aes.exceptions[0]))
         self.assertIn(
             "small_obob_maven_6eaas_inf_blank_sample.xlsx",
             str(aes.exceptions[0]),

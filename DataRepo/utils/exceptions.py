@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 import traceback
+import warnings
 
 from django.forms.models import model_to_dict
 
@@ -42,16 +45,48 @@ class RequiredValuesError(Exception):
             )
             message = (
                 "Missing required values have been detected in the following columns:\n\t"
-                f"{nltab.join(deets)}\nNote, entirely empty rows are allowed, but having a single value on a "
-                "row in one sheet can cause a duplication of empty rows, so be sure you don't have stray single "
-                "values in a sheet."
+                f"{nltab.join(deets)}\nIf you wish to skip this row, you can either remove the row entirely or enter "
+                "dummy values to avoid this error."
             )
             # Row numbers are available, but not very useful given the sheet merge
         super().__init__(message)
         self.missing = missing
 
 
-class ExistingMSRun(Exception):
+class RequiredSampleValuesError(Exception):
+    """
+    This is the same as RequiredValuesError except that it indicates the animal on the row where required values are
+    missing.  This is explicitly for the sample table loader because the Animal ID is guaranteed to be there.  We know
+    that the animal ID is present, because if it wasn't, the affected rows in this error would be in a SheetMergeError
+    and those row wouldn't have been processed to be able to get into this error.  Adding the Animal can help speed up
+    the search for missing data when the row numbers may be inaccurate (if there was also a sheet merge error).
+    """
+
+    def __init__(self, missing, animal_hdr="animal", message=None):
+        if not message:
+            nltab = "\n\t"
+            deets = list(
+                map(
+                    lambda k: (
+                        f"{str(k)} on row(s): {str(summarize_int_list(missing[k]['rows']))} "
+                        f"for {animal_hdr}(s): {missing[k]['animals']}"
+                    ),
+                    missing.keys(),
+                )
+            )
+            message = (
+                "Missing required values have been detected in the following columns:\n\t"
+                f"{nltab.join(deets)}\nIf you wish to skip this row, you can either remove the row entirely or enter "
+                "dummy values to avoid this error.  (Note, row numbers could reflect a sheet merge and may be "
+                f"inaccurate.)"
+            )
+            # Row numbers are available, but not very useful given the sheet merge
+        super().__init__(message)
+        self.missing = missing
+        self.animal_hdr = animal_hdr
+
+
+class MSRunAlreadyLoadedOrNotUnique(Exception):
     def __init__(self, date, researcher, protocol_name, file_samples_dict, adding_file):
         message = (
             "The following date, researcher, and protocol:\n"
@@ -59,19 +94,23 @@ class ExistingMSRun(Exception):
             f"\tresearcher: {researcher}\n"
             f"\tprotocol: {protocol_name}\n"
             f"for the load of the current accucor/isocorr file: [{adding_file}] contains samples that were also found "
-            "to be associated with the following previously (or concurrently) loaded accucor/isocorr file(s).  The "
-            "common/conflicting samples contained in each file are listed as:\n"
+            "to be associated with the following previously (or concurrently) loaded accucor/isocorr file(s).\n"
         )
         for existing_file in file_samples_dict.keys():
-            message += f"\t{existing_file}:\n\t\t"
+            message += (
+                f"\tConflicting samples in {adding_file} and {existing_file} with the same date, researcher, and "
+                "protocol:\n\t\t"
+            )
             message += "\n\t\t".join(file_samples_dict[existing_file])
         message += (
-            "\nThe date, researcher, protocol, and sample name must be unique for each MSRun.  Changing the date of "
-            "the MSRun could resolve the conflict and allow you to retain unique and consistent sample names for "
-            "searching, but if these samples were truly scanned in multiple MSRuns on the same date, it could also be "
-            "resolved by the curators using a sample name prefix on the command line (--prefix) and changing the "
-            "sample names in the sample sheet to match (i.e. they would be saved as different samples even though "
-            "they are the same sample) - in which case, there's nothing you need to do."
+            "\nThe date, researcher, protocol, and sample name must be unique for each MSRun.  If these are the same "
+            "samples in each MSRun, change or be sure to indicate the date of the MSRun for each file to resolve the "
+            "conflict so you can retain unique and consistent sample names for searching.  If these are the same "
+            "samples and they were scanned in multiple MSRuns on the same date, we currently don't have a database "
+            "schema to support that, so reach out to a curator to decide how to resolve the issue.  If these are "
+            "different samples with the same name, notify the curators so they can change the sample names in the "
+            "sample sheet to match (i.e. they will be saved with modified sample names using a sample name prefix on "
+            "the command line (--prefix) so that the accucor/isocorr files do not need to be edited)."
         )
         super().__init__(message)
         self.date = date
@@ -120,9 +159,9 @@ class AllMissingSamples(Exception):
                 )
             )
             message = (
-                f"{len(samples)} samples are missing in the database:{nltab}{smpls_str}\nSamples in the accucor/"
-                "isocorr files must be present in the sample table file and loaded into the database before they can "
-                "be loaded from the mass spec data files."
+                f"{len(samples)} samples are missing in the database/sample-table:{nltab}{smpls_str}\nSamples in the "
+                "accucor/isocorr files must be present in the sample table file and loaded into the database before "
+                "they can be loaded from the mass spec data files."
             )
         super().__init__(message)
         self.samples = samples
@@ -256,13 +295,18 @@ class MultiLoadStatus(Exception):
     from (for example) load_study will convey the load statuses to the validation interface.
     """
 
-    def __init__(self):
+    def __init__(self, load_keys=None):
 
         self.state = "PASSED"
         self.is_valid = True
         self.num_errors = 0
         self.num_warnings = 0
         self.statuses = {}
+        # Initialize the load status of all load keys (e.g. file names).  Note, you can create arbitrary keys for group
+        # statuses, e.g. for AllMissingCompounds errors that consolidate all missing compounds
+        if load_keys:
+            for load_key in load_keys:
+                self.init_load(load_key)
 
     def init_load(self, load_key):
         self.statuses[load_key] = {
@@ -270,36 +314,60 @@ class MultiLoadStatus(Exception):
             "state": "PASSED",
             "num_errors": 0,
             "num_warnings": 0,
+            "top": True,  # Passing files will appear first
         }
 
     def set_load_exception(self, exception, load_key, top=False):
+        """
+        This records the status of a load in a data member called statuses.  It tracks some overall stats and can set
+        whether this load status should appear at the top of the reported statuses or not.
+        """
+
+        if len(self.statuses.keys()) == 0:
+            warnings.warn(
+                f"Load keys such as [{load_key}] should be pre-defined when {type(self).__name__} is constructed or "
+                "as they are encountered by calling [obj.init_load(load_key)].  A load key is by default the file "
+                "name, but can be any key can be explicitly added."
+            )
 
         if load_key not in self.statuses.keys():
             self.init_load(load_key)
 
-        if not isinstance(exception, AggregatedErrors):
+        if isinstance(exception, AggregatedErrors):
+            new_aes = exception
+        else:
             # All of the AggregatedErrors are printed to the console as they are encountered, but not other exceptions,
             # so...
             print(exception)
 
             # Wrap the exception in an AggregatedErrors class
-            aes = AggregatedErrors(errors=[exception])
+            new_aes = AggregatedErrors(errors=[exception])
+
+        new_num_errors = new_aes.num_errors
+        new_num_warnings = new_aes.num_warnings
+        if self.statuses[load_key]["aggregated_errors"] is not None:
+            merged_aes = self.statuses[load_key]["aggregated_errors"]
+            merged_aes.merge_aggregated_errors_object(new_aes)
+            # Update the aes object and merge the top value
+            merged_aes = self.statuses[load_key]["aggregated_errors"]
+            top = self.statuses[load_key]["top"] or top
         else:
-            aes = exception
+            merged_aes = new_aes
+            self.statuses[load_key]["aggregated_errors"] = merged_aes
 
         # We have edited AggregatedErrors above, but we are explicitly not accounting for removed exceptions.
         # Those will be tallied later in handle_packaged_exceptions, because for example, we only want 1 missing
         # compounds error that accounts for all missing compounds among all the study files.
-        self.num_errors += aes.num_errors
-        self.num_warnings += aes.num_warnings
-        self.statuses[load_key]["num_errors"] = aes.num_errors
-        self.statuses[load_key]["num_warnings"] = aes.num_warnings
+        self.num_errors += new_num_errors
+        self.num_warnings += new_num_warnings
+        self.statuses[load_key]["num_errors"] = merged_aes.num_errors
+        self.statuses[load_key]["num_warnings"] = merged_aes.num_warnings
         self.statuses[load_key]["top"] = top
-        aes.top = top
-        self.statuses[load_key]["aggregated_errors"] = aes
 
-        if aes.should_raise():
-            self.is_valid = False
+        # Any error or warning should make is_valid False and the user should decide whether they can ignore the
+        # warnings or not.
+        self.is_valid = False
+        if self.statuses[load_key]["aggregated_errors"].is_error:
             self.statuses[load_key]["state"] = "FAILED"
             self.state = "FAILED"
         else:
@@ -310,13 +378,27 @@ class MultiLoadStatus(Exception):
         return self.is_valid
 
     def get_final_exception(self, message=None):
+
+        # If success, return None
         if self.get_success_status():
             return None
+
         aggregated_errors_dict = {}
         for load_key in self.statuses.keys():
-            aggregated_errors_dict[load_key] = self.statuses[load_key][
-                "aggregated_errors"
-            ]
+            # Only include AggregatedErrors objects if they are defined.  If they are not defined, it means there were
+            # no errors
+            if self.statuses[load_key]["aggregated_errors"] is not None:
+                aggregated_errors_dict[load_key] = self.statuses[load_key][
+                    "aggregated_errors"
+                ]
+
+        # Sanity check
+        if len(aggregated_errors_dict.keys()) == 0:
+            raise ValueError(
+                f"Success status is {self.get_success_status()} but there are no aggregated exceptions for any "
+                "files."
+            )
+
         return AggregatedErrorsSet(aggregated_errors_dict, message=message)
 
     def get_status_message(self):
@@ -333,9 +415,7 @@ class MultiLoadStatus(Exception):
     def get_status_messages(self):
 
         messages = []
-        for load_key in sorted(
-            self.statuses, key=lambda k: self.statuses[load_key]["top"]
-        ):
+        for load_key in self.get_ordered_status_keys(reverse=False):
             messages.append(
                 {
                     "message": f"{load_key}: {self.statuses[load_key]['state']}",
@@ -359,6 +439,13 @@ class MultiLoadStatus(Exception):
 
         return messages
 
+    def get_ordered_status_keys(self, reverse=False):
+        return sorted(
+            self.statuses.keys(),
+            key=lambda k: self.statuses[k]["top"],
+            reverse=not reverse,
+        )
+
 
 class AggregatedErrorsSet(Exception):
     def __init__(self, aggregated_errors_dict, message=None):
@@ -366,6 +453,7 @@ class AggregatedErrorsSet(Exception):
         self.num_warnings = 0
         self.num_errors = 0
         self.is_fatal = False
+        self.is_error = False
         if len(self.aggregated_errors_dict.keys()) > 0:
             for aes_key in self.aggregated_errors_dict.keys():
                 if self.aggregated_errors_dict[aes_key].num_errors > 0:
@@ -374,6 +462,8 @@ class AggregatedErrorsSet(Exception):
                     self.num_warnings += 1
                 if self.aggregated_errors_dict[aes_key].is_fatal:
                     self.is_fatal = True
+                if self.aggregated_errors_dict[aes_key].is_error:
+                    self.is_error = True
         self.custom_message = False
         if message:
             self.custom_message = True
@@ -456,6 +546,7 @@ class AggregatedErrors(Exception):
         self.num_warnings = len(warnings)
 
         self.is_fatal = False  # Default to not fatal. buffer_exception can change this.
+        self.is_error = False  # Default to warning. buffer_exception can change this.
 
         # Providing exceptions, errors, and warnings is an optional alternative to using the methods: buffer_exception,
         # buffer_error, and buffer_warning.
@@ -470,6 +561,8 @@ class AggregatedErrors(Exception):
                 is_fatal = is_error
             if is_fatal:
                 self.is_fatal = is_fatal
+            if is_error:
+                self.is_error = is_error
             if is_error:
                 self.num_errors += 1
             else:
@@ -492,6 +585,7 @@ class AggregatedErrors(Exception):
             self.exceptions.append(error)
             self.ammend_buffered_exception(error, len(self.exceptions), is_error=True)
             self.is_fatal = True
+            self.is_error = True
 
         self.custom_message = False
         if message:
@@ -503,6 +597,38 @@ class AggregatedErrors(Exception):
 
         self.buffered_tb_str = self.get_buffered_traceback_string()
         self.quiet = quiet
+
+    def merge_aggregated_errors_object(self, aes_object: AggregatedErrors):
+        """
+        This is similar to a copy constructor, but instead of copying an existing oject, it merges the contents of the
+        supplied object into self
+        """
+        self.num_errors += aes_object.num_errors
+        self.num_warnings += aes_object.num_warnings
+        if aes_object.is_fatal:
+            self.is_fatal = aes_object.is_fatal
+        if aes_object.is_error:
+            self.is_error = aes_object.is_error
+        self.exceptions += aes_object.exceptions
+        if aes_object.custom_message:
+            msg = str(self)
+            if self.custom_message:
+                msg += (
+                    "\nAn additional AggregatedErrors object was merged with this one with an additional custom "
+                    f"message:\n\n{aes_object.custom_message}"
+                )
+            else:
+                self.custom_message = aes_object.custom_message
+                msg = str(aes_object)
+        else:
+            msg = self.get_default_message()
+        super().__init__(msg)
+        self.buffered_tb_str += (
+            "\nAn additional AggregatedErrors object was merged with this one.  The appended trace is:\n\n"
+            + self.get_buffered_traceback_string()
+        )
+        if aes_object.quiet:
+            self.quiet = aes_object.quiet
 
     def get_exception_type(self, exception_class, remove=False):
         """
@@ -516,6 +642,7 @@ class AggregatedErrors(Exception):
         matched_exceptions = []
         unmatched_exceptions = []
         is_fatal = False
+        is_error = False
         num_errors = 0
         num_warnings = 0
 
@@ -523,6 +650,7 @@ class AggregatedErrors(Exception):
         for exception in self.exceptions:
             if type(exception) == exception_class:
                 if not remove:
+                    # Change every removed exception to a non-fatal warning
                     exception.is_error = False
                     exception.is_fatal = False
                     num_warnings += 1
@@ -534,11 +662,14 @@ class AggregatedErrors(Exception):
                     num_warnings += 1
                 if exception.is_fatal:
                     is_fatal = True
+                if exception.is_error:
+                    is_error = True
                 unmatched_exceptions.append(exception)
 
         self.num_errors = num_errors
         self.num_warnings = num_warnings
         self.is_fatal = is_fatal
+        self.is_error = is_error
 
         if remove:
             # Reinitialize this object
@@ -628,16 +759,21 @@ class AggregatedErrors(Exception):
         exception.exc_no = exc_no
         return exception
 
-    def get_buffered_exception_summary_string(self, buffered_exception, exc_no=None):
+    def get_buffered_exception_summary_string(
+        self, buffered_exception, exc_no=None, numbered=True, typed=True
+    ):
         """
         Constructs the summary string using the info stored in the exception by ammend_buffered_exception()
         """
-        if exc_no is None:
-            exc_no = buffered_exception.exc_no
-        return (
-            f"EXCEPTION{exc_no}({buffered_exception.exc_type_str.upper()}): {type(buffered_exception).__name__}: "
-            f"{buffered_exception}"
-        )
+        exc_str = ""
+        if numbered:
+            if exc_no is None:
+                exc_no = buffered_exception.exc_no
+            exc_str += f"EXCEPTION{exc_no}({buffered_exception.exc_type_str.upper()}): "
+        if typed:
+            exc_str += f"{type(buffered_exception).__name__}: "
+        exc_str += f"{buffered_exception}"
+        return exc_str
 
     @classmethod
     def get_buffered_traceback_string(cls):
@@ -698,6 +834,8 @@ class AggregatedErrors(Exception):
 
         if is_fatal:
             self.is_fatal = True
+        if is_error:
+            self.is_error = True
 
         if not self.quiet:
             self.print_buffered_exception(buffered_exception)
@@ -837,7 +975,7 @@ class SheetMergeError(Exception):
     def __init__(self, row_idxs, merge_col_name="Animal Name", message=None):
         if not message:
             message = (
-                f"Rows which are missing an {merge_col_name} but have a value in some other column cause meaningless "
+                f"Rows which are missing an {merge_col_name} but have a value in some other column, cause confusing "
                 f"errors because the {merge_col_name} is used to merge the data in separate files/excel-sheets.  To "
                 "avoid these errors, a row must either be completely empty, or at least contain a value in the merge "
                 f"column: [{merge_col_name}].  The following rows are affected, but the row numbers can be inaccurate "
@@ -905,8 +1043,8 @@ class AllMissingTissues(Exception):
                     )
                 )
             message = (
-                f"{len(tissues_dict.keys())} tissues were not found in the database:{nltab}{tissues_str}\n"
-                f"Please check the tissue(s) against the existing tissues list:{nltab}"
+                f"{len(tissues_dict['tissues'].keys())} tissues were not found in the database:{nltab}{tissues_str}"
+                f"\nPlease check the tissue(s) against the existing tissues list:{nltab}"
                 f"{nltab.join(tissues_dict['existing'])}\n"
                 "If the tissue cannot be renamed to one of these existing tissues, a new tissue type will have to be "
                 "added to the database."
@@ -928,13 +1066,16 @@ class AllMissingCompounds(Exception):
         """
         if not message:
             nltab = "\n\t"
+            nltt = f"{nltab}\t"
             cmdps_str = ""
             for compound in compounds_dict.keys():
+                if cmdps_str != "":
+                    cmdps_str += nltab
                 cmdps_str += (
                     f"Compound: [{compound}], Formula: [{compounds_dict[compound]['formula']}], located in the "
-                    f"following file(s):{nltab}"
+                    f"following file(s):{nltt}"
                 )
-                cmdps_str += nltab.join(
+                cmdps_str += nltt.join(
                     list(
                         map(
                             lambda fl: f"{fl} on row(s): {summarize_int_list(compounds_dict[compound]['files'][fl])}",

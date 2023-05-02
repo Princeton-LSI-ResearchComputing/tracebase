@@ -22,7 +22,6 @@ from DataRepo.models.maintained_model import (
 )
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
-    AggregatedErrorsSet,
     AllMissingCompounds,
     AllMissingSamples,
     AllMissingTissues,
@@ -59,6 +58,13 @@ class Command(BaseCommand):
         "file to specify parameters. "
         "Example usage: manage.py load_study config_file.yaml "
     )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.missing_samples = defaultdict(list)
+        self.missing_tissues = defaultdict(dict)
+        self.missing_compounds = defaultdict(dict)
+        self.load_statuses = MultiLoadStatus()
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -135,201 +141,208 @@ class Command(BaseCommand):
                 )
             )
 
-        try:
-            with transaction.atomic():
-                if "compounds" in study_params:
+        with transaction.atomic():
+            if "compounds" in study_params:
 
-                    compound_file_basename = study_params["compounds"]
-                    compounds_file = os.path.join(study_dir, compound_file_basename)
+                compound_file_basename = study_params["compounds"]
+                compounds_file = os.path.join(study_dir, compound_file_basename)
+                self.load_statuses.init_load(compounds_file)
 
-                    if self.verbosity > 1:
-                        self.stdout.write(
-                            self.style.MIGRATE_HEADING(
-                                f"Loading compounds from {compounds_file}"
-                            )
+                if self.verbosity > 1:
+                    self.stdout.write(
+                        self.style.MIGRATE_HEADING(
+                            f"Loading compounds from {compounds_file}"
                         )
-
-                    try:
-                        call_command(
-                            "load_compounds",
-                            compounds=compounds_file,
-                            validate=self.validate,
-                        )
-                    except Exception as e:
-                        self.package_group_exceptions(e, compound_file_basename)
-
-                if "protocols" in study_params:
-
-                    protocol_file_basename = study_params["protocols"]
-                    protocols_file = os.path.join(study_dir, protocol_file_basename)
-
-                    if self.verbosity > 1:
-                        self.stdout.write(
-                            self.style.MIGRATE_HEADING(
-                                f"Loading protocols from {protocols_file}"
-                            )
-                        )
-
-                    try:
-                        call_command(
-                            "load_protocols",
-                            protocols=protocols_file,
-                            validate=self.validate,
-                            verbosity=self.verbosity,
-                        )
-                    except Exception as e:
-                        self.package_group_exceptions(e, protocol_file_basename)
-
-                if "tissues" in study_params:
-
-                    tissue_file_basename = study_params["tissues"]
-                    tissues_file = os.path.join(study_dir, tissue_file_basename)
-
-                    if self.verbosity > 1:
-                        self.stdout.write(
-                            self.style.MIGRATE_HEADING(
-                                f"Loading tissues from {tissues_file}"
-                            )
-                        )
-
-                    try:
-                        call_command(
-                            "load_tissues",
-                            tissues=tissues_file,
-                            validate=self.validate,
-                            verbosity=self.verbosity,
-                        )
-                    except Exception as e:
-                        self.package_group_exceptions(e, tissue_file_basename)
-
-                if "animals_samples_treatments" in study_params:
-
-                    # Read in animals and samples file
-                    sample_file_basename = study_params["animals_samples_treatments"][
-                        "table"
-                    ]
-                    animals_samples_table_file = os.path.join(
-                        study_dir, sample_file_basename
                     )
-                    headers_basename = study_params["animals_samples_treatments"].get(
-                        "headers", None
+
+                try:
+                    call_command(
+                        "load_compounds",
+                        compounds=compounds_file,
+                        validate=self.validate,
                     )
-                    headers_file = None
-                    if headers_basename is not None:
-                        headers_file = os.path.join(study_dir, headers_basename)
-                    skip_researcher_check = study_params[
-                        "animals_samples_treatments"
-                    ].get("skip_researcher_check", False)
+                except Exception as e:
+                    self.package_group_exceptions(e, compounds_file)
+
+            if "protocols" in study_params:
+
+                protocol_file_basename = study_params["protocols"]
+                protocols_file = os.path.join(study_dir, protocol_file_basename)
+                self.load_statuses.init_load(protocols_file)
+
+                if self.verbosity > 1:
+                    self.stdout.write(
+                        self.style.MIGRATE_HEADING(
+                            f"Loading protocols from {protocols_file}"
+                        )
+                    )
+
+                try:
+                    call_command(
+                        "load_protocols",
+                        protocols=protocols_file,
+                        validate=self.validate,
+                        verbosity=self.verbosity,
+                    )
+                except Exception as e:
+                    self.package_group_exceptions(e, protocols_file)
+
+            if "tissues" in study_params:
+
+                tissue_file_basename = study_params["tissues"]
+                tissues_file = os.path.join(study_dir, tissue_file_basename)
+                self.load_statuses.init_load(tissues_file)
+
+                if self.verbosity > 1:
+                    self.stdout.write(
+                        self.style.MIGRATE_HEADING(
+                            f"Loading tissues from {tissues_file}"
+                        )
+                    )
+
+                try:
+                    call_command(
+                        "load_tissues",
+                        tissues=tissues_file,
+                        validate=self.validate,
+                        verbosity=self.verbosity,
+                    )
+                except Exception as e:
+                    self.package_group_exceptions(e, tissues_file)
+
+            if "animals_samples_treatments" in study_params:
+
+                # Read in animals and samples file
+                sample_file_basename = study_params["animals_samples_treatments"][
+                    "table"
+                ]
+                animals_samples_table_file = os.path.join(
+                    study_dir, sample_file_basename
+                )
+                # If the protocols load was from the animal sample table file, don't overwrite the errors that
+                # already came from it
+                if animals_samples_table_file not in self.load_statuses.statuses.keys():
+                    self.load_statuses.init_load(animals_samples_table_file)
+                headers_basename = study_params["animals_samples_treatments"].get(
+                    "headers", None
+                )
+                headers_file = None
+                if headers_basename is not None:
+                    headers_file = os.path.join(study_dir, headers_basename)
+                skip_researcher_check = study_params["animals_samples_treatments"].get(
+                    "skip_researcher_check", False
+                )
+
+                if self.verbosity > 1:
+                    self.stdout.write(
+                        self.style.MIGRATE_HEADING(
+                            f"Loading animals and samples from {animals_samples_table_file}"
+                        )
+                    )
+
+                try:
+                    call_command(
+                        "load_animals_and_samples",
+                        animal_and_sample_table_filename=animals_samples_table_file,
+                        table_headers=headers_file,
+                        skip_researcher_check=skip_researcher_check,
+                        verbosity=self.verbosity,
+                        validate=self.validate,
+                        defer_autoupdates=True,
+                    )
+                except Exception as e:
+                    self.package_group_exceptions(e, animals_samples_table_file)
+
+            if "accucor_data" in study_params:
+
+                # Get parameters for all accucor files
+                study_protocol = study_params["accucor_data"]["msrun_protocol"]
+                study_date = study_params["accucor_data"]["date"]
+                study_researcher = study_params["accucor_data"]["researcher"]
+                study_new_researcher = study_params["accucor_data"]["new_researcher"]
+                study_skip_samples = study_params["accucor_data"].get(
+                    "skip_samples", None
+                )
+                study_sample_name_prefix = study_params["accucor_data"].get(
+                    "sample_name_prefix", None
+                )
+
+                # Read in accucor data files
+                for accucor_info_dict in study_params["accucor_data"]["accucor_files"]:
+
+                    # Get parameters specific to each accucor file
+                    accucor_file_basename = accucor_info_dict["name"]
+                    accucor_file = os.path.join(study_dir, accucor_file_basename)
+                    self.load_statuses.init_load(accucor_file)
+                    protocol = accucor_info_dict.get("msrun_protocol", study_protocol)
+                    date = accucor_info_dict.get("date", study_date)
+                    researcher = accucor_info_dict.get("researcher", study_researcher)
+                    new_researcher = accucor_info_dict.get(
+                        "new_researcher", study_new_researcher
+                    )
+                    skip_samples = accucor_info_dict.get(
+                        "skip_samples", study_skip_samples
+                    )
+                    sample_name_prefix = accucor_info_dict.get(
+                        "sample_name_prefix", study_sample_name_prefix
+                    )
+                    isocorr_format = accucor_info_dict.get("isocorr_format", False)
 
                     if self.verbosity > 1:
                         self.stdout.write(
                             self.style.MIGRATE_HEADING(
-                                f"Loading animals and samples from {animals_samples_table_file}"
+                                f"Loading accucor_data from {accucor_file_basename}"
                             )
                         )
 
+                    if sample_name_prefix is not None and self.verbosity > 0:
+                        print(f"PREFIX: {sample_name_prefix}")
+
                     try:
                         call_command(
-                            "load_animals_and_samples",
-                            animal_and_sample_table_filename=animals_samples_table_file,
-                            table_headers=headers_file,
-                            skip_researcher_check=skip_researcher_check,
-                            verbosity=self.verbosity,
+                            "load_accucor_msruns",
+                            accucor_file=accucor_file,
+                            protocol=protocol,
+                            date=date,
+                            researcher=researcher,
+                            new_researcher=new_researcher,
+                            skip_samples=skip_samples,
+                            sample_name_prefix=sample_name_prefix,
+                            validate=self.validate,
+                            isocorr_format=isocorr_format,
                             defer_autoupdates=True,
                         )
-                    except Exception as e:
-                        self.package_group_exceptions(e, sample_file_basename)
-
-                if "accucor_data" in study_params:
-
-                    # Get parameters for all accucor files
-                    study_protocol = study_params["accucor_data"]["msrun_protocol"]
-                    study_date = study_params["accucor_data"]["date"]
-                    study_researcher = study_params["accucor_data"]["researcher"]
-                    study_new_researcher = study_params["accucor_data"][
-                        "new_researcher"
-                    ]
-                    study_skip_samples = study_params["accucor_data"].get(
-                        "skip_samples", None
-                    )
-                    study_sample_name_prefix = study_params["accucor_data"].get(
-                        "sample_name_prefix", None
-                    )
-
-                    # Read in accucor data files
-                    for accucor_file in study_params["accucor_data"]["accucor_files"]:
-
-                        # Get parameters specific to each accucor file
-                        accucor_file_basename = accucor_file["name"]
-                        protocol = accucor_file.get("msrun_protocol", study_protocol)
-                        date = accucor_file.get("date", study_date)
-                        researcher = accucor_file.get("researcher", study_researcher)
-                        new_researcher = accucor_file.get(
-                            "new_researcher", study_new_researcher
-                        )
-                        skip_samples = accucor_file.get(
-                            "skip_samples", study_skip_samples
-                        )
-                        sample_name_prefix = accucor_file.get(
-                            "sample_name_prefix", study_sample_name_prefix
-                        )
-                        isocorr_format = accucor_file.get("isocorr_format", False)
-
                         if self.verbosity > 1:
                             self.stdout.write(
-                                self.style.MIGRATE_HEADING(
-                                    f"Loading accucor_data from {accucor_file_basename}"
+                                self.style.SUCCESS(
+                                    f"STATUS: SUCCESS {accucor_file_basename} - commit pending"
                                 )
                             )
+                    except Exception as e:
+                        self.package_group_exceptions(e, accucor_file)
 
-                        if sample_name_prefix is not None and self.verbosity > 0:
-                            print(f"PREFIX: {sample_name_prefix}")
+            self.create_grouped_exceptions()
 
-                        try:
-                            call_command(
-                                "load_accucor_msruns",
-                                accucor_file=os.path.join(
-                                    study_dir, accucor_file_basename
-                                ),
-                                protocol=protocol,
-                                date=date,
-                                researcher=researcher,
-                                new_researcher=new_researcher,
-                                skip_samples=skip_samples,
-                                sample_name_prefix=sample_name_prefix,
-                                validate=self.validate,
-                                isocorr_format=isocorr_format,
-                                defer_autoupdates=True,
-                            )
-                            if self.verbosity > 1:
-                                self.stdout.write(
-                                    self.style.SUCCESS(
-                                        f"STATUS: SUCCESS {accucor_file_basename} - commit pending"
-                                    )
-                                )
-                        except Exception as e:
-                            self.package_group_exceptions(e, accucor_file_basename)
+            # If we're in validate mode, raise the MultiLoadStatus Exception whether there were errors or not, so
+            # that we can roll back all changes and pass all the status data to the validation interface via this
+            # exception.
+            if self.validate:
+                clear_update_buffer()
+                # If we are in validate mode, we raise the entire load_statuses object whether the load failed or
+                # not, so that we can report the load status of all load files, including successful loads.  It's
+                # like Dry Run mode, but exclusively for the validation interface.
+                raise self.load_statuses
 
-                self.handle_grouped_exceptions()
+            # If there were actual errors, raise an AggregatedErrorsSet exception inside the atomic block to cause
+            # a rollback of everything
+            if not self.load_statuses.get_success_status():
+                clear_update_buffer()
+                raise self.load_statuses.get_final_exception()
 
-                if self.dry_run:
-                    self.print_load_status()
-                    raise DryRun()
-
-        except AggregatedErrorsSet as aes_set:
-            # This catch, being outside the atomic transaction block, allows the exception raised inside the block to
-            # cause a rollback of the database, but we don't want to raise the AggregatedErrorsSet exception here when
-            # in validate mode because we want to convey all the statuses (including those without exceptions) to the
-            # validation interface.
-            if not self.validate:
-                # if not in validate mode, we raise an exception that details only the things that failed
-                raise aes_set
-
-        if self.validate:
-            # If we are in validate mode, we raise the entire load_statuses object whether the load failed or not, so
-            # that we can report the load status of all load files, including successful loads.  It's like Dry Run
-            # mode, but exclusively for the validation interface.
-            raise self.load_statuses
+            if self.dry_run:
+                clear_update_buffer()
+                self.print_load_status()
+                raise DryRun()
 
         # Since defer_autoupdates is supplied as True to the sample and accucor load commands, we can do all the mass
         # autoupdates in 1 go.  And note that each load script makes its own calls to disable/enable caching and
@@ -340,10 +353,13 @@ class Command(BaseCommand):
 
         self.print_load_status()
 
-    def package_group_exceptions(self, exception, filename):
+    def package_group_exceptions(self, exception, filepath):
         """
         Repackages an exception for consolidated reporting
         """
+
+        # Just report the file names, not the paths, in the errors
+        filename = os.path.basename(filepath)
 
         # Compile group-level errors/warnings relevant specifically to a study load that should be reported in one
         # consolidated error based on exceptions contained in AggregatedErrors.  Note, this could potentially change
@@ -366,6 +382,8 @@ class Command(BaseCommand):
             for missing_tissue_exception in missing_tissue_exceptions:
                 # Look through the sample names saved in the exception and add then to the master list
                 for tissue in missing_tissue_exception.tissues_dict.keys():
+                    if tissue not in self.missing_tissues["tissues"].keys():
+                        self.missing_tissues["tissues"][tissue] = defaultdict(list)
                     self.missing_tissues["tissues"][tissue][
                         filename
                     ] = missing_tissue_exception.tissues_dict[tissue]
@@ -391,21 +409,23 @@ class Command(BaseCommand):
                 for compound in missing_compound_exception.compounds_dict.keys():
                     self.missing_compounds[compound][
                         "formula"
-                    ] = missing_compound_exception.compounds_dict["formula"]
+                    ] = missing_compound_exception.compounds_dict[compound]["formula"]
                     if "files" in self.missing_compounds[compound].keys():
                         self.missing_compounds[compound]["files"][
                             filename
-                        ] = missing_compound_exception.compounds_dict["rownums"]
+                        ] = missing_compound_exception.compounds_dict[compound][
+                            "rownums"
+                        ]
                     else:
                         self.missing_compounds[compound]["files"] = {
                             filename: missing_compound_exception.compounds_dict[
-                                "rownums"
-                            ]
+                                compound
+                            ]["rownums"]
                         }
 
-        self.load_statuses.set_load_exception(exception, filename)
+        self.load_statuses.set_load_exception(exception, filepath)
 
-    def handle_grouped_exceptions(self):
+    def create_grouped_exceptions(self):
         """
         This method compiles group-level exceptions, raises an AggregatedErrorsSet exception if fatal errors have been
         aggregated for any load file.
@@ -414,23 +434,26 @@ class Command(BaseCommand):
         # Collect all the missing samples in 1 error to add to the animal sample table file
         if len(self.missing_samples) > 0:
             self.load_statuses.set_load_exception(
-                AllMissingSamples(self.missing_samples), "Samples", top=True
+                AllMissingSamples(self.missing_samples),
+                "All Samples Present in Sample Table File",
+                top=True,
             )
 
         # Collect all the missing compounds in 1 error to add to the compounds file
         if len(self.missing_tissues) > 0:
             self.load_statuses.set_load_exception(
-                AllMissingTissues(self.missing_tissues), "Tissues", top=True
+                AllMissingTissues(self.missing_tissues),
+                "All Tissues Exist in the Database",
+                top=True,
             )
 
         # Collect all the missing compounds in 1 error to add to the compounds file
         if len(self.missing_compounds) > 0:
             self.load_statuses.set_load_exception(
-                AllMissingCompounds(self.missing_compounds), "Compounds", top=True
+                AllMissingCompounds(self.missing_compounds),
+                "All Compounds Exist in the Database",
+                top=True,
             )
-
-        if not self.load_statuses.get_success_status():
-            raise self.load_statuses.get_final_exception()
 
     def print_load_status(self):
         if self.verbosity > 1:
