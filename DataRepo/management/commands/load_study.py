@@ -164,7 +164,9 @@ class Command(BaseCommand):
                     call_command(
                         "load_compounds",
                         compounds=compounds_file,
-                        validate=self.validate,
+                        # Always run in validate mode, which essentially means - don't roll back if there's an error.
+                        # This script will roll back if any errors occur
+                        validate=True,
                     )
                 except Exception as e:
                     self.package_group_exceptions(e, compounds_file)
@@ -186,7 +188,9 @@ class Command(BaseCommand):
                     call_command(
                         "load_protocols",
                         protocols=protocols_file,
-                        validate=self.validate,
+                        # Always run in validate mode, which essentially means - don't roll back if there's an error.
+                        # This script will roll back if any errors occur
+                        validate=True,
                         verbosity=self.verbosity,
                     )
                 except Exception as e:
@@ -209,7 +213,9 @@ class Command(BaseCommand):
                     call_command(
                         "load_tissues",
                         tissues=tissues_file,
-                        validate=self.validate,
+                        # Always run in validate mode, which essentially means - don't roll back if there's an error.
+                        # This script will roll back if any errors occur
+                        validate=True,
                         verbosity=self.verbosity,
                     )
                 except Exception as e:
@@ -252,7 +258,9 @@ class Command(BaseCommand):
                         table_headers=headers_file,
                         skip_researcher_check=skip_researcher_check,
                         verbosity=self.verbosity,
-                        validate=self.validate,
+                        # Always run in validate mode, which essentially means - don't roll back if there's an error.
+                        # This script will roll back if any errors occur
+                        validate=True,
                         defer_autoupdates=True,
                     )
                 except Exception as e:
@@ -313,7 +321,9 @@ class Command(BaseCommand):
                             new_researcher=new_researcher,
                             skip_samples=skip_samples,
                             sample_name_prefix=sample_name_prefix,
-                            validate=self.validate,
+                            # Always run in validate mode, which essentially means - don't roll back if there's an
+                            # error.  This script will roll back if any errors occur
+                            validate=True,
                             isocorr_format=isocorr_format,
                             defer_autoupdates=True,
                         )

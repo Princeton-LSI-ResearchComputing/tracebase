@@ -10,9 +10,6 @@ from DataRepo.models.maintained_model import (
     UncleanBufferError,
     buffer_size,
     clear_update_buffer,
-    disable_autoupdates,
-    enable_autoupdates,
-    perform_buffered_updates,
 )
 from DataRepo.utils.exceptions import AggregatedErrorsSet
 
@@ -146,12 +143,3 @@ class Command(BaseCommand):
                 )
             )
             sys.exit(1)
-
-    def perform_autoupdates(self):
-        disable_autoupdates()
-        disable_caching_updates()
-        perform_buffered_updates()
-        # The buffer should be clear, but just for good measure...
-        clear_update_buffer()
-        enable_caching_updates()
-        enable_autoupdates()
