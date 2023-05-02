@@ -1,16 +1,16 @@
-import datetime
 import os.path
+import shutil
+import tempfile
 from typing import List
 
+import yaml  # type: ignore
 from django.conf import settings
 from django.core.management import call_command
-from django.db import transaction
 from django.shortcuts import redirect, render
 from django.views.generic.edit import FormView
 
 from DataRepo.forms import DataSubmissionValidationForm
-from DataRepo.utils import DryRun
-from DataRepo.utils.exceptions import AggregatedErrors
+from DataRepo.utils.exceptions import MultiLoadStatus
 
 
 class DataValidationView(FormView):
@@ -104,14 +104,9 @@ class DataValidationView(FormView):
         Upon valid file submission, adds validation messages to the context of the validation page.
         """
 
-        exceptions = {}
-        debug = "untouched"
-        valid = True
-        results = {}
-
         debug = f"asf: {self.animal_sample_file} num afs: {len(self.accucor_files)} num ifs: {len(self.isocorr_files)}"
 
-        [results, valid, exceptions] = self.validate_load_files()
+        valid, results, exceptions, ordered_keys = self.get_validation_results()
 
         return self.render_to_response(
             self.get_context_data(
@@ -121,16 +116,119 @@ class DataValidationView(FormView):
                 form=form,
                 exceptions=exceptions,
                 submission_url=self.submission_url,
+                ordered_keys=ordered_keys,
             )
         )
 
-    def validate_load_files(self):
-        if self.animal_sample_filename:
-            sf = self.animal_sample_filename
-        else:
-            sf = os.path.basename(self.animal_sample_file)
-        sfp = self.animal_sample_file
+    def get_validation_results(self):
+        load_status_data = self.validate_study()
 
+        valid = load_status_data.is_valid
+        results = {}
+        exceptions = {}
+        ordered_keys = []
+
+        for load_key in load_status_data.get_ordered_status_keys():
+            # The load_key is the absolute path, but we only want to report errors in the context of the file's name
+            short_load_key = os.path.basename(load_key)
+
+            ordered_keys.append(short_load_key)
+            results[short_load_key] = load_status_data.statuses[load_key]["state"]
+
+            exceptions[short_load_key] = []
+            # Get the AggregatedErrors object
+            aes = load_status_data.statuses[load_key]["aggregated_errors"]
+            # aes is None if there were no exceptions
+            if aes is not None:
+                for exc in aes.exceptions:
+                    exc_str = aes.get_buffered_exception_summary_string(
+                        exc, numbered=False, typed=False
+                    )
+                    exceptions[short_load_key].append(
+                        {
+                            "message": exc_str,
+                            "is_error": exc.is_error,
+                            "type": type(exc).__name__,
+                        }
+                    )
+
+        return valid, results, exceptions, ordered_keys
+
+    def validate_study(self):
+        tmpdir_obj = tempfile.TemporaryDirectory()
+        tmpdir = tmpdir_obj.name
+
+        # TODO: create_yaml() *could* raise ValueError or KeyError if the required sample file is not provided or if 2
+        # accucor/isocorr files have the same name, but there should be checks on the submitted form data in the Django
+        # form which should call form_invalid in those cases, so instead of adding a graceful exception to the user
+        # *here* to catch those cases, add those checks to the form validation.  Check that the required sample file is
+        # provided and that none of the accucor/isocorr files have the same name)
+        yaml_file = self.create_yaml(tmpdir)
+
+        load_status_data = MultiLoadStatus()
+
+        try:
+            call_command(
+                "load_study",
+                yaml_file,
+                validate=True,
+                verbosity=3,
+            )
+        except MultiLoadStatus as mls:
+            load_status_data = mls
+
+        tmpdir_obj.cleanup()
+
+        return load_status_data
+
+    def create_yaml(self, tmpdir):
+        basic_loading_data = {
+            # TODO: Add the ability for the validation interface to take tissues, compounds, and a separate protocols
+            # file
+            # The following are placeholders - Not yet supported by the validation view
+            # "tissues": "tissues.tsv",
+            # "compounds": "compounds.tsv",
+            "protocols": None,  # Added by self.add_sample_data()
+            "animals_samples_treatments": {
+                "table": None,  # Added by self.add_sample_data()
+                "skip_researcher_check": False,
+            },
+            "accucor_data": {
+                "accucor_files": [
+                    # {
+                    #     "name": None,  # Added by self.add_ms_data()
+                    #     "isocorr_format": False,  # Set by self.add_ms_data()
+                    # },
+                ],
+                "msrun_protocol": "Default",
+                "date": "1972-11-24",
+                "researcher": "anonymous",
+                "new_researcher": False,
+            },
+        }
+
+        # Going to use a temp directory so we can report the user's given file names (not the randomized name supplied
+        # by django forms)
+        self.add_sample_data(basic_loading_data, tmpdir)
+        self.add_ms_data(
+            basic_loading_data,
+            tmpdir,
+            self.accucor_files,
+            self.accucor_filenames,
+            False,
+        )
+        self.add_ms_data(
+            basic_loading_data, tmpdir, self.isocorr_files, self.isocorr_filenames, True
+        )
+
+        loading_yaml = os.path.join(tmpdir, "loading.yaml")
+
+        with open(loading_yaml, "w") as file:
+            yaml.dump(basic_loading_data, file)
+
+        return loading_yaml
+
+    def add_sample_data(self, basic_loading_data, tmpdir):
         if self.animal_sample_file is None:
             # The form_invalid method should prevent this via the website, but if this is called in a test or other
             # code without calling self.set_files, this exception will be raised.
@@ -139,136 +237,50 @@ class DataValidationView(FormView):
                 "validate_load_files()."
             )
 
-        self.valid = True
-        self.results = {sf: "PASSED"}
-        self.exceptions = {sf: []}
-        for i, afp in enumerate(self.accucor_files):
-            if len(self.accucor_files) == len(self.accucor_filenames):
-                afn = self.accucor_filenames[i]
-            else:
-                afn = os.path.basename(afp)
-            self.exceptions[afn] = []
-            self.results[afn] = "PASSED"
-        for i, ifp in enumerate(self.isocorr_files):
-            if len(self.isocorr_files) == len(self.isocorr_filenames):
-                ifn = self.isocorr_filenames[i]
-            else:
-                ifn = os.path.basename(ifp)
-            if ifn in self.exceptions.keys():
-                raise KeyError(
-                    f"Isocorr/Accucor filename conflict: {ifn}.  All Accucor/Isocorr filenames must be "
-                    "unique."
-                )
-            self.exceptions[ifn] = []
-            self.results[ifn] = "PASSED"
+        form_sample_file_path = self.animal_sample_file
 
-        try:
-            # Load the animal treatments
-            with transaction.atomic():
-                try:
-                    # Not running in dry run, because these need to be loaded in order to run the next load
-                    call_command(
-                        "load_protocols",
-                        protocols=sfp,
-                        verbosity=3,
-                    )
-                    # Do not set PASSED here. If the full animal/sample table load passes, THEN this file has passed.
-                except Exception as e:
-                    self.package_exception(e, sf)
-
-                try:
-                    # Not running in dry run, because these need to be loaded in order to run the next load
-                    call_command(
-                        "load_animals_and_samples",
-                        animal_and_sample_table_filename=sfp,
-                        defer_autoupdates=True,
-                        verbosity=3,
-                        validate=True,
-                    )
-                except Exception as e:
-                    self.package_exception(e, sf)
-
-                # Create a unique date that is unlikely to match any previously loaded MSRun
-                unique_date_str = str(datetime.datetime(1972, 11, 24, 15, 47, 0).date())
-
-                # Validate the accucor files using the loader in validate mode
-                for i, afp in enumerate(self.accucor_files):
-                    if len(self.accucor_files) == len(self.accucor_filenames):
-                        afn = self.accucor_filenames[i]
-                    else:
-                        afn = os.path.basename(afp)
-                    try:
-                        call_command(
-                            "load_accucor_msruns",
-                            protocol="Default",
-                            accucor_file=afp,
-                            accucor_file_name=afn,
-                            date=unique_date_str,
-                            researcher="anonymous",
-                            validate=True,
-                        )
-                    except Exception as e:
-                        self.package_exception(e, afn)
-
-                # Validate the isocorr files using the loader in validate mode
-                for i, ifp in enumerate(self.isocorr_files):
-                    if len(self.isocorr_files) == len(self.isocorr_filenames):
-                        ifn = self.isocorr_filenames[i]
-                    else:
-                        ifn = os.path.basename(ifp)
-                    try:
-                        call_command(
-                            "load_accucor_msruns",
-                            protocol="Default",
-                            accucor_file=ifp,
-                            accucor_file_name=ifn,
-                            date=unique_date_str,
-                            researcher="anonymous",
-                            validate=True,
-                            isocorr_format=True,
-                        )
-                    except Exception as e:
-                        self.package_exception(e, afn)
-
-                raise DryRun
-        except DryRun:
-            if settings.DEBUG:
-                print("Successfuly completion of validation.")
-        finally:
-            # The database should roll back here, but we don't want to raise the exception for the user's view here.
-            print("Validation done.")
-
-        return [
-            self.results,
-            self.valid,
-            self.exceptions,
-        ]
-
-    def package_exception(self, exception, file):
-        """
-        Packages an exception up for sending to the template
-        """
-        if isinstance(exception, AggregatedErrors):
-            self.results[file] = "WARNING"
-            self.valid = False
-            if exception.num_errors > 0:
-                self.results[file] = "FAILED"
-
-            # Gather the errors/warnings to send to the template
-            for exc in exception.exceptions:
-                exc_str = f"{type(exc).__name__}: {str(exc)}"
-                self.exceptions[file].append(
-                    {"message": exc_str, "is_error": exc.is_error}
-                )
+        # The django form gives a random file name, but the user's name is available.  Here, we're supporting with or
+        # without the user's file name to support tests that don't use a randomized temp file.
+        if self.animal_sample_filename:
+            sf = self.animal_sample_filename
         else:
-            # All of the AggregatedErrors are printed to the console as they are encountered, but not other exceptions,
-            # so...
-            print(exception)
+            # This is for non-random file names (e.g. for the test code)
+            sf = os.path.basename(form_sample_file_path)
 
-            self.valid = False
-            exc_str = f"{type(exception).__name__}: {str(exception)}"
-            self.exceptions[file].append({"message": exc_str, "is_error": True})
-            self.results[file] = "FAILED"
+        # To associate the file with the yaml file created in the temp directory, we must copy it
+        sfp = os.path.join(tmpdir, str(sf))
+        shutil.copyfile(form_sample_file_path, sfp)
+
+        basic_loading_data["protocols"] = sfp
+        basic_loading_data["animals_samples_treatments"]["table"] = sfp
+
+    def add_ms_data(self, basic_loading_data, tmpdir, files, filenames, is_isocorr):
+        for i, form_file_path in enumerate(files):
+
+            if len(files) == len(filenames):
+                fn = filenames[i]
+            else:
+                # This is for non-random file names (e.g. for the test code)
+                fn = os.path.basename(form_file_path)
+
+            fp = os.path.join(tmpdir, str(fn))
+            shutil.copyfile(form_file_path, fp)
+
+            if fn in [
+                dct["name"]
+                for dct in basic_loading_data["accucor_data"]["accucor_files"]
+            ]:
+                ft = "Isocorr" if is_isocorr else "Accucor"
+                raise KeyError(
+                    f"{ft} filename conflict: {fn}.  All Accucor/Isocorr file names must be unique."
+                )
+
+            basic_loading_data["accucor_data"]["accucor_files"].append(
+                {
+                    "name": fp,
+                    "isocorr_format": is_isocorr,
+                }
+            )
 
 
 def validation_disabled(request):
