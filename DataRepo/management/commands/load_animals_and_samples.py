@@ -78,6 +78,13 @@ class Command(BaseCommand):
             action="store_true",
             help=argparse.SUPPRESS,
         )
+        # Intended for use by load_study to prevent individual loader autoupdates and buffer clearing, then perform all
+        # mass autoupdates/buffer-clearings after all load scripts are complete
+        parser.add_argument(
+            "--defer-rollback",
+            action="store_true",
+            help=argparse.SUPPRESS,
+        )
 
     def handle(self, *args, **options):
 
@@ -132,6 +139,7 @@ class Command(BaseCommand):
             skip_researcher_check=options["skip_researcher_check"],
             verbosity=options["verbosity"],
             defer_autoupdates=options["defer_autoupdates"],
+            defer_rollback=options["defer_rollback"],
             dry_run=options["dry_run"],
         )
         loader.load_sample_table(
