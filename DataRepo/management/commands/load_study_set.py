@@ -50,9 +50,9 @@ class Command(BaseCommand):
                     # previous load had failed and there wouldn't have been this error.
                     if (
                         aes.num_errors == 1
-                        and isinstance(aes.aggregated_errors_dict.values()[0].exceptions[0], ValidationError)
+                        and isinstance(list(aes.aggregated_errors_dict.values())[0].exceptions[0], ValidationError)
                         and "Peak group set with this Filename already exists."
-                        in str(aes.aggregated_errors_dict.values()[0].exceptions[0])
+                        in str(list(aes.aggregated_errors_dict.values())[0].exceptions[0])
                     ):
                         self.stdout.write(
                             self.style.WARNING(
