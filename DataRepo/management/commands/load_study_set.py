@@ -80,15 +80,16 @@ class Command(BaseCommand):
                 except AggregatedErrorsSet as aes:
                     # Grab the parameters of this study to be able to tell whether the study was previously loaded or
                     # if this was a failed load due to some new error
-                    study_params = yaml.safe_load(study_path)
+                    with open(study_path, "r") as stream:
+                        study_params = yaml.safe_load(stream)
                     # Basically, we just need the number of accucor + isocorr files
                     num_peak_files = len(study_params["accucor_data"]["accucor_files"])
                     # We need to assure that there's only 1 error in each load file
-                    num_peak_files_with_1_err = len(
+                    num_peak_files_with_1_err = len(list(
                         x
                         for x in list(aes.aggregated_errors_dict.values())
                         if x.num_errors == 1
-                    )
+                    ))
                     # And that that one error is a ValidationError that says "Peak group set with this Filename already
                     # exists."
                     first_pgse_exceptions = list(
