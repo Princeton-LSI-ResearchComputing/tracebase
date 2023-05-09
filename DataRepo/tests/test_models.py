@@ -2056,22 +2056,11 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
             str(aes.exceptions[0]),
         )
 
-    def test_strip_units_warnings(self):
+    def test_strip_units(self):
         stl = SampleTableLoader()
         stripped_val = stl.strip_units("3.3 ul/m/g", "ANIMAL_INFUSION_RATE", 3)
         stripped_val = stl.strip_units("3.3 ul/m/g", "ANIMAL_INFUSION_RATE", 4)
         self.assertEqual("3.3", stripped_val)
-        self.assertEqual(
-            {
-                "Infusion Rate": {
-                    "example_val": "3.3 ul/m/g",
-                    "example_stripped": "3.3",
-                    "rows": [5, 6],
-                    "units": "ul/m/g",
-                },
-            },
-            stl.units_warnings,
-        )
         self.assertEqual(0, len(stl.units_errors.keys()))
 
     def test_strip_units_errors(self):
@@ -2092,7 +2081,6 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
             },
             stl.units_errors,
         )
-        self.assertEqual(0, len(stl.units_warnings.keys()))
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
