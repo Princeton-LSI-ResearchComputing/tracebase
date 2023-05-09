@@ -201,28 +201,6 @@ class NoSamplesError(Exception):
         super().__init__(message)
 
 
-class UnitsNotAllowed(Exception):
-    def __init__(self, units_dict, message=None):
-        if not message:
-            nltab = "\n\t"
-            print(f"HEREHERE: {units_dict}")
-            strip_str = nltab.join(
-                list(
-                    (
-                        f"{k} (example: [{units_dict[k]['example_val']}] changed to: "
-                        f"[{units_dict[k]['example_stripped']}] on row(s): {units_dict[k]['rows']})"
-                    )
-                    for k in units_dict.keys()
-                )
-            )
-            message = (
-                f"Units were stripped from values in {len(units_dict.keys())} columns:{nltab}{strip_str}\n"
-                "Units are not allowed."
-            )
-        super().__init__(message)
-        self.units_dict = units_dict
-
-
 class UnitsWrong(Exception):
     def __init__(self, units_dict, message=None):
         if not message:

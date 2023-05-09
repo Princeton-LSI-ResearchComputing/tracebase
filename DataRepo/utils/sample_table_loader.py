@@ -45,7 +45,6 @@ from DataRepo.utils.exceptions import (
     RequiredSampleValuesError,
     SaveError,
     SheetMergeError,
-    UnitsNotAllowed,
     UnitsWrong,
     UnknownHeadersError,
 )
@@ -176,7 +175,6 @@ class SampleTableLoader:
         self.missing_values = defaultdict(dict)
 
         # Skip rows that have errors
-        self.units_warnings = {}
         self.units_errors = {}
         self.infile_sample_dupe_rows = []
         self.empty_animal_rows = []
@@ -318,10 +316,6 @@ class SampleTableLoader:
                 )
             )
 
-        if len(self.units_warnings.keys()) > 0:
-            self.aggregated_errors_object.buffer_warning(
-                UnitsNotAllowed(self.units_warnings)
-            )
         if len(self.units_errors.keys()) > 0:
             self.aggregated_errors_object.buffer_error(UnitsWrong(self.units_errors))
 
@@ -535,6 +529,7 @@ class SampleTableLoader:
         )
         match = re.search(united_val_pattern, val)
 
+        # If the value matches a units pattern
         if match:
             # We will strip the units in either case to avoid subsequent errors, but the population of
             # self.units_errors will fail the load
@@ -544,17 +539,8 @@ class SampleTableLoader:
 
             s_match = re.search(specific_units_pat, the_units)
 
-            if s_match:
-                if header in self.units_warnings:
-                    self.units_warnings[header]["rows"].append(rowidx + 2)
-                else:
-                    self.units_warnings[header] = {
-                        "example_val": val,
-                        "example_stripped": stripped_val,
-                        "rows": [rowidx + 2],
-                        "units": the_units,
-                    }
-            else:
+            # If the units don't match any expected units
+            if s_match is None:
                 if header in self.units_errors:
                     self.units_errors[header]["rows"].append(rowidx + 2)
                 else:
