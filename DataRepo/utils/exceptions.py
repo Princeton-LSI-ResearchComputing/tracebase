@@ -497,10 +497,7 @@ class AggregatedErrorsSet(Exception):
 
     def get_summary_string(self):
         smry_str = ""
-        for aes_key in sorted(
-            self.aggregated_errors_dict.keys(),
-            key=lambda k: self.aggregated_errors_dict[k].top,
-        ):
+        for aes_key in self.aggregated_errors_dict.keys():
             smry_str += (
                 f"{aes_key}: "
                 + self.aggregated_errors_dict[aes_key].get_summary_string()

@@ -152,6 +152,7 @@ class SampleTableLoader:
         verbosity=1,
         skip_researcher_check=False,
         defer_autoupdates=False,
+        defer_rollback=False,
         dry_run=False,
     ):
         # Header config
@@ -165,6 +166,9 @@ class SampleTableLoader:
 
         # How to handle mass autoupdates
         self.defer_autoupdates = defer_autoupdates
+
+        # Whether to rollback upon error or defer it to the caller
+        self.defer_rollback = defer_rollback
 
         # Caching overhead
         self.animals_to_uncache = []
@@ -200,12 +204,12 @@ class SampleTableLoader:
                 try:
                     self.load_data(data)
                 except AggregatedErrors as aes:
-                    if not self.validate:
+                    if not self.validate and not self.defer_rollback:
                         # If we're not working for the validation interface, raise here to cause a rollback
                         raise aes
                     else:
                         saved_aes = aes
-            if self.validate and saved_aes:
+            if (self.validate or self.defer_rollback) and saved_aes:
                 # If we're working for the validation interface, raise here to not cause a rollback (so that the
                 # accucor loader can be run to find more issues - samples must be loaded already to run the accucor
                 # loader), and provide the validation interface details on the exceptions.

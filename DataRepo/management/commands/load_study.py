@@ -117,9 +117,14 @@ class Command(BaseCommand):
         self.validate = options["validate"]
         self.dry_run = options["dry_run"]
 
+        # The buffer can only exist as long as the existence of the process, but since this method can be called from
+        # code, who knows what has been done before.  However, given calls from load_study_set can intentionally defer
+        # autoupdates, the buffer can be intentionally populated at the start of this script.  So the clear_buffer
+        # option allows the load_study method to be called in code with an option to explicitly clean the buffer, for
+        # example, in the first call in a series.
         if options["clear_buffer"]:
             clear_update_buffer()
-        elif buffer_size() > 0:
+        elif buffer_size() > 0 and not options["defer_autoupdates"]:
             raise UncleanBufferError(
                 "The auto-update buffer is unexpectedly populated.  Add --clear-buffer to your command to flush the "
                 "buffer and proceed with the load."
@@ -249,6 +254,7 @@ class Command(BaseCommand):
                         verbosity=self.verbosity,
                         validate=self.validate,
                         defer_autoupdates=True,
+                        defer_rollback=True,
                     )
                 except Exception as e:
                     self.package_group_exceptions(e, animals_samples_table_file)
