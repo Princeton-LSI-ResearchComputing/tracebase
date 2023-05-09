@@ -45,7 +45,7 @@ from DataRepo.utils.exceptions import (
     RequiredSampleValuesError,
     SaveError,
     SheetMergeError,
-    UnitsNotAllowed,
+    UnitsWrong,
     UnknownHeadersError,
 )
 
@@ -179,7 +179,7 @@ class SampleTableLoader:
         self.missing_values = defaultdict(dict)
 
         # Skip rows that have errors
-        self.units_warnings = {}
+        self.units_errors = {}
         self.infile_sample_dupe_rows = []
         self.empty_animal_rows = []
         self.missing_tissues = defaultdict(list)
@@ -190,6 +190,21 @@ class SampleTableLoader:
         # Researcher consistency tracking (also a part of error-tracking)
         self.skip_researcher_check = skip_researcher_check
         self.input_researchers = []
+
+        # This is used by strip_units to decide on whether to issue an error or warning.  Case insensitive.
+        self.expected_units = {
+            "ANIMAL_WEIGHT": ["g", "gram", "grams"],
+            "ANIMAL_AGE": ["w", "week", "weeks"],
+            "ANIMAL_INFUSION_RATE": [
+                "ul/m/g",
+                "ul/min/g",
+                "ul/min/gram",
+                "ul/minute/g",
+                "ul/minute/gram",
+            ],
+            "TRACER_CONCENTRATIONS": ["mM", "millimolar"],
+            "TIME_COLLECTED": ["m", "min", "mins", "minute", "minutes"],
+        }
 
     def load_sample_table(self, data):
 
@@ -305,10 +320,8 @@ class SampleTableLoader:
                 )
             )
 
-        if len(self.units_warnings.keys()) > 0:
-            self.aggregated_errors_object.buffer_warning(
-                UnitsNotAllowed(self.units_warnings)
-            )
+        if len(self.units_errors.keys()) > 0:
+            self.aggregated_errors_object.buffer_error(UnitsWrong(self.units_errors))
 
         if self.aggregated_errors_object.should_raise():
             raise self.aggregated_errors_object
@@ -506,32 +519,41 @@ class SampleTableLoader:
 
         stripped_val = val
 
+        specific_units_pat = None
+        if hdr_attr in self.expected_units.keys():
+            specific_units_pat = re.compile(
+                r"^("
+                + r"|".join(re.escape(units) for units in self.expected_units[hdr_attr])
+                + r")$",
+                re.IGNORECASE,
+            )
+
         united_val_pattern = re.compile(
-            r"^(?P<val>[\d\.eE]+)\s*(?P<units>[a-zA-Z][a-zA-Z\/]*)$"
+            r"^(?P<val>[\d\.eE]+)\s*(?P<units>[a-z][a-z\/]*)$", re.IGNORECASE
         )
         match = re.search(united_val_pattern, val)
 
+        # If the value matches a units pattern
         if match:
+            # We will strip the units in either case to avoid subsequent errors, but the population of
+            # self.units_errors will fail the load
             stripped_val = match.group("val")
             the_units = match.group("units")
             header = getattr(self.headers, hdr_attr)
-            if header in self.units_warnings:
-                if val in self.units_warnings[header]:
-                    self.units_warnings[header][val]["rows"].append(rowidx + 2)
+
+            s_match = re.search(specific_units_pat, the_units)
+
+            # If the units don't match any expected units
+            if s_match is None:
+                if header in self.units_errors:
+                    self.units_errors[header]["rows"].append(rowidx + 2)
                 else:
-                    self.units_warnings[header][val] = {
-                        "stripped": stripped_val,
+                    self.units_errors[header] = {
+                        "example_val": val,
+                        "expected": self.expected_units[hdr_attr][0],
                         "rows": [rowidx + 2],
                         "units": the_units,
                     }
-            else:
-                self.units_warnings[header] = {
-                    val: {
-                        "stripped": stripped_val,
-                        "rows": [rowidx + 2],
-                        "units": the_units,
-                    }
-                }
 
         return stripped_val
 

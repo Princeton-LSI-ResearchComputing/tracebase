@@ -201,21 +201,22 @@ class NoSamplesError(Exception):
         super().__init__(message)
 
 
-class UnitsNotAllowed(Exception):
+class UnitsWrong(Exception):
     def __init__(self, units_dict, message=None):
         if not message:
             nltab = "\n\t"
-            strip_str = nltab.join(
+            row_str = nltab.join(
                 list(
-                    map(
-                        lambda k: f"{k} (changed: [{units_dict[k]['stripped']}] on row(s): {units_dict[k]['rows']})",
-                        units_dict.keys(),
+                    (
+                        f"{k} (example: [{units_dict[k]['example_val']}] does not match units: "
+                        f"[{units_dict[k]['expected']}] on row(s): {units_dict[k]['rows']})"
                     )
+                    for k in units_dict.keys()
                 )
             )
             message = (
-                f"{len(units_dict.keys())} values appear to have been supplied with units:{nltab}{strip_str}\n"
-                "Units were stripped as shown."
+                f"Unexpected units were found in {len(units_dict.keys())} columns:{nltab}{row_str}\n"
+                "Units are not allowed, but these also appear to be the wrong units."
             )
         super().__init__(message)
         self.units_dict = units_dict

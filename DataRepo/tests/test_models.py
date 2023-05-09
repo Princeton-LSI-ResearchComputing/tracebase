@@ -2061,17 +2061,25 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
         stripped_val = stl.strip_units("3.3 ul/m/g", "ANIMAL_INFUSION_RATE", 3)
         stripped_val = stl.strip_units("3.3 ul/m/g", "ANIMAL_INFUSION_RATE", 4)
         self.assertEqual("3.3", stripped_val)
+        self.assertEqual(0, len(stl.units_errors.keys()))
+
+    def test_strip_units_errors(self):
+        stl = SampleTableLoader()
+        stripped_val = stl.strip_units("3.3 non/sense", "ANIMAL_INFUSION_RATE", 3)
+        stripped_val = stl.strip_units("3.3 non/sense", "ANIMAL_INFUSION_RATE", 4)
+        self.assertEqual(
+            "3.3", stripped_val, msg="Still strips to avoid subsequent errors"
+        )
         self.assertEqual(
             {
                 "Infusion Rate": {
-                    "3.3 ul/m/g": {
-                        "stripped": "3.3",
-                        "rows": [5, 6],
-                        "units": "ul/m/g",
-                    },
+                    "example_val": "3.3 non/sense",
+                    "expected": "ul/m/g",
+                    "rows": [5, 6],
+                    "units": "non/sense",
                 },
             },
-            stl.units_warnings,
+            stl.units_errors,
         )
 
 

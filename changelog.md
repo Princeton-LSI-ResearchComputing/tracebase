@@ -1,3 +1,4 @@
+<!-- markdownlint-disable no-duplicate-heading -->
 # Changelog
 
 All notable changes to this project will be documented in this file.
@@ -14,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Stripped units in the sample table loader now generate an error if the units are deemed to be incorrect.
 - Massive refactor to loading scripts
   - As many errors as possible are buffered and reported en masse at the end
   - Data associated with previous errors are now skipped
