@@ -26,4 +26,4 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           LINTER_RULES_PATH: /
           IGNORE_GITIGNORED_FILES: true
-          FILTER_REGEX_EXCLUDE: (\.pylintrc|migrations|static\/bootstrap.*)
+          FILTER_REGEX_EXCLUDE: (\.pylintrc|migrations|.*\.xlsx|static\/bootstrap.*)

@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Sample table loading now checks in-file sample name uniqueness
+- Added the ability for the accucor loading code to deal with infusates with multiple labeled elements when there is only 1 isotopic version of it among the tracers.
 
 ### Changed
 

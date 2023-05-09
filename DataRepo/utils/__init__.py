@@ -2,6 +2,7 @@ from DataRepo.utils.accucor_data_loader import (
     AccuCorDataLoader,
     IsotopeObservationData,
     IsotopeObservationParsingError,
+    TracerLabeledElementNotFound,
 )
 from DataRepo.utils.composite_data import leaderboard_data
 from DataRepo.utils.compounds_loader import CompoundsLoader
@@ -69,6 +70,7 @@ __all__ = [
     "QuerysetToPandasDataFrame",
     "SampleTableLoader",
     "TissuesLoader",
+    "TracerLabeledElementNotFound",
     "UnknownHeadersError",
     "leaderboard_data",
     "parse_infusate_name",
