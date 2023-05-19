@@ -39,11 +39,11 @@ from DataRepo.utils.exceptions import (
     AggregatedErrors,
     DryRun,
     DupeCompoundIsotopeCombos,
+    DuplicatePeakGroup,
     EmptyColumnsError,
     IsotopeStringDupe,
     MissingCompounds,
     MissingSamplesError,
-    MSRunAlreadyLoadedOrNotUnique,
     MultipleAccucorTracerLabelColumnsError,
     NoSamplesError,
     NoTracerLabeledElements,
@@ -695,22 +695,22 @@ class AccuCorDataLoader:
             # each msrun/sample has its own set of peak groups
             inserted_peak_group_dict = {}
 
-            if self.verbosity >= 1:
-                print(
-                    f"Inserting msrun for sample {sample_name}, date {self.date}, researcher {self.researcher}, "
-                    f"protocol {protocol}"
-                )
-
+            msrun_dict = {
+                "date": self.date,
+                "researcher": self.researcher,
+                "protocol": protocol,
+                "sample": self.db_samples_dict[sample_name],
+            }
             try:
-                msrun_dict = {
-                    "date": self.date,
-                    "researcher": self.researcher,
-                    "protocol": protocol,
-                    "sample": self.db_samples_dict[sample_name],
-                }
-                msrun = MSRun(**msrun_dict)
-                msrun.full_clean()
-                msrun.save()
+                msrun, created = MSRun.objects.get_or_create(**msrun_dict)
+                if created:
+                    msrun.full_clean()
+                    msrun.save()
+                    if self.verbosity >= 1:
+                        print(
+                            f"Inserting msrun for sample {sample_name}, date {self.date}, "
+                            f"researcher {self.researcher}, protocol {protocol}"
+                        )
 
                 # This will be used to iterate the sample loop below so that we don't attempt to load samples whose
                 # msrun creations failed.
@@ -725,40 +725,9 @@ class AccuCorDataLoader:
                     print(
                         f"No cache exists for animal {msrun.sample.animal.id} linked to Sample {msrun.sample.id}"
                     )
-            except ValidationError as ve:
-                vestr = str(ve)
-                if (
-                    "Mass spectrometry run with this Researcher, Date, Protocol and Sample already exists"
-                    in vestr
-                ):
-                    # PR REVIEW NOTE: The file for the peak_group_set should probably be a field in the MSRun table and
-                    # be included in the UniqueConstraint.  Then we wouldn't have to tweak the dates.
-                    existing_file = (
-                        MSRun.objects.get(**msrun_dict)
-                        .peak_groups.first()
-                        .peak_group_set.filename
-                    )
-                    self.existing_msruns[existing_file].append(sample_name)
-                else:
-                    self.aggregated_errors_object.buffer_error(ve)
-                continue
             except Exception as e:
                 self.aggregated_errors_object.buffer_error(e)
                 continue
-
-        # Determine whether an error should be included about existing MSRun records
-        if len(self.existing_msruns.keys()) > 0:
-            self.aggregated_errors_object.buffer_exception(
-                MSRunAlreadyLoadedOrNotUnique(
-                    self.date,
-                    self.researcher,
-                    self.protocol_input,
-                    self.existing_msruns,
-                    peak_group_set.filename,
-                ),
-                is_fatal=True,
-                is_error=not self.validate,
-            )
 
         # Create all PeakGroups
         for sample_name in sample_msrun_dict.keys():
@@ -805,14 +774,35 @@ class AccuCorDataLoader:
                                 f"{sample_name}"
                             )
                         peak_group_attrs = self.peak_group_dict[peak_group_name]
-                        peak_group = PeakGroup(
-                            msrun=msrun,
-                            name=peak_group_attrs["name"],
-                            formula=peak_group_attrs["formula"],
-                            peak_group_set=peak_group_set,
-                        )
-                        peak_group.full_clean()
-                        peak_group.save()
+                        try:
+
+                            peak_group = PeakGroup(
+                                msrun=msrun,
+                                name=peak_group_attrs["name"],
+                                formula=peak_group_attrs["formula"],
+                                peak_group_set=peak_group_set,
+                            )
+                            peak_group.full_clean()
+                            peak_group.save()
+                        except ValidationError as ve:
+                            vestr = str(ve)
+                            if (
+                                "Peak group with this Name and Msrun already exists"
+                                in vestr
+                            ):
+                                self.aggregated_errors_object.buffer_exception(
+                                    DuplicatePeakGroup(
+                                        ms_run=msrun,
+                                        compound=peak_group_attrs["name"],
+                                        sample=msrun.sample,
+                                        adding_file=peak_group_set.filename,
+                                    ),
+                                    is_fatal=True,
+                                    is_error=not self.validate,
+                                )
+                            else:
+                                self.aggregated_errors_object.buffer_error(ve)
+                            continue
 
                         """
                         associate the pre-vetted compounds with the newly inserted
@@ -847,7 +837,7 @@ class AccuCorDataLoader:
                     # If we get here, a specific exception should be written to handle and explain the cause of an
                     # error.  For example, the ValidationError handled above was due to a previous error about
                     # duplicate compound/isotope pairs that would go away when the duplicate was fixed.  The duplicate
-                    # was causing the data to contain a pandas structure where corrected_abundance should have been -
+                    # 2as causing the data to contain a pandas structure where corrected_abundance should have been -
                     # containing 2 values instead of 1.
                     self.aggregated_errors_object.buffer_error(e)
                     continue

@@ -86,37 +86,18 @@ class RequiredSampleValuesError(Exception):
         self.animal_hdr = animal_hdr
 
 
-class MSRunAlreadyLoadedOrNotUnique(Exception):
-    def __init__(self, date, researcher, protocol_name, file_samples_dict, adding_file):
+class DuplicatePeakGroup(Exception):
+    def __init__(self, adding_file, ms_run, compound, sample):
         message = (
-            "The following date, researcher, and protocol:\n"
-            f"\tdate: {date}\n"
-            f"\tresearcher: {researcher}\n"
-            f"\tprotocol: {protocol_name}\n"
-            f"for the load of the current accucor/isocorr file: [{adding_file}] contains samples that were also found "
-            "to be associated with the following previously (or concurrently) loaded accucor/isocorr file(s).\n"
-        )
-        for existing_file in file_samples_dict.keys():
-            message += (
-                f"\tConflicting samples in {adding_file} and {existing_file} with the same date, researcher, and "
-                "protocol:\n\t\t"
-            )
-            message += "\n\t\t".join(file_samples_dict[existing_file])
-        message += (
-            "\nThe date, researcher, protocol, and sample name must be unique for each MSRun.  If these are the same "
-            "samples in each MSRun, change or be sure to indicate the date of the MSRun for each file to resolve the "
-            "conflict so you can retain unique and consistent sample names for searching.  If these are the same "
-            "samples and they were scanned in multiple MSRuns on the same date, we currently don't have a database "
-            "schema to support that, so reach out to a curator to decide how to resolve the issue.  If these are "
-            "different samples with the same name, notify the curators so they can change the sample names in the "
-            "sample sheet to match (i.e. they will be saved with modified sample names using a sample name prefix on "
-            "the command line (--prefix) so that the accucor/isocorr files do not need to be edited)."
+            f"Duplicate data found when loading file [{adding_file}]:\n"
+            f"\tms_run: {ms_run}\n"
+            f"\tsample: {sample}\n"
+            f"\tcompound: {compound}\n"
         )
         super().__init__(message)
-        self.date = date
-        self.researcher = researcher
-        self.protocol_name = protocol_name
-        self.file_samples_dict = file_samples_dict
+        self.ms_run = ms_run
+        self.compound = compound
+        self.sample = sample
         self.adding_file = adding_file
 
 

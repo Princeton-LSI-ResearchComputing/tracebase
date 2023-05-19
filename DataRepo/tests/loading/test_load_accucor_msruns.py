@@ -1,6 +1,6 @@
 from django.conf import settings
 from django.core.management import call_command
-from django.test import override_settings
+from django.test import override_settings, tag
 
 from DataRepo.models import (
     Infusate,
@@ -18,7 +18,7 @@ from DataRepo.utils import (
     AccuCorDataLoader,
     AggregatedErrors,
     DryRun,
-    MSRunAlreadyLoadedOrNotUnique,
+    DuplicatePeakGroup,
     NoSamplesError,
     TracerLabeledElementNotFound,
     UnskippedBlanksError,
@@ -173,6 +173,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             adl.missing_compounds,
         )
 
+    @tag("multi-msrun")
     def test_existing_msruns(self):
         # Call once to successfully load data
         call_command(
@@ -197,10 +198,10 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
                 new_researcher=False,
             )
         aes = ar.exception
-        self.assertEqual(1, aes.num_errors)
-        self.assertEqual(MSRunAlreadyLoadedOrNotUnique, type(aes.exceptions[0]))
+        self.assertEqual(28, aes.num_errors)
+        self.assertEqual(DuplicatePeakGroup, type(aes.exceptions[0]))
         self.assertIn(
-            "small_obob_maven_6eaas_inf_blank_sample.xlsx",
+            "small_obob_maven_6eaas_inf_blank_sample_run2.xlsx",
             str(aes.exceptions[0]),
             msg="References file from conflicting MSRun",
         )
@@ -250,6 +251,73 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
         self.assertTrue(isinstance(aes.exceptions[0], TracerLabeledElementNotFound))
+
+    @tag("multi-msrun")
+    def test_multiple_accucor_one_msrun(self):
+        """
+        Test that we can load different compounds in separate data files for the same sample run (MSRun)
+        """
+        call_command(
+            "load_accucor_msruns",
+            accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_glucose.xlsx",
+            protocol="Default",
+            date="2021-04-29",
+            researcher="Michael Neinast",
+            new_researcher=True,
+        )
+        call_command(
+            "load_accucor_msruns",
+            accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_lactate.xlsx",
+            protocol="Default",
+            date="2021-04-29",
+            researcher="Michael Neinast",
+            new_researcher=False,
+        )
+        SAMPLES_COUNT = 2
+        PEAKDATA_ROWS = 11
+        MEASURED_COMPOUNDS_COUNT = 2  # Glucose and lactate
+
+        self.assertEqual(
+            PeakGroup.objects.count(), MEASURED_COMPOUNDS_COUNT * SAMPLES_COUNT
+        )
+        self.assertEqual(PeakData.objects.all().count(), PEAKDATA_ROWS * SAMPLES_COUNT)
+
+    @tag("multi-msrun")
+    def test_duplicate_compounds_one_msrun(self):
+        """
+        Test that we can load different compounds in separate data files for the same sample run (MSRun)
+        """
+        call_command(
+            "load_accucor_msruns",
+            accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_glucose.xlsx",
+            protocol="Default",
+            date="2021-04-29",
+            researcher="Michael Neinast",
+            new_researcher=True,
+        )
+        with self.assertRaises(AggregatedErrors) as ar:
+            call_command(
+                "load_accucor_msruns",
+                accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_glucose_2.xlsx",
+                protocol="Default",
+                date="2021-04-29",
+                researcher="Michael Neinast",
+                new_researcher=False,
+            )
+        # Check second file failed (duplicate compounds)
+        aes = ar.exception
+        self.assertEqual(2, len(aes.exceptions))
+        self.assertTrue(isinstance(aes.exceptions[0], DuplicatePeakGroup))
+
+        # Check first file loaded
+        SAMPLES_COUNT = 2
+        PEAKDATA_ROWS = 7
+        MEASURED_COMPOUNDS_COUNT = 1  # Glucose and lactate
+
+        self.assertEqual(
+            PeakGroup.objects.count(), MEASURED_COMPOUNDS_COUNT * SAMPLES_COUNT
+        )
+        self.assertEqual(PeakData.objects.all().count(), PEAKDATA_ROWS * SAMPLES_COUNT)
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
