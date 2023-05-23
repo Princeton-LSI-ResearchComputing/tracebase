@@ -2,8 +2,12 @@ from __future__ import annotations
 
 import traceback
 import warnings
+from typing import TYPE_CHECKING
 
 from django.forms.models import model_to_dict
+
+if TYPE_CHECKING:
+    from DataRepo.models import MSRun, PeakGroupSet, Sample
 
 
 class HeaderError(Exception):
@@ -87,18 +91,74 @@ class RequiredSampleValuesError(Exception):
 
 
 class DuplicatePeakGroup(Exception):
-    def __init__(self, adding_file, ms_run, compound, sample):
+    """Duplicate data for the same sample sequenced on the same day
+
+    Records duplicate sample compound pairs for a given ms_run
+
+    Attributes:
+        adding_file: The peak annotation file in which the duplicate data was detected
+        ms_run: The MSRun in which the peak groups were measured
+        sample_name: The name of the sample the duplicated data blongs to
+        peak_group_name (compounds): The name of duplicated peak group
+        existing_peak_group_set: The peak group set that the previosly existing peak group blongs to
+    """
+
+    def __init__(
+        self,
+        adding_file: str,
+        ms_run: MSRun,
+        sample: Sample,
+        peak_group_name: str,
+        existing_peak_group_set: PeakGroupSet,
+    ):
+        """Initializes a DuplicatePeakGroup exception"""
+
         message = (
             f"Duplicate data found when loading file [{adding_file}]:\n"
             f"\tms_run: {ms_run}\n"
             f"\tsample: {sample}\n"
-            f"\tcompound: {compound}\n"
+            f"\tpeak_group_name: {peak_group_name}\n"
+            f"\texisting_peak_group_set: {existing_peak_group_set}\n"
         )
         super().__init__(message)
-        self.ms_run = ms_run
-        self.compound = compound
-        self.sample = sample
         self.adding_file = adding_file
+        self.ms_run = ms_run
+        self.sample = sample
+        self.peak_group_name = peak_group_name
+        self.existing_peak_group_set = existing_peak_group_set
+
+
+class DuplicatePeakGroups(Exception):
+    """Duplicate peak groups from a given peak annotation file
+
+    Attributes:
+        adding_file: The peak annotation file in which the duplicate data was detected
+        ms_run: The MSRun in which the peak groups were measured
+        duplicate_peak_groups: A list of DuplicatePeakGroup exceiptions
+    """
+
+    def __init__(
+        self,
+        adding_file: str,
+        duplicate_peak_groups: list[DuplicatePeakGroup],
+    ):
+        """Initializes a DuplicatePeakGroups exception"""
+
+        message = (
+            f"Duplicate data found when loading file [{adding_file}]:\n"
+            "\tpeak_groups:\n"
+        )
+        for duplicate_peak_group in duplicate_peak_groups:
+            message += (
+                f"\t\tsample: {duplicate_peak_group.sample} | "
+                f"peak_group_name: {duplicate_peak_group.peak_group_name} | "
+                f"ms_run_date: {duplicate_peak_group.ms_run.date} | "
+                f"ms_run_researcher: {duplicate_peak_group.ms_run.researcher} | "
+                f"peak_group_set: {duplicate_peak_group.existing_peak_group_set.filename}\n"
+            )
+        super().__init__(message)
+        self.adding_file = adding_file
+        self.duplicate_peak_groups = duplicate_peak_groups
 
 
 class UnknownHeadersError(HeaderError):

@@ -40,6 +40,7 @@ from DataRepo.utils.exceptions import (
     DryRun,
     DupeCompoundIsotopeCombos,
     DuplicatePeakGroup,
+    DuplicatePeakGroups,
     EmptyColumnsError,
     IsotopeStringDupe,
     MissingCompounds,
@@ -432,6 +433,14 @@ class AccuCorDataLoader:
         for sample_name in self.corrected_samples:
             prefixed_sample_name = f"{self.sample_name_prefix}{sample_name}"
             try:
+                """
+                This relies on sample name to find the correct sample since
+                we do not have any other information about the sample in the
+                peak annotation file Accucor/Isocor files should be
+                accomplanied by a sample and animal sheet file so we can
+                identify potential duplicates and flag them
+                """
+                # TODO Ensure the sample names in an AccuCor file match sample names in a supplied sample sheet
                 sample_dict[sample_name] = Sample.objects.get(name=prefixed_sample_name)
             except Sample.DoesNotExist:
                 self.missing_samples.append(sample_name)
@@ -702,6 +711,13 @@ class AccuCorDataLoader:
                 "sample": self.db_samples_dict[sample_name],
             }
             try:
+                # TODO This relies on sample name lookup (see issue #684)
+                # https://github.com/Princeton-LSI-ResearchComputing/tracebase/issues/684
+                """This also relies on accurate msrun information (researcher and date)
+                Including mzXML files with accucor files will help ensure accurate msrun
+                lookup since we will have checksums for the mzXML files and those are
+                always associated with one MSRun record
+                """
                 msrun, created = MSRun.objects.get_or_create(**msrun_dict)
                 if created:
                     msrun.full_clean()
@@ -730,6 +746,7 @@ class AccuCorDataLoader:
                 continue
 
         # Create all PeakGroups
+        duplicate_peak_groups = []
         for sample_name in sample_msrun_dict.keys():
 
             msrun = sample_msrun_dict[sample_name]
@@ -790,15 +807,17 @@ class AccuCorDataLoader:
                                 "Peak group with this Name and Msrun already exists"
                                 in vestr
                             ):
-                                self.aggregated_errors_object.buffer_exception(
+                                existing_peak_group = PeakGroup.objects.get(
+                                    msrun=msrun, name=peak_group_attrs["name"]
+                                )
+                                duplicate_peak_groups.append(
                                     DuplicatePeakGroup(
-                                        ms_run=msrun,
-                                        compound=peak_group_attrs["name"],
-                                        sample=msrun.sample,
                                         adding_file=peak_group_set.filename,
-                                    ),
-                                    is_fatal=True,
-                                    is_error=not self.validate,
+                                        ms_run=msrun,
+                                        sample=msrun.sample,
+                                        peak_group_name=peak_group_attrs["name"],
+                                        existing_peak_group_set=existing_peak_group.peak_group_set,
+                                    )
                                 )
                             else:
                                 self.aggregated_errors_object.buffer_error(ve)
@@ -837,7 +856,7 @@ class AccuCorDataLoader:
                     # If we get here, a specific exception should be written to handle and explain the cause of an
                     # error.  For example, the ValidationError handled above was due to a previous error about
                     # duplicate compound/isotope pairs that would go away when the duplicate was fixed.  The duplicate
-                    # 2as causing the data to contain a pandas structure where corrected_abundance should have been -
+                    # was causing the data to contain a pandas structure where corrected_abundance should have been -
                     # containing 2 values instead of 1.
                     self.aggregated_errors_object.buffer_error(e)
                     continue
@@ -1020,6 +1039,16 @@ class AccuCorDataLoader:
                         except Exception as e:
                             self.aggregated_errors_object.buffer_error(e)
                             continue
+
+        if len(duplicate_peak_groups) > 0:
+            self.aggregated_errors_object.buffer_exception(
+                DuplicatePeakGroups(
+                    adding_file=peak_group_set.filename,
+                    duplicate_peak_groups=duplicate_peak_groups,
+                ),
+                is_fatal=True,
+                is_error=not self.validate,
+            )
 
         if self.aggregated_errors_object.should_raise():
             raise self.aggregated_errors_object

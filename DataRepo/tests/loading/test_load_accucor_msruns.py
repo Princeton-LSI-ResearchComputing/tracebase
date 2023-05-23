@@ -18,7 +18,7 @@ from DataRepo.utils import (
     AccuCorDataLoader,
     AggregatedErrors,
     DryRun,
-    DuplicatePeakGroup,
+    DuplicatePeakGroups,
     NoSamplesError,
     TracerLabeledElementNotFound,
     UnskippedBlanksError,
@@ -198,13 +198,14 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
                 new_researcher=False,
             )
         aes = ar.exception
-        self.assertEqual(28, aes.num_errors)
-        self.assertEqual(DuplicatePeakGroup, type(aes.exceptions[0]))
+        self.assertEqual(1, aes.num_errors)
+        self.assertEqual(DuplicatePeakGroups, type(aes.exceptions[0]))
         self.assertIn(
             "small_obob_maven_6eaas_inf_blank_sample_run2.xlsx",
             str(aes.exceptions[0]),
             msg="References file from conflicting MSRun",
         )
+        self.assertTrue(2, len(aes.exceptions[0].duplicate_peak_groups))
 
     def test_multiple_accucor_labels(self):
         """
@@ -306,8 +307,9 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             )
         # Check second file failed (duplicate compounds)
         aes = ar.exception
-        self.assertEqual(2, len(aes.exceptions))
-        self.assertTrue(isinstance(aes.exceptions[0], DuplicatePeakGroup))
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertTrue(isinstance(aes.exceptions[0], DuplicatePeakGroups))
+        self.assertTrue(2, len(aes.exceptions[0].duplicate_peak_groups))
 
         # Check first file loaded
         SAMPLES_COUNT = 2
