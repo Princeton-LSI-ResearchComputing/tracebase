@@ -186,7 +186,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             new_researcher=True,
         )
 
-        # Call a second time to induce an existing msrun exception
+        # Load a copy of the data file to induce an existing PeakGroup exception
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_accucor_msruns",
@@ -205,7 +205,8 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             str(aes.exceptions[0]),
             msg="References file from conflicting MSRun",
         )
-        self.assertTrue(2, len(aes.exceptions[0].duplicate_peak_groups))
+        # 2 compounds, 14 samples -> 28 PeakGroups
+        self.assertEqual(28, len(aes.exceptions[0].duplicate_peak_groups))
 
     def test_multiple_accucor_labels(self):
         """
@@ -309,7 +310,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
         self.assertTrue(isinstance(aes.exceptions[0], DuplicatePeakGroups))
-        self.assertTrue(2, len(aes.exceptions[0].duplicate_peak_groups))
+        self.assertEqual(2, len(aes.exceptions[0].duplicate_peak_groups))
 
         # Check first file loaded
         SAMPLES_COUNT = 2
