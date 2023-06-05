@@ -922,6 +922,29 @@ class AggregatedErrors(Exception):
         return self.num_warnings
 
 
+class ConflictingValueErrors(Exception):
+    """Conflicting values for a specific model object from a given file
+
+    Attributes:
+        model_name: The name of the model object type (Sample, PeakGroup, etc.)
+        conflicting_value_errors: A list of ConflictingValueError exceiptions
+    """
+
+    def __init__(
+        self,
+        model_name: str,
+        conflicting_value_errors: list[ConflictingValueError],
+    ):
+        """Initializes a ConflictingValueErrors exception"""
+
+        message = f"Conflicting values found when loading {model_name} records:\n"
+        for conflicting_value_error in conflicting_value_errors:
+            message += str(conflicting_value_error)
+        super().__init__(message)
+        self.model_name = model_name
+        self.conflicting_value_errors = conflicting_value_errors
+
+
 class ConflictingValueError(Exception):
     def __init__(
         self,

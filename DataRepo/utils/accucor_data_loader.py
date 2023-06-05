@@ -1,12 +1,12 @@
 import re
 from collections import Counter, defaultdict
 from datetime import datetime
-from typing import List, TypedDict
+from typing import Dict, List, TypedDict
 
 import regex
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.db import transaction
+from django.db import IntegrityError, transaction
 
 from DataRepo.models import (
     Compound,
@@ -37,6 +37,8 @@ from DataRepo.models.researcher import (
 )
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
+    ConflictingValueError,
+    ConflictingValueErrors,
     DryRun,
     DupeCompoundIsotopeCombos,
     DuplicatePeakGroup,
@@ -97,6 +99,12 @@ class IsotopeObservationData(TypedDict):
     mass_number: int
     count: int
     parent: bool
+
+
+class PeakGroupAttrs(TypedDict):
+    name: str
+    formula: str
+    compounds: List[Compound]
 
 
 class AccuCorDataLoader:
@@ -162,7 +170,7 @@ class AccuCorDataLoader:
             self.defer_autoupdates = defer_autoupdates
 
             # Tracking Data
-            self.peak_group_dict = {}
+            self.peak_group_dict: Dict[str, PeakGroupAttrs] = {}
             self.corrected_samples = []
             self.original_samples = []
             self.db_samples_dict = None
@@ -683,6 +691,111 @@ class AccuCorDataLoader:
         peak_group_set.save()
         return peak_group_set
 
+    def insert_peak_group(
+        self,
+        peak_group_attrs: PeakGroupAttrs,
+        msrun: MSRun,
+        peak_group_set: PeakGroupSet,
+    ):
+        """Insert a PeakGroup record
+
+        NOTE: If the C12 PARENT/0-Labeled row encountered has any issues (for example, a null formula),
+        then this block will fail
+
+        Args:
+            peak_group_attrs: dictionary of peak group atrributes
+            msrun: MSRun object the PeakGroup belongs to
+            peak_group_set: PeakGroupSet object the PeakGroup belongs to
+
+        Returns:
+            A newly created PeakGroup object created using the supplied values
+
+        Raises:
+            DuplicatePeakGroup: A PeakGroup record with the same values already exists
+            ConflictingValueError: A PeakGroup with the same unique key (MSRun and PeakGroup.name) exists, but with a
+              different formula or PeakGroupSet
+        """
+
+        if self.verbosity >= 1:
+            print(
+                f"\tInserting {peak_group_attrs['name']} peak group for sample {msrun.sample}"
+            )
+        try:
+            peak_group, created = PeakGroup.objects.get_or_create(
+                msrun=msrun,
+                name=peak_group_attrs["name"],
+                formula=peak_group_attrs["formula"],
+                peak_group_set=peak_group_set,
+            )
+            if not created:
+                raise DuplicatePeakGroup(
+                    adding_file=peak_group_set.filename,
+                    ms_run=msrun,
+                    sample=msrun.sample,
+                    peak_group_name=peak_group_attrs["name"],
+                    existing_peak_group_set=peak_group.peak_group_set,
+                )
+            peak_group.full_clean()
+            peak_group.save()
+        except IntegrityError as ie:
+            iestr = str(ie)
+            if (
+                'duplicate key value violates unique constraint "unique_peakgroup"'
+                in iestr
+            ):
+                # "Peak group with this Name and Msrun already exists"
+                existing_peak_group = PeakGroup.objects.get(
+                    msrun=msrun, name=peak_group_attrs["name"]
+                )
+                conflicting_fields = []
+                existing_values = []
+                new_values = []
+                if existing_peak_group.formula != peak_group_attrs["formula"]:
+                    conflicting_fields.append("formula")
+                    existing_values.append(existing_peak_group.formula)
+                    new_values.append(peak_group_attrs["formula"])
+                if existing_peak_group.peak_group_set != peak_group_set:
+                    conflicting_fields.append("peak_group_set")
+                    existing_values.append(existing_peak_group.peak_group_set)
+                    new_values.append(peak_group_set)
+                raise ConflictingValueError(
+                    rec=existing_peak_group,
+                    consistent_field=conflicting_fields,
+                    existing_value=existing_values,
+                    differing_value=new_values,
+                )
+
+            else:
+                self.aggregated_errors_object.buffer_error(ie)
+
+        """
+        associate the pre-vetted compounds with the newly inserted
+        PeakGroup
+        """
+        for compound in peak_group_attrs["compounds"]:
+            # Must save the compound before it can be linked
+            compound.save()
+            peak_group.compounds.add(compound)
+
+        # Insert PeakGroup Labels
+        peak_labeled_elements = self.get_peak_labeled_elements(
+            peak_group.compounds.all()
+        )
+        for peak_labeled_element in peak_labeled_elements:
+            if self.verbosity >= 1:
+                print(
+                    f"\t\tInserting {peak_labeled_element} peak group label for peak group "
+                    f"{peak_group.name}"
+                )
+            peak_group_label = PeakGroupLabel(
+                peak_group=peak_group,
+                element=peak_labeled_element["element"],
+            )
+            peak_group_label.full_clean()
+            peak_group_label.save()
+
+        return peak_group
+
     def load_data(self):
         """
         Extract and store the data for MsRun PeakGroup and PeakData
@@ -747,6 +860,7 @@ class AccuCorDataLoader:
 
         # Create all PeakGroups
         duplicate_peak_groups = []
+        conflicting_peak_groups = []
         for sample_name in sample_msrun_dict.keys():
 
             msrun = sample_msrun_dict[sample_name]
@@ -779,78 +893,18 @@ class AccuCorDataLoader:
                         and peak_group_name in self.peak_group_dict
                     ):
 
-                        """
-                        Here we insert PeakGroup, by name (only once per file).
-                        NOTE: If the C12 PARENT/0-Labeled row encountered has any issues (for example, a null formula),
-                        then this block will fail
-                        """
-
-                        if self.verbosity >= 1:
-                            print(
-                                f"\tInserting {peak_group_name} peak group for sample "
-                                f"{sample_name}"
-                            )
-                        peak_group_attrs = self.peak_group_dict[peak_group_name]
+                        # Insert PeakGroup, by name (only once per file).
                         try:
-
-                            peak_group = PeakGroup(
+                            peak_group = self.insert_peak_group(
+                                peak_group_attrs=self.peak_group_dict[peak_group_name],
                                 msrun=msrun,
-                                name=peak_group_attrs["name"],
-                                formula=peak_group_attrs["formula"],
                                 peak_group_set=peak_group_set,
                             )
-                            peak_group.full_clean()
-                            peak_group.save()
-                        except ValidationError as ve:
-                            vestr = str(ve)
-                            if (
-                                "Peak group with this Name and Msrun already exists"
-                                in vestr
-                            ):
-                                existing_peak_group = PeakGroup.objects.get(
-                                    msrun=msrun, name=peak_group_attrs["name"]
-                                )
-                                duplicate_peak_groups.append(
-                                    DuplicatePeakGroup(
-                                        adding_file=peak_group_set.filename,
-                                        ms_run=msrun,
-                                        sample=msrun.sample,
-                                        peak_group_name=peak_group_attrs["name"],
-                                        existing_peak_group_set=existing_peak_group.peak_group_set,
-                                    )
-                                )
-                            else:
-                                self.aggregated_errors_object.buffer_error(ve)
-                            continue
-
-                        """
-                        associate the pre-vetted compounds with the newly inserted
-                        PeakGroup
-                        """
-                        for compound in peak_group_attrs["compounds"]:
-                            # Must save the compound before it can be linked
-                            compound.save()
-                            peak_group.compounds.add(compound)
-                        peak_labeled_elements = self.get_peak_labeled_elements(
-                            peak_group.compounds.all()
-                        )
-
-                        # Insert PeakGroup Labels
-                        for peak_labeled_element in peak_labeled_elements:
-                            if self.verbosity >= 1:
-                                print(
-                                    f"\t\tInserting {peak_labeled_element} peak group label for peak group "
-                                    f"{peak_group.name}"
-                                )
-                            peak_group_label = PeakGroupLabel(
-                                peak_group=peak_group,
-                                element=peak_labeled_element["element"],
-                            )
-                            peak_group_label.full_clean()
-                            peak_group_label.save()
-
-                        # cache
-                        inserted_peak_group_dict[peak_group_name] = peak_group
+                            inserted_peak_group_dict[peak_group_name] = peak_group
+                        except DuplicatePeakGroup as dup_pg:
+                            duplicate_peak_groups.append(dup_pg)
+                        except ConflictingValueError as cve:
+                            conflicting_peak_groups.append(cve)
 
                 except Exception as e:
                     # If we get here, a specific exception should be written to handle and explain the cause of an
@@ -858,6 +912,7 @@ class AccuCorDataLoader:
                     # duplicate compound/isotope pairs that would go away when the duplicate was fixed.  The duplicate
                     # was causing the data to contain a pandas structure where corrected_abundance should have been -
                     # containing 2 values instead of 1.
+                    raise e
                     self.aggregated_errors_object.buffer_error(e)
                     continue
 
@@ -1045,6 +1100,15 @@ class AccuCorDataLoader:
                 DuplicatePeakGroups(
                     adding_file=peak_group_set.filename,
                     duplicate_peak_groups=duplicate_peak_groups,
+                ),
+                is_fatal=True,
+                is_error=not self.validate,
+            )
+        if len(conflicting_peak_groups) > 0:
+            self.aggregated_errors_object.buffer_exception(
+                ConflictingValueErrors(
+                    model_name="PeakGroup",
+                    conflicting_value_errors=conflicting_peak_groups,
                 ),
                 is_fatal=True,
                 is_error=not self.validate,

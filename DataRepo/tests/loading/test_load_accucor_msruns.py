@@ -17,11 +17,15 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import (
     AccuCorDataLoader,
     AggregatedErrors,
+    ConflictingValueError,
     DryRun,
-    DuplicatePeakGroups,
     NoSamplesError,
     TracerLabeledElementNotFound,
     UnskippedBlanksError,
+)
+from DataRepo.utils.exceptions import (
+    ConflictingValueErrors,
+    DuplicatePeakGroup,
 )
 
 
@@ -43,6 +47,18 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         )
 
         super().setUpTestData()
+
+    @classmethod
+    def load_glucose_data(cls):
+        call_command(
+            "load_accucor_msruns",
+            accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_glucose.xlsx",
+            skip_samples=("blank"),
+            protocol="Default",
+            date="2021-04-29",
+            researcher="Michael Neinast",
+            new_researcher=True,
+        )
 
     def test_accucor_load_blank_fail(self):
         with self.assertRaises(AggregatedErrors, msg="1 samples are missing.") as ar:
@@ -174,39 +190,70 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         )
 
     @tag("multi-msrun")
-    def test_existing_msruns(self):
-        # Call once to successfully load data
-        call_command(
-            "load_accucor_msruns",
-            accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_blank_sample.xlsx",
-            skip_samples=("blank"),
-            protocol="Default",
-            date="2021-04-29",
-            researcher="Michael Neinast",
-            new_researcher=True,
-        )
+    def test_conflicting_peakgroups(self):
 
-        # Load a copy of the data file to induce an existing PeakGroup exception
+        self.load_glucose_data()
+
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_accucor_msruns",
-                accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_blank_sample_run2.xlsx",
+                accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_glucose_conflicting.xlsx",
                 skip_samples=("blank"),
                 protocol="Default",
                 date="2021-04-29",
                 researcher="Michael Neinast",
                 new_researcher=False,
             )
+
         aes = ar.exception
         self.assertEqual(1, aes.num_errors)
-        self.assertEqual(DuplicatePeakGroups, type(aes.exceptions[0]))
-        self.assertIn(
-            "small_obob_maven_6eaas_inf_blank_sample_run2.xlsx",
-            str(aes.exceptions[0]),
-            msg="References file from conflicting MSRun",
+        self.assertEqual(ConflictingValueErrors, type(aes.exceptions[0]))
+        # 1 compounds, 2 samples -> 2 PeakGroups
+        self.assertEqual(2, len(aes.exceptions[0].conflicting_value_errors))
+
+    @tag("multi-msrun")
+    def test_duplicate_peak_group(self):
+
+        self.load_glucose_data()
+
+        adl = AccuCorDataLoader(
+            None, None, "2023-01-01", "", "", "peak_group_set_filename.tsv"
         )
-        # 2 compounds, 14 samples -> 28 PeakGroups
-        self.assertEqual(28, len(aes.exceptions[0].duplicate_peak_groups))
+        peak_group = PeakGroup.objects.first()
+        peak_group_attrs = {
+            "name": peak_group.name,
+            "formula": peak_group.formula,
+            "compounds": peak_group.compounds,
+        }
+
+        with self.assertRaises(DuplicatePeakGroup):
+            adl.insert_peak_group(
+                peak_group_attrs,
+                msrun=peak_group.msrun,
+                peak_group_set=peak_group.peak_group_set,
+            )
+
+    @tag("multi-msrun")
+    def test_conflicting_peak_group(self):
+
+        self.load_glucose_data()
+
+        adl = AccuCorDataLoader(
+            None, None, "2023-01-01", "", "", "peak_group_set_filename.tsv"
+        )
+        peak_group = PeakGroup.objects.first()
+        peak_group_attrs = {
+            "name": peak_group.name,
+            "formula": f"{peak_group.formula}S",
+            "compounds": peak_group.compounds,
+        }
+
+        with self.assertRaises(ConflictingValueError):
+            adl.insert_peak_group(
+                peak_group_attrs,
+                msrun=peak_group.msrun,
+                peak_group_set=peak_group.peak_group_set,
+            )
 
     def test_multiple_accucor_labels(self):
         """
@@ -259,14 +306,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         """
         Test that we can load different compounds in separate data files for the same sample run (MSRun)
         """
-        call_command(
-            "load_accucor_msruns",
-            accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_glucose.xlsx",
-            protocol="Default",
-            date="2021-04-29",
-            researcher="Michael Neinast",
-            new_researcher=True,
-        )
+        self.load_glucose_data()
         call_command(
             "load_accucor_msruns",
             accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_lactate.xlsx",
@@ -289,14 +329,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         """
         Test that we can load different compounds in separate data files for the same sample run (MSRun)
         """
-        call_command(
-            "load_accucor_msruns",
-            accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_glucose.xlsx",
-            protocol="Default",
-            date="2021-04-29",
-            researcher="Michael Neinast",
-            new_researcher=True,
-        )
+        self.load_glucose_data()
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_accucor_msruns",
@@ -309,8 +342,8 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         # Check second file failed (duplicate compounds)
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
-        self.assertTrue(isinstance(aes.exceptions[0], DuplicatePeakGroups))
-        self.assertEqual(2, len(aes.exceptions[0].duplicate_peak_groups))
+        self.assertTrue(isinstance(aes.exceptions[0], ConflictingValueErrors))
+        self.assertEqual(2, len(aes.exceptions[0].conflicting_value_errors))
 
         # Check first file loaded
         SAMPLES_COUNT = 2
