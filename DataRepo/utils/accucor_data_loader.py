@@ -259,7 +259,6 @@ class AccuCorDataLoader:
                 )
 
     def initialize_sample_names(self):
-
         minimum_sample_index = self.get_first_sample_column_index(
             self.accucor_corrected_df
         )
@@ -355,7 +354,6 @@ class AccuCorDataLoader:
                 )
 
     def validate_compounds(self):
-
         # In case validate_compounds is ever called more than once...
         # These are used to skip duplicated data in the load
         self.dupe_isotope_compounds["original"] = defaultdict(dict)
@@ -417,7 +415,6 @@ class AccuCorDataLoader:
             )
 
     def initialize_db_samples_dict(self):
-
         self.missing_samples = []
 
         if self.verbosity >= 1:
@@ -570,7 +567,6 @@ class AccuCorDataLoader:
             if peak_group_formula_key:
                 peak_group_formula = row[peak_group_formula_key]
             if peak_group_name not in self.peak_group_dict:
-
                 # cache it for later; note, if the first row encountered
                 # is missing a formula, there will be issues later
                 self.peak_group_dict[peak_group_name] = {
@@ -691,7 +687,6 @@ class AccuCorDataLoader:
 
         # Each sample gets its own msrun
         for sample_name in self.db_samples_dict.keys():
-
             # each msrun/sample has its own set of peak groups
             inserted_peak_group_dict = {}
 
@@ -762,12 +757,10 @@ class AccuCorDataLoader:
 
         # Create all PeakGroups
         for sample_name in sample_msrun_dict.keys():
-
             msrun = sample_msrun_dict[sample_name]
 
             # Pass through the rows once to identify the PeakGroups
             for index, corr_row in self.accucor_corrected_df.iterrows():
-
                 try:
                     obs_isotopes = self.get_observed_isotopes(corr_row)
                     peak_group_name = corr_row[self.compound_header]
@@ -792,7 +785,6 @@ class AccuCorDataLoader:
                         and obs_isotopes[0]["parent"]
                         and peak_group_name in self.peak_group_dict
                     ):
-
                         """
                         Here we insert PeakGroup, by name (only once per file).
                         NOTE: If the C12 PARENT/0-Labeled row encountered has any issues (for example, a null formula),
@@ -854,12 +846,10 @@ class AccuCorDataLoader:
 
             # For each PeakGroup, create PeakData rows
             for peak_group_name in inserted_peak_group_dict:
-
                 # we should have a cached PeakGroup and its labeled element now
                 peak_group = inserted_peak_group_dict[peak_group_name]
 
                 if self.accucor_original_df is not None:
-
                     peak_group_original_data = self.accucor_original_df.loc[
                         self.accucor_original_df["compound"] == peak_group_name
                     ]
@@ -874,7 +864,6 @@ class AccuCorDataLoader:
                         0, peak_group_label_rec.atom_count() + 1
                     ):
                         try:
-
                             raw_abundance = 0
                             med_mz = 0
                             med_rt = 0
@@ -971,7 +960,6 @@ class AccuCorDataLoader:
                     ]
 
                     for _index, corr_row in peak_group_corrected_df.iterrows():
-
                         try:
                             corrected_abundance_for_sample = corr_row[sample_name]
                             # No original dataframe, no raw_abundance, med_mz, or med_rt
@@ -1005,7 +993,6 @@ class AccuCorDataLoader:
                             )
 
                             for isotope in corr_isotopes:
-
                                 if self.verbosity >= 1:
                                     print(
                                         f"\t\t\tInserting peak data label [{isotope['mass_number']}{isotope['element']}"
@@ -1119,7 +1106,6 @@ class AccuCorDataLoader:
                 )
 
         else:
-
             # Get the mass number(s) from the associated tracers
             mns = [
                 x["mass_number"]
@@ -1199,7 +1185,6 @@ class AccuCorDataLoader:
         return isotope_observations
 
     def load_accucor_data(self):
-
         self.pre_load_setup()
 
         # Data validation and loading

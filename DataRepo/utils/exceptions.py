@@ -297,7 +297,6 @@ class MultiLoadStatus(Exception):
     """
 
     def __init__(self, load_keys=None):
-
         self.state = "PASSED"
         self.is_valid = True
         self.num_errors = 0
@@ -379,7 +378,6 @@ class MultiLoadStatus(Exception):
         return self.is_valid
 
     def get_final_exception(self, message=None):
-
         # If success, return None
         if self.get_success_status():
             return None
@@ -403,7 +401,6 @@ class MultiLoadStatus(Exception):
         return AggregatedErrorsSet(aggregated_errors_dict, message=message)
 
     def get_status_message(self):
-
         # Overall status message
         message = f"Load {self.state}"
         if self.num_warnings > 0:
@@ -414,7 +411,6 @@ class MultiLoadStatus(Exception):
         return message, self.state
 
     def get_status_messages(self):
-
         messages = []
         for load_key in self.get_ordered_status_keys(reverse=False):
             messages.append(

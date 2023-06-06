@@ -143,7 +143,6 @@ class Command(BaseCommand):
         print(f"Done loading {fmt} data into MsRun, PeakGroups, and PeakData")
 
     def extract_dataframes_from_accucor_xlsx(self, options):
-
         if not options["isocorr_format"]:
             # Note, setting `mangle_dupe_cols=False` would overwrite duplicates instead of raise an exception, so we're
             # checking for duplicate headers manually here.
@@ -189,7 +188,6 @@ class Command(BaseCommand):
         ).dropna(axis=0, how="all")
 
     def extract_dataframes_from_csv(self, options):
-
         corr_heads = pd.read_csv(
             options["accucor_file"],
             nrows=1,

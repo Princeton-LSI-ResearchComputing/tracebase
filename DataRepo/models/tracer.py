@@ -63,7 +63,6 @@ class TracerQuerySet(models.QuerySet):
 
 
 class Tracer(MaintainedModel, ElementLabel):
-
     objects = TracerQuerySet().as_manager()
 
     id = models.AutoField(primary_key=True)

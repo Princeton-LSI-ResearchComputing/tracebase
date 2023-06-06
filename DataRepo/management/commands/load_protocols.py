@@ -125,7 +125,6 @@ class Command(BaseCommand):
         return protocols_df, batch_category
 
     def read_protocols_tsv(self, protocols_tsv):
-
         # Keeping `na` to differentiate between intentional empty descriptions and spaces in the first column that were
         # intended to be tab characters
         protocols_df = pd.read_table(

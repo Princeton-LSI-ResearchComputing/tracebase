@@ -40,7 +40,6 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-
         # Keeping `na` to differentiate between intentional empty descriptions and spaces in the first column that were
         # intended to be tab characters
         new_tissues = pd.read_csv(options["tissues"], sep="\t", keep_default_na=True)
@@ -61,7 +60,6 @@ class Command(BaseCommand):
         )
 
     def print_notices(self, stats, opt, verbosity):
-
         if verbosity >= 2:
             for stat in stats["created"]:
                 self.stdout.write(

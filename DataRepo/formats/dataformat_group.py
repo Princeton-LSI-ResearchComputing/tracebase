@@ -232,7 +232,7 @@ class FormatGroup:
         all_fld_choices = ()
         seen = []
         for fmtid in self.modeldata.keys():
-            for (fld_val, fld_name) in self.getSearchFieldChoices(fmtid):
+            for fld_val, fld_name in self.getSearchFieldChoices(fmtid):
                 if fld_val not in seen:
                     seen.append(fld_val)
                     all_fld_choices = all_fld_choices + ((fld_val, fld_name),)
@@ -647,7 +647,6 @@ class FormatGroup:
 
                 # For each stats category defined for this format
                 for params in params_arrays:
-
                     if "delimiter" in params:
                         delim = params["delimiter"]
                     else:
