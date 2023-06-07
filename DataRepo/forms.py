@@ -289,6 +289,28 @@ class AdvSearchPageForm(forms.Form):
         return True
 
 
+class MultipleFileInput(forms.ClearableFileInput):
+    """Subclass of ClearableFileInput that specifically allows multiple selected files"""
+
+    allow_multiple_selected = True
+
+
+class MultipleFileField(forms.FileField):
+    """Subclass of FileField that validates multiple files submitted in a single form field"""
+
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("widget", MultipleFileInput())
+        super().__init__(*args, **kwargs)
+
+    def clean(self, data, initial=None):
+        single_file_clean = super().clean
+        if isinstance(data, (list, tuple)):
+            result = [single_file_clean(d, initial) for d in data]
+        else:
+            result = single_file_clean(data, initial)
+        return result
+
+
 class DataSubmissionValidationForm(forms.Form):
     """
     Form for users to validate their Animal and Sample Table with Accucor and/or Isocorr files
@@ -302,9 +324,9 @@ class DataSubmissionValidationForm(forms.Form):
     animal_sample_table = forms.FileField(
         required=True, widget=forms.ClearableFileInput(attrs={"multiple": False})
     )
-    accucor_files = forms.FileField(
-        required=False, widget=forms.ClearableFileInput(attrs={"multiple": True})
+    accucor_files = MultipleFileField(
+        required=False, widget=MultipleFileInput(attrs={"multiple": True})
     )
-    isocorr_files = forms.FileField(
-        required=False, widget=forms.ClearableFileInput(attrs={"multiple": True})
+    isocorr_files = MultipleFileField(
+        required=False, widget=MultipleFileInput(attrs={"multiple": True})
     )
