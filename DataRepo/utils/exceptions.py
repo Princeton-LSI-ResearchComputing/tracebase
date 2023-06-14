@@ -939,7 +939,7 @@ class ConflictingValueErrors(Exception):
 
         message = f"Conflicting values found when loading {model_name} records:\n"
         for conflicting_value_error in conflicting_value_errors:
-            message += str(conflicting_value_error)
+            message += str(conflicting_value_error) + "\n"
         super().__init__(message)
         self.model_name = model_name
         self.conflicting_value_errors = conflicting_value_errors
@@ -963,10 +963,10 @@ class ConflictingValueError(Exception):
             if sheet is not None:
                 rowmsg += f"in sheet [{sheet}] "
             message = (
-                f"Conflicting [{consistent_field}] field values encountered {rowmsg}in {type(rec).__name__} record "
-                f"[{str(model_to_dict(rec))}]:\n"
-                f"\tdatabase: [{existing_value}]\n"
-                f"\tfile: [{differing_value}]"
+                f"Conflicting {consistent_field} field values encountered {rowmsg}in {type(rec).__name__} record "
+                f"{str(model_to_dict(rec))}:\n"
+                f"\tdatabase: {existing_value}\n"
+                f"\tfile: {differing_value}"
             )
         super().__init__(message)
         self.consistent_field = consistent_field

@@ -327,7 +327,8 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
     @tag("multi-msrun")
     def test_duplicate_compounds_one_msrun(self):
         """
-        Test that we can load different compounds in separate data files for the same sample run (MSRun)
+        Test that we do not allow the same compound to be measured from the
+        same sample run (MSRun) more than once
         """
         self.load_glucose_data()
         with self.assertRaises(AggregatedErrors) as ar:

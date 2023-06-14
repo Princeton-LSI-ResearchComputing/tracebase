@@ -756,8 +756,8 @@ class AccuCorDataLoader:
                     new_values.append(peak_group_attrs["formula"])
                 if existing_peak_group.peak_group_set != peak_group_set:
                     conflicting_fields.append("peak_group_set")
-                    existing_values.append(existing_peak_group.peak_group_set)
-                    new_values.append(peak_group_set)
+                    existing_values.append(existing_peak_group.peak_group_set.filename)
+                    new_values.append(peak_group_set.filename)
                 raise ConflictingValueError(
                     rec=existing_peak_group,
                     consistent_field=conflicting_fields,
@@ -1101,8 +1101,6 @@ class AccuCorDataLoader:
                     adding_file=peak_group_set.filename,
                     duplicate_peak_groups=duplicate_peak_groups,
                 ),
-                is_fatal=True,
-                is_error=not self.validate,
             )
         if len(conflicting_peak_groups) > 0:
             self.aggregated_errors_object.buffer_exception(
@@ -1110,8 +1108,6 @@ class AccuCorDataLoader:
                     model_name="PeakGroup",
                     conflicting_value_errors=conflicting_peak_groups,
                 ),
-                is_fatal=True,
-                is_error=not self.validate,
             )
 
         if self.aggregated_errors_object.should_raise():
