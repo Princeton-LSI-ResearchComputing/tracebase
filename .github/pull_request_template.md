@@ -30,13 +30,13 @@ The PR author asserts that the following (checked) merge requirements are met:
   - Specific approvals required
     <!-- Approvals from the contributors you select are required regardless of
     minimum approvals.  Check or delete as desired. -->
-    - [ ] @cbartman1
-    - [ ] @hepcat72
-    - [ ] @jcmatese
-    - [ ] @fkang-pu
-    - [ ] @lparsons
-    - [ ] @mneinast
-    - [ ] @narzouni
+    - [ ] cbartman1
+    - [ ] hepcat72
+    - [ ] jcmatese
+    - [ ] fkang-pu
+    - [ ] lparsons
+    - [ ] mneinast
+    - [ ] narzouni
 - Associated issue/pull request requirements:
   - [x] All resolved issue requirements satisfied
   - [x] All dependent pull requests are merged *(or none)*
