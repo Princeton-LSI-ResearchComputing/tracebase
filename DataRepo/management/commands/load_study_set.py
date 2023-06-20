@@ -15,7 +15,6 @@ from DataRepo.utils.exceptions import AggregatedErrorsSet
 
 
 class Command(BaseCommand):
-
     # Show this when the user types help
     help = (
         "Loads a set of studies using the load_study command. Input is a file of "
@@ -39,7 +38,6 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-
         # The buffer can only exist as long as the existence of the process, but since this method can be called from
         # code, who knows what has been done before.  So the clear_buffer option allows the load_study_set method to be
         # called in code with an option to explicitly clean the buffer.

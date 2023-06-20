@@ -9,7 +9,6 @@ from DataRepo.utils import SampleTableLoader
 
 
 class Command(BaseCommand):
-
     examples_dir = "DataRepo/example_data/"
     example_animals = examples_dir + "obob_animals_table.tsv"
     example_samples = examples_dir + "obob_samples_table.tsv"
@@ -87,7 +86,6 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-
         self.stdout.write(self.style.MIGRATE_HEADING("Reading header definition..."))
         if options["table_headers"]:
             with open(options["table_headers"]) as headers_file:

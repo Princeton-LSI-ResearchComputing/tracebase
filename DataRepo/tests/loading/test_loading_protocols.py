@@ -23,7 +23,6 @@ class ProtocolLoadingTests(TracebaseTestCase):
 
     @classmethod
     def setUpTestData(cls):
-
         # initialize list of lists
         data = [
             ["no treatment", "No treatment was applied to the animal."],
@@ -171,7 +170,6 @@ class ProtocolLoadingTests(TracebaseTestCase):
         self.assertEqual(Protocol.objects.count(), 0)
 
     def test_protocol_load_in_debug(self):
-
         pre_load_counts = self.get_record_counts()
         self.assertEqual(0, buffer_size(), msg="Autoupdate buffer is empty to start.")
 

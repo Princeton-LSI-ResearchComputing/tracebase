@@ -34,7 +34,6 @@ from DataRepo.utils.exceptions import (
 
 
 class Command(BaseCommand):
-
     # Path to example config file
     example_configfile = os.path.relpath(
         os.path.join(
@@ -108,7 +107,6 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-
         self.missing_samples = defaultdict(list)
         self.missing_tissues = defaultdict(dict)
         self.missing_compounds = defaultdict(dict)
@@ -148,7 +146,6 @@ class Command(BaseCommand):
 
         with transaction.atomic():
             if "compounds" in study_params:
-
                 compound_file_basename = study_params["compounds"]
                 compounds_file = os.path.join(study_dir, compound_file_basename)
                 self.load_statuses.init_load(compounds_file)
@@ -170,7 +167,6 @@ class Command(BaseCommand):
                     self.package_group_exceptions(e, compounds_file)
 
             if "protocols" in study_params:
-
                 protocol_file_basename = study_params["protocols"]
                 protocols_file = os.path.join(study_dir, protocol_file_basename)
                 self.load_statuses.init_load(protocols_file)
@@ -193,7 +189,6 @@ class Command(BaseCommand):
                     self.package_group_exceptions(e, protocols_file)
 
             if "tissues" in study_params:
-
                 tissue_file_basename = study_params["tissues"]
                 tissues_file = os.path.join(study_dir, tissue_file_basename)
                 self.load_statuses.init_load(tissues_file)
@@ -216,7 +211,6 @@ class Command(BaseCommand):
                     self.package_group_exceptions(e, tissues_file)
 
             if "animals_samples_treatments" in study_params:
-
                 # Read in animals and samples file
                 sample_file_basename = study_params["animals_samples_treatments"][
                     "table"
@@ -260,7 +254,6 @@ class Command(BaseCommand):
                     self.package_group_exceptions(e, animals_samples_table_file)
 
             if "accucor_data" in study_params:
-
                 # Get parameters for all accucor files
                 study_protocol = study_params["accucor_data"]["msrun_protocol"]
                 study_date = study_params["accucor_data"]["date"]
@@ -275,7 +268,6 @@ class Command(BaseCommand):
 
                 # Read in accucor data files
                 for accucor_info_dict in study_params["accucor_data"]["accucor_files"]:
-
                     # Get parameters specific to each accucor file
                     accucor_file_basename = accucor_info_dict["name"]
                     accucor_file = os.path.join(study_dir, accucor_file_basename)
@@ -373,7 +365,6 @@ class Command(BaseCommand):
         # representation will be the "fatal error" and the errors in the files will be kept to cross-reference with the
         # group level error.  See handle_exceptions.
         if isinstance(exception, AggregatedErrors):
-
             # Consolidate related cross-file exceptions, like missing samples
             # Note, this can change whether the AggregatedErrors for this file are fatal or not
             missing_sample_exceptions = exception.get_exception_type(

@@ -2,7 +2,6 @@ from django.db import models
 
 
 class Protocol(models.Model):
-
     MSRUN_PROTOCOL = "msrun_protocol"
     ANIMAL_TREATMENT = "animal_treatment"
     CATEGORY_CHOICES = [

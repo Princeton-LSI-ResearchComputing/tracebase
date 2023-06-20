@@ -256,7 +256,6 @@ class DataValidationView(FormView):
 
     def add_ms_data(self, basic_loading_data, tmpdir, files, filenames, is_isocorr):
         for i, form_file_path in enumerate(files):
-
             if len(files) == len(filenames):
                 fn = filenames[i]
             else:

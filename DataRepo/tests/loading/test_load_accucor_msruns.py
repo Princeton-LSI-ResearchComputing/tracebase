@@ -121,7 +121,6 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         self.assertTrue(isinstance(aes.exceptions[0], NoSamplesError))
 
     def test_accucor_load_in_debug(self):
-
         pre_load_counts = self.get_record_counts()
         pre_load_maintained_values = get_all_maintained_field_values("DataRepo.models")
         self.assertGreater(

@@ -41,7 +41,6 @@ def cached_function_call(cls, cfunc_name):
 
 
 class Command(BaseCommand):
-
     # Show this when the user types help
     help = "Builds cache values for all cached_functions"
 
