@@ -912,7 +912,6 @@ class AccuCorDataLoader:
                     # duplicate compound/isotope pairs that would go away when the duplicate was fixed.  The duplicate
                     # was causing the data to contain a pandas structure where corrected_abundance should have been -
                     # containing 2 values instead of 1.
-                    raise e
                     self.aggregated_errors_object.buffer_error(e)
                     continue
 
