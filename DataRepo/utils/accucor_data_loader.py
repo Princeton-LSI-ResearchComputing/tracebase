@@ -181,7 +181,8 @@ class AccuCorDataLoader:
                 "original": defaultdict(dict),
                 "corrected": defaultdict(dict),
             }
-            self.existing_msruns = defaultdict(list)
+            self.duplicate_peak_groups = []
+            self.conflicting_peak_groups = []
 
             # Used for accucor
             self.labeled_element = None
@@ -859,8 +860,6 @@ class AccuCorDataLoader:
                 continue
 
         # Create all PeakGroups
-        duplicate_peak_groups = []
-        conflicting_peak_groups = []
         for sample_name in sample_msrun_dict.keys():
 
             msrun = sample_msrun_dict[sample_name]
@@ -902,9 +901,9 @@ class AccuCorDataLoader:
                             )
                             inserted_peak_group_dict[peak_group_name] = peak_group
                         except DuplicatePeakGroup as dup_pg:
-                            duplicate_peak_groups.append(dup_pg)
+                            self.duplicate_peak_groups.append(dup_pg)
                         except ConflictingValueError as cve:
-                            conflicting_peak_groups.append(cve)
+                            self.conflicting_peak_groups.append(cve)
 
                 except Exception as e:
                     # If we get here, a specific exception should be written to handle and explain the cause of an
@@ -1094,18 +1093,20 @@ class AccuCorDataLoader:
                             self.aggregated_errors_object.buffer_error(e)
                             continue
 
-        if len(duplicate_peak_groups) > 0:
+        if len(self.duplicate_peak_groups) > 0:
             self.aggregated_errors_object.buffer_exception(
                 DuplicatePeakGroups(
                     adding_file=peak_group_set.filename,
-                    duplicate_peak_groups=duplicate_peak_groups,
+                    duplicate_peak_groups=self.duplicate_peak_groups,
                 ),
+                is_fatal=self.validate,
+                is_error=False,
             )
-        if len(conflicting_peak_groups) > 0:
+        if len(self.conflicting_peak_groups) > 0:
             self.aggregated_errors_object.buffer_exception(
                 ConflictingValueErrors(
                     model_name="PeakGroup",
-                    conflicting_value_errors=conflicting_peak_groups,
+                    conflicting_value_errors=self.conflicting_peak_groups,
                 ),
             )
 

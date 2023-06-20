@@ -119,6 +119,7 @@ class DuplicatePeakGroup(Exception):
             f"\tsample: {sample}\n"
             f"\tpeak_group_name: {peak_group_name}\n"
             f"\texisting_peak_group_set: {existing_peak_group_set}\n"
+            f"\tWas this file [{adding_file}] loaded previously?\n"
         )
         super().__init__(message)
         self.adding_file = adding_file
@@ -963,10 +964,10 @@ class ConflictingValueError(Exception):
             if sheet is not None:
                 rowmsg += f"in sheet [{sheet}] "
             message = (
-                f"Conflicting {consistent_field} field values encountered {rowmsg}in {type(rec).__name__} record "
-                f"{str(model_to_dict(rec))}:\n"
-                f"\tdatabase: {existing_value}\n"
-                f"\tfile: {differing_value}"
+                f"Conflicting [{consistent_field}] field values encountered {rowmsg}in {type(rec).__name__} record "
+                f"[{str(model_to_dict(rec))}]:\n"
+                f"\tdatabase: [{existing_value}]\n"
+                f"\tfile: [{differing_value}]"
             )
         super().__init__(message)
         self.consistent_field = consistent_field

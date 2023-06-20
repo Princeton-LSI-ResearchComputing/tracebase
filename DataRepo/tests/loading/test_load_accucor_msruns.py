@@ -50,6 +50,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
 
     @classmethod
     def load_glucose_data(cls):
+        """Load small_dataset Glucose data"""
         call_command(
             "load_accucor_msruns",
             accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_glucose.xlsx",
@@ -191,9 +192,15 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
 
     @tag("multi-msrun")
     def test_conflicting_peakgroups(self):
+        """Test loading two conflicting PeakGroups rasies ConflictingValueErrors
+
+        Attempt to load two PeakGroups for the same Compound in the same MSRun
+        but from different PeakGroupSets (filenames)
+        """
 
         self.load_glucose_data()
 
+        # The same PeakGroup, but from a different accucor file
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_accucor_msruns",
@@ -213,12 +220,21 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
 
     @tag("multi-msrun")
     def test_duplicate_peak_group(self):
+        """Test inerting two identical PeakGroups raises an DuplicatePeakGroup error
+
+        This tests the AccuCorDataLoader.insert_peak_group method directly.
+        """
 
         self.load_glucose_data()
 
+        # Setup an AccuCorDataLoader object with minimal info
+        # Required since using the "load_accucor_msruns" will not allow
+        # multiple loads of the same accucor_file, meaning two PeakGroups will
+        # differ in PeakGroupSet and raise ConflictingValueErrors, not DuplicatePeakGroup
         adl = AccuCorDataLoader(
             None, None, "2023-01-01", "", "", "peak_group_set_filename.tsv"
         )
+        # Get the first PeakGroup, and collect attributes
         peak_group = PeakGroup.objects.first()
         peak_group_attrs = {
             "name": peak_group.name,
@@ -226,6 +242,8 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             "compounds": peak_group.compounds,
         }
 
+        # Test the instance method "insert_peak_group" rasies and error
+        # when inserting an exact duplicate PeakGroup
         with self.assertRaises(DuplicatePeakGroup):
             adl.insert_peak_group(
                 peak_group_attrs,
@@ -235,12 +253,20 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
 
     @tag("multi-msrun")
     def test_conflicting_peak_group(self):
+        """Test inserting two conflicting PeakGroups raises ConflictingValueErrors
+
+        Insert two PeakGroups that differ only in Forumla.
+
+        This tests the AccuCorDataLoader.insert_peak_group method directly.
+        """
 
         self.load_glucose_data()
 
+        # Setup an AccuCorDataLoader object with minimal info
         adl = AccuCorDataLoader(
             None, None, "2023-01-01", "", "", "peak_group_set_filename.tsv"
         )
+        # Get the first PeakGroup, collect the attributes and change the formula
         peak_group = PeakGroup.objects.first()
         peak_group_attrs = {
             "name": peak_group.name,
