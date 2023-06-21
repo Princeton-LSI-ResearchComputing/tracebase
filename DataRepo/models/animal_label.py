@@ -106,7 +106,6 @@ class AnimalLabel(HierCachedModel):
             last_serum_tracers_enrichment_sum = 0.0
             total_atom_count = 0
             for pg in self.last_serum_tracer_label_peak_groups.all():
-
                 # Count the total number of this element among all the tracer compounds (via the single peakgroup
                 # formula).   This may be called on formulas that do not have self.element, but those just return 0 and
                 # that's OK.

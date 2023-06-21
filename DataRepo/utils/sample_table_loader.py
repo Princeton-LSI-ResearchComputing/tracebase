@@ -207,7 +207,6 @@ class SampleTableLoader:
         }
 
     def load_sample_table(self, data):
-
         disable_autoupdates()
         disable_caching_updates()
         # Only auto-update fields whose update_label in the decorator is "name"
@@ -715,7 +714,6 @@ class SampleTableLoader:
                     print(f"SKIPPING existing Sample record: {sample_name}")
 
             except Sample.DoesNotExist:
-
                 try:
                     sample_rec, sample_created = Sample.objects.get_or_create(
                         name=sample_name,

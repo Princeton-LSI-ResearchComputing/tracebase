@@ -60,7 +60,6 @@ from DataRepo.utils import (
 
 class ExampleDataConsumer:
     def get_sample_test_dataframe(self):
-
         # making this a dataframe, if more rows are need for future tests, or we
         # switch to a file based test
         test_df = pd.DataFrame(
@@ -82,7 +81,6 @@ class ExampleDataConsumer:
         return test_df
 
     def get_peak_group_test_dataframe(self):
-
         peak_data_df = pd.DataFrame(
             {
                 "labeled_element": ["C", "C"],
@@ -448,7 +446,6 @@ class DataLoadingTests(TracebaseTestCase):
         self.assertFalse(nonserum.is_serum_sample)
 
     def test_peak_groups_set_loaded(self):
-
         # 2 peak group sets , 1 for each call to load_accucor_msruns
         self.assertEqual(
             PeakGroupSet.objects.all().count(), self.ALL_PEAKGROUPSETS_COUNT
@@ -1836,7 +1833,6 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
         super().setUpTestData()
 
     def test_animal_and_sample_load_xlsx(self):
-
         # initialize some sample-table-dependent counters
         SAMPLES_COUNT = 16
         ANIMALS_COUNT = 1
@@ -1859,7 +1855,6 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
         self.assertEqual(study.animals.count(), ANIMALS_COUNT)
 
     def test_animal_and_sample_load_in_dry_run(self):
-
         # Load some data to ensure that none of it changes during the actual test
         call_command(
             "load_animals_and_samples",
@@ -2131,7 +2126,6 @@ class StudyLoadingTests(TracebaseTestCase):
         )
 
     def test_leaderboards(self):
-
         expected_leaderboard = {
             "studies_leaderboard": [
                 (Researcher(name="Xianfeng Zeng"), 1),

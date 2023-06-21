@@ -1043,7 +1043,6 @@ class Format:
 
             # If the split_all override in false and there exist custom distinct fields defined
             if not split_all and custom_distinct_fields_exist:
-
                 for distinct_fld_nm in self.model_instances[mdl_inst_nm][
                     "fields"
                 ].keys():
@@ -1080,7 +1079,6 @@ class Format:
                 # expressions`
                 tmp_distincts = self.getOrderByFields(mdl_inst_nm)
                 for fld_nm in tmp_distincts:
-
                     # Remove potential loop added to the path when ordering_fields are dereferenced
                     # E.g. This changes "peak_data__labels__peak_data__peak_group__name" to
                     # "peak_data__peak_group__name"

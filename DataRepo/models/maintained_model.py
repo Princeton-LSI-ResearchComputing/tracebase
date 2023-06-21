@@ -234,7 +234,6 @@ def maintained_model_relation(
         )
 
     def decorator(cls):
-
         func_dict = {
             "update_function": None,
             "update_field": None,
@@ -442,7 +441,6 @@ class MaintainedModel(Model):
 
         class_name = self.__class__.__name__
         for updater_dict in updater_list[class_name]:
-
             # Ensure the field being set is not a maintained field
 
             update_fld = updater_dict["update_field"]
@@ -470,7 +468,6 @@ class MaintainedModel(Model):
                 ]
             )
             if decorator_signature not in self.maintained_model_initialized:
-
                 if settings.DEBUG:
                     print(
                         f"Validating {self.__class__.__name__} updater: {updater_dict}"
@@ -696,7 +693,6 @@ class MaintainedModel(Model):
             # update we're about to trigger
             parent_sig = f"{parent_inst.__class__.__name__}.{parent_inst.id}"
             if parent_sig not in updated:
-
                 if settings.DEBUG:
                     self_sig = f"{self.__class__.__name__}.{self.pk}"
                     print(
@@ -733,17 +729,14 @@ class MaintainedModel(Model):
 
             # If there is a parent that should update based on this change
             if parent_fld is not None:
-
                 # Get the parent instance
                 tmp_parent_inst = getattr(self, parent_fld)
 
                 # if a parent record exists
                 if tmp_parent_inst is not None:
-
                     try:
                         # Make sure that the (direct) parnet (or M:M related parent) *isa* MaintainedModel
                         if isinstance(tmp_parent_inst, MaintainedModel):
-
                             parent_inst = tmp_parent_inst
                             if parent_inst not in parents:
                                 parents.append(parent_inst)
@@ -752,12 +745,10 @@ class MaintainedModel(Model):
                             tmp_parent_inst.__class__.__name__ == "ManyRelatedManager"
                             or tmp_parent_inst.__class__.__name__ == "RelatedManager"
                         ):
-
                             # NOTE: This is where the `through` model is skipped
                             if tmp_parent_inst.count() > 0 and isinstance(
                                 tmp_parent_inst.first(), MaintainedModel
                             ):
-
                                 for mm_parent_inst in tmp_parent_inst.all():
                                     if mm_parent_inst not in parents:
                                         parents.append(mm_parent_inst)
@@ -788,12 +779,10 @@ class MaintainedModel(Model):
         """
         children = self.get_child_instances()
         for child_inst in children:
-
             # If the current instance's update was triggered - and was triggered by the same child instance whose
             # update we're about to trigger
             child_sig = f"{child_inst.__class__.__name__}.{child_inst.id}"
             if child_sig not in updated:
-
                 if settings.DEBUG:
                     self_sig = f"{self.__class__.__name__}.{self.pk}"
                     print(
@@ -829,16 +818,13 @@ class MaintainedModel(Model):
 
             # If there is a child that should update based on this change
             for child_fld in child_flds:
-
                 # Get the child instance
                 tmp_child_inst = getattr(self, child_fld)
 
                 # if a child record exists
                 if tmp_child_inst is not None:
-
                     # Make sure that the (direct) parnet (or M:M related child) *isa* MaintainedModel
                     if isinstance(tmp_child_inst, MaintainedModel):
-
                         child_inst = tmp_child_inst
                         if child_inst not in children:
                             children.append(child_inst)
@@ -847,15 +833,12 @@ class MaintainedModel(Model):
                         tmp_child_inst.__class__.__name__ == "ManyRelatedManager"
                         or tmp_child_inst.__class__.__name__ == "RelatedManager"
                     ):
-
                         try:
                             # NOTE: This is where the `through` model is skipped
                             if tmp_child_inst.count() > 0 and isinstance(
                                 tmp_child_inst.first(), MaintainedModel
                             ):
-
                                 for mm_child_inst in tmp_child_inst.all():
-
                                     if mm_child_inst not in children:
                                         children.append(mm_child_inst)
 
@@ -1203,7 +1186,6 @@ def perform_buffered_updates(label_filters=None, filter_in=None):
                 updated = buffer_item.call_dfs_related_updaters(updated=updated)
 
             elif key not in updated and buffer_item not in new_buffer:
-
                 new_buffer.append(buffer_item)
 
         except Exception as e:

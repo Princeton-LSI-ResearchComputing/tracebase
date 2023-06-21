@@ -70,7 +70,6 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(f"{action} compound data completed"))
 
     def extract_compounds_from_tsv(self, options):
-
         self.compounds_df = pd.read_csv(
             options["compounds"], sep="\t", keep_default_na=False
         )

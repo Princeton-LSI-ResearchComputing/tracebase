@@ -15,7 +15,6 @@ from DataRepo.utils.infusate_name_parser import IsotopeData
 
 class TracerLabelQuerySet(models.QuerySet):
     def create_tracer_label(self, tracer: Tracer, isotope_data: IsotopeData):
-
         tracer_label = self.create(
             tracer=tracer,
             element=isotope_data["element"],
@@ -29,7 +28,6 @@ class TracerLabelQuerySet(models.QuerySet):
 
 
 class TracerLabel(MaintainedModel, ElementLabel):
-
     objects = TracerLabelQuerySet().as_manager()
 
     id = models.AutoField(primary_key=True)

@@ -3,7 +3,6 @@
 # (https://docs.djangoproject.com/en/3.2/topics/db/models/#abstract-base-classes).
 # This simply shares some configured variables/values.
 class ElementLabel:
-
     # choice specifications
     CARBON = "C"
     NITROGEN = "N"
