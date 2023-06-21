@@ -377,31 +377,30 @@ class SampleTableLoader:
 
         if study_name:
             try:
-                try:
-                    study_rec, study_created = Study.objects.get_or_create(
-                        name=study_name,
-                        description=study_desc,
-                    )
-                except IntegrityError as ie:
-                    estr = str(ie)
-                    if "duplicate key value violates unique constraint" in estr:
-                        study_rec = Study.objects.get(name=study_name)
-                        orig_desc = study_rec.description
-                        if orig_desc and study_desc:
-                            self.aggregated_errors_object.buffer_error(
-                                ConflictingValueError(
-                                    study_rec,
-                                    "description",
-                                    orig_desc,
-                                    study_desc,
-                                    rownum,
-                                )
+                study_rec, study_created = Study.objects.get_or_create(
+                    name=study_name,
+                    description=study_desc,
+                )
+            except IntegrityError as ie:
+                estr = str(ie)
+                if "duplicate key value violates unique constraint" in estr:
+                    study_rec = Study.objects.get(name=study_name)
+                    orig_desc = study_rec.description
+                    if orig_desc and study_desc:
+                        self.aggregated_errors_object.buffer_error(
+                            ConflictingValueError(
+                                study_rec,
+                                "description",
+                                orig_desc,
+                                study_desc,
+                                rownum,
                             )
-                        elif study_desc:
-                            study_rec.description = study_desc
-                            study_updated = True
-                    else:
-                        raise ie
+                        )
+                    elif study_desc:
+                        study_rec.description = study_desc
+                        study_updated = True
+                else:
+                    raise ie
             except Exception as e:
                 study_rec = None
                 self.aggregated_errors_object.buffer_error(

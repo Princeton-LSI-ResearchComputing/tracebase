@@ -45,6 +45,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Documentation updates associated with the loading and validation refactor
 - Tissue "blank" is now case insensitive
 - Max labaeled atoms is now determined using the formula instead of a static value
+- Allow data to be loaded from the same MSRun in multiple accucor/isocor files
+- Error when attempting to load duplicate or conflicting PeakGroups from accucor/isocor files
 
 ### Removed
 

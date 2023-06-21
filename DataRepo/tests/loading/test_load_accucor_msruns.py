@@ -1,6 +1,6 @@
 from django.conf import settings
 from django.core.management import call_command
-from django.test import override_settings
+from django.test import override_settings, tag
 
 from DataRepo.models import (
     Infusate,
@@ -17,11 +17,15 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import (
     AccuCorDataLoader,
     AggregatedErrors,
+    ConflictingValueError,
     DryRun,
-    MSRunAlreadyLoadedOrNotUnique,
     NoSamplesError,
     TracerLabeledElementNotFound,
     UnskippedBlanksError,
+)
+from DataRepo.utils.exceptions import (
+    ConflictingValueErrors,
+    DuplicatePeakGroup,
 )
 
 
@@ -43,6 +47,19 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         )
 
         super().setUpTestData()
+
+    @classmethod
+    def load_glucose_data(cls):
+        """Load small_dataset Glucose data"""
+        call_command(
+            "load_accucor_msruns",
+            accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_glucose.xlsx",
+            skip_samples=("blank"),
+            protocol="Default",
+            date="2021-04-29",
+            researcher="Michael Neinast",
+            new_researcher=True,
+        )
 
     def test_accucor_load_blank_fail(self):
         with self.assertRaises(AggregatedErrors, msg="1 samples are missing.") as ar:
@@ -172,37 +189,96 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             adl.missing_compounds,
         )
 
-    def test_existing_msruns(self):
-        # Call once to successfully load data
-        call_command(
-            "load_accucor_msruns",
-            accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_blank_sample.xlsx",
-            skip_samples=("blank"),
-            protocol="Default",
-            date="2021-04-29",
-            researcher="Michael Neinast",
-            new_researcher=True,
-        )
+    @tag("multi-msrun")
+    def test_conflicting_peakgroups(self):
+        """Test loading two conflicting PeakGroups rasies ConflictingValueErrors
 
-        # Call a second time to induce an existing msrun exception
+        Attempt to load two PeakGroups for the same Compound in the same MSRun
+        but from different PeakGroupSets (filenames)
+        """
+
+        self.load_glucose_data()
+
+        # The same PeakGroup, but from a different accucor file
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_accucor_msruns",
-                accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_blank_sample_run2.xlsx",
+                accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_glucose_conflicting.xlsx",
                 skip_samples=("blank"),
                 protocol="Default",
                 date="2021-04-29",
                 researcher="Michael Neinast",
                 new_researcher=False,
             )
+
         aes = ar.exception
         self.assertEqual(1, aes.num_errors)
-        self.assertEqual(MSRunAlreadyLoadedOrNotUnique, type(aes.exceptions[0]))
-        self.assertIn(
-            "small_obob_maven_6eaas_inf_blank_sample.xlsx",
-            str(aes.exceptions[0]),
-            msg="References file from conflicting MSRun",
+        self.assertEqual(ConflictingValueErrors, type(aes.exceptions[0]))
+        # 1 compounds, 2 samples -> 2 PeakGroups
+        self.assertEqual(2, len(aes.exceptions[0].conflicting_value_errors))
+
+    @tag("multi-msrun")
+    def test_duplicate_peak_group(self):
+        """Test inerting two identical PeakGroups raises an DuplicatePeakGroup error
+
+        This tests the AccuCorDataLoader.insert_peak_group method directly.
+        """
+
+        self.load_glucose_data()
+
+        # Setup an AccuCorDataLoader object with minimal info
+        # Required since using the "load_accucor_msruns" will not allow
+        # multiple loads of the same accucor_file, meaning two PeakGroups will
+        # differ in PeakGroupSet and raise ConflictingValueErrors, not DuplicatePeakGroup
+        adl = AccuCorDataLoader(
+            None, None, "2023-01-01", "", "", "peak_group_set_filename.tsv"
         )
+        # Get the first PeakGroup, and collect attributes
+        peak_group = PeakGroup.objects.first()
+        peak_group_attrs = {
+            "name": peak_group.name,
+            "formula": peak_group.formula,
+            "compounds": peak_group.compounds,
+        }
+
+        # Test the instance method "insert_peak_group" rasies and error
+        # when inserting an exact duplicate PeakGroup
+        with self.assertRaises(DuplicatePeakGroup):
+            adl.insert_peak_group(
+                peak_group_attrs,
+                msrun=peak_group.msrun,
+                peak_group_set=peak_group.peak_group_set,
+            )
+
+    @tag("multi-msrun")
+    def test_conflicting_peak_group(self):
+        """Test inserting two conflicting PeakGroups raises ConflictingValueErrors
+
+        Insert two PeakGroups that differ only in Forumla.
+
+        This tests the AccuCorDataLoader.insert_peak_group method directly.
+        """
+
+        self.load_glucose_data()
+
+        # Setup an AccuCorDataLoader object with minimal info
+        adl = AccuCorDataLoader(
+            None, None, "2023-01-01", "", "", "peak_group_set_filename.tsv"
+        )
+        # Get the first PeakGroup, collect the attributes and change the formula
+        peak_group = PeakGroup.objects.first()
+        peak_group_attrs = {
+            "name": peak_group.name,
+            "formula": f"{peak_group.formula}S",
+            "compounds": peak_group.compounds,
+        }
+
+        with self.assertRaises(ConflictingValueError):
+            adl.insert_peak_group(
+                peak_group_attrs,
+                msrun=peak_group.msrun,
+                peak_group_set=peak_group.peak_group_set,
+            )
 
     def test_multiple_accucor_labels(self):
         """
@@ -249,6 +325,61 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
         self.assertTrue(isinstance(aes.exceptions[0], TracerLabeledElementNotFound))
+
+    @tag("multi-msrun")
+    def test_multiple_accucor_one_msrun(self):
+        """
+        Test that we can load different compounds in separate data files for the same sample run (MSRun)
+        """
+        self.load_glucose_data()
+        call_command(
+            "load_accucor_msruns",
+            accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_lactate.xlsx",
+            protocol="Default",
+            date="2021-04-29",
+            researcher="Michael Neinast",
+            new_researcher=False,
+        )
+        SAMPLES_COUNT = 2
+        PEAKDATA_ROWS = 11
+        MEASURED_COMPOUNDS_COUNT = 2  # Glucose and lactate
+
+        self.assertEqual(
+            PeakGroup.objects.count(), MEASURED_COMPOUNDS_COUNT * SAMPLES_COUNT
+        )
+        self.assertEqual(PeakData.objects.all().count(), PEAKDATA_ROWS * SAMPLES_COUNT)
+
+    @tag("multi-msrun")
+    def test_duplicate_compounds_one_msrun(self):
+        """
+        Test that we do not allow the same compound to be measured from the
+        same sample run (MSRun) more than once
+        """
+        self.load_glucose_data()
+        with self.assertRaises(AggregatedErrors) as ar:
+            call_command(
+                "load_accucor_msruns",
+                accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_glucose_2.xlsx",
+                protocol="Default",
+                date="2021-04-29",
+                researcher="Michael Neinast",
+                new_researcher=False,
+            )
+        # Check second file failed (duplicate compounds)
+        aes = ar.exception
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertTrue(isinstance(aes.exceptions[0], ConflictingValueErrors))
+        self.assertEqual(2, len(aes.exceptions[0].conflicting_value_errors))
+
+        # Check first file loaded
+        SAMPLES_COUNT = 2
+        PEAKDATA_ROWS = 7
+        MEASURED_COMPOUNDS_COUNT = 1  # Glucose and lactate
+
+        self.assertEqual(
+            PeakGroup.objects.count(), MEASURED_COMPOUNDS_COUNT * SAMPLES_COUNT
+        )
+        self.assertEqual(PeakData.objects.all().count(), PEAKDATA_ROWS * SAMPLES_COUNT)
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
