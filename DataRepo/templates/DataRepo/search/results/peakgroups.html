@@ -338,12 +338,26 @@
 
                     <!-- Enrichment Fraction -->
                     <td class="text-end">
-                        {% for label_rec in label_recs %}{% if not forloop.first %}, {% endif %}<p title="{{ label_rec.enrichment_fraction|floatformat:15 }}">{{ label_rec.enrichment_fraction|floatformat:4 }}</p>{% endfor %}
+                        {% for label_rec in label_recs %}
+                            {% if not forloop.first %}, {% endif %}
+                            {% if label_rec.enrichment_fraction is None %}
+                                <p>None</p>
+                            {% else %}
+                                <p title="{{ label_rec.enrichment_fraction|floatformat:15 }}">{{ label_rec.enrichment_fraction|floatformat:4 }}</p>
+                            {% endif %}
+                        {% endfor %}
                     </td>
 
                     <!-- Enrichment Abundance -->
                     <td class="text-end">
-                        {% for label_rec in label_recs %}{% if not forloop.first %}, {% endif %}<p title="{{ label_rec.enrichment_abundance|floatformat:10 }}">{{ label_rec.enrichment_abundance|floatformat:4 }}</p>{% endfor %}
+                        {% for label_rec in label_recs %}
+                            {% if not forloop.first %}, {% endif %}
+                            {% if label_rec.enrichment_abundance is None %}
+                                <p>None</p>
+                            {% else %}
+                                <p title="{{ label_rec.enrichment_abundance|floatformat:10 }}">{{ label_rec.enrichment_abundance|floatformat:4 }}</p>
+                            {% endif %}
+                        {% endfor %}
                     </td>
 
                     <!-- Normalized Labeling -->
