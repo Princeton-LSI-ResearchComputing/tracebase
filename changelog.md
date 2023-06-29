@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Sample table loading now checks in-file sample name uniqueness
 - Added the ability for the accucor loading code to deal with infusates with multiple labeled elements when there is only 1 isotopic version of it among the tracers.
 
+
+### Fixed
+
+- PeakGroups table now displays "None" when erichment fraction or enrichment
+  abundance cannot be calculated. Previously was blank. (Issue #611).
+
 ### Changed
 
 - Stripped units in the sample table loader now generate an error if the units are deemed to be incorrect.
