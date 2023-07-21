@@ -1,5 +1,4 @@
 from chempy.util.periodic import atomic_number
-from django.conf import settings
 from django.contrib.postgres.fields import ArrayField
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
@@ -16,9 +15,7 @@ from DataRepo.utils.infusate_name_parser import IsotopeData
 
 class TracerLabelQuerySet(models.QuerySet):
     def create_tracer_label(self, tracer: Tracer, isotope_data: IsotopeData):
-        db = self._db or settings.DEFAULT_DB
-
-        tracer_label = self.using(db).create(
+        tracer_label = self.create(
             tracer=tracer,
             element=isotope_data["element"],
             count=isotope_data["count"],
@@ -26,12 +23,11 @@ class TracerLabelQuerySet(models.QuerySet):
             mass_number=isotope_data["mass_number"],
         )
         tracer_label.full_clean()
-        tracer_label.save(using=db)
+        tracer_label.save()
         return tracer_label
 
 
 class TracerLabel(MaintainedModel, ElementLabel):
-
     objects = TracerLabelQuerySet().as_manager()
 
     id = models.AutoField(primary_key=True)

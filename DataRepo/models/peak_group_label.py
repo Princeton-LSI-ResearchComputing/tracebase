@@ -11,7 +11,6 @@ from DataRepo.models.utilities import atom_count_in_formula
 
 
 class PeakGroupLabel(HierCachedModel):
-
     parent_related_key_name = "peak_group"
     # Leaf
 

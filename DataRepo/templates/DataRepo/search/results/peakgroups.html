@@ -220,7 +220,7 @@
                     {% endwith %}
                 </th>
                 <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'TracerConcentrations-data-visible' 'true' %}" data-field="Tracer_Concentrations" class="metagrp">
-                    {% with "Tracer<br>Concentration(s)" as colhead %}
+                    {% with "Tracer<br>Concentration(s)<br>(mM)" as colhead %}
                         {% if mode == "view" %}{{ colhead }}{% else %}
                             <div onclick="sortColumn(this)" class="sortable" id="msrun__sample__animal__infusate__tracer_links__concentration">{{ colhead }}</div>
                         {% endif %}
@@ -451,7 +451,7 @@
                         {% endif %}
                     </td>
 
-                    <!-- Tracer Concentration(s) -->
+                    <!-- Tracer Concentration(s) (mM) -->
                     <td>
                         {% if pg.msrun.sample.animal.infusate is None %}
                             None

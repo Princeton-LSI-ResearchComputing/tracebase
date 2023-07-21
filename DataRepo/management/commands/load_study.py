@@ -1,10 +1,10 @@
 import argparse
 import os
+from collections import defaultdict
 
 import jsonschema
 import yaml  # type: ignore
 from django.apps import apps
-from django.conf import settings
 from django.core.management import BaseCommand, call_command
 from django.db import transaction
 
@@ -22,13 +22,18 @@ from DataRepo.models.maintained_model import (
 )
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
+    AllMissingCompounds,
+    AllMissingSamples,
+    AllMissingTissues,
     DryRun,
-    ValidationDatabaseSetupError,
+    MissingCompounds,
+    MissingSamplesError,
+    MissingTissues,
+    MultiLoadStatus,
 )
 
 
 class Command(BaseCommand):
-
     # Path to example config file
     example_configfile = os.path.relpath(
         os.path.join(
@@ -53,6 +58,13 @@ class Command(BaseCommand):
         "Example usage: manage.py load_study config_file.yaml "
     )
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.missing_samples = defaultdict(list)
+        self.missing_tissues = defaultdict(dict)
+        self.missing_compounds = defaultdict(dict)
+        self.load_statuses = MultiLoadStatus()
+
     def add_arguments(self, parser):
         parser.add_argument(
             "study_params",
@@ -69,36 +81,48 @@ class Command(BaseCommand):
             default=False,
             help="Dry run mode.  Nothing will be committed to the database.",
         )
-        # Used internally by the DataValidationView
+        # Used internally to decide whether an exception is a warning or an error, and whether any exception should
+        # cause an AggregatedErrors exception to be raised or not (because the validation interface conveys warnings
+        # to the validation view by raising warnings as exceptions)
         parser.add_argument(
             "--validate",
             action="store_true",
             default=False,
             help=argparse.SUPPRESS,
         )
-        # Used internally to load necessary data into the validation database
-        parser.add_argument(
-            "--database",
-            required=False,
-            type=str,
-            help=argparse.SUPPRESS,
-        )
-        # Used internally to load necessary data into the validation database
+        # Certain errors will prompt the user to supply this flag if the contents of the buffer are determined to be
+        # stale
         parser.add_argument(
             "--clear-buffer",
             action="store_true",
             default=False,
             help=argparse.SUPPRESS,
         )
+        # Intended for use by load_study_set to prevent this script from autoupdating and buffer clearing, then perform
+        # all mass autoupdates/buffer-clearings after all study loads are complete
+        parser.add_argument(
+            "--defer-autoupdates",
+            action="store_true",
+            help=argparse.SUPPRESS,
+        )
 
     def handle(self, *args, **options):
+        self.missing_samples = defaultdict(list)
+        self.missing_tissues = defaultdict(dict)
+        self.missing_compounds = defaultdict(dict)
+        self.load_statuses = MultiLoadStatus()
+        self.verbosity = options["verbosity"]
+        self.validate = options["validate"]
+        self.dry_run = options["dry_run"]
 
-        errors = 0
-        warnings = 0
-
+        # The buffer can only exist as long as the existence of the process, but since this method can be called from
+        # code, who knows what has been done before.  However, given calls from load_study_set can intentionally defer
+        # autoupdates, the buffer can be intentionally populated at the start of this script.  So the clear_buffer
+        # option allows the load_study method to be called in code with an option to explicitly clean the buffer, for
+        # example, in the first call in a series.
         if options["clear_buffer"]:
             clear_update_buffer()
-        elif buffer_size() > 0:
+        elif buffer_size() > 0 and not options["defer_autoupdates"]:
             raise UncleanBufferError(
                 "The auto-update buffer is unexpectedly populated.  Add --clear-buffer to your command to flush the "
                 "buffer and proceed with the load."
@@ -113,206 +137,343 @@ class Command(BaseCommand):
 
         # Validate the configuration
         jsonschema.validate(study_params, schema)
-        self.stdout.write(
-            self.style.SUCCESS(
-                f"Validated study parameters {options['study_params'].name}"
+        if self.verbosity > 0:
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f"Validated study parameters {options['study_params'].name}"
+                )
             )
-        )
+
         with transaction.atomic():
             if "compounds" in study_params:
-                compounds_file = os.path.join(study_dir, study_params["compounds"])
-                self.stdout.write(
-                    self.style.MIGRATE_HEADING(
-                        f"Loading compounds from {compounds_file}"
+                compound_file_basename = study_params["compounds"]
+                compounds_file = os.path.join(study_dir, compound_file_basename)
+                self.load_statuses.init_load(compounds_file)
+
+                if self.verbosity > 1:
+                    self.stdout.write(
+                        self.style.MIGRATE_HEADING(
+                            f"Loading compounds from {compounds_file}"
+                        )
                     )
-                )
-                call_command(
-                    "load_compounds",
-                    compounds=compounds_file,
-                    database=options["database"],
-                    validate=options["validate"],
-                )
+
+                try:
+                    call_command(
+                        "load_compounds",
+                        compounds=compounds_file,
+                        validate=self.validate,
+                    )
+                except Exception as e:
+                    self.package_group_exceptions(e, compounds_file)
 
             if "protocols" in study_params:
-                protocols_file = os.path.join(study_dir, study_params["protocols"])
-                self.stdout.write(
-                    self.style.MIGRATE_HEADING(
-                        f"Loading protocols from {protocols_file}"
+                protocol_file_basename = study_params["protocols"]
+                protocols_file = os.path.join(study_dir, protocol_file_basename)
+                self.load_statuses.init_load(protocols_file)
+
+                if self.verbosity > 1:
+                    self.stdout.write(
+                        self.style.MIGRATE_HEADING(
+                            f"Loading protocols from {protocols_file}"
+                        )
                     )
-                )
-                call_command(
-                    "load_protocols",
-                    protocols=protocols_file,
-                    database=options["database"],
-                    validate=options["validate"],
-                    verbosity=options["verbosity"],
-                )
+
+                try:
+                    call_command(
+                        "load_protocols",
+                        protocols=protocols_file,
+                        validate=self.validate,
+                        verbosity=self.verbosity,
+                    )
+                except Exception as e:
+                    self.package_group_exceptions(e, protocols_file)
 
             if "tissues" in study_params:
-                tissues_file = os.path.join(study_dir, study_params["tissues"])
-                self.stdout.write(
-                    self.style.MIGRATE_HEADING(f"Loading tissues from {tissues_file}")
-                )
-                call_command(
-                    "load_tissues",
-                    tissues=tissues_file,
-                    database=options["database"],
-                    validate=options["validate"],
-                    verbosity=options["verbosity"],
-                )
+                tissue_file_basename = study_params["tissues"]
+                tissues_file = os.path.join(study_dir, tissue_file_basename)
+                self.load_statuses.init_load(tissues_file)
+
+                if self.verbosity > 1:
+                    self.stdout.write(
+                        self.style.MIGRATE_HEADING(
+                            f"Loading tissues from {tissues_file}"
+                        )
+                    )
+
+                try:
+                    call_command(
+                        "load_tissues",
+                        tissues=tissues_file,
+                        validate=self.validate,
+                        verbosity=self.verbosity,
+                    )
+                except Exception as e:
+                    self.package_group_exceptions(e, tissues_file)
 
             if "animals_samples_treatments" in study_params:
                 # Read in animals and samples file
+                sample_file_basename = study_params["animals_samples_treatments"][
+                    "table"
+                ]
                 animals_samples_table_file = os.path.join(
-                    study_dir, study_params["animals_samples_treatments"]["table"]
+                    study_dir, sample_file_basename
                 )
-                self.stdout.write(
-                    self.style.MIGRATE_HEADING(
-                        f"Loading animals and samples from {animals_samples_table_file}"
-                    )
+                # If the protocols load was from the animal sample table file, don't overwrite the errors that
+                # already came from it
+                if animals_samples_table_file not in self.load_statuses.statuses.keys():
+                    self.load_statuses.init_load(animals_samples_table_file)
+                headers_basename = study_params["animals_samples_treatments"].get(
+                    "headers", None
                 )
-                if "headers" in study_params["animals_samples_treatments"]:
-                    headers_file = os.path.join(
-                        study_dir, study_params["animals_samples_treatments"]["headers"]
-                    )
-                else:
-                    headers_file = None
+                headers_file = None
+                if headers_basename is not None:
+                    headers_file = os.path.join(study_dir, headers_basename)
                 skip_researcher_check = study_params["animals_samples_treatments"].get(
                     "skip_researcher_check", False
                 )
-                call_command(
-                    "load_animals_and_samples",
-                    animal_and_sample_table_filename=animals_samples_table_file,
-                    table_headers=headers_file,
-                    skip_researcher_check=skip_researcher_check,
-                    database=options["database"],
-                    verbosity=options["verbosity"],
-                    defer_autoupdates=True,
-                )
 
-            if "accucor_data" in study_params:
-
-                # Get parameters for all accucor files
-                protocol = study_params["accucor_data"]["msrun_protocol"]
-                date = study_params["accucor_data"]["date"]
-                researcher = study_params["accucor_data"]["researcher"]
-                new_researcher = study_params["accucor_data"]["new_researcher"]
-                skip_samples = None
-                if "skip_samples" in study_params["accucor_data"]:
-                    skip_samples = study_params["accucor_data"]["skip_samples"]
-                sample_name_prefix = None
-                if "sample_name_prefix" in study_params["accucor_data"]:
-                    sample_name_prefix = study_params["accucor_data"][
-                        "sample_name_prefix"
-                    ]
-
-                # Read in accucor data files
-                for accucor_file in study_params["accucor_data"]["accucor_files"]:
-                    accucor_file_name = accucor_file["name"]
-                    isocorr_format = False
+                if self.verbosity > 1:
                     self.stdout.write(
                         self.style.MIGRATE_HEADING(
-                            f"Loading accucor_data from {accucor_file_name}"
+                            f"Loading animals and samples from {animals_samples_table_file}"
                         )
                     )
+
+                try:
+                    call_command(
+                        "load_animals_and_samples",
+                        animal_and_sample_table_filename=animals_samples_table_file,
+                        table_headers=headers_file,
+                        skip_researcher_check=skip_researcher_check,
+                        verbosity=self.verbosity,
+                        validate=self.validate,
+                        defer_autoupdates=True,
+                        defer_rollback=True,
+                    )
+                except Exception as e:
+                    self.package_group_exceptions(e, animals_samples_table_file)
+
+            if "accucor_data" in study_params:
+                # Get parameters for all accucor files
+                study_protocol = study_params["accucor_data"]["msrun_protocol"]
+                study_date = study_params["accucor_data"]["date"]
+                study_researcher = study_params["accucor_data"]["researcher"]
+                study_new_researcher = study_params["accucor_data"]["new_researcher"]
+                study_skip_samples = study_params["accucor_data"].get(
+                    "skip_samples", None
+                )
+                study_sample_name_prefix = study_params["accucor_data"].get(
+                    "sample_name_prefix", None
+                )
+
+                # Read in accucor data files
+                for accucor_info_dict in study_params["accucor_data"]["accucor_files"]:
                     # Get parameters specific to each accucor file
-                    if "msrun_protocol" in accucor_file:
-                        protocol = accucor_file["msrun_protocol"]
-                    if "date" in accucor_file:
-                        date = accucor_file["date"]
-                    if "researcher" in accucor_file:
-                        researcher = accucor_file["researcher"]
-                    if "new_researcher" in accucor_file:
-                        new_researcher = accucor_file["new_researcher"]
-                    if "skip_samples" in accucor_file:
-                        skip_samples = accucor_file["skip_samples"]
-                    if "sample_name_prefix" in accucor_file:
-                        sample_name_prefix = accucor_file["sample_name_prefix"]
+                    accucor_file_basename = accucor_info_dict["name"]
+                    accucor_file = os.path.join(study_dir, accucor_file_basename)
+                    self.load_statuses.init_load(accucor_file)
+                    protocol = accucor_info_dict.get("msrun_protocol", study_protocol)
+                    date = accucor_info_dict.get("date", study_date)
+                    researcher = accucor_info_dict.get("researcher", study_researcher)
+                    new_researcher = accucor_info_dict.get(
+                        "new_researcher", study_new_researcher
+                    )
+                    skip_samples = accucor_info_dict.get(
+                        "skip_samples", study_skip_samples
+                    )
+                    sample_name_prefix = accucor_info_dict.get(
+                        "sample_name_prefix", study_sample_name_prefix
+                    )
+                    isocorr_format = accucor_info_dict.get("isocorr_format", False)
+
+                    if self.verbosity > 1:
+                        self.stdout.write(
+                            self.style.MIGRATE_HEADING(
+                                f"Loading accucor_data from {accucor_file_basename}"
+                            )
+                        )
+
+                    if sample_name_prefix is not None and self.verbosity > 0:
                         print(f"PREFIX: {sample_name_prefix}")
-                    if "isocorr_format" in accucor_file:
-                        isocorr_format = accucor_file["isocorr_format"]
 
                     try:
                         call_command(
                             "load_accucor_msruns",
-                            accucor_file=os.path.join(study_dir, accucor_file_name),
+                            accucor_file=accucor_file,
                             protocol=protocol,
                             date=date,
                             researcher=researcher,
                             new_researcher=new_researcher,
                             skip_samples=skip_samples,
                             sample_name_prefix=sample_name_prefix,
-                            database=options["database"],
-                            validate=options["validate"],
+                            validate=self.validate,
                             isocorr_format=isocorr_format,
                             defer_autoupdates=True,
                         )
-                        self.stdout.write(
-                            self.style.SUCCESS(
-                                f"STATUS: SUCCESS {accucor_file_name} - commit pending"
-                            )
-                        )
-                    except AggregatedErrors as aes:
-
-                        errors += aes.num_errors
-                        warnings += aes.num_warnings
-
-                        # TODO: BUFFER EXCEPTIONS HERE
-
-                        self.stdout.write(
-                            self.style.ERROR(f"STATUS: FAILURE {accucor_file_name}")
-                        )
-                        if options["dry_run"]:
+                        if self.verbosity > 1:
                             self.stdout.write(
-                                self.style.ERROR(aes.get_summary_string())
-                            )
-                            self.stdout.write(
-                                self.style.ERROR(
-                                    aes.get_all_buffered_exceptions_string()
+                                self.style.SUCCESS(
+                                    f"STATUS: SUCCESS {accucor_file_basename} - commit pending"
                                 )
                             )
-                        else:
-                            raise aes
                     except Exception as e:
+                        self.package_group_exceptions(e, accucor_file)
 
-                        errors += 1
+            self.create_grouped_exceptions()
 
-                        # TODO: BUFFER EXCEPTIONS HERE
+            # If we're in validate mode, raise the MultiLoadStatus Exception whether there were errors or not, so
+            # that we can roll back all changes and pass all the status data to the validation interface via this
+            # exception.
+            if self.validate:
+                clear_update_buffer()
+                # If we are in validate mode, we raise the entire load_statuses object whether the load failed or
+                # not, so that we can report the load status of all load files, including successful loads.  It's
+                # like Dry Run mode, but exclusively for the validation interface.
+                raise self.load_statuses
 
-                        self.stdout.write(
-                            self.style.ERROR(f"STATUS: FAILURE {accucor_file_name}")
-                        )
-                        if options["dry_run"]:
-                            self.stdout.write(self.style.ERROR(f"{str(e)}"))
-                        else:
-                            raise e
+            # If there were actual errors, raise an AggregatedErrorsSet exception inside the atomic block to cause
+            # a rollback of everything
+            if not self.load_statuses.get_success_status():
+                clear_update_buffer()
+                raise self.load_statuses.get_final_exception()
 
-            if options["dry_run"]:
-                raise DryRun(f"Dry Run Complete.  {errors} errors {warnings} warnings")
-
-        # TODO: PRINT EXCEPTIONS PER FILE HERE
-        # TODO: DO AUTOUPDATES HERE
-
-        # Database config
-        db = settings.TRACEBASE_DB
-        # If a database was explicitly supplied
-        if options["database"] is not None:
-            db = options["database"]
-        else:
-            if options["validate"]:
-                if settings.VALIDATION_ENABLED:
-                    db = settings.VALIDATION_DB
-                else:
-                    raise ValidationDatabaseSetupError()
+            if self.dry_run:
+                clear_update_buffer()
+                self.print_load_status()
+                raise DryRun()
 
         # Since defer_autoupdates is supplied as True to the sample and accucor load commands, we can do all the mass
-        # autoupdates in 1 go.
+        # autoupdates in 1 go.  And note that each load script makes its own calls to disable/enable caching and
+        # maintained field updates, so we don't want to manipulate these settings during those loads, so we do it here
+        # at the end when we want to actually perform the operations that were buffered by those loads.
+        if not options["defer_autoupdates"] and buffer_size() > 0:
+            self.perform_autoupdates()
+
+        self.print_load_status()
+
+    def package_group_exceptions(self, exception, filepath):
+        """
+        Repackages an exception for consolidated reporting
+        """
+
+        # Just report the file names, not the paths, in the errors
+        filename = os.path.basename(filepath)
+
+        # Compile group-level errors/warnings relevant specifically to a study load that should be reported in one
+        # consolidated error based on exceptions contained in AggregatedErrors.  Note, this could potentially change
+        # individual load file statuses from fatal errors to non-fatal warnings.  This is because the consolidated
+        # representation will be the "fatal error" and the errors in the files will be kept to cross-reference with the
+        # group level error.  See handle_exceptions.
+        if isinstance(exception, AggregatedErrors):
+            # Consolidate related cross-file exceptions, like missing samples
+            # Note, this can change whether the AggregatedErrors for this file are fatal or not
+            missing_sample_exceptions = exception.get_exception_type(
+                MissingSamplesError
+            )
+            for missing_sample_exception in missing_sample_exceptions:
+                # Look through the sample names saved in the exception and add then to the master list
+                for sample in missing_sample_exception.samples:
+                    self.missing_samples[sample].append(filename)
+
+            missing_tissue_exceptions = exception.get_exception_type(MissingTissues)
+            for missing_tissue_exception in missing_tissue_exceptions:
+                # Look through the sample names saved in the exception and add then to the master list
+                for tissue in missing_tissue_exception.tissues_dict.keys():
+                    if tissue not in self.missing_tissues["tissues"].keys():
+                        self.missing_tissues["tissues"][tissue] = defaultdict(list)
+                    self.missing_tissues["tissues"][tissue][
+                        filename
+                    ] = missing_tissue_exception.tissues_dict[tissue]
+                    if "existing" not in self.missing_tissues.keys():
+                        self.missing_tissues[
+                            "existing"
+                        ] = missing_tissue_exception.existing
+
+            # Consolidate related cross-file exceptions, like missing compounds
+            # Note, this can change whether the AggregatedErrors for this file are fatal or not
+            # Example result: self.missing_compounds = {
+            #     "some missing compound name": {
+            #         "formula": "C2O1H4",
+            #         "files": {
+            #             "accucor1.lxsx": [1, 8, 20],  # Rows where the compound is found
+            #             "isocor5.xlsx": [99, 100],
+            #         },
+            #     },
+            # }
+            # This is the dict structure required by AllMissingCompounds's constructor.
+            missing_compound_exceptions = exception.get_exception_type(MissingCompounds)
+            for missing_compound_exception in missing_compound_exceptions:
+                for compound in missing_compound_exception.compounds_dict.keys():
+                    self.missing_compounds[compound][
+                        "formula"
+                    ] = missing_compound_exception.compounds_dict[compound]["formula"]
+                    if "files" in self.missing_compounds[compound].keys():
+                        self.missing_compounds[compound]["files"][
+                            filename
+                        ] = missing_compound_exception.compounds_dict[compound][
+                            "rownums"
+                        ]
+                    else:
+                        self.missing_compounds[compound]["files"] = {
+                            filename: missing_compound_exception.compounds_dict[
+                                compound
+                            ]["rownums"]
+                        }
+
+        self.load_statuses.set_load_exception(exception, filepath)
+
+    def create_grouped_exceptions(self):
+        """
+        This method compiles group-level exceptions, raises an AggregatedErrorsSet exception if fatal errors have been
+        aggregated for any load file.
+        """
+
+        # Collect all the missing samples in 1 error to add to the animal sample table file
+        if len(self.missing_samples) > 0:
+            self.load_statuses.set_load_exception(
+                AllMissingSamples(self.missing_samples),
+                "All Samples Present in Sample Table File",
+                top=True,
+            )
+
+        # Collect all the missing compounds in 1 error to add to the compounds file
+        if len(self.missing_tissues) > 0:
+            self.load_statuses.set_load_exception(
+                AllMissingTissues(self.missing_tissues),
+                "All Tissues Exist in the Database",
+                top=True,
+            )
+
+        # Collect all the missing compounds in 1 error to add to the compounds file
+        if len(self.missing_compounds) > 0:
+            self.load_statuses.set_load_exception(
+                AllMissingCompounds(self.missing_compounds),
+                "All Compounds Exist in the Database",
+                top=True,
+            )
+
+    def print_load_status(self):
+        if self.verbosity > 1:
+            for dct in self.load_statuses.get_status_messages():
+                self.print_message(dct["message"], dct["state"])
+
+        if self.verbosity > 0:
+            message, state = self.load_statuses.get_status_message()
+            self.print_message(message, state)
+
+    def print_message(self, message, state):
+        if state == "PASSED":
+            self.stdout.write(self.style.SUCCESS(message))
+        elif state == "WARNING":
+            self.stdout.write(self.style.WARNING(message))
+        elif state == "FAILED":
+            self.stdout.write(self.style.ERROR(message))
+
+    def perform_autoupdates(self):
         disable_autoupdates()
         disable_caching_updates()
-        perform_buffered_updates(using=db)
+        perform_buffered_updates()
         # The buffer should be clear, but just for good measure...
         clear_update_buffer()
         enable_caching_updates()
         enable_autoupdates()
-
-        self.stdout.write(self.style.SUCCESS("Done loading study"))

@@ -9,7 +9,6 @@ from DataRepo.utils import SampleTableLoader
 
 
 class Command(BaseCommand):
-
     examples_dir = "DataRepo/example_data/"
     example_animals = examples_dir + "obob_animals_table.tsv"
     example_samples = examples_dir + "obob_samples_table.tsv"
@@ -57,11 +56,11 @@ class Command(BaseCommand):
             help=argparse.SUPPRESS,
         )
         parser.add_argument(
-            "--debug",
+            "--dry-run",
             action="store_true",
             default=False,
-            # This issues a "debug-only" error, to abort the transaction
-            help="Debug mode. Will not change the database.",
+            # This issues a DryRun error, to abort the transaction
+            help="Dry run mode. Will not change the database.",
         )
         # Used internally by the DataValidationView
         parser.add_argument(
@@ -71,13 +70,6 @@ class Command(BaseCommand):
             default=False,
             help=argparse.SUPPRESS,
         )
-        # Used internally to load necessary data into the validation database
-        parser.add_argument(
-            "--database",
-            required=False,
-            type=str,
-            help=argparse.SUPPRESS,
-        )
         # Intended for use by load_study to prevent individual loader autoupdates and buffer clearing, then perform all
         # mass autoupdates/buffer-clearings after all load scripts are complete
         parser.add_argument(
@@ -85,9 +77,15 @@ class Command(BaseCommand):
             action="store_true",
             help=argparse.SUPPRESS,
         )
+        # Intended for use by load_study to prevent individual loader autoupdates and buffer clearing, then perform all
+        # mass autoupdates/buffer-clearings after all load scripts are complete
+        parser.add_argument(
+            "--defer-rollback",
+            action="store_true",
+            help=argparse.SUPPRESS,
+        )
 
     def handle(self, *args, **options):
-
         self.stdout.write(self.style.MIGRATE_HEADING("Reading header definition..."))
         if options["table_headers"]:
             with open(options["table_headers"]) as headers_file:
@@ -135,12 +133,12 @@ class Command(BaseCommand):
         )
         loader = SampleTableLoader(
             sample_table_headers=headers,
-            database=options["database"],
             validate=options["validate"],
             skip_researcher_check=options["skip_researcher_check"],
             verbosity=options["verbosity"],
             defer_autoupdates=options["defer_autoupdates"],
-            dry_run=options["debug"],
+            defer_rollback=options["defer_rollback"],
+            dry_run=options["dry_run"],
         )
         loader.load_sample_table(
             merged.to_dict("records"),

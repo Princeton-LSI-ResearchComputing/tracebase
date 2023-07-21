@@ -1,9 +1,8 @@
 # abstract class for models which are "labeled" with tracers; because we have
 # not normalized column names, this is not a Django Abstract base class
-# (https://docs.djangoproject.com/en/3.1/topics/db/models/#abstract-base-classes).
+# (https://docs.djangoproject.com/en/3.2/topics/db/models/#abstract-base-classes).
 # This simply shares some configured variables/values.
 class ElementLabel:
-
     # choice specifications
     CARBON = "C"
     NITROGEN = "N"

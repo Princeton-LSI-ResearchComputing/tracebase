@@ -5,7 +5,6 @@ from datetime import timedelta
 
 import dateutil.parser  # type: ignore
 import pandas as pd
-from django.conf import settings
 from django.db import IntegrityError, transaction
 
 from DataRepo.models import (
@@ -39,17 +38,18 @@ from DataRepo.models.utilities import (
     value_from_choices_label,
 )
 from DataRepo.utils import parse_infusate_name, parse_tracer_concentrations
-from DataRepo.utils.exceptions import (  # ValidationDatabaseSetupError,
+from DataRepo.utils.exceptions import (
     AggregatedErrors,
     ConflictingValueError,
     DryRun,
     DuplicateValues,
-    EmptyAnimalNames,
     HeaderConfigError,
+    MissingTissues,
     RequiredHeadersError,
-    RequiredValuesError,
+    RequiredSampleValuesError,
     SaveError,
-    UnitsNotAllowed,
+    SheetMergeError,
+    UnitsWrong,
     UnknownHeadersError,
 )
 
@@ -152,38 +152,27 @@ class SampleTableLoader:
     def __init__(
         self,
         sample_table_headers=DefaultSampleTableHeaders,
-        database=None,
         validate=False,  # DO NOT USE MANUALLY - THIS WILL NOT ROLL BACK UPON ERROR (handle in outer atomic transact)
         verbosity=1,
         skip_researcher_check=False,
         defer_autoupdates=False,
+        defer_rollback=False,
         dry_run=False,
     ):
         # Header config
         self.headers = sample_table_headers
         self.headers_present = []
 
-        # Verbosity affects log prints and error verbosity (for debugging)
+        # Modes
         self.verbosity = verbosity
         self.dry_run = dry_run
-
-        # Database config
-        self.db = settings.TRACEBASE_DB
-        # # If a database was explicitly supplied
-        # if database is not None:
-        #     self.validate = False
-        #     self.db = database
-        # else:
-        #     self.validate = validate
-        #     if validate:
-        #         if settings.VALIDATION_ENABLED:
-        #             self.db = settings.VALIDATION_DB
-        #         else:
-        #             raise ValidationDatabaseSetupError()
         self.validate = validate
 
         # How to handle mass autoupdates
         self.defer_autoupdates = defer_autoupdates
+
+        # Whether to rollback upon error or defer it to the caller
+        self.defer_rollback = defer_rollback
 
         # Caching overhead
         self.animals_to_uncache = []
@@ -191,12 +180,13 @@ class SampleTableLoader:
         # Error-tracking
         self.aggregated_errors_object = AggregatedErrors()
         self.missing_headers = []
-        self.missing_values = defaultdict(list)
+        self.missing_values = defaultdict(dict)
 
         # Skip rows that have errors
-        self.units_warnings = {}
+        self.units_errors = {}
         self.infile_sample_dupe_rows = []
         self.empty_animal_rows = []
+        self.missing_tissues = defaultdict(list)
 
         # Obtain known researchers before load
         self.known_researchers = get_researchers()
@@ -204,6 +194,21 @@ class SampleTableLoader:
         # Researcher consistency tracking (also a part of error-tracking)
         self.skip_researcher_check = skip_researcher_check
         self.input_researchers = []
+
+        # This is used by strip_units to decide on whether to issue an error or warning.  Case insensitive.
+        self.expected_units = {
+            "ANIMAL_WEIGHT": ["g", "gram", "grams"],
+            "ANIMAL_AGE": ["w", "week", "weeks"],
+            "ANIMAL_INFUSION_RATE": [
+                "ul/m/g",
+                "ul/min/g",
+                "ul/min/gram",
+                "ul/minute/g",
+                "ul/minute/gram",
+            ],
+            "TRACER_CONCENTRATIONS": ["mM", "millimolar"],
+            "TIME_COLLECTED": ["m", "min", "mins", "minute", "minutes"],
+        }
 
     def load_sample_table(self, data):
 
@@ -233,12 +238,12 @@ class SampleTableLoader:
                 try:
                     self.load_data(data)
                 except AggregatedErrors as aes:
-                    if not self.validate:
+                    if not self.validate and not self.defer_rollback:
                         # If we're not working for the validation interface, raise here to cause a rollback
                         raise aes
                     else:
                         saved_aes = aes
-            if self.validate and saved_aes:
+            if (self.validate or self.defer_rollback) and saved_aes:
                 # If we're working for the validation interface, raise here to not cause a rollback (so that the
                 # accucor loader can be run to find more issues - samples must be loaded already to run the accucor
                 # loader), and provide the validation interface details on the exceptions.
@@ -304,7 +309,7 @@ class SampleTableLoader:
         for rowidx, row in enumerate(sample_table_data):
             rownum = rowidx + 1
 
-            self.check_required_values(rownum, row)
+            self.check_required_values(rowidx, row)
 
             tissue_rec, is_blank = self.get_tissue(rownum, row)
 
@@ -343,15 +348,23 @@ class SampleTableLoader:
                     is_fatal=True,  # Always raise the AggErrs exception
                 )
 
-        if len(self.missing_values.keys()) > 0:
+        if len(self.missing_tissues.keys()) > 0:
             self.aggregated_errors_object.buffer_error(
-                RequiredValuesError(self.missing_values)
+                MissingTissues(
+                    self.missing_tissues,
+                    list(Tissue.objects.values_list("name", flat=True)),
+                )
             )
 
-        if len(self.units_warnings.keys()) > 0:
-            self.aggregated_errors_object.buffer_warning(
-                UnitsNotAllowed(self.units_warnings)
+        if len(self.missing_values.keys()) > 0:
+            self.aggregated_errors_object.buffer_error(
+                RequiredSampleValuesError(
+                    self.missing_values, animal_hdr=getattr(self.headers, "ANIMAL_NAME")
+                )
             )
+
+        if len(self.units_errors.keys()) > 0:
+            self.aggregated_errors_object.buffer_error(UnitsWrong(self.units_errors))
 
         if self.aggregated_errors_object.should_raise():
             raise self.aggregated_errors_object
@@ -376,12 +389,12 @@ class SampleTableLoader:
             # effect at the time of buffering is saved so that only the fields matching the label filter will be
             # updated.  There are autoupdates for fields in Animal and Sample, but they're only needed for FCirc
             # calculations and will be triggered by a subsequent accucor load.
-            perform_buffered_updates(using=self.db)
+            perform_buffered_updates()
             # Since we only updated some of the buffered items, clear the rest of the buffer
             clear_update_buffer()
 
     def get_tissue(self, rownum, row):
-        tissue_name = self.getRowVal(rownum, row, "TISSUE_NAME")
+        tissue_name = self.getRowVal(row, "TISSUE_NAME")
         tissue_rec = None
         is_blank = tissue_name is None
         if is_blank:
@@ -389,14 +402,9 @@ class SampleTableLoader:
                 print("Skipping row: Tissue field is empty, assuming blank sample.")
         else:
             try:
-                # Assuming that both the default and validation databases each have all current tissues
-                tissue_rec = Tissue.objects.using(self.db).get(name=tissue_name)
-            except Tissue.DoesNotExist as e:
-                self.aggregated_errors_object.buffer_error(
-                    Tissue.DoesNotExist(
-                        f"Invalid tissue type specified: '{tissue_name}'. Not found in database {self.db}.  {str(e)}"
-                    )
-                )
+                tissue_rec = Tissue.objects.get(name=tissue_name)
+            except Tissue.DoesNotExist:
+                self.missing_tissues[tissue_name].append(rownum + 2)
             except Exception as e:
                 self.aggregated_errors_object.buffer_error(
                     TissueError(type(e).__name__, e)
@@ -404,8 +412,8 @@ class SampleTableLoader:
         return tissue_rec, is_blank
 
     def get_or_create_study(self, rownum, row, animal_rec):
-        study_name = self.getRowVal(rownum, row, "STUDY_NAME")
-        study_desc = self.getRowVal(rownum, row, "STUDY_DESCRIPTION")
+        study_name = self.getRowVal(row, "STUDY_NAME")
+        study_desc = self.getRowVal(row, "STUDY_DESCRIPTION")
 
         study_created = False
         study_updated = False
@@ -413,37 +421,34 @@ class SampleTableLoader:
 
         if study_name:
             try:
-                try:
-                    study_rec, study_created = Study.objects.using(
-                        self.db
-                    ).get_or_create(
-                        name=study_name,
-                        description=study_desc,
-                    )
-                except IntegrityError as ie:
-                    estr = str(ie)
-                    if "duplicate key value violates unique constraint" in estr:
-                        study_rec = Study.objects.using(self.db).get(name=study_name)
-                        orig_desc = study_rec.description
-                        if orig_desc and study_desc:
-                            self.aggregated_errors_object.buffer_error(
-                                ConflictingValueError(
-                                    study_rec,
-                                    "description",
-                                    orig_desc,
-                                    study_desc,
-                                    rownum,
-                                )
+                study_rec, study_created = Study.objects.get_or_create(
+                    name=study_name,
+                    description=study_desc,
+                )
+            except IntegrityError as ie:
+                estr = str(ie)
+                if "duplicate key value violates unique constraint" in estr:
+                    study_rec = Study.objects.get(name=study_name)
+                    orig_desc = study_rec.description
+                    if orig_desc and study_desc:
+                        self.aggregated_errors_object.buffer_error(
+                            ConflictingValueError(
+                                study_rec,
+                                "description",
+                                orig_desc,
+                                study_desc,
+                                rownum,
                             )
-                        elif study_desc:
-                            study_rec.description = study_desc
-                            study_updated = True
-                    else:
-                        raise ie
+                        )
+                    elif study_desc:
+                        study_rec.description = study_desc
+                        study_updated = True
+                else:
+                    raise ie
             except Exception as e:
                 study_rec = None
                 self.aggregated_errors_object.buffer_error(
-                    SaveError(Study.__name__, study_name, self.db, e)
+                    SaveError(Study.__name__, study_name, e)
                 )
 
         if study_created or study_updated:
@@ -454,17 +459,14 @@ class SampleTableLoader:
                     print(f"Updated Study record: {study_rec}")
             try:
                 # get_or_create does not perform a full clean
-                # TODO: See issue #580.  This will allow full_clean to be called regardless of the database.
-                if self.db == settings.TRACEBASE_DB:
-                    # full_clean does not have a using parameter. It only supports the default database
-                    study_rec.full_clean()
+                study_rec.full_clean()
                 # We only need to save if there was an update.  get_or_create does a save
                 if study_updated:
-                    study_rec.save(using=self.db)
+                    study_rec.save()
             except Exception as e:
                 study_rec = None
                 self.aggregated_errors_object.buffer_error(
-                    SaveError(Study.__name__, study_name, self.db, e)
+                    SaveError(Study.__name__, study_name, e)
                 )
 
         # We do this here, and not in the "animal_created" block, in case the researcher is creating a new study
@@ -477,14 +479,15 @@ class SampleTableLoader:
         return study_rec
 
     def get_tracer_concentrations(self, rownum, row):
-        tracer_concs_str = self.getRowVal(
-            rownum, row, "TRACER_CONCENTRATIONS", strip_units=True
+        tracer_concs_str = self.getRowVal(row, "TRACER_CONCENTRATIONS")
+        stripped_tracer_concs_str = self.strip_units(
+            tracer_concs_str, "TRACER_CONCENTRATIONS", rownum
         )
-        return parse_tracer_concentrations(tracer_concs_str)
+        return parse_tracer_concentrations(stripped_tracer_concs_str)
 
     def get_or_create_infusate(self, rownum, row):
         tracer_concs = self.get_tracer_concentrations(rownum, row)
-        infusate_str = self.getRowVal(rownum, row, "INFUSATE")
+        infusate_str = self.getRowVal(row, "INFUSATE")
 
         infusate_rec = None
         if infusate_str is not None:
@@ -496,13 +499,13 @@ class SampleTableLoader:
                     )
                 )
             infusate_data_object = parse_infusate_name(infusate_str, tracer_concs)
-            infusate_rec = Infusate.objects.using(self.db).get_or_create_infusate(
+            infusate_rec = Infusate.objects.get_or_create_infusate(
                 infusate_data_object,
             )[0]
         return infusate_rec
 
     def get_treatment(self, rownum, row):
-        treatment_name = self.getRowVal(rownum, row, "ANIMAL_TREATMENT")
+        treatment_name = self.getRowVal(row, "ANIMAL_TREATMENT")
         treatment_rec = None
         if treatment_name:
             # Animal Treatments are optional protocols
@@ -518,7 +521,7 @@ class SampleTableLoader:
                         f"Finding {Protocol.ANIMAL_TREATMENT} protocol for '{treatment_name}'..."
                     )
                 try:
-                    treatment_rec = Protocol.objects.using(self.db).get(
+                    treatment_rec = Protocol.objects.get(
                         name=treatment_name,
                         category=Protocol.ANIMAL_TREATMENT,
                     )
@@ -558,45 +561,57 @@ class SampleTableLoader:
 
         stripped_val = val
 
+        specific_units_pat = None
+        if hdr_attr in self.expected_units.keys():
+            specific_units_pat = re.compile(
+                r"^("
+                + r"|".join(re.escape(units) for units in self.expected_units[hdr_attr])
+                + r")$",
+                re.IGNORECASE,
+            )
+
         united_val_pattern = re.compile(
-            r"^(?P<val>[\d\.eE]+)\s*(?P<units>[a-zA-Z][a-zA-Z\/]*)$"
+            r"^(?P<val>[\d\.eE]+)\s*(?P<units>[a-z][a-z\/]*)$", re.IGNORECASE
         )
         match = re.search(united_val_pattern, val)
 
+        # If the value matches a units pattern
         if match:
+            # We will strip the units in either case to avoid subsequent errors, but the population of
+            # self.units_errors will fail the load
             stripped_val = match.group("val")
             the_units = match.group("units")
             header = getattr(self.headers, hdr_attr)
-            if header in self.units_warnings:
-                if val in self.units_warnings[header]:
-                    self.units_warnings[header][val]["rows"].append(rowidx + 2)
+
+            s_match = re.search(specific_units_pat, the_units)
+
+            # If the units don't match any expected units
+            if s_match is None:
+                if header in self.units_errors:
+                    self.units_errors[header]["rows"].append(rowidx + 2)
                 else:
-                    self.units_warnings[header][val] = {
-                        "stripped": stripped_val,
+                    self.units_errors[header] = {
+                        "example_val": val,
+                        "expected": self.expected_units[hdr_attr][0],
                         "rows": [rowidx + 2],
                         "units": the_units,
                     }
-            else:
-                self.units_warnings[header] = {
-                    val: {
-                        "stripped": stripped_val,
-                        "rows": [rowidx + 2],
-                        "units": the_units,
-                    }
-                }
 
         return stripped_val
 
     def get_or_create_animal(self, rownum, row, infusate_rec, treatment_rec):
-        animal_name = self.getRowVal(rownum, row, "ANIMAL_NAME")
-        genotype = self.getRowVal(rownum, row, "ANIMAL_GENOTYPE")
-        weight = self.getRowVal(rownum, row, "ANIMAL_WEIGHT", strip_units=True)
-        feedstatus = self.getRowVal(rownum, row, "ANIMAL_FEEDING_STATUS")
-        age = self.getRowVal(rownum, row, "ANIMAL_AGE", strip_units=True)
-        diet = self.getRowVal(rownum, row, "ANIMAL_DIET")
-        animal_sex_string = self.getRowVal(rownum, row, "ANIMAL_SEX")
-        infusion_rate = self.getRowVal(
-            rownum, row, "ANIMAL_INFUSION_RATE", strip_units=True
+        animal_name = self.getRowVal(row, "ANIMAL_NAME")
+        genotype = self.getRowVal(row, "ANIMAL_GENOTYPE")
+        raw_weight = self.getRowVal(row, "ANIMAL_WEIGHT")
+        weight = self.strip_units(raw_weight, "ANIMAL_WEIGHT", rownum)
+        feedstatus = self.getRowVal(row, "ANIMAL_FEEDING_STATUS")
+        raw_age = self.getRowVal(row, "ANIMAL_AGE")
+        age = self.strip_units(raw_age, "ANIMAL_AGE", rownum)
+        diet = self.getRowVal(row, "ANIMAL_DIET")
+        animal_sex_string = self.getRowVal(row, "ANIMAL_SEX")
+        raw_infusion_rate = self.getRowVal(row, "ANIMAL_INFUSION_RATE")
+        infusion_rate = self.strip_units(
+            raw_infusion_rate, "ANIMAL_INFUSION_RATE", rownum
         )
 
         animal_rec = None
@@ -605,20 +620,17 @@ class SampleTableLoader:
         if animal_name:
             # An infusate is required to create an animal
             if infusate_rec:
-                animal_rec, animal_created = Animal.objects.using(
-                    self.db
-                ).get_or_create(name=animal_name, infusate=infusate_rec)
+                animal_rec, animal_created = Animal.objects.get_or_create(
+                    name=animal_name, infusate=infusate_rec
+                )
             else:
                 try:
-                    animal_rec = Animal.objects.using(self.db).get(name=animal_name)
+                    animal_rec = Animal.objects.get(name=animal_name)
                 except Animal.DoesNotExist:
-                    return animal_rec, animal_created
+                    return animal_rec
 
         # animal_created block contains all the animal attribute updates if the animal was newly created
         if animal_created:
-            # TODO: See issue #580.  The following hits the default database's cache table even if the validation
-            #       database has been set in the animal object.  This is currently tolerable because the only
-            #       effect is a cache deletion.
             if animal_rec.caches_exist():
                 self.animals_to_uncache.append(animal_rec)
             elif self.verbosity >= 3:
@@ -662,15 +674,13 @@ class SampleTableLoader:
 
             try:
                 # Even if there wasn't a change, get_or_create doesn't do a full_clean
-                if self.db == settings.TRACEBASE_DB:
-                    # full_clean does not have a using parameter. It only supports the default database
-                    animal_rec.full_clean()
+                animal_rec.full_clean()
                 # If there was a change, save the record again
                 if changed:
-                    animal_rec.save(using=self.db)
+                    animal_rec.save()
             except Exception as e:
                 self.aggregated_errors_object.buffer_error(
-                    SaveError(Animal.__name__, str(animal_rec), self.db, e)
+                    SaveError(Animal.__name__, str(animal_rec), e)
                 )
 
         return animal_rec
@@ -685,7 +695,7 @@ class SampleTableLoader:
                     print(
                         f"Finding or inserting animal label '{labeled_element}' for '{animal_rec}'..."
                     )
-                AnimalLabel.objects.using(self.db).get_or_create(
+                AnimalLabel.objects.get_or_create(
                     animal=animal_rec,
                     element=labeled_element,
                 )
@@ -694,14 +704,15 @@ class SampleTableLoader:
         sample_rec = None
 
         # Initialize raw values
-        sample_name = self.getRowVal(rownum, row, "SAMPLE_NAME")
-        researcher = self.getRowVal(rownum, row, "SAMPLE_RESEARCHER")
+        sample_name = self.getRowVal(row, "SAMPLE_NAME")
+        researcher = self.getRowVal(row, "SAMPLE_RESEARCHER")
         time_collected = None
-        time_collected_str = self.getRowVal(
-            rownum, row, "TIME_COLLECTED", strip_units=True
+        raw_time_collected_str = self.getRowVal(row, "TIME_COLLECTED")
+        time_collected_str = self.strip_units(
+            raw_time_collected_str, "TIME_COLLECTED", rownum
         )
         sample_date = None
-        sample_date_value = self.getRowVal(rownum, row, "SAMPLE_DATE")
+        sample_date_value = self.getRowVal(row, "SAMPLE_DATE")
 
         # Convert/check values as necessary
         if researcher and researcher not in self.input_researchers:
@@ -718,15 +729,20 @@ class SampleTableLoader:
 
         # Create a sample record - requires a tissue and animal record
         if sample_name and tissue_rec and animal_rec:
+            # PR REVIEW NOTE: This strategy should be refactored to do the get_or_create with this other (and all) data
+            #                 first and intelligently handle exceptions, but I didn't want to do that much refactoring
+            #                 in 1 go.  This would mean "check_for_inconsistencies" would become obsolete and will need
+            #                 to be replaced using the strategy I employed in the compounds loader.  It will simplify
+            #                 this code.
             try:
-                # Assuming that duplicates among the submission are handled in the checking of the file, so we must
-                # check against the tracebase database for pre-existing sample name duplicates
-                sample_rec = Sample.objects.using(settings.TRACEBASE_DB).get(
-                    name=sample_name
-                )
+                # It's worth noting that this loop encounters this code for the same sample multiple times
 
-                # Now check that the values are consistent.  Buffers exceptions and returns update info for null fields
-                updates_dict = self.check_for_inconsistencies(
+                # Assuming that duplicates among the submission are handled in the checking of the file, but not
+                # against the database, so we must check against the database for pre-existing sample name duplicates
+                sample_rec = Sample.objects.get(name=sample_name)
+
+                # Now check that the values are consistent.  Buffers exceptions.
+                self.check_for_inconsistencies(
                     sample_rec,
                     {
                         "animal": animal_rec,
@@ -738,36 +754,12 @@ class SampleTableLoader:
                     rownum + 1,
                 )
 
-                if len(updates_dict.keys()) > 0 and self.db == settings.TRACEBASE_DB:
-                    if self.verbosity >= 2:
-                        print(
-                            f"Updating [{', '.join(updates_dict.keys())}] in Sample record: [{sample_name}]"
-                        )
-                    for f, v in updates_dict.items():
-                        setattr(sample_rec, f, v)
-                    try:
-                        # Even if there wasn't a change, get_or_create doesn't do a full_clean
-                        sample_rec.full_clean()
-                        sample_rec.save(using=self.db)
-                    except Exception as e:
-                        self.aggregated_errors_object.buffer_error(
-                            SaveError(Sample.__name__, str(sample_rec), self.db, e)
-                        )
-                elif self.verbosity >= 2:
+                if self.verbosity >= 2:
                     print(f"SKIPPING existing Sample record: {sample_name}")
 
             except Sample.DoesNotExist:
-
-                # This loop encounters this code for the same sample multiple times, so during user data validation
-                # and when getting here because the sample doesn't exist in the tracebase-proper database, we still
-                # have to check the validation database before trying to create the sample so that we don't run
-                # afoul of the unique constraint
-                # In the case of actually just loading the tracebase database, this will result in a duplicate
-                # check & exception, but otherwise, it would result in dealing with duplicate code
                 try:
-                    sample_rec, sample_created = Sample.objects.using(
-                        self.db
-                    ).get_or_create(
+                    sample_rec, sample_created = Sample.objects.get_or_create(
                         name=sample_name,
                         animal=animal_rec,
                         tissue=tissue_rec,
@@ -776,11 +768,10 @@ class SampleTableLoader:
                     # If we get here, it means that it tried to create because not all values matched, but upon
                     # creation, the unique sample name collided.  We just need to check_for_inconsistencies
 
-                    sample_rec = Sample.objects.using(self.db).get(name=sample_name)
+                    sample_rec = Sample.objects.get(name=sample_name)
 
-                    # Now check that the values are consistent.  Buffers exceptions and returns update info for null
-                    # fields
-                    updates_dict = self.check_for_inconsistencies(
+                    # Now check that the values are consistent.  Buffers exceptions.
+                    self.check_for_inconsistencies(
                         sample_rec,
                         {
                             "animal": animal_rec,
@@ -792,28 +783,9 @@ class SampleTableLoader:
                         rownum + 1,
                     )
 
-                    if len(updates_dict.keys()) > 0:
-                        if self.verbosity >= 2:
-                            print(
-                                f"Updating [{', '.join(updates_dict.keys())}] in Sample record: [{sample_name}]"
-                            )
-                        for f, v in updates_dict.items():
-                            setattr(sample_rec, f, v)
-                        try:
-                            # Even if there wasn't a change, get_or_create doesn't do a full_clean
-                            if self.db == settings.TRACEBASE_DB:
-                                # full_clean does not have a using parameter. It only supports the default database
-                                sample_rec.full_clean()
-                            sample_rec.save(using=self.db)
-                        except Exception as e:
-                            sample_rec = None
-                            sample_created = False
-                            self.aggregated_errors_object.buffer_error(
-                                SaveError(Sample.__name__, str(sample_rec), self.db, e)
-                            )
-                    else:
-                        sample_rec = None
-                        sample_created = False
+                    # There was an error - clear this record value so we can continue processing
+                    sample_rec = None
+                    sample_created = False
 
                 except Exception as e:
                     sample_rec = None
@@ -842,14 +814,12 @@ class SampleTableLoader:
 
                     try:
                         # Even if there wasn't a change, get_or_create doesn't do a full_clean
-                        if self.db == settings.TRACEBASE_DB:
-                            # full_clean does not have a using parameter. It only supports the default database
-                            sample_rec.full_clean()
+                        sample_rec.full_clean()
                         if changed:
-                            sample_rec.save(using=self.db)
+                            sample_rec.save()
                     except Exception as e:
                         self.aggregated_errors_object.buffer_error(
-                            SaveError(Sample.__name__, str(sample_rec), self.db, e)
+                            SaveError(Sample.__name__, str(sample_rec), e)
                         )
             except Exception as e:
                 self.aggregated_errors_object.buffer_error(
@@ -872,9 +842,9 @@ class SampleTableLoader:
                     if self.verbosity >= 2:
                         print(
                             f"\tFinding or inserting FCirc tracer '{tracer_rec.compound}' and label "
-                            f"'{label_rec.element}' for '{sample_rec}' in database {self.db}..."
+                            f"'{label_rec.element}' for '{sample_rec}'..."
                         )
-                    FCirc.objects.using(self.db).get_or_create(
+                    FCirc.objects.get_or_create(
                         serum_sample=sample_rec,
                         tracer=tracer_rec,
                         element=label_rec.element,
@@ -1025,23 +995,47 @@ class SampleTableLoader:
 
     def identify_empty_animal_rows(self, data):
         """
-        If the animal name is empty on a row, the pandas sheet merge will be screwed up and lots of meaningless errors
-        will be spit out.  This method identifies and stores the row numbers (indexes) where the animal name is empty,
-        so those rows can be skipped in later processing.
+        If the animal name is empty on a row but the row has non-empty values, the pandas sheet merge will be screwed
+        up and lots of meaningless errors will be spit out.  This method identifies and stores the row numbers
+        (indexes) where the animal name is empty **in the Animals sheet only**, but the row has at least 1 actual
+        value, so those rows can be skipped in later processing.
+
+        Note, this **DOES NOT** catch sample sheet rows with missing animal IDs in 1 specific use case that meets 2
+        conditions:
+          1. the Animal ID is missing on a row in the Samples sheet
+          2. There are no empty rows between populated rows in the Animals sheet
+        This is because the sheet merge completely ignores those Samples sheet rows.  If the Anoimals sheet **DOES
+        HAVE** empty rows between populated rows, the Samples sheet rows with missing Animal IDs will be merged with
+        the empty Animals sheet row and produce the SheetMergeError raised inside this method.
+
+        What this means is that there is a silent case where Sample sheet rows with missing Animal IDs are sometimes
+        silently ignored.
         """
         animal_name_header = getattr(self.headers, "ANIMAL_NAME")
         empty_animal_rows = []
+        empty_animal_rows_with_vals = []
+
         for rowidx, row in enumerate(data):
             val = row[animal_name_header]
+            row_has_vals = (
+                len([v for v in row.values() if v is not None and v != ""]) > 0
+            )
             if val is None or val == "":
                 empty_animal_rows.append(rowidx)
+                if row_has_vals:
+                    empty_animal_rows_with_vals.append(rowidx)
+
+        # This will allow us to skip rows that do not have an animal ID (which includes entirely empty rows)
         if len(empty_animal_rows) > 0:
             self.empty_animal_rows = empty_animal_rows
+
+        # This will allow us to identify invalid rows (i.e. entirely empty is valid)
+        if len(empty_animal_rows_with_vals) > 0:
             self.aggregated_errors_object.buffer_error(
-                EmptyAnimalNames(empty_animal_rows, animal_name_header)
+                SheetMergeError(empty_animal_rows_with_vals, animal_name_header)
             )
 
-    def check_required_values(self, rownum, row):
+    def check_required_values(self, rowidx, row):
         """
         Due to some rows being skipped in specific (but not precise) instances, required values must be checked first.
         C.I.P. A malformed file wasn't reporting problems because the rows were being skipped due to the fact that the
@@ -1051,12 +1045,8 @@ class SampleTableLoader:
         hdr_name_tuple = self.headers
         header_attrs = rqd_vals_tuple._fields
 
-        row_empty = True
-        for val in row.values():
-            if val and val != "":
-                row_empty = False
-                break
-        if row_empty:
+        # We will skip problematic rows that are either completely empty or are missing an animal ID
+        if rowidx in self.empty_animal_rows:
             return
 
         # For each header attribute
@@ -1068,9 +1058,16 @@ class SampleTableLoader:
             if hdr_name in self.headers_present and val_reqd:
                 val = row[hdr_name]
                 if val is None or val == "":
-                    self.missing_values[hdr_name].append(rownum)
+                    animal = self.getRowVal(row, "ANIMAL_NAME")
+                    if "rows" in self.missing_values[hdr_name].keys():
+                        self.missing_values[hdr_name]["rows"].append(rowidx + 1)
+                        if animal not in self.missing_values[hdr_name]["animals"]:
+                            self.missing_values[hdr_name]["animals"].append(animal)
+                    else:
+                        self.missing_values[hdr_name]["rows"] = [rowidx + 1]
+                        self.missing_values[hdr_name]["animals"] = [animal]
 
-    def getRowVal(self, rownum, row, header_attribute, strip_units=False):
+    def getRowVal(self, row, header_attribute):
         # get the header value to use as a dict key for 'row'
         header = getattr(self.headers, header_attribute)
         val = None
@@ -1081,9 +1078,6 @@ class SampleTableLoader:
             # This will make later checks of values easier
             if val == "":
                 val = None
-
-        if val and strip_units:
-            val = self.strip_units(val, header_attribute, rownum)
 
         return val
 

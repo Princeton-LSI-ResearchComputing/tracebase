@@ -1,5 +1,4 @@
 import pandas as pd
-from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from django.utils.functional import cached_property
 
@@ -9,7 +8,7 @@ from DataRepo.models.study import Study
 from DataRepo.models.utilities import get_all_fields_named
 
 
-def get_researchers(database=settings.TRACEBASE_DB):
+def get_researchers():
     """
     Get a list of distinct researcher names that is the union of values in researcher fields from any model
     """
@@ -22,25 +21,20 @@ def get_researchers(database=settings.TRACEBASE_DB):
         researchers += list(
             map(
                 lambda x: x[target_field],
-                model.objects.using(database).values(target_field).distinct(),
+                model.objects.values(target_field).distinct(),
             )
         )
     unique_researchers = list(pd.unique(list(filter(None, researchers))))
     return unique_researchers
 
 
-def validate_researchers(
-    input_researchers,
-    known_researchers=None,
-    skip_flag=None,
-    database=settings.TRACEBASE_DB,
-):
+def validate_researchers(input_researchers, known_researchers=None, skip_flag=None):
     """
     Raises an exception if any researchers are not already in the database (and the database has more than 0
     researchers already in it).
     """
     if not known_researchers:
-        known_researchers = get_researchers(database)
+        known_researchers = get_researchers()
 
     # Accept any input researchers if there are no known researchers
     if len(known_researchers) > 0:

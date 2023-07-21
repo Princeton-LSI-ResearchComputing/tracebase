@@ -217,10 +217,9 @@ class MaintainedModelTests(TracebaseTestCase):
                 "DataRepo/example_data/small_dataset/"
                 "small_obob_animal_and_sample_table.xlsx"
             ),
-            debug=False,
+            dry_run=False,
         )
         self.assertEqual(0, buffer_size())
-        # TODO: Create a feature issue to tell the auto-update code to only buffer records with matching labels
 
     def test_error_when_buffer_not_clear(self):
         """Ensure that stale buffer contents before a load produces a helpful error"""
@@ -238,7 +237,7 @@ class MaintainedModelTests(TracebaseTestCase):
                     "DataRepo/example_data/small_dataset/"
                     "small_obob_animal_and_sample_table.xlsx"
                 ),
-                debug=False,
+                dry_run=False,
             )
         # Now clean up the buffer
         clear_update_buffer()

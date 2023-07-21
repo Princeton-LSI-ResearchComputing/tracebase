@@ -48,12 +48,10 @@ class MSRun(HierCachedModel, MaintainedModel):
         verbose_name_plural = "mass spectrometry runs"
         ordering = ["date", "researcher", "sample__name", "protocol__name"]
 
-        """
-        MS runs that share researcher, date, protocol, and sample would be
-        indistinguishable, thus we restrict the database to ensure that
-        combination is unique. Constraint below assumes a researcher runs a
-        sample/protocol combo only once a day.
-        """
+        # MS runs that share researcher, date, protocol, and sample would be
+        # indistinguishable, thus we restrict the database to ensure that
+        # combination is unique. Constraint below assumes a researcher runs a
+        # sample/protocol combo only once a day.
         constraints = [
             models.UniqueConstraint(
                 fields=["researcher", "date", "protocol", "sample"],

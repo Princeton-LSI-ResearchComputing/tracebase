@@ -234,7 +234,6 @@ def maintained_model_relation(
         )
 
     def decorator(cls):
-
         func_dict = {
             "update_function": None,
             "update_field": None,
@@ -445,7 +444,6 @@ class MaintainedModel(Model):
 
         class_name = self.__class__.__name__
         for updater_dict in updater_list[class_name]:
-
             # Ensure the field being set is not a maintained field
 
             update_fld = updater_dict["update_field"]
@@ -473,7 +471,6 @@ class MaintainedModel(Model):
                 ]
             )
             if decorator_signature not in self.maintained_model_initialized:
-
                 if settings.DEBUG:
                     print(
                         f"Validating {self.__class__.__name__} updater: {updater_dict}"
@@ -652,20 +649,24 @@ class MaintainedModel(Model):
             self.buffer_update()
             return
         elif auto_updates:
-            # If autoupdates are happening (and it's not a mass-autoupdate (implied)), set the label filters based on
-            # the currently set global conditions so that only fields matching the filters will be updated.
+            # If autoupdates are happening (and it's not a mass-autoupdate (assumed because performing_mass_autoupdates
+            # can only be true if auto_updates is False)), set the label filters based on the currently set global
+            # conditions so that only fields matching the filters will be updated.
             self.label_filters = global_label_filters
             self.filter_in = global_filter_in
         # Otherwise, we are performing a mass auto-update and want to update the previously set filter conditions
 
-        # Update the fields that change due to the above change (if any)
+        # Update the fields that change due to the the triggering change (if any)
+        # This only executes either when auto_updates or performing_mass_autoupdates is true - both cannot be true
         self.update_decorated_fields()
 
         # If the auto-update resulted in no change or if there exists stale buffer contents for objects that were
-        # previously saved, it can produce an error about unique constraints.  TransactionManagementErrors shpould have
+        # previously saved, it can produce an error about unique constraints.  TransactionManagementErrors should have
         # been handled before we got here so that this can proceed to effect the original change that prompted the
         # save.
         try:
+            # This either saves both explicit changes and auto-update changes (when auto_updates is true) or it only
+            # saves the auto-updated values (when performing_mass_autoupdates is true)
             super().save(*args, **kwargs)
         except (IntegrityError, ForeignKeyViolation) as uc:
             # If this is a unique constraint error during a mass autoupdate
@@ -698,11 +699,23 @@ class MaintainedModel(Model):
         # If auto-updates are turned on, a cascade of updates to linked models will occur, but if they are turned off,
         # the update will be buffered, to be manually triggered later (e.g. upon completion of loading), which
         # mitigates repeated updates to the same record
-        if auto_updates is False:
+        # performing_mass_autoupdates is checked for consistency, but perform_buffered_updates does not call delete()
+        if auto_updates is False and performing_mass_autoupdates is False:
+            # When buffering only, apply the global label filters, to be remembered during mass autoupdate
+            self.label_filters = global_label_filters
+            self.filter_in = global_filter_in
+
             self.buffer_parent_update()
             return
+        elif auto_updates:
+            # If autoupdates are happening (and it's not a mass-autoupdate (assumed because performing_mass_autoupdates
+            # can only be true if auto_updates is False)), set the label filters based on the currently set global
+            # conditions so that only fields matching the filters will be updated.
+            self.label_filters = global_label_filters
+            self.filter_in = global_filter_in
+        # Otherwise, we are performing a mass auto-update and want to update the previously set filter conditions
 
-        if propagate:
+        if auto_updates and propagate:
             # Percolate changes up to the parents (if any)
             self.call_dfs_related_updaters()
 
@@ -747,9 +760,9 @@ class MaintainedModel(Model):
                         if isinstance(e, TransactionManagementError):
                             raise e
                         warnings.warn(
-                            f"{e.__class__.__name__} error getting current value: [{str(e)}].  Possibly due to "
-                            "this being triggered by a deleted record that is linked in a related model's "
-                            "maintained field."
+                            f"{e.__class__.__name__} error getting current value of field [{update_fld}]: "
+                            f"[{str(e)}].  Possibly due to this being triggered by a deleted record that is linked in "
+                            "a related model's maintained field."
                         )
                         old_val = "<error>"
                     new_val = update_fun()
@@ -770,7 +783,7 @@ class MaintainedModel(Model):
     def call_dfs_related_updaters(self, updated=None):
         if not updated:
             updated = []
-        # Assume I've been called after I've been updated, so app myself to the updated list
+        # Assume I've been called after I've been updated, so add myself to the updated list
         self_sig = f"{self.__class__.__name__}.{self.id}"
         updated.append(self_sig)
         updated = self.call_child_updaters(updated=updated)
@@ -789,7 +802,6 @@ class MaintainedModel(Model):
             # update we're about to trigger
             parent_sig = f"{parent_inst.__class__.__name__}.{parent_inst.id}"
             if parent_sig not in updated:
-
                 if settings.DEBUG:
                     self_sig = f"{self.__class__.__name__}.{self.pk}"
                     print(
@@ -826,17 +838,14 @@ class MaintainedModel(Model):
 
             # If there is a parent that should update based on this change
             if parent_fld is not None:
-
                 # Get the parent instance
                 tmp_parent_inst = getattr(self, parent_fld)
 
                 # if a parent record exists
                 if tmp_parent_inst is not None:
-
                     try:
                         # Make sure that the (direct) parnet (or M:M related parent) *isa* MaintainedModel
                         if isinstance(tmp_parent_inst, MaintainedModel):
-
                             parent_inst = tmp_parent_inst
                             if parent_inst not in parents:
                                 parents.append(parent_inst)
@@ -845,12 +854,10 @@ class MaintainedModel(Model):
                             tmp_parent_inst.__class__.__name__ == "ManyRelatedManager"
                             or tmp_parent_inst.__class__.__name__ == "RelatedManager"
                         ):
-
                             # NOTE: This is where the `through` model is skipped
                             if tmp_parent_inst.count() > 0 and isinstance(
                                 tmp_parent_inst.first(), MaintainedModel
                             ):
-
                                 for mm_parent_inst in tmp_parent_inst.all():
                                     if mm_parent_inst not in parents:
                                         parents.append(mm_parent_inst)
@@ -881,12 +888,10 @@ class MaintainedModel(Model):
         """
         children = self.get_child_instances()
         for child_inst in children:
-
             # If the current instance's update was triggered - and was triggered by the same child instance whose
             # update we're about to trigger
             child_sig = f"{child_inst.__class__.__name__}.{child_inst.id}"
             if child_sig not in updated:
-
                 if settings.DEBUG:
                     self_sig = f"{self.__class__.__name__}.{self.pk}"
                     print(
@@ -924,16 +929,13 @@ class MaintainedModel(Model):
 
             # If there is a child that should update based on this change
             for child_fld in child_flds:
-
                 # Get the child instance
                 tmp_child_inst = getattr(self, child_fld)
 
                 # if a child record exists
                 if tmp_child_inst is not None:
-
                     # Make sure that the (direct) parnet (or M:M related child) *isa* MaintainedModel
                     if isinstance(tmp_child_inst, MaintainedModel):
-
                         child_inst = tmp_child_inst
                         if child_inst not in children:
                             children.append(child_inst)
@@ -942,15 +944,12 @@ class MaintainedModel(Model):
                         tmp_child_inst.__class__.__name__ == "ManyRelatedManager"
                         or tmp_child_inst.__class__.__name__ == "RelatedManager"
                     ):
-
                         try:
                             # NOTE: This is where the `through` model is skipped
                             if tmp_child_inst.count() > 0 and isinstance(
                                 tmp_child_inst.first(), MaintainedModel
                             ):
-
                                 for mm_child_inst in tmp_child_inst.all():
-
                                     if mm_child_inst not in children:
                                         children.append(mm_child_inst)
 
@@ -1087,7 +1086,7 @@ class MaintainedModel(Model):
     ):
         """
         Debugging TransactionManagementErrors can be difficult and confusing, so this warning is an attempt to aid that
-        debugging effort in the future by encapsulating what I have learned to provide insights in how best to address
+        debugging effort in the future by encapsulating what I have learned to provide insights on how best to address
         those issues.
         """
 
@@ -1122,10 +1121,10 @@ class MaintainedModel(Model):
             "transaction should be done without autoupdates by calling disable_autoupdates() before the transaction "
             "block, and after the atomic transaction block, call perform_buffered_updates() to make the updates.  If "
             "this is a warning, note that auto-updates can be fixed afterwards by running:\n\n"
-            "\tpython manage.py rebuild_maintained_fields\n\n."
+            "\tpython manage.py rebuild_maintained_fields\n"
         )
 
-        warning_str += f"\n{explanation}\n\nThe error that occurred: [{str(tme)}]."
+        warning_str += f"\n{explanation}\nThe error that occurred: [{str(tme)}]."
 
         warnings.warn(warning_str)
 
@@ -1223,7 +1222,7 @@ def filter_updaters(
     return new_updaters_list
 
 
-def perform_buffered_updates(using=None, label_filters=None, filter_in=None):
+def perform_buffered_updates(label_filters=None, filter_in=None):
     """
     Performs a mass update of records in the buffer in a depth-first fashion without repeated updates to the same
     record over and over.  It goes through the buffer in the order added and triggers each record's DFS updates, which
@@ -1242,14 +1241,6 @@ def perform_buffered_updates(using=None, label_filters=None, filter_in=None):
     field's "update_label" in its method's decorator.
     """
     global update_buffer
-
-    save_kwargs = {}
-    db = None
-    if using:
-        db = using
-        save_kwargs["using"] = using
-    # Mass autoupdates should turn off propagation for breadth-first transiting of the tree
-    save_kwargs["propagate"] = False
 
     use_object_label_filters = True
     if label_filters is None:
@@ -1298,7 +1289,7 @@ def perform_buffered_updates(using=None, label_filters=None, filter_in=None):
                 # decide which records should be updated.  Currently, this is not an issue because we only have 1
                 # update_label in use.  And if/when we add another label, it will only end up causing extra
                 # repeated updates of the same record.
-                buffer_item.save(**save_kwargs)
+                buffer_item.save(propagate=False)
 
                 # Propagate the changes (if necessary), keeping track of what is updated and what's not.
                 # Note: all the manual changes are assumed to have been made already, so auto-updates only need to
@@ -1306,14 +1297,13 @@ def perform_buffered_updates(using=None, label_filters=None, filter_in=None):
                 updated = buffer_item.call_dfs_related_updaters(updated=updated)
 
             elif key not in updated and buffer_item not in new_buffer:
-
                 new_buffer.append(buffer_item)
 
         except Exception as e:
             disable_mass_autoupdates()
             if orig_au_mode:
                 enable_autoupdates()
-            raise AutoUpdateFailed(buffer_item, e, updater_dicts, db)
+            raise AutoUpdateFailed(buffer_item, e, updater_dicts)
 
     # Eliminate the updated items from the buffer
     update_buffer = new_buffer
@@ -1436,8 +1426,7 @@ class NoDecorators(Exception):
 
 
 class AutoUpdateFailed(Exception):
-    def __init__(self, model_object, err, updaters, db=None):
-        database = "unspecified" if db is None else db
+    def __init__(self, model_object, err, updaters):
         updater_flds = [
             d["update_field"] for d in updaters if d["update_field"] is not None
         ]
@@ -1448,7 +1437,7 @@ class AutoUpdateFailed(Exception):
             obj_str = "unknown"
         message = (
             f"Autoupdate of the {model_object.__class__.__name__} model's fields [{', '.join(updater_flds)}] in the "
-            f"{database} database failed for record {obj_str}.  Potential causes:\n"
+            f"database failed for record {obj_str}.  Potential causes:\n"
             "\t1. The record was created and deleted before the buffered update (a catch for the exception should be "
             "added and ignored).\n"
             "\t2. The autoupdate buffer is stale and auto-updates are being attempted on non-existent records.  Find "

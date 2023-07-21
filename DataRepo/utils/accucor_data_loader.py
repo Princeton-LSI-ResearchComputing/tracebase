@@ -1,12 +1,12 @@
-import collections
 import re
+from collections import Counter, defaultdict
 from datetime import datetime
-from typing import List, TypedDict
+from typing import Dict, List, TypedDict
 
 import regex
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.db import transaction
+from django.db import IntegrityError, transaction
 
 from DataRepo.models import (
     Compound,
@@ -35,10 +35,14 @@ from DataRepo.models.researcher import (
     get_researchers,
     validate_researchers,
 )
-from DataRepo.utils.exceptions import (  # ValidationDatabaseSetupError,
+from DataRepo.utils.exceptions import (
     AggregatedErrors,
+    ConflictingValueError,
+    ConflictingValueErrors,
     DryRun,
     DupeCompoundIsotopeCombos,
+    DuplicatePeakGroup,
+    DuplicatePeakGroups,
     EmptyColumnsError,
     IsotopeStringDupe,
     MissingCompounds,
@@ -97,6 +101,12 @@ class IsotopeObservationData(TypedDict):
     parent: bool
 
 
+class PeakGroupAttrs(TypedDict):
+    name: str
+    formula: str
+    compounds: List[Compound]
+
+
 class AccuCorDataLoader:
     """
     Load the Protocol, MsRun, PeakGroup, and PeakData tables
@@ -113,77 +123,74 @@ class AccuCorDataLoader:
         skip_samples=None,
         sample_name_prefix=None,
         new_researcher=False,
-        database=None,
         validate=False,
         isocorr_format=False,
         verbosity=1,
         defer_autoupdates=False,
         dry_run=False,
     ):
-        # Data
-        self.accucor_original_df = accucor_original_df
-        self.accucor_corrected_df = accucor_corrected_df
-
-        # Data format
-        self.isocorr_format = isocorr_format
-
-        # Optional data (for batch updates)
-        self.protocol_input = protocol_input.strip()
-
-        # Metadata
-        self.date = datetime.strptime(date.strip(), "%Y-%m-%d")
-        self.researcher = researcher.strip()
-        self.new_researcher = new_researcher
-        self.peak_group_set_filename_input = peak_group_set_filename.strip()
-
-        # Sample Metadata
-        if skip_samples is None:
-            self.skip_samples = []
-        else:
-            self.skip_samples = skip_samples
-        if sample_name_prefix is None:
-            sample_name_prefix = ""
-        self.sample_name_prefix = sample_name_prefix
-
-        # Verbosity affects log prints and error verbosity (for debugging)
-        self.verbosity = verbosity
-
-        # Dry Run - don't change the database
-        self.dry_run = dry_run
-
-        # Database config
-        self.db = settings.TRACEBASE_DB
-        # # If a database was explicitly supplied
-        # if database is not None:
-        #     self.validate = False
-        #     self.db = database
-        # else:
-        #     self.validate = validate
-        #     if validate:
-        #         if settings.VALIDATION_ENABLED:
-        #             self.db = settings.VALIDATION_DB
-        #         else:
-        #             raise ValidationDatabaseSetupError()
-        self.validate = validate
-
-        # How to handle mass autoupdates
-        self.defer_autoupdates = defer_autoupdates
-
-        # Tracking Data
-        self.peak_group_dict = {}
-        self.corrected_samples = []
-        self.original_samples = []
-        self.db_samples_dict = None
-        self.labeled_element_header = None
         self.aggregated_errors_object = AggregatedErrors()
-        self.missing_samples = []
-        self.missing_compounds = {}
-        self.dupe_isotope_rows = {"original": [], "corrected": []}
 
-        # Used for accucor
-        self.labeled_element = None
-        # Used for isocorr
-        self.tracer_labeled_elements = []
+        try:
+            # Data
+            self.accucor_original_df = accucor_original_df
+            self.accucor_corrected_df = accucor_corrected_df
+
+            # Data format
+            self.isocorr_format = isocorr_format
+
+            # Optional data (for batch updates)
+            self.protocol_input = protocol_input.strip()
+
+            # Metadata
+            self.date = datetime.strptime(date.strip(), "%Y-%m-%d")
+            self.researcher = researcher.strip()
+            self.new_researcher = new_researcher
+            self.peak_group_set_filename = peak_group_set_filename.strip()
+
+            # Sample Metadata
+            if skip_samples is None:
+                self.skip_samples = []
+            else:
+                self.skip_samples = skip_samples
+            if sample_name_prefix is None:
+                sample_name_prefix = ""
+            self.sample_name_prefix = sample_name_prefix
+
+            # Verbosity affects log prints and error verbosity (for debugging)
+            self.verbosity = verbosity
+
+            # Dry Run - don't change the database
+            self.dry_run = dry_run
+
+            # Validate mode
+            self.validate = validate
+
+            # How to handle mass autoupdates
+            self.defer_autoupdates = defer_autoupdates
+
+            # Tracking Data
+            self.peak_group_dict: Dict[str, PeakGroupAttrs] = {}
+            self.corrected_samples = []
+            self.original_samples = []
+            self.db_samples_dict = None
+            self.labeled_element_header = None
+            self.missing_samples = []
+            self.missing_compounds = {}
+            self.dupe_isotope_compounds = {
+                "original": defaultdict(dict),
+                "corrected": defaultdict(dict),
+            }
+            self.duplicate_peak_groups = []
+            self.conflicting_peak_groups = []
+
+            # Used for accucor
+            self.labeled_element = None
+            # Used for isocorr
+            self.tracer_labeled_elements = []
+        except Exception as e:
+            self.aggregated_errors_object.buffer_error(e)
+            raise self.aggregated_errors_object
 
     def initialize_preloaded_animal_sample_data(self):
         """
@@ -245,16 +252,14 @@ class AccuCorDataLoader:
 
     def validate_researcher(self):
         if self.new_researcher is True:
-            researchers = get_researchers(self.db)
+            researchers = get_researchers()
             if self.researcher in researchers:
                 self.aggregated_errors_object.buffer_error(
                     ResearcherNotNew(self.researcher, "--new-researcher", researchers)
                 )
         else:
             try:
-                validate_researchers(
-                    [self.researcher], skip_flag="--new-researcher", database=self.db
-                )
+                validate_researchers([self.researcher], skip_flag="--new-researcher")
             except UnknownResearcherError as ure:
                 # This is a raised warning when in validate mode.  The user should know about it (so it's raised), but
                 # they can't address it if the researcher is valid.
@@ -264,7 +269,6 @@ class AccuCorDataLoader:
                 )
 
     def initialize_sample_names(self):
-
         minimum_sample_index = self.get_first_sample_column_index(
             self.accucor_corrected_df
         )
@@ -303,7 +307,7 @@ class AccuCorDataLoader:
             print("Validating data...")
 
         # Make sure all sample columns have names
-        corr_iter = collections.Counter(self.corrected_samples)
+        corr_iter = Counter(self.corrected_samples)
         for k, v in corr_iter.items():
             if k.startswith("Unnamed: "):
                 self.aggregated_errors_object.buffer_error(
@@ -314,7 +318,7 @@ class AccuCorDataLoader:
 
         if self.original_samples:
             # Make sure all sample columns have names
-            orig_iter = collections.Counter(self.original_samples)
+            orig_iter = Counter(self.original_samples)
             for k, v in orig_iter.items():
                 if k.startswith("Unnamed: "):
                     self.aggregated_errors_object.buffer_error(
@@ -360,32 +364,33 @@ class AccuCorDataLoader:
                 )
 
     def validate_compounds(self):
-
-        self.dupe_isotope_rows["original"] = []
-        self.dupe_isotope_rows["corrected"] = []
+        # In case validate_compounds is ever called more than once...
+        # These are used to skip duplicated data in the load
+        self.dupe_isotope_compounds["original"] = defaultdict(dict)
+        self.dupe_isotope_compounds["corrected"] = defaultdict(dict)
+        master_dupe_dict = defaultdict(dict)
 
         if self.accucor_original_df is not None:
-            dupe_dict = {}
-            dupe_orig_rows = []
+            orig_dupe_dict = defaultdict(list)
+            dupe_orig_compound_isotope_labels = defaultdict(list)
             for index, row in self.accucor_original_df[
                 self.accucor_original_df.duplicated(
                     subset=["compound", "isotopeLabel"], keep=False
                 )
             ].iterrows():
-                dupe_orig_rows.append(index)
-                dupe_key = row["compound"] + " & " + row["isotopeLabel"]
-                if dupe_key not in dupe_dict:
-                    dupe_dict[dupe_key] = str(index + 1)
-                else:
-                    dupe_dict[dupe_key] += "," + str(index + 1)
+                cmpd = row["compound"]
+                lbl = row["isotopeLabel"]
+                dupe_orig_compound_isotope_labels[cmpd].append(index + 2)
+                dupe_key = f"Compound: [{cmpd}], Label: [{lbl}]"
+                orig_dupe_dict[dupe_key].append(index + 2)
 
-            if len(dupe_dict.keys()) != 0:
+            if len(orig_dupe_dict.keys()) != 0:
                 # Record the rows where this exception occurred so that subsequent downstream errors caused by this
                 # exception can be ignored.
-                self.dupe_isotope_rows["original"] = dupe_orig_rows
-                self.aggregated_errors_object.buffer_error(
-                    DupeCompoundIsotopeCombos(dupe_dict, "original")
-                )
+                self.dupe_isotope_compounds[
+                    "original"
+                ] = dupe_orig_compound_isotope_labels
+                master_dupe_dict["original"] = orig_dupe_dict
 
         if self.isocorr_format:
             labeled_element_header = "isotopeLabel"
@@ -393,30 +398,33 @@ class AccuCorDataLoader:
             labeled_element_header = self.labeled_element_header
 
         # do it again for the corrected
-        dupe_dict = {}
-        dupe_corr_rows = []
+        corr_dupe_dict = defaultdict(list)
+        dupe_corr_compound_isotope_counts = defaultdict(list)
         for index, row in self.accucor_corrected_df[
             self.accucor_corrected_df.duplicated(
                 subset=[self.compound_header, labeled_element_header], keep=False
             )
         ].iterrows():
-            dupe_corr_rows.append(index)
-            dupe_key = f"{row[self.compound_header]} & {row[labeled_element_header]}"
-            if dupe_key not in dupe_dict:
-                dupe_dict[dupe_key] = str(index + 1)
-            else:
-                dupe_dict[dupe_key] += "," + str(index + 1)
+            cmpd = row[self.compound_header]
+            lbl = row[labeled_element_header]
+            dupe_corr_compound_isotope_counts[cmpd].append(index + 2)
+            dupe_key = (
+                f"{self.compound_header}: [{cmpd}], {labeled_element_header}: [{lbl}]"
+            )
+            corr_dupe_dict[dupe_key].append(index + 2)
 
-        if len(dupe_dict.keys()) != 0:
+        if len(corr_dupe_dict.keys()) != 0:
             # Record the rows where this exception occurred so that subsequent downstream errors caused by this
             # exception can be ignored.
-            self.dupe_isotope_rows["corrected"] = dupe_corr_rows
+            self.dupe_isotope_compounds["corrected"] = dupe_corr_compound_isotope_counts
+            master_dupe_dict["corrected"] = corr_dupe_dict
+
+        if len(master_dupe_dict.keys()) > 0:
             self.aggregated_errors_object.buffer_error(
-                DupeCompoundIsotopeCombos(dupe_dict, "corrected")
+                DupeCompoundIsotopeCombos(master_dupe_dict)
             )
 
     def initialize_db_samples_dict(self):
-
         self.missing_samples = []
 
         if self.verbosity >= 1:
@@ -431,11 +439,14 @@ class AccuCorDataLoader:
         for sample_name in self.corrected_samples:
             prefixed_sample_name = f"{self.sample_name_prefix}{sample_name}"
             try:
-                # If we're validating, we'll be retrieving samples from the validation database, because we're assuming
-                # that the samples in the accucor files are being validated against the samples that were just loaded
-                # into the validation database.  If we're not validating, then we're retrieving samples from the one
-                # database we're working with anyway
-                # sample_dict[sample_name] = Sample.objects.using(self.db).get(
+                """
+                This relies on sample name to find the correct sample since
+                we do not have any other information about the sample in the
+                peak annotation file Accucor/Isocor files should be
+                accomplanied by a sample and animal sheet file so we can
+                identify potential duplicates and flag them
+                """
+                # TODO Ensure the sample names in an AccuCor file match sample names in a supplied sample sheet
                 sample_dict[sample_name] = Sample.objects.get(name=prefixed_sample_name)
             except Sample.DoesNotExist:
                 self.missing_samples.append(sample_name)
@@ -487,9 +498,8 @@ class AccuCorDataLoader:
         counts of 0 already.
         """
         # Assuming only 1 animal is the source of all samples and arbitrarily using the first sample to get that animal
-        tracer_recs = list(self.db_samples_dict.values())[
-            0
-        ].animal.infusate.tracers.all()
+        animal = list(self.db_samples_dict.values())[0].animal
+        tracer_recs = animal.infusate.tracers.all()
 
         # Assuming all samples come from 1 animal, so we're only looking at 1 (any) sample
         tracer_labeled_elements = []
@@ -504,7 +514,26 @@ class AccuCorDataLoader:
                 if this_label not in tracer_labeled_elements:
                     tracer_labeled_elements.append(this_label)
 
-        self.tracer_labeled_elements = tracer_labeled_elements
+        if not self.isocorr_format:
+            # To allow animal and sample sheets to contain tracers with multiple labels, we will restrict the tracer
+            # labeled elements to just those in the Accucor file
+            accucor_labeled_elems = [
+                tle
+                for tle in tracer_labeled_elements
+                if tle["element"] == self.labeled_element
+            ]
+            if len(accucor_labeled_elems) != 1:
+                elems = ", ".join(
+                    [tle["element"] for tle in self.tracer_labeled_elements]
+                )
+                raise TracerLabeledElementNotFound(
+                    f"Unable to find the Accucor labeled element [{self.labeled_element}] in the tracer data for this "
+                    f"animal [{animal}].  The tracers cumulatively contain {len(self.tracer_labeled_elements)} "
+                    f"distinct elements: [{elems}]."
+                )
+            self.tracer_labeled_elements = accucor_labeled_elems
+        else:
+            self.tracer_labeled_elements = tracer_labeled_elements
 
     @classmethod
     def get_first_sample_column_index(cls, df):
@@ -556,7 +585,6 @@ class AccuCorDataLoader:
             if peak_group_formula_key:
                 peak_group_formula = row[peak_group_formula_key]
             if peak_group_name not in self.peak_group_dict:
-
                 # cache it for later; note, if the first row encountered
                 # is missing a formula, there will be issues later
                 self.peak_group_dict[peak_group_name] = {
@@ -564,11 +592,9 @@ class AccuCorDataLoader:
                     "formula": peak_group_formula,
                 }
 
-                """
-                cross validate in database;  this is a mapping of peak group
-                name to one or more compounds. peak groups sometimes detect
-                multiple compounds delimited by slash
-                """
+                # cross validate in database;  this is a mapping of peak group
+                # name to one or more compounds. peak groups sometimes detect
+                # multiple compounds delimited by slash
 
                 self.peak_group_dict[peak_group_name]["compounds"] = []
                 compounds_input = [
@@ -585,11 +611,9 @@ class AccuCorDataLoader:
                             self.peak_group_dict[peak_group_name]["compounds"].append(
                                 mapped_compound
                             )
-                            """
-                            If the formula was previously None because we were
-                            working with corrected data (missing column), supplement
-                            it with the mapped database compound's formula
-                            """
+                            # If the formula was previously None because we were
+                            # working with corrected data (missing column), supplement
+                            # it with the mapped database compound's formula
                             if not self.peak_group_dict[peak_group_name]["formula"]:
                                 self.peak_group_dict[peak_group_name][
                                     "formula"
@@ -621,7 +645,7 @@ class AccuCorDataLoader:
         for starting from 1 and 1 for a header row).
         """
         if not formula:
-            # formular will be none when the accucor file is a csv
+            # formula will be none when the accucor file is a csv
             formula = "no formula"
         if compound_input in self.missing_compounds:
             self.missing_compounds[compound_input]["rownums"].append(index + 2)
@@ -646,7 +670,6 @@ class AccuCorDataLoader:
             self.protocol_input,
             Protocol.MSRUN_PROTOCOL,
             f"For protocol's full text, please consult {self.researcher}.",
-            database=self.db,
         )
         action = "Found"
         feedback = f"{protocol.category} protocol {protocol.id} '{protocol.name}'"
@@ -660,12 +683,115 @@ class AccuCorDataLoader:
         return protocol
 
     def insert_peak_group_set(self):
-        peak_group_set = PeakGroupSet(filename=self.peak_group_set_filename_input)
-        # full_clean cannot validate (e.g. uniqueness) using a non-default database
-        if self.db == settings.DEFAULT_DB:
-            peak_group_set.full_clean()
-        peak_group_set.save(using=self.db)
+        peak_group_set = PeakGroupSet(filename=self.peak_group_set_filename)
+        peak_group_set.full_clean()
+        peak_group_set.save()
         return peak_group_set
+
+    def insert_peak_group(
+        self,
+        peak_group_attrs: PeakGroupAttrs,
+        msrun: MSRun,
+        peak_group_set: PeakGroupSet,
+    ):
+        """Insert a PeakGroup record
+
+        NOTE: If the C12 PARENT/0-Labeled row encountered has any issues (for example, a null formula),
+        then this block will fail
+
+        Args:
+            peak_group_attrs: dictionary of peak group atrributes
+            msrun: MSRun object the PeakGroup belongs to
+            peak_group_set: PeakGroupSet object the PeakGroup belongs to
+
+        Returns:
+            A newly created PeakGroup object created using the supplied values
+
+        Raises:
+            DuplicatePeakGroup: A PeakGroup record with the same values already exists
+            ConflictingValueError: A PeakGroup with the same unique key (MSRun and PeakGroup.name) exists, but with a
+              different formula or PeakGroupSet
+        """
+
+        if self.verbosity >= 1:
+            print(
+                f"\tInserting {peak_group_attrs['name']} peak group for sample {msrun.sample}"
+            )
+        try:
+            peak_group, created = PeakGroup.objects.get_or_create(
+                msrun=msrun,
+                name=peak_group_attrs["name"],
+                formula=peak_group_attrs["formula"],
+                peak_group_set=peak_group_set,
+            )
+            if not created:
+                raise DuplicatePeakGroup(
+                    adding_file=peak_group_set.filename,
+                    ms_run=msrun,
+                    sample=msrun.sample,
+                    peak_group_name=peak_group_attrs["name"],
+                    existing_peak_group_set=peak_group.peak_group_set,
+                )
+            peak_group.full_clean()
+            peak_group.save()
+        except IntegrityError as ie:
+            iestr = str(ie)
+            if (
+                'duplicate key value violates unique constraint "unique_peakgroup"'
+                in iestr
+            ):
+                # "Peak group with this Name and Msrun already exists"
+                existing_peak_group = PeakGroup.objects.get(
+                    msrun=msrun, name=peak_group_attrs["name"]
+                )
+                conflicting_fields = []
+                existing_values = []
+                new_values = []
+                if existing_peak_group.formula != peak_group_attrs["formula"]:
+                    conflicting_fields.append("formula")
+                    existing_values.append(existing_peak_group.formula)
+                    new_values.append(peak_group_attrs["formula"])
+                if existing_peak_group.peak_group_set != peak_group_set:
+                    conflicting_fields.append("peak_group_set")
+                    existing_values.append(existing_peak_group.peak_group_set.filename)
+                    new_values.append(peak_group_set.filename)
+                raise ConflictingValueError(
+                    rec=existing_peak_group,
+                    consistent_field=conflicting_fields,
+                    existing_value=existing_values,
+                    differing_value=new_values,
+                )
+
+            else:
+                self.aggregated_errors_object.buffer_error(ie)
+
+        """
+        associate the pre-vetted compounds with the newly inserted
+        PeakGroup
+        """
+        for compound in peak_group_attrs["compounds"]:
+            # Must save the compound before it can be linked
+            compound.save()
+            peak_group.compounds.add(compound)
+
+        # Insert PeakGroup Labels
+        peak_labeled_elements = self.get_peak_labeled_elements(
+            peak_group.compounds.all()
+        )
+        for peak_labeled_element in peak_labeled_elements:
+            if self.verbosity >= 1:
+                print(
+                    f"\t\tInserting {peak_labeled_element} peak group label for peak group "
+                    f"{peak_group.name}"
+                )
+            peak_group_label = PeakGroupLabel(
+                peak_group=peak_group,
+                element=peak_labeled_element["element"],
+            )
+            peak_group_label.full_clean()
+            peak_group_label.save()
+
+        return peak_group
 
     def load_data(self):
         """
@@ -680,29 +806,41 @@ class AccuCorDataLoader:
         protocol = self.retrieve_or_create_protocol()
         peak_group_set = self.insert_peak_group_set()
 
-        # each sample gets its own msrun
-        for sample_name in self.db_samples_dict.keys():
+        sample_msrun_dict = {}
 
+        # Each sample gets its own msrun
+        for sample_name in self.db_samples_dict.keys():
             # each msrun/sample has its own set of peak groups
             inserted_peak_group_dict = {}
 
-            if self.verbosity >= 1:
-                print(
-                    f"Inserting msrun for sample {sample_name}, date {self.date}, researcher {self.researcher}, "
-                    f"protocol {protocol}"
-                )
-
+            msrun_dict = {
+                "date": self.date,
+                "researcher": self.researcher,
+                "protocol": protocol,
+                "sample": self.db_samples_dict[sample_name],
+            }
             try:
-                msrun = MSRun(
-                    date=self.date,
-                    researcher=self.researcher,
-                    protocol=protocol,
-                    sample=self.db_samples_dict[sample_name],
-                )
-                # full_clean cannot validate (e.g. uniqueness) using a non-default database
-                if self.db == settings.DEFAULT_DB:
+                # TODO This relies on sample name lookup (see issue #684)
+                # https://github.com/Princeton-LSI-ResearchComputing/tracebase/issues/684
+                """This also relies on accurate msrun information (researcher and date)
+                Including mzXML files with accucor files will help ensure accurate msrun
+                lookup since we will have checksums for the mzXML files and those are
+                always associated with one MSRun record
+                """
+                msrun, created = MSRun.objects.get_or_create(**msrun_dict)
+                if created:
                     msrun.full_clean()
-                msrun.save(using=self.db)
+                    msrun.save()
+                    if self.verbosity >= 1:
+                        print(
+                            f"Inserting msrun for sample {sample_name}, date {self.date}, "
+                            f"researcher {self.researcher}, protocol {protocol}"
+                        )
+
+                # This will be used to iterate the sample loop below so that we don't attempt to load samples whose
+                # msrun creations failed.
+                sample_msrun_dict[sample_name] = msrun
+
                 if (
                     msrun.sample.animal not in animals_to_uncache
                     and msrun.sample.animal.caches_exist()
@@ -716,17 +854,24 @@ class AccuCorDataLoader:
                 self.aggregated_errors_object.buffer_error(e)
                 continue
 
-            """
-            Create all PeakGroups
+        # Create all PeakGroups
+        for sample_name in sample_msrun_dict.keys():
+            msrun = sample_msrun_dict[sample_name]
 
-            Pass through the rows once to identify the PeakGroups
-            """
-
+            # Pass through the rows once to identify the PeakGroups
             for index, corr_row in self.accucor_corrected_df.iterrows():
-
                 try:
                     obs_isotopes = self.get_observed_isotopes(corr_row)
                     peak_group_name = corr_row[self.compound_header]
+
+                    # If this is a compound that has isotope duplicates, skip it
+                    # It will already have been identified as a DupeCompoundIsotopeCombos error, so this load will
+                    # ultimately fail, but we con tinue so that we can find more errors
+                    if (
+                        peak_group_name
+                        in self.dupe_isotope_compounds["corrected"].keys()
+                    ):
+                        continue
 
                     # Assuming that if the first one is the parent, they all are.  Note that subsequent isotopes in the
                     # list may be parent=True if 0 isotopes of that element were observed.
@@ -739,85 +884,34 @@ class AccuCorDataLoader:
                         and obs_isotopes[0]["parent"]
                         and peak_group_name in self.peak_group_dict
                     ):
-
-                        """
-                        Here we insert PeakGroup, by name (only once per file).
-                        NOTE: If the C12 PARENT/0-Labeled row encountered has any issues (for example, a null formula),
-                        then this block will fail
-                        """
-
-                        if self.verbosity >= 1:
-                            print(
-                                f"\tInserting {peak_group_name} peak group for sample "
-                                f"{sample_name}"
+                        # Insert PeakGroup, by name (only once per file).
+                        try:
+                            peak_group = self.insert_peak_group(
+                                peak_group_attrs=self.peak_group_dict[peak_group_name],
+                                msrun=msrun,
+                                peak_group_set=peak_group_set,
                             )
-                        peak_group_attrs = self.peak_group_dict[peak_group_name]
-                        peak_group = PeakGroup(
-                            msrun=msrun,
-                            name=peak_group_attrs["name"],
-                            formula=peak_group_attrs["formula"],
-                            peak_group_set=peak_group_set,
-                        )
-                        # full_clean cannot validate (e.g. uniqueness) using a non-default database
-                        if self.db == settings.DEFAULT_DB:
-                            peak_group.full_clean()
-                        peak_group.save(using=self.db)
+                            inserted_peak_group_dict[peak_group_name] = peak_group
+                        except DuplicatePeakGroup as dup_pg:
+                            self.duplicate_peak_groups.append(dup_pg)
+                        except ConflictingValueError as cve:
+                            self.conflicting_peak_groups.append(cve)
 
-                        """
-                        associate the pre-vetted compounds with the newly inserted
-                        PeakGroup
-                        """
-                        for compound in peak_group_attrs["compounds"]:
-                            # Must save the compound to the correct database before it can be linked
-                            compound.save(using=self.db)
-                            peak_group.compounds.add(compound)
-                        peak_labeled_elements = self.get_peak_labeled_elements(
-                            peak_group.compounds.all()
-                        )
-
-                        # Insert PeakGroup Labels
-                        for peak_labeled_element in peak_labeled_elements:
-                            if self.verbosity >= 1:
-                                print(
-                                    f"\t\tInserting {peak_labeled_element} peak group label for peak group "
-                                    f"{peak_group.name}"
-                                )
-                            peak_group_label = PeakGroupLabel(
-                                peak_group=peak_group,
-                                element=peak_labeled_element["element"],
-                            )
-                            # full_clean cannot validate (e.g. uniqueness) using a non-default database
-                            if self.db == settings.DEFAULT_DB:
-                                peak_group_label.full_clean()
-                            peak_group_label.save(using=self.db)
-
-                        # cache
-                        inserted_peak_group_dict[peak_group_name] = peak_group
-
-                except ValidationError as ve:
-                    if self.is_a_downstream_dupe_error(ve, index, "corrected"):
-                        # This is a redundant error caused by the existence of a DupeCompoundIsotopeCombos, so
-                        # we can ignore this error
-                        pass
-                    else:
-                        raise ve
                 except Exception as e:
                     # If we get here, a specific exception should be written to handle and explain the cause of an
                     # error.  For example, the ValidationError handled above was due to a previous error about
                     # duplicate compound/isotope pairs that would go away when the duplicate was fixed.  The duplicate
-                    # was causing the data to contain a pands structure where corrected_abundance should have been -
+                    # was causing the data to contain a pandas structure where corrected_abundance should have been -
                     # containing 2 values instead of 1.
                     self.aggregated_errors_object.buffer_error(e)
                     continue
 
             # For each PeakGroup, create PeakData rows
             for peak_group_name in inserted_peak_group_dict:
-
                 # we should have a cached PeakGroup and its labeled element now
                 peak_group = inserted_peak_group_dict[peak_group_name]
 
                 if self.accucor_original_df is not None:
-
                     peak_group_original_data = self.accucor_original_df.loc[
                         self.accucor_original_df["compound"] == peak_group_name
                     ]
@@ -832,17 +926,11 @@ class AccuCorDataLoader:
                         0, peak_group_label_rec.atom_count() + 1
                     ):
                         try:
-
                             raw_abundance = 0
                             med_mz = 0
                             med_rt = 0
-                            # Ensuing code assumes a single labeled element in the tracer(s), so raise an exception if
-                            # that's not true
-                            if len(self.tracer_labeled_elements) != 1:
-                                raise InvalidNumberOfLabeledElements(
-                                    "This code only supports a single labeled element in the original data sheet. Row "
-                                    f"{orig_row_idx + 1} has {len(self.tracer_labeled_elements)}."
-                                )
+                            # We can safely assume a single tracer labeled element (because otherwise, there would have
+                            # been a TracerLabeledElementNotFound error), so...
                             mass_number = self.tracer_labeled_elements[0]["mass_number"]
 
                             # Try to get original data. If it's not there, set empty values
@@ -898,11 +986,8 @@ class AccuCorDataLoader:
                                 med_rt=med_rt,
                             )
 
-                            # full_clean cannot validate (e.g. uniqueness) using a non-default database
-                            if self.db == settings.DEFAULT_DB:
-                                peak_data.full_clean()
-
-                            peak_data.save(using=self.db)
+                            peak_data.full_clean()
+                            peak_data.save()
 
                             """
                             Create the PeakDataLabel records
@@ -923,28 +1008,9 @@ class AccuCorDataLoader:
                                 mass_number=mass_number,
                             )
 
-                            if self.db == settings.DEFAULT_DB:
-                                peak_data_label.full_clean()
+                            peak_data_label.full_clean()
+                            peak_data_label.save()
 
-                            peak_data_label.save(using=self.db)
-                        except ValidationError as ve:
-                            # The orig_row_idx was incremented before the exception encountered in full_clean
-                            if self.is_a_downstream_dupe_error(
-                                ve, orig_row_idx - 1, "original"
-                            ):
-                                # This is a redundant error caused by the existence of a DupeCompoundIsotopeCombos, so
-                                # we can ignore this error
-                                pass
-                            else:
-                                if settings.DEBUG or self.verbosity >= 1:
-                                    print(
-                                        f"orig_row_idx: [{orig_row_idx}] "
-                                        f"element: [{peak_group_label_rec}] "
-                                        f"count: [{labeled_count}] "
-                                        f"mass number: [{mass_number}] "
-                                        f"Number of atoms in the formula: {peak_group_label_rec.atom_count()}"
-                                    )
-                                raise ve
                         except Exception as e:
                             self.aggregated_errors_object.buffer_error(e)
                             continue
@@ -956,7 +1022,6 @@ class AccuCorDataLoader:
                     ]
 
                     for _index, corr_row in peak_group_corrected_df.iterrows():
-
                         try:
                             corrected_abundance_for_sample = corr_row[sample_name]
                             # No original dataframe, no raw_abundance, med_mz, or med_rt
@@ -978,10 +1043,8 @@ class AccuCorDataLoader:
                                 med_rt=med_rt,
                             )
 
-                            if self.db == settings.DEFAULT_DB:
-                                peak_data.full_clean()
-
-                            peak_data.save(using=self.db)
+                            peak_data.full_clean()
+                            peak_data.save()
 
                             """
                             Create the PeakDataLabel records
@@ -992,7 +1055,6 @@ class AccuCorDataLoader:
                             )
 
                             for isotope in corr_isotopes:
-
                                 if self.verbosity >= 1:
                                     print(
                                         f"\t\t\tInserting peak data label [{isotope['mass_number']}{isotope['element']}"
@@ -1011,14 +1073,29 @@ class AccuCorDataLoader:
                                     mass_number=isotope["mass_number"],
                                 )
 
-                                if self.db == settings.DEFAULT_DB:
-                                    peak_data_label.full_clean()
-
-                                peak_data_label.save(using=self.db)
+                                peak_data_label.full_clean()
+                                peak_data_label.save()
 
                         except Exception as e:
                             self.aggregated_errors_object.buffer_error(e)
                             continue
+
+        if len(self.duplicate_peak_groups) > 0:
+            self.aggregated_errors_object.buffer_exception(
+                DuplicatePeakGroups(
+                    adding_file=peak_group_set.filename,
+                    duplicate_peak_groups=self.duplicate_peak_groups,
+                ),
+                is_fatal=self.validate,
+                is_error=False,
+            )
+        if len(self.conflicting_peak_groups) > 0:
+            self.aggregated_errors_object.buffer_exception(
+                ConflictingValueErrors(
+                    model_name="PeakGroup",
+                    conflicting_value_errors=self.conflicting_peak_groups,
+                ),
+            )
 
         if self.aggregated_errors_object.should_raise():
             raise self.aggregated_errors_object
@@ -1036,27 +1113,6 @@ class AccuCorDataLoader:
 
         if settings.DEBUG or self.verbosity >= 1:
             print("Expiring done.")
-
-    def is_a_downstream_dupe_error(self, ve, row, sheet):
-        """
-        DupeCompoundIsotopeCombos errors cause some specific ValidationErrors.  This method takes a ValidationError
-        object and determines if this is in fact an error that arises due to a DupeCompoundIsotopeCombos error.
-        """
-        sve = str(ve)
-        if row in self.dupe_isotope_rows[sheet] and (
-            (
-                "dtype: float64" in sve
-                and "value must be a float" in sve
-                and "corrected_abundance" in sve
-            )
-            or (
-                "__all__" in sve
-                and "Peak group with this Name and Msrun already exists." in sve
-            )
-        ):
-            return True
-
-        return False
 
     def get_peak_labeled_elements(self, compound_recs) -> List[IsotopeObservationData]:
         """
@@ -1129,7 +1185,6 @@ class AccuCorDataLoader:
                 )
 
         else:
-
             # Get the mass number(s) from the associated tracers
             mns = [
                 x["mass_number"]
@@ -1209,7 +1264,6 @@ class AccuCorDataLoader:
         return isotope_observations
 
     def load_accucor_data(self):
-
         self.pre_load_setup()
 
         # Data validation and loading
@@ -1255,7 +1309,7 @@ class AccuCorDataLoader:
 
         autoupdate_mode = not self.defer_autoupdates
         if not self.dry_run and autoupdate_mode:
-            perform_buffered_updates(using=self.db)
+            perform_buffered_updates()
 
         self.post_load_teardown(autoupdate_mode)
 
@@ -1300,7 +1354,7 @@ class MassNumberNotFound(Exception):
         self.tracer_labeled_elements = tracer_labeled_elements
 
 
-class InvalidNumberOfLabeledElements(Exception):
+class TracerLabeledElementNotFound(Exception):
     pass
 
 
@@ -1319,7 +1373,8 @@ class SampleIndexNotFound(Exception):
 class CorrectedCompoundHeaderMissing(Exception):
     def __init__(self):
         message = (
-            "Compound header [Compound] not found in the accucor corrected data.  Did you forget to provide "
-            "--isocorr-format?"
+            "Compound header [Compound] not found in the accucor corrected data.  This may be an isocorr file.  Try "
+            "again and submit this file using the isocorr file upload form input (or add the --isocorr-format option "
+            "on the command line)."
         )
         super().__init__(message)

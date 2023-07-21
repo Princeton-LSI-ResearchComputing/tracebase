@@ -2,7 +2,7 @@
 name: Super-Linter
 
 # Run this workflow every time a new commit is pushed to your repository
-on: push
+"on": push
 
 jobs:
   # Set the job key. The key is displayed as the job name
@@ -20,10 +20,10 @@ jobs:
 
       # Runs the Super-Linter action
       - name: Run Super-Linter
-        uses: github/super-linter/slim@v4
+        uses: github/super-linter/slim@v5
         env:
           DEFAULT_BRANCH: main
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           LINTER_RULES_PATH: /
           IGNORE_GITIGNORED_FILES: true
-          FILTER_REGEX_EXCLUDE: (\.pylintrc|migrations|static\/bootstrap.*)
+          FILTER_REGEX_EXCLUDE: (\.pylintrc|migrations|.*\.xlsx|static\/bootstrap.*)
