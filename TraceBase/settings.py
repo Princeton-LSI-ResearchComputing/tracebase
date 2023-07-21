@@ -144,6 +144,9 @@ STATIC_URL = "/static/"
 
 STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")]
 
+# File storage location
+MEDIA_URL = "/archive/"
+MEDIA_ROOT = os.path.join(BASE_DIR, "archive")
 
 # Data submission and validation settings
 
@@ -188,6 +191,8 @@ elif CACHES_SETTING != "PROD_CACHES":
         f"Invalid CACHE_SETTINGS value: {CACHES_SETTING} in .env. Defaulting to PROD_CACHES. Valid values are "
         "TEST_CACHES and PROD_CACHES."
     )
+
+TEST_RUNNER = "TraceBase.runner.TraceBaseTestSuiteRunner"
 
 # Logging settings
 # This logging level was added to show the number of SQL queries in the server console

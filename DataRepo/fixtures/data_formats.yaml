@@ -1,0 +1,22 @@
+---
+- model: DataRepo.dataformat
+  fields:
+    code: ms_raw
+    name: "raw (Proprietary)"
+    description: >
+      "Proprietary raw format peak data from a mass spectrometery run"
+- model: DataRepo.dataformat
+  fields:
+    code: mzxml
+    name: "mzXML"
+    description: "mzXML format peak data from a mass spectrometery run"
+- model: DataRepo.dataformat
+  fields:
+    code: accucor
+    name: "AccuCor"
+    description: "AccuCor corrected peak data"
+- model: DataRepo.dataformat
+  fields:
+    code: isocorr
+    name: "IsoCorr13C15N"
+    description: "IsoCorr13C15N format peak data from a mass spectrometery run"
