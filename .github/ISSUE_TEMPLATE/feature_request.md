@@ -11,32 +11,33 @@ assignees: ''
 ## FEATURE REQUEST
 
 ### Inspiration
-
-A brief description of *what prompted/inspired* the feature request.  (This
+<!-- A brief description of *what prompted/inspired* the feature request.  (This
 should not describe the feature, but rather what demonstrates the *need* for the
-feature.)
+feature.) -->
+None provided
 
 ### Description
-
-A brief description of *what* the feature should do (not *how* it will be done -
-for that, jump down to the *Code Change Description* section below to make
-suggestions).
+<!-- A brief description of *what* the feature should do (not *how* it will be
+done - for that, jump down to the *Code Change Description* section below to
+make suggestions). -->
+None provided
 
 ### Alternatives
-
-A brief description of any alternative features that could accomplish the same
-ultimate goal, either for consideration or considered and rejected.
+<!-- A brief description of any alternative features that could accomplish the
+same ultimate goal, either for consideration or considered and rejected. -->
+None
 
 ### Dependencies
 
-This issue cannot be started until the completion of the following issue(s):
+This issue cannot be started until the completion of the following issue(s)/
+pull request(s):
 
-- #<issue number 1>
-- #<issue number 2>
+- #issue_number_1
+- #pull_request_1
 
 ### Comment
-
-Add any other context or screenshots about the feature request here.
+<!-- Add any other context or screenshots about the feature request here. -->
+None
 
 -----
 
@@ -44,8 +45,21 @@ Add any other context or screenshots about the feature request here.
 
 ### Assumptions
 
-- List of assumptions that the code will not explicitly address/check
-- E.g. We will assume input is correct (explaining why there is no validation)
+1. List of assumptions that the code will not explicitly address/check
+2. E.g. We will assume input is correct (explaining why there is no validation)
+
+### Limitations
+
+1. A list of things this work will specifically not do
+2. E.g. This feature will only handle the most frequent use case X
+
+### Affected Components
+<!-- A tentative list of anticipated repository items that will be changed,
+labeled with "add", "delete", or "change".  One item per line.  (Mostly, this
+will be a list of files.) -->
+- change: File path or DB table ...
+- add: Environment variable or server setting
+- delete: External executable or cron job
 
 ### Requirements
 
@@ -53,30 +67,15 @@ Add any other context or screenshots about the feature request here.
 - [ ] 2. E.g. Every column/row must display a value, i.e. cannot be empty
 - [ ] 3. Numbers for reference & checkboxes for progress tracking
 
-### Limitations
-
-- A list of things this work will specifically not do
-- E.g. This feature will only handle the most frequent use case X
-
-### Affected Components
-
-A tentative list of anticipated repository items that will be changed, labeled
-with "add", "delete", or "change".  One item per line.  (Mostly, this will be a
-list of files.)
-
-- change: File path or DB table ...
-- add: Environment variable or server setting
-- delete: External executable or cron job
-
 ### DESIGN
 
 #### Interface Change description
-
-Describe changes to usage. *E.g. GUI/command-line changes*
+<!-- Describe changes to usage. *E.g. new config variables or input files* -->
+None provided
 
 #### Code Change Description
-
-Describe code changes planned for the feature. *(Pseudocode encouraged)*
+<!-- Describe code changes planned for the feature. Pseudocode/outline/etc. -->
+None provided
 
 #### Tests
 
