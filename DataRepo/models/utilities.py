@@ -11,6 +11,7 @@ from django.forms.models import model_to_dict
 ALL_MODELS_IN_SAFE_DELETION_ORDER = [
     "Compound",
     "CompoundSynonym",
+    "LCMethod",
     "Tissue",
     "PeakDataLabel",
     "PeakData",
