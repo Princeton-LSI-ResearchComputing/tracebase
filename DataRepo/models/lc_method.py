@@ -33,23 +33,9 @@ class LCMethod(models.Model):
         null=False,
         help_text="Full text of the liquid chromatography method.",
     )
-    run_length = models.DurationField(
         blank=True,
         null=True,
         validators=[
-            MinValueValidator(MINIMUM_VALID_RUN_LENGTH),
-            MaxValueValidator(MAXIMUM_VALID_RUN_LENGTH),
-        ],
-        help_text="Time duration to complete the mass spectrometry sequence.",
-    )
-
-    class Meta:
-        verbose_name = "liquid chromatography method"
-        verbose_name_plural = "liquid chromatography methods"
-        ordering = ["chromatographic_technique"]
-        constraints = [
-            models.UniqueConstraint(
-                fields=["chromatographic_technique", "description", "run_length"],
                 name="%(app_label)s_%(class)s_record_unique",
             ),
             models.CheckConstraint(

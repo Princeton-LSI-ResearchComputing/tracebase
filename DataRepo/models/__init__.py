@@ -34,6 +34,7 @@ __all__ = [
     "DataType",
     "DataFormat",
     "buffer_size",
+    "ChromatographicTechniqueChoices",
     "FCirc",
     "get_all_maintained_field_values",
     "get_researchers",
