@@ -13,9 +13,11 @@ from DataRepo.management.commands.load_study import Command as LoadStudyCommand
 from DataRepo.models import (
     Animal,
     AnimalLabel,
+    ChromatographicTechniqueChoices,
     Compound,
     ElementLabel,
     Infusate,
+    LCMethod,
     MSRun,
     PeakData,
     PeakDataLabel,
@@ -2573,3 +2575,55 @@ class AnimalLoadingTests(TracebaseTestCase):
                     "DataRepo/example_data/testing_data/animal_sample_table_labeled_elements_invalid.xlsx"
                 ),
             )
+
+
+@override_settings(CACHES=settings.TEST_CACHES)
+@tag("lcmethod")
+class LCMethodTests(TracebaseTestCase):
+    def setUp(self):
+        super().setUp()
+
+        self.default_t_chromatographic_technique = (
+            ChromatographicTechniqueChoices.HILIC_TECHNIQUE
+        )
+        self.default_t_description = "Description"
+        self.default_t_run_length = timedelta(minutes=20)
+
+        self.setup_lcmethod = LCMethod.objects.create(
+            chromatographic_technique=self.default_t_chromatographic_technique,
+            description=self.default_t_description,
+            run_length=self.default_t_run_length,
+        )
+
+    def test_valid_prior(self):
+        """Tests retrieval of pre-existing LCMethod"""
+        _, created = LCMethod.objects.get_or_create(
+            chromatographic_technique=self.default_t_chromatographic_technique,
+            description=self.default_t_description,
+            run_length=self.default_t_run_length,
+        )
+
+        # this unique record was already created during setup
+        self.assertFalse(created)
+
+    def test_lcmethods_record_unique(self):
+        """Tests LCMethod Unique constraint"""
+        with self.assertRaises(IntegrityError):
+            _ = LCMethod.objects.create(
+                chromatographic_technique=self.default_t_chromatographic_technique,
+                description=self.default_t_description,
+                run_length=self.default_t_run_length,
+            )
+
+    def test_create_lcmethod_by_invalid_technique(self):
+        """Tests LCMethod constraint on enumerated chromatographic_techniques"""
+        it = "Invalid Technique"
+        with self.assertRaises(IntegrityError):
+            LCMethod.objects.create(
+                chromatographic_technique=it,
+                description=it,
+                run_length=self.default_t_run_length,
+            )
+
+    def test_class_string(self):
+        self.assertEqual(str(self.setup_lcmethod), "HILIC-0:20:00")
