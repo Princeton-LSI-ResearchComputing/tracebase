@@ -2,17 +2,10 @@ from datetime import timedelta
 
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.db.models.functions import Length
 
-
-class ChromatographicTechniqueChoices(models.TextChoices):
-    """
-    The ChromatographicTechniqueChoices class is provides the controlled value
-    choices for LCMethod.chromatographic_technique
-    """
-
-    HILIC_TECHNIQUE = "HILIC", "HILIC"
-    REVERSE_PHASE_TECHNIQUE = "Reverse Phase", "Reverse Phase"
-    OTHER_TECHNIQUE = "Other", "Other"
+# so we can call description__length__gt in the constraints
+models.TextField.register_lookup(Length)
 
 
 class LCMethod(models.Model):
@@ -27,17 +20,22 @@ class LCMethod(models.Model):
     # Instance / model fields
     id = models.AutoField(primary_key=True)
     chromatographic_technique = models.CharField(
+        blank=False,
+        null=False,
         max_length=256,
-        choices=ChromatographicTechniqueChoices.choices,
-        help_text="Laboratory-defined type of the liquid chromatography method.",
-        unique=True,
+        help_text=(
+            "Laboratory-defined type of the liquid chromatography method."
+            "(e.g. HILIC, Reverse Phase)"
+        ),
     )
     description = models.TextField(
-        blank=True,
-        null=True,
+        blank=False,
+        null=False,
         help_text="Full text of the liquid chromatography method.",
     )
     run_length = models.DurationField(
+        blank=True,
+        null=True,
         validators=[
             MinValueValidator(MINIMUM_VALID_RUN_LENGTH),
             MaxValueValidator(MAXIMUM_VALID_RUN_LENGTH),
@@ -52,15 +50,15 @@ class LCMethod(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=["chromatographic_technique", "description", "run_length"],
-                name="%(class)s_record_unique",
+                name="%(app_label)s_%(class)s_record_unique",
             ),
             models.CheckConstraint(
-                name="%(class)s_technique_valid",
-                check=models.Q(
-                    chromatographic_technique__in=ChromatographicTechniqueChoices.values
-                ),
+                name="%(app_label)s_%(class)s_description_not_empty",
+                check=models.Q(description__length__gt=0),
             ),
         ]
 
     def __str__(self):
-        return f"{self.chromatographic_technique}-{self.run_length}"
+        if self.run_length:
+            return f"{self.chromatographic_technique}-{self.run_length}"
+        return self.chromatographic_technique
