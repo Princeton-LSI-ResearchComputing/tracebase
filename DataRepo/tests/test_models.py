@@ -13,7 +13,6 @@ from DataRepo.management.commands.load_study import Command as LoadStudyCommand
 from DataRepo.models import (
     Animal,
     AnimalLabel,
-    ChromatographicTechniqueChoices,
     Compound,
     ElementLabel,
     Infusate,
