@@ -4,6 +4,7 @@ from django.template.defaultfilters import slugify
 
 class DataTypeManager(models.Manager):
     def get_by_natural_key(self, code):
+        """Allows Django to get objects by a natural key instead of the primary key"""
         return self.get(code=code)
 
 
@@ -27,11 +28,16 @@ class DataType(models.Model):
     objects = DataTypeManager()
 
     def natural_key(self):
+        """Django can use the natural_key() method to serialize any foreign
+        key reference to objects of the type that defines the method.
+
+        Must return a tuple."""
         return (self.code,)
 
 
 class DataFormatManager(models.Manager):
     def get_by_natural_key(self, code):
+        """Allows Django to get objects by a natural key instead of the primary key"""
         return self.get(code=code)
 
 
@@ -58,6 +64,10 @@ class DataFormat(models.Model):
     objects = DataFormatManager()
 
     def natural_key(self):
+        """Django can use the natural_key() method to serialize any foreign
+        key reference to objects of the type that defines the method.
+
+        Must return a tuple."""
         return (self.code,)
 
 
@@ -96,9 +106,9 @@ class ArchiveFile(models.Model):
         unique=True,
         null=True,
         blank=True,
-        help_text="The path the file on the filesystem",
+        help_text="The path of the archived file on the filesystem",
     )
 
-    data_type = models.ForeignKey(DataType, on_delete=models.CASCADE)
+    data_type = models.ForeignKey(DataType, on_delete=models.PROTECT)
 
-    data_format = models.ForeignKey(DataFormat, on_delete=models.CASCADE)
+    data_format = models.ForeignKey(DataFormat, on_delete=models.PROTECT)
