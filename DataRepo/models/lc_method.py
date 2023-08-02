@@ -5,6 +5,7 @@ from django.db import models
 from django.db.models.functions import Length
 
 # so we can call description__length__gt in the constraints
+models.CharField.register_lookup(Length)
 models.TextField.register_lookup(Length)
 
 
@@ -19,32 +20,61 @@ class LCMethod(models.Model):
 
     # Instance / model fields
     id = models.AutoField(primary_key=True)
-    chromatographic_technique = models.CharField(
+    name = models.CharField(
+        unique=True,
         blank=False,
         null=False,
         max_length=256,
+        help_text=(
+            "Unique laboratory-defined name of the liquid chromatography method."
+            "(e.g. HILIC-0:25:00 minutes, Reverse Phase-0:25:00 minutes)"
+        ),
+    )
+    type = models.CharField(
+        blank=False,
+        null=False,
+        max_length=128,
         help_text=(
             "Laboratory-defined type of the liquid chromatography method."
             "(e.g. HILIC, Reverse Phase)"
         ),
     )
     description = models.TextField(
+        unique=True,
         blank=False,
         null=False,
-        help_text="Full text of the liquid chromatography method.",
+        help_text="Unique full-text description of the liquid chromatography method.",
     )
         blank=True,
         null=True,
         validators=[
-                name="%(app_label)s_%(class)s_record_unique",
+            MinValueValidator(MINIMUM_VALID_RUN_LENGTH),
+            MaxValueValidator(MAXIMUM_VALID_RUN_LENGTH),
+        ],
+        help_text=(
+            "Time duration to complete a sample run "
+            "through the liquid chromatography method.",
+        ),
+    )
+
+    class Meta:
+        verbose_name = "liquid chromatography method"
+        verbose_name_plural = "liquid chromatography methods"
+        ordering = ["name"]
+        constraints = [
+            models.CheckConstraint(
+                name="DataRepo_lcmethod_name_not_empty",
+                check=models.Q(name__length__gt=0),
             ),
             models.CheckConstraint(
-                name="%(app_label)s_%(class)s_description_not_empty",
+                name="DataRepo_lcmethod_type_not_empty",
+                check=models.Q(type__length__gt=0),
+            ),
+            models.CheckConstraint(
+                name="DataRepo_lcmethod_description_not_empty",
                 check=models.Q(description__length__gt=0),
             ),
         ]
 
     def __str__(self):
-        if self.run_length:
-            return f"{self.chromatographic_technique}-{self.run_length}"
-        return self.chromatographic_technique
+        return str(self.name)

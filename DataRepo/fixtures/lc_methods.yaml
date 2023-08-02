@@ -1,14 +1,16 @@
 - model: DataRepo.LCMethod
   pk: 1
   fields:
-    chromatographic_technique: unknown
+    name: "unknown"
+    type: "unknown"
     description: >-
       Liquid chromatography methodology was not provided or is unavailable.
 - model: DataRepo.LCMethod
   pk: 2
   fields:
-    chromatographic_technique: HILIC
-    run_length: 00:25:00
+    name: "HILIC-25min PNAS 2023 May 23;120(21):e2301215120"
+    type: "HILIC"
+    run_length: "00:25:00"
     description: >-
       Metabolites were analyzed using a Vanquish Horizon UHPLC System (Thermo
       Scientific). Waters XBridge BEH Amide XP Column [particle size, 2.5 μm;
@@ -26,8 +28,9 @@
 - model: DataRepo.LCMethod
   pk: 3
   fields:
-    chromatographic_technique: Reverse Phase
-    run_length: 00:25:00
+    name: "Reverse Phase-25min Anal. Chem. 2010 Apr 15; 82(8): 3212–3221"
+    type: "Reverse Phase"
+    run_length: "00:25:00"
     description: >-
       LC platform consists of Accela U-HPLC system with quaternary pumps, HTC
       PAL autosampler (CTC Analytics AG, Zwingen, Switchland), and Keystone hot
@@ -42,3 +45,21 @@
       5 min, 20% B;7.5 min, 20% B; 13 min, 55% B; 15.5 min, 95% B; 18.5 min, 95%
       B; 19 min, 0% B; 25 min, 0% B. Other LC parameters are autosampler
       temperature 4°C, injection volume 10 µl, and column temperature 25°C.
+- model: DataRepo.LCMethod
+  pk: 4
+  fields:
+    name: "HILIC-25min"
+    type: "HILIC"
+    run_length: "00:25:00"
+    description: >-
+      Unspecified hydrophilic interaction liquid chromatography with a total
+      run time of 25 min.
+- model: DataRepo.LCMethod
+  pk: 5
+  fields:
+    name: "Reverse Phase-25min"
+    type: "Reverse Phase"
+    run_length: "00:25:00"
+    description: >-
+      Unspecified Reverse Phase liquid chromatography with a total run time of
+      25 min.
