@@ -1,5 +1,6 @@
 from DataRepo.models.animal import Animal
 from DataRepo.models.animal_label import AnimalLabel
+from DataRepo.models.archive_file import ArchiveFile, DataFormat, DataType
 from DataRepo.models.compound import Compound, CompoundSynonym
 from DataRepo.models.element_label import ElementLabel
 from DataRepo.models.fcirc import FCirc
@@ -28,6 +29,9 @@ from DataRepo.models.tracer_label import TracerLabel
 __all__ = [
     "Animal",
     "AnimalLabel",
+    "ArchiveFile",
+    "DataType",
+    "DataFormat",
     "buffer_size",
     "FCirc",
     "get_all_maintained_field_values",
