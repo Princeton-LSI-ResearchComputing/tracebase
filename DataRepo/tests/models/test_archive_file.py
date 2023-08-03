@@ -24,15 +24,15 @@ class ArchiveFileTests(TracebaseTestCase):
 
             cls.ms_peak_annotation = DataType.objects.get(code="ms_peak_annotation")
             cls.accucor_format = DataFormat.objects.get(code="accucor")
-            cls.accuor_file = ArchiveFile.objects.create(
+            cls.accucor_file = ArchiveFile.objects.create(
                 filename="small_obob_maven_6eaas_inf.xlsx",
                 file_location=myfile,
                 checksum="558ea654d7f2914ca4527580edf4fac11bd151c3",
                 data_type=cls.ms_peak_annotation,
                 data_format=cls.accucor_format,
             )
-            cls.accuor_file.save()
-            cls.record_id = cls.accuor_file.pk
+            cls.accucor_file.save()
+            cls.record_id = cls.accucor_file.pk
 
     def test_data_type(self):
         ms_peak_annotation = DataType.objects.get(code="ms_peak_annotation")
@@ -40,10 +40,10 @@ class ArchiveFileTests(TracebaseTestCase):
 
     def test_archive_file_filename(self):
         """ArchiveFile lookup by id"""
-        accuor_file = ArchiveFile.objects.get(id=self.accuor_file.id)
-        self.assertEqual(accuor_file.filename, self.accuor_file.filename)
+        accucor_file = ArchiveFile.objects.get(id=self.accucor_file.id)
+        self.assertEqual(accucor_file.filename, self.accucor_file.filename)
 
     def test_archive_file_checksum(self):
         """ArchiveFile lookup by checksum"""
-        accuor_file = ArchiveFile.objects.get(checksum=self.accuor_file.checksum)
-        self.assertEqual(accuor_file.filename, self.accuor_file.filename)
+        accucor_file = ArchiveFile.objects.get(checksum=self.accucor_file.checksum)
+        self.assertEqual(accucor_file.filename, self.accucor_file.filename)

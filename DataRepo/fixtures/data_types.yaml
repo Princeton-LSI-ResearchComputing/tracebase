@@ -3,9 +3,9 @@
   fields:
     code: ms_data
     name: "Mass Spectrometry Data"
-    description: "Peak data from a mass spectrometery run"
+    description: "Peak data from a mass spectrometry run"
 - model: DataRepo.datatype
   fields:
     code: ms_peak_annotation
     name: "Mass Spectrometry Peak Annotation"
-    description: "Annotated peak data from one or more mass spectrometery runs"
+    description: "Annotated peak data from one or more mass spectrometry runs"

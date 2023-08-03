@@ -74,7 +74,8 @@ class DataFormat(models.Model):
 def data_type_path(instance, filename):
     date_folder = instance.imported_timestamp.strftime("%Y-%m")
     data_type_folder = slugify(instance.data_type.code)
-    return f"archive_files/{date_folder}/{data_type_folder}/{filename}"
+    filename_clean = slugify(filename)
+    return f"archive_files/{date_folder}/{data_type_folder}/{filename_clean}"
 
 
 class ArchiveFile(models.Model):
