@@ -7,6 +7,7 @@ from DataRepo.models.fcirc import FCirc
 from DataRepo.models.hier_cached_model import HierCachedModel
 from DataRepo.models.infusate import Infusate
 from DataRepo.models.infusate_tracer import InfusateTracer
+from DataRepo.models.lc_method import LCMethod
 from DataRepo.models.maintained_model import (
     MaintainedModel,
     buffer_size,
@@ -38,6 +39,7 @@ __all__ = [
     "get_researchers",
     "Compound",
     "CompoundSynonym",
+    "LCMethod",
     "MaintainedModel",
     "MSRun",
     "PeakData",

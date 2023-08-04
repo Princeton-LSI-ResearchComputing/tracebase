@@ -1,0 +1,65 @@
+- model: DataRepo.LCMethod
+  pk: 1
+  fields:
+    name: "unknown"
+    type: "unknown"
+    description: >-
+      Liquid chromatography methodology was not provided or is unavailable.
+- model: DataRepo.LCMethod
+  pk: 2
+  fields:
+    name: "HILIC-25min PNAS 2023 May 23;120(21):e2301215120"
+    type: "HILIC"
+    run_length: "00:25:00"
+    description: >-
+      Metabolites were analyzed using a Vanquish Horizon UHPLC System (Thermo
+      Scientific). Waters XBridge BEH Amide XP Column [particle size, 2.5 μm;
+      150 mm (length) × 2.1 mm (i.d.)] was used for hydrophilic interaction
+      chromatography (HILIC) separation. Column temperature was kept at 25 °C.
+      Mobile phases A = 20 mM ammonium acetate and 22.5 mM ammonium hydroxide in
+      95:5 (v/v) water:acetonitrile (pH 9.45) and B = 100% acetonitrile were
+      used for both ESI positive and negative modes. The linear gradient eluted
+      from 90% B (0.0 to 2.0 min), 90% B to 75% B (2.0 to 3.0 min), 75% B (3.0
+      to 7.0 min), 75% B to 70% B (7.0 to 8.0 min), 70% B (8.0 to 9.0 min), 70%
+      B to 50% B (9.0 to 10.0 min), 50% B (10.0 to 12.0 min), 50% B to 25% B
+      (12.0 to 13.0 min), 25% B (13.0 to 14.0 min), 25% B to 0.5% B (14.0 to
+      16.0 min), 0.5% B (16.0 to 20.5 min), then stayed at 90% B for 4.5 min.
+      The total run time is 25 min. The flow rate was 0.15 mL/min.
+- model: DataRepo.LCMethod
+  pk: 3
+  fields:
+    name: "Reverse Phase-25min Anal. Chem. 2010 Apr 15; 82(8): 3212–3221"
+    type: "Reverse Phase"
+    run_length: "00:25:00"
+    description: >-
+      LC platform consists of Accela U-HPLC system with quaternary pumps, HTC
+      PAL autosampler (CTC Analytics AG, Zwingen, Switchland), and Keystone hot
+      pocket column heater (all from ThermoFisher Scientific, San Jose, CA,
+      unless otherwise noted). Liquid chromatography separation was achieved on
+      a Synergy Hydro-RP column (100 × 2 mm, 2.5 µm particle size, Phenomenex,
+      Torrance, CA), using reversed-phase chromatography with the ion pairing
+      agent tributylamine in the aqueous mobile phase to enhance retention and
+      separation 23–25. The total run time is 25 min. Flow rate is 200 µl/min.
+      Solvent A is 97:3 water:methanol with 10 mM tributylamine and 15 mM acetic
+      acid; solvent B is methanol. The gradient is: 0 min, 0% B; 2.5 min, 0% B;
+      5 min, 20% B;7.5 min, 20% B; 13 min, 55% B; 15.5 min, 95% B; 18.5 min, 95%
+      B; 19 min, 0% B; 25 min, 0% B. Other LC parameters are autosampler
+      temperature 4°C, injection volume 10 µl, and column temperature 25°C.
+- model: DataRepo.LCMethod
+  pk: 4
+  fields:
+    name: "HILIC-25min"
+    type: "HILIC"
+    run_length: "00:25:00"
+    description: >-
+      Unspecified hydrophilic interaction liquid chromatography with a total
+      run time of 25 min.
+- model: DataRepo.LCMethod
+  pk: 5
+  fields:
+    name: "Reverse Phase-25min"
+    type: "Reverse Phase"
+    run_length: "00:25:00"
+    description: >-
+      Unspecified Reverse Phase liquid chromatography with a total run time of
+      25 min.

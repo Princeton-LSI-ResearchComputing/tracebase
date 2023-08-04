@@ -34,6 +34,7 @@ class ModelUtilitiesTests(TracebaseTestCase):
         ordered_model_name_list = [
             "Compound",
             "CompoundSynonym",
+            "LCMethod",
             "Tissue",
             "PeakDataLabel",
             "PeakData",
