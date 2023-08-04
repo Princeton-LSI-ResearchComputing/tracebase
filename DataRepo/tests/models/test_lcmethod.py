@@ -8,20 +8,23 @@ from django.test import override_settings, tag
 from DataRepo.models import LCMethod
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
+override_settings(CACHES=settings.TEST_CACHES)
 
-@override_settings(CACHES=settings.TEST_CACHES)
+
 @tag("lcmethod")
 class LCMethodTests(TracebaseTestCase):
     def setUp(self):
         super().setUp()
 
-        self.default_t_chromatographic_technique = "HILIC"
+        self.default_t_type = "HILIC"
         self.default_t_description = "Description"
         self.default_t_minutes = 25
         self.default_t_run_length = timedelta(minutes=self.default_t_minutes)
+        self.default_t_name = f"{self.default_t_type}-{self.default_t_run_length}"
 
         self.setup_lcmethod = LCMethod.objects.create(
-            chromatographic_technique=self.default_t_chromatographic_technique,
+            name=self.default_t_name,
+            type=self.default_t_type,
             description=self.default_t_description,
             run_length=self.default_t_run_length,
         )
@@ -29,7 +32,8 @@ class LCMethodTests(TracebaseTestCase):
     def test_valid_prior(self):
         """Tests retrieval of pre-existing LCMethod"""
         _, created = LCMethod.objects.get_or_create(
-            chromatographic_technique=self.default_t_chromatographic_technique,
+            name=self.default_t_name,
+            type=self.default_t_type,
             description=self.default_t_description,
             run_length=self.default_t_run_length,
         )
@@ -38,29 +42,72 @@ class LCMethodTests(TracebaseTestCase):
         self.assertFalse(created)
 
     def test_null_run_length(self):
-        """Tests insert and string of poorly defined LCMethod"""
+        """Tests insert and string of a poorly defined LCMethod"""
+        u = "unknown"
         unknown_method = LCMethod.objects.create(
-            chromatographic_technique="unknown",
+            name=u,
+            type=u,
             description="This is a poorly defined LCMethod",
         )
         self.assertEqual(str(unknown_method), "unknown")
 
-    def test_null_description(self):
+    def test_null_description_create(self):
         """Tests insert of an invalid methodology; description required"""
+        u = "unknown"
         with self.assertRaisesRegexp(IntegrityError, "lcmethod_description_not_empty"):
-            _ = LCMethod.objects.create(chromatographic_technique="unknown")
+            LCMethod.objects.create(name=u, type=u)
 
-    def test_null_description_again(self):
+    def test_null_description_full_clean(self):
         """Tests insert of an invalid methodology; description required"""
-        bad = LCMethod(chromatographic_technique="unknown")
-        with self.assertRaisesRegexp(ValidationError, "field cannot be blank"):
+        u = "unknown"
+        bad = LCMethod(name=u, type=u)
+        with self.assertRaisesRegexp(ValidationError, "description.* cannot be blank"):
             bad.full_clean()
 
-    def test_lcmethods_record_unique(self):
+    def test_null_name_create(self):
+        """Tests insert of an invalid methodology; name required"""
+        u = "unknown"
+        with self.assertRaisesRegexp(IntegrityError, "lcmethod_name_not_empty"):
+            LCMethod.objects.create(description=u, type=u)
+
+    def test_null_name_full_clean(self):
+        """Tests insert of an invalid methodology; name required"""
+        u = "unknown"
+        bad = LCMethod(description=u, type=u)
+        with self.assertRaisesRegexp(ValidationError, "name.* cannot be blank"):
+            bad.full_clean()
+
+    def test_null_type_create(self):
+        """Tests insert of an invalid methodology; type required"""
+        u = "unknown"
+        with self.assertRaisesRegexp(IntegrityError, "lcmethod_type_not_empty"):
+            LCMethod.objects.create(description=u, name=u)
+
+    def test_null_type_full_clean(self):
+        """Tests insert of an invalid methodology; type required"""
+        u = "unknown"
+        bad = LCMethod(description=u, name=u)
+        with self.assertRaisesRegexp(ValidationError, "type.* cannot be blank"):
+            bad.full_clean()
+
+    def test_lcmethods_name_unique(self):
         """Tests LCMethod Unique constraint"""
-        with self.assertRaisesRegexp(IntegrityError, "lcmethod_record_unique"):
-            _ = LCMethod.objects.create(
-                chromatographic_technique=self.default_t_chromatographic_technique,
+        with self.assertRaisesRegexp(IntegrityError, "DataRepo_lcmethod_name_key"):
+            LCMethod.objects.create(
+                name=self.default_t_name,
+                type=self.default_t_type,
+                description=self.default_t_description + "different",
+                run_length=self.default_t_run_length,
+            )
+
+    def test_lcmethods_description_unique(self):
+        """Tests LCMethod Unique constraint"""
+        with self.assertRaisesRegexp(
+            IntegrityError, "DataRepo_lcmethod_description_key"
+        ):
+            LCMethod.objects.create(
+                name=self.default_t_name + "different",
+                type=self.default_t_type,
                 description=self.default_t_description,
                 run_length=self.default_t_run_length,
             )
@@ -69,12 +116,3 @@ class LCMethodTests(TracebaseTestCase):
         self.assertEqual(
             str(self.setup_lcmethod), f"HILIC-0:{self.default_t_minutes}:00"
         )
-
-    def test_null_run_length_instance_string(self):
-        """Tests insert of an invalid methodology; description required"""
-        ct = "unknown"
-        test = LCMethod(
-            chromatographic_technique=ct,
-            description="Unknown methodology.",
-        )
-        self.assertEqual(str(test), ct)

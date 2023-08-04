@@ -2,11 +2,6 @@ from datetime import timedelta
 
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
-from django.db.models.functions import Length
-
-# so we can call description__length__gt in the constraints
-models.CharField.register_lookup(Length)
-models.TextField.register_lookup(Length)
 
 
 class LCMethod(models.Model):
@@ -45,6 +40,7 @@ class LCMethod(models.Model):
         null=False,
         help_text="Unique full-text description of the liquid chromatography method.",
     )
+    run_length = models.DurationField(
         blank=True,
         null=True,
         validators=[
@@ -64,15 +60,15 @@ class LCMethod(models.Model):
         constraints = [
             models.CheckConstraint(
                 name="DataRepo_lcmethod_name_not_empty",
-                check=models.Q(name__length__gt=0),
+                check=~models.Q(name=""),
             ),
             models.CheckConstraint(
                 name="DataRepo_lcmethod_type_not_empty",
-                check=models.Q(type__length__gt=0),
+                check=~models.Q(type=""),
             ),
             models.CheckConstraint(
                 name="DataRepo_lcmethod_description_not_empty",
-                check=models.Q(description__length__gt=0),
+                check=~models.Q(description=""),
             ),
         ]
 
