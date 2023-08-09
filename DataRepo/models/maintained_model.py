@@ -656,7 +656,20 @@ class MaintainedModel(Model):
                             "a related model's maintained field."
                         )
                         old_val = "<error>"
-                    new_val = update_fun()
+
+                    new_val = None
+                    try:
+                        new_val = update_fun()
+                    except ValueError as ve:
+                        if (
+                            "instance needs to have a primary key value before this relationship can be used."
+                            not in str(ve)
+                        ):
+                            raise ve
+                        # If the model object does not have a primary key, and the updater_fun in the derived class
+                        # tries to traverse a non-existant relation, we can assume that there is not a valid value to
+                        # update, so we can safely ignore this exception.  This is a new exception in Django 4.2
+                        # (compared to 3.2, which just returned empty querysets for those cases).
                     setattr(self, update_fld, new_val)
 
                     # Report the auto-update
@@ -844,6 +857,7 @@ class MaintainedModel(Model):
 
                             elif tmp_child_inst.count() > 0:
                                 raise NotMaintained(tmp_child_inst.first(), self)
+
                         except TransactionManagementError as tme:
                             self.transaction_management_warning(
                                 tme,
@@ -854,6 +868,14 @@ class MaintainedModel(Model):
                                 child_fld,
                             )
 
+                        except ValueError as ve:
+                            if (
+                                "instance needs to have a primary key value before this relationship can be used."
+                                not in str(ve)
+                            ):
+                                raise ve
+                            # The ValueError happens when child records don't exist (inferred from no primary key), so
+                            # it can be ignored
                     else:
                         raise NotMaintained(tmp_child_inst, self)
                 else:
