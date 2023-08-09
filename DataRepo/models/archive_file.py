@@ -34,6 +34,9 @@ class DataType(models.Model):
         Must return a tuple."""
         return (self.code,)
 
+    def __str__(self):
+        return f"{self.code}:{self.name}"
+
 
 class DataFormatManager(models.Manager):
     def get_by_natural_key(self, code):
@@ -69,6 +72,9 @@ class DataFormat(models.Model):
 
         Must return a tuple."""
         return (self.code,)
+
+    def __str__(self):
+        return f"{self.code}:{self.name}"
 
 
 def data_type_path(instance, filename):
@@ -113,3 +119,6 @@ class ArchiveFile(models.Model):
     data_type = models.ForeignKey(DataType, on_delete=models.PROTECT)
 
     data_format = models.ForeignKey(DataFormat, on_delete=models.PROTECT)
+
+    def __str__(self):
+        return f"{self.filename} ({self.checksum})"
