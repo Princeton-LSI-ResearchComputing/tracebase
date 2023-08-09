@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added an ArchiveFile class with associated DataType and DataFormat classes
 - LCMethod model and tests
+- Default view of all models in the admin interface
 
 ### Changed
 
