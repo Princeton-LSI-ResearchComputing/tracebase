@@ -2,34 +2,40 @@
 ## Summary Change Description
 <!-- Briefly describe the changes in this pull request (put details in the
 developer section of the linked issue(s)). -->
-See linked issue.
+See affected issue(s).
 
 ## Affected Issues/Pull Requests
 
 - Resolves #issue_number
 <!--
 - Partially addresses #issue_number
-- Depends on parent #pull_request_number
-- Depends on child #pull_request_number
+- Branched from PR #pull_request_number
+- Required for PR #pull_request_number
 -->
 
 ## Code Review Notes
-<!-- Describe any areas of concern that code reviewers should pay particular
-attention to.  E.g. There are significant logic changes in function X. -->
+<!--
+For added context for reviewers, add comments to relevant lines of code.  Use
+this space to describe any general areas of concern not linked to a specific
+line of code that reviewers should pay particular attention to, e.g. please
+make sure I have accounted for all possible inputs.
+-->
 See comments in-line.
 
 ## Checklist
-<!-- If any of the checkbox requirements are not met, uncheck them and add an
-explanation. E.g. Linting errors pre-date this PR. -->
-The PR author asserts that the following (checked) merge requirements are met:
+<!--
+If any of the checkbox requirements are not met, uncheck them and add an
+explanation. E.g. Linting errors pre-date this PR.
+-->
+This pull request will be merged once the following requirements are met.  The
+author and/or reviewers should uncheck any unmet requirements:
 
 - Review requirements
   - Minimum approvals: 2 <!-- Edit as desired (e.g. based on complexity) -->
   - No changes requested
-  - All blocking issues acknowledged as resolved by reviewers
+  - All blocking issues resolved by reviewers
   - Specific approvals required
-    <!-- Approvals from the contributors you select are required regardless of
-    minimum approvals.  Check or delete as desired. -->
+    <!-- No need to check if number of reviews requested == min approvals -->
     - [ ] cbartman1
     - [ ] hepcat72
     - [ ] jcmatese
@@ -53,7 +59,11 @@ The PR author asserts that the following (checked) merge requirements are met:
   - [x] [All linters pass](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/CONTRIBUTING.md#linting).
   - [x] [All tests pass](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/CONTRIBUTING.md#quality-control)
   - [x] All conflicts resolved
-  - [x] [Migrations created & committed *(or no model changes)*](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/CONTRIBUTING.md#migration-process)
 - Overhead requirements
-  - [ ] [New/changed method tests implemented/updated *(or no method changes)*](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/CONTRIBUTING.md#test-implementation)
-  - [ ] Added changes to *Unreleased* section of [`changelog.md`](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/changelog.md).
+  <!--
+  These are additional requirements that are not directly associated with
+  resolving the affected issue(s).
+  -->
+  - [x] [New/changed method tests implemented/updated *(or no change)*](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/CONTRIBUTING.md#test-implementation)
+  - [x] Added changes to *Unreleased* section of [`changelog.md`](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/changelog.md).
+  - [x] [Migrations created & committed *(or no change)*](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/CONTRIBUTING.md#migration-process)
