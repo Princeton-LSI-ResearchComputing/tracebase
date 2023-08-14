@@ -229,7 +229,6 @@ def formsetToDict(rawformset, form_classes):
         formset = rawformset
 
     for rawform in formset:
-
         if isRaw:
             form = rawform.saved_data
         else:

@@ -143,18 +143,20 @@ class Command(BaseCommand):
         print(f"Done loading {fmt} data into MsRun, PeakGroups, and PeakData")
 
     def extract_dataframes_from_accucor_xlsx(self, options):
-
         if not options["isocorr_format"]:
             # Note, setting `mangle_dupe_cols=False` would overwrite duplicates instead of raise an exception, so we're
             # checking for duplicate headers manually here.
-            orig_heads = pd.read_excel(
-                options["accucor_file"],
-                nrows=1,
-                header=None,
-                sheet_name=0,
-                engine="openpyxl",
-                squeeze=True,
-            ).iloc[0]
+            orig_heads = (
+                pd.read_excel(
+                    options["accucor_file"],
+                    nrows=1,
+                    header=None,
+                    sheet_name=0,
+                    engine="openpyxl",
+                )
+                .squeeze("columns")
+                .iloc[0]
+            )
 
             if self.headers_are_not_unique(orig_heads):
                 raise ValidationError(
@@ -169,14 +171,17 @@ class Command(BaseCommand):
         else:
             self.original = None
 
-        corr_heads = pd.read_excel(
-            options["accucor_file"],
-            nrows=1,
-            header=None,
-            sheet_name=1,
-            engine="openpyxl",
-            squeeze=True,
-        ).iloc[0]
+        corr_heads = (
+            pd.read_excel(
+                options["accucor_file"],
+                nrows=1,
+                header=None,
+                sheet_name=1,
+                engine="openpyxl",
+            )
+            .squeeze("columns")
+            .iloc[0]
+        )
 
         if self.headers_are_not_unique(corr_heads):
             raise ValidationError(
@@ -189,13 +194,15 @@ class Command(BaseCommand):
         ).dropna(axis=0, how="all")
 
     def extract_dataframes_from_csv(self, options):
-
-        corr_heads = pd.read_csv(
-            options["accucor_file"],
-            nrows=1,
-            header=None,
-            squeeze=True,
-        ).iloc[0]
+        corr_heads = (
+            pd.read_csv(
+                options["accucor_file"],
+                nrows=1,
+                header=None,
+            )
+            .squeeze("columns")
+            .iloc[0]
+        )
 
         if self.headers_are_not_unique(corr_heads):
             raise ValidationError(

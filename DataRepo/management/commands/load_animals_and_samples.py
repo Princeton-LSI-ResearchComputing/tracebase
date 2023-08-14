@@ -9,7 +9,6 @@ from DataRepo.utils import SampleTableLoader
 
 
 class Command(BaseCommand):
-
     examples_dir = "DataRepo/example_data/"
     example_animals = examples_dir + "obob_animals_table.tsv"
     example_samples = examples_dir + "obob_samples_table.tsv"
@@ -78,9 +77,15 @@ class Command(BaseCommand):
             action="store_true",
             help=argparse.SUPPRESS,
         )
+        # Intended for use by load_study to prevent individual loader autoupdates and buffer clearing, then perform all
+        # mass autoupdates/buffer-clearings after all load scripts are complete
+        parser.add_argument(
+            "--defer-rollback",
+            action="store_true",
+            help=argparse.SUPPRESS,
+        )
 
     def handle(self, *args, **options):
-
         self.stdout.write(self.style.MIGRATE_HEADING("Reading header definition..."))
         if options["table_headers"]:
             with open(options["table_headers"]) as headers_file:
@@ -132,6 +137,7 @@ class Command(BaseCommand):
             skip_researcher_check=options["skip_researcher_check"],
             verbosity=options["verbosity"],
             defer_autoupdates=options["defer_autoupdates"],
+            defer_rollback=options["defer_rollback"],
             dry_run=options["dry_run"],
         )
         loader.load_sample_table(

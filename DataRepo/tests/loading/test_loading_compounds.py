@@ -54,7 +54,6 @@ class LoadCompoundsTests(TracebaseTestCase):
 class CompoundLoadingTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
-
         primary_compound_file = (
             "DataRepo/example_data/consolidated_tracebase_compound_list.tsv"
         )

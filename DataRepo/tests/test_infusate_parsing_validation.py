@@ -184,13 +184,13 @@ class InfusateParsingTests(InfusateTest):
     def test_infusate_parsing_with_intervening_whitespace(self):
         """Test infusate parsing with trailing whitespace after short_name"""
         name = "short_name1 {lysine-[13C5]}"
-        data = parse_infusate_name(name)
+        data = parse_infusate_name(name, [1.0])
         self.assertEqual(data["infusate_name"], "short_name1")
 
     def test_infusate_parsing_with_whitespace(self):
         """Test infusate parsing with leading & trailing whitespace"""
         name = "  myshortname{lysine-[13C5]}  "
-        data = parse_infusate_name(name)
+        data = parse_infusate_name(name, [1.0])
         self.assertEqual(data["infusate_name"], "myshortname")
 
     def test_malformed_infusate_parsing(self):
@@ -199,13 +199,21 @@ class InfusateParsingTests(InfusateTest):
         with self.assertRaisesRegex(
             InfusateParsingError, "Unable to parse infusate string"
         ):
-            _ = parse_infusate_name(name)
+            _ = parse_infusate_name(name, [1.0])
+
+    def test_infusate_concentration_mismatch(self):
+        """Test parsing an infusate string with too many concentrations supplied"""
+        infusate_string = "L-Leucine-[1,2-13C2]"
+        with self.assertRaisesRegex(
+            InfusateParsingError, "Unable to match 1 tracers to 2 concentration values"
+        ):
+            _ = parse_infusate_name(infusate_string, [1.0, 2.0])
 
     def test_malformed_infusate_parsing_no_isotope_encoding(self):
         """Test parsing an invalid infusate record (no isotope encoding)"""
         name = "not a properly encoded tracer name"
         with self.assertRaisesRegex(TracerParsingError, "cannot be parsed"):
-            _ = parse_infusate_name(name)
+            _ = parse_infusate_name(name, [1.0])
 
     def test_malformed_infusate_parsing_multiple_brace_groups(self):
         """Test back-to-back occurrences of curlies expressions"""
@@ -213,7 +221,7 @@ class InfusateParsingTests(InfusateTest):
         with self.assertRaisesRegex(
             InfusateParsingError, "Unable to parse infusate string"
         ):
-            _ = parse_infusate_name(name)
+            _ = parse_infusate_name(name, [1.0, 2.0])
 
     def test_malformed_infusate_parsing_with_new_line(self):
         """Test multiple names delimited by hard return"""
@@ -221,7 +229,7 @@ class InfusateParsingTests(InfusateTest):
         with self.assertRaisesRegex(
             InfusateParsingError, "Unable to parse infusate string"
         ):
-            _ = parse_infusate_name(name)
+            _ = parse_infusate_name(name, [1.0, 2.0])
 
     def test_malformed_tracer_parsing_multiple_isotopic_definitions(self):
         """Test back-to-back occurrences of square bracket expressions"""
@@ -245,7 +253,7 @@ class InfusateParsingTests(InfusateTest):
         """Test empty labels list"""
         name = "lysine-[]"
         with self.assertRaisesRegex(TracerParsingError, "cannot be parsed"):
-            _ = parse_infusate_name(name)
+            _ = parse_infusate_name(name, [1.0])
 
     def test_malformed_tracer_parsing_with_bad_isotopic_specification(self):
         """Test bad isotope pattern not silently skipped"""

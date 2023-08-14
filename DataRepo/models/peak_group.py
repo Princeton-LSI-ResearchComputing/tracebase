@@ -16,7 +16,6 @@ from DataRepo.models.utilities import atom_count_in_formula
     update_label="fcirc_calcs",
 )
 class PeakGroup(HierCachedModel, MaintainedModel):
-
     parent_related_key_name = "msrun"
     child_related_key_names = ["labels"]
 

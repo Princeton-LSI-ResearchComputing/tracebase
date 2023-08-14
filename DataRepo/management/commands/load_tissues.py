@@ -1,9 +1,9 @@
 import argparse
 
 import pandas as pd
-from django.core.management import BaseCommand, CommandError
+from django.core.management import BaseCommand
 
-from DataRepo.utils import DryRun, LoadingError, TissuesLoader
+from DataRepo.utils import DryRun, TissuesLoader
 
 
 class Command(BaseCommand):
@@ -40,11 +40,6 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        if options["dry_run"]:
-            self.stdout.write(
-                self.style.MIGRATE_HEADING("DRY-RUN, NO CHANGES WILL BE SAVED")
-            )
-
         # Keeping `na` to differentiate between intentional empty descriptions and spaces in the first column that were
         # intended to be tab characters
         new_tissues = pd.read_csv(options["tissues"], sep="\t", keep_default_na=True)
@@ -58,33 +53,13 @@ class Command(BaseCommand):
         try:
             self.tissue_loader.load()
         except DryRun:
-            if options["verbosity"] >= 2:
-                self.print_notices(
-                    self.tissue_loader.get_stats(),
-                    options["tissues"],
-                    options["verbosity"],
-                )
-            self.stdout.write(self.style.SUCCESS("DRY-RUN complete, no tissues loaded"))
-        except LoadingError:
-            if options["verbosity"] >= 2:
-                self.print_notices(
-                    self.tissue_loader.get_stats(),
-                    options["tissues"],
-                    options["verbosity"],
-                )
-            for exception in self.tissue_loader.errors:
-                self.stdout.write(self.style.ERROR("ERROR: " + exception))
-            raise CommandError(
-                f"{len(self.tissue_loader.errors)} errors loading tissue records from "
-                f"{options['tissues']} - NO RECORDS SAVED"
-            )
-        else:
-            self.print_notices(
-                self.tissue_loader.get_stats(), options["tissues"], options["verbosity"]
-            )
+            pass
+
+        self.print_notices(
+            self.tissue_loader.get_stats(), options["tissues"], options["verbosity"]
+        )
 
     def print_notices(self, stats, opt, verbosity):
-
         if verbosity >= 2:
             for stat in stats["created"]:
                 self.stdout.write(

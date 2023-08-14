@@ -32,7 +32,7 @@ class InfusateTracer(MaintainedModel):
         ordering = ["infusate", "tracer", "concentration"]
         constraints = [
             models.UniqueConstraint(
-                fields=["infusate", "tracer", "concentration"],
+                fields=["infusate", "tracer"],
                 name="unique_infusate_tracer",
             )
         ]

@@ -117,7 +117,6 @@ class Compound(models.Model):
 
 
 class CompoundSynonym(models.Model):
-
     # Instance / model fields
     name = models.CharField(
         primary_key=True,

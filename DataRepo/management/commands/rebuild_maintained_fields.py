@@ -30,7 +30,6 @@ def rebuild_maintained_fields(label_filters=[]):
 
     # For every generation from the youngest leaves/children to root/parent
     for gen in sorted(range(youngest_generation + 1), reverse=True):
-
         # For every MaintainedModel derived class with decorated functions
         for cls in get_classes("DataRepo.models", gen, label_filters):
             class_name = cls.__name__
@@ -82,7 +81,6 @@ def rebuild_maintained_fields(label_filters=[]):
 
 
 class Command(BaseCommand):
-
     # Show this when the user types help
     help = "Update all maintained fields for every record in the database containing maintained fields."
 
