@@ -529,7 +529,6 @@ class MaintainedModel(Model):
         """
         # If a maintained field and an updater function is set, we have enough to create a getter method call
         if updater_dict["update_field"] and updater_dict["update_function"]:
-
             # Get the desired name of the getter method, defaulting to 'get_{dbfieldname}'
             getter_name = (
                 updater_dict["getter_name"] or f"get_{updater_dict['update_field']}"

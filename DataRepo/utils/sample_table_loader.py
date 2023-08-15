@@ -211,7 +211,6 @@ class SampleTableLoader:
         }
 
     def load_sample_table(self, data):
-
         # To avoid circular import issues...
         Tracer = get_model_by_name("Tracer")
         TracerLabel = get_model_by_name("TracerLabel")
