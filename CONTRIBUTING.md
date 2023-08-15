@@ -113,6 +113,8 @@ Set up the project's postgres database:
 
 ### (Optional) Load Some Example Data
 
+    python manage.py loaddata data_types data_formats
+    python manage.py loaddata lc_methods
     python manage.py load_compounds --compounds DataRepo/example_data/consolidated_tracebase_compound_list.tsv
     python manage.py load_study DataRepo/example_data/tissues/loading.yaml
     python manage.py load_animals_and_samples --sample-table-filename DataRepo/example_data/obob_samples_table.tsv --animal-table-filename DataRepo/example_data/obob_animals_table.tsv --table-headers DataRepo/example_data/sample_and_animal_tables_headers.yaml
@@ -274,3 +276,36 @@ Check for unapplied migrations:
 Apply migrations to the postgres database:
 
     python manage.py migrate
+
+### Archive Files
+
+TraceBase has an `ArchiveFile` class that is used to [store data files on the
+file system](https://docs.djangoproject.com/en/3.2/topics/files/). The files
+are stored locally using the
+[`MEDIA_ROOT`](https://docs.djangoproject.com/en/3.2/ref/settings/#std-setting-MEDIA_ROOT)
+and
+[`MEDIA_URL`](https://docs.djangoproject.com/en/3.2/ref/settings/#std-setting-MEDIA_URL)
+settings. A
+[`FileField`](https://docs.djangoproject.com/en/3.2/ref/models/fields/#django.db.models.FileField)
+is used to manage store the files and to track the storage location in the
+database.
+
+Archived files are stored in
+`{MEDIA_ROOT}/archive_files/{YYYY-MM}/{DATA_TYPE}/{FILENAME}"`. Duplicate file
+names are made unique by Django's
+[`Storage.save()`](https://docs.djangoproject.com/en/3.2/ref/files/storage/#django.core.files.storage.Storage.save)
+method.
+
+When running tests, it is desirable that the file stored do not remain on the
+file system after testing is complete. This is accomplished in TraceBase by
+using a custom test runner `Tracebase/runner.py`. The test runner changes the
+`MEDIA_ROOT` and `DEFAULT_FILE_STORAGE` settings during test runs to use a
+temporary location on local file storage.
+
+Per the
+[`FileField.delete()`](https://docs.djangoproject.com/en/4.2/ref/models/fields/#django.db.models.fields.files.FieldFile.delete)
+documentation, when a model is deleted, related files are not deleted. If you
+need to cleanup orphaned files, you’ll need to handle it yourself (for
+instance, with a custom management command that can be run manually or
+scheduled to run periodically via e.g. cron). See [Management command to list
+orphaned files in `MEDIA_ROOT` #718](https://github.com/Princeton-LSI-ResearchComputing/tracebase/issues/718).

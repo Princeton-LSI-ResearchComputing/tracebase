@@ -34,6 +34,7 @@ class ModelUtilitiesTests(TracebaseTestCase):
         ordered_model_name_list = [
             "Compound",
             "CompoundSynonym",
+            "LCMethod",
             "Tissue",
             "PeakDataLabel",
             "PeakData",
@@ -41,6 +42,9 @@ class ModelUtilitiesTests(TracebaseTestCase):
             "PeakGroupLabel",
             "PeakGroupSet",
             "MSRun",
+            "ArchiveFile",
+            "DataType",
+            "DataFormat",
             "FCirc",
             "Sample",
             "Animal",

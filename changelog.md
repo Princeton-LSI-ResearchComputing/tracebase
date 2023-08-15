@@ -6,12 +6,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## Unreleased
+
+### Added
+
+- Added an ArchiveFile class with associated DataType and DataFormat classes
+- LCMethod model and tests
+
+### Changed
+
+- Updated dependencies
+- Use human readable string methods for ArchiveFile, DataType, and DataFormat (affects admin interface, other default templates)
+
+## [2.0.3] - 2023-07-07
 
 ### Added
 
 - Sample table loading now checks in-file sample name uniqueness
 - Added the ability for the accucor loading code to deal with infusates with multiple labeled elements when there is only 1 isotopic version of it among the tracers.
+
+### Fixed
+
+- PeakGroups table now displays "None" when erichment fraction or enrichment
+  abundance cannot be calculated. Previously was blank. (Issue #611).
 
 ### Changed
 
