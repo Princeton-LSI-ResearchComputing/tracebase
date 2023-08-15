@@ -6,14 +6,14 @@ See affected issue(s).
 
 ## Affected Issues/Pull Requests
 
-- Resolves #issue_number
+- Resolves #__issue_number__
 <!--
-- Partially addresses #issue_number
-- Branched from PR #pull_request_number
-- Required for PR #pull_request_number
+- Partially addresses #__issue_number__
+- Merges into PR #__pull_request_number__
+- Requires merge of PR #__pull_request_number__
 -->
 
-## Code Review Notes
+## Review Notes
 <!--
 For added context for reviewers, add comments to relevant lines of code.  Use
 this space to describe any general areas of concern not linked to a specific
@@ -31,26 +31,23 @@ This pull request will be merged once the following requirements are met.  The
 author and/or reviewers should uncheck any unmet requirements:
 
 - Review requirements
-  - Minimum approvals: 2 <!-- Edit as desired (e.g. based on complexity) -->
+  - Minimum approvals: 1 <!-- Edit as desired (e.g. based on complexity) -->
   - No changes requested
   - All blocking issues resolved by reviewers
-  - Specific approvals required
-    <!-- No need to check if number of reviews requested == min approvals -->
-    - [ ] cbartman1
-    - [ ] hepcat72
-    - [ ] jcmatese
-    - [ ] fkang-pu
-    - [ ] lparsons
-    - [ ] mneinast
-    - [ ] narzouni
+  - Specific reviewers: @__add_username_here__
+    <!--
+    Require reviewers with specific expertise to be included among the minimum
+    number of reviewers by tagging them.  Also please send them a message.
+    -->
+  - Review period: 2 days^ <!-- Edit as desired (e.g. based on complexity) -->
 - Associated issue/pull request requirements:
   <!--
   Assert that all requirements in issues marked "resolved" are done and that
-  all affected pull requests are merged.  If any are not done, either edit or
+  all required pull requests are merged.  If any are not done, either edit or
   split the issue or explain the unmerged affected pull requests.
   -->
   - [x] All requirements in the affected "resolved" issues are satisfied
-  - [x] All affected pull requests are merged *(or none)*
+  - [x] All required pull requests are merged *(or none)*
 - Basic requirements
   <!--
   Uncheck items to acknowledge failures/conflicts you intend to address.
@@ -67,3 +64,13 @@ author and/or reviewers should uncheck any unmet requirements:
   - [x] [New/changed method tests implemented/updated *(or no change)*](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/CONTRIBUTING.md#test-implementation)
   - [x] Added changes to *Unreleased* section of [`changelog.md`](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/changelog.md).
   - [x] [Migrations created & committed *(or no change)*](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/CONTRIBUTING.md#migration-process)
+
+
+^ *Reviews must be completed within the review period (in work time) from the*
+*time of the review request.  If the (re-)review period lapses, the author*
+*must reach out to reviewers or request merge in a meeting.  Requests for more*
+*time must have a deadline (defaulting to the review period).  If the review*
+*period lapses again, as long as blocking issues are responded to, all other*
+*merge requirements are met, and the pull request has not been closed/rejected*
+*by any reviewer, the author may merge the PR.  PRs may not be put on hold for*
+*longer than the review period.*
