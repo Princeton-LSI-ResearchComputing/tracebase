@@ -39,7 +39,7 @@ author and/or reviewers should uncheck any unmet requirements:
     Require reviewers with specific expertise to be included among the minimum
     number of reviewers by tagging them.  Also please send them a message.
     -->
-  - Review period: 2 days^ <!-- Edit as desired (e.g. based on complexity) -->
+  - Review period: 2 days <!-- Edit as desired (e.g. based on complexity) -->
 - Associated issue/pull request requirements:
   <!--
   Assert that all requirements in issues marked "resolved" are done and that
@@ -64,13 +64,3 @@ author and/or reviewers should uncheck any unmet requirements:
   - [x] [New/changed method tests implemented/updated *(or no change)*](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/CONTRIBUTING.md#test-implementation)
   - [x] Added changes to *Unreleased* section of [`changelog.md`](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/changelog.md).
   - [x] [Migrations created & committed *(or no change)*](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/CONTRIBUTING.md#migration-process)
-
-
-^ *Reviews must be completed within the review period (in work time) from the*
-*time of the review request.  If the (re-)review period lapses, the author*
-*must reach out to reviewers or request merge in a meeting.  Requests for more*
-*time must have a deadline (defaulting to the review period).  If the review*
-*period lapses again, as long as blocking issues are responded to, all other*
-*merge requirements are met, and the pull request has not been closed/rejected*
-*by any reviewer, the author may merge the PR.  PRs may not be put on hold for*
-*longer than the review period.*
