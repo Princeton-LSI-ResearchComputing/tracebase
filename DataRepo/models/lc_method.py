@@ -4,6 +4,12 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 
+class LCMethodManager(models.Manager):
+    def get_by_natural_key(self, name):
+        """Allows Django to get objects by a natural key instead of the primary key"""
+        return self.get(name=name)
+
+
 class LCMethod(models.Model):
     """
     The LCMethod class is a Django model of the concept of a liquid
@@ -22,7 +28,7 @@ class LCMethod(models.Model):
         max_length=256,
         help_text=(
             "Unique laboratory-defined name of the liquid chromatography method."
-            "(e.g. HILIC-0:25:00 minutes, Reverse Phase-0:25:00 minutes)"
+            "(e.g. polar-HILIC-25-min)"
         ),
     )
     type = models.CharField(
@@ -31,7 +37,7 @@ class LCMethod(models.Model):
         max_length=128,
         help_text=(
             "Laboratory-defined type of the liquid chromatography method."
-            "(e.g. HILIC, Reverse Phase)"
+            "(e.g. polar-HILIC)"
         ),
     )
     description = models.TextField(
@@ -52,6 +58,15 @@ class LCMethod(models.Model):
             "through the liquid chromatography method.",
         ),
     )
+
+    objects = LCMethodManager()
+
+    def natural_key(self):
+        """Django can use the natural_key() method to serialize any foreign
+        key reference to objects of the type that defines the method.
+
+        Must return a tuple."""
+        return (self.name,)
 
     class Meta:
         verbose_name = "liquid chromatography method"
