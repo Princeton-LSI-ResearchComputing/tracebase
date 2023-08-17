@@ -110,7 +110,6 @@ class ArchiveFile(models.Model):
     # https://docs.djangoproject.com/en/3.2/topics/files/
     file_location = models.FileField(
         upload_to=data_type_path,
-        unique=True,
         null=True,
         blank=True,
         help_text="The path of the archived file on the filesystem",
