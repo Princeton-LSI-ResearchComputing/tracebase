@@ -10,37 +10,35 @@
     type: "polar-HILIC"
     run_length: "00:25:00"
     description: >-
-      “Polar-HILIC-HRMS”: this method involves the analysis of polar metabolites
-      using HILIC on Waters Amide columns with basic buffer, coupled with high
-      resolution mass spectrometry
+      This method involves the analysis of polar metabolites using HILIC on
+      Waters Amide columns with basic buffer, coupled with high resolution mass
+      spectrometry
 - model: DataRepo.LCMethod
   fields:
     name: "polar-reversed-phase-ion-pairing-25-min"
     type: "polar-reversed-phase-ion-pairing"
     run_length: "00:25:00"
     description: >-
-      “Polar-Reversed-phase-ion-pairing-HRMS”: this method involves the analysis
-      of polar metabolites using reversed-phase ion pairing chromatography on
-      C18 columns, coupled with high resolution mass spectrometry. It provides
-      good separation and detection for polar metabolites in negative ion mode,
-      in particular phosphate metabolites.
+      This method involves the analysis of polar metabolites using
+      reversed-phase ion pairing chromatography on C18 columns, coupled with
+      high resolution mass spectrometry. It provides good separation and
+      detection for polar metabolites in negative ion mode, in particular
+      phosphate metabolites.
 - model: DataRepo.LCMethod
   fields:
     name: "polar-reversed-phase-25-min"
     type: "polar-reversed-phase"
     run_length: "00:25:00"
     description: >-
-      “Polar-Reversed-phase-HRMS”: this method involves the analysis of polar
-      metabolites using C18 columns with acidic buffer, coupled with high
-      resolution mass spectrometry. It is mainly used for the analysis of amino
-      acids and derivatives.
+      This method involves the analysis of polar metabolites using C18 columns
+      with acidic buffer, coupled with high resolution mass spectrometry. It is
+      mainly used for the analysis of amino acids and derivatives.
 - model: DataRepo.LCMethod
   fields:
     name: "lipid-reversed-phase-25-min"
     type: "lipid-reversed-phase"
     run_length: "00:25:00"
     description: >-
-      “Lipid-Reversed-phase-HRMS”: this method involves the analysis of lipids
-      using reversed-phase chromatography on C18 columns, coupled with high
-      resolution mass spectrometry. It is mainly used for the analysis of
-      lipids.
+      This method involves the analysis of lipids using reversed-phase
+      chromatography on C18 columns, coupled with high resolution mass
+      spectrometry. It is mainly used for the analysis of lipids.
