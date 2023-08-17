@@ -49,6 +49,15 @@ class PeakGroup(HierCachedModel, MaintainedModel):
         help_text="The source file this PeakGroup came from.",
     )
 
+    archive_file = models.ForeignKey(
+        to="DataRepo.ArchiveFile",
+        on_delete=models.CASCADE,
+        null=True,  # TODO Allow null until loading code is updated
+        blank=True,  # TODO Allow blank until loading code is updated
+        related_name="peak_groups",
+        help_text="The data file from which this PeakGroup was imported.",
+    )
+
     # @cached_function is *slower* than uncached
     @cached_property
     def total_abundance(self):

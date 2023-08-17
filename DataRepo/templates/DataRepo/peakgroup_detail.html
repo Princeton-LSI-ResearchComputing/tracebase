@@ -21,10 +21,10 @@
             <td>{{ peakgroup.formula }}</td>
         </tr>
         <tr>
-            <td>Peak Group Set (Accucor File)</td>
+            <td>Archive Filename</td>
             <td>
-                <a href="{% url 'peakgroupset_detail' peakgroup.peak_group_set.id %}">
-                    {{ peakgroup.peak_group_set.filename }}
+                <a href="{% url 'archive_file_detail' peakgroup.archive_file.id %}">
+                    {{ peakgroup.archive_file.filename }}
                 </a>
             </td>
         </tr>
