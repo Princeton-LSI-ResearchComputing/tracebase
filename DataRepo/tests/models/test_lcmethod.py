@@ -21,6 +21,7 @@ class LCMethodTests(TracebaseTestCase):
         self.default_t_minutes = 25
         self.default_t_run_length = timedelta(minutes=self.default_t_minutes)
         self.default_t_name = f"{self.default_t_type}-{self.default_t_run_length}"
+        self.unknown_string = "unknown test"
 
         self.setup_lcmethod = LCMethod.objects.create(
             name=self.default_t_name,
@@ -43,50 +44,47 @@ class LCMethodTests(TracebaseTestCase):
 
     def test_null_run_length(self):
         """Tests insert and string of a poorly defined LCMethod"""
-        u = "unknown"
         unknown_method = LCMethod.objects.create(
-            name=u,
-            type=u,
+            name=self.unknown_string,
+            type=self.unknown_string,
             description="This is a poorly defined LCMethod",
         )
-        self.assertEqual(str(unknown_method), "unknown")
+        self.assertEqual(str(unknown_method), self.unknown_string)
 
     def test_null_description_create(self):
         """Tests insert of an invalid methodology; description required"""
-        u = "unknown"
         with self.assertRaisesRegexp(IntegrityError, "lcmethod_description_not_empty"):
-            LCMethod.objects.create(name=u, type=u)
+            LCMethod.objects.create(name=self.unknown_string, type=self.unknown_string)
 
     def test_null_description_full_clean(self):
         """Tests insert of an invalid methodology; description required"""
-        u = "unknown"
-        bad = LCMethod(name=u, type=u)
+        bad = LCMethod(name=self.unknown_string, type=self.unknown_string)
         with self.assertRaisesRegexp(ValidationError, "description.* cannot be blank"):
             bad.full_clean()
 
     def test_null_name_create(self):
         """Tests insert of an invalid methodology; name required"""
-        u = "unknown"
         with self.assertRaisesRegexp(IntegrityError, "lcmethod_name_not_empty"):
-            LCMethod.objects.create(description=u, type=u)
+            LCMethod.objects.create(
+                description=self.unknown_string, type=self.unknown_string
+            )
 
     def test_null_name_full_clean(self):
         """Tests insert of an invalid methodology; name required"""
-        u = "unknown"
-        bad = LCMethod(description=u, type=u)
+        bad = LCMethod(description=self.unknown_string, type=self.unknown_string)
         with self.assertRaisesRegexp(ValidationError, "name.* cannot be blank"):
             bad.full_clean()
 
     def test_null_type_create(self):
         """Tests insert of an invalid methodology; type required"""
-        u = "unknown"
         with self.assertRaisesRegexp(IntegrityError, "lcmethod_type_not_empty"):
-            LCMethod.objects.create(description=u, name=u)
+            LCMethod.objects.create(
+                description=self.unknown_string, name=self.unknown_string
+            )
 
     def test_null_type_full_clean(self):
         """Tests insert of an invalid methodology; type required"""
-        u = "unknown"
-        bad = LCMethod(description=u, name=u)
+        bad = LCMethod(description=self.unknown_string, name=self.unknown_string)
         with self.assertRaisesRegexp(ValidationError, "type.* cannot be blank"):
             bad.full_clean()
 
