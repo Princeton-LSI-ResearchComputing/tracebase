@@ -1,7 +1,7 @@
 import importlib
 import warnings
 from collections import defaultdict
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from django.conf import settings
 from django.db.models import Model
@@ -201,7 +201,7 @@ class MaintainedModel(Model):
     performing_mass_autoupdates = False
     buffering = True
     update_buffer = []  # type: ignore
-    global_label_filters: List[str] = None
+    global_label_filters: Optional[List[str]] = None
     global_filter_in = True
     custom_filtering = False
 
