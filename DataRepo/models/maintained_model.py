@@ -200,8 +200,8 @@ class MaintainedModel(Model):
     auto_updates = True
     performing_mass_autoupdates = False
     buffering = True
-    update_buffer = []
-    global_label_filters = None
+    update_buffer = []  # type: ignore
+    global_label_filters: List[str] = None
     global_filter_in = True
     custom_filtering = False
 
