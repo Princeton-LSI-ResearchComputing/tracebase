@@ -20,13 +20,7 @@ from DataRepo.models.hier_cached_model import (
     disable_caching_updates,
     enable_caching_updates,
 )
-from DataRepo.models.maintained_model import (
-    clear_update_buffer,
-    disable_autoupdates,
-    enable_autoupdates,
-    init_autoupdate_label_filters,
-    perform_buffered_updates,
-)
+from DataRepo.models.maintained_model import MaintainedModel
 from DataRepo.models.researcher import (
     UnknownResearcherError,
     get_researchers,
@@ -207,10 +201,10 @@ class SampleTableLoader:
         }
 
     def load_sample_table(self, data):
-        disable_autoupdates()
+        MaintainedModel.disable_autoupdates()
         disable_caching_updates()
         # Only auto-update fields whose update_label in the decorator is "name"
-        init_autoupdate_label_filters(label_filters=["name"])
+        MaintainedModel.init_autoupdate_label_filters(label_filters=["name"])
 
         try:
             saved_aes = None
@@ -232,17 +226,17 @@ class SampleTableLoader:
         except Exception as e:
             # If we're stopping with an exception, we need to clear the update buffer so that the next call doesn't
             # make auto-updates on non-existent (or incorrect) records
-            clear_update_buffer()
+            MaintainedModel.clear_update_buffer()
             # Re-initialize label filters to default
-            init_autoupdate_label_filters()
+            MaintainedModel.init_autoupdate_label_filters()
             enable_caching_updates()
-            enable_autoupdates()
+            MaintainedModel.enable_autoupdates()
             raise e
 
         # Re-initialize label filters to default
-        init_autoupdate_label_filters()
+        MaintainedModel.init_autoupdate_label_filters()
         enable_caching_updates()
-        enable_autoupdates()
+        MaintainedModel.enable_autoupdates()
 
     def load_data(self, data):
         # Create a list to hold the csv reader data so that iterations from validating doesn't leave the csv reader
@@ -345,9 +339,9 @@ class SampleTableLoader:
             # effect at the time of buffering is saved so that only the fields matching the label filter will be
             # updated.  There are autoupdates for fields in Animal and Sample, but they're only needed for FCirc
             # calculations and will be triggered by a subsequent accucor load.
-            perform_buffered_updates()
+            MaintainedModel.perform_buffered_updates()
             # Since we only updated some of the buffered items, clear the rest of the buffer
-            clear_update_buffer()
+            MaintainedModel.clear_update_buffer()
 
     def get_tissue(self, rownum, row):
         tissue_name = self.getRowVal(row, "TISSUE_NAME")

@@ -10,7 +10,10 @@ from DataRepo.models import (
     Study,
     Tissue,
 )
-from DataRepo.models.maintained_model import UncleanBufferError, buffer_size
+from DataRepo.models.maintained_model import (
+    MaintainedModel,
+    UncleanBufferError,
+)
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
@@ -22,7 +25,7 @@ class HomeViewTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
         # Ensure the auto-update buffer is empty.  If it's not, then a previously run test didn't clean up after itself
-        if buffer_size() > 0:
+        if MaintainedModel.buffer_size() > 0:
             raise UncleanBufferError()
 
         call_command(

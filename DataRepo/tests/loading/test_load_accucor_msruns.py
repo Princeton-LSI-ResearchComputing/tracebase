@@ -5,13 +5,12 @@ from django.test import override_settings, tag
 from DataRepo.models import (
     Infusate,
     InfusateTracer,
+    MaintainedModel,
     PeakData,
     PeakGroup,
     Sample,
     Tracer,
     TracerLabel,
-    buffer_size,
-    get_all_maintained_field_values,
 )
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import (
@@ -139,13 +138,17 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
 
     def test_accucor_load_in_debug(self):
         pre_load_counts = self.get_record_counts()
-        pre_load_maintained_values = get_all_maintained_field_values("DataRepo.models")
+        pre_load_maintained_values = MaintainedModel.get_all_maintained_field_values(
+            "DataRepo.models"
+        )
         self.assertGreater(
             len(pre_load_maintained_values.keys()),
             0,
             msg="Ensure there is data in the database before the test",
         )
-        self.assertEqual(0, buffer_size(), msg="Autoupdate buffer is empty to start.")
+        self.assertEqual(
+            0, MaintainedModel.buffer_size(), msg="Autoupdate buffer is empty to start."
+        )
 
         with self.assertRaises(DryRun):
             call_command(
@@ -159,7 +162,9 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
                 dry_run=True,
             )
 
-        post_load_maintained_values = get_all_maintained_field_values("DataRepo.models")
+        post_load_maintained_values = MaintainedModel.get_all_maintained_field_values(
+            "DataRepo.models"
+        )
         post_load_counts = self.get_record_counts()
 
         self.assertEqual(
@@ -173,7 +178,9 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             msg="DryRun mode doesn't autoupdate.",
         )
         self.assertEqual(
-            0, buffer_size(), msg="DryRun mode doesn't leave buffered autoupdates."
+            0,
+            MaintainedModel.buffer_size(),
+            msg="DryRun mode doesn't leave buffered autoupdates.",
         )
 
     def test_record_missing_compound(self):

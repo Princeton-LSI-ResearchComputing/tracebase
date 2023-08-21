@@ -24,12 +24,7 @@ from DataRepo.models.hier_cached_model import (
     disable_caching_updates,
     enable_caching_updates,
 )
-from DataRepo.models.maintained_model import (
-    clear_update_buffer,
-    disable_autoupdates,
-    enable_autoupdates,
-    perform_buffered_updates,
-)
+from DataRepo.models.maintained_model import MaintainedModel
 from DataRepo.models.researcher import (
     UnknownResearcherError,
     get_researchers,
@@ -1309,21 +1304,21 @@ class AccuCorDataLoader:
 
         autoupdate_mode = not self.defer_autoupdates
         if not self.dry_run and autoupdate_mode:
-            perform_buffered_updates()
+            MaintainedModel.perform_buffered_updates()
 
         self.post_load_teardown(autoupdate_mode)
 
     def pre_load_setup(self):
-        disable_autoupdates()
+        MaintainedModel.disable_autoupdates()
         disable_caching_updates()
 
     def post_load_teardown(self, clear_autoupdate_buffer=True):
         if clear_autoupdate_buffer:
             # We need to clear the update buffer so that the next call doesn't make auto-updates on non-existent (or
             # incorrect) records
-            clear_update_buffer()
+            MaintainedModel.clear_update_buffer()
         # And before we leave, we must re-enable things
-        enable_autoupdates()
+        MaintainedModel.enable_autoupdates()
         enable_caching_updates()
 
 

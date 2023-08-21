@@ -8,7 +8,7 @@ from DataRepo.models import (
     Tracer,
     TracerLabel,
 )
-from DataRepo.models.maintained_model import buffer_size, clear_update_buffer
+from DataRepo.models.maintained_model import MaintainedModel
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
@@ -21,7 +21,7 @@ class AutoupdateLoadingTests(TracebaseTestCase):
         )
 
     def tearDown(self):
-        clear_update_buffer()
+        MaintainedModel.clear_update_buffer()
         super().tearDown()
 
     def test_defer_autoupdates_animal_accucor(self):
@@ -40,7 +40,7 @@ class AutoupdateLoadingTests(TracebaseTestCase):
 
         # Since autoupdates were defered (and we did not run perform_buffered_updates)
         self.assert_names_are_unupdated()
-        bs1 = buffer_size()
+        bs1 = MaintainedModel.buffer_size()
         self.assertGreater(bs1, 0)
         first_buffered_model_object = update_buffer[0]
 
@@ -63,7 +63,7 @@ class AutoupdateLoadingTests(TracebaseTestCase):
         # Since autoupdates were defered (and we did not run perform_buffered_updates)
         self.assert_fcirc_data_is_unupdated()
         # The buffer should have grown
-        self.assertGreater(buffer_size(), bs1)
+        self.assertGreater(MaintainedModel.buffer_size(), bs1)
         # The first buffered object from the first load script should be the same.  I.e. Running a second load script
         # without clearing the buffer should just append to the buffer.
         self.assertEqual(first_buffered_model_object, update_buffer[0])
@@ -94,7 +94,7 @@ class AutoupdateLoadingTests(TracebaseTestCase):
 
         self.assert_names_are_unupdated(False)
         self.assert_fcirc_data_is_unupdated(False)
-        self.assertEqual(0, buffer_size())
+        self.assertEqual(0, MaintainedModel.buffer_size())
 
     def assert_no_names_to_start(self):
         num_orig_infusates = Infusate.objects.count()
