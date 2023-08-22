@@ -565,8 +565,8 @@ class MaintainedModel(Model):
     @classmethod
     def clear_update_buffer(cls, generation=None, label_filters=None, filter_in=None):
         """
-        Clears buffered auto-updates.  Use after having performed DB updates when auto_updates was False to no perform
-        auto-updates.  This method is called automatically during the execution of mass autoupdates.
+        Clears buffered auto-updates.  Use after having performed buffered updates to prevent unintended auto-updates.
+        This method is called automatically during the execution of mass autoupdates.
 
         If a generation is provided (see the generation argument of the maintained_field_function decorator), only
         buffered auto-updates labeled with that generation are cleared.  Note that each record can have multiple auto-
@@ -589,6 +589,7 @@ class MaintainedModel(Model):
         if generation is None and (label_filters is None or len(label_filters) == 0):
             cls.update_buffer = []
             return
+
         new_buffer = []
         gen_warns = 0
         for buffered_item in cls.update_buffer:
@@ -604,11 +605,10 @@ class MaintainedModel(Model):
             # buffer clear should happen from leaf to root.  And we should only check those which have a target label.
             if generation is not None:
                 max_gen = cls.get_max_generation(filtered_updaters, label_filters)
-
-            if len(filtered_updaters) > 0:
-                new_buffer.append(buffered_item)
-                if max_gen > generation:
-                    gen_warns += 1
+                if len(filtered_updaters) > 0:
+                    new_buffer.append(buffered_item)
+                    if max_gen > generation:
+                        gen_warns += 1
 
         if gen_warns > 0:
             label_str = ""
