@@ -194,6 +194,7 @@ class MaintainedModel(Model):
     delete methods and uses m2m_changed signals as triggers for the updates.
     """
 
+    # Class attributes
     # Track whether the fields from the decorators have been validated
     maintained_model_initialized: Dict[str, bool] = {}
     updater_list: Dict[str, List] = defaultdict(list)
@@ -201,9 +202,9 @@ class MaintainedModel(Model):
     performing_mass_autoupdates = False
     buffering = True
     update_buffer = []  # type: ignore
-    global_label_filters: Optional[List[str]] = None
-    global_filter_in = True
-    custom_filtering = False
+    default_label_filters: Optional[List[str]] = None
+    default_filter_in = True
+    nondefault_filtering_exists = False
 
     def __init__(self, *args, **kwargs):
         """
@@ -215,8 +216,8 @@ class MaintainedModel(Model):
         # processes the object.  An update would not have been buffered if the model did not contain a maintained field
         # matching the label filtering.  And label filtering can change during the buffering process (e.g. different
         # loaders), which is why this is necessary.  Note, this is not thread-safe.
-        self.label_filters = self.global_label_filters
-        self.filter_in = self.global_filter_in
+        self.label_filters = self.default_label_filters
+        self.filter_in = self.default_filter_in
 
         class_name = self.__class__.__name__
         for updater_dict in self.updater_list[class_name]:
@@ -311,8 +312,8 @@ class MaintainedModel(Model):
         # mitigates repeated updates to the same record
         if self.auto_updates is False and self.performing_mass_autoupdates is False:
             # When buffering only, apply the global label filters, to be remembered during mass autoupdate
-            self.label_filters = self.global_label_filters
-            self.filter_in = self.global_filter_in
+            self.label_filters = self.default_label_filters
+            self.filter_in = self.default_filter_in
 
             # Set the changed value triggering this update
             super().save(*args, **kwargs)
@@ -322,8 +323,8 @@ class MaintainedModel(Model):
             # If autoupdates are happening (and it's not a mass-autoupdate (assumed because performing_mass_autoupdates
             # can only be true if auto_updates is False)), set the label filters based on the currently set global
             # conditions so that only fields matching the filters will be updated.
-            self.label_filters = self.global_label_filters
-            self.filter_in = self.global_filter_in
+            self.label_filters = self.default_label_filters
+            self.filter_in = self.default_filter_in
         # Otherwise, we are performing a mass auto-update and want to update the previously set filter conditions
 
         # Update the fields that change due to the the triggering change (if any)
@@ -372,8 +373,8 @@ class MaintainedModel(Model):
         # performing_mass_autoupdates is checked for consistency, but perform_buffered_updates does not call delete()
         if self.auto_updates is False and self.performing_mass_autoupdates is False:
             # When buffering only, apply the global label filters, to be remembered during mass autoupdate
-            self.label_filters = self.global_label_filters
-            self.filter_in = self.global_filter_in
+            self.label_filters = self.default_label_filters
+            self.filter_in = self.default_filter_in
 
             self.buffer_parent_update()
             return
@@ -381,8 +382,8 @@ class MaintainedModel(Model):
             # If autoupdates are happening (and it's not a mass-autoupdate (assumed because performing_mass_autoupdates
             # can only be true if auto_updates is False)), set the label filters based on the currently set global
             # conditions so that only fields matching the filters will be updated.
-            self.label_filters = self.global_label_filters
-            self.filter_in = self.global_filter_in
+            self.label_filters = self.default_label_filters
+            self.filter_in = self.default_filter_in
         # Otherwise, we are performing a mass auto-update and want to update the previously set filter conditions
 
         if self.auto_updates and propagate:
@@ -399,7 +400,7 @@ class MaintainedModel(Model):
         Do not allow record changes to trigger the auto-update of maintained fields.  Instead, buffer those updates.
         """
         # If custom filtering is in effect, ensure filtering is re-initialized before auto-updates are re-enabled
-        if cls.auto_updates and cls.custom_filtering:
+        if cls.auto_updates and cls.nondefault_filtering_exists:
             raise InitFiltersAfterDisablingAutoupdates()
 
         cls.auto_updates = False
@@ -410,7 +411,7 @@ class MaintainedModel(Model):
         Allow record changes to trigger the auto-update of maintained fields and no longer buffer those updates.
         """
         # If custom filtering is in effect, ensure filtering is re-initialized before auto-updates are re-enabled
-        if not cls.auto_updates and cls.custom_filtering:
+        if not cls.auto_updates and cls.nondefault_filtering_exists:
             raise ClearFiltersBeforeEnablingAutoupdates()
 
         cls.auto_updates = True
@@ -494,7 +495,7 @@ class MaintainedModel(Model):
         if label_filters is None:
             use_object_label_filters = False
             if filter_in is None:
-                filter_in = cls.global_filter_in
+                filter_in = cls.default_filter_in
 
         orig_au_mode = cls.are_autoupdates_enabled()
         if orig_au_mode:
@@ -583,9 +584,9 @@ class MaintainedModel(Model):
         conditions are cleared.
         """
         if label_filters is None:
-            label_filters = cls.global_label_filters
+            label_filters = cls.default_label_filters
         if filter_in is None:
-            filter_in = cls.global_filter_in
+            filter_in = cls.default_filter_in
         if generation is None and (label_filters is None or len(label_filters) == 0):
             cls.update_buffer = []
             return
@@ -630,9 +631,9 @@ class MaintainedModel(Model):
         (generation and label).
         """
         if label_filters is None:
-            label_filters = cls.global_label_filters
+            label_filters = cls.default_label_filters
         if filter_in is None:
-            filter_in = cls.global_filter_in
+            filter_in = cls.default_filter_in
         cnt = 0
         for buffered_item in cls.update_buffer:
             updaters_list = cls.filter_updaters(
@@ -653,9 +654,9 @@ class MaintainedModel(Model):
         The purpose is so that records can be updated breadth first (from leaves to root).
         """
         if label_filters is None:
-            label_filters = cls.global_label_filters
+            label_filters = cls.default_label_filters
         if filter_in is None:
-            filter_in = cls.global_filter_in
+            filter_in = cls.default_filter_in
         exploded_updater_dicts = []
         for buffered_item in cls.update_buffer:
             exploded_updater_dicts += cls.filter_updaters(
@@ -677,16 +678,16 @@ class MaintainedModel(Model):
         fields whose update_label matched during buffering will be updated.
         """
         if label_filters is not None:
-            cls.custom_filtering = True
+            cls.nondefault_filtering_exists = True
             if filter_in is None:
                 filter_in = True  # Default
         else:
-            cls.custom_filtering = False
+            cls.nondefault_filtering_exists = False
             filter_in = True  # Default
             # label_filters default is None
 
-        cls.global_label_filters = label_filters
-        cls.global_filter_in = filter_in
+        cls.default_label_filters = label_filters
+        cls.default_filter_in = filter_in
 
     @classmethod
     def updater_list_has_labels(cls, updaters_list, label_filters=None, filter_in=None):
@@ -694,9 +695,9 @@ class MaintainedModel(Model):
         Returns True if any updater dict in updaters_list passes the label filtering criteria.
         """
         if label_filters is None:
-            label_filters = cls.global_label_filters
+            label_filters = cls.default_label_filters
         if filter_in is None:
-            filter_in = cls.global_filter_in
+            filter_in = cls.default_filter_in
         for updater_dict in updaters_list:
             label = updater_dict["update_label"]
             has_a_label = label is not None
@@ -721,9 +722,9 @@ class MaintainedModel(Model):
         update_label is in the label_filters), if those filters were supplied.
         """
         if label_filters is None:
-            label_filters = cls.global_label_filters
+            label_filters = cls.default_label_filters
         if filter_in is None:
-            filter_in = cls.global_filter_in
+            filter_in = cls.default_filter_in
         new_updaters_list = []
         no_filters = label_filters is None or len(label_filters) == 0
         no_generation = generation is None
@@ -748,9 +749,9 @@ class MaintainedModel(Model):
         Takes a list of updaters and a list of label filters and returns the max generation found in the updaters list.
         """
         if label_filters is None:
-            label_filters = cls.global_label_filters
+            label_filters = cls.default_label_filters
         if filter_in is None:
-            filter_in = cls.global_filter_in
+            filter_in = cls.default_filter_in
         max_gen = None
         for updater_dict in sorted(
             cls.filter_updaters(
@@ -780,9 +781,9 @@ class MaintainedModel(Model):
         models_path is required and must be a string like "DataRepo.models".
         """
         if label_filters is None:
-            label_filters = cls.global_label_filters
+            label_filters = cls.default_label_filters
         if filter_in is None:
-            filter_in = cls.global_filter_in
+            filter_in = cls.default_filter_in
         class_list = []
         for class_name in cls.updater_list:
             if (
@@ -872,12 +873,19 @@ class MaintainedModel(Model):
                 or (
                     self.filter_in
                     and update_label is not None
-                    and update_label in self.label_filters
+                    and update_label
+                    in self.label_filters  # pylint: disable=unsupported-membership-test
+                    # For the pylint disable, see: https://github.com/pylint-dev/pylint/issues/3045
                 )
                 # or the update_label does not match a filter-out label
                 or (
                     not self.filter_in
-                    and (update_label is None or update_label not in self.label_filters)
+                    and (
+                        update_label is None
+                        or update_label
+                        not in self.label_filters  # pylint: disable=unsupported-membership-test
+                        # For the pylint disable, see: https://github.com/pylint-dev/pylint/issues/3045
+                    )
                 )
             ):
                 try:
@@ -1156,14 +1164,18 @@ class MaintainedModel(Model):
                     (
                         self.filter_in
                         and update_label is not None
-                        and update_label in self.label_filters
+                        and update_label
+                        in self.label_filters  # pylint: disable=unsupported-membership-test
+                        # For the pylint disable, see: https://github.com/pylint-dev/pylint/issues/3045
                     )
                     # The update_label does not match a filter-out label
                     or (
                         not self.filter_in
                         and (
                             update_label is None
-                            or update_label not in self.label_filters
+                            or update_label
+                            not in self.label_filters  # pylint: disable=unsupported-membership-test
+                            # For the pylint disable, see: https://github.com/pylint-dev/pylint/issues/3045
                         )
                     )
                 ):
