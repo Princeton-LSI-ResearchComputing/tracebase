@@ -6,10 +6,7 @@ from django.core.validators import MinValueValidator
 from django.db import models
 
 from DataRepo.models.hier_cached_model import HierCachedModel, cached_function
-from DataRepo.models.maintained_model import (
-    MaintainedModel,
-    maintained_field_setter,
-)
+from DataRepo.models.maintained_model import MaintainedModel
 from DataRepo.models.utilities import create_is_null_field
 
 from .element_label import ElementLabel
@@ -115,7 +112,7 @@ class Animal(MaintainedModel, HierCachedModel, ElementLabel):
             warnings.warn(f"Animal [{self.name}] has no tracers.")
         return self.infusate.tracers.all()
 
-    @maintained_field_setter(
+    @MaintainedModel.setter(
         generation=0,
         child_field_names=["samples"],
         update_label="fcirc_calcs",

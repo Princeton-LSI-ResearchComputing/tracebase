@@ -11,185 +11,12 @@ from django.db.utils import IntegrityError
 from psycopg2.errors import ForeignKeyViolation
 
 
-def maintained_model_relation(
-    generation, parent_field_name=None, child_field_names=[], update_label=None
-):
-    """
-    Use this decorator to add connections between classes when it does not have any maintained fields.  For example,
-    if you only want to maintain 1 field in 1 class, but you want changes in a related class to trigger updates to
-    that field, apply this decorator to the class and set either the parent_field_name and/or the child_field_names to
-    trigger those updates of the maintained fields in that related model class.
-
-    Refer to the doc string of the maintained_field_setter decorator below for a description of the parameters.
-
-    Example:
-
-    class ModelA(MaintainedModel):
-        ...
-    @maintained_model_relation(
-        generation=1,
-        parent_field_name="modela",
-        child_field_names=["modelcs", "modelds"],
-        update_label="values",
-    )
-    class ModelB(MaintainedModel):
-        modela=ForeignKey(...)
-    class ModelC(MaintainedModel):
-        modelb = ForeignKey(... related_name="modelcs")
-    class ModelD(MaintainedModel):
-        modelb = ForeignKey(... related_name="modelds")
-
-    The class decorator in the above example links ModelB to Models A, C, and D.  So if a ModelB object changes, it
-    will trigger auto-updated to maintained fields (not shown) in its child model records (first) and it's parent model
-    A records.  Likewise, it will pass on triggered updates from those classes if they are set to pass on changes to
-    modelB though the parent/chold fields in their decorators.
-    """
-    # Validate args
-    if generation != 0:
-        # Make sure internal nodes have parent fields
-        if parent_field_name is None:
-            raise Exception("parent_field is required if generation is not 0.")
-    elif generation == 0 and parent_field_name is not None:
-        raise ValueError("parent_field must not have a value when generation is 0.")
-    if parent_field_name is None and len(child_field_names) == 0:
-        raise ValueError(
-            "One or both of parent_field_name or child_field_names is required."
-        )
-
-    def decorator(cls):
-        func_dict = {
-            "update_function": None,
-            "update_field": None,
-            "parent_field": parent_field_name,
-            "child_fields": child_field_names,
-            "update_label": update_label,  # Used as a filter to trigger specific series' of (mass) updates
-            "generation": generation,  # Used to update from leaf to root for mass updates
-        }
-
-        # Add this info to our global updater_list
-        class_name = cls.__name__
-        MaintainedModel.updater_list[class_name].append(func_dict)
-
-        # No way to ensure supplied fields exist because the models aren't actually loaded yet, so while that would
-        # be nice to handle here, it will have to be handled in MaintanedModel when objects are created
-
-        # Provide some debug feedback
-        if settings.DEBUG:
-            msg = f"Added maintained_model_relation decorator {class_name} to update"
-            if update_label is not None:
-                msg += f" '{update_label}'-related"
-            if parent_field_name is not None:
-                msg += f" parent: {class_name}.{parent_field_name}"
-                if len(child_field_names) > 0:
-                    msg += " and"
-            if len(child_field_names) > 0:
-                msg += f"children: [{', '.join([class_name + '.' + c for c in child_field_names])}]"
-            print(f"{msg}.")
-
-        return cls
-
-    return decorator
-
-
-def maintained_field_setter(
-    generation,
-    update_field_name=None,
-    parent_field_name=None,
-    update_label=None,
-    child_field_names=[],
-):
-    """
-    This is a decorator factory for functions in a Model class that are identified to be used to update a supplied
-    field and field of any linked parent/child record (for when the record is changed).  This function returns a
-    decorator that takes the decorated function.  That function should not use the value of another maintained field in
-    its calculation because the order of update is not guaranteed to occur in a favorable series.  It should return a
-    value compatible with the field type supplied.
-
-    These decorated functions are identified by the MaintainedModel class, whose save and delete methods override the
-    parent model and call the decorated functions to update field supplied to the factory function.  It also propagates
-    the updates to the linked dependent model's save methods (if the parent and/or child field name is supplied), the
-    assumption being that a change to "this" record's maintained field necessitates a change to another maintained
-    field in the linked parent record.  Parent and child field names should only be supplied if a change to "this"
-    record means that related foields in parent/child records will need to be recomputed.  There is no need to supply
-    parent/child field names if that is not the case.
-
-    The generation input is an integer indicating the hierarchy level.  E.g. if there is no parent, `generation` should
-    be 0.  Each subsequence generation should increment generation.  It is used to populate update_buffer when
-    auto_updates is False, so that mass updates can be triggered after all data is loaded.
-
-    Note that a class can have multiple fields to update and that those updates (according to their decorators) can
-    trigger subsequent updates in different "parent"/"child" records.  If multiple update fields trigger updates to
-    different parents, they are triggered in a depth-first fashion.  Child records are updated first, then parents.  If
-    a child links back to a parent, already-updated records prevent repeated/looped updates.  However, this only
-    becomes relevant when the global variable `auto_updates` is False, mass database changes are made (buffering the
-    auto-updates), and then auto-updates are explicitly triggered.
-
-    Note, if there are many decorated methods updating different fields, and all of the "parent"/"child" fields are the
-    same, only 1 of those decorators needs to set a parent field.
-    """
-
-    if update_field_name is None and (parent_field_name is None and generation != 0):
-        raise Exception(
-            "Either an update_field_name or parent_field_name argument is required."
-        )
-
-    # The actual decorator (because a decorator can only take 1 argument (the decorated function).  The "decorator"
-    # above is more akin to a global function call that returns this decorator that is immediately applied to the
-    # decorated function.
-    def decorator(fn):
-        # Get the name of the class the function belongs to
-        class_name = fn.__qualname__.split(".")[0]
-        if parent_field_name is None and generation != 0:
-            raise InvalidRootGeneration(
-                class_name, update_field_name, fn.__name__, generation
-            )
-        func_dict = {
-            "update_function": fn.__name__,
-            "update_field": update_field_name,
-            "parent_field": parent_field_name,
-            "child_fields": child_field_names,
-            "update_label": update_label,  # Used as a filter to trigger specific series' of (mass) updates
-            "generation": generation,  # Used to update from leaf to root for mass updates
-        }
-
-        # No way to ensure supplied fields exist because the models aren't actually loaded yet, so while that would be
-        # nice to handle here, it will have to be handled in MaintanedModel when objects are created
-
-        # Add this info to our global updater_list
-        MaintainedModel.updater_list[class_name].append(func_dict)
-
-        # Provide some debug feedback
-        if settings.DEBUG:
-            msg = f"Added maintained_field_setter decorator to function {fn.__qualname__} to"
-            if update_field_name is not None:
-                msg += f" maintain {class_name}.{update_field_name}"
-                if parent_field_name is not None or len(child_field_names) > 0:
-                    msg += " and"
-            if parent_field_name is not None:
-                msg += (
-                    f" trigger updates to parent: {class_name}." f"{parent_field_name}"
-                )
-            if parent_field_name is not None and len(child_field_names) > 0:
-                msg += " and "
-            if child_field_names is not None and len(child_field_names) > 0:
-                msg += (
-                    f" trigger updates to children: "
-                    f"{', '.join([class_name + '.' + c for c in child_field_names])}"
-                )
-            print(f"{msg}.")
-
-        return fn
-
-    # This returns the actual decorator function which will immediately run on the decorated function
-    return decorator
-
-
 class MaintainedModel(Model):
     """
     This class maintains database field values for a django.models.Model class whose values can be derived using a
     function.  If a record changes, the decorated function/class is used to update the field value.  It can also
     propagate changes of records in linked models.  Every function in the derived class decorated with the
-    `@maintained_field_setter` decorator (defined above, outside this class) will be called and the associated field
+    `@MaintainedModel.setter` decorator (defined above, outside this class) will be called and the associated field
     will be updated.  Only methods that take no arguments are supported.  This class overrides the class's save and
     delete methods and uses m2m_changed signals as triggers for the updates.
     """
@@ -390,6 +217,182 @@ class MaintainedModel(Model):
             # Percolate changes up to the parents (if any)
             self.call_dfs_related_updaters()
 
+    @staticmethod
+    def relation(
+        generation, parent_field_name=None, child_field_names=[], update_label=None
+    ):
+        """
+        Use this decorator to add connections between classes when it does not have any maintained fields.  For example,
+        if you only want to maintain 1 field in 1 class, but you want changes in a related class to trigger updates to
+        that field, apply this decorator to the class and set either the parent_field_name and/or the child_field_names
+        to trigger those updates of the maintained fields in that related model class.
+
+        Refer to the doc string of the MaintainedModel.setter decorator below for a description of the parameters.
+
+        Example:
+
+        class ModelA(MaintainedModel):
+            ...
+        @relation(
+            generation=1,
+            parent_field_name="modela",
+            child_field_names=["modelcs", "modelds"],
+            update_label="values",
+        )
+        class ModelB(MaintainedModel):
+            modela=ForeignKey(...)
+        class ModelC(MaintainedModel):
+            modelb = ForeignKey(... related_name="modelcs")
+        class ModelD(MaintainedModel):
+            modelb = ForeignKey(... related_name="modelds")
+
+        The class decorator in the above example links ModelB to Models A, C, and D.  So if a ModelB object changes, it
+        will trigger auto-updated to maintained fields (not shown) in its child model records (first) and it's parent
+        modelA records.  Likewise, it will pass on triggered updates from those classes if they are set to pass on
+        changes to modelB though the parent/chold fields in their decorators.
+        """
+        # Validate args
+        if generation != 0:
+            # Make sure internal nodes have parent fields
+            if parent_field_name is None:
+                raise Exception("parent_field is required if generation is not 0.")
+        elif generation == 0 and parent_field_name is not None:
+            raise ValueError("parent_field must not have a value when generation is 0.")
+        if parent_field_name is None and len(child_field_names) == 0:
+            raise ValueError(
+                "One or both of parent_field_name or child_field_names is required."
+            )
+
+        def decorator(cls):
+            func_dict = {
+                "update_function": None,
+                "update_field": None,
+                "parent_field": parent_field_name,
+                "child_fields": child_field_names,
+                "update_label": update_label,  # Used as a filter to trigger specific series' of (mass) updates
+                "generation": generation,  # Used to update from leaf to root for mass updates
+            }
+
+            # Add this info to our global updater_list
+            class_name = cls.__name__
+            MaintainedModel.updater_list[class_name].append(func_dict)
+
+            # No way to ensure supplied fields exist because the models aren't actually loaded yet, so while that would
+            # be nice to handle here, it will have to be handled in MaintanedModel when objects are created
+
+            # Provide some debug feedback
+            if settings.DEBUG:
+                msg = f"Added relation decorator {class_name} to update"
+                if update_label is not None:
+                    msg += f" '{update_label}'-related"
+                if parent_field_name is not None:
+                    msg += f" parent: {class_name}.{parent_field_name}"
+                    if len(child_field_names) > 0:
+                        msg += " and"
+                if len(child_field_names) > 0:
+                    msg += f"children: [{', '.join([class_name + '.' + c for c in child_field_names])}]"
+                print(f"{msg}.")
+
+            return cls
+
+        return decorator
+
+    @staticmethod
+    def setter(
+        generation,
+        update_field_name=None,
+        parent_field_name=None,
+        update_label=None,
+        child_field_names=[],
+    ):
+        """
+        This is a decorator factory for functions in a Model class that are identified to be used to update a supplied
+        field and field of any linked parent/child record (for when the record is changed).  This function returns a
+        decorator that takes the decorated function.  That function should not use the value of another maintained field
+        in its calculation because the order of update is not guaranteed to occur in a favorable series.  It should
+        return a value compatible with the field type supplied.
+
+        These decorated functions are identified by the MaintainedModel class, whose save and delete methods override
+        the parent model and call the decorated functions to update field supplied to the factory function.  It also
+        propagates the updates to the linked dependent model's save methods (if the parent and/or child field name is
+        supplied), the assumption being that a change to "this" record's maintained field necessitates a change to
+        another maintained field in the linked parent record.  Parent and child field names should only be supplied if a
+        change to "this" record means that related foields in parent/child records will need to be recomputed.  There is
+        no need to supply parent/child field names if that is not the case.
+
+        The generation input is an integer indicating the hierarchy level.  E.g. if there is no parent, `generation`
+        should be 0.  Each subsequence generation should increment generation.  It is used to populate update_buffer
+        when auto_updates is False, so that mass updates can be triggered after all data is loaded.
+
+        Note that a class can have multiple fields to update and that those updates (according to their decorators) can
+        trigger subsequent updates in different "parent"/"child" records.  If multiple update fields trigger updates to
+        different parents, they are triggered in a depth-first fashion.  Child records are updated first, then parents.
+        If a child links back to a parent, already-updated records prevent repeated/looped updates.  However, this only
+        becomes relevant when the global variable `auto_updates` is False, mass database changes are made (buffering the
+        auto-updates), and then auto-updates are explicitly triggered.
+
+        Note, if there are many decorated methods updating different fields, and all of the "parent"/"child" fields are
+        the same, only 1 of those decorators needs to set a parent field.
+        """
+
+        if update_field_name is None and (
+            parent_field_name is None and generation != 0
+        ):
+            raise Exception(
+                "Either an update_field_name or parent_field_name argument is required."
+            )
+
+        # The actual decorator (because a decorator can only take 1 argument (the decorated function).  The "decorator"
+        # above is more akin to a global function call that returns this decorator that is immediately applied to the
+        # decorated function.
+        def decorator(fn):
+            # Get the name of the class the function belongs to
+            class_name = fn.__qualname__.split(".")[0]
+            if parent_field_name is None and generation != 0:
+                raise InvalidRootGeneration(
+                    class_name, update_field_name, fn.__name__, generation
+                )
+            func_dict = {
+                "update_function": fn.__name__,
+                "update_field": update_field_name,
+                "parent_field": parent_field_name,
+                "child_fields": child_field_names,
+                "update_label": update_label,  # Used as a filter to trigger specific series' of (mass) updates
+                "generation": generation,  # Used to update from leaf to root for mass updates
+            }
+
+            # No way to ensure supplied fields exist because the models aren't actually loaded yet, so while that would
+            # be nice to handle here, it will have to be handled in MaintanedModel when objects are created
+
+            # Add this info to our global updater_list
+            MaintainedModel.updater_list[class_name].append(func_dict)
+
+            # Provide some debug feedback
+            if settings.DEBUG:
+                msg = f"Added MaintainedModel.setter decorator to function {fn.__qualname__} to"
+                if update_field_name is not None:
+                    msg += f" maintain {class_name}.{update_field_name}"
+                    if parent_field_name is not None or len(child_field_names) > 0:
+                        msg += " and"
+                if parent_field_name is not None:
+                    msg += (
+                        f" trigger updates to parent: {class_name}."
+                        f"{parent_field_name}"
+                    )
+                if parent_field_name is not None and len(child_field_names) > 0:
+                    msg += " and "
+                if child_field_names is not None and len(child_field_names) > 0:
+                    msg += (
+                        f" trigger updates to children: "
+                        f"{', '.join([class_name + '.' + c for c in child_field_names])}"
+                    )
+                print(f"{msg}.")
+
+            return fn
+
+        # This returns the actual decorator function which will immediately run on the decorated function
+        return decorator
+
     @classmethod
     def are_autoupdates_enabled(cls):
         return cls.auto_updates
@@ -569,7 +572,7 @@ class MaintainedModel(Model):
         Clears buffered auto-updates.  Use after having performed buffered updates to prevent unintended auto-updates.
         This method is called automatically during the execution of mass autoupdates.
 
-        If a generation is provided (see the generation argument of the maintained_field_setter decorator), only
+        If a generation is provided (see the generation argument of the MaintainedModel.setter decorator), only
         buffered auto-updates labeled with that generation are cleared.  Note that each record can have multiple auto-
         update fields and thus multiple generation values.  Only the max generation (a leaf) is used in this check
         because it is assumed leaves are updated first during a mass update and that an auto-update updates every
@@ -850,7 +853,7 @@ class MaintainedModel(Model):
 
     def update_decorated_fields(self):
         """
-        Updates every field identified in each maintained_field_setter decorator using the decorated function that
+        Updates every field identified in each MaintainedModel.setter decorator using the decorated function that
         generates its value.
 
         This uses 2 data members: self.label_filters and self.filter_in in order to determine which fields should be
@@ -1126,9 +1129,9 @@ class MaintainedModel(Model):
     @classmethod
     def get_my_update_fields(cls):
         """
-        Returns a list of update_fields of the current model that are marked via the maintained_field_setter
+        Returns a list of update_fields of the current model that are marked via the MaintainedModel.setter
         decorators in the model.  Returns an empty list if there are none (e.g. if the only decorator in the model is
-        the maintained_model_relation decorator on the class).
+        the relation decorator on the class).
         """
         my_update_fields = []
         class_name = cls.__name__
@@ -1289,12 +1292,12 @@ class BadModelFields(Exception):
         )
         if fcn:
             message += (
-                f"Make sure the fields supplied to the @maintained_field_setter decorator of the function: {fcn} "
+                f"Make sure the fields supplied to the @MaintainedModel.setter decorator of the function: {fcn} "
                 f"are valid {cls} fields."
             )
         else:
             message += (
-                f"Make sure the fields supplied to the @maintained_model_relation class decorator are valid {cls} "
+                f"Make sure the fields supplied to the @relation class decorator are valid {cls} "
                 "fields."
             )
         super().__init__(message)
@@ -1307,7 +1310,7 @@ class MaintainedFieldNotSettable(Exception):
     def __init__(self, cls, fld, fcn):
         message = (
             f"{cls}.{fld} cannot be explicitly set.  Its value is maintained by {fcn} because it has a "
-            "@maintained_field_setter decorator."
+            "@MaintainedModel.setter decorator."
         )
         super().__init__(message)
         self.cls = cls
@@ -1318,7 +1321,7 @@ class MaintainedFieldNotSettable(Exception):
 class InvalidRootGeneration(Exception):
     def __init__(self, cls, fld, fcn, gen):
         message = (
-            f"Invalid generation: [{gen}] for {cls}.{fld} supplied to @maintained_field_setter decorator of "
+            f"Invalid generation: [{gen}] for {cls}.{fld} supplied to @MaintainedModel.setter decorator of "
             f"function [{fcn}].  Since the parent_field_name was `None` or not supplied, generation must be 0."
         )
         super().__init__(message)
@@ -1332,7 +1335,7 @@ class NoDecorators(Exception):
     def __init__(self, cls):
         message = (
             f"Class [{cls}] does not have any field maintenance functions yet.  Please add the "
-            "maintained_field_setter decorator to a method in the class or remove the base class 'MaintainedModel' "
+            "MaintainedModel.setter decorator to a method in the class or remove the base class 'MaintainedModel' "
             "and an parent fields referencing this model in other models.  If this model has no field to update but "
             "its parent does, create a decorated placeholder method that sets its parent_field and generation only."
         )
