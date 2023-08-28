@@ -8,7 +8,7 @@ from django.forms.models import model_to_dict
 from DataRepo.models.hier_cached_model import HierCachedModel, cached_function
 from DataRepo.models.maintained_model import (
     MaintainedModel,
-    maintained_field_function,
+    maintained_field_setter,
 )
 from DataRepo.models.peak_group import PeakGroup
 from DataRepo.models.utilities import create_is_null_field
@@ -69,7 +69,7 @@ class Sample(MaintainedModel, HierCachedModel):
         "that a sample was extracted from an animal.",
     )
 
-    @maintained_field_function(
+    @maintained_field_setter(
         generation=1,
         parent_field_name="animal",
         child_field_names=["fcircs"],

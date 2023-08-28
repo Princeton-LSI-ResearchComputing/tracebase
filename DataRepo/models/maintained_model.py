@@ -20,7 +20,7 @@ def maintained_model_relation(
     that field, apply this decorator to the class and set either the parent_field_name and/or the child_field_names to
     trigger those updates of the maintained fields in that related model class.
 
-    Refer to the doc string of the maintained_field_function decorator below for a description of the parameters.
+    Refer to the doc string of the maintained_field_setter decorator below for a description of the parameters.
 
     Example:
 
@@ -91,7 +91,7 @@ def maintained_model_relation(
     return decorator
 
 
-def maintained_field_function(
+def maintained_field_setter(
     generation,
     update_field_name=None,
     parent_field_name=None,
@@ -160,7 +160,7 @@ def maintained_field_function(
 
         # Provide some debug feedback
         if settings.DEBUG:
-            msg = f"Added maintained_field_function decorator to function {fn.__qualname__} to"
+            msg = f"Added maintained_field_setter decorator to function {fn.__qualname__} to"
             if update_field_name is not None:
                 msg += f" maintain {class_name}.{update_field_name}"
                 if parent_field_name is not None or len(child_field_names) > 0:
@@ -189,7 +189,7 @@ class MaintainedModel(Model):
     This class maintains database field values for a django.models.Model class whose values can be derived using a
     function.  If a record changes, the decorated function/class is used to update the field value.  It can also
     propagate changes of records in linked models.  Every function in the derived class decorated with the
-    `@maintained_field_function` decorator (defined above, outside this class) will be called and the associated field
+    `@maintained_field_setter` decorator (defined above, outside this class) will be called and the associated field
     will be updated.  Only methods that take no arguments are supported.  This class overrides the class's save and
     delete methods and uses m2m_changed signals as triggers for the updates.
     """
@@ -569,7 +569,7 @@ class MaintainedModel(Model):
         Clears buffered auto-updates.  Use after having performed buffered updates to prevent unintended auto-updates.
         This method is called automatically during the execution of mass autoupdates.
 
-        If a generation is provided (see the generation argument of the maintained_field_function decorator), only
+        If a generation is provided (see the generation argument of the maintained_field_setter decorator), only
         buffered auto-updates labeled with that generation are cleared.  Note that each record can have multiple auto-
         update fields and thus multiple generation values.  Only the max generation (a leaf) is used in this check
         because it is assumed leaves are updated first during a mass update and that an auto-update updates every
@@ -850,7 +850,7 @@ class MaintainedModel(Model):
 
     def update_decorated_fields(self):
         """
-        Updates every field identified in each maintained_field_function decorator using the decorated function that
+        Updates every field identified in each maintained_field_setter decorator using the decorated function that
         generates its value.
 
         This uses 2 data members: self.label_filters and self.filter_in in order to determine which fields should be
@@ -1126,7 +1126,7 @@ class MaintainedModel(Model):
     @classmethod
     def get_my_update_fields(cls):
         """
-        Returns a list of update_fields of the current model that are marked via the maintained_field_function
+        Returns a list of update_fields of the current model that are marked via the maintained_field_setter
         decorators in the model.  Returns an empty list if there are none (e.g. if the only decorator in the model is
         the maintained_model_relation decorator on the class).
         """
@@ -1289,7 +1289,7 @@ class BadModelFields(Exception):
         )
         if fcn:
             message += (
-                f"Make sure the fields supplied to the @maintained_field_function decorator of the function: {fcn} "
+                f"Make sure the fields supplied to the @maintained_field_setter decorator of the function: {fcn} "
                 f"are valid {cls} fields."
             )
         else:
@@ -1307,7 +1307,7 @@ class MaintainedFieldNotSettable(Exception):
     def __init__(self, cls, fld, fcn):
         message = (
             f"{cls}.{fld} cannot be explicitly set.  Its value is maintained by {fcn} because it has a "
-            "@maintained_field_function decorator."
+            "@maintained_field_setter decorator."
         )
         super().__init__(message)
         self.cls = cls
@@ -1318,7 +1318,7 @@ class MaintainedFieldNotSettable(Exception):
 class InvalidRootGeneration(Exception):
     def __init__(self, cls, fld, fcn, gen):
         message = (
-            f"Invalid generation: [{gen}] for {cls}.{fld} supplied to @maintained_field_function decorator of "
+            f"Invalid generation: [{gen}] for {cls}.{fld} supplied to @maintained_field_setter decorator of "
             f"function [{fcn}].  Since the parent_field_name was `None` or not supplied, generation must be 0."
         )
         super().__init__(message)
@@ -1332,7 +1332,7 @@ class NoDecorators(Exception):
     def __init__(self, cls):
         message = (
             f"Class [{cls}] does not have any field maintenance functions yet.  Please add the "
-            "maintained_field_function decorator to a method in the class or remove the base class 'MaintainedModel' "
+            "maintained_field_setter decorator to a method in the class or remove the base class 'MaintainedModel' "
             "and an parent fields referencing this model in other models.  If this model has no field to update but "
             "its parent does, create a decorated placeholder method that sets its parent_field and generation only."
         )

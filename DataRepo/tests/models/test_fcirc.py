@@ -140,7 +140,7 @@ class FCircTests(TracebaseTestCase):
             0,
             len(maint_fld_funcs),
             msg=(
-                "No maintained_field_function decorators means that propagation works (if "
+                "No maintained_field_setter decorators means that propagation works (if "
                 "test_new_tracer_peak_group_updates_all_is_last passes)"
             ),
         )

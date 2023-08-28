@@ -3,7 +3,7 @@ from django.db import models
 
 from DataRepo.models.maintained_model import (
     MaintainedModel,
-    maintained_field_function,
+    maintained_field_setter,
 )
 
 
@@ -37,7 +37,7 @@ class InfusateTracer(MaintainedModel):
             )
         ]
 
-    @maintained_field_function(
+    @maintained_field_setter(
         generation=1, parent_field_name="infusate", update_label="name"
     )
     def _name(self):
