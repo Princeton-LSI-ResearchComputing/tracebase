@@ -202,6 +202,9 @@ class SampleTableLoader:
 
     def load_sample_table(self, data):
         MaintainedModel.disable_autoupdates()
+        if self.dry_run:
+            # Don't let any auto-updates buffer because we're not going to perform the mass auto-update
+            MaintainedModel.disable_buffering()
         disable_caching_updates()
         # Only auto-update fields whose update_label in the decorator is "name"
         MaintainedModel.init_autoupdate_label_filters(label_filters=["name"])
@@ -231,12 +234,16 @@ class SampleTableLoader:
             MaintainedModel.init_autoupdate_label_filters()
             enable_caching_updates()
             MaintainedModel.enable_autoupdates()
+            if self.dry_run:
+                MaintainedModel.enable_buffering()
             raise e
 
         # Re-initialize label filters to default
         MaintainedModel.init_autoupdate_label_filters()
         enable_caching_updates()
         MaintainedModel.enable_autoupdates()
+        if self.dry_run:
+            MaintainedModel.enable_buffering()
 
     def load_data(self, data):
         # Create a list to hold the csv reader data so that iterations from validating doesn't leave the csv reader

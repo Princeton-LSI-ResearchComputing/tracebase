@@ -1310,6 +1310,9 @@ class AccuCorDataLoader:
 
     def pre_load_setup(self):
         MaintainedModel.disable_autoupdates()
+        if self.dry_run:
+            # Don't let any auto-updates buffer because we're not going to perform the mass auto-update
+            MaintainedModel.disable_buffering()
         disable_caching_updates()
 
     def post_load_teardown(self, clear_autoupdate_buffer=True):
@@ -1319,6 +1322,8 @@ class AccuCorDataLoader:
             MaintainedModel.clear_update_buffer()
         # And before we leave, we must re-enable things
         MaintainedModel.enable_autoupdates()
+        if self.dry_run:
+            MaintainedModel.enable_buffering()
         enable_caching_updates()
 
 

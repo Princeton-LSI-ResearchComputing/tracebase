@@ -597,14 +597,20 @@ class MaintainedModel(Model):
         new_buffer = []
         gen_warns = 0
         for buffered_item in cls.update_buffer:
-            # Obtain the updaters that DO NOT match the buffered items that are being cleared
-            # These are all the items that WILL BE LEFT in the buffer after the clear.  I.e. we are clearing items that
-            # match the filter criteria.  Everything that doesn't match is not being cleared.
-            filtered_updaters = cls.filter_updaters(
+            # Buffered items are entire model objects.  We are going to filter model objects when they DO match the
+            # filtering criteria.  A model object matches the filtering criteria based on whether ANY of its updaters
+            # (fields to be updated specified by the decorators on the methods that produce their values) match the
+            # filtering criteria.  If the model object DOES NOT have a field that meets the label filtering criteria,
+            # it should remain in the buffer.  For example, if there are 2 fields that are auto-updated in the buffered
+            # model object, and one's decorator has a "name" label and the other has an "fcirc_calc" label, and the
+            # supplied label_filters is ["name"] and filter_in is True, then the matching updater WILL be returned by
+            # this filter operation and the buffered item will be left out of the new_buffer.  If a model object in the
+            # buffer does NOT have the "name" label in any of its updaters, it will be added to the new_buffer.
+            matching_updaters = cls.filter_updaters(
                 buffered_item.get_my_updaters(),
                 generation=generation,
                 label_filters=label_filters,
-                filter_in=not filter_in,
+                filter_in=filter_in,
             )
 
             max_gen = 0
@@ -612,10 +618,16 @@ class MaintainedModel(Model):
             # because updates and buffer clears should happen from leaf to root.  And we should only check those which
             # have a target label.
             if generation is not None:
-                max_gen = cls.get_max_generation(filtered_updaters, label_filters)
+                max_gen = cls.get_max_generation(
+                    matching_updaters, label_filters, filter_in
+                )
 
-            if len(filtered_updaters) > 0:
+            # If the buffered item didn't have any updaters that met the filtering criteria, keep it in the buffer
+            if len(matching_updaters) == 0:
                 new_buffer.append(buffered_item)
+                # There are no matching filters among the updaters of the buffered_item, but the max generation MUST be
+                # auto-updated first in order for breadth-first mass autoupdates to happen in the proper order, so if
+                # we're keeping a generation higher than the current filter generation being cleared, this is a problem.
                 if generation is not None and max_gen > generation:
                     gen_warns += 1
 
@@ -733,22 +745,33 @@ class MaintainedModel(Model):
             label_filters = cls.default_label_filters
         if filter_in is None:
             filter_in = cls.default_filter_in
+
+        # This will be the new buffer (in case we're being selective)
         new_updaters_list = []
+
+        # Convenience variables to make the conditional easier to read
         no_filters = label_filters is None or len(label_filters) == 0
         no_generation = generation is None
+
         for updater_dict in updaters_list:
             gen = updater_dict["generation"]
             label = updater_dict["update_label"]
             has_label = label is not None
-            if (no_generation or generation == gen) and (
-                no_filters
-                or (filter_in and has_label and label in label_filters)
-                or (not filter_in and (not has_label or label not in label_filters))
+            if (
+                filter_in
+                and (
+                    (no_generation or generation == gen)
+                    and (no_filters or (has_label and label in label_filters))
+                )
+            ) or (
+                not filter_in
+                and (
+                    (no_generation or generation != gen)
+                    and (no_filters or not has_label or label not in label_filters)
+                )
             ):
-                if filter_in:
-                    new_updaters_list.append(updater_dict)
-            elif filter_in is False:
                 new_updaters_list.append(updater_dict)
+
         return new_updaters_list
 
     @classmethod
