@@ -597,22 +597,27 @@ class MaintainedModel(Model):
         new_buffer = []
         gen_warns = 0
         for buffered_item in cls.update_buffer:
+            # Obtain the updaters that DO NOT match the buffered items that are being cleared
+            # These are all the items that WILL BE LEFT in the buffer after the clear.  I.e. we are clearing items that
+            # match the filter criteria.  Everything that doesn't match is not being cleared.
             filtered_updaters = cls.filter_updaters(
                 buffered_item.get_my_updaters(),
                 generation=generation,
                 label_filters=label_filters,
-                filter_in=filter_in,
+                filter_in=not filter_in,
             )
 
             max_gen = 0
-            # We should issue a warning if the remaining updaters contain a greater generation, because updates and
-            # buffer clear should happen from leaf to root.  And we should only check those which have a target label.
+            # We should issue a warning if the remaining updaters left in the buffer contain a greater generation,
+            # because updates and buffer clears should happen from leaf to root.  And we should only check those which
+            # have a target label.
             if generation is not None:
                 max_gen = cls.get_max_generation(filtered_updaters, label_filters)
-                if len(filtered_updaters) > 0:
-                    new_buffer.append(buffered_item)
-                    if max_gen > generation:
-                        gen_warns += 1
+
+            if len(filtered_updaters) > 0:
+                new_buffer.append(buffered_item)
+                if generation is not None and max_gen > generation:
+                    gen_warns += 1
 
         if gen_warns > 0:
             label_str = ""
@@ -721,7 +726,7 @@ class MaintainedModel(Model):
         filter_in=None,
     ):
         """
-        Returns a sublist of the supplied updaters_list the meets both the filter criteria (generation matches and
+        Returns a sublist of the supplied updaters_list that meets both the filter criteria (generation matches and
         update_label is in the label_filters), if those filters were supplied.
         """
         if label_filters is None:
