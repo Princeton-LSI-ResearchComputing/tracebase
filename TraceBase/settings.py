@@ -55,6 +55,10 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
 ]
 
+CUSTOM_INSTALLED_APPS = env.list("CUSTOM_INSTALLED_APPS", default=None)
+if CUSTOM_INSTALLED_APPS:
+    INSTALLED_APPS.extend(CUSTOM_INSTALLED_APPS)
+
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
