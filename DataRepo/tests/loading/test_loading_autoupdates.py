@@ -39,7 +39,7 @@ class AutoupdateLoadingTests(TracebaseTestCase):
         self.assert_names_are_unupdated()
         bs1 = MaintainedModel.buffer_size()
         self.assertGreater(bs1, 0)
-        first_buffered_model_object = MaintainedModel.update_buffer[0]
+        first_buffered_model_object = MaintainedModel.data.update_buffer[0]
 
         self.assert_fcirc_data_is_unupdated()
 
@@ -60,7 +60,9 @@ class AutoupdateLoadingTests(TracebaseTestCase):
         self.assertGreater(MaintainedModel.buffer_size(), bs1)
         # The first buffered object from the first load script should be the same.  I.e. Running a second load script
         # without clearing the buffer should just append to the buffer.
-        self.assertEqual(first_buffered_model_object, MaintainedModel.update_buffer[0])
+        self.assertEqual(
+            first_buffered_model_object, MaintainedModel.data.update_buffer[0]
+        )
 
     def test_defer_autoupdates_sample(self):
         self.assert_no_names_to_start()
