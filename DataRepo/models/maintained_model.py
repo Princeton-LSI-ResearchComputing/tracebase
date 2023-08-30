@@ -36,7 +36,7 @@ class MaintainedModel(Model):
     data.performing_mass_autoupdates = False
 
     # This is for buffering a large quantity of auto-updates in order to get speed improvements during loading
-    data.update_buffer = []  # type: ignore
+    data.update_buffer = []
 
     # These allow the user to turn on or off specific groups of auto-updates.  See init_autoupdate_label_filters.
     data.default_label_filters = None
