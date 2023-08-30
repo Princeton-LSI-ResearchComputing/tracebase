@@ -661,6 +661,10 @@ class MaintainedModel(Model):
         cls.data.update_buffer = new_buffer
 
     @classmethod
+    def _peek_update_buffer(cls, index=0):
+        return cls.data.update_buffer[index]
+
+    @classmethod
     def buffer_size(cls, generation=None, label_filters=None, filter_in=None):
         """
         Returns the number of buffered records that contain at least 1 decorated function matching the filter criteria
