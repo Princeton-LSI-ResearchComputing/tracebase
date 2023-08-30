@@ -1,7 +1,7 @@
 from DataRepo.models.compound import Compound
 from DataRepo.models.maintained_model import (
     MaintainedFieldNotSettable,
-    are_autoupdates_enabled,
+    MaintainedModel,
 )
 from DataRepo.models.tracer import Tracer
 from DataRepo.models.tracer_label import TracerLabel
@@ -42,6 +42,6 @@ class TracerTests(TracebaseTestCase):
         each TracerLabel record creation, after which it has its final value.
         """
         # Throws DoesNotExist exception if not found
-        self.assertTrue(are_autoupdates_enabled())
+        self.assertTrue(MaintainedModel.are_autoupdates_enabled())
         to = create_tracer_record()
         self.assertEqual("glucose-[2,3-13C2,4-17O1]", to.name)

@@ -20,11 +20,8 @@ from DataRepo.models import (
     Tissue,
 )
 from DataRepo.models.maintained_model import (
+    MaintainedModel,
     UncleanBufferError,
-    buffer_size,
-    disable_buffering,
-    enable_buffering,
-    get_all_maintained_field_values,
 )
 from DataRepo.models.utilities import get_all_models
 from DataRepo.tests.tracebase_test_case import (
@@ -47,7 +44,7 @@ class ViewTests(TracebaseTestCase):
         cls.ALL_COMPOUNDS_COUNT = 3
 
         # Ensure the auto-update buffer is empty.  If it's not, then a previously run test didn't clean up after itself
-        if buffer_size() > 0:
+        if MaintainedModel.buffer_size() > 0:
             raise UncleanBufferError()
 
         call_command(
@@ -504,9 +501,9 @@ class ViewNullToleranceTests(ViewTests):
     @classmethod
     def setUpTestData(cls):
         # Silently dis-allow auto-updates by disabling buffering
-        disable_buffering()
+        MaintainedModel.disable_buffering()
         super().setUpTestData()
-        enable_buffering()
+        MaintainedModel.enable_buffering()
 
     def test_study_list(self):
         """Make sure this page works when infusate/tracer, and/or tracer label names are None"""
@@ -530,7 +527,7 @@ class ValidationViewTests(TracebaseTransactionTestCase):
     @classmethod
     def initialize_databases(cls):
         # Ensure the auto-update buffer is empty.  If it's not, then a previously run test didn't clean up after itself
-        if buffer_size() > 0:
+        if MaintainedModel.buffer_size() > 0:
             raise UncleanBufferError()
 
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
@@ -640,7 +637,7 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         )
 
         # Ensure the auto-update buffer is empty.  If it's not, then a previously run test didn't clean up after itself
-        if buffer_size() > 0:
+        if MaintainedModel.buffer_size() > 0:
             raise UncleanBufferError()
 
         # Files/inputs we will test
@@ -708,7 +705,9 @@ class ValidationViewTests(TracebaseTransactionTestCase):
 
         # Get initial record counts for all models
         tb_init_counts = self.get_record_counts()
-        pre_load_maintained_values = get_all_maintained_field_values("DataRepo.models")
+        pre_load_maintained_values = MaintainedModel.get_all_maintained_field_values(
+            "DataRepo.models"
+        )
 
         sample_file = (
             "DataRepo/example_data/data_submission_good/animal_sample_table.xlsx"
@@ -722,7 +721,9 @@ class ValidationViewTests(TracebaseTransactionTestCase):
 
         # Get record counts for all models
         tb_post_counts = self.get_record_counts()
-        post_load_maintained_values = get_all_maintained_field_values("DataRepo.models")
+        post_load_maintained_values = MaintainedModel.get_all_maintained_field_values(
+            "DataRepo.models"
+        )
 
         self.assertListEqual(tb_init_counts, tb_post_counts)
         self.assertEqual(pre_load_maintained_values, post_load_maintained_values)

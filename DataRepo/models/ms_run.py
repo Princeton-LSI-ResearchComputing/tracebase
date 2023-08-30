@@ -2,14 +2,11 @@ from django.core.exceptions import ValidationError
 from django.db import models
 
 from DataRepo.models.hier_cached_model import HierCachedModel
-from DataRepo.models.maintained_model import (
-    MaintainedModel,
-    maintained_model_relation,
-)
+from DataRepo.models.maintained_model import MaintainedModel
 from DataRepo.models.protocol import Protocol
 
 
-@maintained_model_relation(
+@MaintainedModel.relation(
     generation=2,
     parent_field_name="sample",
     # child_field_names=["peak_groups"],  # Only propagate up

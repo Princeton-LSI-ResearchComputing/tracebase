@@ -5,10 +5,7 @@ from django.db import models
 
 from DataRepo.models.element_label import ElementLabel
 from DataRepo.models.hier_cached_model import HierCachedModel, cached_function
-from DataRepo.models.maintained_model import (
-    MaintainedModel,
-    maintained_field_function,
-)
+from DataRepo.models.maintained_model import MaintainedModel
 from DataRepo.models.utilities import create_is_null_field
 
 
@@ -78,7 +75,7 @@ class FCirc(MaintainedModel, HierCachedModel):
         # Now save the updated values
         super().save(*args, **kwargs)
 
-    @maintained_field_function(
+    @MaintainedModel.setter(
         generation=2,
         update_field_name="is_last",
         parent_field_name="serum_sample",

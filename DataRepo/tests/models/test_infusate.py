@@ -10,13 +10,7 @@ from DataRepo.models.infusate_tracer import InfusateTracer
 from DataRepo.models.maintained_model import (
     AutoUpdateFailed,
     MaintainedFieldNotSettable,
-    buffer_size,
-    clear_update_buffer,
-    disable_autoupdates,
-    disable_buffering,
-    enable_autoupdates,
-    enable_buffering,
-    perform_buffered_updates,
+    MaintainedModel,
 )
 from DataRepo.models.tracer import Tracer
 from DataRepo.models.tracer_label import TracerLabel
@@ -56,7 +50,7 @@ def create_infusate_records():
 class InfusateTests(TracebaseTestCase):
     def setUp(self):
         super().setUp()
-        clear_update_buffer()
+        MaintainedModel.clear_update_buffer()
         self.INFUSATE1, self.INFUSATE2 = create_infusate_records()
 
     @classmethod
@@ -147,10 +141,10 @@ class MaintainedModelTests(TracebaseTestCase):
         super().setUp()
         # Each test first reruns the setup and the DB load adds the same records to the buffer. The DB is emptied after
         # the test runs, but the buffer needs to be explicitly emptied
-        clear_update_buffer()
-        disable_autoupdates()
+        MaintainedModel.clear_update_buffer()
+        MaintainedModel.disable_autoupdates()
         create_infusate_records()
-        enable_autoupdates()
+        MaintainedModel.enable_autoupdates()
 
     @classmethod
     def setUpTestData(cls):
@@ -182,8 +176,8 @@ class MaintainedModelTests(TracebaseTestCase):
         """
         Ensures that the name fields were all updated, updated correctly, and the buffer emptied.
         """
-        disable_autoupdates()  # Required for buffered updates to prevent DFS update behavior
-        perform_buffered_updates()
+        MaintainedModel.disable_autoupdates()  # Required for buffered updates to prevent DFS update behavior
+        MaintainedModel.perform_buffered_updates()
         # Ensure all the auto-updated fields not have values (correctness of values tested elsewhere)
         for tl in TracerLabel.objects.all():
             self.assertIsNotNone(tl.name)
@@ -195,14 +189,14 @@ class MaintainedModelTests(TracebaseTestCase):
             self.assertIsNotNone(i.name)
             self.assertEqual(i.name, i._name())
         # Ensure the buffer was emptied by perform_buffered_updates
-        self.assertEqual(buffer_size(), 0)
-        enable_autoupdates()
+        self.assertEqual(MaintainedModel.buffer_size(), 0)
+        MaintainedModel.enable_autoupdates()
 
     def test_enable_autoupdates(self):
         """
         Ensures that the name field was constructed.
         """
-        enable_autoupdates()
+        MaintainedModel.enable_autoupdates()
         lys = Compound.objects.create(name="lysine2", formula="C6H14N2O2", hmdb_id=3)
         Tracer.objects.create(compound=lys)
         Tracer.objects.get(name="lysine2")
@@ -219,17 +213,17 @@ class MaintainedModelTests(TracebaseTestCase):
             ),
             dry_run=False,
         )
-        self.assertEqual(0, buffer_size())
+        self.assertEqual(0, MaintainedModel.buffer_size())
 
     def test_error_when_buffer_not_clear(self):
         """Ensure that stale buffer contents before a load produces a helpful error"""
-        disable_autoupdates()
+        MaintainedModel.disable_autoupdates()
         # Create infusate records while auto updates are disabled, so that they buffer
         infusate1, infusate2 = create_infusate_records()
         # Delete the records and do not clear the buffer
         infusate1.delete()
         infusate2.delete()
-        enable_autoupdates()
+        MaintainedModel.enable_autoupdates()
         with self.assertRaisesRegex(AutoUpdateFailed, ".+clear_update_buffer.+"):
             call_command(
                 "load_animals_and_samples",
@@ -240,7 +234,7 @@ class MaintainedModelTests(TracebaseTestCase):
                 dry_run=False,
             )
         # Now clean up the buffer
-        clear_update_buffer()
+        MaintainedModel.clear_update_buffer()
 
     def test_get_name_orig(self):
         """
@@ -264,11 +258,11 @@ class MaintainedModelTests(TracebaseTestCase):
         By disabling buffering, we ensure that the name field in the infusate model will be None, so it we get a value,
         we infer it used the `._name()` method.
         """
-        disable_autoupdates()
-        disable_buffering()
+        MaintainedModel.disable_autoupdates()
+        MaintainedModel.disable_buffering()
         io, io2 = create_infusate_records()
-        enable_buffering()
-        enable_autoupdates()
+        MaintainedModel.enable_buffering()
+        MaintainedModel.enable_autoupdates()
         # Should be initially none
         self.assertIsNone(io.name)
         expected_name = "ti {C16:0-[5,6-13C2,17O2][2];glucose-[2,3-13C2,4-17O1][1]}"
@@ -283,9 +277,9 @@ class RebuildMaintainedModelFieldsTests(TracebaseTestCase):
         super().setUp()
         # Each test first reruns the setup and the DB load adds the same records to the buffer. The DB is emptied after
         # the test runs, but the buffer needs to be explicitly emptied
-        disable_autoupdates()
+        MaintainedModel.disable_autoupdates()
         create_infusate_records()
-        enable_autoupdates()
+        MaintainedModel.enable_autoupdates()
 
     def test_rebuild_maintained_fields(self):
         rebuild_maintained_fields()
@@ -300,4 +294,4 @@ class RebuildMaintainedModelFieldsTests(TracebaseTestCase):
             self.assertIsNotNone(tl.name)
             self.assertEqual(tl.name, tl._name())
         # Ensure the buffer was emptied by perform_buffered_updates
-        self.assertEqual(buffer_size(), 0)
+        self.assertEqual(MaintainedModel.buffer_size(), 0)

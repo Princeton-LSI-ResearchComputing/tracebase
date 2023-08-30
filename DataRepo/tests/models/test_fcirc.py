@@ -140,7 +140,7 @@ class FCircTests(TracebaseTestCase):
             0,
             len(maint_fld_funcs),
             msg=(
-                "No maintained_field_function decorators means that propagation works (if "
+                "No MaintainedModel.setter decorators means that propagation works (if "
                 "test_new_tracer_peak_group_updates_all_is_last passes)"
             ),
         )
@@ -151,7 +151,7 @@ class FCircTests(TracebaseTestCase):
             1,
             len(maint_mdl_rltns),
             msg=(
-                "A class maintained_model_relation decorator implies that propagation works (if "
+                "A class MaintainedModel.relation decorator implies that propagation works (if "
                 "test_new_tracer_peak_group_updates_all_is_last passes)"
             ),
         )
