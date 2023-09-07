@@ -50,6 +50,7 @@ def create_infusate_records():
 class InfusateTests(TracebaseTestCase):
     def setUp(self):
         super().setUp()
+        #################### TODO: I think I need a "MaintainedModelCoordinator.get_coordinator()" method here
         MaintainedModel.clear_update_buffer()
         self.INFUSATE1, self.INFUSATE2 = create_infusate_records()
 
@@ -141,6 +142,7 @@ class MaintainedModelTests(TracebaseTestCase):
         super().setUp()
         # Each test first reruns the setup and the DB load adds the same records to the buffer. The DB is emptied after
         # the test runs, but the buffer needs to be explicitly emptied
+        #################### TODO: I think I need a "MaintainedModelCoordinator.get_coordinator()" method here
         MaintainedModel.clear_update_buffer()
         MaintainedModel.disable_autoupdates()
         create_infusate_records()

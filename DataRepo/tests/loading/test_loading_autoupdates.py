@@ -8,7 +8,7 @@ from DataRepo.models import (
     Tracer,
     TracerLabel,
 )
-from DataRepo.models.maintained_model import MaintainedModel
+from DataRepo.models.maintained_model import MaintainedModel, MaintainedModelCoordinator
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
@@ -21,6 +21,7 @@ class AutoupdateLoadingTests(TracebaseTestCase):
         )
 
     def tearDown(self):
+        #################### TODO: I think I need a "MaintainedModelCoordinator.get_coordinator()" method here
         MaintainedModel.clear_update_buffer()
         super().tearDown()
 
@@ -37,8 +38,10 @@ class AutoupdateLoadingTests(TracebaseTestCase):
 
         # Since autoupdates were defered (and we did not run perform_buffered_updates)
         self.assert_names_are_unupdated()
+        #################### TODO: I think I need a "MaintainedModelCoordinator.get_coordinator()" method here
         bs1 = MaintainedModel.buffer_size()
         self.assertGreater(bs1, 0)
+        #################### TODO: I think I need a "MaintainedModelCoordinator.get_coordinator()" method here
         first_buffered_model_object = MaintainedModel._peek_update_buffer(0)
 
         self.assert_fcirc_data_is_unupdated()
@@ -57,11 +60,12 @@ class AutoupdateLoadingTests(TracebaseTestCase):
         # Since autoupdates were defered (and we did not run perform_buffered_updates)
         self.assert_fcirc_data_is_unupdated()
         # The buffer should have grown
+        #################### TODO: I think I need a "MaintainedModelCoordinator.get_coordinator()" method here
         self.assertGreater(MaintainedModel.buffer_size(), bs1)
         # The first buffered object from the first load script should be the same.  I.e. Running a second load script
         # without clearing the buffer should just append to the buffer.
         self.assertEqual(
-            first_buffered_model_object, MaintainedModel._peek_update_buffer(0)
+            first_buffered_model_object, first_buffered_model_object.coordinator._peek_update_buffer(0)
         )
 
     def test_defer_autoupdates_sample(self):
@@ -90,6 +94,7 @@ class AutoupdateLoadingTests(TracebaseTestCase):
 
         self.assert_names_are_unupdated(False)
         self.assert_fcirc_data_is_unupdated(False)
+        #################### TODO: I think I need a "MaintainedModelCoordinator.get_coordinator()" method here
         self.assertEqual(0, MaintainedModel.buffer_size())
 
     def assert_no_names_to_start(self):

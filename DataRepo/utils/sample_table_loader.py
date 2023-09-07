@@ -20,7 +20,7 @@ from DataRepo.models.hier_cached_model import (
     disable_caching_updates,
     enable_caching_updates,
 )
-from DataRepo.models.maintained_model import MaintainedModel
+from DataRepo.models.maintained_model import MaintainedModel, MaintainedModelCoordinator
 from DataRepo.models.researcher import (
     UnknownResearcherError,
     get_researchers,

@@ -171,6 +171,7 @@ class ProtocolLoadingTests(TracebaseTestCase):
 
     def test_protocol_load_in_debug(self):
         pre_load_counts = self.get_record_counts()
+        #################### TODO: I think I need a "MaintainedModelCoordinator.get_coordinator()" method here
         self.assertEqual(
             0, MaintainedModel.buffer_size(), msg="Autoupdate buffer is empty to start."
         )
@@ -185,6 +186,7 @@ class ProtocolLoadingTests(TracebaseTestCase):
             post_load_counts,
             msg="DryRun mode doesn't change any table's record count.",
         )
+        #################### TODO: I think I need a "MaintainedModelCoordinator.get_coordinator()" method here
         self.assertEqual(
             0,
             MaintainedModel.buffer_size(),

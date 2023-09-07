@@ -107,14 +107,12 @@ class Tracer(MaintainedModel, ElementLabel):
         # Get the name.  Initialize if not set and auto-updates are on.
         if self.name:
             display_name = self.name
-        elif MaintainedModel.are_autoupdates_enabled():
-            # Only auto-update the name field
-            MaintainedModel.init_autoupdate_label_filters(label_filters=["name"])
+        elif self.are_autoupdates_enabled():
+            # TODO: Make it possible to optionally add filters to the save calls as arguments.  Here, I could set
+            # label_filters=["name"]
             # This triggers an auto-update
             self.save()
             display_name = self.name
-            # Re-initialize the filters
-            MaintainedModel.init_autoupdate_label_filters()
 
         # If it's still not set, call the method that generates the name.  It just won't be saved.
         if not display_name:
