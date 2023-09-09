@@ -582,24 +582,38 @@ class MaintainedModelCoordinator:
         return maintained_fields
 
     @classmethod
-    def get_updater_dicts_by_model_name(cls, model_name):
+    def get_update_fields_by_model_name(cls, model_name):
         """
         Returns a list of update_fields of the current model that are marked via the MaintainedModel.setter
         decorators in the model.  Returns an empty list if there are none (e.g. if the only decorator in the model is
         the relation decorator on the class).
         """
-        my_update_fields = []
+        update_fields = []
         if model_name in cls.updater_list:
             for updater_dict in cls.updater_list[model_name]:
                 if (
                     "update_field" in updater_dict.keys()
                     and updater_dict["update_field"]
                 ):
-                    my_update_fields.append(updater_dict["update_field"])
+                    update_fields.append(updater_dict["update_field"])
         else:
             raise NoDecorators(model_name)
 
-        return my_update_fields
+        return update_fields
+
+    @classmethod
+    def get_updater_dicts_by_model_name(cls, model_name):
+        """
+        Retrieves all the updater information of each decorated function of the calling model from the global
+        updater_list variable.
+        """
+        updaters = []
+        if model_name in cls.updater_list:
+            updaters = cls.updater_list[model_name]
+        else:
+            raise NoDecorators(model_name)
+
+        return updaters
 
     @classmethod
     def get_all_maintained_field_values(cls, models_path=None):
@@ -617,6 +631,7 @@ class MaintainedModelCoordinator:
         for key in maintained_fields.keys():
             mdl = maintained_fields[key]["class"]
             flds = maintained_fields[key]["fields"]
+            print(f"GETTING MFs FROM {mdl}")
             all_values[mdl.__name__] = list(mdl.objects.values_list(*flds, flat=True))
         return all_values
 
@@ -679,7 +694,8 @@ class MaintainedModel(Model):
 
         # Register the class with the coordinator if not already registered
         if class_name not in self.coordinator.model_classes.keys():
-            self.coordinator.model_classes[class_name] = self.__class__
+            print(f"Registering class {class_name} as a MaintainedModel from init: {type(self)}")
+            MaintainedModelCoordinator.model_classes[class_name] = type(self)
 
         for updater_dict in self.coordinator.updater_list[class_name]:
             # Ensure the field being set is not a maintained field
@@ -923,8 +939,9 @@ class MaintainedModel(Model):
             class_name = cls.__name__
 
             # Register the class with the coordinator if not already registered
-            if class_name not in MaintainedModelCoordinator.model_classes.keys():
-                MaintainedModelCoordinator.model_classes[class_name] = cls.__class__
+            # if class_name not in MaintainedModelCoordinator.model_classes.keys():
+            #     print(f"Registering class {class_name} as a MaintainedModel from the relation decorator: {cls}")
+            #     MaintainedModelCoordinator.model_classes[class_name] = cls
             # Register the updater with the coordinator
             MaintainedModelCoordinator.updater_list[class_name].append(func_dict)
 
@@ -1075,9 +1092,9 @@ class MaintainedModel(Model):
     def _get_current_coordinator(cls):
         if len(cls.data.coordinator_stack) > 0:
             # Get the current coordinator
-            coordinator_getter = cls.data.coordinator_stack[-1]
+            current_coordinator = cls.data.coordinator_stack[-1]
             # Call the last coordinator on the stack
-            return coordinator_getter()
+            return current_coordinator
         else:
             return cls._get_default_coordinator()
 
@@ -1245,7 +1262,7 @@ class MaintainedModel(Model):
                         )
                         if parent_deferred_coordinator is not None:
                             # Transfer the buffer to the next-to-last deferred coordinator
-                            for buffered_item in cls.coordinator.update_buffer:
+                            for buffered_item in coordinator.update_buffer:
                                 parent_deferred_coordinator.buffer_update(buffered_item)
                         else:
                             # Note, the pre/post mass update funcs are ignored if deferring updates to parents, so that
@@ -1253,7 +1270,7 @@ class MaintainedModel(Model):
                             # up the coordinator stack.
                             if pre_mass_update_func is not None:
                                 pre_mass_update_func()
-                            cls.coordinator.perform_buffered_updates()
+                            coordinator.perform_buffered_updates()
                             if post_mass_update_func is not None:
                                 post_mass_update_func()
 
