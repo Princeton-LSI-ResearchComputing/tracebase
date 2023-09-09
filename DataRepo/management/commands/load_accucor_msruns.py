@@ -7,6 +7,11 @@ from django.core.exceptions import ValidationError
 from django.core.management import BaseCommand
 from openpyxl.utils.exceptions import InvalidFileException
 
+from DataRepo.models.hier_cached_model import (
+    disable_caching_updates,
+    enable_caching_updates,
+)
+from DataRepo.models.maintained_model import MaintainedModel
 from DataRepo.utils import AccuCorDataLoader
 
 
@@ -96,14 +101,19 @@ class Command(BaseCommand):
             help=argparse.SUPPRESS,
             default=None,
         )
-        # Intended for use by load_study to prevent individual loader autoupdates and buffer clearing, then perform all
-        # mass autoupdates/buffer-clearings after all load scripts are complete
-        parser.add_argument(
-            "--defer-autoupdates",
-            action="store_true",
-            help=argparse.SUPPRESS,
-        )
+        # # Intended for use by load_study to prevent individual loader autoupdates and buffer clearing, then perform
+        # # all mass autoupdates/buffer-clearings after all load scripts are complete
+        # parser.add_argument(
+        #     "--defer-autoupdates",
+        #     action="store_true",
+        #     help=argparse.SUPPRESS,
+        # )
 
+    @MaintainedModel.defer_autoupdates(
+        disable_opt_names=["validate", "dry_run"],
+        pre_mass_update_func=disable_caching_updates,
+        post_mass_update_func=enable_caching_updates,
+    )
     def handle(self, *args, **options):
         fmt = "Accucor"
         if options["isocorr_format"]:
@@ -134,7 +144,7 @@ class Command(BaseCommand):
             validate=options["validate"],
             isocorr_format=options["isocorr_format"],
             verbosity=options["verbosity"],
-            defer_autoupdates=options["defer_autoupdates"],
+            # defer_autoupdates=options["defer_autoupdates"],
             dry_run=options["dry_run"],
         )
 

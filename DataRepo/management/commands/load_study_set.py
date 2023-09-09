@@ -45,8 +45,8 @@ class Command(BaseCommand):
     )
     def handle(self, *args, **options):
         # # The buffer can only exist as long as the existence of the process, but since this method can be called from
-        # # code, who knows what has been done before.  So the clear_buffer option allows the load_study_set method to be
-        # # called in code with an option to explicitly clean the buffer.
+        # # code, who knows what has been done before.  So the clear_buffer option allows the load_study_set method to
+        # # be called in code with an option to explicitly clean the buffer.
         # if options["clear_buffer"]:
         #     MaintainedModelCoordinator.clear_update_buffer()
         # elif MaintainedModelCoordinator.buffer_size() > 0:
@@ -76,8 +76,8 @@ class Command(BaseCommand):
                     # # TODO: This was intended to be called using defer_autoupdates=True, however I realized that if
                     # # there is an error in 1 study after N successfully loaded studies, there's currently no means to
                     # # clear only the autoupdates of just the failed study load from the autoupdate buffer.  Until that
-                    # # has been implemented, each study, at the end of its load, will either clear the buffer or process
-                    # # its autoupdates.
+                    # # has been implemented, each study, at the end of its load, will either clear the buffer or
+                    # # process its autoupdates.
                     call_command(
                         "load_study", study_path, verbosity=options["verbosity"]
                     )

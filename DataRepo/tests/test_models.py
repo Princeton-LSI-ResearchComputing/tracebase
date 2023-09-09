@@ -1823,30 +1823,66 @@ class TracerRateTests(TracebaseTestCase):
 class AnimalAndSampleLoadingTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
-        if 0 != MaintainedModel.buffer_size():
+        # Obtain all coordinators that exist
+        all_coordinators = [MaintainedModel._get_default_coordinator()]
+        all_coordinators.extend(MaintainedModel._get_coordinator_stack())
+        if 1 != len(all_coordinators):
             raise ValueError(
-                f"Before setting up test data, there are {MaintainedModel.buffer_size()} items in the buffer."
+                f"Before setting up test data, there are {len(all_coordinators)} MaintainedModelCoordinators."
+            )
+        if all_coordinators[0].auto_update_mode != "immediate":
+            raise ValueError(
+                "Before setting up test data, the default coordinator is not in immediate autoupdate mode."
+            )
+        if 0 != all_coordinators[0].buffer_size():
+            raise ValueError(
+                f"Before setting up test data, there are {all_coordinators[0].buffer_size()} items in the buffer."
             )
 
         call_command(
             "load_study",
             "DataRepo/example_data/small_dataset/small_obob_study_prerequisites.yaml",
         )
-        cls.ALL_COMPOUNDS_COUNT = 32
 
-        if 0 != MaintainedModel.buffer_size():
+        if 0 != all_coordinators[0].buffer_size():
             raise ValueError(
-                f"load_study left {MaintainedModel.buffer_size()} items in the buffer."
+                f"load_study left {all_coordinators[0].buffer_size()} items in the buffer."
             )
 
         super().setUpTestData()
 
-    def test_animal_and_sample_load_xlsx(self):
+    def setUp(self):
+        # Load data and buffer autoupdates before each test
+        MaintainedModel._reset_coordinators()
+        super().setUp()
+
+    def tearDown(self):
+        self.assert_coordinator_state_is_initialized()
+        super().tearDown()
+
+    def assert_coordinator_state_is_initialized(
+        self, msg="MaintainedModelCoordinators are in the default state."
+    ):
+        # Obtain all coordinators that exist
+        all_coordinators = [MaintainedModel._get_default_coordinator()]
+        all_coordinators.extend(MaintainedModel._get_coordinator_stack())
+        # Make sure there is only the default coordinator
         self.assertEqual(
-            0,
-            MaintainedModel.buffer_size(),
-            msg="No initial buffered autoupdates.",
+            1, len(all_coordinators), msg=msg + "  The coordinator_stack is empty."
         )
+        # Make sure that its mode is "immediate"
+        self.assertEqual(
+            "immediate",
+            all_coordinators[0].auto_update_mode,
+            msg=msg + "  Mode is 'immediate'.",
+        )
+        # Make sure that the buffer is empty to start
+        for coordinator in all_coordinators:
+            self.assertEqual(
+                0, coordinator.buffer_size(), msg=msg + "  The buffer is empty."
+            )
+
+    def test_animal_and_sample_load_xlsx(self):
         # initialize some sample-table-dependent counters
         SAMPLES_COUNT = 16
         ANIMALS_COUNT = 1
@@ -1868,18 +1904,7 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
         study = Study.objects.get(name="Small OBOB")
         self.assertEqual(study.animals.count(), ANIMALS_COUNT)
 
-        self.assertEqual(
-            0,
-            MaintainedModel.buffer_size(),
-            msg="No buffered autoupdates remain.",
-        )
-
     def test_animal_and_sample_load_in_dry_run(self):
-        self.assertEqual(
-            0,
-            MaintainedModel.buffer_size(),
-            msg="No initial buffered autoupdates.",
-        )
         # Load some data to ensure that none of it changes during the actual test
         call_command(
             "load_animals_and_samples",
@@ -1890,7 +1915,8 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
         )
 
         pre_load_counts = self.get_record_counts()
-        pre_load_maintained_values = MaintainedModel.get_all_maintained_field_values(
+        coordinator = MaintainedModel._get_current_coordinator()
+        pre_load_maintained_values = coordinator.get_all_maintained_field_values(
             "DataRepo.models"
         )
         self.assertGreater(
@@ -1898,9 +1924,7 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
             0,
             msg="Ensure there is data in the database before the test",
         )
-        self.assertEqual(
-            0, MaintainedModel.buffer_size(), msg="Autoupdate buffer is empty to start."
-        )
+        self.assert_coordinator_state_is_initialized()
 
         with self.assertRaises(DryRun):
             call_command(
@@ -1912,7 +1936,7 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
                 dry_run=True,
             )
 
-        post_load_maintained_values = MaintainedModel.get_all_maintained_field_values(
+        post_load_maintained_values = coordinator.get_all_maintained_field_values(
             "DataRepo.models"
         )
         post_load_counts = self.get_record_counts()
@@ -1927,18 +1951,8 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
             post_load_maintained_values,
             msg="DryRun mode doesn't autoupdate.",
         )
-        self.assertEqual(
-            0,
-            MaintainedModel.buffer_size(),
-            msg="DryRun mode doesn't leave buffered autoupdates.",
-        )
 
     def test_get_column_dupes(self):
-        self.assertEqual(
-            0,
-            MaintainedModel.buffer_size(),
-            msg="No initial buffered autoupdates.",
-        )
         stl = SampleTableLoader()
         col_keys = ["Sample Name", "Study Name"]
         data = [
@@ -1960,12 +1974,6 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
         )
         self.assertEqual([0, 1], rows)
 
-        self.assertEqual(
-            0,
-            MaintainedModel.buffer_size(),
-            msg="No buffered autoupdates remain.",
-        )
-
     def test_empty_row(self):
         """
         Ensures SheetMergeError doesn't include completely empty rows - asserted by an animal sample table with an
@@ -1973,11 +1981,6 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
 
         Also ensures RequiredSampleValuesError doesn't include completely empty rows
         """
-        self.assertEqual(
-            0,
-            MaintainedModel.buffer_size(),
-            msg="No initial buffered autoupdates.",
-        )
         call_command(
             "load_animals_and_samples",
             animal_and_sample_table_filename=(
@@ -1985,22 +1988,11 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
             ),
         )
 
-        self.assertEqual(
-            0,
-            MaintainedModel.buffer_size(),
-            msg="No buffered autoupdates remain.",
-        )
-
     def test_required_sample_values_error_ignores_emptyanimal_animalsheet(self):
         """
         Ensures RequiredSampleValuesError doesn't include rows with a missing animal ID (but has other values).
         Note, this should raise a SheetMergeError
         """
-        self.assertEqual(
-            0,
-            MaintainedModel.buffer_size(),
-            msg="No initial buffered autoupdates.",
-        )
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_animals_and_samples",
@@ -2021,22 +2013,11 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
         self.assertEqual(16, aes.exceptions[0].row_idxs[0])
         self.assertIn("row numbers can be inaccurate", str(aes.exceptions[0]))
 
-        self.assertEqual(
-            0,
-            MaintainedModel.buffer_size(),
-            msg="No buffered autoupdates remain.",
-        )
-
     def test_required_sample_values_error_ignores_emptyanimal_samplesheet(self):
         """
         Ensures RequiredSampleValuesError doesn't include rows with a missing animal ID (but has other values).
         Note, this should raise a SheetMergeError
         """
-        self.assertEqual(
-            0,
-            MaintainedModel.buffer_size(),
-            msg="No initial buffered autoupdates.",
-        )
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_animals_and_samples",
@@ -2057,12 +2038,6 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
         self.assertEqual(18, aes.exceptions[0].row_idxs[0])
         self.assertIn("row numbers can be inaccurate", str(aes.exceptions[0]))
 
-        self.assertEqual(
-            0,
-            MaintainedModel.buffer_size(),
-            msg="No buffered autoupdates remain.",
-        )
-
     @tag("broken")
     @skipIf(True, "This test demonstrates a current bug.")
     def test_unraised_samplesheet_error_case(self):
@@ -2071,11 +2046,6 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
         then a row in the Samples sheet that has an empty Animal ID is completely ignored and that sample is never
         loaded.  This should generate an error, but it does not.
         """
-        self.assertEqual(
-            0,
-            MaintainedModel.buffer_size(),
-            msg="No initial buffered autoupdates.",
-        )
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_animals_and_samples",
@@ -2096,21 +2066,10 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
         self.assertEqual(18, aes.exceptions[0].row_idxs[0])
         self.assertIn("row numbers can be inaccurate", str(aes.exceptions[0]))
 
-        self.assertEqual(
-            0,
-            MaintainedModel.buffer_size(),
-            msg="No buffered autoupdates remain.",
-        )
-
     def test_check_required_values(self):
         """
         Check that missing required vals are added to stl.missing_values
         """
-        self.assertEqual(
-            0,
-            MaintainedModel.buffer_size(),
-            msg="No initial buffered autoupdates.",
-        )
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_animals_and_samples",
@@ -2144,36 +2103,14 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
             str(aes.exceptions[0]),
         )
 
-        self.assertEqual(
-            0,
-            MaintainedModel.buffer_size(),
-            msg="No buffered autoupdates remain.",
-        )
-
     def test_strip_units(self):
-        self.assertEqual(
-            0,
-            MaintainedModel.buffer_size(),
-            msg="No initial buffered autoupdates.",
-        )
         stl = SampleTableLoader()
         stripped_val = stl.strip_units("3.3 ul/m/g", "ANIMAL_INFUSION_RATE", 3)
         stripped_val = stl.strip_units("3.3 ul/m/g", "ANIMAL_INFUSION_RATE", 4)
         self.assertEqual("3.3", stripped_val)
         self.assertEqual(0, len(stl.units_errors.keys()))
 
-        self.assertEqual(
-            0,
-            MaintainedModel.buffer_size(),
-            msg="No buffered autoupdates remain.",
-        )
-
     def test_strip_units_errors(self):
-        self.assertEqual(
-            0,
-            MaintainedModel.buffer_size(),
-            msg="No initial buffered autoupdates.",
-        )
         stl = SampleTableLoader()
         stripped_val = stl.strip_units("3.3 non/sense", "ANIMAL_INFUSION_RATE", 3)
         stripped_val = stl.strip_units("3.3 non/sense", "ANIMAL_INFUSION_RATE", 4)
@@ -2190,12 +2127,6 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
                 },
             },
             stl.units_errors,
-        )
-
-        self.assertEqual(
-            0,
-            MaintainedModel.buffer_size(),
-            msg="No buffered autoupdates remain.",
         )
 
 

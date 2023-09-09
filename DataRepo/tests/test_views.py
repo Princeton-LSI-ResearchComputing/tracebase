@@ -21,6 +21,7 @@ from DataRepo.models import (
 )
 from DataRepo.models.maintained_model import (
     MaintainedModel,
+    MaintainedModelCoordinator,
     UncleanBufferError,
 )
 from DataRepo.models.utilities import get_all_models
@@ -31,9 +32,25 @@ from DataRepo.tests.tracebase_test_case import (
 from DataRepo.views import DataValidationView
 
 
+def assert_coordinator_state_is_initialized():
+    # Obtain all coordinators that exist
+    all_coordinators = [MaintainedModel._get_default_coordinator()]
+    all_coordinators.extend(MaintainedModel._get_coordinator_stack())
+    if 1 != len(all_coordinators):
+        raise ValueError(
+            f"Before setting up test data, there are {len(all_coordinators)} MaintainedModelCoordinators."
+        )
+    if all_coordinators[0].auto_update_mode != "immediate":
+        raise ValueError(
+            "Before setting up test data, the default coordinator is not in immediate autoupdate mode."
+        )
+    if 0 != all_coordinators[0].buffer_size():
+        raise UncleanBufferError()
+
+
 class ViewTests(TracebaseTestCase):
     @classmethod
-    def setUpTestData(cls):
+    def setUpTestData(cls, disabled_coordinator=False):
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
         cls.ALL_TISSUES_COUNT = 37
 
@@ -43,9 +60,10 @@ class ViewTests(TracebaseTestCase):
         )
         cls.ALL_COMPOUNDS_COUNT = 3
 
-        # Ensure the auto-update buffer is empty.  If it's not, then a previously run test didn't clean up after itself
-        if MaintainedModel.buffer_size() > 0:
-            raise UncleanBufferError()
+        if not disabled_coordinator:
+            # Ensure the auto-update buffer is empty.  If it's not, then a previously run test didn't clean up after
+            # itself
+            assert_coordinator_state_is_initialized()
 
         call_command(
             "load_samples",
@@ -84,6 +102,37 @@ class ViewTests(TracebaseTestCase):
         cls.SERUM_PEAKGROUP_COUNT = cls.SERUM_COMPOUNDS_COUNT * cls.SERUM_SAMPLES_COUNT
 
         super().setUpTestData()
+
+    def setUp(self):
+        # Load data and buffer autoupdates before each test
+        self.assert_coordinator_state_is_initialized()
+        super().setUp()
+
+    def tearDown(self):
+        self.assert_coordinator_state_is_initialized()
+        super().tearDown()
+
+    def assert_coordinator_state_is_initialized(
+        self, msg="MaintainedModelCoordinators are in the default state."
+    ):
+        # Obtain all coordinators that exist
+        all_coordinators = [MaintainedModel._get_default_coordinator()]
+        all_coordinators.extend(MaintainedModel._get_coordinator_stack())
+        # Make sure there is only the default coordinator
+        self.assertEqual(
+            1, len(all_coordinators), msg=msg + "  The coordinator_stack is empty."
+        )
+        # Make sure that its mode is "immediate"
+        self.assertEqual(
+            "immediate",
+            all_coordinators[0].auto_update_mode,
+            msg=msg + "  Mode is 'immediate'.",
+        )
+        # Make sure that the buffer is empty to start
+        for coordinator in all_coordinators:
+            self.assertEqual(
+                0, coordinator.buffer_size(), msg=msg + "  The buffer is empty."
+            )
 
     @tag("compound")
     def test_compound_list(self):
@@ -500,10 +549,15 @@ class ViewNullToleranceTests(ViewTests):
 
     @classmethod
     def setUpTestData(cls):
-        # Silently dis-allow auto-updates by disabling buffering
-        MaintainedModel.disable_buffering()
-        super().setUpTestData()
-        MaintainedModel.enable_buffering()
+        # Silently dis-allow auto-updates by adding a disabled coordinator
+        disabled_coordinator = MaintainedModelCoordinator("disabled")
+        MaintainedModel._add_coordinator(disabled_coordinator)
+        super().setUpTestData(disabled_coordinator=True)
+
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+        MaintainedModel._reset_coordinators()
 
     def test_study_list(self):
         """Make sure this page works when infusate/tracer, and/or tracer label names are None"""
@@ -524,11 +578,32 @@ class ValidationViewTests(TracebaseTransactionTestCase):
     https://stackoverflow.com/questions/21458387/transactionmanagementerror-you-cant-execute-queries-until-the-end-of-the-atom
     """
 
+    def assert_coordinator_state_is_initialized(
+        self, msg="MaintainedModelCoordinators are in the default state."
+    ):
+        # Obtain all coordinators that exist
+        all_coordinators = [MaintainedModel._get_default_coordinator()]
+        all_coordinators.extend(MaintainedModel._get_coordinator_stack())
+        # Make sure there is only the default coordinator
+        self.assertEqual(
+            1, len(all_coordinators), msg=msg + "  The coordinator_stack is empty."
+        )
+        # Make sure that its mode is "immediate"
+        self.assertEqual(
+            "immediate",
+            all_coordinators[0].auto_update_mode,
+            msg=msg + "  Mode is 'immediate'.",
+        )
+        # Make sure that the buffer is empty to start
+        for coordinator in all_coordinators:
+            self.assertEqual(
+                0, coordinator.buffer_size(), msg=msg + "  The buffer is empty."
+            )
+
     @classmethod
     def initialize_databases(cls):
         # Ensure the auto-update buffer is empty.  If it's not, then a previously run test didn't clean up after itself
-        if MaintainedModel.buffer_size() > 0:
-            raise UncleanBufferError()
+        assert_coordinator_state_is_initialized()
 
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
         call_command(
@@ -637,8 +712,7 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         )
 
         # Ensure the auto-update buffer is empty.  If it's not, then a previously run test didn't clean up after itself
-        if MaintainedModel.buffer_size() > 0:
-            raise UncleanBufferError()
+        self.assert_coordinator_state_is_initialized()
 
         # Files/inputs we will test
         sf = "DataRepo/example_data/data_submission_sample_unkres_acc_good/animal_sample_table.xlsx"
@@ -705,7 +779,8 @@ class ValidationViewTests(TracebaseTransactionTestCase):
 
         # Get initial record counts for all models
         tb_init_counts = self.get_record_counts()
-        pre_load_maintained_values = MaintainedModel.get_all_maintained_field_values(
+        coordinator = MaintainedModel._get_current_coordinator()
+        pre_load_maintained_values = coordinator.get_all_maintained_field_values(
             "DataRepo.models"
         )
 
@@ -721,7 +796,7 @@ class ValidationViewTests(TracebaseTransactionTestCase):
 
         # Get record counts for all models
         tb_post_counts = self.get_record_counts()
-        post_load_maintained_values = MaintainedModel.get_all_maintained_field_values(
+        post_load_maintained_values = coordinator.get_all_maintained_field_values(
             "DataRepo.models"
         )
 

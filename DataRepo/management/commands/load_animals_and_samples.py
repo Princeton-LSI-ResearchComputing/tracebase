@@ -5,6 +5,11 @@ import pandas as pd
 import yaml  # type: ignore
 from django.core.management import BaseCommand, CommandError
 
+from DataRepo.models.hier_cached_model import (
+    disable_caching_updates,
+    enable_caching_updates,
+)
+from DataRepo.models.maintained_model import MaintainedModel
 from DataRepo.utils import SampleTableLoader
 
 
@@ -70,13 +75,13 @@ class Command(BaseCommand):
             default=False,
             help=argparse.SUPPRESS,
         )
-        # Intended for use by load_study to prevent individual loader autoupdates and buffer clearing, then perform all
-        # mass autoupdates/buffer-clearings after all load scripts are complete
-        parser.add_argument(
-            "--defer-autoupdates",
-            action="store_true",
-            help=argparse.SUPPRESS,
-        )
+        # # Intended for use by load_study to prevent individual loader autoupdates and buffer clearing, then perform
+        # # all mass autoupdates/buffer-clearings after all load scripts are complete
+        # parser.add_argument(
+        #     "--defer-autoupdates",
+        #     action="store_true",
+        #     help=argparse.SUPPRESS,
+        # )
         # Intended for use by load_study to prevent individual loader autoupdates and buffer clearing, then perform all
         # mass autoupdates/buffer-clearings after all load scripts are complete
         parser.add_argument(
@@ -85,6 +90,12 @@ class Command(BaseCommand):
             help=argparse.SUPPRESS,
         )
 
+    @MaintainedModel.defer_autoupdates(
+        label_filters=["name"],
+        disable_opt_names=["validate", "dry_run"],
+        pre_mass_update_func=disable_caching_updates,
+        post_mass_update_func=enable_caching_updates,
+    )
     def handle(self, *args, **options):
         self.stdout.write(self.style.MIGRATE_HEADING("Reading header definition..."))
         if options["table_headers"]:
@@ -136,7 +147,7 @@ class Command(BaseCommand):
             validate=options["validate"],
             skip_researcher_check=options["skip_researcher_check"],
             verbosity=options["verbosity"],
-            defer_autoupdates=options["defer_autoupdates"],
+            # defer_autoupdates=options["defer_autoupdates"],
             defer_rollback=options["defer_rollback"],
             dry_run=options["dry_run"],
         )

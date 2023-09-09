@@ -12,7 +12,6 @@ from DataRepo.models import (
     Tracer,
     TracerLabel,
 )
-from DataRepo.models.maintained_model import MaintainedModelCoordinator
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import (
     AccuCorDataLoader,
@@ -137,9 +136,32 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         )
         self.assertTrue(isinstance(aes.exceptions[0], NoSamplesError))
 
+    def assure_coordinator_state_is_initialized(
+        self, msg="MaintainedModelCoordinators are in the default state."
+    ):
+        # Obtain all coordinators that exist
+        all_coordinators = [MaintainedModel._get_default_coordinator()]
+        all_coordinators.extend(MaintainedModel._get_coordinator_stack())
+        # Make sure there is only the default coordinator
+        self.assertEqual(
+            1, len(all_coordinators), msg=msg + "  The coordinator_stack is empty."
+        )
+        # Make sure that its mode is "immediate"
+        self.assertEqual(
+            "immediate",
+            all_coordinators[0].auto_update_mode,
+            msg=msg + "  Mode is 'immediate'.",
+        )
+        # Make sure that the buffer is empty to start
+        for coordinator in all_coordinators:
+            self.assertEqual(
+                0, coordinator.buffer_size(), msg=msg + "  The buffer is empty."
+            )
+
     def test_accucor_load_in_debug(self):
         pre_load_counts = self.get_record_counts()
-        pre_load_maintained_values = MaintainedModelCoordinator.get_all_maintained_field_values()
+        coordinator = MaintainedModel._get_default_coordinator()
+        pre_load_maintained_values = coordinator.get_all_maintained_field_values()
         #     "DataRepo.models"
         # )
         self.assertGreater(
@@ -147,10 +169,8 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             0,
             msg="Ensure there is data in the database before the test",
         )
-        #################### TODO: I think I need a "MaintainedModelCoordinator.get_coordinator()" method here
-        self.assertEqual(
-            0, MaintainedModelCoordinator.buffer_size(), msg="Autoupdate buffer is empty to start."
-        )
+        # Check the state of the coordinators
+        self.assure_coordinator_state_is_initialized()
 
         with self.assertRaises(DryRun):
             call_command(
@@ -164,7 +184,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
                 dry_run=True,
             )
 
-        post_load_maintained_values = MaintainedModelCoordinator.get_all_maintained_field_values()
+        post_load_maintained_values = coordinator.get_all_maintained_field_values()
         #     "DataRepo.models"
         # )
         post_load_counts = self.get_record_counts()
@@ -179,11 +199,8 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             post_load_maintained_values,
             msg="DryRun mode doesn't autoupdate.",
         )
-        #################### TODO: I think I need a "MaintainedModelCoordinator.get_coordinator()" method here
-        self.assertEqual(
-            0,
-            MaintainedModelCoordinator.buffer_size(),
-            msg="DryRun mode doesn't leave buffered autoupdates.",
+        self.assure_coordinator_state_is_initialized(
+            msg="DryRun mode doesn't leave buffered autoupdates."
         )
 
     def test_record_missing_compound(self):

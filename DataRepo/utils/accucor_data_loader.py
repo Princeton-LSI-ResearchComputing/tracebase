@@ -20,11 +20,6 @@ from DataRepo.models import (
     Protocol,
     Sample,
 )
-from DataRepo.models.hier_cached_model import (
-    disable_caching_updates,
-    enable_caching_updates,
-)
-from DataRepo.models.maintained_model import MaintainedModel
 from DataRepo.models.researcher import (
     UnknownResearcherError,
     get_researchers,
@@ -121,7 +116,7 @@ class AccuCorDataLoader:
         validate=False,
         isocorr_format=False,
         verbosity=1,
-        defer_autoupdates=False,
+        # defer_autoupdates=False,
         dry_run=False,
     ):
         self.aggregated_errors_object = AggregatedErrors()
@@ -161,8 +156,8 @@ class AccuCorDataLoader:
             # Validate mode
             self.validate = validate
 
-            # How to handle mass autoupdates
-            self.defer_autoupdates = defer_autoupdates
+            # # How to handle mass autoupdates
+            # self.defer_autoupdates = defer_autoupdates
 
             # Tracking Data
             self.peak_group_dict: Dict[str, PeakGroupAttrs] = {}
@@ -1258,8 +1253,18 @@ class AccuCorDataLoader:
 
         return isotope_observations
 
+    # NOTE: Wherever you call this, be sure to decorate the surrounding method with:
+    # @MaintainedModel.defer_autoupdates(
+    #     disable_opt_names=["validate", "dry_run"],
+    #     pre_mass_update_func=disable_caching_updates,
+    #     post_mass_update_func=enable_caching_updates,
+    # )
+    # Doing it that way allows you to specify options that change the behavior (e.g. disable autoupdates by specifying a
+    # list of boolean options in kwargs that would disable auto-updates.  If you do not decorate it, the load will take
+    # much longer to run due to unnecessary auto-update calls.  Alternatively, that decorator could be implemented here
+    # if the validate and dry_run options were options for this method call instead of instance variables.
     def load_accucor_data(self):
-        self.pre_load_setup()
+        # self.pre_load_setup()
 
         # Data validation and loading
         try:
@@ -1274,14 +1279,14 @@ class AccuCorDataLoader:
                 self.load_data()
 
         except DryRun:
-            self.post_load_teardown()
+            # self.post_load_teardown()
             raise
         except AggregatedErrors:
-            self.post_load_teardown()
+            # self.post_load_teardown()
             # If it was an aggregated errors exception, raise it directly
             raise
         except Exception as e:
-            self.post_load_teardown()
+            # self.post_load_teardown()
             # If it was some other (unanticipated or a single fatal) error, we want to report it, but also include
             # everything else that was stored in self.aggregated_errors_object.  An AggregatedErrors exception is
             # raised (in the called code) when errors are allowed to accumulate, but moving on to the next step/loop is
@@ -1291,40 +1296,41 @@ class AccuCorDataLoader:
             self.aggregated_errors_object.should_raise()
             raise self.aggregated_errors_object
 
-        # Buffered auto-updates cannot be done inside the atomic transaction block because the auto-updates associated
-        # with the models involved in an accucor load transit many-related models to perform updates of already-loaded
-        # data based on new data, which requires queries of the linked pre-loaded data, and database queries are not
-        # allowed during atomic transactions.  Some auto-updates can happen inside an atomic transaction block because
-        # it operates on the objects without hitting the database, but that's not the case here.  Specifically, if this
-        # was called inside the transaction block, it would generate the error:
-        #
-        #  An error occurred in the current transaction. You can't execute queries until the end of the 'atomic' block.
-        #  It uses `.count()` (to see if there exist records to propagate changes), `.first()` to see if the related
-        #  model is a MaintainedModel (inside an isinstance call), and `.all()` to cycle through the related records.
+        # # Buffered auto-updates cannot be done inside the atomic transaction block because the auto-updates associated
+        # # with the models involved in an accucor load transit many-related models to perform updates of already-loaded
+        # # data based on new data, which requires queries of the linked pre-loaded data, and database queries are not
+        # # allowed during atomic transactions.  Some auto-updates can happen inside an atomic transaction block because
+        # # it operates on the objects without hitting the database, but that's not the case here.  Specifically, if
+        # # this was called inside the transaction block, it would generate the error:
+        # #
+        # #  An error occurred in the current transaction. You can't execute queries until the end of the 'atomic'
+        # #  block.  It uses `.count()` (to see if there exist records to propagate changes), `.first()` to see if the
+        # #  related model is a MaintainedModel (inside an isinstance call), and `.all()` to cycle through the related
+        # #  records.
 
-        autoupdate_mode = not self.defer_autoupdates
-        if not self.dry_run and autoupdate_mode:
-            MaintainedModel.perform_buffered_updates()
+        # autoupdate_mode = not self.defer_autoupdates
+        # if not self.dry_run and autoupdate_mode:
+        #     MaintainedModel.perform_buffered_updates()
 
-        self.post_load_teardown(autoupdate_mode)
+        # self.post_load_teardown(autoupdate_mode)
 
-    def pre_load_setup(self):
-        MaintainedModel.disable_autoupdates()
-        if self.dry_run:
-            # Don't let any auto-updates buffer because we're not going to perform the mass auto-update
-            MaintainedModel.disable_buffering()
-        disable_caching_updates()
+    # def pre_load_setup(self):
+    #     MaintainedModel.disable_autoupdates()
+    #     if self.dry_run:
+    #         # Don't let any auto-updates buffer because we're not going to perform the mass auto-update
+    #         MaintainedModel.disable_buffering()
+    #     disable_caching_updates()
 
-    def post_load_teardown(self, clear_autoupdate_buffer=True):
-        if clear_autoupdate_buffer:
-            # We need to clear the update buffer so that the next call doesn't make auto-updates on non-existent (or
-            # incorrect) records
-            MaintainedModel.clear_update_buffer()
-        # And before we leave, we must re-enable things
-        MaintainedModel.enable_autoupdates()
-        if self.dry_run:
-            MaintainedModel.enable_buffering()
-        enable_caching_updates()
+    # def post_load_teardown(self, clear_autoupdate_buffer=True):
+    #     if clear_autoupdate_buffer:
+    #         # We need to clear the update buffer so that the next call doesn't make auto-updates on non-existent (or
+    #         # incorrect) records
+    #         MaintainedModel.clear_update_buffer()
+    #     # And before we leave, we must re-enable things
+    #     MaintainedModel.enable_autoupdates()
+    #     if self.dry_run:
+    #         MaintainedModel.enable_buffering()
+    #     enable_caching_updates()
 
 
 class IsotopeObservationParsingError(Exception):

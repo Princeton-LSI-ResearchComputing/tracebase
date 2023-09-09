@@ -43,5 +43,6 @@ class TracerTests(TracebaseTestCase):
         """
         # Throws DoesNotExist exception if not found
         to = create_tracer_record()
-        self.assertTrue(to.are_autoupdates_enabled())
+        coordinator = MaintainedModel._get_current_coordinator()
+        self.assertTrue(coordinator.are_autoupdates_enabled())
         self.assertEqual("glucose-[2,3-13C2,4-17O1]", to.name)

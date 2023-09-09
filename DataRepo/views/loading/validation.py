@@ -10,6 +10,7 @@ from django.shortcuts import redirect, render
 from django.views.generic.edit import FormView
 
 from DataRepo.forms import DataSubmissionValidationForm
+from DataRepo.models.maintained_model import MaintainedModel
 from DataRepo.utils.exceptions import MultiLoadStatus
 
 
@@ -154,6 +155,8 @@ class DataValidationView(FormView):
 
         return valid, results, exceptions, ordered_keys
 
+    # Disable all autoupdates resulting from this function
+    @MaintainedModel.no_autoupdates()
     def validate_study(self):
         tmpdir_obj = tempfile.TemporaryDirectory()
         tmpdir = tmpdir_obj.name

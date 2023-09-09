@@ -91,8 +91,8 @@ class Command(BaseCommand):
         #     default=False,
         #     help=argparse.SUPPRESS,
         # )
-        # # Intended for use by load_study_set to prevent this script from autoupdating and buffer clearing, then perform
-        # # all mass autoupdates/buffer-clearings after all study loads are complete
+        # # Intended for use by load_study_set to prevent this script from autoupdating and buffer clearing, then
+        # # perform all mass autoupdates/buffer-clearings after all study loads are complete
         # parser.add_argument(
         #     "--defer-autoupdates",
         #     action="store_true",
