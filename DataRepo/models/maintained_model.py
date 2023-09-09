@@ -575,10 +575,10 @@ class MaintainedModelCoordinator:
         maintained_fields = defaultdict(lambda: defaultdict(list))
         for mdl in cls._get_classes(None, None, None, models_path=models_path):
             mdl_name = mdl.__name__
-            mdl_updaters = cls.get_updater_dicts_by_model_name(mdl_name)
-            if issubclass(mdl, MaintainedModel) and len(mdl_updaters) > 0:
+            mdl_update_flds = cls.get_update_fields_by_model_name(mdl_name)
+            if issubclass(mdl, MaintainedModel) and len(mdl_update_flds) > 0:
                 maintained_fields[mdl_name]["class"] = mdl
-                maintained_fields[mdl_name]["fields"] = mdl_updaters
+                maintained_fields[mdl_name]["fields"] = mdl_update_flds
         return maintained_fields
 
     @classmethod
