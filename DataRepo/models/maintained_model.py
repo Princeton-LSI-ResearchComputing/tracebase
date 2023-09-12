@@ -745,25 +745,25 @@ class MaintainedModel(Model):
         """
 
         # The coordinator keeps track of the running mode, buffer and filters in use
-        self.coordinator = self.get_coordinator()
+        coordinator = self.get_coordinator()
 
         # Members added by MaintainedModel - the global values are set via init_autoupdate_label_filters.  They are
         # recorded in the object so that during perform_buffered_updates will know what field(s) to update when it
         # processes the object.  An update would not have been buffered if the model did not contain a maintained field
         # matching the label filtering.  And label filtering can change during the buffering process (e.g. different
         # loaders), which is why this is necessary.  Note, this is not thread-safe.
-        self.label_filters = self.coordinator.default_label_filters
-        self.filter_in = self.coordinator.default_filter_in
+        self.label_filters = coordinator.default_label_filters
+        self.filter_in = coordinator.default_filter_in
 
         class_name = self.__class__.__name__
 
         # Register the class with the coordinator if not already registered
-        if class_name not in self.coordinator.model_classes.keys():
+        if class_name not in coordinator.model_classes.keys():
             print(f"Registering class {class_name} as a MaintainedModel from _maintained_model_setup: {type(self)}")
             MaintainedModelCoordinator.model_classes[class_name] = type(self)
             MaintainedModelCoordinator.model_packages[class_name] = type(self).__module__
 
-        for updater_dict in self.coordinator.updater_list[class_name]:
+        for updater_dict in coordinator.updater_list[class_name]:
             # Ensure the field being set is not a maintained field
 
             update_fld = updater_dict["update_field"]
@@ -790,13 +790,13 @@ class MaintainedModel(Model):
                     ]
                 ]
             )
-            if decorator_signature not in self.coordinator.maintained_model_initialized:
+            if decorator_signature not in coordinator.maintained_model_initialized:
                 if settings.DEBUG:
                     print(
                         f"Validating {self.__class__.__name__} updater: {updater_dict}"
                     )
 
-                self.coordinator.maintained_model_initialized[
+                coordinator.maintained_model_initialized[
                     decorator_signature
                 ] = True
                 # Now we can validate the fields
@@ -862,33 +862,36 @@ class MaintainedModel(Model):
             # The coordinator keeps track of the running mode, buffer and filters in use
             self._maintained_model_setup(**kwargs)
 
-        print(f"save mode for {self.__class__.__name__} model object {self.id} = aum: {self.coordinator.auto_update_mode} maum: {mass_updates}")
+        # Retrieve the current coordinator
+        coordinator = self.get_coordinator()
+
+        print(f"save mode for {self.__class__.__name__} model object {self.id} = aum: {coordinator.auto_update_mode} maum: {mass_updates}")
 
         # If auto-updates are turned on, a cascade of updates to linked models will occur, but if they are turned off,
         # the update will be buffered, to be manually triggered later (e.g. upon completion of loading), which
         # mitigates repeated updates to the same record
-        if self.coordinator.auto_updates is False and mass_updates is False:
+        if coordinator.auto_updates is False and mass_updates is False:
             # Set the changed value triggering this update
             print("CALLING SUPER.SAVE")
             super().save(*args, **kwargs)
 
             # When buffering only, apply the global label filters, to be remembered during mass autoupdate
-            self.label_filters = self.coordinator.default_label_filters
-            self.filter_in = self.coordinator.default_filter_in
+            self.label_filters = coordinator.default_label_filters
+            self.filter_in = coordinator.default_filter_in
 
-            self.coordinator.buffer_update(self)
+            coordinator.buffer_update(self)
 
             return
-        elif self.coordinator.auto_updates:
+        elif coordinator.auto_updates:
             # If autoupdates are happening (and it's not a mass-autoupdate (assumed because mass_updates
             # can only be true if auto_updates is False)), set the label filters based on the currently set global
             # conditions so that only fields matching the filters will be updated.
-            self.label_filters = self.coordinator.default_label_filters
-            self.filter_in = self.coordinator.default_filter_in
+            self.label_filters = coordinator.default_label_filters
+            self.filter_in = coordinator.default_filter_in
         # Otherwise, we are performing a mass auto-update and want to update the previously set filter conditions
 
         stack = [str(c) for c in self.data.coordinator_stack]
-        print(f"Coordinator before autoupdate: {self.coordinator.auto_update_mode} Stack: {stack}")
+        print(f"Coordinator before autoupdate: {coordinator.auto_update_mode} Stack: {stack}")
 
         # Update the fields that change due to the the triggering change (if any)
         # This only executes either when auto_updates or mass_updates is true - both cannot be true
@@ -915,7 +918,7 @@ class MaintainedModel(Model):
 
         # We don't need to check mass_updates, because propagating changes during buffered updates is
         # handled differently (in a breadth-first fashion) to mitigate repeated updates of the same related record
-        if self.coordinator.auto_updates and propagate:
+        if coordinator.auto_updates and propagate:
             # Percolate changes up to the related models (if any)
             self.call_dfs_related_updaters()
 
@@ -934,29 +937,32 @@ class MaintainedModel(Model):
         # Delete the record triggering this update
         super().delete(*args, **kwargs)  # Call the "real" delete() method.
 
+        # Retrieve the current coordinator
+        coordinator = self.get_coordinator()
+
         # If auto-updates are turned on, a cascade of updates to linked models will occur, but if they are turned off,
         # the update will be buffered, to be manually triggered later (e.g. upon completion of loading), which
         # mitigates repeated updates to the same record
         # mass_updates is checked for consistency, but perform_buffered_updates does not call delete()
-        if self.coordinator.auto_updates is False and mass_updates is False:
+        if coordinator.auto_updates is False and mass_updates is False:
             # When buffering only, apply the global label filters, to be remembered during mass autoupdate
-            self.label_filters = self.coordinator.default_label_filters
-            self.filter_in = self.coordinator.default_filter_in
+            self.label_filters = coordinator.default_label_filters
+            self.filter_in = coordinator.default_filter_in
 
             # self.buffer_parent_update()
             parents = self.get_parent_instances()
             for parent_inst in parents:
-                self.coordinator.buffer_update(parent_inst)
+                coordinator.buffer_update(parent_inst)
             return
-        elif self.coordinator.auto_updates:
+        elif coordinator.auto_updates:
             # If autoupdates are happening (and it's not a mass-autoupdate (assumed because mass_updates
             # can only be true if auto_updates is False)), set the label filters based on the currently set global
             # conditions so that only fields matching the filters will be updated.
-            self.label_filters = self.coordinator.default_label_filters
-            self.filter_in = self.coordinator.default_filter_in
+            self.label_filters = coordinator.default_label_filters
+            self.filter_in = coordinator.default_filter_in
         # Otherwise, we are performing a mass auto-update and want to update the previously set filter conditions
 
-        if self.coordinator.auto_updates and propagate:
+        if coordinator.auto_updates and propagate:
             # Percolate changes up to the parents (if any)
             self.call_dfs_related_updaters()
 
@@ -1186,10 +1192,13 @@ class MaintainedModel(Model):
         obj = kwargs.pop("instance", None)
         act = kwargs.pop("action", None)
 
+        # Retrieve the current coordinator
+        coordinator = cls.get_coordinator()
+
         if (
             act.startswith("post_")
             and isinstance(obj, MaintainedModel)
-            and obj.coordinator.auto_updates
+            and coordinator.auto_updates
         ):
             obj.call_dfs_related_updaters()
 
@@ -1396,13 +1405,12 @@ class MaintainedModel(Model):
 
                 mode = "deferred"
 
+                # If the arguments to the defer_autoupdates decorator included a disable_opt_names (e.g. ["dry_run"])
                 if (
-                    # If the arguments to the defer_autoupdates decorator included a disable_opt_names (e.g.
-                    # ["dry_run"])
                     disable_opt_names
                     and len(disable_opt_names) > 0
                 ):
-                    # Check the value of each option and change the mode to "disabled" if any of them are True.
+                    # Check the value of each option and change the mode to "disabled" if *any* of them are True.
                     for disable_opt_name in disable_opt_names:
                         if (
                             disable_opt_name in kwargs.keys()

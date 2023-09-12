@@ -20,7 +20,6 @@ def test_case_class_factory(base_class):
         """
 
         maxDiff = None
-        classStartTime = time.time()
 
         def setUp(self):
             """
@@ -29,6 +28,7 @@ def test_case_class_factory(base_class):
             """
             self.testStartTime = time.time()
             super().setUp()
+            print("STARTING TEST: %s at %s" % (self.id(), time.strftime("%m/%d/%Y, %H:%M:%S")))
 
         def tearDown(self):
             """
@@ -44,6 +44,7 @@ def test_case_class_factory(base_class):
             can be reported in setUpTestData.
             """
             cls.setupStartTime = time.time()
+            print("SETTING UP TEST CLASS: %s.%s at %s" % (cls.__module__, cls.__name__, time.strftime("%m/%d/%Y, %H:%M:%S")))
             super().setUpClass()
 
         @classmethod
@@ -52,7 +53,7 @@ def test_case_class_factory(base_class):
             This method in the superclass is intended to provide run time information for the setUpTestData method.
             """
             super().setUpTestData()
-            reportRunTime(f"{cls.__name__}.setUpTestData", cls.setupStartTime)
+            reportRunTime(f"{cls.__module__}.{cls.__name__}.setUpTestData", cls.setupStartTime)
 
         @classmethod
         def get_record_counts(cls):
