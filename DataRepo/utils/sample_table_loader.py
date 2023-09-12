@@ -11,10 +11,15 @@ from DataRepo.models import (
     AnimalLabel,
     FCirc,
     Infusate,
+    MaintainedModel,
     Protocol,
     Sample,
     Study,
     Tissue,
+)
+from DataRepo.models.hier_cached_model import (
+    disable_caching_updates,
+    enable_caching_updates,
 )
 from DataRepo.models.researcher import (
     UnknownResearcherError,
@@ -195,22 +200,16 @@ class SampleTableLoader:
             "TIME_COLLECTED": ["m", "min", "mins", "minute", "minutes"],
         }
 
-    # NOTE: Wherever you call this, be sure to decorate the surrounding method with:
-    # @MaintainedModel.defer_autoupdates(
-    #     disable_opt_names=["validate", "dry_run"],
-    #     pre_mass_update_func=disable_caching_updates,
-    #     post_mass_update_func=enable_caching_updates,
-    # )
-    # Doing it that way allows you to specify options that change the behavior (e.g. disable autoupdates by specifying a
-    # list of boolean options in kwargs that would disable auto-updates.  If you do not decorate it, the load will take
-    # much longer to run due to unnecessary auto-update calls.  Alternatively, that decorator could be implemented here
-    # if the validate and dry_run options were options for this method call instead of instance variables.
+    @MaintainedModel.defer_autoupdates(
+        pre_mass_update_func=disable_caching_updates,
+        post_mass_update_func=enable_caching_updates,
+    )
     def load_sample_table(self, data):
         # MaintainedModel.disable_autoupdates()
         # if self.dry_run:
         #     # Don't let any auto-updates buffer because we're not going to perform the mass auto-update
         #     MaintainedModel.disable_buffering()
-        # disable_caching_updates()
+        disable_caching_updates()
         # # Only auto-update fields whose update_label in the decorator is "name"
         # MaintainedModel.init_autoupdate_label_filters(label_filters=["name"])
 
@@ -237,7 +236,7 @@ class SampleTableLoader:
             # MaintainedModel.clear_update_buffer()
             # # Re-initialize label filters to default
             # MaintainedModel.init_autoupdate_label_filters()
-            # enable_caching_updates()
+            enable_caching_updates()
             # MaintainedModel.enable_autoupdates()
             # if self.dry_run:
             #     MaintainedModel.enable_buffering()
@@ -245,7 +244,7 @@ class SampleTableLoader:
 
         # # Re-initialize label filters to default
         # MaintainedModel.init_autoupdate_label_filters()
-        # enable_caching_updates()
+        enable_caching_updates()
         # MaintainedModel.enable_autoupdates()
         # if self.dry_run:
         #     MaintainedModel.enable_buffering()

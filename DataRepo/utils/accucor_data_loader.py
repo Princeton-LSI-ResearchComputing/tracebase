@@ -11,6 +11,7 @@ from django.db import IntegrityError, transaction
 from DataRepo.models import (
     Compound,
     ElementLabel,
+    MaintainedModel,
     MSRun,
     PeakData,
     PeakDataLabel,
@@ -19,6 +20,10 @@ from DataRepo.models import (
     PeakGroupSet,
     Protocol,
     Sample,
+)
+from DataRepo.models.hier_cached_model import (
+    enable_caching_updates,
+    disable_caching_updates,
 )
 from DataRepo.models.researcher import (
     UnknownResearcherError,
@@ -1253,18 +1258,13 @@ class AccuCorDataLoader:
 
         return isotope_observations
 
-    # NOTE: Wherever you call this, be sure to decorate the surrounding method with:
-    # @MaintainedModel.defer_autoupdates(
-    #     disable_opt_names=["validate", "dry_run"],
-    #     pre_mass_update_func=disable_caching_updates,
-    #     post_mass_update_func=enable_caching_updates,
-    # )
-    # Doing it that way allows you to specify options that change the behavior (e.g. disable autoupdates by specifying a
-    # list of boolean options in kwargs that would disable auto-updates.  If you do not decorate it, the load will take
-    # much longer to run due to unnecessary auto-update calls.  Alternatively, that decorator could be implemented here
-    # if the validate and dry_run options were options for this method call instead of instance variables.
+    @MaintainedModel.defer_autoupdates(
+        pre_mass_update_func=disable_caching_updates,
+        post_mass_update_func=enable_caching_updates,
+    )
     def load_accucor_data(self):
         # self.pre_load_setup()
+        disable_caching_updates()
 
         # Data validation and loading
         try:
@@ -1313,6 +1313,7 @@ class AccuCorDataLoader:
         #     MaintainedModel.perform_buffered_updates()
 
         # self.post_load_teardown(autoupdate_mode)
+        enable_caching_updates()
 
     # def pre_load_setup(self):
     #     MaintainedModel.disable_autoupdates()

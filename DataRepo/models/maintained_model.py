@@ -1047,7 +1047,7 @@ class MaintainedModel(Model):
                         msg += " and"
                 if len(child_field_names) > 0:
                     msg += f"children: [{', '.join([class_name + '.' + c for c in child_field_names])}]"
-                print(f"{msg}.  dir: {dir(cls)} dir contents: {[ky + ': ' + str(getattr(cls, ky)) for ky in dir(cls)]} module: {cls.__module__}")
+                print(f"{msg}.")
 
             return cls
 
@@ -1151,7 +1151,7 @@ class MaintainedModel(Model):
                         f" trigger updates to children: "
                         f"{', '.join([class_name + '.' + c for c in child_field_names])}"
                     )
-                print(f"{msg}.  dir: {dir(fn)} dir contents: {[ky + ': ' + str(getattr(fn, ky)) for ky in dir(fn)]} package: {fn.__globals__['__package__']}")
+                print(f"{msg}.")
 
             return fn
 
