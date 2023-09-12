@@ -157,7 +157,7 @@ class Infusate(MaintainedModel):
         if self.name:
             print("NOT CALLING GET_NAME'S SAVE")
             display_name = self.name
-        elif self.coordinator.are_autoupdates_enabled():
+        elif self.get_coordinator().are_autoupdates_enabled():
             # TODO: Make it possible to optionally add filters to the save calls as arguments.  Here, I could set
             # label_filters=["name"]
             # This triggers an auto-update
@@ -165,7 +165,7 @@ class Infusate(MaintainedModel):
             self.save()
             display_name = self.name
         else:
-            print(f"NOT CALLING GET_NAME'S SAVE BEC NAME HAS VALUE AUTOUPDATES ENABLED: {self.coordinator.are_autoupdates_enabled()}")
+            print(f"NOT CALLING GET_NAME'S SAVE BEC NAME HAS VALUE AUTOUPDATES ENABLED: {self.get_coordinator().are_autoupdates_enabled()}")
 
         # If it's still not set, call the method that generates the name.  It just won't be saved.
         if not display_name:

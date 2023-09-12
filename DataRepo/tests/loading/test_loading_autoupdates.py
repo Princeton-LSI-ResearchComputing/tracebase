@@ -80,33 +80,35 @@ class AutoupdateLoadingTests(TracebaseTestCase):
             self.assert_names_are_unupdated()
             self.assert_fcirc_data_is_unupdated()
 
-            call_command(
-                "load_accucor_msruns",
-                accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_blank_sample.xlsx",
-                skip_samples=("blank"),
-                protocol="Default",
-                date="2021-04-29",
-                researcher="Michael Neinast",
-                new_researcher=True,
-                # defer_autoupdates=True,
-            )
+            child_coordinator = MaintainedModelCoordinator(auto_update_mode="deferred")
+            with MaintainedModel.custom_coordinator(child_coordinator):
+                call_command(
+                    "load_accucor_msruns",
+                    accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_blank_sample.xlsx",
+                    skip_samples=("blank"),
+                    protocol="Default",
+                    date="2021-04-29",
+                    researcher="Michael Neinast",
+                    new_researcher=True,
+                    # defer_autoupdates=True,
+                )
 
-            # Since autoupdates were defered (and we did not run perform_buffered_updates)
-            self.assert_fcirc_data_is_unupdated()
-            # The buffer should have grown and been passed up to the parent coordinator
-            self.assertGreater(parent_coordinator.buffer_size(), bs1)
+                # Since autoupdates were defered (and we did not run perform_buffered_updates)
+                self.assert_fcirc_data_is_unupdated()
+                # The buffer should have grown and been passed up to the parent coordinator
+                self.assertGreater(child_coordinator.buffer_size(), bs1)
 
-            # We don't want to actually perform a mass autoupdate when we leave this test context, so purge the buffer
-            # This should not be necessary because the coordinator is popped off the stack automatically, but it's a
-            # good test
-            parent_coordinator.clear_update_buffer()
-            self.assertEqual(0, parent_coordinator.buffer_size())
+                # We don't want to actually perform a mass autoupdate when we leave this test context, so purge the buffer
+                # This should not be necessary because the coordinator is popped off the stack automatically, but it's a
+                # good test
+                child_coordinator.clear_update_buffer()
+                self.assertEqual(0, child_coordinator.buffer_size())
 
             # The first buffered object from the first load script should be the same.  I.e. Running a second load script
             # without clearing the buffer should just append to the buffer.
             self.assertEqual(
                 first_buffered_model_object,
-                first_buffered_model_object.coordinator._peek_update_buffer(0),
+                parent_coordinator._peek_update_buffer(0),
             )
 
     def test_defer_autoupdates_sample(self):
