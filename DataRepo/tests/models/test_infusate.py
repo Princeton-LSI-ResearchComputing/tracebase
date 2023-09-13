@@ -153,7 +153,9 @@ class MaintainedModelDeferredTests(TracebaseTestCase):
         with MaintainedModel.custom_coordinator(tmp_coordinator):
             # This should not mass auto-update and pass its buffer contents up to the test_coordinator
             create_infusate_records()
-        print(f"Test setUp completed.  There should not have been any autopupdates (immediate or mass) and this buffer should be populated: {self.test_coordinator.buffer_size()} BECAUSE STACK SHOULD HAVE A deferred COORDINATOR: {str(MaintainedModel.data.coordinator_stack[0])}")
+        print(
+            f"Test setUp completed.  There should not have been any autopupdates (immediate or mass) and this buffer should be populated: {self.test_coordinator.buffer_size()} BECAUSE STACK SHOULD HAVE A deferred COORDINATOR: {str(MaintainedModel.data.coordinator_stack[0])}"
+        )
 
     def tearDown(self):
         MaintainedModel._reset_coordinators()
@@ -230,7 +232,9 @@ class MaintainedModelDeferredTests(TracebaseTestCase):
         Ensures that the name fields were all updated, updated correctly, and the buffer emptied.
         """
         # perform the updates that are saved in the test buffer
-        print(f"test_mass_autoupdate CALLING MASS UPDATE - BUFFER HAS {self.test_coordinator.buffer_size()} items")
+        print(
+            f"test_mass_autoupdate CALLING MASS UPDATE - BUFFER HAS {self.test_coordinator.buffer_size()} items"
+        )
         self.test_coordinator.perform_buffered_updates()
         # Ensure all the auto-updated fields not have values (correctness of values tested elsewhere)
         for tl in TracerLabel.objects.all():
@@ -340,15 +344,21 @@ class MaintainedModelImmediateTests(TracebaseTestCase):
         # The coordinator that was attached to that object was disabled.  To have a new coordinator, we either need to retrieve a new object or explicitly set the coordinator. Maybe I should be resetting the coordinator in the .save() override...
         io_again = Infusate.objects.get(id__exact=io.id)
 
-        print(f"IO COORDINATOR = {io_again.get_coordinator().get_mode()} NAME BEFORE ASSERT NONE: {io_again.name}")
+        print(
+            f"IO COORDINATOR = {io_again.get_coordinator().get_mode()} NAME BEFORE ASSERT NONE: {io_again.name}"
+        )
         # Should be initially none
         self.assertIsNone(io_again.name)
 
         expected_name = "ti {C16:0-[5,6-13C2,17O2][2];glucose-[2,3-13C2,4-17O1][1]}"
-        print(f"IO COORDINATOR = {io_again.get_coordinator().get_mode()} NAME BEFORE GET_NAME: {io_again.name}")
+        print(
+            f"IO COORDINATOR = {io_again.get_coordinator().get_mode()} NAME BEFORE GET_NAME: {io_again.name}"
+        )
         # Returned value should be equal
         self.assertEqual(expected_name, io_again.get_name)
-        print(f"IO COORDINATOR = {io_again.get_coordinator().get_mode()} NAME AFTER GET_NAME: {io_again.name}")
+        print(
+            f"IO COORDINATOR = {io_again.get_coordinator().get_mode()} NAME AFTER GET_NAME: {io_again.name}"
+        )
         # And now the field should be updated
         self.assertEqual(expected_name, io_again.name)
 

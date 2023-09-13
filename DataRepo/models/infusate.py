@@ -165,7 +165,9 @@ class Infusate(MaintainedModel):
             self.save()
             display_name = self.name
         else:
-            print(f"NOT CALLING GET_NAME'S SAVE BEC NAME HAS VALUE AUTOUPDATES ENABLED: {self.get_coordinator().are_autoupdates_enabled()}")
+            print(
+                f"NOT CALLING GET_NAME'S SAVE BEC NAME HAS VALUE AUTOUPDATES ENABLED: {self.get_coordinator().are_autoupdates_enabled()}"
+            )
 
         # If it's still not set, call the method that generates the name.  It just won't be saved.
         if not display_name:

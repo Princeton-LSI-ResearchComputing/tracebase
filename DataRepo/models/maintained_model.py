@@ -759,9 +759,13 @@ class MaintainedModel(Model):
 
         # Register the class with the coordinator if not already registered
         if class_name not in coordinator.model_classes.keys():
-            print(f"Registering class {class_name} as a MaintainedModel from _maintained_model_setup: {type(self)}")
+            print(
+                f"Registering class {class_name} as a MaintainedModel from _maintained_model_setup: {type(self)}"
+            )
             MaintainedModelCoordinator.model_classes[class_name] = type(self)
-            MaintainedModelCoordinator.model_packages[class_name] = type(self).__module__
+            MaintainedModelCoordinator.model_packages[class_name] = type(
+                self
+            ).__module__
 
         for updater_dict in coordinator.updater_list[class_name]:
             # Ensure the field being set is not a maintained field
@@ -796,9 +800,7 @@ class MaintainedModel(Model):
                         f"Validating {self.__class__.__name__} updater: {updater_dict}"
                     )
 
-                coordinator.maintained_model_initialized[
-                    decorator_signature
-                ] = True
+                coordinator.maintained_model_initialized[decorator_signature] = True
                 # Now we can validate the fields
                 flds = {}
                 if updater_dict["update_field"]:
@@ -865,7 +867,9 @@ class MaintainedModel(Model):
         # Retrieve the current coordinator
         coordinator = self.get_coordinator()
 
-        print(f"save mode for {self.__class__.__name__} model object {self.id} = aum: {coordinator.auto_update_mode} maum: {mass_updates}")
+        print(
+            f"save mode for {self.__class__.__name__} model object {self.id} = aum: {coordinator.auto_update_mode} maum: {mass_updates}"
+        )
 
         # If auto-updates are turned on, a cascade of updates to linked models will occur, but if they are turned off,
         # the update will be buffered, to be manually triggered later (e.g. upon completion of loading), which
@@ -891,7 +895,9 @@ class MaintainedModel(Model):
         # Otherwise, we are performing a mass auto-update and want to update the previously set filter conditions
 
         stack = [str(c) for c in self.data.coordinator_stack]
-        print(f"Coordinator before autoupdate: {coordinator.auto_update_mode} Stack: {stack}")
+        print(
+            f"Coordinator before autoupdate: {coordinator.auto_update_mode} Stack: {stack}"
+        )
 
         # Update the fields that change due to the the triggering change (if any)
         # This only executes either when auto_updates or mass_updates is true - both cannot be true
@@ -1026,7 +1032,9 @@ class MaintainedModel(Model):
 
             # Register the class (and the module) with the coordinator if not already registered
             if class_name not in MaintainedModelCoordinator.model_classes.keys():
-                print(f"Registering class {class_name} as a MaintainedModel from the relation decorator: {cls}")
+                print(
+                    f"Registering class {class_name} as a MaintainedModel from the relation decorator: {cls}"
+                )
                 MaintainedModelCoordinator.model_classes[class_name] = cls
                 MaintainedModelCoordinator.model_packages[class_name] = cls.__module__
 
@@ -1119,7 +1127,9 @@ class MaintainedModel(Model):
 
             # Try to register the model class.  If this fails, fallback methods will be used when it is needed later.
             if class_name not in MaintainedModelCoordinator.model_packages.keys():
-                models_path = MaintainedModel.get_model_package_name_from_member_function(fn)
+                models_path = (
+                    MaintainedModel.get_model_package_name_from_member_function(fn)
+                )
                 # Register the class with the coordinator if not already registered
                 if models_path is not None:
                     MaintainedModelCoordinator.model_packages[class_name] = models_path
@@ -1330,8 +1340,8 @@ class MaintainedModel(Model):
                 (
                     len(cls.data.coordinator_stack) > 0
                     and cls.data.coordinator_stack[-1].get_mode() == "deferred"
-                ) or
-                (
+                )
+                or (
                     len(cls.data.coordinator_stack) == 0
                     and cls.data.default_coordinator.get_mode() == "deferred"
                 )
@@ -1352,9 +1362,7 @@ class MaintainedModel(Model):
             if effective_mode == "deferred":
                 # Check if there exists a parent coordinator that is also deferred, because we only want to
                 # perform buffered updates once we're in the last deferred context
-                parent_deferred_coordinator = (
-                    cls.get_parent_deferred_coordinator()
-                )
+                parent_deferred_coordinator = cls.get_parent_deferred_coordinator()
                 # If there is a parent deferred coordinator
                 if parent_deferred_coordinator is not None:
                     # Transfer the buffer to the next-to-last deferred coordinator
@@ -1397,19 +1405,15 @@ class MaintainedModel(Model):
         Note, the pre/post mass update funcs are ignored if deferring updates to parents, so that must be specified in
         every decorator, as nested decorators will not bubble the functions up the coordinator stack.
         """
+
         # This takes the function being decorated
         def decorator(fn):
-
             # This wraps the function so we can apply a different coordinator
             def wrapper(*args, **kwargs):
-
                 mode = "deferred"
 
                 # If the arguments to the defer_autoupdates decorator included a disable_opt_names (e.g. ["dry_run"])
-                if (
-                    disable_opt_names
-                    and len(disable_opt_names) > 0
-                ):
+                if disable_opt_names and len(disable_opt_names) > 0:
                     # Check the value of each option and change the mode to "disabled" if *any* of them are True.
                     for disable_opt_name in disable_opt_names:
                         if (
@@ -1442,12 +1446,11 @@ class MaintainedModel(Model):
         Use this as a decorator to wrap a function to completely disable all autoupdates and NOT perform a mass
         autoupdate afterward.
         """
+
         # This takes the function being decorated
         def decorator(fn):
-
             # This wraps the function so we can apply a different coordinator
             def wrapper(*args, **kwargs):
-
                 coordinator = MaintainedModelCoordinator(auto_update_mode="disabled")
                 with cls.custom_coordinator(coordinator):
                     fn(*args, **kwargs)
@@ -1488,7 +1491,6 @@ class MaintainedModel(Model):
         )
 
         with cls.custom_coordinator(coordinator):
-
             # Get the largest generation value
             youngest_generation = coordinator.get_max_generation(
                 coordinator.get_all_updaters(),
@@ -1625,7 +1627,9 @@ class MaintainedModel(Model):
     def call_dfs_related_updaters(self, updated=None, mass_updates=False):
         if not updated:
             updated = []
-        print(f"call_dfs_related_updaters called for model {self.__class__.__name__} with mass_updates = {mass_updates}")
+        print(
+            f"call_dfs_related_updaters called for model {self.__class__.__name__} with mass_updates = {mass_updates}"
+        )
         # Assume I've been called after I've been updated, so add myself to the updated list
         self_sig = f"{self.__class__.__name__}.{self.id}"
         updated.append(self_sig)
@@ -1639,7 +1643,9 @@ class MaintainedModel(Model):
         propagate those changes up the hierarchy (if those records have parents). It skips triggering a parent's update
         if that child was the object that triggered its update, to avoid looped repeated updates.
         """
-        print(f"call_parent_updaters called for model {self.__class__.__name__} with mass_updates = {mass_updates}")
+        print(
+            f"call_parent_updaters called for model {self.__class__.__name__} with mass_updates = {mass_updates}"
+        )
         parents = self.get_parent_instances()
         for parent_inst in parents:
             # If the current instance's update was triggered - and was triggered by the same parent instance whose
@@ -1732,7 +1738,9 @@ class MaintainedModel(Model):
         propagate those changes up the hierarchy (if those records have parents). It skips triggering a child's update
         if that child was the object that triggered its update, to avoid looped repeated updates.
         """
-        print(f"call_child_updaters called for model {self.__class__.__name__} with mass_updates = {mass_updates}")
+        print(
+            f"call_child_updaters called for model {self.__class__.__name__} with mass_updates = {mass_updates}"
+        )
         children = self.get_child_instances()
         for child_inst in children:
             # If the current instance's update was triggered - and was triggered by the same child instance whose

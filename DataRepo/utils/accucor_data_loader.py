@@ -22,8 +22,8 @@ from DataRepo.models import (
     Sample,
 )
 from DataRepo.models.hier_cached_model import (
-    enable_caching_updates,
     disable_caching_updates,
+    enable_caching_updates,
 )
 from DataRepo.models.researcher import (
     UnknownResearcherError,

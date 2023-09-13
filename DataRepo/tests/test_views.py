@@ -120,7 +120,9 @@ class ViewTests(TracebaseTestCase):
         all_coordinators.extend(MaintainedModel._get_coordinator_stack())
         # Make sure there is only the default coordinator
         self.assertEqual(
-            1, len(all_coordinators), msg=msg + "  The coordinator_stack should be empty."
+            1,
+            len(all_coordinators),
+            msg=msg + "  The coordinator_stack should be empty.",
         )
         # Make sure that its mode is "immediate"
         self.assertEqual(
@@ -576,7 +578,9 @@ class ViewNullToleranceTests(ViewTests):
         all_coordinators.extend(MaintainedModel._get_coordinator_stack())
         # Make sure there is only the default coordinator
         self.assertEqual(
-            2, len(all_coordinators), msg=msg + "  The coordinator_stack should have the disabled coordinator."
+            2,
+            len(all_coordinators),
+            msg=msg + "  The coordinator_stack should have the disabled coordinator.",
         )
         # Make sure that its mode is "immediate"
         self.assertEqual(
