@@ -1250,7 +1250,7 @@ class MaintainedModel(Model):
             and cls.is_parent_coordinator_disabled()
         ):
             effective_mode = "disabled"
-            coordinator.disable_override()
+            coordinator._disable_override()
         elif (
             # If the immediate parent coordinator is deferred, defer this one
             effective_mode == "immediate"
@@ -1266,7 +1266,7 @@ class MaintainedModel(Model):
             )
         ):
             effective_mode = "deferred"
-            coordinator.defer_override()
+            coordinator._defer_override()
 
         cls.data.coordinator_stack.append(coordinator)
 
