@@ -83,21 +83,6 @@ class Command(BaseCommand):
             default=False,
             help=argparse.SUPPRESS,
         )
-        # # Certain errors will prompt the user to supply this flag if the contents of the buffer are determined to be
-        # # stale
-        # parser.add_argument(
-        #     "--clear-buffer",
-        #     action="store_true",
-        #     default=False,
-        #     help=argparse.SUPPRESS,
-        # )
-        # # Intended for use by load_study_set to prevent this script from autoupdating and buffer clearing, then
-        # # perform all mass autoupdates/buffer-clearings after all study loads are complete
-        # parser.add_argument(
-        #     "--defer-autoupdates",
-        #     action="store_true",
-        #     help=argparse.SUPPRESS,
-        # )
 
     @MaintainedModel.defer_autoupdates(
         disable_opt_names=["validate", "dry_run"],
@@ -112,19 +97,6 @@ class Command(BaseCommand):
         self.verbosity = options["verbosity"]
         self.validate = options["validate"]
         self.dry_run = options["dry_run"]
-
-        # # The buffer can only exist as long as the existence of the process, but since this method can be called from
-        # # code, who knows what has been done before.  However, given calls from load_study_set can intentionally defer
-        # # autoupdates, the buffer can be intentionally populated at the start of this script.  So the clear_buffer
-        # # option allows the load_study method to be called in code with an option to explicitly clean the buffer, for
-        # # example, in the first call in a series.
-        # if options["clear_buffer"]:
-        #     MaintainedModelCoordinator.clear_update_buffer()
-        # elif MaintainedModelCoordinator.buffer_size() > 0 and not options["defer_autoupdates"]:
-        #     raise UncleanBufferError(
-        #         "The auto-update buffer is unexpectedly populated.  Add --clear-buffer to your command to flush the "
-        #         "buffer and proceed with the load."
-        #     )
 
         # Read load study parameters
         study_params = yaml.safe_load(options["study_params"])
@@ -245,7 +217,6 @@ class Command(BaseCommand):
                         skip_researcher_check=skip_researcher_check,
                         verbosity=self.verbosity,
                         validate=self.validate,
-                        # defer_autoupdates=True,
                         defer_rollback=True,
                     )
                 except Exception as e:
@@ -339,13 +310,6 @@ class Command(BaseCommand):
                 # MaintainedModelCoordinator.clear_update_buffer()
                 self.print_load_status()
                 raise DryRun()
-
-        # # Since defer_autoupdates is supplied as True to the sample and accucor load commands, we can do all the mass
-        # # autoupdates in 1 go.  And note that each load script makes its own calls to disable/enable caching and
-        # # maintained field updates, so we don't want to manipulate these settings during those loads, so we do it here
-        # # at the end when we want to actually perform the operations that were buffered by those loads.
-        # if not options["defer_autoupdates"] and MaintainedModelCoordinator.buffer_size() > 0:
-        #     self.perform_autoupdates()
 
         self.print_load_status()
 
@@ -466,12 +430,3 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING(message))
         elif state == "FAILED":
             self.stdout.write(self.style.ERROR(message))
-
-    # def perform_autoupdates(self):
-    #     MaintainedModelCoordinator.disable_autoupdates()
-    #     disable_caching_updates()
-    #     MaintainedModelCoordinator.perform_buffered_updates()
-    #     # The buffer should be clear, but just for good measure...
-    #     MaintainedModelCoordinator.clear_update_buffer()
-    #     enable_caching_updates()
-    #     MaintainedModelCoordinator.enable_autoupdates()

@@ -98,14 +98,14 @@ class AutoupdateLoadingTests(TracebaseTestCase):
                 # The buffer should have grown and been passed up to the parent coordinator
                 self.assertGreater(child_coordinator.buffer_size(), bs1)
 
-                # We don't want to actually perform a mass autoupdate when we leave this test context, so purge the buffer
-                # This should not be necessary because the coordinator is popped off the stack automatically, but it's a
-                # good test
+                # We don't want to actually perform a mass autoupdate when we leave this test context, so purge the
+                # buffer.  This should not be necessary because the coordinator is popped off the stack automatically,
+                # but it's a good test
                 child_coordinator.clear_update_buffer()
                 self.assertEqual(0, child_coordinator.buffer_size())
 
-            # The first buffered object from the first load script should be the same.  I.e. Running a second load script
-            # without clearing the buffer should just append to the buffer.
+            # The first buffered object from the first load script should be the same.  I.e. Running a second load
+            # script without clearing the buffer should just append to the buffer.
             self.assertEqual(
                 first_buffered_model_object,
                 parent_coordinator._peek_update_buffer(0),

@@ -28,14 +28,6 @@ class Command(BaseCommand):
             type=argparse.FileType("r"),
             help=("File of load_study config filenames, one per line"),
         )
-        # # Certain errors will prompt the user to supply this flag if the contents of the buffer are determined to be
-        # # stale
-        # parser.add_argument(
-        #     "--clear-buffer",
-        #     action="store_true",
-        #     default=False,
-        #     help=argparse.SUPPRESS,
-        # )
 
     @MaintainedModel.defer_autoupdates(
         # There is no dry-run or validate mode in this script, so mass autoupdate and buffering will never be disabled
@@ -44,17 +36,6 @@ class Command(BaseCommand):
         post_mass_update_func=enable_caching_updates,
     )
     def handle(self, *args, **options):
-        # # The buffer can only exist as long as the existence of the process, but since this method can be called from
-        # # code, who knows what has been done before.  So the clear_buffer option allows the load_study_set method to
-        # # be called in code with an option to explicitly clean the buffer.
-        # if options["clear_buffer"]:
-        #     MaintainedModelCoordinator.clear_update_buffer()
-        # elif MaintainedModelCoordinator.buffer_size() > 0:
-        #     raise UncleanBufferError(
-        #         "The auto-update buffer is unexpectedly populated.  Add --clear-buffer to your command to flush the "
-        #         "buffer and proceed with the load."
-        #     )
-
         studies_loaded = list()
         studies_skipped = list()
         studies_failed = list()
@@ -69,15 +50,6 @@ class Command(BaseCommand):
                     self.stdout.write(
                         self.style.MIGRATE_HEADING(f"Loading study using {study_path}")
                     )
-                    # TODO: Remove the TODO comment below.  THIS NOW SHOULD BE IMPLEMENTED.  It is cleared in the event
-                    # of an exception and in that event, the exception is raised.  It is caught below and logged and the
-                    # buffer items from that load will not have been transferred to the buffer in the parent context
-                    # manager that the decorator above creates.
-                    # # TODO: This was intended to be called using defer_autoupdates=True, however I realized that if
-                    # # there is an error in 1 study after N successfully loaded studies, there's currently no means to
-                    # # clear only the autoupdates of just the failed study load from the autoupdate buffer.  Until that
-                    # # has been implemented, each study, at the end of its load, will either clear the buffer or
-                    # # process its autoupdates.
                     call_command(
                         "load_study", study_path, verbosity=options["verbosity"]
                     )

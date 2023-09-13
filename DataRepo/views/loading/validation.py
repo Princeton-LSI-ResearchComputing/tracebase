@@ -10,7 +10,6 @@ from django.shortcuts import redirect, render
 from django.views.generic.edit import FormView
 
 from DataRepo.forms import DataSubmissionValidationForm
-from DataRepo.models.maintained_model import MaintainedModel
 from DataRepo.utils.exceptions import MultiLoadStatus
 
 
