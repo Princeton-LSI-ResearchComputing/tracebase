@@ -909,7 +909,7 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         vo = DataValidationView()
         vo.set_files(sample_file, accucor_files)
         # Now try validating the load files
-        valid, results, exceptions, ordered_keys = vo.get_validation_results()
+        valid, results, exceptions, _ = vo.get_validation_results()
 
         file_keys = []
         file_keys.append(os.path.basename(sample_file))
