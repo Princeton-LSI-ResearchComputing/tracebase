@@ -109,6 +109,7 @@ class Command(BaseCommand):
         self.missing_tissues = defaultdict(dict)
         self.missing_compounds = defaultdict(dict)
         self.load_statuses = MultiLoadStatus()
+        print(f"is_valid 1: {self.load_statuses.is_valid}")
         self.verbosity = options["verbosity"]
         self.validate = options["validate"]
         self.dry_run = options["dry_run"]
@@ -147,6 +148,7 @@ class Command(BaseCommand):
                 compound_file_basename = study_params["compounds"]
                 compounds_file = os.path.join(study_dir, compound_file_basename)
                 self.load_statuses.init_load(compounds_file)
+                print(f"is_valid 2: {self.load_statuses.is_valid}")
 
                 if self.verbosity > 1:
                     self.stdout.write(
@@ -168,6 +170,7 @@ class Command(BaseCommand):
                 protocol_file_basename = study_params["protocols"]
                 protocols_file = os.path.join(study_dir, protocol_file_basename)
                 self.load_statuses.init_load(protocols_file)
+                print(f"is_valid 3: {self.load_statuses.is_valid}")
 
                 if self.verbosity > 1:
                     self.stdout.write(
@@ -190,6 +193,7 @@ class Command(BaseCommand):
                 tissue_file_basename = study_params["tissues"]
                 tissues_file = os.path.join(study_dir, tissue_file_basename)
                 self.load_statuses.init_load(tissues_file)
+                print(f"is_valid 4: {self.load_statuses.is_valid}")
 
                 if self.verbosity > 1:
                     self.stdout.write(
@@ -220,6 +224,7 @@ class Command(BaseCommand):
                 # already came from it
                 if animals_samples_table_file not in self.load_statuses.statuses.keys():
                     self.load_statuses.init_load(animals_samples_table_file)
+                    print(f"is_valid 5: {self.load_statuses.is_valid}")
                 headers_basename = study_params["animals_samples_treatments"].get(
                     "headers", None
                 )
@@ -270,6 +275,7 @@ class Command(BaseCommand):
                     accucor_file_basename = accucor_info_dict["name"]
                     accucor_file = os.path.join(study_dir, accucor_file_basename)
                     self.load_statuses.init_load(accucor_file)
+                    print(f"is_valid 6: {self.load_statuses.is_valid}")
                     protocol = accucor_info_dict.get("msrun_protocol", study_protocol)
                     date = accucor_info_dict.get("date", study_date)
                     researcher = accucor_info_dict.get("researcher", study_researcher)
@@ -323,6 +329,8 @@ class Command(BaseCommand):
             # that we can roll back all changes and pass all the status data to the validation interface via this
             # exception.
             if self.validate:
+                print(f"RAISING FROM LOAD_STUDY: {type(self.load_statuses).__name__}: {self.load_statuses}")
+                print(f"is_valid 10: {self.load_statuses.is_valid}")
                 # MaintainedModelCoordinator.clear_update_buffer()
                 # If we are in validate mode, we raise the entire load_statuses object whether the load failed or
                 # not, so that we can report the load status of all load files, including successful loads.  It's
@@ -433,6 +441,7 @@ class Command(BaseCommand):
                 "All Samples Present in Sample Table File",
                 top=True,
             )
+            print(f"is_valid 7: {self.load_statuses.is_valid}")
 
         # Collect all the missing compounds in 1 error to add to the compounds file
         if len(self.missing_tissues) > 0:
@@ -441,6 +450,7 @@ class Command(BaseCommand):
                 "All Tissues Exist in the Database",
                 top=True,
             )
+            print(f"is_valid 8: {self.load_statuses.is_valid}")
 
         # Collect all the missing compounds in 1 error to add to the compounds file
         if len(self.missing_compounds) > 0:
@@ -449,6 +459,7 @@ class Command(BaseCommand):
                 "All Compounds Exist in the Database",
                 top=True,
             )
+            print(f"is_valid 9: {self.load_statuses.is_valid}")
 
     def print_load_status(self):
         if self.verbosity > 1:

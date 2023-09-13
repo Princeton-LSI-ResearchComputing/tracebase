@@ -157,6 +157,7 @@ class DataValidationView(FormView):
 
     # No need to disable autoupdates adding the @no_autoupdates decorator to this function because supplying
     # `validate=True` automatically disables them
+    @MaintainedModel.no_autoupdates()
     def validate_study(self):
         tmpdir_obj = tempfile.TemporaryDirectory()
         tmpdir = tmpdir_obj.name

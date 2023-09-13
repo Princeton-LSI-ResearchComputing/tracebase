@@ -1374,9 +1374,16 @@ class MaintainedModel(Model):
             # Empty the buffer just to be on the safe side.  This shouldn't technically be necessary since we are
             # popping it off the stack... but it guarantees clean usage, because the developer's code around the context
             # block still have a handle on the coordinator after it's popped off the stack.
+            print(f"EXCEPTION RAISED: {type(e).__name__}: {e}")
+            print(f"EXCEPTION DETAIL: {[k + ': ' + str(getattr(e, k)) for k in dir(e)]}")
+            # if str(e) == "":
+            #     raise Exception("What the heck")
             coordinator.clear_update_buffer()
             raise e
+        else:
+            print("NO EXCEPTION RAISED")
         finally:
+            print(f"MODE: {effective_mode}")
             cls.data.coordinator_stack.pop()
 
     @classmethod
