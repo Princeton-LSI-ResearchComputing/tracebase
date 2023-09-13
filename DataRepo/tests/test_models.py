@@ -1174,7 +1174,7 @@ class PropertyTests(TracebaseTestCase):
     def test_normalized_labeling_latest_serum_no_peakgroup(self):
         """
         The calculation of any peak group's normalized labeling utilizes the serum's enrichment fraction of each of the
-        tarcer peak groups involved.  This test messes with those tracer peak groups and the serum samples to make sure
+        tracer peak groups involved.  This test messes with those tracer peak groups and the serum samples to make sure
         it uses the right serum tracer peak groups and issues an error if they are missing.
         """
         peak_group = (

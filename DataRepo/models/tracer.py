@@ -107,7 +107,7 @@ class Tracer(MaintainedModel, ElementLabel):
         # Get the name.  Initialize if not set and auto-updates are on.
         if self.name:
             display_name = self.name
-        elif self.coordinator.are_autoupdates_enabled():
+        elif self.get_coordinator().are_autoupdates_enabled():
             # This triggers an auto-update
             self.save()
             display_name = self.name

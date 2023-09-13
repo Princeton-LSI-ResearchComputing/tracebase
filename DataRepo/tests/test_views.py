@@ -120,7 +120,7 @@ class ViewTests(TracebaseTestCase):
         all_coordinators.extend(MaintainedModel._get_coordinator_stack())
         # Make sure there is only the default coordinator
         self.assertEqual(
-            1, len(all_coordinators), msg=msg + "  The coordinator_stack is empty."
+            1, len(all_coordinators), msg=msg + "  The coordinator_stack should be empty."
         )
         # Make sure that its mode is "immediate"
         self.assertEqual(
@@ -131,7 +131,7 @@ class ViewTests(TracebaseTestCase):
         # Make sure that the buffer is empty to start
         for coordinator in all_coordinators:
             self.assertEqual(
-                0, coordinator.buffer_size(), msg=msg + "  The buffer is empty."
+                0, coordinator.buffer_size(), msg=msg + "  The buffer should be empty."
             )
 
     @tag("compound")
@@ -549,15 +549,46 @@ class ViewNullToleranceTests(ViewTests):
 
     @classmethod
     def setUpTestData(cls):
+        super().setUpTestData(disabled_coordinator=True)
+
+    @classmethod
+    def setUpClass(self):
         # Silently dis-allow auto-updates by adding a disabled coordinator
         disabled_coordinator = MaintainedModelCoordinator("disabled")
         MaintainedModel._add_coordinator(disabled_coordinator)
-        super().setUpTestData(disabled_coordinator=True)
+        super().setUpClass()
+
+    def setUp(self):
+        # Load data and buffer autoupdates before each test
+        self.assert_coordinator_state_is_initialized()
+        super().setUp()
 
     @classmethod
     def tearDownClass(cls):
         super().tearDownClass()
         MaintainedModel._reset_coordinators()
+
+    def assert_coordinator_state_is_initialized(
+        self, msg="MaintainedModelCoordinators are in the default state."
+    ):
+        # Obtain all coordinators that exist
+        all_coordinators = [MaintainedModel._get_default_coordinator()]
+        all_coordinators.extend(MaintainedModel._get_coordinator_stack())
+        # Make sure there is only the default coordinator
+        self.assertEqual(
+            2, len(all_coordinators), msg=msg + "  The coordinator_stack should have the disabled coordinator."
+        )
+        # Make sure that its mode is "immediate"
+        self.assertEqual(
+            "immediate",
+            all_coordinators[0].auto_update_mode,
+            msg=msg + "  Mode is 'immediate'.",
+        )
+        # Make sure that the buffer is empty to start
+        for coordinator in all_coordinators:
+            self.assertEqual(
+                0, coordinator.buffer_size(), msg=msg + "  The buffer should be empty."
+            )
 
     def test_study_list(self):
         """Make sure this page works when infusate/tracer, and/or tracer label names are None"""
