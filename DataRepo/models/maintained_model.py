@@ -17,10 +17,12 @@ from psycopg2.errors import ForeignKeyViolation
 class MaintainedModelCoordinator:
     """
     This class loosely mimmics a connection in a Django "database instrumentation" design.  But instead of providing a
-    way to apply custom wrappers to database queries, it provides a way to wrap MaintainedModel's calls to save, delete,
-    and m2m_propagation_handler by providing data that is used in those overridden methods via extra keyword arguments
-    added to them.  It has default modes that are set, but those modes can be overridden by providing them to the
-    constructor in a context manager.
+    way to apply custom wrappers to database queries, it provides a way to supply context to MaintainedModel's calls to
+    save, delete, and m2m_propagation_handler by providing access to a context manager that tells MaintainedModel how it
+    should behave in a certain context.  There are 3 context modes: immediate (the default), deferred, and disabled.  In
+    the immediate mode, autoupdates of maintained fields are performed immediately.  In deferred mode, autoupdates are
+    buffered and then performed once the last nested context has been exited.  In the disabled mode, no buffering or
+    autoupdates are performed at all.
     """
 
     # Track whether the fields from the decorators have been validated
@@ -86,7 +88,7 @@ class MaintainedModelCoordinator:
     def __str__(self):
         return self.auto_update_mode
 
-    def defer_override(self):
+    def _defer_override(self):
         if self.auto_update_mode == "immediate":
             print("Deferring immediate coordinator")
             self.auto_update_mode = "deferred"
@@ -98,7 +100,7 @@ class MaintainedModelCoordinator:
                 f"Cannot set a defer override of a [{self.auto_update_mode}] mode MaintainedModelCoordinator."
             )
 
-    def disable_override(self):
+    def _disable_override(self):
         current_mode = self.get_mode()
         print(f"Disabling {current_mode} coordinator.")
         self.auto_update_mode = "disabled"
@@ -1152,12 +1154,12 @@ class MaintainedModel(Model):
     @classmethod
     def _reset_coordinators(cls):
         """
-        This is probably unnecessary, but it clears out the coordinator stack so that any newly created MaintainedModel
-        objects get the default coordinator, which is also reset to the default.  Added this method only for usage in
-        testing.  Note, any previously created coordinators referenced by existing MaintainedModel objects will still
-        have their coordinators, but if that running code is on the same thread and it queries the stack to pass its
-        buffered model records up the stack, that will fail... but the prevailing theory is that that can't happen since
-        we are using threading.local to store the stack.
+        This clears out the coordinator stack so that any newly created MaintainedModel objects get the default
+        coordinator, which is also reset to the default.  Added this method only for usage in testing.  Note, any
+        previously created coordinators referenced by existing MaintainedModel objects will still have their
+        coordinators, but if that running code is on the same thread and it queries the stack to pass its buffered
+        model records up the stack, that will fail... but the prevailing theory is that that can't happen since we are
+        using threading.local to store the stack.
         """
         cls.data.default_coordinator = MaintainedModelCoordinator()
         cls.data.coordinator_stack = []
@@ -1171,10 +1173,11 @@ class MaintainedModel(Model):
 
     @classmethod
     def get_parent_deferred_coordinator(cls):
-        # Return the parent coordinator from the stack whose mode is "deferred".
-        # This assumes that perform_buffered_updates is called inside a deferred_autoupdates block after the yielded
-        # code has finished its buffering, which is why it pops off the "current" coordinator.
-
+        """
+        Return the parent coordinator from the stack whose mode is "deferred".
+        This assumes that perform_buffered_updates is called inside a deferred_autoupdates block after the yielded
+        code has finished its buffering, which is why it pops off the "current" coordinator.
+        """
         # Create a copy of the list that contains the same objects - so that if you return a coordinator, it is one
         # that's in the coordinator_stack - so if you change it, you change the object in the stack.  This is what we
         # want, so that we can move items from the current coordinator's buffer to the parent coordinator's buffer.
@@ -1195,11 +1198,12 @@ class MaintainedModel(Model):
 
     @classmethod
     def is_parent_coordinator_disabled(cls):
-        # Determine if any existing parent coordinator in the coordinator stack is disabled and change the current/new
-        # coordinator to disabled as well.
-        # This assumes that it is being called from inside custom_coordinator before the "current" coordinator has been
-        # pushed onto the coordinator_stack, which is why it doesn't pop the last coordinator off.
-
+        """
+        Determine if any existing parent coordinator in the coordinator stack is disabled and change the current/new
+        coordinator to disabled as well.
+        This assumes that it is being called from inside custom_coordinator before the "current" coordinator has been
+        pushed onto the coordinator_stack, which is why it doesn't pop the last coordinator off.
+        """
         # Traverse the parent coordinators from immediate parent to distant parent.  Note, the stack doesn't include the
         # default_coordinator, which is assumed to be mode "immediate".
         if cls.data.default_coordinator.get_mode() == "disabled":
@@ -1222,12 +1226,15 @@ class MaintainedModel(Model):
         """
         This method allows you to set a temporary coordinator using a context manager.  Under this context (using a with
         block), the supplied coordinator will be used instead of the default whenever a MaintainedModel object is
-        instantiated.  These contexts can be nested.
+        instantiated.  It behaves differently based on the coordinator mode and will change the mode based on the
+        hierarchy.  A disabled parent coordinator trumps deferred and immediate.  A deferred coordinator trumps an
+        immediate.  Deferred passes its buffer to the immediate parent deferred coordinator.  These contexts can be
+        nested.
 
         Use this method like this:
             deferred_filtered = MaintainedModelCoordinator(auto_update_mode="deferred")
-            deferred_filtered
-            with MaintainedModel.custom_coordinator()
+            with MaintainedModel.custom_coordinator(deferred_filtered):
+                do_things()
         """
         # This assumes that the default_coordinator is in mode "immediate"
         if len(cls.data.coordinator_stack) == 0 and coordinator.buffer_size() > 0:
