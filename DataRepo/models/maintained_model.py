@@ -1376,6 +1376,7 @@ class MaintainedModel(Model):
             # block still have a handle on the coordinator after it's popped off the stack.
             print(f"EXCEPTION RAISED: {type(e).__name__}: {e}")
             print(f"EXCEPTION DETAIL: {[k + ': ' + str(getattr(e, k)) for k in dir(e)]}")
+            print(f"EXCEPTION HAS is_valid?: {hasattr(e, 'is_valid')}")
             # if str(e) == "":
             #     raise Exception("What the heck")
             coordinator.clear_update_buffer()

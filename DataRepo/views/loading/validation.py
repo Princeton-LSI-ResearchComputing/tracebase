@@ -179,6 +179,9 @@ class DataValidationView(FormView):
                 verbosity=3,
             )
         except MultiLoadStatus as mls:
+            print(f"EXCEPTION CAUGHT: {type(mls).__name__}: {mls}")
+            print(f"EXCEPTION DETAIL: {[k + ': ' + str(getattr(mls, k)) for k in dir(mls)]}")
+            print(f"EXCEPTION HAS is_valid?: {hasattr(mls, 'is_valid')}")
             load_status_data = mls
 
         tmpdir_obj.cleanup()
