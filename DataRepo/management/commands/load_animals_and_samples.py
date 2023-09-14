@@ -75,15 +75,9 @@ class Command(BaseCommand):
             default=False,
             help=argparse.SUPPRESS,
         )
-        # # Intended for use by load_study to prevent individual loader autoupdates and buffer clearing, then perform
-        # # all mass autoupdates/buffer-clearings after all load scripts are complete
-        # parser.add_argument(
-        #     "--defer-autoupdates",
-        #     action="store_true",
-        #     help=argparse.SUPPRESS,
-        # )
-        # Intended for use by load_study to prevent individual loader autoupdates and buffer clearing, then perform all
-        # mass autoupdates/buffer-clearings after all load scripts are complete
+        # Intended for use by load_study to prevent rollback of partial changes when there is an exception.  The changes
+        # are retained in order for load_study to be able to run the accucor loader so that more errors can be gathered
+        # to present as many issues a user can fix in 1 go.
         parser.add_argument(
             "--defer-rollback",
             action="store_true",
@@ -147,7 +141,6 @@ class Command(BaseCommand):
             validate=options["validate"],
             skip_researcher_check=options["skip_researcher_check"],
             verbosity=options["verbosity"],
-            # defer_autoupdates=options["defer_autoupdates"],
             defer_rollback=options["defer_rollback"],
             dry_run=options["dry_run"],
         )
