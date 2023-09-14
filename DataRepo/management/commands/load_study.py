@@ -293,7 +293,6 @@ class Command(BaseCommand):
             # that we can roll back all changes and pass all the status data to the validation interface via this
             # exception.
             if self.validate:
-                # MaintainedModelCoordinator.clear_update_buffer()
                 # If we are in validate mode, we raise the entire load_statuses object whether the load failed or
                 # not, so that we can report the load status of all load files, including successful loads.  It's
                 # like Dry Run mode, but exclusively for the validation interface.
@@ -302,11 +301,9 @@ class Command(BaseCommand):
             # If there were actual errors, raise an AggregatedErrorsSet exception inside the atomic block to cause
             # a rollback of everything
             if not self.load_statuses.get_success_status():
-                # MaintainedModelCoordinator.clear_update_buffer()
                 raise self.load_statuses.get_final_exception()
 
             if self.dry_run:
-                # MaintainedModelCoordinator.clear_update_buffer()
                 self.print_load_status()
                 raise DryRun()
 
