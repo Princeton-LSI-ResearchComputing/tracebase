@@ -157,8 +157,6 @@ class Infusate(MaintainedModel):
         if self.name:
             display_name = self.name
         elif self.get_coordinator().are_autoupdates_enabled():
-            # TODO: Make it possible to optionally add filters to the save calls as arguments.  Here, I could set
-            # label_filters=["name"]
             # This triggers an auto-update
             self.save()
             display_name = self.name
