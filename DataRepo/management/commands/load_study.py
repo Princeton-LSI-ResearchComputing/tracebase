@@ -277,7 +277,6 @@ class Command(BaseCommand):
                             sample_name_prefix=sample_name_prefix,
                             validate=self.validate,
                             isocorr_format=isocorr_format,
-                            # defer_autoupdates=True,
                         )
                         if self.verbosity > 1:
                             self.stdout.write(
