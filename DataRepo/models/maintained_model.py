@@ -200,7 +200,9 @@ class MaintainedModelCoordinator:
         if filter_in is None:
             filter_in = True
         if label_filters is None:
-            label_filters = []  # Clear everything by default, regardless of default filters
+            label_filters = (
+                []
+            )  # Clear everything by default, regardless of default filters
             filter_in = True
         if generation is None and (label_filters is None or len(label_filters) == 0):
             self.update_buffer = []
@@ -263,7 +265,9 @@ class MaintainedModelCoordinator:
         if filter_in is None:
             filter_in = True
         if label_filters is None:
-            label_filters = []  # Include everything by default, regardless of default filters
+            label_filters = (
+                []
+            )  # Include everything by default, regardless of default filters
             filter_in = True
         max_gen = None
         for updater_dict in sorted(
@@ -295,7 +299,9 @@ class MaintainedModelCoordinator:
         if filter_in is None:
             filter_in = True
         if label_filters is None:
-            label_filters = []  # Include everything by default, regardless of default filters
+            label_filters = (
+                []
+            )  # Include everything by default, regardless of default filters
             filter_in = True
         exploded_updater_dicts = []
         for buffered_item in self.update_buffer:
@@ -309,16 +315,10 @@ class MaintainedModelCoordinator:
             exploded_updater_dicts, label_filters=label_filters, filter_in=filter_in
         )
 
-    def updater_list_has_labels(
-        self, updaters_list, label_filters=None, filter_in=None
-    ):
+    def updater_list_has_matching_labels(self, updaters_list, label_filters, filter_in):
         """
         Returns True if any updater dict in updaters_list passes the label filtering criteria.
         """
-        if label_filters is None:
-            label_filters = self.default_label_filters
-        if filter_in is None:
-            filter_in = self.default_filter_in
         for updater_dict in updaters_list:
             label = updater_dict["update_label"]
             has_a_label = label is not None
@@ -332,65 +332,46 @@ class MaintainedModelCoordinator:
 
     def buffer_update(self, mdl_obj):
         """
-        This is called when MaintainedModel.save is called (if auto_updates is False), so that maintained fields can be
-        updated after loading code finishes (by calling the global method: perform_buffered_updates).
+        This is called when MaintainedModel.save (or delete) is called (if auto_updates is False), so that maintained
+        fields can be updated after loading code finishes (by calling the global method: perform_buffered_updates).
+
+        It will only buffer the model object if the filters attached to it (originally from a coordinator (possibly a
+        child coordinator with different labels) match any of the labels in the class's autoupdate fields, set in their
+        decorators.
         """
 
         # See if this class contains a field with a matching label (if a populated label_filters array was supplied)
-        if mdl_obj.label_filters is not None and len(mdl_obj.label_filters) > 0:
-            do_buffer = False
-            for updater_dict in self.get_updater_dicts_by_model_name(
-                mdl_obj.__class__.__name__
-            ):
-                update_label = updater_dict["update_label"]
-
-                # If there is a maintained field(s) in this model and...
-                # If auto-updates are restricted to fields by their update_label and this field matches the label
-                # filter criteria
-                if (
-                    # The update_label matches a filter-in label
-                    (
-                        mdl_obj.filter_in
-                        and update_label is not None
-                        and update_label
-                        in mdl_obj.label_filters  # pylint: disable=unsupported-membership-test
-                        # For the pylint disable, see: https://github.com/pylint-dev/pylint/issues/3045
-                    )
-                    # The update_label does not match a filter-out label
-                    or (
-                        not mdl_obj.filter_in
-                        and (
-                            update_label is None
-                            or update_label
-                            not in mdl_obj.label_filters  # pylint: disable=unsupported-membership-test
-                            # For the pylint disable, see: https://github.com/pylint-dev/pylint/issues/3045
-                        )
-                    )
-                ):
-                    do_buffer = True
-                    break
-
-            # If there's not a field passing the filter criteria, do not buffer (return)
-            if not do_buffer:
-                return
+        if (
+            mdl_obj.label_filters is not None
+            and len(mdl_obj.label_filters) > 0
+            and not self.updater_list_has_matching_labels(
+                self.get_updater_dicts_by_model_name(mdl_obj.__class__.__name__),
+                mdl_obj.label_filters,
+                mdl_obj.filter_in,
+            )
+        ):
+            # Do not buffer - nothing to update
+            return
 
         # Do not buffer if it's already buffered.  Note, this class isn't designed to support auto-updates in a
         # sepecific order.  All auto-update functions should use non-auto-update fields.
-        if self.buffering and mdl_obj not in self.update_buffer:
-            self.update_buffer.append(mdl_obj)
-        elif self.buffering:
-            # This allows the same object to be updated more than once (in the order encountered) if the fields to be
-            # auto-updated in each instance, differ.  This can cause redundant updates (e.g. when a field matches the
-            # filters in both cases), but given the possibility that update order may depend on the update of related
-            # records, it's better to be on the safe side and do each auto-update, so...
-            # If this is the same object but a different set of fields will be updated...
-            # Note, Django model object equivalence (obj1 == obj2) compares primary key values
-            for same_obj in [ubo for ubo in self.update_buffer if ubo == mdl_obj]:
-                if (
-                    same_obj.filter_in != mdl_obj.filter_in
-                    or same_obj.label_filters != same_obj.label_filters
-                ):
-                    self.update_buffer.append(mdl_obj)
+        if self.buffering:
+            if mdl_obj not in self.update_buffer:
+                self.update_buffer.append(mdl_obj)
+            else:
+                # This allows the same object to be updated more than once (in the order encountered) if the fields to
+                # be auto-updated in each instance, differ.  This can cause redundant updates (e.g. when a field matches
+                # the filters in both cases), but given the possibility that update order may depend on the update of
+                # related records, it's better to be on the safe side and do each auto-update, so...
+                # If this is the same object but a different set of fields will be updated...
+                # Note, Django model object equivalence (obj1 == obj2) compares primary key values
+                for same_obj in [bo for bo in self.update_buffer if bo == mdl_obj]:
+                    if (
+                        same_obj.filter_in != mdl_obj.filter_in
+                        or same_obj.label_filters != same_obj.label_filters
+                    ):
+                        self.update_buffer.append(mdl_obj)
+                        break
 
     # Added transaction.atomic, because even after catching an intentional AutoUpdateFailed in test
     # DataRepo.tests.models.test_infusate.MaintainedModelImmediateTests.test_error_when_buffer_not_clear and ending the
@@ -459,8 +440,8 @@ class MaintainedModelCoordinator:
             try:
                 if key not in updated and (
                     no_filters
-                    or self.updater_list_has_labels(
-                        updater_dicts, label_filters=label_filters, filter_in=filter_in
+                    or self.updater_list_has_matching_labels(
+                        updater_dicts, label_filters, filter_in
                     )
                 ):
                     # Saving the record while mass_updates is True, causes auto-updates of every field
@@ -1454,8 +1435,11 @@ class MaintainedModel(Model):
                         break
 
                     # No need to perform updates if none of the updaters match the label filters
-                    if has_filters and not coordinator.updater_list_has_labels(
-                        updater_dicts, label_filters
+                    if (
+                        has_filters
+                        and not coordinator.updater_list_has_matching_labels(
+                            updater_dicts, label_filters, filter_in
+                        )
                     ):
                         break
 
