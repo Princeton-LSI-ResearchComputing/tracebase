@@ -1537,9 +1537,6 @@ class MaintainedModel(Model):
     def call_dfs_related_updaters(self, updated=None, mass_updates=False):
         if not updated:
             updated = []
-        print(
-            f"call_dfs_related_updaters called for model {self.__class__.__name__} with mass_updates = {mass_updates}"
-        )
         # Assume I've been called after I've been updated, so add myself to the updated list
         self_sig = f"{self.__class__.__name__}.{self.id}"
         updated.append(self_sig)
