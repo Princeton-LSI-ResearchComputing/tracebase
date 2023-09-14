@@ -71,7 +71,7 @@ class MaintainedModelCoordinator:
         # overridden.
         self.overridden = False
 
-        # These allow the user to turn on or off specific groups of auto-updates.  See init_autoupdate_label_filters.
+        # These allow the user to turn on or off specific groups of auto-updates.
         label_filters = kwargs.pop("label_filters", [])
         self.default_label_filters = label_filters
 
@@ -79,7 +79,7 @@ class MaintainedModelCoordinator:
         self.default_filter_in = filter_in
 
         self.nondefault_filtering_exists = not (
-            label_filters is None and filter_in is True
+            (label_filters is None or len(label_filters) == 0) and filter_in is True
         )
 
         # This is for buffering a large quantity of auto-updates in order to get speed improvements during loading
@@ -120,9 +120,9 @@ class MaintainedModelCoordinator:
         (generation and label).
         """
         if label_filters is None:
-            label_filters = self.default_label_filters
+            label_filters = []
         if filter_in is None:
-            filter_in = self.default_filter_in
+            filter_in = True
         cnt = 0
         for buffered_item in self.update_buffer:
             updaters_list = self._filter_updaters(
@@ -131,7 +131,7 @@ class MaintainedModelCoordinator:
                 label_filters=label_filters,
                 filter_in=filter_in,
             )
-            cnt += len(updaters_list)
+            cnt += 1 if len(updaters_list) else 0
         return cnt
 
     @classmethod
@@ -197,10 +197,11 @@ class MaintainedModelCoordinator:
         Note that if both generation and label_filters are supplied, only buffered auto-updates that meet both
         conditions are cleared.
         """
-        if label_filters is None:
-            label_filters = self.default_label_filters
         if filter_in is None:
-            filter_in = self.default_filter_in
+            filter_in = True
+        if label_filters is None:
+            label_filters = []  # Clear everything by default, regardless of default filters
+            filter_in = True
         if generation is None and (label_filters is None or len(label_filters) == 0):
             self.update_buffer = []
             return
@@ -259,10 +260,11 @@ class MaintainedModelCoordinator:
         """
         Takes a list of updaters and a list of label filters and returns the max generation found in the updaters list.
         """
-        if label_filters is None:
-            label_filters = self.default_label_filters
         if filter_in is None:
-            filter_in = self.default_filter_in
+            filter_in = True
+        if label_filters is None:
+            label_filters = []  # Include everything by default, regardless of default filters
+            filter_in = True
         max_gen = None
         for updater_dict in sorted(
             self._filter_updaters(
@@ -290,10 +292,11 @@ class MaintainedModelCoordinator:
 
         The purpose is so that records can be updated breadth first (from leaves to root).
         """
-        if label_filters is None:
-            label_filters = self.default_label_filters
         if filter_in is None:
-            filter_in = self.default_filter_in
+            filter_in = True
+        if label_filters is None:
+            label_filters = []  # Include everything by default, regardless of default filters
+            filter_in = True
         exploded_updater_dicts = []
         for buffered_item in self.update_buffer:
             exploded_updater_dicts += self._filter_updaters(
@@ -414,11 +417,16 @@ class MaintainedModelCoordinator:
         filtering criteria will be applied to selectively update only the fields matching the filtering criteria as
         applied to each field's "update_label" in its method's decorator.
         """
+        # The default is to use the filters saved with the buffered model objects
+        # This is so that a parent deferred coordinator who receives a child coordinor's buffer, can do those updates,
+        # which may only be for certain fields whose update dicts have the given labels.
         use_object_label_filters = True
+        # If filters were explicitly supplied
         if label_filters is not None:
             use_object_label_filters = False
             if self.filter_in is None:
                 filter_in = self.default_filter_in
+        # Else - the filters will be set at each iteration of the buffered item loop below
 
         if self.are_autoupdates_enabled():
             raise StaleAutoupdateMode()
@@ -670,11 +678,11 @@ class MaintainedModel(Model):
         # The coordinator keeps track of the running mode, buffer and filters in use
         coordinator = self.get_coordinator()
 
-        # Members added by MaintainedModel - the global values are set via init_autoupdate_label_filters.  They are
-        # recorded in the object so that during perform_buffered_updates will know what field(s) to update when it
-        # processes the object.  An update would not have been buffered if the model did not contain a maintained field
-        # matching the label filtering.  And label filtering can change during the buffering process (e.g. different
-        # loaders), which is why this is necessary.  Note, this is not thread-safe.
+        # Members added by MaintainedModel - the coordinator values are set when the coordinator is instantiated.  They
+        # are recorded in the object so that during perform_buffered_updates, we will know what field(s) to update when
+        # it processes the object.  An update would not have been buffered if the model did not contain a maintained
+        # field matching the label filtering.  And label filtering can change during the buffering process (e.g.
+        # different loaders), which is why this is necessary.
         self.label_filters = coordinator.default_label_filters
         self.filter_in = coordinator.default_filter_in
 
