@@ -121,7 +121,6 @@ class AccuCorDataLoader:
         validate=False,
         isocorr_format=False,
         verbosity=1,
-        # defer_autoupdates=False,
         dry_run=False,
     ):
         self.aggregated_errors_object = AggregatedErrors()
@@ -160,9 +159,6 @@ class AccuCorDataLoader:
 
             # Validate mode
             self.validate = validate
-
-            # # How to handle mass autoupdates
-            # self.defer_autoupdates = defer_autoupdates
 
             # Tracking Data
             self.peak_group_dict: Dict[str, PeakGroupAttrs] = {}
