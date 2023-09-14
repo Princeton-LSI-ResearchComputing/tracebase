@@ -101,13 +101,6 @@ class Command(BaseCommand):
             help=argparse.SUPPRESS,
             default=None,
         )
-        # # Intended for use by load_study to prevent individual loader autoupdates and buffer clearing, then perform
-        # # all mass autoupdates/buffer-clearings after all load scripts are complete
-        # parser.add_argument(
-        #     "--defer-autoupdates",
-        #     action="store_true",
-        #     help=argparse.SUPPRESS,
-        # )
 
     @MaintainedModel.defer_autoupdates(
         disable_opt_names=["validate", "dry_run"],
@@ -144,7 +137,6 @@ class Command(BaseCommand):
             validate=options["validate"],
             isocorr_format=options["isocorr_format"],
             verbosity=options["verbosity"],
-            # defer_autoupdates=options["defer_autoupdates"],
             dry_run=options["dry_run"],
         )
 
