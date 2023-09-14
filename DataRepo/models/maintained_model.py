@@ -1806,7 +1806,7 @@ class MaintainedModel(Model):
             "that is not yet really saved.  For tests (a special case), this can usually be avoided by keeping "
             "database loads isolated inside setUpTestData and the test function itself.  Note, querys inside setUp() "
             "can trigger this error.  If this is occurring outside of a test run, to avoid errors, the entire "
-            "transaction should be done without autoupdates by calling disable_autoupdates() before the transaction "
+            "transaction should be done without autoupdates before the transaction "
             "block, and after the atomic transaction block, call perform_buffered_updates() to make the updates.  If "
             "this is a warning, note that auto-updates can be fixed afterwards by running:\n\n"
             "\tpython manage.py rebuild_maintained_fields\n"
@@ -1926,8 +1926,8 @@ class LikelyStaleBufferError(Exception):
     def __init__(self, model_object):
         message = (
             f"Autoupdates to {model_object.__class__.__name__} encountered a unique constraint violation.  Note, this "
-            "often happens when the auto-update buffer contains stale records.  Be sure the buffer is empty before "
-            "calling disable_autoupdates() (if it is intended to be empty)."
+            "often happens when the auto-update buffer contains stale records.  Be careful not to delete records after "
+            "saving them, because saving them adds them to the buffer for later mass auto-update."
         )
         super().__init__(message)
 
@@ -1938,30 +1938,6 @@ class UncleanBufferError(Exception):
             message = (
                 "The auto-update buffer is unexpectedly populated.  Make sure failed or suspended loads clean up the "
                 "buffer when they finish."
-            )
-        super().__init__(message)
-
-
-class InitFiltersAfterDisablingAutoupdates(Exception):
-    def __init__(self, message=None):
-        if message is None:
-            message = (
-                "Custom filtering conditions must be initialized (using init_autoupdate_label_filters()) after "
-                "autoupdates are disabled (using disable_autoupdates()).  If custom filters are used by one loading "
-                "script, those filters must be cleared at the end of that script so that they are not unintentionally "
-                "applied to the next loading script."
-            )
-        super().__init__(message)
-
-
-class ClearFiltersBeforeEnablingAutoupdates(Exception):
-    def __init__(self, message=None):
-        if message is None:
-            message = (
-                "Custom filtering conditions must be cleared (using init_autoupdate_label_filters()) before "
-                "autoupdates are enabled (using enable_autoupdates()).  If custom filters are used by one loading "
-                "script, those filters must be cleared at the end of that script so that they are not unintentionally "
-                "applied to the next loading script."
             )
         super().__init__(message)
 
