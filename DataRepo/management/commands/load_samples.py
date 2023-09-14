@@ -82,7 +82,6 @@ class Command(BaseCommand):
             ],  # DO NOT USE MANUALLY - THIS WILL NOT ROLL BACK UPON ERROR
             skip_researcher_check=options["skip_researcher_check"],
             verbosity=options["verbosity"],
-            # defer_autoupdates=options["defer_autoupdates"],
             dry_run=options["dry_run"],
         )
         loader.load_sample_table(
