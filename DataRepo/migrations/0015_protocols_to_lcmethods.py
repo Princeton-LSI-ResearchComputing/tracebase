@@ -45,16 +45,18 @@ def msrunprotocol_to_lcmethod(apps, _):
     LCMethod = apps.get_model("DataRepo", "LCMethod")
 
     for msrun_protocol in Protocol.objects.filter(category__exact="msrun_protocol"):
+        name = "unknown"
         type = "unknown"
         runlen = None
 
         if msrun_protocol.name is not None:
+            name = msrun_protocol.name
             type, runlen = msrunprotocol_name_to_lcmethod_type_and_runlength(
                 msrun_protocol.name
             )
 
         lc_rec = LCMethod.objects.create(
-            name=msrun_protocol.name,
+            name=name,
             description=msrun_protocol.description,
             type=type,
             run_length=runlen,
