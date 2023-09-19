@@ -44,19 +44,23 @@ def msrunprotocol_to_lcmethod(apps, _):
     Protocol = apps.get_model("DataRepo", "Protocol")
     LCMethod = apps.get_model("DataRepo", "LCMethod")
 
-    type, runlen = msrunprotocol_name_to_lcmethod_type_and_runlength(
-        msrun_protocol.name
-    )
-
     for msrun_protocol in Protocol.objects.filter(category__exact="msrun_protocol"):
+        type = "unknown"
+        runlen = None
+
+        if msrun_protocol.name is not None:
+            type, runlen = msrunprotocol_name_to_lcmethod_type_and_runlength(
+                msrun_protocol.name
+            )
+
         lc_rec = LCMethod.objects.create(
             name=msrun_protocol.name,
             description=msrun_protocol.description,
             type=type,
             run_length=runlen,
         )
+
         lc_rec.save()
-        msrun_protocol.delete()
 
 
 class Migration(migrations.Migration):
