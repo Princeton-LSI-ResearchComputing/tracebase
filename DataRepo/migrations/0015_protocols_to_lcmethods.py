@@ -5,37 +5,58 @@ from django.db import migrations
 
 # Matches 25mins, 25min, 25minutes, 25minute, 25-mins, ...
 RUNLEN_PAT = re.compile(
-    r"(?P<delim1>[^0-9a-zA-Z]?)(?P<mins_digits>\d+)[^0-9a-zA-Z]?(?:min|minute)s?(?P<delim2>[^0-9a-zA-Z]?)"
+    r"(?P<mins_digits>\d+)[^0-9a-zA-Z]?(?:min|minute)s?"
+)
+HILIC_PAT = re.compile(
+    r"(?i)(?:hilic|lc-ms|^default$)"
+)
+REVPHASE_PAT = re.compile(
+    r"(?i)reverse"
+)
+RP_LIPID_PAT = re.compile(
+    r"(?i)lipid"
+)
+RP_IONPAIR_PAT = re.compile(
+    r"(?i)\bion\b"
 )
 
 
-def msrunprotocol_name_to_lcmethod_type_and_runlength(msrp_name):
+def msrunprotocol_name_to_lcmethod_name_type_and_runlength(msrp_name):
     # Defaults
-    type = msrp_name
+    name = None
+    type = "unknown"
     runlen = None
-
-    # Parse the msrun protocol name for the run length
-    match = re.search(RUNLEN_PAT, msrp_name)
+    mins = None
 
     # If the name matched a parsable run length
-    if match is not None:
-        # Re-use the delimiter used already in the msrp_name string
-        delim = "_"
-        delim1 = match.group("delim1")
-        delim2 = match.group("delim2")
-        if delim1 is not None and len(delim1) > 0:
-            delim = delim1
-        elif delim2 is not None and len(delim2) > 0:
-            delim = delim2
-
+    time_match = re.search(RUNLEN_PAT, msrp_name)
+    if time_match is not None:
         # Get the number of minutes for the run length
-        mins = match.group("mins_digits").strip()
+        mins = time_match.group("mins_digits").strip()
         runlen = timedelta(minutes=float(mins))
 
-        # Remove the run length to create the type
-        type = re.sub(RUNLEN_PAT, delim, msrp_name).strip(delim)
+    hilic_match = re.search(HILIC_PAT, msrp_name)
+    reverse_match = re.search(REVPHASE_PAT, msrp_name)
 
-    return type, runlen
+    if hilic_match is not None:
+        type = "polar-HILIC"
+    elif reverse_match is not None:
+        lipid_match = re.search(RP_LIPID_PAT, msrp_name)
+        ion_match = re.search(RP_IONPAIR_PAT, msrp_name)
+
+        if lipid_match is not None:
+            type = "lipid-reversed-phase"
+        elif ion_match is not None:
+            type = "polar-reversed-phase-ion-pairing"
+        else:
+            type = "polar-reversed-phase"
+
+    name = type
+
+    if mins is not None:
+        name += f"-{mins}-mins"
+
+    return name, type, runlen
 
 
 def msrunprotocol_to_lcmethod(apps, _):
@@ -50,19 +71,20 @@ def msrunprotocol_to_lcmethod(apps, _):
         runlen = None
 
         if msrun_protocol.name is not None:
-            name = msrun_protocol.name
-            type, runlen = msrunprotocol_name_to_lcmethod_type_and_runlength(
+            name, type, runlen = msrunprotocol_name_to_lcmethod_name_type_and_runlength(
                 msrun_protocol.name
             )
 
-        lc_rec = LCMethod.objects.create(
+        # We will ignore description
+        lc_rec = LCMethod.objects.get(
             name=name,
-            description=msrun_protocol.description,
             type=type,
             run_length=runlen,
         )
 
-        lc_rec.save()
+        # TODO: There's nothing to do for issue #703.  The records are already created. What needs to change is the
+        # links, but the links aren't created until #704.  Once #704 is done, we can set the links to the corresponding
+        # LCMethod record.
 
 
 class Migration(migrations.Migration):
