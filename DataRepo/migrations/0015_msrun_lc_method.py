@@ -14,6 +14,6 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='msrun',
             name='lc_method',
-            field=models.ForeignKey(help_text='The liquid chromatography protocol that was used for this mass spectrometer run.', null=True, on_delete=django.db.models.deletion.RESTRICT, to='DataRepo.lcmethod'),
+            field=models.ForeignKey(help_text='The liquid chromatography protocol that was used for this mass spectrometer run.', null=True, blank=True, on_delete=django.db.models.deletion.RESTRICT, to='DataRepo.lcmethod'),
         ),
     ]
