@@ -35,6 +35,7 @@ class MSRun(HierCachedModel, MaintainedModel):
     # Don't delete an LCMethod if an MSRun that links to it is deleted
     lc_method = models.ForeignKey(
         null=True,
+        blank=True,
         to="DataRepo.LCMethod",
         on_delete=models.RESTRICT,
         help_text="The liquid chromatography protocol that was used for this mass spectrometer run.",
