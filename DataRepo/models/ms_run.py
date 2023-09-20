@@ -32,6 +32,13 @@ class MSRun(HierCachedModel, MaintainedModel):
         limit_choices_to={"category": Protocol.MSRUN_PROTOCOL},
         help_text="The protocol that was used for this mass spectrometer run.",
     )
+    # Don't delete an LCMethod if an MSRun that links to it is deleted
+    lc_method = models.ForeignKey(
+        null=True,
+        to="DataRepo.LCMethod",
+        on_delete=models.RESTRICT,
+        help_text="The liquid chromatography protocol that was used for this mass spectrometer run.",
+    )
     # If an MSRun is deleted, delete its samples
     sample = models.ForeignKey(
         to="DataRepo.Sample",
