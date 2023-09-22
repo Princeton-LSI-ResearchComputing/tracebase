@@ -12,7 +12,11 @@
             <td><a href="{% url 'sample_detail' msrun.sample.id %}">{{ msrun.sample.name }}</a></td>
         </tr>
         <tr>
-            <td>Protocol</td>
+            <td>Liquid Chromatography Protocol</td>
+            <td><a href="{% url 'lcmethod_detail' msrun.lc_method.id %}">{{ msrun.lc_method.name }}</a></td>
+        </tr>
+        <tr>
+            <td>Mass Spec Protocol</td>
             <td><a href="{% url 'protocol_detail' msrun.protocol.id %}">{{ msrun.protocol.name }}</a></td>
         </tr>
         <tr>

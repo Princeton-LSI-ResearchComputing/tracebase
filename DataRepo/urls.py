@@ -51,6 +51,16 @@ urlpatterns = [
         views.ProtocolDetailView.as_view(),
         name="protocol_detail",
     ),
+    path(
+        "lcprotocols/msrun_protocols/",
+        views.LCMethodListView.as_view(),
+        name="lcmethod_list",
+    ),
+    path(
+        "lcprotocols/<int:pk>/",
+        views.LCMethodDetailView.as_view(),
+        name="lcmethod_detail",
+    ),
     path("animals/", views.AnimalListView.as_view(), name="animal_list"),
     path("animals/<int:pk>/", views.AnimalDetailView.as_view(), name="animal_detail"),
     path("tissues/", views.TissueListView.as_view(), name="tissue_list"),
