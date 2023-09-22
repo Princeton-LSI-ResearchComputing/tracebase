@@ -52,7 +52,7 @@ urlpatterns = [
         name="protocol_detail",
     ),
     path(
-        "lcprotocols/msrun_protocols/",
+        "lcprotocols/",
         views.LCMethodListView.as_view(),
         name="lcmethod_list",
     ),

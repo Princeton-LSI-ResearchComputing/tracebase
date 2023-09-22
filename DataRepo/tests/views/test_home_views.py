@@ -108,4 +108,4 @@ class HomeViewTests(TracebaseTestCase):
         self.assertEqual(animal_treatment_url, "/DataRepo/protocols/animal_treatments/")
         self.assertEqual(msrun_protocol_url, "/DataRepo/protocols/msrun_protocols/")
         self.assertEqual(advance_search_url, "/DataRepo/search_advanced/")
-        self.assertEqual(len(response.context["card_rows"]), 2)
+        self.assertEqual(len(response.context["card_grid"]), 3)
