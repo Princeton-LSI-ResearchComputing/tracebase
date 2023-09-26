@@ -15,28 +15,54 @@ class TissuesLoader:
     Load the Tissues table
     """
 
-    def __init__(self, tissues, dry_run=True, validate=False):
+    def __init__(
+        self,
+        tissues,
+        dry_run=True,
+        defer_rollback=False,  # DO NOT USE MANUALLY - THIS WILL NOT ROLL BACK (handle in atomic transact in caller)
+    ):
         self.aggregated_errors_object = AggregatedErrors()
         try:
+            # Data
             self.tissues = tissues
             self.tissues.columns = self.tissues.columns.str.lower()
-            self.dry_run = dry_run
-            # List of strings that note what was done
-            self.notices = []
-            # Newly create tissues
+
+            # Tracking stats
+            self.notices = []  # List of strings that note what was done
             self.created = []
-            # Pre-existing, matching tissues
-            self.existing = []
-            self.validate = validate
+            self.existing = []  # Pre-existing, matching tissues
+
+            # Modes
+            self.dry_run = dry_run
+            self.defer_rollback = defer_rollback
+
         except Exception as e:
+
             self.aggregated_errors_object.buffer_error(e)
             raise self.aggregated_errors_object
 
-    def load(self):
-        self.load_database()
+    def load_tissue_data(self):
 
-    @transaction.atomic
-    def load_database(self):
+        saved_aes = None
+
+        with transaction.atomic():
+            try:
+                self._load_data()
+            except AggregatedErrors as aes:
+                if self.defer_rollback:
+                    saved_aes = aes
+                else:
+                    # Raise here to cause a rollback
+                    raise aes
+
+        # If we were directed to defer rollback (in the event of an error), raise the exception here (outside of the
+        # atomic transaction block).  This assumes that the caller is handling rollback in their own atomic transaction
+        # block.
+        if saved_aes:
+            # Raise here to NOT cause a rollback
+            raise saved_aes
+
+    def _load_data(self):
         for index, row in self.tissues.iterrows():
             print(f"Loading tissues row {index+1}")
             try:

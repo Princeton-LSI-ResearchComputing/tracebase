@@ -23,29 +23,61 @@ class ProtocolsLoader:
     STANDARD_CATEGORY_HEADER = "category"
 
     def __init__(
-        self, protocols, category=None, validate=False, dry_run=True, verbosity=1
+        self,
+        protocols,
+        category=None,
+        dry_run=True,
+        verbosity=1,
+        defer_rollback=False,
     ):
+        # Data
         self.protocols = protocols
+        self.category = category
+
+        # Check supplied protocols for the basics
         self.protocols.columns = self.protocols.columns.str.lower()
         self.req_cols = [self.STANDARD_NAME_HEADER, self.STANDARD_DESCRIPTION_HEADER]
         self.missing_columns = list(set(self.req_cols) - set(self.protocols.columns))
         if self.missing_columns:
             raise RequiredHeadersError(self.missing_columns)
+
+        # Modes
         self.dry_run = dry_run
-        self.category = category
+        self.verbosity = verbosity
+        # Whether to rollback upon error or keep the changes and defer rollback to the caller
+        self.defer_rollback = defer_rollback
+
+        # Tracking stats (num created/existing)
         self.created = 0
         self.existing = 0
+
+        # Error tracking
         self.space_no_desc = []
         self.missing_reqd_vals = defaultdict(list)
-        self.validate = validate
-        self.verbosity = verbosity
         self.aggregated_errors_object = AggregatedErrors()
 
-    def load(self):
-        self.load_database()
+    def load_protocol_data(self):
 
-    @transaction.atomic
-    def load_database(self):
+        saved_aes = None
+
+        with transaction.atomic():
+            try:
+                self._load_data()
+            except AggregatedErrors as aes:
+                if self.defer_rollback:
+                    saved_aes = aes
+                else:
+                    # Raise here to cause a rollback
+                    raise aes
+
+        # If we were directed to defer rollback (in the event of an error), raise the exception here (outside of the
+        # atomic transaction block).  This assumes that the caller is handling rollback in their own atomic transaction
+        # block.
+        if saved_aes is not None:
+            # Raise here to NOT cause a rollback
+            raise saved_aes
+
+    def _load_data(self):
         batch_cat_err_occurred = False
         for index, row in self.protocols.iterrows():
             try:
