@@ -37,12 +37,10 @@ class TissuesLoader:
             self.defer_rollback = defer_rollback
 
         except Exception as e:
-
             self.aggregated_errors_object.buffer_error(e)
             raise self.aggregated_errors_object
 
     def load_tissue_data(self):
-
         saved_aes = None
 
         with transaction.atomic():

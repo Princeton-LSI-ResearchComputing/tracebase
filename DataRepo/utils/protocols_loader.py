@@ -57,7 +57,6 @@ class ProtocolsLoader:
         self.aggregated_errors_object = AggregatedErrors()
 
     def load_protocol_data(self):
-
         saved_aes = None
 
         with transaction.atomic():

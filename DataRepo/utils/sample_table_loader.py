@@ -208,7 +208,6 @@ class SampleTableLoader:
         MaintainedModel.init_autoupdate_label_filters(label_filters=["name"])
 
         try:
-
             saved_aes = None
 
             with transaction.atomic():
