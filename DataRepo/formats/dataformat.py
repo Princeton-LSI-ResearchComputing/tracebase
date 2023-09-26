@@ -1170,9 +1170,6 @@ class Format:
         """
         units_lookup = self.getFieldUnitsLookup()
         if fld in units_lookup.keys():
-            print(
-                f"Inspecting units data for field {fld} in units_lookup: {units_lookup}"
-            )
             if units_lookup[fld] is not None and units in units_lookup[fld].keys():
                 try:
                     return units_lookup[fld][units]["pyconvert"](val)
