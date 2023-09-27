@@ -335,7 +335,7 @@
                         {% for lbl in pd.labels.all %}{% if not forloop.first %}; {% endif%}{{ lbl.element }}:{{ lbl.count }}{% endfor %}
                     </td>
 
-                    <!-- Archive File Filename-->
+                    <!-- Archive File Filename -->
                     <td>
                         <!-- Put displayed link text first for sorting -->
                         <div style="display:none;">{{ pd.peak_group.archive_file.filename }}</div>

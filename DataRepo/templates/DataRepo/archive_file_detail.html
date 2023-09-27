@@ -17,11 +17,11 @@
         </tr>
         <tr>
             <td>File Import Timestamp</td>
-            <td>{{ archivefile.imported_timestamp }}</td>
+            <td>{{ archivefile.imported_timestamp|convert_iso_date }}</td>
         </tr>
         <tr>
             <td>Data Type</td>
-            <td>{{ archivefile.data_type}}</td>
+            <td>{{ archivefile.data_type }}</td>
         </tr>
         <tr>
             <td>Data Format</td>
@@ -29,7 +29,7 @@
         </tr>
         <tr>
             <td>File Location</td>
-            <td>{{ archivefile.file_location}}</td>
+            <td>{{ archivefile.file_location }}</td>
         </tr>
     </table>
 </div>
