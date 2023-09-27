@@ -13,7 +13,7 @@ A description of each field is listed here:
 
 - Researcher who prepared samples for MS and ran them on the machine
 
-## LC Method
+## LC Method(s)
 
 - Description of Liquid Chromatography method and run length used
 - Possible values:
@@ -28,7 +28,7 @@ A description of each field is listed here:
     chromatography on C18 columns, coupled with high resolution mass
     spectrometry. It is mainly used for the analysis of lipids.
 
-## MS Mode
+## MS Mode(s)
 
 - Description of Mass Spectrometry method used
 - General descriptions are adequate
