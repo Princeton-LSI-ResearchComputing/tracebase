@@ -206,7 +206,7 @@
                 <th data-valign="top" class="metagrp" data-visible="{% get_template_cookie selfmt 'Treatment-data-visible' 'true' %}" data-field="Treatment">
                     {% with "Treatment" as colhead %}
                         {% if mode == "view" %}{{ colhead }}{% else %}
-                            <div onclick="sortColumn(this)" class="sortable" id="peak_group__msrun__treatment__name">{{ colhead }}</div>
+                            <div onclick="sortColumn(this)" class="sortable" id="peak_group__msrun__sample__animal__treatment__name">{{ colhead }}</div>
                         {% endif %}
                     {% endwith %}
                 </th>
@@ -403,12 +403,12 @@
 
                     <!-- Treatment -->
                     <td>
-                        {% if pd.peak_group.msrun.treatment.name is None %}
+                        {% if pd.peak_group.msrun.sample.animal.treatment.name is None %}
                             <!-- Put displayed link text first for sorting -->
                             <div style="display:none;">None</div>
                             <p title="Animal has no treatment.">None</p>
                         {% else %}
-                            {{ pd.peak_group.msrun.treatment.name }}
+                            {{ pd.peak_group.msrun.sample.animal.treatment.name }}
                         {% endif %}
                     </td>
 

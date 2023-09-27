@@ -7,9 +7,8 @@ from django.core.exceptions import ValidationError
 from django.core.management import BaseCommand, call_command
 
 from DataRepo.models.maintained_model import (
+    MaintainedModel,
     UncleanBufferError,
-    buffer_size,
-    clear_update_buffer,
 )
 from DataRepo.utils.exceptions import AggregatedErrorsSet
 
@@ -42,8 +41,8 @@ class Command(BaseCommand):
         # code, who knows what has been done before.  So the clear_buffer option allows the load_study_set method to be
         # called in code with an option to explicitly clean the buffer.
         if options["clear_buffer"]:
-            clear_update_buffer()
-        elif buffer_size() > 0:
+            MaintainedModel.clear_update_buffer()
+        elif MaintainedModel.buffer_size() > 0:
             raise UncleanBufferError(
                 "The auto-update buffer is unexpectedly populated.  Add --clear-buffer to your command to flush the "
                 "buffer and proceed with the load."

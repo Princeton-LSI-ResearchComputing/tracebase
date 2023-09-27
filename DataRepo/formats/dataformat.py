@@ -1170,7 +1170,7 @@ class Format:
         """
         units_lookup = self.getFieldUnitsLookup()
         if fld in units_lookup.keys():
-            if units in units_lookup[fld].keys():
+            if units_lookup[fld] is not None and units in units_lookup[fld].keys():
                 try:
                     return units_lookup[fld][units]["pyconvert"](val)
                 except Exception as e:
@@ -1180,12 +1180,16 @@ class Format:
                         f"[{self.name}] failed with an exception: {str(e)}.  Returning original value.  Fix the "
                         "[pyconvert] function in Format.unit_options to better handle this value."
                     )
+            elif units != "identity":
+                # We can ignore "identity" - for which we just return val as-is, but if it's something other than
+                # identity and it wasn't present in the lookup, issue a warning.
+                warnings.warn(
+                    f"Units [{units}] dict for field [{fld}] not found for format [{self.name}]."
+                )
+        else:
             warnings.warn(
-                f"Units [{units}] dict for field [{fld}] not found for format [{self.name}]."
+                f"Units lookup is missing field key [{fld}] not found for format [{self.name}]."
             )
-        warnings.warn(
-            f"Units lookup is missing field key [{fld}] not found for format [{self.name}]."
-        )
         return val
 
     def meetsCondition(self, recval, condition, searchterm):

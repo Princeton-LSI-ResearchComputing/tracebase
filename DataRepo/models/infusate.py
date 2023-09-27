@@ -5,12 +5,7 @@ from typing import TYPE_CHECKING, Optional
 from django.core.exceptions import ValidationError
 from django.db import models
 
-from DataRepo.models.maintained_model import (
-    MaintainedModel,
-    are_autoupdates_enabled,
-    init_autoupdate_label_filters,
-    maintained_field_function,
-)
+from DataRepo.models.maintained_model import MaintainedModel
 from DataRepo.models.utilities import get_model_by_name
 
 if TYPE_CHECKING:
@@ -121,9 +116,7 @@ class Infusate(MaintainedModel):
     def __str__(self):
         return str(self.get_name)
 
-    @maintained_field_function(
-        generation=0, update_field_name="name", update_label="name"
-    )
+    @MaintainedModel.setter(generation=0, update_field_name="name", update_label="name")
     def _name(self):
         # Format: `tracer_group_name{tracername;tracername}`
 
@@ -163,12 +156,12 @@ class Infusate(MaintainedModel):
         # Get the name.  Initialize if not set and auto-updates are on.
         if self.name:
             display_name = self.name
-        elif are_autoupdates_enabled():
-            init_autoupdate_label_filters(label_filters=["name"])
+        elif MaintainedModel.are_autoupdates_enabled():
+            MaintainedModel.init_autoupdate_label_filters(label_filters=["name"])
             # This triggers an auto-update
             self.save()
             display_name = self.name
-            init_autoupdate_label_filters()
+            MaintainedModel.init_autoupdate_label_filters()
 
         # If it's still not set, call the method that generates the name.  It just won't be saved.
         if not display_name:

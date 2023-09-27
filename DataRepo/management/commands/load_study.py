@@ -13,12 +13,8 @@ from DataRepo.models.hier_cached_model import (
     enable_caching_updates,
 )
 from DataRepo.models.maintained_model import (
+    MaintainedModel,
     UncleanBufferError,
-    buffer_size,
-    clear_update_buffer,
-    disable_autoupdates,
-    enable_autoupdates,
-    perform_buffered_updates,
 )
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
@@ -121,8 +117,8 @@ class Command(BaseCommand):
         # option allows the load_study method to be called in code with an option to explicitly clean the buffer, for
         # example, in the first call in a series.
         if options["clear_buffer"]:
-            clear_update_buffer()
-        elif buffer_size() > 0 and not options["defer_autoupdates"]:
+            MaintainedModel.clear_update_buffer()
+        elif MaintainedModel.buffer_size() > 0 and not options["defer_autoupdates"]:
             raise UncleanBufferError(
                 "The auto-update buffer is unexpectedly populated.  Add --clear-buffer to your command to flush the "
                 "buffer and proceed with the load."
@@ -325,7 +321,7 @@ class Command(BaseCommand):
             # that we can roll back all changes and pass all the status data to the validation interface via this
             # exception.
             if self.validate:
-                clear_update_buffer()
+                MaintainedModel.clear_update_buffer()
                 # If we are in validate mode, we raise the entire load_statuses object whether the load failed or
                 # not, so that we can report the load status of all load files, including successful loads.  It's
                 # like Dry Run mode, but exclusively for the validation interface.
@@ -334,11 +330,11 @@ class Command(BaseCommand):
             # If there were actual errors, raise an AggregatedErrorsSet exception inside the atomic block to cause
             # a rollback of everything
             if not self.load_statuses.get_success_status():
-                clear_update_buffer()
+                MaintainedModel.clear_update_buffer()
                 raise self.load_statuses.get_final_exception()
 
             if self.dry_run:
-                clear_update_buffer()
+                MaintainedModel.clear_update_buffer()
                 self.print_load_status()
                 raise DryRun()
 
@@ -346,7 +342,7 @@ class Command(BaseCommand):
         # autoupdates in 1 go.  And note that each load script makes its own calls to disable/enable caching and
         # maintained field updates, so we don't want to manipulate these settings during those loads, so we do it here
         # at the end when we want to actually perform the operations that were buffered by those loads.
-        if not options["defer_autoupdates"] and buffer_size() > 0:
+        if not options["defer_autoupdates"] and MaintainedModel.buffer_size() > 0:
             self.perform_autoupdates()
 
         self.print_load_status()
@@ -470,10 +466,10 @@ class Command(BaseCommand):
             self.stdout.write(self.style.ERROR(message))
 
     def perform_autoupdates(self):
-        disable_autoupdates()
+        MaintainedModel.disable_autoupdates()
         disable_caching_updates()
-        perform_buffered_updates()
+        MaintainedModel.perform_buffered_updates()
         # The buffer should be clear, but just for good measure...
-        clear_update_buffer()
+        MaintainedModel.clear_update_buffer()
         enable_caching_updates()
-        enable_autoupdates()
+        MaintainedModel.enable_autoupdates()

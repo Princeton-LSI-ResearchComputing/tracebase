@@ -2,14 +2,11 @@ from django.core.exceptions import ValidationError
 from django.db import models
 
 from DataRepo.models.hier_cached_model import HierCachedModel
-from DataRepo.models.maintained_model import (
-    MaintainedModel,
-    maintained_model_relation,
-)
+from DataRepo.models.maintained_model import MaintainedModel
 from DataRepo.models.protocol import Protocol
 
 
-@maintained_model_relation(
+@MaintainedModel.relation(
     generation=2,
     parent_field_name="sample",
     # child_field_names=["peak_groups"],  # Only propagate up
@@ -34,6 +31,14 @@ class MSRun(HierCachedModel, MaintainedModel):
         on_delete=models.RESTRICT,
         limit_choices_to={"category": Protocol.MSRUN_PROTOCOL},
         help_text="The protocol that was used for this mass spectrometer run.",
+    )
+    # Don't delete an LCMethod if an MSRun that links to it is deleted
+    lc_method = models.ForeignKey(
+        null=True,
+        blank=True,
+        to="DataRepo.LCMethod",
+        on_delete=models.RESTRICT,
+        help_text="The liquid chromatography protocol that was used for this mass spectrometer run.",
     )
     # If an MSRun is deleted, delete its samples
     sample = models.ForeignKey(
