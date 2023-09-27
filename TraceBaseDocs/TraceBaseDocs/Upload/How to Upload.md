@@ -43,8 +43,8 @@ the TraceBase Animal and Sample Table Template.
    form](https://forms.gle/vEfJEfhPbCbkybpE7).  Complete the following:
    1. Study Name
    2. Link to Google Drive folder with study submission.
-   3. Mass Spectrometry Details (see [How to label Mass Spec Run
-      Information](https://docs.google.com/document/d/1Lm4br-jCB2QwbgPyzJvvgLgaO-t7Cwcq1xHyBIOlTog/edit?usp=sharing))
+   3. Mass Spectrometry Details (see [[How to label Mass Spec Run
+      Information]])
 
 What happens next?
 
