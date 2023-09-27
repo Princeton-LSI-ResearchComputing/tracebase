@@ -339,9 +339,11 @@
                     <td>
                         <!-- Put displayed link text first for sorting -->
                         <div style="display:none;">{{ pd.peak_group.archive_file.filename }}</div>
+                        {% if pg.peak_group.archive_file %}
                         <a href="{% url 'archive_file_detail' pd.peak_group.archive_file.id %}">
                             {{ pd.peak_group.archive_file.filename }}
                         </a>
+                        {% endif %}
                     </td>
 
                     <!-- Raw Abundance -->

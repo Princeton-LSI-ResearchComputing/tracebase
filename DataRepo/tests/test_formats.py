@@ -136,6 +136,7 @@ class FormatsTests(TracebaseTestCase):
         return (
             ("peak_group__msrun__sample__animal__age", "Age"),
             ("peak_group__msrun__sample__animal__name", "Animal"),
+            ("peak_group__archive_file__filename", "Archive Filename"),
             ("peak_group__msrun__sample__animal__body_weight", "Body Weight (g)"),
             ("corrected_abundance", "Corrected Abundance"),
             ("peak_group__msrun__sample__animal__diet", "Diet"),
@@ -157,7 +158,6 @@ class FormatsTests(TracebaseTestCase):
             ("med_mz", "Median M/Z"),
             ("med_rt", "Median RT"),
             ("peak_group__name", "Peak Group"),
-            ("peak_group__peak_group_set__filename", "Peak Group Set Filename"),
             ("raw_abundance", "Raw Abundance"),
             ("peak_group__msrun__sample__name", "Sample"),
             ("peak_group__msrun__sample__animal__sex", "Sex"),
@@ -183,6 +183,7 @@ class FormatsTests(TracebaseTestCase):
         return (
             ("msrun__sample__animal__age", "Age"),
             ("msrun__sample__animal__name", "Animal"),
+            ("archive_file__filename", "Archive Filename"),
             ("msrun__sample__animal__body_weight", "Body Weight (g)"),
             ("compounds__synonyms__name", "Compound (Measured) (Any Synonym)"),
             ("compounds__name", "Compound (Measured) (Primary Synonym)"),
@@ -198,7 +199,6 @@ class FormatsTests(TracebaseTestCase):
             ("msrun__sample__animal__infusion_rate", "Infusion Rate (ul/min/g)"),
             ("labels__element", "Labeled Element"),
             ("name", "Peak Group"),
-            ("peak_group_set__filename", "Peak Group Set Filename"),
             ("msrun__sample__name", "Sample"),
             ("msrun__sample__animal__sex", "Sex"),
             ("msrun__sample__animal__studies__name", "Study"),
@@ -1118,6 +1118,7 @@ class FormatsTests(TracebaseTestCase):
         choices = (
             ("msrun__sample__animal__age", "Age"),
             ("msrun__sample__animal__name", "Animal"),
+            ("archive_file__filename", "Archive Filename"),
             ("msrun__sample__animal__body_weight", "Body Weight (g)"),
             ("compounds__synonyms__name", "Compound (Measured) (Any Synonym)"),
             ("compounds__name", "Compound (Measured) (Primary Synonym)"),
@@ -1133,7 +1134,6 @@ class FormatsTests(TracebaseTestCase):
             ("msrun__sample__animal__infusion_rate", "Infusion Rate (ul/min/g)"),
             ("labels__element", "Labeled Element"),
             ("name", "Peak Group"),
-            ("peak_group_set__filename", "Peak Group Set Filename"),
             ("msrun__sample__name", "Sample"),
             ("msrun__sample__animal__sex", "Sex"),
             ("msrun__sample__animal__studies__name", "Study"),
@@ -1173,7 +1173,7 @@ class FormatsTests(TracebaseTestCase):
             "peak_group__msrun__sample__animal__studies",
             "peak_group__msrun__sample__tissue",
             "peak_group__compounds__synonyms",
-            "peak_group__peak_group_set",
+            "peak_group__archive_file",
             "labels",
         ]
         self.assertEqual(pfl, res)
@@ -1186,7 +1186,7 @@ class FormatsTests(TracebaseTestCase):
         fmt = "pgtemplate"
         res = basv_metadata.getModelInstances(fmt)
         ml = [
-            "PeakGroupSet",
+            "ArchiveFile",
             "PeakGroup",
             "PeakGroupLabel",
             "Protocol",

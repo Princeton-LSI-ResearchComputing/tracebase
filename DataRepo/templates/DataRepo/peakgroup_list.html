@@ -28,9 +28,11 @@
             </td>
             <td><a href="{% url 'msrun_detail' peakgroup.msrun.id %}">{{ peakgroup.msrun.researcher }}, {{ peakgroup.msrun.date }}</a></td>
             <td>
+                {% if peakgroup.archive_file %}
                 <a href="{% url 'peakgroupset_detail' peakgroup.archive_file.id %}">
                     {{ peakgroup.archive_file.filename }}
                 </a>
+                {% endif %}
             </td>
             </tr>
             {% endfor %}

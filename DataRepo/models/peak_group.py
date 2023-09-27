@@ -44,7 +44,7 @@ class PeakGroup(HierCachedModel, MaintainedModel):
     peak_group_set = models.ForeignKey(
         to="DataRepo.PeakGroupSet",
         on_delete=models.CASCADE,
-        null=False,
+        null=True,  # TODO Allow null until loading code is updated
         related_name="peak_groups",
         help_text="The source file this PeakGroup came from.",
     )

@@ -326,9 +326,11 @@
                     <td>
                         <!-- Put displayed link text first for sorting -->
                         <div style="display:none;">{{ pg.archive_file.filename }}</div>
+                        {% if pg.archive_file %}
                         <a href="{% url 'archive_file_detail' pg.archive_file.id %}">
                             {{ pg.archive_file.filename }}
                         </a>
+                        {% endif %}
                     </td>
 
                     <!-- Total Abundance -->
