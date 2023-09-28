@@ -133,7 +133,7 @@ class CompoundLoadingTests(TracebaseTestCase):
                 }
             )
         )
-        cl.load_compounds()
+        cl.load_compound_data()
         self.assertEqual(
             1,
             cl.num_existing_compounds,
@@ -221,7 +221,7 @@ class CompoundLoadingTests(TracebaseTestCase):
             )
         )
         with self.assertRaises(AggregatedErrors) as ar:
-            cl.load_compounds()
+            cl.load_compound_data()
         aes = ar.exception
         self.assertEqual(2, aes.num_errors)
         self.assertEqual(
@@ -292,7 +292,7 @@ class CompoundLoadingTests(TracebaseTestCase):
             )
         )
         with self.assertRaises(AggregatedErrors) as ar:
-            cl.load_compounds()
+            cl.load_compound_data()
         aes = ar.exception
         self.assertEqual(2, aes.num_errors)
         self.assertEqual(SynonymExistsAsMismatchedCompound, type(aes.exceptions[0]))
@@ -311,9 +311,9 @@ class CompoundsLoaderTests(TracebaseTestCase):
     def test_compound_exists_skipped(self):
         df = self.get_dataframe()
         cl = CompoundsLoader(df)
-        cl.load_compounds()
+        cl.load_compound_data()
         cl2 = CompoundsLoader(df)
-        cl2.load_compounds()
+        cl2.load_compound_data()
         self.assertEqual(0, cl2.num_inserted_compounds)
         self.assertEqual(0, cl2.num_erroneous_compounds)
         self.assertEqual(1, cl2.num_existing_compounds)
@@ -340,7 +340,7 @@ class CompoundsLoaderTests(TracebaseTestCase):
                 }
             )
         )
-        cl.load_compounds()
+        cl.load_compound_data()
 
         # The fact these 2 gets don't raise an exception is a test that the load worked
         ncpd = Compound.objects.get(name__exact="my new compound")

@@ -142,11 +142,11 @@ class SampleTableLoader:
     def __init__(
         self,
         sample_table_headers=DefaultSampleTableHeaders,
-        validate=False,  # DO NOT USE MANUALLY - THIS WILL NOT ROLL BACK UPON ERROR (handle in outer atomic transact)
+        validate=False,  # Only affects what is/isn't a warning
         verbosity=1,
         skip_researcher_check=False,
         defer_autoupdates=False,
-        defer_rollback=False,
+        defer_rollback=False,  # DO NOT USE MANUALLY - THIS WILL NOT ROLL BACK (handle in atomic transact in caller)
         dry_run=False,
     ):
         # Header config
@@ -157,11 +157,9 @@ class SampleTableLoader:
         self.verbosity = verbosity
         self.dry_run = dry_run
         self.validate = validate
-
         # How to handle mass autoupdates
         self.defer_autoupdates = defer_autoupdates
-
-        # Whether to rollback upon error or defer it to the caller
+        # Whether to rollback upon error or keep the changes and defer rollback to the caller
         self.defer_rollback = defer_rollback
 
         # Caching overhead
@@ -211,19 +209,21 @@ class SampleTableLoader:
 
         try:
             saved_aes = None
+
             with transaction.atomic():
                 try:
-                    self.load_data(data)
+                    self._load_data(data)
                 except AggregatedErrors as aes:
-                    if not self.validate and not self.defer_rollback:
+                    if self.defer_rollback:
+                        saved_aes = aes
+                    else:
                         # If we're not working for the validation interface, raise here to cause a rollback
                         raise aes
-                    else:
-                        saved_aes = aes
-            if (self.validate or self.defer_rollback) and saved_aes:
-                # If we're working for the validation interface, raise here to not cause a rollback (so that the
-                # accucor loader can be run to find more issues - samples must be loaded already to run the accucor
-                # loader), and provide the validation interface details on the exceptions.
+
+            # If we were directed to defer rollback in the event of an error, raise the exception here (outside of
+            # the atomic transaction block).  This assumes that the caller is handling rollback in their own atomic
+            # transaction blocl.
+            if saved_aes is not None:
                 raise saved_aes
 
         except Exception as e:
@@ -245,7 +245,7 @@ class SampleTableLoader:
         if self.dry_run:
             MaintainedModel.enable_buffering()
 
-    def load_data(self, data):
+    def _load_data(self, data):
         # Create a list to hold the csv reader data so that iterations from validating doesn't leave the csv reader
         # empty/at-the-end upon the import loop
         sample_table_data = list(data)
