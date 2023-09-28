@@ -30,12 +30,11 @@ class Command(BaseCommand):
             help=("Dry-run. If specified, nothing will be saved to the database. "),
         )
 
-        # Used internally by the DataValidationView
+        # Intended for use by load_study to prevent rollback of changes in the event of an error so that for example,
+        # subsequent loading scripts can validate with all necessary data present
         parser.add_argument(
-            "--validate",
-            required=False,
+            "--defer-rollback",  # DO NOT USE MANUALLY - THIS WILL NOT ROLL BACK (handle in outer atomic transact)
             action="store_true",
-            default=False,
             help=argparse.SUPPRESS,
         )
 
@@ -47,11 +46,11 @@ class Command(BaseCommand):
         self.tissue_loader = TissuesLoader(
             tissues=new_tissues,
             dry_run=options["dry_run"],
-            validate=options["validate"],
+            defer_rollback=options["defer_rollback"],
         )
 
         try:
-            self.tissue_loader.load()
+            self.tissue_loader.load_tissue_data()
         except DryRun:
             pass
 

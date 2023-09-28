@@ -45,7 +45,7 @@ class ProtocolLoadingTests(TracebaseTestCase):
             category=Protocol.ANIMAL_TREATMENT,
             dry_run=dry_run,
         )
-        protocol_loader.load()
+        protocol_loader.load_protocol_data()
 
     def test_protocols_loader(self):
         """Test the ProtocolsLoader class"""
@@ -71,7 +71,7 @@ class ProtocolLoadingTests(TracebaseTestCase):
         protocol_loader = ProtocolsLoader(protocols=self.working_df)
 
         with self.assertRaises(AggregatedErrors) as ar:
-            protocol_loader.load()
+            protocol_loader.load_protocol_data()
         aes = ar.exception
         self.assertEqual(1, aes.num_errors)
         self.assertEqual(0, aes.num_warnings)
@@ -87,7 +87,7 @@ class ProtocolLoadingTests(TracebaseTestCase):
             category="Some Nonsense Category",
         )
         with self.assertRaises(AggregatedErrors) as ar:
-            protocol_loader.load()
+            protocol_loader.load_protocol_data()
         aes = ar.exception
         self.assertEqual(1, aes.num_errors)
         self.assertEqual(0, aes.num_warnings)

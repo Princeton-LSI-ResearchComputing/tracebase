@@ -46,14 +46,14 @@ author and/or reviewers should uncheck any unmet requirements:
   all required pull requests are merged.  If any are not done, either edit or
   split the issue or explain the unmerged affected pull requests.
   -->
-  - [x] All requirements in the affected "resolved" issues are satisfied
+  - [x] All requirements in affected issues marked "resolved" are satisfied
   - [x] All required pull requests are merged *(or none)*
 - Basic requirements
   <!--
   Uncheck items to acknowledge failures/conflicts you intend to address.
   Add an explanation if any won't be addressed before merge.
   -->
-  - [x] [All linters pass](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/CONTRIBUTING.md#linting).
+  - [x] [All linters pass](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/CONTRIBUTING.md#linting)
   - [x] [All tests pass](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/CONTRIBUTING.md#quality-control)
   - [x] All conflicts resolved
 - Overhead requirements
@@ -62,5 +62,5 @@ author and/or reviewers should uncheck any unmet requirements:
   resolving the affected issue(s).
   -->
   - [x] [New/changed method tests implemented/updated *(or no change)*](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/CONTRIBUTING.md#test-implementation)
-  - [x] Added changes to *Unreleased* section of [`changelog.md`](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/changelog.md).
+  - [x] Added changes to *Unreleased* section of [`changelog.md`](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/changelog.md)
   - [x] [Migrations created & committed *(or no change)*](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/CONTRIBUTING.md#migration-process)

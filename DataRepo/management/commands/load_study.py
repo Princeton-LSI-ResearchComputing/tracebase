@@ -131,7 +131,8 @@ class Command(BaseCommand):
                     call_command(
                         "load_compounds",
                         compounds=compounds_file,
-                        validate=self.validate,
+                        defer_rollback=True,  # Until after we exit THIS atomic block
+                        # Validate is not needed - it changes nothing
                     )
                 except Exception as e:
                     self.package_group_exceptions(e, compounds_file)
@@ -152,8 +153,9 @@ class Command(BaseCommand):
                     call_command(
                         "load_protocols",
                         protocols=protocols_file,
-                        validate=self.validate,
                         verbosity=self.verbosity,
+                        defer_rollback=True,  # Until after we exit THIS atomic block
+                        # Validate is not needed - it changes nothing
                     )
                 except Exception as e:
                     self.package_group_exceptions(e, protocols_file)
@@ -174,8 +176,9 @@ class Command(BaseCommand):
                     call_command(
                         "load_tissues",
                         tissues=tissues_file,
-                        validate=self.validate,
                         verbosity=self.verbosity,
+                        defer_rollback=True,  # Until after we exit THIS atomic block
+                        # Validate is not needed - it changes nothing
                     )
                 except Exception as e:
                     self.package_group_exceptions(e, tissues_file)
@@ -216,8 +219,11 @@ class Command(BaseCommand):
                         table_headers=headers_file,
                         skip_researcher_check=skip_researcher_check,
                         verbosity=self.verbosity,
+                        # Validate mode affects what is or isn't a warning. It essentially represents "end user context"
+                        # and changes errors to warnings when the user has no means to fix it themselves.
                         validate=self.validate,
-                        defer_rollback=True,
+                        defer_autoupdates=True,
+                        defer_rollback=True,  # Until after we exit THIS atomic block
                     )
                 except Exception as e:
                     self.package_group_exceptions(e, animals_samples_table_file)

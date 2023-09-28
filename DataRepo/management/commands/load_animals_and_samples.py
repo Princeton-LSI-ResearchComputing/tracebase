@@ -69,17 +69,23 @@ class Command(BaseCommand):
         )
         # Used internally by the DataValidationView
         parser.add_argument(
-            "--validate",  # DO NOT USE MANUALLY - THIS WILL NOT ROLL BACK UPON ERROR (handle in outer atomic transact)
+            "--validate",  # Only affects what is/isn't a warning
             required=False,
             action="store_true",
             default=False,
             help=argparse.SUPPRESS,
         )
-        # Intended for use by load_study to prevent rollback of partial changes when there is an exception.  The changes
-        # are retained in order for load_study to be able to run the accucor loader so that more errors can be gathered
-        # to present as many issues a user can fix in 1 go.
+        # Intended for use by load_study to prevent individual loader autoupdates and buffer clearing, then perform all
+        # mass autoupdates/buffer-clearings after all load scripts are complete
         parser.add_argument(
-            "--defer-rollback",
+            "--defer-autoupdates",
+            action="store_true",
+            help=argparse.SUPPRESS,
+        )
+        # Intended for use by load_study to prevent rollback of changes in the event of an error so that for example,
+        # subsequent loading scripts can validate with all necessary data present
+        parser.add_argument(
+            "--defer-rollback",  # DO NOT USE MANUALLY - THIS WILL NOT ROLL BACK (handle in outer atomic transact)
             action="store_true",
             help=argparse.SUPPRESS,
         )
