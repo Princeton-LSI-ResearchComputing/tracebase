@@ -33,7 +33,7 @@ class Command(BaseCommand):
         # Intended for use by load_study to prevent rollback of changes in the event of an error so that for example,
         # subsequent loading scripts can validate with all necessary data present
         parser.add_argument(
-            "--defer-rollback",
+            "--defer-rollback",  # DO NOT USE MANUALLY - THIS WILL NOT ROLL BACK (handle in outer atomic transact)
             action="store_true",
             help=argparse.SUPPRESS,
         )
