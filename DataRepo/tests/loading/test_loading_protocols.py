@@ -5,7 +5,6 @@ from django.core.management import call_command
 from django.test import tag
 
 from DataRepo.models import Protocol
-from DataRepo.models.maintained_model import MaintainedModel
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import ProtocolsLoader
 from DataRepo.utils.exceptions import (
@@ -171,9 +170,6 @@ class ProtocolLoadingTests(TracebaseTestCase):
 
     def test_protocol_load_in_debug(self):
         pre_load_counts = self.get_record_counts()
-        self.assertEqual(
-            0, MaintainedModel.buffer_size(), msg="Autoupdate buffer is empty to start."
-        )
 
         with self.assertRaises(DryRun):
             self.load_dataframe_as_animal_treatment(self.working_df, dry_run=True)
@@ -184,9 +180,4 @@ class ProtocolLoadingTests(TracebaseTestCase):
             pre_load_counts,
             post_load_counts,
             msg="DryRun mode doesn't change any table's record count.",
-        )
-        self.assertEqual(
-            0,
-            MaintainedModel.buffer_size(),
-            msg="DryRun mode doesn't leave buffered autoupdates.",
         )

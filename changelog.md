@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Updated dependencies
 - Use human readable string methods for ArchiveFile, DataType, and DataFormat (affects admin interface, other default templates)
+- Made auto-update code thread-safe
+- Implemented context managers and decorator wrappers to control autoupdate behaviors
 
 ## [2.0.3] - 2023-07-07
 

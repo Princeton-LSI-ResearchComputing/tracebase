@@ -12,10 +12,7 @@ from DataRepo.models.hier_cached_model import (
     disable_caching_updates,
     enable_caching_updates,
 )
-from DataRepo.models.maintained_model import (
-    MaintainedModel,
-    UncleanBufferError,
-)
+from DataRepo.models.maintained_model import MaintainedModel
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     AllMissingCompounds,
@@ -86,22 +83,12 @@ class Command(BaseCommand):
             default=False,
             help=argparse.SUPPRESS,
         )
-        # Certain errors will prompt the user to supply this flag if the contents of the buffer are determined to be
-        # stale
-        parser.add_argument(
-            "--clear-buffer",
-            action="store_true",
-            default=False,
-            help=argparse.SUPPRESS,
-        )
-        # Intended for use by load_study_set to prevent this script from autoupdating and buffer clearing, then perform
-        # all mass autoupdates/buffer-clearings after all study loads are complete
-        parser.add_argument(
-            "--defer-autoupdates",
-            action="store_true",
-            help=argparse.SUPPRESS,
-        )
 
+    @MaintainedModel.defer_autoupdates(
+        disable_opt_names=["validate", "dry_run"],
+        pre_mass_update_func=disable_caching_updates,
+        post_mass_update_func=enable_caching_updates,
+    )
     def handle(self, *args, **options):
         self.missing_samples = defaultdict(list)
         self.missing_tissues = defaultdict(dict)
@@ -110,19 +97,6 @@ class Command(BaseCommand):
         self.verbosity = options["verbosity"]
         self.validate = options["validate"]
         self.dry_run = options["dry_run"]
-
-        # The buffer can only exist as long as the existence of the process, but since this method can be called from
-        # code, who knows what has been done before.  However, given calls from load_study_set can intentionally defer
-        # autoupdates, the buffer can be intentionally populated at the start of this script.  So the clear_buffer
-        # option allows the load_study method to be called in code with an option to explicitly clean the buffer, for
-        # example, in the first call in a series.
-        if options["clear_buffer"]:
-            MaintainedModel.clear_update_buffer()
-        elif MaintainedModel.buffer_size() > 0 and not options["defer_autoupdates"]:
-            raise UncleanBufferError(
-                "The auto-update buffer is unexpectedly populated.  Add --clear-buffer to your command to flush the "
-                "buffer and proceed with the load."
-            )
 
         # Read load study parameters
         study_params = yaml.safe_load(options["study_params"])
@@ -309,7 +283,6 @@ class Command(BaseCommand):
                             sample_name_prefix=sample_name_prefix,
                             validate=self.validate,
                             isocorr_format=isocorr_format,
-                            defer_autoupdates=True,
                         )
                         if self.verbosity > 1:
                             self.stdout.write(
@@ -326,7 +299,6 @@ class Command(BaseCommand):
             # that we can roll back all changes and pass all the status data to the validation interface via this
             # exception.
             if self.validate:
-                MaintainedModel.clear_update_buffer()
                 # If we are in validate mode, we raise the entire load_statuses object whether the load failed or
                 # not, so that we can report the load status of all load files, including successful loads.  It's
                 # like Dry Run mode, but exclusively for the validation interface.
@@ -335,20 +307,11 @@ class Command(BaseCommand):
             # If there were actual errors, raise an AggregatedErrorsSet exception inside the atomic block to cause
             # a rollback of everything
             if not self.load_statuses.get_success_status():
-                MaintainedModel.clear_update_buffer()
                 raise self.load_statuses.get_final_exception()
 
             if self.dry_run:
-                MaintainedModel.clear_update_buffer()
                 self.print_load_status()
                 raise DryRun()
-
-        # Since defer_autoupdates is supplied as True to the sample and accucor load commands, we can do all the mass
-        # autoupdates in 1 go.  And note that each load script makes its own calls to disable/enable caching and
-        # maintained field updates, so we don't want to manipulate these settings during those loads, so we do it here
-        # at the end when we want to actually perform the operations that were buffered by those loads.
-        if not options["defer_autoupdates"] and MaintainedModel.buffer_size() > 0:
-            self.perform_autoupdates()
 
         self.print_load_status()
 
@@ -469,12 +432,3 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING(message))
         elif state == "FAILED":
             self.stdout.write(self.style.ERROR(message))
-
-    def perform_autoupdates(self):
-        MaintainedModel.disable_autoupdates()
-        disable_caching_updates()
-        MaintainedModel.perform_buffered_updates()
-        # The buffer should be clear, but just for good measure...
-        MaintainedModel.clear_update_buffer()
-        enable_caching_updates()
-        MaintainedModel.enable_autoupdates()

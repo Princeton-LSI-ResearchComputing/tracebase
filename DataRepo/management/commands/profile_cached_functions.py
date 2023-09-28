@@ -1,10 +1,10 @@
+import importlib
 import timeit
 import warnings
 
 from django.conf import settings
 from django.core.management import BaseCommand
 
-from DataRepo.models import Animal, PeakData, PeakGroup, Sample  # noqa: F401
 from DataRepo.models.hier_cached_model import (
     disable_caching_retrievals,
     enable_caching_errors,
@@ -38,8 +38,16 @@ def profile():
     }
     max_num_recs = 1300
 
+    print("Cached functions per model that will be profiled:")
+    for mdl_key in func_name_lists.keys():
+        print(f"\t{mdl_key}")
+        for fn in func_name_lists[mdl_key]:
+            print(f"\t\t{fn}")
+
+    module = importlib.import_module("DataRepo.models")
+
     for class_name in func_name_lists.keys():
-        cls = eval(class_name)
+        cls = getattr(module, class_name)
         if class_name in iterations:
             iters = iterations[class_name]
         else:

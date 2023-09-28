@@ -156,12 +156,10 @@ class Infusate(MaintainedModel):
         # Get the name.  Initialize if not set and auto-updates are on.
         if self.name:
             display_name = self.name
-        elif MaintainedModel.are_autoupdates_enabled():
-            MaintainedModel.init_autoupdate_label_filters(label_filters=["name"])
+        elif self.get_coordinator().are_autoupdates_enabled():
             # This triggers an auto-update
             self.save()
             display_name = self.name
-            MaintainedModel.init_autoupdate_label_filters()
 
         # If it's still not set, call the method that generates the name.  It just won't be saved.
         if not display_name:

@@ -11,6 +11,7 @@ from DataRepo.models import (
     AnimalLabel,
     FCirc,
     Infusate,
+    MaintainedModel,
     Protocol,
     Sample,
     Study,
@@ -20,7 +21,6 @@ from DataRepo.models.hier_cached_model import (
     disable_caching_updates,
     enable_caching_updates,
 )
-from DataRepo.models.maintained_model import MaintainedModel
 from DataRepo.models.researcher import (
     UnknownResearcherError,
     get_researchers,
@@ -198,14 +198,13 @@ class SampleTableLoader:
             "TIME_COLLECTED": ["m", "min", "mins", "minute", "minutes"],
         }
 
+    @MaintainedModel.defer_autoupdates(
+        pre_mass_update_func=disable_caching_updates,
+        post_mass_update_func=enable_caching_updates,
+    )
     def load_sample_table(self, data):
-        MaintainedModel.disable_autoupdates()
-        if self.dry_run:
-            # Don't let any auto-updates buffer because we're not going to perform the mass auto-update
-            MaintainedModel.disable_buffering()
+        # Chaching updates are not necessary when just adding data, so disabling dramatically speeds things up
         disable_caching_updates()
-        # Only auto-update fields whose update_label in the decorator is "name"
-        MaintainedModel.init_autoupdate_label_filters(label_filters=["name"])
 
         try:
             saved_aes = None
@@ -227,23 +226,10 @@ class SampleTableLoader:
                 raise saved_aes
 
         except Exception as e:
-            # If we're stopping with an exception, we need to clear the update buffer so that the next call doesn't
-            # make auto-updates on non-existent (or incorrect) records
-            MaintainedModel.clear_update_buffer()
-            # Re-initialize label filters to default
-            MaintainedModel.init_autoupdate_label_filters()
             enable_caching_updates()
-            MaintainedModel.enable_autoupdates()
-            if self.dry_run:
-                MaintainedModel.enable_buffering()
             raise e
 
-        # Re-initialize label filters to default
-        MaintainedModel.init_autoupdate_label_filters()
         enable_caching_updates()
-        MaintainedModel.enable_autoupdates()
-        if self.dry_run:
-            MaintainedModel.enable_buffering()
 
     def _load_data(self, data):
         # Create a list to hold the csv reader data so that iterations from validating doesn't leave the csv reader
@@ -337,18 +323,6 @@ class SampleTableLoader:
             animal_rec.delete_related_caches()
         if self.verbosity >= 2:
             print("Expiring done.")
-
-        autoupdate_mode = not self.defer_autoupdates
-
-        if autoupdate_mode:
-            # No longer any need to explicitly filter based on labels, because only records containing fields with the
-            # required labels are buffered now, and when the records are buffered, the label filtering that was in
-            # effect at the time of buffering is saved so that only the fields matching the label filter will be
-            # updated.  There are autoupdates for fields in Animal and Sample, but they're only needed for FCirc
-            # calculations and will be triggered by a subsequent accucor load.
-            MaintainedModel.perform_buffered_updates()
-            # Since we only updated some of the buffered items, clear the rest of the buffer
-            MaintainedModel.clear_update_buffer()
 
     def get_tissue(self, rownum, row):
         tissue_name = self.getRowVal(row, "TISSUE_NAME")
