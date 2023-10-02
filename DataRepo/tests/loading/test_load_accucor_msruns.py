@@ -32,6 +32,7 @@ from DataRepo.utils.exceptions import (
 class AccuCorDataLoadingTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
+        call_command("loaddata", "lc_methods")
         call_command(
             "load_study",
             "DataRepo/example_data/small_dataset/small_obob_study_prerequisites.yaml",
@@ -54,7 +55,9 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             "load_accucor_msruns",
             accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_glucose.xlsx",
             skip_samples=("blank"),
-            protocol="Default",
+            ms_protocol_name="Default",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="default instrument",
             date="2021-04-29",
             researcher="Michael Neinast",
             new_researcher=True,
@@ -65,7 +68,9 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             call_command(
                 "load_accucor_msruns",
                 accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_blank_sample.xlsx",
-                protocol="Default",
+                ms_protocol_name="Default",
+                lc_protocol_name="polar-HILIC-25-min",
+                instrument="default instrument",
                 date="2021-04-29",
                 researcher="Michael Neinast",
                 new_researcher=True,
@@ -79,7 +84,9 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             "load_accucor_msruns",
             accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_blank_sample.xlsx",
             skip_samples=("blank"),
-            protocol="Default",
+            ms_protocol_name="Default",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="default instrument",
             date="2021-04-29",
             researcher="Michael Neinast",
             new_researcher=True,
@@ -99,7 +106,9 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_req_prefix.xlsx",
             sample_name_prefix="PREFIX_",
             skip_samples=("blank"),
-            protocol="Default",
+            ms_protocol_name="Default",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="default instrument",
             date="2021-04-29",
             researcher="Michael Neinast",
             new_researcher=True,
@@ -119,7 +128,9 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
                 "load_accucor_msruns",
                 accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_req_prefix.xlsx",
                 skip_samples=("blank"),
-                protocol="Default",
+                ms_protocol_name="Default",
+                lc_protocol_name="polar-HILIC-25-min",
+                instrument="default instrument",
                 date="2021-04-29",
                 researcher="Michael Neinast",
                 new_researcher=True,
@@ -175,7 +186,9 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
                 "load_accucor_msruns",
                 accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_blank_sample.xlsx",
                 skip_samples=("blank"),
-                protocol="Default",
+                ms_protocol_name="Default",
+                lc_protocol_name="polar-HILIC-25-min",
+                instrument="default instrument",
                 date="2021-04-29",
                 researcher="Michael Neinast",
                 new_researcher=True,
@@ -200,7 +213,16 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         )
 
     def test_record_missing_compound(self):
-        adl = AccuCorDataLoader(None, None, "1972-11-24", "", "", "")
+        adl = AccuCorDataLoader(
+            None,
+            None,
+            date="1972-11-24",
+            researcher="",
+            ms_protocol_name="",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="",
+            peak_group_set_filename="",
+        )
         adl.record_missing_compound("new compound", "C1H4", 9)
         self.assertEqual(
             {
@@ -228,7 +250,9 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
                 "load_accucor_msruns",
                 accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_glucose_conflicting.xlsx",
                 skip_samples=("blank"),
-                protocol="Default",
+                ms_protocol_name="Default",
+                lc_protocol_name="polar-HILIC-25-min",
+                instrument="default instrument",
                 date="2021-04-29",
                 researcher="Michael Neinast",
                 new_researcher=False,
@@ -254,7 +278,14 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         # multiple loads of the same accucor_file, meaning two PeakGroups will
         # differ in PeakGroupSet and raise ConflictingValueErrors, not DuplicatePeakGroup
         adl = AccuCorDataLoader(
-            None, None, "2023-01-01", "", "", "peak_group_set_filename.tsv"
+            None,
+            None,
+            date="2023-01-01",
+            researcher="",
+            ms_protocol_name="",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="",
+            peak_group_set_filename="peak_group_set_filename.tsv",
         )
         # Get the first PeakGroup, and collect attributes
         peak_group = PeakGroup.objects.first()
@@ -286,7 +317,14 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
 
         # Setup an AccuCorDataLoader object with minimal info
         adl = AccuCorDataLoader(
-            None, None, "2023-01-01", "", "", "peak_group_set_filename.tsv"
+            None,
+            None,
+            date="2023-01-01",
+            researcher="",
+            ms_protocol_name="",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="",
+            peak_group_set_filename="peak_group_set_filename.tsv",
         )
         # Get the first PeakGroup, collect the attributes and change the formula
         peak_group = PeakGroup.objects.first()
@@ -318,7 +356,9 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         call_command(
             "load_accucor_msruns",
             accucor_file="DataRepo/example_data/testing_data/accucor_with_multiple_labels/accucor.xlsx",
-            protocol="Default",
+            ms_protocol_name="Default",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="default instrument",
             date="2021-04-29",
             researcher="anonymous",
             new_researcher=False,
@@ -340,14 +380,20 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             call_command(
                 "load_accucor_msruns",
                 accucor_file="DataRepo/example_data/testing_data/accucor_with_multiple_labels/accucor_bad_label.xlsx",
-                protocol="Default",
+                ms_protocol_name="Default",
+                lc_protocol_name="polar-HILIC-25-min",
+                instrument="default instrument",
                 date="2021-04-29",
                 researcher="anonymous",
                 new_researcher=False,
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
-        self.assertTrue(isinstance(aes.exceptions[0], TracerLabeledElementNotFound))
+        self.assertTrue(
+            isinstance(aes.exceptions[0],TracerLabeledElementNotFound),
+            msg="First exception must be TracerLabeledElementNotFound, but it was: "
+            f"[{type(aes.exceptions[0]).__name__}].",
+        )
 
     @tag("multi-msrun")
     def test_multiple_accucor_one_msrun(self):
@@ -358,7 +404,9 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         call_command(
             "load_accucor_msruns",
             accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_lactate.xlsx",
-            protocol="Default",
+            ms_protocol_name="Default",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="default instrument",
             date="2021-04-29",
             researcher="Michael Neinast",
             new_researcher=False,
@@ -383,7 +431,9 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             call_command(
                 "load_accucor_msruns",
                 accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_glucose_2.xlsx",
-                protocol="Default",
+                ms_protocol_name="Default",
+                lc_protocol_name="polar-HILIC-25-min",
+                instrument="default instrument",
                 date="2021-04-29",
                 researcher="Michael Neinast",
                 new_researcher=False,
@@ -409,6 +459,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
 class IsoCorrDataLoadingTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
+        call_command("loaddata", "lc_methods")
         call_command(
             "load_study",
             "DataRepo/example_data/protocols/loading.yaml",
@@ -495,7 +546,9 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
                 "Blank03",
                 "Blank04",
             ),
-            protocol="Default",
+            ms_protocol_name="Default",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="default instrument",
             date="2021-04-29",
             researcher="Michael Neinast",
             new_researcher=True,
@@ -535,7 +588,9 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
                     "Blank03",
                     "Blank04",
                 ),
-                protocol="Default",
+                ms_protocol_name="Default",
+                lc_protocol_name="polar-HILIC-25-min",
+                instrument="default instrument",
                 date="2021-04-29",
                 researcher="Michael Neinast",
                 new_researcher=True,
@@ -637,7 +692,9 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             "load_accucor_msruns",
             accucor_file="DataRepo/example_data/obob_fasted_ace_glycerol_3hb_citrate_eaa_fa_multiple_tracers/"
             "6eaafasted1_cor.xlsx",
-            protocol="Default",
+            ms_protocol_name="Default",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="default instrument",
             date="2021-04-29",
             researcher="Xianfeng Zeng",
             new_researcher=False,
@@ -669,7 +726,9 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             "load_accucor_msruns",
             accucor_file="DataRepo/example_data/obob_fasted_ace_glycerol_3hb_citrate_eaa_fa_multiple_tracers/"
             "6eaafasted2_cor.xlsx",
-            protocol="Default",
+            ms_protocol_name="Default",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="default instrument",
             date="2021-04-29",
             researcher="Xianfeng Zeng",
             new_researcher=False,
@@ -701,7 +760,9 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             "load_accucor_msruns",
             accucor_file="DataRepo/example_data/obob_fasted_ace_glycerol_3hb_citrate_eaa_fa_multiple_tracers/"
             "bcaafasted_cor.xlsx",
-            protocol="Default",
+            ms_protocol_name="Default",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="default instrument",
             date="2021-04-29",
             researcher="Xianfeng Zeng",
             new_researcher=False,
@@ -784,7 +845,9 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             "load_accucor_msruns",
             accucor_file="DataRepo/example_data/obob_fasted_glc_lac_gln_ala_multiple_labels/"
             "alafasted_cor.xlsx",
-            protocol="Default",
+            ms_protocol_name="Default",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="default instrument",
             date="2021-04-29",
             researcher="Xianfeng Zeng",
             new_researcher=False,
@@ -803,7 +866,9 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             "load_accucor_msruns",
             accucor_file="DataRepo/example_data/obob_fasted_glc_lac_gln_ala_multiple_labels/"
             "glnfasted1_cor.xlsx",
-            protocol="Default",
+            ms_protocol_name="Default",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="default instrument",
             date="2021-04-29",
             researcher="Xianfeng Zeng",
             new_researcher=False,
@@ -822,7 +887,9 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             "load_accucor_msruns",
             accucor_file="DataRepo/example_data/obob_fasted_glc_lac_gln_ala_multiple_labels/"
             "glnfasted2_cor.xlsx",
-            protocol="Default",
+            ms_protocol_name="Default",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="default instrument",
             date="2021-04-29",
             researcher="Xianfeng Zeng",
             new_researcher=False,
@@ -865,7 +932,9 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             "load_accucor_msruns",
             accucor_file="DataRepo/example_data/obob_fasted_glc_lac_gln_ala_multiple_labels/"
             "alafasted_cor.xlsx",
-            protocol="Default",
+            ms_protocol_name="Default",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="default instrument",
             date="2021-04-29",
             researcher="Xianfeng Zeng",
             new_researcher=False,

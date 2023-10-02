@@ -51,6 +51,7 @@ def assert_coordinator_state_is_initialized():
 class ViewTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls, disabled_coordinator=False):
+        call_command("loaddata", "lc_methods")
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
         cls.ALL_TISSUES_COUNT = 37
 
@@ -77,7 +78,9 @@ class ViewTests(TracebaseTestCase):
 
         call_command(
             "load_accucor_msruns",
-            protocol="Default",
+            ms_protocol_name="Default",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="default instrument",
             accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf.xlsx",
             date="2021-06-03",
             researcher="Michael Neinast",
@@ -90,7 +93,9 @@ class ViewTests(TracebaseTestCase):
 
         call_command(
             "load_accucor_msruns",
-            protocol="Default",
+            ms_protocol_name="Default",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="default instrument",
             accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_serum.xlsx",
             date="2021-06-03",
             researcher="Michael Neinast",
@@ -640,6 +645,7 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         # Ensure the auto-update buffer is empty.  If it's not, then a previously run test didn't clean up after itself
         assert_coordinator_state_is_initialized()
 
+        call_command("loaddata", "lc_methods")
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
         call_command(
             "load_compounds",
@@ -738,7 +744,9 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         )
         call_command(
             "load_accucor_msruns",
-            protocol="Default",
+            ms_protocol_name="Default",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="default instrument",
             accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf.xlsx",
             date="2021-06-03",
             researcher="Michael Neinast",

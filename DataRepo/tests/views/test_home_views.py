@@ -43,6 +43,7 @@ class HomeViewTests(TracebaseTestCase):
         # Ensure the auto-update buffer is empty.  If it's not, then a previously run test didn't clean up after itself
         assert_coordinator_state_is_initialized()
 
+        call_command("loaddata", "lc_methods")
         call_command(
             "load_study",
             "DataRepo/example_data/test_dataframes/loading.yaml",

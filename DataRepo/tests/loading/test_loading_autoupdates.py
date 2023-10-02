@@ -18,6 +18,7 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 class AutoupdateLoadingTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
+        call_command("loaddata", "lc_methods")
         call_command(
             "load_study",
             "DataRepo/example_data/small_dataset/small_obob_study_prerequisites.yaml",
@@ -86,7 +87,9 @@ class AutoupdateLoadingTests(TracebaseTestCase):
                     "load_accucor_msruns",
                     accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_blank_sample.xlsx",
                     skip_samples=("blank"),
-                    protocol="Default",
+                    ms_protocol_name="Default",
+                    lc_protocol_name="polar-HILIC-25-min",
+                    instrument="default instrument",
                     date="2021-04-29",
                     researcher="Michael Neinast",
                     new_researcher=True,

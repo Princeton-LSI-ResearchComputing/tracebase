@@ -47,37 +47,43 @@ class Command(BaseCommand):
                 "Filepath of either an xlsx or csv file containing metadata associated with the liquid chromatography "
                 "and mass spec instrument run."
             ),
-            required=True,
+            default=None,
+            required=False,
         )
         parser.add_argument(
             "--lc-protocol-name",
             type=str,
             help="Default LCMethod.name of the liquid chromatography protocol used",
-            required=True,
+            default=None,
+            required=False,
         )
         parser.add_argument(
             "--ms-protocol-name",
             type=str,
             help="Default name of the mass spectrometry protocol used",
-            required=True,
+            default=None,
+            required=False,
         )
         parser.add_argument(
             "--instrument",
             type=str,
             help="Name of the LCMS instrument that analyzed the samples",
-            required=True,
+            default=None,
+            required=False,
         )
         parser.add_argument(
             "--date",
             type=str,
             help="Date MSRun was performed, formatted as YYYY-MM-DD",
-            required=True,
+            default=None,
+            required=False,
         )
         parser.add_argument(
             "--researcher",
             type=str,
             help="Database name or ID of the researcher",
-            required=True,
+            default=None,
+            required=False,
         )
         parser.add_argument(
             "--skip-samples",
@@ -130,7 +136,7 @@ class Command(BaseCommand):
     )
     def handle(self, *args, **options):
         lcms_metadata = None
-        if options["lcms_file"]:
+        if options["lcms_file"] is not None:
             try:
                 lcms_metadata = self.extract_dataframes_from_lcms_xlsx(
                     options["lcms_file"]
@@ -166,8 +172,8 @@ class Command(BaseCommand):
             lcms_metadata=lcms_metadata,
             # LCMS batch defaults
             date=options["date"],
-            default_lc_protocol_name=options["lc_protocol_name"],
-            default_ms_protocol_name=options["ms_protocol_name"],
+            lc_protocol_name=options["lc_protocol_name"],
+            ms_protocol_name=options["ms_protocol_name"],
             researcher=options["researcher"],
             instrument=options["instrument"],
             # Sample options

@@ -13,6 +13,7 @@ class SampleTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
         super().setUpTestData()
+        call_command("loaddata", "lc_methods")
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
         call_command(
             "load_compounds",
@@ -25,7 +26,9 @@ class SampleTests(TracebaseTestCase):
         )
         call_command(
             "load_accucor_msruns",
-            protocol="Default",
+            ms_protocol_name="Default",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="default instrument",
             accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf.xlsx",
             date="2021-06-03",
             researcher="Michael Neinast",
@@ -33,7 +36,9 @@ class SampleTests(TracebaseTestCase):
         )
         call_command(
             "load_accucor_msruns",
-            protocol="Default",
+            ms_protocol_name="Default",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="default instrument",
             accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_serum.xlsx",
             date="2021-06-03",
             researcher="Michael Neinast",

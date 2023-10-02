@@ -48,6 +48,10 @@ properties:
               type: string
             msrun_protocol:
               type: string
+            lc_protocol:
+              type: string
+            instrument:
+              type: string
             date:
               type: string
             researcher:
@@ -68,6 +72,12 @@ properties:
       msrun_protocol:
         type: string
         description: name of ms run protocol
+      lc_protocol:
+        type: string
+        description: name of liquid chromatography protocol
+      instrument:
+        type: string
+        description: name of LCMS instrument
       date:
         type: string
         description: date of ms run
@@ -89,6 +99,8 @@ properties:
     required:
       - accucor_files
       - msrun_protocol
+      - lc_protocol
+      - instrument
       - date
       - researcher
     additionalProperties: false

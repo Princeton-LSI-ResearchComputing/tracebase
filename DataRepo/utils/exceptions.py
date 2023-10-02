@@ -918,6 +918,9 @@ class AggregatedErrors(Exception):
     def get_num_warnings(self):
         return self.num_warnings
 
+    def exception_type_exists(self, exc_cls):
+        return exc_cls in [type(exc) for exc in self.exceptions]
+
 
 class ConflictingValueErrors(Exception):
     """Conflicting values for a specific model object from a given file
@@ -1205,6 +1208,18 @@ class MissingTissues(Exception):
         super().__init__(message)
         self.tissues_dict = tissues_dict
         self.existing = existing
+
+
+class LCMethodFixturesMissing(Exception):
+    def __init__(self, message=None, err=None):
+        if message is None:
+            message = (
+                f"The LCMethod fixtures defined in [DataRepo/fixtures/lc_methods.yaml] appear to have not been loaded."
+            )
+        if err is not None:
+            message += f"  The triggering exception was: [{err}]."
+        super().__init__(message)
+        self.err = err
 
 
 def summarize_int_list(intlist):

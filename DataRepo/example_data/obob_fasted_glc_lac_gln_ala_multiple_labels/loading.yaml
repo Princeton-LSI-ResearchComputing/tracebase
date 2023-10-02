@@ -14,6 +14,8 @@ accucor_data:
     - name: "alafasted_cor.xlsx"
       isocorr_format: true
   msrun_protocol: "HILIC_NegativeMode"
+  lc_protocol: "polar-HILIC-25-min"
+  instrument: "default instrument"
   date: "2021-06-06"
   researcher: "Xianfeng Zeng"
   new_researcher: false

@@ -324,6 +324,7 @@ class ProtocolTests(TracebaseTestCase):
 class DataLoadingTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
+        call_command("loaddata", "lc_methods")
         call_command("load_study", "DataRepo/example_data/protocols/loading.yaml")
         call_command(
             "load_protocols",
@@ -369,7 +370,9 @@ class DataLoadingTests(TracebaseTestCase):
 
         call_command(
             "load_accucor_msruns",
-            protocol="Default",
+            ms_protocol_name="Default",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="default instrument",
             accucor_file="DataRepo/example_data/obob_maven_6eaas_inf.xlsx",
             date="2021-04-29",
             researcher="Michael Neinast",
@@ -381,7 +384,9 @@ class DataLoadingTests(TracebaseTestCase):
 
         call_command(
             "load_accucor_msruns",
-            protocol="Default",
+            ms_protocol_name="Default",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="default instrument",
             accucor_file="DataRepo/example_data/obob_maven_6eaas_serum.xlsx",
             date="2021-04-29",
             researcher="Michael Neinast",
@@ -394,7 +399,9 @@ class DataLoadingTests(TracebaseTestCase):
         # test load CSV file of corrected data, with no "original counterpart"
         call_command(
             "load_accucor_msruns",
-            protocol="Default",
+            ms_protocol_name="Default",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="default instrument",
             accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_corrected.csv",
             date="2021-10-14",
             researcher="Michael Neinast",
@@ -592,7 +599,9 @@ class DataLoadingTests(TracebaseTestCase):
         with self.assertRaises(ValidationError):
             call_command(
                 "load_accucor_msruns",
-                protocol="Default",
+                ms_protocol_name="Default",
+                lc_protocol_name="polar-HILIC-25-min",
+                instrument="default instrument",
                 accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_sample_dupe.xlsx",
                 date="2021-08-20",
                 researcher="Michael",
@@ -604,7 +613,9 @@ class DataLoadingTests(TracebaseTestCase):
     def test_adl_existing_researcher(self):
         call_command(
             "load_accucor_msruns",
-            protocol="Default",
+            ms_protocol_name="Default",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="default instrument",
             accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_new_researcher_err.xlsx",
             date="2021-04-30",
             researcher="Michael Neinast",
@@ -622,7 +633,9 @@ class DataLoadingTests(TracebaseTestCase):
             # Now load with a new researcher (and no --new-researcher flag)
             call_command(
                 "load_accucor_msruns",
-                protocol="Default",
+                ms_protocol_name="Default",
+                lc_protocol_name="polar-HILIC-25-min",
+                instrument="default instrument",
                 accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_new_researcher_err2.xlsx",
                 date="2021-04-30",
                 researcher="Luke Skywalker",
@@ -641,7 +654,9 @@ class DataLoadingTests(TracebaseTestCase):
     def test_adl_new_researcher_confirmed(self):
         call_command(
             "load_accucor_msruns",
-            protocol="Default",
+            ms_protocol_name="Default",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="default instrument",
             accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_new_researcher_err2.xlsx",
             date="2021-04-30",
             researcher="Luke Skywalker",
@@ -662,7 +677,9 @@ class DataLoadingTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_accucor_msruns",
-                protocol="Default",
+                ms_protocol_name="Default",
+                lc_protocol_name="polar-HILIC-25-min",
+                instrument="default instrument",
                 accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_new_researcher_err2.xlsx",
                 date="2021-04-30",
                 researcher="Michael Neinast",
@@ -734,7 +751,9 @@ class DataLoadingTests(TracebaseTestCase):
         # this file contains 1 valid synonym for glucose, "dextrose"
         call_command(
             "load_accucor_msruns",
-            protocol="Default",
+            ms_protocol_name="Default",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="default instrument",
             accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_corrected_valid_syn.csv",
             date="2021-11-19",
             researcher="Michael Neinast",
@@ -760,7 +779,9 @@ class DataLoadingTests(TracebaseTestCase):
             # this file contains 1 invalid synonym for glucose "table sugar"
             call_command(
                 "load_accucor_msruns",
-                protocol="Default",
+                ms_protocol_name="Default",
+                lc_protocol_name="polar-HILIC-25-min",
+                instrument="default instrument",
                 accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_corrected_invalid_syn.csv",
                 date="2021-11-18",
                 researcher="Michael Neinast",
@@ -780,6 +801,7 @@ class DataLoadingTests(TracebaseTestCase):
 class PropertyTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
+        call_command("loaddata", "lc_methods")
         call_command(
             "load_study",
             "DataRepo/example_data/small_dataset/small_obob_study_prerequisites.yaml",
@@ -823,7 +845,9 @@ class PropertyTests(TracebaseTestCase):
 
         call_command(
             "load_accucor_msruns",
-            protocol="Default",
+            ms_protocol_name="Default",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="default instrument",
             accucor_file="DataRepo/example_data/obob_maven_6eaas_inf.xlsx",
             date="2021-04-29",
             researcher="Michael Neinast",
@@ -835,7 +859,9 @@ class PropertyTests(TracebaseTestCase):
 
         call_command(
             "load_accucor_msruns",
-            protocol="Default",
+            ms_protocol_name="Default",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="default instrument",
             accucor_file="DataRepo/example_data/obob_maven_6eaas_serum.xlsx",
             date="2021-04-29",
             researcher="Michael Neinast",
@@ -848,7 +874,9 @@ class PropertyTests(TracebaseTestCase):
         # test load CSV file of corrected data, with no "original counterpart"
         call_command(
             "load_accucor_msruns",
-            protocol="Default",
+            ms_protocol_name="Default",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="default instrument",
             accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_corrected.csv",
             date="2021-10-14",
             researcher="Michael Neinast",
@@ -1505,6 +1533,7 @@ class PropertyTests(TracebaseTestCase):
 class MultiTracerLabelPropertyTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
+        call_command("loaddata", "lc_methods")
         call_command(
             "load_study",
             "DataRepo/example_data/small_dataset/small_obob_study_prerequisites.yaml",
@@ -1520,7 +1549,9 @@ class MultiTracerLabelPropertyTests(TracebaseTestCase):
             "load_accucor_msruns",
             accucor_file="DataRepo/example_data/obob_fasted_glc_lac_gln_ala_multiple_labels/"
             "alafasted_cor.xlsx",
-            protocol="Default",
+            ms_protocol_name="Default",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="default instrument",
             date="2021-04-29",
             researcher="Xianfeng Zeng",
             new_researcher=False,
@@ -1591,6 +1622,7 @@ class MultiTracerLabelPropertyTests(TracebaseTestCase):
 class TracerRateTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
+        call_command("loaddata", "lc_methods")
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
         call_command(
             "load_compounds",
@@ -1607,7 +1639,9 @@ class TracerRateTests(TracebaseTestCase):
         # for the fcirc and rate-calculation tests
         call_command(
             "load_accucor_msruns",
-            protocol="Default",
+            ms_protocol_name="Default",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="default instrument",
             accucor_file="DataRepo/example_data/obob_maven_c160_serum.xlsx",
             date="2021-04-29",
             researcher="Xianfeng Zeng",
@@ -2135,6 +2169,7 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
 class StudyLoadingTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
+        call_command("loaddata", "lc_methods")
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
         call_command(
             "load_study",
@@ -2433,6 +2468,7 @@ class StudyLoadingTests(TracebaseTestCase):
 class ParseIsotopeLabelTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
+        call_command("loaddata", "lc_methods")
         call_command(
             "load_study",
             "DataRepo/example_data/small_dataset/small_obob_study_prerequisites.yaml",
@@ -2527,7 +2563,9 @@ class ParseIsotopeLabelTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_accucor_msruns",
-                protocol="Default",
+                ms_protocol_name="Default",
+                lc_protocol_name="polar-HILIC-25-min",
+                instrument="default instrument",
                 accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_dupes.xlsx",
                 date="2021-06-03",
                 researcher="Xianfeng Zeng",
@@ -2563,6 +2601,7 @@ class AnimalLoadingTests(TracebaseTestCase):
 
     @classmethod
     def setUpTestData(cls):
+        call_command("loaddata", "lc_methods")
         call_command("load_study", "DataRepo/example_data/protocols/loading.yaml")
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
         call_command(

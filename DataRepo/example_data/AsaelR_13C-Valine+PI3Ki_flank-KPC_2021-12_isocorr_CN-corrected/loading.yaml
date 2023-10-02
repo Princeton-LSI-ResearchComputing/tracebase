@@ -12,6 +12,8 @@ accucor_data:
     - name: "./Serum results_cor.csv"
       isocorr_format: true
   msrun_protocol: "Hilic25min_NegativeMode"
+  lc_protocol: "polar-HILIC-25-min"
+  instrument: "default instrument"
   date: "2021-12-07"
   researcher: "Asael Roichman"
   new_researcher: false

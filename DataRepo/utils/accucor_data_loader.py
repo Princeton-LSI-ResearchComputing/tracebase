@@ -41,6 +41,7 @@ from DataRepo.utils.exceptions import (
     DuplicatePeakGroups,
     EmptyColumnsError,
     IsotopeStringDupe,
+    LCMethodFixturesMissing,
     MissingCompounds,
     MissingSamplesError,
     MultipleAccucorTracerLabelColumnsError,
@@ -128,8 +129,8 @@ class AccuCorDataLoader:
         lcms_metadata=None,
         instrument=None,
         date=None,
-        default_lc_protocol_name=None,
-        default_ms_protocol_name=None,
+        ms_protocol_name=None,
+        lc_protocol_name=None,
         researcher=None,
         skip_samples=None,
         sample_name_prefix=None,
@@ -152,8 +153,8 @@ class AccuCorDataLoader:
 
             # Validate the required LCMS Metadata
             reqd_args = [
-                default_lc_protocol_name,
-                default_ms_protocol_name,
+                lc_protocol_name,
+                ms_protocol_name,
                 date,
                 researcher,
                 instrument,
@@ -173,14 +174,14 @@ class AccuCorDataLoader:
                 "researcher": None,
                 "instrument": None,
             }
-            if default_lc_protocol_name is not None:
+            if lc_protocol_name is not None:
                 self.lcms_defaults[
                     "lc_protocol_name"
-                ] = default_lc_protocol_name.strip()
-            if default_ms_protocol_name is not None:
+                ] = lc_protocol_name.strip()
+            if ms_protocol_name is not None:
                 self.lcms_defaults[
                     "ms_protocol_name"
-                ] = default_ms_protocol_name.strip()
+                ] = ms_protocol_name.strip()
             if date is not None:
                 self.lcms_defaults["date"] = datetime.strptime(date.strip(), "%Y-%m-%d")
             if researcher is not None:
@@ -298,12 +299,12 @@ class AccuCorDataLoader:
 
         if self.allow_new_researchers is True:
             researchers = get_researchers()
-            all_new = True
+            all_existing = True
             for res_add in adding_researchers:
-                if res_add in researchers:
-                    all_new = False
+                if res_add not in researchers:
+                    all_existing = False
                     break
-            if all_new:
+            if all_existing:
                 self.aggregated_errors_object.buffer_error(
                     # TODO: Refine the error to take a list of researcher names
                     ResearcherNotNew(
@@ -359,7 +360,7 @@ class AccuCorDataLoader:
                 self.lcms_metadata[sample_header] = {
                     "sample_name": row["tracebase sample name"],
                     "mzxml": row["mzxml filename"],
-                    "ms_protocol": row["ms mode"],
+                    "ms_protocol_name": row["ms mode"],
                     "researcher": row["instrument"],
                     "instrument": row["operator"],
                     "date": row["date"],
@@ -400,7 +401,7 @@ class AccuCorDataLoader:
                 self.lcms_metadata[sample_header] = {
                     "sample_name": sample_header,
                     "mzxml": f"{sample_header}.xml",
-                    "ms_protocol": self.lcms_defaults["ms_protocol_name"],
+                    "ms_protocol_name": self.lcms_defaults["ms_protocol_name"],
                     "researcher": self.lcms_defaults["researcher"],
                     "instrument": self.lcms_defaults["instrument"],
                     "date": self.lcms_defaults["date"],
@@ -785,7 +786,7 @@ class AccuCorDataLoader:
                 f"'{self.lcms_metadata[sample_header]['ms_protocol_name']}'..."
             )
 
-        ms_protocol_name = self.lcms_metadata[sample_header]["ms_protocol"]
+        ms_protocol_name = self.lcms_metadata[sample_header]["ms_protocol_name"]
         ms_protocol, created = Protocol.retrieve_or_create_protocol(
             ms_protocol_name,
             Protocol.MSRUN_PROTOCOL,
@@ -819,6 +820,8 @@ class AccuCorDataLoader:
 
         # Create a dict for the get_or_create call, using all available values (so that the get can work)
         rec_dict = {}
+        # The do_get logic assumes there is at least 1 non-none value based on how the lcms_metadata dict is constructed
+        do_get = name is None or type is None or desc is None  # run_length may be None
         if name is not None:
             rec_dict["name"] = name
         if type is not None:
@@ -829,15 +832,29 @@ class AccuCorDataLoader:
             rec_dict["description"] = desc
 
         try:
-            rec, created = LCMethod.objects.get_or_create(**rec_dict)
+            if do_get is True:
+                rec = LCMethod.objects.get(**rec_dict)
+            else:
+                rec, _ = LCMethod.objects.get_or_create(**rec_dict)
         except Exception as e:
-            self.aggregated_errors_object.buffer_error(e)
-            # Fall back to the unknown record in order to proceed and catch more errors
-            # If this fails, die.  If the fixtures don't exist, that's a low level problem.
-            rec = LCMethod.objects.get(name__exact=LCMethod.DEFAULT_TYPE, type__exact=LCMethod.DEFAULT_TYPE)
-            created = False
+            try:
+                # Fall back to the unknown record in order to proceed and catch more errors
+                # If this fails, die.  If the fixtures don't exist, that's a low level problem.
+                rec = LCMethod.objects.get(name__exact=LCMethod.DEFAULT_TYPE, type__exact=LCMethod.DEFAULT_TYPE)
+                # If the above found a record, buffer the original exception
+                self.aggregated_errors_object.buffer_error(e)
+            except LCMethod.DoesNotExist as dne:
+                # Ignore the enclosing exception, deferring to the new LCMethodFixturesMissing exception
+                # If this exception hasn't already been buffered
+                if not self.aggregated_errors_object.exception_type_exists(LCMethodFixturesMissing):
+                    self.aggregated_errors_object.buffer_error(LCMethodFixturesMissing(dne))
+                rec = None
+            except Exception:
+                # We don't know what the new exception is, so revert to the enclosing exception
+                self.aggregated_errors_object.buffer_error(e)
+                rec = None
 
-        return rec, created
+        return rec
 
     def insert_peak_group_set(self):
         peak_group_set = PeakGroupSet(filename=self.peak_group_set_filename)
@@ -969,8 +986,10 @@ class AccuCorDataLoader:
             ms_protocol = self.get_or_create_ms_protocol(sample_data_header)
             lc_protocol = self.get_or_create_lc_protocol(sample_data_header)
 
-            # each msrun/sample has its own set of peak groups
-            inserted_peak_group_dict = {}
+            if lc_protocol is None:
+                # Cannot create the msrun record without an lc_protocol
+                # Note, get_or_create_lc_protocol buffers an error when this happens
+                continue
 
             msrun_dict = {
                 "date": self.lcms_metadata[sample_data_header]["date"],
@@ -1013,6 +1032,9 @@ class AccuCorDataLoader:
             except Exception as e:
                 self.aggregated_errors_object.buffer_error(e)
                 continue
+
+        # each msrun/sample has its own set of peak groups
+        inserted_peak_group_dict = {}
 
         # Create all PeakGroups
         for sample_data_header in sample_msrun_dict.keys():
@@ -1528,15 +1550,15 @@ class LCMSDefaultsRequired(Exception):
     ):
         missing = []
         if lc_protocol_name is None:
-            missing.append("LC Protocol Name")
+            missing.append("lc protocol name")
         if ms_protocol_name is None:
-            missing.append("MS Protocol Name")
+            missing.append("ms protocol name")
         if date is None:
-            missing.append("Date")
+            missing.append("date")
         if researcher is None:
-            missing.append("Researcher")
+            missing.append("researcher")
         if instrument is None:
-            missing.append("Instrument")
+            missing.append("instrument")
         message = f"When an LCMS metadata dataframe is not provided, these missing arguments are required: [{missing}]."
         super().__init__(message)
 

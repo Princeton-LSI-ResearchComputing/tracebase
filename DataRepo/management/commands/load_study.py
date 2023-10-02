@@ -230,7 +230,9 @@ class Command(BaseCommand):
 
             if "accucor_data" in study_params:
                 # Get parameters for all accucor files
-                study_protocol = study_params["accucor_data"]["msrun_protocol"]
+                study_ms_protocol = study_params["accucor_data"]["msrun_protocol"]
+                study_lc_protocol = study_params["accucor_data"]["lc_protocol"]
+                study_instrument = study_params["accucor_data"]["instrument"]
                 study_date = study_params["accucor_data"]["date"]
                 study_researcher = study_params["accucor_data"]["researcher"]
                 study_new_researcher = study_params["accucor_data"]["new_researcher"]
@@ -247,7 +249,9 @@ class Command(BaseCommand):
                     accucor_file_basename = accucor_info_dict["name"]
                     accucor_file = os.path.join(study_dir, accucor_file_basename)
                     self.load_statuses.init_load(accucor_file)
-                    protocol = accucor_info_dict.get("msrun_protocol", study_protocol)
+                    ms_protocol_name = accucor_info_dict.get("msrun_protocol", study_ms_protocol)
+                    lc_protocol_name = accucor_info_dict.get("lc_protocol", study_lc_protocol)
+                    instrument = accucor_info_dict.get("instrument", study_instrument)
                     date = accucor_info_dict.get("date", study_date)
                     researcher = accucor_info_dict.get("researcher", study_researcher)
                     new_researcher = accucor_info_dict.get(
@@ -275,7 +279,9 @@ class Command(BaseCommand):
                         call_command(
                             "load_accucor_msruns",
                             accucor_file=accucor_file,
-                            protocol=protocol,
+                            ms_protocol_name=ms_protocol_name,
+                            lc_protocol_name=lc_protocol_name,
+                            instrument=instrument,
                             date=date,
                             researcher=researcher,
                             new_researcher=new_researcher,
