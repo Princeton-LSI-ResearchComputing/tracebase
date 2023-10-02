@@ -11,6 +11,7 @@ from django.db import IntegrityError, transaction
 from DataRepo.models import (
     Compound,
     ElementLabel,
+    LCMethod,
     MaintainedModel,
     MSRun,
     PeakData,
@@ -365,7 +366,7 @@ class AccuCorDataLoader:
                     "lc_type": row["lc method"],
                     "lc_run_length": row["lc run length"],
                     "lc_description": row["lc description"],
-                    "lc_name": f"{row['lc method']}-{row['lc run length']}-mins",
+                    "lc_name": LCMethod.create_name(row['lc method'], row['lc run length']),
                 }
                 if sample_header not in self.corrected_sample_headers:
                     unexpected.append([sample_header, idx + 2])
@@ -403,9 +404,9 @@ class AccuCorDataLoader:
                     "researcher": self.lcms_defaults["researcher"],
                     "instrument": self.lcms_defaults["instrument"],
                     "date": self.lcms_defaults["date"],
-                    "lc_type": row["lc method"],
-                    "lc_run_length": row["lc run length"],
-                    "lc_description": row["lc description"],
+                    "lc_type": None,
+                    "lc_run_length": None,
+                    "lc_description": None,
                     "lc_name": self.lcms_defaults["lc_protocol_name"],
                 }
 
@@ -429,7 +430,7 @@ class AccuCorDataLoader:
 
         # Make sure all sample columns have names
         corr_iter = Counter(self.corrected_sample_headers)
-        for k, v in corr_iter.items():
+        for k, _ in corr_iter.items():
             if k.startswith("Unnamed: "):
                 self.aggregated_errors_object.buffer_error(
                     EmptyColumnsError(
@@ -440,7 +441,7 @@ class AccuCorDataLoader:
         if self.original_sample_headers:
             # Make sure all sample columns have names
             orig_iter = Counter(self.original_sample_headers)
-            for k, v in orig_iter.items():
+            for k, _ in orig_iter.items():
                 if k.startswith("Unnamed: "):
                     self.aggregated_errors_object.buffer_error(
                         EmptyColumnsError(
@@ -555,22 +556,16 @@ class AccuCorDataLoader:
 
         # cross validate in database
         sample_dict = {}
-        """
-        Because the original dataframe might be None, here, we rely on the
-        corrected sample list as being authoritative
-        """
-        for sample_name in self.corrected_sample_headers:
+        # Because the original dataframe might be None, here, we rely on the corrected sample list as being
+        # authoritative
+        for sample_data_header in self.corrected_sample_headers:
+            sample_name = self.lcms_metadata[sample_data_header]["sample_name"]
             prefixed_sample_name = f"{self.sample_name_prefix}{sample_name}"
             try:
-                """
-                This relies on sample name to find the correct sample since
-                we do not have any other information about the sample in the
-                peak annotation file Accucor/Isocor files should be
-                accomplanied by a sample and animal sheet file so we can
-                identify potential duplicates and flag them
-                """
-                # TODO Ensure the sample names in an AccuCor file match sample names in a supplied sample sheet
-                sample_dict[sample_name] = Sample.objects.get(name=prefixed_sample_name)
+                # This relies on sample name to find the correct sample since we do not have any other information
+                # about the sample in the peak annotation file Accucor/Isocor files should be accomplanied by a sample
+                # and animal sheet file so we can identify potential duplicates and flag them
+                sample_dict[sample_data_header] = Sample.objects.get(name=prefixed_sample_name)
             except Sample.DoesNotExist:
                 self.missing_samples.append(sample_name)
 
@@ -780,9 +775,9 @@ class AccuCorDataLoader:
                 "rownums": [index + 2],
             }
 
-    def retrieve_or_create_protocol(self, sample_header):
+    def get_or_create_ms_protocol(self, sample_header):
         """
-        retrieve or insert a protocol, based on input
+        Get or create an msrun protocol in the Protocol model, based on input
         """
         if self.verbosity >= 1:
             print(
@@ -790,22 +785,59 @@ class AccuCorDataLoader:
                 f"'{self.lcms_metadata[sample_header]['ms_protocol_name']}'..."
             )
 
-        protocol_name = self.lcms_metadata[sample_header]["ms_protocol"]
-        protocol, created = Protocol.retrieve_or_create_protocol(
-            protocol_name,
+        ms_protocol_name = self.lcms_metadata[sample_header]["ms_protocol"]
+        ms_protocol, created = Protocol.retrieve_or_create_protocol(
+            ms_protocol_name,
             Protocol.MSRUN_PROTOCOL,
             f"For protocol's full text, please consult {self.lcms_metadata[sample_header]['researcher']}.",
         )
         action = "Found"
-        feedback = f"{protocol.category} protocol {protocol.id} '{protocol.name}'"
+        feedback = f"{ms_protocol.category} protocol {ms_protocol.id} '{ms_protocol.name}'"
         if created:
             action = "Created"
-            feedback += f" '{protocol.description}'"
+            feedback += f" '{ms_protocol.description}'"
 
         if self.verbosity >= 1:
             print(f"{action} {feedback}")
 
-        return protocol
+        return ms_protocol
+
+    def get_or_create_lc_protocol(self, sample_data_header):
+
+        # lcms_metadata should be populated either from the lcms_metadata file or via the headers and the default
+        # options/args.
+        if sample_data_header in self.lcms_metadata.keys():
+            type = self.lcms_metadata[sample_data_header]["lc_type"]
+            run_length = self.lcms_metadata[sample_data_header]["lc_run_length"]
+            desc = self.lcms_metadata[sample_data_header]["lc_description"]
+            name = self.lcms_metadata[sample_data_header]["lc_name"]
+        else:
+            # This should have been encountered before, but adding this here to be robust to code changes.
+            self.aggregated_errors_object.buffer_error(MissingLCMSSampleDataHeaders())
+            # Create an unknown record in order to proceed and catch more errors
+            name = LCMethod.create_name()
+
+        # Create a dict for the get_or_create call, using all available values (so that the get can work)
+        rec_dict = {}
+        if name is not None:
+            rec_dict["name"] = name
+        if type is not None:
+            rec_dict["type"] = type
+        if run_length is not None:
+            rec_dict["run_length"] = run_length
+        if desc is not None:
+            rec_dict["description"] = desc
+
+        try:
+            rec, created = LCMethod.objects.get_or_create(**rec_dict)
+        except Exception as e:
+            self.aggregated_errors_object.buffer_error(e)
+            # Fall back to the unknown record in order to proceed and catch more errors
+            # If this fails, die.  If the fixtures don't exist, that's a low level problem.
+            rec = LCMethod.objects.get(name__exact=LCMethod.DEFAULT_TYPE, type__exact=LCMethod.DEFAULT_TYPE)
+            created = False
+
+        return rec, created
 
     def insert_peak_group_set(self):
         peak_group_set = PeakGroupSet(filename=self.peak_group_set_filename)
@@ -933,39 +965,41 @@ class AccuCorDataLoader:
         sample_msrun_dict = {}
 
         # Each sample gets its own msrun
-        for sample_name in self.db_samples_dict.keys():
-            protocol = self.retrieve_or_create_protocol(sample_name)
+        for sample_data_header in self.db_samples_dict.keys():
+            ms_protocol = self.get_or_create_ms_protocol(sample_data_header)
+            lc_protocol = self.get_or_create_lc_protocol(sample_data_header)
 
             # each msrun/sample has its own set of peak groups
             inserted_peak_group_dict = {}
 
             msrun_dict = {
-                "date": self.lcms_metadata[sample_name]["date"],
-                "researcher": self.lcms_metadata[sample_name]["researcher"],
-                "protocol": protocol,
-                "sample": self.db_samples_dict[sample_name],
+                "date": self.lcms_metadata[sample_data_header]["date"],
+                "researcher": self.lcms_metadata[sample_data_header]["researcher"],
+                "protocol": ms_protocol,
+                "lc_method": lc_protocol,
+                "sample": self.db_samples_dict[sample_data_header],
             }
             try:
-                # TODO This relies on sample name lookup (see issue #684)
-                # https://github.com/Princeton-LSI-ResearchComputing/tracebase/issues/684
-                """This also relies on accurate msrun information (researcher and date)
-                Including mzXML files with accucor files will help ensure accurate msrun
-                lookup since we will have checksums for the mzXML files and those are
-                always associated with one MSRun record
-                """
+                # This relies on sample name lookup and accurate msrun information (researcher, date, instrument, etc).
+                # Including mzXML files with accucor files will help ensure accurate msrun lookup since we will have
+                # checksums for the mzXML files and those are always associated with one MSRun record
                 msrun, created = MSRun.objects.get_or_create(**msrun_dict)
                 if created:
                     msrun.full_clean()
                     msrun.save()
                     if self.verbosity >= 1:
                         print(
-                            f"Inserting msrun for sample {sample_name}, date {self.lcms_metadata[sample_name]['date']},"
-                            f" researcher {self.lcms_metadata[sample_name]['researcher']}, protocol {protocol}"
+                            "Inserting msrun for "
+                            f"sample {self.lcms_metadata[sample_data_header]['sample_name']}, "
+                            f"date {self.lcms_metadata[sample_data_header]['date']}, "
+                            f"researcher {self.lcms_metadata[sample_data_header]['researcher']}, "
+                            f"ms protocol {ms_protocol}, and "
+                            f"lc protocol {lc_protocol}."
                         )
 
                 # This will be used to iterate the sample loop below so that we don't attempt to load samples whose
                 # msrun creations failed.
-                sample_msrun_dict[sample_name] = msrun
+                sample_msrun_dict[sample_data_header] = msrun
 
                 if (
                     msrun.sample.animal not in animals_to_uncache
@@ -981,8 +1015,8 @@ class AccuCorDataLoader:
                 continue
 
         # Create all PeakGroups
-        for sample_name in sample_msrun_dict.keys():
-            msrun = sample_msrun_dict[sample_name]
+        for sample_data_header in sample_msrun_dict.keys():
+            msrun = sample_msrun_dict[sample_data_header]
 
             # Pass through the rows once to identify the PeakGroups
             for _, corr_row in self.accucor_corrected_df.iterrows():
@@ -1074,7 +1108,7 @@ class AccuCorDataLoader:
                                         and isotope["count"] == labeled_count
                                     ):
                                         # We have a matching row, use it and increment row_idx
-                                        raw_abundance = orig_row[sample_name]
+                                        raw_abundance = orig_row[sample_data_header]
                                         med_mz = orig_row["medMz"]
                                         med_rt = orig_row["medRt"]
                                         orig_row_idx = orig_row_idx + 1
@@ -1087,7 +1121,7 @@ class AccuCorDataLoader:
                             if self.verbosity >= 1:
                                 print(
                                     f"\t\tInserting peak data for {peak_group_name}:label-{labeled_count} for sample "
-                                    f"{sample_name}"
+                                    f"{self.lcms_metadata[sample_data_header]['sample_name']}"
                                 )
 
                             # Lookup corrected abundance by compound and label
@@ -1102,7 +1136,7 @@ class AccuCorDataLoader:
                                     ]
                                     == labeled_count
                                 )
-                            ][sample_name]
+                            ][sample_data_header]
 
                             peak_data = PeakData(
                                 peak_group=peak_group,
@@ -1124,7 +1158,7 @@ class AccuCorDataLoader:
                                     f"\t\t\tInserting peak data label [{isotope['mass_number']}{isotope['element']}"
                                     f"{isotope['count']}] parsed from cell value: [{orig_row['isotopeLabel']}] for "
                                     f"peak data ID [{peak_data.id}], peak group [{peak_group_name}], and sample "
-                                    f"[{sample_name}]."
+                                    f"[{self.lcms_metadata[sample_data_header]['sample_name']}]."
                                 )
 
                             peak_data_label = PeakDataLabel(
@@ -1149,7 +1183,7 @@ class AccuCorDataLoader:
 
                     for _, corr_row in peak_group_corrected_df.iterrows():
                         try:
-                            corrected_abundance_for_sample = corr_row[sample_name]
+                            corrected_abundance_for_sample = corr_row[sample_data_header]
                             # No original dataframe, no raw_abundance, med_mz, or med_rt
                             raw_abundance = None
                             med_mz = None
@@ -1158,7 +1192,7 @@ class AccuCorDataLoader:
                             if self.verbosity >= 1:
                                 print(
                                     f"\t\tInserting peak data for peak group [{peak_group_name}] "
-                                    f"and sample [{sample_name}]."
+                                    f"and sample [{self.lcms_metadata[sample_data_header]['sample_name']}]."
                                 )
 
                             peak_data = PeakData(
@@ -1187,7 +1221,7 @@ class AccuCorDataLoader:
                                         f"{isotope['count']}] parsed from cell value: "
                                         f"[{corr_row[self.labeled_element_header]}] for peak data ID "
                                         f"[{peak_data.id}], peak group [{peak_group_name}], and sample "
-                                        f"[{sample_name}]."
+                                        f"[{self.lcms_metadata[sample_data_header]['sample_name']}]."
                                     )
 
                                 # Note that this inserts the parent record (count 0) as always 12C, since the parent is

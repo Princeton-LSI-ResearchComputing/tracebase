@@ -16,6 +16,7 @@ class LCMethod(models.Model):
     chromatography methodology
     """
 
+    DEFAULT_TYPE = "unknown"
     MINIMUM_VALID_RUN_LENGTH = timedelta(seconds=0)
     MAXIMUM_VALID_RUN_LENGTH = timedelta(days=1)
 
@@ -60,6 +61,19 @@ class LCMethod(models.Model):
     )
 
     objects = LCMethodManager()
+
+    @classmethod
+    def create_name(cls, type=None, run_length=None):
+        """Class method to create a name using the supplied type and run_length."""
+        if type is None:
+            type = cls.DEFAULT_TYPE
+        if run_length is None:
+            return type
+        return f"{type}-{run_length}-mins"
+
+    def get_name(self):
+        """Generates a name using type and run_length."""
+        return self.create_name(self.type, self.run_length)
 
     def natural_key(self):
         """Django can use the natural_key() method to serialize any foreign
