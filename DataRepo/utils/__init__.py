@@ -1,7 +1,9 @@
 from DataRepo.utils.accucor_data_loader import (
     AccuCorDataLoader,
+    InvalidLCMSHeaders,
     IsotopeObservationData,
     IsotopeObservationParsingError,
+    LCMSHeadersAreValid,
     TracerLabeledElementNotFound,
 )
 from DataRepo.utils.composite_data import leaderboard_data
@@ -54,6 +56,7 @@ __all__ = [
     "DuplicateValues",
     "HeaderError",
     "HeaderConfigError",
+    "InvalidLCMSHeaders",
     "IsotopeObservationData",
     "IsotopeParsingError",
     "IsotopeObservationParsingError",
@@ -66,6 +69,7 @@ __all__ = [
     "SheetMergeError",
     "UnskippedBlanksError",
     "DryRun",
+    "LCMSHeadersAreValid",
     "LoadingError",
     "QuerysetToPandasDataFrame",
     "SampleTableLoader",
