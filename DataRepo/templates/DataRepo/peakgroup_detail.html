@@ -23,9 +23,9 @@
         <tr>
             <td>Archive Filename</td>
             <td>
-                {% if peakgroup.archive_file %}
-                <a href="{% url 'archive_file_detail' peakgroup.archive_file.id %}">
-                    {{ peakgroup.archive_file.filename }}
+                {% if peakgroup.peak_annotation_file %}
+                <a href="{% url 'archive_file_detail' peakgroup.peak_annotation_file.id %}">
+                    {{ peakgroup.peak_annotation_file.filename }}
                 </a>
                 {% endif %}
             </td>

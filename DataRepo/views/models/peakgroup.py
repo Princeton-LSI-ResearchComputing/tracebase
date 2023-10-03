@@ -14,7 +14,7 @@ class PeakGroupListView(ListView):
     queryset = PeakGroup.objects.all()
     context_object_name = "peakgroup_list"
     template_name = "DataRepo/peakgroup_list.html"
-    ordering = ["msrun_id", "archive_file_id", "name"]
+    ordering = ["msrun_id", "peak_annotation_file_id", "name"]
     paginate_by = 50
 
     # filter the peakgroup_list by msrun_id

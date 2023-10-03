@@ -240,7 +240,7 @@ class PeakDataFormat(Format):
         },
         "ArchiveFile": {
             "model": "ArchiveFile",
-            "path": "peak_group__archive_file",
+            "path": "peak_group__peak_annotation_file",
             "reverse_path": "peak_groups__peak_data",
             "manyrelated": {
                 "is": False,
@@ -250,14 +250,14 @@ class PeakDataFormat(Format):
             },
             "fields": {
                 "id": {
-                    "displayname": "(Internal) Archive File Index",  # Used in link
+                    "displayname": "(Internal) Archive (Peak Annotation) File Index",  # Used in link
                     "searchable": True,
                     "displayed": False,
                     "handoff": "filename",  # This is the field that will be loaded in the search form
                     "type": "number",
                 },
                 "filename": {
-                    "displayname": "Archive Filename",
+                    "displayname": "Peak Annotation Filename",
                     "searchable": True,
                     "displayed": True,
                     "type": "string",

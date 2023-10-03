@@ -77,7 +77,7 @@ class PeakDataData(TracebaseTestCase):
             name="gluc",
             formula="C6H12O6",
             msrun=msr,
-            archive_file=accucor_file,
+            peak_annotation_file=accucor_file,
         )
         PeakData.objects.create(
             raw_abundance=1000.0,

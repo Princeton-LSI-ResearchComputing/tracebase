@@ -46,9 +46,9 @@ class PeakGroup(HierCachedModel, MaintainedModel):
         help_text="The source file this PeakGroup came from.",
     )
 
-    archive_file = models.ForeignKey(
+    peak_annotation_file = models.ForeignKey(
         to="DataRepo.ArchiveFile",
-        on_delete=models.CASCADE,
+        on_delete=models.RESTRICT,
         null=True,  # TODO Allow null until loading code is updated
         blank=True,  # TODO Allow blank until loading code is updated
         related_name="peak_groups",

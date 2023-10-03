@@ -24,13 +24,13 @@ class Migration(migrations.Migration):
     operations = [
         migrations.AddField(
             model_name="peakgroup",
-            name="archive_file",
+            name="peak_annotation_file",
             field=models.ForeignKey(
                 null=True,
                 blank=True,
                 default=None,
                 help_text="The data file from which this PeakGroup was imported.",
-                on_delete=django.db.models.deletion.CASCADE,
+                on_delete=django.db.models.deletion.RESTRICT,
                 related_name="peak_groups",
                 to="DataRepo.archivefile",
             ),

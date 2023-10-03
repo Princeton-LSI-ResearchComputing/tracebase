@@ -69,7 +69,7 @@ class PeakGroupsFormat(Format):
     model_instances = {
         "ArchiveFile": {
             "model": "ArchiveFile",
-            "path": "archive_file",
+            "path": "peak_annotation_file",
             "reverse_path": "peak_groups",
             "manyrelated": {
                 "is": False,
@@ -86,7 +86,7 @@ class PeakGroupsFormat(Format):
                     "type": "number",
                 },
                 "filename": {
-                    "displayname": "Archive Filename",
+                    "displayname": "Peak Annotation Filename",
                     "searchable": True,
                     "displayed": True,
                     "type": "string",

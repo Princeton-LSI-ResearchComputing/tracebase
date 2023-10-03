@@ -122,9 +122,9 @@
                     {% endwith %}
                 </th>
                 <th data-valign="top" class="idgrp" data-visible="{% get_template_cookie selfmt 'Peak_Group_Set_Filename-data-visible' 'false' %}" data-field="Peak_Group_Set_Filename">
-                    {% with "Archive File Filename" as colhead %}
+                    {% with "Peak Annotation Filename" as colhead %}
                         {% if mode == "view" %}{{ colhead }}{% else %}
-                            <div onclick="sortColumn(this)" class="sortable" id="peak_group__archive_file__filename">{{ colhead }}</div>
+                            <div onclick="sortColumn(this)" class="sortable" id="peak_group__peak_annotation_file__filename">{{ colhead }}</div>
                         {% endif %}
                     {% endwith %}
                 </th>
@@ -335,13 +335,13 @@
                         {% for lbl in pd.labels.all %}{% if not forloop.first %}; {% endif%}{{ lbl.element }}:{{ lbl.count }}{% endfor %}
                     </td>
 
-                    <!-- Archive File Filename -->
+                    <!-- Peak Annotation Filename -->
                     <td>
                         <!-- Put displayed link text first for sorting -->
-                        <div style="display:none;">{{ pd.peak_group.archive_file.filename }}</div>
-                        {% if pg.peak_group.archive_file %}
-                        <a href="{% url 'archive_file_detail' pd.peak_group.archive_file.id %}">
-                            {{ pd.peak_group.archive_file.filename }}
+                        <div style="display:none;">{{ pd.peak_group.peak_annotation_file.filename }}</div>
+                        {% if pg.peak_group.peak_annotation_file %}
+                        <a href="{% url 'archive_file_detail' pd.peak_group.peak_annotation_file.id %}">
+                            {{ pd.peak_group.peak_annotation_file.filename }}
                         </a>
                         {% endif %}
                     </td>
