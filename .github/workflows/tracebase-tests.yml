@@ -73,28 +73,36 @@ jobs:
         run: |
           python manage.py load_accucor_msruns \
           --accucor-file "DataRepo/example_data/obob_maven_6eaas_inf.xlsx" \
-          --protocol "Default" \
           --date "2021-04-29" \
           --researcher "Michael Neinast" \
-          --new-researcher
+          --new-researcher \
+          --ms-protocol-name "Default" \
+          --lc-protocol-name "unknown" \
+          --instrument "default instrument"
       - name: Load example accucor 6eaas serum data
         run: |
           python manage.py load_accucor_msruns \
           --accucor-file "DataRepo/example_data/obob_maven_6eaas_serum.xlsx" \
-          --protocol "Default" \
           --date "2021-04-29" \
-          --researcher "Michael Neinast"
+          --researcher "Michael Neinast" \
+          --ms-protocol-name "Default" \
+          --lc-protocol-name "unknown" \
+          --instrument "default instrument"
       - name: Load example accucor c160 data
         run: |
           python manage.py load_accucor_msruns \
           --accucor-file "DataRepo/example_data/obob_maven_c160_inf.xlsx" \
-          --protocol "Default" \
           --date "2021-04-29" \
-          --researcher "Michael Neinast"
+          --researcher "Michael Neinast" \
+          --ms-protocol-name "Default" \
+          --lc-protocol-name "unknown" \
+          --instrument "default instrument"
       - name: Load example accucor c160 serum data
         run: |
           python manage.py load_accucor_msruns \
           --accucor-file "DataRepo/example_data/obob_maven_c160_serum.xlsx" \
-          --protocol "Default" \
           --date "2021-04-29" \
-          --researcher "Michael Neinast"
+          --researcher "Michael Neinast" \
+          --ms-protocol-name "Default" \
+          --lc-protocol-name "unknown" \
+          --instrument "default instrument"
