@@ -1,3 +1,5 @@
+import os
+
 import pandas as pd
 from django.core.exceptions import ValidationError
 
@@ -6,6 +8,7 @@ from DataRepo.models.lc_method import LCMethod
 LCMS_HEADERS = (
     "tracebase sample name",
     "sample data header",
+    "peak annotation filename",
     "mzxml filename",
     "ms mode",
     "instrument",
@@ -43,6 +46,9 @@ def lcms_df_to_dict(df):
         lcms_metadata[sample_header] = {
             "sample_header": sample_header,
             "sample_name": sample_name,
+            "peak_annotation": os.path.basename(
+                row["peak annotation filename"]
+            ).strip(),
             "mzxml": row["mzxml filename"],
             "ms_protocol_name": row["ms mode"],
             "researcher": row["instrument"],

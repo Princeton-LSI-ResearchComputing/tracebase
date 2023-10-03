@@ -395,10 +395,13 @@ class AccuCorDataLoader:
                 )
 
         # Note, this intentionally fills in any that caused errors above in order to catch more errors
+        incorrect_pgs_files = {}
         for sample_header in self.corrected_sample_headers:
             if sample_header not in self.lcms_metadata.keys():
                 self.lcms_metadata[sample_header] = {
+                    "sample_header": sample_header,
                     "sample_name": sample_header,
+                    "peak_annotation": self.peak_group_set_filename,
                     "mzxml": self.sample_header_to_default_mzxml(sample_header),
                     "ms_protocol_name": self.lcms_defaults["ms_protocol_name"],
                     "researcher": self.lcms_defaults["researcher"],
@@ -409,6 +412,22 @@ class AccuCorDataLoader:
                     "lc_description": None,
                     "lc_name": self.lcms_defaults["lc_protocol_name"],
                 }
+            elif (
+                self.lcms_metadata[sample_header]["peak_annotation"]
+                != self.peak_group_set_filename
+            ):
+                # We can assume sample_header is unique due to previous code
+                incorrect_pgs_files[sample_header] = self.lcms_metadata[sample_header][
+                    "peak_annotation"
+                ]
+
+        if len(incorrect_pgs_files.keys()) > 0:
+            self.aggregated_errors_object.buffer_error(
+                PeakAnnotFileMismatches(
+                    incorrect_pgs_files, self.peak_group_set_filename
+                )
+            )
+
         self.validate_mzxmls()
 
     def sample_header_to_default_mzxml(self, sample_header):
@@ -1661,3 +1680,17 @@ class MissingMZXMLFiles(Exception):
         )
         super().__init__(message)
         self.missing_mzxml_sample_headers = missing_mzxml_sample_headers
+
+
+class PeakAnnotFileMismatches(Exception):
+    def __init__(self, incorrect_pgs_files, peak_group_set_filename):
+        bad_files_str = "\n\t".join(
+            [k + f" [{incorrect_pgs_files[k]}]" for k in incorrect_pgs_files.keys()]
+        )
+        message = (
+            "The following sample headers' peak annotation files in the LCMS metadata file do not match the supplied "
+            f"peak annotation file [{peak_group_set_filename}]:\n\t{bad_files_str}"
+        )
+        super().__init__(message)
+        self.incorrect_pgs_files = incorrect_pgs_files
+        self.peak_group_set_filename = peak_group_set_filename
