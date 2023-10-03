@@ -119,7 +119,7 @@ class Command(BaseCommand):
                 lcms_metadata_df = extract_dataframes_from_lcms_xlsx(
                     options["lcms_file"]
                 )
-            except (InvalidFileException, ValueError, BadZipFile):
+            except (InvalidFileException, ValueError, BadZipFile):  # type: ignore
                 lcms_metadata_df = extract_dataframes_from_lcms_csv(
                     options["lcms_file"]
                 )
