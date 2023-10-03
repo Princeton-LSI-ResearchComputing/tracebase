@@ -203,6 +203,8 @@ class DataValidationView(FormView):
                     # },
                 ],
                 "msrun_protocol": "Default",
+                "lc_protocol": "unknown",
+                "instrument": "Default instrument",
                 "date": "1972-11-24",
                 "researcher": "anonymous",
                 "new_researcher": False,

@@ -691,7 +691,8 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         """
         Do a file validation test
         """
-        # Load the necessary tissues & compounds for a successful test
+        # Load the necessary records for a successful test
+        call_command("loaddata", "lc_methods")
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
         call_command(
             "load_compounds",
@@ -736,6 +737,7 @@ class ValidationViewTests(TracebaseTransactionTestCase):
 
         # Load some data that should cause a researcher warning during validation (an unknown researcher error will not
         # be raised if there are no researchers loaded in the database)
+        call_command("loaddata", "lc_methods")
         call_command(
             "load_samples",
             "DataRepo/example_data/small_dataset/small_obob_sample_table.tsv",
