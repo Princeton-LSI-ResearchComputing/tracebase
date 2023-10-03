@@ -3,8 +3,8 @@ from DataRepo.utils.accucor_data_loader import (
     InvalidLCMSHeaders,
     IsotopeObservationData,
     IsotopeObservationParsingError,
-    LCMSHeadersAreValid,
     TracerLabeledElementNotFound,
+    lcms_headers_are_valid,
 )
 from DataRepo.utils.composite_data import leaderboard_data
 from DataRepo.utils.compounds_loader import CompoundsLoader
@@ -69,7 +69,7 @@ __all__ = [
     "SheetMergeError",
     "UnskippedBlanksError",
     "DryRun",
-    "LCMSHeadersAreValid",
+    "lcms_headers_are_valid",
     "LoadingError",
     "QuerysetToPandasDataFrame",
     "SampleTableLoader",

@@ -31,6 +31,16 @@ properties:
     required:
       - table
     additionalProperties: false
+  lcms_metadata:
+    type: object
+    description: |
+      sample names linked with accucor sample headers and associated mzXML files and LCMS run metadata
+    properties:
+      lcms_metadata_file:
+        type: string
+        description: |
+          optional filename of Excel or csv file with samples, sample data headers, and run metadata
+    additionalProperties: false
   accucor_data:
     type: object
     properties:
@@ -54,6 +64,11 @@ properties:
               type: string
             date:
               type: string
+            mzxml_files:
+              type: array
+              description: list of mzXML files, 1 for each sample data header
+              items:
+                type: string
             researcher:
               type: string
             new_researcher:
@@ -81,6 +96,11 @@ properties:
       date:
         type: string
         description: date of ms run
+      mzxml_files:
+        type: array
+        description: list of mzXML files
+        items:
+          type: string
       researcher:
         type: string
         description: name of resercher who performed ms run

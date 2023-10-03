@@ -12,11 +12,7 @@ from DataRepo.models.hier_cached_model import (
     enable_caching_updates,
 )
 from DataRepo.models.maintained_model import MaintainedModel
-from DataRepo.utils import (
-    AccuCorDataLoader,
-    InvalidLCMSHeaders,
-    LCMSHeadersAreValid,
-)
+from DataRepo.utils import AccuCorDataLoader
 
 
 class Command(BaseCommand):
@@ -49,6 +45,14 @@ class Command(BaseCommand):
             ),
             default=None,
             required=False,
+        )
+        parser.add_argument(
+            "--mzxml-files",
+            type=str,
+            help="Filepaths of mzXML files containing instrument run data.",
+            default=None,
+            required=False,
+            nargs="*",
         )
         parser.add_argument(
             "--lc-protocol-name",
@@ -162,6 +166,12 @@ class Command(BaseCommand):
         if options["accucor_file_name"] is not None:
             pgs_filename = options["accucor_file_name"]
 
+        mzxml_files = None
+        if options["mzxml_files"] is not None and len(options["mzxml_files"]) > 0:
+            mzxml_files = [
+                os.path.basename(mzxmlf).strip() for mzxmlf in options["mzxml_files"]
+            ]
+
         loader = AccuCorDataLoader(
             # Peak annotation file data
             isocorr_format=options["isocorr_format"],
@@ -176,6 +186,7 @@ class Command(BaseCommand):
             ms_protocol_name=options["ms_protocol_name"],
             researcher=options["researcher"],
             instrument=options["instrument"],
+            mzxml_files=mzxml_files,
             # Sample options
             skip_samples=options["skip_samples"],
             sample_name_prefix=options["sample_name_prefix"],
@@ -189,44 +200,6 @@ class Command(BaseCommand):
         loader.load_accucor_data()
 
         print(f"Done loading {fmt} data into MsRun, PeakGroups, and PeakData")
-
-    def extract_dataframes_from_lcms_xlsx(self, lcms_file):
-        headers = (
-            pd.read_excel(
-                lcms_file,
-                nrows=1,  # Read only the first row
-                header=None,
-                sheet_name=1,  # The second sheet
-                engine="openpyxl",
-            )
-            .squeeze("columns")
-            .iloc[0]
-        )
-
-        if not LCMSHeadersAreValid(headers):
-            raise InvalidLCMSHeaders(headers, lcms_file)
-
-        return pd.read_excel(
-            lcms_file,
-            sheet_name=0,  # The first sheet
-            engine="openpyxl",
-        ).dropna(axis=0, how="all")
-
-    def extract_dataframes_from_lcms_csv(self, lcms_file):
-        headers = (
-            pd.read_csv(
-                lcms_file,
-                nrows=1,
-                header=None,
-            )
-            .squeeze("columns")
-            .iloc[0]
-        )
-
-        if not LCMSHeadersAreValid(headers):
-            raise InvalidLCMSHeaders(headers, lcms_file)
-
-        return pd.read_csv(lcms_file).dropna(axis=0, how="all")
 
     def extract_dataframes_from_peakannotation_xlsx(self, is_isocorr, peak_annot_file):
         # For checking the sheets

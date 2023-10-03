@@ -1,3 +1,4 @@
+import os
 import re
 from collections import Counter, defaultdict
 from datetime import datetime
@@ -52,6 +53,12 @@ from DataRepo.utils.exceptions import (
     UnexpectedIsotopes,
     UnskippedBlanksError,
 )
+from DataRepo.utils.lcms_metadata_parser import (
+    DuplicateSampleDataHeaders,
+    InvalidLCMSHeaders,
+    lcms_df_to_dict,
+    lcms_headers_are_valid,
+)
 
 # Global variables for Accucor/Isocorr corrected column names/patterns
 # List of column names from data files that we know are not samples.  Note that the column names are the same in
@@ -89,18 +96,6 @@ ISOTOPE_LABEL_PATTERN = regex.compile(
     # Match either " PARENT" or repeated counts (e.g. "-labels-2-1")
     + r"(?: (?P<parent>PARENT)|-label(?:-(?P<counts>\d+))+)$"
 )
-LCMS_HEADERS = (
-    "tracebase sample name",
-    "sample data header",
-    "mzxml filename",
-    "ms mode",
-    "instrument",
-    "operator",
-    "date",
-    "lc method",
-    "lc run length",
-    "lc description",
-)
 
 
 class IsotopeObservationData(TypedDict):
@@ -131,6 +126,7 @@ class AccuCorDataLoader:
         date=None,
         ms_protocol_name=None,
         lc_protocol_name=None,
+        mzxml_files=None,
         researcher=None,
         skip_samples=None,
         sample_name_prefix=None,
@@ -161,7 +157,7 @@ class AccuCorDataLoader:
             ]
             if lcms_metadata is None and None in reqd_args:
                 raise LCMSDefaultsRequired(*reqd_args)
-            if lcms_metadata is not None and not LCMSHeadersAreValid(
+            if lcms_metadata is not None and not lcms_headers_are_valid(
                 list(lcms_metadata.columns)
             ):
                 raise InvalidLCMSHeaders(list(lcms_metadata.columns))
@@ -173,6 +169,7 @@ class AccuCorDataLoader:
                 "date": None,
                 "researcher": None,
                 "instrument": None,
+                "mzxml_files": None,
             }
             if lc_protocol_name is not None:
                 self.lcms_defaults["lc_protocol_name"] = lc_protocol_name.strip()
@@ -184,6 +181,14 @@ class AccuCorDataLoader:
                 self.lcms_defaults["researcher"] = researcher.strip()
             if instrument is not None:
                 self.lcms_defaults["instrument"] = instrument.strip()
+            if mzxml_files is not None:
+                # mzxml_files is assumed to be populated with basenames
+                self.lcms_defaults["mzxml_files"] = {}
+                for fn in mzxml_files:
+                    nm, _ = os.path.splitext(fn)
+                    # pylint: disable=unsupported-assignment-operation
+                    self.lcms_defaults["mzxml_files"][nm] = fn
+                    # pylint: enable=unsupported-assignment-operation
 
             # Sample Metadata
             if skip_samples is None:
@@ -214,6 +219,8 @@ class AccuCorDataLoader:
             }
             self.duplicate_peak_groups = []
             self.conflicting_peak_groups = []
+            self.matched_mzxmls = []
+            self.missing_mzxmls = []
 
             # Used for accucor
             self.labeled_element = None
@@ -351,24 +358,17 @@ class AccuCorDataLoader:
         missing = []
         unexpected = []
         if self.lcms_metadata_df is not None:
-            for idx, row in self.lcms_metadata_df.iterrows():
-                sample_header = row["sample data header"]
-                self.lcms_metadata[sample_header] = {
-                    "sample_name": row["tracebase sample name"],
-                    "mzxml": row["mzxml filename"],
-                    "ms_protocol_name": row["ms mode"],
-                    "researcher": row["instrument"],
-                    "instrument": row["operator"],
-                    "date": row["date"],
-                    "lc_type": row["lc method"],
-                    "lc_run_length": row["lc run length"],
-                    "lc_description": row["lc description"],
-                    "lc_name": LCMethod.create_name(
-                        row["lc method"], row["lc run length"]
-                    ),
-                }
+            try:
+                self.lcms_metadata = lcms_df_to_dict(self.lcms_metadata_df)
+            except DuplicateSampleDataHeaders as dsdh:
+                self.aggregated_errors_object.buffer_error(dsdh)
+                self.lcms_metadata = dsdh.lcms_metadata
+
+            for sample_header in self.lcms_metadata.keys():
+                self.check_mzxml(sample_header, self.lcms_metadata["mzxml"])
                 if sample_header not in self.corrected_sample_headers:
-                    unexpected.append([sample_header, idx + 2])
+                    unexpected.append(sample_header)
+
             for sample_header in self.corrected_sample_headers:
                 if sample_header not in self.lcms_metadata.keys():
                     missing.append(sample_header)
@@ -386,6 +386,7 @@ class AccuCorDataLoader:
                             missing, self.peak_group_set_filename, False
                         ),
                     )
+
             if len(unexpected) > 0:
                 self.aggregated_errors_object.buffer_error(
                     UnexpectedLCMSSampleDataHeaders(
@@ -398,7 +399,7 @@ class AccuCorDataLoader:
             if sample_header not in self.lcms_metadata.keys():
                 self.lcms_metadata[sample_header] = {
                     "sample_name": sample_header,
-                    "mzxml": f"{sample_header}.xml",
+                    "mzxml": self.sample_header_to_default_mzxml(sample_header),
                     "ms_protocol_name": self.lcms_defaults["ms_protocol_name"],
                     "researcher": self.lcms_defaults["researcher"],
                     "instrument": self.lcms_defaults["instrument"],
@@ -408,6 +409,42 @@ class AccuCorDataLoader:
                     "lc_description": None,
                     "lc_name": self.lcms_defaults["lc_protocol_name"],
                 }
+        self.validate_mzxmls()
+
+    def sample_header_to_default_mzxml(self, sample_header):
+        """
+        This retrieves the mzXML file name from self.lcms_defaults["mzxml_files"] that matches the supplied sample
+        header.
+        """
+        if self.lcms_defaults["mzxml_files"] is not None:
+            # pylint: disable=unsubscriptable-object
+            if sample_header in self.lcms_defaults["mzxml_files"].keys():
+                self.matched_mzxmls.append(
+                    self.lcms_defaults["mzxml_files"][sample_header]
+                )
+                return self.lcms_defaults["mzxml_files"][sample_header]
+            # pylint: enable=unsubscriptable-object
+            self.missing_mzxmls.append(sample_header)
+        return f"{sample_header}.xml"
+
+    def check_mzxml(self, sample_header, mzxml_file):
+        # For historical reasons, we don't require mzXML files
+        if (
+            mzxml_file is not None
+            and mzxml_file not in self.lcms_defaults["mzxml_files"].values()
+        ):
+            self.missing_mzxmls.append(sample_header)
+        else:
+            self.matched_mzxmls.append(mzxml_file)
+
+    def validate_mzxmls(self):
+        if len(self.missing_mzxmls) > 0:
+            self.aggregated_errors_object.buffer_error(
+                MissingMZXMLFiles(self.missing_mzxmls)
+            )
+        # Since the mzXML files specified may contain sample headers from multiple accucor files, there is no check for
+        # unused mzXML files.  See the sample_table_loader for a check of the samples, as an indirect check on unused
+        # mzXML files.
 
     def lcms_defaults_supplied(self):
         """Returns False if any default value is None"""
@@ -1002,6 +1039,9 @@ class AccuCorDataLoader:
                 # Note, get_or_create_lc_protocol buffers an error when this happens
                 continue
 
+            # TODO: Load instrument
+            # TODO: Load mzXML file
+
             msrun_dict = {
                 "date": self.lcms_metadata[sample_data_header]["date"],
                 "researcher": self.lcms_metadata[sample_data_header]["researcher"],
@@ -1495,10 +1535,6 @@ class AccuCorDataLoader:
         enable_caching_updates()
 
 
-def LCMSHeadersAreValid(headers):
-    return headers == LCMS_HEADERS
-
-
 class IsotopeObservationParsingError(Exception):
     pass
 
@@ -1574,44 +1610,22 @@ class LCMSDefaultsRequired(Exception):
             missing.append("instrument")
         message = f"When an LCMS metadata dataframe is not provided, these missing arguments are required: [{missing}]."
         super().__init__(message)
-
-
-class InvalidLCMSHeaders(ValidationError):
-    def __init__(self, headers, expected_headers=None, lcms_file=None):
-        if expected_headers is None:
-            expected_headers = LCMS_HEADERS
-        message = "LCMS metadata "
-        if lcms_file is not None:
-            message += f"file [{lcms_file}] "
-        if len(headers) != len(expected_headers):
-            message += (
-                f"should have {len(expected_headers)} headers, but {len(headers)} were found.  Expected headers: "
-                f"[{expected_headers}]."
-            )
-        else:
-            missing = []
-            unexpected = []
-            for i in range(len(headers)):
-                if headers[i] not in expected_headers:
-                    unexpected.append(headers[i])
-                if expected_headers[i] not in headers:
-                    missing.append(expected_headers[i])
-            if len(missing) > 0:
-                message += f"is missing headers: [{missing}]"
-            if len(missing) > 0 and len(unexpected) > 0:
-                message += " and "
-            if len(unexpected) > 0:
-                message += f" has unexpected headers: [{unexpected}]"
-        super().__init__(message)
+        self.lc_protocol_name = lc_protocol_name
+        self.ms_protocol_name = ms_protocol_name
+        self.date = date
+        self.researcher = researcher
+        self.instrument = instrument
 
 
 class UnexpectedLCMSSampleDataHeaders(Exception):
     def __init__(self, unexpected, peak_annot_file):
         message = (
-            "The following sample data headers, on the indicated row numbers, in the LCMS metadata supplied were not "
-            f"found among the peak annotation file [{peak_annot_file}] headers: [{unexpected}]."
+            "The following sample data headers in the LCMS metadata supplied were not found among the peak annotation "
+            f"file [{peak_annot_file}] headers: [{unexpected}]."
         )
         super().__init__(message)
+        self.unexpected = unexpected
+        self.peak_annot_file = peak_annot_file
 
 
 class MissingLCMSSampleDataHeaders(Exception):
@@ -1623,13 +1637,27 @@ class MissingLCMSSampleDataHeaders(Exception):
         if using_defaults:
             message += "  Falling back to supplied defaults."
         super().__init__(message)
+        self.missing = missing
+        self.peak_annot_file = peak_annot_file
+        self.using_defaults = using_defaults
 
 
 class LCMSDefaultsRequiredForMissingHeaders(Exception):
     def __init__(self, defaults_dict):
         missing = [key for key in defaults_dict.keys() if defaults_dict[key] is None]
         message = (
-            "Since the supplied LCMS metadata does not include every sample data header, defaulkt values for "
+            "Since the supplied LCMS metadata does not include every sample data header, default values for "
             f"[{missing}] must be supplied."
         )
         super().__init__(message)
+        self.defaults_dict = defaults_dict
+
+
+class MissingMZXMLFiles(Exception):
+    def __init__(self, missing_mzxml_sample_headers):
+        message = (
+            "The supplied mzXML files do not account for every sample data header.  The following headers have not "
+            f"been associated with an mzXML file: [{missing_mzxml_sample_headers}]."
+        )
+        super().__init__(message)
+        self.missing_mzxml_sample_headers = missing_mzxml_sample_headers

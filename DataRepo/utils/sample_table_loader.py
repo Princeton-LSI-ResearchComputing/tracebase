@@ -42,6 +42,11 @@ from DataRepo.utils.exceptions import (
     UnitsWrong,
     UnknownHeadersError,
 )
+from DataRepo.utils.lcms_metadata_parser import (
+    DuplicateSampleDataHeaders,
+    lcms_df_to_dict,
+    lcms_metadata_to_samples,
+)
 
 
 class SampleTableLoader:
@@ -148,6 +153,7 @@ class SampleTableLoader:
         defer_autoupdates=False,
         defer_rollback=False,  # DO NOT USE MANUALLY - THIS WILL NOT ROLL BACK (handle in atomic transact in caller)
         dry_run=False,
+        lcms_metadata_df=None,
     ):
         # Header config
         self.headers = sample_table_headers
@@ -175,6 +181,14 @@ class SampleTableLoader:
         self.infile_sample_dupe_rows = []
         self.empty_animal_rows = []
         self.missing_tissues = defaultdict(list)
+
+        # Arrange the LCMS samples
+        try:
+            lcms_metadata = lcms_df_to_dict(lcms_metadata_df)
+            self.lcms_samples = lcms_metadata_to_samples(lcms_metadata)
+        except DuplicateSampleDataHeaders as dsdh:
+            self.aggregated_errors_object.buffer_error(dsdh)
+            self.lcms_samples = dsdh.samples
 
         # Obtain known researchers before load
         self.known_researchers = get_researchers()
@@ -232,6 +246,9 @@ class SampleTableLoader:
         enable_caching_updates()
 
     def _load_data(self, data):
+        # This will be used to validate the lcms samples:
+        all_sample_names = []
+
         # Create a list to hold the csv reader data so that iterations from validating doesn't leave the csv reader
         # empty/at-the-end upon the import loop
         sample_table_data = list(data)
@@ -271,11 +288,16 @@ class SampleTableLoader:
                 sample_rec = self.get_or_create_sample(
                     rownum, row, animal_rec, tissue_rec
                 )
+                # Sample rec will be none if there was a problem/exception
+                if sample_rec is not None:
+                    all_sample_names.append(sample_rec.name)
                 self.get_or_create_fcircs(infusate_rec, sample_rec)
             elif self.verbosity >= 2:
                 print(
                     f"SKIPPING sample load on row {rownum} due to duplicate sample name."
                 )
+
+        self.check_lcms_samples(all_sample_names)
 
         if not self.skip_researcher_check:
             try:
@@ -323,6 +345,21 @@ class SampleTableLoader:
             animal_rec.delete_related_caches()
         if self.verbosity >= 2:
             print("Expiring done.")
+
+    def check_lcms_samples(self, all_load_samples):
+        """
+        Makes sure every sample in the LCMS dataframe is present in the animal sample table
+        """
+        lcms_samples_missing = []
+
+        for lcms_sample in self.lcms_samples:
+            if lcms_sample not in all_load_samples:
+                lcms_samples_missing.append(lcms_sample)
+
+        if len(lcms_samples_missing) > 0:
+            self.aggregated_errors_object.buffer_error(
+                LCMSSampleMismatch(lcms_samples_missing)
+            )
 
     def get_tissue(self, rownum, row):
         tissue_name = self.getRowVal(row, "TISSUE_NAME")
@@ -1033,3 +1070,14 @@ class TissueError(UnanticipatedError):
 
 class TreatmentError(UnanticipatedError):
     pass
+
+
+class LCMSSampleMismatch(Exception):
+    def __init__(self, lcms_samples_missing):
+        nlt = "\n\t"
+        message = (
+            "The following sample names from the LCMS metadata is missing in the animal sample table:\n\t"
+            f"[{nlt.join(lcms_samples_missing)}]"
+        )
+        super().__init__(message)
+        self.lcms_samples_missing = lcms_samples_missing

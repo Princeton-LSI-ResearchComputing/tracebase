@@ -183,6 +183,15 @@ class Command(BaseCommand):
                 except Exception as e:
                     self.package_group_exceptions(e, tissues_file)
 
+            lcms_metadata_file = None
+            if "lcms_metadata" in study_params and (
+                "animals_samples_treatments" in study_params
+                or "accucor_data" in study_params
+            ):
+                lcms_metadata_file = study_params["lcms_metadata"].get(
+                    "lcms_metadata_file", None
+                )
+
             if "animals_samples_treatments" in study_params:
                 # Read in animals and samples file
                 sample_file_basename = study_params["animals_samples_treatments"][
@@ -224,6 +233,7 @@ class Command(BaseCommand):
                         validate=self.validate,
                         defer_autoupdates=True,
                         defer_rollback=True,  # Until after we exit THIS atomic block
+                        lcms_file=lcms_metadata_file,
                     )
                 except Exception as e:
                     self.package_group_exceptions(e, animals_samples_table_file)
@@ -241,6 +251,9 @@ class Command(BaseCommand):
                 )
                 study_sample_name_prefix = study_params["accucor_data"].get(
                     "sample_name_prefix", None
+                )
+                study_mzxml_files = study_params["accucor_data"].get(
+                    "mzxml_files", None
                 )
 
                 # Read in accucor data files
@@ -268,6 +281,9 @@ class Command(BaseCommand):
                         "sample_name_prefix", study_sample_name_prefix
                     )
                     isocorr_format = accucor_info_dict.get("isocorr_format", False)
+                    mzxml_files = accucor_info_dict.get(
+                        "mzxml_files", study_mzxml_files
+                    )
 
                     if self.verbosity > 1:
                         self.stdout.write(
@@ -293,6 +309,8 @@ class Command(BaseCommand):
                             sample_name_prefix=sample_name_prefix,
                             validate=self.validate,
                             isocorr_format=isocorr_format,
+                            mzxml_files=mzxml_files,
+                            lcms_file=lcms_metadata_file,
                         )
                         if self.verbosity > 1:
                             self.stdout.write(

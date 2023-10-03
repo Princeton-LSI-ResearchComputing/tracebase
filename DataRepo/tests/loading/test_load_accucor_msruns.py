@@ -222,6 +222,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             lc_protocol_name="polar-HILIC-25-min",
             instrument="",
             peak_group_set_filename="",
+            mzxml_files=[],
         )
         adl.record_missing_compound("new compound", "C1H4", 9)
         self.assertEqual(
@@ -286,6 +287,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             lc_protocol_name="polar-HILIC-25-min",
             instrument="",
             peak_group_set_filename="peak_group_set_filename.tsv",
+            mzxml_files=[],
         )
         # Get the first PeakGroup, and collect attributes
         peak_group = PeakGroup.objects.first()
@@ -325,6 +327,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             lc_protocol_name="polar-HILIC-25-min",
             instrument="",
             peak_group_set_filename="peak_group_set_filename.tsv",
+            mzxml_files=[],
         )
         # Get the first PeakGroup, collect the attributes and change the formula
         peak_group = PeakGroup.objects.first()
