@@ -249,8 +249,12 @@ class Command(BaseCommand):
                     accucor_file_basename = accucor_info_dict["name"]
                     accucor_file = os.path.join(study_dir, accucor_file_basename)
                     self.load_statuses.init_load(accucor_file)
-                    ms_protocol_name = accucor_info_dict.get("msrun_protocol", study_ms_protocol)
-                    lc_protocol_name = accucor_info_dict.get("lc_protocol", study_lc_protocol)
+                    ms_protocol_name = accucor_info_dict.get(
+                        "msrun_protocol", study_ms_protocol
+                    )
+                    lc_protocol_name = accucor_info_dict.get(
+                        "lc_protocol", study_lc_protocol
+                    )
                     instrument = accucor_info_dict.get("instrument", study_instrument)
                     date = accucor_info_dict.get("date", study_date)
                     researcher = accucor_info_dict.get("researcher", study_researcher)

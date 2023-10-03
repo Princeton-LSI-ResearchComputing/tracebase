@@ -390,7 +390,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
         self.assertTrue(
-            isinstance(aes.exceptions[0],TracerLabeledElementNotFound),
+            isinstance(aes.exceptions[0], TracerLabeledElementNotFound),
             msg="First exception must be TracerLabeledElementNotFound, but it was: "
             f"[{type(aes.exceptions[0]).__name__}].",
         )

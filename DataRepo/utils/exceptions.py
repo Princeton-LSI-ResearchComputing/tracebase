@@ -1213,9 +1213,7 @@ class MissingTissues(Exception):
 class LCMethodFixturesMissing(Exception):
     def __init__(self, message=None, err=None):
         if message is None:
-            message = (
-                f"The LCMethod fixtures defined in [DataRepo/fixtures/lc_methods.yaml] appear to have not been loaded."
-            )
+            message = "The LCMethod fixtures defined in [DataRepo/fixtures/lc_methods.yaml] appear to have not been loaded."
         if err is not None:
             message += f"  The triggering exception was: [{err}]."
         super().__init__(message)

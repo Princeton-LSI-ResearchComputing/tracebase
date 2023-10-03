@@ -175,13 +175,9 @@ class AccuCorDataLoader:
                 "instrument": None,
             }
             if lc_protocol_name is not None:
-                self.lcms_defaults[
-                    "lc_protocol_name"
-                ] = lc_protocol_name.strip()
+                self.lcms_defaults["lc_protocol_name"] = lc_protocol_name.strip()
             if ms_protocol_name is not None:
-                self.lcms_defaults[
-                    "ms_protocol_name"
-                ] = ms_protocol_name.strip()
+                self.lcms_defaults["ms_protocol_name"] = ms_protocol_name.strip()
             if date is not None:
                 self.lcms_defaults["date"] = datetime.strptime(date.strip(), "%Y-%m-%d")
             if researcher is not None:
@@ -367,7 +363,9 @@ class AccuCorDataLoader:
                     "lc_type": row["lc method"],
                     "lc_run_length": row["lc run length"],
                     "lc_description": row["lc description"],
-                    "lc_name": LCMethod.create_name(row['lc method'], row['lc run length']),
+                    "lc_name": LCMethod.create_name(
+                        row["lc method"], row["lc run length"]
+                    ),
                 }
                 if sample_header not in self.corrected_sample_headers:
                     unexpected.append([sample_header, idx + 2])
@@ -566,7 +564,9 @@ class AccuCorDataLoader:
                 # This relies on sample name to find the correct sample since we do not have any other information
                 # about the sample in the peak annotation file Accucor/Isocor files should be accomplanied by a sample
                 # and animal sheet file so we can identify potential duplicates and flag them
-                sample_dict[sample_data_header] = Sample.objects.get(name=prefixed_sample_name)
+                sample_dict[sample_data_header] = Sample.objects.get(
+                    name=prefixed_sample_name
+                )
             except Sample.DoesNotExist:
                 self.missing_samples.append(sample_name)
 
@@ -793,7 +793,9 @@ class AccuCorDataLoader:
             f"For protocol's full text, please consult {self.lcms_metadata[sample_header]['researcher']}.",
         )
         action = "Found"
-        feedback = f"{ms_protocol.category} protocol {ms_protocol.id} '{ms_protocol.name}'"
+        feedback = (
+            f"{ms_protocol.category} protocol {ms_protocol.id} '{ms_protocol.name}'"
+        )
         if created:
             action = "Created"
             feedback += f" '{ms_protocol.description}'"
@@ -804,7 +806,6 @@ class AccuCorDataLoader:
         return ms_protocol
 
     def get_or_create_lc_protocol(self, sample_data_header):
-
         # lcms_metadata should be populated either from the lcms_metadata file or via the headers and the default
         # options/args.
         if sample_data_header in self.lcms_metadata.keys():
@@ -814,7 +815,11 @@ class AccuCorDataLoader:
             name = self.lcms_metadata[sample_data_header]["lc_name"]
         else:
             # This should have been encountered before, but adding this here to be robust to code changes.
-            self.aggregated_errors_object.buffer_error(MissingLCMSSampleDataHeaders())
+            self.aggregated_errors_object.buffer_error(
+                MissingLCMSSampleDataHeaders(
+                    [sample_data_header], self.peak_group_set_filename, True
+                )
+            )
             # Create an unknown record in order to proceed and catch more errors
             name = LCMethod.create_name()
 
@@ -840,14 +845,20 @@ class AccuCorDataLoader:
             try:
                 # Fall back to the unknown record in order to proceed and catch more errors
                 # If this fails, die.  If the fixtures don't exist, that's a low level problem.
-                rec = LCMethod.objects.get(name__exact=LCMethod.DEFAULT_TYPE, type__exact=LCMethod.DEFAULT_TYPE)
+                rec = LCMethod.objects.get(
+                    name__exact=LCMethod.DEFAULT_TYPE, type__exact=LCMethod.DEFAULT_TYPE
+                )
                 # If the above found a record, buffer the original exception
                 self.aggregated_errors_object.buffer_error(e)
             except LCMethod.DoesNotExist as dne:
                 # Ignore the enclosing exception, deferring to the new LCMethodFixturesMissing exception
                 # If this exception hasn't already been buffered
-                if not self.aggregated_errors_object.exception_type_exists(LCMethodFixturesMissing):
-                    self.aggregated_errors_object.buffer_error(LCMethodFixturesMissing(dne))
+                if not self.aggregated_errors_object.exception_type_exists(
+                    LCMethodFixturesMissing
+                ):
+                    self.aggregated_errors_object.buffer_error(
+                        LCMethodFixturesMissing(dne)
+                    )
                 rec = None
             except Exception:
                 # We don't know what the new exception is, so revert to the enclosing exception
@@ -1205,7 +1216,9 @@ class AccuCorDataLoader:
 
                     for _, corr_row in peak_group_corrected_df.iterrows():
                         try:
-                            corrected_abundance_for_sample = corr_row[sample_data_header]
+                            corrected_abundance_for_sample = corr_row[
+                                sample_data_header
+                            ]
                             # No original dataframe, no raw_abundance, med_mz, or med_rt
                             raw_abundance = None
                             med_mz = None
