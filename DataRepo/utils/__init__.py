@@ -36,6 +36,10 @@ from DataRepo.utils.infusate_name_parser import (
     parse_infusate_name,
     parse_tracer_concentrations,
 )
+from DataRepo.utils.lcms_metadata_parser import (
+    extract_dataframes_from_lcms_tsv,
+    extract_dataframes_from_lcms_xlsx,
+)
 from DataRepo.utils.protocols_loader import ProtocolsLoader
 from DataRepo.utils.queryset_to_pandas_dataframe import (
     QuerysetToPandasDataFrame,
@@ -54,6 +58,8 @@ __all__ = [
     "DupeCompoundIsotopeCombos",
     "DuplicatePeakGroups",
     "DuplicateValues",
+    "extract_dataframes_from_lcms_xlsx",
+    "extract_dataframes_from_lcms_tsv",
     "HeaderError",
     "HeaderConfigError",
     "InvalidLCMSHeaders",

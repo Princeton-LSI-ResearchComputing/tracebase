@@ -1,4 +1,5 @@
 import os
+from collections import defaultdict
 
 import pandas as pd
 from django.core.exceptions import ValidationError
@@ -6,35 +7,44 @@ from django.core.exceptions import ValidationError
 from DataRepo.models.lc_method import LCMethod
 
 LCMS_HEADERS = (
-    "tracebase sample name",
-    "sample data header",
-    "peak annotation filename",
+    "tracebase sample name",  # Required
+    "sample data header",  # Required
     "mzxml filename",
-    "ms mode",
+    "peak annotation filename",
     "instrument",
     "operator",
     "date",
+    "ms mode",
     "lc method",
     "lc run length",
     "lc description",
 )
 
 
-def lcms_df_to_dict(df):
+def lcms_df_to_dict(df, aes=None):
     """
-    Parse the LCMS dataframe created from an LCMS file, and key by sample data header (which must be unique)
+    Parse the LCMS dataframe created from an LCMS file, and key by sample data header (which must be unique).
+    Takes an optional aggregated errors object.
     """
     lcms_metadata = {}
     samples = []
     dupes = {}
+    missing_reqd_vals = defaultdict(list)
+
     if df is None:
         return lcms_metadata
+
     for idx, row in df.iterrows():
-        sample_header = row["sample data header"]
         sample_name = row["tracebase sample name"]
-        if sample_name not in samples:
+        if sample_name is None:
+            missing_reqd_vals["tracebase sample name"].append(idx + 2)
+        elif sample_name not in samples:
             samples.append(sample_name)
-        if sample_header in lcms_metadata.keys():
+
+        sample_header = row["sample data header"]
+        if sample_header is None:
+            missing_reqd_vals["sample data header"].append(idx + 2)
+        elif sample_header in lcms_metadata.keys():
             if sample_header in dupes.keys():
                 dupes[sample_header].append(idx)
             else:
@@ -43,12 +53,19 @@ def lcms_df_to_dict(df):
                     idx + 2,
                 ]
             continue
+
+        lc_name = None
+        if row["lc method"] is not None and row["lc run length"] is not None:
+            lc_name = LCMethod.create_name(row["lc method"], row["lc run length"])
+
+        peak_annot = None
+        if row["peak annotation filename"] is not None:
+            peak_annot = os.path.basename(row["peak annotation filename"]).strip()
+
         lcms_metadata[sample_header] = {
             "sample_header": sample_header,
             "sample_name": sample_name,
-            "peak_annotation": os.path.basename(
-                row["peak annotation filename"]
-            ).strip(),
+            "peak_annotation": peak_annot,
             "mzxml": row["mzxml filename"],
             "ms_protocol_name": row["ms mode"],
             "researcher": row["instrument"],
@@ -57,12 +74,23 @@ def lcms_df_to_dict(df):
             "lc_type": row["lc method"],
             "lc_run_length": row["lc run length"],
             "lc_description": row["lc description"],
-            "lc_name": LCMethod.create_name(row["lc method"], row["lc run length"]),
+            "lc_name": lc_name,
             "row_num": idx + 2,  # From 1, not including header row
         }
 
     if len(dupes.keys()) > 0:
-        raise DuplicateSampleDataHeaders(dupes, lcms_metadata, samples)
+        exc = DuplicateSampleDataHeaders(dupes, lcms_metadata, samples)
+        if aes is not None:
+            aes.buffer_error(exc)
+        else:
+            raise exc
+
+    if len(missing_reqd_vals.keys()) > 0:
+        exc = MissingRequiredLCMSValues(missing_reqd_vals)
+        if aes is not None:
+            aes.buffer_error(exc)
+        else:
+            raise exc
 
     return lcms_metadata
 
@@ -87,7 +115,7 @@ def extract_dataframes_from_lcms_xlsx(lcms_file):
             lcms_file,
             nrows=1,  # Read only the first row
             header=None,
-            sheet_name=1,  # The second sheet
+            sheet_name=0,  # The first sheet
             engine="openpyxl",
         )
         .squeeze("columns")
@@ -95,7 +123,7 @@ def extract_dataframes_from_lcms_xlsx(lcms_file):
     )
 
     if not lcms_headers_are_valid(headers):
-        raise InvalidLCMSHeaders(headers, lcms_file)
+        raise InvalidLCMSHeaders(headers, LCMS_HEADERS, lcms_file)
 
     return pd.read_excel(
         lcms_file,
@@ -104,25 +132,32 @@ def extract_dataframes_from_lcms_xlsx(lcms_file):
     ).dropna(axis=0, how="all")
 
 
-def extract_dataframes_from_lcms_csv(lcms_file):
+def extract_dataframes_from_lcms_tsv(lcms_file):
     headers = (
-        pd.read_csv(
+        pd.read_table(
             lcms_file,
             nrows=1,
             header=None,
         )
         .squeeze("columns")
         .iloc[0]
+        .to_list()
     )
 
     if not lcms_headers_are_valid(headers):
-        raise InvalidLCMSHeaders(headers, lcms_file)
+        raise InvalidLCMSHeaders(headers, LCMS_HEADERS, lcms_file)
 
-    return pd.read_csv(lcms_file).dropna(axis=0, how="all")
+    return pd.read_table(
+        lcms_file,
+        keep_default_na=False,
+    ).dropna(axis=0, how="all")
 
 
 def lcms_headers_are_valid(headers):
-    return headers == LCMS_HEADERS
+    """Confiorms all headers are present, irrespective of case and order."""
+    return sorted([s.lower() for s in headers]) == sorted(
+        [s.lower() for s in LCMS_HEADERS]
+    )
 
 
 class DuplicateSampleDataHeaders(Exception):
@@ -153,7 +188,7 @@ class InvalidLCMSHeaders(ValidationError):
         if len(headers) != len(expected_headers):
             message += (
                 f"should have {len(expected_headers)} headers, but {len(headers)} were found.  Expected headers: "
-                f"[{expected_headers}]."
+                f"[{expected_headers}].  Headers found: [{headers}]."
             )
         else:
             missing = []
@@ -173,3 +208,14 @@ class InvalidLCMSHeaders(ValidationError):
         self.headers = headers
         self.expected_headers = expected_headers
         self.lcms_file = lcms_file
+
+
+class MissingRequiredLCMSValues(Exception):
+    def __init__(self, header_rownums_dict):
+        head_rows_str = ""
+        cs = ", "
+        for header in header_rownums_dict.keys():
+            head_rows_str += f"\n\t{header}: {cs.join(header_rownums_dict[header])}"
+        message = f"The following required values are missing on the indicated rows:\n{head_rows_str}"
+        super().__init__(message)
+        self.header_rownums_dict = header_rownums_dict

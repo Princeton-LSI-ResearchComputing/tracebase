@@ -14,7 +14,7 @@ from DataRepo.models.hier_cached_model import (
 from DataRepo.models.maintained_model import MaintainedModel
 from DataRepo.utils import SampleTableLoader
 from DataRepo.utils.lcms_metadata_parser import (
-    extract_dataframes_from_lcms_csv,
+    extract_dataframes_from_lcms_tsv,
     extract_dataframes_from_lcms_xlsx,
 )
 
@@ -120,7 +120,7 @@ class Command(BaseCommand):
                     options["lcms_file"]
                 )
             except (InvalidFileException, ValueError, BadZipFile):  # type: ignore
-                lcms_metadata_df = extract_dataframes_from_lcms_csv(
+                lcms_metadata_df = extract_dataframes_from_lcms_tsv(
                     options["lcms_file"]
                 )
 

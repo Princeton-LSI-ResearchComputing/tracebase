@@ -54,7 +54,6 @@ from DataRepo.utils.exceptions import (
     UnskippedBlanksError,
 )
 from DataRepo.utils.lcms_metadata_parser import (
-    DuplicateSampleDataHeaders,
     InvalidLCMSHeaders,
     lcms_df_to_dict,
     lcms_headers_are_valid,
@@ -362,11 +361,9 @@ class AccuCorDataLoader:
         missing = []
         unexpected = []
         if self.lcms_metadata_df is not None:
-            try:
-                self.lcms_metadata = lcms_df_to_dict(self.lcms_metadata_df)
-            except DuplicateSampleDataHeaders as dsdh:
-                self.aggregated_errors_object.buffer_error(dsdh)
-                self.lcms_metadata = dsdh.lcms_metadata
+            self.lcms_metadata = lcms_df_to_dict(
+                self.lcms_metadata_df, self.aggregated_errors_object
+            )
 
             for sample_header in self.lcms_metadata.keys():
                 self.check_mzxml(sample_header, self.lcms_metadata["mzxml"])

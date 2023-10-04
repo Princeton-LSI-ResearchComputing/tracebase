@@ -43,7 +43,6 @@ from DataRepo.utils.exceptions import (
     UnknownHeadersError,
 )
 from DataRepo.utils.lcms_metadata_parser import (
-    DuplicateSampleDataHeaders,
     lcms_df_to_dict,
     lcms_metadata_to_samples,
 )
@@ -183,12 +182,8 @@ class SampleTableLoader:
         self.missing_tissues = defaultdict(list)
 
         # Arrange the LCMS samples
-        try:
-            lcms_metadata = lcms_df_to_dict(lcms_metadata_df)
-            self.lcms_samples = lcms_metadata_to_samples(lcms_metadata)
-        except DuplicateSampleDataHeaders as dsdh:
-            self.aggregated_errors_object.buffer_error(dsdh)
-            self.lcms_samples = dsdh.samples
+        lcms_metadata = lcms_df_to_dict(lcms_metadata_df, self.aggregated_errors_object)
+        self.lcms_samples = lcms_metadata_to_samples(lcms_metadata)
 
         # Obtain known researchers before load
         self.known_researchers = get_researchers()

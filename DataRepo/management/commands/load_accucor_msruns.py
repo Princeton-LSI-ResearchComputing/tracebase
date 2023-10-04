@@ -12,7 +12,11 @@ from DataRepo.models.hier_cached_model import (
     enable_caching_updates,
 )
 from DataRepo.models.maintained_model import MaintainedModel
-from DataRepo.utils import AccuCorDataLoader
+from DataRepo.utils import (
+    AccuCorDataLoader,
+    extract_dataframes_from_lcms_tsv,
+    extract_dataframes_from_lcms_xlsx,
+)
 
 
 class Command(BaseCommand):
@@ -142,13 +146,9 @@ class Command(BaseCommand):
         lcms_metadata = None
         if options["lcms_file"] is not None:
             try:
-                lcms_metadata = self.extract_dataframes_from_lcms_xlsx(
-                    options["lcms_file"]
-                )
+                lcms_metadata = extract_dataframes_from_lcms_xlsx(options["lcms_file"])
             except (InvalidFileException, ValueError, BadZipFile):  # type: ignore
-                lcms_metadata = self.extract_dataframes_from_lcms_csv(
-                    options["lcms_file"]
-                )
+                lcms_metadata = extract_dataframes_from_lcms_tsv(options["lcms_file"])
 
         fmt = "Isocorr" if options["isocorr_format"] else "Accucor"
         print(f"Reading {fmt} file: {options['accucor_file']}")
