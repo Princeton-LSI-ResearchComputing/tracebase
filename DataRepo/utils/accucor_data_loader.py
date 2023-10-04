@@ -170,6 +170,7 @@ class AccuCorDataLoader:
                 "researcher": None,
                 "instrument": None,
                 "mzxml_files": None,
+                "peak_annot_file": self.peak_group_set_filename,
             }
             if lc_protocol_name is not None:
                 self.lcms_defaults["lc_protocol_name"] = lc_protocol_name.strip()
@@ -189,6 +190,9 @@ class AccuCorDataLoader:
                     # pylint: disable=unsupported-assignment-operation
                     self.lcms_defaults["mzxml_files"][nm] = fn
                     # pylint: enable=unsupported-assignment-operation
+
+            if self.lcms_metadata_df is None and not self.lcms_defaults_supplied():
+                self.aggregated_errors_object.buffer_error(LCMSMetadataRequired())
 
             # Sample Metadata
             if skip_samples is None:
@@ -219,8 +223,8 @@ class AccuCorDataLoader:
             }
             self.duplicate_peak_groups = []
             self.conflicting_peak_groups = []
-            self.matched_mzxmls = []
             self.missing_mzxmls = []
+            self.mismatching_mzxmls = []
 
             # Used for accucor
             self.labeled_element = None
@@ -374,18 +378,16 @@ class AccuCorDataLoader:
                     missing.append(sample_header)
 
             if len(missing) > 0:
-                if self.lcms_defaults_supplied():
-                    self.aggregated_errors_object.buffer_warning(
-                        MissingLCMSSampleDataHeaders(
-                            missing, self.peak_group_set_filename, True
-                        ),
-                    )
-                else:
-                    self.aggregated_errors_object.buffer_error(
-                        MissingLCMSSampleDataHeaders(
-                            missing, self.peak_group_set_filename, False
-                        ),
-                    )
+                # Defaults are required if any sample is missing in the lcms_metadata file
+                self.aggregated_errors_object.buffer_exception(
+                    MissingLCMSSampleDataHeaders(
+                        missing,
+                        self.peak_group_set_filename,
+                        self.get_missing_required_lcms_defaults(),
+                    ),
+                    is_error=not self.lcms_defaults_supplied(),
+                    is_fatal=not self.lcms_defaults_supplied(),
+                )
 
             if len(unexpected) > 0:
                 self.aggregated_errors_object.buffer_error(
@@ -401,7 +403,7 @@ class AccuCorDataLoader:
                 self.lcms_metadata[sample_header] = {
                     "sample_header": sample_header,
                     "sample_name": sample_header,
-                    "peak_annotation": self.peak_group_set_filename,
+                    "peak_annotation": self.lcms_defaults["peak_annot_file"],
                     "mzxml": self.sample_header_to_default_mzxml(sample_header),
                     "ms_protocol_name": self.lcms_defaults["ms_protocol_name"],
                     "researcher": self.lcms_defaults["researcher"],
@@ -433,46 +435,65 @@ class AccuCorDataLoader:
     def sample_header_to_default_mzxml(self, sample_header):
         """
         This retrieves the mzXML file name from self.lcms_defaults["mzxml_files"] that matches the supplied sample
-        header.
+        header.  If mzxml files were not provided, it will be recorded as missing, but will be automatically filled in
+        with "{sample_header}.xml".
         """
         if self.lcms_defaults["mzxml_files"] is not None:
             # pylint: disable=unsubscriptable-object
             if sample_header in self.lcms_defaults["mzxml_files"].keys():
-                self.matched_mzxmls.append(
-                    self.lcms_defaults["mzxml_files"][sample_header]
-                )
                 return self.lcms_defaults["mzxml_files"][sample_header]
             # pylint: enable=unsubscriptable-object
-            self.missing_mzxmls.append(sample_header)
-        return f"{sample_header}.xml"
+
+        return None
 
     def check_mzxml(self, sample_header, mzxml_file):
         # For historical reasons, we don't require mzXML files
         if (
-            mzxml_file is not None
+            self.lcms_defaults["mzxml_files"] is not None
+            and mzxml_file is not None
             and mzxml_file not in self.lcms_defaults["mzxml_files"].values()
         ):
             self.missing_mzxmls.append(sample_header)
-        else:
-            self.matched_mzxmls.append(mzxml_file)
+
+        # Issue a warning if the sample header doesn't match the file name
+        if mzxml_file is not None:
+            sample_header_pat = re.compile(r"^" + sample_header + r"\.")
+            match = sample_header_pat.search(mzxml_file)
+            if match is False:
+                self.mismatching_mzxmls.append(
+                    [sample_header, mzxml_file, sample_header_pat]
+                )
 
     def validate_mzxmls(self):
         if len(self.missing_mzxmls) > 0:
-            self.aggregated_errors_object.buffer_error(
-                MissingMZXMLFiles(self.missing_mzxmls)
+            # New studies should require mzxml files, thus the user validate mode is a fatal error
+            # Old studies should have mzXML files as optional, thus the curator only gets a printed warning
+            self.aggregated_errors_object.buffer_exception(
+                MissingMZXMLFiles(self.missing_mzxmls),
+                is_error=self.validate,  # Error in validate mode, warning in load mode
+                is_fatal=self.validate,  # Fatal/raised in validate mode, will only be in load mode
             )
+        if len(self.mismatching_mzxmls) > 0:
+            self.aggregated_errors_object.buffer_warning(
+                MismatchedSampleHeaderMZXML(self.mismatching_mzxmls)
+            )
+
         # Since the mzXML files specified may contain sample headers from multiple accucor files, there is no check for
         # unused mzXML files.  See the sample_table_loader for a check of the samples, as an indirect check on unused
         # mzXML files.
 
+    def get_missing_required_lcms_defaults(self):
+        optional_defaults = ["mzxml_files"]
+        return [
+            key
+            for key in self.lcms_defaults.keys()
+            if self.lcms_defaults[key] is None and key not in optional_defaults
+        ]
+
     def lcms_defaults_supplied(self):
         """Returns False if any default value is None"""
-        all_supplied = None not in self.lcms_defaults.values()
-        if not all_supplied:
-            self.aggregated_errors_object.buffer_error(
-                LCMSDefaultsRequiredForMissingHeaders(self.lcms_defaults)
-            )
-        return all_supplied
+        missing_defaults = self.get_missing_required_lcms_defaults()
+        return len(missing_defaults) == 0
 
     def validate_sample_headers(self):
         """
@@ -871,9 +892,11 @@ class AccuCorDataLoader:
             name = self.lcms_metadata[sample_data_header]["lc_name"]
         else:
             # This should have been encountered before, but adding this here to be robust to code changes.
-            self.aggregated_errors_object.buffer_error(
+            self.aggregated_errors_object.buffer_warning(
                 MissingLCMSSampleDataHeaders(
-                    [sample_data_header], self.peak_group_set_filename, True
+                    [sample_data_header],
+                    self.peak_group_set_filename,
+                    self.get_missing_required_lcms_defaults(),
                 )
             )
             # Create an unknown record in order to proceed and catch more errors
@@ -1648,28 +1671,32 @@ class UnexpectedLCMSSampleDataHeaders(Exception):
 
 
 class MissingLCMSSampleDataHeaders(Exception):
-    def __init__(self, missing, peak_annot_file, using_defaults):
+    def __init__(self, missing, peak_annot_file, missing_defaults):
+        using_defaults = len(missing_defaults) == 0
         message = (
             f"The following sample data headers in the peak annotation file [{peak_annot_file}], were not found in the "
-            f"LCMS metadata supplied: [{missing}]."
+            f"LCMS metadata supplied: [{missing}].  "
         )
         if using_defaults:
-            message += "  Falling back to supplied defaults."
+            message += "Falling back to supplied defaults."
+        else:
+            message += (
+                "Either add the sample data headers to the LCMS metadata or provide default values for: "
+                f"[{missing_defaults}]."
+            )
         super().__init__(message)
         self.missing = missing
         self.peak_annot_file = peak_annot_file
-        self.using_defaults = using_defaults
+        self.missing_defaults = missing_defaults
 
 
-class LCMSDefaultsRequiredForMissingHeaders(Exception):
-    def __init__(self, defaults_dict):
-        missing = [key for key in defaults_dict.keys() if defaults_dict[key] is None]
+class LCMSMetadataRequired(Exception):
+    def __init__(self):
         message = (
-            "Since the supplied LCMS metadata does not include every sample data header, default values for "
-            f"[{missing}] must be supplied."
+            "Either LCMS metadata or values for [lc_protocol_name, ms_protocol_name, date, researcher, instrument, "
+            "peak_annot_file] are required."
         )
         super().__init__(message)
-        self.defaults_dict = defaults_dict
 
 
 class MissingMZXMLFiles(Exception):
@@ -1694,3 +1721,15 @@ class PeakAnnotFileMismatches(Exception):
         super().__init__(message)
         self.incorrect_pgs_files = incorrect_pgs_files
         self.peak_group_set_filename = peak_group_set_filename
+
+
+class MismatchedSampleHeaderMZXML(Exception):
+    def __init__(self, mismatching_mzxmls):
+        message = (
+            "The following sample data headers do not match the associated mzXML files:\n\n"
+            "\tSample Data Header\tmzXML File Name\tPattern Used"
+        )
+        for details in mismatching_mzxmls:
+            message += f"\n\t{details.join(details)}"
+        super().__init__(message)
+        self.mismatching_mzxmls = mismatching_mzxmls
