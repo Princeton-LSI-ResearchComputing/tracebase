@@ -1,3 +1,5 @@
+import re
+
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import AccuCorDataLoader
 from DataRepo.utils.lcms_metadata_parser import (
@@ -67,7 +69,29 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
         self.assertIsNone(mzxml, msg="If mzxml files array is empty, None is returned")
 
     def test_check_mzxml(self):
-        pass
+        adl1 = AccuCorDataLoader(
+            None,
+            None,
+            date="",
+            researcher="",
+            ms_protocol_name="",
+            lc_protocol_name="",
+            instrument="",
+            peak_group_set_filename="",
+            mzxml_files=["sample1.mzxml", "sample2.mzxml"],
+        )
+        adl1.check_mzxml("sample1", "sample1.mzxml")
+        self.assertEqual([], adl1.missing_mzxmls)
+        self.assertEqual([], adl1.mismatching_mzxmls)
+
+        adl1.check_mzxml("sample2", "sample1.mzxml")
+        pat = re.compile(r"^" + r"sample2" + r"\.")
+        self.assertEqual([], adl1.missing_mzxmls)
+        self.assertEqual([["sample2", "sample1.mzxml", pat]], adl1.mismatching_mzxmls)
+
+        adl1.check_mzxml("sample3", "sample3.mzxml")
+        self.assertEqual(["sample3.mzxml"], adl1.missing_mzxmls)
+        self.assertEqual([["sample2", "sample1.mzxml", pat]], adl1.mismatching_mzxmls)
 
     def test_validate_mzxmls(self):
         pass

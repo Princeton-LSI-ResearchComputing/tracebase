@@ -184,7 +184,9 @@ class AccuCorDataLoader:
             if mzxml_files is not None and len(mzxml_files) > 0:
                 # mzxml_files is assumed to be populated with basenames
                 # This code also assumes that the filename (minus suffix) matches the header in the accucor/isocorr
-                # file.  This assumption  here though is checked later in validate_mzxmls().
+                # file.  This assumption is later checked in validate_mzxmls().  If the assumption is incorrect, the
+                # actual header to zmXML relationship should be added to the LCMS metadata file (to not use the invalid
+                # default).
                 self.lcms_defaults["mzxml_files"] = {}
                 for fn in mzxml_files:
                     nm, _ = os.path.splitext(fn)
@@ -446,19 +448,25 @@ class AccuCorDataLoader:
         return None
 
     def check_mzxml(self, sample_header, mzxml_file):
+        """
+        This method is intended to check that the mzxml file listed in the LCMS metadata file was actually supplied.
+
+        It also checks that the sample data header associated with the mzXML file from the LCMS metadata file is
+        contained in the mzXML file name.  If not, it notes the mismatch, which will later result in a mild warning.
+        """
         # For historical reasons, we don't require mzXML files
         if (
             self.lcms_defaults["mzxml_files"] is not None
             and mzxml_file is not None
             and mzxml_file not in self.lcms_defaults["mzxml_files"].values()
         ):
-            self.missing_mzxmls.append(sample_header)
+            self.missing_mzxmls.append(mzxml_file)
 
         # Issue a warning if the sample header doesn't match the file name
         if mzxml_file is not None:
             sample_header_pat = re.compile(r"^" + sample_header + r"\.")
             match = sample_header_pat.search(mzxml_file)
-            if match is False:
+            if match is None:
                 self.mismatching_mzxmls.append(
                     [sample_header, mzxml_file, sample_header_pat]
                 )
@@ -1081,7 +1089,7 @@ class AccuCorDataLoader:
                 continue
 
             # TODO: Load instrument
-            # TODO: Load mzXML file
+            # TODO: Load mzXML file as an ArchiveFile record and save the file
 
             msrun_dict = {
                 "date": self.lcms_metadata[sample_data_header]["date"],
@@ -1699,13 +1707,12 @@ class LCMSMetadataRequired(Exception):
 
 
 class MissingMZXMLFiles(Exception):
-    def __init__(self, missing_mzxml_sample_headers):
+    def __init__(self, mzxml_files):
         message = (
-            "The supplied mzXML files do not account for every sample data header.  The following headers have not "
-            f"been associated with an mzXML file: [{missing_mzxml_sample_headers}]."
+            f"The following mzXML files listed in the LCMS metadata file were not supplied: [{mzxml_files}]."
         )
         super().__init__(message)
-        self.missing_mzxml_sample_headers = missing_mzxml_sample_headers
+        self.missing_mzxml_sample_headers = mzxml_files
 
 
 class PeakAnnotFileMismatches(Exception):
