@@ -67,7 +67,7 @@ class PeakGroupsFormat(Format):
         },
     ]
     model_instances = {
-        "ArchiveFile": {
+        "PeakAnnotationFile": {
             "model": "ArchiveFile",
             "path": "peak_annotation_file",
             "reverse_path": "peak_groups",
@@ -79,7 +79,7 @@ class PeakGroupsFormat(Format):
             },
             "fields": {
                 "id": {
-                    "displayname": "(Internal) Archive File Index",
+                    "displayname": "(Internal) Peak Annotation File Index",
                     "searchable": True,
                     "displayed": False,  # Used in link
                     "handoff": "filename",  # This is the field that will be loaded in the search form

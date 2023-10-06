@@ -238,7 +238,7 @@ class PeakDataFormat(Format):
                 },
             },
         },
-        "ArchiveFile": {
+        "PeakAnnotationFile": {
             "model": "ArchiveFile",
             "path": "peak_group__peak_annotation_file",
             "reverse_path": "peak_groups__peak_data",
