@@ -171,18 +171,20 @@ class AccuCorDataLoader:
                 "mzxml_files": None,
                 "peak_annot_file": self.peak_group_set_filename,
             }
-            if lc_protocol_name is not None:
+            if lc_protocol_name is not None and lc_protocol_name != "":
                 self.lcms_defaults["lc_protocol_name"] = lc_protocol_name.strip()
-            if ms_protocol_name is not None:
+            if ms_protocol_name is not None and ms_protocol_name != "":
                 self.lcms_defaults["ms_protocol_name"] = ms_protocol_name.strip()
-            if date is not None:
+            if date is not None and date != "":
                 self.lcms_defaults["date"] = datetime.strptime(date.strip(), "%Y-%m-%d")
-            if researcher is not None:
+            if researcher is not None and researcher != "":
                 self.lcms_defaults["researcher"] = researcher.strip()
-            if instrument is not None:
+            if instrument is not None and instrument != "":
                 self.lcms_defaults["instrument"] = instrument.strip()
-            if mzxml_files is not None:
+            if mzxml_files is not None and len(mzxml_files) > 0:
                 # mzxml_files is assumed to be populated with basenames
+                # This code also assumes that the filename (minus suffix) matches the header in the accucor/isocorr
+                # file.  This assumption  here though is checked later in validate_mzxmls().
                 self.lcms_defaults["mzxml_files"] = {}
                 for fn in mzxml_files:
                     nm, _ = os.path.splitext(fn)

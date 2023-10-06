@@ -1,4 +1,5 @@
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
+from DataRepo.utils import AccuCorDataLoader
 from DataRepo.utils.lcms_metadata_parser import (
     extract_dataframes_from_lcms_tsv,
     extract_dataframes_from_lcms_xlsx,
@@ -13,7 +14,57 @@ from DataRepo.utils.lcms_metadata_parser import (
 
 class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
     def test_sample_header_to_default_mzxml(self):
-        pass
+        adl1 = AccuCorDataLoader(
+            None,
+            None,
+            date="",
+            researcher="",
+            ms_protocol_name="",
+            lc_protocol_name="",
+            instrument="",
+            peak_group_set_filename="",
+            mzxml_files=["sample1.mzxml", "sample2.mzxml"],
+        )
+        mzxml1 = adl1.sample_header_to_default_mzxml("does-not-exist")
+        self.assertIsNone(
+            mzxml1,
+            msg="Failed lookups should result in None",
+        )
+
+        mzxml2 = adl1.sample_header_to_default_mzxml("sample2")
+        self.assertEqual(
+            "sample2.mzxml",
+            mzxml2,
+            msg="The mzxml file is returned when its name (minus suffix) is supplied",
+        )
+
+        adl2 = AccuCorDataLoader(
+            None,
+            None,
+            date="",
+            researcher="",
+            ms_protocol_name="",
+            lc_protocol_name="",
+            instrument="",
+            peak_group_set_filename="",
+            mzxml_files=None,
+        )
+        mzxml = adl2.sample_header_to_default_mzxml("sample")
+        self.assertIsNone(mzxml, msg="If mzxml files array is None, None is returned")
+
+        adl3 = AccuCorDataLoader(
+            None,
+            None,
+            date="",
+            researcher="",
+            ms_protocol_name="",
+            lc_protocol_name="",
+            instrument="",
+            peak_group_set_filename="",
+            mzxml_files=[],
+        )
+        mzxml = adl3.sample_header_to_default_mzxml("sample")
+        self.assertIsNone(mzxml, msg="If mzxml files array is empty, None is returned")
 
     def test_check_mzxml(self):
         pass
