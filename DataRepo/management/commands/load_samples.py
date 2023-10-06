@@ -4,6 +4,11 @@ from csv import DictReader
 import yaml  # type: ignore
 from django.core.management import BaseCommand
 
+from DataRepo.models.hier_cached_model import (
+    disable_caching_updates,
+    enable_caching_updates,
+)
+from DataRepo.models.maintained_model import MaintainedModel
 from DataRepo.utils import SampleTableLoader
 
 
@@ -52,6 +57,12 @@ class Command(BaseCommand):
             help="Dry run mode. Will not change the database.",
         )
 
+    @MaintainedModel.defer_autoupdates(
+        label_filters=["name"],
+        disable_opt_names=["validate", "dry_run"],
+        pre_mass_update_func=disable_caching_updates,
+        post_mass_update_func=enable_caching_updates,
+    )
     def handle(self, *args, **options):
         print("Reading header definition")
         if options["sample_table_headers"]:
@@ -71,7 +82,6 @@ class Command(BaseCommand):
             ],  # DO NOT USE MANUALLY - THIS WILL NOT ROLL BACK UPON ERROR
             skip_researcher_check=options["skip_researcher_check"],
             verbosity=options["verbosity"],
-            defer_autoupdates=options["defer_autoupdates"],
             dry_run=options["dry_run"],
         )
         loader.load_sample_table(
