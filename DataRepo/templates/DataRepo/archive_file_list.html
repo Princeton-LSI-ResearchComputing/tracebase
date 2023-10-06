@@ -39,7 +39,7 @@
             {% for archive_file in archive_file_list %}
                 <tr>
                     <td><a href="{% url 'archive_file_detail' archive_file.pk %}">{{ archive_file.filename }}</a></td>
-                    <td>{{ archive_file.imported_timestamp|convert_iso_date }}</td>
+                    <td>{{ archive_file.imported_timestamp }}</td>
                     <td>
                         <a href="{% url 'search_basic' 'ArchiveFile' 'id' 'iexact' archive_file.id 'peakgroups' %}">Peak Group Data</a></h5>
                     </td>
