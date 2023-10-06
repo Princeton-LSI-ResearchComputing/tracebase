@@ -114,3 +114,31 @@ class LCMethodTests(TracebaseTestCase):
         self.assertEqual(
             str(self.setup_lcmethod), f"HILIC-0:{self.default_t_minutes}:00"
         )
+
+    def test_create_name(self):
+        # Anything is accepted - because its result can be used to create records
+        new_lcm_name = LCMethod.create_name(type="some_type", run_length=30)
+        self.assertEqual("some_type-30-mins", new_lcm_name, msg="Type, run length, and 'mins' are joined with '-'")
+
+        new_lcm_name = LCMethod.create_name(type="some_type")
+        self.assertEqual("some_type", new_lcm_name, msg="A 'None' run length results in name=type")
+
+        new_lcm_name = LCMethod.create_name(run_length=10)
+        self.assertEqual(
+            f"{LCMethod.DEFAULT_TYPE}-10-mins",
+            new_lcm_name,
+            msg="A 'None' type results in the default type",
+        )
+
+    def test_get_name(self):
+        rec = LCMethod.objects.create(
+            name="some-stale-name-30-mins",
+            type="actual-type",
+            description="n/a",
+            run_length=timedelta(minutes=25),
+        )
+        new_lcm_name = rec.get_name()
+        self.assertEqual(
+            "actual-type-25-mins",
+            new_lcm_name,
+            msg="Name returned should be based on the type and run length field values, not the value in the field.")

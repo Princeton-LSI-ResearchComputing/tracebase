@@ -64,11 +64,19 @@ class LCMethod(models.Model):
 
     @classmethod
     def create_name(cls, type=None, run_length=None):
-        """Class method to create a name using the supplied type and run_length."""
+        """
+        Class method to create a name using the supplied type and run_length.
+
+        run_length can either be an integer of minutes or a timedelta.
+        """
         if type is None:
             type = cls.DEFAULT_TYPE
+
         if run_length is None:
             return type
+        elif isinstance(run_length, timedelta):
+            run_length = int(run_length.total_seconds() / 60)
+
         return f"{type}-{run_length}-mins"
 
     def get_name(self):

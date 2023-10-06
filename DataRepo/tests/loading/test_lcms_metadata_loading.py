@@ -12,12 +12,6 @@ from DataRepo.utils.lcms_metadata_parser import (
 
 
 class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
-    def test_create_name(self):
-        pass
-
-    def test_get_name(self):
-        pass
-
     def test_sample_header_to_default_mzxml(self):
         pass
 
