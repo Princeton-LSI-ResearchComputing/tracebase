@@ -943,7 +943,7 @@ class AccuCorDataLoader:
         try:
             try:
                 rec = LCMethod.objects.get(**rec_dict)
-            except:
+            except Exception:
                 rec, _ = LCMethod.objects.get_or_create(**rec_dict)
         except Exception as e:
             try:

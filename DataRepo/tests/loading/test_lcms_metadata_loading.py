@@ -1,7 +1,6 @@
 import re
 
 import pandas as pd
-
 from django.core.management import call_command
 
 from DataRepo.models import LCMethod, Protocol
@@ -357,10 +356,10 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
                 engine="openpyxl",
             ).dropna(axis=0, how="all"),
             peak_group_set_filename="small_obob_maven_6eaas_inf_glucose.xlsx",
+            date="1972-11-24",
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
                 "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc.tsv"
             ),
-            date="1972-11-24",
             researcher="Robert Leach",
             ms_protocol_name="Default",
             lc_protocol_name=None,  # Left none intentionally
@@ -381,24 +380,8 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
         self.assertEqual(LCMethod, type(ptcl2))
         self.assertEqual(newname, ptcl2.name)
 
-    def test_exception_type_exists(self):
-        pass
 
-    def test_lcms_df_to_dict(self):
-        pass
-
-    def test_lcms_metadata_to_samples(self):
-        pass
-
-    def test_extract_dataframes_from_lcms_xlsx(self):
-        pass
-
-    def test_extract_dataframes_from_lcms_csv(self):
-        pass
-
-    def test_lcms_headers_are_valid(self):
-        pass
-
+class LCMSSampleTableLoaderMethodTests(TracebaseTestCase):
     def test_check_lcms_samples(self):
         pass
 
@@ -428,7 +411,7 @@ class LCMSMetadataParserMethodTests(TracebaseTestCase):
         self.assertIsNotNone(df)
         self.assertEqual((15, 11), df.shape)
 
-    def test_extract_dataframes_from_lcms_csv(self):
+    def test_extract_dataframes_from_lcms_tsv(self):
         df = extract_dataframes_from_lcms_tsv(
             "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc.tsv"
         )
