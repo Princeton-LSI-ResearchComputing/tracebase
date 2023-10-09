@@ -1072,7 +1072,7 @@ class LCMSSampleMismatch(Exception):
         nlt = "\n\t"
         message = (
             "The following sample names from the LCMS metadata is missing in the animal sample table:\n\t"
-            f"[{nlt.join(lcms_samples_missing)}]"
+            f"{nlt.join(lcms_samples_missing)}"
         )
         super().__init__(message)
         self.lcms_samples_missing = lcms_samples_missing

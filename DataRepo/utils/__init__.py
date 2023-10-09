@@ -46,7 +46,10 @@ from DataRepo.utils.protocols_loader import ProtocolsLoader
 from DataRepo.utils.queryset_to_pandas_dataframe import (
     QuerysetToPandasDataFrame,
 )
-from DataRepo.utils.sample_table_loader import SampleTableLoader
+from DataRepo.utils.sample_table_loader import (
+    LCMSSampleMismatch,
+    SampleTableLoader,
+)
 from DataRepo.utils.tissues_loader import TissuesLoader
 
 __all__ = [
@@ -81,6 +84,7 @@ __all__ = [
     "DryRun",
     "lcms_headers_are_valid",
     "LoadingError",
+    "LCMSSampleMismatch",
     "QuerysetToPandasDataFrame",
     "SampleTableLoader",
     "TissuesLoader",

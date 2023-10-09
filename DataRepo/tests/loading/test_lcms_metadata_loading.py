@@ -7,8 +7,10 @@ from DataRepo.models import LCMethod, Protocol
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import (
     AccuCorDataLoader,
+    LCMSSampleMismatch,
     MismatchedSampleHeaderMZXML,
     MissingMZXMLFiles,
+    SampleTableLoader,
 )
 from DataRepo.utils.lcms_metadata_parser import (
     extract_dataframes_from_lcms_tsv,
@@ -383,7 +385,55 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
 
 class LCMSSampleTableLoaderMethodTests(TracebaseTestCase):
     def test_check_lcms_samples(self):
-        pass
+        stl = SampleTableLoader()
+        stl.lcms_samples = [
+            "BAT-xz971",
+            "Br-xz971",
+            "Dia-xz971",
+            "gas-xz971",
+            "gWAT-xz971",
+            "H-xz971",
+            "Kid-xz971",
+            "Liv-xz971",
+            "Lu-xz971",
+            "Pc-xz971",
+            "Q-xz971",
+            "SI-xz971",
+            "Sol-xz971",
+            "Sp-xz971",
+            "serum-xz971",
+        ]
+        stl.check_lcms_samples(stl.lcms_samples)
+        self.assertFalse(
+            stl.aggregated_errors_object.exception_type_exists(LCMSSampleMismatch),
+            msg="No buffered error when check_lcms_samples is tested on sample list where every sample from the LCMS "
+            "Metadata is present.",
+        )
+
+        sample_table_samples_missing = [
+            "BAT-xz971",  # The only one that's present
+            "sample-not-present-in-lcms-metadata1",
+            "sample-not-present-in-lcms-metadata2",
+        ]
+        stl.check_lcms_samples(sample_table_samples_missing)
+        self.assertEqual(
+            1,
+            len(stl.aggregated_errors_object.exceptions),
+            msg="check_lcms_samples buffers 1 error",
+        )
+        self.assertTrue(
+            stl.aggregated_errors_object.exception_type_exists(LCMSSampleMismatch),
+            msg="check_lcms_samples buffers an LCMSSampleMismatch exception",
+        )
+        self.assertNotIn(
+            "BAT-xz971", stl.aggregated_errors_object.exceptions[0].lcms_samples_missing
+        )
+        self.assertIn(
+            "Br-xz971", stl.aggregated_errors_object.exceptions[0].lcms_samples_missing
+        )
+        self.assertEqual(
+            14, len(stl.aggregated_errors_object.exceptions[0].lcms_samples_missing)
+        )
 
 
 class LCMSMetadataParserMethodTests(TracebaseTestCase):
