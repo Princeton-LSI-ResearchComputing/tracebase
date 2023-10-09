@@ -374,8 +374,21 @@ class AccuCorDataLoader:
             )
 
             for sample_header in self.lcms_metadata.keys():
-                self.check_mzxml(sample_header, self.lcms_metadata["mzxml"])
-                if sample_header not in self.corrected_sample_headers:
+                self.check_mzxml(
+                    sample_header, self.lcms_metadata[sample_header]["mzxml"]
+                )
+                # If an mzXML file was supplied with a sample data header that was not found in the accucor file
+                if (
+                    # sample header from the LCMS metadata is not in the accucor file
+                    sample_header not in self.corrected_sample_headers
+                    # An mzXML file name is associated with the sample header
+                    and self.lcms_metadata[sample_header]["mzxml"] is not None
+                    # mzXML files were supplied
+                    and self.lcms_defaults["mzxml_files"] is not None
+                    # The mzXML file name matches a supplied file
+                    and self.lcms_metadata[sample_header]["mzxml"]
+                    in self.lcms_defaults["mzxml_files"].values()
+                ):
                     unexpected.append(sample_header)
 
             for sample_header in self.corrected_sample_headers:
@@ -470,7 +483,15 @@ class AccuCorDataLoader:
         if mzxml_file is not None:
             sample_header_pat = re.compile(r"^" + sample_header + r"\.")
             match = sample_header_pat.search(mzxml_file)
-            if match is None:
+            if (
+                match is None
+                # sample header from the LCMS metadata is in the accucor file
+                and sample_header in self.corrected_sample_headers
+                # An mzXML file name is associated with the sample header
+                and self.lcms_metadata[sample_header]["mzxml"] is not None
+                # mzXML files were supplied
+                and self.lcms_defaults["mzxml_files"] is not None
+            ):
                 self.mismatching_mzxmls.append(
                     [sample_header, mzxml_file, sample_header_pat.pattern]
                 )
@@ -868,7 +889,8 @@ class AccuCorDataLoader:
 
     def get_or_create_ms_protocol(self, sample_header):
         """
-        Get or create an msrun protocol in the Protocol model, based on input
+        Looks up the MS protocol using the sample data header key in the lcms_metadata dict, then gets or creates an
+        msrun protocol in the Protocol model.
         """
         if self.verbosity >= 1:
             print(
@@ -1675,8 +1697,8 @@ class LCMSDefaultsRequired(Exception):
 class UnexpectedLCMSSampleDataHeaders(Exception):
     def __init__(self, unexpected, peak_annot_file):
         message = (
-            "The following sample data headers in the LCMS metadata supplied were not found among the peak annotation "
-            f"file [{peak_annot_file}] headers: [{unexpected}]."
+            "The following sample data headers (supplied with an mzXML file) in the LCMS metadata, were not found "
+            f"among the peak annotation file [{peak_annot_file}] headers: [{unexpected}]."
         )
         super().__init__(message)
         self.unexpected = unexpected
@@ -1722,11 +1744,15 @@ class MissingMZXMLFiles(Exception):
 class PeakAnnotFileMismatches(Exception):
     def __init__(self, incorrect_pgs_files, peak_group_set_filename):
         bad_files_str = "\n\t".join(
-            [k + f" [{incorrect_pgs_files[k]}]" for k in incorrect_pgs_files.keys()]
+            [
+                k + f" [{incorrect_pgs_files[k]} != {peak_group_set_filename}]"
+                for k in incorrect_pgs_files.keys()
+            ]
         )
         message = (
             "The following sample headers' peak annotation files in the LCMS metadata file do not match the supplied "
-            f"peak annotation file [{peak_group_set_filename}]:\n\t{bad_files_str}"
+            f"peak annotation file [{peak_group_set_filename}]:\n\t{bad_files_str}\n\nPlease ensure that the sample "
+            "row in the LCMS metadata matches the supplied peak annotation file."
         )
         super().__init__(message)
         self.incorrect_pgs_files = incorrect_pgs_files
@@ -1736,7 +1762,8 @@ class PeakAnnotFileMismatches(Exception):
 class MismatchedSampleHeaderMZXML(Exception):
     def __init__(self, mismatching_mzxmls):
         message = (
-            "The following sample data headers do not match the associated mzXML files:\n\n"
+            "The following sample data headers do not match any mzXML file names.  No mzXML files will be loaded for "
+            "these columns in the peak annotation file:\n\n"
             "\tSample Data Header\tmzXML File Name\tPattern Used"
         )
         tab = "\t"

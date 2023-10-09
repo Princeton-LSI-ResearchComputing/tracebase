@@ -1,5 +1,8 @@
 import re
 
+import pandas as pd
+
+from DataRepo.models import Protocol
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import (
     AccuCorDataLoader,
@@ -311,7 +314,33 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
         )
 
     def test_get_or_create_ms_protocol(self):
-        pass
+        """
+        A test for this method (using the default --ms-protocol-name) already exists, so this method tests using the
+        lcms_metadata_df argument.
+        """
+        adl = AccuCorDataLoader(
+            None,
+            pd.read_excel(
+                "DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_glucose.xlsx",
+                sheet_name=1,  # The second sheet
+                engine="openpyxl",
+            ).dropna(axis=0, how="all"),
+            peak_group_set_filename="small_obob_maven_6eaas_inf_glucose.xlsx",
+            lcms_metadata_df=extract_dataframes_from_lcms_tsv(
+                "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc.tsv"
+            ),
+            date="1972-11-24",
+            researcher="Robert Leach",
+            ms_protocol_name=None,  # Left none intentionally
+            lc_protocol_name="polar-HILIC",
+            instrument="default instrument",
+            mzxml_files=[],
+        )
+        # Pre-processing the data will enable get_or_create_ms_protocol by creating the lcms_metadata dict
+        adl.preprocess_data()
+        ptcl = adl.get_or_create_ms_protocol("BAT-xz971")
+        self.assertEqual(Protocol, type(ptcl))
+        self.assertEqual("Default", ptcl.name)
 
     def test_get_or_create_lc_protocol(self):
         pass
