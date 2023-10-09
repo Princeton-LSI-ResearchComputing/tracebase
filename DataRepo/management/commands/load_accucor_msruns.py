@@ -143,12 +143,16 @@ class Command(BaseCommand):
         post_mass_update_func=enable_caching_updates,
     )
     def handle(self, *args, **options):
-        lcms_metadata = None
+        lcms_metadata_df = None
         if options["lcms_file"] is not None:
             try:
-                lcms_metadata = extract_dataframes_from_lcms_xlsx(options["lcms_file"])
+                lcms_metadata_df = extract_dataframes_from_lcms_xlsx(
+                    options["lcms_file"]
+                )
             except (InvalidFileException, ValueError, BadZipFile):  # type: ignore
-                lcms_metadata = extract_dataframes_from_lcms_tsv(options["lcms_file"])
+                lcms_metadata_df = extract_dataframes_from_lcms_tsv(
+                    options["lcms_file"]
+                )
 
         fmt = "Isocorr" if options["isocorr_format"] else "Accucor"
         print(f"Reading {fmt} file: {options['accucor_file']}")
@@ -179,7 +183,7 @@ class Command(BaseCommand):
             accucor_corrected_df=self.corrected,
             peak_group_set_filename=pgs_filename,
             # LCMS metadata
-            lcms_metadata=lcms_metadata,
+            lcms_metadata_df=lcms_metadata_df,
             # LCMS batch defaults
             date=options["date"],
             lc_protocol_name=options["lc_protocol_name"],

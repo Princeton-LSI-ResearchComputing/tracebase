@@ -3,6 +3,8 @@ from DataRepo.utils.accucor_data_loader import (
     InvalidLCMSHeaders,
     IsotopeObservationData,
     IsotopeObservationParsingError,
+    MismatchedSampleHeaderMZXML,
+    MissingMZXMLFiles,
     TracerLabeledElementNotFound,
     lcms_headers_are_valid,
 )
@@ -68,7 +70,9 @@ __all__ = [
     "IsotopeObservationParsingError",
     "RequiredSampleValuesError",
     "RequiredValueError",
+    "MismatchedSampleHeaderMZXML",
     "MissingCompounds",
+    "MissingMZXMLFiles",
     "MissingSamplesError",
     "MissingTissues",
     "NoSamplesError",

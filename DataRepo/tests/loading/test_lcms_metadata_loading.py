@@ -1,7 +1,11 @@
 import re
 
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
-from DataRepo.utils import AccuCorDataLoader
+from DataRepo.utils import (
+    AccuCorDataLoader,
+    MismatchedSampleHeaderMZXML,
+    MissingMZXMLFiles,
+)
 from DataRepo.utils.lcms_metadata_parser import (
     extract_dataframes_from_lcms_tsv,
     extract_dataframes_from_lcms_xlsx,
@@ -19,12 +23,15 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
         adl1 = AccuCorDataLoader(
             None,
             None,
+            peak_group_set_filename="",
+            lcms_metadata_df=extract_dataframes_from_lcms_tsv(
+                "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc.tsv"
+            ),
             date="",
             researcher="",
             ms_protocol_name="",
             lc_protocol_name="",
             instrument="",
-            peak_group_set_filename="",
             mzxml_files=["sample1.mzxml", "sample2.mzxml"],
         )
         mzxml1 = adl1.sample_header_to_default_mzxml("does-not-exist")
@@ -43,12 +50,15 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
         adl2 = AccuCorDataLoader(
             None,
             None,
+            peak_group_set_filename="",
+            lcms_metadata_df=extract_dataframes_from_lcms_tsv(
+                "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc.tsv"
+            ),
             date="",
             researcher="",
             ms_protocol_name="",
             lc_protocol_name="",
             instrument="",
-            peak_group_set_filename="",
             mzxml_files=None,
         )
         mzxml = adl2.sample_header_to_default_mzxml("sample")
@@ -57,12 +67,15 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
         adl3 = AccuCorDataLoader(
             None,
             None,
+            peak_group_set_filename="",
+            lcms_metadata_df=extract_dataframes_from_lcms_tsv(
+                "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc.tsv"
+            ),
             date="",
             researcher="",
             ms_protocol_name="",
             lc_protocol_name="",
             instrument="",
-            peak_group_set_filename="",
             mzxml_files=[],
         )
         mzxml = adl3.sample_header_to_default_mzxml("sample")
@@ -72,12 +85,15 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
         adl1 = AccuCorDataLoader(
             None,
             None,
+            peak_group_set_filename="",
+            lcms_metadata_df=extract_dataframes_from_lcms_tsv(
+                "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc.tsv"
+            ),
             date="",
             researcher="",
             ms_protocol_name="",
             lc_protocol_name="",
             instrument="",
-            peak_group_set_filename="",
             mzxml_files=["sample1.mzxml", "sample2.mzxml"],
         )
         adl1.check_mzxml("sample1", "sample1.mzxml")
@@ -85,7 +101,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
         self.assertEqual([], adl1.mismatching_mzxmls)
 
         adl1.check_mzxml("sample2", "sample1.mzxml")
-        pat = re.compile(r"^" + r"sample2" + r"\.")
+        pat = re.compile(r"^sample2\.").pattern
         self.assertEqual([], adl1.missing_mzxmls)
         self.assertEqual([["sample2", "sample1.mzxml", pat]], adl1.mismatching_mzxmls)
 
@@ -94,10 +110,162 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
         self.assertEqual([["sample2", "sample1.mzxml", pat]], adl1.mismatching_mzxmls)
 
     def test_validate_mzxmls(self):
-        pass
+        adl1 = AccuCorDataLoader(
+            None,
+            None,
+            peak_group_set_filename="accucor.xlsx",
+            lcms_metadata_df=extract_dataframes_from_lcms_tsv(
+                "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc.tsv"
+            ),
+            date="1972-11-24",
+            researcher="Robert Leach",
+            ms_protocol_name="Default",
+            lc_protocol_name="polar-HILIC",
+            instrument="default instrument",
+            mzxml_files=["sample1.mzxml", "sample2.mzxml"],
+            validate=False,
+        )
+        adl1.missing_mzxmls.append("sample3.mzxml")
+        adl1.mismatching_mzxmls.append(
+            ["sample", "sample2.mzxml", re.compile(r"^sample\.").pattern]
+        )
+
+        adl1.validate_mzxmls()
+
+        self.assertEqual(
+            2,
+            len(adl1.aggregated_errors_object.exceptions),
+            msg="There should be 2 exceptions",
+        )
+
+        self.assertEqual(
+            MissingMZXMLFiles,
+            type(adl1.aggregated_errors_object.exceptions[0]),
+            msg="The first exception should be MissingMZXMLFiles.",
+        )
+        self.assertFalse(
+            adl1.aggregated_errors_object.exceptions[0].is_error,
+            msg="The first exception should be a warning in loading mode.",
+        )
+        self.assertFalse(
+            adl1.aggregated_errors_object.exceptions[0].is_fatal,
+            msg="The first exception should not be fatal in loading mode.",
+        )
+        self.assertEqual(
+            list,
+            type(adl1.missing_mzxmls),
+            msg="The MissingMZXMLFiles exception should contain a list.",
+        )
+        self.assertEqual(
+            adl1.missing_mzxmls,
+            adl1.aggregated_errors_object.exceptions[0].mzxml_files,
+            msg="The MissingMZXMLFiles exception's list should match the AccucorDataLoader object's missing list.",
+        )
+
+        self.assertEqual(
+            MismatchedSampleHeaderMZXML,
+            type(adl1.aggregated_errors_object.exceptions[1]),
+            msg="The second exception should be MismatchedSampleHeaderMZXML.",
+        )
+        self.assertFalse(
+            adl1.aggregated_errors_object.exceptions[1].is_error,
+            msg="The second exception should be a warning in loading mode.",
+        )
+        self.assertFalse(
+            adl1.aggregated_errors_object.exceptions[1].is_fatal,
+            msg="The second exception should not be fatal in loading mode.",
+        )
+        self.assertEqual(
+            list,
+            type(adl1.mismatching_mzxmls),
+            msg="The MismatchedSampleHeaderMZXML exception should contain a list.",
+        )
+        self.assertEqual(
+            adl1.mismatching_mzxmls,
+            adl1.aggregated_errors_object.exceptions[1].mismatching_mzxmls,
+            msg="The MismatchedSampleHeaderMZXML exception's list should match the AccucorDataLoader object's "
+            "mismatched list.",
+        )
+
+        adl2 = AccuCorDataLoader(
+            None,
+            None,
+            date="1972-11-24",
+            researcher="Robert Leach",
+            ms_protocol_name="Default",
+            lc_protocol_name="polar-HILIC",
+            instrument="default instrument",
+            peak_group_set_filename="accucor.xlsx",
+            mzxml_files=["sample1.mzxml", "sample2.mzxml"],
+            validate=True,
+        )
+        adl2.missing_mzxmls.append("sample3.mzxml")
+        adl2.mismatching_mzxmls.append(
+            ["sample", "sample2.mzxml", re.compile(r"^sample\.").pattern]
+        )
+
+        adl2.validate_mzxmls()
+
+        self.assertTrue(
+            adl2.aggregated_errors_object.exceptions[0].is_error,
+            msg="The first exception should be an error in validate made.",
+        )
+        self.assertTrue(
+            adl2.aggregated_errors_object.exceptions[0].is_fatal,
+            msg="The first exception should be fatal in validate mode.",
+        )
+
+        self.assertFalse(
+            adl2.aggregated_errors_object.exceptions[1].is_error,
+            msg="The second exception should be a warning in validate mode.",
+        )
+        self.assertTrue(
+            adl2.aggregated_errors_object.exceptions[1].is_fatal,
+            msg="The second exception should be fatal in validate mode.",
+        )
 
     def test_get_missing_required_lcms_defaults(self):
-        pass
+        adl1 = AccuCorDataLoader(
+            None,
+            None,
+            peak_group_set_filename="accucor.xlsx",
+            lcms_metadata_df=extract_dataframes_from_lcms_tsv(
+                "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc.tsv"
+            ),
+            date="1972-11-24",
+            researcher="Robert Leach",
+            ms_protocol_name="Default",
+            lc_protocol_name="polar-HILIC",
+            instrument="default instrument",
+            mzxml_files=[],
+        )
+        missing1 = adl1.get_missing_required_lcms_defaults()
+        self.assertEqual(0, len(missing1))
+
+        adl2 = AccuCorDataLoader(
+            None,
+            None,
+            peak_group_set_filename=None,
+            lcms_metadata_df=extract_dataframes_from_lcms_tsv(
+                "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc.tsv"
+            ),
+            date=None,
+            researcher=None,
+            ms_protocol_name=None,
+            lc_protocol_name=None,
+            instrument=None,
+            mzxml_files=None,
+        )
+        missing2 = adl2.get_missing_required_lcms_defaults()
+        expected_missing = [
+            "lc_protocol_name",
+            "ms_protocol_name",
+            "date",
+            "researcher",
+            "instrument",
+            "peak_annot_file",
+        ]
+        self.assertEqual(sorted(expected_missing), sorted(missing2))
 
     def test_lcms_defaults_supplied(self):
         pass

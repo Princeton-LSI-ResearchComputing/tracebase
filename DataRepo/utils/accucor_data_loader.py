@@ -120,7 +120,7 @@ class AccuCorDataLoader:
         accucor_original_df,
         accucor_corrected_df,
         peak_group_set_filename,
-        lcms_metadata=None,
+        lcms_metadata_df=None,
         instrument=None,
         date=None,
         ms_protocol_name=None,
@@ -142,8 +142,12 @@ class AccuCorDataLoader:
             self.accucor_original_df = accucor_original_df
             self.accucor_corrected_df = accucor_corrected_df
             self.isocorr_format = isocorr_format
-            self.peak_group_set_filename = peak_group_set_filename.strip()
-            self.lcms_metadata_df = lcms_metadata
+            self.peak_group_set_filename = (
+                None
+                if peak_group_set_filename is None
+                else peak_group_set_filename.strip()
+            )
+            self.lcms_metadata_df = lcms_metadata_df
             self.lcms_metadata = {}
 
             # Validate the required LCMS Metadata
@@ -154,12 +158,12 @@ class AccuCorDataLoader:
                 researcher,
                 instrument,
             ]
-            if lcms_metadata is None and None in reqd_args:
+            if lcms_metadata_df is None and None in reqd_args:
                 raise LCMSDefaultsRequired(*reqd_args)
-            if lcms_metadata is not None and not lcms_headers_are_valid(
-                list(lcms_metadata.columns)
+            if lcms_metadata_df is not None and not lcms_headers_are_valid(
+                list(lcms_metadata_df.columns)
             ):
-                raise InvalidLCMSHeaders(list(lcms_metadata.columns))
+                raise InvalidLCMSHeaders(list(lcms_metadata_df.columns))
 
             # LCMS Metadata
             self.lcms_defaults = {
@@ -468,7 +472,7 @@ class AccuCorDataLoader:
             match = sample_header_pat.search(mzxml_file)
             if match is None:
                 self.mismatching_mzxmls.append(
-                    [sample_header, mzxml_file, sample_header_pat]
+                    [sample_header, mzxml_file, sample_header_pat.pattern]
                 )
 
     def validate_mzxmls(self):
@@ -481,8 +485,10 @@ class AccuCorDataLoader:
                 is_fatal=self.validate,  # Fatal/raised in validate mode, will only be in load mode
             )
         if len(self.mismatching_mzxmls) > 0:
-            self.aggregated_errors_object.buffer_warning(
-                MismatchedSampleHeaderMZXML(self.mismatching_mzxmls)
+            self.aggregated_errors_object.buffer_exception(
+                MismatchedSampleHeaderMZXML(self.mismatching_mzxmls),
+                is_error=False,
+                is_fatal=self.validate,  # Fatal/raised in validate mode, will only be in load mode
             )
 
         # Since the mzXML files specified may contain sample headers from multiple accucor files, there is no check for
@@ -1708,11 +1714,9 @@ class LCMSMetadataRequired(Exception):
 
 class MissingMZXMLFiles(Exception):
     def __init__(self, mzxml_files):
-        message = (
-            f"The following mzXML files listed in the LCMS metadata file were not supplied: [{mzxml_files}]."
-        )
+        message = f"The following mzXML files listed in the LCMS metadata file were not supplied: [{mzxml_files}]."
         super().__init__(message)
-        self.missing_mzxml_sample_headers = mzxml_files
+        self.mzxml_files = mzxml_files
 
 
 class PeakAnnotFileMismatches(Exception):
@@ -1735,7 +1739,8 @@ class MismatchedSampleHeaderMZXML(Exception):
             "The following sample data headers do not match the associated mzXML files:\n\n"
             "\tSample Data Header\tmzXML File Name\tPattern Used"
         )
+        tab = "\t"
         for details in mismatching_mzxmls:
-            message += f"\n\t{details.join(details)}"
+            message += f"\n\t{tab.join(str(li) for li in details)}"
         super().__init__(message)
         self.mismatching_mzxmls = mismatching_mzxmls

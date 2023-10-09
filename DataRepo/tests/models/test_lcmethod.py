@@ -118,10 +118,16 @@ class LCMethodTests(TracebaseTestCase):
     def test_create_name(self):
         # Anything is accepted - because its result can be used to create records
         new_lcm_name = LCMethod.create_name(type="some_type", run_length=30)
-        self.assertEqual("some_type-30-mins", new_lcm_name, msg="Type, run length, and 'mins' are joined with '-'")
+        self.assertEqual(
+            "some_type-30-mins",
+            new_lcm_name,
+            msg="Type, run length, and 'mins' are joined with '-'",
+        )
 
         new_lcm_name = LCMethod.create_name(type="some_type")
-        self.assertEqual("some_type", new_lcm_name, msg="A 'None' run length results in name=type")
+        self.assertEqual(
+            "some_type", new_lcm_name, msg="A 'None' run length results in name=type"
+        )
 
         new_lcm_name = LCMethod.create_name(run_length=10)
         self.assertEqual(
@@ -141,4 +147,5 @@ class LCMethodTests(TracebaseTestCase):
         self.assertEqual(
             "actual-type-25-mins",
             new_lcm_name,
-            msg="Name returned should be based on the type and run length field values, not the value in the field.")
+            msg="Name returned should be based on the type and run length field values, not the value in the field.",
+        )
