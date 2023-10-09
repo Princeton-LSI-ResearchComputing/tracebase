@@ -238,9 +238,9 @@ class PeakDataFormat(Format):
                 },
             },
         },
-        "PeakGroupSet": {
-            "model": "PeakGroupSet",
-            "path": "peak_group__peak_group_set",
+        "PeakAnnotationFile": {
+            "model": "ArchiveFile",
+            "path": "peak_group__peak_annotation_file",
             "reverse_path": "peak_groups__peak_data",
             "manyrelated": {
                 "is": False,
@@ -250,14 +250,14 @@ class PeakDataFormat(Format):
             },
             "fields": {
                 "id": {
-                    "displayname": "(Internal) Peak Group Set Index",  # Used in link
+                    "displayname": "(Internal) Archive (Peak Annotation) File Index",  # Used in link
                     "searchable": True,
                     "displayed": False,
                     "handoff": "filename",  # This is the field that will be loaded in the search form
                     "type": "number",
                 },
                 "filename": {
-                    "displayname": "Peak Group Set Filename",
+                    "displayname": "Peak Annotation Filename",
                     "searchable": True,
                     "displayed": True,
                     "type": "string",

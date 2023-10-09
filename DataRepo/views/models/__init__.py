@@ -1,4 +1,5 @@
 from .animal import AnimalDetailView, AnimalListView
+from .archive_file import ArchiveFileDetailView, ArchiveFileListView
 from .compound import CompoundDetailView, CompoundListView
 from .infusate import InfusateDetailView, InfusateListView
 from .msrun import MSRunDetailView, MSRunListView
@@ -15,6 +16,8 @@ from .study import StudyDetailView, StudyListView, study_summary
 from .tissue import TissueDetailView, TissueListView
 
 __all__ = [
+    "ArchiveFileDetailView",
+    "ArchiveFileListView",
     "CompoundListView",
     "CompoundDetailView",
     "InfusateListView",

@@ -156,8 +156,8 @@ class FormatsTests(TracebaseTestCase):
             ("peak_group__compounds__name", "Measured Compound (Primary Synonym)"),
             ("med_mz", "Median M/Z"),
             ("med_rt", "Median RT"),
+            ("peak_group__peak_annotation_file__filename", "Peak Annotation Filename"),
             ("peak_group__name", "Peak Group"),
-            ("peak_group__peak_group_set__filename", "Peak Group Set Filename"),
             ("raw_abundance", "Raw Abundance"),
             ("peak_group__msrun__sample__name", "Sample"),
             ("peak_group__msrun__sample__animal__sex", "Sex"),
@@ -197,8 +197,8 @@ class FormatsTests(TracebaseTestCase):
             ("msrun__sample__animal__infusate__name", "Infusate"),
             ("msrun__sample__animal__infusion_rate", "Infusion Rate (ul/min/g)"),
             ("labels__element", "Labeled Element"),
+            ("peak_annotation_file__filename", "Peak Annotation Filename"),
             ("name", "Peak Group"),
-            ("peak_group_set__filename", "Peak Group Set Filename"),
             ("msrun__sample__name", "Sample"),
             ("msrun__sample__animal__sex", "Sex"),
             ("msrun__sample__animal__studies__name", "Study"),
@@ -455,6 +455,7 @@ class FormatsTests(TracebaseTestCase):
             "msrun__sample__animal__treatment",
             "msrun__sample__animal__studies",
             "msrun__sample__tissue",
+            "peak_annotation_file",
             [
                 "compounds",
                 {
@@ -501,16 +502,15 @@ class FormatsTests(TracebaseTestCase):
                 "Compound",
             ],
             "compounds__synonyms",
-            "peak_group_set",
             "labels",
         ]
 
         self.assertEqual(8, len(prefetches))
         self.assertEqual("list", type(prefetches).__name__)
-        self.assertEqual(expected_prefetches[0:4], prefetches[0:4])
-        self.assertEqual(expected_prefetches[5:3], prefetches[5:3])
-        self.assertEqual(expected_prefetches[4][0:3], prefetches[4][0:3])
-        self.assertIsAPgUnitsLookupDict(prefetches[4][3])
+        self.assertEqual(expected_prefetches[0:5], prefetches[0:5])
+        self.assertEqual(expected_prefetches[6:3], prefetches[6:3])
+        self.assertEqual(expected_prefetches[5][0:3], prefetches[5][0:3])
+        self.assertIsAPgUnitsLookupDict(prefetches[5][3])
 
         # Should be called after tearDown()
         # self.restore_split_rows()
@@ -1132,8 +1132,8 @@ class FormatsTests(TracebaseTestCase):
             ("msrun__sample__animal__infusate__name", "Infusate"),
             ("msrun__sample__animal__infusion_rate", "Infusion Rate (ul/min/g)"),
             ("labels__element", "Labeled Element"),
+            ("peak_annotation_file__filename", "Peak Annotation Filename"),
             ("name", "Peak Group"),
-            ("peak_group_set__filename", "Peak Group Set Filename"),
             ("msrun__sample__name", "Sample"),
             ("msrun__sample__animal__sex", "Sex"),
             ("msrun__sample__animal__studies__name", "Study"),
@@ -1172,8 +1172,8 @@ class FormatsTests(TracebaseTestCase):
             "peak_group__msrun__sample__animal__treatment",
             "peak_group__msrun__sample__animal__studies",
             "peak_group__msrun__sample__tissue",
+            "peak_group__peak_annotation_file",
             "peak_group__compounds__synonyms",
-            "peak_group__peak_group_set",
             "labels",
         ]
         self.assertEqual(pfl, res)
@@ -1186,7 +1186,7 @@ class FormatsTests(TracebaseTestCase):
         fmt = "pgtemplate"
         res = basv_metadata.getModelInstances(fmt)
         ml = [
-            "PeakGroupSet",
+            "PeakAnnotationFile",
             "PeakGroup",
             "PeakGroupLabel",
             "Protocol",

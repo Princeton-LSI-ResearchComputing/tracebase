@@ -122,9 +122,9 @@
                     {% endwith %}
                 </th>
                 <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Peak_Group_Set_Filename-data-visible' 'false' %}" data-field="Peak_Group_Set_Filename" class="idgrp">
-                    {% with "Peak Group Set Filename" as colhead %}
+                    {% with "Peak Annotation Filename" as colhead %}
                         {% if mode == "view" %}{{ colhead }}{% else %}
-                            <div onclick="sortColumn(this)" class="sortable" id="peak_group_set__filename">{{ colhead }}</div>
+                            <div onclick="sortColumn(this)" class="sortable" id="peak_annotation_file__filename">{{ colhead }}</div>
                         {% endif %}
                     {% endwith %}
                 </th>
@@ -322,13 +322,15 @@
                         {% for label_rec in label_recs %}{% if not forloop.first %}, {% endif %}{{ label_rec.element }}{% endfor %}
                     </td>
 
-                    <!-- Peak Group Set Filename -->
+                    <!-- Peak Annotation Filename -->
                     <td>
                         <!-- Put displayed link text first for sorting -->
-                        <div style="display:none;">{{ pg.peak_group_set.filename }}</div>
-                        <a href="{% url 'peakgroupset_detail' pg.peak_group_set.id %}">
-                            {{ pg.peak_group_set.filename }}
+                        <div style="display:none;">{{ pg.peak_annotation_file.filename }}</div>
+                        {% if pg.peak_annotation_file%}
+                        <a href="{% url 'archive_file_detail' pg.peak_annotation_file.id %}">
+                            {{ pg.peak_annotation_file.filename }}
                         </a>
+                        {% endif %}
                     </td>
 
                     <!-- Total Abundance -->
