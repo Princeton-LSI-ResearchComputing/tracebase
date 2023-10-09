@@ -1186,7 +1186,7 @@ class FormatsTests(TracebaseTestCase):
         fmt = "pgtemplate"
         res = basv_metadata.getModelInstances(fmt)
         ml = [
-            "ArchiveFile",
+            "PeakAnnotationFile",
             "PeakGroup",
             "PeakGroupLabel",
             "Protocol",
