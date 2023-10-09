@@ -480,18 +480,10 @@ class AccuCorDataLoader:
             self.missing_mzxmls.append(mzxml_file)
 
         # Issue a warning if the sample header doesn't match the file name
-        if mzxml_file is not None:
+        if mzxml_file is not None and mzxml_file != "":
             sample_header_pat = re.compile(r"^" + sample_header + r"\.")
             match = sample_header_pat.search(mzxml_file)
-            if (
-                match is None
-                # sample header from the LCMS metadata is in the accucor file
-                and sample_header in self.corrected_sample_headers
-                # An mzXML file name is associated with the sample header
-                and self.lcms_metadata[sample_header]["mzxml"] is not None
-                # mzXML files were supplied
-                and self.lcms_defaults["mzxml_files"] is not None
-            ):
+            if match is None:
                 self.mismatching_mzxmls.append(
                     [sample_header, mzxml_file, sample_header_pat.pattern]
                 )
@@ -939,8 +931,6 @@ class AccuCorDataLoader:
 
         # Create a dict for the get_or_create call, using all available values (so that the get can work)
         rec_dict = {}
-        # The do_get logic assumes there is at least 1 non-none value based on how the lcms_metadata dict is constructed
-        do_get = name is None or type is None or desc is None  # run_length may be None
         if name is not None:
             rec_dict["name"] = name
         if type is not None:
@@ -951,9 +941,9 @@ class AccuCorDataLoader:
             rec_dict["description"] = desc
 
         try:
-            if do_get is True:
+            try:
                 rec = LCMethod.objects.get(**rec_dict)
-            else:
+            except:
                 rec, _ = LCMethod.objects.get_or_create(**rec_dict)
         except Exception as e:
             try:

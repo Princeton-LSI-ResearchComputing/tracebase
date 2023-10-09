@@ -77,7 +77,7 @@ class LCMethod(models.Model):
         elif isinstance(run_length, timedelta):
             run_length = int(run_length.total_seconds() / 60)
 
-        return f"{type}-{run_length}-mins"
+        return f"{type}-{run_length}-min"
 
     def get_name(self):
         """Generates a name using type and run_length."""

@@ -1,5 +1,6 @@
 import os
 from collections import defaultdict
+from datetime import timedelta
 
 import pandas as pd
 from django.core.exceptions import ValidationError
@@ -35,6 +36,11 @@ def lcms_df_to_dict(df, aes=None):
         return lcms_metadata
 
     for idx, row in df.iterrows():
+        # Convert empty strings to None
+        for key in row.keys():
+            if row[key] is not None and row[key] == "":
+                row[key] = None
+
         sample_name = row["tracebase sample name"]
         if sample_name is None:
             missing_reqd_vals["tracebase sample name"].append(idx + 2)
@@ -62,6 +68,10 @@ def lcms_df_to_dict(df, aes=None):
         if row["peak annotation filename"] is not None:
             peak_annot = os.path.basename(row["peak annotation filename"]).strip()
 
+        run_len = None
+        if row["lc run length"] is not None:
+            run_len = timedelta(minutes=int(row["lc run length"]))
+
         lcms_metadata[sample_header] = {
             "sample_header": sample_header,
             "sample_name": sample_name,
@@ -72,7 +82,7 @@ def lcms_df_to_dict(df, aes=None):
             "instrument": row["operator"],
             "date": row["date"],
             "lc_type": row["lc method"],
-            "lc_run_length": row["lc run length"],
+            "lc_run_length": run_len,
             "lc_description": row["lc description"],
             "lc_name": lc_name,
             "row_num": idx + 2,  # From 1, not including header row

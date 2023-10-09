@@ -2,7 +2,9 @@ import re
 
 import pandas as pd
 
-from DataRepo.models import Protocol
+from django.core.management import call_command
+
+from DataRepo.models import LCMethod, Protocol
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import (
     AccuCorDataLoader,
@@ -22,6 +24,10 @@ from DataRepo.utils.lcms_metadata_parser import (
 
 
 class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
+    @classmethod
+    def setUpTestData(cls):
+        call_command("loaddata", "lc_methods")
+
     def test_sample_header_to_default_mzxml(self):
         adl1 = AccuCorDataLoader(
             None,
@@ -343,7 +349,37 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
         self.assertEqual("Default", ptcl.name)
 
     def test_get_or_create_lc_protocol(self):
-        pass
+        adl = AccuCorDataLoader(
+            None,
+            pd.read_excel(
+                "DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_glucose.xlsx",
+                sheet_name=1,  # The second sheet
+                engine="openpyxl",
+            ).dropna(axis=0, how="all"),
+            peak_group_set_filename="small_obob_maven_6eaas_inf_glucose.xlsx",
+            lcms_metadata_df=extract_dataframes_from_lcms_tsv(
+                "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc.tsv"
+            ),
+            date="1972-11-24",
+            researcher="Robert Leach",
+            ms_protocol_name="Default",
+            lc_protocol_name=None,  # Left none intentionally
+            instrument="default instrument",
+            mzxml_files=[],
+        )
+
+        # Pre-processing the data will enable get_or_create_ms_protocol by creating the lcms_metadata dict
+        adl.preprocess_data()
+
+        ptcl1 = adl.get_or_create_lc_protocol("BAT-xz971")
+        self.assertEqual(LCMethod, type(ptcl1))
+        self.assertEqual("polar-HILIC-25-min", ptcl1.name)
+
+        newname = "new-lc-method-30-min"
+        self.assertEqual(0, LCMethod.objects.filter(name=newname).count())
+        ptcl2 = adl.get_or_create_lc_protocol("Br-xz971")
+        self.assertEqual(LCMethod, type(ptcl2))
+        self.assertEqual(newname, ptcl2.name)
 
     def test_exception_type_exists(self):
         pass
