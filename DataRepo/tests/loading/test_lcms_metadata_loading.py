@@ -89,7 +89,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
                 "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc.tsv"
             ),
-            date="",
+            date="1972-11-24",
             researcher="",
             ms_protocol_name="",
             lc_protocol_name="",
@@ -240,7 +240,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             mzxml_files=[],
         )
         missing1 = adl1.get_missing_required_lcms_defaults()
-        self.assertEqual(0, len(missing1))
+        self.assertEqual(0, len(missing1), msg="No required defaults should be missing")
 
         adl2 = AccuCorDataLoader(
             None,
@@ -265,10 +265,50 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             "instrument",
             "peak_annot_file",
         ]
-        self.assertEqual(sorted(expected_missing), sorted(missing2))
+        self.assertEqual(
+            sorted(expected_missing),
+            sorted(missing2),
+            msg="All required defaults should be missing",
+        )
 
     def test_lcms_defaults_supplied(self):
-        pass
+        adl1 = AccuCorDataLoader(
+            None,
+            None,
+            peak_group_set_filename="accucor.xlsx",
+            lcms_metadata_df=extract_dataframes_from_lcms_tsv(
+                "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc.tsv"
+            ),
+            date="1972-11-24",
+            researcher="Robert Leach",
+            ms_protocol_name="Default",
+            lc_protocol_name="polar-HILIC",
+            instrument="default instrument",
+            mzxml_files=[],
+        )
+        self.assertTrue(
+            adl1.lcms_defaults_supplied(),
+            msg="LCMS defaults should show as having been supplied.",
+        )
+
+        adl2 = AccuCorDataLoader(
+            None,
+            None,
+            peak_group_set_filename=None,
+            lcms_metadata_df=extract_dataframes_from_lcms_tsv(
+                "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc.tsv"
+            ),
+            date=None,
+            researcher=None,
+            ms_protocol_name=None,
+            lc_protocol_name=None,
+            instrument=None,
+            mzxml_files=None,
+        )
+        self.assertFalse(
+            adl2.lcms_defaults_supplied(),
+            msg="LCMS defaults should show as not having been supplied.",
+        )
 
     def test_get_or_create_ms_protocol(self):
         pass
