@@ -358,11 +358,11 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
                 engine="openpyxl",
             ).dropna(axis=0, how="all"),
             peak_group_set_filename="small_obob_maven_6eaas_inf_glucose.xlsx",
+            researcher="Robert Leach",
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
                 "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc.tsv"
             ),
             date="1972-11-24",
-            researcher="Robert Leach",
             ms_protocol_name=None,  # Left none intentionally
             lc_protocol_name="polar-HILIC",
             instrument="default instrument",
@@ -389,13 +389,13 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             ).dropna(axis=0, how="all"),
             peak_group_set_filename="small_obob_maven_6eaas_inf_glucose.xlsx",
             date="1972-11-24",
+            instrument="default instrument",
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
                 "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc.tsv"
             ),
             researcher="Robert Leach",
             ms_protocol_name="Default",
             lc_protocol_name=None,  # Left none intentionally
-            instrument="default instrument",
             mzxml_files=[],
         )
 
