@@ -55,6 +55,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             mzxml1,
             msg="Failed lookups should result in None",
         )
+        self.assertEqual(0, len(adl1.aggregated_errors_object.exceptions))
 
         mzxml2 = adl1.sample_header_to_default_mzxml("sample2")
         self.assertEqual(
@@ -79,6 +80,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
         )
         mzxml = adl2.sample_header_to_default_mzxml("sample")
         self.assertIsNone(mzxml, msg="If mzxml files array is None, None is returned")
+        self.assertEqual(0, len(adl2.aggregated_errors_object.exceptions))
 
         adl3 = AccuCorDataLoader(
             None,
@@ -96,6 +98,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
         )
         mzxml = adl3.sample_header_to_default_mzxml("sample")
         self.assertIsNone(mzxml, msg="If mzxml files array is empty, None is returned")
+        self.assertEqual(0, len(adl3.aggregated_errors_object.exceptions))
 
     def test_check_mzxml(self):
         adl1 = AccuCorDataLoader(
@@ -222,6 +225,8 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
 
         adl2.validate_mzxmls()
 
+        self.assertEqual(2, len(adl2.aggregated_errors_object.exceptions))
+
         self.assertTrue(
             adl2.aggregated_errors_object.exceptions[0].is_error,
             msg="The first exception should be an error in validate made.",
@@ -257,6 +262,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
         )
         missing1 = adl1.get_missing_required_lcms_defaults()
         self.assertEqual(0, len(missing1), msg="No required defaults should be missing")
+        self.assertEqual(0, len(adl1.aggregated_errors_object.exceptions))
 
         adl2 = AccuCorDataLoader(
             None,
@@ -286,6 +292,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             sorted(missing2),
             msg="All required defaults should be missing",
         )
+        self.assertEqual(0, len(adl2.aggregated_errors_object.exceptions))
 
     def test_lcms_defaults_supplied(self):
         adl1 = AccuCorDataLoader(
@@ -306,6 +313,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             adl1.lcms_defaults_supplied(),
             msg="LCMS defaults should show as having been supplied.",
         )
+        self.assertEqual(0, len(adl1.aggregated_errors_object.exceptions))
 
         adl2 = AccuCorDataLoader(
             None,
@@ -314,17 +322,18 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
                 "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc.tsv"
             ),
+            mzxml_files=None,
             date=None,
             researcher=None,
             ms_protocol_name=None,
             lc_protocol_name=None,
             instrument=None,
-            mzxml_files=None,
         )
         self.assertFalse(
             adl2.lcms_defaults_supplied(),
             msg="LCMS defaults should show as not having been supplied.",
         )
+        self.assertEqual(0, len(adl2.aggregated_errors_object.exceptions))
 
     def test_get_or_create_ms_protocol(self):
         """
@@ -354,6 +363,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
         ptcl = adl1.get_or_create_ms_protocol("BAT-xz971_pos")
         self.assertEqual(Protocol, type(ptcl))
         self.assertEqual("Default", ptcl.name)
+        self.assertEqual(0, len(adl1.aggregated_errors_object.exceptions))
 
         adl2 = AccuCorDataLoader(
             None,
@@ -471,8 +481,9 @@ class LCMSSampleTableLoaderMethodTests(TracebaseTestCase):
             "serum-xz971",
         ]
         stl.check_lcms_samples(stl.lcms_samples)
-        self.assertFalse(
-            stl.aggregated_errors_object.exception_type_exists(LCMSDBSampleMissing),
+        self.assertEqual(
+            0,
+            len(stl.aggregated_errors_object.exceptions),
             msg="No buffered error when check_lcms_samples is tested on sample list where every sample from the LCMS "
             "Metadata is present.",
         )
@@ -753,16 +764,21 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
         self.assertEqual(1, len(aes.exceptions))
         self.assertTrue(aes.exception_type_exists(LCMSDBSampleMissing))
 
-    def test_no_repeated_exceptions(self):
+    def test_no_repeated_or_unexpected_exceptions(self):
         """
         - `6.` Tests
         2. Test that no exceptions are repeated
         """
-        pass
+        # TODO:
+        # Add tests that test these untested exceptions:
+        # - UnexpectedLCMSSampleDataHeaders
+        # - LCMSMetadataRequired
+        # - PeakAnnotFileMismatches
+        # - LCMethodFixturesMissing
+        # - MissingRequiredLCMSValues
 
-    def test_no_unexpected_exceptions(self):
-        """
-        - `6.` Tests
-        3. Test that there are no exceptions aside from the expected ones
-        """
+        # - Add tests that check these exceptions for repeated/unexpected exceptions:
+        # - MissingLCMSSampleDataHeaders
+        # - MissingMZXMLFiles
+        # - MismatchedSampleHeaderMZXML
         pass
