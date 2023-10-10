@@ -151,15 +151,16 @@ class AccuCorDataLoader:
             self.lcms_metadata = {}
 
             # Validate the required LCMS Metadata
-            reqd_args = [
-                lc_protocol_name,
-                ms_protocol_name,
-                date,
-                researcher,
-                instrument,
-            ]
-            if lcms_metadata_df is None and None in reqd_args:
-                raise LCMSDefaultsRequired(*reqd_args)
+            reqd_args = {
+                "lc_protocol_name": lc_protocol_name,
+                "ms_protocol_name": ms_protocol_name,
+                "date": date,
+                "researcher": researcher,
+                "instrument": instrument,
+            }
+            if lcms_metadata_df is None and None in reqd_args.values():
+                missing = [key for key in reqd_args.keys() if reqd_args[key] is None]
+                raise LCMSDefaultsRequired(missing_defaults_list=missing)
             if lcms_metadata_df is not None and not lcms_headers_are_valid(
                 list(lcms_metadata_df.columns)
             ):
@@ -312,6 +313,8 @@ class AccuCorDataLoader:
                 if self.lcms_metadata[sample_header]["researcher"] is None:
                     if not self.aggregated_errors_object.exception_type_exists(
                         MissingLCMSSampleDataHeaders
+                    ) and not self.aggregated_errors_object.exception_type_exists(
+                        LCMSDefaultsRequired
                     ):
                         self.aggregated_errors_object.buffer_error(
                             ValueError("Researcher cannot be None")
@@ -328,7 +331,7 @@ class AccuCorDataLoader:
                 if res_add not in researchers:
                     all_existing = False
                     break
-            if all_existing:
+            if all_existing and len(adding_researchers) > 0:
                 self.aggregated_errors_object.buffer_error(
                     # TODO: Refine the error to take a list of researcher names
                     ResearcherNotNew(
@@ -424,6 +427,7 @@ class AccuCorDataLoader:
 
         # Note, this intentionally fills in any that caused errors above in order to catch more errors
         incorrect_pgs_files = {}
+        missing_header_defaults = defaultdict(dict)
         for sample_header in self.corrected_sample_headers:
             if sample_header not in self.lcms_metadata.keys():
                 self.lcms_metadata[sample_header] = {
@@ -453,34 +457,72 @@ class AccuCorDataLoader:
                     ]["peak_annotation"]
 
                 # Fill in default values for anything missing
-                if self.lcms_metadata[sample_header]["peak_annotation"] is None:
-                    self.lcms_metadata[sample_header][
-                        "peak_annotation"
-                    ] = self.lcms_defaults["peak_annot_file"]
                 if self.lcms_metadata[sample_header]["mzxml"] is None:
                     self.lcms_metadata[sample_header][
                         "mzxml"
                     ] = self.sample_header_to_default_mzxml(sample_header)
+
+                # TODO: Make these keys consistent in the lcms_defaults and the lcms_metadata, so I can loop
+                if self.lcms_metadata[sample_header]["peak_annotation"] is None:
+                    if self.lcms_defaults["peak_annot_file"] is None:
+                        missing_header_defaults["default"]["peak_annotation"] = True
+                        missing_header_defaults["header"][sample_header] = True
+                    else:
+                        self.lcms_metadata[sample_header][
+                            "peak_annotation"
+                        ] = self.lcms_defaults["peak_annot_file"]
                 if self.lcms_metadata[sample_header]["ms_protocol_name"] is None:
-                    self.lcms_metadata[sample_header][
-                        "ms_protocol_name"
-                    ] = self.lcms_defaults["ms_protocol_name"]
+                    if self.lcms_defaults["ms_protocol_name"] is None:
+                        missing_header_defaults["default"]["ms_protocol_name"] = True
+                        missing_header_defaults["header"][sample_header] = True
+                    else:
+                        self.lcms_metadata[sample_header][
+                            "ms_protocol_name"
+                        ] = self.lcms_defaults["ms_protocol_name"]
                 if self.lcms_metadata[sample_header]["researcher"] is None:
-                    self.lcms_metadata[sample_header][
-                        "researcher"
-                    ] = self.lcms_defaults["researcher"]
+                    if self.lcms_defaults["researcher"] is None:
+                        missing_header_defaults["default"]["researcher"] = True
+                        missing_header_defaults["header"][sample_header] = True
+                    else:
+                        self.lcms_metadata[sample_header][
+                            "researcher"
+                        ] = self.lcms_defaults["researcher"]
                 if self.lcms_metadata[sample_header]["instrument"] is None:
-                    self.lcms_metadata[sample_header][
-                        "instrument"
-                    ] = self.lcms_defaults["instrument"]
+                    if self.lcms_defaults["instrument"] is None:
+                        missing_header_defaults["default"]["instrument"] = True
+                        missing_header_defaults["header"][sample_header] = True
+                    else:
+                        self.lcms_metadata[sample_header][
+                            "instrument"
+                        ] = self.lcms_defaults["instrument"]
                 if self.lcms_metadata[sample_header]["date"] is None:
-                    self.lcms_metadata[sample_header]["date"] = self.lcms_defaults[
-                        "date"
-                    ]
+                    if self.lcms_defaults["date"] is None:
+                        missing_header_defaults["default"]["date"] = True
+                        missing_header_defaults["header"][sample_header] = True
+                    else:
+                        self.lcms_metadata[sample_header]["date"] = self.lcms_defaults[
+                            "date"
+                        ]
                 if self.lcms_metadata[sample_header]["lc_name"] is None:
-                    self.lcms_metadata[sample_header]["lc_name"] = self.lcms_defaults[
-                        "lc_protocol_name"
-                    ]
+                    if self.lcms_defaults["lc_protocol_name"] is None:
+                        missing_header_defaults["default"]["lc_protocol_name"] = True
+                        missing_header_defaults["header"][sample_header] = True
+                    else:
+                        self.lcms_metadata[sample_header][
+                            "lc_name"
+                        ] = self.lcms_defaults["lc_protocol_name"]
+
+        if len(missing_header_defaults.keys()) > 0:
+            self.aggregated_errors_object.buffer_error(
+                LCMSDefaultsRequired(
+                    missing_defaults_list=list(
+                        missing_header_defaults["default"].keys()
+                    ),
+                    affected_sample_headers_list=list(
+                        missing_header_defaults["header"].keys()
+                    ),
+                )
+            )
 
         if len(incorrect_pgs_files.keys()) > 0:
             self.aggregated_errors_object.buffer_error(
@@ -931,23 +973,10 @@ class AccuCorDataLoader:
                 f"'{self.lcms_metadata[sample_header]['ms_protocol_name']}'..."
             )
 
+        # If the value is None, it will already be raised as an exception, so just return None and keep going.
         if self.lcms_metadata[sample_header]["ms_protocol_name"] is None:
-            if (
-                not self.aggregated_errors_object.exception_type_exists(
-                    MissingLCMSSampleDataHeaders
-                )
-                and sample_header not in self.missing_sample_headers
-            ):
-                self.aggregated_errors_object.buffer_error(
-                    LCMSDefaultsRequired(
-                        self.lcms_metadata[sample_header]["lc_protocol_name"],
-                        self.lcms_metadata[sample_header]["ms_protocol_name"],
-                        self.lcms_metadata[sample_header]["date"],
-                        self.lcms_metadata[sample_header]["researcher"],
-                        self.lcms_metadata[sample_header]["instrument"],
-                    )
-                )
             return None
+
         ms_protocol_name = self.lcms_metadata[sample_header]["ms_protocol_name"]
 
         ms_protocol, created = Protocol.retrieve_or_create_protocol(
@@ -998,6 +1027,10 @@ class AccuCorDataLoader:
             rec_dict["run_length"] = run_length
         if desc is not None:
             rec_dict["description"] = desc
+
+        if len(rec_dict.keys()) == 0:
+            # An error will have already been buffered, so just return None and keep going
+            return None
 
         try:
             try:
@@ -1167,9 +1200,9 @@ class AccuCorDataLoader:
             ms_protocol = self.get_or_create_ms_protocol(sample_data_header)
             lc_protocol = self.get_or_create_lc_protocol(sample_data_header)
 
-            if lc_protocol is None:
-                # Cannot create the msrun record without an lc_protocol
-                # Note, get_or_create_lc_protocol buffers an error when this happens
+            if lc_protocol is None or ms_protocol is None:
+                # Cannot create the msrun record without protocols
+                # Note, an error will have already been buffered
                 continue
 
             # TODO: Load instrument
@@ -1724,30 +1757,29 @@ class CorrectedCompoundHeaderMissing(Exception):
 class LCMSDefaultsRequired(Exception):
     def __init__(
         self,
-        lc_protocol_name,
-        ms_protocol_name,
-        date,
-        researcher,
-        instrument,
+        missing_defaults_list,
+        affected_sample_headers_list=None,
     ):
-        missing = []
-        if lc_protocol_name is None:
-            missing.append("lc protocol name")
-        if ms_protocol_name is None:
-            missing.append("ms protocol name")
-        if date is None:
-            missing.append("date")
-        if researcher is None:
-            missing.append("researcher")
-        if instrument is None:
-            missing.append("instrument")
-        message = f"When an LCMS metadata dataframe is not provided, these missing arguments are required: [{missing}]."
+        nlt = "\n\t"
+        if (
+            affected_sample_headers_list is None
+            or len(affected_sample_headers_list) == 0
+        ):
+            message = (
+                "When an LCMS metadata dataframe is not provided, these missing defaults are required:\n\n\t"
+                f"{nlt.join(missing_defaults_list)}"
+            )
+        else:
+            message = (
+                f"These missing defaults are required:\n\n\t"
+                f"{nlt.join(missing_defaults_list)}\n\n"
+                "because the following sample data headers are missing data in at least 1 of the corresponding "
+                "columns:\n\n\t"
+                f"{nlt.join(affected_sample_headers_list)}"
+            )
         super().__init__(message)
-        self.lc_protocol_name = lc_protocol_name
-        self.ms_protocol_name = ms_protocol_name
-        self.date = date
-        self.researcher = researcher
-        self.instrument = instrument
+        self.missing_defaults_list = missing_defaults_list
+        self.affected_sample_headers_list = affected_sample_headers_list
 
 
 class UnexpectedLCMSSampleDataHeaders(Exception):

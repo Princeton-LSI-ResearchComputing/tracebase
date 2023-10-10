@@ -8,6 +8,8 @@ from DataRepo.models import LCMethod, MSRun, Protocol, Sample
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import (
     AccuCorDataLoader,
+    AggregatedErrors,
+    LCMSDefaultsRequired,
     LCMSSampleMismatch,
     MismatchedSampleHeaderMZXML,
     MissingLCMSSampleDataHeaders,
@@ -15,6 +17,7 @@ from DataRepo.utils import (
     SampleTableLoader,
 )
 from DataRepo.utils.lcms_metadata_parser import (
+    InvalidLCMSHeaders,
     extract_dataframes_from_lcms_tsv,
     extract_dataframes_from_lcms_xlsx,
     lcms_df_to_dict,
@@ -569,7 +572,7 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
 
     # Requirement 1.1 is tested by the method tests above
 
-    def test_lcms_metadata_default_fallbacks_lcms_bad(self):
+    def test_lcms_metadata_default_fallbacks_lcms_bad_headers(self):
         """
         `1.2.` Test that values missing in the LCMS metadata fall back to the defaults from 1.1.
         This test case tests when the sample data headers in the LCMS metadata file do not match the accucor file and
@@ -611,6 +614,26 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
         self.assertEqual(mspr, msr2.protocol)
         self.assertEqual(sample1, msr1.sample)
         self.assertEqual(sample2, msr2.sample)
+
+    def test_lcms_metadata_default_fallbacks_lcms_good_no_defaults(self):
+        """
+        `1.2.` Test that values missing in the LCMS metadata fall back to the defaults from 1.1.
+        This test case tests when the sample data headers in the LCMS metadata file match the accucor file and
+        sample table file, but there are no values other than the sample name and header, and no defaults.  Assure only
+        a single coherent error about supplying defaults.
+        """
+        with self.assertRaises(AggregatedErrors) as ar:
+            call_command(
+                "load_accucor_msruns",
+                # We just need a different file name with the same data, so _2 is a copy of the original
+                accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_glucose.xlsx",
+                new_researcher=True,
+                lcms_file="DataRepo/example_data/small_dataset/"
+                "glucose_lcms_metadata_except_mzxml_and_lcdesc_only_reqd_col_vals.tsv",
+            )
+        aes = ar.exception
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertEqual(LCMSDefaultsRequired, type(aes.exceptions[0]))
 
     def test_lcms_metadata_default_fallbacks_lcms_good(self):
         """
@@ -661,7 +684,18 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
         1. Any missing sample header in the LCMS metadata file causes an error if not all required defaults are
         specified
         """
-        pass
+        with self.assertRaises(InvalidLCMSHeaders) as ar:
+            call_command(
+                "load_accucor_msruns",
+                # We just need a different file name with the same data, so _2 is a copy of the original
+                accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_glucose.xlsx",
+                new_researcher=True,
+                lcms_file="DataRepo/example_data/small_dataset/"
+                "glucose_lcms_metadata_except_mzxml_and_lcdesc_missing_date_col.tsv",
+            )
+        ilh = ar.exception
+        self.assertEqual(["date"], ilh.missing)
+        self.assertEqual([], ilh.unexpected)
 
     def test_lcms_metadata_missing_value_error(self):
         """

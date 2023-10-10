@@ -195,29 +195,20 @@ class InvalidLCMSHeaders(ValidationError):
         message = "LCMS metadata "
         if lcms_file is not None:
             message += f"file [{lcms_file}] "
-        if len(headers) != len(expected_headers):
-            message += (
-                f"should have {len(expected_headers)} headers, but {len(headers)} were found.  Expected headers: "
-                f"[{expected_headers}].  Headers found: [{headers}]."
-            )
-        else:
-            missing = []
-            unexpected = []
-            for i in range(len(headers)):
-                if headers[i] not in expected_headers:
-                    unexpected.append(headers[i])
-                if expected_headers[i] not in headers:
-                    missing.append(expected_headers[i])
-            if len(missing) > 0:
-                message += f"is missing headers: [{missing}]"
-            if len(missing) > 0 and len(unexpected) > 0:
-                message += " and "
-            if len(unexpected) > 0:
-                message += f" has unexpected headers: [{unexpected}]"
+        missing = [i for i in expected_headers if i not in headers]
+        unexpected = [i for i in headers if i not in expected_headers]
+        if len(missing) > 0:
+            message += f"is missing headers {type(missing)}: {missing}"
+        if len(missing) > 0 and len(unexpected) > 0:
+            message += " and "
+        if len(unexpected) > 0:
+            message += f" has unexpected headers: {unexpected}"
         super().__init__(message)
         self.headers = headers
         self.expected_headers = expected_headers
         self.lcms_file = lcms_file
+        self.missing = missing
+        self.unexpected = unexpected
 
 
 class MissingRequiredLCMSValues(Exception):
