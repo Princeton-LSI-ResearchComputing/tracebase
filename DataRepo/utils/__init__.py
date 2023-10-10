@@ -49,7 +49,7 @@ from DataRepo.utils.queryset_to_pandas_dataframe import (
     QuerysetToPandasDataFrame,
 )
 from DataRepo.utils.sample_table_loader import (
-    LCMSSampleMismatch,
+    LCMSDBSampleMissing,
     SampleTableLoader,
 )
 from DataRepo.utils.tissues_loader import TissuesLoader
@@ -88,7 +88,7 @@ __all__ = [
     "DryRun",
     "lcms_headers_are_valid",
     "LoadingError",
-    "LCMSSampleMismatch",
+    "LCMSDBSampleMissing",
     "QuerysetToPandasDataFrame",
     "SampleTableLoader",
     "TissuesLoader",

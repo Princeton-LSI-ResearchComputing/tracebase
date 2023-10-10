@@ -353,7 +353,7 @@ class SampleTableLoader:
 
         if len(lcms_samples_missing) > 0:
             self.aggregated_errors_object.buffer_error(
-                LCMSSampleMismatch(lcms_samples_missing)
+                LCMSDBSampleMissing(lcms_samples_missing)
             )
 
     def get_tissue(self, rownum, row):
@@ -1067,11 +1067,11 @@ class TreatmentError(UnanticipatedError):
     pass
 
 
-class LCMSSampleMismatch(Exception):
+class LCMSDBSampleMissing(Exception):
     def __init__(self, lcms_samples_missing):
         nlt = "\n\t"
         message = (
-            "The following sample names from the LCMS metadata is missing in the animal sample table:\n\t"
+            "The following sample names from the LCMS metadata are missing in the animal sample table:\n\t"
             f"{nlt.join(lcms_samples_missing)}"
         )
         super().__init__(message)

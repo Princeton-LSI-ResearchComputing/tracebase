@@ -9,8 +9,8 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import (
     AccuCorDataLoader,
     AggregatedErrors,
+    LCMSDBSampleMissing,
     LCMSDefaultsRequired,
-    LCMSSampleMismatch,
     MismatchedSampleHeaderMZXML,
     MissingLCMSSampleDataHeaders,
     MissingMZXMLFiles,
@@ -472,7 +472,7 @@ class LCMSSampleTableLoaderMethodTests(TracebaseTestCase):
         ]
         stl.check_lcms_samples(stl.lcms_samples)
         self.assertFalse(
-            stl.aggregated_errors_object.exception_type_exists(LCMSSampleMismatch),
+            stl.aggregated_errors_object.exception_type_exists(LCMSDBSampleMissing),
             msg="No buffered error when check_lcms_samples is tested on sample list where every sample from the LCMS "
             "Metadata is present.",
         )
@@ -489,7 +489,7 @@ class LCMSSampleTableLoaderMethodTests(TracebaseTestCase):
             msg="check_lcms_samples buffers 1 error",
         )
         self.assertTrue(
-            stl.aggregated_errors_object.exception_type_exists(LCMSSampleMismatch),
+            stl.aggregated_errors_object.exception_type_exists(LCMSDBSampleMissing),
             msg="check_lcms_samples buffers an LCMSSampleMismatch exception",
         )
         self.assertNotIn(
@@ -564,6 +564,8 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
             "load_study",
             "DataRepo/example_data/small_dataset/small_obob_study_prerequisites.yaml",
         )
+
+    def load_samples(self):
         call_command(
             "load_animals_and_samples",
             animal_and_sample_table_filename=(
@@ -579,6 +581,7 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
         This test case tests when the sample data headers in the LCMS metadata file do not match the accucor file and
         sample table file.
         """
+        self.load_samples()
         self.assertEqual(0, MSRun.objects.count())
         call_command(
             "load_accucor_msruns",
@@ -623,6 +626,7 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
         sample table file, but there are no values other than the sample name and header, and no defaults.  Assure only
         a single coherent error about supplying defaults.
         """
+        self.load_samples()
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_accucor_msruns",
@@ -642,6 +646,7 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
         This test case tests when the sample data headers in the LCMS metadata file match the accucor file and sample
         table file.
         """
+        self.load_samples()
         self.assertEqual(0, MSRun.objects.count())
         call_command(
             "load_accucor_msruns",
@@ -685,6 +690,7 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
         1. Any missing sample header in the LCMS metadata file causes an error if not all required defaults are
         specified
         """
+        self.load_samples()
         with self.assertRaises(InvalidLCMSHeaders) as ar:
             call_command(
                 "load_accucor_msruns",
@@ -703,6 +709,7 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
         - `1.3.1.` Tests
         3. Duplicate sample data headers (assumed to be to the same sample) cause an error
         """
+        self.load_samples()
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_accucor_msruns",
@@ -716,18 +723,35 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
         self.assertEqual(1, len(aes.exceptions))
         self.assertEqual(DuplicateSampleDataHeaders, type(aes.exceptions[0]))
 
-    def test_lcms_metadata_unique_sample_data_headers(self):
+    def test_lcms_metadata_unique_sample_good(self):
         """
         - `1.3.2.` The LCMS sample column must correspond to a unique sample in the sample table loader
         """
-        pass
+        call_command(
+            "load_animals_and_samples",
+            animal_and_sample_table_filename=(
+                "DataRepo/example_data/small_dataset/small_obob_animal_and_sample_table.xlsx"
+            ),
+            lcms_file="DataRepo/example_data/small_dataset/"
+            "glucose_lcms_metadata_except_mzxml_and_lcdesc.tsv",
+        )
 
-    def test_lcms_buffers_exceptions(self):
+    def test_lcms_metadata_unique_sample_missing(self):
         """
-        - `6.` Tests
-        1. Test that the accucor data loader processes every row despite exceptions
+        - `1.3.2.` The LCMS sample column must correspond to a unique sample in the sample table loader
         """
-        pass
+        with self.assertRaises(AggregatedErrors) as ar:
+            call_command(
+                "load_animals_and_samples",
+                animal_and_sample_table_filename=(
+                    "DataRepo/example_data/small_dataset/small_obob_animal_and_sample_table.xlsx"
+                ),
+                lcms_file="DataRepo/example_data/small_dataset/"
+                "glucose_lcms_metadata_except_mzxml_and_lcdesc_missing_db_sample.tsv",
+            )
+        aes = ar.exception
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertTrue(aes.exception_type_exists(LCMSDBSampleMissing))
 
     def test_no_repeated_exceptions(self):
         """
