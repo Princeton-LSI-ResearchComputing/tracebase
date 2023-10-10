@@ -373,7 +373,11 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
         ptcl = adl2.get_or_create_ms_protocol("BAT-xz971")
         self.assertIsNone(ptcl)
         self.assertEqual(1, len(adl2.aggregated_errors_object.exceptions))
-        self.assertTrue(adl2.aggregated_errors_object.exception_type_exists(MissingLCMSSampleDataHeaders))
+        self.assertTrue(
+            adl2.aggregated_errors_object.exception_type_exists(
+                MissingLCMSSampleDataHeaders
+            )
+        )
 
     def test_get_or_create_lc_protocol(self):
         adl1 = AccuCorDataLoader(
@@ -434,7 +438,11 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
         ptcl2 = adl2.get_or_create_lc_protocol("BAT-xz971")
         self.assertEqual("unknown", ptcl2.name)
         self.assertEqual(1, len(adl2.aggregated_errors_object.exceptions))
-        self.assertTrue(adl2.aggregated_errors_object.exception_type_exists(MissingLCMSSampleDataHeaders))
+        self.assertTrue(
+            adl2.aggregated_errors_object.exception_type_exists(
+                MissingLCMSSampleDataHeaders
+            )
+        )
 
 
 class LCMSSampleTableLoaderMethodTests(TracebaseTestCase):

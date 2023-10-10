@@ -892,7 +892,9 @@ class AccuCorDataLoader:
 
         if self.lcms_metadata[sample_header]["ms_protocol_name"] is None:
             if (
-                not self.aggregated_errors_object.exception_type_exists(MissingLCMSSampleDataHeaders)
+                not self.aggregated_errors_object.exception_type_exists(
+                    MissingLCMSSampleDataHeaders
+                )
                 and sample_header not in self.missing_sample_headers
             ):
                 self.aggregated_errors_object.buffer_error(
@@ -970,7 +972,9 @@ class AccuCorDataLoader:
                 )
                 # If this is not due to a missing sample data header
                 if (
-                    not self.aggregated_errors_object.exception_type_exists(MissingLCMSSampleDataHeaders)
+                    not self.aggregated_errors_object.exception_type_exists(
+                        MissingLCMSSampleDataHeaders
+                    )
                     or sample_data_header not in self.missing_sample_headers
                 ):
                     # If the above found a record and there's no known explanation, buffer the original exception

@@ -433,7 +433,8 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_accucor_msruns",
-                accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_glucose.xlsx",
+                # We just need a different file name with the same data, so _2 is a copy of the original
+                accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_glucose_2.xlsx",
                 ms_protocol_name="Default",
                 lc_protocol_name="polar-HILIC-25-min",
                 instrument="default instrument",
