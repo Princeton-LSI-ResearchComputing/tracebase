@@ -175,15 +175,15 @@ class AccuCorDataLoader:
                 "mzxml_files": None,
                 "peak_annot_file": self.peak_group_set_filename,
             }
-            if lc_protocol_name is not None and lc_protocol_name != "":
+            if lc_protocol_name is not None and lc_protocol_name.strip() != "":
                 self.lcms_defaults["lc_protocol_name"] = lc_protocol_name.strip()
-            if ms_protocol_name is not None and ms_protocol_name != "":
+            if ms_protocol_name is not None and ms_protocol_name.strip() != "":
                 self.lcms_defaults["ms_protocol_name"] = ms_protocol_name.strip()
-            if date is not None and date != "":
+            if date is not None and date.strip() != "":
                 self.lcms_defaults["date"] = datetime.strptime(date.strip(), "%Y-%m-%d")
-            if researcher is not None and researcher != "":
+            if researcher is not None and researcher.strip() != "":
                 self.lcms_defaults["researcher"] = researcher.strip()
-            if instrument is not None and instrument != "":
+            if instrument is not None and instrument.strip() != "":
                 self.lcms_defaults["instrument"] = instrument.strip()
             if mzxml_files is not None and len(mzxml_files) > 0:
                 # mzxml_files is assumed to be populated with basenames
@@ -309,9 +309,17 @@ class AccuCorDataLoader:
                 self.lcms_metadata[sample_header]["researcher"]
                 not in adding_researchers
             ):
-                adding_researchers.append(
-                    self.lcms_metadata[sample_header]["researcher"]
-                )
+                if self.lcms_metadata[sample_header]["researcher"] is None:
+                    if not self.aggregated_errors_object.exception_type_exists(
+                        MissingLCMSSampleDataHeaders
+                    ):
+                        self.aggregated_errors_object.buffer_error(
+                            ValueError("Researcher cannot be None")
+                        )
+                else:
+                    adding_researchers.append(
+                        self.lcms_metadata[sample_header]["researcher"]
+                    )
 
         if self.allow_new_researchers is True:
             researchers = get_researchers()
@@ -432,14 +440,47 @@ class AccuCorDataLoader:
                     "lc_description": None,
                     "lc_name": self.lcms_defaults["lc_protocol_name"],
                 }
-            elif (
-                self.lcms_metadata[sample_header]["peak_annotation"]
-                != self.peak_group_set_filename
-            ):
-                # We can assume sample_header is unique due to previous code
-                incorrect_pgs_files[sample_header] = self.lcms_metadata[sample_header][
-                    "peak_annotation"
-                ]
+            else:
+                # Note any mismatched file names
+                if (
+                    self.lcms_metadata[sample_header]["peak_annotation"] is not None
+                    and self.lcms_metadata[sample_header]["peak_annotation"]
+                    != self.peak_group_set_filename
+                ):
+                    # We can assume sample_header is unique due to previous code
+                    incorrect_pgs_files[sample_header] = self.lcms_metadata[
+                        sample_header
+                    ]["peak_annotation"]
+
+                # Fill in default values for anything missing
+                if self.lcms_metadata[sample_header]["peak_annotation"] is None:
+                    self.lcms_metadata[sample_header][
+                        "peak_annotation"
+                    ] = self.lcms_defaults["peak_annot_file"]
+                if self.lcms_metadata[sample_header]["mzxml"] is None:
+                    self.lcms_metadata[sample_header][
+                        "mzxml"
+                    ] = self.sample_header_to_default_mzxml(sample_header)
+                if self.lcms_metadata[sample_header]["ms_protocol_name"] is None:
+                    self.lcms_metadata[sample_header][
+                        "ms_protocol_name"
+                    ] = self.lcms_defaults["ms_protocol_name"]
+                if self.lcms_metadata[sample_header]["researcher"] is None:
+                    self.lcms_metadata[sample_header][
+                        "researcher"
+                    ] = self.lcms_defaults["researcher"]
+                if self.lcms_metadata[sample_header]["instrument"] is None:
+                    self.lcms_metadata[sample_header][
+                        "instrument"
+                    ] = self.lcms_defaults["instrument"]
+                if self.lcms_metadata[sample_header]["date"] is None:
+                    self.lcms_metadata[sample_header]["date"] = self.lcms_defaults[
+                        "date"
+                    ]
+                if self.lcms_metadata[sample_header]["lc_name"] is None:
+                    self.lcms_metadata[sample_header]["lc_name"] = self.lcms_defaults[
+                        "lc_protocol_name"
+                    ]
 
         if len(incorrect_pgs_files.keys()) > 0:
             self.aggregated_errors_object.buffer_error(

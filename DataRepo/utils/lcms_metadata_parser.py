@@ -38,7 +38,7 @@ def lcms_df_to_dict(df, aes=None):
     for idx, row in df.iterrows():
         # Convert empty strings to None
         for key in row.keys():
-            if row[key] is not None and row[key] == "":
+            if row[key] is not None and row[key].strip() == "":
                 row[key] = None
 
         sample_name = row["tracebase sample name"]

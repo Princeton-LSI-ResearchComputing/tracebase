@@ -1,9 +1,10 @@
 import re
+from datetime import datetime
 
 import pandas as pd
 from django.core.management import call_command
 
-from DataRepo.models import LCMethod, Protocol
+from DataRepo.models import LCMethod, MSRun, Protocol, Sample
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import (
     AccuCorDataLoader,
@@ -552,54 +553,107 @@ class LCMSMetadataParserMethodTests(TracebaseTestCase):
 
 
 class LCMSMetadataRequirementsTests(TracebaseTestCase):
-    def test_lcms_default_options(self):
-        """
-        - `1.1.` Test that these options/arguments exist for the accucor load:
-            - LCMethod name
-            - Peak Annotation Filename
-            - Researcher
-            - Date
-            - Instrument
-            - MS Mode
-            - `1.1.` Tests
-        """
-        pass
+    @classmethod
+    def setUpTestData(cls):
+        call_command("loaddata", "lc_methods")
+        call_command(
+            "load_study",
+            "DataRepo/example_data/small_dataset/small_obob_study_prerequisites.yaml",
+        )
+        call_command(
+            "load_animals_and_samples",
+            animal_and_sample_table_filename=(
+                "DataRepo/example_data/small_dataset/small_obob_animal_and_sample_table.xlsx"
+            ),
+        )
 
-    def test_lcms_metadata_xlsx(self):
-        """
-        2. LCMS metadata file option accepts XLSX
-        """
-        pass
+    # Requirement 1.1 is tested by the method tests above
 
-    def test_lcms_metadata_tsv(self):
-        """
-        2. LCMS metadata file option accepts TSV
-
-        """
-        pass
-
-    def test_lcms_metadata_columns(self):
-        """
-        3. The columns in the LCMS metadata file include
-            - LCMethod Type
-            - LCMethod Run Length
-            - LCMethod Run Description
-            - Peak Annotation Filename
-            - Researcher
-            - Date
-            - MS Mode (e.g. positive ion mode)
-            - Sample Name
-            - Sample Data Header
-            - mzXML Filename
-            - Instrument
-        """
-        pass
-
-    def test_lcms_metadata_default_fallbacks(self):
+    def test_lcms_metadata_default_fallbacks_lcms_bad(self):
         """
         `1.2.` Test that values missing in the LCMS metadata fall back to the defaults from 1.1.
+        This test case tests when the sample data headers in the LCMS metadata file do not match the accucor file and
+        sample table file.
         """
-        pass
+        self.assertEqual(0, MSRun.objects.count())
+        call_command(
+            "load_accucor_msruns",
+            # We just need a different file name with the same data, so _2 is a copy of the original
+            accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_glucose.xlsx",
+            ms_protocol_name="Default",
+            instrument="default instrument",
+            lc_protocol_name="polar-HILIC-25-min",
+            date="2021-04-29",
+            researcher="Michael Neinast",
+            new_researcher=True,
+            lcms_file="DataRepo/example_data/small_dataset/"
+            "glucose_lcms_metadata_except_mzxml_and_lcdesc_only_reqd_col_vals_pos.tsv",
+        )
+        self.assertEqual(2, MSRun.objects.count())
+        msr1 = MSRun.objects.first()
+        msr2 = MSRun.objects.last()
+        mspr = Protocol.objects.get(name="Default", category="msrun_protocol")
+        lcmr = LCMethod.objects.get(name="polar-HILIC-25-min")
+        sample1 = Sample.objects.get(name="BAT-xz971")
+        sample2 = Sample.objects.get(name="Br-xz971")
+        researcher = "Michael Neinast"
+        date = datetime.date(datetime.strptime("2021-04-29", "%Y-%m-%d"))
+        # TODO: Test for Instrument (which is not yet saved)
+        # TODO: Test for mzxml_file (which is not yet saved)
+
+        self.assertEqual(researcher, msr1.researcher)
+        self.assertEqual(researcher, msr2.researcher)
+        self.assertEqual(date, msr1.date)
+        self.assertEqual(date, msr2.date)
+        self.assertEqual(lcmr, msr1.lc_method)
+        self.assertEqual(lcmr, msr2.lc_method)
+        self.assertEqual(mspr, msr1.protocol)
+        self.assertEqual(mspr, msr2.protocol)
+        self.assertEqual(sample1, msr1.sample)
+        self.assertEqual(sample2, msr2.sample)
+
+    def test_lcms_metadata_default_fallbacks_lcms_good(self):
+        """
+        `1.2.` Test that values missing in the LCMS metadata fall back to the defaults from 1.1.
+        This test case tests when the sample data headers in the LCMS metadata file match the accucor file and sample
+        table file.
+        """
+        self.assertEqual(0, MSRun.objects.count())
+        call_command(
+            "load_accucor_msruns",
+            # We just need a different file name with the same data, so _2 is a copy of the original
+            accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_glucose.xlsx",
+            ms_protocol_name="Default",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="default instrument",
+            date="2021-04-29",
+            researcher="Michael Neinast",
+            new_researcher=True,
+            lcms_file="DataRepo/example_data/small_dataset/"
+            "glucose_lcms_metadata_except_mzxml_and_lcdesc_only_reqd_col_vals.tsv",
+        )
+        self.assertEqual(2, MSRun.objects.count())
+        msr1 = MSRun.objects.first()
+        msr2 = MSRun.objects.last()
+        lcmr = LCMethod.objects.get(name="polar-HILIC-25-min")
+        mspr = Protocol.objects.get(name="Default", category="msrun_protocol")
+        sample1 = Sample.objects.get(name="BAT-xz971")
+        sample2 = Sample.objects.get(name="Br-xz971")
+        date = datetime.date(datetime.strptime("2021-04-29", "%Y-%m-%d"))
+        researcher = "Michael Neinast"
+        # TODO: Test for Instrument (which is not yet saved)
+        # TODO: Test for mzxml_file (which is not yet saved)
+
+        self.assertEqual(researcher, msr2.researcher)
+        self.assertEqual(researcher, msr1.researcher)
+        self.assertEqual(date, msr1.date)
+        self.assertEqual(date, msr2.date)
+        self.assertEqual(lcmr, msr2.lc_method)
+        self.assertEqual(lcmr, msr1.lc_method)
+        self.assertEqual(mspr, msr1.protocol)
+        self.assertEqual(mspr, msr2.protocol)
+        self.assertEqual(sample1, msr1.sample)
+        self.assertEqual(sample2, msr2.sample)
 
     def test_lcms_metadata_missing_header_error(self):
         """
