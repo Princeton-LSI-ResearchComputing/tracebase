@@ -40,6 +40,9 @@ class Protocol(models.Model):
         protocol_input can either be a name or an integer (protocol_id)
         """
 
+        if protocol_input is None:
+            raise ValueError("protocol_input cannot be None.")
+
         created = False
 
         try:

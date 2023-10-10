@@ -9,6 +9,7 @@ from DataRepo.utils import (
     AccuCorDataLoader,
     LCMSSampleMismatch,
     MismatchedSampleHeaderMZXML,
+    MissingLCMSSampleDataHeaders,
     MissingMZXMLFiles,
     SampleTableLoader,
 )
@@ -325,7 +326,31 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
         A test for this method (using the default --ms-protocol-name) already exists, so this method tests using the
         lcms_metadata_df argument.
         """
-        adl = AccuCorDataLoader(
+        adl1 = AccuCorDataLoader(
+            None,
+            pd.read_excel(
+                "DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_glucose_pos.xlsx",
+                sheet_name=1,  # The second sheet
+                engine="openpyxl",
+            ).dropna(axis=0, how="all"),
+            peak_group_set_filename="small_obob_maven_6eaas_inf_glucose.xlsx",
+            lcms_metadata_df=extract_dataframes_from_lcms_tsv(
+                "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc.tsv"
+            ),
+            date="1972-11-24",
+            researcher="Robert Leach",
+            ms_protocol_name=None,  # Left none intentionally
+            lc_protocol_name="polar-HILIC",
+            instrument="default instrument",
+            mzxml_files=[],
+        )
+        # Pre-processing the data will enable get_or_create_ms_protocol by creating the lcms_metadata dict
+        adl1.preprocess_data()
+        ptcl = adl1.get_or_create_ms_protocol("BAT-xz971_pos")
+        self.assertEqual(Protocol, type(ptcl))
+        self.assertEqual("Default", ptcl.name)
+
+        adl2 = AccuCorDataLoader(
             None,
             pd.read_excel(
                 "DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_glucose.xlsx",
@@ -344,13 +369,47 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             mzxml_files=[],
         )
         # Pre-processing the data will enable get_or_create_ms_protocol by creating the lcms_metadata dict
-        adl.preprocess_data()
-        ptcl = adl.get_or_create_ms_protocol("BAT-xz971")
-        self.assertEqual(Protocol, type(ptcl))
-        self.assertEqual("Default", ptcl.name)
+        adl2.preprocess_data()
+        ptcl = adl2.get_or_create_ms_protocol("BAT-xz971")
+        self.assertIsNone(ptcl)
+        self.assertEqual(1, len(adl2.aggregated_errors_object.exceptions))
+        self.assertTrue(adl2.aggregated_errors_object.exception_type_exists(MissingLCMSSampleDataHeaders))
 
     def test_get_or_create_lc_protocol(self):
-        adl = AccuCorDataLoader(
+        adl1 = AccuCorDataLoader(
+            None,
+            pd.read_excel(
+                "DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_glucose_pos.xlsx",
+                sheet_name=1,  # The second sheet
+                engine="openpyxl",
+            ).dropna(axis=0, how="all"),
+            peak_group_set_filename="small_obob_maven_6eaas_inf_glucose.xlsx",
+            date="1972-11-24",
+            lcms_metadata_df=extract_dataframes_from_lcms_tsv(
+                "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc.tsv"
+            ),
+            researcher="Robert Leach",
+            ms_protocol_name="Default",
+            lc_protocol_name=None,  # Left none intentionally
+            instrument="default instrument",
+            mzxml_files=[],
+        )
+
+        # Pre-processing the data will enable get_or_create_ms_protocol by creating the lcms_metadata dict
+        adl1.preprocess_data()
+
+        ptcl1 = adl1.get_or_create_lc_protocol("BAT-xz971_pos")
+        self.assertEqual(0, len(adl1.aggregated_errors_object.exceptions))
+        self.assertEqual(LCMethod, type(ptcl1))
+        self.assertEqual("polar-HILIC-25-min", ptcl1.name)
+
+        newname = "new-lc-method-30-min"
+        self.assertEqual(0, LCMethod.objects.filter(name=newname).count())
+        ptcl2 = adl1.get_or_create_lc_protocol("Br-xz971_pos")
+        self.assertEqual(LCMethod, type(ptcl2))
+        self.assertEqual(newname, ptcl2.name)
+
+        adl2 = AccuCorDataLoader(
             None,
             pd.read_excel(
                 "DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_glucose.xlsx",
@@ -370,17 +429,12 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
         )
 
         # Pre-processing the data will enable get_or_create_ms_protocol by creating the lcms_metadata dict
-        adl.preprocess_data()
+        adl2.preprocess_data()
 
-        ptcl1 = adl.get_or_create_lc_protocol("BAT-xz971")
-        self.assertEqual(LCMethod, type(ptcl1))
-        self.assertEqual("polar-HILIC-25-min", ptcl1.name)
-
-        newname = "new-lc-method-30-min"
-        self.assertEqual(0, LCMethod.objects.filter(name=newname).count())
-        ptcl2 = adl.get_or_create_lc_protocol("Br-xz971")
-        self.assertEqual(LCMethod, type(ptcl2))
-        self.assertEqual(newname, ptcl2.name)
+        ptcl2 = adl2.get_or_create_lc_protocol("BAT-xz971")
+        self.assertEqual("unknown", ptcl2.name)
+        self.assertEqual(1, len(adl2.aggregated_errors_object.exceptions))
+        self.assertTrue(adl2.aggregated_errors_object.exception_type_exists(MissingLCMSSampleDataHeaders))
 
 
 class LCMSSampleTableLoaderMethodTests(TracebaseTestCase):

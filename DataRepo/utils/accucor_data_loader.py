@@ -223,6 +223,8 @@ class AccuCorDataLoader:
             self.db_samples_dict = None
             self.labeled_element_header = None
             self.missing_samples = []
+            self.missing_sample_headers = []
+            self.unexpected_sample_headers = []
             self.missing_compounds = {}
             self.dupe_isotope_compounds = {
                 "original": defaultdict(dict),
@@ -366,8 +368,6 @@ class AccuCorDataLoader:
             ]
 
         # Update all of the associated LCMS metadata associated with the sample data headers
-        missing = []
-        unexpected = []
         if self.lcms_metadata_df is not None:
             self.lcms_metadata = lcms_df_to_dict(
                 self.lcms_metadata_df, self.aggregated_errors_object
@@ -389,17 +389,17 @@ class AccuCorDataLoader:
                     and self.lcms_metadata[sample_header]["mzxml"]
                     in self.lcms_defaults["mzxml_files"].values()
                 ):
-                    unexpected.append(sample_header)
+                    self.unexpected_sample_headers.append(sample_header)
 
             for sample_header in self.corrected_sample_headers:
                 if sample_header not in self.lcms_metadata.keys():
-                    missing.append(sample_header)
+                    self.missing_sample_headers.append(sample_header)
 
-            if len(missing) > 0:
+            if len(self.missing_sample_headers) > 0:
                 # Defaults are required if any sample is missing in the lcms_metadata file
                 self.aggregated_errors_object.buffer_exception(
                     MissingLCMSSampleDataHeaders(
-                        missing,
+                        self.missing_sample_headers,
                         self.peak_group_set_filename,
                         self.get_missing_required_lcms_defaults(),
                     ),
@@ -407,10 +407,10 @@ class AccuCorDataLoader:
                     is_fatal=not self.lcms_defaults_supplied(),
                 )
 
-            if len(unexpected) > 0:
+            if len(self.unexpected_sample_headers) > 0:
                 self.aggregated_errors_object.buffer_error(
                     UnexpectedLCMSSampleDataHeaders(
-                        unexpected, self.peak_group_set_filename
+                        self.unexpected_sample_headers, self.peak_group_set_filename
                     )
                 )
 
@@ -890,7 +890,23 @@ class AccuCorDataLoader:
                 f"'{self.lcms_metadata[sample_header]['ms_protocol_name']}'..."
             )
 
+        if self.lcms_metadata[sample_header]["ms_protocol_name"] is None:
+            if (
+                not self.aggregated_errors_object.exception_type_exists(MissingLCMSSampleDataHeaders)
+                and sample_header not in self.missing_sample_headers
+            ):
+                self.aggregated_errors_object.buffer_error(
+                    LCMSDefaultsRequired(
+                        self.lcms_metadata[sample_header]["lc_protocol_name"],
+                        self.lcms_metadata[sample_header]["ms_protocol_name"],
+                        self.lcms_metadata[sample_header]["date"],
+                        self.lcms_metadata[sample_header]["researcher"],
+                        self.lcms_metadata[sample_header]["instrument"],
+                    )
+                )
+            return None
         ms_protocol_name = self.lcms_metadata[sample_header]["ms_protocol_name"]
+
         ms_protocol, created = Protocol.retrieve_or_create_protocol(
             ms_protocol_name,
             Protocol.MSRUN_PROTOCOL,
@@ -952,8 +968,13 @@ class AccuCorDataLoader:
                 rec = LCMethod.objects.get(
                     name__exact=LCMethod.DEFAULT_TYPE, type__exact=LCMethod.DEFAULT_TYPE
                 )
-                # If the above found a record, buffer the original exception
-                self.aggregated_errors_object.buffer_error(e)
+                # If this is not due to a missing sample data header
+                if (
+                    not self.aggregated_errors_object.exception_type_exists(MissingLCMSSampleDataHeaders)
+                    or sample_data_header not in self.missing_sample_headers
+                ):
+                    # If the above found a record and there's no known explanation, buffer the original exception
+                    self.aggregated_errors_object.buffer_error(e)
             except LCMethod.DoesNotExist as dne:
                 # Ignore the enclosing exception, deferring to the new LCMethodFixturesMissing exception
                 # If this exception hasn't already been buffered
