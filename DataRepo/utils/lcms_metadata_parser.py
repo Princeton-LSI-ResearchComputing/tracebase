@@ -38,7 +38,11 @@ def lcms_df_to_dict(df, aes=None):
     for idx, row in df.iterrows():
         # Convert empty strings to None
         for key in row.keys():
-            if row[key] is not None and row[key].strip() == "":
+            if (
+                row[key] is not None
+                and type(row[key]) == str
+                and row[key].strip() == ""
+            ):
                 row[key] = None
 
         sample_name = row["tracebase sample name"]
@@ -52,11 +56,11 @@ def lcms_df_to_dict(df, aes=None):
             missing_reqd_vals["sample data header"].append(idx + 2)
         elif sample_header in lcms_metadata.keys():
             if sample_header in dupes.keys():
-                dupes[sample_header].append(idx)
+                dupes[sample_header].append(str(idx + 2))
             else:
                 dupes[sample_header] = [
                     lcms_metadata[sample_header]["row_num"],
-                    idx + 2,
+                    str(idx + 2),
                 ]
             continue
 
@@ -85,7 +89,7 @@ def lcms_df_to_dict(df, aes=None):
             "lc_run_length": run_len,
             "lc_description": row["lc description"],
             "lc_name": lc_name,
-            "row_num": idx + 2,  # From 1, not including header row
+            "row_num": str(idx + 2),  # From 1, not including header row
         }
 
     if len(dupes.keys()) > 0:
@@ -174,7 +178,7 @@ class DuplicateSampleDataHeaders(Exception):
     def __init__(self, dupes, lcms_metadata, samples):
         cs = ", "
         dupes_str = "\n\t".join(
-            [k + f" rows: [{cs.join(dupes[k])}]" for k in dupes.keys()]
+            [f"{k} rows: [{cs.join(dupes[k])}]" for k in dupes.keys()]
         )
         message = (
             "The following sample data headers were found to have duplicates on the LCMS metadata file on the "

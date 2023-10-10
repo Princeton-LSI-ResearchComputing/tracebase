@@ -17,6 +17,7 @@ from DataRepo.utils import (
     SampleTableLoader,
 )
 from DataRepo.utils.lcms_metadata_parser import (
+    DuplicateSampleDataHeaders,
     InvalidLCMSHeaders,
     extract_dataframes_from_lcms_tsv,
     extract_dataframes_from_lcms_xlsx,
@@ -697,47 +698,27 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
         self.assertEqual(["date"], ilh.missing)
         self.assertEqual([], ilh.unexpected)
 
-    def test_lcms_metadata_missing_value_error(self):
-        """
-        - `1.3.1.` Tests
-        2. Any missing column value LCMS metadata file causes an error about either needing a value or supply a default
-        """
-        pass
-
     def test_lcms_metadata_dupe_sample_header_error(self):
         """
         - `1.3.1.` Tests
         3. Duplicate sample data headers (assumed to be to the same sample) cause an error
         """
-        pass
+        with self.assertRaises(AggregatedErrors) as ar:
+            call_command(
+                "load_accucor_msruns",
+                # We just need a different file name with the same data, so _2 is a copy of the original
+                accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_glucose.xlsx",
+                new_researcher=True,
+                lcms_file="DataRepo/example_data/small_dataset/"
+                "glucose_lcms_metadata_except_mzxml_and_lcdesc_dupe_sample_header.tsv",
+            )
+        aes = ar.exception
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertEqual(DuplicateSampleDataHeaders, type(aes.exceptions[0]))
 
     def test_lcms_metadata_unique_sample_data_headers(self):
         """
         - `1.3.2.` The LCMS sample column must correspond to a unique sample in the sample table loader
-        """
-        pass
-
-    def test_lcms_metadata_mzxml_option(self):
-        """
-        - `2.` Test that an option/arg exists for multiple mzXML files
-        """
-        pass
-
-    def test_lcms_metadata_lcmethod_creation(self):
-        """
-        - `3.` Test that LCMethod records are created
-        """
-        pass
-
-    def test_msrun_links_to_lcmethod(self):
-        """
-        - `4.` Test that MSRun records link to LCMethod records
-        """
-        pass
-
-    def test_msrun_links_to_ms_protocol(self):
-        """
-        - `5.` Test `msrun_protocol` `Protocol` records are created
         """
         pass
 

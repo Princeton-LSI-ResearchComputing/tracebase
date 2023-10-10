@@ -1029,8 +1029,10 @@ class AccuCorDataLoader:
             rec_dict["description"] = desc
 
         if len(rec_dict.keys()) == 0:
-            # An error will have already been buffered, so just return None and keep going
-            return None
+            # An error will have already been buffered, so return the "unknown" protocol as a placeholder and keep going
+            return LCMethod.objects.get(
+                name__exact=LCMethod.DEFAULT_TYPE, type__exact=LCMethod.DEFAULT_TYPE
+            )
 
         try:
             try:
