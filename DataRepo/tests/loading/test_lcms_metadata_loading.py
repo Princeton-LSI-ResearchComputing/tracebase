@@ -797,7 +797,6 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
 
     # TODO:
     # Add tests that test these untested exceptions:
-    # - LCMSMetadataRequired
     # - PeakAnnotFileMismatches
     # - LCMethodFixturesMissing
     # - MissingRequiredLCMSValues

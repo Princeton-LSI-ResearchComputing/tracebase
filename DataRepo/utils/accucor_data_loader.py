@@ -160,8 +160,8 @@ class AccuCorDataLoader:
             }
             if lcms_metadata_df is None and None in reqd_args.values():
                 missing = [key for key in reqd_args.keys() if reqd_args[key] is None]
-                raise LCMSDefaultsRequired(missing_defaults_list=missing)
-            if lcms_metadata_df is not None and not lcms_headers_are_valid(
+                self.aggregated_errors_object.buffer_error(LCMSDefaultsRequired(missing_defaults_list=missing))
+            elif lcms_metadata_df is not None and not lcms_headers_are_valid(
                 list(lcms_metadata_df.columns)
             ):
                 raise InvalidLCMSHeaders(list(lcms_metadata_df.columns))
@@ -198,9 +198,6 @@ class AccuCorDataLoader:
                     # pylint: disable=unsupported-assignment-operation
                     self.lcms_defaults["mzxml_files"][nm] = fn
                     # pylint: enable=unsupported-assignment-operation
-
-            if self.lcms_metadata_df is None and not self.lcms_defaults_supplied():
-                self.aggregated_errors_object.buffer_error(LCMSMetadataRequired())
 
             # Sample Metadata
             if skip_samples is None:
@@ -1772,7 +1769,7 @@ class LCMSDefaultsRequired(Exception):
             or len(affected_sample_headers_list) == 0
         ):
             message = (
-                "When an LCMS metadata dataframe is not provided, these missing defaults are required:\n\n\t"
+                "Either an LCMS metadata dataframe or these missing defaults must be provided:\n\n\t"
                 f"{nlt.join(missing_defaults_list)}"
             )
         else:
@@ -1818,15 +1815,6 @@ class MissingLCMSSampleDataHeaders(Exception):
         self.missing = missing
         self.peak_annot_file = peak_annot_file
         self.missing_defaults = missing_defaults
-
-
-class LCMSMetadataRequired(Exception):
-    def __init__(self):
-        message = (
-            "Either LCMS metadata or values for [lc_protocol_name, ms_protocol_name, date, researcher, instrument, "
-            "peak_annot_file] are required."
-        )
-        super().__init__(message)
 
 
 class MissingMZXMLFiles(Exception):
