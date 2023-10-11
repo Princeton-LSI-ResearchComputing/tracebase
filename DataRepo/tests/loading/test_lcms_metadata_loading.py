@@ -15,6 +15,7 @@ from DataRepo.utils import (
     MissingLCMSSampleDataHeaders,
     MissingMZXMLFiles,
     SampleTableLoader,
+    UnexpectedLCMSSampleDataHeaders,
 )
 from DataRepo.utils.lcms_metadata_parser import (
     DuplicateSampleDataHeaders,
@@ -566,6 +567,10 @@ class LCMSMetadataParserMethodTests(TracebaseTestCase):
         )
         self.assertFalse(lcms_headers_are_valid(["bad", "headers"]))
 
+    def test_get_lcms_metadata_dict_from_file(self):
+        # TODO: Implement
+        pass
+
 
 class LCMSMetadataRequirementsTests(TracebaseTestCase):
     @classmethod
@@ -588,6 +593,7 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
 
     def test_lcms_metadata_default_fallbacks_lcms_bad_headers(self):
         """
+        Test item from issue #706:
         `1.2.` Test that values missing in the LCMS metadata fall back to the defaults from 1.1.
         This test case tests when the sample data headers in the LCMS metadata file do not match the accucor file and
         sample table file.
@@ -632,6 +638,7 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
 
     def test_lcms_metadata_default_fallbacks_lcms_good_no_defaults(self):
         """
+        Test item from issue #706:
         `1.2.` Test that values missing in the LCMS metadata fall back to the defaults from 1.1.
         This test case tests when the sample data headers in the LCMS metadata file match the accucor file and
         sample table file, but there are no values other than the sample name and header, and no defaults.  Assure only
@@ -653,6 +660,7 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
 
     def test_lcms_metadata_default_fallbacks_lcms_good(self):
         """
+        Test item from issue #706:
         `1.2.` Test that values missing in the LCMS metadata fall back to the defaults from 1.1.
         This test case tests when the sample data headers in the LCMS metadata file match the accucor file and sample
         table file.
@@ -697,6 +705,7 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
 
     def test_lcms_metadata_missing_header_error(self):
         """
+        Test item from issue #706:
         - `1.3.1.` Tests
         1. Any missing sample header in the LCMS metadata file causes an error if not all required defaults are
         specified
@@ -717,6 +726,7 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
 
     def test_lcms_metadata_dupe_sample_header_error(self):
         """
+        Test item from issue #706:
         - `1.3.1.` Tests
         3. Duplicate sample data headers (assumed to be to the same sample) cause an error
         """
@@ -736,6 +746,7 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
 
     def test_lcms_metadata_unique_sample_good(self):
         """
+        Test item from issue #706:
         - `1.3.2.` The LCMS sample column must correspond to a unique sample in the sample table loader
         """
         call_command(
@@ -749,6 +760,7 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
 
     def test_lcms_metadata_unique_sample_missing(self):
         """
+        Test item from issue #706:
         - `1.3.2.` The LCMS sample column must correspond to a unique sample in the sample table loader
         """
         with self.assertRaises(AggregatedErrors) as ar:
@@ -764,21 +776,95 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
         self.assertEqual(1, len(aes.exceptions))
         self.assertTrue(aes.exception_type_exists(LCMSDBSampleMissing))
 
-    def test_no_repeated_or_unexpected_exceptions(self):
-        """
-        - `6.` Tests
-        2. Test that no exceptions are repeated
-        """
-        # TODO:
-        # Add tests that test these untested exceptions:
-        # - UnexpectedLCMSSampleDataHeaders
-        # - LCMSMetadataRequired
-        # - PeakAnnotFileMismatches
-        # - LCMethodFixturesMissing
-        # - MissingRequiredLCMSValues
 
-        # - Add tests that check these exceptions for repeated/unexpected exceptions:
-        # - MissingLCMSSampleDataHeaders
-        # - MissingMZXMLFiles
-        # - MismatchedSampleHeaderMZXML
-        pass
+class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
+    """
+    Tests in this class are intended to trigger a single (new) exception that was added on branch
+    peak_sample_data_header
+
+    `6.` Tests
+    2. Test that no exceptions are repeated
+    3. Test that there are no exceptions aside from the expected ones
+
+    Note, this test:
+        1. Test that the accucor data loader processes every row despite exceptions
+    was already implicitly tested in the tests above.
+    """
+
+    # TODO:
+    # Add tests that test these untested exceptions:
+    # - UnexpectedLCMSSampleDataHeaders
+    # - LCMSMetadataRequired
+    # - PeakAnnotFileMismatches
+    # - LCMethodFixturesMissing
+    # - MissingRequiredLCMSValues
+    # - MissingPeakAnnotationFiles
+
+    # Add tests that check these exceptions for repeated/unexpected exceptions:
+    # - MissingLCMSSampleDataHeaders
+    # - MissingMZXMLFiles
+    # - MismatchedSampleHeaderMZXML
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("loaddata", "lc_methods")
+        call_command(
+            "load_study",
+            "DataRepo/example_data/small_dataset/small_obob_study_prerequisites.yaml",
+        )
+
+    def load_samples(self):
+        call_command(
+            "load_animals_and_samples",
+            animal_and_sample_table_filename=(
+                "DataRepo/example_data/small_dataset/small_obob_animal_and_sample_table.xlsx"
+            ),
+        )
+
+    def load_peak_annotations(self, lcms_file):
+        call_command(
+            "load_accucor_msruns",
+            # We just need a different file name with the same data, so _2 is a copy of the original
+            accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_glucose.xlsx",
+            ms_protocol_name="Default",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="default instrument",
+            date="2021-04-29",
+            researcher="Michael Neinast",
+            new_researcher=True,
+            lcms_file=lcms_file,
+        )
+
+    def test_no_repeated_or_unexpected_exceptions_UnexpectedLCMSSampleDataHeaders_no_annot_files(
+        self,
+    ):
+        """
+        Supply an LCMS metadata file with a sample data header not in the accucor file and no values in the peak
+        annotation file column to ensure an UnexpectedLCMSSampleDataHeaders exception is raised.
+        """
+        self.load_samples()
+        with self.assertRaises(AggregatedErrors) as ar:
+            self.load_peak_annotations(
+                lcms_file="DataRepo/example_data/small_dataset/"
+                "glucose_lcms_metadata_except_mzxml_and_lcdesc_extra_hdr_no_optl_data.tsv",
+            )
+        aes = ar.exception
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertEqual(UnexpectedLCMSSampleDataHeaders, type(aes.exceptions[0]))
+
+    def test_no_repeated_or_unexpected_exceptions_UnexpectedLCMSSampleDataHeaders_with_annot_files(
+        self,
+    ):
+        """
+        Supply an LCMS metadata file with a sample data header not in the accucor file associated with the current peak
+        annotation file to ensure an UnexpectedLCMSSampleDataHeaders exception is raised.
+        """
+        self.load_samples()
+        with self.assertRaises(AggregatedErrors) as ar:
+            self.load_peak_annotations(
+                lcms_file="DataRepo/example_data/small_dataset/"
+                "glucose_lcms_metadata_except_mzxml_and_lcdesc_extra_hdr.tsv",
+            )
+        aes = ar.exception
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertEqual(UnexpectedLCMSSampleDataHeaders, type(aes.exceptions[0]))

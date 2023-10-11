@@ -1,9 +1,11 @@
 import os
 from collections import defaultdict
 from datetime import timedelta
+from zipfile import BadZipFile
 
 import pandas as pd
 from django.core.exceptions import ValidationError
+from openpyxl.utils.exceptions import InvalidFileException
 
 from DataRepo.models.lc_method import LCMethod
 
@@ -123,6 +125,73 @@ def lcms_metadata_to_samples(lcms_metadata):
     return samples
 
 
+def get_lcms_metadata_dict_from_file(lcms_file, aes=None):
+    try:
+        lcms_metadata_df = extract_dataframes_from_lcms_xlsx(lcms_file)
+    except (InvalidFileException, ValueError, BadZipFile):  # type: ignore
+        lcms_metadata_df = extract_dataframes_from_lcms_tsv(lcms_file)
+    return lcms_df_to_dict(lcms_metadata_df, aes)
+
+
+def check_peak_annotation_files(
+    peak_annot_file_list, lcms_metadata_dict=None, lcms_file=None, aes=None
+):
+    """
+    Check that all peak annotation files explicitly listed in the LCMS metadata is in the supplied peak annot file list.
+    This is intended to be used by load_study to ensure that a user remembered to supply all files and that they didn't
+    get any file names wrong.
+    """
+    # Initialize lcms_metadata
+    lcms_metadata = {}
+    if lcms_metadata_dict is None and lcms_file is None:
+        # This is a coding error, so buffering is not necessary.  If it's coded correctly, this will never happen
+        raise ValueError("Either an lcms_metadata_dict or an lcms_file are required")
+    elif lcms_metadata_dict is None:
+        lcms_metadata = get_lcms_metadata_dict_from_file(lcms_file, aes)
+    else:
+        lcms_metadata = lcms_metadata_dict
+
+    lcms_peak_annot_files = []
+    unmatching_peak_annot_files = []
+
+    # Obtain a unique set of peak annotation file names
+    for sample_data_header in lcms_metadata.keys():
+        if (
+            lcms_metadata[sample_data_header]["peak_annotation"] is not None
+            and lcms_metadata[sample_data_header]["peak_annotation"].strip() != ""
+            and lcms_metadata[sample_data_header]["peak_annotation"].strip()
+            not in lcms_peak_annot_files
+        ):
+            lcms_peak_annot_files.append(
+                lcms_metadata[sample_data_header]["peak_annotation"].strip()
+            )
+            if (
+                lcms_metadata[sample_data_header]["peak_annotation"].strip()
+                not in peak_annot_file_list
+                and lcms_metadata[sample_data_header]["peak_annotation"].strip()
+                not in unmatching_peak_annot_files
+            ):
+                unmatching_peak_annot_files.append(
+                    lcms_metadata[sample_data_header]["peak_annotation"].strip()
+                )
+
+    missing_peak_annot_files = []
+
+    # Check for missing files
+    for lcsm_peak_annot_file in lcms_peak_annot_files:
+        if lcsm_peak_annot_file not in peak_annot_file_list:
+            missing_peak_annot_files.append(lcsm_peak_annot_file)
+
+    if len(missing_peak_annot_files) > 0:
+        exc = MissingPeakAnnotationFiles(
+            missing_peak_annot_files, unmatching_peak_annot_files, lcms_file
+        )
+        if aes is not None:
+            aes.buffer_error(exc)
+        else:
+            raise exc
+
+
 def extract_dataframes_from_lcms_xlsx(lcms_file):
     headers = (
         pd.read_excel(
@@ -224,3 +293,28 @@ class MissingRequiredLCMSValues(Exception):
         message = f"The following required values are missing on the indicated rows:\n{head_rows_str}"
         super().__init__(message)
         self.header_rownums_dict = header_rownums_dict
+
+
+class MissingPeakAnnotationFiles(Exception):
+    def __init__(
+        self, missing_peak_annot_files, unmatching_peak_annot_files=None, lcms_file=None
+    ):
+        nlt = "\n\t"
+        message = (
+            f"The following peak annotation files:\n\n"
+            f"\t{nlt.join(missing_peak_annot_files)}\n\n"
+        )
+        if lcms_file is not None:
+            message += f"from the LCMS metadata file:\n\n\t{lcms_file}]"
+        message += "were not supplied."
+        if (
+            unmatching_peak_annot_files is not None
+            and len(unmatching_peak_annot_files) > 0
+        ):
+            message += (
+                "  The following unaccounted-for peak annotation files in the LCMS metadata were also found:\n"
+                f"\t\t{nlt.join(unmatching_peak_annot_files)}\n\nPerhaps there is a typo?"
+            )
+        super().__init__(message)
+        self.files = missing_peak_annot_files
+        self.lcms_file = lcms_file

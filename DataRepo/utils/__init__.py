@@ -8,6 +8,7 @@ from DataRepo.utils.accucor_data_loader import (
     MissingLCMSSampleDataHeaders,
     MissingMZXMLFiles,
     TracerLabeledElementNotFound,
+    UnexpectedLCMSSampleDataHeaders,
     lcms_headers_are_valid,
 )
 from DataRepo.utils.composite_data import leaderboard_data
@@ -93,6 +94,7 @@ __all__ = [
     "SampleTableLoader",
     "TissuesLoader",
     "TracerLabeledElementNotFound",
+    "UnexpectedLCMSSampleDataHeaders",
     "UnknownHeadersError",
     "leaderboard_data",
     "parse_infusate_name",

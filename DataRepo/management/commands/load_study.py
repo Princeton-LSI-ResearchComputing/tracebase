@@ -24,6 +24,7 @@ from DataRepo.utils.exceptions import (
     MissingTissues,
     MultiLoadStatus,
 )
+from DataRepo.utils.lcms_metadata_parser import check_peak_annotation_files
 
 
 class Command(BaseCommand):
@@ -183,6 +184,7 @@ class Command(BaseCommand):
                 except Exception as e:
                     self.package_group_exceptions(e, tissues_file)
 
+            # Check the lcms metadata file (for completeness)
             lcms_metadata_file = None
             if "lcms_metadata" in study_params and (
                 "animals_samples_treatments" in study_params
@@ -191,6 +193,17 @@ class Command(BaseCommand):
                 lcms_metadata_file = study_params["lcms_metadata"].get(
                     "lcms_metadata_file", None
                 )
+                if lcms_metadata_file is not None:
+                    aes = AggregatedErrors()
+                    check_peak_annotation_files(
+                        [
+                            dct["name"]
+                            for dct in study_params["accucor_data"]["accucor_files"]
+                        ],
+                        lcms_file=lcms_metadata_file,
+                        aes=aes,
+                    )
+                    self.package_group_exceptions(aes, lcms_metadata_file)
 
             if "animals_samples_treatments" in study_params:
                 # Read in animals and samples file

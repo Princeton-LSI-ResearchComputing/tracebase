@@ -305,7 +305,7 @@ class AccuCorDataLoader:
     def validate_researcher(self):
         # Compile a list of reasearchers potentially being added
         adding_researchers = []
-        for sample_header in self.lcms_metadata.keys():
+        for sample_header in self.corrected_sample_headers:
             if (
                 self.lcms_metadata[sample_header]["researcher"]
                 not in adding_researchers
@@ -317,7 +317,9 @@ class AccuCorDataLoader:
                         LCMSDefaultsRequired
                     ):
                         self.aggregated_errors_object.buffer_error(
-                            ValueError("Researcher cannot be None")
+                            ValueError(
+                                f"Researcher associated with sample header: [{sample_header}] cannot be None."
+                            )
                         )
                 else:
                     adding_researchers.append(
@@ -388,17 +390,19 @@ class AccuCorDataLoader:
                 self.check_mzxml(
                     sample_header, self.lcms_metadata[sample_header]["mzxml"]
                 )
-                # If an mzXML file was supplied with a sample data header that was not found in the accucor file
+
+                # Excess mzXML files are allowed to be supplied to make it easy to supply mzXML files across multiple
+                # accucor files, but if a sample data header associated with the current accucor file in the LCMS
+                # metadata is not found among the headers in the file, buffer it as an unexpected sample data header (to
+                # be raised as an error exception)
                 if (
-                    # sample header from the LCMS metadata is not in the accucor file
-                    sample_header not in self.corrected_sample_headers
-                    # An mzXML file name is associated with the sample header
-                    and self.lcms_metadata[sample_header]["mzxml"] is not None
-                    # mzXML files were supplied
-                    and self.lcms_defaults["mzxml_files"] is not None
-                    # The mzXML file name matches a supplied file
-                    and self.lcms_metadata[sample_header]["mzxml"]
-                    in self.lcms_defaults["mzxml_files"].values()
+                    (
+                        self.lcms_metadata[sample_header]["peak_annotation"] is None
+                        or self.lcms_metadata[sample_header]["peak_annotation"]
+                        == self.peak_group_set_filename
+                    )
+                    # sample data header from the LCMS metadata is not in the accucor file
+                    and sample_header not in self.corrected_sample_headers
                 ):
                     self.unexpected_sample_headers.append(sample_header)
 
@@ -1000,7 +1004,7 @@ class AccuCorDataLoader:
     def get_or_create_lc_protocol(self, sample_data_header):
         # lcms_metadata should be populated either from the lcms_metadata file or via the headers and the default
         # options/args.
-        if sample_data_header in self.lcms_metadata.keys():
+        if sample_data_header in self.corrected_sample_headers:
             type = self.lcms_metadata[sample_data_header]["lc_type"]
             run_length = self.lcms_metadata[sample_data_header]["lc_run_length"]
             desc = self.lcms_metadata[sample_data_header]["lc_description"]
@@ -1787,8 +1791,9 @@ class LCMSDefaultsRequired(Exception):
 class UnexpectedLCMSSampleDataHeaders(Exception):
     def __init__(self, unexpected, peak_annot_file):
         message = (
-            "The following sample data headers (supplied with an mzXML file) in the LCMS metadata, were not found "
-            f"among the peak annotation file [{peak_annot_file}] headers: [{unexpected}]."
+            "The following sample data headers in the LCMS metadata were not found among the peak annotation file "
+            f"[{peak_annot_file}] headers: [{unexpected}].  Note that if this header is in a different peak annotation "
+            "file, that file must be indicated in the peak annotation column (the default is the current file)."
         )
         super().__init__(message)
         self.unexpected = unexpected
