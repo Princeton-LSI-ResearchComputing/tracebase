@@ -571,6 +571,10 @@ class LCMSMetadataParserMethodTests(TracebaseTestCase):
         # TODO: Implement
         pass
 
+    def test_check_peak_annotation_files(self):
+        # TODO: Implement
+        pass
+
 
 class LCMSMetadataRequirementsTests(TracebaseTestCase):
     @classmethod
@@ -793,7 +797,6 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
 
     # TODO:
     # Add tests that test these untested exceptions:
-    # - UnexpectedLCMSSampleDataHeaders
     # - LCMSMetadataRequired
     # - PeakAnnotFileMismatches
     # - LCMethodFixturesMissing
