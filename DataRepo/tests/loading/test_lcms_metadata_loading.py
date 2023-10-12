@@ -9,6 +9,7 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import (
     AccuCorDataLoader,
     AggregatedErrors,
+    LCMethodFixturesMissing,
     LCMSDBSampleMissing,
     LCMSDefaultsRequired,
     MismatchedSampleHeaderMZXML,
@@ -817,8 +818,7 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
     # - MissingMZXMLFiles
     # - MismatchedSampleHeaderMZXML
 
-    @classmethod
-    def setUpTestData(cls):
+    def load_prereqs(self):
         call_command("loaddata", "lc_methods")
         call_command(
             "load_study",
@@ -847,13 +847,14 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
             lcms_file=lcms_file,
         )
 
-    def test_no_repeated_or_unexpected_exceptions_UnexpectedLCMSSampleDataHeaders_no_annot_files(
+    def test_UnexpectedLCMSSampleDataHeaders_no_annot_files(
         self,
     ):
         """
         Supply an LCMS metadata file with a sample data header not in the accucor file and no values in the peak
         annotation file column to ensure an UnexpectedLCMSSampleDataHeaders exception is raised.
         """
+        self.load_prereqs()
         self.load_samples()
         with self.assertRaises(AggregatedErrors) as ar:
             self.load_peak_annotations(
@@ -864,13 +865,14 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
         self.assertEqual(1, len(aes.exceptions))
         self.assertEqual(UnexpectedLCMSSampleDataHeaders, type(aes.exceptions[0]))
 
-    def test_no_repeated_or_unexpected_exceptions_UnexpectedLCMSSampleDataHeaders_with_annot_files(
+    def test_UnexpectedLCMSSampleDataHeaders_with_annot_files(
         self,
     ):
         """
         Supply an LCMS metadata file with a sample data header not in the accucor file associated with the current peak
         annotation file to ensure an UnexpectedLCMSSampleDataHeaders exception is raised.
         """
+        self.load_prereqs()
         self.load_samples()
         with self.assertRaises(AggregatedErrors) as ar:
             self.load_peak_annotations(
@@ -881,11 +883,12 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
         self.assertEqual(1, len(aes.exceptions))
         self.assertEqual(UnexpectedLCMSSampleDataHeaders, type(aes.exceptions[0]))
 
-    def test_no_repeated_or_unexpected_exceptions_PeakAnnotFileMismatches(self):
+    def test_PeakAnnotFileMismatches(self):
         """
         Supply an LCMS metadata file with a sample data header not in the accucor file associated with the current peak
         annotation file to ensure an UnexpectedLCMSSampleDataHeaders exception is raised.
         """
+        self.load_prereqs()
         self.load_samples()
         with self.assertRaises(AggregatedErrors) as ar:
             self.load_peak_annotations(
@@ -895,3 +898,19 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
         self.assertEqual(PeakAnnotFileMismatches, type(aes.exceptions[0]))
+
+    def test_LCMethodFixturesMissing(self):
+        # Load everything but the LCMethod fixtures
+        call_command(
+            "load_study",
+            "DataRepo/example_data/small_dataset/small_obob_study_prerequisites.yaml",
+        )
+        self.load_samples()
+        with self.assertRaises(AggregatedErrors) as ar:
+            self.load_peak_annotations(
+                lcms_file="DataRepo/example_data/small_dataset/"
+                "glucose_lcms_metadata_except_mzxml_and_lcdesc_no_extras.tsv",
+            )
+        aes = ar.exception
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertEqual(LCMethodFixturesMissing, type(aes.exceptions[0]))
