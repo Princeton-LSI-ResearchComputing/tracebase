@@ -656,6 +656,13 @@ class MaintainedModel(Model):
         called both from __init__() and save().
         """
 
+        # Make sure the class has been fulling initialized
+        # Without this, you get an AttributeError: '_thread._local' object has no attribute 'coordinator_stack'
+        # from django.db.models.base's from_db class method when a model's DetailView is created.
+        if not hasattr(self.data, "default_coordinator"):
+            self.data.__setattr__("default_coordinator", MaintainedModelCoordinator())
+            self.data.__setattr__("coordinator_stack", [])
+
         # The coordinator keeps track of the running mode, buffer and filters in use
         coordinator = self.get_coordinator()
 
