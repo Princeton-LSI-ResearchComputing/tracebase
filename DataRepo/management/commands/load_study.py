@@ -281,8 +281,9 @@ class Command(BaseCommand):
                             new_researcher=new_researcher,
                             skip_samples=skip_samples,
                             sample_name_prefix=sample_name_prefix,
-                            validate=self.validate,
                             isocorr_format=isocorr_format,
+                            validate=self.validate,
+                            dry_run=self.dry_run,
                         )
                         if self.verbosity > 1:
                             self.stdout.write(
@@ -290,6 +291,8 @@ class Command(BaseCommand):
                                     f"STATUS: SUCCESS {accucor_file_basename} - commit pending"
                                 )
                             )
+                    except DryRun:
+                        pass
                     except Exception as e:
                         self.package_group_exceptions(e, accucor_file)
 
