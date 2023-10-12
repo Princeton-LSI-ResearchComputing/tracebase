@@ -389,10 +389,6 @@ class AccuCorDataLoader:
             # where incorrect sample data headers are associated with the wrong accucor file.  This assumes that sample
             # data headers are unique across all accucor files in a study.
             for sample_header in self.lcms_metadata.keys():
-                self.check_mzxml(
-                    sample_header, self.lcms_metadata[sample_header]["mzxml"]
-                )
-
                 # Excess sample data headers are allowed to be supplied to make it easy to supply data across multiple
                 # accucor files, but if a sample data header associated with the current accucor file in the LCMS
                 # metadata is not found among the headers in the file, buffer it as an unexpected sample data header (to
@@ -435,12 +431,14 @@ class AccuCorDataLoader:
         incorrect_pgs_files = {}
         missing_header_defaults = defaultdict(dict)
         for sample_header in self.corrected_sample_headers:
+            default_mzxml_file = self.sample_header_to_default_mzxml(sample_header)
             if sample_header not in self.lcms_metadata.keys():
+                self.check_mzxml(sample_header, default_mzxml_file)
                 self.lcms_metadata[sample_header] = {
                     "sample_header": sample_header,
                     "sample_name": sample_header,
                     "peak_annotation": self.lcms_defaults["peak_annot_file"],
-                    "mzxml": self.sample_header_to_default_mzxml(sample_header),
+                    "mzxml": default_mzxml_file,
                     "ms_protocol_name": self.lcms_defaults["ms_protocol_name"],
                     "researcher": self.lcms_defaults["researcher"],
                     "instrument": self.lcms_defaults["instrument"],
@@ -463,10 +461,16 @@ class AccuCorDataLoader:
                     ]["peak_annotation"]
 
                 # Fill in default values for anything missing
-                if self.lcms_metadata[sample_header]["mzxml"] is None:
-                    self.lcms_metadata[sample_header][
-                        "mzxml"
-                    ] = self.sample_header_to_default_mzxml(sample_header)
+                if (
+                    self.lcms_metadata[sample_header]["mzxml"] is None
+                    and self.lcms_defaults["mzxml_files"] is not None
+                    and len(self.lcms_defaults["mzxml_files"].keys()) > 0
+                ):
+                    self.lcms_metadata[sample_header]["mzxml"] = default_mzxml_file
+
+                self.check_mzxml(
+                    sample_header, self.lcms_metadata[sample_header]["mzxml"]
+                )
 
                 # TODO: Make these keys consistent in the lcms_defaults and the lcms_metadata, so I can loop
                 if self.lcms_metadata[sample_header]["peak_annotation"] is None:
@@ -545,10 +549,16 @@ class AccuCorDataLoader:
         header.  If mzxml files were not provided, it will be recorded as missing, but will be automatically filled in
         with "{sample_header}.xml".
         """
-        if self.lcms_defaults["mzxml_files"] is not None:
+        if (
+            self.lcms_defaults["mzxml_files"] is not None
+            and len(self.lcms_defaults["mzxml_files"].keys()) > 0
+        ):
             # pylint: disable=unsubscriptable-object
             if sample_header in self.lcms_defaults["mzxml_files"].keys():
                 return self.lcms_defaults["mzxml_files"][sample_header]
+            else:
+                # PR REVIEW NOTE: Is this the standard extension of mzxml files???
+                return f"{sample_header}.mzxml"
             # pylint: enable=unsubscriptable-object
 
         return None
@@ -563,6 +573,7 @@ class AccuCorDataLoader:
         # For historical reasons, we don't require mzXML files
         if (
             self.lcms_defaults["mzxml_files"] is not None
+            and len(self.lcms_defaults["mzxml_files"].keys()) > 0
             and mzxml_file is not None
             and mzxml_file not in self.lcms_defaults["mzxml_files"].values()
         ):
@@ -578,14 +589,25 @@ class AccuCorDataLoader:
                 )
 
     def validate_mzxmls(self):
-        if len(self.missing_mzxmls) > 0:
+        if self.validate and (
+            self.lcms_defaults["mzxml_files"] is None
+            or len(self.lcms_defaults["mzxml_files"].keys()) == 0
+        ):
             # New studies should require mzxml files, thus the user validate mode is a fatal error
             # Old studies should have mzXML files as optional, thus the curator only gets a printed warning
-            self.aggregated_errors_object.buffer_exception(
-                MissingMZXMLFiles(self.missing_mzxmls),
-                is_error=self.validate,  # Error in validate mode, warning in load mode
-                is_fatal=self.validate,  # Fatal/raised in validate mode, will only be in load mode
+            self.aggregated_errors_object.buffer_error(NoMZXMLFiles())
+
+        elif (
+            self.lcms_defaults["mzxml_files"] is not None
+            and len(self.lcms_defaults["mzxml_files"].keys()) > 0
+            and len(self.missing_mzxmls) > 0
+        ):
+            # New studies should require mzxml files, thus the user validate mode is a fatal error
+            # Old studies should have mzXML files as optional, thus the curator only gets a printed warning
+            self.aggregated_errors_object.buffer_error(
+                MissingMZXMLFiles(self.missing_mzxmls)
             )
+
         if len(self.mismatching_mzxmls) > 0:
             self.aggregated_errors_object.buffer_exception(
                 MismatchedSampleHeaderMZXML(self.mismatching_mzxmls),
@@ -1827,6 +1849,12 @@ class MissingMZXMLFiles(Exception):
         message = f"The following mzXML files listed in the LCMS metadata file were not supplied: {mzxml_files}."
         super().__init__(message)
         self.mzxml_files = mzxml_files
+
+
+class NoMZXMLFiles(Exception):
+    def __init__(self):
+        message = "mzXML files are required for new uploads."
+        super().__init__(message)
 
 
 class PeakAnnotFileMismatches(Exception):

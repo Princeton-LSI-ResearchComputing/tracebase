@@ -16,6 +16,7 @@ from DataRepo.utils import (
     MismatchedSampleHeaderMZXML,
     MissingLCMSSampleDataHeaders,
     MissingMZXMLFiles,
+    NoMZXMLFiles,
     PeakAnnotFileMismatches,
     SampleTableLoader,
     UnexpectedLCMSSampleDataHeaders,
@@ -978,13 +979,73 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
                 date="2021-04-29",
                 researcher="Michael Neinast",
                 new_researcher=True,
-                lcms_file="DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc_pos.tsv",
+                lcms_file="DataRepo/example_data/small_dataset/"
+                "glucose_lcms_metadata_except_mzxml_and_lcdesc_no_extras.tsv",
                 mzxml_files=["sample1.mzxml", "sample2.mzxml"],
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
         self.assertEqual(MissingMZXMLFiles, type(aes.exceptions[0]))
 
-    # TODO:
-    # Add tests that check these exceptions for repeated/unexpected exceptions:
-    # - MismatchedSampleHeaderMZXML
+    def test_NoMZXMLFiles(self):
+        self.load_prereqs()
+        self.load_samples()
+        with self.assertRaises(AggregatedErrors) as ar:
+            call_command(
+                "load_accucor_msruns",
+                # We just need a different file name with the same data, so _2 is a copy of the original
+                accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_glucose.xlsx",
+                ms_protocol_name="Default",
+                lc_protocol_name="polar-HILIC-25-min",
+                instrument="default instrument",
+                date="2021-04-29",
+                researcher="Michael Neinast",
+                new_researcher=True,
+                lcms_file="DataRepo/example_data/small_dataset/"
+                "glucose_lcms_metadata_except_mzxml_and_lcdesc_no_extras.tsv",
+                validate=True,
+            )
+        aes = ar.exception
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertEqual(NoMZXMLFiles, type(aes.exceptions[0]))
+
+    def test_MismatchedSampleHeaderMZXML(self):
+        self.load_prereqs()
+        self.load_samples()
+        with self.assertRaises(AggregatedErrors) as ar:
+            call_command(
+                "load_accucor_msruns",
+                # We just need a different file name with the same data, so _2 is a copy of the original
+                accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_glucose.xlsx",
+                ms_protocol_name="Default",
+                lc_protocol_name="polar-HILIC-25-min",
+                instrument="default instrument",
+                date="2021-04-29",
+                researcher="Michael Neinast",
+                new_researcher=True,
+                lcms_file="DataRepo/example_data/small_dataset/"
+                "glucose_lcms_metadata_except_mzxml_and_lcdesc_unmatching_mzxmls.tsv",
+                mzxml_files=["BAT-xz971_pos.mzxml", "Br-xz971_pos.mzxml"],
+                # This is a warning in any case, but in validate mode, the exception is raised
+                validate=True,
+            )
+        aes = ar.exception
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertEqual(MismatchedSampleHeaderMZXML, type(aes.exceptions[0]))
+
+        # The following should succeed without error even though the sample headers do not match the mzxml files.  It
+        # only prints a warning (not checked)
+        call_command(
+            "load_accucor_msruns",
+            # We just need a different file name with the same data, so _2 is a copy of the original
+            accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_glucose.xlsx",
+            ms_protocol_name="Default",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="default instrument",
+            date="2021-04-29",
+            researcher="Michael Neinast",
+            new_researcher=True,
+            lcms_file="DataRepo/example_data/small_dataset/"
+            "glucose_lcms_metadata_except_mzxml_and_lcdesc_unmatching_mzxmls.tsv",
+            mzxml_files=["BAT-xz971_pos.mzxml", "Br-xz971_pos.mzxml"],
+        )
