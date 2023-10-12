@@ -14,6 +14,7 @@ from DataRepo.utils import (
     MismatchedSampleHeaderMZXML,
     MissingLCMSSampleDataHeaders,
     MissingMZXMLFiles,
+    PeakAnnotFileMismatches,
     SampleTableLoader,
     UnexpectedLCMSSampleDataHeaders,
 )
@@ -42,7 +43,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             None,
             peak_group_set_filename="",
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
-                "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc.tsv"
+                "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc_pos.tsv"
             ),
             date="",
             researcher="",
@@ -70,7 +71,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             None,
             peak_group_set_filename="",
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
-                "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc.tsv"
+                "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc_pos.tsv"
             ),
             date="",
             researcher="",
@@ -88,7 +89,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             None,
             peak_group_set_filename="",
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
-                "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc.tsv"
+                "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc_pos.tsv"
             ),
             date="",
             researcher="",
@@ -107,7 +108,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             None,
             peak_group_set_filename="",
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
-                "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc.tsv"
+                "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc_pos.tsv"
             ),
             date="1972-11-24",
             researcher="",
@@ -135,7 +136,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             None,
             peak_group_set_filename="accucor.xlsx",
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
-                "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc.tsv"
+                "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc_pos.tsv"
             ),
             date="1972-11-24",
             researcher="Robert Leach",
@@ -252,7 +253,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             None,
             peak_group_set_filename="accucor.xlsx",
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
-                "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc.tsv"
+                "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc_pos.tsv"
             ),
             date="1972-11-24",
             researcher="Robert Leach",
@@ -270,7 +271,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             None,
             peak_group_set_filename=None,
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
-                "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc.tsv"
+                "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc_pos.tsv"
             ),
             date=None,
             researcher=None,
@@ -301,7 +302,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             None,
             peak_group_set_filename="accucor.xlsx",
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
-                "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc.tsv"
+                "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc_pos.tsv"
             ),
             date="1972-11-24",
             researcher="Robert Leach",
@@ -321,7 +322,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             None,
             peak_group_set_filename=None,
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
-                "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc.tsv"
+                "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc_pos.tsv"
             ),
             mzxml_files=None,
             date=None,
@@ -350,7 +351,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             ).dropna(axis=0, how="all"),
             peak_group_set_filename="small_obob_maven_6eaas_inf_glucose.xlsx",
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
-                "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc.tsv"
+                "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc_pos_no_extras.tsv"
             ),
             date="1972-11-24",
             researcher="Robert Leach",
@@ -376,7 +377,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             peak_group_set_filename="small_obob_maven_6eaas_inf_glucose.xlsx",
             researcher="Robert Leach",
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
-                "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc.tsv"
+                "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc_pos_no_extras.tsv"
             ),
             date="1972-11-24",
             ms_protocol_name=None,  # Left none intentionally
@@ -384,14 +385,20 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             instrument="default instrument",
             mzxml_files=[],
         )
+
         # Pre-processing the data will enable get_or_create_ms_protocol by creating the lcms_metadata dict
         adl2.preprocess_data()
+
+        # Create a protocol for a sample whose header is not in the file, which should fall back to unknown
         ptcl = adl2.get_or_create_ms_protocol("BAT-xz971")
         self.assertIsNone(ptcl)
-        self.assertEqual(1, len(adl2.aggregated_errors_object.exceptions))
+        self.assertEqual(2, len(adl2.aggregated_errors_object.exceptions))
         self.assertTrue(
             adl2.aggregated_errors_object.exception_type_exists(
                 MissingLCMSSampleDataHeaders
+            )
+            and adl2.aggregated_errors_object.exception_type_exists(
+                UnexpectedLCMSSampleDataHeaders
             )
         )
 
@@ -407,7 +414,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             date="1972-11-24",
             instrument="default instrument",
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
-                "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc.tsv"
+                "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc_pos_no_extras.tsv"
             ),
             researcher="Robert Leach",
             ms_protocol_name="Default",
@@ -439,7 +446,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             peak_group_set_filename="small_obob_maven_6eaas_inf_glucose.xlsx",
             date="1972-11-24",
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
-                "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc.tsv"
+                "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc_pos_no_extras.tsv"
             ),
             researcher="Robert Leach",
             ms_protocol_name="Default",
@@ -451,12 +458,16 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
         # Pre-processing the data will enable get_or_create_ms_protocol by creating the lcms_metadata dict
         adl2.preprocess_data()
 
+        # Create a protocol for a sample whose header is not in the file, which should fall back to unknown
         ptcl2 = adl2.get_or_create_lc_protocol("BAT-xz971")
         self.assertEqual("unknown", ptcl2.name)
-        self.assertEqual(1, len(adl2.aggregated_errors_object.exceptions))
+        self.assertEqual(2, len(adl2.aggregated_errors_object.exceptions))
         self.assertTrue(
             adl2.aggregated_errors_object.exception_type_exists(
                 MissingLCMSSampleDataHeaders
+            )
+            and adl2.aggregated_errors_object.exception_type_exists(
+                UnexpectedLCMSSampleDataHeaders
             )
         )
 
@@ -518,7 +529,7 @@ class LCMSSampleTableLoaderMethodTests(TracebaseTestCase):
 class LCMSMetadataParserMethodTests(TracebaseTestCase):
     def test_lcms_df_to_dict(self):
         df = extract_dataframes_from_lcms_tsv(
-            "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc.tsv"
+            "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc_pos.tsv"
         )
         dct = lcms_df_to_dict(df)
         self.assertTrue(isinstance(dct, dict))
@@ -527,7 +538,7 @@ class LCMSMetadataParserMethodTests(TracebaseTestCase):
 
     def test_lcms_metadata_to_samples(self):
         df = extract_dataframes_from_lcms_tsv(
-            "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc.tsv"
+            "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc_pos.tsv"
         )
         dct = lcms_df_to_dict(df)
         samples = lcms_metadata_to_samples(dct)
@@ -542,7 +553,7 @@ class LCMSMetadataParserMethodTests(TracebaseTestCase):
 
     def test_extract_dataframes_from_lcms_tsv(self):
         df = extract_dataframes_from_lcms_tsv(
-            "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc.tsv"
+            "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc_pos.tsv"
         )
         self.assertIsNotNone(df)
         self.assertEqual((15, 11), df.shape)
@@ -595,7 +606,7 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
 
     # Requirement 1.1 is tested by the method tests above
 
-    def test_lcms_metadata_default_fallbacks_lcms_bad_headers(self):
+    def test_lcms_metadata_default_fallbacks_lcms_good_no_data(self):
         """
         Test item from issue #706:
         `1.2.` Test that values missing in the LCMS metadata fall back to the defaults from 1.1.
@@ -615,7 +626,7 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
             researcher="Michael Neinast",
             new_researcher=True,
             lcms_file="DataRepo/example_data/small_dataset/"
-            "glucose_lcms_metadata_except_mzxml_and_lcdesc_only_reqd_col_vals_pos.tsv",
+            "glucose_lcms_metadata_except_mzxml_and_lcdesc_unrelated_data_only.tsv",
         )
         self.assertEqual(2, MSRun.objects.count())
         msr1 = MSRun.objects.first()
@@ -759,7 +770,7 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
                 "DataRepo/example_data/small_dataset/small_obob_animal_and_sample_table.xlsx"
             ),
             lcms_file="DataRepo/example_data/small_dataset/"
-            "glucose_lcms_metadata_except_mzxml_and_lcdesc.tsv",
+            "glucose_lcms_metadata_except_mzxml_and_lcdesc_pos.tsv",
         )
 
     def test_lcms_metadata_unique_sample_missing(self):
@@ -797,7 +808,6 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
 
     # TODO:
     # Add tests that test these untested exceptions:
-    # - PeakAnnotFileMismatches
     # - LCMethodFixturesMissing
     # - MissingRequiredLCMSValues
     # - MissingPeakAnnotationFiles
@@ -870,3 +880,18 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
         self.assertEqual(UnexpectedLCMSSampleDataHeaders, type(aes.exceptions[0]))
+
+    def test_no_repeated_or_unexpected_exceptions_PeakAnnotFileMismatches(self):
+        """
+        Supply an LCMS metadata file with a sample data header not in the accucor file associated with the current peak
+        annotation file to ensure an UnexpectedLCMSSampleDataHeaders exception is raised.
+        """
+        self.load_samples()
+        with self.assertRaises(AggregatedErrors) as ar:
+            self.load_peak_annotations(
+                lcms_file="DataRepo/example_data/small_dataset/"
+                "glucose_lcms_metadata_except_mzxml_and_lcdesc_bad_peak_annots.tsv",
+            )
+        aes = ar.exception
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertEqual(PeakAnnotFileMismatches, type(aes.exceptions[0]))

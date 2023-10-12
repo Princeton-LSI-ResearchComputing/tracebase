@@ -160,7 +160,9 @@ class AccuCorDataLoader:
             }
             if lcms_metadata_df is None and None in reqd_args.values():
                 missing = [key for key in reqd_args.keys() if reqd_args[key] is None]
-                self.aggregated_errors_object.buffer_error(LCMSDefaultsRequired(missing_defaults_list=missing))
+                self.aggregated_errors_object.buffer_error(
+                    LCMSDefaultsRequired(missing_defaults_list=missing)
+                )
             elif lcms_metadata_df is not None and not lcms_headers_are_valid(
                 list(lcms_metadata_df.columns)
             ):
@@ -383,12 +385,15 @@ class AccuCorDataLoader:
                 self.lcms_metadata_df, self.aggregated_errors_object
             )
 
+            # We loop on self.lcms_metadata.keys() instead of self.corrected_sample_headers in order to catch issues
+            # where incorrect sample data headers are associated with the wrong accucor file.  This assumes that sample
+            # data headers are unique across all accucor files in a study.
             for sample_header in self.lcms_metadata.keys():
                 self.check_mzxml(
                     sample_header, self.lcms_metadata[sample_header]["mzxml"]
                 )
 
-                # Excess mzXML files are allowed to be supplied to make it easy to supply mzXML files across multiple
+                # Excess sample data headers are allowed to be supplied to make it easy to supply data across multiple
                 # accucor files, but if a sample data header associated with the current accucor file in the LCMS
                 # metadata is not found among the headers in the file, buffer it as an unexpected sample data header (to
                 # be raised as an error exception)
