@@ -1807,14 +1807,14 @@ class MissingLCMSSampleDataHeaders(Exception):
         using_defaults = len(missing_defaults) == 0
         message = (
             f"The following sample data headers in the peak annotation file [{peak_annot_file}], were not found in the "
-            f"LCMS metadata supplied: [{missing}].  "
+            f"LCMS metadata supplied: {missing}.  "
         )
         if using_defaults:
             message += "Falling back to supplied defaults."
         else:
             message += (
                 "Either add the sample data headers to the LCMS metadata or provide default values for: "
-                f"[{missing_defaults}]."
+                f"{missing_defaults}."
             )
         super().__init__(message)
         self.missing = missing
@@ -1824,7 +1824,7 @@ class MissingLCMSSampleDataHeaders(Exception):
 
 class MissingMZXMLFiles(Exception):
     def __init__(self, mzxml_files):
-        message = f"The following mzXML files listed in the LCMS metadata file were not supplied: [{mzxml_files}]."
+        message = f"The following mzXML files listed in the LCMS metadata file were not supplied: {mzxml_files}."
         super().__init__(message)
         self.mzxml_files = mzxml_files
 

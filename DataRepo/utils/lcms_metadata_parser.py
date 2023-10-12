@@ -289,7 +289,7 @@ class MissingRequiredLCMSValues(Exception):
         head_rows_str = ""
         cs = ", "
         for header in header_rownums_dict.keys():
-            head_rows_str += f"\n\t{header}: {cs.join(header_rownums_dict[header])}"
+            head_rows_str += f"\n\t{header}: {cs.join([str(i) for i in header_rownums_dict[header]])}"
         message = f"The following required values are missing on the indicated rows:\n{head_rows_str}"
         super().__init__(message)
         self.header_rownums_dict = header_rownums_dict

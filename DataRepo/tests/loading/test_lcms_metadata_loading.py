@@ -22,6 +22,7 @@ from DataRepo.utils import (
 from DataRepo.utils.lcms_metadata_parser import (
     DuplicateSampleDataHeaders,
     InvalidLCMSHeaders,
+    MissingRequiredLCMSValues,
     extract_dataframes_from_lcms_tsv,
     extract_dataframes_from_lcms_xlsx,
     lcms_df_to_dict,
@@ -809,7 +810,6 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
 
     # TODO:
     # Add tests that test these untested exceptions:
-    # - LCMethodFixturesMissing
     # - MissingRequiredLCMSValues
     # - MissingPeakAnnotationFiles
 
@@ -914,3 +914,20 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
         self.assertEqual(LCMethodFixturesMissing, type(aes.exceptions[0]))
+
+    def test_MissingRequiredLCMSValues(self):
+        self.load_prereqs()
+        self.load_samples()
+        with self.assertRaises(AggregatedErrors) as ar:
+            self.load_peak_annotations(
+                lcms_file="DataRepo/example_data/small_dataset/"
+                "glucose_lcms_metadata_except_mzxml_and_lcdesc_no_smpl_name_hdr.tsv",
+            )
+        aes = ar.exception
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertEqual(MissingRequiredLCMSValues, type(aes.exceptions[0]))
+        expected_dict = {
+            "sample data header": [4, 6],
+            "tracebase sample name": [5, 6],
+        }
+        self.assertEqual(expected_dict, aes.exceptions[0].header_rownums_dict)
