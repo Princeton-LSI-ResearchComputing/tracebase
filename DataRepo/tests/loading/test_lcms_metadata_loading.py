@@ -810,12 +810,6 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
     was already implicitly tested in the tests above.
     """
 
-    # TODO:
-    # Add tests that check these exceptions for repeated/unexpected exceptions:
-    # - MissingLCMSSampleDataHeaders
-    # - MissingMZXMLFiles
-    # - MismatchedSampleHeaderMZXML
-
     def load_prereqs(self):
         call_command("loaddata", "lc_methods")
         call_command(
@@ -953,3 +947,44 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
             "glucose_lcms_metadata_except_mzxml_and_lcdesc_unsupplied_annot.tsv",
             aes.exceptions[0].lcms_file,
         )
+
+    def test_MissingLCMSSampleDataHeaders(self):
+        self.load_prereqs()
+        self.load_samples()
+        with self.assertRaises(AggregatedErrors) as ar:
+            call_command(
+                "load_accucor_msruns",
+                # We just need a different file name with the same data, so _2 is a copy of the original
+                accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_glucose.xlsx",
+                new_researcher=True,
+                lcms_file="DataRepo/example_data/small_dataset/"
+                "glucose_lcms_metadata_except_mzxml_and_lcdesc_msng_hdr_row.tsv",
+            )
+        aes = ar.exception
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertEqual(MissingLCMSSampleDataHeaders, type(aes.exceptions[0]))
+
+    def test_MissingMZXMLFiles(self):
+        self.load_prereqs()
+        self.load_samples()
+        with self.assertRaises(AggregatedErrors) as ar:
+            call_command(
+                "load_accucor_msruns",
+                # We just need a different file name with the same data, so _2 is a copy of the original
+                accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_glucose.xlsx",
+                ms_protocol_name="Default",
+                lc_protocol_name="polar-HILIC-25-min",
+                instrument="default instrument",
+                date="2021-04-29",
+                researcher="Michael Neinast",
+                new_researcher=True,
+                lcms_file="DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc_pos.tsv",
+                mzxml_files=["sample1.mzxml", "sample2.mzxml"],
+            )
+        aes = ar.exception
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertEqual(MissingMZXMLFiles, type(aes.exceptions[0]))
+
+    # TODO:
+    # Add tests that check these exceptions for repeated/unexpected exceptions:
+    # - MismatchedSampleHeaderMZXML
