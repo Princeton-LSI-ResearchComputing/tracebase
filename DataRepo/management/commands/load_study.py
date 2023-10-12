@@ -190,10 +190,14 @@ class Command(BaseCommand):
                 "animals_samples_treatments" in study_params
                 or "accucor_data" in study_params
             ):
-                lcms_metadata_file = study_params["lcms_metadata"].get(
+                lcms_metadata_file_basename = study_params["lcms_metadata"].get(
                     "lcms_metadata_file", None
                 )
-                if lcms_metadata_file is not None:
+                if lcms_metadata_file_basename is not None:
+                    lcms_metadata_file = os.path.join(
+                        study_dir,
+                        lcms_metadata_file_basename,
+                    )
                     aes = AggregatedErrors()
                     check_peak_annotation_files(
                         [
@@ -203,7 +207,7 @@ class Command(BaseCommand):
                         lcms_file=lcms_metadata_file,
                         aes=aes,
                     )
-                    self.package_group_exceptions(aes, lcms_metadata_file)
+                    self.package_group_exceptions(aes, lcms_metadata_file_basename)
 
             if "animals_samples_treatments" in study_params:
                 # Read in animals and samples file

@@ -1,0 +1,4 @@
+tracebase sample name	sample data header	mzxml filename	peak annotation filename	instrument	operator	date	ms mode	lc method	lc run length	lc description
+BAT-xz971	BAT-xz971		small_obob_maven_6eaas_inf_glucose.xlsx	default instrument	Xianfeng Zeng	2021-04-29	Default	polar-HILIC	25	
+Br-xz971	Br-xz971		small_obob_maven_6eaas_inf_glucose.xlsx	default instrument	Xianfeng Zeng	2021-04-29	Default	new-lc-method	30	new lc method description
+Dia-xz971	Dia-xz971		unsupplied_accucor_file.xlsx	default instrument	Xianfeng Zeng	2021-04-29	Default	polar-HILIC	25	

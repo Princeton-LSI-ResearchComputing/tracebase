@@ -17,6 +17,7 @@ from DataRepo.utils.composite_data import leaderboard_data
 from DataRepo.utils.compounds_loader import CompoundsLoader
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
+    AggregatedErrorsSet,
     AllMissingCompounds,
     AllMissingSamples,
     AllMissingTissues,
@@ -59,6 +60,7 @@ from DataRepo.utils.tissues_loader import TissuesLoader
 
 __all__ = [
     "AggregatedErrors",
+    "AggregatedErrorsSet",
     "AccuCorDataLoader",
     "AllMissingCompounds",
     "AllMissingSamples",

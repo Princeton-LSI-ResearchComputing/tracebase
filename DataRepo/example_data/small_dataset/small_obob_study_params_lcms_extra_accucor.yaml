@@ -1,0 +1,18 @@
+---
+compounds: "../consolidated_tracebase_compound_list.tsv"
+protocols: "small_obob_protocols.tsv"
+animals_samples_treatments:
+  table: "small_obob_animal_and_sample_table.xlsx"
+lcms_metadata:
+  lcms_metadata_file: "glucose_lcms_metadata_except_mzxml_and_lcdesc_unsupplied_annot.tsv"
+accucor_data:
+  accucor_files:
+    - name: "small_obob_maven_6eaas_inf_glucose.xlsx"
+  msrun_protocol: "Default"
+  lc_protocol: "polar-HILIC-25-min"
+  instrument: "default instrument"
+  date: "2021-04-29"
+  researcher: "Xianfeng Zeng"
+  new_researcher: False
+  skip_samples:
+    - "blank"

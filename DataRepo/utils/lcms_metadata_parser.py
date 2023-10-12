@@ -84,8 +84,8 @@ def lcms_df_to_dict(df, aes=None):
             "peak_annotation": peak_annot,
             "mzxml": row["mzxml filename"],
             "ms_protocol_name": row["ms mode"],
-            "researcher": row["instrument"],
-            "instrument": row["operator"],
+            "researcher": row["operator"],
+            "instrument": row["instrument"],
             "date": row["date"],
             "lc_type": row["lc method"],
             "lc_run_length": run_len,
@@ -134,7 +134,7 @@ def get_lcms_metadata_dict_from_file(lcms_file, aes=None):
 
 
 def check_peak_annotation_files(
-    peak_annot_file_list, lcms_metadata_dict=None, lcms_file=None, aes=None
+    annot_files_from_study, lcms_metadata_dict=None, lcms_file=None, aes=None
 ):
     """
     Check that all peak annotation files explicitly listed in the LCMS metadata is in the supplied peak annot file list.
@@ -151,8 +151,8 @@ def check_peak_annotation_files(
     else:
         lcms_metadata = lcms_metadata_dict
 
-    lcms_peak_annot_files = []
-    unmatching_peak_annot_files = []
+    peak_annot_files_from_lcms = []
+    missing_peak_annot_files = []
 
     # Obtain a unique set of peak annotation file names
     for sample_data_header in lcms_metadata.keys():
@@ -160,31 +160,32 @@ def check_peak_annotation_files(
             lcms_metadata[sample_data_header]["peak_annotation"] is not None
             and lcms_metadata[sample_data_header]["peak_annotation"].strip() != ""
             and lcms_metadata[sample_data_header]["peak_annotation"].strip()
-            not in lcms_peak_annot_files
+            not in peak_annot_files_from_lcms
         ):
-            lcms_peak_annot_files.append(
+            peak_annot_files_from_lcms.append(
                 lcms_metadata[sample_data_header]["peak_annotation"].strip()
             )
             if (
                 lcms_metadata[sample_data_header]["peak_annotation"].strip()
-                not in peak_annot_file_list
-                and lcms_metadata[sample_data_header]["peak_annotation"].strip()
-                not in unmatching_peak_annot_files
+                not in annot_files_from_study
             ):
-                unmatching_peak_annot_files.append(
+                missing_peak_annot_files.append(
                     lcms_metadata[sample_data_header]["peak_annotation"].strip()
                 )
 
-    missing_peak_annot_files = []
+    extra_peak_annot_files = []
 
     # Check for missing files
-    for lcsm_peak_annot_file in lcms_peak_annot_files:
-        if lcsm_peak_annot_file not in peak_annot_file_list:
-            missing_peak_annot_files.append(lcsm_peak_annot_file)
+    for annot_file_from_study in annot_files_from_study:
+        if annot_file_from_study not in peak_annot_files_from_lcms:
+            extra_peak_annot_files.append(
+                lcms_metadata[sample_data_header]["peak_annotation"].strip()
+            )
 
+    lcms_file_basename = os.path.basename(lcms_file)
     if len(missing_peak_annot_files) > 0:
         exc = MissingPeakAnnotationFiles(
-            missing_peak_annot_files, unmatching_peak_annot_files, lcms_file
+            missing_peak_annot_files, extra_peak_annot_files, lcms_file_basename
         )
         if aes is not None:
             aes.buffer_error(exc)
@@ -316,5 +317,6 @@ class MissingPeakAnnotationFiles(Exception):
                 f"\t\t{nlt.join(unmatching_peak_annot_files)}\n\nPerhaps there is a typo?"
             )
         super().__init__(message)
-        self.files = missing_peak_annot_files
+        self.missing_peak_annot_files = missing_peak_annot_files
+        self.unmatching_peak_annot_files = unmatching_peak_annot_files
         self.lcms_file = lcms_file

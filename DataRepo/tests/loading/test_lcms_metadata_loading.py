@@ -9,6 +9,7 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import (
     AccuCorDataLoader,
     AggregatedErrors,
+    AggregatedErrorsSet,
     LCMethodFixturesMissing,
     LCMSDBSampleMissing,
     LCMSDefaultsRequired,
@@ -22,6 +23,7 @@ from DataRepo.utils import (
 from DataRepo.utils.lcms_metadata_parser import (
     DuplicateSampleDataHeaders,
     InvalidLCMSHeaders,
+    MissingPeakAnnotationFiles,
     MissingRequiredLCMSValues,
     extract_dataframes_from_lcms_tsv,
     extract_dataframes_from_lcms_xlsx,
@@ -809,10 +811,6 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
     """
 
     # TODO:
-    # Add tests that test these untested exceptions:
-    # - MissingRequiredLCMSValues
-    # - MissingPeakAnnotationFiles
-
     # Add tests that check these exceptions for repeated/unexpected exceptions:
     # - MissingLCMSSampleDataHeaders
     # - MissingMZXMLFiles
@@ -931,3 +929,27 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
             "tracebase sample name": [5, 6],
         }
         self.assertEqual(expected_dict, aes.exceptions[0].header_rownums_dict)
+
+    def test_MissingPeakAnnotationFiles(self):
+        call_command("loaddata", "lc_methods")
+        call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
+        with self.assertRaises(AggregatedErrorsSet) as ar:
+            call_command(
+                "load_study",
+                "DataRepo/example_data/small_dataset/small_obob_study_params_lcms_extra_accucor.yaml",
+            )
+        aess = ar.exception
+        aes = aess.aggregated_errors_dict[
+            "glucose_lcms_metadata_except_mzxml_and_lcdesc_unsupplied_annot.tsv"
+        ]
+        self.assertEqual(AggregatedErrors, type(aes))
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertEqual(MissingPeakAnnotationFiles, type(aes.exceptions[0]))
+        self.assertEqual(
+            ["unsupplied_accucor_file.xlsx"], aes.exceptions[0].missing_peak_annot_files
+        )
+        self.assertEqual([], aes.exceptions[0].unmatching_peak_annot_files)
+        self.assertEqual(
+            "glucose_lcms_metadata_except_mzxml_and_lcdesc_unsupplied_annot.tsv",
+            aes.exceptions[0].lcms_file,
+        )
