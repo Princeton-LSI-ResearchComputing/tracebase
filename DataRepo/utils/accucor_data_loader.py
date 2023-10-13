@@ -684,21 +684,13 @@ class AccuCorDataLoader:
 
         with peak_annotaion_path.open(mode="rb") as f:
             # Don't store the file during dry-run or validation
-            print(f"DRY RUN: {self.dry_run}")
-            print(f"VALIDATE: {self.validate}")
             if self.dry_run or self.validate:
                 peak_annotation_file = None
-                print(f"NOT STORING FILE: {f}")
             else:
                 peak_annotation_file = File(f, name=peak_annotaion_path.name)
-                print(f"STORING FILE {f}")
 
             ms_peak_annotation = DataType.objects.get(code="ms_peak_annotation")
             annotation_format = "isocorr" if self.isocorr_format else "accucor"
-            print(f"Annotation Format: {annotation_format}")
-            all_data_formats = DataFormat.objects.all()
-            for data_format in all_data_formats:
-                print(f"Data Format: {data_format}")
             peak_annotation_format = DataFormat.objects.get(code=annotation_format)
             peak_annotation_archivefile = ArchiveFile.objects.create(
                 filename=peak_annotaion_path.name,
