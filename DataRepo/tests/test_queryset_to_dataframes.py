@@ -69,7 +69,6 @@ class QuerysetToPandasDataFrameBaseTests(TracebaseTestCase):
             "sample": "a1_kd",
             "sample_owner": "Xianfeng Zeng",
             "msrun_owner": "Xianfeng Zeng",
-            "msrun_protocol": "Default",
             "studies": ["Study Test1", "Study Test2"],
         }
 

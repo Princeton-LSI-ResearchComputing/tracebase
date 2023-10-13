@@ -87,7 +87,6 @@ class AutoupdateLoadingTests(TracebaseTestCase):
                     "load_accucor_msruns",
                     accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_blank_sample.xlsx",
                     skip_samples=("blank"),
-                    ms_protocol_name="Default",
                     lc_protocol_name="polar-HILIC-25-min",
                     instrument="default instrument",
                     date="2021-04-29",

@@ -8,7 +8,6 @@ lcms_metadata:
 accucor_data:
   accucor_files:
     - name: "small_obob_maven_6eaas_inf_glucose.xlsx"
-  msrun_protocol: "Default"
   lc_protocol: "polar-HILIC-25-min"
   instrument: "default instrument"
   date: "2021-04-29"

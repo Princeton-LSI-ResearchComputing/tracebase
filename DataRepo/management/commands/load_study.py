@@ -257,7 +257,6 @@ class Command(BaseCommand):
 
             if "accucor_data" in study_params:
                 # Get parameters for all accucor files
-                study_ms_protocol = study_params["accucor_data"]["msrun_protocol"]
                 study_lc_protocol = study_params["accucor_data"]["lc_protocol"]
                 study_instrument = study_params["accucor_data"]["instrument"]
                 study_date = study_params["accucor_data"]["date"]
@@ -279,9 +278,6 @@ class Command(BaseCommand):
                     accucor_file_basename = accucor_info_dict["name"]
                     accucor_file = os.path.join(study_dir, accucor_file_basename)
                     self.load_statuses.init_load(accucor_file)
-                    ms_protocol_name = accucor_info_dict.get(
-                        "msrun_protocol", study_ms_protocol
-                    )
                     lc_protocol_name = accucor_info_dict.get(
                         "lc_protocol", study_lc_protocol
                     )
@@ -316,7 +312,6 @@ class Command(BaseCommand):
                         call_command(
                             "load_accucor_msruns",
                             accucor_file=accucor_file,
-                            ms_protocol_name=ms_protocol_name,
                             lc_protocol_name=lc_protocol_name,
                             instrument=instrument,
                             date=date,

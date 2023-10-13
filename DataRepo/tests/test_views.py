@@ -78,7 +78,6 @@ class ViewTests(TracebaseTestCase):
 
         call_command(
             "load_accucor_msruns",
-            ms_protocol_name="Default",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
             accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf.xlsx",
@@ -93,7 +92,6 @@ class ViewTests(TracebaseTestCase):
 
         call_command(
             "load_accucor_msruns",
-            ms_protocol_name="Default",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
             accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_serum.xlsx",
@@ -746,7 +744,6 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         )
         call_command(
             "load_accucor_msruns",
-            ms_protocol_name="Default",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
             accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf.xlsx",
@@ -994,7 +991,6 @@ class ValidationViewTests(TracebaseTransactionTestCase):
                     #     "isocorr_format": False,  # Set by self.add_ms_data()
                     # },
                 ],
-                "msrun_protocol": "Default",
                 "date": "1972-11-24",
                 "researcher": "anonymous",
                 "new_researcher": False,

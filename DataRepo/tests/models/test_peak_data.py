@@ -10,7 +10,6 @@ from DataRepo.models import (
     PeakDataLabel,
     PeakGroup,
     PeakGroupSet,
-    Protocol,
     Sample,
     Tissue,
 )
@@ -40,16 +39,10 @@ class PeakDataData(TracebaseTestCase):
             researcher="John Doe",
             date=datetime.now(),
         )
-        ptl = Protocol.objects.create(
-            name="p1",
-            description="p1desc",
-            category=Protocol.MSRUN_PROTOCOL,
-        )
         msr = MSRun.objects.create(
             researcher="John Doe",
             date=datetime.now(),
             sample=smpl,
-            protocol=ptl,
         )
         pgs = PeakGroupSet.objects.create(filename="testing_dataset_file")
         pg = PeakGroup.objects.create(

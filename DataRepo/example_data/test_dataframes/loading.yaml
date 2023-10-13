@@ -8,7 +8,6 @@ animals_samples_treatments:
 accucor_data:
   accucor_files:
     - name: "accucor_df_test1.xlsx"
-  msrun_protocol: "Default"
   lc_protocol: "unknown"
   instrument: "default instrument"
   date: "2021-06-29"

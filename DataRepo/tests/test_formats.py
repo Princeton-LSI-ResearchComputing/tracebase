@@ -54,7 +54,6 @@ class FormatsTests(TracebaseTestCase):
         )
         call_command(
             "load_accucor_msruns",
-            ms_protocol_name="Default",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
             accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf.xlsx",
@@ -64,7 +63,6 @@ class FormatsTests(TracebaseTestCase):
         )
         call_command(
             "load_accucor_msruns",
-            ms_protocol_name="Default",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
             accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_serum.xlsx",
@@ -1335,7 +1333,6 @@ class FormatsTests(TracebaseTestCase):
         call_command(
             "load_accucor_msruns",
             accucor_file="DataRepo/example_data/small_multitracer_data/6eaafasted1_cor.xlsx",
-            ms_protocol_name="Default",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
             date="2021-04-29",
@@ -1346,7 +1343,6 @@ class FormatsTests(TracebaseTestCase):
         call_command(
             "load_accucor_msruns",
             accucor_file="DataRepo/example_data/small_multitracer_data/bcaafasted_cor.xlsx",
-            ms_protocol_name="Default",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
             date="2021-04-29",

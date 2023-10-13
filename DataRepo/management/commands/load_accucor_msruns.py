@@ -67,13 +67,6 @@ class Command(BaseCommand):
             required=False,
         )
         parser.add_argument(
-            "--ms-protocol-name",
-            type=str,
-            help="Default name of the mass spectrometry protocol used",
-            default=None,
-            required=False,
-        )
-        parser.add_argument(
             "--instrument",
             type=str,
             help="Name of the LCMS instrument that analyzed the samples",
@@ -188,7 +181,6 @@ class Command(BaseCommand):
             # LCMS batch defaults
             date=options["date"],
             lc_protocol_name=options["lc_protocol_name"],
-            ms_protocol_name=options["ms_protocol_name"],
             researcher=options["researcher"],
             instrument=options["instrument"],
             mzxml_files=mzxml_files,

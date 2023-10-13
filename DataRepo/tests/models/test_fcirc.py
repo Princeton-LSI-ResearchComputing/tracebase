@@ -11,7 +11,6 @@ from DataRepo.models import (
     PeakGroup,
     PeakGroupLabel,
     PeakGroupSet,
-    Protocol,
     Sample,
 )
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
@@ -42,7 +41,6 @@ class FCircTests(TracebaseTestCase):
         )
         call_command(
             "load_accucor_msruns",
-            ms_protocol_name="Default",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
             accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_serum.xlsx",
@@ -90,17 +88,11 @@ class FCircTests(TracebaseTestCase):
             1. Confirm all FCirc.is_last values related to the old serum sample are now false.
         """
 
-        # Create new protocol, msrun, peak group, and peak group labels
-        ptl = Protocol.objects.create(
-            name="p1",
-            description="p1desc",
-            category=Protocol.MSRUN_PROTOCOL,
-        )
+        # Create new msrun, peak group, and peak group labels
         msr = MSRun.objects.create(
             researcher="Anakin Skywalker",
             date=datetime.now(),
             sample=self.newlss,
-            protocol=ptl,
         )
         pgs = PeakGroupSet.objects.create(filename="testing_dataset_file")
         for tracer in self.lss.animal.infusate.tracers.all():
@@ -297,17 +289,11 @@ class FCircTests(TracebaseTestCase):
         self.newlss.save()
 
         # To get to the prev_smpl_tmclctd_is_none_amng_many state of 1, there must exist peakgroups for newlss
-        # Create new protocol, msrun, peak group, and peak group labels
-        ptl = Protocol.objects.create(
-            name="p1",
-            description="p1desc",
-            category=Protocol.MSRUN_PROTOCOL,
-        )
+        # Create new msrun, peak group, and peak group labels
         msr = MSRun.objects.create(
             researcher="Anakin Skywalker",
             date=datetime.now(),
             sample=self.newlss,
-            protocol=ptl,
         )
         pgs = PeakGroupSet.objects.create(filename="testing_dataset_file")
         for tracer in self.lss.animal.infusate.tracers.all():

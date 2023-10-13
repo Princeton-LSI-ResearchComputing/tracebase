@@ -209,7 +209,6 @@ class DataValidationView(FormView):
                     #     "isocorr_format": False,  # Set by self.add_ms_data()
                     # },
                 ],
-                "msrun_protocol": "Default",
                 "lc_protocol": "unknown",
                 "instrument": "Default instrument",
                 "date": "1972-11-24",

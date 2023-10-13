@@ -14,7 +14,6 @@
             <th>MSRun Detail Page</th>
             <th>Sample</th>
             <th>Date</th>
-            <th>Protocol</th>
             <th>Researcher</th>
             </tr>
             {% for msrun in msrun_list %}
@@ -22,7 +21,6 @@
             <td><a href="{% url 'msrun_detail' msrun.id %}">detail page</a></td>
             <td><a href="{% url 'sample_detail' msrun.sample.id %}">{{ msrun.sample.name }}</a></td>
             <td>{{ msrun.date }}</td>
-            <td><a href="{% url 'protocol_detail' msrun.protocol.id %}">{{ msrun.protocol.name }}</a></td>
             <td>{{ msrun.researcher }}</td>
             </tr>
             {% endfor %}

@@ -42,11 +42,6 @@ urlpatterns = [
         name="animal_treatment_list",
     ),
     path(
-        "protocols/msrun_protocols/",
-        views.MSRunProtocolListView.as_view(),
-        name="msrun_protocol_list",
-    ),
-    path(
         "protocols/<int:pk>/",
         views.ProtocolDetailView.as_view(),
         name="protocol_detail",

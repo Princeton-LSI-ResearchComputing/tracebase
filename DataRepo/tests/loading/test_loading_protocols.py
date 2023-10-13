@@ -103,10 +103,10 @@ class ProtocolLoadingTests(TracebaseTestCase):
             "load_protocols",
             protocols="DataRepo/example_data/protocols/protocols.tsv",
         )
-        self.assertEqual(Protocol.objects.count(), 16)
-        # a few of these were msrun protocols
+        self.assertEqual(Protocol.objects.count(), 8)
+        # all of these were animal treatments
         self.assertEqual(
-            Protocol.objects.filter(category=Protocol.MSRUN_PROTOCOL).count(), 8
+            Protocol.objects.filter(category=Protocol.ANIMAL_TREATMENT).count(), 8
         )
 
     def test_load_protocols_xlxs(self):

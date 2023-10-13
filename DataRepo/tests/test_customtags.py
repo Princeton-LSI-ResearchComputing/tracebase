@@ -31,7 +31,6 @@ class CustomTagsTests(TracebaseTestCase):
         )
         call_command(
             "load_accucor_msruns",
-            ms_protocol_name="Default",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
             accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf.xlsx",

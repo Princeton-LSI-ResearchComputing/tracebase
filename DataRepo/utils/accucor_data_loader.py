@@ -20,7 +20,6 @@ from DataRepo.models import (
     PeakGroup,
     PeakGroupLabel,
     PeakGroupSet,
-    Protocol,
     Sample,
 )
 from DataRepo.models.hier_cached_model import (
@@ -125,7 +124,7 @@ class PeakGroupAttrs(TypedDict):
 
 class AccuCorDataLoader:
     """
-    Load the Protocol, MsRun, PeakGroup, and PeakData tables
+    Load the LCMethod, MsRun, PeakGroup, and PeakData tables
     """
 
     def __init__(
@@ -136,7 +135,6 @@ class AccuCorDataLoader:
         lcms_metadata_df=None,
         instrument=None,
         date=None,
-        ms_protocol_name=None,
         lc_protocol_name=None,
         mzxml_files=None,
         researcher=None,
@@ -166,7 +164,6 @@ class AccuCorDataLoader:
             # Validate the required LCMS Metadata
             reqd_args = {
                 "lc_protocol_name": lc_protocol_name,
-                "ms_protocol_name": ms_protocol_name,
                 "date": date,
                 "researcher": researcher,
                 "instrument": instrument,
@@ -176,6 +173,7 @@ class AccuCorDataLoader:
                 self.aggregated_errors_object.buffer_error(
                     LCMSDefaultsRequired(missing_defaults_list=missing)
                 )
+                self.set_lcms_placeholder_defaults()
             elif lcms_metadata_df is not None and not lcms_headers_are_valid(
                 list(lcms_metadata_df.columns)
             ):
@@ -198,7 +196,6 @@ class AccuCorDataLoader:
             # LCMS Metadata
             self.lcms_defaults = {
                 "lc_protocol_name": None,
-                "ms_protocol_name": None,
                 "date": None,
                 "researcher": None,
                 "instrument": None,
@@ -206,8 +203,6 @@ class AccuCorDataLoader:
             }
             if lc_protocol_name is not None and lc_protocol_name.strip() != "":
                 self.lcms_defaults["lc_protocol_name"] = lc_protocol_name.strip()
-            if ms_protocol_name is not None and ms_protocol_name.strip() != "":
-                self.lcms_defaults["ms_protocol_name"] = ms_protocol_name.strip()
             if date is not None and date.strip() != "":
                 self.lcms_defaults["date"] = datetime.strptime(date.strip(), "%Y-%m-%d")
             if researcher is not None and researcher.strip() != "":
@@ -426,6 +421,10 @@ class AccuCorDataLoader:
                     is_error=not self.lcms_defaults_supplied(),
                     is_fatal=not self.lcms_defaults_supplied(),
                 )
+                if not self.lcms_defaults_supplied():
+                    self.set_lcms_placeholder_defaults()
+                    # The above will raise an exception.  In order to catch more errros and skip errors cause by no
+                    # defaults, fill in temporary placeholders.
 
             if len(self.unexpected_sample_headers) > 0:
                 self.aggregated_errors_object.buffer_error(
@@ -437,6 +436,7 @@ class AccuCorDataLoader:
         # Note, this intentionally fills in any that caused errors above in order to catch more errors
         incorrect_pgs_files = {}
         missing_header_defaults = defaultdict(dict)
+        placeholders_needed = False
         for sample_header in self.corrected_sample_headers:
             default_mzxml_file = self.sample_header_to_default_mzxml(sample_header)
             if sample_header not in self.lcms_metadata.keys():
@@ -457,7 +457,6 @@ class AccuCorDataLoader:
                     "sample_name": sample_header,
                     "peak_annot_file": self.lcms_defaults["peak_annot_file"],
                     "mzxml": mzxml_file,
-                    "ms_protocol_name": self.lcms_defaults["ms_protocol_name"],
                     "researcher": self.lcms_defaults["researcher"],
                     "instrument": self.lcms_defaults["instrument"],
                     "date": self.lcms_defaults["date"],
@@ -493,6 +492,7 @@ class AccuCorDataLoader:
                 for key in self.lcms_defaults.keys():
                     if self.lcms_metadata[sample_header][key] is None:
                         if self.lcms_defaults[key] is None:
+                            placeholders_needed = True
                             missing_header_defaults["default"][key] = True
                             missing_header_defaults["header"][sample_header] = True
                         else:
@@ -511,6 +511,17 @@ class AccuCorDataLoader:
                     ),
                 )
             )
+            self.set_lcms_placeholder_defaults()
+
+        if placeholders_needed is True:
+            # Fill in the placeholders
+            for sample_header in self.corrected_sample_headers:
+                for key in self.lcms_defaults.keys():
+                    if (
+                        self.lcms_metadata[sample_header][key] is None
+                        and self.lcms_defaults[key] is not None
+                    ):
+                        self.lcms_metadata[sample_header][key] = self.lcms_defaults[key]
 
         if len(incorrect_pgs_files.keys()) > 0:
             self.aggregated_errors_object.buffer_error(
@@ -520,6 +531,20 @@ class AccuCorDataLoader:
             )
 
         self.validate_mzxmls()
+
+    def set_lcms_placeholder_defaults(self):
+        """
+        If an exception is going to be raised, use this method to fill in defaults with placeholders to prevent
+        cascading errors unrelated to the root problem
+        """
+        # No need to fill in "lc_protocol_name".  None will cause a retrieval of the unknown protocol.
+        if self.lcms_defaults["date"] is None:
+            self.lcms_defaults["date"] = datetime.strptime("1972-11-24", "%Y-%m-%d")
+        if self.lcms_defaults["researcher"] is None:
+            self.lcms_defaults["researcher"] = "anonymous"
+        if self.lcms_defaults["researcher"] is None:
+            self.lcms_defaults["instrument"] = "placeholder instrument"
+        # No need to fill in "peak_annot_file".  Without this file, nothing will load
 
     def sample_header_to_default_mzxml(self, sample_header):
         """
@@ -941,41 +966,6 @@ class AccuCorDataLoader:
                 "rownums": [index + 2],
             }
 
-    def get_or_create_ms_protocol(self, sample_header):
-        """
-        Looks up the MS protocol using the sample data header key in the lcms_metadata dict, then gets or creates an
-        msrun protocol in the Protocol model.
-        """
-        if self.verbosity >= 1:
-            print(
-                f"Finding or inserting {Protocol.MSRUN_PROTOCOL} protocol for "
-                f"'{self.lcms_metadata[sample_header]['ms_protocol_name']}'..."
-            )
-
-        # If the value is None, it will already be raised as an exception, so just return None and keep going.
-        if self.lcms_metadata[sample_header]["ms_protocol_name"] is None:
-            return None
-
-        ms_protocol_name = self.lcms_metadata[sample_header]["ms_protocol_name"]
-
-        ms_protocol, created = Protocol.retrieve_or_create_protocol(
-            ms_protocol_name,
-            Protocol.MSRUN_PROTOCOL,
-            f"For protocol's full text, please consult {self.lcms_metadata[sample_header]['researcher']}.",
-        )
-        action = "Found"
-        feedback = (
-            f"{ms_protocol.category} protocol {ms_protocol.id} '{ms_protocol.name}'"
-        )
-        if created:
-            action = "Created"
-            feedback += f" '{ms_protocol.description}'"
-
-        if self.verbosity >= 1:
-            print(f"{action} {feedback}")
-
-        return ms_protocol
-
     def get_or_create_lc_protocol(self, sample_data_header):
         # lcms_metadata should be populated either from the lcms_metadata file or via the headers and the default
         # options/args.
@@ -1178,12 +1168,12 @@ class AccuCorDataLoader:
 
         # Each sample gets its own msrun
         for sample_data_header in self.db_samples_dict.keys():
-            ms_protocol = self.get_or_create_ms_protocol(sample_data_header)
             lc_protocol = self.get_or_create_lc_protocol(sample_data_header)
 
-            if lc_protocol is None or ms_protocol is None:
+            if lc_protocol is None:
                 # Cannot create the msrun record without protocols
-                # Note, an error will have already been buffered
+                # TODO: Currently, lc_method is NOT required, but it WILL be.  Once it is, this should buffer an
+                # exception
                 continue
 
             # TODO: Load instrument
@@ -1192,7 +1182,6 @@ class AccuCorDataLoader:
             msrun_dict = {
                 "date": self.lcms_metadata[sample_data_header]["date"],
                 "researcher": self.lcms_metadata[sample_data_header]["researcher"],
-                "protocol": ms_protocol,
                 "lc_method": lc_protocol,
                 "sample": self.db_samples_dict[sample_data_header],
             }
@@ -1209,8 +1198,7 @@ class AccuCorDataLoader:
                             "Inserting msrun for "
                             f"sample {self.lcms_metadata[sample_data_header]['sample_name']}, "
                             f"date {self.lcms_metadata[sample_data_header]['date']}, "
-                            f"researcher {self.lcms_metadata[sample_data_header]['researcher']}, "
-                            f"ms protocol {ms_protocol}, and "
+                            f"researcher {self.lcms_metadata[sample_data_header]['researcher']}, and "
                             f"lc protocol {lc_protocol}."
                         )
 

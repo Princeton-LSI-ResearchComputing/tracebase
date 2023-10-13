@@ -56,8 +56,6 @@ properties:
               description: accucor filename
             sample_name_prefix:
               type: string
-            msrun_protocol:
-              type: string
             lc_protocol:
               type: string
             instrument:
@@ -84,9 +82,6 @@ properties:
           required:
             - name
           additionalProperties: false
-      msrun_protocol:
-        type: string
-        description: name of ms run protocol
       lc_protocol:
         type: string
         description: name of liquid chromatography protocol
@@ -118,7 +113,6 @@ properties:
         description: prefix to append to sample names prior to searching
     required:
       - accucor_files
-      - msrun_protocol
       - lc_protocol
       - instrument
       - date

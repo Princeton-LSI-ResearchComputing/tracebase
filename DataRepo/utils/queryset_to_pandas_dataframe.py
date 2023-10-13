@@ -87,8 +87,8 @@ class QuerysetToPandasDataFrame:
         "msrun_id",
         "msrun_owner",
         "msrun_date",
-        "msrun_protocol_id",
-        "msrun_protocol",
+        "lc_method_id",
+        "lc_method",
     ]
 
     # the string for replacing null value for treatment, infusate, tracer
@@ -427,8 +427,8 @@ class QuerysetToPandasDataFrame:
             "id": "msrun_id",
             "researcher": "msrun_owner",
             "date": "msrun_date",
-            "protocol_id": "msrun_protocol_id",
-            "protocol__name": "msrun_protocol",
+            "lc_method_id": "lc_method_id",
+            "lc_method__name": "lc_method",
             "sample_id": "sample_id",
         }
         all_ms_df = cls.qs_to_df(msrun_qs, qry_to_df_fields)
@@ -456,8 +456,8 @@ class QuerysetToPandasDataFrame:
             "msrun_id",
             "msrun_owner",
             "msrun_date",
-            "msrun_protocol_id",
-            "msrun_protocol",
+            "lc_method_id",
+            "lc_method",
         ]
         all_sam_msrun_df = all_sam_msrun_df.reindex(columns=column_names)
         return all_sam_msrun_df

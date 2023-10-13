@@ -96,6 +96,7 @@ class ExampleDataConsumer:
         return peak_group_df
 
 
+@MaintainedModel.no_autoupdates()
 @override_settings(CACHES=settings.TEST_CACHES)
 class StudyTests(TracebaseTestCase, ExampleDataConsumer):
     def setUp(self):
@@ -136,15 +137,9 @@ class StudyTests(TracebaseTestCase, ExampleDataConsumer):
             date=first["Date Collected"],
         )
 
-        self.protocol = Protocol.objects.create(
-            name="p1",
-            description="p1desc",
-            category=Protocol.MSRUN_PROTOCOL,
-        )
         self.msrun = MSRun.objects.create(
             researcher="John Doe",
             date=datetime.now(),
-            protocol=self.protocol,
             sample=self.sample,
         )
 
@@ -233,21 +228,6 @@ class StudyTests(TracebaseTestCase, ExampleDataConsumer):
             self.sample.time_collected = timedelta(minutes=-2000)
             self.sample.full_clean()
 
-    def test_msrun_protocol(self):
-        """MSRun lookup by primary key"""
-        msr = MSRun.objects.get(id=self.msrun.pk)
-        self.assertEqual(msr.protocol.name, "p1")
-        self.assertEqual(msr.protocol.category, Protocol.MSRUN_PROTOCOL)
-        with self.assertRaises(RestrictedError):
-            # test a restricted deletion
-            msr.protocol.delete()
-
-    def test_msrun_protocol_validation(self):
-        msr = MSRun.objects.get(id=self.msrun.pk)
-        msr.protocol.category = Protocol.ANIMAL_TREATMENT
-        with self.assertRaises(ValidationError):
-            msr.full_clean()
-
     def test_peak_group(self):
         t_peak_group = PeakGroup.objects.get(name=self.peak_group.name)
         self.assertEqual(t_peak_group.peak_data.count(), 2)
@@ -271,45 +251,6 @@ class StudyTests(TracebaseTestCase, ExampleDataConsumer):
 @override_settings(CACHES=settings.TEST_CACHES)
 @tag("protocol")
 class ProtocolTests(TracebaseTestCase):
-    def setUp(self):
-        super().setUp()
-        self.p1 = Protocol.objects.create(
-            name="Protocol 1",
-            category=Protocol.MSRUN_PROTOCOL,
-            description="Description",
-        )
-        self.p1.save()
-
-    def test_retrieve_protocol_by_id(self):
-        p = Protocol.objects.filter(name="Protocol 1").get()
-        ptest, created = Protocol.retrieve_or_create_protocol(p.id)
-        self.assertEqual(self.p1, ptest)
-
-    def test_retrieve_protocol_by_name(self):
-        ptest, created = Protocol.retrieve_or_create_protocol(
-            "Protocol 1",
-            Protocol.MSRUN_PROTOCOL,
-            "Description",
-        )
-        self.assertEqual(self.p1, ptest)
-
-    def test_create_protocol_by_name(self):
-        test_protocol_name = "Protocol 2"
-        ptest, created = Protocol.retrieve_or_create_protocol(
-            test_protocol_name,
-            Protocol.MSRUN_PROTOCOL,
-            "Description",
-        )
-        self.assertEqual(ptest, Protocol.objects.filter(name=test_protocol_name).get())
-
-    def test_get_protocol_by_id_dne(self):
-        with self.assertRaises(Protocol.DoesNotExist):
-            Protocol.retrieve_or_create_protocol(
-                100,
-                Protocol.MSRUN_PROTOCOL,
-                "Description",
-            )
-
     def test_create_protocol_by_invalid_category(self):
         test_protocol_name = "Protocol 2"
         with self.assertRaises(ValidationError):
@@ -320,6 +261,7 @@ class ProtocolTests(TracebaseTestCase):
             )
 
 
+@MaintainedModel.no_autoupdates()
 @override_settings(CACHES=settings.TEST_CACHES)
 class DataLoadingTests(TracebaseTestCase):
     @classmethod
@@ -370,7 +312,6 @@ class DataLoadingTests(TracebaseTestCase):
 
         call_command(
             "load_accucor_msruns",
-            ms_protocol_name="Default",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
             accucor_file="DataRepo/example_data/obob_maven_6eaas_inf.xlsx",
@@ -384,7 +325,6 @@ class DataLoadingTests(TracebaseTestCase):
 
         call_command(
             "load_accucor_msruns",
-            ms_protocol_name="Default",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
             accucor_file="DataRepo/example_data/obob_maven_6eaas_serum.xlsx",
@@ -399,7 +339,6 @@ class DataLoadingTests(TracebaseTestCase):
         # test load CSV file of corrected data, with no "original counterpart"
         call_command(
             "load_accucor_msruns",
-            ms_protocol_name="Default",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
             accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_corrected.csv",
@@ -599,7 +538,6 @@ class DataLoadingTests(TracebaseTestCase):
         with self.assertRaises(ValidationError):
             call_command(
                 "load_accucor_msruns",
-                ms_protocol_name="Default",
                 lc_protocol_name="polar-HILIC-25-min",
                 instrument="default instrument",
                 accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_sample_dupe.xlsx",
@@ -613,7 +551,6 @@ class DataLoadingTests(TracebaseTestCase):
     def test_adl_existing_researcher(self):
         call_command(
             "load_accucor_msruns",
-            ms_protocol_name="Default",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
             accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_new_researcher_err.xlsx",
@@ -633,7 +570,6 @@ class DataLoadingTests(TracebaseTestCase):
             # Now load with a new researcher (and no --new-researcher flag)
             call_command(
                 "load_accucor_msruns",
-                ms_protocol_name="Default",
                 lc_protocol_name="polar-HILIC-25-min",
                 instrument="default instrument",
                 accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_new_researcher_err2.xlsx",
@@ -654,7 +590,6 @@ class DataLoadingTests(TracebaseTestCase):
     def test_adl_new_researcher_confirmed(self):
         call_command(
             "load_accucor_msruns",
-            ms_protocol_name="Default",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
             accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_new_researcher_err2.xlsx",
@@ -677,7 +612,6 @@ class DataLoadingTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_accucor_msruns",
-                ms_protocol_name="Default",
                 lc_protocol_name="polar-HILIC-25-min",
                 instrument="default instrument",
                 accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_new_researcher_err2.xlsx",
@@ -751,7 +685,6 @@ class DataLoadingTests(TracebaseTestCase):
         # this file contains 1 valid synonym for glucose, "dextrose"
         call_command(
             "load_accucor_msruns",
-            ms_protocol_name="Default",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
             accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_corrected_valid_syn.csv",
@@ -779,7 +712,6 @@ class DataLoadingTests(TracebaseTestCase):
             # this file contains 1 invalid synonym for glucose "table sugar"
             call_command(
                 "load_accucor_msruns",
-                ms_protocol_name="Default",
                 lc_protocol_name="polar-HILIC-25-min",
                 instrument="default instrument",
                 accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_corrected_invalid_syn.csv",
@@ -797,6 +729,7 @@ class DataLoadingTests(TracebaseTestCase):
         )
 
 
+@MaintainedModel.no_autoupdates()
 @override_settings(CACHES=settings.TEST_CACHES)
 class PropertyTests(TracebaseTestCase):
     @classmethod
@@ -845,7 +778,6 @@ class PropertyTests(TracebaseTestCase):
 
         call_command(
             "load_accucor_msruns",
-            ms_protocol_name="Default",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
             accucor_file="DataRepo/example_data/obob_maven_6eaas_inf.xlsx",
@@ -859,7 +791,6 @@ class PropertyTests(TracebaseTestCase):
 
         call_command(
             "load_accucor_msruns",
-            ms_protocol_name="Default",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
             accucor_file="DataRepo/example_data/obob_maven_6eaas_serum.xlsx",
@@ -874,7 +805,6 @@ class PropertyTests(TracebaseTestCase):
         # test load CSV file of corrected data, with no "original counterpart"
         call_command(
             "load_accucor_msruns",
-            ms_protocol_name="Default",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
             accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_corrected.csv",
@@ -1027,13 +957,10 @@ class PropertyTests(TracebaseTestCase):
 
         # Retrieve a sample associated with an animal that has a tracer with only a nitrogen label
         sample = Sample.objects.get(name__exact="test_animal_2_sample_1")
-        pc = Protocol(name=Protocol.MSRUN_PROTOCOL)
-        pc.save()
         msrun = MSRun(
             sample=sample,
             researcher="george",
             date=datetime.strptime("1992-1-1".strip(), "%Y-%m-%d"),
-            protocol=pc,
         )
         msrun.save()
         pgs = PeakGroupSet()
@@ -1153,7 +1080,6 @@ class PropertyTests(TracebaseTestCase):
         msrun = MSRun.objects.create(
             researcher="John Doe",
             date=datetime.now(),
-            protocol=first_serum_sample.msruns.first().protocol,
             sample=second_serum_sample,
         )
         second_serum_peak_group = PeakGroup.objects.create(
@@ -1241,7 +1167,6 @@ class PropertyTests(TracebaseTestCase):
         msrun = MSRun.objects.create(
             researcher="John Doe",
             date=datetime.now(),
-            protocol=first_serum_sample.msruns.first().protocol,
             sample=second_serum_sample,
         )
         # DO NOT CREATE A PEAKGROUP FOR THE TRACER
@@ -1371,7 +1296,6 @@ class PropertyTests(TracebaseTestCase):
         msrun = MSRun.objects.create(
             researcher="John Doe",
             date=datetime.now(),
-            protocol=peak_group.msrun.protocol,
             sample=peak_group.msrun.sample,
         )
         peak_group_zero = PeakGroup.objects.create(
@@ -1529,6 +1453,7 @@ class PropertyTests(TracebaseTestCase):
             self.assertFalse(pgl.can_compute_average_tracer_label_rates)
 
 
+@MaintainedModel.no_autoupdates()
 @override_settings(CACHES=settings.TEST_CACHES)
 class MultiTracerLabelPropertyTests(TracebaseTestCase):
     @classmethod
@@ -1549,7 +1474,6 @@ class MultiTracerLabelPropertyTests(TracebaseTestCase):
             "load_accucor_msruns",
             accucor_file="DataRepo/example_data/obob_fasted_glc_lac_gln_ala_multiple_labels/"
             "alafasted_cor.xlsx",
-            ms_protocol_name="Default",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
             date="2021-04-29",
@@ -1618,6 +1542,7 @@ class MultiTracerLabelPropertyTests(TracebaseTestCase):
         self.assertAlmostEqual(expectedn, pgn)
 
 
+@MaintainedModel.no_autoupdates()
 @override_settings(CACHES=settings.TEST_CACHES)
 class TracerRateTests(TracebaseTestCase):
     @classmethod
@@ -1639,7 +1564,6 @@ class TracerRateTests(TracebaseTestCase):
         # for the fcirc and rate-calculation tests
         call_command(
             "load_accucor_msruns",
-            ms_protocol_name="Default",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
             accucor_file="DataRepo/example_data/obob_maven_c160_serum.xlsx",
@@ -2164,6 +2088,7 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
         )
 
 
+@MaintainedModel.no_autoupdates()
 @override_settings(CACHES=settings.TEST_CACHES)
 @tag("load_study")
 class StudyLoadingTests(TracebaseTestCase):
@@ -2463,6 +2388,7 @@ class StudyLoadingTests(TracebaseTestCase):
         )
 
 
+@MaintainedModel.no_autoupdates()
 @override_settings(CACHES=settings.TEST_CACHES)
 @tag("load_study")
 class ParseIsotopeLabelTests(TracebaseTestCase):
@@ -2563,7 +2489,6 @@ class ParseIsotopeLabelTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_accucor_msruns",
-                ms_protocol_name="Default",
                 lc_protocol_name="polar-HILIC-25-min",
                 instrument="default instrument",
                 accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_dupes.xlsx",
@@ -2593,6 +2518,7 @@ class ParseIsotopeLabelTests(TracebaseTestCase):
         )
 
 
+@MaintainedModel.no_autoupdates()
 @override_settings(CACHES=settings.TEST_CACHES)
 @tag("animal")
 @tag("loading")
