@@ -13,7 +13,6 @@ from DataRepo.models import (
     MSRun,
     PeakGroup,
     PeakGroupLabel,
-    PeakGroupSet,
     Protocol,
     Sample,
 )
