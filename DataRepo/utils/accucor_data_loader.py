@@ -194,9 +194,10 @@ class AccuCorDataLoader:
                 # file.  This assumption is later checked in validate_mzxmls().  If the assumption is incorrect, the
                 # actual header to zmXML relationship should be added to the LCMS metadata file (to not use the invalid
                 # default).
-                self.lcms_defaults["mzxml_files"] = {}
+                self.lcms_defaults["mzxml_files"] = defaultdict(str)
                 for fn in mzxml_files:
                     nm, _ = os.path.splitext(fn)
+                    print(f"ADDING MZXML FILE NAME: {nm} for file: {fn}")
                     # pylint: disable=unsupported-assignment-operation
                     self.lcms_defaults["mzxml_files"][nm] = fn
                     # pylint: enable=unsupported-assignment-operation
@@ -351,21 +352,12 @@ class AccuCorDataLoader:
                 )
 
     def initialize_sample_names(self):
-        minimum_sample_index = self.get_first_sample_column_index(
-            self.accucor_corrected_df
+        self.corrected_sample_headers = get_sample_headers(
+            self.accucor_corrected_df, self.skip_samples
         )
-        if minimum_sample_index is None:
-            # Sample columns are required to proceed
-            raise SampleIndexNotFound(
-                "corrected", list(self.accucor_corrected_df.columns)
-            )
-        self.corrected_sample_headers = [
-            sample
-            for sample in list(self.accucor_corrected_df)[minimum_sample_index:]
-            if sample not in self.skip_samples
-        ]
+
         if self.accucor_original_df is not None:
-            minimum_sample_index = self.get_first_sample_column_index(
+            minimum_sample_index = get_first_sample_column_index(
                 self.accucor_original_df
             )
             if minimum_sample_index is None:
@@ -433,12 +425,29 @@ class AccuCorDataLoader:
         for sample_header in self.corrected_sample_headers:
             default_mzxml_file = self.sample_header_to_default_mzxml(sample_header)
             if sample_header not in self.lcms_metadata.keys():
-                self.check_mzxml(sample_header, default_mzxml_file)
+                # Fill in default values for anything missing
+                if (
+                    self.lcms_defaults["mzxml_files"] is not None
+                    and len(self.lcms_defaults["mzxml_files"].keys()) > 0
+                    and sample_header in self.lcms_defaults["mzxml_files"].keys()
+                ):
+                    print(
+                        f"SETTING MZXMLFILE WITHOUT LCMS METADATA TO: {default_mzxml_file}"
+                    )
+                    # pylint: disable=unsubscriptable-object
+                    mzxml_file = self.lcms_defaults["mzxml_files"][sample_header]
+                    # pylint: enable=unsubscriptable-object
+                else:
+                    mzxml_file = default_mzxml_file
+                    print(
+                        f"SETTING MZXMLFILE WITHOUT LCMS METADATA TO MATCHED FILE: {mzxml_file}"
+                    )
+                self.check_mzxml(sample_header, mzxml_file)
                 self.lcms_metadata[sample_header] = {
                     "sample_header": sample_header,
                     "sample_name": sample_header,
                     "peak_annotation": self.lcms_defaults["peak_annot_file"],
-                    "mzxml": default_mzxml_file,
+                    "mzxml": mzxml_file,
                     "ms_protocol_name": self.lcms_defaults["ms_protocol_name"],
                     "researcher": self.lcms_defaults["researcher"],
                     "instrument": self.lcms_defaults["instrument"],
@@ -867,30 +876,6 @@ class AccuCorDataLoader:
             self.tracer_labeled_elements = accucor_labeled_elems
         else:
             self.tracer_labeled_elements = tracer_labeled_elements
-
-    @classmethod
-    def get_first_sample_column_index(cls, df):
-        """
-        Given a dataframe, return the column index of the likely "first" sample column
-        """
-
-        final_index = None
-        max_nonsample_index = 0
-        found = False
-        for col_name in NONSAMPLE_COLUMN_NAMES:
-            try:
-                if df.columns.get_loc(col_name) > max_nonsample_index:
-                    max_nonsample_index = df.columns.get_loc(col_name)
-                    found = True
-            except KeyError:
-                # column is not found, so move on
-                pass
-
-        if found:
-            final_index = max_nonsample_index + 1
-
-        # the sample index should be the next column
-        return final_index
 
     def validate_peak_groups(self):
         """
@@ -1729,6 +1714,44 @@ class AccuCorDataLoader:
             raise self.aggregated_errors_object
 
         enable_caching_updates()
+
+
+def get_first_sample_column_index(df):
+    """
+    Given a dataframe, return the column index of the likely "first" sample column
+    """
+
+    final_index = None
+    max_nonsample_index = 0
+    found = False
+    for col_name in NONSAMPLE_COLUMN_NAMES:
+        try:
+            if df.columns.get_loc(col_name) > max_nonsample_index:
+                max_nonsample_index = df.columns.get_loc(col_name)
+                found = True
+        except KeyError:
+            # column is not found, so move on
+            pass
+
+    if found:
+        final_index = max_nonsample_index + 1
+
+    # the sample index should be the next column
+    return final_index
+
+
+def get_sample_headers(df, skip_samples=None):
+    if skip_samples is None:
+        skip_samples = []
+    minimum_sample_index = get_first_sample_column_index(df)
+    if minimum_sample_index is None:
+        # Sample columns are required to proceed
+        raise SampleIndexNotFound("corrected", list(df.columns))
+    return [
+        sample
+        for sample in list(df)[minimum_sample_index:]
+        if sample not in skip_samples
+    ]
 
 
 class IsotopeObservationParsingError(Exception):

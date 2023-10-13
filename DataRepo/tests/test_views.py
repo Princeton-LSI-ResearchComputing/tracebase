@@ -754,6 +754,22 @@ class ValidationViewTests(TracebaseTransactionTestCase):
             researcher="Michael Neinast",
             new_researcher=True,
             validate=True,
+            mzxml_files=[
+                "BAT-xz971.mzxml",
+                "Br-xz971.mzxml",
+                "Dia-xz971.mzxml",
+                "gas-xz971.mzxml",
+                "gWAT-xz971.mzxml",
+                "H-xz971.mzxml",
+                "Kid-xz971.mzxml",
+                "Liv-xz971.mzxml",
+                "Lu-xz971.mzxml",
+                "Pc-xz971.mzxml",
+                "Q-xz971.mzxml",
+                "SI-xz971.mzxml",
+                "Sol-xz971.mzxml",
+                "Sp-xz971.mzxml",
+            ],
         )
 
         # Ensure the auto-update buffer is empty.  If it's not, then a previously run test didn't clean up after itself
