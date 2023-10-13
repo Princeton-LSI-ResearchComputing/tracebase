@@ -26,8 +26,10 @@ from DataRepo.utils.lcms_metadata_parser import (
     InvalidLCMSHeaders,
     MissingPeakAnnotationFiles,
     MissingRequiredLCMSValues,
+    check_peak_annotation_files,
     extract_dataframes_from_lcms_tsv,
     extract_dataframes_from_lcms_xlsx,
+    get_lcms_metadata_dict_from_file,
     lcms_df_to_dict,
     lcms_headers_are_valid,
     lcms_metadata_to_samples,
@@ -630,12 +632,45 @@ class LCMSMetadataParserMethodTests(TracebaseTestCase):
         self.assertFalse(lcms_headers_are_valid(["bad", "headers"]))
 
     def test_get_lcms_metadata_dict_from_file(self):
-        # TODO: Implement
-        pass
+        lcms_metadata1 = get_lcms_metadata_dict_from_file(
+            "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc.xlsx"
+        )
+        self.assertTrue(isinstance(lcms_metadata1, dict))
+        self.assertEqual(15, len(lcms_metadata1.keys()))
+        lcms_metadata2 = get_lcms_metadata_dict_from_file(
+            "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc.tsv"
+        )
+        self.assertTrue(isinstance(lcms_metadata2, dict))
+        self.assertEqual(15, len(lcms_metadata2.keys()))
 
     def test_check_peak_annotation_files(self):
-        # TODO: Implement
-        pass
+        aes = AggregatedErrors()
+        # No error.  All annot files supplied.
+        check_peak_annotation_files(
+            ["small_obob_maven_6eaas_inf_glucose.xlsx"],
+            lcms_file="DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc_no_extras.tsv",
+            aes=aes,
+        )
+        self.assertEqual(0, len(aes.exceptions))
+
+        # No error.  All annot files supplied.
+        check_peak_annotation_files(
+            ["small_obob_maven_6eaas_inf_glucose.xlsx"],
+            lcms_file="DataRepo/example_data/small_dataset/"
+            "glucose_lcms_metadata_except_mzxml_and_lcdesc_unsupplied_annot.tsv",
+            aes=aes,
+        )
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertEqual(MissingPeakAnnotationFiles, type(aes.exceptions[0]))
+        self.assertEqual(
+            ["unsupplied_accucor_file.xlsx"],
+            aes.exceptions[0].missing_peak_annot_files,
+        )
+        self.assertEqual(0, len(aes.exceptions[0].unmatching_peak_annot_files))
+        self.assertEqual(
+            "glucose_lcms_metadata_except_mzxml_and_lcdesc_unsupplied_annot.tsv",
+            aes.exceptions[0].lcms_file,
+        )
 
 
 class LCMSMetadataRequirementsTests(TracebaseTestCase):

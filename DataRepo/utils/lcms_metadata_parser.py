@@ -40,10 +40,9 @@ def lcms_df_to_dict(df, aes=None):
     for idx, row in df.iterrows():
         # Convert empty strings to None
         for key in row.keys():
-            if (
-                row[key] is not None
-                and type(row[key]) == str
-                and row[key].strip() == ""
+            if row[key] is not None and (
+                str(row[key]) == "nan"
+                or (type(row[key]) == str and row[key].strip() == "")
             ):
                 row[key] = None
 
@@ -137,9 +136,12 @@ def check_peak_annotation_files(
     annot_files_from_study, lcms_metadata_dict=None, lcms_file=None, aes=None
 ):
     """
-    Check that all peak annotation files explicitly listed in the LCMS metadata is in the supplied peak annot file list.
-    This is intended to be used by load_study to ensure that a user remembered to supply all files and that they didn't
-    get any file names wrong.
+    Check that all peak annotation files explicitly listed in the LCMS metadata are in the supplied peak annot file
+    list.  This is intended to be used by load_study to ensure that a user remembered to supply all files and that they
+    didn't get any file names wrong.
+
+    Note, since annot_files_from_study represents files listing in the loading.yaml file, this function does not check
+    that peak annotation files supplied in the study directory are in the study yaml file.
     """
     # Initialize lcms_metadata
     lcms_metadata = {}
