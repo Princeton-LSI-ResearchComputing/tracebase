@@ -76,7 +76,6 @@ jobs:
           --date "2021-04-29" \
           --researcher "Michael Neinast" \
           --new-researcher \
-          --ms-protocol-name "Default" \
           --lc-protocol-name "unknown" \
           --instrument "default instrument"
       - name: Load example accucor 6eaas serum data
@@ -85,7 +84,6 @@ jobs:
           --accucor-file "DataRepo/example_data/obob_maven_6eaas_serum.xlsx" \
           --date "2021-04-29" \
           --researcher "Michael Neinast" \
-          --ms-protocol-name "Default" \
           --lc-protocol-name "unknown" \
           --instrument "default instrument"
       - name: Load example accucor c160 data
@@ -94,7 +92,6 @@ jobs:
           --accucor-file "DataRepo/example_data/obob_maven_c160_inf.xlsx" \
           --date "2021-04-29" \
           --researcher "Michael Neinast" \
-          --ms-protocol-name "Default" \
           --lc-protocol-name "unknown" \
           --instrument "default instrument"
       - name: Load example accucor c160 serum data
@@ -103,6 +100,5 @@ jobs:
           --accucor-file "DataRepo/example_data/obob_maven_c160_serum.xlsx" \
           --date "2021-04-29" \
           --researcher "Michael Neinast" \
-          --ms-protocol-name "Default" \
           --lc-protocol-name "unknown" \
           --instrument "default instrument"
