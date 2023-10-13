@@ -197,7 +197,6 @@ class AccuCorDataLoader:
                 self.lcms_defaults["mzxml_files"] = defaultdict(str)
                 for fn in mzxml_files:
                     nm, _ = os.path.splitext(fn)
-                    print(f"ADDING MZXML FILE NAME: {nm} for file: {fn}")
                     # pylint: disable=unsupported-assignment-operation
                     self.lcms_defaults["mzxml_files"][nm] = fn
                     # pylint: enable=unsupported-assignment-operation
@@ -431,17 +430,11 @@ class AccuCorDataLoader:
                     and len(self.lcms_defaults["mzxml_files"].keys()) > 0
                     and sample_header in self.lcms_defaults["mzxml_files"].keys()
                 ):
-                    print(
-                        f"SETTING MZXMLFILE WITHOUT LCMS METADATA TO: {default_mzxml_file}"
-                    )
                     # pylint: disable=unsubscriptable-object
                     mzxml_file = self.lcms_defaults["mzxml_files"][sample_header]
                     # pylint: enable=unsubscriptable-object
                 else:
                     mzxml_file = default_mzxml_file
-                    print(
-                        f"SETTING MZXMLFILE WITHOUT LCMS METADATA TO MATCHED FILE: {mzxml_file}"
-                    )
                 self.check_mzxml(sample_header, mzxml_file)
                 self.lcms_metadata[sample_header] = {
                     "sample_header": sample_header,

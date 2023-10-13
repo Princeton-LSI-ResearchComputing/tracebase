@@ -58,9 +58,10 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             mzxml_files=["sample1.mzxml", "sample2.mzxml"],
         )
         mzxml1 = adl1.sample_header_to_default_mzxml("does-not-exist")
-        self.assertIsNone(
+        self.assertEqual(
+            "does-not-exist.mzxml",
             mzxml1,
-            msg="Failed lookups should result in None",
+            msg="The default mzxml file should be based on the sample_header supplied if mzxml_files are provided",
         )
         self.assertEqual(0, len(adl1.aggregated_errors_object.exceptions))
 
@@ -106,6 +107,27 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
         mzxml = adl3.sample_header_to_default_mzxml("sample")
         self.assertIsNone(mzxml, msg="If mzxml files array is empty, None is returned")
         self.assertEqual(0, len(adl3.aggregated_errors_object.exceptions))
+
+    def test_sample_header_to_default_mzxml_none(self):
+        adl1 = AccuCorDataLoader(
+            None,
+            None,
+            peak_group_set_filename="",
+            lcms_metadata_df=extract_dataframes_from_lcms_tsv(
+                "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc_pos.tsv"
+            ),
+            date="",
+            researcher="",
+            ms_protocol_name="",
+            lc_protocol_name="",
+            instrument="",
+        )
+        mzxml = adl1.sample_header_to_default_mzxml("does-not-exist")
+        self.assertIsNone(
+            mzxml,
+            msg="The default mzxml file should be None when no mzxml_files are provided",
+        )
+        self.assertEqual(0, len(adl1.aggregated_errors_object.exceptions))
 
     def test_check_mzxml(self):
         adl1 = AccuCorDataLoader(
@@ -169,13 +191,13 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             type(adl1.aggregated_errors_object.exceptions[0]),
             msg="The first exception should be MissingMZXMLFiles.",
         )
-        self.assertFalse(
+        self.assertTrue(
             adl1.aggregated_errors_object.exceptions[0].is_error,
-            msg="The first exception should be a warning in loading mode.",
+            msg="The MissingMZXMLFiles exception should be an error in loading mode when any mzxml files are provided.",
         )
-        self.assertFalse(
+        self.assertTrue(
             adl1.aggregated_errors_object.exceptions[0].is_fatal,
-            msg="The first exception should not be fatal in loading mode.",
+            msg="The MissingMZXMLFiles exception should be fatal in loading mode when any mzxml files are provided.",
         )
         self.assertEqual(
             list,
@@ -250,6 +272,30 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
         self.assertTrue(
             adl2.aggregated_errors_object.exceptions[1].is_fatal,
             msg="The second exception should be fatal in validate mode.",
+        )
+
+    def test_validate_mzxmls_load_makes_mzxml_optl(self):
+        adl = AccuCorDataLoader(
+            None,
+            None,
+            peak_group_set_filename="accucor.xlsx",
+            lcms_metadata_df=extract_dataframes_from_lcms_tsv(
+                "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc_pos.tsv"
+            ),
+            date="1972-11-24",
+            researcher="Robert Leach",
+            ms_protocol_name="Default",
+            lc_protocol_name="polar-HILIC",
+            instrument="default instrument",
+            validate=False,
+        )
+
+        adl.validate_mzxmls()
+
+        self.assertEqual(
+            0,
+            len(adl.aggregated_errors_object.exceptions),
+            msg="mzxml files are optional in loading mode",
         )
 
     def test_get_missing_required_lcms_defaults(self):
