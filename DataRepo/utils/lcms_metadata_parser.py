@@ -4,10 +4,15 @@ from datetime import timedelta
 from zipfile import BadZipFile
 
 import pandas as pd
-from django.core.exceptions import ValidationError
 from openpyxl.utils.exceptions import InvalidFileException
 
 from DataRepo.models.lc_method import LCMethod
+from DataRepo.utils.exceptions import (
+    DuplicateSampleDataHeaders,
+    InvalidLCMSHeaders,
+    MissingPeakAnnotationFiles,
+    MissingRequiredLCMSValues,
+)
 
 LCMS_HEADERS = (
     "tracebase sample name",  # Required
@@ -80,16 +85,16 @@ def lcms_df_to_dict(df, aes=None):
         lcms_metadata[sample_header] = {
             "sample_header": sample_header,
             "sample_name": sample_name,
-            "peak_annotation": peak_annot,
+            "peak_annot_file": peak_annot,
             "mzxml": row["mzxml filename"],
             "ms_protocol_name": row["ms mode"],
             "researcher": row["operator"],
             "instrument": row["instrument"],
             "date": row["date"],
+            "lc_protocol_name": lc_name,
             "lc_type": row["lc method"],
             "lc_run_length": run_len,
             "lc_description": row["lc description"],
-            "lc_name": lc_name,
             "row_num": str(idx + 2),  # From 1, not including header row
         }
 
@@ -159,20 +164,20 @@ def check_peak_annotation_files(
     # Obtain a unique set of peak annotation file names
     for sample_data_header in lcms_metadata.keys():
         if (
-            lcms_metadata[sample_data_header]["peak_annotation"] is not None
-            and lcms_metadata[sample_data_header]["peak_annotation"].strip() != ""
-            and lcms_metadata[sample_data_header]["peak_annotation"].strip()
+            lcms_metadata[sample_data_header]["peak_annot_file"] is not None
+            and lcms_metadata[sample_data_header]["peak_annot_file"].strip() != ""
+            and lcms_metadata[sample_data_header]["peak_annot_file"].strip()
             not in peak_annot_files_from_lcms
         ):
             peak_annot_files_from_lcms.append(
-                lcms_metadata[sample_data_header]["peak_annotation"].strip()
+                lcms_metadata[sample_data_header]["peak_annot_file"].strip()
             )
             if (
-                lcms_metadata[sample_data_header]["peak_annotation"].strip()
+                lcms_metadata[sample_data_header]["peak_annot_file"].strip()
                 not in annot_files_from_study
             ):
                 missing_peak_annot_files.append(
-                    lcms_metadata[sample_data_header]["peak_annotation"].strip()
+                    lcms_metadata[sample_data_header]["peak_annot_file"].strip()
                 )
 
     extra_peak_annot_files = []
@@ -181,7 +186,7 @@ def check_peak_annotation_files(
     for annot_file_from_study in annot_files_from_study:
         if annot_file_from_study not in peak_annot_files_from_lcms:
             extra_peak_annot_files.append(
-                lcms_metadata[sample_data_header]["peak_annotation"].strip()
+                lcms_metadata[sample_data_header]["peak_annot_file"].strip()
             )
 
     lcms_file_basename = os.path.basename(lcms_file)
@@ -244,81 +249,3 @@ def lcms_headers_are_valid(headers):
     return sorted([s.lower() for s in headers]) == sorted(
         [s.lower() for s in LCMS_HEADERS]
     )
-
-
-class DuplicateSampleDataHeaders(Exception):
-    def __init__(self, dupes, lcms_metadata, samples):
-        cs = ", "
-        dupes_str = "\n\t".join(
-            [f"{k} rows: [{cs.join(dupes[k])}]" for k in dupes.keys()]
-        )
-        message = (
-            "The following sample data headers were found to have duplicates on the LCMS metadata file on the "
-            "indicated rows:\n\n"
-            f"\t{dupes_str}"
-        )
-        super().__init__(message)
-        self.dupes = dupes
-        # used by code that catches this exception
-        self.lcms_metadata = lcms_metadata
-        self.samples = samples
-
-
-class InvalidLCMSHeaders(ValidationError):
-    def __init__(self, headers, expected_headers=None, lcms_file=None):
-        if expected_headers is None:
-            expected_headers = LCMS_HEADERS
-        message = "LCMS metadata "
-        if lcms_file is not None:
-            message += f"file [{lcms_file}] "
-        missing = [i for i in expected_headers if i not in headers]
-        unexpected = [i for i in headers if i not in expected_headers]
-        if len(missing) > 0:
-            message += f"is missing headers {type(missing)}: {missing}"
-        if len(missing) > 0 and len(unexpected) > 0:
-            message += " and "
-        if len(unexpected) > 0:
-            message += f" has unexpected headers: {unexpected}"
-        super().__init__(message)
-        self.headers = headers
-        self.expected_headers = expected_headers
-        self.lcms_file = lcms_file
-        self.missing = missing
-        self.unexpected = unexpected
-
-
-class MissingRequiredLCMSValues(Exception):
-    def __init__(self, header_rownums_dict):
-        head_rows_str = ""
-        cs = ", "
-        for header in header_rownums_dict.keys():
-            head_rows_str += f"\n\t{header}: {cs.join([str(i) for i in header_rownums_dict[header]])}"
-        message = f"The following required values are missing on the indicated rows:\n{head_rows_str}"
-        super().__init__(message)
-        self.header_rownums_dict = header_rownums_dict
-
-
-class MissingPeakAnnotationFiles(Exception):
-    def __init__(
-        self, missing_peak_annot_files, unmatching_peak_annot_files=None, lcms_file=None
-    ):
-        nlt = "\n\t"
-        message = (
-            f"The following peak annotation files:\n\n"
-            f"\t{nlt.join(missing_peak_annot_files)}\n\n"
-        )
-        if lcms_file is not None:
-            message += f"from the LCMS metadata file:\n\n\t{lcms_file}]"
-        message += "were not supplied."
-        if (
-            unmatching_peak_annot_files is not None
-            and len(unmatching_peak_annot_files) > 0
-        ):
-            message += (
-                "  The following unaccounted-for peak annotation files in the LCMS metadata were also found:\n"
-                f"\t\t{nlt.join(unmatching_peak_annot_files)}\n\nPerhaps there is a typo?"
-            )
-        super().__init__(message)
-        self.missing_peak_annot_files = missing_peak_annot_files
-        self.unmatching_peak_annot_files = unmatching_peak_annot_files
-        self.lcms_file = lcms_file

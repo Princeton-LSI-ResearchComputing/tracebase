@@ -34,11 +34,16 @@ from DataRepo.utils.exceptions import (
     DryRun,
     DuplicateValues,
     HeaderConfigError,
+    LCMSDBSampleMissing,
     MissingTissues,
+    NoConcentrations,
     RequiredHeadersError,
     RequiredSampleValuesError,
+    SampleError,
     SaveError,
     SheetMergeError,
+    TissueError,
+    TreatmentError,
     UnitsWrong,
     UnknownHeadersError,
 )
@@ -1043,36 +1048,3 @@ class SampleTableLoader:
                 val = None
 
         return val
-
-
-class NoConcentrations(Exception):
-    pass
-
-
-class UnanticipatedError(Exception):
-    def __init__(self, type, e):
-        message = f"{type}: {str(e)}"
-        super().__init__(message)
-
-
-class SampleError(UnanticipatedError):
-    pass
-
-
-class TissueError(UnanticipatedError):
-    pass
-
-
-class TreatmentError(UnanticipatedError):
-    pass
-
-
-class LCMSDBSampleMissing(Exception):
-    def __init__(self, lcms_samples_missing):
-        nlt = "\n\t"
-        message = (
-            "The following sample names from the LCMS metadata are missing in the animal sample table:\n\t"
-            f"{nlt.join(lcms_samples_missing)}"
-        )
-        super().__init__(message)
-        self.lcms_samples_missing = lcms_samples_missing

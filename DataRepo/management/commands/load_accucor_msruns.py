@@ -17,6 +17,7 @@ from DataRepo.utils import (
     extract_dataframes_from_lcms_tsv,
     extract_dataframes_from_lcms_xlsx,
 )
+from DataRepo.utils.exceptions import WrongExcelSheet
 
 
 class Command(BaseCommand):
@@ -296,12 +297,3 @@ class Command(BaseCommand):
         if self.num_uniq_heads != self.num_heads:
             return True
         return False
-
-
-class WrongExcelSheet(Exception):
-    def __init__(self, file_type, sheet_name, expected_sheet_name, sheet_num):
-        message = (
-            f"Expected [{file_type}] Excel sheet [{sheet_num}] to be named [{expected_sheet_name}], but got "
-            f"[{sheet_name}]."
-        )
-        super().__init__(message)
