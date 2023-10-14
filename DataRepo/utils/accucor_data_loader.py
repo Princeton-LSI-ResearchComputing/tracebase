@@ -318,21 +318,26 @@ class AccuCorDataLoader:
                 self.lcms_metadata[sample_header]["researcher"]
                 not in adding_researchers
             ):
-                if self.lcms_metadata[sample_header]["researcher"] is None:
-                    if not self.aggregated_errors_object.exception_type_exists(
-                        MissingLCMSSampleDataHeaders
-                    ) and not self.aggregated_errors_object.exception_type_exists(
-                        LCMSDefaultsRequired
-                    ):
-                        self.aggregated_errors_object.buffer_error(
-                            ValueError(
-                                f"Researcher associated with sample header: [{sample_header}] cannot be None."
-                            )
-                        )
-                else:
-                    adding_researchers.append(
-                        self.lcms_metadata[sample_header]["researcher"]
-                    )
+                # if self.lcms_metadata[sample_header]["researcher"] is None:
+                #     if not self.aggregated_errors_object.exception_type_exists(
+                #         MissingLCMSSampleDataHeaders
+                #     ) and not self.aggregated_errors_object.exception_type_exists(
+                #         LCMSDefaultsRequired
+                #     ):
+                #         self.aggregated_errors_object.buffer_error(
+                #             ValueError(
+                #                 f"Researcher associated with sample header: [{sample_header}] cannot be None."
+                #             )
+                #         )
+                # else:
+                #     adding_researchers.append(
+                #         self.lcms_metadata[sample_header]["researcher"]
+                #     )
+                # REMOVE IF DOES NOT WORK vvv
+                adding_researchers.append(
+                    self.lcms_metadata[sample_header]["researcher"]
+                )
+                # REMOVE IF DOES NOT WORK ^^^
 
         if self.allow_new_researchers is True:
             researchers = get_researchers()
@@ -1015,24 +1020,32 @@ class AccuCorDataLoader:
                 rec = LCMethod.objects.get(
                     name__exact=LCMethod.DEFAULT_TYPE, type__exact=LCMethod.DEFAULT_TYPE
                 )
-                # If this is not due to a missing sample data header
-                if (
-                    not self.aggregated_errors_object.exception_type_exists(
-                        MissingLCMSSampleDataHeaders
-                    )
-                    or sample_data_header not in self.missing_sample_headers
-                ):
-                    # If the above found a record and there's no known explanation, buffer the original exception
-                    self.aggregated_errors_object.buffer_error(e)
+                # # If this is not due to a missing sample data header
+                # if (
+                #     not self.aggregated_errors_object.exception_type_exists(
+                #         MissingLCMSSampleDataHeaders
+                #     )
+                #     or sample_data_header not in self.missing_sample_headers
+                # ):
+                    # # If the above found a record and there's no known explanation, buffer the original exception
+                    # self.aggregated_errors_object.buffer_error(e)
+                # REMOVE IF DOES NOT WORK vvv
+                self.aggregated_errors_object.buffer_error(e)
+                # REMOVE IF DOES NOT WORK ^^^
             except LCMethod.DoesNotExist as dne:
-                # Ignore the enclosing exception, deferring to the new LCMethodFixturesMissing exception
-                # If this exception hasn't already been buffered
-                if not self.aggregated_errors_object.exception_type_exists(
-                    LCMethodFixturesMissing
-                ):
-                    self.aggregated_errors_object.buffer_error(
-                        LCMethodFixturesMissing(dne)
-                    )
+                # # Ignore the enclosing exception, deferring to the new LCMethodFixturesMissing exception
+                # # If this exception hasn't already been buffered
+                # if not self.aggregated_errors_object.exception_type_exists(
+                #     LCMethodFixturesMissing
+                # ):
+                #     self.aggregated_errors_object.buffer_error(
+                #         LCMethodFixturesMissing(dne)
+                #     )
+                # REMOVE IF DOES NOT WORK vvv
+                self.aggregated_errors_object.buffer_error(
+                    LCMethodFixturesMissing(dne)
+                )
+                # REMOVE IF DOES NOT WORK ^^^
                 rec = None
             except Exception:
                 # We don't know what the new exception is, so revert to the enclosing exception
