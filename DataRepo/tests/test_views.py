@@ -814,8 +814,7 @@ class ValidationViewTests(TracebaseTransactionTestCase):
 
         # Get initial record counts for all models
         tb_init_counts = self.get_record_counts()
-        coordinator = MaintainedModel._get_current_coordinator()
-        pre_load_maintained_values = coordinator.get_all_maintained_field_values(
+        pre_load_maintained_values = MaintainedModel.get_all_maintained_field_values(
             "DataRepo.models"
         )
 
@@ -831,7 +830,7 @@ class ValidationViewTests(TracebaseTransactionTestCase):
 
         # Get record counts for all models
         tb_post_counts = self.get_record_counts()
-        post_load_maintained_values = coordinator.get_all_maintained_field_values(
+        post_load_maintained_values = MaintainedModel.get_all_maintained_field_values(
             "DataRepo.models"
         )
 
