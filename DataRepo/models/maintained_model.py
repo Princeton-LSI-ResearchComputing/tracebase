@@ -635,12 +635,8 @@ class MaintainedModel(Model):
     delete methods and uses m2m_changed signals as triggers for the updates.
     """
 
-    # Thread-safe mutable class attributes
+    # Thread-safe mutable class attributes.  Thread data is initialized via _check_set_coordinator_thread_data
     data = local()
-
-    # This manages adding data to calls to save, delete, and m2m_propagation_handler
-    data.default_coordinator = MaintainedModelCoordinator()
-    data.coordinator_stack = []
 
     def __init__(self, *args, **kwargs):
         """
@@ -656,12 +652,8 @@ class MaintainedModel(Model):
         called both from __init__() and save().
         """
 
-        # Make sure the class has been fulling initialized
-        # Without this, you get an AttributeError: '_thread._local' object has no attribute 'coordinator_stack'
-        # from django.db.models.base's from_db class method when a model's DetailView is created.
-        if not hasattr(self.data, "default_coordinator"):
-            self.data.__setattr__("default_coordinator", MaintainedModelCoordinator())
-            self.data.__setattr__("coordinator_stack", [])
+        # Make sure the class has been fully initialized
+        self._check_set_coordinator_thread_data()
 
         # The coordinator keeps track of the running mode, buffer and filters in use
         coordinator = self.get_coordinator()
@@ -1127,9 +1119,10 @@ class MaintainedModel(Model):
 
     @classmethod
     def _get_current_coordinator(cls):
-        if len(cls.data.coordinator_stack) > 0:
+        coordinator_stack = cls._get_coordinator_stack()
+        if len(coordinator_stack) > 0:
             # Get the current coordinator
-            current_coordinator = cls.data.coordinator_stack[-1]
+            current_coordinator = coordinator_stack[-1]
             # Call the last coordinator on the stack
             return current_coordinator
         else:
@@ -1137,15 +1130,28 @@ class MaintainedModel(Model):
 
     @classmethod
     def _get_default_coordinator(cls):
+        cls._check_set_coordinator_thread_data()
         return cls.data.default_coordinator
 
     @classmethod
     def _get_coordinator_stack(cls):
         """
-        Returns a copy of the coordinator_stack list (but the coordinators are not copies - they are references to the
-        coordinators on the stack
+        Checks that the coodrinator thread data is initialized and returns the coordinator_stack list
         """
-        return cls.data.coordinator_stack[:]
+        cls._check_set_coordinator_thread_data()
+        return cls.data.coordinator_stack
+
+    @classmethod
+    def _check_set_coordinator_thread_data(cls):
+        """
+        Make sure the thread has been fully initialized and initialize it if not
+        Without this, you get an AttributeError: '_thread._local' object has no attribute 'coordinator_stack'
+        from django.db.models.base's from_db class method when a model's DetailView is created.
+        """
+        if not hasattr(cls.data, "default_coordinator") or not hasattr(
+            cls.data, "coordinator_stack"
+        ):
+            cls._reset_coordinators()
 
     @classmethod
     def _reset_coordinators(cls):
@@ -1157,15 +1163,16 @@ class MaintainedModel(Model):
         model records up the stack, that will fail... but the prevailing theory is that that can't happen since we are
         using threading.local to store the stack.
         """
-        cls.data.default_coordinator = MaintainedModelCoordinator()
-        cls.data.coordinator_stack = []
+        cls.data.__setattr__("default_coordinator", MaintainedModelCoordinator())
+        cls.data.__setattr__("coordinator_stack", [])
 
     @classmethod
     def _add_coordinator(cls, coordinator):
         """
         Only use in order to catch buffered items for testing.  Must be manually popped.
         """
-        cls.data.coordinator_stack.append(coordinator)
+        coordinator_stack = cls._get_coordinator_stack()
+        coordinator_stack.append(coordinator)
 
     @classmethod
     def get_parent_deferred_coordinator(cls):
@@ -1177,7 +1184,8 @@ class MaintainedModel(Model):
         # Create a copy of the list that contains the same objects - so that if you return a coordinator, it is one
         # that's in the coordinator_stack - so if you change it, you change the object in the stack.  This is what we
         # want, so that we can move items from the current coordinator's buffer to the parent coordinator's buffer.
-        parent_coordinators = cls.data.coordinator_stack[:]
+        coordinator_stack = cls._get_coordinator_stack()
+        parent_coordinators = coordinator_stack[:]
         try:
             parent_coordinators.pop()
         except IndexError:
@@ -1202,9 +1210,12 @@ class MaintainedModel(Model):
         """
         # Traverse the parent coordinators from immediate parent to distant parent.  Note, the stack doesn't include the
         # default_coordinator, which is assumed to be mode "immediate".
-        if cls.data.default_coordinator.get_mode() == "disabled":
+        cls._check_set_coordinator_thread_data()
+        default_coordinator = cls._get_default_coordinator()
+        if default_coordinator.get_mode() == "disabled":
             return True
-        for coordinator in cls.data.coordinator_stack:
+        coordinator_stack = cls._get_coordinator_stack()
+        for coordinator in coordinator_stack:
             if coordinator.get_mode() == "disabled":
                 return True
 
@@ -1232,12 +1243,14 @@ class MaintainedModel(Model):
             with MaintainedModel.custom_coordinator(deferred_filtered):
                 do_things()
         """
+        coordinator_stack = cls._get_coordinator_stack()
         # This assumes that the default_coordinator is in mode "immediate"
-        if len(cls.data.coordinator_stack) == 0 and coordinator.buffer_size() > 0:
+        if len(coordinator_stack) == 0 and coordinator.buffer_size() > 0:
             raise UncleanBufferError()
 
         original_mode = coordinator.get_mode()
         effective_mode = original_mode
+        default_coordinator = cls._get_default_coordinator()
 
         # If any parent context sets autoupdates to disabled, change the mode to disabled
         if (
@@ -1252,19 +1265,19 @@ class MaintainedModel(Model):
             effective_mode == "immediate"
             and (
                 (
-                    len(cls.data.coordinator_stack) > 0
-                    and cls.data.coordinator_stack[-1].get_mode() == "deferred"
+                    len(coordinator_stack) > 0
+                    and coordinator_stack[-1].get_mode() == "deferred"
                 )
                 or (
-                    len(cls.data.coordinator_stack) == 0
-                    and cls.data.default_coordinator.get_mode() == "deferred"
+                    len(coordinator_stack) == 0
+                    and default_coordinator.get_mode() == "deferred"
                 )
             )
         ):
             effective_mode = "deferred"
             coordinator._defer_override()
 
-        cls.data.coordinator_stack.append(coordinator)
+        coordinator_stack.append(coordinator)
 
         try:
             # This is all the code in the context
@@ -1299,7 +1312,7 @@ class MaintainedModel(Model):
             coordinator.clear_update_buffer()
             raise e
         finally:
-            cls.data.coordinator_stack.pop()
+            coordinator_stack.pop()
 
     @classmethod
     def defer_autoupdates(
