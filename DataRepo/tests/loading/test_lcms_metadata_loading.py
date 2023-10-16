@@ -622,7 +622,6 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
         self.assertEqual(0, MSRun.objects.count())
         call_command(
             "load_accucor_msruns",
-            # We just need a different file name with the same data, so _2 is a copy of the original
             accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_glucose.xlsx",
             instrument="default instrument",
             lc_protocol_name="polar-HILIC-25-min",
@@ -664,7 +663,6 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_accucor_msruns",
-                # We just need a different file name with the same data, so _2 is a copy of the original
                 accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_glucose.xlsx",
                 new_researcher=True,
                 lcms_file="DataRepo/example_data/small_dataset/"
@@ -685,7 +683,6 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
         self.assertEqual(0, MSRun.objects.count())
         call_command(
             "load_accucor_msruns",
-            # We just need a different file name with the same data, so _2 is a copy of the original
             accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_glucose.xlsx",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
@@ -726,7 +723,6 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
         with self.assertRaises(InvalidLCMSHeaders) as ar:
             call_command(
                 "load_accucor_msruns",
-                # We just need a different file name with the same data, so _2 is a copy of the original
                 accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_glucose.xlsx",
                 new_researcher=True,
                 lcms_file="DataRepo/example_data/small_dataset/"
@@ -746,7 +742,6 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_accucor_msruns",
-                # We just need a different file name with the same data, so _2 is a copy of the original
                 accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_glucose.xlsx",
                 new_researcher=True,
                 lcms_file="DataRepo/example_data/small_dataset/"
@@ -821,7 +816,6 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
     def load_peak_annotations(self, lcms_file):
         call_command(
             "load_accucor_msruns",
-            # We just need a different file name with the same data, so _2 is a copy of the original
             accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_glucose.xlsx",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
@@ -946,7 +940,6 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_accucor_msruns",
-                # We just need a different file name with the same data, so _2 is a copy of the original
                 accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_glucose.xlsx",
                 new_researcher=True,
                 lcms_file="DataRepo/example_data/small_dataset/"
@@ -962,7 +955,6 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_accucor_msruns",
-                # We just need a different file name with the same data, so _2 is a copy of the original
                 accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_glucose.xlsx",
                 lc_protocol_name="polar-HILIC-25-min",
                 instrument="default instrument",
@@ -983,7 +975,6 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_accucor_msruns",
-                # We just need a different file name with the same data, so _2 is a copy of the original
                 accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_glucose.xlsx",
                 lc_protocol_name="polar-HILIC-25-min",
                 instrument="default instrument",
@@ -1004,7 +995,6 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_accucor_msruns",
-                # We just need a different file name with the same data, so _2 is a copy of the original
                 accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_glucose.xlsx",
                 lc_protocol_name="polar-HILIC-25-min",
                 instrument="default instrument",
@@ -1025,7 +1015,6 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
         # only prints a warning (not checked)
         call_command(
             "load_accucor_msruns",
-            # We just need a different file name with the same data, so _2 is a copy of the original
             accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_glucose.xlsx",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
