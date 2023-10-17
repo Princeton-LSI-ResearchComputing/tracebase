@@ -33,29 +33,13 @@ def run_in_child_thread(child_func, check_interval=0.1):
     thread_runner.start()
 
     # Collect possible exception
-    check_times = 0
-    exc = None
-    while True:
-        try:
-            check_times += 1
-            # Try to retrieve an exception from the child
-            exc = exc_queue.get(block=False)
-        except queue.Empty:
-            # Skip down to check if the child is still alive
-            pass
-
-        # Attempt to collect the child thread with a 0.1 second timeout
-        thread_runner.join(check_interval)
-        # Now check if the child thread is still running
-        if thread_runner.is_alive():
-            continue
-        else:
-            # The child is done, so let's break out of this loop
-            break
+    exc, premature_death = collect_child_exception(
+        thread_runner, exc_queue, check_interval
+    )
 
     if exc is not None:
         raise ChildException(exc)
-    elif check_times == 1:
+    elif premature_death is True:
         raise PossiblePrematureChildDeath(check_interval)
 
 
@@ -79,7 +63,20 @@ def run_parent_during_child_thread(
     parent_func()
 
     # Collect possible exception
+    exc, premature_death = collect_child_exception(
+        thread_runner, exc_queue, check_interval
+    )
+
+    if exc is not None:
+        raise ChildException(exc)
+    elif premature_death is True:
+        raise PossibleChildDeathBeforeParent(parent_start_delay, check_interval)
+
+
+def collect_child_exception(thread_runner, exc_queue, check_interval):
+    # Collect possible exception
     check_times = 0
+    premature_death = False
     exc = None
     while True:
         try:
@@ -99,10 +96,10 @@ def run_parent_during_child_thread(
             # The child is done, so let's break out of this loop
             break
 
-    if exc is not None:
-        raise ChildException(exc)
-    elif check_times == 1:
-        raise PossibleChildDeathBeforeParent(parent_start_delay, check_interval)
+    if exc is None and check_times == 1:
+        premature_death = True
+
+    return exc, premature_death
 
 
 def run_child_during_parent_thread(parent_func, child_func, check_interval=0.1):
@@ -122,29 +119,13 @@ def run_child_during_parent_thread(parent_func, child_func, check_interval=0.1):
     parent_func()
 
     # Collect possible exception
-    check_times = 0
-    exc = None
-    while True:
-        try:
-            check_times += 1
-            # Try to retrieve an exception from the child
-            exc = exc_queue.get(block=False)
-        except queue.Empty:
-            # Skip down to check if the child is still alive
-            pass
-
-        # Attempt to collect the child thread with a 0.1 second timeout
-        thread_runner.join(check_interval)
-        # Now check if the child thread is still running
-        if thread_runner.is_alive():
-            continue
-        else:
-            # The child is done, so let's break out of this loop
-            break
+    exc, premature_death = collect_child_exception(
+        thread_runner, exc_queue, check_interval
+    )
 
     if exc is not None:
         raise ChildException(exc)
-    elif check_times == 1:
+    elif premature_death is True:
         raise PossiblePrematureChildDeath(check_interval)
 
 

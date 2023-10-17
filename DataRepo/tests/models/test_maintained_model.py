@@ -1,6 +1,3 @@
-import queue
-import sys
-import threading
 import time
 
 from DataRepo.models import Compound, MaintainedModel, Tracer
@@ -12,8 +9,6 @@ from DataRepo.tests.tracebase_thread_test import (
     run_in_child_thread,
     run_parent_during_child_thread,
 )
-
-excs = []
 
 
 class MaintainedModelThreadTests(TracebaseTransactionTestCase):
