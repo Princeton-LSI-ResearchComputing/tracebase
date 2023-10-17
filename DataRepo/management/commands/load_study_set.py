@@ -6,10 +6,11 @@ import yaml  # type: ignore
 from django.core.exceptions import ValidationError
 from django.core.management import BaseCommand, call_command
 
-from DataRepo.models.maintained_model import (
-    MaintainedModel,
-    UncleanBufferError,
+from DataRepo.models.hier_cached_model import (
+    disable_caching_updates,
+    enable_caching_updates,
 )
+from DataRepo.models.maintained_model import MaintainedModel
 from DataRepo.utils.exceptions import AggregatedErrorsSet
 
 
@@ -27,27 +28,14 @@ class Command(BaseCommand):
             type=argparse.FileType("r"),
             help=("File of load_study config filenames, one per line"),
         )
-        # Certain errors will prompt the user to supply this flag if the contents of the buffer are determined to be
-        # stale
-        parser.add_argument(
-            "--clear-buffer",
-            action="store_true",
-            default=False,
-            help=argparse.SUPPRESS,
-        )
 
+    @MaintainedModel.defer_autoupdates(
+        # There is no dry-run or validate mode in this script, so mass autoupdate and buffering will never be disabled
+        # here.
+        pre_mass_update_func=disable_caching_updates,
+        post_mass_update_func=enable_caching_updates,
+    )
     def handle(self, *args, **options):
-        # The buffer can only exist as long as the existence of the process, but since this method can be called from
-        # code, who knows what has been done before.  So the clear_buffer option allows the load_study_set method to be
-        # called in code with an option to explicitly clean the buffer.
-        if options["clear_buffer"]:
-            MaintainedModel.clear_update_buffer()
-        elif MaintainedModel.buffer_size() > 0:
-            raise UncleanBufferError(
-                "The auto-update buffer is unexpectedly populated.  Add --clear-buffer to your command to flush the "
-                "buffer and proceed with the load."
-            )
-
         studies_loaded = list()
         studies_skipped = list()
         studies_failed = list()
@@ -62,11 +50,6 @@ class Command(BaseCommand):
                     self.stdout.write(
                         self.style.MIGRATE_HEADING(f"Loading study using {study_path}")
                     )
-                    # TODO: This was intended to be called using defer_autoupdates=True, however I realized that if
-                    # there is an error in 1 study after N successfully loaded studies, there's currently no means to
-                    # clear only the autoupdates of just the failed study load from the autoupdate buffer.  Until that
-                    # has been implemented, each study, at the end of its load, will either clear the buffer or process
-                    # its autoupdates.
                     call_command(
                         "load_study", study_path, verbosity=options["verbosity"]
                     )

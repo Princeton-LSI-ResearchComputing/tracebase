@@ -6,20 +6,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## [Unreleased]
+
+### Added
+
+### Fixed
 
 ### Added
 
 - Added an ArchiveFile class with associated DataType and DataFormat classes
 - LCMethod model and tests
-- Copy records from PeakGroupSet to ArchiveFile, all records are copied as MS Peak Annotation data in AccuCor format as a default
 - LCMethod views
+- Copy records from PeakGroupSet to ArchiveFile, all records are copied as MS Peak Annotation data in AccuCor format as a default
 
 ### Changed
 
 - Updated dependencies
 - Use human readable string methods for ArchiveFile, DataType, and DataFormat (affects admin interface, other default templates)
-- Added an LCMethod row/column to the MSRun views
+- Made auto-update code thread-safe
+- Implemented context managers and decorator wrappers to control autoupdate behaviors
+- Display ArchiveFile record associated with PeakGroup instead of PeakGroupSet
+
+### Removed
+
+## [2.0.5] - 2023-10-10
+
+### Changed
+
+- Updated to use Django 4.2
 
 ## [2.0.3] - 2023-07-07
 
