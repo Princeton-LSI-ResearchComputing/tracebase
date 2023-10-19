@@ -9,7 +9,6 @@ from django.db.models import (
 
 
 class MSRunSample(Model):
-
     id = AutoField(primary_key=True)
     msrun_sequence = ForeignKey(
         to="DataRepo.MSRunSequence",
