@@ -7,6 +7,7 @@ from django.test import override_settings
 from DataRepo.models import (
     Animal,
     FCirc,
+    MaintainedModel,
     MSRun,
     PeakGroup,
     PeakGroupLabel,
@@ -16,6 +17,7 @@ from DataRepo.models import (
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
+@MaintainedModel.no_autoupdates()
 @override_settings(CACHES=settings.TEST_CACHES)
 class FCircTests(TracebaseTestCase):
     def setUp(self):

@@ -4,7 +4,7 @@ from datetime import datetime
 import pandas as pd
 from django.core.management import call_command
 
-from DataRepo.models import LCMethod, MSRun, Sample
+from DataRepo.models import LCMethod, MaintainedModel, MSRun, Sample
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import (
     AccuCorDataLoader,
@@ -39,6 +39,7 @@ from DataRepo.utils.lcms_metadata_parser import (
 # https://github.com/Princeton-LSI-ResearchComputing/tracebase/issues/706
 
 
+@MaintainedModel.no_autoupdates()
 class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
@@ -445,6 +446,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
         )
 
 
+@MaintainedModel.no_autoupdates()
 class LCMSSampleTableLoaderMethodTests(TracebaseTestCase):
     def test_check_lcms_samples(self):
         stl = SampleTableLoader()
@@ -499,6 +501,7 @@ class LCMSSampleTableLoaderMethodTests(TracebaseTestCase):
         )
 
 
+@MaintainedModel.no_autoupdates()
 class LCMSMetadataParserMethodTests(TracebaseTestCase):
     def test_lcms_df_to_dict(self):
         df = extract_dataframes_from_lcms_tsv(
@@ -592,6 +595,7 @@ class LCMSMetadataParserMethodTests(TracebaseTestCase):
         )
 
 
+@MaintainedModel.no_autoupdates()
 class LCMSMetadataRequirementsTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
@@ -784,6 +788,7 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
         self.assertTrue(aes.exception_type_exists(LCMSDBSampleMissing))
 
 
+@MaintainedModel.no_autoupdates()
 class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
     """
     Tests in this class are intended to trigger a single (new) exception that was added on branch

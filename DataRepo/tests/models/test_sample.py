@@ -4,10 +4,11 @@ from django.conf import settings
 from django.core.management import call_command
 from django.test import override_settings
 
-from DataRepo.models import Animal, Sample
+from DataRepo.models import Animal, MaintainedModel, Sample
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
+@MaintainedModel.no_autoupdates()
 @override_settings(CACHES=settings.TEST_CACHES)
 class SampleTests(TracebaseTestCase):
     @classmethod

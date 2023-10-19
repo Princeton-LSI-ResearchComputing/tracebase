@@ -1,7 +1,7 @@
 from django.core.management import call_command
 
 from DataRepo.management.commands.build_caches import cached_function_call
-from DataRepo.models import Animal, MSRun, PeakGroup, Sample
+from DataRepo.models import Animal, MaintainedModel, MSRun, PeakGroup, Sample
 from DataRepo.models.hier_cached_model import (
     delete_all_caches,
     disable_caching_retrievals,
@@ -57,6 +57,7 @@ def load_minimum_data():
     )
 
 
+@MaintainedModel.no_autoupdates()
 class GlobalCacheTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
@@ -299,6 +300,7 @@ class GlobalCacheTests(TracebaseTestCase):
         )
 
 
+@MaintainedModel.no_autoupdates()
 class HierCachedModelTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
@@ -581,6 +583,7 @@ class HierCachedModelTests(TracebaseTestCase):
         )
 
 
+@MaintainedModel.no_autoupdates()
 class BuildCachesTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):

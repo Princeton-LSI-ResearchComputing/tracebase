@@ -445,6 +445,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         self.assertEqual(PeakData.objects.all().count(), PEAKDATA_ROWS * SAMPLES_COUNT)
 
 
+@MaintainedModel.no_autoupdates()
 @override_settings(CACHES=settings.TEST_CACHES)
 class IsoCorrDataLoadingTests(TracebaseTestCase):
     @classmethod

@@ -20,12 +20,13 @@ from DataRepo.formats.dataformat_group_query import (
 from DataRepo.formats.peakdata_dataformat import PeakDataFormat
 from DataRepo.formats.peakgroups_dataformat import PeakGroupsFormat
 from DataRepo.formats.search_group import SearchGroup
-from DataRepo.models import CompoundSynonym, FCirc, PeakGroup
+from DataRepo.models import CompoundSynonym, FCirc, MaintainedModel, PeakGroup
 from DataRepo.models.utilities import get_model_by_name
 from DataRepo.templatetags.customtags import get_many_related_rec
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
+@MaintainedModel.no_autoupdates()
 class FormatsTests(TracebaseTestCase):
     maxDiff = None
     orig_split_rows: Dict[str, str] = {}
