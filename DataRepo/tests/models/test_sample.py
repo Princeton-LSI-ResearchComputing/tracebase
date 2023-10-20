@@ -8,10 +8,10 @@ from DataRepo.models import Animal, MaintainedModel, Sample
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
-@MaintainedModel.no_autoupdates()
 @override_settings(CACHES=settings.TEST_CACHES)
 class SampleTests(TracebaseTestCase):
     @classmethod
+    @MaintainedModel.no_autoupdates()
     def setUpTestData(cls):
         super().setUpTestData()
         call_command("loaddata", "lc_methods")

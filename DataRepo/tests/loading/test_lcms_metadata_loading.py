@@ -39,7 +39,6 @@ from DataRepo.utils.lcms_metadata_parser import (
 # https://github.com/Princeton-LSI-ResearchComputing/tracebase/issues/706
 
 
-@MaintainedModel.no_autoupdates()
 class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
@@ -595,9 +594,9 @@ class LCMSMetadataParserMethodTests(TracebaseTestCase):
         )
 
 
-@MaintainedModel.no_autoupdates()
 class LCMSMetadataRequirementsTests(TracebaseTestCase):
     @classmethod
+    @MaintainedModel.no_autoupdates()
     def setUpTestData(cls):
         call_command("loaddata", "lc_methods")
         call_command(
@@ -605,6 +604,7 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
             "DataRepo/example_data/small_dataset/small_obob_study_prerequisites.yaml",
         )
 
+    @MaintainedModel.no_autoupdates()
     def load_samples(self):
         call_command(
             "load_animals_and_samples",
@@ -615,6 +615,7 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
 
     # Requirement 1.1 is tested by the method tests above
 
+    @MaintainedModel.no_autoupdates()
     def test_lcms_metadata_default_fallbacks_lcms_good_no_data(self):
         """
         Test item from issue #706:
@@ -655,6 +656,7 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
         self.assertEqual(sample1, msr1.sample)
         self.assertEqual(sample2, msr2.sample)
 
+    @MaintainedModel.no_autoupdates()
     def test_lcms_metadata_default_fallbacks_lcms_good_no_defaults(self):
         """
         Test item from issue #706:
@@ -676,6 +678,7 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
         self.assertEqual(1, len(aes.exceptions))
         self.assertEqual(LCMSDefaultsRequired, type(aes.exceptions[0]))
 
+    @MaintainedModel.no_autoupdates()
     def test_lcms_metadata_default_fallbacks_lcms_good(self):
         """
         Test item from issue #706:
@@ -716,6 +719,7 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
         self.assertEqual(sample1, msr1.sample)
         self.assertEqual(sample2, msr2.sample)
 
+    @MaintainedModel.no_autoupdates()
     def test_lcms_metadata_missing_header_error(self):
         """
         Test item from issue #706:
@@ -736,6 +740,7 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
         self.assertEqual(["date"], ilh.missing)
         self.assertEqual([], ilh.unexpected)
 
+    @MaintainedModel.no_autoupdates()
     def test_lcms_metadata_dupe_sample_header_error(self):
         """
         Test item from issue #706:
@@ -755,6 +760,7 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
         self.assertEqual(1, len(aes.exceptions))
         self.assertEqual(DuplicateSampleDataHeaders, type(aes.exceptions[0]))
 
+    @MaintainedModel.no_autoupdates()
     def test_lcms_metadata_unique_sample_good(self):
         """
         Test item from issue #706:
@@ -769,6 +775,7 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
             "glucose_lcms_metadata_except_mzxml_and_lcdesc_pos.tsv",
         )
 
+    @MaintainedModel.no_autoupdates()
     def test_lcms_metadata_unique_sample_missing(self):
         """
         Test item from issue #706:
@@ -788,7 +795,6 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
         self.assertTrue(aes.exception_type_exists(LCMSDBSampleMissing))
 
 
-@MaintainedModel.no_autoupdates()
 class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
     """
     Tests in this class are intended to trigger a single (new) exception that was added on branch
@@ -810,6 +816,7 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
             "DataRepo/example_data/small_dataset/small_obob_study_prerequisites.yaml",
         )
 
+    @MaintainedModel.no_autoupdates()
     def load_samples(self):
         call_command(
             "load_animals_and_samples",
@@ -818,6 +825,7 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
             ),
         )
 
+    @MaintainedModel.no_autoupdates()
     def load_peak_annotations(self, lcms_file):
         call_command(
             "load_accucor_msruns",
@@ -915,6 +923,7 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
         }
         self.assertEqual(expected_dict, aes.exceptions[0].header_rownums_dict)
 
+    @MaintainedModel.no_autoupdates()
     def test_MissingPeakAnnotationFiles(self):
         call_command("loaddata", "lc_methods")
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
@@ -939,6 +948,7 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
             aes.exceptions[0].lcms_file,
         )
 
+    @MaintainedModel.no_autoupdates()
     def test_MissingLCMSSampleDataHeaders(self):
         self.load_prereqs()
         self.load_samples()
@@ -954,6 +964,7 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
         self.assertEqual(1, len(aes.exceptions))
         self.assertEqual(MissingLCMSSampleDataHeaders, type(aes.exceptions[0]))
 
+    @MaintainedModel.no_autoupdates()
     def test_MissingMZXMLFiles(self):
         self.load_prereqs()
         self.load_samples()
@@ -974,6 +985,7 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
         self.assertEqual(1, len(aes.exceptions))
         self.assertEqual(MissingMZXMLFiles, type(aes.exceptions[0]))
 
+    @MaintainedModel.no_autoupdates()
     def test_NoMZXMLFiles(self):
         self.load_prereqs()
         self.load_samples()
@@ -994,6 +1006,7 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
         self.assertEqual(1, len(aes.exceptions))
         self.assertEqual(NoMZXMLFiles, type(aes.exceptions[0]))
 
+    @MaintainedModel.no_autoupdates()
     def test_MismatchedSampleHeaderMZXML(self):
         self.load_prereqs()
         self.load_samples()

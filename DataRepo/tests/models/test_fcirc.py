@@ -17,7 +17,6 @@ from DataRepo.models import (
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
-@MaintainedModel.no_autoupdates()
 @override_settings(CACHES=settings.TEST_CACHES)
 class FCircTests(TracebaseTestCase):
     def setUp(self):
@@ -29,6 +28,7 @@ class FCircTests(TracebaseTestCase):
             self.assertTrue(fco.is_last)
 
     @classmethod
+    @MaintainedModel.no_autoupdates()
     def setUpTestData(cls):
         call_command("loaddata", "lc_methods")
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")

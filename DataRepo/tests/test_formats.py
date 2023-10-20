@@ -26,7 +26,6 @@ from DataRepo.templatetags.customtags import get_many_related_rec
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
-@MaintainedModel.no_autoupdates()
 class FormatsTests(TracebaseTestCase):
     maxDiff = None
     orig_split_rows: Dict[str, str] = {}
@@ -36,6 +35,7 @@ class FormatsTests(TracebaseTestCase):
         self.addCleanup(self.restore_split_rows)
 
     @classmethod
+    @MaintainedModel.no_autoupdates()
     def setUpTestData(cls):
         call_command("loaddata", "lc_methods")
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
@@ -1308,6 +1308,7 @@ class FormatsTests(TracebaseTestCase):
         self.assertEqual(name, "PeakData")
         self.assertEqual(sel, False)
 
+    @MaintainedModel.no_autoupdates()
     def test_fcirc_performQuery_tracer_links_1to1(self):
         """
         This test ensures that when we perform any query on the fcirc format, the means of limiting each row to a

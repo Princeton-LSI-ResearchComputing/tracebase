@@ -445,10 +445,10 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         self.assertEqual(PeakData.objects.all().count(), PEAKDATA_ROWS * SAMPLES_COUNT)
 
 
-@MaintainedModel.no_autoupdates()
 @override_settings(CACHES=settings.TEST_CACHES)
 class IsoCorrDataLoadingTests(TracebaseTestCase):
     @classmethod
+    @MaintainedModel.no_autoupdates()
     def setUpTestData(cls):
         call_command("loaddata", "lc_methods")
         call_command(
@@ -478,6 +478,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
 
         super().setUpTestData()
 
+    @MaintainedModel.no_autoupdates()
     def load_multitracer_data(self):
         call_command(
             "load_animals_and_samples",
@@ -502,6 +503,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             num_tracerlabels,
         )
 
+    @MaintainedModel.no_autoupdates()
     def load_multilabel_data(self):
         call_command(
             "load_animals_and_samples",
@@ -525,6 +527,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             num_tracerlabels,
         )
 
+    @MaintainedModel.no_autoupdates()
     def test_singly_labeled_isocorr_load(self):
         pre_pg_load_count = PeakGroup.objects.count()
         call_command(
@@ -563,6 +566,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             f"samples [{SAMPLES_COUNT}] = [{PEAKDATA_ROWS * SAMPLES_COUNT}].",
         )
 
+    @MaintainedModel.no_autoupdates()
     def test_singly_labeled_isocorr_missing_flag_error(self):
         """
         Test to make sure the isocorr option is suggested when not supplied
@@ -597,6 +601,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             TracerLabel.objects.count(),
         )
 
+    @MaintainedModel.no_autoupdates()
     def test_multitracer_sample_table_load(self):
         num_samples = 120
         num_infusates = 2
@@ -674,6 +679,28 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
         self.assertEqual(num_tracers, post_tracers - pre_tracers)
         self.assertEqual(num_tracerlabels, post_trclbls - pre_trclbls)
 
+    def assert_group_data_sample_counts(
+        self,
+        SAMPLES_COUNT,
+        PEAKDATA_ROWS,
+        PARENT_REC_COUNT,
+        pre_load_group_count,
+        post_load_group_count,
+    ):
+        self.assertEqual(
+            post_load_group_count - pre_load_group_count,
+            PARENT_REC_COUNT * SAMPLES_COUNT,
+            msg=f"PeakGroup record count should be the number of C12 PARENT lines [{PARENT_REC_COUNT}] times the "
+            f"number of samples [{SAMPLES_COUNT}] = [{PARENT_REC_COUNT * SAMPLES_COUNT}].",
+        )
+        self.assertEqual(
+            PeakData.objects.count(),
+            PEAKDATA_ROWS * SAMPLES_COUNT,
+            msg=f"PeakData record count should be the number of peakdata rows [{PEAKDATA_ROWS}] times the number of "
+            f"samples [{SAMPLES_COUNT}] = [{PEAKDATA_ROWS * SAMPLES_COUNT}].",
+        )
+
+    @MaintainedModel.no_autoupdates()
     def test_multitracer_isocorr_load_1(self):
         self.load_multitracer_data()
         pre_load_group_count = PeakGroup.objects.count()
@@ -693,20 +720,15 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
         SAMPLES_COUNT = 30
         PEAKDATA_ROWS = 86
         PARENT_REC_COUNT = 15
-
-        self.assertEqual(
-            post_load_group_count - pre_load_group_count,
-            PARENT_REC_COUNT * SAMPLES_COUNT,
-            msg=f"PeakGroup record count should be the number of C12 PARENT lines [{PARENT_REC_COUNT}] times the "
-            f"number of samples [{SAMPLES_COUNT}] = [{PARENT_REC_COUNT * SAMPLES_COUNT}].",
-        )
-        self.assertEqual(
-            PeakData.objects.count(),
-            PEAKDATA_ROWS * SAMPLES_COUNT,
-            msg=f"PeakData record count should be the number of peakdata rows [{PEAKDATA_ROWS}] times the number of "
-            f"samples [{SAMPLES_COUNT}] = [{PEAKDATA_ROWS * SAMPLES_COUNT}].",
+        self.assert_group_data_sample_counts(
+            SAMPLES_COUNT,
+            PEAKDATA_ROWS,
+            PARENT_REC_COUNT,
+            pre_load_group_count,
+            post_load_group_count,
         )
 
+    @MaintainedModel.no_autoupdates()
     def test_multitracer_isocorr_load_2(self):
         self.load_multitracer_data()
         pre_load_group_count = PeakGroup.objects.count()
@@ -726,20 +748,15 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
         SAMPLES_COUNT = 30
         PEAKDATA_ROWS = 81
         PARENT_REC_COUNT = 15
-
-        self.assertEqual(
-            post_load_group_count - pre_load_group_count,
-            PARENT_REC_COUNT * SAMPLES_COUNT,
-            msg=f"PeakGroup record count should be the number of C12 PARENT lines [{PARENT_REC_COUNT}] times the "
-            f"number of samples [{SAMPLES_COUNT}] = [{PARENT_REC_COUNT * SAMPLES_COUNT}].",
-        )
-        self.assertEqual(
-            PeakData.objects.count(),
-            PEAKDATA_ROWS * SAMPLES_COUNT,
-            msg=f"PeakData record count should be the number of peakdata rows [{PEAKDATA_ROWS}] times the number of "
-            f"samples [{SAMPLES_COUNT}] = [{PEAKDATA_ROWS * SAMPLES_COUNT}].",
+        self.assert_group_data_sample_counts(
+            SAMPLES_COUNT,
+            PEAKDATA_ROWS,
+            PARENT_REC_COUNT,
+            pre_load_group_count,
+            post_load_group_count,
         )
 
+    @MaintainedModel.no_autoupdates()
     def test_multitracer_isocorr_load_3(self):
         self.load_multitracer_data()
         pre_load_group_count = PeakGroup.objects.count()
@@ -759,20 +776,15 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
         SAMPLES_COUNT = 60
         PEAKDATA_ROWS = 143
         PARENT_REC_COUNT = 20
-
-        self.assertEqual(
-            post_load_group_count - pre_load_group_count,
-            PARENT_REC_COUNT * SAMPLES_COUNT,
-            msg=f"PeakGroup record count should be the number of C12 PARENT lines [{PARENT_REC_COUNT}] times the "
-            f"number of samples [{SAMPLES_COUNT}] = [{PARENT_REC_COUNT * SAMPLES_COUNT}].",
-        )
-        self.assertEqual(
-            PeakData.objects.count(),
-            PEAKDATA_ROWS * SAMPLES_COUNT,
-            msg=f"PeakData record count should be the number of peakdata rows [{PEAKDATA_ROWS}] times the number of "
-            f"samples [{SAMPLES_COUNT}] = [{PEAKDATA_ROWS * SAMPLES_COUNT}].",
+        self.assert_group_data_sample_counts(
+            SAMPLES_COUNT,
+            PEAKDATA_ROWS,
+            PARENT_REC_COUNT,
+            pre_load_group_count,
+            post_load_group_count,
         )
 
+    @MaintainedModel.no_autoupdates()
     def test_multilabel_sample_table_load(self):
         num_samples = 156
         num_infusates = 2
@@ -824,6 +836,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             post_trclbls,
         )
 
+    @MaintainedModel.no_autoupdates()
     def test_multilabel_isocorr_load_1(self):
         self.load_multilabel_data()
         pre_load_group_count = PeakGroup.objects.count()
@@ -844,6 +857,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             pre_load_group_count, post_load_group_count, 84, 94, 13
         )
 
+    @MaintainedModel.no_autoupdates()
     def test_multilabel_isocorr_load_2(self):
         self.load_multilabel_data()
         pre_load_group_count = PeakGroup.objects.count()
@@ -864,6 +878,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             pre_load_group_count, post_load_group_count, 36, 95, 13
         )
 
+    @MaintainedModel.no_autoupdates()
     def test_multilabel_isocorr_load_3(self):
         self.load_multilabel_data()
         pre_load_group_count = PeakGroup.objects.count()
@@ -906,6 +921,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             f"samples [{samples_count}] = [{peakdata_rows * samples_count}].",
         )
 
+    @MaintainedModel.no_autoupdates()
     def test_labeled_elements_common_with_compound(self):
         """
         Test to ensure count 0 entries are not created when measured compound doesn't have that element

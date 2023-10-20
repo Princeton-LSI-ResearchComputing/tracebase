@@ -10,9 +10,9 @@ from DataRepo.templatetags.customtags import (
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
-@MaintainedModel.no_autoupdates()
 class CustomTagsTests(TracebaseTestCase):
     @classmethod
+    @MaintainedModel.no_autoupdates()
     def setUpTestData(cls):
         call_command("loaddata", "lc_methods")
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")

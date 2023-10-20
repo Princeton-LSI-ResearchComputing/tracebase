@@ -16,6 +16,7 @@ from DataRepo.models.hier_cached_model import (
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
+@MaintainedModel.no_autoupdates()
 def load_data():
     load_minimum_data()
     call_command(
@@ -29,6 +30,7 @@ def load_data():
     )
 
 
+@MaintainedModel.no_autoupdates()
 def load_minimum_data():
     call_command("loaddata", "lc_methods")
     call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
@@ -57,7 +59,6 @@ def load_minimum_data():
     )
 
 
-@MaintainedModel.no_autoupdates()
 class GlobalCacheTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):

@@ -8,10 +8,10 @@ from DataRepo.models import Animal, Infusate, MaintainedModel, Sample
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
-@MaintainedModel.no_autoupdates()
 @override_settings(CACHES=settings.TEST_CACHES)
 @tag("animal")
 class AnimalTests(TracebaseTestCase):
+    @MaintainedModel.no_autoupdates()
     def setUp(self):
         super().setUp()
         infusate = Infusate()
@@ -28,6 +28,7 @@ class AnimalTests(TracebaseTestCase):
         )
 
     @classmethod
+    @MaintainedModel.no_autoupdates()
     def setUpTestData(cls):
         call_command("loaddata", "lc_methods")
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
