@@ -7,7 +7,6 @@ from django.test import override_settings
 from DataRepo.models import (
     Animal,
     FCirc,
-    MaintainedModel,
     MSRun,
     PeakGroup,
     PeakGroupLabel,
@@ -28,7 +27,6 @@ class FCircTests(TracebaseTestCase):
             self.assertTrue(fco.is_last)
 
     @classmethod
-    @MaintainedModel.no_autoupdates()
     def setUpTestData(cls):
         call_command("loaddata", "lc_methods")
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")

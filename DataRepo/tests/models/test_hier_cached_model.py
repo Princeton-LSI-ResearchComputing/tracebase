@@ -301,7 +301,6 @@ class GlobalCacheTests(TracebaseTestCase):
         )
 
 
-@MaintainedModel.no_autoupdates()
 class HierCachedModelTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
@@ -584,7 +583,6 @@ class HierCachedModelTests(TracebaseTestCase):
         )
 
 
-@MaintainedModel.no_autoupdates()
 class BuildCachesTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):

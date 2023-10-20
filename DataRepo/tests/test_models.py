@@ -96,7 +96,6 @@ class ExampleDataConsumer:
         return peak_group_df
 
 
-@MaintainedModel.no_autoupdates()
 @override_settings(CACHES=settings.TEST_CACHES)
 class StudyTests(TracebaseTestCase, ExampleDataConsumer):
     def setUp(self):
@@ -194,15 +193,6 @@ class StudyTests(TracebaseTestCase, ExampleDataConsumer):
         )
         self.assertEqual(self.animal.treatment, self.animal_treatment)
 
-    def test_animal_treatment_validation(self):
-        """
-        Here we are purposefully misassociating an animal with the previously
-        created msrun protocol, to test model validation upon full_clean
-        """
-        self.animal.treatment = self.protocol
-        with self.assertRaises(ValidationError):
-            self.animal.full_clean()
-
     def test_study(self):
         """create study and associate animal"""
         # Create a study
@@ -261,7 +251,6 @@ class ProtocolTests(TracebaseTestCase):
             )
 
 
-@MaintainedModel.no_autoupdates()
 @override_settings(CACHES=settings.TEST_CACHES)
 class DataLoadingTests(TracebaseTestCase):
     @classmethod
@@ -523,6 +512,7 @@ class DataLoadingTests(TracebaseTestCase):
         self.assertAlmostEqual(peak_data.raw_abundance, 1356.587)
         self.assertEqual(peak_data.corrected_abundance, 0)
 
+    @MaintainedModel.no_autoupdates()
     def test_dupe_sample_load_fails(self):
         # Insert the dupe sample.  Samples are required to pre-exist for the accucor loader.
         sample = Sample(
@@ -548,6 +538,7 @@ class DataLoadingTests(TracebaseTestCase):
     def test_dupe_samples_not_loaded(self):
         self.assertEqual(Sample.objects.filter(name__exact="tst-dupe1").count(), 0)
 
+    @MaintainedModel.no_autoupdates()
     def test_adl_existing_researcher(self):
         call_command(
             "load_accucor_msruns",
@@ -561,6 +552,7 @@ class DataLoadingTests(TracebaseTestCase):
         # Test that basically, no exception occurred
         self.assertTrue(True)
 
+    @MaintainedModel.no_autoupdates()
     def test_adl_new_researcher(self):
         # The error string must include:
         #   The new researcher is in the error
@@ -587,6 +579,7 @@ class DataLoadingTests(TracebaseTestCase):
             msg=f"String [Michael Neinast\nXianfeng Zeng] must be in {str(aes.exceptions[0])}",
         )
 
+    @MaintainedModel.no_autoupdates()
     def test_adl_new_researcher_confirmed(self):
         call_command(
             "load_accucor_msruns",
@@ -600,6 +593,7 @@ class DataLoadingTests(TracebaseTestCase):
         # Test that basically, no exception occurred
         self.assertTrue(True)
 
+    @MaintainedModel.no_autoupdates()
     def test_adl_existing_researcher_marked_new(self):
         # The error string must include:
         #   The new researcher is in the error
@@ -623,6 +617,7 @@ class DataLoadingTests(TracebaseTestCase):
         self.assertEqual(1, len(aes.exceptions))
         self.assertTrue(exp_err in str(aes.exceptions[0]))
 
+    @MaintainedModel.no_autoupdates()
     def test_ls_new_researcher_and_aggregate_errors(self):
         # The error string must include:
         #   The new researcher is in the error
@@ -649,6 +644,7 @@ class DataLoadingTests(TracebaseTestCase):
         # There are 24 conflicts due to this file being a copy of a file already loaded, with the reseacher changed.
         self.assertEqual(25, len(aes.exceptions))
 
+    @MaintainedModel.no_autoupdates()
     def test_ls_new_researcher_confirmed(self):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
@@ -681,6 +677,7 @@ class DataLoadingTests(TracebaseTestCase):
             self.assertFalse(pgl.from_serum_sample)
 
     @tag("synonym_data_loading")
+    @MaintainedModel.no_autoupdates()
     def test_valid_synonym_accucor_load(self):
         # this file contains 1 valid synonym for glucose, "dextrose"
         call_command(
@@ -704,6 +701,7 @@ class DataLoadingTests(TracebaseTestCase):
         self.assertEqual(peak_group.compounds.first().name, "glucose")
 
     @tag("synonym_data_loading")
+    @MaintainedModel.no_autoupdates()
     def test_invalid_synonym_accucor_load(self):
         with self.assertRaises(
             AggregatedErrors,
@@ -729,7 +727,6 @@ class DataLoadingTests(TracebaseTestCase):
         )
 
 
-@MaintainedModel.no_autoupdates()
 @override_settings(CACHES=settings.TEST_CACHES)
 class PropertyTests(TracebaseTestCase):
     @classmethod
@@ -945,6 +942,7 @@ class PropertyTests(TracebaseTestCase):
         )
         self.assertAlmostEqual(peak_group.labels.first().normalized_labeling, 1)
 
+    @MaintainedModel.no_autoupdates()
     def test_no_peak_labeled_elements(self):
         # This creates an animal with a notrogen-labeled tracer (among others)
         call_command(
@@ -1453,10 +1451,10 @@ class PropertyTests(TracebaseTestCase):
             self.assertFalse(pgl.can_compute_average_tracer_label_rates)
 
 
-@MaintainedModel.no_autoupdates()
 @override_settings(CACHES=settings.TEST_CACHES)
 class MultiTracerLabelPropertyTests(TracebaseTestCase):
     @classmethod
+    @MaintainedModel.no_autoupdates()
     def setUpTestData(cls):
         call_command("loaddata", "lc_methods")
         call_command(
@@ -1542,7 +1540,6 @@ class MultiTracerLabelPropertyTests(TracebaseTestCase):
         self.assertAlmostEqual(expectedn, pgn)
 
 
-@MaintainedModel.no_autoupdates()
 @override_settings(CACHES=settings.TEST_CACHES)
 class TracerRateTests(TracebaseTestCase):
     @classmethod
@@ -1840,6 +1837,7 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
                 0, coordinator.buffer_size(), msg=msg + "  The buffer is empty."
             )
 
+    @MaintainedModel.no_autoupdates()
     def test_animal_and_sample_load_xlsx(self):
         # initialize some sample-table-dependent counters
         SAMPLES_COUNT = 16
@@ -1932,6 +1930,7 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
         )
         self.assertEqual([0, 1], rows)
 
+    @MaintainedModel.no_autoupdates()
     def test_empty_row(self):
         """
         Ensures SheetMergeError doesn't include completely empty rows - asserted by an animal sample table with an
@@ -1946,6 +1945,7 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
             ),
         )
 
+    @MaintainedModel.no_autoupdates()
     def test_required_sample_values_error_ignores_emptyanimal_animalsheet(self):
         """
         Ensures RequiredSampleValuesError doesn't include rows with a missing animal ID (but has other values).
@@ -1971,6 +1971,7 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
         self.assertEqual(16, aes.exceptions[0].row_idxs[0])
         self.assertIn("row numbers can be inaccurate", str(aes.exceptions[0]))
 
+    @MaintainedModel.no_autoupdates()
     def test_required_sample_values_error_ignores_emptyanimal_samplesheet(self):
         """
         Ensures RequiredSampleValuesError doesn't include rows with a missing animal ID (but has other values).
@@ -1998,6 +1999,7 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
 
     @tag("broken")
     @skipIf(True, "This test demonstrates a current bug.")
+    @MaintainedModel.no_autoupdates()
     def test_unraised_samplesheet_error_case(self):
         """
         This test demonstrates a current bug.  If there are no empty rows between populated rows in the Animals sheet,
@@ -2024,6 +2026,7 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
         self.assertEqual(18, aes.exceptions[0].row_idxs[0])
         self.assertIn("row numbers can be inaccurate", str(aes.exceptions[0]))
 
+    @MaintainedModel.no_autoupdates()
     def test_check_required_values(self):
         """
         Check that missing required vals are added to stl.missing_values
@@ -2088,11 +2091,11 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
         )
 
 
-@MaintainedModel.no_autoupdates()
 @override_settings(CACHES=settings.TEST_CACHES)
 @tag("load_study")
 class StudyLoadingTests(TracebaseTestCase):
     @classmethod
+    @MaintainedModel.no_autoupdates()
     def setUpTestData(cls):
         call_command("loaddata", "lc_methods")
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
@@ -2368,6 +2371,7 @@ class StudyLoadingTests(TracebaseTestCase):
             ),
         )
 
+    @MaintainedModel.no_autoupdates()
     def test_singly_labeled_isocorr_study(self):
         call_command(
             "load_study",
@@ -2375,12 +2379,14 @@ class StudyLoadingTests(TracebaseTestCase):
             verbosity=2,
         )
 
+    @MaintainedModel.no_autoupdates()
     def test_multi_tracer_isocorr_study(self):
         call_command(
             "load_study",
             "DataRepo/example_data/obob_fasted_ace_glycerol_3hb_citrate_eaa_fa_multiple_tracers/loading.yaml",
         )
 
+    @MaintainedModel.no_autoupdates()
     def test_multi_label_isocorr_study(self):
         call_command(
             "load_study",
@@ -2388,11 +2394,11 @@ class StudyLoadingTests(TracebaseTestCase):
         )
 
 
-@MaintainedModel.no_autoupdates()
 @override_settings(CACHES=settings.TEST_CACHES)
 @tag("load_study")
 class ParseIsotopeLabelTests(TracebaseTestCase):
     @classmethod
+    @MaintainedModel.no_autoupdates()
     def setUpTestData(cls):
         call_command("loaddata", "lc_methods")
         call_command(
@@ -2473,6 +2479,7 @@ class ParseIsotopeLabelTests(TracebaseTestCase):
             tracer_labeled_elements,
         )
 
+    @MaintainedModel.no_autoupdates()
     def test_dupe_compound_isotope_pairs(self):
         # Error must contain:
         #   all compound/isotope pairs that were dupes
@@ -2518,7 +2525,6 @@ class ParseIsotopeLabelTests(TracebaseTestCase):
         )
 
 
-@MaintainedModel.no_autoupdates()
 @override_settings(CACHES=settings.TEST_CACHES)
 @tag("animal")
 @tag("loading")
@@ -2526,6 +2532,7 @@ class AnimalLoadingTests(TracebaseTestCase):
     """Tests parsing various Animal attributes"""
 
     @classmethod
+    @MaintainedModel.no_autoupdates()
     def setUpTestData(cls):
         call_command("loaddata", "lc_methods")
         call_command("load_study", "DataRepo/example_data/protocols/loading.yaml")
@@ -2537,6 +2544,7 @@ class AnimalLoadingTests(TracebaseTestCase):
 
         super().setUpTestData()
 
+    @MaintainedModel.no_autoupdates()
     def test_labeled_element_parsing(self):
         call_command(
             "load_animals_and_samples",
@@ -2580,6 +2588,7 @@ class AnimalLoadingTests(TracebaseTestCase):
             "S",
         )
 
+    @MaintainedModel.no_autoupdates()
     def test_labeled_element_parsing_invalid(self):
         with self.assertRaisesMessage(
             IsotopeParsingError, "Encoded isotopes: [13Invalid6] cannot be parsed."

@@ -445,7 +445,6 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
         )
 
 
-@MaintainedModel.no_autoupdates()
 class LCMSSampleTableLoaderMethodTests(TracebaseTestCase):
     def test_check_lcms_samples(self):
         stl = SampleTableLoader()
@@ -500,7 +499,6 @@ class LCMSSampleTableLoaderMethodTests(TracebaseTestCase):
         )
 
 
-@MaintainedModel.no_autoupdates()
 class LCMSMetadataParserMethodTests(TracebaseTestCase):
     def test_lcms_df_to_dict(self):
         df = extract_dataframes_from_lcms_tsv(

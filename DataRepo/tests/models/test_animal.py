@@ -4,14 +4,13 @@ from django.conf import settings
 from django.core.management import call_command
 from django.test import override_settings, tag
 
-from DataRepo.models import Animal, Infusate, MaintainedModel, Sample
+from DataRepo.models import Animal, Infusate, Sample
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
 @tag("animal")
 class AnimalTests(TracebaseTestCase):
-    @MaintainedModel.no_autoupdates()
     def setUp(self):
         super().setUp()
         infusate = Infusate()
@@ -28,7 +27,6 @@ class AnimalTests(TracebaseTestCase):
         )
 
     @classmethod
-    @MaintainedModel.no_autoupdates()
     def setUpTestData(cls):
         call_command("loaddata", "lc_methods")
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
