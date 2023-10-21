@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}Archive File Record - {{ archivefile }}{% endblock %}
+
+{% block content %}
+<div>
+    <h4>Archive File Record - {{ archivefile }}</h4>
+    <br>
+    <table class="table  table-bordered table-hover w-auto mw-100">
+        <tr>
+            <td>File Name</td>
+            <td>{{ archivefile.filename }}</td>
+        </tr>
+        <tr>
+            <td>Checksum</td>
+            <td>{{ archivefile.checksum }}</td>
+        </tr>
+        <tr>
+            <td>File Import Timestamp</td>
+            <td>{{ archivefile.imported_timestamp }}</td>
+        </tr>
+        <tr>
+            <td>Data Type</td>
+            <td>{{ archivefile.data_type }}</td>
+        </tr>
+        <tr>
+            <td>Data Format</td>
+            <td>{{ archivefile.data_format }}</td>
+        </tr>
+        <tr>
+            <td>File Location</td>
+            <td>{{ archivefile.file_location }}</td>
+        </tr>
+    </table>
+</div>
+
+<h5><a href="{% url 'search_basic' 'ArchiveFile' 'id' 'iexact' archivefile.pk 'peakgroups' %}">View Peak Group Data</a></h5>
+<h5><a href="{% url 'search_basic' 'ArchiveFile' 'id' 'iexact' archivefile.pk 'peakdata' %}">View Peak Data</a></h5>
+
+{% endblock %}

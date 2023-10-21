@@ -220,9 +220,18 @@ class HierCachedModel(Model):
         # For every child model for which we have a related name
         for child_rel_name in self.child_related_key_names:
             child_instance = getattr(self, child_rel_name)
-            # For every child record, call its delete_descendant_caches()
-            for rec in child_instance.all():
-                rec.delete_descendant_caches()
+            try:
+                # For every child record, call its delete_descendant_caches()
+                for rec in child_instance.all():
+                    rec.delete_descendant_caches()
+            except ValueError as ve:
+                if (
+                    "instance needs to have a primary key value before this relationship can be used."
+                    not in str(ve)
+                ):
+                    raise ve
+                # The ValueError happens when child records don't exist (inferred from no primary key), so there cannot
+                # exist descendant caches to delete and this can be ignored
 
     @classmethod
     def get_my_cached_method_names(cls):
