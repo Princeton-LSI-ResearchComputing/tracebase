@@ -4,13 +4,14 @@ import pandas as pd
 from django.core.management import call_command
 from django.utils import dateparse
 
-from DataRepo.models import Animal, Infusate, Tracer, TracerLabel
+from DataRepo.models import Animal, Infusate, MaintainedModel, Tracer, TracerLabel
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import QuerysetToPandasDataFrame as qs2df
 
 
 class QuerysetToPandasDataFrameBaseTests(TracebaseTestCase):
     @classmethod
+    @MaintainedModel.no_autoupdates()
     def setUpTestData(cls):
         # load small set of data
         call_command("loaddata", "lc_methods")

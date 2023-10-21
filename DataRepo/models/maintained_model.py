@@ -1,7 +1,8 @@
 import importlib
+import inspect
 import warnings
 from collections import defaultdict
-from contextlib import contextmanager
+from contextlib import ContextDecorator, contextmanager
 from threading import local
 from typing import Dict, List
 
@@ -778,7 +779,7 @@ class MaintainedModel(Model):
 
         # Retrieve the current coordinator
         coordinator = self.get_coordinator()
-
+        print(f"coordinator mode is {coordinator.auto_update_mode} stack is {' '.join([c.auto_update_mode for c in self.data.coordinator_stack])}")
         # If auto-updates are turned on, a cascade of updates to linked models will occur, but if they are turned off,
         # the update will be buffered, to be manually triggered later (e.g. upon completion of loading), which
         # mitigates repeated updates to the same record
@@ -1205,32 +1206,12 @@ class MaintainedModel(Model):
         return False
 
     @classmethod
-    @contextmanager
-    def custom_coordinator(
-        cls,
-        coordinator,
-        pre_mass_update_func=None,  # Only used for deferred coordinators
-        post_mass_update_func=None,  # Only used for deferred coordinators
-    ):
-        """
-        This method allows you to set a temporary coordinator using a context manager.  Under this context (using a with
-        block), the supplied coordinator will be used instead of the default whenever a MaintainedModel object is
-        instantiated.  It behaves differently based on the coordinator mode and will change the mode based on the
-        hierarchy.  A disabled parent coordinator trumps deferred and immediate.  A deferred coordinator trumps an
-        immediate.  Deferred passes its buffer to the immediate parent deferred coordinator.  These contexts can be
-        nested.
-
-        Use this method like this:
-            deferred_filtered = MaintainedModelCoordinator(auto_update_mode="deferred")
-            with MaintainedModel.custom_coordinator(deferred_filtered):
-                do_things()
-        """
+    def set_effective_coordinator_mode(cls, coordinator):
         # This assumes that the default_coordinator is in mode "immediate"
         if len(cls.data.coordinator_stack) == 0 and coordinator.buffer_size() > 0:
             raise UncleanBufferError()
 
-        original_mode = coordinator.get_mode()
-        effective_mode = original_mode
+        effective_mode = coordinator.get_mode()
 
         # If any parent context sets autoupdates to disabled, change the mode to disabled
         if (
@@ -1257,6 +1238,53 @@ class MaintainedModel(Model):
             effective_mode = "deferred"
             coordinator._defer_override()
 
+        return effective_mode
+
+    @classmethod
+    def handle_post_coordinator_context_actions(cls, coordinator, pre_mass_update_func, post_mass_update_func):
+        # If we are in fact in deferred mode, now is the time for the mass auto-update
+        if coordinator.get_mode() == "deferred":
+            # Check if there exists a parent coordinator that is also deferred, because we only want to
+            # perform buffered updates once we're in the last deferred context
+            parent_deferred_coordinator = cls.get_parent_deferred_coordinator()
+            # If there is a parent deferred coordinator
+            if parent_deferred_coordinator is not None:
+                # Transfer the buffer to the next-to-last deferred coordinator
+                for buffered_item in coordinator.update_buffer:
+                    parent_deferred_coordinator.buffer_update(buffered_item)
+            else:
+                # Note, the pre/post mass update funcs are ignored if deferring updates to parents, so that
+                # must be specified in every decorator, as nested decorators will not bubble the functions
+                # up the coordinator stack.
+                if pre_mass_update_func is not None:
+                    pre_mass_update_func()
+                coordinator.perform_buffered_updates()
+                if post_mass_update_func is not None:
+                    post_mass_update_func()
+
+    @classmethod
+    @contextmanager
+    def custom_coordinator(
+        cls,
+        coordinator,
+        pre_mass_update_func=None,  # Only used for deferred coordinators
+        post_mass_update_func=None,  # Only used for deferred coordinators
+    ):
+        """
+        This method allows you to set a temporary coordinator using a context manager.  Under this context (using a with
+        block), the supplied coordinator will be used instead of the default whenever a MaintainedModel object is
+        instantiated.  It behaves differently based on the coordinator mode and will change the mode based on the
+        hierarchy.  A disabled parent coordinator trumps deferred and immediate.  A deferred coordinator trumps an
+        immediate.  Deferred passes its buffer to the immediate parent deferred coordinator.  These contexts can be
+        nested.
+
+        Use this method like this:
+            deferred_filtered = MaintainedModelCoordinator(auto_update_mode="deferred")
+            with MaintainedModel.custom_coordinator(deferred_filtered):
+                do_things()
+        """
+        cls.set_effective_coordinator_mode(coordinator)
+
         cls.data.coordinator_stack.append(coordinator)
 
         try:
@@ -1265,25 +1293,7 @@ class MaintainedModel(Model):
             yield
 
             # If the above raised an exception, we will not get here...
-            # If we are in fact in deferred mode, now is the time for the mass auto-update
-            if effective_mode == "deferred":
-                # Check if there exists a parent coordinator that is also deferred, because we only want to
-                # perform buffered updates once we're in the last deferred context
-                parent_deferred_coordinator = cls.get_parent_deferred_coordinator()
-                # If there is a parent deferred coordinator
-                if parent_deferred_coordinator is not None:
-                    # Transfer the buffer to the next-to-last deferred coordinator
-                    for buffered_item in coordinator.update_buffer:
-                        parent_deferred_coordinator.buffer_update(buffered_item)
-                else:
-                    # Note, the pre/post mass update funcs are ignored if deferring updates to parents, so that
-                    # must be specified in every decorator, as nested decorators will not bubble the functions
-                    # up the coordinator stack.
-                    if pre_mass_update_func is not None:
-                        pre_mass_update_func()
-                    coordinator.perform_buffered_updates()
-                    if post_mass_update_func is not None:
-                        post_mass_update_func()
+            cls.handle_post_coordinator_context_actions(coordinator, pre_mass_update_func, post_mass_update_func)
 
         except Exception as e:
             # Empty the buffer just to be on the safe side.  This shouldn't technically be necessary since we are
@@ -1348,6 +1358,15 @@ class MaintainedModel(Model):
         return decorator
 
     @classmethod
+    def no_autoupdates_function_decorator(cls, fn):
+        disabled_coordinator = MaintainedModelCoordinator(auto_update_mode="disabled")
+        # This wraps the function so we can apply a different coordinator
+        def wrapper(*args, **kwargs):
+            with cls.custom_coordinator(disabled_coordinator):
+                fn(*args, **kwargs)
+        return wrapper
+
+    @classmethod
     def no_autoupdates(cls):
         """
         Use this as a decorator to wrap a function to completely disable all autoupdates and NOT perform a mass
@@ -1355,15 +1374,27 @@ class MaintainedModel(Model):
         """
 
         # This takes the function being decorated
-        def decorator(fn):
-            # This wraps the function so we can apply a different coordinator
-            def wrapper(*args, **kwargs):
-                coordinator = MaintainedModelCoordinator(auto_update_mode="disabled")
-                with cls.custom_coordinator(coordinator):
-                    fn(*args, **kwargs)
-
-            return wrapper
-
+        def decorator(fn_or_class):
+            if type(fn_or_class).__name__ == "function":
+                return cls.no_autoupdates_function_decorator(fn_or_class)
+            else:  # Assume class
+                # Decorate every method in the class
+                for name, fn in inspect.getmembers(fn_or_class, inspect.isfunction):
+                    print(f"name: {name} fn: {fn}")
+                    if name.startswith("test_") or name.startswith("setUp"):
+                        print(f"Decorated: {fn_or_class.__name__}.{name}")
+                        setattr(fn_or_class, name, cls.no_autoupdates_function_decorator(fn))
+                return fn_or_class
+                # # # This returns a class-decorator
+                # # return CustomCoordinator(disabled_coordinator)
+                # # This wraps the class so we can wrap its instance creations
+                # class WrappedClass(fn_or_class):
+                #     # This is a recursive call
+                #     @cls.no_autoupdates()
+                #     def __init__(self, *args, **kwargs):
+                #         # The creation of instances will add a coordinator context
+                #         return super().__init__(*args, **kwargs)
+                # return WrappedClass
         return decorator
 
     @classmethod
@@ -1807,6 +1838,50 @@ class MaintainedModel(Model):
 
     class Meta:
         abstract = True
+
+
+class CustomCoordinator(ContextDecorator):
+    """
+    This is the class version of MaintainedModel.custom_coordinator.  It is used by MaintainedModel.no_autoupdates to be
+    able to decorate classes and thus disable autoupdates from methods called through objects created by the decorated
+    classes.
+    """
+    def __init__(
+        self,
+        coordinator,
+        pre_mass_update_func=None,  # Only used for deferred coordinators
+        post_mass_update_func=None,  # Only used for deferred coordinators
+    ):
+        # The original coordinator
+        self.coordinator = coordinator
+        # The effective coordinator (mode depends on current context)
+        self.effective_coordinator = None
+        self.pre_mass_update_func = pre_mass_update_func
+        self.post_mass_update_func = post_mass_update_func
+
+    def __enter__(self):
+        # Create a copy of the original coordinator
+        self.effective_coordinator = MaintainedModelCoordinator(self.coordinator.get_mode())
+        MaintainedModel.set_effective_coordinator_mode(self.effective_coordinator)
+        MaintainedModel.data.coordinator_stack.append(self.effective_coordinator)
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        if exc_type is None:
+            try:
+                MaintainedModel.handle_post_coordinator_context_actions(
+                    self.effective_coordinator,
+                    self.pre_mass_update_func,
+                    self.post_mass_update_func,
+                )
+            except Exception as e:
+                self.effective_coordinator.clear_update_buffer()
+                raise e
+            finally:
+                MaintainedModel.data.coordinator_stack.pop()
+        else:
+            self.effective_coordinator.clear_update_buffer()
+            MaintainedModel.data.coordinator_stack.pop()
+            raise exc_value
 
 
 class NotMaintained(Exception):
