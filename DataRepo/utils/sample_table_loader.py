@@ -148,6 +148,7 @@ class SampleTableLoader:
         defer_autoupdates=False,
         defer_rollback=False,  # DO NOT USE MANUALLY - THIS WILL NOT ROLL BACK (handle in atomic transact in caller)
         dry_run=False,
+        update_caches=True,
     ):
         # Header config
         self.headers = sample_table_headers
@@ -163,6 +164,8 @@ class SampleTableLoader:
         self.defer_rollback = defer_rollback
 
         # Caching overhead
+        # Making this True causes existing caches associated with loaded records to be deleted
+        self.update_caches = update_caches
         self.animals_to_uncache = []
 
         # Error-tracking
@@ -315,14 +318,15 @@ class SampleTableLoader:
         if self.dry_run:
             raise DryRun()
 
-        if self.verbosity >= 2:
-            print("Expiring affected caches...")
-        for animal_rec in self.animals_to_uncache:
-            if self.verbosity >= 3:
-                print(f"Expiring animal {animal_rec.id}'s cache")
-            animal_rec.delete_related_caches()
-        if self.verbosity >= 2:
-            print("Expiring done.")
+        if self.update_caches is True:
+            if self.verbosity >= 2:
+                print("Expiring affected caches...")
+            for animal_rec in self.animals_to_uncache:
+                if self.verbosity >= 3:
+                    print(f"Expiring animal {animal_rec.id}'s cache")
+                animal_rec.delete_related_caches()
+            if self.verbosity >= 2:
+                print("Expiring done.")
 
     def get_tissue(self, rownum, row):
         tissue_name = self.getRowVal(row, "TISSUE_NAME")
@@ -562,10 +566,11 @@ class SampleTableLoader:
 
         # animal_created block contains all the animal attribute updates if the animal was newly created
         if animal_created:
-            if animal_rec.caches_exist():
-                self.animals_to_uncache.append(animal_rec)
-            elif self.verbosity >= 3:
-                print(f"No cache exists for animal {animal_rec.id}")
+            if self.update_caches is True:
+                if animal_rec.caches_exist():
+                    self.animals_to_uncache.append(animal_rec)
+                elif self.verbosity >= 3:
+                    print(f"No cache exists for animal {animal_rec.id}")
 
             if self.verbosity >= 2:
                 print(f"Created new record: Animal:{animal_rec}")

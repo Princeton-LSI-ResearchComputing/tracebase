@@ -38,7 +38,11 @@ class ProtocolViewTests(TracebaseTestCase):
         # Ensure the auto-update buffer is empty.  If it's not, then a previously run test didn't clean up after itself
         assert_coordinator_state_is_initialized()
 
-        call_command("load_study", "DataRepo/example_data/test_dataframes/loading.yaml")
+        call_command(
+            "load_study",
+            "DataRepo/example_data/test_dataframes/loading.yaml",
+            skip_cache_updates=True,
+        )
 
     def test_animal_treatment_list(self):
         response = self.client.get(reverse("animal_treatment_list"))

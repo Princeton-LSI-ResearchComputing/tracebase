@@ -229,9 +229,9 @@ class HierCachedModel(Model):
                     "instance needs to have a primary key value before this relationship can be used."
                     not in str(ve)
                 ):
+                    # The ValueError happens when there is no primary key, so we will assume there are no stale cache
+                    # records in related descendant records that need to be deleted
                     raise ve
-                # The ValueError happens when child records don't exist (inferred from no primary key), so there cannot
-                # exist descendant caches to delete and this can be ignored
 
     @classmethod
     def get_my_cached_method_names(cls):

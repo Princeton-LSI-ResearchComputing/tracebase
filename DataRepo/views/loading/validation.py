@@ -175,6 +175,7 @@ class DataValidationView(FormView):
                 yaml_file,
                 validate=True,
                 verbosity=3,
+                skip_cache_updates=True,
             )
         except MultiLoadStatus as mls:
             load_status_data = mls

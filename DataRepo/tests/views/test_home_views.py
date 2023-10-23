@@ -47,6 +47,7 @@ class HomeViewTests(TracebaseTestCase):
             "load_study",
             "DataRepo/example_data/test_dataframes/loading.yaml",
             verbosity=6,
+            skip_cache_updates=True,
         )
         cls.ALL_TISSUES_COUNT = 37
         cls.ALL_COMPOUNDS_COUNT = 51

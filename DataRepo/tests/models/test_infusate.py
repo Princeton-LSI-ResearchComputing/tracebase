@@ -365,6 +365,7 @@ class MaintainedModelImmediateTests(TracebaseTestCase):
                 "small_obob_animal_and_sample_table.xlsx"
             ),
             dry_run=False,
+            skip_cache_updates=True,
         )
         self.assert_coordinator_state_is_initialized()
 

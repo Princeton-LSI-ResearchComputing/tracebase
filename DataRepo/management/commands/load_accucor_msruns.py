@@ -101,6 +101,13 @@ class Command(BaseCommand):
             help=argparse.SUPPRESS,
             default=None,
         )
+        parser.add_argument(
+            "--skip-cache-updates",
+            required=False,
+            action="store_true",
+            default=False,
+            help="Do not delete stale cache values associated with inserted records.",
+        )
 
     @MaintainedModel.defer_autoupdates(
         disable_opt_names=["validate", "dry_run"],
@@ -138,6 +145,7 @@ class Command(BaseCommand):
             isocorr_format=options["isocorr_format"],
             verbosity=options["verbosity"],
             dry_run=options["dry_run"],
+            update_caches=not options["skip_cache_updates"],
         )
 
         loader.load_accucor_data()

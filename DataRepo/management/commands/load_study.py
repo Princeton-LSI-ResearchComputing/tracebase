@@ -83,6 +83,13 @@ class Command(BaseCommand):
             default=False,
             help=argparse.SUPPRESS,
         )
+        parser.add_argument(
+            "--skip-cache-updates",
+            required=False,
+            action="store_true",
+            default=False,
+            help="Do not delete stale cache values associated with inserted records.",
+        )
 
     @MaintainedModel.defer_autoupdates(
         disable_opt_names=["validate", "dry_run"],
@@ -97,6 +104,7 @@ class Command(BaseCommand):
         self.verbosity = options["verbosity"]
         self.validate = options["validate"]
         self.dry_run = options["dry_run"]
+        self.skip_cache_updates=options["skip_cache_updates"],
 
         # Read load study parameters
         study_params = yaml.safe_load(options["study_params"])
@@ -224,6 +232,7 @@ class Command(BaseCommand):
                         validate=self.validate,
                         defer_autoupdates=True,
                         defer_rollback=True,  # Until after we exit THIS atomic block
+                        cache_updates=not self.skip_cache_updates,
                     )
                 except Exception as e:
                     self.package_group_exceptions(e, animals_samples_table_file)
@@ -283,6 +292,7 @@ class Command(BaseCommand):
                             sample_name_prefix=sample_name_prefix,
                             validate=self.validate,
                             isocorr_format=isocorr_format,
+                            cache_updates=not self.skip_cache_updates,
                         )
                         if self.verbosity > 1:
                             self.stdout.write(
