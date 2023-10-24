@@ -1535,11 +1535,11 @@ class MaintainedModel(Model):
                             "instance needs to have a primary key value before this relationship can be used."
                             not in str(ve)
                         ):
+                            # If the model object does not have a primary key and the updater_fun in the derived class
+                            # tries to traverse a relation, we will assume that there is not a valid value to update and
+                            # ignore ignore this exception.  This is a new exception in Django 4.2 (compared to 3.2,
+                            # which just returned empty querysets for those cases).
                             raise ve
-                        # If the model object does not have a primary key, and the updater_fun in the derived class
-                        # tries to traverse a non-existant relation, we can assume that there is not a valid value to
-                        # update, so we can safely ignore this exception.  This is a new exception in Django 4.2
-                        # (compared to 3.2, which just returned empty querysets for those cases).
                     setattr(self, update_fld, new_val)
 
                     # Report the auto-update

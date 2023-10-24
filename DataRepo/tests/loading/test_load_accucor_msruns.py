@@ -71,7 +71,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
                 date="2021-04-29",
                 researcher="Michael Neinast",
                 new_researcher=True,
-            skip_cache_updates=True,
+                skip_cache_updates=True,
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
