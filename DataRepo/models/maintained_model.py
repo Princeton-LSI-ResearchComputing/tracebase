@@ -656,7 +656,17 @@ class MaintainedModel(Model):
                             "a related model's maintained field."
                         )
                         old_val = "<error>"
-                    new_val = update_fun()
+                    # new_val = update_fun()
+                    new_val = None
+                    try:
+                        new_val = update_fun()
+                    except ValueError as ve:
+                        if (
+                            "instance needs to have a primary key value before this relationship can be used."
+                            not in str(ve)
+                        ):
+                            raise ve
+
                     setattr(self, update_fld, new_val)
 
                     # Report the auto-update
