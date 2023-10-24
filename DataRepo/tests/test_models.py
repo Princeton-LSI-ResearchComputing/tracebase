@@ -100,8 +100,6 @@ class ExampleDataConsumer:
 
 @override_settings(CACHES=settings.TEST_CACHES)
 class StudyTests(TracebaseTestCase, ExampleDataConsumer):
-    fixtures = ["data_types.yaml", "data_formats.yaml"]
-
     def setUp(self):
         super().setUp()
         # Get test data
@@ -1612,8 +1610,6 @@ class MultiTracerLabelPropertyTests(TracebaseTestCase):
 
 @override_settings(CACHES=settings.TEST_CACHES)
 class TracerRateTests(TracebaseTestCase):
-    fixtures = ["data_types.yaml", "data_formats.yaml"]
-
     @classmethod
     def setUpTestData(cls):
         call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
@@ -2458,8 +2454,6 @@ class StudyLoadingTests(TracebaseTestCase):
 @override_settings(CACHES=settings.TEST_CACHES)
 @tag("load_study")
 class ParseIsotopeLabelTests(TracebaseTestCase):
-    fixtures = ["data_types.yaml", "data_formats.yaml"]
-
     @classmethod
     def setUpTestData(cls):
         call_command(
@@ -2589,8 +2583,6 @@ class ParseIsotopeLabelTests(TracebaseTestCase):
 @tag("loading")
 class AnimalLoadingTests(TracebaseTestCase):
     """Tests parsing various Animal attributes"""
-
-    fixtures = ["data_types.yaml", "data_formats.yaml"]
 
     @classmethod
     def setUpTestData(cls):
