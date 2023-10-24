@@ -215,3 +215,5 @@ elif CACHES_SETTING != "PROD_CACHES":
 #        }
 #    },
 # }
+
+TEST_RUNNER = "TraceBase.runner.TraceBaseTestSuiteRunner"
