@@ -10,10 +10,10 @@ assignees: ''
 * [ ] `git pull` - make sure local repository is up to date
 * [ ] Polish `changelog.md` - get changelog ready for release
 * [ ] `git push` - commit and push updated changelog
-* [ ] Ensure all tests pass
+* [ ] Ensure all tests pass in GitHub actions
 * [ ] `git tag -a [TAGNAME]`
 * [ ] `git push origin [TAGNAME]`
-* [ ] [Create a GitHub release](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository#creating-a-release)
+* [ ] Follow steps to [create a release on GitHub](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository#creating-a-release)
 * [ ] Add *Unreleased* to `changelog.md`
 * [ ] If this is a release branch (not `main`), merge changes into `main`
 * [ ] `git push`
