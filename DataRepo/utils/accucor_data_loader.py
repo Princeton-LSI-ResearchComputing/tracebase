@@ -1,15 +1,21 @@
+import hashlib
 import re
 from collections import Counter, defaultdict
 from datetime import datetime
+from pathlib import Path
 from typing import Dict, List, TypedDict
 
 import regex
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.core.files import File
 from django.db import IntegrityError, transaction
 
 from DataRepo.models import (
+    ArchiveFile,
     Compound,
+    DataFormat,
+    DataType,
     ElementLabel,
     MaintainedModel,
     MSRun,
@@ -17,7 +23,6 @@ from DataRepo.models import (
     PeakDataLabel,
     PeakGroup,
     PeakGroupLabel,
-    PeakGroupSet,
     Protocol,
     Sample,
 )
@@ -114,7 +119,7 @@ class AccuCorDataLoader:
         date,
         protocol_input,
         researcher,
-        peak_group_set_filename,
+        peak_annotation_filename,
         skip_samples=None,
         sample_name_prefix=None,
         new_researcher=False,
@@ -140,7 +145,7 @@ class AccuCorDataLoader:
             self.date = datetime.strptime(date.strip(), "%Y-%m-%d")
             self.researcher = researcher.strip()
             self.new_researcher = new_researcher
-            self.peak_group_set_filename = peak_group_set_filename.strip()
+            self.peak_annotation_filename = peak_annotation_filename.strip()
 
             # Sample Metadata
             if skip_samples is None:
@@ -673,17 +678,36 @@ class AccuCorDataLoader:
 
         return protocol
 
-    def insert_peak_group_set(self):
-        peak_group_set = PeakGroupSet(filename=self.peak_group_set_filename)
-        peak_group_set.full_clean()
-        peak_group_set.save()
-        return peak_group_set
+    def insert_peak_annotation_file(self):
+        peak_annotaion_path = Path(self.peak_annotation_filename)
+        hexa_value = hash_file(self.peak_annotation_filename)
+
+        with peak_annotaion_path.open(mode="rb") as f:
+            # Don't store the file during dry-run or validation
+            if self.dry_run or self.validate:
+                peak_annotation_file = None
+            else:
+                peak_annotation_file = File(f, name=peak_annotaion_path.name)
+
+            ms_peak_annotation = DataType.objects.get(code="ms_peak_annotation")
+            annotation_format = "isocorr" if self.isocorr_format else "accucor"
+            peak_annotation_format = DataFormat.objects.get(code=annotation_format)
+            peak_annotation_archivefile = ArchiveFile.objects.create(
+                filename=peak_annotaion_path.name,
+                file_location=peak_annotation_file,
+                checksum=hexa_value,
+                data_type=ms_peak_annotation,
+                data_format=peak_annotation_format,
+            )
+            peak_annotation_archivefile.save()
+
+        return peak_annotation_archivefile
 
     def insert_peak_group(
         self,
         peak_group_attrs: PeakGroupAttrs,
         msrun: MSRun,
-        peak_group_set: PeakGroupSet,
+        peak_annotation_file: ArchiveFile,
     ):
         """Insert a PeakGroup record
 
@@ -693,7 +717,7 @@ class AccuCorDataLoader:
         Args:
             peak_group_attrs: dictionary of peak group atrributes
             msrun: MSRun object the PeakGroup belongs to
-            peak_group_set: PeakGroupSet object the PeakGroup belongs to
+            peak_annotation_file: ArchiveFile object of the peak annotation file the peak group was loaded from
 
         Returns:
             A newly created PeakGroup object created using the supplied values
@@ -701,7 +725,7 @@ class AccuCorDataLoader:
         Raises:
             DuplicatePeakGroup: A PeakGroup record with the same values already exists
             ConflictingValueError: A PeakGroup with the same unique key (MSRun and PeakGroup.name) exists, but with a
-              different formula or PeakGroupSet
+              different formula or different peak_annotation_file
         """
 
         if self.verbosity >= 1:
@@ -713,15 +737,15 @@ class AccuCorDataLoader:
                 msrun=msrun,
                 name=peak_group_attrs["name"],
                 formula=peak_group_attrs["formula"],
-                peak_group_set=peak_group_set,
+                peak_annotation_file=peak_annotation_file,
             )
             if not created:
                 raise DuplicatePeakGroup(
-                    adding_file=peak_group_set.filename,
+                    adding_file=peak_annotation_file.filename,
                     ms_run=msrun,
                     sample=msrun.sample,
                     peak_group_name=peak_group_attrs["name"],
-                    existing_peak_group_set=peak_group.peak_group_set,
+                    existing_peak_annotation_file=peak_group.peak_annotation_file,
                 )
             peak_group.full_clean()
             peak_group.save()
@@ -742,10 +766,12 @@ class AccuCorDataLoader:
                     conflicting_fields.append("formula")
                     existing_values.append(existing_peak_group.formula)
                     new_values.append(peak_group_attrs["formula"])
-                if existing_peak_group.peak_group_set != peak_group_set:
-                    conflicting_fields.append("peak_group_set")
-                    existing_values.append(existing_peak_group.peak_group_set.filename)
-                    new_values.append(peak_group_set.filename)
+                if existing_peak_group.peak_annotation_file != peak_annotation_file:
+                    conflicting_fields.append("peak_annotation_file")
+                    existing_values.append(
+                        existing_peak_group.peak_annotation_file.filename
+                    )
+                    new_values.append(peak_annotation_file.filename)
                 raise ConflictingValueError(
                     rec=existing_peak_group,
                     consistent_field=conflicting_fields,
@@ -795,7 +821,7 @@ class AccuCorDataLoader:
 
         # No need to try/catch - these need to succeed to start loading samples
         protocol = self.retrieve_or_create_protocol()
-        peak_group_set = self.insert_peak_group_set()
+        peak_annotation_file = self.insert_peak_annotation_file()
 
         sample_msrun_dict = {}
 
@@ -880,7 +906,7 @@ class AccuCorDataLoader:
                             peak_group = self.insert_peak_group(
                                 peak_group_attrs=self.peak_group_dict[peak_group_name],
                                 msrun=msrun,
-                                peak_group_set=peak_group_set,
+                                peak_annotation_file=peak_annotation_file,
                             )
                             inserted_peak_group_dict[peak_group_name] = peak_group
                         except DuplicatePeakGroup as dup_pg:
@@ -1074,7 +1100,7 @@ class AccuCorDataLoader:
         if len(self.duplicate_peak_groups) > 0:
             self.aggregated_errors_object.buffer_exception(
                 DuplicatePeakGroups(
-                    adding_file=peak_group_set.filename,
+                    adding_file=peak_annotation_file.filename,
                     duplicate_peak_groups=self.duplicate_peak_groups,
                 ),
                 is_fatal=self.validate,
@@ -1289,6 +1315,26 @@ class AccuCorDataLoader:
             raise self.aggregated_errors_object
 
         enable_caching_updates()
+
+
+def hash_file(filename):
+    """ "This function returns the SHA-1 hash
+    of the file passed into it"""
+
+    # make a hash object
+    h = hashlib.sha1()
+
+    # open file for reading in binary mode
+    with open(filename, "rb") as file:
+        # loop till the end of the file
+        chunk = 0
+        while chunk != b"":
+            # read only 1024 bytes at a time
+            chunk = file.read(1024)
+            h.update(chunk)
+
+    # return the hex representation of digest
+    return h.hexdigest()
 
 
 class IsotopeObservationParsingError(Exception):

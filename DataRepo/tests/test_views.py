@@ -9,12 +9,12 @@ from django.urls import reverse
 
 from DataRepo.models import (
     Animal,
+    ArchiveFile,
     Compound,
     Infusate,
     MSRun,
     PeakData,
     PeakGroup,
-    PeakGroupSet,
     Sample,
     Study,
     Tissue,
@@ -305,26 +305,26 @@ class ViewTests(TracebaseTestCase):
         response = self.client.get(reverse("msrun_detail", args=[ms.id + 1]))
         self.assertEqual(response.status_code, 404)
 
-    def test_peakgroupset_list(self):
-        response = self.client.get(reverse("peakgroupset_list"))
+    def test_archive_file_list(self):
+        response = self.client.get(reverse("archive_file_list"))
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "DataRepo/peakgroupset_list.html")
-        self.assertEqual(len(response.context["peakgroupset_list"]), 2)
+        self.assertTemplateUsed(response, "DataRepo/archive_file_list.html")
+        self.assertEqual(len(response.context["archive_file_list"]), 2)
 
-    def test_peakgroupset_detail(self):
-        pgs1 = PeakGroupSet.objects.filter(
+    def test_archive_file_detail(self):
+        af1 = ArchiveFile.objects.filter(
             filename="small_obob_maven_6eaas_inf.xlsx"
         ).get()
-        response = self.client.get(reverse("peakgroupset_detail", args=[pgs1.id]))
+        response = self.client.get(reverse("archive_file_detail", args=[af1.id]))
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "DataRepo/peakgroupset_detail.html")
+        self.assertTemplateUsed(response, "DataRepo/archive_file_detail.html")
         self.assertEqual(
-            response.context["peakgroupset"].filename, "small_obob_maven_6eaas_inf.xlsx"
+            response.context["archivefile"].filename, "small_obob_maven_6eaas_inf.xlsx"
         )
 
-    def test_peakgroupset_detail_404(self):
-        pgs = PeakGroupSet.objects.order_by("id").last()
-        response = self.client.get(reverse("peakgroupset_detail", args=[pgs.id + 1]))
+    def test_archive_file_detail_404(self):
+        af = ArchiveFile.objects.order_by("id").last()
+        response = self.client.get(reverse("archive_file_detail", args=[af.id + 1]))
         self.assertEqual(response.status_code, 404)
 
     def test_peakgroup_list(self):
@@ -612,6 +612,8 @@ class ValidationViewTests(TracebaseTransactionTestCase):
     ...associated with the outer atomic transaction of any normal test case.  See:
     https://stackoverflow.com/questions/21458387/transactionmanagementerror-you-cant-execute-queries-until-the-end-of-the-atom
     """
+
+    fixtures = ["data_types.yaml", "data_formats.yaml"]
 
     def assert_coordinator_state_is_initialized(
         self, msg="MaintainedModelCoordinators are in the default state."

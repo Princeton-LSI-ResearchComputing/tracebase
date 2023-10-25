@@ -1,6 +1,12 @@
 ---
 - model: DataRepo.dataformat
   fields:
+    code: unknown
+    name: "Unknown format"
+    description: >
+      "Unknown data format"
+- model: DataRepo.dataformat
+  fields:
     code: ms_raw
     name: "raw (Proprietary)"
     description: >

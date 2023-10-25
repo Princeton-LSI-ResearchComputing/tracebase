@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from django.forms.models import model_to_dict
 
 if TYPE_CHECKING:
-    from DataRepo.models import MSRun, PeakGroupSet, Sample
+    from DataRepo.models import ArchiveFile, MSRun, Sample
 
 
 class HeaderError(Exception):
@@ -100,7 +100,7 @@ class DuplicatePeakGroup(Exception):
         ms_run: The MSRun in which the peak groups were measured
         sample_name: The name of the sample the duplicated data blongs to
         peak_group_name (compounds): The name of duplicated peak group
-        existing_peak_group_set: The peak group set that the previosly existing peak group blongs to
+        existing_peak_annotation_file: The peak annotation file that the previosly existing peak group blongs to
     """
 
     def __init__(
@@ -109,7 +109,7 @@ class DuplicatePeakGroup(Exception):
         ms_run: MSRun,
         sample: Sample,
         peak_group_name: str,
-        existing_peak_group_set: PeakGroupSet,
+        existing_peak_annotation_file: ArchiveFile,
     ):
         """Initializes a DuplicatePeakGroup exception"""
 
@@ -118,7 +118,7 @@ class DuplicatePeakGroup(Exception):
             f"\tms_run: {ms_run}\n"
             f"\tsample: {sample}\n"
             f"\tpeak_group_name: {peak_group_name}\n"
-            f"\texisting_peak_group_set: {existing_peak_group_set}\n"
+            f"\texisting_peak_annotation_file: {existing_peak_annotation_file}\n"
             f"\tWas this file [{adding_file}] loaded previously?\n"
         )
         super().__init__(message)
@@ -126,7 +126,7 @@ class DuplicatePeakGroup(Exception):
         self.ms_run = ms_run
         self.sample = sample
         self.peak_group_name = peak_group_name
-        self.existing_peak_group_set = existing_peak_group_set
+        self.existing_peak_annotation_file = existing_peak_annotation_file
 
 
 class DuplicatePeakGroups(Exception):
@@ -155,7 +155,7 @@ class DuplicatePeakGroups(Exception):
                 f"peak_group_name: {duplicate_peak_group.peak_group_name} | "
                 f"ms_run_date: {duplicate_peak_group.ms_run.date} | "
                 f"ms_run_researcher: {duplicate_peak_group.ms_run.researcher} | "
-                f"peak_group_set: {duplicate_peak_group.existing_peak_group_set.filename}\n"
+                f"peak_annotation_file: {duplicate_peak_group.existing_peak_annotation_file.filename}\n"
             )
         super().__init__(message)
         self.adding_file = adding_file
