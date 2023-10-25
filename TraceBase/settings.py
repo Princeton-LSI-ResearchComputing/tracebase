@@ -150,6 +150,23 @@ STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")]
 MEDIA_URL = "/archive/"
 MEDIA_ROOT = os.path.join(BASE_DIR, "archive")
 
+STORAGES = {
+    # Django defaults:
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
+    # Testing/production
+    "testing": {
+        "BACKEND": "django.core.files.storage.InMemoryStorage",
+    },
+    "production": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+}
+
 # Data submission and validation settings
 
 # https://stackoverflow.com/questions/38345977/filefield-force-using-temporaryuploadedfile
@@ -196,7 +213,7 @@ elif CACHES_SETTING != "PROD_CACHES":
 
 # Define a custom test runner
 # https://docs.djangoproject.com/en/4.2/topics/testing/advanced/#using-different-testing-frameworks
-# TEST_RUNNER = "TraceBase.runner.TraceBaseTestSuiteRunner"
+TEST_RUNNER = "TraceBase.runner.TraceBaseTestSuiteRunner"
 
 # Logging settings
 # This logging level was added to show the number of SQL queries in the server console
