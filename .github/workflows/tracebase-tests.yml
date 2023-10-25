@@ -51,4 +51,4 @@ jobs:
       - name: Make the cache table
         run: python manage.py createcachetable
       - name: Run tests
-        run: python manage.py test DataRepo.tests.test_models.StudyLoadingTests
+        run: python manage.py test
