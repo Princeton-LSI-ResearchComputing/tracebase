@@ -603,7 +603,6 @@ class ViewNullToleranceTests(ViewTests):
         super().test_study_detail()
 
 
-@tag("ttt")
 class ValidationViewTests(TracebaseTransactionTestCase):
     """
     Note, without the TransactionTestCase (derived) class (and the with transaction.atomic block below), the infusate-
@@ -613,6 +612,8 @@ class ValidationViewTests(TracebaseTransactionTestCase):
     ...associated with the outer atomic transaction of any normal test case.  See:
     https://stackoverflow.com/questions/21458387/transactionmanagementerror-you-cant-execute-queries-until-the-end-of-the-atom
     """
+
+    fixtures = ["data_types.yaml", "data_formats.yaml"]
 
     def assert_coordinator_state_is_initialized(
         self, msg="MaintainedModelCoordinators are in the default state."
