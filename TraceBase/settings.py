@@ -196,7 +196,7 @@ elif CACHES_SETTING != "PROD_CACHES":
 
 # Define a custom test runner
 # https://docs.djangoproject.com/en/4.2/topics/testing/advanced/#using-different-testing-frameworks
-TEST_RUNNER = "TraceBase.runner.TraceBaseTestSuiteRunner"
+# TEST_RUNNER = "TraceBase.runner.TraceBaseTestSuiteRunner"
 
 # Logging settings
 # This logging level was added to show the number of SQL queries in the server console
