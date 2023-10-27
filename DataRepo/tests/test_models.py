@@ -814,6 +814,7 @@ class PropertyTests(TracebaseTestCase):
             sample_table_filename="DataRepo/example_data/obob_samples_table.tsv",
             animal_table_filename="DataRepo/example_data/obob_animals_table.tsv",
             table_headers="DataRepo/example_data/sample_and_animal_tables_headers.yaml",
+            skip_cache_updates=False,
         )
 
         # from DataRepo/example_data/obob_sample_table.tsv, not counting the header and BLANK samples
@@ -828,6 +829,7 @@ class PropertyTests(TracebaseTestCase):
             "DataRepo/example_data/serum_lactate_timecourse_treatment.tsv",
             sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
             skip_researcher_check=True,
+            skip_cache_updates=False,
         )
         # from DataRepo/example_data/serum_lactate_timecourse_treatment.tsv, not counting the header
         cls.ALL_SAMPLES_COUNT += 24
@@ -841,6 +843,7 @@ class PropertyTests(TracebaseTestCase):
             accucor_file="DataRepo/example_data/obob_maven_6eaas_inf.xlsx",
             date="2021-04-29",
             researcher="Michael Neinast",
+            skip_cache_updates=False,
         )
         cls.ALL_PEAKGROUPSETS_COUNT = 1
         cls.INF_COMPOUNDS_COUNT = 7
@@ -853,6 +856,7 @@ class PropertyTests(TracebaseTestCase):
             accucor_file="DataRepo/example_data/obob_maven_6eaas_serum.xlsx",
             date="2021-04-29",
             researcher="Michael Neinast",
+            skip_cache_updates=False,
         )
         cls.ALL_PEAKGROUPSETS_COUNT += 1
         cls.SERUM_COMPOUNDS_COUNT = 13
@@ -866,6 +870,7 @@ class PropertyTests(TracebaseTestCase):
             accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_corrected.csv",
             date="2021-10-14",
             researcher="Michael Neinast",
+            skip_cache_updates=False,
         )
         cls.ALL_PEAKGROUPSETS_COUNT += 1
         cls.NULL_ORIG_COMPOUNDS_COUNT = 7
@@ -1009,6 +1014,7 @@ class PropertyTests(TracebaseTestCase):
                 "DataRepo/example_data/testing_data/animal_sample_table_labeled_elements.xlsx"
             ),
             skip_researcher_check=True,
+            skip_cache_updates=False,
         )
 
         # Retrieve a sample associated with an animal that has a tracer with only a nitrogen label
@@ -1529,6 +1535,7 @@ class MultiTracerLabelPropertyTests(TracebaseTestCase):
                 "DataRepo/example_data/obob_fasted_glc_lac_gln_ala_multiple_labels/animal_sample_table.xlsx"
             ),
             skip_researcher_check=True,
+            skip_cache_updates=False,
         )
         call_command(
             "load_accucor_msruns",
@@ -1539,6 +1546,7 @@ class MultiTracerLabelPropertyTests(TracebaseTestCase):
             researcher="Xianfeng Zeng",
             new_researcher=False,
             isocorr_format=True,
+            skip_cache_updates=False,
         )
 
         super().setUpTestData()

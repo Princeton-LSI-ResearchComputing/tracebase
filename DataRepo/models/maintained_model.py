@@ -786,12 +786,22 @@ class MaintainedModel(Model):
         # Retrieve the current coordinator
         coordinator = self.get_coordinator()
 
+        # super_save_called will already have been initialized if the object was saved and buffered and mass auto-update
+        # is being performed
+        if not hasattr(self, "super_save_called"):
+            self.super_save_called = False
+        elif self.super_save_called is True and mass_updates is False:
+            # Save has been called from the developer's code a second time (presumably after having made subsequent
+            # changes), so we must reset to False
+            self.super_save_called = False
+
         # If auto-updates are turned on, a cascade of updates to linked models will occur, but if they are turned off,
         # the update will be buffered, to be manually triggered later (e.g. upon completion of loading), which
         # mitigates repeated updates to the same record
         if coordinator.auto_updates is False and mass_updates is False:
             # Set the changed value triggering this update
             super().save(*args, **kwargs)
+            self.super_save_called = True
 
             # When buffering only, apply the global label filters, to be remembered during mass autoupdate
             self.label_filters = coordinator.default_label_filters
@@ -808,9 +818,27 @@ class MaintainedModel(Model):
             self.filter_in = coordinator.default_filter_in
         # Otherwise, we are performing a mass auto-update and want to update the previously set filter conditions
 
+        # try:
+
+        # Calling super.save (if necessary) so that the call to update_decorated_fields can traverse reverse
+        # relations without an exception.
+        # If we got here due to a call to Model.objects.create(), it actually calls super.save() from deep in the Django code (and that sets the primary key), which means that if we were to call it here again, it would cause a unique constraint-related exception
+        # If save() is being called from an existing record and the developer wants to save changes they made, what would happen is, the call to super.save would be after the call to update_decorated_fields - BUT if the auto-update results in no change, super.save would never be called, so instead of conditionally calling super.save() here based on self.pk having a value, we will just always call super.save() to support the scenario where create() was called and just ignore unique-constraint errors.
+        if self.pk is None:
+            super().save(*args, **kwargs)
+            self.super_save_called = True
+
+        # except (IntegrityError, ForeignKeyViolation) as uc:
+        #     # If this is a unique constraint exception, we can ignore it
+        #     if (
+        #         "violates foreign key constraint" not in str(uc)
+        #         and "duplicate key value violates unique constraint" not in str(uc)
+        #     ):
+        #         raise uc
+
         # Update the fields that change due to the the triggering change (if any)
         # This only executes either when auto_updates or mass_updates is true - both cannot be true
-        self.update_decorated_fields()
+        changed = self.update_decorated_fields()
 
         # If the auto-update resulted in no change or if there exists stale buffer contents for objects that were
         # previously saved, it can produce an error about unique constraints.  TransactionManagementErrors should have
@@ -819,7 +847,8 @@ class MaintainedModel(Model):
         try:
             # This either saves both explicit changes and auto-update changes (when auto_updates is true) or it only
             # saves the auto-updated values (when mass_updates is true)
-            super().save(*args, **kwargs)
+            if changed is True or self.super_save_called is False:
+                super().save(*args, **kwargs)
         except (IntegrityError, ForeignKeyViolation) as uc:
             # If this is a unique constraint error during a mass autoupdate
             if mass_updates and (
@@ -828,8 +857,28 @@ class MaintainedModel(Model):
             ):
                 # Errors about unique constraints during mass autoupdates are often due to stale buffer contents
                 raise LikelyStaleBufferError(self)
-            else:
+            elif (
+                "violates foreign key constraint" not in str(uc)
+                and "duplicate key value violates unique constraint" not in str(uc)
+            ):
+                # print(f"EXCEPTION {type(uc).__name__}: {uc}")
                 raise uc
+            # else:
+            #     from DataRepo.utils.exceptions import AggregatedErrors
+            #     import traceback
+            #     extratb = "".join(traceback.format_tb(uc.__traceback__))
+            #     print(f"{AggregatedErrors.get_buffered_traceback_string()}\nextra:\n\n{extratb}\nIGNORED EXCEPTION {type(uc).__name__}: {uc}")
+            # Otherwise, what happened here is that the (immediate) auto-update resulted in no change to the maintained
+            # field value.  Note that a super.save call was added when autoupdates is true so that queries in update
+            # functions through relations with no records will not cause ValueErrors complaining that "instance needs to
+            # have a primary key value before this relationship can be used"
+        # except Exception as e:
+        #     print(f"EXCEPTION {type(e).__name__}: {e}")
+        #     raise e
+
+        # If the developer wants to make more changes to this object and call save again, we need to remove the
+        # super_save_called attribute.  This will happen when autoupdate mode is immediate or if deferred (but when deferred, only)
+        delattr(self, "super_save_called")
 
         # We don't need to check mass_updates, because propagating changes during buffered updates is
         # handled differently (in a breadth-first fashion) to mitigate repeated updates of the same related record
@@ -1483,6 +1532,7 @@ class MaintainedModel(Model):
         the current filter conditions.  One exception of the refresh, is if performing a mass auto-update, in which
         case the filters the were in effect during buffering are used.
         """
+        changed = False
         for updater_dict in self.get_my_updaters():
             update_fld = updater_dict["update_field"]
             update_label = updater_dict["update_label"]
@@ -1533,14 +1583,19 @@ class MaintainedModel(Model):
                     except ValueError as ve:
                         if (
                             "instance needs to have a primary key value before this relationship can be used."
-                            not in str(ve)
+                            in str(ve)
                         ):
-                            # If the model object does not have a primary key and the updater_fun in the derived class
-                            # tries to traverse a relation, we will assume that there is not a valid value to update and
-                            # ignore ignore this exception.  This is a new exception in Django 4.2 (compared to 3.2,
-                            # which just returned empty querysets for those cases).
+                            raise ReverseRelationQueryBeforeRecordExists(
+                                type(self).__name__,
+                                updater_dict["update_function"],
+                                ve,
+                            )
+                        else:
                             raise ve
                     setattr(self, update_fld, new_val)
+
+                    if old_val != new_val:
+                        changed = True
 
                     # Report the auto-update
                     if old_val is None or old_val == "":
@@ -1553,6 +1608,8 @@ class MaintainedModel(Model):
                     self.transaction_management_warning(
                         tme, self, None, updater_dict, "self"
                     )
+
+        return changed
 
     def call_dfs_related_updaters(self, updated=None, mass_updates=False):
         if not updated:
@@ -1717,7 +1774,7 @@ class MaintainedModel(Model):
                         if child_inst not in children:
                             children.append(child_inst)
 
-                    elif (
+                    elif self.pk is not None and (
                         tmp_child_inst.__class__.__name__ == "ManyRelatedManager"
                         or tmp_child_inst.__class__.__name__ == "RelatedManager"
                     ):
@@ -1743,16 +1800,11 @@ class MaintainedModel(Model):
                                 child_fld,
                             )
 
-                        except ValueError as ve:
-                            if (
-                                "instance needs to have a primary key value before this relationship can be used."
-                                not in str(ve)
-                            ):
-                                raise ve
-                            # The ValueError happens when child records don't exist (inferred from no primary key), so
-                            # it can be ignored
-                    else:
+                    elif not isinstance(tmp_child_inst, MaintainedModel):
                         raise NotMaintained(tmp_child_inst, self)
+                    # Otherwise, this has to be a related manager and self.pk is None, meaning it hasn't been created
+                    # yet - and if the record hasn't been created yet, another model that links to it cannot have linked
+                    # to it yet, so there are no children to return.
                 else:
                     raise Exception(
                         f"Unexpected child reference for field [{child_fld}] is None."
@@ -1978,3 +2030,19 @@ class MissingMaintainedModelDerivedClass(Exception):
         message = f"The {cls} class must be imported so that its eval works.  {err}"
         super().__init__(message)
         self.cls = cls
+
+
+class ReverseRelationQueryBeforeRecordExists(Exception):
+    def __init__(self, mdl_name, updtr_fun_name, err):
+        message = (
+            f"Updater method: [{mdl_name}.{updtr_fun_name}] attempted to query through a link via the related model's "
+            "related_name for this model, but as of Django 4.2, that raises an exception.  The related model cannot "
+            f"link to {mdl_name} because it does not yet have a primary key (i.e., it has not been saved yet).  Add a "
+            "check in your updater method to ensure that `self.pk` is not `None` before making that query.  If it is "
+            "`None`, you can safely assume that the query would result in 0 records returned.  The original exception "
+            f"was: [{type(err).__name__}: {err}]."
+        )
+        super().__init__(message)
+        self.mdl_name = mdl_name
+        self.updtr_fun_name = updtr_fun_name
+        self.err = err

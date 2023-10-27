@@ -220,18 +220,17 @@ class HierCachedModel(Model):
         # For every child model for which we have a related name
         for child_rel_name in self.child_related_key_names:
             child_instance = getattr(self, child_rel_name)
-            try:
+            # It's OK to access relations before the record is saved unless it's a link from another Model.  We can
+            # ignore such relations in this instance because they cannot exist yet.  We only need to worry about
+            # relations that are linked *from* this model when it's being created.
+            # This is a new hoop to jump through in Django 4.2.  Prior to 4.2, `child_instance.all()` would just return
+            # an empty record set.  If you do not do this, you get an exception like this:
+            # ValueError: '<model name of self>' instance needs to have a primary key value before this relationship can
+            # be used.
+            if self.pk is not None or type(child_instance).__name__ not in ["RelatedManager", "ManyRelatedManager"]:
                 # For every child record, call its delete_descendant_caches()
                 for rec in child_instance.all():
                     rec.delete_descendant_caches()
-            except ValueError as ve:
-                if (
-                    "instance needs to have a primary key value before this relationship can be used."
-                    not in str(ve)
-                ):
-                    # The ValueError happens when there is no primary key, so we will assume there are no stale cache
-                    # records in related descendant records that need to be deleted
-                    raise ve
 
     @classmethod
     def get_my_cached_method_names(cls):
