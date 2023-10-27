@@ -227,7 +227,10 @@ class HierCachedModel(Model):
             # an empty record set.  If you do not do this, you get an exception like this:
             # ValueError: '<model name of self>' instance needs to have a primary key value before this relationship can
             # be used.
-            if self.pk is not None or type(child_instance).__name__ not in ["RelatedManager", "ManyRelatedManager"]:
+            if self.pk is not None or type(child_instance).__name__ not in [
+                "RelatedManager",
+                "ManyRelatedManager",
+            ]:
                 # For every child record, call its delete_descendant_caches()
                 for rec in child_instance.all():
                     rec.delete_descendant_caches()

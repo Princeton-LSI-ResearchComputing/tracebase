@@ -10,8 +10,9 @@ from django.db import transaction
 from django.db.models import Model
 from django.db.models.signals import m2m_changed
 from django.db.transaction import TransactionManagementError
-from django.db.utils import IntegrityError
-from psycopg2.errors import ForeignKeyViolation
+
+# from django.db.utils import IntegrityError
+# from psycopg2.errors import ForeignKeyViolation
 
 
 class MaintainedModelCoordinator:
@@ -818,66 +819,54 @@ class MaintainedModel(Model):
             self.filter_in = coordinator.default_filter_in
         # Otherwise, we are performing a mass auto-update and want to update the previously set filter conditions
 
-        # try:
-
         # Calling super.save (if necessary) so that the call to update_decorated_fields can traverse reverse
-        # relations without an exception.
-        # If we got here due to a call to Model.objects.create(), it actually calls super.save() from deep in the Django code (and that sets the primary key), which means that if we were to call it here again, it would cause a unique constraint-related exception
-        # If save() is being called from an existing record and the developer wants to save changes they made, what would happen is, the call to super.save would be after the call to update_decorated_fields - BUT if the auto-update results in no change, super.save would never be called, so instead of conditionally calling super.save() here based on self.pk having a value, we will just always call super.save() to support the scenario where create() was called and just ignore unique-constraint errors.
+        # relations without a ValueError exception that is a new behavior/constraint as of Django 4.2.  But, if we got
+        # here due to a call to Model.objects.create(), (which calls super.save() from deep in the Django code (and that
+        # sets the primary key)), so it means that if we were to call it here again, it would cause a unique constraint-
+        # related exception.  That's why we do not call it here if the primary key is set - so we can avoid those
+        # exceptions
         if self.pk is None:
             super().save(*args, **kwargs)
             self.super_save_called = True
-
-        # except (IntegrityError, ForeignKeyViolation) as uc:
-        #     # If this is a unique constraint exception, we can ignore it
-        #     if (
-        #         "violates foreign key constraint" not in str(uc)
-        #         and "duplicate key value violates unique constraint" not in str(uc)
-        #     ):
-        #         raise uc
 
         # Update the fields that change due to the the triggering change (if any)
         # This only executes either when auto_updates or mass_updates is true - both cannot be true
         changed = self.update_decorated_fields()
 
+        # TODO: If this commenting out of the try/except causes an exception, uncomment it and fix the indent
         # If the auto-update resulted in no change or if there exists stale buffer contents for objects that were
         # previously saved, it can produce an error about unique constraints.  TransactionManagementErrors should have
         # been handled before we got here so that this can proceed to effect the original change that prompted the
         # save.
-        try:
-            # This either saves both explicit changes and auto-update changes (when auto_updates is true) or it only
-            # saves the auto-updated values (when mass_updates is true)
-            if changed is True or self.super_save_called is False:
-                super().save(*args, **kwargs)
-        except (IntegrityError, ForeignKeyViolation) as uc:
-            # If this is a unique constraint error during a mass autoupdate
-            if mass_updates and (
-                "violates foreign key constraint" in str(uc)
-                or "duplicate key value violates unique constraint" in str(uc)
-            ):
-                # Errors about unique constraints during mass autoupdates are often due to stale buffer contents
-                raise LikelyStaleBufferError(self)
-            elif (
-                "violates foreign key constraint" not in str(uc)
-                and "duplicate key value violates unique constraint" not in str(uc)
-            ):
-                # print(f"EXCEPTION {type(uc).__name__}: {uc}")
-                raise uc
-            # else:
-            #     from DataRepo.utils.exceptions import AggregatedErrors
-            #     import traceback
-            #     extratb = "".join(traceback.format_tb(uc.__traceback__))
-            #     print(f"{AggregatedErrors.get_buffered_traceback_string()}\nextra:\n\n{extratb}\nIGNORED EXCEPTION {type(uc).__name__}: {uc}")
-            # Otherwise, what happened here is that the (immediate) auto-update resulted in no change to the maintained
-            # field value.  Note that a super.save call was added when autoupdates is true so that queries in update
-            # functions through relations with no records will not cause ValueErrors complaining that "instance needs to
-            # have a primary key value before this relationship can be used"
-        # except Exception as e:
-        #     print(f"EXCEPTION {type(e).__name__}: {e}")
-        #     raise e
+        # try:
+
+        # This either saves both explicit changes and auto-update changes (when auto_updates is true) or it only
+        # saves the auto-updated values (when mass_updates is true)
+        if changed is True or self.super_save_called is False:
+            super().save(*args, **kwargs)
+
+        # except (IntegrityError, ForeignKeyViolation) as uc:
+        #     # If this is a unique constraint error during a mass autoupdate
+        #     if mass_updates and (
+        #         "violates foreign key constraint" in str(uc)
+        #         or "duplicate key value violates unique constraint" in str(uc)
+        #     ):
+        #         # Errors about unique constraints during mass autoupdates are often due to stale buffer contents
+        #         raise LikelyStaleBufferError(self)
+        #     elif (
+        #         "violates foreign key constraint" not in str(uc)
+        #         and "duplicate key value violates unique constraint" not in str(uc)
+        #     ):
+        #         # print(f"EXCEPTION {type(uc).__name__}: {uc}")
+        #         raise uc
+        #     # Otherwise, what happened here is that the (immediate) auto-update resulted in no change to the
+        #     # maintained field value.  Note that a super.save call was added when autoupdates is true so that queries
+        #     # in update functions through relations with no records will not cause ValueErrors complaining that
+        #     # "instance needs to have a primary key value before this relationship can be used"
 
         # If the developer wants to make more changes to this object and call save again, we need to remove the
-        # super_save_called attribute.  This will happen when autoupdate mode is immediate or if deferred (but when deferred, only)
+        # super_save_called attribute.  This will happen when autoupdate mode is immediate or if deferred (but when
+        # deferred, only)
         delattr(self, "super_save_called")
 
         # We don't need to check mass_updates, because propagating changes during buffered updates is
