@@ -843,7 +843,13 @@ class MaintainedModel(Model):
         # This either saves both explicit changes and auto-update changes (when auto_updates is true) or it only
         # saves the auto-updated values (when mass_updates is true)
         if changed is True or self.super_save_called is False:
-            super().save(*args, **kwargs)
+            if self.super_save_called:
+                # This is a subsequent call to save due to the auto-update, so we don't want to use the original
+                # arguments (which may direct save that it needs to do an insert).  If you do supply arguments in this
+                # case, you can end up with an IntegrityError due to unique constraints from the ID being the same.
+                super().save()
+            else:
+                super().save(*args, **kwargs)
 
         # except (IntegrityError, ForeignKeyViolation) as uc:
         #     # If this is a unique constraint error during a mass autoupdate
