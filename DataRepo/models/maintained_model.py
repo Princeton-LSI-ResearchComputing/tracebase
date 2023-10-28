@@ -1795,11 +1795,16 @@ class MaintainedModel(Model):
                                 child_fld,
                             )
 
-                    elif not isinstance(tmp_child_inst, MaintainedModel):
+                    elif (
+                        not isinstance(tmp_child_inst, MaintainedModel)
+                        and tmp_child_inst.__class__.__name__ != "ManyRelatedManager"
+                        or tmp_child_inst.__class__.__name__ != "RelatedManager"
+                    ):
                         raise NotMaintained(tmp_child_inst, self)
-                    # Otherwise, this has to be a related manager and self.pk is None, meaning it hasn't been created
-                    # yet - and if the record hasn't been created yet, another model that links to it cannot have linked
-                    # to it yet, so there are no children to return.
+                    # Otherwise, this is a *RelatedManager or self.pk is None, meaning it hasn't been created yet - and
+                    # if the record hasn't been created yet, another model that links to it cannot have linked to it
+                    # yet, so there cannot be any children to return (because to create the relation, you have to supply
+                    # a created record).
                 else:
                     raise Exception(
                         f"Unexpected child reference for field [{child_fld}] is None."
