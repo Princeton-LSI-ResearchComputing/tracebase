@@ -464,6 +464,7 @@ class MaintainedModelCoordinator:
                     new_buffer.append(buffer_item)
 
             except Exception as e:
+                # Any exception can be raised from the derived model's decorated updater function
                 raise AutoUpdateFailed(buffer_item, e, updater_dicts)
 
         # Eliminate the updated items from the buffer
@@ -824,10 +825,13 @@ class MaintainedModel(Model):
         # here due to a call to Model.objects.create(), (which calls super.save() from deep in the Django code (and that
         # sets the primary key)), so it means that if we were to call it here again, it would cause a unique constraint-
         # related exception.  That's why we do not call it here if the primary key is set - so we can avoid those
-        # exceptions
-        if self.pk is None:
+        # exceptions.  Note, self.pk is None if the record was deleted after being buffered and we encounter it during
+        # mass update.
+        if self.pk is None and mass_updates is False:
             super().save(*args, **kwargs)
             self.super_save_called = True
+        # note, we should not save during mass autoupdate because while the object was in the buffer, it could have been
+        # deleted from the database and saving it would unintentionally re-add it to the database.
 
         # Update the fields that change due to the the triggering change (if any)
         # This only executes either when auto_updates or mass_updates is true - both cannot be true
@@ -839,11 +843,15 @@ class MaintainedModel(Model):
         # been handled before we got here so that this can proceed to effect the original change that prompted the
         # save.
         # try:
-
         # This either saves both explicit changes and auto-update changes (when auto_updates is true) or it only
         # saves the auto-updated values (when mass_updates is true)
         if changed is True or self.super_save_called is False:
-            if self.super_save_called:
+            if self.super_save_called or mass_updates is True:
+                if mass_updates is True:
+                    # Assert that the object hasn't been deleted from the database while it was in the buffer
+                    # This is called in order to intentionally cause an exception during perform_buffered_updates
+                    # Otherwise, we will end up re-saving the deleted object
+                    self.__class__.objects.get(pk__exact=self.pk)
                 # This is a subsequent call to save due to the auto-update, so we don't want to use the original
                 # arguments (which may direct save that it needs to do an insert).  If you do supply arguments in this
                 # case, you can end up with an IntegrityError due to unique constraints from the ID being the same.
@@ -1798,7 +1806,7 @@ class MaintainedModel(Model):
                     elif (
                         not isinstance(tmp_child_inst, MaintainedModel)
                         and tmp_child_inst.__class__.__name__ != "ManyRelatedManager"
-                        or tmp_child_inst.__class__.__name__ != "RelatedManager"
+                        and tmp_child_inst.__class__.__name__ != "RelatedManager"
                     ):
                         raise NotMaintained(tmp_child_inst, self)
                     # Otherwise, this is a *RelatedManager or self.pk is None, meaning it hasn't been created yet - and
