@@ -3,8 +3,8 @@ from django.urls import reverse
 
 from DataRepo.models import (
     Animal,
+    ArchiveFile,
     Compound,
-    PeakGroupSet,
     Protocol,
     Sample,
     Study,
@@ -35,7 +35,7 @@ def assert_coordinator_state_is_initialized():
 
 class HomeViewTests(TracebaseTestCase):
     """
-    Test hoem views
+    Test home views
     """
 
     @classmethod
@@ -78,7 +78,9 @@ class HomeViewTests(TracebaseTestCase):
         animal_count = Animal.objects.all().count()
         tissue_count = Tissue.objects.all().count()
         sample_count = Sample.objects.all().count()
-        accucor_file_count = PeakGroupSet.objects.all().count()
+        peak_annotation_file_count = ArchiveFile.objects.filter(
+            data_type__code="ms_peak_annotation"
+        ).count()
         compound_count = Compound.objects.all().count()
         tracer_count = (
             Animal.objects.exclude(infusate__tracers__compound__id__isnull=True)
@@ -98,7 +100,7 @@ class HomeViewTests(TracebaseTestCase):
         self.assertEqual(animal_count, self.ALL_ANIMALS_COUNT)
         self.assertEqual(tissue_count, self.ALL_TISSUES_COUNT)
         self.assertEqual(sample_count, self.ALL_SAMPLES_COUNT)
-        self.assertEqual(accucor_file_count, self.ALL_ACCUCOR_FILE_COUNT)
+        self.assertEqual(peak_annotation_file_count, self.ALL_ACCUCOR_FILE_COUNT)
         self.assertEqual(compound_count, self.ALL_COMPOUNDS_COUNT)
         self.assertEqual(tracer_count, self.ALL_TRACERS_COUNT)
         self.assertEqual(animal_treatment_count, self.ALL_ANIMALTREATMENTS_COUNT)

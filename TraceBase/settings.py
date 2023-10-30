@@ -216,28 +216,27 @@ elif CACHES_SETTING != "PROD_CACHES":
 TEST_RUNNER = "TraceBase.runner.TraceBaseTestSuiteRunner"
 
 # Logging settings
-# This logging level was added to show the number of SQL queries in the server console
-# Left this commented code here to prompt a conversation about how we should control this debug mode activation
-# - probably via an environment setting
+SQL_LOGGING = env.bool("SQL_LOGGING", default=False)
 
-# LOGGING = {
-#    "version": 1,
-#    "filters": {
-#        "require_debug_true": {
-#            "()": "django.utils.log.RequireDebugTrue",
-#        }
-#    },
-#    "handlers": {
-#        "console": {
-#            "level": "DEBUG",
-#            "filters": ["require_debug_true"],
-#            "class": "logging.StreamHandler",
-#        }
-#    },
-#    "loggers": {
-#        "django.db.backends": {
-#            "level": "DEBUG",
-#            "handlers": ["console"],
-#        }
-#    },
-# }
+if SQL_LOGGING is True:
+    LOGGING = {
+        "version": 1,
+        "filters": {
+            "require_debug_true": {
+                "()": "django.utils.log.RequireDebugTrue",
+            }
+        },
+        "handlers": {
+            "console": {
+                "level": "DEBUG",
+                "filters": ["require_debug_true"],
+                "class": "logging.StreamHandler",
+            }
+        },
+        "loggers": {
+            "django.db.backends": {
+                "level": "DEBUG",
+                "handlers": ["console"],
+            }
+        },
+    }

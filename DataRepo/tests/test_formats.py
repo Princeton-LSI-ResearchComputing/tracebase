@@ -27,6 +27,7 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
 class FormatsTests(TracebaseTestCase):
+    fixtures = ["data_types.yaml", "data_formats.yaml"]
     maxDiff = None
     orig_split_rows: Dict[str, str] = {}
 
