@@ -11,9 +11,6 @@ from django.db.models import Model
 from django.db.models.signals import m2m_changed
 from django.db.transaction import TransactionManagementError
 
-# from django.db.utils import IntegrityError
-# from psycopg2.errors import ForeignKeyViolation
-
 
 class MaintainedModelCoordinator:
     """
