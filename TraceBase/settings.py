@@ -216,8 +216,9 @@ elif CACHES_SETTING != "PROD_CACHES":
 TEST_RUNNER = "TraceBase.runner.TraceBaseTestSuiteRunner"
 
 # Logging settings
+# Note, to print SQL, DEBUG must be True, and to print SQL during a particular test, each test method must be decorated
+# with: `@override_settings(DEBUG=True)`
 SQL_LOGGING = env.bool("SQL_LOGGING", default=False)
-
 if SQL_LOGGING is True:
     LOGGING = {
         "version": 1,
