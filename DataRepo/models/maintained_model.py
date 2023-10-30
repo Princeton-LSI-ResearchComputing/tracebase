@@ -461,6 +461,7 @@ class MaintainedModelCoordinator:
                     new_buffer.append(buffer_item)
 
             except Exception as e:
+                # Any exception can be raised from the derived model's decorated updater function
                 raise AutoUpdateFailed(buffer_item, e, updater_dicts)
 
         # Eliminate the updated items from the buffer
@@ -821,45 +822,38 @@ class MaintainedModel(Model):
         # here due to a call to Model.objects.create(), (which calls super.save() from deep in the Django code (and that
         # sets the primary key)), so it means that if we were to call it here again, it would cause a unique constraint-
         # related exception.  That's why we do not call it here if the primary key is set - so we can avoid those
-        # exceptions
-        if self.pk is None:
+        # exceptions.  Note, self.pk is None if the record was deleted after being buffered and we encounter it during
+        # mass update.
+        if self.pk is None and mass_updates is False:
             super().save(*args, **kwargs)
             self.super_save_called = True
+        # note, we should not save during mass autoupdate because while the object was in the buffer, it could have been
+        # deleted from the database and saving it would unintentionally re-add it to the database.
 
         # Update the fields that change due to the the triggering change (if any)
         # This only executes either when auto_updates or mass_updates is true - both cannot be true
         changed = self.update_decorated_fields()
 
-        # TODO: If this commenting out of the try/except causes an exception, uncomment it and fix the indent
         # If the auto-update resulted in no change or if there exists stale buffer contents for objects that were
         # previously saved, it can produce an error about unique constraints.  TransactionManagementErrors should have
         # been handled before we got here so that this can proceed to effect the original change that prompted the
         # save.
-        # try:
-
         # This either saves both explicit changes and auto-update changes (when auto_updates is true) or it only
         # saves the auto-updated values (when mass_updates is true)
         if changed is True or self.super_save_called is False:
-            super().save(*args, **kwargs)
-
-        # except (IntegrityError, ForeignKeyViolation) as uc:
-        #     # If this is a unique constraint error during a mass autoupdate
-        #     if mass_updates and (
-        #         "violates foreign key constraint" in str(uc)
-        #         or "duplicate key value violates unique constraint" in str(uc)
-        #     ):
-        #         # Errors about unique constraints during mass autoupdates are often due to stale buffer contents
-        #         raise LikelyStaleBufferError(self)
-        #     elif (
-        #         "violates foreign key constraint" not in str(uc)
-        #         and "duplicate key value violates unique constraint" not in str(uc)
-        #     ):
-        #         # print(f"EXCEPTION {type(uc).__name__}: {uc}")
-        #         raise uc
-        #     # Otherwise, what happened here is that the (immediate) auto-update resulted in no change to the
-        #     # maintained field value.  Note that a super.save call was added when autoupdates is true so that queries
-        #     # in update functions through relations with no records will not cause ValueErrors complaining that
-        #     # "instance needs to have a primary key value before this relationship can be used"
+            if self.super_save_called or mass_updates is True:
+                if mass_updates is True:
+                    # Assert that the object hasn't been deleted from the database while it was in the buffer
+                    # This is called in order to intentionally cause an exception during perform_buffered_updates
+                    # Otherwise, we will end up re-saving the deleted object
+                    # https://stackoverflow.com/a/16613258/2057516
+                    type(self).objects.get(pk__exact=self.pk)
+                # This is a subsequent call to save due to the auto-update, so we don't want to use the original
+                # arguments (which may direct save that it needs to do an insert).  If you do supply arguments in this
+                # case, you can end up with an IntegrityError due to unique constraints from the ID being the same.
+                super().save()
+            else:
+                super().save(*args, **kwargs)
 
         # If the developer wants to make more changes to this object and call save again, we need to remove the
         # super_save_called attribute.  This will happen when autoupdate mode is immediate or if deferred (but when
@@ -1786,11 +1780,16 @@ class MaintainedModel(Model):
                                 child_fld,
                             )
 
-                    elif not isinstance(tmp_child_inst, MaintainedModel):
+                    elif (
+                        not isinstance(tmp_child_inst, MaintainedModel)
+                        and tmp_child_inst.__class__.__name__ != "ManyRelatedManager"
+                        and tmp_child_inst.__class__.__name__ != "RelatedManager"
+                    ):
                         raise NotMaintained(tmp_child_inst, self)
-                    # Otherwise, this has to be a related manager and self.pk is None, meaning it hasn't been created
-                    # yet - and if the record hasn't been created yet, another model that links to it cannot have linked
-                    # to it yet, so there are no children to return.
+                    # Otherwise, this is a *RelatedManager or self.pk is None, meaning it hasn't been created yet - and
+                    # if the record hasn't been created yet, another model that links to it cannot have linked to it
+                    # yet, so there cannot be any children to return (because to create the relation, you have to supply
+                    # a created record).
                 else:
                     raise Exception(
                         f"Unexpected child reference for field [{child_fld}] is None."
