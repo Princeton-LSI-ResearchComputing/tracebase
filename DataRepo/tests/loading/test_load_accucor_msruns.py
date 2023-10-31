@@ -916,10 +916,31 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
 
         self.assertEqual(pg.count(), 2)
 
-        from django.db import connection
-        with connection.cursor() as cursor:
-            cursor.execute("EXPLAIN (ANALYZE) SELECT COUNT(*) FROM (SELECT DISTINCT ON (\"DataRepo_peakgroup\".\"id\", \"DataRepo_peakdatalabel\".\"element\") \"DataRepo_peakgroup\".\"id\" AS \"col1\", \"DataRepo_peakgroup\".\"name\" AS \"col2\", \"DataRepo_peakgroup\".\"formula\" AS \"col3\", \"DataRepo_peakgroup\".\"msrun_id\" AS \"col4\", \"DataRepo_peakgroup\".\"peak_annotation_file_id\" AS \"col5\" FROM \"DataRepo_peakgroup\" INNER JOIN \"DataRepo_msrun\" ON (\"DataRepo_peakgroup\".\"msrun_id\" = \"DataRepo_msrun\".\"id\") INNER JOIN \"DataRepo_sample\" ON (\"DataRepo_msrun\".\"sample_id\" = \"DataRepo_sample\".\"id\") INNER JOIN \"DataRepo_archivefile\" ON (\"DataRepo_peakgroup\".\"peak_annotation_file_id\" = \"DataRepo_archivefile\".\"id\") INNER JOIN \"DataRepo_peakdata\" ON (\"DataRepo_peakgroup\".\"id\" = \"DataRepo_peakdata\".\"peak_group_id\") INNER JOIN \"DataRepo_peakdatalabel\" ON (\"DataRepo_peakdata\".\"id\" = \"DataRepo_peakdatalabel\".\"peak_data_id\") WHERE (\"DataRepo_sample\".\"name\" = 'xzl5_panc' AND \"DataRepo_peakgroup\".\"name\" = 'serine' AND \"DataRepo_archivefile\".\"filename\" = 'alafasted_cor.xlsx' AND \"DataRepo_peakdatalabel\".\"element\" = 'C') ORDER BY \"DataRepo_peakgroup\".\"id\" ASC, \"DataRepo_peakdatalabel\".\"element\" ASC) subquery;")  # args=('xzl5_panc', 'serine', 'alafasted_cor.xlsx', 'C')")
-            print(cursor.fetchone())
+        # # Without the `VACUUM FULL ANALYZE` added in TracebaseTestCase, this is the sql query that is constructed from
+        # # the first count query below and this analyze shows that the heuristic that builds the SQL is based on stale
+        # # data in the postgres stats table from the destruction of the data in the previous test class.
+        # from django.db import connection
+        # with connection.cursor() as cursor:
+        #     cursor.execute(
+        #         "EXPLAIN (ANALYZE) SELECT COUNT(*) FROM (SELECT DISTINCT ON (\"DataRepo_peakgroup\".\"id\", "
+        #         "\"DataRepo_peakdatalabel\".\"element\") \"DataRepo_peakgroup\".\"id\" AS \"col1\", "
+        #         "\"DataRepo_peakgroup\".\"name\" AS \"col2\", \"DataRepo_peakgroup\".\"formula\" AS \"col3\", "
+        #         "\"DataRepo_peakgroup\".\"msrun_id\" AS \"col4\", "
+        #         "\"DataRepo_peakgroup\".\"peak_annotation_file_id\" AS \"col5\" FROM \"DataRepo_peakgroup\" "
+        #         "INNER JOIN \"DataRepo_msrun\" ON (\"DataRepo_peakgroup\".\"msrun_id\" = \"DataRepo_msrun\".\"id\") "
+        #         "INNER JOIN \"DataRepo_sample\" ON (\"DataRepo_msrun\".\"sample_id\" = \"DataRepo_sample\".\"id\") "
+        #         "INNER JOIN \"DataRepo_archivefile\" "
+        #         "ON (\"DataRepo_peakgroup\".\"peak_annotation_file_id\" = \"DataRepo_archivefile\".\"id\") "
+        #         "INNER JOIN \"DataRepo_peakdata\" "
+        #         "ON (\"DataRepo_peakgroup\".\"id\" = \"DataRepo_peakdata\".\"peak_group_id\") "
+        #         "INNER JOIN \"DataRepo_peakdatalabel\" "
+        #         "ON (\"DataRepo_peakdata\".\"id\" = \"DataRepo_peakdatalabel\".\"peak_data_id\") "
+        #         "WHERE (\"DataRepo_sample\".\"name\" = 'xzl5_panc' AND \"DataRepo_peakgroup\".\"name\" = 'serine' "
+        #         "AND \"DataRepo_archivefile\".\"filename\" = 'alafasted_cor.xlsx' "
+        #         "AND \"DataRepo_peakdatalabel\".\"element\" = 'C') "
+        #         "ORDER BY \"DataRepo_peakgroup\".\"id\" ASC, \"DataRepo_peakdatalabel\".\"element\" ASC) subquery;")
+        #     for l in cursor.fetchall():
+        #         print(l)
 
-        # self.assertEqual(pg.filter(peak_data__labels__element__exact="C").count(), 1)
-        # self.assertEqual(pg.filter(peak_data__labels__element__exact="N").count(), 1)
+        self.assertEqual(pg.filter(peak_data__labels__element__exact="C").count(), 1)
+        self.assertEqual(pg.filter(peak_data__labels__element__exact="N").count(), 1)
