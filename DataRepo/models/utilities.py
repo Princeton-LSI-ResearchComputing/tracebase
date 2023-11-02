@@ -19,6 +19,7 @@ ALL_MODELS_IN_SAFE_DELETION_ORDER = [
     "PeakGroupLabel",
     "PeakGroupSet",
     "MSRun",
+    "MSRunSequence",
     "ArchiveFile",
     "DataType",
     "DataFormat",
