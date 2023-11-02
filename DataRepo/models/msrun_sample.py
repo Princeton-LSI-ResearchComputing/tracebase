@@ -1,4 +1,5 @@
 from django.db.models import (
+    CASCADE,
     RESTRICT,
     AutoField,
     ForeignKey,
@@ -14,26 +15,27 @@ class MSRunSample(Model):
         to="DataRepo.MSRunSequence",
         null=False,
         blank=False,
-        on_delete=RESTRICT,  # Delete an MSRunSequence once all its MSRunSamples are deleted
+        on_delete=RESTRICT,  # Prevent MSRunSequence delete unless all MSRunSamples are deleted via a different cascade
         related_name="msrun_samples",
-        help_text="The sequence of all mass spectrometer runs in a single instrument run.",
+        help_text="The series of sample injections in a batch run of the mass spec instrument.  (Note, ach injection "
+        "results in a 'mass spectrometer run' and produces a RAW file.)",
     )
     sample = ForeignKey(
         to="DataRepo.Sample",
         null=False,
         blank=False,
-        on_delete=RESTRICT,  # Delete a Sample once all its MSRunSamples are deleted
+        on_delete=CASCADE,  # If the linked Sample is deleted, delete this record
         related_name="msrun_samples",
-        help_text="The sample that was run on the mass spectrometer, potentially multiple times/scans (resulting in "
-        "multiple raw files), and potentially in different polarity modes.",
+        help_text="The sample that was run on the mass spectrometer (potentially multiple times, each time resulting "
+        "in a separate raw file, and potentially in different polarity modes and/or scan ranges).",
     )
     ms_data_files = ManyToManyField(
         to="DataRepo.ArchiveFile",
         null=True,
         blank=True,
         related_name="msrun_samples",
-        help_text="All mass spectrometry data files (e.g. mzXML files) associated with this sample and sequence, "
-        "potentially associated with multiple different raw files for multiple scans of the same sample.",
+        help_text="Any mass spectrometry data files (e.g. mzXML files) associated with this sample and sequence, "
+        "(potentially associated with multiple different raw files for multiple scans of the same sample).",
     )
 
     class Meta:
