@@ -602,6 +602,10 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             skip_cache_updates=True,
         )
 
+        # Postgres performance tweak (to address slowness with this test in version 13).  Django furum folks recommended
+        # doing it after data updates.
+        self.vacuum_postgres_stats_table()
+
         (
             post_samples,
             post_infusates,
@@ -669,6 +673,11 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             isocorr_format=True,
             skip_cache_updates=True,
         )
+
+        # Postgres performance tweak (to address slowness with this test in version 13).  Django furum folks recommended
+        # doing it after data updates.
+        self.vacuum_postgres_stats_table()
+
         post_load_group_count = PeakGroup.objects.count()
         # The number of samples in the isocorr xlsx file (not the samples file)
         SAMPLES_COUNT = 30
@@ -702,6 +711,11 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             isocorr_format=True,
             skip_cache_updates=True,
         )
+
+        # Postgres performance tweak (to address slowness with this test in version 13).  Django furum folks recommended
+        # doing it after data updates.
+        self.vacuum_postgres_stats_table()
+
         post_load_group_count = PeakGroup.objects.count()
         # The number of samples in the isocorr xlsx file (not the samples file)
         SAMPLES_COUNT = 30
@@ -735,6 +749,11 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             isocorr_format=True,
             skip_cache_updates=True,
         )
+
+        # Postgres performance tweak (to address slowness with this test in version 13).  Django furum folks recommended
+        # doing it after data updates.
+        self.vacuum_postgres_stats_table()
+
         post_load_group_count = PeakGroup.objects.count()
         # The number of samples in the isocorr xlsx file (not the samples file)
         SAMPLES_COUNT = 60
@@ -778,6 +797,10 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             skip_cache_updates=True,
         )
 
+        # Postgres performance tweak (to address slowness with this test in version 13).  Django furum folks recommended
+        # doing it after data updates.
+        self.vacuum_postgres_stats_table()
+
         (
             post_samples,
             post_infusates,
@@ -820,6 +843,11 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             isocorr_format=True,
             skip_cache_updates=True,
         )
+
+        # Postgres performance tweak (to address slowness with this test in version 13).  Django furum folks recommended
+        # doing it after data updates.
+        self.vacuum_postgres_stats_table()
+
         post_load_group_count = PeakGroup.objects.count()
 
         self.assert_peak_group_counts(
@@ -840,6 +868,11 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             isocorr_format=True,
             skip_cache_updates=True,
         )
+
+        # Postgres performance tweak (to address slowness with this test in version 13).  Django furum folks recommended
+        # doing it after data updates.
+        self.vacuum_postgres_stats_table()
+
         post_load_group_count = PeakGroup.objects.count()
 
         self.assert_peak_group_counts(
@@ -861,6 +894,11 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             skip_samples=("bk",),
             skip_cache_updates=True,
         )
+
+        # Postgres performance tweak (to address slowness with this test in version 13).  Django furum folks recommended
+        # doing it after data updates.
+        self.vacuum_postgres_stats_table()
+
         post_load_group_count = PeakGroup.objects.count()
 
         self.assert_peak_group_counts(
@@ -904,6 +942,11 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             isocorr_format=True,
             skip_cache_updates=True,
         )
+
+        # Postgres performance tweak (to address slowness with this test in version 13).  Django furum folks recommended
+        # doing it after data updates.
+        self.vacuum_postgres_stats_table()
+
         pg = (
             PeakGroup.objects.filter(msrun__sample__name="xzl5_panc")
             .filter(name__exact="serine")

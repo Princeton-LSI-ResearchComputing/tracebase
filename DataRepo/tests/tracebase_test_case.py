@@ -1,6 +1,6 @@
+import psycopg2
 import time
 
-import psycopg2
 from django.test import TestCase, TransactionTestCase
 
 from DataRepo.models.utilities import get_all_models
@@ -55,25 +55,12 @@ def test_case_class_factory(base_class):
             super().setUpClass()
 
         @classmethod
-        def tearDownClass(cls):
-            """
-            This method in the superclass is intended to clear out the postgres 13 statistics tables to address
-            performance issues that have more than doubled test time.
-            """
-            print("Clearing out postgres statistics tables")
-            conn = psycopg2.connect()
-            conn.autocommit = True
-            with conn.cursor() as cursor:
-                cursor.execute("VACUUM FULL ANALYZE")
-            conn.close()
-            super().setUpClass()
-
-        @classmethod
         def setUpTestData(cls):
             """
             This method in the superclass is intended to provide run time information for the setUpTestData method.
             """
             super().setUpTestData()
+            cls.vacuum_postgres_stats_table()
             reportRunTime(
                 f"{cls.__module__}.{cls.__name__}.setUpTestData", cls.setupStartTime
             )
@@ -87,6 +74,15 @@ def test_case_class_factory(base_class):
             for mdl in get_all_models():
                 record_counts.append(mdl.objects.all().count())
             return record_counts
+
+        @classmethod
+        def vacuum_postgres_stats_table(cls):
+            print("Clearing out postgres statistics tables")
+            conn = psycopg2.connect()
+            conn.autocommit = True
+            with conn.cursor() as cursor:
+                cursor.execute("VACUUM FULL ANALYZE")
+            conn.close()
 
         class Meta:
             abstract = True
