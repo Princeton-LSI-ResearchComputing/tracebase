@@ -42,6 +42,7 @@ class ModelUtilitiesTests(TracebaseTestCase):
             "PeakGroupLabel",
             "PeakGroupSet",
             "MSRun",
+            "MSRunSequence",
             "ArchiveFile",
             "DataType",
             "DataFormat",
