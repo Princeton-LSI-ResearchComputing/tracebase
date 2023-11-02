@@ -55,6 +55,11 @@ def test_case_class_factory(base_class):
             super().setUpClass()
 
         @classmethod
+        def tearDownClass(cls):
+            # cls.vacuum_postgres_stats_table()
+            super().tearDownClass()
+
+        @classmethod
         def setUpTestData(cls):
             """
             This method in the superclass is intended to provide run time information for the setUpTestData method.
@@ -78,11 +83,16 @@ def test_case_class_factory(base_class):
         @classmethod
         def vacuum_postgres_stats_table(cls):
             print("Clearing out postgres statistics tables")
+            vacuumStartTime = time.time()
             conn = psycopg2.connect()
             conn.autocommit = True
             with conn.cursor() as cursor:
                 cursor.execute("VACUUM FULL ANALYZE")
+                # cursor.execute("select * from pg_stat_user_tables where relid = \"DataRepo_peakdata\"::regclass;")
+                # for l in cursor.fetchall():
+                #     print(l)
             conn.close()
+            print("vacuum time: %.3f" % (time.time() - vacuumStartTime))
 
         class Meta:
             abstract = True

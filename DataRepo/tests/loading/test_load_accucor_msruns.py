@@ -602,9 +602,9 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             skip_cache_updates=True,
         )
 
-        # Postgres performance tweak (to address slowness with this test in version 13).  Django furum folks recommended
-        # doing it after data updates.
-        self.vacuum_postgres_stats_table()
+        # # Postgres performance tweak (to address slowness with this test in version 13).  Django furum folks recommended
+        # # doing it after data updates.
+        # self.vacuum_postgres_stats_table()
 
         (
             post_samples,
@@ -674,9 +674,9 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             skip_cache_updates=True,
         )
 
-        # Postgres performance tweak (to address slowness with this test in version 13).  Django furum folks recommended
-        # doing it after data updates.
-        self.vacuum_postgres_stats_table()
+        # # Postgres performance tweak (to address slowness with this test in version 13).  Django furum folks recommended
+        # # doing it after data updates.
+        # self.vacuum_postgres_stats_table()
 
         post_load_group_count = PeakGroup.objects.count()
         # The number of samples in the isocorr xlsx file (not the samples file)
@@ -712,9 +712,9 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             skip_cache_updates=True,
         )
 
-        # Postgres performance tweak (to address slowness with this test in version 13).  Django furum folks recommended
-        # doing it after data updates.
-        self.vacuum_postgres_stats_table()
+        # # Postgres performance tweak (to address slowness with this test in version 13).  Django furum folks recommended
+        # # doing it after data updates.
+        # self.vacuum_postgres_stats_table()
 
         post_load_group_count = PeakGroup.objects.count()
         # The number of samples in the isocorr xlsx file (not the samples file)
@@ -750,9 +750,9 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             skip_cache_updates=True,
         )
 
-        # Postgres performance tweak (to address slowness with this test in version 13).  Django furum folks recommended
-        # doing it after data updates.
-        self.vacuum_postgres_stats_table()
+        # # Postgres performance tweak (to address slowness with this test in version 13).  Django furum folks recommended
+        # # doing it after data updates.
+        # self.vacuum_postgres_stats_table()
 
         post_load_group_count = PeakGroup.objects.count()
         # The number of samples in the isocorr xlsx file (not the samples file)
@@ -797,9 +797,9 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             skip_cache_updates=True,
         )
 
-        # Postgres performance tweak (to address slowness with this test in version 13).  Django furum folks recommended
-        # doing it after data updates.
-        self.vacuum_postgres_stats_table()
+        # # Postgres performance tweak (to address slowness with this test in version 13).  Django furum folks recommended
+        # # doing it after data updates.
+        # self.vacuum_postgres_stats_table()
 
         (
             post_samples,
@@ -844,9 +844,9 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             skip_cache_updates=True,
         )
 
-        # Postgres performance tweak (to address slowness with this test in version 13).  Django furum folks recommended
-        # doing it after data updates.
-        self.vacuum_postgres_stats_table()
+        # # Postgres performance tweak (to address slowness with this test in version 13).  Django furum folks recommended
+        # # doing it after data updates.
+        # self.vacuum_postgres_stats_table()
 
         post_load_group_count = PeakGroup.objects.count()
 
@@ -869,9 +869,9 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             skip_cache_updates=True,
         )
 
-        # Postgres performance tweak (to address slowness with this test in version 13).  Django furum folks recommended
-        # doing it after data updates.
-        self.vacuum_postgres_stats_table()
+        # # Postgres performance tweak (to address slowness with this test in version 13).  Django furum folks recommended
+        # # doing it after data updates.
+        # self.vacuum_postgres_stats_table()
 
         post_load_group_count = PeakGroup.objects.count()
 
@@ -895,9 +895,9 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             skip_cache_updates=True,
         )
 
-        # Postgres performance tweak (to address slowness with this test in version 13).  Django furum folks recommended
-        # doing it after data updates.
-        self.vacuum_postgres_stats_table()
+        # # Postgres performance tweak (to address slowness with this test in version 13).  Django furum folks recommended
+        # # doing it after data updates.
+        # self.vacuum_postgres_stats_table()
 
         post_load_group_count = PeakGroup.objects.count()
 
@@ -945,8 +945,9 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
 
         # Postgres performance tweak (to address slowness with this test in version 13).  Django furum folks recommended
         # doing it after data updates.
-        self.vacuum_postgres_stats_table()
-
+        # self.vacuum_postgres_stats_table()
+        import time
+        startTime = time.time()
         pg = (
             PeakGroup.objects.filter(msrun__sample__name="xzl5_panc")
             .filter(name__exact="serine")
@@ -956,8 +957,14 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             .order_by("id", "peak_data__labels__element")
             .distinct("id", "peak_data__labels__element")
         )
+        t = time.time()
+        print("pg query time: %.3f" % (t - startTime))
+        startTime = t
 
         self.assertEqual(pg.count(), 2)
+        t = time.time()
+        print("pg count time: %.3f" % (t - startTime))
+        startTime = t
 
         # # Without the `VACUUM FULL ANALYZE` added in TracebaseTestCase, this is the sql query that is constructed from
         # # the first count query below and this analyze shows that the heuristic that builds the SQL is based on stale
@@ -986,4 +993,10 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
         #         print(l)
 
         self.assertEqual(pg.filter(peak_data__labels__element__exact="C").count(), 1)
+        t = time.time()
+        print("carbon count time: %.3f" % (t - startTime))
+        startTime = t
         self.assertEqual(pg.filter(peak_data__labels__element__exact="N").count(), 1)
+        t = time.time()
+        print("nitrogen count time: %.3f" % (t - startTime))
+        startTime = t
