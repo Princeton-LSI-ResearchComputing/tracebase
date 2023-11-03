@@ -945,7 +945,8 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
 
         # Postgres performance tweak (to address slowness with this test in version 13).  Django furum folks recommended
         # doing it after data updates.
-        # self.vacuum_postgres_stats_table()
+        self.vacuum_postgres_stats_table()
+
         import time
         startTime = time.time()
         pg = (
@@ -957,11 +958,13 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             .order_by("id", "peak_data__labels__element")
             .distinct("id", "peak_data__labels__element")
         )
+        # self.vacuum_postgres_stats_table()
         t = time.time()
         print("pg query time: %.3f" % (t - startTime))
         startTime = t
 
         self.assertEqual(pg.count(), 2)
+        # self.vacuum_postgres_stats_table()
         t = time.time()
         print("pg count time: %.3f" % (t - startTime))
         startTime = t
@@ -993,10 +996,12 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
         #         print(l)
 
         self.assertEqual(pg.filter(peak_data__labels__element__exact="C").count(), 1)
+        # self.vacuum_postgres_stats_table()
         t = time.time()
         print("carbon count time: %.3f" % (t - startTime))
         startTime = t
         self.assertEqual(pg.filter(peak_data__labels__element__exact="N").count(), 1)
+        # self.vacuum_postgres_stats_table()
         t = time.time()
         print("nitrogen count time: %.3f" % (t - startTime))
         startTime = t

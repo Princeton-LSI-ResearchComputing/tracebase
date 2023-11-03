@@ -1,6 +1,8 @@
 import psycopg2
 import time
 
+from django.conf import settings
+from django.db import connection
 from django.test import TestCase, TransactionTestCase
 
 from DataRepo.models.utilities import get_all_models
@@ -82,16 +84,27 @@ def test_case_class_factory(base_class):
 
         @classmethod
         def vacuum_postgres_stats_table(cls):
-            print("Clearing out postgres statistics tables")
+            print(f"Connecting to postgres DB ({settings.DATABASES['default']['NAME']}) to clear out stats table")
             vacuumStartTime = time.time()
-            conn = psycopg2.connect()
-            conn.autocommit = True
-            with conn.cursor() as cursor:
-                cursor.execute("VACUUM FULL ANALYZE")
-                # cursor.execute("select * from pg_stat_user_tables where relid = \"DataRepo_peakdata\"::regclass;")
-                # for l in cursor.fetchall():
-                #     print(l)
-            conn.close()
+            # conn = psycopg2.connect(
+            #     "dbname=%s host=%s port=%s user=%s password=%s" % (
+            #         settings.DATABASES["default"]["NAME"],
+            #         settings.DATABASES["default"]["HOST"],
+            #         settings.DATABASES["default"]["PORT"],
+            #         settings.DATABASES["default"]["USER"],
+            #         settings.DATABASES["default"]["PASSWORD"],
+            #     )
+            # )
+            # conn.autocommit = True
+            print("Clearing out postgres statistics table")
+            # with conn.cursor() as cursor:
+            with connection.cursor() as cursor:
+                # cursor.execute("VACUUM FULL ANALYZE")
+                # cursor.execute("pg_relation_size('DataRepo_peakdata_peak_group_id_4dd87f4a');")
+                cursor.execute("select * from pg_stat_user_tables where relid = '\"DataRepo_peakdata\"'::regclass;")
+                for l in cursor.fetchall():
+                    print(l)
+            # conn.close()
             print("vacuum time: %.3f" % (time.time() - vacuumStartTime))
 
         class Meta:
