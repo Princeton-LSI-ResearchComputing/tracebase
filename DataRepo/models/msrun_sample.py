@@ -15,10 +15,10 @@ class MSRunSample(Model):
         to="DataRepo.MSRunSequence",
         null=False,
         blank=False,
-        on_delete=RESTRICT,  # Prevent MSRunSequence delete unless all MSRunSamples are deleted via a different cascade
+        # Prevent MSRunSequence deletion unless all MSRunSamples linked to i are deleted via a different field's cascade
+        on_delete=RESTRICT,
         related_name="msrun_samples",
-        help_text="The series of sample injections in a batch run of the mass spec instrument.  (Note, each injection "
-        "results in a 'mass spectrometer run' and produces a RAW file.)",
+        help_text="The series of sample injections in a batch run of the mass spec instrument.",
     )
     sample = ForeignKey(
         to="DataRepo.Sample",
@@ -26,8 +26,7 @@ class MSRunSample(Model):
         blank=False,
         on_delete=CASCADE,  # If the linked Sample is deleted, delete this record
         related_name="msrun_samples",
-        help_text="The sample that was run on the mass spectrometer (potentially multiple times, each time resulting "
-        "in a separate raw file, and potentially in different polarity modes and/or scan ranges).",
+        help_text="A sample that was injected at least once during a mass spectrometer sequence.",
     )
     ms_data_files = ManyToManyField(
         to="DataRepo.ArchiveFile",
