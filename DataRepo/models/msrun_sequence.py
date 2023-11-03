@@ -38,10 +38,12 @@ class MSRunSequence(Model):
         help_text="The name of the mass spectrometer.",
     )
     lc_method = ForeignKey(
+        # Prevent MSRunSequence deletion unless initiated by another field's CASCADE deletion includes all other records
+        # referencing that lc_method
+        on_delete=RESTRICT,
         null=False,
         blank=False,
         to="DataRepo.LCMethod",
-        on_delete=RESTRICT,  # Delete this MSRunSequence if all other records referencing it are being deleted
         help_text="The liquid chromatography protocol that was used for this mass spectrometer run sequence.",
     )
     notes = TextField(
