@@ -17,7 +17,7 @@ class MSRunSample(Model):
         blank=False,
         on_delete=RESTRICT,  # Prevent MSRunSequence delete unless all MSRunSamples are deleted via a different cascade
         related_name="msrun_samples",
-        help_text="The series of sample injections in a batch run of the mass spec instrument.  (Note, ach injection "
+        help_text="The series of sample injections in a batch run of the mass spec instrument.  (Note, each injection "
         "results in a 'mass spectrometer run' and produces a RAW file.)",
     )
     sample = ForeignKey(
