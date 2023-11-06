@@ -669,7 +669,6 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             isocorr_format=True,
             skip_cache_updates=True,
         )
-
         post_load_group_count = PeakGroup.objects.count()
         # The number of samples in the isocorr xlsx file (not the samples file)
         SAMPLES_COUNT = 30
@@ -703,7 +702,6 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             isocorr_format=True,
             skip_cache_updates=True,
         )
-
         post_load_group_count = PeakGroup.objects.count()
         # The number of samples in the isocorr xlsx file (not the samples file)
         SAMPLES_COUNT = 30
@@ -737,7 +735,6 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             isocorr_format=True,
             skip_cache_updates=True,
         )
-
         post_load_group_count = PeakGroup.objects.count()
         # The number of samples in the isocorr xlsx file (not the samples file)
         SAMPLES_COUNT = 60
@@ -823,7 +820,6 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             isocorr_format=True,
             skip_cache_updates=True,
         )
-
         post_load_group_count = PeakGroup.objects.count()
 
         self.assert_peak_group_counts(
@@ -844,7 +840,6 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             isocorr_format=True,
             skip_cache_updates=True,
         )
-
         post_load_group_count = PeakGroup.objects.count()
 
         self.assert_peak_group_counts(
@@ -866,7 +861,6 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             skip_samples=("bk",),
             skip_cache_updates=True,
         )
-
         post_load_group_count = PeakGroup.objects.count()
 
         self.assert_peak_group_counts(
@@ -910,7 +904,6 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             isocorr_format=True,
             skip_cache_updates=True,
         )
-
         pg = (
             PeakGroup.objects.filter(msrun__sample__name="xzl5_panc")
             .filter(name__exact="serine")
@@ -922,6 +915,5 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
         )
 
         self.assertEqual(pg.count(), 2)
-
         self.assertEqual(pg.filter(peak_data__labels__element__exact="C").count(), 1)
         self.assertEqual(pg.filter(peak_data__labels__element__exact="N").count(), 1)
