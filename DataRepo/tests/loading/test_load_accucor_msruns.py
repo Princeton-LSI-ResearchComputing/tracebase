@@ -943,9 +943,9 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             skip_cache_updates=True,
         )
 
-        # Postgres performance tweak (to address slowness with this test in version 13).  Django furum folks recommended
-        # doing it after data updates.
-        self.vacuum_postgres_stats_table()
+        # # Postgres performance tweak (to address slowness with this test in version 13).  Django furum folks recommended
+        # # doing it after data updates.
+        # self.vacuum_postgres_stats_table()
 
         import time
         startTime = time.time()

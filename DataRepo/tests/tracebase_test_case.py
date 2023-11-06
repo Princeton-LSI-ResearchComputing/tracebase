@@ -49,6 +49,7 @@ def test_case_class_factory(base_class):
             This method in the superclass is intended to record the setUpTestData start time so that the setup run time
             can be reported in setUpTestData.
             """
+            cls.set_autovac()
             cls.setupStartTime = time.time()
             print(
                 "SETTING UP TEST CLASS: %s.%s at %s"
@@ -67,7 +68,7 @@ def test_case_class_factory(base_class):
             This method in the superclass is intended to provide run time information for the setUpTestData method.
             """
             super().setUpTestData()
-            cls.vacuum_postgres_stats_table()
+            # cls.vacuum_postgres_stats_table()
             reportRunTime(
                 f"{cls.__module__}.{cls.__name__}.setUpTestData", cls.setupStartTime
             )
@@ -86,25 +87,46 @@ def test_case_class_factory(base_class):
         def vacuum_postgres_stats_table(cls):
             print(f"Connecting to postgres DB ({settings.DATABASES['default']['NAME']}) to clear out stats table")
             vacuumStartTime = time.time()
-            # conn = psycopg2.connect(
-            #     "dbname=%s host=%s port=%s user=%s password=%s" % (
-            #         settings.DATABASES["default"]["NAME"],
-            #         settings.DATABASES["default"]["HOST"],
-            #         settings.DATABASES["default"]["PORT"],
-            #         settings.DATABASES["default"]["USER"],
-            #         settings.DATABASES["default"]["PASSWORD"],
-            #     )
-            # )
-            # conn.autocommit = True
+            conn = psycopg2.connect(
+                database=settings.DATABASES["default"]["NAME"],
+                host=settings.DATABASES["default"]["HOST"],
+                port=settings.DATABASES["default"]["PORT"],
+                user=settings.DATABASES["default"]["USER"],
+                password=settings.DATABASES["default"]["PASSWORD"],
+            )
+            conn.autocommit = True
             print("Clearing out postgres statistics table")
-            # with conn.cursor() as cursor:
-            with connection.cursor() as cursor:
-                # cursor.execute("VACUUM FULL ANALYZE")
+            # with connection.cursor() as cursor:
+            with conn.cursor() as cursor:
+                # cursor.execute("VACUUM FULL")
+                cursor.execute("VACUUM FULL ANALYZE")
                 # cursor.execute("pg_relation_size('DataRepo_peakdata_peak_group_id_4dd87f4a');")
-                cursor.execute("select * from pg_stat_user_tables where relid = '\"DataRepo_peakdata\"'::regclass;")
-                for l in cursor.fetchall():
-                    print(l)
-            # conn.close()
+                # cursor.execute("select * from pg_stat_user_tables where relid = '\"DataRepo_peakdata\"'::regclass;")
+                # for l in cursor.fetchall():
+                #     print(l)
+            conn.close()
+            print("vacuum time: %.3f" % (time.time() - vacuumStartTime))
+
+        @classmethod
+        def set_autovac(cls):
+            print(f"Connecting to postgres DB ({settings.DATABASES['default']['NAME']}) to set autovacuum")
+            vacuumStartTime = time.time()
+            conn = psycopg2.connect(
+                database=settings.DATABASES["default"]["NAME"],
+                host=settings.DATABASES["default"]["HOST"],
+                port=settings.DATABASES["default"]["PORT"],
+                user=settings.DATABASES["default"]["USER"],
+                password=settings.DATABASES["default"]["PASSWORD"],
+            )
+            conn.autocommit = True
+            print("Setting autovacuum")
+            with conn.cursor() as cursor:
+                # cursor.execute("VACUUM FULL")
+                cursor.execute("ALTER TABLE \"DataRepo_peakdata\" SET (autovacuum_vacuum_scale_factor = 0.0);")
+                cursor.execute("ALTER TABLE \"DataRepo_peakdata\" SET (autovacuum_vacuum_threshold = 5000);")
+                cursor.execute("ALTER TABLE \"DataRepo_peakdata\" SET (autovacuum_analyze_scale_factor = 0.0);")
+                cursor.execute("ALTER TABLE \"DataRepo_peakdata\" SET (autovacuum_analyze_threshold = 5000);")
+            conn.close()
             print("vacuum time: %.3f" % (time.time() - vacuumStartTime))
 
         class Meta:
