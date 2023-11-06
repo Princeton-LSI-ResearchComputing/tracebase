@@ -56,10 +56,6 @@ def test_case_class_factory(base_class):
             super().setUpClass()
 
         @classmethod
-        def tearDownClass(cls):
-            super().tearDownClass()
-
-        @classmethod
         def setUpTestData(cls):
             """
             This method in the superclass is intended to provide run time information for the setUpTestData method.
