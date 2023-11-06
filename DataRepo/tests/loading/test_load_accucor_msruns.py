@@ -602,10 +602,6 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             skip_cache_updates=True,
         )
 
-        # # Postgres performance tweak (to address slowness with this test in version 13).  Django furum folks recommended
-        # # doing it after data updates.
-        # self.vacuum_postgres_stats_table()
-
         (
             post_samples,
             post_infusates,
@@ -674,10 +670,6 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             skip_cache_updates=True,
         )
 
-        # # Postgres performance tweak (to address slowness with this test in version 13).  Django furum folks recommended
-        # # doing it after data updates.
-        # self.vacuum_postgres_stats_table()
-
         post_load_group_count = PeakGroup.objects.count()
         # The number of samples in the isocorr xlsx file (not the samples file)
         SAMPLES_COUNT = 30
@@ -712,10 +704,6 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             skip_cache_updates=True,
         )
 
-        # # Postgres performance tweak (to address slowness with this test in version 13).  Django furum folks recommended
-        # # doing it after data updates.
-        # self.vacuum_postgres_stats_table()
-
         post_load_group_count = PeakGroup.objects.count()
         # The number of samples in the isocorr xlsx file (not the samples file)
         SAMPLES_COUNT = 30
@@ -749,10 +737,6 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             isocorr_format=True,
             skip_cache_updates=True,
         )
-
-        # # Postgres performance tweak (to address slowness with this test in version 13).  Django furum folks recommended
-        # # doing it after data updates.
-        # self.vacuum_postgres_stats_table()
 
         post_load_group_count = PeakGroup.objects.count()
         # The number of samples in the isocorr xlsx file (not the samples file)
@@ -797,10 +781,6 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             skip_cache_updates=True,
         )
 
-        # # Postgres performance tweak (to address slowness with this test in version 13).  Django furum folks recommended
-        # # doing it after data updates.
-        # self.vacuum_postgres_stats_table()
-
         (
             post_samples,
             post_infusates,
@@ -844,10 +824,6 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             skip_cache_updates=True,
         )
 
-        # # Postgres performance tweak (to address slowness with this test in version 13).  Django furum folks recommended
-        # # doing it after data updates.
-        # self.vacuum_postgres_stats_table()
-
         post_load_group_count = PeakGroup.objects.count()
 
         self.assert_peak_group_counts(
@@ -868,10 +844,6 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             isocorr_format=True,
             skip_cache_updates=True,
         )
-
-        # # Postgres performance tweak (to address slowness with this test in version 13).  Django furum folks recommended
-        # # doing it after data updates.
-        # self.vacuum_postgres_stats_table()
 
         post_load_group_count = PeakGroup.objects.count()
 
@@ -894,10 +866,6 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             skip_samples=("bk",),
             skip_cache_updates=True,
         )
-
-        # # Postgres performance tweak (to address slowness with this test in version 13).  Django furum folks recommended
-        # # doing it after data updates.
-        # self.vacuum_postgres_stats_table()
 
         post_load_group_count = PeakGroup.objects.count()
 
@@ -943,12 +911,6 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             skip_cache_updates=True,
         )
 
-        # # Postgres performance tweak (to address slowness with this test in version 13).  Django furum folks recommended
-        # # doing it after data updates.
-        # self.vacuum_postgres_stats_table()
-
-        import time
-        startTime = time.time()
         pg = (
             PeakGroup.objects.filter(msrun__sample__name="xzl5_panc")
             .filter(name__exact="serine")
@@ -958,50 +920,8 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             .order_by("id", "peak_data__labels__element")
             .distinct("id", "peak_data__labels__element")
         )
-        # self.vacuum_postgres_stats_table()
-        t = time.time()
-        print("pg query time: %.3f" % (t - startTime))
-        startTime = t
 
         self.assertEqual(pg.count(), 2)
-        # self.vacuum_postgres_stats_table()
-        t = time.time()
-        print("pg count time: %.3f" % (t - startTime))
-        startTime = t
-
-        # # Without the `VACUUM FULL ANALYZE` added in TracebaseTestCase, this is the sql query that is constructed from
-        # # the first count query below and this analyze shows that the heuristic that builds the SQL is based on stale
-        # # data in the postgres stats table from the destruction of the data in the previous test class.
-        # from django.db import connection
-        # with connection.cursor() as cursor:
-        #     cursor.execute(
-        #         "EXPLAIN (ANALYZE) SELECT COUNT(*) FROM (SELECT DISTINCT ON (\"DataRepo_peakgroup\".\"id\", "
-        #         "\"DataRepo_peakdatalabel\".\"element\") \"DataRepo_peakgroup\".\"id\" AS \"col1\", "
-        #         "\"DataRepo_peakgroup\".\"name\" AS \"col2\", \"DataRepo_peakgroup\".\"formula\" AS \"col3\", "
-        #         "\"DataRepo_peakgroup\".\"msrun_id\" AS \"col4\", "
-        #         "\"DataRepo_peakgroup\".\"peak_annotation_file_id\" AS \"col5\" FROM \"DataRepo_peakgroup\" "
-        #         "INNER JOIN \"DataRepo_msrun\" ON (\"DataRepo_peakgroup\".\"msrun_id\" = \"DataRepo_msrun\".\"id\") "
-        #         "INNER JOIN \"DataRepo_sample\" ON (\"DataRepo_msrun\".\"sample_id\" = \"DataRepo_sample\".\"id\") "
-        #         "INNER JOIN \"DataRepo_archivefile\" "
-        #         "ON (\"DataRepo_peakgroup\".\"peak_annotation_file_id\" = \"DataRepo_archivefile\".\"id\") "
-        #         "INNER JOIN \"DataRepo_peakdata\" "
-        #         "ON (\"DataRepo_peakgroup\".\"id\" = \"DataRepo_peakdata\".\"peak_group_id\") "
-        #         "INNER JOIN \"DataRepo_peakdatalabel\" "
-        #         "ON (\"DataRepo_peakdata\".\"id\" = \"DataRepo_peakdatalabel\".\"peak_data_id\") "
-        #         "WHERE (\"DataRepo_sample\".\"name\" = 'xzl5_panc' AND \"DataRepo_peakgroup\".\"name\" = 'serine' "
-        #         "AND \"DataRepo_archivefile\".\"filename\" = 'alafasted_cor.xlsx' "
-        #         "AND \"DataRepo_peakdatalabel\".\"element\" = 'C') "
-        #         "ORDER BY \"DataRepo_peakgroup\".\"id\" ASC, \"DataRepo_peakdatalabel\".\"element\" ASC) subquery;")
-        #     for l in cursor.fetchall():
-        #         print(l)
 
         self.assertEqual(pg.filter(peak_data__labels__element__exact="C").count(), 1)
-        # self.vacuum_postgres_stats_table()
-        t = time.time()
-        print("carbon count time: %.3f" % (t - startTime))
-        startTime = t
         self.assertEqual(pg.filter(peak_data__labels__element__exact="N").count(), 1)
-        # self.vacuum_postgres_stats_table()
-        t = time.time()
-        print("nitrogen count time: %.3f" % (t - startTime))
-        startTime = t
