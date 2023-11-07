@@ -30,7 +30,6 @@ class MSRunSample(Model):
     )
     ms_data_files = ManyToManyField(
         to="DataRepo.ArchiveFile",
-        null=True,
         blank=True,
         related_name="msrun_samples",
         help_text="Any mass spectrometry data files (e.g. mzXML files) associated with this sample and sequence, "
