@@ -101,7 +101,6 @@ def test_case_class_factory(base_class):
                 )
                 conn.autocommit = True
                 with conn.cursor() as cursor:
-                    # cursor.execute("VACUUM FULL")
                     cursor.execute(
                         'ALTER TABLE "DataRepo_peakdata" SET (autovacuum_vacuum_scale_factor = 0.0);'
                     )
