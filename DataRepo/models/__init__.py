@@ -10,6 +10,8 @@ from DataRepo.models.infusate_tracer import InfusateTracer
 from DataRepo.models.lc_method import LCMethod
 from DataRepo.models.maintained_model import MaintainedModel
 from DataRepo.models.ms_run import MSRun
+from DataRepo.models.msrun_sample import MSRunSample
+from DataRepo.models.msrun_sequence import MSRunSequence
 from DataRepo.models.peak_data import PeakData
 from DataRepo.models.peak_data_label import PeakDataLabel
 from DataRepo.models.peak_group import PeakGroup
@@ -36,6 +38,8 @@ __all__ = [
     "LCMethod",
     "MaintainedModel",
     "MSRun",
+    "MSRunSample",
+    "MSRunSequence",
     "PeakData",
     "PeakGroup",
     "PeakGroupLabel",

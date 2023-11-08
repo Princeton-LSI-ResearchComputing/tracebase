@@ -31,21 +31,25 @@ class MSRunSequence(Model):
         help_text="The date that the mass spectrometer was run.",
     )
     instrument = CharField(
+        null=False,
+        blank=False,
         max_length=6,
         choices=INSTRUMENT_CHOICES,
         help_text="The name of the mass spectrometer.",
     )
     lc_method = ForeignKey(
+        # Prevent MSRunSequence deletion unless initiated by another field's CASCADE deletion includes all other records
+        # referencing that lc_method
+        on_delete=RESTRICT,
         null=False,
         blank=False,
         to="DataRepo.LCMethod",
-        on_delete=RESTRICT,  # Don't delete an LCMethod if this record is deleted
         help_text="The liquid chromatography protocol that was used for this mass spectrometer run sequence.",
     )
     notes = TextField(
         unique=True,
-        blank=False,
-        null=False,
+        blank=True,
+        null=True,
         help_text="Notes on this mass spectrometer run sequence.",
     )
 

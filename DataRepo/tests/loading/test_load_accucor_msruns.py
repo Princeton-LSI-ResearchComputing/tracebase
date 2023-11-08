@@ -30,6 +30,8 @@ from DataRepo.utils.exceptions import (
 
 @override_settings(CACHES=settings.TEST_CACHES)
 class AccuCorDataLoadingTests(TracebaseTestCase):
+    fixtures = ["data_types.yaml", "data_formats.yaml", "lc_methods.yaml"]
+
     @classmethod
     def setUpTestData(cls):
         call_command(
@@ -160,8 +162,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
 
     def test_accucor_load_in_debug(self):
         pre_load_counts = self.get_record_counts()
-        coordinator = MaintainedModel._get_default_coordinator()
-        pre_load_maintained_values = coordinator.get_all_maintained_field_values()
+        pre_load_maintained_values = MaintainedModel.get_all_maintained_field_values()
         self.assertGreater(
             len(pre_load_maintained_values.keys()),
             0,
@@ -182,7 +183,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
                 dry_run=True,
             )
 
-        post_load_maintained_values = coordinator.get_all_maintained_field_values()
+        post_load_maintained_values = MaintainedModel.get_all_maintained_field_values()
         post_load_counts = self.get_record_counts()
 
         self.assertEqual(
@@ -254,7 +255,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         # multiple loads of the same accucor_file, meaning two PeakGroups will
         # differ in PeakGroupSet and raise ConflictingValueErrors, not DuplicatePeakGroup
         adl = AccuCorDataLoader(
-            None, None, "2023-01-01", "", "", "peak_group_set_filename.tsv"
+            None, None, "2023-01-01", "", "", "peak_annotation_filename.tsv"
         )
         # Get the first PeakGroup, and collect attributes
         peak_group = PeakGroup.objects.first()
@@ -270,7 +271,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             adl.insert_peak_group(
                 peak_group_attrs,
                 msrun=peak_group.msrun,
-                peak_group_set=peak_group.peak_group_set,
+                peak_annotation_file=peak_group.peak_annotation_file,
             )
 
     @tag("multi-msrun")
@@ -286,7 +287,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
 
         # Setup an AccuCorDataLoader object with minimal info
         adl = AccuCorDataLoader(
-            None, None, "2023-01-01", "", "", "peak_group_set_filename.tsv"
+            None, None, "2023-01-01", "", "", "peak_annotation_filename.tsv"
         )
         # Get the first PeakGroup, collect the attributes and change the formula
         peak_group = PeakGroup.objects.first()
@@ -300,7 +301,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             adl.insert_peak_group(
                 peak_group_attrs,
                 msrun=peak_group.msrun,
-                peak_group_set=peak_group.peak_group_set,
+                peak_annotation_file=peak_group.peak_annotation_file,
             )
 
     def test_multiple_accucor_labels(self):
@@ -388,16 +389,17 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
                 researcher="Michael Neinast",
                 new_researcher=False,
             )
-        # Check second file failed (duplicate compounds)
+        # Check second file failed (duplicate compound)
         aes = ar.exception
+        print(f"{aes}")
         self.assertEqual(1, len(aes.exceptions))
         self.assertTrue(isinstance(aes.exceptions[0], ConflictingValueErrors))
-        self.assertEqual(2, len(aes.exceptions[0].conflicting_value_errors))
+        self.assertEqual(1, len(aes.exceptions[0].conflicting_value_errors))
 
         # Check first file loaded
         SAMPLES_COUNT = 2
         PEAKDATA_ROWS = 7
-        MEASURED_COMPOUNDS_COUNT = 1  # Glucose and lactate
+        MEASURED_COMPOUNDS_COUNT = 1  # Glucose
 
         self.assertEqual(
             PeakGroup.objects.count(), MEASURED_COMPOUNDS_COUNT * SAMPLES_COUNT
@@ -407,6 +409,8 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
 
 @override_settings(CACHES=settings.TEST_CACHES)
 class IsoCorrDataLoadingTests(TracebaseTestCase):
+    fixtures = ["data_types.yaml", "data_formats.yaml", "lc_methods.yaml"]
+
     @classmethod
     def setUpTestData(cls):
         call_command(
@@ -875,7 +879,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             PeakGroup.objects.filter(msrun__sample__name="xzl5_panc")
             .filter(name__exact="serine")
             .filter(
-                peak_group_set__filename="alafasted_cor.xlsx",
+                peak_annotation_file__filename="alafasted_cor.xlsx",
             )
             .order_by("id", "peak_data__labels__element")
             .distinct("id", "peak_data__labels__element")

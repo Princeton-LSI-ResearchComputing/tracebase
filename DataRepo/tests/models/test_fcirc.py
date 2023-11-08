@@ -6,11 +6,13 @@ from django.test import override_settings
 
 from DataRepo.models import (
     Animal,
+    ArchiveFile,
+    DataFormat,
+    DataType,
     FCirc,
     MSRun,
     PeakGroup,
     PeakGroupLabel,
-    PeakGroupSet,
     Protocol,
     Sample,
 )
@@ -21,6 +23,16 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 class FCircTests(TracebaseTestCase):
     def setUp(self):
         super().setUp()
+
+        ms_peak_annotation = DataType.objects.get(code="ms_peak_annotation")
+        accucor_format = DataFormat.objects.get(code="accucor")
+        self.peak_annotation_file = ArchiveFile.objects.create(
+            filename="test_data_file",
+            file_location=None,
+            checksum="558ea654d7f2914ca4527580edf4fac11bd151c3",
+            data_type=ms_peak_annotation,
+            data_format=accucor_format,
+        )
 
         # For the validity of the test, assert there exist FCirc records and that they are for the last peak groups
         self.assertTrue(self.lss.fcircs.count() > 0)
@@ -99,13 +111,13 @@ class FCircTests(TracebaseTestCase):
             sample=self.newlss,
             protocol=ptl,
         )
-        pgs = PeakGroupSet.objects.create(filename="testing_dataset_file")
+
         for tracer in self.lss.animal.infusate.tracers.all():
             pg = PeakGroup.objects.create(
                 name=tracer.compound.name,
                 formula=tracer.compound.formula,
                 msrun=msr,
-                peak_group_set=pgs,
+                peak_annotation_file=self.peak_annotation_file,
             )
             pg.compounds.add(tracer.compound)
             # We don't need to call pg.save() here because I added an m2m handler to make .add() calls trigger a save.
@@ -306,13 +318,13 @@ class FCircTests(TracebaseTestCase):
             sample=self.newlss,
             protocol=ptl,
         )
-        pgs = PeakGroupSet.objects.create(filename="testing_dataset_file")
+
         for tracer in self.lss.animal.infusate.tracers.all():
             pg = PeakGroup.objects.create(
                 name=tracer.compound.name,
                 formula=tracer.compound.formula,
                 msrun=msr,
-                peak_group_set=pgs,
+                peak_annotation_file=self.peak_annotation_file,
             )
             pg.compounds.add(tracer.compound)
             # We don't need to call pg.save() here because I added an m2m handler to make .add() calls trigger a save.
