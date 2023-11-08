@@ -75,12 +75,13 @@ class AdvancedSearchTSVView(FormView):
         rowtmplt = loader.get_template(self.row_template)
 
         return StreamingHttpResponse(
-            self.tsv_template_iterator(rowtmplt, headtmplt, res, qry, dt_string),
+            tsv_template_iterator(rowtmplt, headtmplt, res, qry, dt_string),
             content_type=self.content_type,
             headers={"Content-Disposition": f"attachment; filename={filename}"},
         )
 
-    def tsv_template_iterator(self, rowtmplt, headtmplt, res, qry, dt):
-        yield headtmplt.render({"qry": qry, "dt": dt})
-        for row in res:
-            yield rowtmplt.render({"qry": qry, "row": row})
+
+def tsv_template_iterator(rowtmplt, headtmplt, res, qry, dt):
+    yield headtmplt.render({"qry": qry, "dt": dt})
+    for row in res:
+        yield rowtmplt.render({"qry": qry, "row": row})

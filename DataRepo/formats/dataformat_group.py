@@ -742,6 +742,10 @@ class FormatGroup:
         try:
             mdl = self.getModelInstance(fmt, mdl)
         except KeyError as ke:
+            # Print error to the console
+            print(
+                f"Exception with format {fmt} and model {mdl}: {type(ke).__name__}: {ke}"
+            )
             raise Http404(ke)
 
         sfields = self.getSearchFields(fmt, mdl)
