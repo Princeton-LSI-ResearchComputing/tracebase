@@ -65,7 +65,12 @@ class MSRunSample(Model):
         ordering = ["msrun_sequence", "sample", "ms_raw_file", "ms_data_file"]
         constraints = [
             UniqueConstraint(
-                fields=["msrun_sequence", "sample", "ms_raw_file", "ms_data_file"],
+                fields=["ms_data_file"],
+                name="unique_ms_data_file",
+            ),
+            # Since ms_data_file can be null (& null != null), the following prevents duplicate sequence/sample records
+            UniqueConstraint(
+                fields=["msrun_sequence", "sample", "polarity", "ms_raw_file", "ms_data_file"],
                 name="unique_msrunsample",
             )
         ]
