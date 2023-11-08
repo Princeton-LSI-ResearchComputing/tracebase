@@ -9,7 +9,7 @@ from django.conf import settings
 from django.db import transaction
 from django.db.models import Model
 from django.db.models.signals import m2m_changed
-from django.db.transaction import TransactionManagementError
+# from django.db.transaction import TransactionManagementError
 
 
 class MaintainedModelCoordinator:
@@ -1543,51 +1543,38 @@ class MaintainedModel(Model):
                     )
                 )
             ):
-                try:
-                    update_fun = getattr(self, updater_dict["update_function"])
-                    try:
-                        old_val = getattr(self, update_fld)
-                    except Exception as e:
-                        if isinstance(e, TransactionManagementError):
-                            raise e
-                        warnings.warn(
-                            f"{e.__class__.__name__} error getting current value of field [{update_fld}]: "
-                            f"[{str(e)}].  Possibly due to this being triggered by a deleted record that is linked in "
-                            "a related model's maintained field."
-                        )
-                        old_val = "<error>"
+                # try:
+                update_fun = getattr(self, updater_dict["update_function"])
+                # try:
+                old_val = getattr(self, update_fld)
+                # except Exception as e:
+                #     if isinstance(e, TransactionManagementError):
+                #         raise e
+                #     warnings.warn(
+                #         f"{e.__class__.__name__} error getting current value of field [{update_fld}]: "
+                #         f"[{str(e)}].  Possibly due to this being triggered by a deleted record that is linked in "
+                #         "a related model's maintained field."
+                #     )
+                #     old_val = "<error>"
 
-                    # new_val = None
-                    # try:
-                    new_val = update_fun()
-                    # except ValueError as ve:
-                    #     if (
-                    #         "instance needs to have a primary key value before this relationship can be used."
-                    #         in str(ve)
-                    #     ):
-                    #         raise ReverseRelationQueryBeforeRecordExists(
-                    #             type(self).__name__,
-                    #             updater_dict["update_function"],
-                    #             ve,
-                    #         )
-                    #     else:
-                    #         raise ve
-                    setattr(self, update_fld, new_val)
+                new_val = update_fun()
 
-                    if old_val != new_val:
-                        changed = True
+                setattr(self, update_fld, new_val)
 
-                    # Report the auto-update
-                    if old_val is None or old_val == "":
-                        old_val = "<empty>"
-                    print(
-                        f"Auto-updated {self.__class__.__name__}.{update_fld} in {self.__class__.__name__}.{self.pk} "
-                        f"using {update_fun.__qualname__} from [{old_val}] to [{new_val}]."
-                    )
-                except TransactionManagementError as tme:
-                    self.transaction_management_warning(
-                        tme, self, None, updater_dict, "self"
-                    )
+                if old_val != new_val:
+                    changed = True
+
+                # Report the auto-update
+                if old_val is None or old_val == "":
+                    old_val = "<empty>"
+                print(
+                    f"Auto-updated {self.__class__.__name__}.{update_fld} in {self.__class__.__name__}.{self.pk} "
+                    f"using {update_fun.__qualname__} from [{old_val}] to [{new_val}]."
+                )
+                # except TransactionManagementError as tme:
+                #     self.transaction_management_warning(
+                #         tme, self, None, updater_dict, "self"
+                #     )
 
         return changed
 
@@ -1656,40 +1643,40 @@ class MaintainedModel(Model):
 
                 # if a parent record exists
                 if tmp_parent_inst is not None:
-                    try:
-                        # Make sure that the (direct) parnet (or M:M related parent) *isa* MaintainedModel
-                        if isinstance(tmp_parent_inst, MaintainedModel):
-                            parent_inst = tmp_parent_inst
-                            if parent_inst not in parents:
-                                parents.append(parent_inst)
+                    # try:
+                    # Make sure that the (direct) parnet (or M:M related parent) *isa* MaintainedModel
+                    if isinstance(tmp_parent_inst, MaintainedModel):
+                        parent_inst = tmp_parent_inst
+                        if parent_inst not in parents:
+                            parents.append(parent_inst)
 
-                        elif (
-                            tmp_parent_inst.__class__.__name__ == "ManyRelatedManager"
-                            or tmp_parent_inst.__class__.__name__ == "RelatedManager"
+                    elif (
+                        tmp_parent_inst.__class__.__name__ == "ManyRelatedManager"
+                        or tmp_parent_inst.__class__.__name__ == "RelatedManager"
+                    ):
+                        # NOTE: This is where the `through` model is skipped
+                        if tmp_parent_inst.count() > 0 and isinstance(
+                            tmp_parent_inst.first(), MaintainedModel
                         ):
-                            # NOTE: This is where the `through` model is skipped
-                            if tmp_parent_inst.count() > 0 and isinstance(
-                                tmp_parent_inst.first(), MaintainedModel
-                            ):
-                                for mm_parent_inst in tmp_parent_inst.all():
-                                    if mm_parent_inst not in parents:
-                                        parents.append(mm_parent_inst)
+                            for mm_parent_inst in tmp_parent_inst.all():
+                                if mm_parent_inst not in parents:
+                                    parents.append(mm_parent_inst)
 
-                            elif tmp_parent_inst.count() > 0:
-                                raise NotMaintained(tmp_parent_inst.first(), self)
+                        elif tmp_parent_inst.count() > 0:
+                            raise NotMaintained(tmp_parent_inst.first(), self)
 
-                        else:
-                            raise NotMaintained(tmp_parent_inst, self)
+                    else:
+                        raise NotMaintained(tmp_parent_inst, self)
 
-                    except TransactionManagementError as tme:
-                        self.transaction_management_warning(
-                            tme,
-                            self,
-                            tmp_parent_inst,
-                            updater_dict,
-                            "parent",
-                            parent_fld,
-                        )
+                    # except TransactionManagementError as tme:
+                    #     self.transaction_management_warning(
+                    #         tme,
+                    #         self,
+                    #         tmp_parent_inst,
+                    #         updater_dict,
+                    #         "parent",
+                    #         parent_fld,
+                    #     )
 
         return parents
 
@@ -1758,27 +1745,27 @@ class MaintainedModel(Model):
                         tmp_child_inst.__class__.__name__ == "ManyRelatedManager"
                         or tmp_child_inst.__class__.__name__ == "RelatedManager"
                     ):
-                        try:
-                            # NOTE: This is where the `through` model is skipped
-                            if tmp_child_inst.count() > 0 and isinstance(
-                                tmp_child_inst.first(), MaintainedModel
-                            ):
-                                for mm_child_inst in tmp_child_inst.all():
-                                    if mm_child_inst not in children:
-                                        children.append(mm_child_inst)
+                        # try:
+                        # NOTE: This is where the `through` model is skipped
+                        if tmp_child_inst.count() > 0 and isinstance(
+                            tmp_child_inst.first(), MaintainedModel
+                        ):
+                            for mm_child_inst in tmp_child_inst.all():
+                                if mm_child_inst not in children:
+                                    children.append(mm_child_inst)
 
-                            elif tmp_child_inst.count() > 0:
-                                raise NotMaintained(tmp_child_inst.first(), self)
+                        elif tmp_child_inst.count() > 0:
+                            raise NotMaintained(tmp_child_inst.first(), self)
 
-                        except TransactionManagementError as tme:
-                            self.transaction_management_warning(
-                                tme,
-                                self,
-                                tmp_child_inst,
-                                updater_dict,
-                                "child",
-                                child_fld,
-                            )
+                        # except TransactionManagementError as tme:
+                        #     self.transaction_management_warning(
+                        #         tme,
+                        #         self,
+                        #         tmp_child_inst,
+                        #         updater_dict,
+                        #         "child",
+                        #         child_fld,
+                        #     )
 
                     elif (
                         not isinstance(tmp_child_inst, MaintainedModel)
