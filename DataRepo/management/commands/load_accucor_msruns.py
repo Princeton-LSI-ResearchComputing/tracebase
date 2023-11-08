@@ -100,12 +100,13 @@ class Command(BaseCommand):
             help=argparse.SUPPRESS,
             default=None,
         )
+        # Used internally by tests that have nothing to do with testing caching updates and just take time
         parser.add_argument(
             "--skip-cache-updates",
             required=False,
             action="store_true",
             default=False,
-            help="Do not delete stale cache values associated with inserted records.",
+            help=argparse.SUPPRESS,
         )
 
     @MaintainedModel.defer_autoupdates(

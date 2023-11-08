@@ -124,14 +124,6 @@ class Animal(MaintainedModel, HierCachedModel, ElementLabel):
         based on the time elapsed/duration from the initiation of infusion or treatment, typically.  If the animal has
         no serum samples or if the retrieved serum sample has no annotated time_collected, a warning will be issued.
         """
-        # 'samples' is the Sample record's `related_name` for its link to Animal.  An Animal record must be created
-        # before a Sample record can link to it, so if the Animal record doesn't exist yet, it cannot link to Sample
-        # records through the related name.  In Django 4.2, this case newly causes a ValueError exception whereas in
-        # 3.2, it would just return an empty queryset.
-        if self.pk is None:
-            warnings.warn(f"Animal {self.name} has no 'serum' samples.")
-            return None
-
         # Create an is_null field for time_collected to be able to sort them
         (extra_args, is_null_field) = create_is_null_field("time_collected")
         last_serum_sample = (
