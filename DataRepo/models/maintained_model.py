@@ -11,8 +11,6 @@ from django.db import transaction
 from django.db.models import Model
 from django.db.models.signals import m2m_changed
 
-# from django.db.transaction import TransactionManagementError
-
 
 class MaintainedModelCoordinator:
     """
@@ -376,7 +374,7 @@ class MaintainedModelCoordinator:
     # Added transaction.atomic, because even after catching an intentional AutoUpdateFailed in test
     # DataRepo.tests.models.test_infusate.MaintainedModelImmediateTests.test_error_when_buffer_not_clear and ending the
     # test successfully, the django post test teardown code was re-encountering the exception and I'm not entirely sure
-    # why.  It probably has to do with the context ma=nager code.  The entire trace had no reference to any code in this
+    # why.  It probably has to do with the context manager code.  The entire trace had no reference to any code in this
     # repo.  Adding transaction.atomic here prevents that exception from happening...
     @transaction.atomic
     def perform_buffered_updates(self, label_filters=None, filter_in=None):
@@ -767,11 +765,11 @@ class MaintainedModel(Model):
         This is an override of the derived model's save method that is being used here to automatically update
         maintained fields.
         """
-        # Custom argument: mass_updates - Whether auto-updating biffered model objects - default False
-        # Used internally. Do not supply unless you know what you're doing.
+        # Custom argument: mass_updates - Whether auto-updating buffered model objects - default False
+        # Used internally.  Do not supply unless you know what you're doing.
         mass_updates = kwargs.pop("mass_updates", False)
         # Custom argument: propagate - Whether to propagate updates to related model objects - default True
-        # Used internally. Do not supply unless you know what you're doing.
+        # Used internally.  Do not supply unless you know what you're doing.
         propagate = kwargs.pop(
             "propagate", not mass_updates
         )  # Effective default = True
@@ -836,10 +834,6 @@ class MaintainedModel(Model):
         # This only executes either when auto_updates or mass_updates is true - both cannot be true
         changed = self.update_decorated_fields()
 
-        # If the auto-update resulted in no change or if there exists stale buffer contents for objects that were
-        # previously saved, it can produce an error about unique constraints.  TransactionManagementErrors should have
-        # been handled before we got here so that this can proceed to effect the original change that prompted the
-        # save.
         # This either saves both explicit changes and auto-update changes (when auto_updates is true) or it only
         # saves the auto-updated values (when mass_updates is true)
         if changed is True or self.super_save_called is False:
@@ -893,9 +887,11 @@ class MaintainedModel(Model):
             self.label_filters = coordinator.default_label_filters
             self.filter_in = coordinator.default_filter_in
 
-            parents = self.get_parent_instances()
-            for parent_inst in parents:
-                coordinator.buffer_update(parent_inst)
+            if coordinator.buffering:
+                parents = self.get_parent_instances()
+                for parent_inst in parents:
+                    coordinator.buffer_update(parent_inst)
+
             return
         elif coordinator.auto_updates:
             # If autoupdates are happening (and it's not a mass-autoupdate (assumed because mass_updates
@@ -1559,7 +1555,6 @@ class MaintainedModel(Model):
                     )
                 )
             ):
-                # try:
                 update_fun = getattr(self, updater_dict["update_function"])
                 try:
                     old_val = getattr(self, update_fld)
@@ -1579,15 +1574,6 @@ class MaintainedModel(Model):
                         "link to it, but its cache has not been cleared."
                     )
                     old_val = f"<error {type(odne).__name__}>"
-                # except Exception as e:
-                #     if isinstance(e, TransactionManagementError):
-                #         raise e
-                #     warnings.warn(
-                #         f"{e.__class__.__name__} error getting current value of field [{update_fld}]: "
-                #         f"[{str(e)}].  Possibly due to this being triggered by a deleted record that is linked in "
-                #         "a related model's maintained field."
-                #     )
-                #     old_val = f"<error {type(e).__name__}>"
 
                 new_val = update_fun()
 
@@ -1603,10 +1589,6 @@ class MaintainedModel(Model):
                     f"Auto-updated {self.__class__.__name__}.{update_fld} in {self.__class__.__name__}.{self.pk} "
                     f"using {update_fun.__qualname__} from [{old_val}] to [{new_val}]."
                 )
-                # except TransactionManagementError as tme:
-                #     self.transaction_management_warning(
-                #         tme, self, None, updater_dict, "self"
-                #     )
 
         return changed
 
@@ -1681,7 +1663,6 @@ class MaintainedModel(Model):
 
                 # if a parent record exists
                 if tmp_parent_inst is not None:
-                    # try:
                     # Make sure that the (direct) parnet (or M:M related parent) *isa* MaintainedModel
                     if isinstance(tmp_parent_inst, MaintainedModel):
                         parent_inst = tmp_parent_inst
@@ -1712,16 +1693,6 @@ class MaintainedModel(Model):
 
                     else:
                         raise NotMaintained(tmp_parent_inst, self)
-
-                    # except TransactionManagementError as tme:
-                    #     self.transaction_management_warning(
-                    #         tme,
-                    #         self,
-                    #         tmp_parent_inst,
-                    #         updater_dict,
-                    #         "parent",
-                    #         parent_fld,
-                    #     )
 
         return parents
 
@@ -1792,7 +1763,6 @@ class MaintainedModel(Model):
                         tmp_child_inst.__class__.__name__ == "ManyRelatedManager"
                         or tmp_child_inst.__class__.__name__ == "RelatedManager"
                     ):
-                        # try:
                         # NOTE: This is where the `through` model is skipped
                         if tmp_child_inst.count() > 0 and isinstance(
                             tmp_child_inst.first(), MaintainedModel
@@ -1808,16 +1778,6 @@ class MaintainedModel(Model):
 
                         elif tmp_child_inst.count() > 0:
                             raise NotMaintained(tmp_child_inst.first(), self)
-
-                        # except TransactionManagementError as tme:
-                        #     self.transaction_management_warning(
-                        #         tme,
-                        #         self,
-                        #         tmp_child_inst,
-                        #         updater_dict,
-                        #         "child",
-                        #         child_fld,
-                        #     )
 
                     elif (
                         not isinstance(tmp_child_inst, MaintainedModel)
@@ -1856,59 +1816,6 @@ class MaintainedModel(Model):
         updater_list variable.
         """
         return MaintainedModelCoordinator.get_updater_dicts_by_model_name(cls.__name__)
-
-    def transaction_management_warning(
-        self,
-        tme,
-        triggering_rec,
-        acting_rec=None,
-        update_dict=None,
-        relationship="self",
-        triggering_field=None,
-    ):
-        """
-        Debugging TransactionManagementErrors can be difficult and confusing, so this warning is an attempt to aid that
-        debugging effort in the future by encapsulating what I have learned to provide insights on how best to address
-        those issues.
-        """
-
-        if relationship == "self" and acting_rec is not None:
-            raise ValueError("acting_rec must be None if relationship is 'self'.")
-        elif relationship != "self" and (
-            acting_rec is None or triggering_field is None
-        ):
-            raise ValueError(
-                "acting_rec and triggering_field are required is relationship is not 'self'."
-            )
-
-        warning_str = "Ignoring TransactionManagementError and skipping auto-update.  Details:\n\n"
-
-        if relationship == "self":
-            warning_str += f"\t- Record being updated: [{triggering_rec.__class__.__name__}.{triggering_rec.id}].\n"
-        else:
-            warning_str += f"\t- Record being updated: [{acting_rec.__class__.__name__}.{acting_rec.id}].\n"
-            warning_str += f"\t- Triggering {relationship} field: "
-            warning_str += f"[{triggering_rec.__class__.__name__}.{triggering_field}.{triggering_rec.id}].\n"
-
-        if update_dict is not None:
-            warning_str += f"\t- Update field: [{update_dict['update_field']}].\n"
-            warning_str += f"\t- Update function: [{update_dict['update_function']}].\n"
-
-        explanation = (
-            "Generally, auto-updates do not cause a problem, but in certain situations (particularly in tests), auto-"
-            "updates inside an atomic transaction block can cause a problem due to performing queries on a record "
-            "that is not yet really saved.  For tests (a special case), this can usually be avoided by keeping "
-            "database loads isolated inside setUpTestData and the test function itself.  Note, querys inside setUp() "
-            "can trigger this error.  If this is occurring outside of a test run, to avoid errors, the entire "
-            "transaction should be done without autoupdates before the transaction "
-            "block, and after the atomic transaction block, call perform_buffered_updates() to make the updates.  If "
-            "this is a warning, note that auto-updates can be fixed afterwards by running:\n\n"
-            "\tpython manage.py rebuild_maintained_fields\n"
-        )
-
-        warning_str += f"\n{explanation}\nThe error that occurred: [{str(tme)}]."
-
-        warnings.warn(warning_str)
 
     class Meta:
         abstract = True
