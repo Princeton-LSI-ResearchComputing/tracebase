@@ -1,9 +1,13 @@
 from datetime import timedelta
 
 import dateutil.parser
+from django.core.exceptions import ValidationError
 
 from DataRepo.models import (
     Animal,
+    ArchiveFile,
+    DataFormat,
+    DataType,
     Infusate,
     LCMethod,
     MSRunSample,
@@ -15,6 +19,8 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
 class MSRunSampleTests(TracebaseTestCase):
+    fixtures = ["data_types.yaml", "data_formats.yaml"]
+
     def setUp(self):
         lcm = LCMethod(
             name="L.C. McMethod",
@@ -72,9 +78,120 @@ class MSRunSampleTests(TracebaseTestCase):
         super().setUp()
 
     def test_msrun_sample(self):
-        seq = MSRunSample(
+        msrs = MSRunSample(
             msrun_sequence=self.seq,
             sample=self.smpl,
         )
-        seq.full_clean()
-        seq.save()
+        msrs.full_clean()
+        msrs.save()
+
+    def test_msrun_sample_all(self):
+        mstype = DataType.objects.get(code="ms_data")
+        rawfmt = DataFormat.objects.get(code="ms_raw")
+        mzxfmt = DataFormat.objects.get(code="mzxml")
+        rawrec = ArchiveFile.objects.create(
+            filename="test.raw",
+            file_location=None,
+            checksum="558ea654d7f2914ca4527580edf4fac11bd151c3",
+            data_type=mstype,
+            data_format=rawfmt,
+        )
+        mzxrec = ArchiveFile.objects.create(
+            filename="test.mzxml",
+            file_location=None,
+            checksum="558ea654d7f2914ca4527580edf4fac11bd151c4",
+            data_type=mstype,
+            data_format=mzxfmt,
+        )
+        msrs = MSRunSample(
+            msrun_sequence=self.seq,
+            sample=self.smpl,
+            polarity="positive",
+            ms_raw_file=rawrec,
+            ms_data_file=mzxrec,
+        )
+        msrs.full_clean()
+        msrs.save()
+
+    def test_msdata_format_unknown(self):
+        mstype = DataType.objects.get(code="ms_data")
+        mztfmt = DataFormat.objects.get(code="unknown")
+        mztrec = ArchiveFile.objects.create(
+            filename="test.mztab",
+            file_location=None,
+            checksum="558ea654d7f2914ca4527580edf4fac11bd151c3",
+            data_type=mstype,
+            data_format=mztfmt,
+        )
+        msrs = MSRunSample(
+            msrun_sequence=self.seq,
+            sample=self.smpl,
+            ms_data_file=mztrec,
+        )
+        msrs.full_clean()
+        msrs.save()
+
+    def test_bad_polarity(self):
+        with self.assertRaises(ValidationError) as ar:
+            seq = MSRunSample(
+                msrun_sequence=self.seq,
+                sample=self.smpl,
+                polarity="invalid",
+            )
+            seq.full_clean()
+            seq.save()
+        exc = ar.exception
+        self.assertIn("polarity", str(exc))
+
+    def make_bad_rec(self, fn, typ, fmt, raw=True):
+        afrec = ArchiveFile.objects.create(
+            filename=fn,
+            file_location=None,
+            checksum="558ea654d7f2914ca4527580edf4fac11bd151c3",
+            data_type=typ,
+            data_format=fmt,
+        )
+        with self.assertRaises(ValidationError) as ar:
+            if raw:
+                msrs = MSRunSample(
+                    msrun_sequence=self.seq,
+                    sample=self.smpl,
+                    ms_raw_file=afrec,
+                )
+            else:
+                msrs = MSRunSample(
+                    msrun_sequence=self.seq,
+                    sample=self.smpl,
+                    ms_data_file=afrec,
+                )
+            msrs.full_clean()
+            msrs.save()
+        return ar.exception
+
+    def test_bad_raw_type(self):
+        mstype = DataType.objects.get(code="ms_peak_annotation")
+        rawfmt = DataFormat.objects.get(code="ms_raw")
+        exc = self.make_bad_rec("test.raw", mstype, rawfmt)
+        self.assertIn("ms_raw_file", str(exc))
+        self.assertIn("data type", str(exc))
+
+    def test_bad_raw_fmt(self):
+        mstype = DataType.objects.get(code="ms_data")
+        rawfmt = DataFormat.objects.get(code="accucor")
+        exc = self.make_bad_rec("test.raw", mstype, rawfmt)
+        self.assertIn("ms_raw_file", str(exc))
+        self.assertIn("data format", str(exc))
+
+    def test_bad_mzx_type(self):
+        mstype = DataType.objects.get(code="ms_peak_annotation")
+        mzxfmt = DataFormat.objects.get(code="mzxml")
+        exc = self.make_bad_rec("test.mzxml", mstype, mzxfmt, False)
+        self.assertIn("ms_data_file", str(exc))
+        self.assertIn("data type", str(exc))
+
+    def test_bad_mzx_fmt(self):
+        mstype = DataType.objects.get(code="ms_data")
+        mzxfmt = DataFormat.objects.get(code="accucor")
+        exc = self.make_bad_rec("test.mzxml", mstype, mzxfmt, False)
+        self.assertIn("ms_data_file", str(exc))
+        self.assertIn("data format", str(exc))

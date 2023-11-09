@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError
 from django.db.models import (
     CASCADE,
     RESTRICT,
@@ -14,6 +15,14 @@ class MSRunSample(Model):
         ("negative", "negative"),
         ("positive", "positive"),
     ]
+    VALID_RAW_FILES = {
+        "TYPES": ["ms_data"],
+        "FORMATS": ["ms_raw", "unknown"],
+    }
+    VALID_DATA_FILES = {
+        "TYPES": ["ms_data"],
+        "FORMATS": ["mzxml", "unknown"],
+    }
 
     id = AutoField(primary_key=True)
     msrun_sequence = ForeignKey(
@@ -95,3 +104,38 @@ class MSRunSample(Model):
             ]
         )
         return f"MS run of sample {self.sample} in {self.msrun_sequence} ({details})"
+
+    def clean(self, *args, **kwargs):
+        super().clean(*args, **kwargs)
+
+        if self.ms_raw_file is not None:
+            if self.ms_raw_file.data_type.code not in self.VALID_RAW_FILES["TYPES"]:
+                raise ValidationError(
+                    f"Invalid ms_raw_file ({self.ms_raw_file.filename}) data type: "
+                    f"[{self.ms_raw_file.data_type.code}], must be one of [{self.VALID_RAW_FILES['TYPES']}]."
+                )
+            if self.ms_raw_file.data_format.code not in self.VALID_RAW_FILES["FORMATS"]:
+                raise ValidationError(
+                    f"Invalid ms_raw_file ({self.ms_raw_file.filename}) data format: "
+                    f"[{self.ms_raw_file.data_format.code}], must be one of [{self.VALID_RAW_FILES['FORMATS']}]."
+                )
+        if self.ms_data_file is not None:
+            if self.ms_data_file.data_type.code not in self.VALID_DATA_FILES["TYPES"]:
+                raise ValidationError(
+                    f"Invalid ms_data_file ({self.ms_data_file.filename}) data type: "
+                    f"[{self.ms_data_file.data_type.code}], must be one of [{self.VALID_DATA_FILES['TYPES']}]."
+                )
+            if (
+                self.ms_data_file.data_format.code
+                not in self.VALID_DATA_FILES["FORMATS"]
+            ):
+                raise ValidationError(
+                    f"Invalid ms_data_file ({self.ms_data_file.filename}) data format: "
+                    f"[{self.ms_data_file.data_format.code}], must be one of [{self.VALID_DATA_FILES['FORMATS']}]."
+                )
+        if self.polarity is not None:
+            polarities = [item[0] for item in self.POLARITY_CHOICES]
+            if self.polarity not in polarities:
+                raise ValidationError(
+                    f"Invalid polarity: [{self.polarity}], must be one of [{polarities}]."
+                )
