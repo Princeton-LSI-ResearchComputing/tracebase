@@ -6,9 +6,11 @@ from threading import local
 from typing import Dict, List
 
 from django.conf import settings
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
 from django.db.models import Model
 from django.db.models.signals import m2m_changed
+
 # from django.db.transaction import TransactionManagementError
 
 
@@ -843,11 +845,7 @@ class MaintainedModel(Model):
         if changed is True or self.super_save_called is False:
             if self.super_save_called or mass_updates is True:
                 if mass_updates is True:
-                    # Assert that the object hasn't been deleted from the database while it was in the buffer
-                    # This is called in order to intentionally cause an exception during perform_buffered_updates
-                    # Otherwise, we will end up re-saving the deleted object
-                    # https://stackoverflow.com/a/16613258/2057516
-                    type(self).objects.get(pk__exact=self.pk)
+                    self.exists_in_db(raise_exception=True)
                 # This is a subsequent call to save due to the auto-update, so we don't want to use the original
                 # arguments (which may direct save that it needs to do an insert).  If you do supply arguments in this
                 # case, you can end up with an IntegrityError due to unique constraints from the ID being the same.
@@ -878,6 +876,8 @@ class MaintainedModel(Model):
         # Used internally. Do not supply unless you know what you're doing.
         mass_updates = kwargs.pop("mass_updates", False)
 
+        self_sig = self.get_record_signature()
+
         # Delete the record triggering this update
         super().delete(*args, **kwargs)  # Call the "real" delete() method.
 
@@ -893,7 +893,6 @@ class MaintainedModel(Model):
             self.label_filters = coordinator.default_label_filters
             self.filter_in = coordinator.default_filter_in
 
-            # self.buffer_parent_update()
             parents = self.get_parent_instances()
             for parent_inst in parents:
                 coordinator.buffer_update(parent_inst)
@@ -907,8 +906,8 @@ class MaintainedModel(Model):
         # Otherwise, we are performing a mass auto-update and want to update the previously set filter conditions
 
         if coordinator.auto_updates and propagate:
-            # Percolate changes up to the parents (if any)
-            self.call_dfs_related_updaters()
+            # Percolate changes up to the parents (if any) and mark the deleted record as updated
+            self.call_dfs_related_updaters(updated=[self_sig])
 
     @staticmethod
     def relation(
@@ -1105,6 +1104,23 @@ class MaintainedModel(Model):
 
         # This returns the actual decorator function which will immediately run on the decorated function
         return decorator
+
+    def exists_in_db(self, raise_exception=False):
+        """
+        Asserts that the object hasn't been deleted from the database while it was in the buffer.  This can
+        intentionally raise a DoesNotExist exception (e.g. during perform_buffered_updates) so that we don't end up re-
+        saving a deleted object.
+        https://stackoverflow.com/a/16613258/2057516
+        """
+        try:
+            type(self).objects.get(pk__exact=self.pk)
+        except Exception as e:
+            if raise_exception is True:
+                raise e
+            if issubclass(type(e), ObjectDoesNotExist):
+                return False
+            raise e
+        return True
 
     @staticmethod
     def get_model_package_name_from_member_function(fn):
@@ -1545,8 +1561,24 @@ class MaintainedModel(Model):
             ):
                 # try:
                 update_fun = getattr(self, updater_dict["update_function"])
-                # try:
-                old_val = getattr(self, update_fld)
+                try:
+                    old_val = getattr(self, update_fld)
+                except ObjectDoesNotExist as odne:
+                    # This assumes that when this is raised, update_fld is a relation field (e.g. ForeignKeyField)
+                    # It also assumes a .delete() of the referenced record is what caused this.  Note, in my test case,
+                    # a serum Sample record was deleted.  A parent Animal record's update occurred via propagation of
+                    # autoupdates.  It's last_serum_sample's on_delete was SET_NULL.  A getattr() on that field yields a
+                    # KeyError referring to cached values accessed deep in the django core code.  It's trace was
+                    # truncated, so I could not verify the source of the DoesNotExist exception, but catching
+                    # ObjectDoesNotExist does catch it.  I think it's a pretty safe assumption, but...
+                    # TODO: explicitly check if a delete had happened.  There may be a way to get the value of the
+                    # foreign key without triggering a database query and set old_val to None.
+                    warnings.warn(
+                        f"{odne.__class__.__name__} error getting current value of relation field [{update_fld}]: "
+                        f"[{str(odne)}].  This is likely being triggered by a deleted record whose relation used to "
+                        "link to it, but its cache has not been cleared."
+                    )
+                    old_val = f"<error {type(odne).__name__}>"
                 # except Exception as e:
                 #     if isinstance(e, TransactionManagementError):
                 #         raise e
@@ -1555,7 +1587,7 @@ class MaintainedModel(Model):
                 #         f"[{str(e)}].  Possibly due to this being triggered by a deleted record that is linked in "
                 #         "a related model's maintained field."
                 #     )
-                #     old_val = "<error>"
+                #     old_val = f"<error {type(e).__name__}>"
 
                 new_val = update_fun()
 
@@ -1578,12 +1610,18 @@ class MaintainedModel(Model):
 
         return changed
 
+    def get_record_signature(self):
+        if self.pk is None:
+            return None
+        return f"{self.__class__.__name__}.{self.pk}"
+
     def call_dfs_related_updaters(self, updated=None, mass_updates=False):
-        if not updated:
-            updated = []
         # Assume I've been called after I've been updated, so add myself to the updated list
-        self_sig = f"{self.__class__.__name__}.{self.id}"
-        updated.append(self_sig)
+        if updated is None:
+            updated = []
+        self_sig = self.get_record_signature()
+        if self_sig is not None and self_sig not in updated:
+            updated.append(self_sig)
         updated = self.call_child_updaters(updated=updated, mass_updates=mass_updates)
         updated = self.call_parent_updaters(updated=updated, mass_updates=mass_updates)
         return updated
@@ -1598,10 +1636,10 @@ class MaintainedModel(Model):
         for parent_inst in parents:
             # If the current instance's update was triggered - and was triggered by the same parent instance whose
             # update we're about to trigger
-            parent_sig = f"{parent_inst.__class__.__name__}.{parent_inst.id}"
+            parent_sig = parent_inst.get_record_signature()
             if parent_sig not in updated:
                 if settings.DEBUG:
-                    self_sig = f"{self.__class__.__name__}.{self.pk}"
+                    self_sig = self.get_record_signature()
                     print(
                         f"Propagating change from child {self_sig} to parent {parent_sig}"
                     )
@@ -1647,7 +1685,9 @@ class MaintainedModel(Model):
                     # Make sure that the (direct) parnet (or M:M related parent) *isa* MaintainedModel
                     if isinstance(tmp_parent_inst, MaintainedModel):
                         parent_inst = tmp_parent_inst
-                        if parent_inst not in parents:
+                        # We check "exists_in_db" in case these updates are propagated due to a delete, and any relation
+                        # we are traversing, could have been deleted via a cascade
+                        if parent_inst not in parents and parent_inst.exists_in_db():
                             parents.append(parent_inst)
 
                     elif (
@@ -1659,7 +1699,12 @@ class MaintainedModel(Model):
                             tmp_parent_inst.first(), MaintainedModel
                         ):
                             for mm_parent_inst in tmp_parent_inst.all():
-                                if mm_parent_inst not in parents:
+                                # We check "exists_in_db" in case these updates are propagated due to a delete, and any
+                                # relation we are traversing, could have been deleted via a cascade
+                                if (
+                                    mm_parent_inst not in parents
+                                    and mm_parent_inst.exists_in_db()
+                                ):
                                     parents.append(mm_parent_inst)
 
                         elif tmp_parent_inst.count() > 0:
@@ -1690,10 +1735,10 @@ class MaintainedModel(Model):
         for child_inst in children:
             # If the current instance's update was triggered - and was triggered by the same child instance whose
             # update we're about to trigger
-            child_sig = f"{child_inst.__class__.__name__}.{child_inst.id}"
+            child_sig = child_inst.get_record_signature()
             if child_sig not in updated:
                 if settings.DEBUG:
-                    self_sig = f"{self.__class__.__name__}.{self.pk}"
+                    self_sig = self.get_record_signature()
                     print(
                         f"Propagating change from parent {self_sig} to child {child_sig}"
                     )
@@ -1738,7 +1783,9 @@ class MaintainedModel(Model):
                     # Make sure that the (direct) parnet (or M:M related child) *isa* MaintainedModel
                     if isinstance(tmp_child_inst, MaintainedModel):
                         child_inst = tmp_child_inst
-                        if child_inst not in children:
+                        # We check "exists_in_db" in case these updates are propagated due to a delete, and any relation
+                        # we are traversing, could have been deleted via a cascade
+                        if child_inst not in children and child_inst.exists_in_db():
                             children.append(child_inst)
 
                     elif self.pk is not None and (
@@ -1751,7 +1798,12 @@ class MaintainedModel(Model):
                             tmp_child_inst.first(), MaintainedModel
                         ):
                             for mm_child_inst in tmp_child_inst.all():
-                                if mm_child_inst not in children:
+                                # We check "exists_in_db" in case these updates are propagated due to a delete, and any
+                                # relation we are traversing, could have been deleted via a cascade
+                                if (
+                                    mm_child_inst not in children
+                                    and mm_child_inst.exists_in_db()
+                                ):
                                     children.append(mm_child_inst)
 
                         elif tmp_child_inst.count() > 0:
