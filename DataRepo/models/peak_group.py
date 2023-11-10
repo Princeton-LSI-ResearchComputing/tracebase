@@ -38,12 +38,13 @@ class PeakGroup(HierCachedModel, MaintainedModel):
         related_name="peak_groups",
         help_text="The compound(s) that this PeakGroup is presumed to represent.",
     )
-    peak_group_set = models.ForeignKey(
-        to="DataRepo.PeakGroupSet",
-        on_delete=models.CASCADE,
+    peak_annotation_file = models.ForeignKey(
+        to="DataRepo.ArchiveFile",
+        on_delete=models.RESTRICT,
         null=False,
+        blank=False,
         related_name="peak_groups",
-        help_text="The source file this PeakGroup came from.",
+        help_text="The data file from which this PeakGroup was imported.",
     )
 
     # @cached_function is *slower* than uncached

@@ -67,9 +67,9 @@ class PeakGroupsFormat(Format):
         },
     ]
     model_instances = {
-        "PeakGroupSet": {
-            "model": "PeakGroupSet",
-            "path": "peak_group_set",
+        "PeakAnnotationFile": {
+            "model": "ArchiveFile",
+            "path": "peak_annotation_file",
             "reverse_path": "peak_groups",
             "manyrelated": {
                 "is": False,
@@ -79,14 +79,14 @@ class PeakGroupsFormat(Format):
             },
             "fields": {
                 "id": {
-                    "displayname": "(Internal) Peak Group Set Index",
+                    "displayname": "(Internal) Peak Annotation File Index",
                     "searchable": True,
                     "displayed": False,  # Used in link
                     "handoff": "filename",  # This is the field that will be loaded in the search form
                     "type": "number",
                 },
                 "filename": {
-                    "displayname": "Peak Group Set Filename",
+                    "displayname": "Peak Annotation Filename",
                     "searchable": True,
                     "displayed": True,
                     "type": "string",

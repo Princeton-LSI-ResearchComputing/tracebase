@@ -48,7 +48,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
         adl1 = AccuCorDataLoader(
             None,
             None,
-            peak_group_set_filename="",
+            peak_annotation_filename="",
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
                 "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc_pos.tsv"
             ),
@@ -76,7 +76,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
         adl2 = AccuCorDataLoader(
             None,
             None,
-            peak_group_set_filename="",
+            peak_annotation_filename="",
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
                 "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc_pos.tsv"
             ),
@@ -93,7 +93,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
         adl3 = AccuCorDataLoader(
             None,
             None,
-            peak_group_set_filename="",
+            peak_annotation_filename="",
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
                 "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc_pos.tsv"
             ),
@@ -111,7 +111,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
         adl1 = AccuCorDataLoader(
             None,
             None,
-            peak_group_set_filename="",
+            peak_annotation_filename="",
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
                 "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc_pos.tsv"
             ),
@@ -131,7 +131,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
         adl1 = AccuCorDataLoader(
             None,
             None,
-            peak_group_set_filename="",
+            peak_annotation_filename="",
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
                 "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc_pos.tsv"
             ),
@@ -158,7 +158,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
         adl1 = AccuCorDataLoader(
             None,
             None,
-            peak_group_set_filename="accucor.xlsx",
+            peak_annotation_filename="accucor.xlsx",
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
                 "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc_pos.tsv"
             ),
@@ -238,7 +238,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             researcher="Robert Leach",
             lc_protocol_name="polar-HILIC",
             instrument="default instrument",
-            peak_group_set_filename="accucor.xlsx",
+            peak_annotation_filename="accucor.xlsx",
             mzxml_files=["sample1.mzxml", "sample2.mzxml"],
             validate=True,
         )
@@ -273,7 +273,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
         adl = AccuCorDataLoader(
             None,
             None,
-            peak_group_set_filename="accucor.xlsx",
+            peak_annotation_filename="accucor.xlsx",
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
                 "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc_pos.tsv"
             ),
@@ -296,7 +296,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
         adl1 = AccuCorDataLoader(
             None,
             None,
-            peak_group_set_filename="accucor.xlsx",
+            peak_annotation_filename="accucor.xlsx",
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
                 "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc_pos.tsv"
             ),
@@ -313,7 +313,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
         adl2 = AccuCorDataLoader(
             None,
             None,
-            peak_group_set_filename=None,
+            peak_annotation_filename=None,
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
                 "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc_pos.tsv"
             ),
@@ -342,7 +342,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
         adl1 = AccuCorDataLoader(
             None,
             None,
-            peak_group_set_filename="accucor.xlsx",
+            peak_annotation_filename="accucor.xlsx",
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
                 "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc_pos.tsv"
             ),
@@ -361,7 +361,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
         adl2 = AccuCorDataLoader(
             None,
             None,
-            peak_group_set_filename=None,
+            peak_annotation_filename=None,
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
                 "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc_pos.tsv"
             ),
@@ -385,7 +385,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
                 sheet_name=1,  # The second sheet
                 engine="openpyxl",
             ).dropna(axis=0, how="all"),
-            peak_group_set_filename="small_obob_maven_6eaas_inf_glucose.xlsx",
+            peak_annotation_filename="small_obob_maven_6eaas_inf_glucose.xlsx",
             date="1972-11-24",
             instrument="default instrument",
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
@@ -417,7 +417,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
                 sheet_name=1,  # The second sheet
                 engine="openpyxl",
             ).dropna(axis=0, how="all"),
-            peak_group_set_filename="small_obob_maven_6eaas_inf_glucose.xlsx",
+            peak_annotation_filename="small_obob_maven_6eaas_inf_glucose.xlsx",
             date="1972-11-24",
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
                 "DataRepo/example_data/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc_pos_no_extras.tsv"

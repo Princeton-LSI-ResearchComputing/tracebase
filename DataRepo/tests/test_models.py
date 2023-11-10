@@ -13,7 +13,10 @@ from DataRepo.management.commands.load_study import Command as LoadStudyCommand
 from DataRepo.models import (
     Animal,
     AnimalLabel,
+    ArchiveFile,
     Compound,
+    DataFormat,
+    DataType,
     ElementLabel,
     Infusate,
     MaintainedModel,
@@ -22,7 +25,6 @@ from DataRepo.models import (
     PeakDataLabel,
     PeakGroup,
     PeakGroupLabel,
-    PeakGroupSet,
     Protocol,
     Researcher,
     Sample,
@@ -142,8 +144,14 @@ class StudyTests(TracebaseTestCase, ExampleDataConsumer):
             sample=self.sample,
         )
 
-        self.peak_group_set = PeakGroupSet.objects.create(
-            filename="testing_dataset_file"
+        self.ms_peak_annotation = DataType.objects.get(code="ms_peak_annotation")
+        self.accucor_format = DataFormat.objects.get(code="accucor")
+        self.peak_annotation_file = ArchiveFile.objects.create(
+            filename="test_data_file",
+            file_location=None,
+            checksum="558ea654d7f2914ca4527580edf4fac11bd151c3",
+            data_type=self.ms_peak_annotation,
+            data_format=self.accucor_format,
         )
 
         self.peak_group_df = self.get_peak_group_test_dataframe()
@@ -152,7 +160,7 @@ class StudyTests(TracebaseTestCase, ExampleDataConsumer):
             name=initial_peak_group["name"],
             formula=initial_peak_group["formula"],
             msrun=self.msrun,
-            peak_group_set=self.peak_group_set,
+            peak_annotation_file=self.peak_annotation_file,
         )
         # actual code would have to more careful in retrieving compounds based
         # on the data's peak_group name
@@ -307,7 +315,7 @@ class DataLoadingTests(TracebaseTestCase):
             date="2021-04-29",
             researcher="Michael Neinast",
         )
-        cls.ALL_PEAKGROUPSETS_COUNT = 1
+        cls.PEAK_ANNOTATION_FILE_COUNT = 1
         cls.INF_COMPOUNDS_COUNT = 7
         cls.INF_SAMPLES_COUNT = 56
         cls.INF_PEAKDATA_ROWS = 38
@@ -320,7 +328,7 @@ class DataLoadingTests(TracebaseTestCase):
             date="2021-04-29",
             researcher="Michael Neinast",
         )
-        cls.ALL_PEAKGROUPSETS_COUNT += 1
+        cls.PEAK_ANNOTATION_FILE_COUNT += 1
         cls.SERUM_COMPOUNDS_COUNT = 13
         cls.SERUM_SAMPLES_COUNT = 4
         cls.SERUM_PEAKDATA_ROWS = 85
@@ -334,7 +342,7 @@ class DataLoadingTests(TracebaseTestCase):
             date="2021-10-14",
             researcher="Michael Neinast",
         )
-        cls.ALL_PEAKGROUPSETS_COUNT += 1
+        cls.PEAK_ANNOTATION_FILE_COUNT += 1
         cls.NULL_ORIG_COMPOUNDS_COUNT = 7
         cls.NULL_ORIG_SAMPLES_COUNT = 56
         cls.NULL_ORIG_PEAKDATA_ROWS = 38
@@ -382,16 +390,16 @@ class DataLoadingTests(TracebaseTestCase):
     def test_peak_groups_set_loaded(self):
         # 2 peak group sets , 1 for each call to load_accucor_msruns
         self.assertEqual(
-            PeakGroupSet.objects.all().count(), self.ALL_PEAKGROUPSETS_COUNT
+            ArchiveFile.objects.all().count(), self.PEAK_ANNOTATION_FILE_COUNT
         )
         self.assertTrue(
-            PeakGroupSet.objects.filter(filename="obob_maven_6eaas_inf.xlsx").exists()
+            ArchiveFile.objects.filter(filename="obob_maven_6eaas_inf.xlsx").exists()
         )
         self.assertTrue(
-            PeakGroupSet.objects.filter(filename="obob_maven_6eaas_serum.xlsx").exists()
+            ArchiveFile.objects.filter(filename="obob_maven_6eaas_serum.xlsx").exists()
         )
         self.assertTrue(
-            PeakGroupSet.objects.filter(
+            ArchiveFile.objects.filter(
                 filename="obob_maven_6eaas_inf_corrected.csv"
             ).exists()
         )
@@ -690,12 +698,12 @@ class DataLoadingTests(TracebaseTestCase):
         )
 
         self.assertTrue(
-            PeakGroupSet.objects.filter(
+            ArchiveFile.objects.filter(
                 filename="obob_maven_6eaas_inf_corrected_valid_syn.csv"
             ).exists()
         )
         peak_group = PeakGroup.objects.filter(
-            peak_group_set__filename="obob_maven_6eaas_inf_corrected_valid_syn.csv"
+            peak_annotation_file__filename="obob_maven_6eaas_inf_corrected_valid_syn.csv"
         ).first()
         self.assertEqual(peak_group.name, "dextrose")
         self.assertEqual(peak_group.compounds.first().name, "glucose")
@@ -781,7 +789,7 @@ class PropertyTests(TracebaseTestCase):
             date="2021-04-29",
             researcher="Michael Neinast",
         )
-        cls.ALL_PEAKGROUPSETS_COUNT = 1
+        cls.ALL_PEAK_ANNOTATION_FILE_COUNT = 1
         cls.INF_COMPOUNDS_COUNT = 7
         cls.INF_SAMPLES_COUNT = 56
         cls.INF_PEAKDATA_ROWS = 38
@@ -794,7 +802,7 @@ class PropertyTests(TracebaseTestCase):
             date="2021-04-29",
             researcher="Michael Neinast",
         )
-        cls.ALL_PEAKGROUPSETS_COUNT += 1
+        cls.ALL_PEAK_ANNOTATION_FILE_COUNT += 1
         cls.SERUM_COMPOUNDS_COUNT = 13
         cls.SERUM_SAMPLES_COUNT = 4
         cls.SERUM_PEAKDATA_ROWS = 85
@@ -808,7 +816,7 @@ class PropertyTests(TracebaseTestCase):
             date="2021-10-14",
             researcher="Michael Neinast",
         )
-        cls.ALL_PEAKGROUPSETS_COUNT += 1
+        cls.ALL_PEAK_ANNOTATION_FILE_COUNT += 1
         cls.NULL_ORIG_COMPOUNDS_COUNT = 7
         cls.NULL_ORIG_SAMPLES_COUNT = 56
         cls.NULL_ORIG_PEAKDATA_ROWS = 38
@@ -875,7 +883,7 @@ class PropertyTests(TracebaseTestCase):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="glucose")
             .filter(msrun__sample__name="BAT-xz971")
-            .filter(peak_group_set__filename="obob_maven_6eaas_inf.xlsx")
+            .filter(peak_annotation_file__filename="obob_maven_6eaas_inf.xlsx")
             .get()
         )
         peak_data = peak_group.peak_data.filter(labels__count=0).get()
@@ -899,7 +907,7 @@ class PropertyTests(TracebaseTestCase):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="glucose")
             .filter(msrun__sample__name="BAT-xz971")
-            .filter(peak_group_set__filename="obob_maven_6eaas_inf_corrected.csv")
+            .filter(peak_annotation_file__filename="obob_maven_6eaas_inf_corrected.csv")
             .get()
         )
         peak_data = peak_group.peak_data.filter(labels__count=0).get()
@@ -961,9 +969,20 @@ class PropertyTests(TracebaseTestCase):
             date=datetime.strptime("1992-1-1".strip(), "%Y-%m-%d"),
         )
         msrun.save()
-        pgs = PeakGroupSet()
-        pgs.save()
-        pg = PeakGroup(name="lactate", peak_group_set=pgs, msrun=msrun)
+
+        ms_peak_annotation = DataType.objects.get(code="ms_peak_annotation")
+        accucor_format = DataFormat.objects.get(code="accucor")
+        peak_annotation_file = ArchiveFile.objects.create(
+            filename="test_data_file",
+            file_location=None,
+            checksum="558ea654d7f2914ca4527580edf4fac11bd151c3",
+            data_type=ms_peak_annotation,
+            data_format=accucor_format,
+        )
+
+        pg = PeakGroup(
+            name="lactate", peak_annotation_file=peak_annotation_file, msrun=msrun
+        )
         pg.save()
 
         # Add a compound to the peak group that does not have a nitrogen
@@ -1052,7 +1071,7 @@ class PropertyTests(TracebaseTestCase):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="glucose")
             .filter(msrun__sample__name="BAT-xz971")
-            .filter(peak_group_set__filename="obob_maven_6eaas_inf.xlsx")
+            .filter(peak_annotation_file__filename="obob_maven_6eaas_inf.xlsx")
             .get()
         )
 
@@ -1084,7 +1103,7 @@ class PropertyTests(TracebaseTestCase):
             name=peak_group.name,
             formula=peak_group.formula,
             msrun=msrun,
-            peak_group_set=peak_group.peak_group_set,
+            peak_annotation_file=peak_group.peak_annotation_file,
         )
         second_serum_peak_group.compounds.add(
             peak_group.msrun.sample.animal.infusate.tracers.first().compound
@@ -1132,7 +1151,7 @@ class PropertyTests(TracebaseTestCase):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="glucose")
             .filter(msrun__sample__name="BAT-xz971")
-            .filter(peak_group_set__filename="obob_maven_6eaas_inf.xlsx")
+            .filter(peak_annotation_file__filename="obob_maven_6eaas_inf.xlsx")
             .get()
         )
 
@@ -1183,7 +1202,7 @@ class PropertyTests(TracebaseTestCase):
             name=peak_group.name,
             formula=peak_group.formula,
             msrun=msrun,
-            peak_group_set=peak_group.peak_group_set,
+            peak_annotation_file=peak_group.peak_annotation_file,
         )
         second_serum_peak_group.compounds.add(
             peak_group.msrun.sample.animal.infusate.tracers.first().compound
@@ -1241,7 +1260,7 @@ class PropertyTests(TracebaseTestCase):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="glucose")
             .filter(msrun__sample__name="BAT-xz971")
-            .filter(peak_group_set__filename="obob_maven_6eaas_inf.xlsx")
+            .filter(peak_annotation_file__filename="obob_maven_6eaas_inf.xlsx")
             .get()
         )
 
@@ -1259,7 +1278,7 @@ class PropertyTests(TracebaseTestCase):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="glucose")
             .filter(msrun__sample__name="BAT-xz971")
-            .filter(peak_group_set__filename="obob_maven_6eaas_inf.xlsx")
+            .filter(peak_annotation_file__filename="obob_maven_6eaas_inf.xlsx")
             .get()
         )
 
@@ -1275,7 +1294,7 @@ class PropertyTests(TracebaseTestCase):
         peak_data = (
             PeakGroup.objects.filter(compounds__name="glucose")
             .filter(msrun__sample__name="BAT-xz971")
-            .filter(peak_group_set__filename="obob_maven_6eaas_inf.xlsx")
+            .filter(peak_annotation_file__filename="obob_maven_6eaas_inf.xlsx")
             .get()
             .peak_data.filter(labels__count=0)
             .get()
@@ -1287,7 +1306,7 @@ class PropertyTests(TracebaseTestCase):
         peak_group = (
             PeakGroup.objects.filter(compounds__name="glucose")
             .filter(msrun__sample__name="BAT-xz971")
-            .filter(peak_group_set__filename="obob_maven_6eaas_inf.xlsx")
+            .filter(peak_annotation_file__filename="obob_maven_6eaas_inf.xlsx")
             .get()
         )
 
@@ -1300,7 +1319,7 @@ class PropertyTests(TracebaseTestCase):
             name=peak_group.name,
             formula=peak_group.formula,
             msrun=msrun,
-            peak_group_set=peak_group.peak_group_set,
+            peak_annotation_file=peak_group.peak_annotation_file,
         )
 
         labeled_elems = []
@@ -1453,6 +1472,8 @@ class PropertyTests(TracebaseTestCase):
 
 @override_settings(CACHES=settings.TEST_CACHES)
 class MultiTracerLabelPropertyTests(TracebaseTestCase):
+    fixtures = ["data_types.yaml", "data_formats.yaml"]
+
     @classmethod
     @MaintainedModel.no_autoupdates()
     def setUpTestData(cls):
@@ -1871,8 +1892,7 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
         )
 
         pre_load_counts = self.get_record_counts()
-        coordinator = MaintainedModel._get_current_coordinator()
-        pre_load_maintained_values = coordinator.get_all_maintained_field_values(
+        pre_load_maintained_values = MaintainedModel.get_all_maintained_field_values(
             "DataRepo.models"
         )
         self.assertGreater(
@@ -1892,7 +1912,7 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
                 dry_run=True,
             )
 
-        post_load_maintained_values = coordinator.get_all_maintained_field_values(
+        post_load_maintained_values = MaintainedModel.get_all_maintained_field_values(
             "DataRepo.models"
         )
         post_load_counts = self.get_record_counts()
@@ -2094,6 +2114,8 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
 @override_settings(CACHES=settings.TEST_CACHES)
 @tag("load_study")
 class StudyLoadingTests(TracebaseTestCase):
+    fixtures = ["data_types.yaml", "data_formats.yaml"]
+
     @classmethod
     @MaintainedModel.no_autoupdates()
     def setUpTestData(cls):

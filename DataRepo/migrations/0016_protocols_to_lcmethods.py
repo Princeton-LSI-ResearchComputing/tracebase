@@ -2,6 +2,11 @@ import re
 
 from django.db import migrations
 
+from DataRepo.models.hier_cached_model import (
+    disable_caching_updates,
+    enable_caching_updates,
+)
+
 # Matches 25mins, 25min, 25minutes, 25minute, 25-mins, ...
 RUNLEN_PAT = re.compile(r"(?P<mins_digits>\d+)[^0-9a-zA-Z]?(?:min|minute)s?")
 HILIC_PAT = re.compile(r"(?i)(?:hilic|lc-ms|^default$)")
@@ -101,6 +106,7 @@ def msrunprotocol_to_lcmethod(apps, _):
         # When none of the above match:
         default_lc_method = LCMethod.objects.get(name__exact="unknown")
 
+        disable_caching_updates()
         for msrun_rec in MSRun.objects.all():
             protocol_name = str(msrun_rec.protocol)
             lcm_rec = msrunprotocol_name_to_lcmethod_rec(
@@ -109,6 +115,7 @@ def msrunprotocol_to_lcmethod(apps, _):
 
             msrun_rec.lc_method = lcm_rec
             msrun_rec.save()
+        enable_caching_updates()
     # Else - nothing to migrate
 
 
