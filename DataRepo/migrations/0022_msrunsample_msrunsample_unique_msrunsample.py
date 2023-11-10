@@ -6,7 +6,7 @@ import django.db.models.deletion
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("DataRepo", "0020_msrunsequence_msrunsequence_unique_msrunsequence"),
+        ("DataRepo", "0021_msrunsequence_msrunsequence_unique_msrunsequence"),
     ]
 
     operations = [

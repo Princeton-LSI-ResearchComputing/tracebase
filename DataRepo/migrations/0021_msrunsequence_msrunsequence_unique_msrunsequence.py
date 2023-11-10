@@ -6,7 +6,7 @@ import django.db.models.deletion
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("DataRepo", "0019_alter_peakgroup_peak_annotation_file"),
+        ("DataRepo", "0020_alter_peakgroup_peak_annotation_file"),
     ]
 
     operations = [

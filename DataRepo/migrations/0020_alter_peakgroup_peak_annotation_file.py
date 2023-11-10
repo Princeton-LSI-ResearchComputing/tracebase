@@ -4,7 +4,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("DataRepo", "0018_populate_peakgroup_peak_annotation_file"),
+        ("DataRepo", "0019_populate_peakgroup_peak_annotation_file"),
     ]
 
     operations = [

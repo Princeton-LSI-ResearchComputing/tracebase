@@ -57,7 +57,7 @@ def populate_peak_annotation_file(apps, schema_editor):
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("DataRepo", "0017_link_peakgroup_to_archive_file"),
+        ("DataRepo", "0018_link_peakgroup_to_archive_file"),
     ]
 
     operations = [

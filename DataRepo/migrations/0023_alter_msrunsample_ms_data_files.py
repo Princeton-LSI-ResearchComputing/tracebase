@@ -5,7 +5,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("DataRepo", "0021_msrunsample_msrunsample_unique_msrunsample"),
+        ("DataRepo", "0022_msrunsample_msrunsample_unique_msrunsample"),
     ]
 
     operations = [
