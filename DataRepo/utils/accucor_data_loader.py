@@ -136,7 +136,8 @@ class AccuCorDataLoader:
         self,
         accucor_original_df,
         accucor_corrected_df,
-        peak_annotation_filename,
+        peak_annotation_file,
+        peak_annotation_filename=None,
         lcms_metadata_df=None,
         instrument=None,
         date=None,
@@ -158,6 +159,7 @@ class AccuCorDataLoader:
             self.accucor_original_df = accucor_original_df
             self.accucor_corrected_df = accucor_corrected_df
             self.isocorr_format = isocorr_format
+            self.peak_annotation_filepath = peak_annotation_file
             self.peak_annotation_filename = (
                 None
                 if peak_annotation_filename is None
@@ -1020,8 +1022,8 @@ class AccuCorDataLoader:
         return rec
 
     def insert_peak_annotation_file(self):
-        peak_annotaion_path = Path(self.peak_annotation_filename)
-        hexa_value = hash_file(self.peak_annotation_filename)
+        peak_annotaion_path = Path(self.peak_annotation_filepath)
+        hexa_value = hash_file(self.peak_annotation_filepath)
 
         with peak_annotaion_path.open(mode="rb") as f:
             # Don't store the file during dry-run or validation

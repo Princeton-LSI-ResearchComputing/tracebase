@@ -211,6 +211,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         adl = AccuCorDataLoader(
             None,
             None,
+            peak_annotation_file=None,
             date="1972-11-24",
             researcher="",
             lc_protocol_name="polar-HILIC-25-min",
@@ -274,6 +275,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         adl = AccuCorDataLoader(
             None,
             None,
+            peak_annotation_file=None,
             date="2023-01-01",
             researcher="",
             lc_protocol_name="polar-HILIC-25-min",
@@ -313,6 +315,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         adl = AccuCorDataLoader(
             None,
             None,
+            peak_annotation_file=None,
             date="2023-01-01",
             researcher="",
             lc_protocol_name="polar-HILIC-25-min",

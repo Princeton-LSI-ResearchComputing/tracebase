@@ -161,6 +161,12 @@ class Command(BaseCommand):
 
         peak_annotation_file = options["accucor_file"]
 
+        # This name is used internally by the validation interface because the form renames the file with a random hash
+        # value that is unrecognizable to users in an error
+        peak_annotation_filename = os.path.basename(options["accucor_file"]).strip()
+        if options["accucor_file_name"] is not None:
+            peak_annotation_filename = options["accucor_file_name"]
+
         mzxml_files = None
         if options["mzxml_files"] is not None and len(options["mzxml_files"]) > 0:
             mzxml_files = [
@@ -172,7 +178,7 @@ class Command(BaseCommand):
             isocorr_format=options["isocorr_format"],
             accucor_original_df=self.original,
             accucor_corrected_df=self.corrected,
-            peak_annotation_filename=peak_annotation_file,
+            peak_annotation_file=peak_annotation_file,
             # LCMS metadata
             lcms_metadata_df=lcms_metadata_df,
             # LCMS batch defaults
@@ -181,6 +187,7 @@ class Command(BaseCommand):
             researcher=options["researcher"],
             instrument=options["instrument"],
             mzxml_files=mzxml_files,
+            peak_annotation_filename=peak_annotation_filename,
             # Sample options
             skip_samples=options["skip_samples"],
             sample_name_prefix=options["sample_name_prefix"],
