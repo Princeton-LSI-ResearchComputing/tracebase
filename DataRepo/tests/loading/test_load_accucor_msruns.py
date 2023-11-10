@@ -437,7 +437,8 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         print(f"{aes}")
         self.assertEqual(1, len(aes.exceptions))
         self.assertTrue(isinstance(aes.exceptions[0], ConflictingValueErrors))
-        self.assertEqual(1, len(aes.exceptions[0].conflicting_value_errors))
+        # 2 samples in the accucor file, so 2 PeakGroup peak annotation file conflicts
+        self.assertEqual(2, len(aes.exceptions[0].conflicting_value_errors))
 
         # Check first file loaded
         SAMPLES_COUNT = 2
