@@ -89,12 +89,13 @@ class Command(BaseCommand):
             action="store_true",
             help=argparse.SUPPRESS,
         )
+        # Used internally by the validation view, as temporary data should not trigger cache deletions
         parser.add_argument(
             "--skip-cache-updates",
             required=False,
             action="store_true",
             default=False,
-            help="Do not delete stale cache values associated with inserted records.",
+            help=argparse.SUPPRESS,
         )
 
     @MaintainedModel.defer_autoupdates(

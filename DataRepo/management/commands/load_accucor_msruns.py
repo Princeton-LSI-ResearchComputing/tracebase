@@ -100,7 +100,7 @@ class Command(BaseCommand):
             help=argparse.SUPPRESS,
             default=None,
         )
-        # Used internally by tests that have nothing to do with testing caching updates and just take time
+        # Used internally by the validation view, as temporary data should not trigger cache deletions
         parser.add_argument(
             "--skip-cache-updates",
             required=False,
