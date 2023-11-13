@@ -41,7 +41,6 @@ class ProtocolViewTests(TracebaseTestCase):
         call_command(
             "load_study",
             "DataRepo/example_data/test_dataframes/loading.yaml",
-            skip_cache_updates=True,
         )
 
     def test_animal_treatment_list(self):

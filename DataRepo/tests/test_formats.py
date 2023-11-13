@@ -46,13 +46,11 @@ class FormatsTests(TracebaseTestCase):
             "load_samples",
             "DataRepo/example_data/small_dataset/small_obob_sample_table.tsv",
             sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
-            skip_cache_updates=True,
         )
         call_command(
             "load_samples",
             "DataRepo/example_data/small_dataset/small_obob_sample_table_2ndstudy.tsv",
             sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
-            skip_cache_updates=True,
         )
         call_command(
             "load_accucor_msruns",
@@ -61,7 +59,6 @@ class FormatsTests(TracebaseTestCase):
             date="2021-06-03",
             researcher="Michael Neinast",
             new_researcher=True,
-            skip_cache_updates=True,
         )
         call_command(
             "load_accucor_msruns",
@@ -70,7 +67,6 @@ class FormatsTests(TracebaseTestCase):
             date="2021-06-03",
             researcher="Michael Neinast",
             new_researcher=False,
-            skip_cache_updates=True,
         )
         basv = SearchGroup()
         for fmt in basv.modeldata.keys():
@@ -1331,7 +1327,6 @@ class FormatsTests(TracebaseTestCase):
                 "DataRepo/example_data/small_multitracer_data/animal_sample_table.xlsx"
             ),
             skip_researcher_check=True,
-            skip_cache_updates=True,
         )
         call_command(
             "load_accucor_msruns",
@@ -1341,7 +1336,6 @@ class FormatsTests(TracebaseTestCase):
             researcher="Xianfeng Zeng",
             new_researcher=False,
             isocorr_format=True,
-            skip_cache_updates=True,
         )
         call_command(
             "load_accucor_msruns",
@@ -1351,7 +1345,6 @@ class FormatsTests(TracebaseTestCase):
             researcher="Xianfeng Zeng",
             new_researcher=False,
             isocorr_format=True,
-            skip_cache_updates=True,
         )
 
         format = "fctemplate"

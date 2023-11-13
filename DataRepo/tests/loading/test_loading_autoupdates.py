@@ -90,7 +90,6 @@ class AutoupdateLoadingTests(TracebaseTestCase):
                     date="2021-04-29",
                     researcher="Michael Neinast",
                     new_researcher=True,
-                    skip_cache_updates=True,
                 )
 
                 # Since autoupdates were defered (and we did not run perform_buffered_updates)
@@ -125,7 +124,6 @@ class AutoupdateLoadingTests(TracebaseTestCase):
                 "DataRepo/example_data/small_dataset/small_obob_sample_table.tsv",
                 sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
                 defer_autoupdates=True,
-                skip_cache_updates=True,
             )
 
             # Since autoupdates were defered (and we did not run perform_buffered_updates)
@@ -140,7 +138,6 @@ class AutoupdateLoadingTests(TracebaseTestCase):
         call_command(
             "load_study",
             "DataRepo/example_data/small_dataset/small_obob_study_params.yaml",
-            skip_cache_updates=True,
         )
 
         self.assert_names_are_unupdated(False)

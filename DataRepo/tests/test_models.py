@@ -354,7 +354,6 @@ class DataLoadingTests(TracebaseTestCase):
             sample_table_filename="DataRepo/example_data/obob_samples_table.tsv",
             animal_table_filename="DataRepo/example_data/obob_animals_table.tsv",
             table_headers="DataRepo/example_data/sample_and_animal_tables_headers.yaml",
-            skip_cache_updates=True,
         )
 
         # from DataRepo/example_data/obob_sample_table.tsv, not counting the header and BLANK samples
@@ -369,7 +368,6 @@ class DataLoadingTests(TracebaseTestCase):
             "DataRepo/example_data/serum_lactate_timecourse_treatment.tsv",
             sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
             skip_researcher_check=True,
-            skip_cache_updates=True,
         )
         # from DataRepo/example_data/serum_lactate_timecourse_treatment.tsv, not counting the header
         cls.ALL_SAMPLES_COUNT += 24
@@ -383,7 +381,6 @@ class DataLoadingTests(TracebaseTestCase):
             accucor_file="DataRepo/example_data/obob_maven_6eaas_inf.xlsx",
             date="2021-04-29",
             researcher="Michael Neinast",
-            skip_cache_updates=True,
         )
         cls.PEAK_ANNOTATION_FILE_COUNT = 1
         cls.INF_COMPOUNDS_COUNT = 7
@@ -396,7 +393,6 @@ class DataLoadingTests(TracebaseTestCase):
             accucor_file="DataRepo/example_data/obob_maven_6eaas_serum.xlsx",
             date="2021-04-29",
             researcher="Michael Neinast",
-            skip_cache_updates=True,
         )
         cls.PEAK_ANNOTATION_FILE_COUNT += 1
         cls.SERUM_COMPOUNDS_COUNT = 13
@@ -410,7 +406,6 @@ class DataLoadingTests(TracebaseTestCase):
             accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_corrected.csv",
             date="2021-10-14",
             researcher="Michael Neinast",
-            skip_cache_updates=True,
         )
         cls.PEAK_ANNOTATION_FILE_COUNT += 1
         cls.NULL_ORIG_COMPOUNDS_COUNT = 7
@@ -609,7 +604,6 @@ class DataLoadingTests(TracebaseTestCase):
                 accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_sample_dupe.xlsx",
                 date="2021-08-20",
                 researcher="Michael",
-                skip_cache_updates=True,
             )
 
     def test_dupe_samples_not_loaded(self):
@@ -623,7 +617,6 @@ class DataLoadingTests(TracebaseTestCase):
             date="2021-04-30",
             researcher="Michael Neinast",
             new_researcher=False,
-            skip_cache_updates=True,
         )
         # Test that basically, no exception occurred
         self.assertTrue(True)
@@ -641,7 +634,6 @@ class DataLoadingTests(TracebaseTestCase):
                 accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_new_researcher_err2.xlsx",
                 date="2021-04-30",
                 researcher="Luke Skywalker",
-                skip_cache_updates=True,
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
@@ -662,7 +654,6 @@ class DataLoadingTests(TracebaseTestCase):
             date="2021-04-30",
             researcher="Luke Skywalker",
             new_researcher=True,
-            skip_cache_updates=True,
         )
         # Test that basically, no exception occurred
         self.assertTrue(True)
@@ -684,7 +675,6 @@ class DataLoadingTests(TracebaseTestCase):
                 date="2021-04-30",
                 researcher="Michael Neinast",
                 new_researcher=True,
-                skip_cache_updates=True,
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
@@ -705,7 +695,6 @@ class DataLoadingTests(TracebaseTestCase):
                 "load_samples",
                 "DataRepo/example_data/serum_lactate_timecourse_treatment_new_researcher.tsv",
                 sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
-                skip_cache_updates=True,
             )
         aes = ar.exception
         ures = [e for e in aes.exceptions if isinstance(e, UnknownResearcherError)]
@@ -724,7 +713,6 @@ class DataLoadingTests(TracebaseTestCase):
                 "DataRepo/example_data/serum_lactate_timecourse_treatment_new_researcher.tsv",
                 sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
                 skip_researcher_check=True,
-                skip_cache_updates=True,
             )
         aes = ar.exception
         # Test that no researcher exception occurred
@@ -758,7 +746,6 @@ class DataLoadingTests(TracebaseTestCase):
             accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_corrected_valid_syn.csv",
             date="2021-11-19",
             researcher="Michael Neinast",
-            skip_cache_updates=True,
         )
 
         self.assertTrue(
@@ -785,7 +772,6 @@ class DataLoadingTests(TracebaseTestCase):
                 accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_corrected_invalid_syn.csv",
                 date="2021-11-18",
                 researcher="Michael Neinast",
-                skip_cache_updates=True,
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
@@ -822,7 +808,6 @@ class PropertyTests(TracebaseTestCase):
             sample_table_filename="DataRepo/example_data/obob_samples_table.tsv",
             animal_table_filename="DataRepo/example_data/obob_animals_table.tsv",
             table_headers="DataRepo/example_data/sample_and_animal_tables_headers.yaml",
-            skip_cache_updates=False,
         )
 
         # from DataRepo/example_data/obob_sample_table.tsv, not counting the header and BLANK samples
@@ -837,7 +822,6 @@ class PropertyTests(TracebaseTestCase):
             "DataRepo/example_data/serum_lactate_timecourse_treatment.tsv",
             sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
             skip_researcher_check=True,
-            skip_cache_updates=False,
         )
         # from DataRepo/example_data/serum_lactate_timecourse_treatment.tsv, not counting the header
         cls.ALL_SAMPLES_COUNT += 24
@@ -851,7 +835,6 @@ class PropertyTests(TracebaseTestCase):
             accucor_file="DataRepo/example_data/obob_maven_6eaas_inf.xlsx",
             date="2021-04-29",
             researcher="Michael Neinast",
-            skip_cache_updates=False,
         )
         cls.ALL_PEAK_ANNOTATION_FILE_COUNT = 1
         cls.INF_COMPOUNDS_COUNT = 7
@@ -864,7 +847,6 @@ class PropertyTests(TracebaseTestCase):
             accucor_file="DataRepo/example_data/obob_maven_6eaas_serum.xlsx",
             date="2021-04-29",
             researcher="Michael Neinast",
-            skip_cache_updates=False,
         )
         cls.ALL_PEAK_ANNOTATION_FILE_COUNT += 1
         cls.SERUM_COMPOUNDS_COUNT = 13
@@ -878,7 +860,6 @@ class PropertyTests(TracebaseTestCase):
             accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_corrected.csv",
             date="2021-10-14",
             researcher="Michael Neinast",
-            skip_cache_updates=False,
         )
         cls.ALL_PEAK_ANNOTATION_FILE_COUNT += 1
         cls.NULL_ORIG_COMPOUNDS_COUNT = 7
@@ -1022,7 +1003,6 @@ class PropertyTests(TracebaseTestCase):
                 "DataRepo/example_data/testing_data/animal_sample_table_labeled_elements.xlsx"
             ),
             skip_researcher_check=True,
-            skip_cache_updates=False,
         )
 
         # Retrieve a sample associated with an animal that has a tracer with only a nitrogen label
@@ -1556,7 +1536,6 @@ class MultiTracerLabelPropertyTests(TracebaseTestCase):
                 "DataRepo/example_data/obob_fasted_glc_lac_gln_ala_multiple_labels/animal_sample_table.xlsx"
             ),
             skip_researcher_check=True,
-            skip_cache_updates=False,
         )
         call_command(
             "load_accucor_msruns",
@@ -1567,7 +1546,6 @@ class MultiTracerLabelPropertyTests(TracebaseTestCase):
             researcher="Xianfeng Zeng",
             new_researcher=False,
             isocorr_format=True,
-            skip_cache_updates=False,
         )
 
         super().setUpTestData()
@@ -1645,7 +1623,6 @@ class TracerRateTests(TracebaseTestCase):
             sample_table_filename="DataRepo/example_data/obob_samples_table.tsv",
             animal_table_filename="DataRepo/example_data/obob_animals_table.tsv",
             table_headers="DataRepo/example_data/sample_and_animal_tables_headers.yaml",
-            skip_cache_updates=True,
         )
 
         # for the fcirc and rate-calculation tests
@@ -1655,7 +1632,6 @@ class TracerRateTests(TracebaseTestCase):
             accucor_file="DataRepo/example_data/obob_maven_c160_serum.xlsx",
             date="2021-04-29",
             researcher="Xianfeng Zeng",
-            skip_cache_updates=True,
         )
 
         # defining a primary animal object for repeated tests
@@ -1940,7 +1916,6 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
                 "small_obob_animal_and_sample_table.xlsx"
             ),
             dry_run=False,
-            skip_cache_updates=True,
         )
 
         self.assertEqual(Sample.objects.all().count(), SAMPLES_COUNT)
@@ -1958,7 +1933,6 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
                 "DataRepo/example_data/small_multitracer_data/animal_sample_table.xlsx"
             ),
             skip_researcher_check=True,
-            skip_cache_updates=True,
         )
 
         pre_load_counts = self.get_record_counts()
@@ -1980,7 +1954,6 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
                     "small_obob_animal_and_sample_table.xlsx"
                 ),
                 dry_run=True,
-                skip_cache_updates=True,
             )
 
         post_load_maintained_values = MaintainedModel.get_all_maintained_field_values(
@@ -2033,7 +2006,6 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
             animal_and_sample_table_filename=(
                 "DataRepo/example_data/testing_data/small_obob_animal_and_sample_table_empty_row.xlsx"
             ),
-            skip_cache_updates=True,
         )
 
     def test_required_sample_values_error_ignores_emptyanimal_animalsheet(self):
@@ -2048,7 +2020,6 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
                     "DataRepo/example_data/testing_data/"
                     "small_obob_animal_and_sample_table_empty_animalid_in_animalsheet.xlsx"
                 ),
-                skip_cache_updates=True,
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
@@ -2074,7 +2045,6 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
                     "DataRepo/example_data/testing_data/"
                     "small_obob_animal_and_sample_table_empty_animalid_in_samplesheet.xlsx"
                 ),
-                skip_cache_updates=True,
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
@@ -2103,7 +2073,6 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
                     "DataRepo/example_data/testing_data/"
                     "small_obob_animal_and_sample_table_empty_animalid_in_samplesheet_silent.xlsx"
                 ),
-                skip_cache_updates=True,
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
@@ -2128,7 +2097,6 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
                     "DataRepo/example_data/testing_data/"
                     "small_obob_animal_and_sample_table_missing_rqd_vals.xlsx"
                 ),
-                skip_cache_updates=True,
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
@@ -2193,7 +2161,6 @@ class StudyLoadingTests(TracebaseTestCase):
         call_command(
             "load_study",
             "DataRepo/example_data/small_dataset/small_obob_study_params.yaml",
-            skip_cache_updates=True,
         )
         cls.COMPOUNDS_COUNT = 2
         cls.SAMPLES_COUNT = 14
@@ -2468,21 +2435,18 @@ class StudyLoadingTests(TracebaseTestCase):
             "load_study",
             "DataRepo/example_data/AsaelR_13C-Valine+PI3Ki_flank-KPC_2021-12_isocorr_CN-corrected/loading.yaml",
             verbosity=2,
-            skip_cache_updates=True,
         )
 
     def test_multi_tracer_isocorr_study(self):
         call_command(
             "load_study",
             "DataRepo/example_data/obob_fasted_ace_glycerol_3hb_citrate_eaa_fa_multiple_tracers/loading.yaml",
-            skip_cache_updates=True,
         )
 
     def test_multi_label_isocorr_study(self):
         call_command(
             "load_study",
             "DataRepo/example_data/obob_fasted_glc_lac_gln_ala_multiple_labels/loading.yaml",
-            skip_cache_updates=True,
         )
 
 
@@ -2500,7 +2464,6 @@ class ParseIsotopeLabelTests(TracebaseTestCase):
             "load_samples",
             "DataRepo/example_data/small_dataset/small_obob_sample_table.tsv",
             sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
-            skip_cache_updates=True,
         )
 
         super().setUpTestData()
@@ -2590,7 +2553,6 @@ class ParseIsotopeLabelTests(TracebaseTestCase):
                 accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_dupes.xlsx",
                 date="2021-06-03",
                 researcher="Xianfeng Zeng",
-                skip_cache_updates=True,
             )
         aes = ar.exception
         aes.print_summary()
@@ -2638,7 +2600,6 @@ class AnimalLoadingTests(TracebaseTestCase):
             animal_and_sample_table_filename=(
                 "DataRepo/example_data/testing_data/animal_sample_table_labeled_elements.xlsx"
             ),
-            skip_cache_updates=True,
         )
         self.assertEqual(
             Animal.objects.get(name="test_animal_1")
@@ -2685,5 +2646,4 @@ class AnimalLoadingTests(TracebaseTestCase):
                 animal_and_sample_table_filename=(
                     "DataRepo/example_data/testing_data/animal_sample_table_labeled_elements_invalid.xlsx"
                 ),
-                skip_cache_updates=True,
             )

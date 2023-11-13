@@ -69,7 +69,6 @@ class ViewTests(TracebaseTestCase):
             "load_samples",
             "DataRepo/example_data/small_dataset/small_obob_sample_table.tsv",
             sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
-            skip_cache_updates=True,
         )
         # not counting the header and BLANK samples
         cls.ALL_SAMPLES_COUNT = 15
@@ -83,7 +82,6 @@ class ViewTests(TracebaseTestCase):
             date="2021-06-03",
             researcher="Michael Neinast",
             new_researcher=True,
-            skip_cache_updates=True,
         )
         cls.INF_COMPOUNDS_COUNT = 2
         cls.INF_SAMPLES_COUNT = 14
@@ -97,7 +95,6 @@ class ViewTests(TracebaseTestCase):
             date="2021-06-03",
             researcher="Michael Neinast",
             new_researcher=False,
-            skip_cache_updates=True,
         )
         cls.SERUM_COMPOUNDS_COUNT = 3
         cls.SERUM_SAMPLES_COUNT = 1
@@ -740,7 +737,6 @@ class ValidationViewTests(TracebaseTransactionTestCase):
             "DataRepo/example_data/small_dataset/small_obob_sample_table.tsv",
             sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
             validate=True,
-            skip_cache_updates=True,
         )
         call_command(
             "load_accucor_msruns",
@@ -750,7 +746,6 @@ class ValidationViewTests(TracebaseTransactionTestCase):
             researcher="Michael Neinast",
             new_researcher=True,
             validate=True,
-            skip_cache_updates=True,
         )
 
         # Ensure the auto-update buffer is empty.  If it's not, then a previously run test didn't clean up after itself

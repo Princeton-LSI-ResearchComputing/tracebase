@@ -16,7 +16,6 @@ class QuerysetToPandasDataFrameBaseTests(TracebaseTestCase):
         call_command(
             "load_study",
             "DataRepo/example_data/test_dataframes/loading.yaml",
-            skip_cache_updates=True,
         )
 
         # define expected data in dictionaries
