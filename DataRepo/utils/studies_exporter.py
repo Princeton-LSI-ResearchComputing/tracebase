@@ -62,7 +62,7 @@ class StudiesExporter:
                     # Collect the exceptions for an easier to debug and more succinct exception to raise
                     self.bad_searches[study_target] = e
 
-            # Report all the query issues
+            # Summarize the encountered query issues with useful info not provided in the original exceptions
             if len(self.bad_searches.keys()) > 0:
                 raise BadQueryTerm(self.bad_searches)
         else:
@@ -117,7 +117,8 @@ class BadQueryTerm(Exception):
         deets = [f"{k}: {type(v).__name__}: {v}" for k, v in bad_searches_dict.items()]
         nt = "\n\t"
         message = (
-            f"No study name or ID matches the provided search term(s):\n\t{nt.join(deets)}\n"
+            "No study name or ID matches the provided search term(s):\n"
+            f"\t{nt.join(deets)}\n"
             "Scroll up to see tracebacks above for each individual exception encountered."
         )
         super().__init__(message)
