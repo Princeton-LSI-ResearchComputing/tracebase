@@ -73,7 +73,7 @@ class StudiesExporter:
 
         # For each study (name)
         for study_id in study_ids:
-            study_id_str = f"{study_id:04d}"
+            study_id_str = f"study_{study_id:04d}"
 
             # Make study directory
             os.mkdir(os.path.join(self.outdir, study_id_str))
