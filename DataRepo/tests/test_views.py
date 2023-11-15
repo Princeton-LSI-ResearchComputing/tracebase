@@ -52,12 +52,12 @@ class ViewTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls, disabled_coordinator=False):
         call_command("loaddata", "lc_methods")
-        call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
+        call_command("load_study", "DataRepo/data/examples/tissues/loading.yaml")
         cls.ALL_TISSUES_COUNT = 37
 
         call_command(
             "load_compounds",
-            compounds="DataRepo/example_data/small_dataset/small_obob_compounds.tsv",
+            compounds="DataRepo/data/examples/small_dataset/small_obob_compounds.tsv",
         )
         cls.ALL_COMPOUNDS_COUNT = 3
 
@@ -68,8 +68,8 @@ class ViewTests(TracebaseTestCase):
 
         call_command(
             "load_samples",
-            "DataRepo/example_data/small_dataset/small_obob_sample_table.tsv",
-            sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
+            "DataRepo/data/examples/small_dataset/small_obob_sample_table.tsv",
+            sample_table_headers="DataRepo/data/examples/sample_table_headers.yaml",
         )
         # not counting the header and BLANK samples
         cls.ALL_SAMPLES_COUNT = 15
@@ -80,7 +80,7 @@ class ViewTests(TracebaseTestCase):
             "load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
-            accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf.xlsx",
+            accucor_file="DataRepo/data/examples/small_dataset/small_obob_maven_6eaas_inf.xlsx",
             date="2021-06-03",
             researcher="Michael Neinast",
             new_researcher=True,
@@ -94,7 +94,7 @@ class ViewTests(TracebaseTestCase):
             "load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
-            accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_serum.xlsx",
+            accucor_file="DataRepo/data/examples/small_dataset/small_obob_maven_6eaas_serum.xlsx",
             date="2021-06-03",
             researcher="Michael Neinast",
             new_researcher=False,
@@ -646,10 +646,10 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         assert_coordinator_state_is_initialized()
 
         call_command("loaddata", "lc_methods")
-        call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
+        call_command("load_study", "DataRepo/data/examples/tissues/loading.yaml")
         call_command(
             "load_compounds",
-            compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
+            compounds="DataRepo/data/examples/consolidated_tracebase_compound_list.tsv",
         )
 
     @classmethod
@@ -693,17 +693,17 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         """
         # Load the necessary records for a successful test
         call_command("loaddata", "lc_methods")
-        call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
+        call_command("load_study", "DataRepo/data/examples/tissues/loading.yaml")
         call_command(
             "load_compounds",
-            compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
+            compounds="DataRepo/data/examples/consolidated_tracebase_compound_list.tsv",
         )
 
         # Files/inputs we will test
-        sf = "DataRepo/example_data/data_submission_good/animal_sample_table.xlsx"
+        sf = "DataRepo/data/examples/data_submission_good/animal_sample_table.xlsx"
         afs = [
-            "DataRepo/example_data/data_submission_good/accucor1.xlsx",
-            "DataRepo/example_data/data_submission_good/accucor2.xlsx",
+            "DataRepo/data/examples/data_submission_good/accucor1.xlsx",
+            "DataRepo/data/examples/data_submission_good/accucor2.xlsx",
         ]
 
         sfkey = "animal_sample_table.xlsx"
@@ -740,15 +740,15 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         call_command("loaddata", "lc_methods")
         call_command(
             "load_samples",
-            "DataRepo/example_data/small_dataset/small_obob_sample_table.tsv",
-            sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
+            "DataRepo/data/examples/small_dataset/small_obob_sample_table.tsv",
+            sample_table_headers="DataRepo/data/examples/sample_table_headers.yaml",
             validate=True,
         )
         call_command(
             "load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
-            accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf.xlsx",
+            accucor_file="DataRepo/data/examples/small_dataset/small_obob_maven_6eaas_inf.xlsx",
             date="2021-06-03",
             researcher="Michael Neinast",
             new_researcher=True,
@@ -775,10 +775,10 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         self.assert_coordinator_state_is_initialized()
 
         # Files/inputs we will test
-        sf = "DataRepo/example_data/data_submission_sample_unkres_acc_good/animal_sample_table.xlsx"
+        sf = "DataRepo/data/examples/data_submission_sample_unkres_acc_good/animal_sample_table.xlsx"
         afs = [
-            "DataRepo/example_data/data_submission_sample_unkres_acc_good/accucor1.xlsx",
-            "DataRepo/example_data/data_submission_sample_unkres_acc_good/accucor2.xlsx",
+            "DataRepo/data/examples/data_submission_sample_unkres_acc_good/accucor1.xlsx",
+            "DataRepo/data/examples/data_submission_sample_unkres_acc_good/accucor2.xlsx",
         ]
 
         sfkey = "animal_sample_table.xlsx"
@@ -844,11 +844,11 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         )
 
         sample_file = (
-            "DataRepo/example_data/data_submission_good/animal_sample_table.xlsx"
+            "DataRepo/data/examples/data_submission_good/animal_sample_table.xlsx"
         )
         accucor_files = [
-            "DataRepo/example_data/data_submission_good/accucor1.xlsx",
-            "DataRepo/example_data/data_submission_good/accucor2.xlsx",
+            "DataRepo/data/examples/data_submission_good/accucor1.xlsx",
+            "DataRepo/data/examples/data_submission_good/accucor2.xlsx",
         ]
 
         self.validate_some_files(sample_file, accucor_files)
@@ -867,7 +867,7 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         Test to ensure that tissues load in both databases by default
         """
         self.clear_database()
-        call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
+        call_command("load_study", "DataRepo/data/examples/tissues/loading.yaml")
         self.assertGreater(Tissue.objects.all().count(), 0)
 
     @override_settings(VALIDATION_ENABLED=False)
@@ -892,9 +892,9 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         self.clear_database()
         self.initialize_databases()
 
-        sample_file = "DataRepo/example_data/small_dataset/small_obob_animal_and_sample_table.xlsx"
+        sample_file = "DataRepo/data/examples/small_dataset/small_obob_animal_and_sample_table.xlsx"
         accucor_files = [
-            "DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_req_prefix.xlsx",
+            "DataRepo/data/examples/small_dataset/small_obob_maven_6eaas_inf_req_prefix.xlsx",
         ]
         sfkey = "small_obob_animal_and_sample_table.xlsx"
         afkey = "small_obob_maven_6eaas_inf_req_prefix.xlsx"
@@ -998,10 +998,10 @@ class ValidationViewTests(TracebaseTransactionTestCase):
             },
         }
 
-        sf = "DataRepo/example_data/data_submission_good/animal_sample_table.xlsx"
+        sf = "DataRepo/data/examples/data_submission_good/animal_sample_table.xlsx"
         afs = [
-            "DataRepo/example_data/data_submission_good/accucor1.xlsx",
-            "DataRepo/example_data/data_submission_good/accucor2.xlsx",
+            "DataRepo/data/examples/data_submission_good/accucor1.xlsx",
+            "DataRepo/data/examples/data_submission_good/accucor2.xlsx",
         ]
 
         dvv = DataValidationView()

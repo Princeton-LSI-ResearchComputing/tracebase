@@ -32,7 +32,7 @@ class Command(BaseCommand):
     example_configfile = os.path.relpath(
         os.path.join(
             apps.get_app_config("DataRepo").path,
-            "example_data" "small_dataset" "small_obob_study_params.yaml",
+            "data/examples" "small_dataset" "small_obob_study_params.yaml",
         )
     )
 

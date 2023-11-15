@@ -21,7 +21,7 @@ class AutoupdateLoadingTests(TracebaseTestCase):
         call_command("loaddata", "lc_methods")
         call_command(
             "load_study",
-            "DataRepo/example_data/small_dataset/small_obob_study_prerequisites.yaml",
+            "DataRepo/data/examples/small_dataset/small_obob_study_prerequisites.yaml",
         )
 
     def tearDown(self):
@@ -65,7 +65,7 @@ class AutoupdateLoadingTests(TracebaseTestCase):
 
             call_command(
                 "load_animals_and_samples",
-                animal_and_sample_table_filename="DataRepo/example_data/small_dataset/"
+                animal_and_sample_table_filename="DataRepo/data/examples/small_dataset/"
                 "small_obob_animal_and_sample_table.xlsx",
                 # No longer need the defer_autoupdates option.  That is handled by a context manager.
                 # defer_autoupdates=True,
@@ -85,7 +85,7 @@ class AutoupdateLoadingTests(TracebaseTestCase):
             with MaintainedModel.custom_coordinator(child_coordinator):
                 call_command(
                     "load_accucor_msruns",
-                    accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_blank_sample.xlsx",
+                    accucor_file="DataRepo/data/examples/small_dataset/small_obob_maven_6eaas_inf_blank_sample.xlsx",
                     skip_samples=("blank"),
                     lc_protocol_name="polar-HILIC-25-min",
                     instrument="default instrument",
@@ -124,8 +124,8 @@ class AutoupdateLoadingTests(TracebaseTestCase):
         with MaintainedModel.custom_coordinator(parent_coordinator):
             call_command(
                 "load_samples",
-                "DataRepo/example_data/small_dataset/small_obob_sample_table.tsv",
-                sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
+                "DataRepo/data/examples/small_dataset/small_obob_sample_table.tsv",
+                sample_table_headers="DataRepo/data/examples/sample_table_headers.yaml",
                 defer_autoupdates=True,
             )
 
@@ -140,7 +140,7 @@ class AutoupdateLoadingTests(TracebaseTestCase):
 
         call_command(
             "load_study",
-            "DataRepo/example_data/small_dataset/small_obob_study_params.yaml",
+            "DataRepo/data/examples/small_dataset/small_obob_study_params.yaml",
         )
 
         self.assert_names_are_unupdated(False)

@@ -39,26 +39,26 @@ class FormatsTests(TracebaseTestCase):
     @MaintainedModel.no_autoupdates()
     def setUpTestData(cls):
         call_command("loaddata", "lc_methods")
-        call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
+        call_command("load_study", "DataRepo/data/examples/tissues/loading.yaml")
         call_command(
             "load_compounds",
-            compounds="DataRepo/example_data/small_dataset/small_obob_compounds.tsv",
+            compounds="DataRepo/data/examples/small_dataset/small_obob_compounds.tsv",
         )
         call_command(
             "load_samples",
-            "DataRepo/example_data/small_dataset/small_obob_sample_table.tsv",
-            sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
+            "DataRepo/data/examples/small_dataset/small_obob_sample_table.tsv",
+            sample_table_headers="DataRepo/data/examples/sample_table_headers.yaml",
         )
         call_command(
             "load_samples",
-            "DataRepo/example_data/small_dataset/small_obob_sample_table_2ndstudy.tsv",
-            sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
+            "DataRepo/data/examples/small_dataset/small_obob_sample_table_2ndstudy.tsv",
+            sample_table_headers="DataRepo/data/examples/sample_table_headers.yaml",
         )
         call_command(
             "load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
-            accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf.xlsx",
+            accucor_file="DataRepo/data/examples/small_dataset/small_obob_maven_6eaas_inf.xlsx",
             date="2021-06-03",
             researcher="Michael Neinast",
             new_researcher=True,
@@ -67,7 +67,7 @@ class FormatsTests(TracebaseTestCase):
             "load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
-            accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_serum.xlsx",
+            accucor_file="DataRepo/data/examples/small_dataset/small_obob_maven_6eaas_serum.xlsx",
             date="2021-06-03",
             researcher="Michael Neinast",
             new_researcher=False,
@@ -1319,23 +1319,23 @@ class FormatsTests(TracebaseTestCase):
         # Make sure there are multiple tracers
         call_command(
             "load_compounds",
-            compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
+            compounds="DataRepo/data/examples/consolidated_tracebase_compound_list.tsv",
             verbosity=2,
         )
         call_command(
             "load_protocols",
-            protocols="DataRepo/example_data/small_multitracer_data/animal_sample_table.xlsx",
+            protocols="DataRepo/data/examples/small_multitracer_data/animal_sample_table.xlsx",
         )
         call_command(
             "load_animals_and_samples",
             animal_and_sample_table_filename=(
-                "DataRepo/example_data/small_multitracer_data/animal_sample_table.xlsx"
+                "DataRepo/data/examples/small_multitracer_data/animal_sample_table.xlsx"
             ),
             skip_researcher_check=True,
         )
         call_command(
             "load_accucor_msruns",
-            accucor_file="DataRepo/example_data/small_multitracer_data/6eaafasted1_cor.xlsx",
+            accucor_file="DataRepo/data/examples/small_multitracer_data/6eaafasted1_cor.xlsx",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
             date="2021-04-29",
@@ -1345,7 +1345,7 @@ class FormatsTests(TracebaseTestCase):
         )
         call_command(
             "load_accucor_msruns",
-            accucor_file="DataRepo/example_data/small_multitracer_data/bcaafasted_cor.xlsx",
+            accucor_file="DataRepo/data/examples/small_multitracer_data/bcaafasted_cor.xlsx",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
             date="2021-04-29",

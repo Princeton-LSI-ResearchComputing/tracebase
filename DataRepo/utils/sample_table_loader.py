@@ -886,7 +886,7 @@ class SampleTableLoader:
         studies, and with the animal and sample sheet merge, the same sample will exist on 2 different rows after the
         merge.  Therefore, we need to check that the combination of sample name and study name are unique instead of
         just sample name.  For an example of this, look at:
-        DataRepo/example_data/test_dataframes/animal_sample_table_df_test1.xlsx.
+        DataRepo/data/examples/test_dataframes/animal_sample_table_df_test1.xlsx.
         """
         sample_name_header = getattr(self.headers, "SAMPLE_NAME")
         study_name_header = getattr(self.headers, "STUDY_NAME")

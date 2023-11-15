@@ -55,12 +55,12 @@ class InfusateTests(TracebaseTestCase):
     def setUpTestData(cls):
         call_command(
             "load_study",
-            "DataRepo/example_data/tissues/loading.yaml",
+            "DataRepo/data/examples/tissues/loading.yaml",
             verbosity=2,
         )
         call_command(
             "load_compounds",
-            compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
+            compounds="DataRepo/data/examples/consolidated_tracebase_compound_list.tsv",
             verbosity=2,
         )
         super().setUpTestData()
@@ -162,7 +162,7 @@ class MaintainedModelDeferredTests(TracebaseTestCase):
         # Load compounds, tissues, and protocol data before any of the tests run
         call_command(
             "load_study",
-            "DataRepo/example_data/small_dataset/small_obob_study_prerequisites.yaml",
+            "DataRepo/data/examples/small_dataset/small_obob_study_prerequisites.yaml",
             verbosity=2,
         )
         super().setUpTestData()
@@ -297,7 +297,7 @@ class MaintainedModelImmediateTests(TracebaseTestCase):
         # Load data before any of the tests run
         call_command(
             "load_study",
-            "DataRepo/example_data/small_dataset/small_obob_study_prerequisites.yaml",
+            "DataRepo/data/examples/small_dataset/small_obob_study_prerequisites.yaml",
             verbosity=2,
         )
         super().setUpTestData()
@@ -361,7 +361,7 @@ class MaintainedModelImmediateTests(TracebaseTestCase):
         call_command(
             "load_animals_and_samples",
             animal_and_sample_table_filename=(
-                "DataRepo/example_data/small_dataset/"
+                "DataRepo/data/examples/small_dataset/"
                 "small_obob_animal_and_sample_table.xlsx"
             ),
             dry_run=False,

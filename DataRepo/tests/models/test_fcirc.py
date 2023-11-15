@@ -41,21 +41,21 @@ class FCircTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
         call_command("loaddata", "lc_methods")
-        call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
+        call_command("load_study", "DataRepo/data/examples/tissues/loading.yaml")
         call_command(
             "load_compounds",
-            compounds="DataRepo/example_data/small_dataset/small_obob_compounds.tsv",
+            compounds="DataRepo/data/examples/small_dataset/small_obob_compounds.tsv",
         )
         call_command(
             "load_samples",
-            "DataRepo/example_data/small_dataset/small_obob_sample_table_serum_only.tsv",
-            sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
+            "DataRepo/data/examples/small_dataset/small_obob_sample_table_serum_only.tsv",
+            sample_table_headers="DataRepo/data/examples/sample_table_headers.yaml",
         )
         call_command(
             "load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
-            accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_serum.xlsx",
+            accucor_file="DataRepo/data/examples/small_dataset/small_obob_maven_6eaas_serum.xlsx",
             date="2021-06-03",
             researcher="Michael Neinast",
             new_researcher=True,

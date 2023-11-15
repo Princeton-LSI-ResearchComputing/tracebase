@@ -37,13 +37,13 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         call_command("loaddata", "lc_methods")
         call_command(
             "load_study",
-            "DataRepo/example_data/small_dataset/small_obob_study_prerequisites.yaml",
+            "DataRepo/data/examples/small_dataset/small_obob_study_prerequisites.yaml",
         )
 
         call_command(
             "load_animals_and_samples",
             animal_and_sample_table_filename=(
-                "DataRepo/example_data/small_dataset/"
+                "DataRepo/data/examples/small_dataset/"
                 "small_obob_animal_and_sample_table.xlsx"
             ),
         )
@@ -55,7 +55,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         """Load small_dataset Glucose data"""
         call_command(
             "load_accucor_msruns",
-            accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_glucose.xlsx",
+            accucor_file="DataRepo/data/examples/small_dataset/small_obob_maven_6eaas_inf_glucose.xlsx",
             skip_samples=("blank"),
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
@@ -68,7 +68,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors, msg="1 samples are missing.") as ar:
             call_command(
                 "load_accucor_msruns",
-                accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_blank_sample.xlsx",
+                accucor_file="DataRepo/data/examples/small_dataset/small_obob_maven_6eaas_inf_blank_sample.xlsx",
                 lc_protocol_name="polar-HILIC-25-min",
                 instrument="default instrument",
                 date="2021-04-29",
@@ -82,7 +82,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
     def test_accucor_load_blank_skip(self):
         call_command(
             "load_accucor_msruns",
-            accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_blank_sample.xlsx",
+            accucor_file="DataRepo/data/examples/small_dataset/small_obob_maven_6eaas_inf_blank_sample.xlsx",
             skip_samples=("blank"),
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
@@ -102,7 +102,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
     def test_accucor_load_sample_prefix(self):
         call_command(
             "load_accucor_msruns",
-            accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_req_prefix.xlsx",
+            accucor_file="DataRepo/data/examples/small_dataset/small_obob_maven_6eaas_inf_req_prefix.xlsx",
             sample_name_prefix="PREFIX_",
             skip_samples=("blank"),
             lc_protocol_name="polar-HILIC-25-min",
@@ -124,7 +124,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors, msg="1 samples are missing.") as ar:
             call_command(
                 "load_accucor_msruns",
-                accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_req_prefix.xlsx",
+                accucor_file="DataRepo/data/examples/small_dataset/small_obob_maven_6eaas_inf_req_prefix.xlsx",
                 skip_samples=("blank"),
                 lc_protocol_name="polar-HILIC-25-min",
                 instrument="default instrument",
@@ -180,7 +180,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         with self.assertRaises(DryRun):
             call_command(
                 "load_accucor_msruns",
-                accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_blank_sample.xlsx",
+                accucor_file="DataRepo/data/examples/small_dataset/small_obob_maven_6eaas_inf_blank_sample.xlsx",
                 skip_samples=("blank"),
                 lc_protocol_name="polar-HILIC-25-min",
                 instrument="default instrument",
@@ -244,7 +244,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_accucor_msruns",
-                accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_glucose_conflicting.xlsx",
+                accucor_file="DataRepo/data/examples/small_dataset/small_obob_maven_6eaas_inf_glucose_conflicting.xlsx",
                 skip_samples=("blank"),
                 lc_protocol_name="polar-HILIC-25-min",
                 instrument="default instrument",
@@ -346,13 +346,13 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         call_command(
             "load_animals_and_samples",
             animal_and_sample_table_filename=(
-                "DataRepo/example_data/testing_data/accucor_with_multiple_labels/"
+                "DataRepo/data/examples/testing_data/accucor_with_multiple_labels/"
                 "samples.xlsx"
             ),
         )
         call_command(
             "load_accucor_msruns",
-            accucor_file="DataRepo/example_data/testing_data/accucor_with_multiple_labels/accucor.xlsx",
+            accucor_file="DataRepo/data/examples/testing_data/accucor_with_multiple_labels/accucor.xlsx",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
             date="2021-04-29",
@@ -368,14 +368,14 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         call_command(
             "load_animals_and_samples",
             animal_and_sample_table_filename=(
-                "DataRepo/example_data/testing_data/accucor_with_multiple_labels/"
+                "DataRepo/data/examples/testing_data/accucor_with_multiple_labels/"
                 "samples.xlsx"
             ),
         )
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_accucor_msruns",
-                accucor_file="DataRepo/example_data/testing_data/accucor_with_multiple_labels/accucor_bad_label.xlsx",
+                accucor_file="DataRepo/data/examples/testing_data/accucor_with_multiple_labels/accucor_bad_label.xlsx",
                 lc_protocol_name="polar-HILIC-25-min",
                 instrument="default instrument",
                 date="2021-04-29",
@@ -398,7 +398,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         self.load_glucose_data()
         call_command(
             "load_accucor_msruns",
-            accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_lactate.xlsx",
+            accucor_file="DataRepo/data/examples/small_dataset/small_obob_maven_6eaas_inf_lactate.xlsx",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
             date="2021-04-29",
@@ -425,7 +425,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             call_command(
                 "load_accucor_msruns",
                 # We just need a different file name with the same data, so _2 is a copy of the original
-                accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_glucose_2.xlsx",
+                accucor_file="DataRepo/data/examples/small_dataset/small_obob_maven_6eaas_inf_glucose_2.xlsx",
                 lc_protocol_name="polar-HILIC-25-min",
                 instrument="default instrument",
                 date="2021-04-29",
@@ -461,24 +461,24 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
         call_command("loaddata", "lc_methods")
         call_command(
             "load_study",
-            "DataRepo/example_data/protocols/loading.yaml",
+            "DataRepo/data/examples/protocols/loading.yaml",
             verbosity=2,
         )
         call_command(
             "load_study",
-            "DataRepo/example_data/tissues/loading.yaml",
+            "DataRepo/data/examples/tissues/loading.yaml",
             verbosity=2,
         )
         call_command(
             "load_compounds",
-            compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
+            compounds="DataRepo/data/examples/consolidated_tracebase_compound_list.tsv",
             verbosity=2,
         )
 
         call_command(
             "load_animals_and_samples",
             animal_and_sample_table_filename=(
-                "DataRepo/example_data/AsaelR_13C-Valine+PI3Ki_flank-KPC_2021-12_isocorr_CN-corrected/"
+                "DataRepo/data/examples/AsaelR_13C-Valine+PI3Ki_flank-KPC_2021-12_isocorr_CN-corrected/"
                 "TraceBase Animal and Sample Table Templates_AR.xlsx"
             ),
             skip_researcher_check=True,
@@ -491,7 +491,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
         call_command(
             "load_animals_and_samples",
             animal_and_sample_table_filename=(
-                "DataRepo/example_data/obob_fasted_ace_glycerol_3hb_citrate_eaa_fa_multiple_tracers/"
+                "DataRepo/data/examples/obob_fasted_ace_glycerol_3hb_citrate_eaa_fa_multiple_tracers/"
                 "animal_sample_table.xlsx"
             ),
             skip_researcher_check=True,
@@ -516,7 +516,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
         call_command(
             "load_animals_and_samples",
             animal_and_sample_table_filename=(
-                "DataRepo/example_data/obob_fasted_glc_lac_gln_ala_multiple_labels/animal_sample_table.xlsx"
+                "DataRepo/data/examples/obob_fasted_glc_lac_gln_ala_multiple_labels/animal_sample_table.xlsx"
             ),
             skip_researcher_check=True,
         )
@@ -540,7 +540,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
         pre_pg_load_count = PeakGroup.objects.count()
         call_command(
             "load_accucor_msruns",
-            accucor_file="DataRepo/example_data/AsaelR_13C-Valine+PI3Ki_flank-KPC_2021-12_isocorr_CN-corrected/"
+            accucor_file="DataRepo/data/examples/AsaelR_13C-Valine+PI3Ki_flank-KPC_2021-12_isocorr_CN-corrected/"
             "Serum results_cor.csv",
             skip_samples=(
                 "Blank01",
@@ -582,7 +582,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_accucor_msruns",
-                accucor_file="DataRepo/example_data/AsaelR_13C-Valine+PI3Ki_flank-KPC_2021-12_isocorr_CN-corrected/"
+                accucor_file="DataRepo/data/examples/AsaelR_13C-Valine+PI3Ki_flank-KPC_2021-12_isocorr_CN-corrected/"
                 "Serum results_cor.csv",
                 skip_samples=(
                     "Blank01",
@@ -628,7 +628,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
         call_command(
             "load_animals_and_samples",
             animal_and_sample_table_filename=(
-                "DataRepo/example_data/obob_fasted_ace_glycerol_3hb_citrate_eaa_fa_multiple_tracers/"
+                "DataRepo/data/examples/obob_fasted_ace_glycerol_3hb_citrate_eaa_fa_multiple_tracers/"
                 "animal_sample_table.xlsx"
             ),
             skip_researcher_check=True,
@@ -714,7 +714,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
         pre_load_group_count = PeakGroup.objects.count()
         call_command(
             "load_accucor_msruns",
-            accucor_file="DataRepo/example_data/obob_fasted_ace_glycerol_3hb_citrate_eaa_fa_multiple_tracers/"
+            accucor_file="DataRepo/data/examples/obob_fasted_ace_glycerol_3hb_citrate_eaa_fa_multiple_tracers/"
             "6eaafasted1_cor.xlsx",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
@@ -742,7 +742,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
         pre_load_group_count = PeakGroup.objects.count()
         call_command(
             "load_accucor_msruns",
-            accucor_file="DataRepo/example_data/obob_fasted_ace_glycerol_3hb_citrate_eaa_fa_multiple_tracers/"
+            accucor_file="DataRepo/data/examples/obob_fasted_ace_glycerol_3hb_citrate_eaa_fa_multiple_tracers/"
             "6eaafasted2_cor.xlsx",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
@@ -770,7 +770,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
         pre_load_group_count = PeakGroup.objects.count()
         call_command(
             "load_accucor_msruns",
-            accucor_file="DataRepo/example_data/obob_fasted_ace_glycerol_3hb_citrate_eaa_fa_multiple_tracers/"
+            accucor_file="DataRepo/data/examples/obob_fasted_ace_glycerol_3hb_citrate_eaa_fa_multiple_tracers/"
             "bcaafasted_cor.xlsx",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
@@ -811,7 +811,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
         call_command(
             "load_animals_and_samples",
             animal_and_sample_table_filename=(
-                "DataRepo/example_data/obob_fasted_glc_lac_gln_ala_multiple_labels/animal_sample_table.xlsx"
+                "DataRepo/data/examples/obob_fasted_glc_lac_gln_ala_multiple_labels/animal_sample_table.xlsx"
             ),
             skip_researcher_check=True,
         )
@@ -850,7 +850,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
         pre_load_group_count = PeakGroup.objects.count()
         call_command(
             "load_accucor_msruns",
-            accucor_file="DataRepo/example_data/obob_fasted_glc_lac_gln_ala_multiple_labels/"
+            accucor_file="DataRepo/data/examples/obob_fasted_glc_lac_gln_ala_multiple_labels/"
             "alafasted_cor.xlsx",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
@@ -871,7 +871,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
         pre_load_group_count = PeakGroup.objects.count()
         call_command(
             "load_accucor_msruns",
-            accucor_file="DataRepo/example_data/obob_fasted_glc_lac_gln_ala_multiple_labels/"
+            accucor_file="DataRepo/data/examples/obob_fasted_glc_lac_gln_ala_multiple_labels/"
             "glnfasted1_cor.xlsx",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
@@ -892,7 +892,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
         pre_load_group_count = PeakGroup.objects.count()
         call_command(
             "load_accucor_msruns",
-            accucor_file="DataRepo/example_data/obob_fasted_glc_lac_gln_ala_multiple_labels/"
+            accucor_file="DataRepo/data/examples/obob_fasted_glc_lac_gln_ala_multiple_labels/"
             "glnfasted2_cor.xlsx",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
@@ -937,7 +937,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
         self.load_multilabel_data()
         call_command(
             "load_accucor_msruns",
-            accucor_file="DataRepo/example_data/obob_fasted_glc_lac_gln_ala_multiple_labels/"
+            accucor_file="DataRepo/data/examples/obob_fasted_glc_lac_gln_ala_multiple_labels/"
             "alafasted_cor.xlsx",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
