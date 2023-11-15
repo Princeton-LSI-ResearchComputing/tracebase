@@ -2405,7 +2405,7 @@ class StudyLoadingTests(TracebaseTestCase):
     def test_multi_tracer_isocorr_study(self):
         call_command(
             "load_study",
-            "DataRepo/data/examples/obob_fasted_ace_glycerol_3hb_citrate_eaa_fa_multiple_tracers/loading.yaml",
+            "DataRepo/data/tests/multiple_tracers/loading.yaml",
         )
 
     @MaintainedModel.no_autoupdates()

@@ -489,14 +489,11 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
     def load_multitracer_data(self):
         call_command(
             "load_animals_and_samples",
-            animal_and_sample_table_filename=(
-                "DataRepo/data/examples/obob_fasted_ace_glycerol_3hb_citrate_eaa_fa_multiple_tracers/"
-                "animal_sample_table.xlsx"
-            ),
+            animal_and_sample_table_filename="DataRepo/data/tests/multiple_tracers/animal_sample_table.xlsx",
             skip_researcher_check=True,
         )
 
-        num_samples = 120
+        num_samples = 4
         num_infusates = 2
         num_infusatetracers = 3
         num_tracers = 6
@@ -598,7 +595,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
 
     @MaintainedModel.no_autoupdates()
     def test_multitracer_sample_table_load(self):
-        num_samples = 120
+        num_samples = 4
         num_infusates = 2
         num_infusatetracers = 9
         num_tracers = 9
@@ -614,10 +611,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
 
         call_command(
             "load_animals_and_samples",
-            animal_and_sample_table_filename=(
-                "DataRepo/data/examples/obob_fasted_ace_glycerol_3hb_citrate_eaa_fa_multiple_tracers/"
-                "animal_sample_table.xlsx"
-            ),
+            animal_and_sample_table_filename="DataRepo/data/tests/multiple_tracers/animal_sample_table.xlsx",
             skip_researcher_check=True,
         )
 
@@ -701,8 +695,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
         pre_load_group_count = PeakGroup.objects.count()
         call_command(
             "load_accucor_msruns",
-            accucor_file="DataRepo/data/examples/obob_fasted_ace_glycerol_3hb_citrate_eaa_fa_multiple_tracers/"
-            "6eaafasted1_cor.xlsx",
+            accucor_file="DataRepo/data/tests/multiple_tracers/6eaafasted1_cor.xlsx",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
             date="2021-04-29",
@@ -712,9 +705,9 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
         )
         post_load_group_count = PeakGroup.objects.count()
         # The number of samples in the isocorr xlsx file (not the samples file)
-        SAMPLES_COUNT = 30
-        PEAKDATA_ROWS = 86
-        PARENT_REC_COUNT = 15
+        SAMPLES_COUNT = 2
+        PEAKDATA_ROWS = 21
+        PARENT_REC_COUNT = 3
         self.assert_group_data_sample_counts(
             SAMPLES_COUNT,
             PEAKDATA_ROWS,
@@ -729,8 +722,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
         pre_load_group_count = PeakGroup.objects.count()
         call_command(
             "load_accucor_msruns",
-            accucor_file="DataRepo/data/examples/obob_fasted_ace_glycerol_3hb_citrate_eaa_fa_multiple_tracers/"
-            "6eaafasted2_cor.xlsx",
+            accucor_file="DataRepo/data/tests/multiple_tracers/bcaafasted_cor.xlsx",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
             date="2021-04-29",
@@ -740,37 +732,9 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
         )
         post_load_group_count = PeakGroup.objects.count()
         # The number of samples in the isocorr xlsx file (not the samples file)
-        SAMPLES_COUNT = 30
-        PEAKDATA_ROWS = 81
-        PARENT_REC_COUNT = 15
-        self.assert_group_data_sample_counts(
-            SAMPLES_COUNT,
-            PEAKDATA_ROWS,
-            PARENT_REC_COUNT,
-            pre_load_group_count,
-            post_load_group_count,
-        )
-
-    @MaintainedModel.no_autoupdates()
-    def test_multitracer_isocorr_load_3(self):
-        self.load_multitracer_data()
-        pre_load_group_count = PeakGroup.objects.count()
-        call_command(
-            "load_accucor_msruns",
-            accucor_file="DataRepo/data/examples/obob_fasted_ace_glycerol_3hb_citrate_eaa_fa_multiple_tracers/"
-            "bcaafasted_cor.xlsx",
-            lc_protocol_name="polar-HILIC-25-min",
-            instrument="default instrument",
-            date="2021-04-29",
-            researcher="Xianfeng Zeng",
-            new_researcher=False,
-            isocorr_format=True,
-        )
-        post_load_group_count = PeakGroup.objects.count()
-        # The number of samples in the isocorr xlsx file (not the samples file)
-        SAMPLES_COUNT = 60
-        PEAKDATA_ROWS = 143
-        PARENT_REC_COUNT = 20
+        SAMPLES_COUNT = 2
+        PEAKDATA_ROWS = 24
+        PARENT_REC_COUNT = 2
         self.assert_group_data_sample_counts(
             SAMPLES_COUNT,
             PEAKDATA_ROWS,

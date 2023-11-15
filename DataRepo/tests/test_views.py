@@ -843,9 +843,7 @@ class ValidationViewTests(TracebaseTransactionTestCase):
             "DataRepo.models"
         )
 
-        sample_file = (
-            "DataRepo/data/tests/data_submission/animal_sample_good.xlsx"
-        )
+        sample_file = "DataRepo/data/tests/data_submission/animal_sample_good.xlsx"
         accucor_files = [
             "DataRepo/data/tests/data_submission/accucor1.xlsx",
             "DataRepo/data/tests/data_submission/accucor2.xlsx",
