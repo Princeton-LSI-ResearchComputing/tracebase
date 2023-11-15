@@ -700,13 +700,13 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         )
 
         # Files/inputs we will test
-        sf = "DataRepo/data/examples/data_submission_good/animal_sample_table.xlsx"
+        sf = "DataRepo/data/tests/data_submission/animal_sample_good.xlsx"
         afs = [
-            "DataRepo/data/examples/data_submission_good/accucor1.xlsx",
-            "DataRepo/data/examples/data_submission_good/accucor2.xlsx",
+            "DataRepo/data/tests/data_submission/accucor1.xlsx",
+            "DataRepo/data/tests/data_submission/accucor2.xlsx",
         ]
 
-        sfkey = "animal_sample_table.xlsx"
+        sfkey = "animal_sample_good.xlsx"
         af1key = "accucor1.xlsx"
         af2key = "accucor2.xlsx"
 
@@ -775,13 +775,13 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         self.assert_coordinator_state_is_initialized()
 
         # Files/inputs we will test
-        sf = "DataRepo/data/examples/data_submission_sample_unkres_acc_good/animal_sample_table.xlsx"
+        sf = "DataRepo/data/tests/data_submission/animal_sample_unknown_researcher.xlsx"
         afs = [
-            "DataRepo/data/examples/data_submission_sample_unkres_acc_good/accucor1.xlsx",
-            "DataRepo/data/examples/data_submission_sample_unkres_acc_good/accucor2.xlsx",
+            "DataRepo/data/tests/data_submission/accucor1.xlsx",
+            "DataRepo/data/tests/data_submission/accucor2.xlsx",
         ]
 
-        sfkey = "animal_sample_table.xlsx"
+        sfkey = "animal_sample_unknown_researcher.xlsx"
         af1key = "accucor1.xlsx"
         af2key = "accucor2.xlsx"
 
@@ -844,11 +844,11 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         )
 
         sample_file = (
-            "DataRepo/data/examples/data_submission_good/animal_sample_table.xlsx"
+            "DataRepo/data/tests/data_submission/animal_sample_good.xlsx"
         )
         accucor_files = [
-            "DataRepo/data/examples/data_submission_good/accucor1.xlsx",
-            "DataRepo/data/examples/data_submission_good/accucor2.xlsx",
+            "DataRepo/data/tests/data_submission/accucor1.xlsx",
+            "DataRepo/data/tests/data_submission/accucor2.xlsx",
         ]
 
         self.validate_some_files(sample_file, accucor_files)
@@ -998,10 +998,10 @@ class ValidationViewTests(TracebaseTransactionTestCase):
             },
         }
 
-        sf = "DataRepo/data/examples/data_submission_good/animal_sample_table.xlsx"
+        sf = "DataRepo/data/tests/data_submission/animal_sample_good.xlsx"
         afs = [
-            "DataRepo/data/examples/data_submission_good/accucor1.xlsx",
-            "DataRepo/data/examples/data_submission_good/accucor2.xlsx",
+            "DataRepo/data/tests/data_submission/accucor1.xlsx",
+            "DataRepo/data/tests/data_submission/accucor2.xlsx",
         ]
 
         dvv = DataValidationView()
