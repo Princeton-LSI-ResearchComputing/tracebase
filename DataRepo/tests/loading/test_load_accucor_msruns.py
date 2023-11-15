@@ -478,8 +478,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
         call_command(
             "load_animals_and_samples",
             animal_and_sample_table_filename=(
-                "DataRepo/data/examples/AsaelR_13C-Valine+PI3Ki_flank-KPC_2021-12_isocorr_CN-corrected/"
-                "TraceBase Animal and Sample Table Templates_AR.xlsx"
+                "DataRepo/data/tests/singly_labeled_isocorr/animals_samples.xlsx"
             ),
             skip_researcher_check=True,
         )
@@ -540,14 +539,8 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
         pre_pg_load_count = PeakGroup.objects.count()
         call_command(
             "load_accucor_msruns",
-            accucor_file="DataRepo/data/examples/AsaelR_13C-Valine+PI3Ki_flank-KPC_2021-12_isocorr_CN-corrected/"
-            "Serum results_cor.csv",
-            skip_samples=(
-                "Blank01",
-                "Blank02",
-                "Blank03",
-                "Blank04",
-            ),
+            accucor_file="DataRepo/data/tests/singly_labeled_isocorr/small_cor.csv",
+            skip_samples=("Blank01",),
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
             date="2021-04-29",
@@ -557,9 +550,9 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
         )
         post_pg_load_count = PeakGroup.objects.count()
         # The number of samples in the isocorr csv file (not the samples file)
-        SAMPLES_COUNT = 19
-        PEAKDATA_ROWS = 24
-        MEASURED_COMPOUNDS_COUNT = 6
+        SAMPLES_COUNT = 3
+        PEAKDATA_ROWS = 6
+        MEASURED_COMPOUNDS_COUNT = 2
 
         self.assertEqual(
             post_pg_load_count - pre_pg_load_count,
@@ -582,14 +575,8 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_accucor_msruns",
-                accucor_file="DataRepo/data/examples/AsaelR_13C-Valine+PI3Ki_flank-KPC_2021-12_isocorr_CN-corrected/"
-                "Serum results_cor.csv",
-                skip_samples=(
-                    "Blank01",
-                    "Blank02",
-                    "Blank03",
-                    "Blank04",
-                ),
+                accucor_file="DataRepo/data/tests/singly_labeled_isocorr/small_cor.csv",
+                skip_samples=("Blank01",),
                 lc_protocol_name="polar-HILIC-25-min",
                 instrument="default instrument",
                 date="2021-04-29",
