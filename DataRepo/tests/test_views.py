@@ -57,7 +57,7 @@ class ViewTests(TracebaseTestCase):
 
         call_command(
             "load_compounds",
-            compounds="DataRepo/data/examples/small_dataset/small_obob_compounds.tsv",
+            compounds="DataRepo/data/tests/small_obob/small_obob_compounds.tsv",
         )
         cls.ALL_COMPOUNDS_COUNT = 3
 
@@ -68,7 +68,7 @@ class ViewTests(TracebaseTestCase):
 
         call_command(
             "load_samples",
-            "DataRepo/data/examples/small_dataset/small_obob_sample_table.tsv",
+            "DataRepo/data/tests/small_obob/small_obob_sample_table.tsv",
             sample_table_headers="DataRepo/data/examples/sample_table_headers.yaml",
         )
         # not counting the header and BLANK samples
@@ -80,7 +80,7 @@ class ViewTests(TracebaseTestCase):
             "load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
-            accucor_file="DataRepo/data/examples/small_dataset/small_obob_maven_6eaas_inf.xlsx",
+            accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf.xlsx",
             date="2021-06-03",
             researcher="Michael Neinast",
             new_researcher=True,
@@ -94,7 +94,7 @@ class ViewTests(TracebaseTestCase):
             "load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
-            accucor_file="DataRepo/data/examples/small_dataset/small_obob_maven_6eaas_serum.xlsx",
+            accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_serum.xlsx",
             date="2021-06-03",
             researcher="Michael Neinast",
             new_researcher=False,
@@ -740,7 +740,7 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         call_command("loaddata", "lc_methods")
         call_command(
             "load_samples",
-            "DataRepo/data/examples/small_dataset/small_obob_sample_table.tsv",
+            "DataRepo/data/tests/small_obob/small_obob_sample_table.tsv",
             sample_table_headers="DataRepo/data/examples/sample_table_headers.yaml",
             validate=True,
         )
@@ -748,7 +748,7 @@ class ValidationViewTests(TracebaseTransactionTestCase):
             "load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
-            accucor_file="DataRepo/data/examples/small_dataset/small_obob_maven_6eaas_inf.xlsx",
+            accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf.xlsx",
             date="2021-06-03",
             researcher="Michael Neinast",
             new_researcher=True,
@@ -890,9 +890,11 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         self.clear_database()
         self.initialize_databases()
 
-        sample_file = "DataRepo/data/examples/small_dataset/small_obob_animal_and_sample_table.xlsx"
+        sample_file = (
+            "DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx"
+        )
         accucor_files = [
-            "DataRepo/data/examples/small_dataset/small_obob_maven_6eaas_inf_req_prefix.xlsx",
+            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_req_prefix.xlsx",
         ]
         sfkey = "small_obob_animal_and_sample_table.xlsx"
         afkey = "small_obob_maven_6eaas_inf_req_prefix.xlsx"

@@ -39,9 +39,7 @@ class ProtocolViewTests(TracebaseTestCase):
         assert_coordinator_state_is_initialized()
 
         call_command("loaddata", "lc_methods")
-        call_command(
-            "load_study", "DataRepo/data/examples/test_dataframes/loading.yaml"
-        )
+        call_command("load_study", "DataRepo/data/tests/dataframes/loading.yaml")
 
     def test_animal_treatment_list(self):
         response = self.client.get(reverse("animal_treatment_list"))

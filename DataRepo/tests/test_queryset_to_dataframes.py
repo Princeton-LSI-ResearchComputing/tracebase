@@ -14,9 +14,7 @@ class QuerysetToPandasDataFrameBaseTests(TracebaseTestCase):
     def setUpTestData(cls):
         # load small set of data
         call_command("loaddata", "lc_methods")
-        call_command(
-            "load_study", "DataRepo/data/examples/test_dataframes/loading.yaml"
-        )
+        call_command("load_study", "DataRepo/data/tests/dataframes/loading.yaml")
 
         # define expected data in dictionaries
         cls.study1_dict = {

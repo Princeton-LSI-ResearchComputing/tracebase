@@ -37,7 +37,7 @@ class LoadCompoundsTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_compounds",
-                compounds="DataRepo/data/examples/testing_data/test_study_1/test_study_1_compounds_dupes.tsv",
+                compounds="DataRepo/data/tests/compounds/test_study_1_compounds_dupes.tsv",
             )
         aes = ar.exception
         self.assertEqual(2, len(aes.exceptions))
@@ -303,7 +303,7 @@ class CompoundLoadingTests(TracebaseTestCase):
 class CompoundsLoaderTests(TracebaseTestCase):
     def get_dataframe(self):
         return pd.read_csv(
-            "DataRepo/data/examples/testing_data/short_compound_list.tsv",
+            "DataRepo/data/tests/compounds/short_compound_list.tsv",
             sep="\t",
             keep_default_na=False,
         )
