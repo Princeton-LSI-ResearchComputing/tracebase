@@ -512,12 +512,12 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
         call_command(
             "load_animals_and_samples",
             animal_and_sample_table_filename=(
-                "DataRepo/data/examples/obob_fasted_glc_lac_gln_ala_multiple_labels/animal_sample_table.xlsx"
+                "DataRepo/data/tests/multiple_labels/animal_sample_table.xlsx"
             ),
             skip_researcher_check=True,
         )
 
-        num_samples = 156
+        num_samples = 5
         num_infusates = 2
         num_infusatetracers = 2
         num_tracers = 2
@@ -745,7 +745,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
 
     @MaintainedModel.no_autoupdates()
     def test_multilabel_sample_table_load(self):
-        num_samples = 156
+        num_samples = 5
         num_infusates = 2
         num_infusatetracers = 2
         num_tracers = 2
@@ -762,7 +762,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
         call_command(
             "load_animals_and_samples",
             animal_and_sample_table_filename=(
-                "DataRepo/data/examples/obob_fasted_glc_lac_gln_ala_multiple_labels/animal_sample_table.xlsx"
+                "DataRepo/data/tests/multiple_labels/animal_sample_table.xlsx"
             ),
             skip_researcher_check=True,
         )
@@ -801,8 +801,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
         pre_load_group_count = PeakGroup.objects.count()
         call_command(
             "load_accucor_msruns",
-            accucor_file="DataRepo/data/examples/obob_fasted_glc_lac_gln_ala_multiple_labels/"
-            "alafasted_cor.xlsx",
+            accucor_file="DataRepo/data/tests/multiple_labels/alafasted_cor.xlsx",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
             date="2021-04-29",
@@ -813,7 +812,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
         post_load_group_count = PeakGroup.objects.count()
 
         self.assert_peak_group_counts(
-            pre_load_group_count, post_load_group_count, 84, 94, 13
+            pre_load_group_count, post_load_group_count, 3, 16, 2
         )
 
     @MaintainedModel.no_autoupdates()
@@ -822,8 +821,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
         pre_load_group_count = PeakGroup.objects.count()
         call_command(
             "load_accucor_msruns",
-            accucor_file="DataRepo/data/examples/obob_fasted_glc_lac_gln_ala_multiple_labels/"
-            "glnfasted1_cor.xlsx",
+            accucor_file="DataRepo/data/tests/multiple_labels/glnfasted1_cor.xlsx",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
             date="2021-04-29",
@@ -834,29 +832,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
         post_load_group_count = PeakGroup.objects.count()
 
         self.assert_peak_group_counts(
-            pre_load_group_count, post_load_group_count, 36, 95, 13
-        )
-
-    @MaintainedModel.no_autoupdates()
-    def test_multilabel_isocorr_load_3(self):
-        self.load_multilabel_data()
-        pre_load_group_count = PeakGroup.objects.count()
-        call_command(
-            "load_accucor_msruns",
-            accucor_file="DataRepo/data/examples/obob_fasted_glc_lac_gln_ala_multiple_labels/"
-            "glnfasted2_cor.xlsx",
-            lc_protocol_name="polar-HILIC-25-min",
-            instrument="default instrument",
-            date="2021-04-29",
-            researcher="Xianfeng Zeng",
-            new_researcher=False,
-            isocorr_format=True,
-            skip_samples=("bk",),
-        )
-        post_load_group_count = PeakGroup.objects.count()
-
-        self.assert_peak_group_counts(
-            pre_load_group_count, post_load_group_count, 36, 95, 13
+            pre_load_group_count, post_load_group_count, 2, 26, 2
         )
 
     def assert_peak_group_counts(
@@ -888,8 +864,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
         self.load_multilabel_data()
         call_command(
             "load_accucor_msruns",
-            accucor_file="DataRepo/data/examples/obob_fasted_glc_lac_gln_ala_multiple_labels/"
-            "alafasted_cor.xlsx",
+            accucor_file="DataRepo/data/tests/multiple_labels/alafasted_cor.xlsx",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
             date="2021-04-29",

@@ -1485,14 +1485,13 @@ class MultiTracerLabelPropertyTests(TracebaseTestCase):
         call_command(
             "load_animals_and_samples",
             animal_and_sample_table_filename=(
-                "DataRepo/data/examples/obob_fasted_glc_lac_gln_ala_multiple_labels/animal_sample_table.xlsx"
+                "DataRepo/data/tests/multiple_labels/animal_sample_table.xlsx"
             ),
             skip_researcher_check=True,
         )
         call_command(
             "load_accucor_msruns",
-            accucor_file="DataRepo/data/examples/obob_fasted_glc_lac_gln_ala_multiple_labels/"
-            "alafasted_cor.xlsx",
+            accucor_file="DataRepo/data/tests/multiple_labels/alafasted_cor.xlsx",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
             date="2021-04-29",
@@ -2412,7 +2411,7 @@ class StudyLoadingTests(TracebaseTestCase):
     def test_multi_label_isocorr_study(self):
         call_command(
             "load_study",
-            "DataRepo/data/examples/obob_fasted_glc_lac_gln_ala_multiple_labels/loading.yaml",
+            "DataRepo/data/tests/multiple_labels/loading.yaml",
         )
 
 
