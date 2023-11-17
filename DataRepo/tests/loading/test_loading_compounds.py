@@ -105,8 +105,9 @@ class CompoundLoadingTests(TracebaseTestCase):
         )
 
     def test_nonsense_synonym_retrieval(self):
-        synonymous_compound = Compound.compound_matching_name_or_synonym("nonsense")
-        self.assertIsNone(synonymous_compound)
+        with self.assertRaises(Compound.DoesNotExist) as ar:
+            Compound.compound_matching_name_or_synonym("nonsense")
+        self.assertIn("nonsense", str(ar.exception))
 
     @tag("compound_for_row")
     def test_new_synonyms_added_to_existing_compound(self):

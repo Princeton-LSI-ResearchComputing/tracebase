@@ -726,7 +726,10 @@ class DataLoadingTests(TracebaseTestCase):
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
-        self.assertTrue(isinstance(aes.exceptions[0], MissingCompounds))
+        self.assertTrue(
+            isinstance(aes.exceptions[0], MissingCompounds),
+            msg=f"Exception [{type(aes.exceptions[0]).__name__}: {aes.exceptions[0]}] is MissingCompounds?",
+        )
         exp_str = "1 compounds were not found in the database:\n\ttable sugar"
         self.assertIn(
             exp_str,
@@ -1547,7 +1550,7 @@ class MultiTracerLabelPropertyTests(TracebaseTestCase):
         self.assertAlmostEqual(expectedc, pgc)
         self.assertAlmostEqual(expectedn, pgn)
 
-    def test_normalized_labeling(self):
+    def test_normalized_labeling_2_elements(self):
         pg = PeakGroup.objects.filter(msrun__sample__name="xzl5_panc").get(
             name="glutamine"
         )

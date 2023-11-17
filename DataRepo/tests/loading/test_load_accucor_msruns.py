@@ -346,7 +346,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         call_command(
             "load_animals_and_samples",
             animal_and_sample_table_filename=(
-                "DataRepo/data/tests/accucor_with_multiple_labels/" "samples.xlsx"
+                "DataRepo/data/tests/accucor_with_multiple_labels/samples.xlsx"
             ),
         )
         call_command(
@@ -367,7 +367,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         call_command(
             "load_animals_and_samples",
             animal_and_sample_table_filename=(
-                "DataRepo/data/tests/accucor_with_multiple_labels/" "samples.xlsx"
+                "DataRepo/data/tests/accucor_with_multiple_labels/samples.xlsx"
             ),
         )
         with self.assertRaises(AggregatedErrors) as ar:
@@ -743,7 +743,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
 
     @MaintainedModel.no_autoupdates()
     def test_multilabel_sample_table_load(self):
-        num_samples = 5
+        num_samples = 6
         num_infusates = 2
         num_infusatetracers = 2
         num_tracers = 2
@@ -810,7 +810,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
         post_load_group_count = PeakGroup.objects.count()
 
         self.assert_peak_group_counts(
-            pre_load_group_count, post_load_group_count, 3, 16, 2
+            pre_load_group_count, post_load_group_count, 4, 37, 4
         )
 
     @MaintainedModel.no_autoupdates()

@@ -927,7 +927,7 @@ class AccuCorDataLoader:
                             self.record_missing_compound(
                                 compound_input, peak_group_formula, index
                             )
-                    except ValidationError:
+                    except (ValidationError, Compound.DoesNotExist):
                         compound_missing = True
                         self.record_missing_compound(
                             compound_input, peak_group_formula, index

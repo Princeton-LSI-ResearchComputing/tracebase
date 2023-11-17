@@ -1,4 +1,4 @@
 ---
-compounds: "../consolidated_tracebase_compound_list.tsv"
+compounds: "consolidated_tracebase_compound_list.tsv"
 protocols: "small_obob_protocols.tsv"
-tissues: "../tissues/tissues.tsv"
+tissues: "tissues.tsv"
