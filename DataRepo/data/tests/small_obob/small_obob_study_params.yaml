@@ -1,5 +1,5 @@
 ---
-compounds: "../consolidated_tracebase_compound_list.tsv"
+compounds: "small_obob_compounds.tsv"
 protocols: "small_obob_protocols.tsv"
 animals_samples_treatments:
   table: "small_obob_animal_and_sample_table.xlsx"
