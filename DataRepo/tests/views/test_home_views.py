@@ -46,7 +46,7 @@ class HomeViewTests(TracebaseTestCase):
         call_command("loaddata", "lc_methods")
         call_command(
             "load_study",
-            "DataRepo/data/examples/test_dataframes/loading.yaml",
+            "DataRepo/data/tests/dataframes/loading.yaml",
             verbosity=6,
         )
         cls.ALL_TISSUES_COUNT = 37

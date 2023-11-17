@@ -32,18 +32,18 @@ class AnimalTests(TracebaseTestCase):
         call_command("load_study", "DataRepo/data/examples/tissues/loading.yaml")
         call_command(
             "load_compounds",
-            compounds="DataRepo/data/examples/small_dataset/small_obob_compounds.tsv",
+            compounds="DataRepo/data/tests/small_obob/small_obob_compounds.tsv",
         )
         call_command(
             "load_samples",
-            "DataRepo/data/examples/small_dataset/small_obob_sample_table.tsv",
+            "DataRepo/data/tests/small_obob/small_obob_sample_table.tsv",
             sample_table_headers="DataRepo/data/examples/sample_table_headers.yaml",
         )
         call_command(
             "load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
-            accucor_file="DataRepo/data/examples/small_dataset/small_obob_maven_6eaas_inf.xlsx",
+            accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf.xlsx",
             date="2021-06-03",
             researcher="Michael Neinast",
             new_researcher=True,
@@ -52,7 +52,7 @@ class AnimalTests(TracebaseTestCase):
             "load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
-            accucor_file="DataRepo/data/examples/small_dataset/small_obob_maven_6eaas_serum.xlsx",
+            accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_serum.xlsx",
             date="2021-06-03",
             researcher="Michael Neinast",
             new_researcher=False,

@@ -39,7 +39,7 @@ class TissueLoadingTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_tissues",
-                tissues="DataRepo/data/examples/testing_data/tissues/tissues_with_errors.tsv",
+                tissues="DataRepo/data/tests/tissues/tissues_with_errors.tsv",
                 verbosity=2,
             )
         aes = ar.exception

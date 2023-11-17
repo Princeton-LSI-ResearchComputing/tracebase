@@ -113,7 +113,7 @@ class ProtocolLoadingTests(TracebaseTestCase):
         """Test loading the protocols from a Treatments sheet in the xlxs workbook"""
         call_command(
             "load_protocols",
-            protocols="DataRepo/data/examples/small_dataset/small_obob_animal_and_sample_table.xlsx",
+            protocols="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx",
         )
         self.assertEqual(Protocol.objects.count(), 2)
         # and these are all animal treatments
@@ -125,7 +125,7 @@ class ProtocolLoadingTests(TracebaseTestCase):
         """Test loading the protocols from a Treatments sheet in the xlxs workbook"""
         call_command(
             "load_protocols",
-            protocols="DataRepo/data/examples/small_dataset/small_obob_animal_and_sample_table.xlsx",
+            protocols="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx",
             dry_run=True,
         )
         # none in default
@@ -135,7 +135,7 @@ class ProtocolLoadingTests(TracebaseTestCase):
         """Test loading the protocols from a TSV containing duplicates and mungeable data"""
         call_command(
             "load_protocols",
-            protocols="DataRepo/data/examples/testing_data/protocols/protocols_with_workarounds.tsv",
+            protocols="DataRepo/data/tests/protocols/protocols_with_workarounds.tsv",
         )
         # two protocols loaded, but 3 lines in file (1 redundatn)
         self.assertEqual(Protocol.objects.count(), 2)
@@ -150,7 +150,7 @@ class ProtocolLoadingTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_protocols",
-                protocols="DataRepo/data/examples/testing_data/protocols/protocols_with_errors.tsv",
+                protocols="DataRepo/data/tests/protocols/protocols_with_errors.tsv",
             )
         aes = ar.exception
 

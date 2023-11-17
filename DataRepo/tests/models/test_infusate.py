@@ -162,7 +162,7 @@ class MaintainedModelDeferredTests(TracebaseTestCase):
         # Load compounds, tissues, and protocol data before any of the tests run
         call_command(
             "load_study",
-            "DataRepo/data/examples/small_dataset/small_obob_study_prerequisites.yaml",
+            "DataRepo/data/tests/small_obob/small_obob_study_prerequisites.yaml",
             verbosity=2,
         )
         super().setUpTestData()
@@ -297,7 +297,7 @@ class MaintainedModelImmediateTests(TracebaseTestCase):
         # Load data before any of the tests run
         call_command(
             "load_study",
-            "DataRepo/data/examples/small_dataset/small_obob_study_prerequisites.yaml",
+            "DataRepo/data/tests/small_obob/small_obob_study_prerequisites.yaml",
             verbosity=2,
         )
         super().setUpTestData()
@@ -361,7 +361,7 @@ class MaintainedModelImmediateTests(TracebaseTestCase):
         call_command(
             "load_animals_and_samples",
             animal_and_sample_table_filename=(
-                "DataRepo/data/examples/small_dataset/"
+                "DataRepo/data/tests/small_obob/"
                 "small_obob_animal_and_sample_table.xlsx"
             ),
             dry_run=False,
