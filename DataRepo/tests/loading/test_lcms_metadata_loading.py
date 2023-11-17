@@ -885,7 +885,7 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
         self.load_samples()
         with self.assertRaises(AggregatedErrors) as ar:
             self.load_peak_annotations(
-                lcms_file="DataRepo/data/tests/small_obob/lcms_metadata/glucose_bad_peak_annots.tsv",
+                lcms_file="DataRepo/data/tests/small_obob/lcms_metadata/glucose_unexpected_sample.tsv",
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
