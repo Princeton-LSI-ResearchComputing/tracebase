@@ -16,9 +16,7 @@ class ArchiveFileTests(TracebaseTestCase):
 
     @classmethod
     def setUpTestData(cls):
-        path = Path(
-            "DataRepo/data/examples/small_dataset/small_obob_maven_6eaas_inf.xlsx"
-        )
+        path = Path("DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf.xlsx")
         with path.open(mode="rb") as f:
             myfile = File(f, name=path.name)
 

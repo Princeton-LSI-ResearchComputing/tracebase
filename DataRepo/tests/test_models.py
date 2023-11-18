@@ -726,7 +726,10 @@ class DataLoadingTests(TracebaseTestCase):
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
-        self.assertTrue(isinstance(aes.exceptions[0], MissingCompounds))
+        self.assertTrue(
+            isinstance(aes.exceptions[0], MissingCompounds),
+            msg=f"Exception [{type(aes.exceptions[0]).__name__}: {aes.exceptions[0]}] is MissingCompounds?",
+        )
         exp_str = "1 compounds were not found in the database:\n\ttable sugar"
         self.assertIn(
             exp_str,
@@ -742,7 +745,7 @@ class PropertyTests(TracebaseTestCase):
         call_command("loaddata", "lc_methods")
         call_command(
             "load_study",
-            "DataRepo/data/examples/small_dataset/small_obob_study_prerequisites.yaml",
+            "DataRepo/data/tests/small_obob/small_obob_study_prerequisites.yaml",
         )
         call_command(
             "load_protocols",
@@ -956,7 +959,7 @@ class PropertyTests(TracebaseTestCase):
         call_command(
             "load_animals_and_samples",
             animal_and_sample_table_filename=(
-                "DataRepo/data/examples/testing_data/animal_sample_table_labeled_elements.xlsx"
+                "DataRepo/data/tests/small_obob/animal_sample_table_labeled_elements.xlsx"
             ),
             skip_researcher_check=True,
         )
@@ -1480,19 +1483,18 @@ class MultiTracerLabelPropertyTests(TracebaseTestCase):
         call_command("loaddata", "lc_methods")
         call_command(
             "load_study",
-            "DataRepo/data/examples/small_dataset/small_obob_study_prerequisites.yaml",
+            "DataRepo/data/tests/small_obob/small_obob_study_prerequisites.yaml",
         )
         call_command(
             "load_animals_and_samples",
             animal_and_sample_table_filename=(
-                "DataRepo/data/examples/obob_fasted_glc_lac_gln_ala_multiple_labels/animal_sample_table.xlsx"
+                "DataRepo/data/tests/multiple_labels/animal_sample_table.xlsx"
             ),
             skip_researcher_check=True,
         )
         call_command(
             "load_accucor_msruns",
-            accucor_file="DataRepo/data/examples/obob_fasted_glc_lac_gln_ala_multiple_labels/"
-            "alafasted_cor.xlsx",
+            accucor_file="DataRepo/data/tests/multiple_labels/alafasted_cor.xlsx",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
             date="2021-04-29",
@@ -1548,7 +1550,7 @@ class MultiTracerLabelPropertyTests(TracebaseTestCase):
         self.assertAlmostEqual(expectedc, pgc)
         self.assertAlmostEqual(expectedn, pgn)
 
-    def test_normalized_labeling(self):
+    def test_normalized_labeling_2_elements(self):
         pg = PeakGroup.objects.filter(msrun__sample__name="xzl5_panc").get(
             name="glutamine"
         )
@@ -1817,7 +1819,7 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
 
         call_command(
             "load_study",
-            "DataRepo/data/examples/small_dataset/small_obob_study_prerequisites.yaml",
+            "DataRepo/data/tests/small_obob/small_obob_study_prerequisites.yaml",
         )
 
         if 0 != all_coordinators[0].buffer_size():
@@ -1868,7 +1870,7 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
         call_command(
             "load_animals_and_samples",
             animal_and_sample_table_filename=(
-                "DataRepo/data/examples/small_dataset/"
+                "DataRepo/data/tests/small_obob/"
                 "small_obob_animal_and_sample_table.xlsx"
             ),
             dry_run=False,
@@ -1886,7 +1888,7 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
         call_command(
             "load_animals_and_samples",
             animal_and_sample_table_filename=(
-                "DataRepo/data/examples/small_multitracer_data/animal_sample_table.xlsx"
+                "DataRepo/data/tests/small_multitracer/animal_sample_table.xlsx"
             ),
             skip_researcher_check=True,
         )
@@ -1906,7 +1908,7 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
             call_command(
                 "load_animals_and_samples",
                 animal_and_sample_table_filename=(
-                    "DataRepo/data/examples/small_dataset/"
+                    "DataRepo/data/tests/small_obob/"
                     "small_obob_animal_and_sample_table.xlsx"
                 ),
                 dry_run=True,
@@ -1961,7 +1963,7 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
         call_command(
             "load_animals_and_samples",
             animal_and_sample_table_filename=(
-                "DataRepo/data/examples/testing_data/small_obob_animal_and_sample_table_empty_row.xlsx"
+                "DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table_empty_row.xlsx"
             ),
         )
 
@@ -1975,7 +1977,7 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
             call_command(
                 "load_animals_and_samples",
                 animal_and_sample_table_filename=(
-                    "DataRepo/data/examples/testing_data/"
+                    "DataRepo/data/tests/small_obob/"
                     "small_obob_animal_and_sample_table_empty_animalid_in_animalsheet.xlsx"
                 ),
             )
@@ -2001,7 +2003,7 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
             call_command(
                 "load_animals_and_samples",
                 animal_and_sample_table_filename=(
-                    "DataRepo/data/examples/testing_data/"
+                    "DataRepo/data/tests/small_obob/"
                     "small_obob_animal_and_sample_table_empty_animalid_in_samplesheet.xlsx"
                 ),
             )
@@ -2030,7 +2032,7 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
             call_command(
                 "load_animals_and_samples",
                 animal_and_sample_table_filename=(
-                    "DataRepo/data/examples/testing_data/"
+                    "DataRepo/data/tests/small_obob/"
                     "small_obob_animal_and_sample_table_empty_animalid_in_samplesheet_silent.xlsx"
                 ),
             )
@@ -2055,8 +2057,7 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
             call_command(
                 "load_animals_and_samples",
                 animal_and_sample_table_filename=(
-                    "DataRepo/data/examples/testing_data/"
-                    "small_obob_animal_and_sample_table_missing_rqd_vals.xlsx"
+                    "DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table_missing_rqd_vals.xlsx"
                 ),
             )
         aes = ar.exception
@@ -2123,7 +2124,7 @@ class StudyLoadingTests(TracebaseTestCase):
         call_command("load_study", "DataRepo/data/examples/tissues/loading.yaml")
         call_command(
             "load_study",
-            "DataRepo/data/examples/small_dataset/small_obob_study_params.yaml",
+            "DataRepo/data/tests/small_obob/small_obob_study_params.yaml",
         )
         cls.COMPOUNDS_COUNT = 2
         cls.SAMPLES_COUNT = 14
@@ -2412,7 +2413,7 @@ class StudyLoadingTests(TracebaseTestCase):
     def test_multi_label_isocorr_study(self):
         call_command(
             "load_study",
-            "DataRepo/data/examples/obob_fasted_glc_lac_gln_ala_multiple_labels/loading.yaml",
+            "DataRepo/data/tests/multiple_labels/loading.yaml",
         )
 
 
@@ -2425,12 +2426,12 @@ class ParseIsotopeLabelTests(TracebaseTestCase):
         call_command("loaddata", "lc_methods")
         call_command(
             "load_study",
-            "DataRepo/data/examples/small_dataset/small_obob_study_prerequisites.yaml",
+            "DataRepo/data/tests/small_obob/small_obob_study_prerequisites.yaml",
         )
 
         call_command(
             "load_samples",
-            "DataRepo/data/examples/small_dataset/small_obob_sample_table.tsv",
+            "DataRepo/data/tests/small_obob/small_obob_sample_table.tsv",
             sample_table_headers="DataRepo/data/examples/sample_table_headers.yaml",
         )
 
@@ -2520,7 +2521,7 @@ class ParseIsotopeLabelTests(TracebaseTestCase):
                 "load_accucor_msruns",
                 lc_protocol_name="polar-HILIC-25-min",
                 instrument="default instrument",
-                accucor_file="DataRepo/data/examples/small_dataset/small_obob_maven_6eaas_inf_dupes.xlsx",
+                accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_dupes.xlsx",
                 date="2021-06-03",
                 researcher="Xianfeng Zeng",
             )
@@ -2571,7 +2572,7 @@ class AnimalLoadingTests(TracebaseTestCase):
         call_command(
             "load_animals_and_samples",
             animal_and_sample_table_filename=(
-                "DataRepo/data/examples/testing_data/animal_sample_table_labeled_elements.xlsx"
+                "DataRepo/data/tests/small_obob/animal_sample_table_labeled_elements.xlsx"
             ),
         )
         self.assertEqual(
@@ -2618,6 +2619,6 @@ class AnimalLoadingTests(TracebaseTestCase):
             call_command(
                 "load_animals_and_samples",
                 animal_and_sample_table_filename=(
-                    "DataRepo/data/examples/testing_data/animal_sample_table_labeled_elements_invalid.xlsx"
+                    "DataRepo/data/tests/small_obob/animal_sample_table_labeled_elements_invalid.xlsx"
                 ),
             )

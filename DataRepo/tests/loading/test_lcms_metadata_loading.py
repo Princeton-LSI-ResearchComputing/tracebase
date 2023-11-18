@@ -51,7 +51,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             peak_annotation_file=None,
             peak_annotation_filename="",
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
-                "DataRepo/data/examples/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc_pos.tsv"
+                "DataRepo/data/tests/small_obob/lcms_metadata/glucose_pos.tsv"
             ),
             date="",
             researcher="",
@@ -80,7 +80,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             peak_annotation_file=None,
             peak_annotation_filename="",
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
-                "DataRepo/data/examples/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc_pos.tsv"
+                "DataRepo/data/tests/small_obob/lcms_metadata/glucose_pos.tsv"
             ),
             date="",
             researcher="",
@@ -98,7 +98,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             peak_annotation_file=None,
             peak_annotation_filename="",
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
-                "DataRepo/data/examples/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc_pos.tsv"
+                "DataRepo/data/tests/small_obob/lcms_metadata/glucose_pos.tsv"
             ),
             date="",
             researcher="",
@@ -117,7 +117,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             peak_annotation_file=None,
             peak_annotation_filename="",
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
-                "DataRepo/data/examples/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc_pos.tsv"
+                "DataRepo/data/tests/small_obob/lcms_metadata/glucose_pos.tsv"
             ),
             date="",
             researcher="",
@@ -138,7 +138,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             peak_annotation_file=None,
             peak_annotation_filename="",
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
-                "DataRepo/data/examples/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc_pos.tsv"
+                "DataRepo/data/tests/small_obob/lcms_metadata/glucose_pos.tsv"
             ),
             date="1972-11-24",
             researcher="",
@@ -166,7 +166,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             peak_annotation_file=None,
             peak_annotation_filename="accucor.xlsx",
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
-                "DataRepo/data/examples/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc_pos.tsv"
+                "DataRepo/data/tests/small_obob/lcms_metadata/glucose_pos.tsv"
             ),
             date="1972-11-24",
             researcher="Robert Leach",
@@ -283,7 +283,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             peak_annotation_file=None,
             peak_annotation_filename="accucor.xlsx",
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
-                "DataRepo/data/examples/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc_pos.tsv"
+                "DataRepo/data/tests/small_obob/lcms_metadata/glucose_pos.tsv"
             ),
             date="1972-11-24",
             researcher="Robert Leach",
@@ -307,7 +307,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             peak_annotation_file=None,
             peak_annotation_filename="accucor.xlsx",
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
-                "DataRepo/data/examples/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc_pos.tsv"
+                "DataRepo/data/tests/small_obob/lcms_metadata/glucose_pos.tsv"
             ),
             date="1972-11-24",
             researcher="Robert Leach",
@@ -325,7 +325,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             peak_annotation_file=None,
             peak_annotation_filename=None,
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
-                "DataRepo/data/examples/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc_pos.tsv"
+                "DataRepo/data/tests/small_obob/lcms_metadata/glucose_pos.tsv"
             ),
             date=None,
             researcher=None,
@@ -355,7 +355,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             peak_annotation_file=None,
             peak_annotation_filename="accucor.xlsx",
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
-                "DataRepo/data/examples/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc_pos.tsv"
+                "DataRepo/data/tests/small_obob/lcms_metadata/glucose_pos.tsv"
             ),
             date="1972-11-24",
             researcher="Robert Leach",
@@ -375,7 +375,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             peak_annotation_file=None,
             peak_annotation_filename=None,
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
-                "DataRepo/data/examples/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc_pos.tsv"
+                "DataRepo/data/tests/small_obob/lcms_metadata/glucose_pos.tsv"
             ),
             mzxml_files=None,
             date=None,
@@ -393,16 +393,16 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
         adl1 = AccuCorDataLoader(
             None,
             pd.read_excel(
-                "DataRepo/data/examples/small_dataset/small_obob_maven_6eaas_inf_glucose_pos.xlsx",
+                "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_pos.xlsx",
                 sheet_name=1,  # The second sheet
                 engine="openpyxl",
             ).dropna(axis=0, how="all"),
-            peak_annotation_file="DataRepo/data/examples/small_dataset/small_obob_maven_6eaas_inf_glucose_pos.xlsx",
+            peak_annotation_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_pos.xlsx",
             peak_annotation_filename="small_obob_maven_6eaas_inf_glucose.xlsx",
             date="1972-11-24",
             instrument="default instrument",
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
-                "DataRepo/data/examples/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc_pos_no_extras.tsv"
+                "DataRepo/data/tests/small_obob/lcms_metadata/glucose_pos_no_extras.tsv"
             ),
             researcher="Robert Leach",
             lc_protocol_name=None,  # Left none intentionally
@@ -426,15 +426,15 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
         adl2 = AccuCorDataLoader(
             None,
             pd.read_excel(
-                "DataRepo/data/examples/small_dataset/small_obob_maven_6eaas_inf_glucose.xlsx",
+                "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose.xlsx",
                 sheet_name=1,  # The second sheet
                 engine="openpyxl",
             ).dropna(axis=0, how="all"),
-            peak_annotation_file="DataRepo/data/examples/small_dataset/small_obob_maven_6eaas_inf_glucose.xlsx",
+            peak_annotation_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose.xlsx",
             peak_annotation_filename="small_obob_maven_6eaas_inf_glucose.xlsx",
             date="1972-11-24",
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
-                "DataRepo/data/examples/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc_pos_no_extras.tsv"
+                "DataRepo/data/tests/small_obob/lcms_metadata/glucose_pos_no_extras.tsv"
             ),
             researcher="Robert Leach",
             lc_protocol_name=None,  # Left none intentionally
@@ -516,7 +516,7 @@ class LCMSSampleTableLoaderMethodTests(TracebaseTestCase):
 class LCMSMetadataParserMethodTests(TracebaseTestCase):
     def test_lcms_df_to_dict(self):
         df = extract_dataframes_from_lcms_tsv(
-            "DataRepo/data/examples/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc_pos.tsv"
+            "DataRepo/data/tests/small_obob/lcms_metadata/glucose_pos.tsv"
         )
         dct = lcms_df_to_dict(df)
         self.assertTrue(isinstance(dct, dict))
@@ -525,7 +525,7 @@ class LCMSMetadataParserMethodTests(TracebaseTestCase):
 
     def test_lcms_metadata_to_samples(self):
         df = extract_dataframes_from_lcms_tsv(
-            "DataRepo/data/examples/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc_pos.tsv"
+            "DataRepo/data/tests/small_obob/lcms_metadata/glucose_pos.tsv"
         )
         dct = lcms_df_to_dict(df)
         samples = lcms_metadata_to_samples(dct)
@@ -533,14 +533,14 @@ class LCMSMetadataParserMethodTests(TracebaseTestCase):
 
     def test_extract_dataframes_from_lcms_xlsx(self):
         df = extract_dataframes_from_lcms_xlsx(
-            "DataRepo/data/examples/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc.xlsx"
+            "DataRepo/data/tests/small_obob/lcms_metadata/glucose.xlsx"
         )
         self.assertIsNotNone(df)
         self.assertEqual((15, 10), df.shape)
 
     def test_extract_dataframes_from_lcms_tsv(self):
         df = extract_dataframes_from_lcms_tsv(
-            "DataRepo/data/examples/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc_pos.tsv"
+            "DataRepo/data/tests/small_obob/lcms_metadata/glucose_pos.tsv"
         )
         self.assertIsNotNone(df)
         self.assertEqual((15, 10), df.shape)
@@ -566,12 +566,12 @@ class LCMSMetadataParserMethodTests(TracebaseTestCase):
 
     def test_get_lcms_metadata_dict_from_file(self):
         lcms_metadata1 = get_lcms_metadata_dict_from_file(
-            "DataRepo/data/examples/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc.xlsx"
+            "DataRepo/data/tests/small_obob/lcms_metadata/glucose.xlsx"
         )
         self.assertTrue(isinstance(lcms_metadata1, dict))
         self.assertEqual(15, len(lcms_metadata1.keys()))
         lcms_metadata2 = get_lcms_metadata_dict_from_file(
-            "DataRepo/data/examples/small_dataset/glucose_lcms_metadata_except_mzxml_and_lcdesc.tsv"
+            "DataRepo/data/tests/small_obob/lcms_metadata/glucose.tsv"
         )
         self.assertTrue(isinstance(lcms_metadata2, dict))
         self.assertEqual(15, len(lcms_metadata2.keys()))
@@ -581,8 +581,7 @@ class LCMSMetadataParserMethodTests(TracebaseTestCase):
         # No error.  All annot files supplied.
         check_peak_annotation_files(
             ["small_obob_maven_6eaas_inf_glucose.xlsx"],
-            lcms_file="DataRepo/data/examples/small_dataset/"
-            "glucose_lcms_metadata_except_mzxml_and_lcdesc_no_extras.tsv",
+            lcms_file="DataRepo/data/tests/small_obob/lcms_metadata/glucose_no_extras.tsv",
             aes=aes,
         )
         self.assertEqual(0, len(aes.exceptions))
@@ -590,8 +589,7 @@ class LCMSMetadataParserMethodTests(TracebaseTestCase):
         # No error.  All annot files supplied.
         check_peak_annotation_files(
             ["small_obob_maven_6eaas_inf_glucose.xlsx"],
-            lcms_file="DataRepo/data/examples/small_dataset/"
-            "glucose_lcms_metadata_except_mzxml_and_lcdesc_unsupplied_annot.tsv",
+            lcms_file="DataRepo/data/tests/small_obob/lcms_metadata/glucose_unsupplied_annot.tsv",
             aes=aes,
         )
         self.assertEqual(1, len(aes.exceptions))
@@ -602,7 +600,7 @@ class LCMSMetadataParserMethodTests(TracebaseTestCase):
         )
         self.assertEqual(0, len(aes.exceptions[0].unmatching_peak_annot_files))
         self.assertEqual(
-            "glucose_lcms_metadata_except_mzxml_and_lcdesc_unsupplied_annot.tsv",
+            "glucose_unsupplied_annot.tsv",
             aes.exceptions[0].lcms_file,
         )
 
@@ -614,7 +612,7 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
         call_command("loaddata", "lc_methods")
         call_command(
             "load_study",
-            "DataRepo/data/examples/small_dataset/small_obob_study_prerequisites.yaml",
+            "DataRepo/data/tests/small_obob/small_obob_study_prerequisites.yaml",
         )
 
     @MaintainedModel.no_autoupdates()
@@ -622,7 +620,7 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
         call_command(
             "load_animals_and_samples",
             animal_and_sample_table_filename=(
-                "DataRepo/data/examples/small_dataset/small_obob_animal_and_sample_table.xlsx"
+                "DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx"
             ),
         )
 
@@ -640,14 +638,13 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
         self.assertEqual(0, MSRun.objects.count())
         call_command(
             "load_accucor_msruns",
-            accucor_file="DataRepo/data/examples/small_dataset/small_obob_maven_6eaas_inf_glucose.xlsx",
+            accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose.xlsx",
             instrument="default instrument",
             lc_protocol_name="polar-HILIC-25-min",
             date="2021-04-29",
             researcher="Michael Neinast",
             new_researcher=True,
-            lcms_file="DataRepo/data/examples/small_dataset/"
-            "glucose_lcms_metadata_except_mzxml_and_lcdesc_unrelated_data_only.tsv",
+            lcms_file="DataRepo/data/tests/small_obob/lcms_metadata/glucose_unrelated_data_only.tsv",
         )
         self.assertEqual(2, MSRun.objects.count())
         msr1 = MSRun.objects.first()
@@ -682,10 +679,9 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_accucor_msruns",
-                accucor_file="DataRepo/data/examples/small_dataset/small_obob_maven_6eaas_inf_glucose.xlsx",
+                accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose.xlsx",
                 new_researcher=True,
-                lcms_file="DataRepo/data/examples/small_dataset/"
-                "glucose_lcms_metadata_except_mzxml_and_lcdesc_only_reqd_col_vals.tsv",
+                lcms_file="DataRepo/data/tests/small_obob/lcms_metadata/glucose_only_reqd_col_vals.tsv",
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
@@ -703,14 +699,13 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
         self.assertEqual(0, MSRun.objects.count())
         call_command(
             "load_accucor_msruns",
-            accucor_file="DataRepo/data/examples/small_dataset/small_obob_maven_6eaas_inf_glucose.xlsx",
+            accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose.xlsx",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
             date="2021-04-29",
             researcher="Michael Neinast",
             new_researcher=True,
-            lcms_file="DataRepo/data/examples/small_dataset/"
-            "glucose_lcms_metadata_except_mzxml_and_lcdesc_only_reqd_col_vals.tsv",
+            lcms_file="DataRepo/data/tests/small_obob/lcms_metadata/glucose_only_reqd_col_vals.tsv",
         )
         self.assertEqual(2, MSRun.objects.count())
         msr1 = MSRun.objects.first()
@@ -744,10 +739,9 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
         with self.assertRaises(InvalidLCMSHeaders) as ar:
             call_command(
                 "load_accucor_msruns",
-                accucor_file="DataRepo/data/examples/small_dataset/small_obob_maven_6eaas_inf_glucose.xlsx",
+                accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose.xlsx",
                 new_researcher=True,
-                lcms_file="DataRepo/data/examples/small_dataset/"
-                "glucose_lcms_metadata_except_mzxml_and_lcdesc_missing_date_col.tsv",
+                lcms_file="DataRepo/data/tests/small_obob/lcms_metadata/glucose_missing_date_col.tsv",
             )
         ilh = ar.exception
         self.assertEqual(["date"], ilh.missing)
@@ -764,10 +758,9 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_accucor_msruns",
-                accucor_file="DataRepo/data/examples/small_dataset/small_obob_maven_6eaas_inf_glucose.xlsx",
+                accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose.xlsx",
                 new_researcher=True,
-                lcms_file="DataRepo/data/examples/small_dataset/"
-                "glucose_lcms_metadata_except_mzxml_and_lcdesc_dupe_sample_header.tsv",
+                lcms_file="DataRepo/data/tests/small_obob/lcms_metadata/glucose_dupe_sample_header.tsv",
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
@@ -782,10 +775,9 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
         call_command(
             "load_animals_and_samples",
             animal_and_sample_table_filename=(
-                "DataRepo/data/examples/small_dataset/small_obob_animal_and_sample_table.xlsx"
+                "DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx"
             ),
-            lcms_file="DataRepo/data/examples/small_dataset/"
-            "glucose_lcms_metadata_except_mzxml_and_lcdesc_pos.tsv",
+            lcms_file="DataRepo/data/tests/small_obob/lcms_metadata/glucose_pos.tsv",
         )
 
     @MaintainedModel.no_autoupdates()
@@ -798,10 +790,9 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
             call_command(
                 "load_animals_and_samples",
                 animal_and_sample_table_filename=(
-                    "DataRepo/data/examples/small_dataset/small_obob_animal_and_sample_table.xlsx"
+                    "DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx"
                 ),
-                lcms_file="DataRepo/data/examples/small_dataset/"
-                "glucose_lcms_metadata_except_mzxml_and_lcdesc_missing_db_sample.tsv",
+                lcms_file="DataRepo/data/tests/small_obob/lcms_metadata/glucose_missing_db_sample.tsv",
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
@@ -826,7 +817,7 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
         call_command("loaddata", "lc_methods")
         call_command(
             "load_study",
-            "DataRepo/data/examples/small_dataset/small_obob_study_prerequisites.yaml",
+            "DataRepo/data/tests/small_obob/small_obob_study_prerequisites.yaml",
         )
 
     @MaintainedModel.no_autoupdates()
@@ -834,7 +825,7 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
         call_command(
             "load_animals_and_samples",
             animal_and_sample_table_filename=(
-                "DataRepo/data/examples/small_dataset/small_obob_animal_and_sample_table.xlsx"
+                "DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx"
             ),
         )
 
@@ -842,7 +833,7 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
     def load_peak_annotations(self, lcms_file):
         call_command(
             "load_accucor_msruns",
-            accucor_file="DataRepo/data/examples/small_dataset/small_obob_maven_6eaas_inf_glucose.xlsx",
+            accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose.xlsx",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
             date="2021-04-29",
@@ -862,8 +853,7 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
         self.load_samples()
         with self.assertRaises(AggregatedErrors) as ar:
             self.load_peak_annotations(
-                lcms_file="DataRepo/data/examples/small_dataset/"
-                "glucose_lcms_metadata_except_mzxml_and_lcdesc_extra_hdr_no_optl_data.tsv",
+                lcms_file="DataRepo/data/tests/small_obob/lcms_metadata/glucose_extra_hdr_no_optl_data.tsv",
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
@@ -880,8 +870,7 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
         self.load_samples()
         with self.assertRaises(AggregatedErrors) as ar:
             self.load_peak_annotations(
-                lcms_file="DataRepo/data/examples/small_dataset/"
-                "glucose_lcms_metadata_except_mzxml_and_lcdesc_extra_hdr.tsv",
+                lcms_file="DataRepo/data/tests/small_obob/lcms_metadata/glucose_extra_hdr.tsv",
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
@@ -896,8 +885,7 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
         self.load_samples()
         with self.assertRaises(AggregatedErrors) as ar:
             self.load_peak_annotations(
-                lcms_file="DataRepo/data/examples/small_dataset/"
-                "glucose_lcms_metadata_except_mzxml_and_lcdesc_bad_peak_annots.tsv",
+                lcms_file="DataRepo/data/tests/small_obob/lcms_metadata/glucose_unexpected_sample.tsv",
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
@@ -907,13 +895,12 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
         # Load everything but the LCMethod fixtures
         call_command(
             "load_study",
-            "DataRepo/data/examples/small_dataset/small_obob_study_prerequisites.yaml",
+            "DataRepo/data/tests/small_obob/small_obob_study_prerequisites.yaml",
         )
         self.load_samples()
         with self.assertRaises(AggregatedErrors) as ar:
             self.load_peak_annotations(
-                lcms_file="DataRepo/data/examples/small_dataset/"
-                "glucose_lcms_metadata_except_mzxml_and_lcdesc_no_extras.tsv",
+                lcms_file="DataRepo/data/tests/small_obob/lcms_metadata/glucose_no_extras.tsv",
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
@@ -924,8 +911,7 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
         self.load_samples()
         with self.assertRaises(AggregatedErrors) as ar:
             self.load_peak_annotations(
-                lcms_file="DataRepo/data/examples/small_dataset/"
-                "glucose_lcms_metadata_except_mzxml_and_lcdesc_no_smpl_name_hdr.tsv",
+                lcms_file="DataRepo/data/tests/small_obob/lcms_metadata/glucose_no_smpl_name_hdr.tsv",
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
@@ -943,12 +929,10 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrorsSet) as ar:
             call_command(
                 "load_study",
-                "DataRepo/data/examples/small_dataset/small_obob_study_params_lcms_extra_accucor.yaml",
+                "DataRepo/data/tests/small_obob/small_obob_study_params_lcms_extra_accucor.yaml",
             )
         aess = ar.exception
-        aes = aess.aggregated_errors_dict[
-            "glucose_lcms_metadata_except_mzxml_and_lcdesc_unsupplied_annot.tsv"
-        ]
+        aes = aess.aggregated_errors_dict["lcms_metadata/glucose_unsupplied_annot.tsv"]
         self.assertEqual(AggregatedErrors, type(aes))
         self.assertEqual(1, len(aes.exceptions))
         self.assertEqual(MissingPeakAnnotationFiles, type(aes.exceptions[0]))
@@ -957,7 +941,7 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
         )
         self.assertEqual([], aes.exceptions[0].unmatching_peak_annot_files)
         self.assertEqual(
-            "glucose_lcms_metadata_except_mzxml_and_lcdesc_unsupplied_annot.tsv",
+            "glucose_unsupplied_annot.tsv",
             aes.exceptions[0].lcms_file,
         )
 
@@ -968,10 +952,9 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_accucor_msruns",
-                accucor_file="DataRepo/data/examples/small_dataset/small_obob_maven_6eaas_inf_glucose.xlsx",
+                accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose.xlsx",
                 new_researcher=True,
-                lcms_file="DataRepo/data/examples/small_dataset/"
-                "glucose_lcms_metadata_except_mzxml_and_lcdesc_msng_hdr_row.tsv",
+                lcms_file="DataRepo/data/tests/small_obob/lcms_metadata/glucose_msng_hdr_row.tsv",
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
@@ -984,14 +967,13 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_accucor_msruns",
-                accucor_file="DataRepo/data/examples/small_dataset/small_obob_maven_6eaas_inf_glucose.xlsx",
+                accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose.xlsx",
                 lc_protocol_name="polar-HILIC-25-min",
                 instrument="default instrument",
                 date="2021-04-29",
                 researcher="Michael Neinast",
                 new_researcher=True,
-                lcms_file="DataRepo/data/examples/small_dataset/"
-                "glucose_lcms_metadata_except_mzxml_and_lcdesc_no_extras.tsv",
+                lcms_file="DataRepo/data/tests/small_obob/lcms_metadata/glucose_no_extras.tsv",
                 mzxml_files=["sample1.mzxml", "sample2.mzxml"],
             )
         aes = ar.exception
@@ -1005,14 +987,13 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_accucor_msruns",
-                accucor_file="DataRepo/data/examples/small_dataset/small_obob_maven_6eaas_inf_glucose.xlsx",
+                accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose.xlsx",
                 lc_protocol_name="polar-HILIC-25-min",
                 instrument="default instrument",
                 date="2021-04-29",
                 researcher="Michael Neinast",
                 new_researcher=True,
-                lcms_file="DataRepo/data/examples/small_dataset/"
-                "glucose_lcms_metadata_except_mzxml_and_lcdesc_no_extras.tsv",
+                lcms_file="DataRepo/data/tests/small_obob/lcms_metadata/glucose_no_extras.tsv",
                 validate=True,
             )
         aes = ar.exception
@@ -1026,14 +1007,13 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_accucor_msruns",
-                accucor_file="DataRepo/data/examples/small_dataset/small_obob_maven_6eaas_inf_glucose.xlsx",
+                accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose.xlsx",
                 lc_protocol_name="polar-HILIC-25-min",
                 instrument="default instrument",
                 date="2021-04-29",
                 researcher="Michael Neinast",
                 new_researcher=True,
-                lcms_file="DataRepo/data/examples/small_dataset/"
-                "glucose_lcms_metadata_except_mzxml_and_lcdesc_unmatching_mzxmls.tsv",
+                lcms_file="DataRepo/data/tests/small_obob/lcms_metadata/glucose_unmatching_mzxmls.tsv",
                 mzxml_files=["BAT-xz971_pos.mzxml", "Br-xz971_pos.mzxml"],
                 # This is a warning in any case, but in validate mode, the exception is raised
                 validate=True,
@@ -1046,13 +1026,12 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
         # only prints a warning (not checked)
         call_command(
             "load_accucor_msruns",
-            accucor_file="DataRepo/data/examples/small_dataset/small_obob_maven_6eaas_inf_glucose.xlsx",
+            accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose.xlsx",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
             date="2021-04-29",
             researcher="Michael Neinast",
             new_researcher=True,
-            lcms_file="DataRepo/data/examples/small_dataset/"
-            "glucose_lcms_metadata_except_mzxml_and_lcdesc_unmatching_mzxmls.tsv",
+            lcms_file="DataRepo/data/tests/small_obob/lcms_metadata/glucose_unmatching_mzxmls.tsv",
             mzxml_files=["BAT-xz971_pos.mzxml", "Br-xz971_pos.mzxml"],
         )
