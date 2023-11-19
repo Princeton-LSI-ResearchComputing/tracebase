@@ -20,7 +20,7 @@ class TissueLoadingTests(TracebaseTestCase):
         """Test the load_tissue management command"""
         call_command(
             "load_tissues",
-            tissues="DataRepo/example_data/tissues/tissues.tsv",
+            tissues="DataRepo/data/examples/tissues/tissues.tsv",
         )
         self.assertEqual(Tissue.objects.count(), 37)
 
@@ -28,7 +28,7 @@ class TissueLoadingTests(TracebaseTestCase):
         """Test dry run of the load_tissue management command"""
         call_command(
             "load_tissues",
-            tissues="DataRepo/example_data/tissues/tissues.tsv",
+            tissues="DataRepo/data/examples/tissues/tissues.tsv",
             dry_run=True,
         )
         # Dry run should not load any records
@@ -39,7 +39,7 @@ class TissueLoadingTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_tissues",
-                tissues="DataRepo/example_data/testing_data/tissues/tissues_with_errors.tsv",
+                tissues="DataRepo/data/tests/tissues/tissues_with_errors.tsv",
                 verbosity=2,
             )
         aes = ar.exception

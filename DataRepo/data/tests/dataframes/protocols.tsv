@@ -1,0 +1,9 @@
+Name	Category	Description
+BYL	animal_treatment	"For protocol's full text, please consult Asael Roichman."
+BYL-719	animal_treatment	"For protocol's full text, please consult Asael Roichman."
+carboxymethylcellulose	animal_treatment	"For protocol's full text, please consult Asael Roichman."
+control_sucrose water plus saline infusion_for sucrose water plus high glycine infusion	animal_treatment	"For protocol's full text, please consult Matthew McBride."
+control_vehicle_for T3 in drinking water	animal_treatment	"For protocol's full text, please consult Michael Neinast."
+no treatment	animal_treatment	"No manipulation besides what is already described in other fields."
+sucrose water plus high glycine infusion	animal_treatment	"For protocol's full text, please consult Matthew McBride."
+T3 in drinking water	animal_treatment	"For protocol's full text, please consult Michael Neinast."

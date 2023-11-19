@@ -34,12 +34,12 @@ properties:
   lcms_metadata:
     type: object
     description: |
-      sample names linked with accucor sample headers and associated mzXML files and LCMS run metadata
+      samples linked with accucor headers, mzXML files, and LCMS metadata
     properties:
       lcms_metadata_file:
         type: string
         description: |
-          optional filename of Excel or csv file with samples, sample data headers, and run metadata
+          optional Excel or csv filename containing LCMS metadata
     additionalProperties: false
   accucor_data:
     type: object

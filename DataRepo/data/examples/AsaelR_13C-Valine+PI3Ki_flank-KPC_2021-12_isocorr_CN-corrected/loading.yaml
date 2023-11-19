@@ -1,5 +1,6 @@
 ---
-protocols: "../protocols/protocols.tsv"
+protocols: "protocols.tsv"
+compounds: "compounds.tsv"
 animals_samples_treatments:
   table: "TraceBase Animal and Sample Table Templates_AR.xlsx"
   skip_researcher_check: true  # New researcher
