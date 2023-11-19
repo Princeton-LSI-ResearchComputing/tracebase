@@ -561,7 +561,11 @@ class ViewNullToleranceTests(ViewTests):
         # Silently dis-allow auto-updates by adding a disabled coordinator
         disabled_coordinator = MaintainedModelCoordinator("disabled")
         MaintainedModel._add_coordinator(disabled_coordinator)
-        super().setUpClass()
+        try:
+            super().setUpClass()
+        except Exception as e:
+            MaintainedModel._reset_coordinators()
+            raise e
 
     def setUp(self):
         # Load data and buffer autoupdates before each test
@@ -570,7 +574,9 @@ class ViewNullToleranceTests(ViewTests):
 
     @classmethod
     def tearDownClass(cls):
+        print("TEARING DOWN CLASS")
         super().tearDownClass()
+        print("RESETTING COORDINATORS")
         MaintainedModel._reset_coordinators()
 
     def assert_coordinator_state_is_initialized(
