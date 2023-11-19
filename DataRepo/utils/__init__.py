@@ -20,6 +20,7 @@ from DataRepo.utils.exceptions import (
     HeaderConfigError,
     HeaderError,
     InvalidLCMSHeaders,
+    InvalidSampleSheetFormat,
     IsotopeObservationParsingError,
     LCMethodFixturesMissing,
     LCMSDefaultsRequired,
@@ -59,6 +60,8 @@ from DataRepo.utils.queryset_to_pandas_dataframe import (
 from DataRepo.utils.sample_table_loader import (
     LCMSDBSampleMissing,
     SampleTableLoader,
+    get_sample_names_from_file,
+    read_animal_sample_data_from_file,
 )
 from DataRepo.utils.tissues_loader import TissuesLoader
 
@@ -114,4 +117,7 @@ __all__ = [
     "DuplicateSampleDataHeaders",
     "MissingPeakAnnotationFiles",
     "MissingRequiredLCMSValues",
+    "InvalidSampleSheetFormat",
+    "read_animal_sample_data_from_file",
+    "get_sample_names_from_file",
 ]

@@ -8,8 +8,11 @@ from openpyxl.utils.exceptions import InvalidFileException
 
 from DataRepo.models.lc_method import LCMethod
 from DataRepo.utils.exceptions import (
+    DupeAnnotSampleHeaders,
     DuplicateSampleDataHeaders,
     InvalidLCMSHeaders,
+    LCMSAnnotFileConflicts,
+    MissingLCMSSampleDataHeaders,
     MissingPeakAnnotationFiles,
     MissingRequiredLCMSValues,
 )
@@ -28,18 +31,22 @@ LCMS_HEADERS = (
 )
 
 
-def lcms_df_to_dict(df, aes=None):
+def lcms_df_to_dict(
+    df, headers=None, annot_filename=None, all_samples=None, aes=None, missing_defaults=None
+):
     """
     Parse the LCMS dataframe created from an LCMS file, and key by sample data header (which must be unique).
     Takes an optional aggregated errors object.
     """
     lcms_metadata = {}
-    samples = []
+    lcms_samples = []
     dupes = {}
     missing_reqd_vals = defaultdict(list)
 
     if df is None:
         return lcms_metadata
+    if missing_defaults is None:
+        missing_defaults = []
 
     for idx, row in df.iterrows():
         # Convert empty strings to None
@@ -50,12 +57,14 @@ def lcms_df_to_dict(df, aes=None):
             ):
                 row[key] = None
 
+        # Get the sample name from the LCMS dataframe
         sample_name = row["tracebase sample name"]
         if sample_name is None:
             missing_reqd_vals["tracebase sample name"].append(idx + 2)
-        elif sample_name not in samples:
-            samples.append(sample_name)
+        elif sample_name not in lcms_samples:
+            lcms_samples.append(sample_name)
 
+        # Get the sample header from the LCMS dataframe
         sample_header = row["sample data header"]
         if sample_header is None:
             missing_reqd_vals["sample data header"].append(idx + 2)
@@ -69,35 +78,115 @@ def lcms_df_to_dict(df, aes=None):
                 ]
             continue
 
+        # Get the LCMethod name from the LCMS dataframe
         lc_name = None
         if row["lc method"] is not None and row["lc run length"] is not None:
             lc_name = LCMethod.create_name(row["lc method"], row["lc run length"])
 
+        # Get the peak annotation file from the LCMS dataframe
         peak_annot = None
         if row["peak annotation filename"] is not None:
             peak_annot = os.path.basename(row["peak annotation filename"]).strip()
 
+        # Get the LCMethod run length from the LCMS dataframe
         run_len = None
         if row["lc run length"] is not None:
             run_len = timedelta(minutes=int(row["lc run length"]))
 
-        lcms_metadata[sample_header] = {
-            "sample_header": sample_header,
-            "sample_name": sample_name,
-            "peak_annot_file": peak_annot,
-            "mzxml": row["mzxml filename"],
-            "researcher": row["operator"],
-            "instrument": row["instrument"],
-            "date": row["date"],
-            "lc_protocol_name": lc_name,
-            "lc_type": row["lc method"],
-            "lc_run_length": run_len,
-            "lc_description": row["lc description"],
-            "row_num": str(idx + 2),  # From 1, not including header row
-        }
+        lcms_metadata[sample_header] = create_lcms_metadata_value(
+            {
+                "sample_header": sample_header,
+                "sample_name": sample_name,
+                "peak_annot_file": peak_annot,
+                "mzxml": row["mzxml filename"],
+                "researcher": row["operator"],
+                "instrument": row["instrument"],
+                "date": row["date"],
+                "lc_protocol_name": lc_name,
+                "lc_type": row["lc method"],
+                "lc_run_length": run_len,
+                "lc_description": row["lc description"],
+                "row_num": str(idx + 2),  # From 1, not including header row
+            }
+        )
+
+    # If annot_filename is none, it's assumed this method is being called from the sample table loader
+    if annot_filename is not None and headers is not None:
+        # Now let's fill in defaults that are not explicitly set
+        added = {}
+        annot_dupes = {}
+        missing_headers = []
+        mismatched_annots = {}
+        for annot_header in headers:
+            if annot_header not in lcms_metadata.keys():
+                if all_samples is not None and annot_header in all_samples:
+                    lcms_metadata[annot_header] = create_lcms_metadata_value(
+                        {
+                            "sample_header": annot_header,
+                            "sample_name": annot_header,
+                            "peak_annot_file": annot_filename,
+                        }
+                    )
+                    added[annot_header] = True
+                elif annot_header not in missing_headers:
+                    missing_headers.append(annot_header)
+            elif all_samples is not None and annot_header in added.keys():
+                if annot_header not in annot_dupes.keys():
+                    annot_dupes[annot_header] = 2
+                else:
+                    annot_dupes[annot_header] += 1
+            elif all_samples is not None and annot_header in lcms_metadata.keys():
+                # Fill in annot file or look for discrepancy
+                if lcms_metadata[annot_header]["peak_annot_file"] is None:
+                    lcms_metadata[annot_header]["peak_annot_file"] = annot_filename
+                elif lcms_metadata[annot_header]["peak_annot_file"] != annot_filename:
+                    mismatched_annots[annot_header] = lcms_metadata[annot_header][
+                        "peak_annot_file"
+                    ]
+            elif all_samples is None and annot_header not in lcms_metadata.keys():
+                if annot_header not in missing_headers:
+                    missing_headers.append(annot_header)
+
+        if len(annot_dupes.keys()) > 0:
+            # These are duplicate sample headers from the peak annotation file
+            exc = DupeAnnotSampleHeaders(annot_dupes, annot_filename)
+            if aes is not None:
+                aes.buffer_error(exc)
+            else:
+                raise exc
+
+        if len(missing_headers) > 0:
+            # These are sample headers from the peak annotation file that are missing from both the sample table
+            # (all_samples is derived from the sample table) and the LCMS metadata (derived from the LCMS metadata file)
+            exc = MissingLCMSSampleDataHeaders(
+                missing_headers,
+                annot_filename,
+                missing_defaults,
+                all_samples is not None,
+            )
+            if aes is not None:
+                aes.buffer_error(exc)
+            else:
+                raise exc
+
+        if len(mismatched_annots.keys()) > 0:
+            # These are peak annotation files from the LCMS metadata (file) that do not match the peak annotation file
+            # that is being loaded, but the header from that file and the header from the LCMS metadata file match.
+            # (Note, they should be unique for the whole study.)
+            exc = LCMSAnnotFileConflicts(mismatched_annots, annot_filename)
+            if aes is not None:
+                aes.buffer_error(exc)
+            else:
+                raise exc
+    elif annot_filename is not None and headers is None:
+        exc = ValueError("The headers argument is required if annot_filename is supplied.")
+        if aes is not None:
+            aes.buffer_error(exc)
+        else:
+            raise exc
 
     if len(dupes.keys()) > 0:
-        exc = DuplicateSampleDataHeaders(dupes, lcms_metadata, samples)
+        exc = DuplicateSampleDataHeaders(dupes, lcms_metadata, lcms_samples)
         if aes is not None:
             aes.buffer_error(exc)
         else:
@@ -111,6 +200,41 @@ def lcms_df_to_dict(df, aes=None):
             raise exc
 
     return lcms_metadata
+
+
+def create_lcms_metadata_value(partial_dict):
+    """
+    Creates a full dict value for a sample header key from a partially populated dict
+    """
+    if (
+        "sample_header" not in partial_dict.keys()
+        or partial_dict["sample_header"] is None
+        or "sample_name" not in partial_dict.keys()
+        or partial_dict["sample_name"] is None
+    ):
+        raise ValueError("Both sample_name and sample_header values are required.")
+
+    full_dict = partial_dict
+    keys = [
+        "sample_header",
+        "sample_name",
+        "peak_annot_file",
+        "mzxml",
+        "researcher",
+        "instrument",
+        "date",
+        "lc_protocol_name",
+        "lc_type",
+        "lc_run_length",
+        "lc_description",
+        "row_num",  # TODO: Make sure this being None is OK
+    ]
+
+    for key in keys:
+        if key not in partial_dict.keys():
+            full_dict[key] = None
+
+    return full_dict
 
 
 def lcms_metadata_to_samples(lcms_metadata):

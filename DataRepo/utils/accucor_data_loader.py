@@ -68,7 +68,6 @@ from DataRepo.utils.exceptions import (
     SampleIndexNotFound,
     TracerLabeledElementNotFound,
     UnexpectedIsotopes,
-    UnexpectedLCMSSampleDataHeaders,
     UnskippedBlanksError,
 )
 from DataRepo.utils.lcms_metadata_parser import (
@@ -144,6 +143,7 @@ class AccuCorDataLoader:
         lc_protocol_name=None,
         mzxml_files=None,
         researcher=None,
+        all_sample_names=None,
         skip_samples=None,
         sample_name_prefix=None,
         allow_new_researchers=False,
@@ -160,11 +160,11 @@ class AccuCorDataLoader:
             self.accucor_corrected_df = accucor_corrected_df
             self.isocorr_format = isocorr_format
             self.peak_annotation_filepath = peak_annotation_file
-            self.peak_annotation_filename = (
-                None
-                if peak_annotation_filename is None
-                else peak_annotation_filename.strip()
-            )
+            self.peak_annotation_filename = None
+            if peak_annotation_filename is not None:
+                self.peak_annotation_filename = peak_annotation_filename.strip()
+            elif peak_annotation_file is not None:
+                self.peak_annotation_filename = os.path.basename(peak_annotation_file).strip()
             self.lcms_metadata_df = lcms_metadata_df
             self.lcms_metadata = {}
 
@@ -225,6 +225,8 @@ class AccuCorDataLoader:
             if sample_name_prefix is None:
                 sample_name_prefix = ""
             self.sample_name_prefix = sample_name_prefix
+            # From the sample table (a superset)
+            self.all_sample_names = all_sample_names
 
             # Modes
             self.allow_new_researchers = allow_new_researchers
@@ -377,56 +379,22 @@ class AccuCorDataLoader:
             ]
 
         # Update all of the associated LCMS metadata associated with the sample data headers
-        if self.lcms_metadata_df is not None:
-            self.lcms_metadata = lcms_df_to_dict(
-                self.lcms_metadata_df, self.aggregated_errors_object
-            )
+        self.lcms_metadata = lcms_df_to_dict(
+            df=self.lcms_metadata_df,
+            headers=self.corrected_sample_headers,
+            annot_filename=self.peak_annotation_filename,
+            all_samples=self.all_sample_names,
+            aes=self.aggregated_errors_object,
+            missing_defaults=self.get_missing_required_lcms_defaults(),
+        )
 
-            # We loop on self.lcms_metadata.keys() instead of self.corrected_sample_headers in order to catch issues
-            # where incorrect sample data headers are associated with the wrong accucor file.  This assumes that sample
-            # data headers are unique across all accucor files in a study.
-            for sample_header in self.lcms_metadata.keys():
-                # Excess sample data headers are allowed to be supplied to make it easy to supply data across multiple
-                # accucor files, but if a sample data header associated with the current accucor file in the LCMS
-                # metadata is not found among the headers in the file, buffer it as an unexpected sample data header (to
-                # be raised as an error exception)
-                if (
-                    (
-                        self.lcms_metadata[sample_header]["peak_annot_file"] is None
-                        or self.lcms_metadata[sample_header]["peak_annot_file"]
-                        == self.peak_annotation_filename
-                    )
-                    # sample data header from the LCMS metadata is not in the accucor file
-                    and sample_header not in self.corrected_sample_headers
-                ):
-                    self.unexpected_sample_headers.append(sample_header)
-
-            for sample_header in self.corrected_sample_headers:
-                if sample_header not in self.lcms_metadata.keys():
-                    self.missing_sample_headers.append(sample_header)
-
-            if len(self.missing_sample_headers) > 0:
-                # Defaults are required if any sample is missing in the lcms_metadata file
-                self.aggregated_errors_object.buffer_exception(
-                    MissingLCMSSampleDataHeaders(
-                        self.missing_sample_headers,
-                        self.peak_annotation_filename,
-                        self.get_missing_required_lcms_defaults(),
-                    ),
-                    is_error=not self.lcms_defaults_supplied(),
-                    is_fatal=not self.lcms_defaults_supplied(),
-                )
-                if not self.lcms_defaults_supplied():
-                    self.set_lcms_placeholder_defaults()
-                    # The above will raise an exception.  In order to catch more errros and skip errors cause by no
-                    # defaults, fill in temporary placeholders.
-
-            if len(self.unexpected_sample_headers) > 0:
-                self.aggregated_errors_object.buffer_error(
-                    UnexpectedLCMSSampleDataHeaders(
-                        self.unexpected_sample_headers, self.peak_annotation_filename
-                    )
-                )
+        # If there were any errors and there exist missing default values
+        if (
+            len(self.aggregated_errors_object.exceptions) > 0
+            and not self.lcms_defaults_supplied()
+        ):
+            # Fill in temporary placeholders in order to suppress errors caused by no defaults and catch more errors
+            self.set_lcms_placeholder_defaults()
 
         # Note, this intentionally fills in any that caused errors above in order to catch more errors
         incorrect_pgs_files = {}
@@ -537,7 +505,7 @@ class AccuCorDataLoader:
             self.lcms_defaults["date"] = datetime.strptime("1972-11-24", "%Y-%m-%d")
         if self.lcms_defaults["researcher"] is None:
             self.lcms_defaults["researcher"] = "anonymous"
-        if self.lcms_defaults["researcher"] is None:
+        if self.lcms_defaults["instrument"] is None:
             self.lcms_defaults["instrument"] = "placeholder instrument"
         # No need to fill in "peak_annot_file".  Without this file, nothing will load
 
@@ -677,7 +645,7 @@ class AccuCorDataLoader:
                     )
                 )
 
-                # For the sake of catching more actionale errors and not avoiding meaningless errors caused by these
+                # For the sake of catching more actionable errors and not avoiding meaningless errors caused by these
                 # samples missing in the original sheet, remove the samples that are missing from the corrected_samples
                 # and process what we can.
                 self.corrected_sample_headers = [
@@ -976,6 +944,7 @@ class AccuCorDataLoader:
                     [sample_data_header],
                     self.peak_annotation_filename,
                     self.get_missing_required_lcms_defaults(),
+                    sample_table_provided=len(self.all_sample_names) > 0,
                 )
             )
             # Create an unknown record in order to proceed and catch more errors

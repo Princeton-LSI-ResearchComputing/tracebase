@@ -1318,18 +1318,33 @@ class UnexpectedLCMSSampleDataHeaders(Exception):
 
 
 class MissingLCMSSampleDataHeaders(Exception):
-    def __init__(self, missing, peak_annot_file, missing_defaults):
+    def __init__(
+        self, missing, peak_annot_file, missing_defaults, sample_table_provided
+    ):
         using_defaults = len(missing_defaults) == 0
+        nlt = "\n\t"
         message = (
             f"The following sample data headers in the peak annotation file [{peak_annot_file}], were not found in the "
-            f"LCMS metadata supplied: {missing}.  "
+            "LCMS metadata:\n"
+            f"\t{nlt.join(missing)}\n"
         )
-        if using_defaults:
-            message += "Falling back to supplied defaults."
+        if sample_table_provided:
+            message += (
+                "The sample headers from the peak annotation file did not match the samples from the sample table "
+                "file, so the missing headers will have to be added to the LCMS metadata file and associated with "
+                "existing samples in the sample table."
+            )
         else:
             message += (
-                "Either add the sample data headers to the LCMS metadata or provide default values for: "
-                f"{missing_defaults}."
+                "Providing a sample table file can potentially resolve this issue if the peak annotation file's "
+                "headers match the sample names.  If there is a mismatch, the sample name and header must be added to "
+                "an/the LCMS metadata file."
+            )
+        if using_defaults is False:
+            message += (
+                "Additionally, if the full LCMS metadata is not provided for the missing samples (i.e. a sample table "
+                "file is used to account for the missing sample headers), default values for the following options "
+                f"will need to be provided: {missing_defaults}."
             )
         super().__init__(message)
         self.missing = missing
@@ -1527,3 +1542,43 @@ class LCMSDBSampleMissing(Exception):
         )
         super().__init__(message)
         self.lcms_samples_missing = lcms_samples_missing
+
+
+class InvalidSampleSheetFormat(Exception):
+    def __init__(self, fmt=None, choices=None, mthd="File suffix", msg=None):
+        if msg is not None:
+            message = msg
+        elif fmt is not None and choices is not None:
+            message = f"{mthd} [{fmt}] must be one of {choices}"
+        else:
+            message = "Invalid format."
+        super().__init__(message)
+        self.fmt = fmt
+        self.choices = choices
+        self.mthd = mthd
+        self.msg = msg
+
+
+class LCMSAnnotFileConflicts(Exception):
+    def __init__(self, mismatches, annot_filename):
+        deets = "\n\t".join([f"{k}: {v}" for k, v in mismatches.items()])
+        message = (
+            f"The following sample headers in peak annotation file [{annot_filename}] were found in the LCMS metadata "
+            f"file associated with a different peak annotation file:\n\t{deets}\nMake sure your peak annotation file "
+            "sample headers are unique throughout the entire study and update the LCMS metadata file to match."
+        )
+        super().__init__(message)
+        self.mismatches = mismatches
+        self.annot_filename = annot_filename
+
+
+class DupeAnnotSampleHeaders(Exception):
+    def __init__(self, annot_dupes, annot_filename):
+        deets = "\n\t".join([f"{k}: {v}" for k, v in annot_dupes.items()])
+        message = (
+            f"The following duplicate sample headers were found in peak annotation file [{annot_filename}] the "
+            f"indicated number of times:\n\t{deets}"
+        )
+        super().__init__(message)
+        self.annot_dupes = annot_dupes
+        self.annot_filename = annot_filename

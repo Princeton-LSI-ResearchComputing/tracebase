@@ -1,5 +1,4 @@
 import argparse
-import pathlib
 from zipfile import BadZipFile
 
 import pandas as pd
@@ -12,7 +11,11 @@ from DataRepo.models.hier_cached_model import (
     enable_caching_updates,
 )
 from DataRepo.models.maintained_model import MaintainedModel
-from DataRepo.utils import SampleTableLoader
+from DataRepo.utils import (
+    InvalidSampleSheetFormat,
+    SampleTableLoader,
+    read_animal_sample_data_from_file,
+)
 from DataRepo.utils.lcms_metadata_parser import (
     extract_dataframes_from_lcms_tsv,
     extract_dataframes_from_lcms_xlsx,
@@ -147,18 +150,24 @@ class Command(BaseCommand):
             )
 
         self.stdout.write(self.style.MIGRATE_HEADING("Loading animals..."))
-        animals = read_from_file(
-            animal_table_filename,
-            dtype={headers.ANIMAL_NAME: str, headers.ANIMAL_TREATMENT: str},
-            sheet="Animals",
-        )
+        try:
+            animals = read_animal_sample_data_from_file(
+                animal_table_filename,
+                dtype={headers.ANIMAL_NAME: str, headers.ANIMAL_TREATMENT: str},
+                sheet="Animals",
+            )
+        except InvalidSampleSheetFormat as issf:
+            raise CommandError(f"{type(issf).__name__}: {issf}")
 
         self.stdout.write(self.style.MIGRATE_HEADING("Loading samples..."))
-        samples = read_from_file(
-            filename=sample_table_filename,
-            dtype={headers.ANIMAL_NAME: str},
-            sheet="Samples",
-        )
+        try:
+            samples = read_animal_sample_data_from_file(
+                filename=sample_table_filename,
+                dtype={headers.ANIMAL_NAME: str},
+                sheet="Samples",
+            )
+        except InvalidSampleSheetFormat as issf:
+            raise CommandError(f"{type(issf).__name__}: {issf}")
 
         # merge the two files/dataframes together on Animal ID
         self.stdout.write(
@@ -183,33 +192,3 @@ class Command(BaseCommand):
         )
 
         self.stdout.write(self.style.SUCCESS("Done loading sample table"))
-
-
-def read_from_file(filename, dtype, format=None, sheet=0):
-    """
-    Read sample data from a file and return a pandas dataframe
-    """
-    format_choices = ("tsv", "xlsx")
-    if format is None:
-        format = pathlib.Path(filename).suffix.strip(".")
-    if format == "tsv":
-        sample_data = pd.read_table(
-            filename,
-            dtype=dtype,
-            keep_default_na=False,
-        )
-    elif format == "xlsx":
-        sample_data = pd.read_excel(
-            filename,
-            sheet_name=sheet,
-            dtype=dtype,
-            keep_default_na=False,
-            engine="openpyxl",
-        )
-    else:
-        raise CommandError(
-            'Invalid file format reading samples: "%s", expected one of %s',
-            format_choices,
-            format,
-        )
-    return sample_data

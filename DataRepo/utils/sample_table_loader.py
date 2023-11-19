@@ -1,4 +1,6 @@
+import pathlib
 import re
+import warnings
 from collections import defaultdict, namedtuple
 from datetime import timedelta
 
@@ -34,6 +36,7 @@ from DataRepo.utils.exceptions import (
     DryRun,
     DuplicateValues,
     HeaderConfigError,
+    InvalidSampleSheetFormat,
     LCMSDBSampleMissing,
     MissingTissues,
     NoConcentrations,
@@ -1048,3 +1051,70 @@ class SampleTableLoader:
                 val = None
 
         return val
+
+
+def read_animal_sample_data_from_file(filename, dtype, format=None, sheet=0):
+    """
+    Read sample data from a file and return a pandas dataframe
+    """
+    format_choices = ["tsv", "xlsx"]
+    if format is None:
+        format = pathlib.Path(filename).suffix.strip(".")
+    elif format not in format_choices:
+        raise InvalidSampleSheetFormat(
+            mthd="Supplied format", fmt=format, choices=format_choices
+        )
+
+    if format == "tsv":
+        sample_data = pd.read_table(
+            filename,
+            dtype=dtype,
+            keep_default_na=False,
+        )
+    elif format == "xlsx":
+        # stackoverflow.com/questions/53965596/python-3-openpyxl-userwarning-data-validation-extension-not-supported
+        warnings.filterwarnings(
+            "ignore",
+            message="Data Validation extension is not supported and will be removed",
+            category=UserWarning,
+            module="openpyxl",
+            lineno=0,
+            append=False,
+        )
+
+        sample_data = pd.read_excel(
+            filename,
+            sheet_name=sheet,
+            dtype=dtype,
+            keep_default_na=False,
+            engine="openpyxl",
+        )
+
+        warnings.resetwarnings()
+    else:
+        raise InvalidSampleSheetFormat(
+            mthd="File suffix", fmt=format, choices=format_choices
+        )
+
+    return sample_data
+
+
+def get_sample_names_from_file(
+    filename, dtype=None, header=None, format=None, sheet="Samples"
+):
+    """
+    Parse the sample table file and return a list of sample names
+    """
+    if header is None:
+        header = SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_NAME
+    if dtype is None:
+        dtype = {header: str}
+
+    samples_df = read_animal_sample_data_from_file(
+        filename=filename,
+        dtype=dtype,
+        sheet=sheet,
+        format=format,
+    )
+
+    return samples_df[header].tolist()

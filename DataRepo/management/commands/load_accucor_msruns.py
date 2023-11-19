@@ -4,7 +4,7 @@ from zipfile import BadZipFile
 
 import pandas as pd
 from django.core.exceptions import ValidationError
-from django.core.management import BaseCommand
+from django.core.management import BaseCommand, CommandError
 from openpyxl.utils.exceptions import InvalidFileException
 
 from DataRepo.models.hier_cached_model import (
@@ -14,8 +14,11 @@ from DataRepo.models.hier_cached_model import (
 from DataRepo.models.maintained_model import MaintainedModel
 from DataRepo.utils import (
     AccuCorDataLoader,
+    InvalidSampleSheetFormat,
+    SampleTableLoader,
     extract_dataframes_from_lcms_tsv,
     extract_dataframes_from_lcms_xlsx,
+    get_sample_names_from_file,
 )
 from DataRepo.utils.exceptions import WrongExcelSheet
 
@@ -40,6 +43,28 @@ class Command(BaseCommand):
             action="store_true",
             default=False,
             help="Supply this flag if the file supplied to --accucor-file is an Isocorr csv format file.",
+        )
+        parser.add_argument(
+            "--animal-and-sample-table-filename",
+            required=False,
+            type=str,
+            help="Excel file containing a column of sample names (sheet 2), of which the accucor file has a subset.  "
+            "See --sample-header to set the column header name.  Mutually exclusive with --sample-table-filename.",
+        )
+        parser.add_argument(
+            "--sample-table-filename",
+            required=False,
+            type=str,
+            help="File containing a column of sample names, of which the accucor file has a subset.  See --sample-"
+            "header to set the column header name.  Mutually exclusive with --animal-and-sample-table-filename.",
+        )
+        parser.add_argument(
+            "--sample-header",
+            type=str,
+            help="Sample name column header in the sample table (see --animal-and-sample-table-filename and "
+            "--sample-table-filename).",
+            default=SampleTableLoader.DefaultSampleTableHeaders.SAMPLE_NAME,
+            required=False,
         )
         parser.add_argument(
             "--lcms-file",
@@ -163,7 +188,7 @@ class Command(BaseCommand):
 
         # This name is used internally by the validation interface because the form renames the file with a random hash
         # value that is unrecognizable to users in an error
-        peak_annotation_filename = os.path.basename(options["accucor_file"]).strip()
+        peak_annotation_filename = os.path.basename(peak_annotation_file).strip()
         if options["accucor_file_name"] is not None:
             peak_annotation_filename = options["accucor_file_name"]
 
@@ -173,6 +198,28 @@ class Command(BaseCommand):
                 os.path.basename(mzxmlf).strip() for mzxmlf in options["mzxml_files"]
             ]
 
+        sample_names_superlist = None
+        if options["animal_and_sample_table_filename"]:
+            sample_table_filename = options["animal_and_sample_table_filename"]
+        elif options["sample_table_filename"]:
+            sample_table_filename = options["sample_table_filename"]
+        elif lcms_metadata_df is None:
+            raise CommandError(
+                "Either a sample table file (--animal-and-sample-table-filename or --sample-table-filename) or a fully "
+                "populated LCMS metadata file (--lcms-file) is required."
+            )
+        else:
+            sample_table_filename = None
+
+        if sample_table_filename is not None:
+            try:
+                sample_names_superlist = get_sample_names_from_file(
+                    sample_table_filename,
+                    header=options["sample_header"],
+                )
+            except InvalidSampleSheetFormat as issf:
+                raise CommandError(f"{type(issf).__name__}: {issf}")
+
         loader = AccuCorDataLoader(
             # Peak annotation file data
             isocorr_format=options["isocorr_format"],
@@ -181,7 +228,7 @@ class Command(BaseCommand):
             peak_annotation_file=peak_annotation_file,
             # LCMS metadata
             lcms_metadata_df=lcms_metadata_df,
-            # LCMS batch defaults
+            # LCMS defaults
             date=options["date"],
             lc_protocol_name=options["lc_protocol_name"],
             researcher=options["researcher"],
@@ -189,6 +236,7 @@ class Command(BaseCommand):
             mzxml_files=mzxml_files,
             peak_annotation_filename=peak_annotation_filename,
             # Sample options
+            all_sample_names=sample_names_superlist,  # From sample table file
             skip_samples=options["skip_samples"],
             sample_name_prefix=options["sample_name_prefix"],
             # Modes
