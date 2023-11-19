@@ -20,7 +20,7 @@ from DataRepo.utils.lcms_metadata_parser import (
 
 
 class Command(BaseCommand):
-    examples_dir = "DataRepo/example_data/"
+    examples_dir = "DataRepo/data/examples/"
     example_animals = examples_dir + "obob_animals_table.tsv"
     example_samples = examples_dir + "obob_samples_table.tsv"
     example_yaml = examples_dir + "sample_and_animal_tables_headers.yaml"

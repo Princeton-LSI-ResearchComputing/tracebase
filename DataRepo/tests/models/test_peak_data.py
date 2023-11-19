@@ -50,9 +50,7 @@ class PeakDataData(TracebaseTestCase):
             date=datetime.now(),
             sample=smpl,
         )
-        path = Path(
-            "DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf.xlsx"
-        )
+        path = Path("DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf.xlsx")
         with path.open(mode="rb") as f:
             myfile = File(f, name=path.name)
             ms_peak_annotation = DataType.objects.get(code="ms_peak_annotation")
