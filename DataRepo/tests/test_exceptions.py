@@ -537,3 +537,8 @@ class AggregatedErrorsTests(TracebaseTestCase):
             "\nAn additional AggregatedErrors object was merged with this one.  The appended trace is:\n\n",
             aes1.buffered_tb_str,
         )
+
+    def test_exception_type_exists(self):
+        aes = AggregatedErrors(errors=[ValueError("Test error")])
+        self.assertTrue(aes.exception_type_exists(ValueError))
+        self.assertFalse(aes.exception_type_exists(AttributeError))

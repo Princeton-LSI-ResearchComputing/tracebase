@@ -51,12 +51,13 @@ def assert_coordinator_state_is_initialized():
 class ViewTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls, disabled_coordinator=False):
-        call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
+        call_command("loaddata", "lc_methods")
+        call_command("load_study", "DataRepo/data/examples/tissues/loading.yaml")
         cls.ALL_TISSUES_COUNT = 37
 
         call_command(
             "load_compounds",
-            compounds="DataRepo/example_data/small_dataset/small_obob_compounds.tsv",
+            compounds="DataRepo/data/tests/small_obob/small_obob_compounds.tsv",
         )
         cls.ALL_COMPOUNDS_COUNT = 3
 
@@ -67,8 +68,8 @@ class ViewTests(TracebaseTestCase):
 
         call_command(
             "load_samples",
-            "DataRepo/example_data/small_dataset/small_obob_sample_table.tsv",
-            sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
+            "DataRepo/data/tests/small_obob/small_obob_sample_table.tsv",
+            sample_table_headers="DataRepo/data/examples/sample_table_headers.yaml",
         )
         # not counting the header and BLANK samples
         cls.ALL_SAMPLES_COUNT = 15
@@ -77,8 +78,9 @@ class ViewTests(TracebaseTestCase):
 
         call_command(
             "load_accucor_msruns",
-            protocol="Default",
-            accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf.xlsx",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="default instrument",
+            accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf.xlsx",
             date="2021-06-03",
             researcher="Michael Neinast",
             new_researcher=True,
@@ -90,8 +92,9 @@ class ViewTests(TracebaseTestCase):
 
         call_command(
             "load_accucor_msruns",
-            protocol="Default",
-            accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_serum.xlsx",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="default instrument",
+            accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_serum.xlsx",
             date="2021-06-03",
             researcher="Michael Neinast",
             new_researcher=False,
@@ -642,10 +645,11 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         # Ensure the auto-update buffer is empty.  If it's not, then a previously run test didn't clean up after itself
         assert_coordinator_state_is_initialized()
 
-        call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
+        call_command("loaddata", "lc_methods")
+        call_command("load_study", "DataRepo/data/examples/tissues/loading.yaml")
         call_command(
             "load_compounds",
-            compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
+            compounds="DataRepo/data/examples/consolidated_tracebase_compound_list.tsv",
         )
 
     @classmethod
@@ -687,21 +691,22 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         """
         Do a file validation test
         """
-        # Load the necessary tissues & compounds for a successful test
-        call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
+        # Load the necessary records for a successful test
+        call_command("loaddata", "lc_methods")
+        call_command("load_study", "DataRepo/data/examples/tissues/loading.yaml")
         call_command(
             "load_compounds",
-            compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
+            compounds="DataRepo/data/examples/consolidated_tracebase_compound_list.tsv",
         )
 
         # Files/inputs we will test
-        sf = "DataRepo/example_data/data_submission_good/animal_sample_table.xlsx"
+        sf = "DataRepo/data/tests/data_submission/animal_sample_good.xlsx"
         afs = [
-            "DataRepo/example_data/data_submission_good/accucor1.xlsx",
-            "DataRepo/example_data/data_submission_good/accucor2.xlsx",
+            "DataRepo/data/tests/data_submission/accucor1.xlsx",
+            "DataRepo/data/tests/data_submission/accucor2.xlsx",
         ]
 
-        sfkey = "animal_sample_table.xlsx"
+        sfkey = "animal_sample_good.xlsx"
         af1key = "accucor1.xlsx"
         af2key = "accucor2.xlsx"
 
@@ -732,33 +737,51 @@ class ValidationViewTests(TracebaseTransactionTestCase):
 
         # Load some data that should cause a researcher warning during validation (an unknown researcher error will not
         # be raised if there are no researchers loaded in the database)
+        call_command("loaddata", "lc_methods")
         call_command(
             "load_samples",
-            "DataRepo/example_data/small_dataset/small_obob_sample_table.tsv",
-            sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
+            "DataRepo/data/tests/small_obob/small_obob_sample_table.tsv",
+            sample_table_headers="DataRepo/data/examples/sample_table_headers.yaml",
             validate=True,
         )
         call_command(
             "load_accucor_msruns",
-            protocol="Default",
-            accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf.xlsx",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="default instrument",
+            accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf.xlsx",
             date="2021-06-03",
             researcher="Michael Neinast",
             new_researcher=True,
             validate=True,
+            mzxml_files=[
+                "BAT-xz971.mzxml",
+                "Br-xz971.mzxml",
+                "Dia-xz971.mzxml",
+                "gas-xz971.mzxml",
+                "gWAT-xz971.mzxml",
+                "H-xz971.mzxml",
+                "Kid-xz971.mzxml",
+                "Liv-xz971.mzxml",
+                "Lu-xz971.mzxml",
+                "Pc-xz971.mzxml",
+                "Q-xz971.mzxml",
+                "SI-xz971.mzxml",
+                "Sol-xz971.mzxml",
+                "Sp-xz971.mzxml",
+            ],
         )
 
         # Ensure the auto-update buffer is empty.  If it's not, then a previously run test didn't clean up after itself
         self.assert_coordinator_state_is_initialized()
 
         # Files/inputs we will test
-        sf = "DataRepo/example_data/data_submission_sample_unkres_acc_good/animal_sample_table.xlsx"
+        sf = "DataRepo/data/tests/data_submission/animal_sample_unknown_researcher.xlsx"
         afs = [
-            "DataRepo/example_data/data_submission_sample_unkres_acc_good/accucor1.xlsx",
-            "DataRepo/example_data/data_submission_sample_unkres_acc_good/accucor2.xlsx",
+            "DataRepo/data/tests/data_submission/accucor1.xlsx",
+            "DataRepo/data/tests/data_submission/accucor2.xlsx",
         ]
 
-        sfkey = "animal_sample_table.xlsx"
+        sfkey = "animal_sample_unknown_researcher.xlsx"
         af1key = "accucor1.xlsx"
         af2key = "accucor2.xlsx"
 
@@ -820,12 +843,10 @@ class ValidationViewTests(TracebaseTransactionTestCase):
             "DataRepo.models"
         )
 
-        sample_file = (
-            "DataRepo/example_data/data_submission_good/animal_sample_table.xlsx"
-        )
+        sample_file = "DataRepo/data/tests/data_submission/animal_sample_good.xlsx"
         accucor_files = [
-            "DataRepo/example_data/data_submission_good/accucor1.xlsx",
-            "DataRepo/example_data/data_submission_good/accucor2.xlsx",
+            "DataRepo/data/tests/data_submission/accucor1.xlsx",
+            "DataRepo/data/tests/data_submission/accucor2.xlsx",
         ]
 
         self.validate_some_files(sample_file, accucor_files)
@@ -844,7 +865,7 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         Test to ensure that tissues load in both databases by default
         """
         self.clear_database()
-        call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
+        call_command("load_study", "DataRepo/data/examples/tissues/loading.yaml")
         self.assertGreater(Tissue.objects.all().count(), 0)
 
     @override_settings(VALIDATION_ENABLED=False)
@@ -869,9 +890,11 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         self.clear_database()
         self.initialize_databases()
 
-        sample_file = "DataRepo/example_data/small_dataset/small_obob_animal_and_sample_table.xlsx"
+        sample_file = (
+            "DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx"
+        )
         accucor_files = [
-            "DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_req_prefix.xlsx",
+            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_req_prefix.xlsx",
         ]
         sfkey = "small_obob_animal_and_sample_table.xlsx"
         afkey = "small_obob_maven_6eaas_inf_req_prefix.xlsx"
@@ -969,17 +992,16 @@ class ValidationViewTests(TracebaseTransactionTestCase):
                     #     "isocorr_format": False,  # Set by self.add_ms_data()
                     # },
                 ],
-                "msrun_protocol": "Default",
                 "date": "1972-11-24",
                 "researcher": "anonymous",
                 "new_researcher": False,
             },
         }
 
-        sf = "DataRepo/example_data/data_submission_good/animal_sample_table.xlsx"
+        sf = "DataRepo/data/tests/data_submission/animal_sample_good.xlsx"
         afs = [
-            "DataRepo/example_data/data_submission_good/accucor1.xlsx",
-            "DataRepo/example_data/data_submission_good/accucor2.xlsx",
+            "DataRepo/data/tests/data_submission/accucor1.xlsx",
+            "DataRepo/data/tests/data_submission/accucor2.xlsx",
         ]
 
         dvv = DataValidationView()

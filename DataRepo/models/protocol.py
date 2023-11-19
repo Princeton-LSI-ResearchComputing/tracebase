@@ -2,10 +2,8 @@ from django.db import models
 
 
 class Protocol(models.Model):
-    MSRUN_PROTOCOL = "msrun_protocol"
     ANIMAL_TREATMENT = "animal_treatment"
     CATEGORY_CHOICES = [
-        (MSRUN_PROTOCOL, "LC-MS Run Protocol"),
         (ANIMAL_TREATMENT, "Animal Treatment"),
     ]
 
@@ -24,8 +22,7 @@ class Protocol(models.Model):
     category = models.CharField(
         max_length=256,
         choices=CATEGORY_CHOICES,
-        help_text="Classification of the protocol, "
-        "e.g. an animal treatment or MSRun procedure.",
+        help_text="Classification of the protocol, " "e.g. an animal treatment.",
     )
 
     @classmethod
@@ -39,6 +36,9 @@ class Protocol(models.Model):
         retrieve or create a protocol, based on input.
         protocol_input can either be a name or an integer (protocol_id)
         """
+
+        if protocol_input is None:
+            raise ValueError("protocol_input cannot be None.")
 
         created = False
 

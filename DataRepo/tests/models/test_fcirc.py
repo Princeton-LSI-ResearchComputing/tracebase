@@ -13,7 +13,6 @@ from DataRepo.models import (
     MSRun,
     PeakGroup,
     PeakGroupLabel,
-    Protocol,
     Sample,
 )
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
@@ -41,20 +40,22 @@ class FCircTests(TracebaseTestCase):
 
     @classmethod
     def setUpTestData(cls):
-        call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
+        call_command("loaddata", "lc_methods")
+        call_command("load_study", "DataRepo/data/examples/tissues/loading.yaml")
         call_command(
             "load_compounds",
-            compounds="DataRepo/example_data/small_dataset/small_obob_compounds.tsv",
+            compounds="DataRepo/data/tests/small_obob/small_obob_compounds.tsv",
         )
         call_command(
             "load_samples",
-            "DataRepo/example_data/small_dataset/small_obob_sample_table_serum_only.tsv",
-            sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
+            "DataRepo/data/tests/small_obob/small_obob_sample_table_serum_only.tsv",
+            sample_table_headers="DataRepo/data/examples/sample_table_headers.yaml",
         )
         call_command(
             "load_accucor_msruns",
-            protocol="Default",
-            accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_serum.xlsx",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="default instrument",
+            accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_serum.xlsx",
             date="2021-06-03",
             researcher="Michael Neinast",
             new_researcher=True,
@@ -99,17 +100,11 @@ class FCircTests(TracebaseTestCase):
             1. Confirm all FCirc.is_last values related to the old serum sample are now false.
         """
 
-        # Create new protocol, msrun, peak group, and peak group labels
-        ptl = Protocol.objects.create(
-            name="p1",
-            description="p1desc",
-            category=Protocol.MSRUN_PROTOCOL,
-        )
+        # Create new msrun, peak group, and peak group labels
         msr = MSRun.objects.create(
             researcher="Anakin Skywalker",
             date=datetime.now(),
             sample=self.newlss,
-            protocol=ptl,
         )
 
         for tracer in self.lss.animal.infusate.tracers.all():
@@ -306,17 +301,11 @@ class FCircTests(TracebaseTestCase):
         self.newlss.save()
 
         # To get to the prev_smpl_tmclctd_is_none_amng_many state of 1, there must exist peakgroups for newlss
-        # Create new protocol, msrun, peak group, and peak group labels
-        ptl = Protocol.objects.create(
-            name="p1",
-            description="p1desc",
-            category=Protocol.MSRUN_PROTOCOL,
-        )
+        # Create new msrun, peak group, and peak group labels
         msr = MSRun.objects.create(
             researcher="Anakin Skywalker",
             date=datetime.now(),
             sample=self.newlss,
-            protocol=ptl,
         )
 
         for tracer in self.lss.animal.infusate.tracers.all():

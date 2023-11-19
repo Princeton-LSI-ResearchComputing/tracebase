@@ -1,7 +1,7 @@
 from django.core.management import call_command
 
 from DataRepo.management.commands.build_caches import cached_function_call
-from DataRepo.models import Animal, MSRun, PeakGroup, Sample
+from DataRepo.models import Animal, MaintainedModel, MSRun, PeakGroup, Sample
 from DataRepo.models.hier_cached_model import (
     delete_all_caches,
     disable_caching_retrievals,
@@ -16,38 +16,43 @@ from DataRepo.models.hier_cached_model import (
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
+@MaintainedModel.no_autoupdates()
 def load_data():
     load_minimum_data()
     call_command(
         "load_accucor_msruns",
-        protocol="Default",
-        accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_serum.xlsx",
+        lc_protocol_name="polar-HILIC-25-min",
+        instrument="default instrument",
+        accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_serum.xlsx",
         date="2021-06-03",
         researcher="Michael Neinast",
         new_researcher=False,
     )
 
 
+@MaintainedModel.no_autoupdates()
 def load_minimum_data():
-    call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
+    call_command("loaddata", "lc_methods")
+    call_command("load_study", "DataRepo/data/examples/tissues/loading.yaml")
     call_command(
         "load_compounds",
-        compounds="DataRepo/example_data/small_dataset/small_obob_compounds.tsv",
+        compounds="DataRepo/data/tests/small_obob/small_obob_compounds.tsv",
     )
     call_command(
         "load_samples",
-        "DataRepo/example_data/small_dataset/small_obob_sample_table.tsv",
-        sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
+        "DataRepo/data/tests/small_obob/small_obob_sample_table.tsv",
+        sample_table_headers="DataRepo/data/examples/sample_table_headers.yaml",
     )
     call_command(
         "load_samples",
-        "DataRepo/example_data/small_dataset/small_obob_sample_table_2ndstudy.tsv",
-        sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
+        "DataRepo/data/tests/small_obob/small_obob_sample_table_2ndstudy.tsv",
+        sample_table_headers="DataRepo/data/examples/sample_table_headers.yaml",
     )
     call_command(
         "load_accucor_msruns",
-        protocol="Default",
-        accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf.xlsx",
+        lc_protocol_name="polar-HILIC-25-min",
+        instrument="default instrument",
+        accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf.xlsx",
         date="2021-06-03",
         researcher="Michael Neinast",
         new_researcher=True,

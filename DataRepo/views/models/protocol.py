@@ -22,23 +22,6 @@ class AnimalTreatmentListView(ListView):
         return queryset
 
 
-class MSRunProtocolListView(ListView):
-    """
-    Generic class-based view for MSRun protocols
-    """
-
-    model = Protocol
-    context_object_name = "msrun_protocol_list"
-    template_name = "DataRepo/msrun_protocols.html"
-
-    def get_queryset(self):
-        queryset = super().get_queryset()
-        queryset = Protocol.objects.filter(category=Protocol.MSRUN_PROTOCOL).order_by(
-            "name"
-        )
-        return queryset
-
-
 class ProtocolDetailView(DetailView):
     """Generic class-based detail view for a protocol"""
 
@@ -59,14 +42,6 @@ class ProtocolDetailView(DetailView):
         if self.object.category == Protocol.ANIMAL_TREATMENT:
             proto_display = "Animal Treatment"
             study_list = stud_msrun_df[stud_msrun_df["treatment_id"] == pk]["study_id"]
-            per_proto_stud_list_stats_df = stud_list_stats_df[
-                stud_list_stats_df["study_id"].isin(study_list)
-            ]
-        elif self.object.category == Protocol.MSRUN_PROTOCOL:
-            proto_display = "MSRun Protocol"
-            study_list = stud_msrun_df[stud_msrun_df["msrun_protocol_id"] == pk][
-                "study_id"
-            ]
             per_proto_stud_list_stats_df = stud_list_stats_df[
                 stud_list_stats_df["study_id"].isin(study_list)
             ]

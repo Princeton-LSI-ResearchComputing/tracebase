@@ -25,7 +25,7 @@ class LoadCompoundsTests(TracebaseTestCase):
 
     @classmethod
     def setUpTestData(cls):
-        call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
+        call_command("load_study", "DataRepo/data/examples/tissues/loading.yaml")
         super().setUpTestData()
 
     def test_compound_loading(self):
@@ -37,7 +37,7 @@ class LoadCompoundsTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_compounds",
-                compounds="DataRepo/example_data/testing_data/test_study_1/test_study_1_compounds_dupes.tsv",
+                compounds="DataRepo/data/tests/compounds/test_study_1_compounds_dupes.tsv",
             )
         aes = ar.exception
         self.assertEqual(2, len(aes.exceptions))
@@ -55,10 +55,10 @@ class CompoundLoadingTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
         primary_compound_file = (
-            "DataRepo/example_data/consolidated_tracebase_compound_list.tsv"
+            "DataRepo/data/examples/consolidated_tracebase_compound_list.tsv"
         )
 
-        call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
+        call_command("load_study", "DataRepo/data/examples/tissues/loading.yaml")
         try:
             call_command(
                 "load_compounds",
@@ -105,8 +105,9 @@ class CompoundLoadingTests(TracebaseTestCase):
         )
 
     def test_nonsense_synonym_retrieval(self):
-        synonymous_compound = Compound.compound_matching_name_or_synonym("nonsense")
-        self.assertIsNone(synonymous_compound)
+        with self.assertRaises(Compound.DoesNotExist) as ar:
+            Compound.compound_matching_name_or_synonym("nonsense")
+        self.assertIn("nonsense", str(ar.exception))
 
     @tag("compound_for_row")
     def test_new_synonyms_added_to_existing_compound(self):
@@ -303,7 +304,7 @@ class CompoundLoadingTests(TracebaseTestCase):
 class CompoundsLoaderTests(TracebaseTestCase):
     def get_dataframe(self):
         return pd.read_csv(
-            "DataRepo/example_data/testing_data/short_compound_list.tsv",
+            "DataRepo/data/tests/compounds/short_compound_list.tsv",
             sep="\t",
             keep_default_na=False,
         )
@@ -353,10 +354,10 @@ class CompoundsLoaderTests(TracebaseTestCase):
 class CompoundValidationLoadingTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
-        call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
+        call_command("load_study", "DataRepo/data/examples/tissues/loading.yaml")
         call_command(
             "load_compounds",
-            compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
+            compounds="DataRepo/data/examples/consolidated_tracebase_compound_list.tsv",
             dry_run=True,
             verbosity=0,
         )
