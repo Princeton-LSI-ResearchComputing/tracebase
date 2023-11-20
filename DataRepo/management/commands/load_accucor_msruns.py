@@ -130,6 +130,14 @@ class Command(BaseCommand):
             help=argparse.SUPPRESS,
             default=None,
         )
+        # Used internally by the validation view, as temporary data should not trigger cache deletions
+        parser.add_argument(
+            "--skip-cache-updates",
+            required=False,
+            action="store_true",
+            default=False,
+            help=argparse.SUPPRESS,
+        )
 
     @MaintainedModel.defer_autoupdates(
         disable_opt_names=["validate", "dry_run"],
@@ -196,6 +204,7 @@ class Command(BaseCommand):
             validate=options["validate"],
             verbosity=options["verbosity"],
             dry_run=options["dry_run"],
+            update_caches=not options["skip_cache_updates"],
         )
 
         loader.load_accucor_data()

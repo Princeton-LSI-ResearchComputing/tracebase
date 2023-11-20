@@ -6,12 +6,10 @@ from threading import local
 from typing import Dict, List
 
 from django.conf import settings
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
 from django.db.models import Model
 from django.db.models.signals import m2m_changed
-from django.db.transaction import TransactionManagementError
-from django.db.utils import IntegrityError
-from psycopg2.errors import ForeignKeyViolation
 
 
 class MaintainedModelCoordinator:
@@ -242,7 +240,7 @@ class MaintainedModelCoordinator:
     # Added transaction.atomic, because even after catching an intentional AutoUpdateFailed in test
     # DataRepo.tests.models.test_infusate.MaintainedModelImmediateTests.test_error_when_buffer_not_clear and ending the
     # test successfully, the django post test teardown code was re-encountering the exception and I'm not entirely sure
-    # why.  It probably has to do with the context ma=nager code.  The entire trace had no reference to any code in this
+    # why.  It probably has to do with the context manager code.  The entire trace had no reference to any code in this
     # repo.  Adding transaction.atomic here prevents that exception from happening...
     @transaction.atomic
     def perform_buffered_updates(self, label_filters=None, filter_in=None):
@@ -327,6 +325,7 @@ class MaintainedModelCoordinator:
                     new_buffer.append(buffer_item)
 
             except Exception as e:
+                # Any exception can be raised from the derived model's decorated updater function
                 raise AutoUpdateFailed(buffer_item, e, updater_dicts)
 
         # Eliminate the updated items from the buffer
@@ -485,11 +484,11 @@ class MaintainedModel(Model):
         This is an override of the derived model's save method that is being used here to automatically update
         maintained fields.
         """
-        # Custom argument: mass_updates - Whether auto-updating biffered model objects - default False
-        # Used internally. Do not supply unless you know what you're doing.
+        # Custom argument: mass_updates - Whether auto-updating buffered model objects - default False
+        # Used internally.  Do not supply unless you know what you're doing.
         mass_updates = kwargs.pop("mass_updates", False)
         # Custom argument: propagate - Whether to propagate updates to related model objects - default True
-        # Used internally. Do not supply unless you know what you're doing.
+        # Used internally.  Do not supply unless you know what you're doing.
         propagate = kwargs.pop(
             "propagate", not mass_updates
         )  # Effective default = True
@@ -505,12 +504,22 @@ class MaintainedModel(Model):
         # Retrieve the current coordinator
         coordinator = self.get_coordinator()
 
+        # super_save_called will already have been initialized if the object was saved and buffered and mass auto-update
+        # is being performed
+        if not hasattr(self, "super_save_called"):
+            self.super_save_called = False
+        elif self.super_save_called is True and mass_updates is False:
+            # Save has been called from the developer's code a second time (presumably after having made subsequent
+            # changes), so we must reset to False
+            self.super_save_called = False
+
         # If auto-updates are turned on, a cascade of updates to linked models will occur, but if they are turned off,
         # the update will be buffered, to be manually triggered later (e.g. upon completion of loading), which
         # mitigates repeated updates to the same record
         if coordinator.auto_updates is False and mass_updates is False:
             # Set the changed value triggering this update
             super().save(*args, **kwargs)
+            self.super_save_called = True
 
             # When buffering only, apply the global label filters, to be remembered during mass autoupdate
             self.label_filters = coordinator.default_label_filters
@@ -527,28 +536,40 @@ class MaintainedModel(Model):
             self.filter_in = coordinator.default_filter_in
         # Otherwise, we are performing a mass auto-update and want to update the previously set filter conditions
 
+        # Calling super.save (if necessary) so that the call to update_decorated_fields can traverse reverse
+        # relations without a ValueError exception that is a new behavior/constraint as of Django 4.2.  But, if we got
+        # here due to a call to Model.objects.create(), (which calls super.save() from deep in the Django code (and that
+        # sets the primary key)), so it means that if we were to call it here again, it would cause a unique constraint-
+        # related exception.  That's why we do not call it here if the primary key is set - so we can avoid those
+        # exceptions.  Note, self.pk is None if the record was deleted after being buffered and we encounter it during
+        # mass update.
+        if self.pk is None and mass_updates is False:
+            super().save(*args, **kwargs)
+            self.super_save_called = True
+        # note, we should not save during mass autoupdate because while the object was in the buffer, it could have been
+        # deleted from the database and saving it would unintentionally re-add it to the database.
+
         # Update the fields that change due to the the triggering change (if any)
         # This only executes either when auto_updates or mass_updates is true - both cannot be true
-        self.update_decorated_fields()
+        changed = self.update_decorated_fields()
 
-        # If the auto-update resulted in no change or if there exists stale buffer contents for objects that were
-        # previously saved, it can produce an error about unique constraints.  TransactionManagementErrors should have
-        # been handled before we got here so that this can proceed to effect the original change that prompted the
-        # save.
-        try:
-            # This either saves both explicit changes and auto-update changes (when auto_updates is true) or it only
-            # saves the auto-updated values (when mass_updates is true)
-            super().save(*args, **kwargs)
-        except (IntegrityError, ForeignKeyViolation) as uc:
-            # If this is a unique constraint error during a mass autoupdate
-            if mass_updates and (
-                "violates foreign key constraint" in str(uc)
-                or "duplicate key value violates unique constraint" in str(uc)
-            ):
-                # Errors about unique constraints during mass autoupdates are often due to stale buffer contents
-                raise LikelyStaleBufferError(self)
+        # This either saves both explicit changes and auto-update changes (when auto_updates is true) or it only
+        # saves the auto-updated values (when mass_updates is true)
+        if changed is True or self.super_save_called is False:
+            if self.super_save_called or mass_updates is True:
+                if mass_updates is True:
+                    self.exists_in_db(raise_exception=True)
+                # This is a subsequent call to save due to the auto-update, so we don't want to use the original
+                # arguments (which may direct save that it needs to do an insert).  If you do supply arguments in this
+                # case, you can end up with an IntegrityError due to unique constraints from the ID being the same.
+                super().save()
             else:
-                raise uc
+                super().save(*args, **kwargs)
+
+        # If the developer wants to make more changes to this object and call save again, we need to remove the
+        # super_save_called attribute.  This will happen when autoupdate mode is immediate or if deferred (but when
+        # deferred, only)
+        delattr(self, "super_save_called")
 
         # We don't need to check mass_updates, because propagating changes during buffered updates is
         # handled differently (in a breadth-first fashion) to mitigate repeated updates of the same related record
@@ -568,6 +589,8 @@ class MaintainedModel(Model):
         # Used internally. Do not supply unless you know what you're doing.
         mass_updates = kwargs.pop("mass_updates", False)
 
+        self_sig = self.get_record_signature()
+
         # Delete the record triggering this update
         super().delete(*args, **kwargs)  # Call the "real" delete() method.
 
@@ -583,10 +606,11 @@ class MaintainedModel(Model):
             self.label_filters = coordinator.default_label_filters
             self.filter_in = coordinator.default_filter_in
 
-            # self.buffer_parent_update()
-            parents = self.get_parent_instances()
-            for parent_inst in parents:
-                coordinator.buffer_update(parent_inst)
+            if coordinator.buffering:
+                parents = self.get_parent_instances()
+                for parent_inst in parents:
+                    coordinator.buffer_update(parent_inst)
+
             return
         elif coordinator.auto_updates:
             # If autoupdates are happening (and it's not a mass-autoupdate (assumed because mass_updates
@@ -597,8 +621,8 @@ class MaintainedModel(Model):
         # Otherwise, we are performing a mass auto-update and want to update the previously set filter conditions
 
         if coordinator.auto_updates and propagate:
-            # Percolate changes up to the parents (if any)
-            self.call_dfs_related_updaters()
+            # Percolate changes up to the parents (if any) and mark the deleted record as updated
+            self.call_dfs_related_updaters(updated=[self_sig])
 
     @staticmethod
     def relation(
@@ -795,6 +819,23 @@ class MaintainedModel(Model):
 
         # This returns the actual decorator function which will immediately run on the decorated function
         return decorator
+
+    def exists_in_db(self, raise_exception=False):
+        """
+        Asserts that the object hasn't been deleted from the database while it was in the buffer.  This can
+        intentionally raise a DoesNotExist exception (e.g. during perform_buffered_updates) so that we don't end up re-
+        saving a deleted object.
+        https://stackoverflow.com/a/16613258/2057516
+        """
+        try:
+            type(self).objects.get(pk__exact=self.pk)
+        except Exception as e:
+            if raise_exception is True:
+                raise e
+            if issubclass(type(e), ObjectDoesNotExist):
+                return False
+            raise e
+        return True
 
     @staticmethod
     def get_model_package_name_from_member_function(fn):
@@ -1446,6 +1487,7 @@ class MaintainedModel(Model):
         the current filter conditions.  One exception of the refresh, is if performing a mass auto-update, in which
         case the filters the were in effect during buffering are used.
         """
+        changed = False
         for updater_dict in self.get_my_updaters():
             update_fld = updater_dict["update_field"]
             update_label = updater_dict["update_label"]
@@ -1476,53 +1518,55 @@ class MaintainedModel(Model):
                     )
                 )
             ):
+                update_fun = getattr(self, updater_dict["update_function"])
                 try:
-                    update_fun = getattr(self, updater_dict["update_function"])
-                    try:
-                        old_val = getattr(self, update_fld)
-                    except Exception as e:
-                        if isinstance(e, TransactionManagementError):
-                            raise e
-                        warnings.warn(
-                            f"{e.__class__.__name__} error getting current value of field [{update_fld}]: "
-                            f"[{str(e)}].  Possibly due to this being triggered by a deleted record that is linked in "
-                            "a related model's maintained field."
-                        )
-                        old_val = "<error>"
-
-                    new_val = None
-                    try:
-                        new_val = update_fun()
-                    except ValueError as ve:
-                        if (
-                            "instance needs to have a primary key value before this relationship can be used."
-                            not in str(ve)
-                        ):
-                            raise ve
-                        # If the model object does not have a primary key, and the updater_fun in the derived class
-                        # tries to traverse a non-existant relation, we can assume that there is not a valid value to
-                        # update, so we can safely ignore this exception.  This is a new exception in Django 4.2
-                        # (compared to 3.2, which just returned empty querysets for those cases).
-                    setattr(self, update_fld, new_val)
-
-                    # Report the auto-update
-                    if old_val is None or old_val == "":
-                        old_val = "<empty>"
-                    print(
-                        f"Auto-updated {self.__class__.__name__}.{update_fld} in {self.__class__.__name__}.{self.pk} "
-                        f"using {update_fun.__qualname__} from [{old_val}] to [{new_val}]."
+                    old_val = getattr(self, update_fld)
+                except ObjectDoesNotExist as odne:
+                    # This assumes that when this is raised, update_fld is a relation field (e.g. ForeignKeyField)
+                    # It also assumes a .delete() of the referenced record is what caused this.  Note, in my test case,
+                    # a serum Sample record was deleted.  A parent Animal record's update occurred via propagation of
+                    # autoupdates.  It's last_serum_sample's on_delete was SET_NULL.  A getattr() on that field yields a
+                    # KeyError referring to cached values accessed deep in the django core code.  It's trace was
+                    # truncated, so I could not verify the source of the DoesNotExist exception, but catching
+                    # ObjectDoesNotExist does catch it.  I think it's a pretty safe assumption, but...
+                    # TODO: explicitly check if a delete had happened.  There may be a way to get the value of the
+                    # foreign key without triggering a database query and set old_val to None.
+                    warnings.warn(
+                        f"{odne.__class__.__name__} error getting current value of relation field [{update_fld}]: "
+                        f"[{str(odne)}].  This is likely being triggered by a deleted record whose relation used to "
+                        "link to it, but its cache has not been cleared."
                     )
-                except TransactionManagementError as tme:
-                    self.transaction_management_warning(
-                        tme, self, None, updater_dict, "self"
-                    )
+                    old_val = f"<error {type(odne).__name__}>"
+
+                new_val = update_fun()
+
+                setattr(self, update_fld, new_val)
+
+                if old_val != new_val:
+                    changed = True
+
+                # Report the auto-update
+                if old_val is None or old_val == "":
+                    old_val = "<empty>"
+                print(
+                    f"Auto-updated {self.__class__.__name__}.{update_fld} in {self.__class__.__name__}.{self.pk} "
+                    f"using {update_fun.__qualname__} from [{old_val}] to [{new_val}]."
+                )
+
+        return changed
+
+    def get_record_signature(self):
+        if self.pk is None:
+            return None
+        return f"{self.__class__.__name__}.{self.pk}"
 
     def call_dfs_related_updaters(self, updated=None, mass_updates=False):
-        if not updated:
-            updated = []
         # Assume I've been called after I've been updated, so add myself to the updated list
-        self_sig = f"{self.__class__.__name__}.{self.id}"
-        updated.append(self_sig)
+        if updated is None:
+            updated = []
+        self_sig = self.get_record_signature()
+        if self_sig is not None and self_sig not in updated:
+            updated.append(self_sig)
         updated = self.call_child_updaters(updated=updated, mass_updates=mass_updates)
         updated = self.call_parent_updaters(updated=updated, mass_updates=mass_updates)
         return updated
@@ -1537,10 +1581,10 @@ class MaintainedModel(Model):
         for parent_inst in parents:
             # If the current instance's update was triggered - and was triggered by the same parent instance whose
             # update we're about to trigger
-            parent_sig = f"{parent_inst.__class__.__name__}.{parent_inst.id}"
+            parent_sig = parent_inst.get_record_signature()
             if parent_sig not in updated:
                 if settings.DEBUG:
-                    self_sig = f"{self.__class__.__name__}.{self.pk}"
+                    self_sig = self.get_record_signature()
                     print(
                         f"Propagating change from child {self_sig} to parent {parent_sig}"
                     )
@@ -1582,40 +1626,36 @@ class MaintainedModel(Model):
 
                 # if a parent record exists
                 if tmp_parent_inst is not None:
-                    try:
-                        # Make sure that the (direct) parnet (or M:M related parent) *isa* MaintainedModel
-                        if isinstance(tmp_parent_inst, MaintainedModel):
-                            parent_inst = tmp_parent_inst
-                            if parent_inst not in parents:
-                                parents.append(parent_inst)
+                    # Make sure that the (direct) parnet (or M:M related parent) *isa* MaintainedModel
+                    if isinstance(tmp_parent_inst, MaintainedModel):
+                        parent_inst = tmp_parent_inst
+                        # We check "exists_in_db" in case these updates are propagated due to a delete, and any relation
+                        # we are traversing, could have been deleted via a cascade
+                        if parent_inst not in parents and parent_inst.exists_in_db():
+                            parents.append(parent_inst)
 
-                        elif (
-                            tmp_parent_inst.__class__.__name__ == "ManyRelatedManager"
-                            or tmp_parent_inst.__class__.__name__ == "RelatedManager"
+                    elif (
+                        tmp_parent_inst.__class__.__name__ == "ManyRelatedManager"
+                        or tmp_parent_inst.__class__.__name__ == "RelatedManager"
+                    ):
+                        # NOTE: This is where the `through` model is skipped
+                        if tmp_parent_inst.count() > 0 and isinstance(
+                            tmp_parent_inst.first(), MaintainedModel
                         ):
-                            # NOTE: This is where the `through` model is skipped
-                            if tmp_parent_inst.count() > 0 and isinstance(
-                                tmp_parent_inst.first(), MaintainedModel
-                            ):
-                                for mm_parent_inst in tmp_parent_inst.all():
-                                    if mm_parent_inst not in parents:
-                                        parents.append(mm_parent_inst)
+                            for mm_parent_inst in tmp_parent_inst.all():
+                                # We check "exists_in_db" in case these updates are propagated due to a delete, and any
+                                # relation we are traversing, could have been deleted via a cascade
+                                if (
+                                    mm_parent_inst not in parents
+                                    and mm_parent_inst.exists_in_db()
+                                ):
+                                    parents.append(mm_parent_inst)
 
-                            elif tmp_parent_inst.count() > 0:
-                                raise NotMaintained(tmp_parent_inst.first(), self)
+                        elif tmp_parent_inst.count() > 0:
+                            raise NotMaintained(tmp_parent_inst.first(), self)
 
-                        else:
-                            raise NotMaintained(tmp_parent_inst, self)
-
-                    except TransactionManagementError as tme:
-                        self.transaction_management_warning(
-                            tme,
-                            self,
-                            tmp_parent_inst,
-                            updater_dict,
-                            "parent",
-                            parent_fld,
-                        )
+                    else:
+                        raise NotMaintained(tmp_parent_inst, self)
 
         return parents
 
@@ -1629,10 +1669,10 @@ class MaintainedModel(Model):
         for child_inst in children:
             # If the current instance's update was triggered - and was triggered by the same child instance whose
             # update we're about to trigger
-            child_sig = f"{child_inst.__class__.__name__}.{child_inst.id}"
+            child_sig = child_inst.get_record_signature()
             if child_sig not in updated:
                 if settings.DEBUG:
-                    self_sig = f"{self.__class__.__name__}.{self.pk}"
+                    self_sig = self.get_record_signature()
                     print(
                         f"Propagating change from parent {self_sig} to child {child_sig}"
                     )
@@ -1677,45 +1717,41 @@ class MaintainedModel(Model):
                     # Make sure that the (direct) parnet (or M:M related child) *isa* MaintainedModel
                     if isinstance(tmp_child_inst, MaintainedModel):
                         child_inst = tmp_child_inst
-                        if child_inst not in children:
+                        # We check "exists_in_db" in case these updates are propagated due to a delete, and any relation
+                        # we are traversing, could have been deleted via a cascade
+                        if child_inst not in children and child_inst.exists_in_db():
                             children.append(child_inst)
 
-                    elif (
+                    elif self.pk is not None and (
                         tmp_child_inst.__class__.__name__ == "ManyRelatedManager"
                         or tmp_child_inst.__class__.__name__ == "RelatedManager"
                     ):
-                        try:
-                            # NOTE: This is where the `through` model is skipped
-                            if tmp_child_inst.count() > 0 and isinstance(
-                                tmp_child_inst.first(), MaintainedModel
-                            ):
-                                for mm_child_inst in tmp_child_inst.all():
-                                    if mm_child_inst not in children:
-                                        children.append(mm_child_inst)
+                        # NOTE: This is where the `through` model is skipped
+                        if tmp_child_inst.count() > 0 and isinstance(
+                            tmp_child_inst.first(), MaintainedModel
+                        ):
+                            for mm_child_inst in tmp_child_inst.all():
+                                # We check "exists_in_db" in case these updates are propagated due to a delete, and any
+                                # relation we are traversing, could have been deleted via a cascade
+                                if (
+                                    mm_child_inst not in children
+                                    and mm_child_inst.exists_in_db()
+                                ):
+                                    children.append(mm_child_inst)
 
-                            elif tmp_child_inst.count() > 0:
-                                raise NotMaintained(tmp_child_inst.first(), self)
+                        elif tmp_child_inst.count() > 0:
+                            raise NotMaintained(tmp_child_inst.first(), self)
 
-                        except TransactionManagementError as tme:
-                            self.transaction_management_warning(
-                                tme,
-                                self,
-                                tmp_child_inst,
-                                updater_dict,
-                                "child",
-                                child_fld,
-                            )
-
-                        except ValueError as ve:
-                            if (
-                                "instance needs to have a primary key value before this relationship can be used."
-                                not in str(ve)
-                            ):
-                                raise ve
-                            # The ValueError happens when child records don't exist (inferred from no primary key), so
-                            # it can be ignored
-                    else:
+                    elif (
+                        not isinstance(tmp_child_inst, MaintainedModel)
+                        and tmp_child_inst.__class__.__name__ != "ManyRelatedManager"
+                        and tmp_child_inst.__class__.__name__ != "RelatedManager"
+                    ):
                         raise NotMaintained(tmp_child_inst, self)
+                    # Otherwise, this is a *RelatedManager or self.pk is None, meaning it hasn't been created yet - and
+                    # if the record hasn't been created yet, another model that links to it cannot have linked to it
+                    # yet, so there cannot be any children to return (because to create the relation, you have to supply
+                    # a created record).
                 else:
                     raise Exception(
                         f"Unexpected child reference for field [{child_fld}] is None."
@@ -1749,59 +1785,6 @@ class MaintainedModel(Model):
             raise NoDecorators(cls.__name__)
 
         return updaters
-
-    def transaction_management_warning(
-        self,
-        tme,
-        triggering_rec,
-        acting_rec=None,
-        update_dict=None,
-        relationship="self",
-        triggering_field=None,
-    ):
-        """
-        Debugging TransactionManagementErrors can be difficult and confusing, so this warning is an attempt to aid that
-        debugging effort in the future by encapsulating what I have learned to provide insights on how best to address
-        those issues.
-        """
-
-        if relationship == "self" and acting_rec is not None:
-            raise ValueError("acting_rec must be None if relationship is 'self'.")
-        elif relationship != "self" and (
-            acting_rec is None or triggering_field is None
-        ):
-            raise ValueError(
-                "acting_rec and triggering_field are required is relationship is not 'self'."
-            )
-
-        warning_str = "Ignoring TransactionManagementError and skipping auto-update.  Details:\n\n"
-
-        if relationship == "self":
-            warning_str += f"\t- Record being updated: [{triggering_rec.__class__.__name__}.{triggering_rec.id}].\n"
-        else:
-            warning_str += f"\t- Record being updated: [{acting_rec.__class__.__name__}.{acting_rec.id}].\n"
-            warning_str += f"\t- Triggering {relationship} field: "
-            warning_str += f"[{triggering_rec.__class__.__name__}.{triggering_field}.{triggering_rec.id}].\n"
-
-        if update_dict is not None:
-            warning_str += f"\t- Update field: [{update_dict['update_field']}].\n"
-            warning_str += f"\t- Update function: [{update_dict['update_function']}].\n"
-
-        explanation = (
-            "Generally, auto-updates do not cause a problem, but in certain situations (particularly in tests), auto-"
-            "updates inside an atomic transaction block can cause a problem due to performing queries on a record "
-            "that is not yet really saved.  For tests (a special case), this can usually be avoided by keeping "
-            "database loads isolated inside setUpTestData and the test function itself.  Note, querys inside setUp() "
-            "can trigger this error.  If this is occurring outside of a test run, to avoid errors, the entire "
-            "transaction should be done without autoupdates before the transaction "
-            "block, and after the atomic transaction block, call perform_buffered_updates() to make the updates.  If "
-            "this is a warning, note that auto-updates can be fixed afterwards by running:\n\n"
-            "\tpython manage.py rebuild_maintained_fields\n"
-        )
-
-        warning_str += f"\n{explanation}\nThe error that occurred: [{str(tme)}]."
-
-        warnings.warn(warning_str)
 
     class Meta:
         abstract = True
@@ -1947,3 +1930,19 @@ class MissingMaintainedModelDerivedClass(Exception):
         message = f"The {cls} class must be imported so that its eval works.  {err}"
         super().__init__(message)
         self.cls = cls
+
+
+class ReverseRelationQueryBeforeRecordExists(Exception):
+    def __init__(self, mdl_name, updtr_fun_name, err):
+        message = (
+            f"Updater method: [{mdl_name}.{updtr_fun_name}] attempted to query through a link via the related model's "
+            "related_name for this model, but as of Django 4.2, that raises an exception.  The related model cannot "
+            f"link to {mdl_name} because it does not yet have a primary key (i.e., it has not been saved yet).  Add a "
+            "check in your updater method to ensure that `self.pk` is not `None` before making that query.  If it is "
+            "`None`, you can safely assume that the query would result in 0 records returned.  The original exception "
+            f"was: [{type(err).__name__}: {err}]."
+        )
+        super().__init__(message)
+        self.mdl_name = mdl_name
+        self.updtr_fun_name = updtr_fun_name
+        self.err = err

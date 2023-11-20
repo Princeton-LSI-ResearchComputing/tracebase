@@ -182,9 +182,13 @@ class HierCachedModel(Model):
         """
         If caching updates are enabled, trigger the deletion of every cached value under the linked Animal record
         """
+        # Calling super.save *before* deleting descendant caches to avoid raising a new exception in Django 4.2
+        # (compared to 3.2).  If you do not do this, you can get an exception like this when reverse relations are
+        # tarversed without a record existing in the database:
+        # ValueError: '<model name>' instance needs to have a primary key value before this relationship can be used.
+        super().save(*args, **kwargs)  # Call the "real" save() method.
         if caching_updates:
             self.delete_related_caches()
-        super().save(*args, **kwargs)  # Call the "real" save() method.
 
     def delete(self, *args, **kwargs):
         """
@@ -220,18 +224,9 @@ class HierCachedModel(Model):
         # For every child model for which we have a related name
         for child_rel_name in self.child_related_key_names:
             child_instance = getattr(self, child_rel_name)
-            try:
-                # For every child record, call its delete_descendant_caches()
-                for rec in child_instance.all():
-                    rec.delete_descendant_caches()
-            except ValueError as ve:
-                if (
-                    "instance needs to have a primary key value before this relationship can be used."
-                    not in str(ve)
-                ):
-                    raise ve
-                # The ValueError happens when child records don't exist (inferred from no primary key), so there cannot
-                # exist descendant caches to delete and this can be ignored
+            # For every child record, call its delete_descendant_caches()
+            for rec in child_instance.all():
+                rec.delete_descendant_caches()
 
     @classmethod
     def get_my_cached_method_names(cls):

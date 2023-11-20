@@ -21,22 +21,24 @@ class StudiesExporterTests(TracebaseTestCase):
 
     @classmethod
     def setUpTestData(cls):
+        call_command("loaddata", "lc_methods")
         call_command(
             "load_study",
-            "DataRepo/example_data/small_dataset/small_obob_study_prerequisites.yaml",
+            "DataRepo/data/tests/small_obob/small_obob_study_prerequisites.yaml",
         )
         call_command(
             "load_animals_and_samples",
-            animal_and_sample_table_filename="DataRepo/example_data/small_dataset/"
+            animal_and_sample_table_filename="DataRepo/data/tests/small_obob/"
             "small_obob_animal_and_sample_table.xlsx",
         )
         call_command(
             "load_accucor_msruns",
-            protocol="Default",
-            accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_serum.xlsx",
+            lc_protocol_name="polar-HILIC-25-min",
+            accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_serum.xlsx",
             date="2021-06-03",
             researcher="Michael Neinast",
             new_researcher=True,
+            instrument="default instrument",
         )
         super().setUpTestData()
 

@@ -105,6 +105,14 @@ class Command(BaseCommand):
             action="store_true",
             help=argparse.SUPPRESS,
         )
+        # Used internally by the validation view, as temporary data should not trigger cache deletions
+        parser.add_argument(
+            "--skip-cache-updates",
+            required=False,
+            action="store_true",
+            default=False,
+            help=argparse.SUPPRESS,
+        )
 
     @MaintainedModel.defer_autoupdates(
         label_filters=["name"],
@@ -176,6 +184,7 @@ class Command(BaseCommand):
             verbosity=options["verbosity"],
             defer_rollback=options["defer_rollback"],
             dry_run=options["dry_run"],
+            update_caches=not options["skip_cache_updates"],
             lcms_metadata_df=lcms_metadata_df,
         )
         loader.load_sample_table(

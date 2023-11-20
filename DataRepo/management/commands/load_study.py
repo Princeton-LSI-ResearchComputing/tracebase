@@ -84,6 +84,14 @@ class Command(BaseCommand):
             default=False,
             help=argparse.SUPPRESS,
         )
+        # Used internally by the validation view, as temporary data should not trigger cache deletions
+        parser.add_argument(
+            "--skip-cache-updates",
+            required=False,
+            action="store_true",
+            default=False,
+            help=argparse.SUPPRESS,
+        )
 
     @MaintainedModel.defer_autoupdates(
         disable_opt_names=["validate", "dry_run"],
@@ -98,6 +106,7 @@ class Command(BaseCommand):
         self.verbosity = options["verbosity"]
         self.validate = options["validate"]
         self.dry_run = options["dry_run"]
+        self.skip_cache_updates = (options["skip_cache_updates"],)
 
         # Read load study parameters
         study_params = yaml.safe_load(options["study_params"])
@@ -250,6 +259,7 @@ class Command(BaseCommand):
                         validate=self.validate,
                         defer_autoupdates=True,
                         defer_rollback=True,  # Until after we exit THIS atomic block
+                        skip_cache_updates=self.skip_cache_updates,
                         lcms_file=lcms_metadata_file,
                     )
                 except Exception as e:
@@ -320,6 +330,7 @@ class Command(BaseCommand):
                             skip_samples=skip_samples,
                             sample_name_prefix=sample_name_prefix,
                             isocorr_format=isocorr_format,
+                            skip_cache_updates=self.skip_cache_updates,
                             mzxml_files=mzxml_files,
                             lcms_file=lcms_metadata_file,
                             validate=self.validate,

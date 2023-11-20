@@ -151,6 +151,7 @@ class AccuCorDataLoader:
         isocorr_format=False,
         verbosity=1,
         dry_run=False,
+        update_caches=True,
     ):
         self.aggregated_errors_object = AggregatedErrors()
 
@@ -231,6 +232,9 @@ class AccuCorDataLoader:
             self.verbosity = verbosity
             self.dry_run = dry_run
             self.validate = validate
+
+            # Making this True causes existing caches associated with loaded records to be deleted
+            self.update_caches = update_caches
 
             # Tracking Data
             self.peak_group_dict: Dict[str, PeakGroupAttrs] = {}
@@ -1207,15 +1211,16 @@ class AccuCorDataLoader:
                 # msrun creations failed.
                 sample_msrun_dict[sample_data_header] = msrun
 
-                if (
-                    msrun.sample.animal not in animals_to_uncache
-                    and msrun.sample.animal.caches_exist()
-                ):
-                    animals_to_uncache.append(msrun.sample.animal)
-                elif not msrun.sample.animal.caches_exist() and self.verbosity >= 1:
-                    print(
-                        f"No cache exists for animal {msrun.sample.animal.id} linked to Sample {msrun.sample.id}"
-                    )
+                if self.update_caches is True:
+                    if (
+                        msrun.sample.animal not in animals_to_uncache
+                        and msrun.sample.animal.caches_exist()
+                    ):
+                        animals_to_uncache.append(msrun.sample.animal)
+                    elif not msrun.sample.animal.caches_exist() and self.verbosity >= 1:
+                        print(
+                            f"No cache exists for animal {msrun.sample.animal.id} linked to Sample {msrun.sample.id}"
+                        )
             except Exception as e:
                 self.aggregated_errors_object.buffer_error(e)
                 continue
@@ -1474,16 +1479,15 @@ class AccuCorDataLoader:
         if self.dry_run:
             raise DryRun()
 
-        if settings.DEBUG or self.verbosity >= 1:
-            print("Expiring affected caches...")
-
-        for animal in animals_to_uncache:
+        if self.update_caches is True:
             if settings.DEBUG or self.verbosity >= 1:
-                print(f"Expiring animal {animal.id}'s cache")
-            animal.delete_related_caches()
-
-        if settings.DEBUG or self.verbosity >= 1:
-            print("Expiring done.")
+                print("Expiring affected caches...")
+            for animal in animals_to_uncache:
+                if settings.DEBUG or self.verbosity >= 1:
+                    print(f"Expiring animal {animal.id}'s cache")
+                animal.delete_related_caches()
+            if settings.DEBUG or self.verbosity >= 1:
+                print("Expiring done.")
 
     def get_peak_labeled_elements(self, compound_recs) -> List[IsotopeObservationData]:
         """
