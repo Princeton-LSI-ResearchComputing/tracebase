@@ -1,16 +1,19 @@
 from datetime import datetime, timedelta
+from pathlib import Path
 
+from django.core.files import File
 from django.db.utils import IntegrityError
 
 from DataRepo.models import (
     Animal,
+    ArchiveFile,
+    DataFormat,
+    DataType,
     Infusate,
     MSRun,
     PeakData,
     PeakDataLabel,
     PeakGroup,
-    PeakGroupSet,
-    Protocol,
     Sample,
     Tissue,
 )
@@ -18,6 +21,8 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
 class PeakDataData(TracebaseTestCase):
+    fixtures = ["data_types.yaml", "data_formats.yaml"]
+
     def setUp(self):
         super().setUp()
         inf = Infusate()
@@ -40,23 +45,30 @@ class PeakDataData(TracebaseTestCase):
             researcher="John Doe",
             date=datetime.now(),
         )
-        ptl = Protocol.objects.create(
-            name="p1",
-            description="p1desc",
-            category=Protocol.MSRUN_PROTOCOL,
-        )
         msr = MSRun.objects.create(
             researcher="John Doe",
             date=datetime.now(),
             sample=smpl,
-            protocol=ptl,
         )
-        pgs = PeakGroupSet.objects.create(filename="testing_dataset_file")
+        path = Path("DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf.xlsx")
+        with path.open(mode="rb") as f:
+            myfile = File(f, name=path.name)
+            ms_peak_annotation = DataType.objects.get(code="ms_peak_annotation")
+            accucor_format = DataFormat.objects.get(code="accucor")
+            accucor_file = ArchiveFile.objects.create(
+                filename="small_obob_maven_6eaas_inf.xlsx",
+                file_location=myfile,
+                checksum="558ea654d7f2914ca4527580edf4fac11bd151c3",
+                data_type=ms_peak_annotation,
+                data_format=accucor_format,
+            )
+            accucor_file.save()
+
         pg = PeakGroup.objects.create(
             name="gluc",
             formula="C6H12O6",
             msrun=msr,
-            peak_group_set=pgs,
+            peak_annotation_file=accucor_file,
         )
         PeakData.objects.create(
             raw_abundance=1000.0,

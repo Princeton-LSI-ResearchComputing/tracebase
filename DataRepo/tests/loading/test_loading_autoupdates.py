@@ -8,87 +8,143 @@ from DataRepo.models import (
     Tracer,
     TracerLabel,
 )
-from DataRepo.models.maintained_model import MaintainedModel
+from DataRepo.models.maintained_model import (
+    MaintainedModel,
+    MaintainedModelCoordinator,
+)
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
 class AutoupdateLoadingTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
+        call_command("loaddata", "lc_methods")
         call_command(
             "load_study",
-            "DataRepo/example_data/small_dataset/small_obob_study_prerequisites.yaml",
+            "DataRepo/data/tests/small_obob/small_obob_study_prerequisites.yaml",
         )
 
     def tearDown(self):
-        MaintainedModel.clear_update_buffer()
+        MaintainedModel._reset_coordinators()
         super().tearDown()
+
+    def assert_coordinator_state_is_initialized(
+        self, msg="MaintainedModelCoordinators are in the default state."
+    ):
+        # Obtain all coordinators that exist
+        all_coordinators = [MaintainedModel._get_default_coordinator()]
+        all_coordinators.extend(MaintainedModel._get_coordinator_stack())
+        # Make sure there is only the default coordinator
+        self.assertEqual(
+            1, len(all_coordinators), msg=msg + "  The coordinator_stack is empty."
+        )
+        # Make sure that its mode is "immediate"
+        self.assertEqual(
+            "immediate",
+            all_coordinators[0].auto_update_mode,
+            msg=msg + "  Mode is 'immediate'.",
+        )
+        # Make sure that the buffer is empty to start
+        for coordinator in all_coordinators:
+            self.assertEqual(
+                0, coordinator.buffer_size(), msg=msg + "  The buffer is empty."
+            )
 
     def test_defer_autoupdates_animal_accucor(self):
         self.assert_no_names_to_start()
         self.assert_no_fcirc_data_to_start()
 
-        call_command(
-            "load_animals_and_samples",
-            animal_and_sample_table_filename="DataRepo/example_data/small_dataset/"
-            "small_obob_animal_and_sample_table.xlsx",
-            defer_autoupdates=True,
-        )
+        self.assert_coordinator_state_is_initialized()
+        # We need a parent coordinator to catch and test the buffered changes.  Otherwise, the deferred coordinator
+        # would perform the mass auto-update
+        parent_coordinator = MaintainedModelCoordinator(auto_update_mode="deferred")
+        with MaintainedModel.custom_coordinator(parent_coordinator):
+            current_coordinator = MaintainedModel._get_current_coordinator()
+            # Make sure that the coordinator stack is populated
+            self.assertEqual(parent_coordinator, current_coordinator)
 
-        # Since autoupdates were defered (and we did not run perform_buffered_updates)
-        self.assert_names_are_unupdated()
-        bs1 = MaintainedModel.buffer_size()
-        self.assertGreater(bs1, 0)
-        first_buffered_model_object = MaintainedModel.update_buffer[0]
+            call_command(
+                "load_animals_and_samples",
+                animal_and_sample_table_filename="DataRepo/data/tests/small_obob/"
+                "small_obob_animal_and_sample_table.xlsx",
+                # No longer need the defer_autoupdates option.  That is handled by a context manager.
+                # defer_autoupdates=True,
+            )
 
-        self.assert_fcirc_data_is_unupdated()
+            # Assure that the load_animals_and_samples decorator's coordinator passed up it's buffer before exiting.
+            bs1 = parent_coordinator.buffer_size()
+            self.assertGreater(bs1, 0)
+            # Record the first buffered object
+            first_buffered_model_object = parent_coordinator._peek_update_buffer(0)
 
-        call_command(
-            "load_accucor_msruns",
-            accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_blank_sample.xlsx",
-            skip_samples=("blank"),
-            protocol="Default",
-            date="2021-04-29",
-            researcher="Michael Neinast",
-            new_researcher=True,
-            defer_autoupdates=True,
-        )
+            # Since autoupdates were defered (and we did not run perform_buffered_updates)
+            self.assert_names_are_unupdated()
+            self.assert_fcirc_data_is_unupdated()
 
-        # Since autoupdates were defered (and we did not run perform_buffered_updates)
-        self.assert_fcirc_data_is_unupdated()
-        # The buffer should have grown
-        self.assertGreater(MaintainedModel.buffer_size(), bs1)
-        # The first buffered object from the first load script should be the same.  I.e. Running a second load script
-        # without clearing the buffer should just append to the buffer.
-        self.assertEqual(first_buffered_model_object, MaintainedModel.update_buffer[0])
+            child_coordinator = MaintainedModelCoordinator(auto_update_mode="deferred")
+            with MaintainedModel.custom_coordinator(child_coordinator):
+                call_command(
+                    "load_accucor_msruns",
+                    accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_blank_sample.xlsx",
+                    skip_samples=("blank"),
+                    lc_protocol_name="polar-HILIC-25-min",
+                    instrument="default instrument",
+                    date="2021-04-29",
+                    researcher="Michael Neinast",
+                    new_researcher=True,
+                )
+
+                # Since autoupdates were defered (and we did not run perform_buffered_updates)
+                self.assert_fcirc_data_is_unupdated()
+                # The buffer should have grown and been passed up to the parent coordinator
+                self.assertGreater(child_coordinator.buffer_size(), bs1)
+
+                # We don't want to actually perform a mass autoupdate when we leave this test context, so purge the
+                # buffer.  This should not be necessary because the coordinator is popped off the stack automatically,
+                # but it's a good test
+                child_coordinator.clear_update_buffer()
+                self.assertEqual(0, child_coordinator.buffer_size())
+
+            # The first buffered object from the first load script should be the same.  I.e. Running a second load
+            # script without clearing the buffer should just append to the buffer.
+            self.assertEqual(
+                first_buffered_model_object,
+                parent_coordinator._peek_update_buffer(0),
+            )
 
     def test_defer_autoupdates_sample(self):
         self.assert_no_names_to_start()
         self.assert_no_fcirc_data_to_start()
 
-        call_command(
-            "load_samples",
-            "DataRepo/example_data/small_dataset/small_obob_sample_table.tsv",
-            sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
-            defer_autoupdates=True,
-        )
+        self.assert_coordinator_state_is_initialized()
+        # We need a parent coordinator to catch and test the buffered changes.  Otherwise, the deferred coordinator
+        # would perform the mass auto-update
+        parent_coordinator = MaintainedModelCoordinator(auto_update_mode="deferred")
+        with MaintainedModel.custom_coordinator(parent_coordinator):
+            call_command(
+                "load_samples",
+                "DataRepo/data/tests/small_obob/small_obob_sample_table.tsv",
+                sample_table_headers="DataRepo/data/examples/sample_table_headers.yaml",
+                defer_autoupdates=True,
+            )
 
-        # Since autoupdates were defered (and we did not run perform_buffered_updates)
-        self.assert_names_are_unupdated()
-        self.assert_fcirc_data_is_unupdated()
+            # Since autoupdates were defered (and we did not run perform_buffered_updates)
+            self.assert_names_are_unupdated()
+            self.assert_fcirc_data_is_unupdated()
 
     def test_load_study_runs_autoupdates(self):
+        self.assert_coordinator_state_is_initialized()
         self.assert_no_names_to_start()
         self.assert_no_fcirc_data_to_start()
 
         call_command(
             "load_study",
-            "DataRepo/example_data/small_dataset/small_obob_study_params.yaml",
+            "DataRepo/data/tests/small_obob/small_obob_study_params.yaml",
         )
 
         self.assert_names_are_unupdated(False)
         self.assert_fcirc_data_is_unupdated(False)
-        self.assertEqual(0, MaintainedModel.buffer_size())
+        self.assert_coordinator_state_is_initialized()
 
     def assert_no_names_to_start(self):
         num_orig_infusates = Infusate.objects.count()

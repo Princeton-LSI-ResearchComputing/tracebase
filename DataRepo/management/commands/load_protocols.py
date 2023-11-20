@@ -49,12 +49,11 @@ class Command(BaseCommand):
             help=("Dry-run. If specified, nothing will be saved to the database. "),
         )
 
-        # Used internally by the DataValidationView
+        # Intended for use by load_study to prevent rollback of changes in the event of an error so that for example,
+        # subsequent loading scripts can validate with all necessary data present
         parser.add_argument(
-            "--validate",
-            required=False,
+            "--defer-rollback",  # DO NOT USE MANUALLY - THIS WILL NOT ROLL BACK (handle in outer atomic transact)
             action="store_true",
-            default=False,
             help=argparse.SUPPRESS,
         )
 
@@ -68,18 +67,16 @@ class Command(BaseCommand):
             options["protocols"]
         )
 
-        loader_args = {
-            "protocols": self.protocols_df,
-            "category": self.batch_category,
-            "dry_run": options["dry_run"],
-            "validate": options["validate"],
-            "verbosity": options["verbosity"],
-        }
-
-        self.protocol_loader = ProtocolsLoader(**loader_args)
+        self.protocol_loader = ProtocolsLoader(
+            protocols=self.protocols_df,
+            category=self.batch_category,
+            dry_run=options["dry_run"],
+            verbosity=options["verbosity"],
+            defer_rollback=options["defer_rollback"],
+        )
 
         try:
-            self.protocol_loader.load()
+            self.protocol_loader.load_protocol_data()
 
             self.stdout.write(
                 self.style.SUCCESS(

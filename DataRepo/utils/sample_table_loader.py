@@ -11,6 +11,7 @@ from DataRepo.models import (
     AnimalLabel,
     FCirc,
     Infusate,
+    MaintainedModel,
     Protocol,
     Sample,
     Study,
@@ -20,7 +21,6 @@ from DataRepo.models.hier_cached_model import (
     disable_caching_updates,
     enable_caching_updates,
 )
-from DataRepo.models.maintained_model import MaintainedModel
 from DataRepo.models.researcher import (
     UnknownResearcherError,
     get_researchers,
@@ -34,13 +34,22 @@ from DataRepo.utils.exceptions import (
     DryRun,
     DuplicateValues,
     HeaderConfigError,
+    LCMSDBSampleMissing,
     MissingTissues,
+    NoConcentrations,
     RequiredHeadersError,
     RequiredSampleValuesError,
+    SampleError,
     SaveError,
     SheetMergeError,
+    TissueError,
+    TreatmentError,
     UnitsWrong,
     UnknownHeadersError,
+)
+from DataRepo.utils.lcms_metadata_parser import (
+    lcms_df_to_dict,
+    lcms_metadata_to_samples,
 )
 
 
@@ -142,12 +151,14 @@ class SampleTableLoader:
     def __init__(
         self,
         sample_table_headers=DefaultSampleTableHeaders,
-        validate=False,  # DO NOT USE MANUALLY - THIS WILL NOT ROLL BACK UPON ERROR (handle in outer atomic transact)
+        validate=False,  # Only affects what is/isn't a warning
         verbosity=1,
         skip_researcher_check=False,
         defer_autoupdates=False,
-        defer_rollback=False,
+        defer_rollback=False,  # DO NOT USE MANUALLY - THIS WILL NOT ROLL BACK (handle in atomic transact in caller)
         dry_run=False,
+        update_caches=True,
+        lcms_metadata_df=None,
     ):
         # Header config
         self.headers = sample_table_headers
@@ -157,14 +168,14 @@ class SampleTableLoader:
         self.verbosity = verbosity
         self.dry_run = dry_run
         self.validate = validate
-
         # How to handle mass autoupdates
         self.defer_autoupdates = defer_autoupdates
-
-        # Whether to rollback upon error or defer it to the caller
+        # Whether to rollback upon error or keep the changes and defer rollback to the caller
         self.defer_rollback = defer_rollback
 
         # Caching overhead
+        # Making this True causes existing caches associated with loaded records to be deleted
+        self.update_caches = update_caches
         self.animals_to_uncache = []
 
         # Error-tracking
@@ -177,6 +188,10 @@ class SampleTableLoader:
         self.infile_sample_dupe_rows = []
         self.empty_animal_rows = []
         self.missing_tissues = defaultdict(list)
+
+        # Arrange the LCMS samples
+        lcms_metadata = lcms_df_to_dict(lcms_metadata_df, self.aggregated_errors_object)
+        self.lcms_samples = lcms_metadata_to_samples(lcms_metadata)
 
         # Obtain known researchers before load
         self.known_researchers = get_researchers()
@@ -200,52 +215,43 @@ class SampleTableLoader:
             "TIME_COLLECTED": ["m", "min", "mins", "minute", "minutes"],
         }
 
+    @MaintainedModel.defer_autoupdates(
+        pre_mass_update_func=disable_caching_updates,
+        post_mass_update_func=enable_caching_updates,
+    )
     def load_sample_table(self, data):
-        MaintainedModel.disable_autoupdates()
-        if self.dry_run:
-            # Don't let any auto-updates buffer because we're not going to perform the mass auto-update
-            MaintainedModel.disable_buffering()
+        # Chaching updates are not necessary when just adding data, so disabling dramatically speeds things up
         disable_caching_updates()
-        # Only auto-update fields whose update_label in the decorator is "name"
-        MaintainedModel.init_autoupdate_label_filters(label_filters=["name"])
 
         try:
             saved_aes = None
+
             with transaction.atomic():
                 try:
-                    self.load_data(data)
+                    self._load_data(data)
                 except AggregatedErrors as aes:
-                    if not self.validate and not self.defer_rollback:
+                    if self.defer_rollback:
+                        saved_aes = aes
+                    else:
                         # If we're not working for the validation interface, raise here to cause a rollback
                         raise aes
-                    else:
-                        saved_aes = aes
-            if (self.validate or self.defer_rollback) and saved_aes:
-                # If we're working for the validation interface, raise here to not cause a rollback (so that the
-                # accucor loader can be run to find more issues - samples must be loaded already to run the accucor
-                # loader), and provide the validation interface details on the exceptions.
+
+            # If we were directed to defer rollback in the event of an error, raise the exception here (outside of
+            # the atomic transaction block).  This assumes that the caller is handling rollback in their own atomic
+            # transaction blocl.
+            if saved_aes is not None:
                 raise saved_aes
 
         except Exception as e:
-            # If we're stopping with an exception, we need to clear the update buffer so that the next call doesn't
-            # make auto-updates on non-existent (or incorrect) records
-            MaintainedModel.clear_update_buffer()
-            # Re-initialize label filters to default
-            MaintainedModel.init_autoupdate_label_filters()
             enable_caching_updates()
-            MaintainedModel.enable_autoupdates()
-            if self.dry_run:
-                MaintainedModel.enable_buffering()
             raise e
 
-        # Re-initialize label filters to default
-        MaintainedModel.init_autoupdate_label_filters()
         enable_caching_updates()
-        MaintainedModel.enable_autoupdates()
-        if self.dry_run:
-            MaintainedModel.enable_buffering()
 
-    def load_data(self, data):
+    def _load_data(self, data):
+        # This will be used to validate the lcms samples:
+        all_sample_names = []
+
         # Create a list to hold the csv reader data so that iterations from validating doesn't leave the csv reader
         # empty/at-the-end upon the import loop
         sample_table_data = list(data)
@@ -285,11 +291,16 @@ class SampleTableLoader:
                 sample_rec = self.get_or_create_sample(
                     rownum, row, animal_rec, tissue_rec
                 )
+                # Sample rec will be none if there was a problem/exception
+                if sample_rec is not None:
+                    all_sample_names.append(sample_rec.name)
                 self.get_or_create_fcircs(infusate_rec, sample_rec)
             elif self.verbosity >= 2:
                 print(
                     f"SKIPPING sample load on row {rownum} due to duplicate sample name."
                 )
+
+        self.check_lcms_samples(all_sample_names)
 
         if not self.skip_researcher_check:
             try:
@@ -329,26 +340,30 @@ class SampleTableLoader:
         if self.dry_run:
             raise DryRun()
 
-        if self.verbosity >= 2:
-            print("Expiring affected caches...")
-        for animal_rec in self.animals_to_uncache:
-            if self.verbosity >= 3:
-                print(f"Expiring animal {animal_rec.id}'s cache")
-            animal_rec.delete_related_caches()
-        if self.verbosity >= 2:
-            print("Expiring done.")
+        if self.update_caches is True:
+            if self.verbosity >= 2:
+                print("Expiring affected caches...")
+            for animal_rec in self.animals_to_uncache:
+                if self.verbosity >= 3:
+                    print(f"Expiring animal {animal_rec.id}'s cache")
+                animal_rec.delete_related_caches()
+            if self.verbosity >= 2:
+                print("Expiring done.")
 
-        autoupdate_mode = not self.defer_autoupdates
+    def check_lcms_samples(self, all_load_samples):
+        """
+        Makes sure every sample in the LCMS dataframe is present in the animal sample table
+        """
+        lcms_samples_missing = []
 
-        if autoupdate_mode:
-            # No longer any need to explicitly filter based on labels, because only records containing fields with the
-            # required labels are buffered now, and when the records are buffered, the label filtering that was in
-            # effect at the time of buffering is saved so that only the fields matching the label filter will be
-            # updated.  There are autoupdates for fields in Animal and Sample, but they're only needed for FCirc
-            # calculations and will be triggered by a subsequent accucor load.
-            MaintainedModel.perform_buffered_updates()
-            # Since we only updated some of the buffered items, clear the rest of the buffer
-            MaintainedModel.clear_update_buffer()
+        for lcms_sample in self.lcms_samples:
+            if lcms_sample not in all_load_samples:
+                lcms_samples_missing.append(lcms_sample)
+
+        if len(lcms_samples_missing) > 0:
+            self.aggregated_errors_object.buffer_error(
+                LCMSDBSampleMissing(lcms_samples_missing)
+            )
 
     def get_tissue(self, rownum, row):
         tissue_name = self.getRowVal(row, "TISSUE_NAME")
@@ -588,10 +603,11 @@ class SampleTableLoader:
 
         # animal_created block contains all the animal attribute updates if the animal was newly created
         if animal_created:
-            if animal_rec.caches_exist():
-                self.animals_to_uncache.append(animal_rec)
-            elif self.verbosity >= 3:
-                print(f"No cache exists for animal {animal_rec.id}")
+            if self.update_caches is True:
+                if animal_rec.caches_exist():
+                    self.animals_to_uncache.append(animal_rec)
+                elif self.verbosity >= 3:
+                    print(f"No cache exists for animal {animal_rec.id}")
 
             if self.verbosity >= 2:
                 print(f"Created new record: Animal:{animal_rec}")
@@ -875,7 +891,7 @@ class SampleTableLoader:
         studies, and with the animal and sample sheet merge, the same sample will exist on 2 different rows after the
         merge.  Therefore, we need to check that the combination of sample name and study name are unique instead of
         just sample name.  For an example of this, look at:
-        DataRepo/example_data/test_dataframes/animal_sample_table_df_test1.xlsx.
+        DataRepo/data/examples/test_dataframes/animal_sample_table_df_test1.xlsx.
         """
         sample_name_header = getattr(self.headers, "SAMPLE_NAME")
         study_name_header = getattr(self.headers, "STUDY_NAME")
@@ -1037,25 +1053,3 @@ class SampleTableLoader:
                 val = None
 
         return val
-
-
-class NoConcentrations(Exception):
-    pass
-
-
-class UnanticipatedError(Exception):
-    def __init__(self, type, e):
-        message = f"{type}: {str(e)}"
-        super().__init__(message)
-
-
-class SampleError(UnanticipatedError):
-    pass
-
-
-class TissueError(UnanticipatedError):
-    pass
-
-
-class TreatmentError(UnanticipatedError):
-    pass

@@ -5,7 +5,6 @@ from django.core.management import call_command
 from django.test import tag
 
 from DataRepo.models import Protocol
-from DataRepo.models.maintained_model import MaintainedModel
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import ProtocolsLoader
 from DataRepo.utils.exceptions import (
@@ -46,7 +45,7 @@ class ProtocolLoadingTests(TracebaseTestCase):
             category=Protocol.ANIMAL_TREATMENT,
             dry_run=dry_run,
         )
-        protocol_loader.load()
+        protocol_loader.load_protocol_data()
 
     def test_protocols_loader(self):
         """Test the ProtocolsLoader class"""
@@ -72,7 +71,7 @@ class ProtocolLoadingTests(TracebaseTestCase):
         protocol_loader = ProtocolsLoader(protocols=self.working_df)
 
         with self.assertRaises(AggregatedErrors) as ar:
-            protocol_loader.load()
+            protocol_loader.load_protocol_data()
         aes = ar.exception
         self.assertEqual(1, aes.num_errors)
         self.assertEqual(0, aes.num_warnings)
@@ -88,7 +87,7 @@ class ProtocolLoadingTests(TracebaseTestCase):
             category="Some Nonsense Category",
         )
         with self.assertRaises(AggregatedErrors) as ar:
-            protocol_loader.load()
+            protocol_loader.load_protocol_data()
         aes = ar.exception
         self.assertEqual(1, aes.num_errors)
         self.assertEqual(0, aes.num_warnings)
@@ -102,19 +101,19 @@ class ProtocolLoadingTests(TracebaseTestCase):
         """Test loading the protocols from a TSV containing previously loaded data"""
         call_command(
             "load_protocols",
-            protocols="DataRepo/example_data/protocols/protocols.tsv",
+            protocols="DataRepo/data/examples/protocols/protocols.tsv",
         )
-        self.assertEqual(Protocol.objects.count(), 16)
-        # a few of these were msrun protocols
+        self.assertEqual(Protocol.objects.count(), 8)
+        # all of these were animal treatments
         self.assertEqual(
-            Protocol.objects.filter(category=Protocol.MSRUN_PROTOCOL).count(), 8
+            Protocol.objects.filter(category=Protocol.ANIMAL_TREATMENT).count(), 8
         )
 
     def test_load_protocols_xlxs(self):
         """Test loading the protocols from a Treatments sheet in the xlxs workbook"""
         call_command(
             "load_protocols",
-            protocols="DataRepo/example_data/small_dataset/small_obob_animal_and_sample_table.xlsx",
+            protocols="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx",
         )
         self.assertEqual(Protocol.objects.count(), 2)
         # and these are all animal treatments
@@ -126,7 +125,7 @@ class ProtocolLoadingTests(TracebaseTestCase):
         """Test loading the protocols from a Treatments sheet in the xlxs workbook"""
         call_command(
             "load_protocols",
-            protocols="DataRepo/example_data/small_dataset/small_obob_animal_and_sample_table.xlsx",
+            protocols="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx",
             dry_run=True,
         )
         # none in default
@@ -136,7 +135,7 @@ class ProtocolLoadingTests(TracebaseTestCase):
         """Test loading the protocols from a TSV containing duplicates and mungeable data"""
         call_command(
             "load_protocols",
-            protocols="DataRepo/example_data/testing_data/protocols/protocols_with_workarounds.tsv",
+            protocols="DataRepo/data/tests/protocols/protocols_with_workarounds.tsv",
         )
         # two protocols loaded, but 3 lines in file (1 redundatn)
         self.assertEqual(Protocol.objects.count(), 2)
@@ -151,7 +150,7 @@ class ProtocolLoadingTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_protocols",
-                protocols="DataRepo/example_data/testing_data/protocols/protocols_with_errors.tsv",
+                protocols="DataRepo/data/tests/protocols/protocols_with_errors.tsv",
             )
         aes = ar.exception
 
@@ -171,9 +170,6 @@ class ProtocolLoadingTests(TracebaseTestCase):
 
     def test_protocol_load_in_debug(self):
         pre_load_counts = self.get_record_counts()
-        self.assertEqual(
-            0, MaintainedModel.buffer_size(), msg="Autoupdate buffer is empty to start."
-        )
 
         with self.assertRaises(DryRun):
             self.load_dataframe_as_animal_treatment(self.working_df, dry_run=True)
@@ -184,9 +180,4 @@ class ProtocolLoadingTests(TracebaseTestCase):
             pre_load_counts,
             post_load_counts,
             msg="DryRun mode doesn't change any table's record count.",
-        )
-        self.assertEqual(
-            0,
-            MaintainedModel.buffer_size(),
-            msg="DryRun mode doesn't leave buffered autoupdates.",
         )

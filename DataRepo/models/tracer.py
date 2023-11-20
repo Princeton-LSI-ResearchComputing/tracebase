@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from django.db import models
+from django.db import models, transaction
 
 from DataRepo.models.element_label import ElementLabel
 from DataRepo.models.maintained_model import MaintainedModel
@@ -11,6 +11,7 @@ from DataRepo.utils.infusate_name_parser import TracerData
 
 
 class TracerQuerySet(models.QuerySet):
+    @transaction.atomic
     def get_or_create_tracer(self, tracer_data: TracerData) -> tuple[Tracer, bool]:
         """Get Tracer matching the tracer_data, or create a new tracer"""
 
@@ -107,14 +108,10 @@ class Tracer(MaintainedModel, ElementLabel):
         # Get the name.  Initialize if not set and auto-updates are on.
         if self.name:
             display_name = self.name
-        elif MaintainedModel.are_autoupdates_enabled():
-            # Only auto-update the name field
-            MaintainedModel.init_autoupdate_label_filters(label_filters=["name"])
+        elif self.get_coordinator().are_autoupdates_enabled():
             # This triggers an auto-update
             self.save()
             display_name = self.name
-            # Re-initialize the filters
-            MaintainedModel.init_autoupdate_label_filters()
 
         # If it's still not set, call the method that generates the name.  It just won't be saved.
         if not display_name:

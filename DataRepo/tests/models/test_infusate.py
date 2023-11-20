@@ -1,9 +1,6 @@
 from django.core.management import call_command
 from django.test import tag
 
-from DataRepo.management.commands.rebuild_maintained_fields import (
-    rebuild_maintained_fields,
-)
 from DataRepo.models.compound import Compound
 from DataRepo.models.infusate import Infusate
 from DataRepo.models.infusate_tracer import InfusateTracer
@@ -11,6 +8,7 @@ from DataRepo.models.maintained_model import (
     AutoUpdateFailed,
     MaintainedFieldNotSettable,
     MaintainedModel,
+    MaintainedModelCoordinator,
 )
 from DataRepo.models.tracer import Tracer
 from DataRepo.models.tracer_label import TracerLabel
@@ -18,10 +16,10 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
 def create_infusate_records():
-    (glu, gc) = Compound.objects.get_or_create(
+    (glu, _) = Compound.objects.get_or_create(
         name="glucose", formula="C6H12O6", hmdb_id="HMDB0000122"
     )
-    (c16, cc) = Compound.objects.get_or_create(
+    (c16, _) = Compound.objects.get_or_create(
         name="C16:0", formula="C16H32O2", hmdb_id="HMDB0000220"
     )
     glu_t = Tracer.objects.create(compound=glu)
@@ -50,19 +48,19 @@ def create_infusate_records():
 class InfusateTests(TracebaseTestCase):
     def setUp(self):
         super().setUp()
-        MaintainedModel.clear_update_buffer()
+        MaintainedModel._reset_coordinators()
         self.INFUSATE1, self.INFUSATE2 = create_infusate_records()
 
     @classmethod
     def setUpTestData(cls):
         call_command(
             "load_study",
-            "DataRepo/example_data/tissues/loading.yaml",
+            "DataRepo/data/examples/tissues/loading.yaml",
             verbosity=2,
         )
         call_command(
             "load_compounds",
-            compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
+            compounds="DataRepo/data/examples/consolidated_tracebase_compound_list.tsv",
             verbosity=2,
         )
         super().setUpTestData()
@@ -136,24 +134,75 @@ class InfusateTests(TracebaseTestCase):
 
 
 @tag("load_study")
-class MaintainedModelTests(TracebaseTestCase):
+class MaintainedModelDeferredTests(TracebaseTestCase):
     def setUp(self):
+        # Load data and buffer autoupdates before each test
         super().setUp()
-        # Each test first reruns the setup and the DB load adds the same records to the buffer. The DB is emptied after
-        # the test runs, but the buffer needs to be explicitly emptied
-        MaintainedModel.clear_update_buffer()
-        MaintainedModel.disable_autoupdates()
-        create_infusate_records()
-        MaintainedModel.enable_autoupdates()
+        # Reset the coordinators at the start of each test
+        MaintainedModel._reset_coordinators()
+        # Create a parent deferred coordinator to catch all buffered updates without performing the mass updates
+        # We're saving this in `self` so that we can query it in the tests.
+        self.test_coordinator = MaintainedModelCoordinator("deferred")
+        # Add the parent coordinator manually, so that we can catch the contents of the buffered items
+        MaintainedModel._add_coordinator(self.test_coordinator)
+        # Now create a temporary deferred coordinator.  Since a deferred parent coordinator exists, it will not perform
+        # a mass autoupdate on the buffered contents. Instead, it will pass its buffer contents up to the parent
+        # coordinator
+        tmp_coordinator = MaintainedModelCoordinator("deferred")
+        with MaintainedModel.custom_coordinator(tmp_coordinator):
+            # This should not mass auto-update and pass its buffer contents up to the test_coordinator
+            create_infusate_records()
+
+    def tearDown(self):
+        MaintainedModel._reset_coordinators()
+        super().tearDown()
 
     @classmethod
     def setUpTestData(cls):
+        # Load compounds, tissues, and protocol data before any of the tests run
         call_command(
             "load_study",
-            "DataRepo/example_data/small_dataset/small_obob_study_prerequisites.yaml",
+            "DataRepo/data/tests/small_obob/small_obob_study_prerequisites.yaml",
             verbosity=2,
         )
         super().setUpTestData()
+
+    def assert_coordinator_state_is_initialized(
+        self,
+        msg="MaintainedModelCoordinators are in the expected test start state.",
+    ):
+        # Obtain all coordinators that exist
+        all_coordinators = [MaintainedModel._get_default_coordinator()]
+        all_coordinators.extend(MaintainedModel._get_coordinator_stack())
+        # Make sure there is only the default coordinator
+        self.assertEqual(
+            2,
+            len(all_coordinators),
+            msg=msg + "  The coordinator_stack has the test coordinator.",
+        )
+        # Make sure that its mode is "immediate"
+        self.assertEqual(
+            "immediate",
+            all_coordinators[0].auto_update_mode,
+            msg=msg + "  Mode is 'immediate'.",
+        )
+        # Make sure the test coordinator's mode is "deferred"
+        self.assertEqual(
+            "deferred",
+            all_coordinators[1].auto_update_mode,
+            msg=msg + "  Mode is 'immediate'.",
+        )
+        # Make sure that the buffer is empty to start
+        self.assertEqual(
+            0,
+            all_coordinators[0].buffer_size(),
+            msg=msg + "  The default coordinator buffer is empty.",
+        )
+        self.assertGreater(
+            all_coordinators[1].buffer_size(),
+            0,
+            msg=msg + "  The test coordinator buffer is populated.",
+        )
 
     def test_nullable(self):
         """
@@ -176,8 +225,8 @@ class MaintainedModelTests(TracebaseTestCase):
         """
         Ensures that the name fields were all updated, updated correctly, and the buffer emptied.
         """
-        MaintainedModel.disable_autoupdates()  # Required for buffered updates to prevent DFS update behavior
-        MaintainedModel.perform_buffered_updates()
+        # perform the updates that are saved in the test buffer
+        self.test_coordinator.perform_buffered_updates()
         # Ensure all the auto-updated fields not have values (correctness of values tested elsewhere)
         for tl in TracerLabel.objects.all():
             self.assertIsNotNone(tl.name)
@@ -189,14 +238,118 @@ class MaintainedModelTests(TracebaseTestCase):
             self.assertIsNotNone(i.name)
             self.assertEqual(i.name, i._name())
         # Ensure the buffer was emptied by perform_buffered_updates
-        self.assertEqual(MaintainedModel.buffer_size(), 0)
-        MaintainedModel.enable_autoupdates()
+        self.assertEqual(self.test_coordinator.buffer_size(), 0)
+
+    def test_get_name_orig_deferred(self):
+        """
+        Since a parent coordinator is deferred, auto-update should not happen.
+        """
+        io, _ = create_infusate_records()
+        # Since a parent coordinator is deferred, auto-update should not happen, but get_name always returns a value.
+        # See MaintainedModelImmediateTests.test_get_name_orig_updated
+        expected_name = "ti {C16:0-[5,6-13C2,17O2][2];glucose-[2,3-13C2,4-17O1][1]}"
+        self.assertEqual(expected_name, io.get_name)
+        # Assert method get_name does not auto-update if parent coordinator is deferred
+        io_again = Infusate.objects.get(id__exact=io.id)
+        self.assertIsNone(io_again.name)
+
+    def test_pretty_name_deferred(self):
+        io, _ = create_infusate_records()
+        # The expected name should always be populated because it's dynamically populated
+        expected_name = (
+            "ti {\nC16:0-[5,6-13C2,17O2][2];\nglucose-[2,3-13C2,4-17O1][1]\n}"
+        )
+        self.assertEqual(expected_name, io.pretty_name)
+        # Assert method pretty_name does not auto-update if parent coordinator is deferred
+        io_again = Infusate.objects.get(id__exact=io.id)
+        self.assertIsNone(io_again.name)
+
+    def test_get_name_orig_deferred_immediate(self):
+        """
+        Since a parent coordinator is deferred, auto-update should not happen, even if child coordinator is "immediate".
+        """
+        # Create a new "immediate" mode coordinator
+        tmp_coordinator = MaintainedModelCoordinator("immediate")
+        with MaintainedModel.custom_coordinator(tmp_coordinator):
+            io, _ = create_infusate_records()
+            # Since a parent coordinator is deferred, auto-update should not happen, but get_name always returns a
+            # value.
+            io.get_name
+            # Assert method get_name does not auto-update if parent coordinator is deferred
+            io_again = Infusate.objects.get(id__exact=io.id)
+            self.assertIsNone(io_again.name)
+
+
+@tag("load_study")
+class MaintainedModelImmediateTests(TracebaseTestCase):
+    def setUp(self):
+        # Load data and buffer autoupdates before each test
+        super().setUp()
+        # Reset the coordinators at the start of each test
+        MaintainedModel._reset_coordinators()
+
+    def tearDown(self):
+        MaintainedModel._reset_coordinators()
+        super().tearDown()
+
+    @classmethod
+    def setUpTestData(cls):
+        # Load data before any of the tests run
+        call_command(
+            "load_study",
+            "DataRepo/data/tests/small_obob/small_obob_study_prerequisites.yaml",
+            verbosity=2,
+        )
+        super().setUpTestData()
+
+    def assert_coordinator_state_is_initialized(
+        self, msg="MaintainedModelCoordinators are in the default state."
+    ):
+        # Obtain all coordinators that exist
+        all_coordinators = [MaintainedModel._get_default_coordinator()]
+        all_coordinators.extend(MaintainedModel._get_coordinator_stack())
+        # Make sure there is only the default coordinator
+        self.assertEqual(
+            1, len(all_coordinators), msg=msg + "  The coordinator_stack is empty."
+        )
+        # Make sure that its mode is "immediate"
+        self.assertEqual(
+            "immediate",
+            all_coordinators[0].auto_update_mode,
+            msg=msg + "  Mode is 'immediate'.",
+        )
+        # Make sure that the buffer is empty to start
+        for coordinator in all_coordinators:
+            self.assertEqual(
+                0, coordinator.buffer_size(), msg=msg + "  The buffer is empty."
+            )
+
+    def test_get_name_triggers_autoupdate(self):
+        """
+        By disabling buffering, we ensure that the name field in the infusate model will be None, so it we get a value,
+        we infer it used the `._name()` method.
+        """
+        tmp_coordinator = MaintainedModelCoordinator("disabled")
+        with MaintainedModel.custom_coordinator(tmp_coordinator):
+            io, _ = create_infusate_records()
+        # The coordinator that was attached to that object was disabled.  To have a new coordinator, we either need to
+        # retrieve a new object or explicitly set the coordinator. Maybe I should be resetting the coordinator in the
+        # .save() override...
+        io_again = Infusate.objects.get(id__exact=io.id)
+
+        # Should be initially none
+        self.assertIsNone(io_again.name)
+
+        expected_name = "ti {C16:0-[5,6-13C2,17O2][2];glucose-[2,3-13C2,4-17O1][1]}"
+        # Returned value should be equal
+        self.assertEqual(expected_name, io_again.get_name)
+        # And now the field should be updated
+        self.assertEqual(expected_name, io_again.name)
 
     def test_enable_autoupdates(self):
         """
         Ensures that the name field was constructed.
         """
-        MaintainedModel.enable_autoupdates()
         lys = Compound.objects.create(name="lysine2", formula="C6H14N2O2", hmdb_id=3)
         Tracer.objects.create(compound=lys)
         Tracer.objects.get(name="lysine2")
@@ -208,81 +361,39 @@ class MaintainedModelTests(TracebaseTestCase):
         call_command(
             "load_animals_and_samples",
             animal_and_sample_table_filename=(
-                "DataRepo/example_data/small_dataset/"
+                "DataRepo/data/tests/small_obob/"
                 "small_obob_animal_and_sample_table.xlsx"
             ),
             dry_run=False,
         )
-        self.assertEqual(0, MaintainedModel.buffer_size())
+        self.assert_coordinator_state_is_initialized()
 
     def test_error_when_buffer_not_clear(self):
         """Ensure that stale buffer contents before a load produces a helpful error"""
-        MaintainedModel.disable_autoupdates()
-        # Create infusate records while auto updates are disabled, so that they buffer
-        infusate1, infusate2 = create_infusate_records()
-        # Delete the records and do not clear the buffer
-        infusate1.delete()
-        infusate2.delete()
-        MaintainedModel.enable_autoupdates()
+        # with self.assertRaises(Exception) as ar:
         with self.assertRaisesRegex(AutoUpdateFailed, ".+clear_update_buffer.+"):
-            call_command(
-                "load_animals_and_samples",
-                animal_and_sample_table_filename=(
-                    "DataRepo/example_data/small_dataset/"
-                    "small_obob_animal_and_sample_table.xlsx"
-                ),
-                dry_run=False,
-            )
-        # Now clean up the buffer
-        MaintainedModel.clear_update_buffer()
-
-    def test_get_name_orig(self):
-        """
-        Note, this should obtain the name from the database field, although there's no way to explicitly test that
-        that's the case (until an "override" param is added to the .save() call to allow a field controlled by
-        MaintainedModel to be set.
-        """
-        io, io2 = create_infusate_records()
-        expected_name = "ti {C16:0-[5,6-13C2,17O2][2];glucose-[2,3-13C2,4-17O1][1]}"
-        self.assertEqual(expected_name, io.get_name)
-
-    def test_pretty_name(self):
-        io, io2 = create_infusate_records()
-        expected_name = (
-            "ti {\nC16:0-[5,6-13C2,17O2][2];\nglucose-[2,3-13C2,4-17O1][1]\n}"
-        )
-        self.assertEqual(expected_name, io.pretty_name)
-
-    def test_get_name_triggers_autoupdate(self):
-        """
-        By disabling buffering, we ensure that the name field in the infusate model will be None, so it we get a value,
-        we infer it used the `._name()` method.
-        """
-        MaintainedModel.disable_autoupdates()
-        MaintainedModel.disable_buffering()
-        io, io2 = create_infusate_records()
-        MaintainedModel.enable_buffering()
-        MaintainedModel.enable_autoupdates()
-        # Should be initially none
-        self.assertIsNone(io.name)
-        expected_name = "ti {C16:0-[5,6-13C2,17O2][2];glucose-[2,3-13C2,4-17O1][1]}"
-        # Returned value should be equal
-        self.assertEqual(expected_name, io.get_name)
-        # And now the field should be updated
-        self.assertEqual(expected_name, io.name)
+            # Create infusate records while auto updates are disabled, so that they buffer
+            tmp_coordinator = MaintainedModelCoordinator("deferred")
+            with MaintainedModel.custom_coordinator(tmp_coordinator):
+                infusate1, infusate2 = create_infusate_records()
+                # Delete the records and do not clear the buffer
+                infusate1.delete()
+                infusate2.delete()
+                # When we leave this context, autoupdates will be attempted to be performed by the temporary coordinator
 
 
 class RebuildMaintainedModelFieldsTests(TracebaseTestCase):
     def setUp(self):
         super().setUp()
-        # Each test first reruns the setup and the DB load adds the same records to the buffer. The DB is emptied after
-        # the test runs, but the buffer needs to be explicitly emptied
-        MaintainedModel.disable_autoupdates()
-        create_infusate_records()
-        MaintainedModel.enable_autoupdates()
+        # Do not perform nor buffer autoupdates (disable autoupdates).
+        # This creates records with maintained fields that are empty.
+        disabled_coordinator = MaintainedModelCoordinator("disabled")
+        with MaintainedModel.custom_coordinator(disabled_coordinator):
+            create_infusate_records()
 
     def test_rebuild_maintained_fields(self):
-        rebuild_maintained_fields()
+        # Perform all updates of all maintained fields in every record
+        MaintainedModel.rebuild_maintained_fields()
         # Ensure all the auto-updated fields not have values (correctness of values tested elsewhere)
         for i in Infusate.objects.all():
             self.assertIsNotNone(i.name)
@@ -293,5 +404,6 @@ class RebuildMaintainedModelFieldsTests(TracebaseTestCase):
         for tl in TracerLabel.objects.all():
             self.assertIsNotNone(tl.name)
             self.assertEqual(tl.name, tl._name())
-        # Ensure the buffer was emptied by perform_buffered_updates
-        self.assertEqual(MaintainedModel.buffer_size(), 0)
+        coordinator = MaintainedModel._get_current_coordinator()
+        # Ensure the buffer was emptied by rebuild_maintained_fields
+        self.assertEqual(coordinator.buffer_size(), 0)

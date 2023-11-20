@@ -25,7 +25,7 @@ class LoadCompoundsTests(TracebaseTestCase):
 
     @classmethod
     def setUpTestData(cls):
-        call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
+        call_command("load_study", "DataRepo/data/examples/tissues/loading.yaml")
         super().setUpTestData()
 
     def test_compound_loading(self):
@@ -37,7 +37,7 @@ class LoadCompoundsTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_compounds",
-                compounds="DataRepo/example_data/testing_data/test_study_1/test_study_1_compounds_dupes.tsv",
+                compounds="DataRepo/data/tests/compounds/test_study_1_compounds_dupes.tsv",
             )
         aes = ar.exception
         self.assertEqual(2, len(aes.exceptions))
@@ -55,10 +55,10 @@ class CompoundLoadingTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
         primary_compound_file = (
-            "DataRepo/example_data/consolidated_tracebase_compound_list.tsv"
+            "DataRepo/data/examples/consolidated_tracebase_compound_list.tsv"
         )
 
-        call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
+        call_command("load_study", "DataRepo/data/examples/tissues/loading.yaml")
         try:
             call_command(
                 "load_compounds",
@@ -105,8 +105,9 @@ class CompoundLoadingTests(TracebaseTestCase):
         )
 
     def test_nonsense_synonym_retrieval(self):
-        synonymous_compound = Compound.compound_matching_name_or_synonym("nonsense")
-        self.assertIsNone(synonymous_compound)
+        with self.assertRaises(Compound.DoesNotExist) as ar:
+            Compound.compound_matching_name_or_synonym("nonsense")
+        self.assertIn("nonsense", str(ar.exception))
 
     @tag("compound_for_row")
     def test_new_synonyms_added_to_existing_compound(self):
@@ -133,7 +134,7 @@ class CompoundLoadingTests(TracebaseTestCase):
                 }
             )
         )
-        cl.load_compounds()
+        cl.load_compound_data()
         self.assertEqual(
             1,
             cl.num_existing_compounds,
@@ -221,7 +222,7 @@ class CompoundLoadingTests(TracebaseTestCase):
             )
         )
         with self.assertRaises(AggregatedErrors) as ar:
-            cl.load_compounds()
+            cl.load_compound_data()
         aes = ar.exception
         self.assertEqual(2, aes.num_errors)
         self.assertEqual(
@@ -292,7 +293,7 @@ class CompoundLoadingTests(TracebaseTestCase):
             )
         )
         with self.assertRaises(AggregatedErrors) as ar:
-            cl.load_compounds()
+            cl.load_compound_data()
         aes = ar.exception
         self.assertEqual(2, aes.num_errors)
         self.assertEqual(SynonymExistsAsMismatchedCompound, type(aes.exceptions[0]))
@@ -303,7 +304,7 @@ class CompoundLoadingTests(TracebaseTestCase):
 class CompoundsLoaderTests(TracebaseTestCase):
     def get_dataframe(self):
         return pd.read_csv(
-            "DataRepo/example_data/testing_data/short_compound_list.tsv",
+            "DataRepo/data/tests/compounds/short_compound_list.tsv",
             sep="\t",
             keep_default_na=False,
         )
@@ -311,9 +312,9 @@ class CompoundsLoaderTests(TracebaseTestCase):
     def test_compound_exists_skipped(self):
         df = self.get_dataframe()
         cl = CompoundsLoader(df)
-        cl.load_compounds()
+        cl.load_compound_data()
         cl2 = CompoundsLoader(df)
-        cl2.load_compounds()
+        cl2.load_compound_data()
         self.assertEqual(0, cl2.num_inserted_compounds)
         self.assertEqual(0, cl2.num_erroneous_compounds)
         self.assertEqual(1, cl2.num_existing_compounds)
@@ -340,7 +341,7 @@ class CompoundsLoaderTests(TracebaseTestCase):
                 }
             )
         )
-        cl.load_compounds()
+        cl.load_compound_data()
 
         # The fact these 2 gets don't raise an exception is a test that the load worked
         ncpd = Compound.objects.get(name__exact="my new compound")
@@ -353,10 +354,10 @@ class CompoundsLoaderTests(TracebaseTestCase):
 class CompoundValidationLoadingTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
-        call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
+        call_command("load_study", "DataRepo/data/examples/tissues/loading.yaml")
         call_command(
             "load_compounds",
-            compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
+            compounds="DataRepo/data/examples/consolidated_tracebase_compound_list.tsv",
             dry_run=True,
             verbosity=0,
         )

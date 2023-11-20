@@ -39,9 +39,7 @@ SECRET_KEY = env("SECRET_KEY", default="unsafe-secret-key")
 # serve those files).  See https://stackoverflow.com/a/5836728/2057516
 DEBUG = env.bool("DEBUG", default=False)
 
-ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
-if env("HOST", default=None):
-    ALLOWED_HOSTS.append(env("HOST"))
+ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
 
 # Application definition
 
@@ -152,6 +150,23 @@ STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")]
 MEDIA_URL = "/archive/"
 MEDIA_ROOT = os.path.join(BASE_DIR, "archive")
 
+STORAGES = {
+    # Django defaults:
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
+    # Testing/production
+    "testing": {
+        "BACKEND": "django.core.files.storage.InMemoryStorage",
+    },
+    "production": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+}
+
 # Data submission and validation settings
 
 # https://stackoverflow.com/questions/38345977/filefield-force-using-temporaryuploadedfile
@@ -201,28 +216,28 @@ elif CACHES_SETTING != "PROD_CACHES":
 TEST_RUNNER = "TraceBase.runner.TraceBaseTestSuiteRunner"
 
 # Logging settings
-# This logging level was added to show the number of SQL queries in the server console
-# Left this commented code here to prompt a conversation about how we should control this debug mode activation
-# - probably via an environment setting
-
-# LOGGING = {
-#    "version": 1,
-#    "filters": {
-#        "require_debug_true": {
-#            "()": "django.utils.log.RequireDebugTrue",
-#        }
-#    },
-#    "handlers": {
-#        "console": {
-#            "level": "DEBUG",
-#            "filters": ["require_debug_true"],
-#            "class": "logging.StreamHandler",
-#        }
-#    },
-#    "loggers": {
-#        "django.db.backends": {
-#            "level": "DEBUG",
-#            "handlers": ["console"],
-#        }
-#    },
-# }
+# Note, to print SQL, DEBUG must be True, and to print SQL during a particular test, each test method must be decorated
+# with: `@override_settings(DEBUG=True)`
+SQL_LOGGING = env.bool("SQL_LOGGING", default=False)
+if SQL_LOGGING is True:
+    LOGGING = {
+        "version": 1,
+        "filters": {
+            "require_debug_true": {
+                "()": "django.utils.log.RequireDebugTrue",
+            }
+        },
+        "handlers": {
+            "console": {
+                "level": "DEBUG",
+                "filters": ["require_debug_true"],
+                "class": "logging.StreamHandler",
+            }
+        },
+        "loggers": {
+            "django.db.backends": {
+                "level": "DEBUG",
+                "handlers": ["console"],
+            }
+        },
+    }

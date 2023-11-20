@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Optional
 
 from django.core.exceptions import ValidationError
-from django.db import models
+from django.db import models, transaction
 
 from DataRepo.models.maintained_model import MaintainedModel
 from DataRepo.models.utilities import get_model_by_name
@@ -19,6 +19,7 @@ TRACERS_RIGHT_BRACKET = "}"
 
 
 class InfusateQuerySet(models.QuerySet):
+    @transaction.atomic
     def get_or_create_infusate(
         self,
         infusate_data: InfusateData,
@@ -156,12 +157,10 @@ class Infusate(MaintainedModel):
         # Get the name.  Initialize if not set and auto-updates are on.
         if self.name:
             display_name = self.name
-        elif MaintainedModel.are_autoupdates_enabled():
-            MaintainedModel.init_autoupdate_label_filters(label_filters=["name"])
+        elif self.get_coordinator().are_autoupdates_enabled():
             # This triggers an auto-update
             self.save()
             display_name = self.name
-            MaintainedModel.init_autoupdate_label_filters()
 
         # If it's still not set, call the method that generates the name.  It just won't be saved.
         if not display_name:

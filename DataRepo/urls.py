@@ -42,11 +42,6 @@ urlpatterns = [
         name="animal_treatment_list",
     ),
     path(
-        "protocols/msrun_protocols/",
-        views.MSRunProtocolListView.as_view(),
-        name="msrun_protocol_list",
-    ),
-    path(
         "protocols/<int:pk>/",
         views.ProtocolDetailView.as_view(),
         name="protocol_detail",
@@ -60,12 +55,24 @@ urlpatterns = [
     path("msruns/", views.MSRunListView.as_view(), name="msrun_list"),
     path("msruns/<int:pk>/", views.MSRunDetailView.as_view(), name="msrun_detail"),
     path(
-        "peakgroupsets/", views.PeakGroupSetListView.as_view(), name="peakgroupset_list"
+        "peakgroupsets/",
+        views.PeakGroupSetListView.as_view(),
+        name="peakgroupset_list",
     ),
     path(
         "peakgroupsets/<int:pk>/",
         views.PeakGroupSetDetailView.as_view(),
         name="peakgroupset_detail",
+    ),
+    path(
+        "archive_files/",
+        views.ArchiveFileListView.as_view(),
+        name="archive_file_list",
+    ),
+    path(
+        "archive_file/<int:pk>/",
+        views.ArchiveFileDetailView.as_view(),
+        name="archive_file_detail",
     ),
     path("peakgroups/", views.PeakGroupListView.as_view(), name="peakgroup_list"),
     path(

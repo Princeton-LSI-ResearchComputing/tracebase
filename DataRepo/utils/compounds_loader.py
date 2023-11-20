@@ -37,21 +37,27 @@ class CompoundsLoader:
         self,
         compounds_df,
         synonym_separator=";",
-        validate=False,
         dry_run=False,
+        defer_rollback=False,  # DO NOT USE MANUALLY - THIS WILL NOT ROLL BACK (handle in atomic transact in caller)
     ):
+        # Data to load
         self.compounds_df = compounds_df
         self.synonym_separator = synonym_separator
-        self.bad_row_indexes = []
+
+        # Tracking stats
         self.num_inserted_compounds = 0
         self.num_existing_compounds = 0
         self.num_erroneous_compounds = 0
         self.num_inserted_synonyms = 0
         self.num_existing_synonyms = 0
         self.num_erroneous_synonyms = 0
-        self.dry_run = dry_run
-        self.validate = validate
 
+        # Modes
+        self.dry_run = dry_run
+        self.defer_rollback = defer_rollback
+
+        # Error tracking
+        self.bad_row_indexes = []
         self.aggregated_errors_obj = AggregatedErrors()
 
     def check_headers(self):
@@ -82,7 +88,7 @@ class CompoundsLoader:
             ]
         return synonyms
 
-    def load_compounds(self):
+    def load_compound_data(self):
         with transaction.atomic():
             try:
                 self.validate_infile_data()
@@ -91,12 +97,20 @@ class CompoundsLoader:
                 self.aggregated_errors_obj.buffer_error(e)
 
             # If there are buffered errors
-            if self.aggregated_errors_obj.should_raise():
+            if self.aggregated_errors_obj.should_raise() and not self.defer_rollback:
+                # Raise here to cause a rollback
                 raise self.aggregated_errors_obj
 
             if self.dry_run:
                 # Roll back everything
                 raise DryRun()
+
+        # If we're only validating data or we've been otherwise directed to defer rollback (in the event of an error),
+        # raise the exception here (outside of the atomic transaction block).  This assumes that the caller is handling
+        # rollback in their own atomic transaction blocl.
+        if self.aggregated_errors_obj.should_raise() and self.defer_rollback:
+            # Raise here to NOT cause a rollback
+            raise self.aggregated_errors_obj
 
     def validate_infile_data(self):
         # Check the headers

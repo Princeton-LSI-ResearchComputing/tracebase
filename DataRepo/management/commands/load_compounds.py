@@ -28,6 +28,7 @@ class Command(BaseCommand):
             default=";",
             required=False,
         )
+
         parser.add_argument(
             "--dry-run",
             action="store_true",
@@ -37,12 +38,12 @@ class Command(BaseCommand):
                 "but simply report back potential work or issues."
             ),
         )
-        # Used internally by the DataValidationView
+
+        # Intended for use by load_study to prevent rollback of changes in the event of an error so that for example,
+        # subsequent loading scripts can validate with all necessary data present
         parser.add_argument(
-            "--validate",
-            required=False,
+            "--defer-rollback",  # DO NOT USE MANUALLY - THIS WILL NOT ROLL BACK (handle in outer atomic transact)
             action="store_true",
-            default=False,
             help=argparse.SUPPRESS,
         )
 
@@ -58,12 +59,12 @@ class Command(BaseCommand):
         loader = CompoundsLoader(
             compounds_df=self.compounds_df,
             synonym_separator=options["synonym_separator"],
-            validate=options["validate"],
             dry_run=options["dry_run"],
+            defer_rollback=options["defer_rollback"],
         )
 
         try:
-            loader.load_compounds()
+            loader.load_compound_data()
         except DryRun:
             pass
 

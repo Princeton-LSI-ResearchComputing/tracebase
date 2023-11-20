@@ -9,6 +9,22 @@ from DataRepo.models.maintained_model import (
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
+def assert_coordinator_state_is_initialized():
+    # Obtain all coordinators that exist
+    all_coordinators = [MaintainedModel._get_default_coordinator()]
+    all_coordinators.extend(MaintainedModel._get_coordinator_stack())
+    if 1 != len(all_coordinators):
+        raise ValueError(
+            f"Before setting up test data, there are {len(all_coordinators)} MaintainedModelCoordinators."
+        )
+    if all_coordinators[0].auto_update_mode != "immediate":
+        raise ValueError(
+            "Before setting up test data, the default coordinator is not in immediate autoupdate mode."
+        )
+    if 0 != all_coordinators[0].buffer_size():
+        raise UncleanBufferError()
+
+
 class ProtocolViewTests(TracebaseTestCase):
     """
     Test two list views for subsets of protocols
@@ -20,10 +36,10 @@ class ProtocolViewTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
         # Ensure the auto-update buffer is empty.  If it's not, then a previously run test didn't clean up after itself
-        if MaintainedModel.buffer_size() > 0:
-            raise UncleanBufferError()
+        assert_coordinator_state_is_initialized()
 
-        call_command("load_study", "DataRepo/example_data/test_dataframes/loading.yaml")
+        call_command("loaddata", "lc_methods")
+        call_command("load_study", "DataRepo/data/tests/dataframes/loading.yaml")
 
     def test_animal_treatment_list(self):
         response = self.client.get(reverse("animal_treatment_list"))
@@ -36,26 +52,6 @@ class ProtocolViewTests(TracebaseTestCase):
                 for treatment in response.context["animal_treatment_list"]
             )
         )
-
-    def test_msrun_protocol_list(self):
-        response = self.client.get(reverse("msrun_protocol_list"))
-        self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "DataRepo/msrun_protocols.html")
-        self.assertEqual(len(response.context["msrun_protocol_list"]), 8)
-        self.assertTrue(
-            any(
-                msrun_protocol.name == "Default"
-                for msrun_protocol in response.context["msrun_protocol_list"]
-            )
-        )
-
-    def test_protocol_detail(self):
-        p1 = Protocol.objects.filter(name="Default").get()
-        response = self.client.get(reverse("protocol_detail", args=[p1.id]))
-        self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "DataRepo/protocol_detail.html")
-        self.assertEqual(response.context["protocol"].name, "Default")
-        self.assertEqual(response.context["proto_display"], "MSRun Protocol")
 
     def test_protocol_detail_404(self):
         p = Protocol.objects.order_by("id").last()

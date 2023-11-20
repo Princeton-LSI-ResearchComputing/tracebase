@@ -4,6 +4,11 @@ from csv import DictReader
 import yaml  # type: ignore
 from django.core.management import BaseCommand
 
+from DataRepo.models.hier_cached_model import (
+    disable_caching_updates,
+    enable_caching_updates,
+)
+from DataRepo.models.maintained_model import MaintainedModel
 from DataRepo.utils import SampleTableLoader
 
 
@@ -51,7 +56,21 @@ class Command(BaseCommand):
             default=False,
             help="Dry run mode. Will not change the database.",
         )
+        # Used internally by the validation view, as temporary data should not trigger cache deletions
+        parser.add_argument(
+            "--skip-cache-updates",
+            required=False,
+            action="store_true",
+            default=False,
+            help=argparse.SUPPRESS,
+        )
 
+    @MaintainedModel.defer_autoupdates(
+        label_filters=["name"],
+        disable_opt_names=["validate", "dry_run"],
+        pre_mass_update_func=disable_caching_updates,
+        post_mass_update_func=enable_caching_updates,
+    )
     def handle(self, *args, **options):
         print("Reading header definition")
         if options["sample_table_headers"]:
@@ -71,8 +90,8 @@ class Command(BaseCommand):
             ],  # DO NOT USE MANUALLY - THIS WILL NOT ROLL BACK UPON ERROR
             skip_researcher_check=options["skip_researcher_check"],
             verbosity=options["verbosity"],
-            defer_autoupdates=options["defer_autoupdates"],
             dry_run=options["dry_run"],
+            update_caches=not options["skip_cache_updates"],
         )
         loader.load_sample_table(
             DictReader(

@@ -9,18 +9,19 @@ from django.urls import reverse
 
 from DataRepo.models import (
     Animal,
+    ArchiveFile,
     Compound,
     Infusate,
     MSRun,
     PeakData,
     PeakGroup,
-    PeakGroupSet,
     Sample,
     Study,
     Tissue,
 )
 from DataRepo.models.maintained_model import (
     MaintainedModel,
+    MaintainedModelCoordinator,
     UncleanBufferError,
 )
 from DataRepo.models.utilities import get_all_models
@@ -31,26 +32,44 @@ from DataRepo.tests.tracebase_test_case import (
 from DataRepo.views import DataValidationView
 
 
+def assert_coordinator_state_is_initialized():
+    # Obtain all coordinators that exist
+    all_coordinators = [MaintainedModel._get_default_coordinator()]
+    all_coordinators.extend(MaintainedModel._get_coordinator_stack())
+    if 1 != len(all_coordinators):
+        raise ValueError(
+            f"Before setting up test data, there are {len(all_coordinators)} MaintainedModelCoordinators."
+        )
+    if all_coordinators[0].auto_update_mode != "immediate":
+        raise ValueError(
+            "Before setting up test data, the default coordinator is not in immediate autoupdate mode."
+        )
+    if 0 != all_coordinators[0].buffer_size():
+        raise UncleanBufferError()
+
+
 class ViewTests(TracebaseTestCase):
     @classmethod
-    def setUpTestData(cls):
-        call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
+    def setUpTestData(cls, disabled_coordinator=False):
+        call_command("loaddata", "lc_methods")
+        call_command("load_study", "DataRepo/data/examples/tissues/loading.yaml")
         cls.ALL_TISSUES_COUNT = 37
 
         call_command(
             "load_compounds",
-            compounds="DataRepo/example_data/small_dataset/small_obob_compounds.tsv",
+            compounds="DataRepo/data/tests/small_obob/small_obob_compounds.tsv",
         )
         cls.ALL_COMPOUNDS_COUNT = 3
 
-        # Ensure the auto-update buffer is empty.  If it's not, then a previously run test didn't clean up after itself
-        if MaintainedModel.buffer_size() > 0:
-            raise UncleanBufferError()
+        if not disabled_coordinator:
+            # Ensure the auto-update buffer is empty.  If it's not, then a previously run test didn't clean up after
+            # itself
+            assert_coordinator_state_is_initialized()
 
         call_command(
             "load_samples",
-            "DataRepo/example_data/small_dataset/small_obob_sample_table.tsv",
-            sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
+            "DataRepo/data/tests/small_obob/small_obob_sample_table.tsv",
+            sample_table_headers="DataRepo/data/examples/sample_table_headers.yaml",
         )
         # not counting the header and BLANK samples
         cls.ALL_SAMPLES_COUNT = 15
@@ -59,8 +78,9 @@ class ViewTests(TracebaseTestCase):
 
         call_command(
             "load_accucor_msruns",
-            protocol="Default",
-            accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf.xlsx",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="default instrument",
+            accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf.xlsx",
             date="2021-06-03",
             researcher="Michael Neinast",
             new_researcher=True,
@@ -72,8 +92,9 @@ class ViewTests(TracebaseTestCase):
 
         call_command(
             "load_accucor_msruns",
-            protocol="Default",
-            accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_serum.xlsx",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="default instrument",
+            accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_serum.xlsx",
             date="2021-06-03",
             researcher="Michael Neinast",
             new_researcher=False,
@@ -84,6 +105,39 @@ class ViewTests(TracebaseTestCase):
         cls.SERUM_PEAKGROUP_COUNT = cls.SERUM_COMPOUNDS_COUNT * cls.SERUM_SAMPLES_COUNT
 
         super().setUpTestData()
+
+    def setUp(self):
+        # Load data and buffer autoupdates before each test
+        self.assert_coordinator_state_is_initialized()
+        super().setUp()
+
+    def tearDown(self):
+        self.assert_coordinator_state_is_initialized()
+        super().tearDown()
+
+    def assert_coordinator_state_is_initialized(
+        self, msg="MaintainedModelCoordinators are in the default state."
+    ):
+        # Obtain all coordinators that exist
+        all_coordinators = [MaintainedModel._get_default_coordinator()]
+        all_coordinators.extend(MaintainedModel._get_coordinator_stack())
+        # Make sure there is only the default coordinator
+        self.assertEqual(
+            1,
+            len(all_coordinators),
+            msg=msg + "  The coordinator_stack should be empty.",
+        )
+        # Make sure that its mode is "immediate"
+        self.assertEqual(
+            "immediate",
+            all_coordinators[0].auto_update_mode,
+            msg=msg + "  Mode is 'immediate'.",
+        )
+        # Make sure that the buffer is empty to start
+        for coordinator in all_coordinators:
+            self.assertEqual(
+                0, coordinator.buffer_size(), msg=msg + "  The buffer should be empty."
+            )
 
     @tag("compound")
     def test_compound_list(self):
@@ -254,26 +308,26 @@ class ViewTests(TracebaseTestCase):
         response = self.client.get(reverse("msrun_detail", args=[ms.id + 1]))
         self.assertEqual(response.status_code, 404)
 
-    def test_peakgroupset_list(self):
-        response = self.client.get(reverse("peakgroupset_list"))
+    def test_archive_file_list(self):
+        response = self.client.get(reverse("archive_file_list"))
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "DataRepo/peakgroupset_list.html")
-        self.assertEqual(len(response.context["peakgroupset_list"]), 2)
+        self.assertTemplateUsed(response, "DataRepo/archive_file_list.html")
+        self.assertEqual(len(response.context["archive_file_list"]), 2)
 
-    def test_peakgroupset_detail(self):
-        pgs1 = PeakGroupSet.objects.filter(
+    def test_archive_file_detail(self):
+        af1 = ArchiveFile.objects.filter(
             filename="small_obob_maven_6eaas_inf.xlsx"
         ).get()
-        response = self.client.get(reverse("peakgroupset_detail", args=[pgs1.id]))
+        response = self.client.get(reverse("archive_file_detail", args=[af1.id]))
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "DataRepo/peakgroupset_detail.html")
+        self.assertTemplateUsed(response, "DataRepo/archive_file_detail.html")
         self.assertEqual(
-            response.context["peakgroupset"].filename, "small_obob_maven_6eaas_inf.xlsx"
+            response.context["archivefile"].filename, "small_obob_maven_6eaas_inf.xlsx"
         )
 
-    def test_peakgroupset_detail_404(self):
-        pgs = PeakGroupSet.objects.order_by("id").last()
-        response = self.client.get(reverse("peakgroupset_detail", args=[pgs.id + 1]))
+    def test_archive_file_detail_404(self):
+        af = ArchiveFile.objects.order_by("id").last()
+        response = self.client.get(reverse("archive_file_detail", args=[af.id + 1]))
         self.assertEqual(response.status_code, 404)
 
     def test_peakgroup_list(self):
@@ -500,10 +554,48 @@ class ViewNullToleranceTests(ViewTests):
 
     @classmethod
     def setUpTestData(cls):
-        # Silently dis-allow auto-updates by disabling buffering
-        MaintainedModel.disable_buffering()
-        super().setUpTestData()
-        MaintainedModel.enable_buffering()
+        super().setUpTestData(disabled_coordinator=True)
+
+    @classmethod
+    def setUpClass(self):
+        # Silently dis-allow auto-updates by adding a disabled coordinator
+        disabled_coordinator = MaintainedModelCoordinator("disabled")
+        MaintainedModel._add_coordinator(disabled_coordinator)
+        super().setUpClass()
+
+    def setUp(self):
+        # Load data and buffer autoupdates before each test
+        self.assert_coordinator_state_is_initialized()
+        super().setUp()
+
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+        MaintainedModel._reset_coordinators()
+
+    def assert_coordinator_state_is_initialized(
+        self, msg="MaintainedModelCoordinators are in the default state."
+    ):
+        # Obtain all coordinators that exist
+        all_coordinators = [MaintainedModel._get_default_coordinator()]
+        all_coordinators.extend(MaintainedModel._get_coordinator_stack())
+        # Make sure there is only the default coordinator
+        self.assertEqual(
+            2,
+            len(all_coordinators),
+            msg=msg + "  The coordinator_stack should have the disabled coordinator.",
+        )
+        # Make sure that its mode is "immediate"
+        self.assertEqual(
+            "immediate",
+            all_coordinators[0].auto_update_mode,
+            msg=msg + "  Mode is 'immediate'.",
+        )
+        # Make sure that the buffer is empty to start
+        for coordinator in all_coordinators:
+            self.assertEqual(
+                0, coordinator.buffer_size(), msg=msg + "  The buffer should be empty."
+            )
 
     def test_study_list(self):
         """Make sure this page works when infusate/tracer, and/or tracer label names are None"""
@@ -524,16 +616,40 @@ class ValidationViewTests(TracebaseTransactionTestCase):
     https://stackoverflow.com/questions/21458387/transactionmanagementerror-you-cant-execute-queries-until-the-end-of-the-atom
     """
 
+    fixtures = ["data_types.yaml", "data_formats.yaml"]
+
+    def assert_coordinator_state_is_initialized(
+        self, msg="MaintainedModelCoordinators are in the default state."
+    ):
+        # Obtain all coordinators that exist
+        all_coordinators = [MaintainedModel._get_default_coordinator()]
+        all_coordinators.extend(MaintainedModel._get_coordinator_stack())
+        # Make sure there is only the default coordinator
+        self.assertEqual(
+            1, len(all_coordinators), msg=msg + "  The coordinator_stack is empty."
+        )
+        # Make sure that its mode is "immediate"
+        self.assertEqual(
+            "immediate",
+            all_coordinators[0].auto_update_mode,
+            msg=msg + "  Mode is 'immediate'.",
+        )
+        # Make sure that the buffer is empty to start
+        for coordinator in all_coordinators:
+            self.assertEqual(
+                0, coordinator.buffer_size(), msg=msg + "  The buffer is empty."
+            )
+
     @classmethod
     def initialize_databases(cls):
         # Ensure the auto-update buffer is empty.  If it's not, then a previously run test didn't clean up after itself
-        if MaintainedModel.buffer_size() > 0:
-            raise UncleanBufferError()
+        assert_coordinator_state_is_initialized()
 
-        call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
+        call_command("loaddata", "lc_methods")
+        call_command("load_study", "DataRepo/data/examples/tissues/loading.yaml")
         call_command(
             "load_compounds",
-            compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
+            compounds="DataRepo/data/examples/consolidated_tracebase_compound_list.tsv",
         )
 
     @classmethod
@@ -575,21 +691,22 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         """
         Do a file validation test
         """
-        # Load the necessary tissues & compounds for a successful test
-        call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
+        # Load the necessary records for a successful test
+        call_command("loaddata", "lc_methods")
+        call_command("load_study", "DataRepo/data/examples/tissues/loading.yaml")
         call_command(
             "load_compounds",
-            compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
+            compounds="DataRepo/data/examples/consolidated_tracebase_compound_list.tsv",
         )
 
         # Files/inputs we will test
-        sf = "DataRepo/example_data/data_submission_good/animal_sample_table.xlsx"
+        sf = "DataRepo/data/tests/data_submission/animal_sample_good.xlsx"
         afs = [
-            "DataRepo/example_data/data_submission_good/accucor1.xlsx",
-            "DataRepo/example_data/data_submission_good/accucor2.xlsx",
+            "DataRepo/data/tests/data_submission/accucor1.xlsx",
+            "DataRepo/data/tests/data_submission/accucor2.xlsx",
         ]
 
-        sfkey = "animal_sample_table.xlsx"
+        sfkey = "animal_sample_good.xlsx"
         af1key = "accucor1.xlsx"
         af2key = "accucor2.xlsx"
 
@@ -620,34 +737,51 @@ class ValidationViewTests(TracebaseTransactionTestCase):
 
         # Load some data that should cause a researcher warning during validation (an unknown researcher error will not
         # be raised if there are no researchers loaded in the database)
+        call_command("loaddata", "lc_methods")
         call_command(
             "load_samples",
-            "DataRepo/example_data/small_dataset/small_obob_sample_table.tsv",
-            sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
+            "DataRepo/data/tests/small_obob/small_obob_sample_table.tsv",
+            sample_table_headers="DataRepo/data/examples/sample_table_headers.yaml",
             validate=True,
         )
         call_command(
             "load_accucor_msruns",
-            protocol="Default",
-            accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf.xlsx",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="default instrument",
+            accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf.xlsx",
             date="2021-06-03",
             researcher="Michael Neinast",
             new_researcher=True,
             validate=True,
+            mzxml_files=[
+                "BAT-xz971.mzxml",
+                "Br-xz971.mzxml",
+                "Dia-xz971.mzxml",
+                "gas-xz971.mzxml",
+                "gWAT-xz971.mzxml",
+                "H-xz971.mzxml",
+                "Kid-xz971.mzxml",
+                "Liv-xz971.mzxml",
+                "Lu-xz971.mzxml",
+                "Pc-xz971.mzxml",
+                "Q-xz971.mzxml",
+                "SI-xz971.mzxml",
+                "Sol-xz971.mzxml",
+                "Sp-xz971.mzxml",
+            ],
         )
 
         # Ensure the auto-update buffer is empty.  If it's not, then a previously run test didn't clean up after itself
-        if MaintainedModel.buffer_size() > 0:
-            raise UncleanBufferError()
+        self.assert_coordinator_state_is_initialized()
 
         # Files/inputs we will test
-        sf = "DataRepo/example_data/data_submission_sample_unkres_acc_good/animal_sample_table.xlsx"
+        sf = "DataRepo/data/tests/data_submission/animal_sample_unknown_researcher.xlsx"
         afs = [
-            "DataRepo/example_data/data_submission_sample_unkres_acc_good/accucor1.xlsx",
-            "DataRepo/example_data/data_submission_sample_unkres_acc_good/accucor2.xlsx",
+            "DataRepo/data/tests/data_submission/accucor1.xlsx",
+            "DataRepo/data/tests/data_submission/accucor2.xlsx",
         ]
 
-        sfkey = "animal_sample_table.xlsx"
+        sfkey = "animal_sample_unknown_researcher.xlsx"
         af1key = "accucor1.xlsx"
         af2key = "accucor2.xlsx"
 
@@ -709,12 +843,10 @@ class ValidationViewTests(TracebaseTransactionTestCase):
             "DataRepo.models"
         )
 
-        sample_file = (
-            "DataRepo/example_data/data_submission_good/animal_sample_table.xlsx"
-        )
+        sample_file = "DataRepo/data/tests/data_submission/animal_sample_good.xlsx"
         accucor_files = [
-            "DataRepo/example_data/data_submission_good/accucor1.xlsx",
-            "DataRepo/example_data/data_submission_good/accucor2.xlsx",
+            "DataRepo/data/tests/data_submission/accucor1.xlsx",
+            "DataRepo/data/tests/data_submission/accucor2.xlsx",
         ]
 
         self.validate_some_files(sample_file, accucor_files)
@@ -733,7 +865,7 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         Test to ensure that tissues load in both databases by default
         """
         self.clear_database()
-        call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
+        call_command("load_study", "DataRepo/data/examples/tissues/loading.yaml")
         self.assertGreater(Tissue.objects.all().count(), 0)
 
     @override_settings(VALIDATION_ENABLED=False)
@@ -758,9 +890,11 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         self.clear_database()
         self.initialize_databases()
 
-        sample_file = "DataRepo/example_data/small_dataset/small_obob_animal_and_sample_table.xlsx"
+        sample_file = (
+            "DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx"
+        )
         accucor_files = [
-            "DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_req_prefix.xlsx",
+            "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_req_prefix.xlsx",
         ]
         sfkey = "small_obob_animal_and_sample_table.xlsx"
         afkey = "small_obob_maven_6eaas_inf_req_prefix.xlsx"
@@ -803,7 +937,7 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         vo = DataValidationView()
         vo.set_files(sample_file, accucor_files)
         # Now try validating the load files
-        valid, results, exceptions, ordered_keys = vo.get_validation_results()
+        valid, results, exceptions, _ = vo.get_validation_results()
 
         file_keys = []
         file_keys.append(os.path.basename(sample_file))
@@ -858,17 +992,16 @@ class ValidationViewTests(TracebaseTransactionTestCase):
                     #     "isocorr_format": False,  # Set by self.add_ms_data()
                     # },
                 ],
-                "msrun_protocol": "Default",
                 "date": "1972-11-24",
                 "researcher": "anonymous",
                 "new_researcher": False,
             },
         }
 
-        sf = "DataRepo/example_data/data_submission_good/animal_sample_table.xlsx"
+        sf = "DataRepo/data/tests/data_submission/animal_sample_good.xlsx"
         afs = [
-            "DataRepo/example_data/data_submission_good/accucor1.xlsx",
-            "DataRepo/example_data/data_submission_good/accucor2.xlsx",
+            "DataRepo/data/tests/data_submission/accucor1.xlsx",
+            "DataRepo/data/tests/data_submission/accucor2.xlsx",
         ]
 
         dvv = DataValidationView()

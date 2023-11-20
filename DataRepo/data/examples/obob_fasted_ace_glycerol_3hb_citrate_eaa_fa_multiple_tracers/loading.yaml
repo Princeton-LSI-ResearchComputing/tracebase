@@ -1,0 +1,20 @@
+---
+protocols: "../protocols/protocols.tsv"
+tissues: "tissues.tsv"
+compounds: "compounds.tsv"
+animals_samples_treatments:
+  table: "animal_sample_table.xlsx"
+  skip_researcher_check: true
+accucor_data:
+  accucor_files:
+    - name: "6eaafasted1_cor.xlsx"
+      isocorr_format: true
+    - name: "6eaafasted2_cor.xlsx"
+      isocorr_format: true
+    - name: "bcaafasted_cor.xlsx"
+      isocorr_format: true
+  lc_protocol: "polar-HILIC-25-min"
+  instrument: "default instrument"
+  date: "2020-11-01"
+  researcher: "Xianfeng Zeng"
+  new_researcher: false

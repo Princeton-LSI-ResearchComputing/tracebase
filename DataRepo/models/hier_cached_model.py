@@ -182,9 +182,13 @@ class HierCachedModel(Model):
         """
         If caching updates are enabled, trigger the deletion of every cached value under the linked Animal record
         """
+        # Calling super.save *before* deleting descendant caches to avoid raising a new exception in Django 4.2
+        # (compared to 3.2).  If you do not do this, you can get an exception like this when reverse relations are
+        # tarversed without a record existing in the database:
+        # ValueError: '<model name>' instance needs to have a primary key value before this relationship can be used.
+        super().save(*args, **kwargs)  # Call the "real" save() method.
         if caching_updates:
             self.delete_related_caches()
-        super().save(*args, **kwargs)  # Call the "real" save() method.
 
     def delete(self, *args, **kwargs):
         """
