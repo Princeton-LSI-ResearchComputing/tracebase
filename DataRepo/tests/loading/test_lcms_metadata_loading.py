@@ -645,6 +645,7 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
             researcher="Michael Neinast",
             new_researcher=True,
             lcms_file="DataRepo/data/tests/small_obob/lcms_metadata/glucose_unrelated_data_only.tsv",
+            animal_and_sample_table_filename="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx",
         )
         self.assertEqual(2, MSRun.objects.count())
         msr1 = MSRun.objects.first()
@@ -682,6 +683,8 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
                 accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose.xlsx",
                 new_researcher=True,
                 lcms_file="DataRepo/data/tests/small_obob/lcms_metadata/glucose_only_reqd_col_vals.tsv",
+                animal_and_sample_table_filename="DataRepo/data/tests/small_obob/"
+                "small_obob_animal_and_sample_table.xlsx",
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
@@ -706,6 +709,7 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
             researcher="Michael Neinast",
             new_researcher=True,
             lcms_file="DataRepo/data/tests/small_obob/lcms_metadata/glucose_only_reqd_col_vals.tsv",
+            animal_and_sample_table_filename="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx",
         )
         self.assertEqual(2, MSRun.objects.count())
         msr1 = MSRun.objects.first()
@@ -742,6 +746,8 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
                 accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose.xlsx",
                 new_researcher=True,
                 lcms_file="DataRepo/data/tests/small_obob/lcms_metadata/glucose_missing_date_col.tsv",
+                animal_and_sample_table_filename="DataRepo/data/tests/small_obob/"
+                "small_obob_animal_and_sample_table.xlsx",
             )
         ilh = ar.exception
         self.assertEqual(["date"], ilh.missing)
@@ -761,6 +767,8 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
                 accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose.xlsx",
                 new_researcher=True,
                 lcms_file="DataRepo/data/tests/small_obob/lcms_metadata/glucose_dupe_sample_header.tsv",
+                animal_and_sample_table_filename="DataRepo/data/tests/small_obob/"
+                "small_obob_animal_and_sample_table.xlsx",
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
@@ -840,6 +848,7 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
             researcher="Michael Neinast",
             new_researcher=True,
             lcms_file=lcms_file,
+            animal_and_sample_table_filename="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx",
         )
 
     def test_UnexpectedLCMSSampleDataHeaders_no_annot_files(
@@ -955,6 +964,8 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
                 accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose.xlsx",
                 new_researcher=True,
                 lcms_file="DataRepo/data/tests/small_obob/lcms_metadata/glucose_msng_hdr_row.tsv",
+                animal_and_sample_table_filename="DataRepo/data/tests/small_obob/"
+                "small_obob_animal_and_sample_table.xlsx",
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
@@ -975,6 +986,8 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
                 new_researcher=True,
                 lcms_file="DataRepo/data/tests/small_obob/lcms_metadata/glucose_no_extras.tsv",
                 mzxml_files=["sample1.mzxml", "sample2.mzxml"],
+                animal_and_sample_table_filename="DataRepo/data/tests/small_obob/"
+                "small_obob_animal_and_sample_table.xlsx",
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
@@ -995,6 +1008,8 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
                 new_researcher=True,
                 lcms_file="DataRepo/data/tests/small_obob/lcms_metadata/glucose_no_extras.tsv",
                 validate=True,
+                animal_and_sample_table_filename="DataRepo/data/tests/small_obob/"
+                "small_obob_animal_and_sample_table.xlsx",
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
@@ -1017,6 +1032,8 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
                 mzxml_files=["BAT-xz971_pos.mzxml", "Br-xz971_pos.mzxml"],
                 # This is a warning in any case, but in validate mode, the exception is raised
                 validate=True,
+                animal_and_sample_table_filename="DataRepo/data/tests/small_obob/"
+                "small_obob_animal_and_sample_table.xlsx",
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
@@ -1034,4 +1051,5 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
             new_researcher=True,
             lcms_file="DataRepo/data/tests/small_obob/lcms_metadata/glucose_unmatching_mzxmls.tsv",
             mzxml_files=["BAT-xz971_pos.mzxml", "Br-xz971_pos.mzxml"],
+            animal_and_sample_table_filename="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx",
         )
