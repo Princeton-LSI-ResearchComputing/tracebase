@@ -144,6 +144,11 @@ class MSRunSampleTests(TracebaseTestCase):
         self.assertIn("polarity", str(exc))
 
     def make_bad_rec(self, fn, typ, fmt, raw=True):
+        """
+        Supply values that should cause the creation of an ArchiveFile record to produce an exception.  That exception
+        will be returned.
+        Note, this method was made in order to avoid JSCPD errors.
+        """
         afrec = ArchiveFile.objects.create(
             filename=fn,
             file_location=None,

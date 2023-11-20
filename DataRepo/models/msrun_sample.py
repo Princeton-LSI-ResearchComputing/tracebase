@@ -133,9 +133,3 @@ class MSRunSample(Model):
                     f"Invalid ms_data_file ({self.ms_data_file.filename}) data format: "
                     f"[{self.ms_data_file.data_format.code}], must be one of [{self.VALID_DATA_FILES['FORMATS']}]."
                 )
-        if self.polarity is not None:
-            polarities = [item[0] for item in self.POLARITY_CHOICES]
-            if self.polarity not in polarities:
-                raise ValidationError(
-                    f"Invalid polarity: [{self.polarity}], must be one of [{polarities}]."
-                )
