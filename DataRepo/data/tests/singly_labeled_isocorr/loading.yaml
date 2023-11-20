@@ -1,0 +1,16 @@
+---
+protocols: "../protocols/protocols.tsv"
+animals_samples_treatments:
+  table: "animals_samples.xlsx"
+  skip_researcher_check: true
+accucor_data:
+  accucor_files:
+    - name: "./serum_cor.csv"
+      isocorr_format: true
+  lc_protocol: "polar-HILIC-25-min"
+  instrument: "default instrument"
+  date: "2021-12-07"
+  researcher: "Asael Roichman"
+  new_researcher: false
+  skip_samples:
+    - "Blank01"

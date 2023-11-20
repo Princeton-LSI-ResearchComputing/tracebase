@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from django.db import models
+from django.db import models, transaction
 
 from DataRepo.models.element_label import ElementLabel
 from DataRepo.models.maintained_model import MaintainedModel
@@ -11,6 +11,7 @@ from DataRepo.utils.infusate_name_parser import TracerData
 
 
 class TracerQuerySet(models.QuerySet):
+    @transaction.atomic
     def get_or_create_tracer(self, tracer_data: TracerData) -> tuple[Tracer, bool]:
         """Get Tracer matching the tracer_data, or create a new tracer"""
 

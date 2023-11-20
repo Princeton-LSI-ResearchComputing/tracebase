@@ -1,0 +1,17 @@
+---
+protocols: "protocols.tsv"
+tissues: "tissues.tsv"
+compounds: "compounds.tsv"
+animals_samples_treatments:
+  table: "animal_sample_table_df_test1.xlsx"
+  headers: "sample_and_animal_tables_headers.yaml"
+accucor_data:
+  accucor_files:
+    - name: "accucor_df_test1.xlsx"
+  lc_protocol: "unknown"
+  instrument: "default instrument"
+  date: "2021-06-29"
+  researcher: "Xianfeng Zeng"
+  new_researcher: False
+  skip_samples:
+    - "blank"

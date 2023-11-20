@@ -31,6 +31,16 @@ properties:
     required:
       - table
     additionalProperties: false
+  lcms_metadata:
+    type: object
+    description: |
+      samples linked with accucor headers, mzXML files, and LCMS metadata
+    properties:
+      lcms_metadata_file:
+        type: string
+        description: |
+          optional Excel or csv filename containing LCMS metadata
+    additionalProperties: false
   accucor_data:
     type: object
     properties:
@@ -46,10 +56,17 @@ properties:
               description: accucor filename
             sample_name_prefix:
               type: string
-            msrun_protocol:
+            lc_protocol:
+              type: string
+            instrument:
               type: string
             date:
               type: string
+            mzxml_files:
+              type: array
+              description: list of mzXML files, 1 for each sample data header
+              items:
+                type: string
             researcher:
               type: string
             new_researcher:
@@ -65,12 +82,20 @@ properties:
           required:
             - name
           additionalProperties: false
-      msrun_protocol:
+      lc_protocol:
         type: string
-        description: name of ms run protocol
+        description: name of liquid chromatography protocol
+      instrument:
+        type: string
+        description: name of LCMS instrument
       date:
         type: string
         description: date of ms run
+      mzxml_files:
+        type: array
+        description: list of mzXML files
+        items:
+          type: string
       researcher:
         type: string
         description: name of resercher who performed ms run
@@ -88,7 +113,8 @@ properties:
         description: prefix to append to sample names prior to searching
     required:
       - accucor_files
-      - msrun_protocol
+      - lc_protocol
+      - instrument
       - date
       - researcher
     additionalProperties: false

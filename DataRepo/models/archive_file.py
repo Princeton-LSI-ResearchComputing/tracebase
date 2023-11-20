@@ -1,5 +1,5 @@
 from django.db import models
-from django.template.defaultfilters import slugify
+from django.utils.text import get_valid_filename
 
 
 class DataTypeManager(models.Manager):
@@ -79,8 +79,8 @@ class DataFormat(models.Model):
 
 def data_type_path(instance, filename):
     date_folder = instance.imported_timestamp.strftime("%Y-%m")
-    data_type_folder = slugify(instance.data_type.code)
-    filename_clean = slugify(filename)
+    data_type_folder = get_valid_filename(instance.data_type.code)
+    filename_clean = get_valid_filename(filename)
     return f"archive_files/{date_folder}/{data_type_folder}/{filename_clean}"
 
 

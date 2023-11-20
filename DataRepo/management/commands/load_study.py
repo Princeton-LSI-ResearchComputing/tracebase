@@ -24,6 +24,7 @@ from DataRepo.utils.exceptions import (
     MissingTissues,
     MultiLoadStatus,
 )
+from DataRepo.utils.lcms_metadata_parser import check_peak_annotation_files
 
 
 class Command(BaseCommand):
@@ -31,7 +32,7 @@ class Command(BaseCommand):
     example_configfile = os.path.relpath(
         os.path.join(
             apps.get_app_config("DataRepo").path,
-            "example_data" "small_dataset" "small_obob_study_params.yaml",
+            "data/examples" "small_dataset" "small_obob_study_params.yaml",
         )
     )
 
@@ -83,6 +84,14 @@ class Command(BaseCommand):
             default=False,
             help=argparse.SUPPRESS,
         )
+        # Used internally by the validation view, as temporary data should not trigger cache deletions
+        parser.add_argument(
+            "--skip-cache-updates",
+            required=False,
+            action="store_true",
+            default=False,
+            help=argparse.SUPPRESS,
+        )
 
     @MaintainedModel.defer_autoupdates(
         disable_opt_names=["validate", "dry_run"],
@@ -97,6 +106,7 @@ class Command(BaseCommand):
         self.verbosity = options["verbosity"]
         self.validate = options["validate"]
         self.dry_run = options["dry_run"]
+        self.skip_cache_updates = (options["skip_cache_updates"],)
 
         # Read load study parameters
         study_params = yaml.safe_load(options["study_params"])
@@ -183,6 +193,31 @@ class Command(BaseCommand):
                 except Exception as e:
                     self.package_group_exceptions(e, tissues_file)
 
+            # Check the lcms metadata file (for completeness)
+            lcms_metadata_file = None
+            if "lcms_metadata" in study_params and (
+                "animals_samples_treatments" in study_params
+                or "accucor_data" in study_params
+            ):
+                lcms_metadata_file_basename = study_params["lcms_metadata"].get(
+                    "lcms_metadata_file", None
+                )
+                if lcms_metadata_file_basename is not None:
+                    lcms_metadata_file = os.path.join(
+                        study_dir,
+                        lcms_metadata_file_basename,
+                    )
+                    aes = AggregatedErrors()
+                    check_peak_annotation_files(
+                        [
+                            dct["name"]
+                            for dct in study_params["accucor_data"]["accucor_files"]
+                        ],
+                        lcms_file=lcms_metadata_file,
+                        aes=aes,
+                    )
+                    self.package_group_exceptions(aes, lcms_metadata_file_basename)
+
             if "animals_samples_treatments" in study_params:
                 # Read in animals and samples file
                 sample_file_basename = study_params["animals_samples_treatments"][
@@ -224,13 +259,16 @@ class Command(BaseCommand):
                         validate=self.validate,
                         defer_autoupdates=True,
                         defer_rollback=True,  # Until after we exit THIS atomic block
+                        skip_cache_updates=self.skip_cache_updates,
+                        lcms_file=lcms_metadata_file,
                     )
                 except Exception as e:
                     self.package_group_exceptions(e, animals_samples_table_file)
 
             if "accucor_data" in study_params:
                 # Get parameters for all accucor files
-                study_protocol = study_params["accucor_data"]["msrun_protocol"]
+                study_lc_protocol = study_params["accucor_data"]["lc_protocol"]
+                study_instrument = study_params["accucor_data"]["instrument"]
                 study_date = study_params["accucor_data"]["date"]
                 study_researcher = study_params["accucor_data"]["researcher"]
                 study_new_researcher = study_params["accucor_data"]["new_researcher"]
@@ -240,6 +278,9 @@ class Command(BaseCommand):
                 study_sample_name_prefix = study_params["accucor_data"].get(
                     "sample_name_prefix", None
                 )
+                study_mzxml_files = study_params["accucor_data"].get(
+                    "mzxml_files", None
+                )
 
                 # Read in accucor data files
                 for accucor_info_dict in study_params["accucor_data"]["accucor_files"]:
@@ -247,7 +288,10 @@ class Command(BaseCommand):
                     accucor_file_basename = accucor_info_dict["name"]
                     accucor_file = os.path.join(study_dir, accucor_file_basename)
                     self.load_statuses.init_load(accucor_file)
-                    protocol = accucor_info_dict.get("msrun_protocol", study_protocol)
+                    lc_protocol_name = accucor_info_dict.get(
+                        "lc_protocol", study_lc_protocol
+                    )
+                    instrument = accucor_info_dict.get("instrument", study_instrument)
                     date = accucor_info_dict.get("date", study_date)
                     researcher = accucor_info_dict.get("researcher", study_researcher)
                     new_researcher = accucor_info_dict.get(
@@ -260,6 +304,9 @@ class Command(BaseCommand):
                         "sample_name_prefix", study_sample_name_prefix
                     )
                     isocorr_format = accucor_info_dict.get("isocorr_format", False)
+                    mzxml_files = accucor_info_dict.get(
+                        "mzxml_files", study_mzxml_files
+                    )
 
                     if self.verbosity > 1:
                         self.stdout.write(
@@ -275,14 +322,19 @@ class Command(BaseCommand):
                         call_command(
                             "load_accucor_msruns",
                             accucor_file=accucor_file,
-                            protocol=protocol,
+                            lc_protocol_name=lc_protocol_name,
+                            instrument=instrument,
                             date=date,
                             researcher=researcher,
                             new_researcher=new_researcher,
                             skip_samples=skip_samples,
                             sample_name_prefix=sample_name_prefix,
-                            validate=self.validate,
                             isocorr_format=isocorr_format,
+                            skip_cache_updates=self.skip_cache_updates,
+                            mzxml_files=mzxml_files,
+                            lcms_file=lcms_metadata_file,
+                            validate=self.validate,
+                            dry_run=self.dry_run,
                         )
                         if self.verbosity > 1:
                             self.stdout.write(
@@ -290,6 +342,8 @@ class Command(BaseCommand):
                                     f"STATUS: SUCCESS {accucor_file_basename} - commit pending"
                                 )
                             )
+                    except DryRun:
+                        pass
                     except Exception as e:
                         self.package_group_exceptions(e, accucor_file)
 

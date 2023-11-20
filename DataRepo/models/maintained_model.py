@@ -6,12 +6,10 @@ from threading import local
 from typing import Dict, List
 
 from django.conf import settings
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
 from django.db.models import Model
 from django.db.models.signals import m2m_changed
-from django.db.transaction import TransactionManagementError
-from django.db.utils import IntegrityError
-from psycopg2.errors import ForeignKeyViolation
 
 
 class MaintainedModelCoordinator:
@@ -24,27 +22,6 @@ class MaintainedModelCoordinator:
     buffered and then performed once the last nested context has been exited.  In the disabled mode, no buffering or
     autoupdates are performed at all.
     """
-
-    # Track whether the fields from the decorators have been validated
-    # This is only ever initialized once, the first time every derived class is ever instantiated, so it's loosely an
-    # immutable class attribute (though technically mutable), as it would only ever change if new models are added and
-    # is only used to decide when a derived class's usage of MaintainedModel is invalid
-    maintained_model_initialized: Dict[str, bool] = {}
-
-    # Track the metadata recorded by each derived model class's setter and relation decorators
-    # Similar to maintained_model_initialized, this is loosely an immutable class attribute (though technically
-    # mutable), as it is only ever set when the setter and relation decorators are created, which only ever happens once
-    # This does not need to be thread-safe because it will not ever change after all the decorators have been registered
-    updater_list: Dict[str, List] = defaultdict(list)
-
-    # A dict of class name keys and class values used by get_classes needed for rebuild_maintained_fields. This is
-    # initialized via MaintainedModel's decorators as a way to avoid needing the module path of all the models as was
-    # formerly done.
-    model_classes: Dict[str, Model] = defaultdict(Model)
-
-    # A dict saving the package (referenced elsewhere as "model_path") that holds each model so that it's class can be
-    # retrieved when needed.
-    model_packages: Dict[str, str] = defaultdict(str)
 
     def __init__(self, auto_update_mode="immediate", **kwargs):
         self.auto_update_mode = auto_update_mode
@@ -125,58 +102,14 @@ class MaintainedModelCoordinator:
             filter_in = True
         cnt = 0
         for buffered_item in self.update_buffer:
-            updaters_list = self._filter_updaters(
-                self.get_updater_dicts_by_model_name(buffered_item.__class__.__name__),
+            updaters_list = buffered_item._filter_updaters(
+                buffered_item.get_my_updaters(),
                 generation=generation,
                 label_filters=label_filters,
                 filter_in=filter_in,
             )
             cnt += 1 if len(updaters_list) else 0
         return cnt
-
-    @classmethod
-    def _filter_updaters(
-        cls,
-        updaters_list,
-        generation,
-        label_filters,
-        filter_in,
-    ):
-        """
-        This method was made private, because it has no access to instance values for generation, label_filters, or
-        filter_in.  Users are not expected to supply these.  All instance methods that internally call these must pass
-        them.
-
-        Returns a sublist of the supplied updaters_list that meets both the filter criteria (generation matches and
-        update_label is in the label_filters), if those filters were supplied.
-        """
-        # This will be the new buffer (in case we're being selective)
-        new_updaters_list = []
-
-        # Convenience variables to make the conditional easier to read
-        no_filters = label_filters is None or len(label_filters) == 0
-        no_generation = generation is None
-
-        for updater_dict in updaters_list:
-            gen = updater_dict["generation"]
-            label = updater_dict["update_label"]
-            has_label = label is not None
-            if (
-                filter_in
-                and (
-                    (no_generation or generation == gen)
-                    and (no_filters or (has_label and label in label_filters))
-                )
-            ) or (
-                not filter_in
-                and (
-                    (no_generation or generation != gen)
-                    and (no_filters or not has_label or label not in label_filters)
-                )
-            ):
-                new_updaters_list.append(updater_dict)
-
-        return new_updaters_list
 
     def clear_update_buffer(self, generation=None, label_filters=None, filter_in=None):
         """
@@ -220,8 +153,8 @@ class MaintainedModelCoordinator:
             # supplied label_filters is ["name"] and filter_in is True, then the matching updater WILL be returned by
             # this filter operation and the buffered item will be left out of the new_buffer.  If a model object in the
             # buffer does NOT have the "name" label in any of its updaters, it will be added to the new_buffer.
-            matching_updaters = self._filter_updaters(
-                self.get_updater_dicts_by_model_name(buffered_item.__class__.__name__),
+            matching_updaters = buffered_item._filter_updaters(
+                buffered_item.get_my_updaters(),
                 generation=generation,
                 label_filters=label_filters,
                 filter_in=filter_in,
@@ -232,7 +165,7 @@ class MaintainedModelCoordinator:
             # because updates and buffer clears should happen from leaf to root.  And we should only check those which
             # have a target label.
             if generation is not None:
-                max_gen = self.get_max_generation(
+                max_gen = buffered_item.get_max_generation(
                     matching_updaters, label_filters, filter_in
                 )
 
@@ -258,77 +191,8 @@ class MaintainedModelCoordinator:
         # populate the buffer with what's left
         self.update_buffer = new_buffer
 
-    def get_max_generation(self, updaters_list, label_filters=None, filter_in=None):
-        """
-        Takes a list of updaters and a list of label filters and returns the max generation found in the updaters list.
-        """
-        if filter_in is None:
-            filter_in = True
-        if label_filters is None:
-            label_filters = (
-                []
-            )  # Include everything by default, regardless of default filters
-            filter_in = True
-        max_gen = None
-        for updater_dict in sorted(
-            self._filter_updaters(
-                updaters_list,
-                generation=None,
-                label_filters=label_filters,
-                filter_in=filter_in,
-            ),
-            key=lambda x: x["generation"],
-            reverse=True,
-        ):
-            gen = updater_dict["generation"]
-            if max_gen is None or gen > max_gen:
-                max_gen = gen
-                break
-        return max_gen
-
     def _peek_update_buffer(self, index=0):
         return self.update_buffer[index]
-
-    def get_max_buffer_generation(self, label_filters=None, filter_in=None):
-        """
-        Takes a list of label filters and searches the buffered records to return the max generation found among the
-        decorated functions (matching the filter criteria) associated with the buffered model object's class.
-
-        The purpose is so that records can be updated breadth first (from leaves to root).
-        """
-        if filter_in is None:
-            filter_in = True
-        if label_filters is None:
-            label_filters = (
-                []
-            )  # Include everything by default, regardless of default filters
-            filter_in = True
-        exploded_updater_dicts = []
-        for buffered_item in self.update_buffer:
-            exploded_updater_dicts += self._filter_updaters(
-                self.get_updater_dicts_by_model_name(buffered_item.__class__.__name__),
-                generation=None,
-                label_filters=label_filters,
-                filter_in=filter_in,
-            )
-        return self.get_max_generation(
-            exploded_updater_dicts, label_filters=label_filters, filter_in=filter_in
-        )
-
-    def updater_list_has_matching_labels(self, updaters_list, label_filters, filter_in):
-        """
-        Returns True if any updater dict in updaters_list passes the label filtering criteria.
-        """
-        for updater_dict in updaters_list:
-            label = updater_dict["update_label"]
-            has_a_label = label is not None
-            if filter_in:
-                if has_a_label and label in label_filters:
-                    return True
-            elif not has_a_label or label not in label_filters:
-                return True
-
-        return False
 
     def buffer_update(self, mdl_obj):
         """
@@ -344,8 +208,8 @@ class MaintainedModelCoordinator:
         if (
             mdl_obj.label_filters is not None
             and len(mdl_obj.label_filters) > 0
-            and not self.updater_list_has_matching_labels(
-                self.get_updater_dicts_by_model_name(mdl_obj.__class__.__name__),
+            and not mdl_obj.updater_list_has_matching_labels(
+                mdl_obj.get_my_updaters(),
                 mdl_obj.label_filters,
                 mdl_obj.filter_in,
             )
@@ -376,7 +240,7 @@ class MaintainedModelCoordinator:
     # Added transaction.atomic, because even after catching an intentional AutoUpdateFailed in test
     # DataRepo.tests.models.test_infusate.MaintainedModelImmediateTests.test_error_when_buffer_not_clear and ending the
     # test successfully, the django post test teardown code was re-encountering the exception and I'm not entirely sure
-    # why.  It probably has to do with the context ma=nager code.  The entire trace had no reference to any code in this
+    # why.  It probably has to do with the context manager code.  The entire trace had no reference to any code in this
     # repo.  Adding transaction.atomic here prevents that exception from happening...
     @transaction.atomic
     def perform_buffered_updates(self, label_filters=None, filter_in=None):
@@ -422,9 +286,7 @@ class MaintainedModelCoordinator:
 
         # For each record in the buffer
         for buffer_item in self.update_buffer:
-            updater_dicts = self.get_updater_dicts_by_model_name(
-                buffer_item.__class__.__name__
-            )
+            updater_dicts = buffer_item.get_my_updaters()
 
             if use_object_label_filters:
                 label_filters = buffer_item.label_filters
@@ -440,7 +302,7 @@ class MaintainedModelCoordinator:
             try:
                 if key not in updated and (
                     no_filters
-                    or self.updater_list_has_matching_labels(
+                    or buffer_item.updater_list_has_matching_labels(
                         updater_dicts, label_filters, filter_in
                     )
                 ):
@@ -463,166 +325,11 @@ class MaintainedModelCoordinator:
                     new_buffer.append(buffer_item)
 
             except Exception as e:
+                # Any exception can be raised from the derived model's decorated updater function
                 raise AutoUpdateFailed(buffer_item, e, updater_dicts)
 
         # Eliminate the updated items from the buffer
         self.update_buffer = new_buffer
-
-    @classmethod
-    def get_all_updaters(cls):
-        """
-        Retrieve a flattened list of all updater dicts.
-        Used by rebuild_maintained_fields.
-        """
-        all_updaters = []
-        for class_name in cls.updater_list:
-            all_updaters += cls.updater_list[class_name]
-        return all_updaters
-
-    @classmethod
-    def _get_classes(
-        cls,
-        generation,
-        label_filters,
-        filter_in,
-        models_path=None,
-    ):
-        """
-        This method was made private, because it has no access to instance values for generation, label_filters, or
-        filter_in.  Users are not expected to supply these.  All instance methods that internally call these must pass
-        them.
-
-        Retrieve a list of classes containing maintained fields that match the given criteria.
-        Used by rebuild_maintained_fields and get_maintained_fields.
-
-        models_path is optional and must be a string like "DataRepo.models".  It's only required if called before any of
-        the model classes have been instantiated and after the decorators have registered.
-        """
-        class_list = []
-        for model_class_name in cls.updater_list.keys():
-            if (
-                len(
-                    cls._filter_updaters(
-                        updaters_list=cls.updater_list[model_class_name],
-                        generation=generation,
-                        label_filters=label_filters,
-                        filter_in=filter_in,
-                    )
-                )
-                > 0
-            ):
-                class_list.append(cls.get_model_class(model_class_name, models_path))
-        return class_list
-
-    @classmethod
-    def get_model_class(cls, model_class_name, models_path=None):
-        """
-        models_path is optional and must be a string like "DataRepo.models".  It's only required if called before any of
-        the model classes have been instantiated and after the decorators have registered.
-        """
-        if model_class_name in cls.model_classes.keys():
-            return cls.model_classes[model_class_name]
-        access_method = "determiend by the decorator(s)"
-        try:
-            if models_path is None:
-                # The decorators *try* to record the models_path for each model.  If that was successful, we can use
-                # that, otherwise, the models_path is required.
-                if (
-                    cls.model_packages
-                    and model_class_name in cls.model_packages
-                    and cls.model_packages[model_class_name] is not None
-                ):
-                    models_path = cls.model_packages[model_class_name]
-                    module = importlib.import_module(models_path)
-                else:
-                    raise ValueError(
-                        f"models_path is required because the class {model_class_name} hasn't been instantiated as a "
-                        "MaintainedModel yet."
-                    )
-            else:
-                access_method = "supplied"
-                module = importlib.import_module(models_path)
-            mdl_cls = getattr(module, model_class_name)
-        except Exception as e:
-            raise ValueError(
-                f"The models_path {access_method} [{models_path}] resulted in an error when trying to retrieve the "
-                f"class type [{model_class_name}].  Supply a different models_path.  Error encountered: "
-                f"{type(e).__name__}: {e}"
-            )
-        return mdl_cls
-
-    @classmethod
-    def get_maintained_fields(cls, models_path=None):
-        """
-        Returns all of the model classes that have maintained fields and the names of those fields in a dict where the
-        class name is the key and each value is a dict containing, for example:
-
-        {"class": <model class reference>, "fields": [list of field names]}
-
-        models_path is optional and must be a string like "DataRepo.models".  It's only required if called before any of
-        the model classes have been instantiated and after the decorators have registered.
-        """
-        maintained_fields = defaultdict(lambda: defaultdict(list))
-        for mdl in cls._get_classes(None, None, None, models_path=models_path):
-            mdl_name = mdl.__name__
-            mdl_update_flds = cls.get_update_fields_by_model_name(mdl_name)
-            if issubclass(mdl, MaintainedModel) and len(mdl_update_flds) > 0:
-                maintained_fields[mdl_name]["class"] = mdl
-                maintained_fields[mdl_name]["fields"] = mdl_update_flds
-        return maintained_fields
-
-    @classmethod
-    def get_update_fields_by_model_name(cls, model_name):
-        """
-        Returns a list of update_fields of the current model that are marked via the MaintainedModel.setter
-        decorators in the model.  Returns an empty list if there are none (e.g. if the only decorator in the model is
-        the relation decorator on the class).
-        """
-        update_fields = []
-        if model_name in cls.updater_list:
-            for updater_dict in cls.updater_list[model_name]:
-                if (
-                    "update_field" in updater_dict.keys()
-                    and updater_dict["update_field"]
-                ):
-                    update_fields.append(updater_dict["update_field"])
-        else:
-            raise NoDecorators(model_name)
-
-        return update_fields
-
-    @classmethod
-    def get_updater_dicts_by_model_name(cls, model_name):
-        """
-        Retrieves all the updater information of each decorated function of the calling model from the global
-        updater_list variable.
-        """
-        updaters = []
-        if model_name in cls.updater_list:
-            updaters = cls.updater_list[model_name]
-        else:
-            raise NoDecorators(model_name)
-
-        return updaters
-
-    @classmethod
-    def get_all_maintained_field_values(cls, models_path=None):
-        """
-        This method can be used to obtain every value of a maintained field before and after a load that raises an
-        exception to ensure that the failed load has no side-effects.  Results are stored in a list for each model in a
-        dict keyed on model.
-
-        models_path is optional and must be a string like "DataRepo.models".  It's only required if called before any of
-        the model classes have been instantiated and after the decorators have registered.
-        """
-        all_values = {}
-        maintained_fields = cls.get_maintained_fields(models_path)
-
-        for key in maintained_fields.keys():
-            mdl = maintained_fields[key]["class"]
-            flds = maintained_fields[key]["fields"]
-            all_values[mdl.__name__] = list(mdl.objects.values_list(*flds, flat=True))
-        return all_values
 
 
 class MaintainedModel(Model):
@@ -635,12 +342,29 @@ class MaintainedModel(Model):
     delete methods and uses m2m_changed signals as triggers for the updates.
     """
 
-    # Thread-safe mutable class attributes
+    # Thread-safe mutable class attributes.  Thread data is initialized via _check_set_coordinator_thread_data
     data = local()
 
-    # This manages adding data to calls to save, delete, and m2m_propagation_handler
-    data.default_coordinator = MaintainedModelCoordinator()
-    data.coordinator_stack = []
+    # Track whether the fields from the decorators have been validated
+    # This is only ever initialized once, the first time every derived class is ever instantiated, so it's loosely an
+    # immutable class attribute (though technically mutable), as it would only ever change if new models are added and
+    # is only used to decide when a derived class's usage of MaintainedModel is invalid
+    maintained_model_initialized: Dict[str, bool] = {}
+
+    # Track the metadata recorded by each derived model class's setter and relation decorators
+    # Similar to maintained_model_initialized, this is loosely an immutable class attribute (though technically
+    # mutable), as it is only ever set when the setter and relation decorators are created, which only ever happens once
+    # This does not need to be thread-safe because it will not ever change after all the decorators have been registered
+    updater_list: Dict[str, List] = defaultdict(list)
+
+    # A dict of class name keys and class values used by get_classes needed for rebuild_maintained_fields. This is
+    # initialized via MaintainedModel's decorators as a way to avoid needing the module path of all the models as was
+    # formerly done.
+    model_classes: Dict[str, Model] = defaultdict(Model)
+
+    # A dict saving the package (referenced elsewhere as "model_path") that holds each model so that it's class can be
+    # retrieved when needed.
+    model_packages: Dict[str, str] = defaultdict(str)
 
     def __init__(self, *args, **kwargs):
         """
@@ -656,12 +380,8 @@ class MaintainedModel(Model):
         called both from __init__() and save().
         """
 
-        # Make sure the class has been fulling initialized
-        # Without this, you get an AttributeError: '_thread._local' object has no attribute 'coordinator_stack'
-        # from django.db.models.base's from_db class method when a model's DetailView is created.
-        if not hasattr(self.data, "default_coordinator"):
-            self.data.__setattr__("default_coordinator", MaintainedModelCoordinator())
-            self.data.__setattr__("coordinator_stack", [])
+        # Make sure the class has been fully initialized
+        self._check_set_coordinator_thread_data()
 
         # The coordinator keeps track of the running mode, buffer and filters in use
         coordinator = self.get_coordinator()
@@ -677,16 +397,14 @@ class MaintainedModel(Model):
         class_name = self.__class__.__name__
 
         # Register the class with the coordinator if not already registered
-        if class_name not in coordinator.model_classes.keys():
+        if class_name not in MaintainedModel.model_classes.keys():
             print(
                 f"Registering class {class_name} as a MaintainedModel from _maintained_model_setup: {type(self)}"
             )
-            MaintainedModelCoordinator.model_classes[class_name] = type(self)
-            MaintainedModelCoordinator.model_packages[class_name] = type(
-                self
-            ).__module__
+            MaintainedModel.model_classes[class_name] = type(self)
+            MaintainedModel.model_packages[class_name] = type(self).__module__
 
-        for updater_dict in coordinator.updater_list[class_name]:
+        for updater_dict in MaintainedModel.updater_list[class_name]:
             # Ensure the field being set is not a maintained field
 
             update_fld = updater_dict["update_field"]
@@ -713,13 +431,13 @@ class MaintainedModel(Model):
                     ]
                 ]
             )
-            if decorator_signature not in coordinator.maintained_model_initialized:
+            if decorator_signature not in MaintainedModel.maintained_model_initialized:
                 if settings.DEBUG:
                     print(
                         f"Validating {self.__class__.__name__} updater: {updater_dict}"
                     )
 
-                coordinator.maintained_model_initialized[decorator_signature] = True
+                MaintainedModel.maintained_model_initialized[decorator_signature] = True
                 # Now we can validate the fields
                 flds = {}
                 if updater_dict["update_field"]:
@@ -766,11 +484,11 @@ class MaintainedModel(Model):
         This is an override of the derived model's save method that is being used here to automatically update
         maintained fields.
         """
-        # Custom argument: mass_updates - Whether auto-updating biffered model objects - default False
-        # Used internally. Do not supply unless you know what you're doing.
+        # Custom argument: mass_updates - Whether auto-updating buffered model objects - default False
+        # Used internally.  Do not supply unless you know what you're doing.
         mass_updates = kwargs.pop("mass_updates", False)
         # Custom argument: propagate - Whether to propagate updates to related model objects - default True
-        # Used internally. Do not supply unless you know what you're doing.
+        # Used internally.  Do not supply unless you know what you're doing.
         propagate = kwargs.pop(
             "propagate", not mass_updates
         )  # Effective default = True
@@ -786,12 +504,22 @@ class MaintainedModel(Model):
         # Retrieve the current coordinator
         coordinator = self.get_coordinator()
 
+        # super_save_called will already have been initialized if the object was saved and buffered and mass auto-update
+        # is being performed
+        if not hasattr(self, "super_save_called"):
+            self.super_save_called = False
+        elif self.super_save_called is True and mass_updates is False:
+            # Save has been called from the developer's code a second time (presumably after having made subsequent
+            # changes), so we must reset to False
+            self.super_save_called = False
+
         # If auto-updates are turned on, a cascade of updates to linked models will occur, but if they are turned off,
         # the update will be buffered, to be manually triggered later (e.g. upon completion of loading), which
         # mitigates repeated updates to the same record
         if coordinator.auto_updates is False and mass_updates is False:
             # Set the changed value triggering this update
             super().save(*args, **kwargs)
+            self.super_save_called = True
 
             # When buffering only, apply the global label filters, to be remembered during mass autoupdate
             self.label_filters = coordinator.default_label_filters
@@ -808,28 +536,40 @@ class MaintainedModel(Model):
             self.filter_in = coordinator.default_filter_in
         # Otherwise, we are performing a mass auto-update and want to update the previously set filter conditions
 
+        # Calling super.save (if necessary) so that the call to update_decorated_fields can traverse reverse
+        # relations without a ValueError exception that is a new behavior/constraint as of Django 4.2.  But, if we got
+        # here due to a call to Model.objects.create(), (which calls super.save() from deep in the Django code (and that
+        # sets the primary key)), so it means that if we were to call it here again, it would cause a unique constraint-
+        # related exception.  That's why we do not call it here if the primary key is set - so we can avoid those
+        # exceptions.  Note, self.pk is None if the record was deleted after being buffered and we encounter it during
+        # mass update.
+        if self.pk is None and mass_updates is False:
+            super().save(*args, **kwargs)
+            self.super_save_called = True
+        # note, we should not save during mass autoupdate because while the object was in the buffer, it could have been
+        # deleted from the database and saving it would unintentionally re-add it to the database.
+
         # Update the fields that change due to the the triggering change (if any)
         # This only executes either when auto_updates or mass_updates is true - both cannot be true
-        self.update_decorated_fields()
+        changed = self.update_decorated_fields()
 
-        # If the auto-update resulted in no change or if there exists stale buffer contents for objects that were
-        # previously saved, it can produce an error about unique constraints.  TransactionManagementErrors should have
-        # been handled before we got here so that this can proceed to effect the original change that prompted the
-        # save.
-        try:
-            # This either saves both explicit changes and auto-update changes (when auto_updates is true) or it only
-            # saves the auto-updated values (when mass_updates is true)
-            super().save(*args, **kwargs)
-        except (IntegrityError, ForeignKeyViolation) as uc:
-            # If this is a unique constraint error during a mass autoupdate
-            if mass_updates and (
-                "violates foreign key constraint" in str(uc)
-                or "duplicate key value violates unique constraint" in str(uc)
-            ):
-                # Errors about unique constraints during mass autoupdates are often due to stale buffer contents
-                raise LikelyStaleBufferError(self)
+        # This either saves both explicit changes and auto-update changes (when auto_updates is true) or it only
+        # saves the auto-updated values (when mass_updates is true)
+        if changed is True or self.super_save_called is False:
+            if self.super_save_called or mass_updates is True:
+                if mass_updates is True:
+                    self.exists_in_db(raise_exception=True)
+                # This is a subsequent call to save due to the auto-update, so we don't want to use the original
+                # arguments (which may direct save that it needs to do an insert).  If you do supply arguments in this
+                # case, you can end up with an IntegrityError due to unique constraints from the ID being the same.
+                super().save()
             else:
-                raise uc
+                super().save(*args, **kwargs)
+
+        # If the developer wants to make more changes to this object and call save again, we need to remove the
+        # super_save_called attribute.  This will happen when autoupdate mode is immediate or if deferred (but when
+        # deferred, only)
+        delattr(self, "super_save_called")
 
         # We don't need to check mass_updates, because propagating changes during buffered updates is
         # handled differently (in a breadth-first fashion) to mitigate repeated updates of the same related record
@@ -849,6 +589,8 @@ class MaintainedModel(Model):
         # Used internally. Do not supply unless you know what you're doing.
         mass_updates = kwargs.pop("mass_updates", False)
 
+        self_sig = self.get_record_signature()
+
         # Delete the record triggering this update
         super().delete(*args, **kwargs)  # Call the "real" delete() method.
 
@@ -864,10 +606,11 @@ class MaintainedModel(Model):
             self.label_filters = coordinator.default_label_filters
             self.filter_in = coordinator.default_filter_in
 
-            # self.buffer_parent_update()
-            parents = self.get_parent_instances()
-            for parent_inst in parents:
-                coordinator.buffer_update(parent_inst)
+            if coordinator.buffering:
+                parents = self.get_parent_instances()
+                for parent_inst in parents:
+                    coordinator.buffer_update(parent_inst)
+
             return
         elif coordinator.auto_updates:
             # If autoupdates are happening (and it's not a mass-autoupdate (assumed because mass_updates
@@ -878,8 +621,8 @@ class MaintainedModel(Model):
         # Otherwise, we are performing a mass auto-update and want to update the previously set filter conditions
 
         if coordinator.auto_updates and propagate:
-            # Percolate changes up to the parents (if any)
-            self.call_dfs_related_updaters()
+            # Percolate changes up to the parents (if any) and mark the deleted record as updated
+            self.call_dfs_related_updaters(updated=[self_sig])
 
     @staticmethod
     def relation(
@@ -940,15 +683,15 @@ class MaintainedModel(Model):
             class_name = cls.__name__
 
             # Register the class (and the module) with the coordinator if not already registered
-            if class_name not in MaintainedModelCoordinator.model_classes.keys():
+            if class_name not in MaintainedModel.model_classes.keys():
                 print(
                     f"Registering class {class_name} as a MaintainedModel from the relation decorator: {cls}"
                 )
-                MaintainedModelCoordinator.model_classes[class_name] = cls
-                MaintainedModelCoordinator.model_packages[class_name] = cls.__module__
+                MaintainedModel.model_classes[class_name] = cls
+                MaintainedModel.model_packages[class_name] = cls.__module__
 
             # Register the updater with the coordinator
-            MaintainedModelCoordinator.updater_list[class_name].append(func_dict)
+            MaintainedModel.updater_list[class_name].append(func_dict)
 
             # No way to ensure supplied fields exist because the models aren't actually loaded yet, so while that would
             # be nice to handle here, it will have to be handled in MaintanedModel when objects are created
@@ -1035,19 +778,19 @@ class MaintainedModel(Model):
             }
 
             # Try to register the model class.  If this fails, fallback methods will be used when it is needed later.
-            if class_name not in MaintainedModelCoordinator.model_packages.keys():
+            if class_name not in MaintainedModel.model_packages.keys():
                 models_path = (
                     MaintainedModel.get_model_package_name_from_member_function(fn)
                 )
                 # Register the class with the coordinator if not already registered
                 if models_path is not None:
-                    MaintainedModelCoordinator.model_packages[class_name] = models_path
+                    MaintainedModel.model_packages[class_name] = models_path
 
             # No way to ensure supplied fields exist because the models aren't actually loaded yet, so while that would
             # be nice to handle here, it will have to be handled in MaintanedModel when objects are created
 
             # Add this info to our global updater_list
-            MaintainedModelCoordinator.updater_list[class_name].append(func_dict)
+            MaintainedModel.updater_list[class_name].append(func_dict)
             # It would be nice if we could register the class here, but getting the surrounding class from the function
             # is tricky and fragile.  The class will be registered when its first instance is created.
 
@@ -1076,6 +819,23 @@ class MaintainedModel(Model):
 
         # This returns the actual decorator function which will immediately run on the decorated function
         return decorator
+
+    def exists_in_db(self, raise_exception=False):
+        """
+        Asserts that the object hasn't been deleted from the database while it was in the buffer.  This can
+        intentionally raise a DoesNotExist exception (e.g. during perform_buffered_updates) so that we don't end up re-
+        saving a deleted object.
+        https://stackoverflow.com/a/16613258/2057516
+        """
+        try:
+            type(self).objects.get(pk__exact=self.pk)
+        except Exception as e:
+            if raise_exception is True:
+                raise e
+            if issubclass(type(e), ObjectDoesNotExist):
+                return False
+            raise e
+        return True
 
     @staticmethod
     def get_model_package_name_from_member_function(fn):
@@ -1127,9 +887,10 @@ class MaintainedModel(Model):
 
     @classmethod
     def _get_current_coordinator(cls):
-        if len(cls.data.coordinator_stack) > 0:
+        coordinator_stack = cls._get_coordinator_stack()
+        if len(coordinator_stack) > 0:
             # Get the current coordinator
-            current_coordinator = cls.data.coordinator_stack[-1]
+            current_coordinator = coordinator_stack[-1]
             # Call the last coordinator on the stack
             return current_coordinator
         else:
@@ -1137,15 +898,28 @@ class MaintainedModel(Model):
 
     @classmethod
     def _get_default_coordinator(cls):
+        cls._check_set_coordinator_thread_data()
         return cls.data.default_coordinator
 
     @classmethod
     def _get_coordinator_stack(cls):
         """
-        Returns a copy of the coordinator_stack list (but the coordinators are not copies - they are references to the
-        coordinators on the stack
+        Checks that the coodrinator thread data is initialized and returns the coordinator_stack list
         """
-        return cls.data.coordinator_stack[:]
+        cls._check_set_coordinator_thread_data()
+        return cls.data.coordinator_stack
+
+    @classmethod
+    def _check_set_coordinator_thread_data(cls):
+        """
+        Make sure the thread has been fully initialized and initialize it if not
+        Without this, you get an AttributeError: '_thread._local' object has no attribute 'coordinator_stack'
+        from django.db.models.base's from_db class method when a model's DetailView is created.
+        """
+        if not hasattr(cls.data, "default_coordinator") or not hasattr(
+            cls.data, "coordinator_stack"
+        ):
+            cls._reset_coordinators()
 
     @classmethod
     def _reset_coordinators(cls):
@@ -1157,15 +931,16 @@ class MaintainedModel(Model):
         model records up the stack, that will fail... but the prevailing theory is that that can't happen since we are
         using threading.local to store the stack.
         """
-        cls.data.default_coordinator = MaintainedModelCoordinator()
-        cls.data.coordinator_stack = []
+        cls.data.__setattr__("default_coordinator", MaintainedModelCoordinator())
+        cls.data.__setattr__("coordinator_stack", [])
 
     @classmethod
     def _add_coordinator(cls, coordinator):
         """
         Only use in order to catch buffered items for testing.  Must be manually popped.
         """
-        cls.data.coordinator_stack.append(coordinator)
+        coordinator_stack = cls._get_coordinator_stack()
+        coordinator_stack.append(coordinator)
 
     @classmethod
     def get_parent_deferred_coordinator(cls):
@@ -1177,7 +952,8 @@ class MaintainedModel(Model):
         # Create a copy of the list that contains the same objects - so that if you return a coordinator, it is one
         # that's in the coordinator_stack - so if you change it, you change the object in the stack.  This is what we
         # want, so that we can move items from the current coordinator's buffer to the parent coordinator's buffer.
-        parent_coordinators = cls.data.coordinator_stack[:]
+        coordinator_stack = cls._get_coordinator_stack()
+        parent_coordinators = coordinator_stack[:]
         try:
             parent_coordinators.pop()
         except IndexError:
@@ -1202,9 +978,12 @@ class MaintainedModel(Model):
         """
         # Traverse the parent coordinators from immediate parent to distant parent.  Note, the stack doesn't include the
         # default_coordinator, which is assumed to be mode "immediate".
-        if cls.data.default_coordinator.get_mode() == "disabled":
+        cls._check_set_coordinator_thread_data()
+        default_coordinator = cls._get_default_coordinator()
+        if default_coordinator.get_mode() == "disabled":
             return True
-        for coordinator in cls.data.coordinator_stack:
+        coordinator_stack = cls._get_coordinator_stack()
+        for coordinator in coordinator_stack:
             if coordinator.get_mode() == "disabled":
                 return True
 
@@ -1232,12 +1011,14 @@ class MaintainedModel(Model):
             with MaintainedModel.custom_coordinator(deferred_filtered):
                 do_things()
         """
+        coordinator_stack = cls._get_coordinator_stack()
         # This assumes that the default_coordinator is in mode "immediate"
-        if len(cls.data.coordinator_stack) == 0 and coordinator.buffer_size() > 0:
+        if len(coordinator_stack) == 0 and coordinator.buffer_size() > 0:
             raise UncleanBufferError()
 
         original_mode = coordinator.get_mode()
         effective_mode = original_mode
+        default_coordinator = cls._get_default_coordinator()
 
         # If any parent context sets autoupdates to disabled, change the mode to disabled
         if (
@@ -1252,19 +1033,19 @@ class MaintainedModel(Model):
             effective_mode == "immediate"
             and (
                 (
-                    len(cls.data.coordinator_stack) > 0
-                    and cls.data.coordinator_stack[-1].get_mode() == "deferred"
+                    len(coordinator_stack) > 0
+                    and coordinator_stack[-1].get_mode() == "deferred"
                 )
                 or (
-                    len(cls.data.coordinator_stack) == 0
-                    and cls.data.default_coordinator.get_mode() == "deferred"
+                    len(coordinator_stack) == 0
+                    and default_coordinator.get_mode() == "deferred"
                 )
             )
         ):
             effective_mode = "deferred"
             coordinator._defer_override()
 
-        cls.data.coordinator_stack.append(coordinator)
+        coordinator_stack.append(coordinator)
 
         try:
             # This is all the code in the context
@@ -1299,7 +1080,7 @@ class MaintainedModel(Model):
             coordinator.clear_update_buffer()
             raise e
         finally:
-            cls.data.coordinator_stack.pop()
+            coordinator_stack.pop()
 
     @classmethod
     def defer_autoupdates(
@@ -1374,6 +1155,232 @@ class MaintainedModel(Model):
         return decorator
 
     @classmethod
+    def get_all_updaters(cls):
+        """
+        Retrieve a flattened list of all updater dicts.
+        Used by rebuild_maintained_fields.
+        """
+        all_updaters = []
+        for class_name in cls.updater_list:
+            all_updaters += cls.updater_list[class_name]
+        return all_updaters
+
+    @classmethod
+    def _get_classes(
+        cls,
+        generation,
+        label_filters,
+        filter_in,
+        models_path=None,
+    ):
+        """
+        This method was made private, because it has no access to instance values for generation, label_filters, or
+        filter_in.  Users are not expected to supply these.  All instance methods that internally call these must pass
+        them.
+
+        Retrieve a list of classes containing maintained fields that match the given criteria.
+        Used by rebuild_maintained_fields and get_maintained_fields_query_dict.
+
+        models_path is optional and must be a string like "DataRepo.models".  It's only required if called before any of
+        the model classes have been instantiated and after the decorators have registered.
+        """
+        class_list = []
+        for model_class_name in cls.updater_list.keys():
+            if (
+                len(
+                    cls._filter_updaters(
+                        updaters_list=cls.updater_list[model_class_name],
+                        generation=generation,
+                        label_filters=label_filters,
+                        filter_in=filter_in,
+                    )
+                )
+                > 0
+            ):
+                class_list.append(cls.get_model_class(model_class_name, models_path))
+        return class_list
+
+    @classmethod
+    def get_model_class(cls, model_class_name, models_path=None):
+        """
+        models_path is optional and must be a string like "DataRepo.models".  It's only required if called before any of
+        the model classes have been instantiated and after the decorators have registered.
+        """
+        if model_class_name in cls.model_classes.keys():
+            return cls.model_classes[model_class_name]
+        access_method = "determiend by the decorator(s)"
+        try:
+            if models_path is None:
+                # The decorators *try* to record the models_path for each model.  If that was successful, we can use
+                # that, otherwise, the models_path is required.
+                if (
+                    cls.model_packages
+                    and model_class_name in cls.model_packages
+                    and cls.model_packages[model_class_name] is not None
+                ):
+                    models_path = cls.model_packages[model_class_name]
+                    module = importlib.import_module(models_path)
+                else:
+                    raise ValueError(
+                        f"models_path is required because the class {model_class_name} hasn't been instantiated as a "
+                        "MaintainedModel yet."
+                    )
+            else:
+                access_method = "supplied"
+                module = importlib.import_module(models_path)
+            mdl_cls = getattr(module, model_class_name)
+        except Exception as e:
+            raise ValueError(
+                f"The models_path {access_method} [{models_path}] resulted in an error when trying to retrieve the "
+                f"class type [{model_class_name}].  Supply a different models_path.  Error encountered: "
+                f"{type(e).__name__}: {e}"
+            )
+        return mdl_cls
+
+    @classmethod
+    def get_all_maintained_field_values(cls, models_path=None):
+        """
+        This method can be used to obtain every value of a maintained field before and after a load that raises an
+        exception to ensure that the failed load has no side-effects.  Results are stored in a list for each model in a
+        dict keyed on model.
+
+        models_path is optional and must be a string like "DataRepo.models".  It's only required if called before any of
+        the model classes have been instantiated and after the decorators have registered.
+        """
+        all_values = {}
+        maintained_fields = cls.get_maintained_fields_query_dict(models_path)
+
+        for key in maintained_fields.keys():
+            mdl = maintained_fields[key]["class"]
+            flds = maintained_fields[key]["fields"]
+            all_values[mdl.__name__] = list(mdl.objects.values_list(*flds, flat=True))
+
+        return all_values
+
+    @classmethod
+    def get_maintained_fields_query_dict(cls, models_path=None):
+        """
+        Returns all of the model classes that have maintained fields and the names of those fields in a dict where the
+        class name is the key and each value is a dict containing, for example:
+
+        {"class": <model class reference>, "fields": [list of field names]}
+
+        models_path is optional and must be a string like "DataRepo.models".  It's only required if called before any of
+        the model classes have been instantiated and after the decorators have registered.
+        """
+        maintained_fields = defaultdict(lambda: defaultdict(list))
+
+        # For each model class
+        for mdl in cls._get_classes(None, None, None, models_path=models_path):
+            mdl_name = mdl.__name__
+            mdl_update_flds = []
+
+            if mdl_name not in cls.updater_list:
+                raise NoDecorators(mdl_name)
+
+            for updater_dict in cls.updater_list[mdl_name]:
+                if (
+                    "update_field" in updater_dict.keys()
+                    and updater_dict["update_field"]
+                ):
+                    mdl_update_flds.append(updater_dict["update_field"])
+
+            if issubclass(mdl, MaintainedModel) and len(mdl_update_flds) > 0:
+                maintained_fields[mdl_name]["class"] = mdl
+                maintained_fields[mdl_name]["fields"] = mdl_update_flds
+
+        return maintained_fields
+
+    @classmethod
+    def _filter_updaters(
+        cls,
+        updaters_list,
+        generation,
+        label_filters,
+        filter_in,
+    ):
+        """
+        This method was made private, because it has no access to instance values for generation, label_filters, or
+        filter_in.  Users are not expected to supply these.  All instance methods that internally call these must pass
+        them.
+
+        Returns a sublist of the supplied updaters_list that meets both the filter criteria (generation matches and
+        update_label is in the label_filters), if those filters were supplied.
+        """
+        # This will be the new buffer (in case we're being selective)
+        new_updaters_list = []
+
+        # Convenience variables to make the conditional easier to read
+        no_filters = label_filters is None or len(label_filters) == 0
+        no_generation = generation is None
+
+        for updater_dict in updaters_list:
+            gen = updater_dict["generation"]
+            label = updater_dict["update_label"]
+            has_label = label is not None
+            if (
+                filter_in
+                and (
+                    (no_generation or generation == gen)
+                    and (no_filters or (has_label and label in label_filters))
+                )
+            ) or (
+                not filter_in
+                and (
+                    (no_generation or generation != gen)
+                    and (no_filters or not has_label or label not in label_filters)
+                )
+            ):
+                new_updaters_list.append(updater_dict)
+
+        return new_updaters_list
+
+    @classmethod
+    def updater_list_has_matching_labels(cls, updaters_list, label_filters, filter_in):
+        """
+        Returns True if any updater dict in updaters_list passes the label filtering criteria.
+        """
+        for updater_dict in updaters_list:
+            label = updater_dict["update_label"]
+            has_a_label = label is not None
+            if filter_in:
+                if has_a_label and label in label_filters:
+                    return True
+            elif not has_a_label or label not in label_filters:
+                return True
+
+        return False
+
+    @classmethod
+    def get_max_generation(cls, updaters_list, label_filters=None, filter_in=None):
+        """
+        Takes a list of updaters and a list of label filters and returns the max generation found in the updaters list.
+        """
+        if filter_in is None:
+            filter_in = True
+        if label_filters is None:
+            label_filters = (
+                []
+            )  # Include everything by default, regardless of default filters
+            filter_in = True
+        max_gen = None
+        for updater_dict in sorted(
+            cls._filter_updaters(
+                updaters_list,
+                generation=None,
+                label_filters=label_filters,
+                filter_in=filter_in,
+            ),
+            key=lambda x: x["generation"],
+            reverse=True,
+        ):
+            gen = updater_dict["generation"]
+            if max_gen is None or gen > max_gen:
+                max_gen = gen
+                break
+        return max_gen
+
+    @classmethod
     def rebuild_maintained_fields(
         cls,
         models_path=None,
@@ -1406,8 +1413,8 @@ class MaintainedModel(Model):
 
         with cls.custom_coordinator(coordinator):
             # Get the largest generation value
-            youngest_generation = coordinator.get_max_generation(
-                coordinator.get_all_updaters(),
+            youngest_generation = cls.get_max_generation(
+                cls.get_all_updaters(),
                 label_filters=label_filters,
                 filter_in=filter_in,
             )
@@ -1418,7 +1425,7 @@ class MaintainedModel(Model):
             # For every generation from the youngest leaves/children to root/parent
             for gen in sorted(range(youngest_generation + 1), reverse=True):
                 # For every MaintainedModel derived class with decorated functions
-                for mdl_cls in coordinator._get_classes(
+                for mdl_cls in cls._get_classes(
                     gen,
                     label_filters,
                     filter_in,
@@ -1433,7 +1440,7 @@ class MaintainedModel(Model):
 
                     # Leave the loop when the max generation present changes so that we can update the updated buffer
                     # with the parent-triggered updates that were locally buffered during the execution of this loop
-                    max_gen = coordinator.get_max_generation(
+                    max_gen = cls.get_max_generation(
                         updater_dicts,
                         label_filters=label_filters,
                         filter_in=filter_in,
@@ -1442,11 +1449,8 @@ class MaintainedModel(Model):
                         break
 
                     # No need to perform updates if none of the updaters match the label filters
-                    if (
-                        has_filters
-                        and not coordinator.updater_list_has_matching_labels(
-                            updater_dicts, label_filters, filter_in
-                        )
+                    if has_filters and not cls.updater_list_has_matching_labels(
+                        updater_dicts, label_filters, filter_in
                     ):
                         break
 
@@ -1483,6 +1487,7 @@ class MaintainedModel(Model):
         the current filter conditions.  One exception of the refresh, is if performing a mass auto-update, in which
         case the filters the were in effect during buffering are used.
         """
+        changed = False
         for updater_dict in self.get_my_updaters():
             update_fld = updater_dict["update_field"]
             update_label = updater_dict["update_label"]
@@ -1513,53 +1518,55 @@ class MaintainedModel(Model):
                     )
                 )
             ):
+                update_fun = getattr(self, updater_dict["update_function"])
                 try:
-                    update_fun = getattr(self, updater_dict["update_function"])
-                    try:
-                        old_val = getattr(self, update_fld)
-                    except Exception as e:
-                        if isinstance(e, TransactionManagementError):
-                            raise e
-                        warnings.warn(
-                            f"{e.__class__.__name__} error getting current value of field [{update_fld}]: "
-                            f"[{str(e)}].  Possibly due to this being triggered by a deleted record that is linked in "
-                            "a related model's maintained field."
-                        )
-                        old_val = "<error>"
-
-                    new_val = None
-                    try:
-                        new_val = update_fun()
-                    except ValueError as ve:
-                        if (
-                            "instance needs to have a primary key value before this relationship can be used."
-                            not in str(ve)
-                        ):
-                            raise ve
-                        # If the model object does not have a primary key, and the updater_fun in the derived class
-                        # tries to traverse a non-existant relation, we can assume that there is not a valid value to
-                        # update, so we can safely ignore this exception.  This is a new exception in Django 4.2
-                        # (compared to 3.2, which just returned empty querysets for those cases).
-                    setattr(self, update_fld, new_val)
-
-                    # Report the auto-update
-                    if old_val is None or old_val == "":
-                        old_val = "<empty>"
-                    print(
-                        f"Auto-updated {self.__class__.__name__}.{update_fld} in {self.__class__.__name__}.{self.pk} "
-                        f"using {update_fun.__qualname__} from [{old_val}] to [{new_val}]."
+                    old_val = getattr(self, update_fld)
+                except ObjectDoesNotExist as odne:
+                    # This assumes that when this is raised, update_fld is a relation field (e.g. ForeignKeyField)
+                    # It also assumes a .delete() of the referenced record is what caused this.  Note, in my test case,
+                    # a serum Sample record was deleted.  A parent Animal record's update occurred via propagation of
+                    # autoupdates.  It's last_serum_sample's on_delete was SET_NULL.  A getattr() on that field yields a
+                    # KeyError referring to cached values accessed deep in the django core code.  It's trace was
+                    # truncated, so I could not verify the source of the DoesNotExist exception, but catching
+                    # ObjectDoesNotExist does catch it.  I think it's a pretty safe assumption, but...
+                    # TODO: explicitly check if a delete had happened.  There may be a way to get the value of the
+                    # foreign key without triggering a database query and set old_val to None.
+                    warnings.warn(
+                        f"{odne.__class__.__name__} error getting current value of relation field [{update_fld}]: "
+                        f"[{str(odne)}].  This is likely being triggered by a deleted record whose relation used to "
+                        "link to it, but its cache has not been cleared."
                     )
-                except TransactionManagementError as tme:
-                    self.transaction_management_warning(
-                        tme, self, None, updater_dict, "self"
-                    )
+                    old_val = f"<error {type(odne).__name__}>"
+
+                new_val = update_fun()
+
+                setattr(self, update_fld, new_val)
+
+                if old_val != new_val:
+                    changed = True
+
+                # Report the auto-update
+                if old_val is None or old_val == "":
+                    old_val = "<empty>"
+                print(
+                    f"Auto-updated {self.__class__.__name__}.{update_fld} in {self.__class__.__name__}.{self.pk} "
+                    f"using {update_fun.__qualname__} from [{old_val}] to [{new_val}]."
+                )
+
+        return changed
+
+    def get_record_signature(self):
+        if self.pk is None:
+            return None
+        return f"{self.__class__.__name__}.{self.pk}"
 
     def call_dfs_related_updaters(self, updated=None, mass_updates=False):
-        if not updated:
-            updated = []
         # Assume I've been called after I've been updated, so add myself to the updated list
-        self_sig = f"{self.__class__.__name__}.{self.id}"
-        updated.append(self_sig)
+        if updated is None:
+            updated = []
+        self_sig = self.get_record_signature()
+        if self_sig is not None and self_sig not in updated:
+            updated.append(self_sig)
         updated = self.call_child_updaters(updated=updated, mass_updates=mass_updates)
         updated = self.call_parent_updaters(updated=updated, mass_updates=mass_updates)
         return updated
@@ -1574,10 +1581,10 @@ class MaintainedModel(Model):
         for parent_inst in parents:
             # If the current instance's update was triggered - and was triggered by the same parent instance whose
             # update we're about to trigger
-            parent_sig = f"{parent_inst.__class__.__name__}.{parent_inst.id}"
+            parent_sig = parent_inst.get_record_signature()
             if parent_sig not in updated:
                 if settings.DEBUG:
-                    self_sig = f"{self.__class__.__name__}.{self.pk}"
+                    self_sig = self.get_record_signature()
                     print(
                         f"Propagating change from child {self_sig} to parent {parent_sig}"
                     )
@@ -1619,40 +1626,36 @@ class MaintainedModel(Model):
 
                 # if a parent record exists
                 if tmp_parent_inst is not None:
-                    try:
-                        # Make sure that the (direct) parnet (or M:M related parent) *isa* MaintainedModel
-                        if isinstance(tmp_parent_inst, MaintainedModel):
-                            parent_inst = tmp_parent_inst
-                            if parent_inst not in parents:
-                                parents.append(parent_inst)
+                    # Make sure that the (direct) parnet (or M:M related parent) *isa* MaintainedModel
+                    if isinstance(tmp_parent_inst, MaintainedModel):
+                        parent_inst = tmp_parent_inst
+                        # We check "exists_in_db" in case these updates are propagated due to a delete, and any relation
+                        # we are traversing, could have been deleted via a cascade
+                        if parent_inst not in parents and parent_inst.exists_in_db():
+                            parents.append(parent_inst)
 
-                        elif (
-                            tmp_parent_inst.__class__.__name__ == "ManyRelatedManager"
-                            or tmp_parent_inst.__class__.__name__ == "RelatedManager"
+                    elif (
+                        tmp_parent_inst.__class__.__name__ == "ManyRelatedManager"
+                        or tmp_parent_inst.__class__.__name__ == "RelatedManager"
+                    ):
+                        # NOTE: This is where the `through` model is skipped
+                        if tmp_parent_inst.count() > 0 and isinstance(
+                            tmp_parent_inst.first(), MaintainedModel
                         ):
-                            # NOTE: This is where the `through` model is skipped
-                            if tmp_parent_inst.count() > 0 and isinstance(
-                                tmp_parent_inst.first(), MaintainedModel
-                            ):
-                                for mm_parent_inst in tmp_parent_inst.all():
-                                    if mm_parent_inst not in parents:
-                                        parents.append(mm_parent_inst)
+                            for mm_parent_inst in tmp_parent_inst.all():
+                                # We check "exists_in_db" in case these updates are propagated due to a delete, and any
+                                # relation we are traversing, could have been deleted via a cascade
+                                if (
+                                    mm_parent_inst not in parents
+                                    and mm_parent_inst.exists_in_db()
+                                ):
+                                    parents.append(mm_parent_inst)
 
-                            elif tmp_parent_inst.count() > 0:
-                                raise NotMaintained(tmp_parent_inst.first(), self)
+                        elif tmp_parent_inst.count() > 0:
+                            raise NotMaintained(tmp_parent_inst.first(), self)
 
-                        else:
-                            raise NotMaintained(tmp_parent_inst, self)
-
-                    except TransactionManagementError as tme:
-                        self.transaction_management_warning(
-                            tme,
-                            self,
-                            tmp_parent_inst,
-                            updater_dict,
-                            "parent",
-                            parent_fld,
-                        )
+                    else:
+                        raise NotMaintained(tmp_parent_inst, self)
 
         return parents
 
@@ -1666,10 +1669,10 @@ class MaintainedModel(Model):
         for child_inst in children:
             # If the current instance's update was triggered - and was triggered by the same child instance whose
             # update we're about to trigger
-            child_sig = f"{child_inst.__class__.__name__}.{child_inst.id}"
+            child_sig = child_inst.get_record_signature()
             if child_sig not in updated:
                 if settings.DEBUG:
-                    self_sig = f"{self.__class__.__name__}.{self.pk}"
+                    self_sig = self.get_record_signature()
                     print(
                         f"Propagating change from parent {self_sig} to child {child_sig}"
                     )
@@ -1714,45 +1717,41 @@ class MaintainedModel(Model):
                     # Make sure that the (direct) parnet (or M:M related child) *isa* MaintainedModel
                     if isinstance(tmp_child_inst, MaintainedModel):
                         child_inst = tmp_child_inst
-                        if child_inst not in children:
+                        # We check "exists_in_db" in case these updates are propagated due to a delete, and any relation
+                        # we are traversing, could have been deleted via a cascade
+                        if child_inst not in children and child_inst.exists_in_db():
                             children.append(child_inst)
 
-                    elif (
+                    elif self.pk is not None and (
                         tmp_child_inst.__class__.__name__ == "ManyRelatedManager"
                         or tmp_child_inst.__class__.__name__ == "RelatedManager"
                     ):
-                        try:
-                            # NOTE: This is where the `through` model is skipped
-                            if tmp_child_inst.count() > 0 and isinstance(
-                                tmp_child_inst.first(), MaintainedModel
-                            ):
-                                for mm_child_inst in tmp_child_inst.all():
-                                    if mm_child_inst not in children:
-                                        children.append(mm_child_inst)
+                        # NOTE: This is where the `through` model is skipped
+                        if tmp_child_inst.count() > 0 and isinstance(
+                            tmp_child_inst.first(), MaintainedModel
+                        ):
+                            for mm_child_inst in tmp_child_inst.all():
+                                # We check "exists_in_db" in case these updates are propagated due to a delete, and any
+                                # relation we are traversing, could have been deleted via a cascade
+                                if (
+                                    mm_child_inst not in children
+                                    and mm_child_inst.exists_in_db()
+                                ):
+                                    children.append(mm_child_inst)
 
-                            elif tmp_child_inst.count() > 0:
-                                raise NotMaintained(tmp_child_inst.first(), self)
+                        elif tmp_child_inst.count() > 0:
+                            raise NotMaintained(tmp_child_inst.first(), self)
 
-                        except TransactionManagementError as tme:
-                            self.transaction_management_warning(
-                                tme,
-                                self,
-                                tmp_child_inst,
-                                updater_dict,
-                                "child",
-                                child_fld,
-                            )
-
-                        except ValueError as ve:
-                            if (
-                                "instance needs to have a primary key value before this relationship can be used."
-                                not in str(ve)
-                            ):
-                                raise ve
-                            # The ValueError happens when child records don't exist (inferred from no primary key), so
-                            # it can be ignored
-                    else:
+                    elif (
+                        not isinstance(tmp_child_inst, MaintainedModel)
+                        and tmp_child_inst.__class__.__name__ != "ManyRelatedManager"
+                        and tmp_child_inst.__class__.__name__ != "RelatedManager"
+                    ):
                         raise NotMaintained(tmp_child_inst, self)
+                    # Otherwise, this is a *RelatedManager or self.pk is None, meaning it hasn't been created yet - and
+                    # if the record hasn't been created yet, another model that links to it cannot have linked to it
+                    # yet, so there cannot be any children to return (because to create the relation, you have to supply
+                    # a created record).
                 else:
                     raise Exception(
                         f"Unexpected child reference for field [{child_fld}] is None."
@@ -1779,60 +1778,13 @@ class MaintainedModel(Model):
         Retrieves all the updater information of each decorated function of the calling model from the global
         updater_list variable.
         """
-        return MaintainedModelCoordinator.get_updater_dicts_by_model_name(cls.__name__)
-
-    def transaction_management_warning(
-        self,
-        tme,
-        triggering_rec,
-        acting_rec=None,
-        update_dict=None,
-        relationship="self",
-        triggering_field=None,
-    ):
-        """
-        Debugging TransactionManagementErrors can be difficult and confusing, so this warning is an attempt to aid that
-        debugging effort in the future by encapsulating what I have learned to provide insights on how best to address
-        those issues.
-        """
-
-        if relationship == "self" and acting_rec is not None:
-            raise ValueError("acting_rec must be None if relationship is 'self'.")
-        elif relationship != "self" and (
-            acting_rec is None or triggering_field is None
-        ):
-            raise ValueError(
-                "acting_rec and triggering_field are required is relationship is not 'self'."
-            )
-
-        warning_str = "Ignoring TransactionManagementError and skipping auto-update.  Details:\n\n"
-
-        if relationship == "self":
-            warning_str += f"\t- Record being updated: [{triggering_rec.__class__.__name__}.{triggering_rec.id}].\n"
+        updaters = []
+        if cls.__name__ in cls.updater_list:
+            updaters = cls.updater_list[cls.__name__]
         else:
-            warning_str += f"\t- Record being updated: [{acting_rec.__class__.__name__}.{acting_rec.id}].\n"
-            warning_str += f"\t- Triggering {relationship} field: "
-            warning_str += f"[{triggering_rec.__class__.__name__}.{triggering_field}.{triggering_rec.id}].\n"
+            raise NoDecorators(cls.__name__)
 
-        if update_dict is not None:
-            warning_str += f"\t- Update field: [{update_dict['update_field']}].\n"
-            warning_str += f"\t- Update function: [{update_dict['update_function']}].\n"
-
-        explanation = (
-            "Generally, auto-updates do not cause a problem, but in certain situations (particularly in tests), auto-"
-            "updates inside an atomic transaction block can cause a problem due to performing queries on a record "
-            "that is not yet really saved.  For tests (a special case), this can usually be avoided by keeping "
-            "database loads isolated inside setUpTestData and the test function itself.  Note, querys inside setUp() "
-            "can trigger this error.  If this is occurring outside of a test run, to avoid errors, the entire "
-            "transaction should be done without autoupdates before the transaction "
-            "block, and after the atomic transaction block, call perform_buffered_updates() to make the updates.  If "
-            "this is a warning, note that auto-updates can be fixed afterwards by running:\n\n"
-            "\tpython manage.py rebuild_maintained_fields\n"
-        )
-
-        warning_str += f"\n{explanation}\nThe error that occurred: [{str(tme)}]."
-
-        warnings.warn(warning_str)
+        return updaters
 
     class Meta:
         abstract = True
@@ -1978,3 +1930,19 @@ class MissingMaintainedModelDerivedClass(Exception):
         message = f"The {cls} class must be imported so that its eval works.  {err}"
         super().__init__(message)
         self.cls = cls
+
+
+class ReverseRelationQueryBeforeRecordExists(Exception):
+    def __init__(self, mdl_name, updtr_fun_name, err):
+        message = (
+            f"Updater method: [{mdl_name}.{updtr_fun_name}] attempted to query through a link via the related model's "
+            "related_name for this model, but as of Django 4.2, that raises an exception.  The related model cannot "
+            f"link to {mdl_name} because it does not yet have a primary key (i.e., it has not been saved yet).  Add a "
+            "check in your updater method to ensure that `self.pk` is not `None` before making that query.  If it is "
+            "`None`, you can safely assume that the query would result in 0 records returned.  The original exception "
+            f"was: [{type(err).__name__}: {err}]."
+        )
+        super().__init__(message)
+        self.mdl_name = mdl_name
+        self.updtr_fun_name = updtr_fun_name
+        self.err = err

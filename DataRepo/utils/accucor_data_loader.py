@@ -1,24 +1,30 @@
+import hashlib
+import os
 import re
 from collections import Counter, defaultdict
 from datetime import datetime
+from pathlib import Path
 from typing import Dict, List, TypedDict
 
 import regex
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.core.files import File
 from django.db import IntegrityError, transaction
 
 from DataRepo.models import (
+    ArchiveFile,
     Compound,
+    DataFormat,
+    DataType,
     ElementLabel,
+    LCMethod,
     MaintainedModel,
     MSRun,
     PeakData,
     PeakDataLabel,
     PeakGroup,
     PeakGroupLabel,
-    PeakGroupSet,
-    Protocol,
     Sample,
 )
 from DataRepo.models.hier_cached_model import (
@@ -34,21 +40,40 @@ from DataRepo.utils.exceptions import (
     AggregatedErrors,
     ConflictingValueError,
     ConflictingValueErrors,
+    CorrectedCompoundHeaderMissing,
     DryRun,
     DupeCompoundIsotopeCombos,
     DuplicatePeakGroup,
     DuplicatePeakGroups,
     EmptyColumnsError,
+    InvalidLCMSHeaders,
+    IsotopeObservationParsingError,
     IsotopeStringDupe,
+    LCMethodFixturesMissing,
+    LCMSDefaultsRequired,
+    MassNumberNotFound,
+    MismatchedSampleHeaderMZXML,
     MissingCompounds,
+    MissingLCMSSampleDataHeaders,
+    MissingMZXMLFiles,
     MissingSamplesError,
     MultipleAccucorTracerLabelColumnsError,
+    MultipleMassNumbers,
+    NoMZXMLFiles,
     NoSamplesError,
     NoTracerLabeledElements,
+    PeakAnnotFileMismatches,
     ResearcherNotNew,
     SampleColumnInconsistency,
+    SampleIndexNotFound,
+    TracerLabeledElementNotFound,
     UnexpectedIsotopes,
+    UnexpectedLCMSSampleDataHeaders,
     UnskippedBlanksError,
+)
+from DataRepo.utils.lcms_metadata_parser import (
+    lcms_df_to_dict,
+    lcms_headers_are_valid,
 )
 
 # Global variables for Accucor/Isocorr corrected column names/patterns
@@ -104,43 +129,94 @@ class PeakGroupAttrs(TypedDict):
 
 class AccuCorDataLoader:
     """
-    Load the Protocol, MsRun, PeakGroup, and PeakData tables
+    Load the LCMethod, MsRun, PeakGroup, and PeakData tables
     """
 
     def __init__(
         self,
         accucor_original_df,
         accucor_corrected_df,
-        date,
-        protocol_input,
-        researcher,
-        peak_group_set_filename,
+        peak_annotation_file,
+        peak_annotation_filename=None,
+        lcms_metadata_df=None,
+        instrument=None,
+        date=None,
+        lc_protocol_name=None,
+        mzxml_files=None,
+        researcher=None,
         skip_samples=None,
         sample_name_prefix=None,
-        new_researcher=False,
+        allow_new_researchers=False,
         validate=False,
         isocorr_format=False,
         verbosity=1,
         dry_run=False,
+        update_caches=True,
     ):
         self.aggregated_errors_object = AggregatedErrors()
 
         try:
-            # Data
+            # File data
             self.accucor_original_df = accucor_original_df
             self.accucor_corrected_df = accucor_corrected_df
-
-            # Data format
             self.isocorr_format = isocorr_format
+            self.peak_annotation_filepath = peak_annotation_file
+            self.peak_annotation_filename = (
+                None
+                if peak_annotation_filename is None
+                else peak_annotation_filename.strip()
+            )
+            self.lcms_metadata_df = lcms_metadata_df
+            self.lcms_metadata = {}
 
-            # Optional data (for batch updates)
-            self.protocol_input = protocol_input.strip()
+            # Validate the required LCMS Metadata
+            reqd_args = {
+                "lc_protocol_name": lc_protocol_name,
+                "date": date,
+                "researcher": researcher,
+                "instrument": instrument,
+            }
+            if lcms_metadata_df is None and None in reqd_args.values():
+                missing = [key for key in reqd_args.keys() if reqd_args[key] is None]
+                self.aggregated_errors_object.buffer_error(
+                    LCMSDefaultsRequired(missing_defaults_list=missing)
+                )
+                self.set_lcms_placeholder_defaults()
+            elif lcms_metadata_df is not None and not lcms_headers_are_valid(
+                list(lcms_metadata_df.columns)
+            ):
+                raise InvalidLCMSHeaders(list(lcms_metadata_df.columns))
 
-            # Metadata
-            self.date = datetime.strptime(date.strip(), "%Y-%m-%d")
-            self.researcher = researcher.strip()
-            self.new_researcher = new_researcher
-            self.peak_group_set_filename = peak_group_set_filename.strip()
+            self.mzxml_files = None
+            if mzxml_files is not None and len(mzxml_files) > 0:
+                # mzxml_files is assumed to be populated with basenames
+                # This code also assumes that the filename (minus suffix) matches the header in the accucor/isocorr
+                # file.  This assumption is later checked in validate_mzxmls().  If the assumption is incorrect, the
+                # actual header to zmXML relationship should be added to the LCMS metadata file (to not use the invalid
+                # default).
+                self.mzxml_files = defaultdict(str)
+                for fn in mzxml_files:
+                    nm, _ = os.path.splitext(fn)
+                    # pylint: disable=unsupported-assignment-operation
+                    self.mzxml_files[nm] = fn
+                    # pylint: enable=unsupported-assignment-operation
+
+            # LCMS Metadata
+            self.lcms_defaults = {
+                "lc_protocol_name": None,
+                "date": None,
+                "researcher": None,
+                "instrument": None,
+                "peak_annot_file": self.peak_annotation_filename,
+            }
+            if lc_protocol_name is not None and lc_protocol_name.strip() != "":
+                self.lcms_defaults["lc_protocol_name"] = lc_protocol_name.strip()
+            if date is not None and date.strip() != "":
+                self.lcms_defaults["date"] = datetime.strptime(date.strip(), "%Y-%m-%d")
+            if researcher is not None and researcher.strip() != "":
+                self.lcms_defaults["researcher"] = researcher.strip()
+            if instrument is not None and instrument.strip() != "":
+                self.lcms_defaults["instrument"] = instrument.strip()
 
             # Sample Metadata
             if skip_samples is None:
@@ -151,22 +227,24 @@ class AccuCorDataLoader:
                 sample_name_prefix = ""
             self.sample_name_prefix = sample_name_prefix
 
-            # Verbosity affects log prints and error verbosity (for debugging)
+            # Modes
+            self.allow_new_researchers = allow_new_researchers
             self.verbosity = verbosity
-
-            # Dry Run - don't change the database
             self.dry_run = dry_run
-
-            # Validate mode
             self.validate = validate
+
+            # Making this True causes existing caches associated with loaded records to be deleted
+            self.update_caches = update_caches
 
             # Tracking Data
             self.peak_group_dict: Dict[str, PeakGroupAttrs] = {}
-            self.corrected_samples = []
-            self.original_samples = []
+            self.corrected_sample_headers = []
+            self.original_sample_headers = []
             self.db_samples_dict = None
             self.labeled_element_header = None
             self.missing_samples = []
+            self.missing_sample_headers = []
+            self.unexpected_sample_headers = []
             self.missing_compounds = {}
             self.dupe_isotope_compounds = {
                 "original": defaultdict(dict),
@@ -174,6 +252,8 @@ class AccuCorDataLoader:
             }
             self.duplicate_peak_groups = []
             self.conflicting_peak_groups = []
+            self.missing_mzxmls = []
+            self.mismatching_mzxmls = []
 
             # Used for accucor
             self.labeled_element = None
@@ -242,15 +322,34 @@ class AccuCorDataLoader:
         self.validate_peak_groups()
 
     def validate_researcher(self):
-        if self.new_researcher is True:
+        # Compile a list of reasearchers potentially being added
+        adding_researchers = []
+        for sample_header in self.corrected_sample_headers:
+            if (
+                self.lcms_metadata[sample_header]["researcher"]
+                not in adding_researchers
+            ):
+                adding_researchers.append(
+                    self.lcms_metadata[sample_header]["researcher"]
+                )
+
+        if self.allow_new_researchers is True:
             researchers = get_researchers()
-            if self.researcher in researchers:
+            all_existing = True
+            for res_add in adding_researchers:
+                if res_add not in researchers:
+                    all_existing = False
+                    break
+            if all_existing and len(adding_researchers) > 0:
                 self.aggregated_errors_object.buffer_error(
-                    ResearcherNotNew(self.researcher, "--new-researcher", researchers)
+                    # TODO: Refine the error to take a list of researcher names
+                    ResearcherNotNew(
+                        ", ".join(adding_researchers), "--new-researcher", researchers
+                    )
                 )
         else:
             try:
-                validate_researchers([self.researcher], skip_flag="--new-researcher")
+                validate_researchers(adding_researchers, skip_flag="--new-researcher")
             except UnknownResearcherError as ure:
                 # This is a raised warning when in validate mode.  The user should know about it (so it's raised), but
                 # they can't address it if the researcher is valid.
@@ -260,33 +359,277 @@ class AccuCorDataLoader:
                 )
 
     def initialize_sample_names(self):
-        minimum_sample_index = self.get_first_sample_column_index(
-            self.accucor_corrected_df
+        self.corrected_sample_headers = get_sample_headers(
+            self.accucor_corrected_df, self.skip_samples
         )
-        if minimum_sample_index is None:
-            # Sample columns are required to proceed
-            raise SampleIndexNotFound(
-                "corrected", list(self.accucor_corrected_df.columns)
-            )
-        self.corrected_samples = [
-            sample
-            for sample in list(self.accucor_corrected_df)[minimum_sample_index:]
-            if sample not in self.skip_samples
-        ]
+
         if self.accucor_original_df is not None:
-            minimum_sample_index = self.get_first_sample_column_index(
+            minimum_sample_index = get_first_sample_column_index(
                 self.accucor_original_df
             )
             if minimum_sample_index is None:
                 # Sample columns are required to proceed
                 raise SampleIndexNotFound(
-                    "original", list(self.accucor_original_df.columns)
+                    "original",
+                    list(self.accucor_original_df.columns),
+                    NONSAMPLE_COLUMN_NAMES,
                 )
-            self.original_samples = [
+            self.original_sample_headers = [
                 sample
                 for sample in list(self.accucor_original_df)[minimum_sample_index:]
                 if sample not in self.skip_samples
             ]
+
+        # Update all of the associated LCMS metadata associated with the sample data headers
+        if self.lcms_metadata_df is not None:
+            self.lcms_metadata = lcms_df_to_dict(
+                self.lcms_metadata_df, self.aggregated_errors_object
+            )
+
+            # We loop on self.lcms_metadata.keys() instead of self.corrected_sample_headers in order to catch issues
+            # where incorrect sample data headers are associated with the wrong accucor file.  This assumes that sample
+            # data headers are unique across all accucor files in a study.
+            for sample_header in self.lcms_metadata.keys():
+                # Excess sample data headers are allowed to be supplied to make it easy to supply data across multiple
+                # accucor files, but if a sample data header associated with the current accucor file in the LCMS
+                # metadata is not found among the headers in the file, buffer it as an unexpected sample data header (to
+                # be raised as an error exception)
+                if (
+                    (
+                        self.lcms_metadata[sample_header]["peak_annot_file"] is None
+                        or self.lcms_metadata[sample_header]["peak_annot_file"]
+                        == self.peak_annotation_filename
+                    )
+                    # sample data header from the LCMS metadata is not in the accucor file
+                    and sample_header not in self.corrected_sample_headers
+                ):
+                    self.unexpected_sample_headers.append(sample_header)
+
+            for sample_header in self.corrected_sample_headers:
+                if sample_header not in self.lcms_metadata.keys():
+                    self.missing_sample_headers.append(sample_header)
+
+            if len(self.missing_sample_headers) > 0:
+                # Defaults are required if any sample is missing in the lcms_metadata file
+                self.aggregated_errors_object.buffer_exception(
+                    MissingLCMSSampleDataHeaders(
+                        self.missing_sample_headers,
+                        self.peak_annotation_filename,
+                        self.get_missing_required_lcms_defaults(),
+                    ),
+                    is_error=not self.lcms_defaults_supplied(),
+                    is_fatal=not self.lcms_defaults_supplied(),
+                )
+                if not self.lcms_defaults_supplied():
+                    self.set_lcms_placeholder_defaults()
+                    # The above will raise an exception.  In order to catch more errros and skip errors cause by no
+                    # defaults, fill in temporary placeholders.
+
+            if len(self.unexpected_sample_headers) > 0:
+                self.aggregated_errors_object.buffer_error(
+                    UnexpectedLCMSSampleDataHeaders(
+                        self.unexpected_sample_headers, self.peak_annotation_filename
+                    )
+                )
+
+        # Note, this intentionally fills in any that caused errors above in order to catch more errors
+        incorrect_pgs_files = {}
+        missing_header_defaults = defaultdict(dict)
+        placeholders_needed = False
+        for sample_header in self.corrected_sample_headers:
+            default_mzxml_file = self.sample_header_to_default_mzxml(sample_header)
+            if sample_header not in self.lcms_metadata.keys():
+                # Fill in default values for anything missing
+                if (
+                    self.mzxml_files is not None
+                    and len(self.mzxml_files.keys()) > 0
+                    and sample_header in self.mzxml_files.keys()
+                ):
+                    # pylint: disable=unsubscriptable-object
+                    mzxml_file = self.mzxml_files[sample_header]
+                    # pylint: enable=unsubscriptable-object
+                else:
+                    mzxml_file = default_mzxml_file
+                self.check_mzxml(sample_header, mzxml_file)
+                self.lcms_metadata[sample_header] = {
+                    "sample_header": sample_header,
+                    "sample_name": sample_header,
+                    "peak_annot_file": self.lcms_defaults["peak_annot_file"],
+                    "mzxml": mzxml_file,
+                    "researcher": self.lcms_defaults["researcher"],
+                    "instrument": self.lcms_defaults["instrument"],
+                    "date": self.lcms_defaults["date"],
+                    "lc_protocol_name": self.lcms_defaults["lc_protocol_name"],
+                    "lc_type": None,
+                    "lc_run_length": None,
+                    "lc_description": None,
+                }
+            else:
+                # Note any mismatched file names
+                if (
+                    self.lcms_metadata[sample_header]["peak_annot_file"] is not None
+                    and self.lcms_metadata[sample_header]["peak_annot_file"]
+                    != self.peak_annotation_filename
+                ):
+                    # We can assume sample_header is unique due to previous code
+                    incorrect_pgs_files[sample_header] = self.lcms_metadata[
+                        sample_header
+                    ]["peak_annot_file"]
+
+                # Fill in default values for anything missing
+                if (
+                    self.lcms_metadata[sample_header]["mzxml"] is None
+                    and self.mzxml_files is not None
+                    and len(self.mzxml_files.keys()) > 0
+                ):
+                    self.lcms_metadata[sample_header]["mzxml"] = default_mzxml_file
+
+                self.check_mzxml(
+                    sample_header, self.lcms_metadata[sample_header]["mzxml"]
+                )
+
+                for key in self.lcms_defaults.keys():
+                    if self.lcms_metadata[sample_header][key] is None:
+                        if self.lcms_defaults[key] is None:
+                            placeholders_needed = True
+                            missing_header_defaults["default"][key] = True
+                            missing_header_defaults["header"][sample_header] = True
+                        else:
+                            self.lcms_metadata[sample_header][key] = self.lcms_defaults[
+                                key
+                            ]
+
+        if len(missing_header_defaults.keys()) > 0:
+            self.aggregated_errors_object.buffer_error(
+                LCMSDefaultsRequired(
+                    missing_defaults_list=list(
+                        missing_header_defaults["default"].keys()
+                    ),
+                    affected_sample_headers_list=list(
+                        missing_header_defaults["header"].keys()
+                    ),
+                )
+            )
+            self.set_lcms_placeholder_defaults()
+
+        if placeholders_needed is True:
+            # Fill in the placeholders
+            for sample_header in self.corrected_sample_headers:
+                for key in self.lcms_defaults.keys():
+                    if (
+                        self.lcms_metadata[sample_header][key] is None
+                        and self.lcms_defaults[key] is not None
+                    ):
+                        self.lcms_metadata[sample_header][key] = self.lcms_defaults[key]
+
+        if len(incorrect_pgs_files.keys()) > 0:
+            self.aggregated_errors_object.buffer_error(
+                PeakAnnotFileMismatches(
+                    incorrect_pgs_files, self.peak_annotation_filename
+                )
+            )
+
+        self.validate_mzxmls()
+
+    def set_lcms_placeholder_defaults(self):
+        """
+        If an exception is going to be raised, use this method to fill in defaults with placeholders to prevent
+        cascading errors unrelated to the root problem
+        """
+        # No need to fill in "lc_protocol_name".  None will cause a retrieval of the unknown protocol.
+        if self.lcms_defaults["date"] is None:
+            self.lcms_defaults["date"] = datetime.strptime("1972-11-24", "%Y-%m-%d")
+        if self.lcms_defaults["researcher"] is None:
+            self.lcms_defaults["researcher"] = "anonymous"
+        if self.lcms_defaults["researcher"] is None:
+            self.lcms_defaults["instrument"] = "placeholder instrument"
+        # No need to fill in "peak_annot_file".  Without this file, nothing will load
+
+    def sample_header_to_default_mzxml(self, sample_header):
+        """
+        This retrieves the mzXML file name from self.mzxml_files that matches the supplied sample header.  If mzxml
+        files were not provided, it will be recorded as missing, but will be automatically filled in with
+        "{sample_header}.xml".
+        """
+        if self.mzxml_files is not None and len(self.mzxml_files.keys()) > 0:
+            # pylint: disable=unsubscriptable-object
+            if sample_header in self.mzxml_files.keys():
+                return self.mzxml_files[sample_header]
+            else:
+                # PR REVIEW NOTE: Is this the standard extension of mzxml files???
+                return f"{sample_header}.mzxml"
+            # pylint: enable=unsubscriptable-object
+
+        return None
+
+    def check_mzxml(self, sample_header, mzxml_file):
+        """
+        This method is intended to check that a single mzxml file, listed in the LCMS metadata file, was actually
+        supplied.
+
+        It also checks that the sample data header associated with the mzXML file from the LCMS metadata file is
+        contained in the mzXML file name.  If not, it notes the mismatch, which will later result in a mild warning.
+        """
+        # For historical reasons, we don't require mzXML files
+        if (
+            self.mzxml_files is not None
+            and len(self.mzxml_files.keys()) > 0
+            and mzxml_file is not None
+            and mzxml_file not in self.mzxml_files.values()
+        ):
+            self.missing_mzxmls.append(mzxml_file)
+
+        # Issue a warning if the sample header doesn't match the file name
+        if mzxml_file is not None and mzxml_file != "":
+            sample_header_pat = re.compile(r"^" + sample_header + r"\.")
+            match = sample_header_pat.search(mzxml_file)
+            if match is None:
+                self.mismatching_mzxmls.append(
+                    [sample_header, mzxml_file, sample_header_pat.pattern]
+                )
+
+    def validate_mzxmls(self):
+        """
+        This method buffers exceptions if there happened to be logged issues with any mzxml files
+        """
+        if self.validate and (
+            self.mzxml_files is None or len(self.mzxml_files.keys()) == 0
+        ):
+            # New studies should require mzxml files, thus the user validate mode is a fatal error
+            # Old studies should have mzXML files as optional, thus the curator only gets a printed warning
+            self.aggregated_errors_object.buffer_error(NoMZXMLFiles())
+
+        elif (
+            self.mzxml_files is not None
+            and len(self.mzxml_files.keys()) > 0
+            and len(self.missing_mzxmls) > 0
+        ):
+            # New studies should require mzxml files, thus the user validate mode is a fatal error
+            # Old studies should have mzXML files as optional, thus the curator only gets a printed warning
+            self.aggregated_errors_object.buffer_error(
+                MissingMZXMLFiles(self.missing_mzxmls)
+            )
+
+        if len(self.mismatching_mzxmls) > 0:
+            self.aggregated_errors_object.buffer_exception(
+                MismatchedSampleHeaderMZXML(self.mismatching_mzxmls),
+                is_error=False,
+                is_fatal=self.validate,  # Fatal/raised in validate mode, will only be in load mode
+            )
+
+        # Since the mzXML files specified may contain sample headers from multiple accucor files, there is no check for
+        # unused mzXML files.  See the sample_table_loader for a check of the samples, as an indirect check on unused
+        # mzXML files.
+
+    def get_missing_required_lcms_defaults(self):
+        return [
+            key for key in self.lcms_defaults.keys() if self.lcms_defaults[key] is None
+        ]
+
+    def lcms_defaults_supplied(self):
+        """Returns False if any default value is None"""
+        missing_defaults = self.get_missing_required_lcms_defaults()
+        return len(missing_defaults) == 0
 
     def validate_sample_headers(self):
         """
@@ -298,8 +641,8 @@ class AccuCorDataLoader:
             print("Validating data...")
 
         # Make sure all sample columns have names
-        corr_iter = Counter(self.corrected_samples)
-        for k, v in corr_iter.items():
+        corr_iter = Counter(self.corrected_sample_headers)
+        for k, _ in corr_iter.items():
             if k.startswith("Unnamed: "):
                 self.aggregated_errors_object.buffer_error(
                     EmptyColumnsError(
@@ -307,10 +650,10 @@ class AccuCorDataLoader:
                     )
                 )
 
-        if self.original_samples:
+        if self.original_sample_headers:
             # Make sure all sample columns have names
-            orig_iter = Counter(self.original_samples)
-            for k, v in orig_iter.items():
+            orig_iter = Counter(self.original_sample_headers)
+            for k, _ in orig_iter.items():
                 if k.startswith("Unnamed: "):
                     self.aggregated_errors_object.buffer_error(
                         EmptyColumnsError(
@@ -321,10 +664,12 @@ class AccuCorDataLoader:
             # Make sure that the sheets have the same number of sample columns
             if orig_iter != corr_iter:
                 original_only = sorted(
-                    set(self.original_samples) - set(self.corrected_samples)
+                    set(self.original_sample_headers)
+                    - set(self.corrected_sample_headers)
                 )
                 corrected_only = sorted(
-                    set(self.corrected_samples) - set(self.original_samples)
+                    set(self.corrected_sample_headers)
+                    - set(self.original_sample_headers)
                 )
 
                 self.aggregated_errors_object.buffer_error(
@@ -339,9 +684,9 @@ class AccuCorDataLoader:
                 # For the sake of catching more actionale errors and not avoiding meaningless errors caused by these
                 # samples missing in the original sheet, remove the samples that are missing from the corrected_samples
                 # and process what we can.
-                self.corrected_samples = [
+                self.corrected_sample_headers = [
                     sample
-                    for sample in self.corrected_samples
+                    for sample in self.corrected_sample_headers
                     if sample not in corrected_only
                 ]
 
@@ -423,22 +768,18 @@ class AccuCorDataLoader:
 
         # cross validate in database
         sample_dict = {}
-        """
-        Because the original dataframe might be None, here, we rely on the
-        corrected sample list as being authoritative
-        """
-        for sample_name in self.corrected_samples:
+        # Because the original dataframe might be None, here, we rely on the corrected sample list as being
+        # authoritative
+        for sample_data_header in self.corrected_sample_headers:
+            sample_name = self.lcms_metadata[sample_data_header]["sample_name"]
             prefixed_sample_name = f"{self.sample_name_prefix}{sample_name}"
             try:
-                """
-                This relies on sample name to find the correct sample since
-                we do not have any other information about the sample in the
-                peak annotation file Accucor/Isocor files should be
-                accomplanied by a sample and animal sheet file so we can
-                identify potential duplicates and flag them
-                """
-                # TODO Ensure the sample names in an AccuCor file match sample names in a supplied sample sheet
-                sample_dict[sample_name] = Sample.objects.get(name=prefixed_sample_name)
+                # This relies on sample name to find the correct sample since we do not have any other information
+                # about the sample in the peak annotation file Accucor/Isocor files should be accomplanied by a sample
+                # and animal sheet file so we can identify potential duplicates and flag them
+                sample_dict[sample_data_header] = Sample.objects.get(
+                    name=prefixed_sample_name
+                )
             except Sample.DoesNotExist:
                 self.missing_samples.append(sample_name)
 
@@ -526,30 +867,6 @@ class AccuCorDataLoader:
         else:
             self.tracer_labeled_elements = tracer_labeled_elements
 
-    @classmethod
-    def get_first_sample_column_index(cls, df):
-        """
-        Given a dataframe, return the column index of the likely "first" sample column
-        """
-
-        final_index = None
-        max_nonsample_index = 0
-        found = False
-        for col_name in NONSAMPLE_COLUMN_NAMES:
-            try:
-                if df.columns.get_loc(col_name) > max_nonsample_index:
-                    max_nonsample_index = df.columns.get_loc(col_name)
-                    found = True
-            except KeyError:
-                # column is not found, so move on
-                pass
-
-        if found:
-            final_index = max_nonsample_index + 1
-
-        # the sample index should be the next column
-        return final_index
-
     def validate_peak_groups(self):
         """
         Step through the original file, and note all the unique peak group names/formulas and map to database compounds
@@ -614,7 +931,7 @@ class AccuCorDataLoader:
                             self.record_missing_compound(
                                 compound_input, peak_group_formula, index
                             )
-                    except ValidationError:
+                    except (ValidationError, Compound.DoesNotExist):
                         compound_missing = True
                         self.record_missing_compound(
                             compound_input, peak_group_formula, index
@@ -648,42 +965,96 @@ class AccuCorDataLoader:
                 "rownums": [index + 2],
             }
 
-    def retrieve_or_create_protocol(self):
-        """
-        retrieve or insert a protocol, based on input
-        """
-        if self.verbosity >= 1:
-            print(
-                f"Finding or inserting {Protocol.MSRUN_PROTOCOL} protocol for '{self.protocol_input}'..."
+    def get_or_create_lc_protocol(self, sample_data_header):
+        # lcms_metadata should be populated either from the lcms_metadata file or via the headers and the default
+        # options/args.
+        if sample_data_header in self.corrected_sample_headers:
+            type = self.lcms_metadata[sample_data_header]["lc_type"]
+            run_length = self.lcms_metadata[sample_data_header]["lc_run_length"]
+            desc = self.lcms_metadata[sample_data_header]["lc_description"]
+            name = self.lcms_metadata[sample_data_header]["lc_protocol_name"]
+        else:
+            # This should have been encountered before, but adding this here to be robust to code changes.
+            self.aggregated_errors_object.buffer_warning(
+                MissingLCMSSampleDataHeaders(
+                    [sample_data_header],
+                    self.peak_annotation_filename,
+                    self.get_missing_required_lcms_defaults(),
+                )
+            )
+            # Create an unknown record in order to proceed and catch more errors
+            name = LCMethod.create_name()
+
+        # Create a dict for the get_or_create call, using all available values (so that the get can work)
+        rec_dict = {}
+        if name is not None:
+            rec_dict["name"] = name
+        if type is not None:
+            rec_dict["type"] = type
+        if run_length is not None:
+            rec_dict["run_length"] = run_length
+        if desc is not None:
+            rec_dict["description"] = desc
+
+        if len(rec_dict.keys()) == 0:
+            # An error will have already been buffered, so return the "unknown" protocol as a placeholder and keep going
+            return LCMethod.objects.get(
+                name__exact=LCMethod.DEFAULT_TYPE, type__exact=LCMethod.DEFAULT_TYPE
             )
 
-        protocol, created = Protocol.retrieve_or_create_protocol(
-            self.protocol_input,
-            Protocol.MSRUN_PROTOCOL,
-            f"For protocol's full text, please consult {self.researcher}.",
-        )
-        action = "Found"
-        feedback = f"{protocol.category} protocol {protocol.id} '{protocol.name}'"
-        if created:
-            action = "Created"
-            feedback += f" '{protocol.description}'"
+        try:
+            try:
+                rec = LCMethod.objects.get(**rec_dict)
+            except Exception:
+                rec, _ = LCMethod.objects.get_or_create(**rec_dict)
+        except Exception as e:
+            try:
+                # Fall back to the unknown record in order to proceed and catch more errors
+                # If this fails, die.  If the fixtures don't exist, that's a low level problem.
+                rec = LCMethod.objects.get(
+                    name__exact=LCMethod.DEFAULT_TYPE, type__exact=LCMethod.DEFAULT_TYPE
+                )
+                self.aggregated_errors_object.buffer_error(e)
+            except LCMethod.DoesNotExist as dne:
+                self.aggregated_errors_object.buffer_error(LCMethodFixturesMissing(dne))
+                rec = None
+            except Exception:
+                # We don't know what the new exception is, so revert to the enclosing exception
+                self.aggregated_errors_object.buffer_error(e)
+                rec = None
 
-        if self.verbosity >= 1:
-            print(f"{action} {feedback}")
+        return rec
 
-        return protocol
+    def insert_peak_annotation_file(self):
+        peak_annotaion_path = Path(self.peak_annotation_filepath)
+        hexa_value = hash_file(self.peak_annotation_filepath)
 
-    def insert_peak_group_set(self):
-        peak_group_set = PeakGroupSet(filename=self.peak_group_set_filename)
-        peak_group_set.full_clean()
-        peak_group_set.save()
-        return peak_group_set
+        with peak_annotaion_path.open(mode="rb") as f:
+            # Don't store the file during dry-run or validation
+            if self.dry_run or self.validate:
+                peak_annotation_file = None
+            else:
+                peak_annotation_file = File(f, name=peak_annotaion_path.name)
+
+            ms_peak_annotation = DataType.objects.get(code="ms_peak_annotation")
+            annotation_format = "isocorr" if self.isocorr_format else "accucor"
+            peak_annotation_format = DataFormat.objects.get(code=annotation_format)
+            peak_annotation_archivefile = ArchiveFile.objects.create(
+                filename=peak_annotaion_path.name,
+                file_location=peak_annotation_file,
+                checksum=hexa_value,
+                data_type=ms_peak_annotation,
+                data_format=peak_annotation_format,
+            )
+            peak_annotation_archivefile.save()
+
+        return peak_annotation_archivefile
 
     def insert_peak_group(
         self,
         peak_group_attrs: PeakGroupAttrs,
         msrun: MSRun,
-        peak_group_set: PeakGroupSet,
+        peak_annotation_file: ArchiveFile,
     ):
         """Insert a PeakGroup record
 
@@ -693,7 +1064,7 @@ class AccuCorDataLoader:
         Args:
             peak_group_attrs: dictionary of peak group atrributes
             msrun: MSRun object the PeakGroup belongs to
-            peak_group_set: PeakGroupSet object the PeakGroup belongs to
+            peak_annotation_file: ArchiveFile object of the peak annotation file the peak group was loaded from
 
         Returns:
             A newly created PeakGroup object created using the supplied values
@@ -701,7 +1072,7 @@ class AccuCorDataLoader:
         Raises:
             DuplicatePeakGroup: A PeakGroup record with the same values already exists
             ConflictingValueError: A PeakGroup with the same unique key (MSRun and PeakGroup.name) exists, but with a
-              different formula or PeakGroupSet
+              different formula or different peak_annotation_file
         """
 
         if self.verbosity >= 1:
@@ -713,15 +1084,15 @@ class AccuCorDataLoader:
                 msrun=msrun,
                 name=peak_group_attrs["name"],
                 formula=peak_group_attrs["formula"],
-                peak_group_set=peak_group_set,
+                peak_annotation_file=peak_annotation_file,
             )
             if not created:
                 raise DuplicatePeakGroup(
-                    adding_file=peak_group_set.filename,
+                    adding_file=peak_annotation_file.filename,
                     ms_run=msrun,
                     sample=msrun.sample,
                     peak_group_name=peak_group_attrs["name"],
-                    existing_peak_group_set=peak_group.peak_group_set,
+                    existing_peak_annotation_file=peak_group.peak_annotation_file,
                 )
             peak_group.full_clean()
             peak_group.save()
@@ -742,10 +1113,12 @@ class AccuCorDataLoader:
                     conflicting_fields.append("formula")
                     existing_values.append(existing_peak_group.formula)
                     new_values.append(peak_group_attrs["formula"])
-                if existing_peak_group.peak_group_set != peak_group_set:
-                    conflicting_fields.append("peak_group_set")
-                    existing_values.append(existing_peak_group.peak_group_set.filename)
-                    new_values.append(peak_group_set.filename)
+                if existing_peak_group.peak_annotation_file != peak_annotation_file:
+                    conflicting_fields.append("peak_annotation_file")
+                    existing_values.append(
+                        existing_peak_group.peak_annotation_file.filename
+                    )
+                    new_values.append(peak_annotation_file.filename)
                 raise ConflictingValueError(
                     rec=existing_peak_group,
                     consistent_field=conflicting_fields,
@@ -794,63 +1167,73 @@ class AccuCorDataLoader:
             print("Loading data...")
 
         # No need to try/catch - these need to succeed to start loading samples
-        protocol = self.retrieve_or_create_protocol()
-        peak_group_set = self.insert_peak_group_set()
+        peak_annotation_file = self.insert_peak_annotation_file()
 
         sample_msrun_dict = {}
 
         # Each sample gets its own msrun
-        for sample_name in self.db_samples_dict.keys():
-            # each msrun/sample has its own set of peak groups
-            inserted_peak_group_dict = {}
+        for sample_data_header in self.db_samples_dict.keys():
+            lc_protocol = self.get_or_create_lc_protocol(sample_data_header)
+
+            if lc_protocol is None:
+                # Cannot create the msrun record without protocols
+                # TODO: Currently, lc_method is NOT required, but it WILL be.  Once it is, this should buffer an
+                # exception
+                continue
+
+            # TODO: Load instrument
+            # TODO: Load mzXML file as an ArchiveFile record and save the file
 
             msrun_dict = {
-                "date": self.date,
-                "researcher": self.researcher,
-                "protocol": protocol,
-                "sample": self.db_samples_dict[sample_name],
+                "date": self.lcms_metadata[sample_data_header]["date"],
+                "researcher": self.lcms_metadata[sample_data_header]["researcher"],
+                "lc_method": lc_protocol,
+                "sample": self.db_samples_dict[sample_data_header],
             }
             try:
-                # TODO This relies on sample name lookup (see issue #684)
-                # https://github.com/Princeton-LSI-ResearchComputing/tracebase/issues/684
-                """This also relies on accurate msrun information (researcher and date)
-                Including mzXML files with accucor files will help ensure accurate msrun
-                lookup since we will have checksums for the mzXML files and those are
-                always associated with one MSRun record
-                """
+                # This relies on sample name lookup and accurate msrun information (researcher, date, instrument, etc).
+                # Including mzXML files with accucor files will help ensure accurate msrun lookup since we will have
+                # checksums for the mzXML files and those are always associated with one MSRun record
                 msrun, created = MSRun.objects.get_or_create(**msrun_dict)
                 if created:
                     msrun.full_clean()
                     msrun.save()
                     if self.verbosity >= 1:
                         print(
-                            f"Inserting msrun for sample {sample_name}, date {self.date}, "
-                            f"researcher {self.researcher}, protocol {protocol}"
+                            "Inserting msrun for "
+                            f"sample {self.lcms_metadata[sample_data_header]['sample_name']}, "
+                            f"date {self.lcms_metadata[sample_data_header]['date']}, "
+                            f"researcher {self.lcms_metadata[sample_data_header]['researcher']}, and "
+                            f"lc protocol {lc_protocol}."
                         )
 
                 # This will be used to iterate the sample loop below so that we don't attempt to load samples whose
                 # msrun creations failed.
-                sample_msrun_dict[sample_name] = msrun
+                sample_msrun_dict[sample_data_header] = msrun
 
-                if (
-                    msrun.sample.animal not in animals_to_uncache
-                    and msrun.sample.animal.caches_exist()
-                ):
-                    animals_to_uncache.append(msrun.sample.animal)
-                elif not msrun.sample.animal.caches_exist() and self.verbosity >= 1:
-                    print(
-                        f"No cache exists for animal {msrun.sample.animal.id} linked to Sample {msrun.sample.id}"
-                    )
+                if self.update_caches is True:
+                    if (
+                        msrun.sample.animal not in animals_to_uncache
+                        and msrun.sample.animal.caches_exist()
+                    ):
+                        animals_to_uncache.append(msrun.sample.animal)
+                    elif not msrun.sample.animal.caches_exist() and self.verbosity >= 1:
+                        print(
+                            f"No cache exists for animal {msrun.sample.animal.id} linked to Sample {msrun.sample.id}"
+                        )
             except Exception as e:
                 self.aggregated_errors_object.buffer_error(e)
                 continue
 
+        # each msrun/sample has its own set of peak groups
+        inserted_peak_group_dict = {}
+
         # Create all PeakGroups
-        for sample_name in sample_msrun_dict.keys():
-            msrun = sample_msrun_dict[sample_name]
+        for sample_data_header in sample_msrun_dict.keys():
+            msrun = sample_msrun_dict[sample_data_header]
 
             # Pass through the rows once to identify the PeakGroups
-            for index, corr_row in self.accucor_corrected_df.iterrows():
+            for _, corr_row in self.accucor_corrected_df.iterrows():
                 try:
                     obs_isotopes = self.get_observed_isotopes(corr_row)
                     peak_group_name = corr_row[self.compound_header]
@@ -880,7 +1263,7 @@ class AccuCorDataLoader:
                             peak_group = self.insert_peak_group(
                                 peak_group_attrs=self.peak_group_dict[peak_group_name],
                                 msrun=msrun,
-                                peak_group_set=peak_group_set,
+                                peak_annotation_file=peak_annotation_file,
                             )
                             inserted_peak_group_dict[peak_group_name] = peak_group
                         except DuplicatePeakGroup as dup_pg:
@@ -939,7 +1322,7 @@ class AccuCorDataLoader:
                                         and isotope["count"] == labeled_count
                                     ):
                                         # We have a matching row, use it and increment row_idx
-                                        raw_abundance = orig_row[sample_name]
+                                        raw_abundance = orig_row[sample_data_header]
                                         med_mz = orig_row["medMz"]
                                         med_rt = orig_row["medRt"]
                                         orig_row_idx = orig_row_idx + 1
@@ -952,7 +1335,7 @@ class AccuCorDataLoader:
                             if self.verbosity >= 1:
                                 print(
                                     f"\t\tInserting peak data for {peak_group_name}:label-{labeled_count} for sample "
-                                    f"{sample_name}"
+                                    f"{self.lcms_metadata[sample_data_header]['sample_name']}"
                                 )
 
                             # Lookup corrected abundance by compound and label
@@ -967,7 +1350,7 @@ class AccuCorDataLoader:
                                     ]
                                     == labeled_count
                                 )
-                            ][sample_name]
+                            ][sample_data_header]
 
                             peak_data = PeakData(
                                 peak_group=peak_group,
@@ -989,7 +1372,7 @@ class AccuCorDataLoader:
                                     f"\t\t\tInserting peak data label [{isotope['mass_number']}{isotope['element']}"
                                     f"{isotope['count']}] parsed from cell value: [{orig_row['isotopeLabel']}] for "
                                     f"peak data ID [{peak_data.id}], peak group [{peak_group_name}], and sample "
-                                    f"[{sample_name}]."
+                                    f"[{self.lcms_metadata[sample_data_header]['sample_name']}]."
                                 )
 
                             peak_data_label = PeakDataLabel(
@@ -1012,9 +1395,11 @@ class AccuCorDataLoader:
                         == peak_group_name
                     ]
 
-                    for _index, corr_row in peak_group_corrected_df.iterrows():
+                    for _, corr_row in peak_group_corrected_df.iterrows():
                         try:
-                            corrected_abundance_for_sample = corr_row[sample_name]
+                            corrected_abundance_for_sample = corr_row[
+                                sample_data_header
+                            ]
                             # No original dataframe, no raw_abundance, med_mz, or med_rt
                             raw_abundance = None
                             med_mz = None
@@ -1023,7 +1408,7 @@ class AccuCorDataLoader:
                             if self.verbosity >= 1:
                                 print(
                                     f"\t\tInserting peak data for peak group [{peak_group_name}] "
-                                    f"and sample [{sample_name}]."
+                                    f"and sample [{self.lcms_metadata[sample_data_header]['sample_name']}]."
                                 )
 
                             peak_data = PeakData(
@@ -1052,7 +1437,7 @@ class AccuCorDataLoader:
                                         f"{isotope['count']}] parsed from cell value: "
                                         f"[{corr_row[self.labeled_element_header]}] for peak data ID "
                                         f"[{peak_data.id}], peak group [{peak_group_name}], and sample "
-                                        f"[{sample_name}]."
+                                        f"[{self.lcms_metadata[sample_data_header]['sample_name']}]."
                                     )
 
                                 # Note that this inserts the parent record (count 0) as always 12C, since the parent is
@@ -1074,7 +1459,7 @@ class AccuCorDataLoader:
         if len(self.duplicate_peak_groups) > 0:
             self.aggregated_errors_object.buffer_exception(
                 DuplicatePeakGroups(
-                    adding_file=peak_group_set.filename,
+                    adding_file=peak_annotation_file.filename,
                     duplicate_peak_groups=self.duplicate_peak_groups,
                 ),
                 is_fatal=self.validate,
@@ -1094,16 +1479,15 @@ class AccuCorDataLoader:
         if self.dry_run:
             raise DryRun()
 
-        if settings.DEBUG or self.verbosity >= 1:
-            print("Expiring affected caches...")
-
-        for animal in animals_to_uncache:
+        if self.update_caches is True:
             if settings.DEBUG or self.verbosity >= 1:
-                print(f"Expiring animal {animal.id}'s cache")
-            animal.delete_related_caches()
-
-        if settings.DEBUG or self.verbosity >= 1:
-            print("Expiring done.")
+                print("Expiring affected caches...")
+            for animal in animals_to_uncache:
+                if settings.DEBUG or self.verbosity >= 1:
+                    print(f"Expiring animal {animal.id}'s cache")
+                animal.delete_related_caches()
+            if settings.DEBUG or self.verbosity >= 1:
+                print("Expiring done.")
 
     def get_peak_labeled_elements(self, compound_recs) -> List[IsotopeObservationData]:
         """
@@ -1291,54 +1675,59 @@ class AccuCorDataLoader:
         enable_caching_updates()
 
 
-class IsotopeObservationParsingError(Exception):
-    pass
+def hash_file(filename):
+    """ "This function returns the SHA-1 hash
+    of the file passed into it"""
+
+    # make a hash object
+    h = hashlib.sha1()
+
+    # open file for reading in binary mode
+    with open(filename, "rb") as file:
+        # loop till the end of the file
+        chunk = 0
+        while chunk != b"":
+            # read only 1024 bytes at a time
+            chunk = file.read(1024)
+            h.update(chunk)
+
+    # return the hex representation of digest
+    return h.hexdigest()
 
 
-class MultipleMassNumbers(Exception):
-    def __init__(self, labeled_element, mass_numbers):
-        message = (
-            f"Labeled element [{labeled_element}] exists among the tracer(s) with multiple mass numbers: "
-            f"[{','.join(mass_numbers)}]."
-        )
-        super().__init__(message)
-        self.labeled_element = labeled_element
-        self.mass_numbers = mass_numbers
+def get_first_sample_column_index(df):
+    """
+    Given a dataframe, return the column index of the likely "first" sample column
+    """
+
+    final_index = None
+    max_nonsample_index = 0
+    found = False
+    for col_name in NONSAMPLE_COLUMN_NAMES:
+        try:
+            if df.columns.get_loc(col_name) > max_nonsample_index:
+                max_nonsample_index = df.columns.get_loc(col_name)
+                found = True
+        except KeyError:
+            # column is not found, so move on
+            pass
+
+    if found:
+        final_index = max_nonsample_index + 1
+
+    # the sample index should be the next column
+    return final_index
 
 
-class MassNumberNotFound(Exception):
-    def __init__(self, labeled_element, tracer_labeled_elements):
-        message = (
-            f"Labeled element [{labeled_element}] could not be found among the tracer(s) to retrieve its mass "
-            "number.  Tracer labeled elements: "
-            f"[{', '.join([x['element'] + x['mass_number'] for x in tracer_labeled_elements])}]."
-        )
-        super().__init__(message)
-        self.labeled_element = labeled_element
-        self.tracer_labeled_elements = tracer_labeled_elements
-
-
-class TracerLabeledElementNotFound(Exception):
-    pass
-
-
-class SampleIndexNotFound(Exception):
-    def __init__(self, sheet_name, num_cols):
-        message = (
-            f"Sample columns could not be identified in the [{sheet_name}] sheet.  There were {num_cols} columns.  At "
-            "least one column with one of the following names must immediately preceed the sample columns: "
-            f"[{','.join(NONSAMPLE_COLUMN_NAMES)}]."
-        )
-        super().__init__(message)
-        self.sheet_name = sheet_name
-        self.num_cols = num_cols
-
-
-class CorrectedCompoundHeaderMissing(Exception):
-    def __init__(self):
-        message = (
-            "Compound header [Compound] not found in the accucor corrected data.  This may be an isocorr file.  Try "
-            "again and submit this file using the isocorr file upload form input (or add the --isocorr-format option "
-            "on the command line)."
-        )
-        super().__init__(message)
+def get_sample_headers(df, skip_samples=None):
+    if skip_samples is None:
+        skip_samples = []
+    minimum_sample_index = get_first_sample_column_index(df)
+    if minimum_sample_index is None:
+        # Sample columns are required to proceed
+        raise SampleIndexNotFound("corrected", list(df.columns), NONSAMPLE_COLUMN_NAMES)
+    return [
+        sample
+        for sample in list(df)[minimum_sample_index:]
+        if sample not in skip_samples
+    ]

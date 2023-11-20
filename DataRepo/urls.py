@@ -1,5 +1,3 @@
-from django.conf import settings
-from django.conf.urls.static import static
 from django.urls import path
 
 from . import views
@@ -42,11 +40,6 @@ urlpatterns = [
         "protocols/animal_treatments/",
         views.AnimalTreatmentListView.as_view(),
         name="animal_treatment_list",
-    ),
-    path(
-        "protocols/msrun_protocols/",
-        views.MSRunProtocolListView.as_view(),
-        name="msrun_protocol_list",
     ),
     path(
         "protocols/<int:pk>/",
@@ -104,4 +97,4 @@ urlpatterns = [
         views.InfusateDetailView.as_view(),
         name="infusate_detail",
     ),
-] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+]

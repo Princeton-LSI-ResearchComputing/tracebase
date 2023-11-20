@@ -3,8 +3,8 @@ from django.urls import reverse
 
 from DataRepo.models import (
     Animal,
+    ArchiveFile,
     Compound,
-    PeakGroupSet,
     Protocol,
     Sample,
     Study,
@@ -35,7 +35,7 @@ def assert_coordinator_state_is_initialized():
 
 class HomeViewTests(TracebaseTestCase):
     """
-    Test hoem views
+    Test home views
     """
 
     @classmethod
@@ -43,9 +43,10 @@ class HomeViewTests(TracebaseTestCase):
         # Ensure the auto-update buffer is empty.  If it's not, then a previously run test didn't clean up after itself
         assert_coordinator_state_is_initialized()
 
+        call_command("loaddata", "lc_methods")
         call_command(
             "load_study",
-            "DataRepo/example_data/test_dataframes/loading.yaml",
+            "DataRepo/data/tests/dataframes/loading.yaml",
             verbosity=6,
         )
         cls.ALL_TISSUES_COUNT = 37
@@ -55,7 +56,6 @@ class HomeViewTests(TracebaseTestCase):
         cls.ALL_ANIMALS_COUNT = 4
         cls.ALL_SAMPLES_COUNT = 8
         cls.ALL_ANIMALTREATMENTS_COUNT = 8
-        cls.ALL_MSRUN_PROTOCOLS_COUNT = 8
         cls.ALL_ACCUCOR_FILE_COUNT = 1
 
     def test_home_url_exists_at_desired_location(self):
@@ -77,7 +77,9 @@ class HomeViewTests(TracebaseTestCase):
         animal_count = Animal.objects.all().count()
         tissue_count = Tissue.objects.all().count()
         sample_count = Sample.objects.all().count()
-        accucor_file_count = PeakGroupSet.objects.all().count()
+        peak_annotation_file_count = ArchiveFile.objects.filter(
+            data_type__code="ms_peak_annotation"
+        ).count()
         compound_count = Compound.objects.all().count()
         tracer_count = (
             Animal.objects.exclude(infusate__tracers__compound__id__isnull=True)
@@ -89,19 +91,15 @@ class HomeViewTests(TracebaseTestCase):
         animal_treatment_count = Protocol.objects.filter(
             category=Protocol.ANIMAL_TREATMENT
         ).count()
-        msrun_protocol_count = Protocol.objects.filter(
-            category=Protocol.MSRUN_PROTOCOL
-        ).count()
 
         self.assertEqual(study_count, self.ALL_STUDIES_COUNT)
         self.assertEqual(animal_count, self.ALL_ANIMALS_COUNT)
         self.assertEqual(tissue_count, self.ALL_TISSUES_COUNT)
         self.assertEqual(sample_count, self.ALL_SAMPLES_COUNT)
-        self.assertEqual(accucor_file_count, self.ALL_ACCUCOR_FILE_COUNT)
+        self.assertEqual(peak_annotation_file_count, self.ALL_ACCUCOR_FILE_COUNT)
         self.assertEqual(compound_count, self.ALL_COMPOUNDS_COUNT)
         self.assertEqual(tracer_count, self.ALL_TRACERS_COUNT)
         self.assertEqual(animal_treatment_count, self.ALL_ANIMALTREATMENTS_COUNT)
-        self.assertEqual(msrun_protocol_count, self.ALL_MSRUN_PROTOCOLS_COUNT)
 
         # check url for each card
         study_url = reverse("study_list")
@@ -111,7 +109,6 @@ class HomeViewTests(TracebaseTestCase):
         compound_url = reverse("compound_list")
         accucor_file_url = reverse("peakgroupset_list")
         animal_treatment_url = reverse("animal_treatment_list")
-        msrun_protocol_url = reverse("msrun_protocol_list")
         advance_search_url = reverse("search_advanced")
         response = self.client.get(reverse("home"))
         self.assertEqual(study_url, "/DataRepo/studies/")
@@ -121,6 +118,5 @@ class HomeViewTests(TracebaseTestCase):
         self.assertEqual(accucor_file_url, "/DataRepo/peakgroupsets/")
         self.assertEqual(compound_url, "/DataRepo/compounds/")
         self.assertEqual(animal_treatment_url, "/DataRepo/protocols/animal_treatments/")
-        self.assertEqual(msrun_protocol_url, "/DataRepo/protocols/msrun_protocols/")
         self.assertEqual(advance_search_url, "/DataRepo/search_advanced/")
         self.assertEqual(len(response.context["card_grid"]), 3)

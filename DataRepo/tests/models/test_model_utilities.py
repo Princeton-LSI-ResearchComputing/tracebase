@@ -42,6 +42,8 @@ class ModelUtilitiesTests(TracebaseTestCase):
             "PeakGroupLabel",
             "PeakGroupSet",
             "MSRun",
+            "MSRunSample",
+            "MSRunSequence",
             "ArchiveFile",
             "DataType",
             "DataFormat",
@@ -84,5 +86,5 @@ class ModelUtilitiesTests(TracebaseTestCase):
         unique_field_sets = get_unique_constraint_fields(model)
         self.assertEqual(1, len(unique_field_sets))
         self.assertEqual(
-            ("researcher", "date", "protocol", "sample"), unique_field_sets[0]
+            ("researcher", "date", "lc_method", "sample"), unique_field_sets[0]
         )

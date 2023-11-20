@@ -34,13 +34,22 @@ from DataRepo.utils.exceptions import (
     DryRun,
     DuplicateValues,
     HeaderConfigError,
+    LCMSDBSampleMissing,
     MissingTissues,
+    NoConcentrations,
     RequiredHeadersError,
     RequiredSampleValuesError,
+    SampleError,
     SaveError,
     SheetMergeError,
+    TissueError,
+    TreatmentError,
     UnitsWrong,
     UnknownHeadersError,
+)
+from DataRepo.utils.lcms_metadata_parser import (
+    lcms_df_to_dict,
+    lcms_metadata_to_samples,
 )
 
 
@@ -148,6 +157,8 @@ class SampleTableLoader:
         defer_autoupdates=False,
         defer_rollback=False,  # DO NOT USE MANUALLY - THIS WILL NOT ROLL BACK (handle in atomic transact in caller)
         dry_run=False,
+        update_caches=True,
+        lcms_metadata_df=None,
     ):
         # Header config
         self.headers = sample_table_headers
@@ -163,6 +174,8 @@ class SampleTableLoader:
         self.defer_rollback = defer_rollback
 
         # Caching overhead
+        # Making this True causes existing caches associated with loaded records to be deleted
+        self.update_caches = update_caches
         self.animals_to_uncache = []
 
         # Error-tracking
@@ -175,6 +188,10 @@ class SampleTableLoader:
         self.infile_sample_dupe_rows = []
         self.empty_animal_rows = []
         self.missing_tissues = defaultdict(list)
+
+        # Arrange the LCMS samples
+        lcms_metadata = lcms_df_to_dict(lcms_metadata_df, self.aggregated_errors_object)
+        self.lcms_samples = lcms_metadata_to_samples(lcms_metadata)
 
         # Obtain known researchers before load
         self.known_researchers = get_researchers()
@@ -232,6 +249,9 @@ class SampleTableLoader:
         enable_caching_updates()
 
     def _load_data(self, data):
+        # This will be used to validate the lcms samples:
+        all_sample_names = []
+
         # Create a list to hold the csv reader data so that iterations from validating doesn't leave the csv reader
         # empty/at-the-end upon the import loop
         sample_table_data = list(data)
@@ -271,11 +291,16 @@ class SampleTableLoader:
                 sample_rec = self.get_or_create_sample(
                     rownum, row, animal_rec, tissue_rec
                 )
+                # Sample rec will be none if there was a problem/exception
+                if sample_rec is not None:
+                    all_sample_names.append(sample_rec.name)
                 self.get_or_create_fcircs(infusate_rec, sample_rec)
             elif self.verbosity >= 2:
                 print(
                     f"SKIPPING sample load on row {rownum} due to duplicate sample name."
                 )
+
+        self.check_lcms_samples(all_sample_names)
 
         if not self.skip_researcher_check:
             try:
@@ -315,14 +340,30 @@ class SampleTableLoader:
         if self.dry_run:
             raise DryRun()
 
-        if self.verbosity >= 2:
-            print("Expiring affected caches...")
-        for animal_rec in self.animals_to_uncache:
-            if self.verbosity >= 3:
-                print(f"Expiring animal {animal_rec.id}'s cache")
-            animal_rec.delete_related_caches()
-        if self.verbosity >= 2:
-            print("Expiring done.")
+        if self.update_caches is True:
+            if self.verbosity >= 2:
+                print("Expiring affected caches...")
+            for animal_rec in self.animals_to_uncache:
+                if self.verbosity >= 3:
+                    print(f"Expiring animal {animal_rec.id}'s cache")
+                animal_rec.delete_related_caches()
+            if self.verbosity >= 2:
+                print("Expiring done.")
+
+    def check_lcms_samples(self, all_load_samples):
+        """
+        Makes sure every sample in the LCMS dataframe is present in the animal sample table
+        """
+        lcms_samples_missing = []
+
+        for lcms_sample in self.lcms_samples:
+            if lcms_sample not in all_load_samples:
+                lcms_samples_missing.append(lcms_sample)
+
+        if len(lcms_samples_missing) > 0:
+            self.aggregated_errors_object.buffer_error(
+                LCMSDBSampleMissing(lcms_samples_missing)
+            )
 
     def get_tissue(self, rownum, row):
         tissue_name = self.getRowVal(row, "TISSUE_NAME")
@@ -562,10 +603,11 @@ class SampleTableLoader:
 
         # animal_created block contains all the animal attribute updates if the animal was newly created
         if animal_created:
-            if animal_rec.caches_exist():
-                self.animals_to_uncache.append(animal_rec)
-            elif self.verbosity >= 3:
-                print(f"No cache exists for animal {animal_rec.id}")
+            if self.update_caches is True:
+                if animal_rec.caches_exist():
+                    self.animals_to_uncache.append(animal_rec)
+                elif self.verbosity >= 3:
+                    print(f"No cache exists for animal {animal_rec.id}")
 
             if self.verbosity >= 2:
                 print(f"Created new record: Animal:{animal_rec}")
@@ -849,7 +891,7 @@ class SampleTableLoader:
         studies, and with the animal and sample sheet merge, the same sample will exist on 2 different rows after the
         merge.  Therefore, we need to check that the combination of sample name and study name are unique instead of
         just sample name.  For an example of this, look at:
-        DataRepo/example_data/test_dataframes/animal_sample_table_df_test1.xlsx.
+        DataRepo/data/examples/test_dataframes/animal_sample_table_df_test1.xlsx.
         """
         sample_name_header = getattr(self.headers, "SAMPLE_NAME")
         study_name_header = getattr(self.headers, "STUDY_NAME")
@@ -1011,25 +1053,3 @@ class SampleTableLoader:
                 val = None
 
         return val
-
-
-class NoConcentrations(Exception):
-    pass
-
-
-class UnanticipatedError(Exception):
-    def __init__(self, type, e):
-        message = f"{type}: {str(e)}"
-        super().__init__(message)
-
-
-class SampleError(UnanticipatedError):
-    pass
-
-
-class TissueError(UnanticipatedError):
-    pass
-
-
-class TreatmentError(UnanticipatedError):
-    pass

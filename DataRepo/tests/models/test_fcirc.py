@@ -6,12 +6,13 @@ from django.test import override_settings
 
 from DataRepo.models import (
     Animal,
+    ArchiveFile,
+    DataFormat,
+    DataType,
     FCirc,
     MSRun,
     PeakGroup,
     PeakGroupLabel,
-    PeakGroupSet,
-    Protocol,
     Sample,
 )
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
@@ -22,6 +23,16 @@ class FCircTests(TracebaseTestCase):
     def setUp(self):
         super().setUp()
 
+        ms_peak_annotation = DataType.objects.get(code="ms_peak_annotation")
+        accucor_format = DataFormat.objects.get(code="accucor")
+        self.peak_annotation_file = ArchiveFile.objects.create(
+            filename="test_data_file",
+            file_location=None,
+            checksum="558ea654d7f2914ca4527580edf4fac11bd151c3",
+            data_type=ms_peak_annotation,
+            data_format=accucor_format,
+        )
+
         # For the validity of the test, assert there exist FCirc records and that they are for the last peak groups
         self.assertTrue(self.lss.fcircs.count() > 0)
         for fco in self.lss.fcircs.all():
@@ -29,20 +40,22 @@ class FCircTests(TracebaseTestCase):
 
     @classmethod
     def setUpTestData(cls):
-        call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
+        call_command("loaddata", "lc_methods")
+        call_command("load_study", "DataRepo/data/examples/tissues/loading.yaml")
         call_command(
             "load_compounds",
-            compounds="DataRepo/example_data/small_dataset/small_obob_compounds.tsv",
+            compounds="DataRepo/data/tests/small_obob/small_obob_compounds.tsv",
         )
         call_command(
             "load_samples",
-            "DataRepo/example_data/small_dataset/small_obob_sample_table_serum_only.tsv",
-            sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
+            "DataRepo/data/tests/small_obob/small_obob_sample_table_serum_only.tsv",
+            sample_table_headers="DataRepo/data/examples/sample_table_headers.yaml",
         )
         call_command(
             "load_accucor_msruns",
-            protocol="Default",
-            accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_serum.xlsx",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="default instrument",
+            accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_serum.xlsx",
             date="2021-06-03",
             researcher="Michael Neinast",
             new_researcher=True,
@@ -87,25 +100,19 @@ class FCircTests(TracebaseTestCase):
             1. Confirm all FCirc.is_last values related to the old serum sample are now false.
         """
 
-        # Create new protocol, msrun, peak group, and peak group labels
-        ptl = Protocol.objects.create(
-            name="p1",
-            description="p1desc",
-            category=Protocol.MSRUN_PROTOCOL,
-        )
+        # Create new msrun, peak group, and peak group labels
         msr = MSRun.objects.create(
             researcher="Anakin Skywalker",
             date=datetime.now(),
             sample=self.newlss,
-            protocol=ptl,
         )
-        pgs = PeakGroupSet.objects.create(filename="testing_dataset_file")
+
         for tracer in self.lss.animal.infusate.tracers.all():
             pg = PeakGroup.objects.create(
                 name=tracer.compound.name,
                 formula=tracer.compound.formula,
                 msrun=msr,
-                peak_group_set=pgs,
+                peak_annotation_file=self.peak_annotation_file,
             )
             pg.compounds.add(tracer.compound)
             # We don't need to call pg.save() here because I added an m2m handler to make .add() calls trigger a save.
@@ -294,25 +301,19 @@ class FCircTests(TracebaseTestCase):
         self.newlss.save()
 
         # To get to the prev_smpl_tmclctd_is_none_amng_many state of 1, there must exist peakgroups for newlss
-        # Create new protocol, msrun, peak group, and peak group labels
-        ptl = Protocol.objects.create(
-            name="p1",
-            description="p1desc",
-            category=Protocol.MSRUN_PROTOCOL,
-        )
+        # Create new msrun, peak group, and peak group labels
         msr = MSRun.objects.create(
             researcher="Anakin Skywalker",
             date=datetime.now(),
             sample=self.newlss,
-            protocol=ptl,
         )
-        pgs = PeakGroupSet.objects.create(filename="testing_dataset_file")
+
         for tracer in self.lss.animal.infusate.tracers.all():
             pg = PeakGroup.objects.create(
                 name=tracer.compound.name,
                 formula=tracer.compound.formula,
                 msrun=msr,
-                peak_group_set=pgs,
+                peak_annotation_file=self.peak_annotation_file,
             )
             pg.compounds.add(tracer.compound)
             # We don't need to call pg.save() here because I added an m2m handler to make .add() calls trigger a save.

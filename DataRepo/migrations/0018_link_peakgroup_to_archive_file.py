@@ -18,7 +18,7 @@ def archive_file_from_filename(apps, schema_editor):
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("DataRepo", "0017_alter_msrun_lc_method"),
+        ("DataRepo", "0017_auto_20231013_1614"),
     ]
 
     operations = [

@@ -3,6 +3,7 @@ import shutil
 import tempfile
 from typing import List
 
+import pandas as pd
 import yaml  # type: ignore
 from django.conf import settings
 from django.core.management import call_command
@@ -10,6 +11,7 @@ from django.shortcuts import redirect, render
 from django.views.generic.edit import FormView
 
 from DataRepo.forms import DataSubmissionValidationForm
+from DataRepo.utils.accucor_data_loader import get_sample_headers
 from DataRepo.utils.exceptions import MultiLoadStatus
 
 
@@ -23,6 +25,7 @@ class DataValidationView(FormView):
     isocorr_files: List[str] = []
     animal_sample_filename = None
     animal_sample_file = None
+    mzxml_files: List[str] = []
     submission_url = settings.DATA_SUBMISSION_URL
 
     def set_files(
@@ -44,11 +47,15 @@ class DataValidationView(FormView):
 
         if accucor_files:
             self.accucor_files = accucor_files
+            for afp in accucor_files:
+                self.mzxml_files.extend(self.get_mzxml_names(afp))
         else:
             self.accucor_files = []
 
         if isocorr_files:
             self.isocorr_files = isocorr_files
+            for ifp in isocorr_files:
+                self.mzxml_files.extend(self.get_mzxml_names(ifp))
         else:
             self.isocorr_files = []
 
@@ -175,6 +182,7 @@ class DataValidationView(FormView):
                 yaml_file,
                 validate=True,
                 verbosity=3,
+                skip_cache_updates=True,
             )
         except MultiLoadStatus as mls:
             load_status_data = mls
@@ -202,10 +210,12 @@ class DataValidationView(FormView):
                     #     "isocorr_format": False,  # Set by self.add_ms_data()
                     # },
                 ],
-                "msrun_protocol": "Default",
+                "lc_protocol": "unknown",
+                "instrument": "Default instrument",
                 "date": "1972-11-24",
                 "researcher": "anonymous",
                 "new_researcher": False,
+                "mzxml_files": self.mzxml_files,
             },
         }
 
@@ -282,6 +292,21 @@ class DataValidationView(FormView):
                     "isocorr_format": is_isocorr,
                 }
             )
+
+    def get_mzxml_names(self, fp):
+        """
+        mzXML files are required for new submissions, but for now, we will simply compute the names based on the sample
+        columns
+
+        TODO: Add the ability to submit mzxml files.
+        """
+        corrected_df = pd.read_excel(
+            fp,
+            sheet_name=1,  # The second sheet
+            engine="openpyxl",
+        ).dropna(axis=0, how="all")
+
+        return [f"{smpl_hdr}.mzxml" for smpl_hdr in get_sample_headers(corrected_df)]
 
 
 def validation_disabled(request):
