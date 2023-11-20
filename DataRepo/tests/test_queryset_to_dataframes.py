@@ -13,10 +13,8 @@ class QuerysetToPandasDataFrameBaseTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
         # load small set of data
-        call_command(
-            "load_study",
-            "DataRepo/example_data/test_dataframes/loading.yaml",
-        )
+        call_command("loaddata", "lc_methods")
+        call_command("load_study", "DataRepo/data/tests/dataframes/loading.yaml")
 
         # define expected data in dictionaries
         cls.study1_dict = {
@@ -71,7 +69,6 @@ class QuerysetToPandasDataFrameBaseTests(TracebaseTestCase):
             "sample": "a1_kd",
             "sample_owner": "Xianfeng Zeng",
             "msrun_owner": "Xianfeng Zeng",
-            "msrun_protocol": "Default",
             "studies": ["Study Test1", "Study Test2"],
         }
 

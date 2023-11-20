@@ -105,6 +105,8 @@ class Compound(models.Model):
                 "compound_matching_name_or_synonym retrieved multiple "
                 f"distinct compounds matching {name} from the database"
             )
+        elif matching_compounds.count() == 0:
+            raise cls.DoesNotExist(f"Compound [{name}] not found.")
         return matching_compounds.first()
 
     class Meta:

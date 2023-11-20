@@ -14,7 +14,6 @@ from DataRepo.models import (
     PeakData,
     PeakDataLabel,
     PeakGroup,
-    Protocol,
     Sample,
     Tissue,
 )
@@ -46,20 +45,12 @@ class PeakDataData(TracebaseTestCase):
             researcher="John Doe",
             date=datetime.now(),
         )
-        ptl = Protocol.objects.create(
-            name="p1",
-            description="p1desc",
-            category=Protocol.MSRUN_PROTOCOL,
-        )
         msr = MSRun.objects.create(
             researcher="John Doe",
             date=datetime.now(),
             sample=smpl,
-            protocol=ptl,
         )
-        path = Path(
-            "DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf.xlsx"
-        )
+        path = Path("DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf.xlsx")
         with path.open(mode="rb") as f:
             myfile = File(f, name=path.name)
             ms_peak_annotation = DataType.objects.get(code="ms_peak_annotation")

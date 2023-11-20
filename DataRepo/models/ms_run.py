@@ -1,9 +1,7 @@
-from django.core.exceptions import ValidationError
 from django.db import models
 
 from DataRepo.models.hier_cached_model import HierCachedModel
 from DataRepo.models.maintained_model import MaintainedModel
-from DataRepo.models.protocol import Protocol
 
 
 @MaintainedModel.relation(
@@ -25,13 +23,6 @@ class MSRun(HierCachedModel, MaintainedModel):
     date = models.DateField(
         help_text="The date that the mass spectrometer was run.",
     )
-    # Don't delete a Protocol if an MSRun that links to it is deleted
-    protocol = models.ForeignKey(
-        to="DataRepo.Protocol",
-        on_delete=models.RESTRICT,
-        limit_choices_to={"category": Protocol.MSRUN_PROTOCOL},
-        help_text="The protocol that was used for this mass spectrometer run.",
-    )
     # Don't delete an LCMethod if an MSRun that links to it is deleted
     lc_method = models.ForeignKey(
         null=True,
@@ -51,7 +42,7 @@ class MSRun(HierCachedModel, MaintainedModel):
     class Meta:
         verbose_name = "mass spectrometry run"
         verbose_name_plural = "mass spectrometry runs"
-        ordering = ["date", "researcher", "sample__name", "protocol__name"]
+        ordering = ["date", "researcher", "sample__name", "lc_method__name"]
 
         # MS runs that share researcher, date, protocol, and sample would be
         # indistinguishable, thus we restrict the database to ensure that
@@ -59,21 +50,12 @@ class MSRun(HierCachedModel, MaintainedModel):
         # sample/protocol combo only once a day.
         constraints = [
             models.UniqueConstraint(
-                fields=["researcher", "date", "protocol", "sample"],
+                fields=["researcher", "date", "lc_method", "sample"],
                 name="unique_msrun",
             )
         ]
 
     def __str__(self):
         return str(
-            f"MS run of sample {self.sample.name} with {self.protocol.name} by {self.researcher} on {self.date}"
+            f"MS run of sample {self.sample.name} with {self.lc_method.name} by {self.researcher} on {self.date}"
         )
-
-    def clean(self, *args, **kwargs):
-        super().clean(*args, **kwargs)
-
-        if self.protocol.category != Protocol.MSRUN_PROTOCOL:
-            raise ValidationError(
-                "Protocol category for an MSRun must be of type "
-                f"{Protocol.MSRUN_PROTOCOL}"
-            )

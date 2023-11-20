@@ -4,6 +4,7 @@ import traceback
 import warnings
 from typing import TYPE_CHECKING
 
+from django.core.exceptions import ValidationError
 from django.forms.models import model_to_dict
 
 if TYPE_CHECKING:
@@ -537,10 +538,7 @@ class AggregatedErrorsSet(Exception):
     def get_summary_string(self):
         smry_str = ""
         for aes_key in self.aggregated_errors_dict.keys():
-            smry_str += (
-                f"{aes_key}: "
-                + self.aggregated_errors_dict[aes_key].get_summary_string()
-            )
+            smry_str += f"{aes_key}: {self.aggregated_errors_dict[aes_key].get_summary_string()}\n"
         return smry_str
 
 
@@ -918,6 +916,9 @@ class AggregatedErrors(Exception):
     def get_num_warnings(self):
         return self.num_warnings
 
+    def exception_type_exists(self, exc_cls):
+        return exc_cls in [type(exc) for exc in self.exceptions]
+
 
 class ConflictingValueErrors(Exception):
     """Conflicting values for a specific model object from a given file
@@ -1207,6 +1208,177 @@ class MissingTissues(Exception):
         self.existing = existing
 
 
+class LCMethodFixturesMissing(Exception):
+    def __init__(self, message=None, err=None):
+        if message is None:
+            message = (
+                "The LCMethod fixtures defined in [DataRepo/fixtures/lc_methods.yaml] appear to have not been "
+                "loaded."
+            )
+        if err is not None:
+            message += f"  The triggering exception was: [{err}]."
+        super().__init__(message)
+        self.err = err
+
+
+class IsotopeObservationParsingError(Exception):
+    pass
+
+
+class MultipleMassNumbers(Exception):
+    def __init__(self, labeled_element, mass_numbers):
+        message = (
+            f"Labeled element [{labeled_element}] exists among the tracer(s) with multiple mass numbers: "
+            f"[{','.join(mass_numbers)}]."
+        )
+        super().__init__(message)
+        self.labeled_element = labeled_element
+        self.mass_numbers = mass_numbers
+
+
+class MassNumberNotFound(Exception):
+    def __init__(self, labeled_element, tracer_labeled_elements):
+        message = (
+            f"Labeled element [{labeled_element}] could not be found among the tracer(s) to retrieve its mass "
+            "number.  Tracer labeled elements: "
+            f"[{', '.join([x['element'] + x['mass_number'] for x in tracer_labeled_elements])}]."
+        )
+        super().__init__(message)
+        self.labeled_element = labeled_element
+        self.tracer_labeled_elements = tracer_labeled_elements
+
+
+class TracerLabeledElementNotFound(Exception):
+    pass
+
+
+class SampleIndexNotFound(Exception):
+    def __init__(self, sheet_name, num_cols, non_sample_colnames):
+        message = (
+            f"Sample columns could not be identified in the [{sheet_name}] sheet.  There were {num_cols} columns.  At "
+            "least one column with one of the following names must immediately preceed the sample columns: "
+            f"[{','.join(non_sample_colnames)}]."
+        )
+        super().__init__(message)
+        self.sheet_name = sheet_name
+        self.num_cols = num_cols
+
+
+class CorrectedCompoundHeaderMissing(Exception):
+    def __init__(self):
+        message = (
+            "Compound header [Compound] not found in the accucor corrected data.  This may be an isocorr file.  Try "
+            "again and submit this file using the isocorr file upload form input (or add the --isocorr-format option "
+            "on the command line)."
+        )
+        super().__init__(message)
+
+
+class LCMSDefaultsRequired(Exception):
+    def __init__(
+        self,
+        missing_defaults_list,
+        affected_sample_headers_list=None,
+    ):
+        nlt = "\n\t"
+        if (
+            affected_sample_headers_list is None
+            or len(affected_sample_headers_list) == 0
+        ):
+            message = (
+                "Either an LCMS metadata dataframe or these missing defaults must be provided:\n\n\t"
+                f"{nlt.join(missing_defaults_list)}"
+            )
+        else:
+            message = (
+                f"These missing defaults are required:\n\n\t"
+                f"{nlt.join(missing_defaults_list)}\n\n"
+                "because the following sample data headers are missing data in at least 1 of the corresponding "
+                "columns:\n\n\t"
+                f"{nlt.join(affected_sample_headers_list)}"
+            )
+        super().__init__(message)
+        self.missing_defaults_list = missing_defaults_list
+        self.affected_sample_headers_list = affected_sample_headers_list
+
+
+class UnexpectedLCMSSampleDataHeaders(Exception):
+    def __init__(self, unexpected, peak_annot_file):
+        message = (
+            "The following sample data headers in the LCMS metadata were not found among the peak annotation file "
+            f"[{peak_annot_file}] headers: [{unexpected}].  Note that if this header is in a different peak annotation "
+            "file, that file must be indicated in the peak annotation column (the default is the current file)."
+        )
+        super().__init__(message)
+        self.unexpected = unexpected
+        self.peak_annot_file = peak_annot_file
+
+
+class MissingLCMSSampleDataHeaders(Exception):
+    def __init__(self, missing, peak_annot_file, missing_defaults):
+        using_defaults = len(missing_defaults) == 0
+        message = (
+            f"The following sample data headers in the peak annotation file [{peak_annot_file}], were not found in the "
+            f"LCMS metadata supplied: {missing}.  "
+        )
+        if using_defaults:
+            message += "Falling back to supplied defaults."
+        else:
+            message += (
+                "Either add the sample data headers to the LCMS metadata or provide default values for: "
+                f"{missing_defaults}."
+            )
+        super().__init__(message)
+        self.missing = missing
+        self.peak_annot_file = peak_annot_file
+        self.missing_defaults = missing_defaults
+
+
+class MissingMZXMLFiles(Exception):
+    def __init__(self, mzxml_files):
+        message = f"The following mzXML files listed in the LCMS metadata file were not supplied: {mzxml_files}."
+        super().__init__(message)
+        self.mzxml_files = mzxml_files
+
+
+class NoMZXMLFiles(Exception):
+    def __init__(self):
+        message = "mzXML files are required for new uploads."
+        super().__init__(message)
+
+
+class PeakAnnotFileMismatches(Exception):
+    def __init__(self, incorrect_pgs_files, peak_group_set_filename):
+        bad_files_str = "\n\t".join(
+            [
+                k + f" [{incorrect_pgs_files[k]} != {peak_group_set_filename}]"
+                for k in incorrect_pgs_files.keys()
+            ]
+        )
+        message = (
+            "The following sample headers' peak annotation files in the LCMS metadata file do not match the supplied "
+            f"peak annotation file [{peak_group_set_filename}]:\n\t{bad_files_str}\n\nPlease ensure that the sample "
+            "row in the LCMS metadata matches the supplied peak annotation file."
+        )
+        super().__init__(message)
+        self.incorrect_pgs_files = incorrect_pgs_files
+        self.peak_group_set_filename = peak_group_set_filename
+
+
+class MismatchedSampleHeaderMZXML(Exception):
+    def __init__(self, mismatching_mzxmls):
+        message = (
+            "The following sample data headers do not match any mzXML file names.  No mzXML files will be loaded for "
+            "these columns in the peak annotation file:\n\n"
+            "\tSample Data Header\tmzXML File Name\tPattern Used"
+        )
+        tab = "\t"
+        for details in mismatching_mzxmls:
+            message += f"\n\t{tab.join(str(li) for li in details)}"
+        super().__init__(message)
+        self.mismatching_mzxmls = mismatching_mzxmls
+
+
 def summarize_int_list(intlist):
     """
     This method was written to make long lists of row numbers more palatable to the user.
@@ -1232,3 +1404,123 @@ def summarize_int_list(intlist):
         else:
             sum_list.append(f"{str(waiting_num)}-{str(last_num)}")
     return sum_list
+
+
+class DuplicateSampleDataHeaders(Exception):
+    def __init__(self, dupes, lcms_metadata, samples):
+        cs = ", "
+        dupes_str = "\n\t".join(
+            [f"{k} rows: [{cs.join(dupes[k])}]" for k in dupes.keys()]
+        )
+        message = (
+            "The following sample data headers were found to have duplicates on the LCMS metadata file on the "
+            "indicated rows:\n\n"
+            f"\t{dupes_str}"
+        )
+        super().__init__(message)
+        self.dupes = dupes
+        # used by code that catches this exception
+        self.lcms_metadata = lcms_metadata
+        self.samples = samples
+
+
+class InvalidLCMSHeaders(ValidationError):
+    def __init__(self, headers, expected_headers=None, lcms_file=None):
+        if expected_headers is None:
+            expected_headers = expected_headers
+        message = "LCMS metadata "
+        if lcms_file is not None:
+            message += f"file [{lcms_file}] "
+        missing = [i for i in expected_headers if i not in headers]
+        unexpected = [i for i in headers if i not in expected_headers]
+        if len(missing) > 0:
+            message += f"is missing headers {type(missing)}: {missing}"
+        if len(missing) > 0 and len(unexpected) > 0:
+            message += " and "
+        if len(unexpected) > 0:
+            message += f" has unexpected headers: {unexpected}"
+        super().__init__(message)
+        self.headers = headers
+        self.expected_headers = expected_headers
+        self.lcms_file = lcms_file
+        self.missing = missing
+        self.unexpected = unexpected
+
+
+class MissingRequiredLCMSValues(Exception):
+    def __init__(self, header_rownums_dict):
+        head_rows_str = ""
+        cs = ", "
+        for header in header_rownums_dict.keys():
+            head_rows_str += f"\n\t{header}: {cs.join([str(i) for i in header_rownums_dict[header]])}"
+        message = f"The following required values are missing on the indicated rows:\n{head_rows_str}"
+        super().__init__(message)
+        self.header_rownums_dict = header_rownums_dict
+
+
+class MissingPeakAnnotationFiles(Exception):
+    def __init__(
+        self, missing_peak_annot_files, unmatching_peak_annot_files=None, lcms_file=None
+    ):
+        nlt = "\n\t"
+        message = (
+            f"The following peak annotation files:\n\n"
+            f"\t{nlt.join(missing_peak_annot_files)}\n\n"
+        )
+        if lcms_file is not None:
+            message += f"from the LCMS metadata file:\n\n\t{lcms_file}]"
+        message += "were not supplied."
+        if (
+            unmatching_peak_annot_files is not None
+            and len(unmatching_peak_annot_files) > 0
+        ):
+            message += (
+                "  The following unaccounted-for peak annotation files in the LCMS metadata were also found:\n"
+                f"\t\t{nlt.join(unmatching_peak_annot_files)}\n\nPerhaps there is a typo?"
+            )
+        super().__init__(message)
+        self.missing_peak_annot_files = missing_peak_annot_files
+        self.unmatching_peak_annot_files = unmatching_peak_annot_files
+        self.lcms_file = lcms_file
+
+
+class WrongExcelSheet(Exception):
+    def __init__(self, file_type, sheet_name, expected_sheet_name, sheet_num):
+        message = (
+            f"Expected [{file_type}] Excel sheet [{sheet_num}] to be named [{expected_sheet_name}], but got "
+            f"[{sheet_name}]."
+        )
+        super().__init__(message)
+
+
+class NoConcentrations(Exception):
+    pass
+
+
+class UnanticipatedError(Exception):
+    def __init__(self, type, e):
+        message = f"{type}: {str(e)}"
+        super().__init__(message)
+
+
+class SampleError(UnanticipatedError):
+    pass
+
+
+class TissueError(UnanticipatedError):
+    pass
+
+
+class TreatmentError(UnanticipatedError):
+    pass
+
+
+class LCMSDBSampleMissing(Exception):
+    def __init__(self, lcms_samples_missing):
+        nlt = "\n\t"
+        message = (
+            "The following sample names from the LCMS metadata are missing in the animal sample table:\n\t"
+            f"{nlt.join(lcms_samples_missing)}"
+        )
+        super().__init__(message)
+        self.lcms_samples_missing = lcms_samples_missing

@@ -138,15 +138,9 @@ class StudyTests(TracebaseTestCase, ExampleDataConsumer):
             date=first["Date Collected"],
         )
 
-        self.protocol = Protocol.objects.create(
-            name="p1",
-            description="p1desc",
-            category=Protocol.MSRUN_PROTOCOL,
-        )
         self.msrun = MSRun.objects.create(
             researcher="John Doe",
             date=datetime.now(),
-            protocol=self.protocol,
             sample=self.sample,
         )
 
@@ -207,15 +201,6 @@ class StudyTests(TracebaseTestCase, ExampleDataConsumer):
         )
         self.assertEqual(self.animal.treatment, self.animal_treatment)
 
-    def test_animal_treatment_validation(self):
-        """
-        Here we are purposefully misassociating an animal with the previously
-        created msrun protocol, to test model validation upon full_clean
-        """
-        self.animal.treatment = self.protocol
-        with self.assertRaises(ValidationError):
-            self.animal.full_clean()
-
     def test_study(self):
         """create study and associate animal"""
         # Create a study
@@ -241,21 +226,6 @@ class StudyTests(TracebaseTestCase, ExampleDataConsumer):
             self.sample.time_collected = timedelta(minutes=-2000)
             self.sample.full_clean()
 
-    def test_msrun_protocol(self):
-        """MSRun lookup by primary key"""
-        msr = MSRun.objects.get(id=self.msrun.pk)
-        self.assertEqual(msr.protocol.name, "p1")
-        self.assertEqual(msr.protocol.category, Protocol.MSRUN_PROTOCOL)
-        with self.assertRaises(RestrictedError):
-            # test a restricted deletion
-            msr.protocol.delete()
-
-    def test_msrun_protocol_validation(self):
-        msr = MSRun.objects.get(id=self.msrun.pk)
-        msr.protocol.category = Protocol.ANIMAL_TREATMENT
-        with self.assertRaises(ValidationError):
-            msr.full_clean()
-
     def test_peak_group(self):
         t_peak_group = PeakGroup.objects.get(name=self.peak_group.name)
         self.assertEqual(t_peak_group.peak_data.count(), 2)
@@ -279,45 +249,6 @@ class StudyTests(TracebaseTestCase, ExampleDataConsumer):
 @override_settings(CACHES=settings.TEST_CACHES)
 @tag("protocol")
 class ProtocolTests(TracebaseTestCase):
-    def setUp(self):
-        super().setUp()
-        self.p1 = Protocol.objects.create(
-            name="Protocol 1",
-            category=Protocol.MSRUN_PROTOCOL,
-            description="Description",
-        )
-        self.p1.save()
-
-    def test_retrieve_protocol_by_id(self):
-        p = Protocol.objects.filter(name="Protocol 1").get()
-        ptest, created = Protocol.retrieve_or_create_protocol(p.id)
-        self.assertEqual(self.p1, ptest)
-
-    def test_retrieve_protocol_by_name(self):
-        ptest, created = Protocol.retrieve_or_create_protocol(
-            "Protocol 1",
-            Protocol.MSRUN_PROTOCOL,
-            "Description",
-        )
-        self.assertEqual(self.p1, ptest)
-
-    def test_create_protocol_by_name(self):
-        test_protocol_name = "Protocol 2"
-        ptest, created = Protocol.retrieve_or_create_protocol(
-            test_protocol_name,
-            Protocol.MSRUN_PROTOCOL,
-            "Description",
-        )
-        self.assertEqual(ptest, Protocol.objects.filter(name=test_protocol_name).get())
-
-    def test_get_protocol_by_id_dne(self):
-        with self.assertRaises(Protocol.DoesNotExist):
-            Protocol.retrieve_or_create_protocol(
-                100,
-                Protocol.MSRUN_PROTOCOL,
-                "Description",
-            )
-
     def test_create_protocol_by_invalid_category(self):
         test_protocol_name = "Protocol 2"
         with self.assertRaises(ValidationError):
@@ -332,15 +263,16 @@ class ProtocolTests(TracebaseTestCase):
 class DataLoadingTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
-        call_command("load_study", "DataRepo/example_data/protocols/loading.yaml")
+        call_command("loaddata", "lc_methods")
+        call_command("load_study", "DataRepo/data/examples/protocols/loading.yaml")
         call_command(
             "load_protocols",
-            protocols="DataRepo/example_data/protocols/T3_protocol.tsv",
+            protocols="DataRepo/data/examples/protocols/T3_protocol.tsv",
         )
-        call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
+        call_command("load_study", "DataRepo/data/examples/tissues/loading.yaml")
         call_command(
             "load_compounds",
-            compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
+            compounds="DataRepo/data/examples/consolidated_tracebase_compound_list.tsv",
         )
         cls.ALL_COMPOUNDS_COUNT = 51
 
@@ -351,12 +283,12 @@ class DataLoadingTests(TracebaseTestCase):
 
         call_command(
             "load_animals_and_samples",
-            sample_table_filename="DataRepo/example_data/obob_samples_table.tsv",
-            animal_table_filename="DataRepo/example_data/obob_animals_table.tsv",
-            table_headers="DataRepo/example_data/sample_and_animal_tables_headers.yaml",
+            sample_table_filename="DataRepo/data/examples/obob_samples_table.tsv",
+            animal_table_filename="DataRepo/data/examples/obob_animals_table.tsv",
+            table_headers="DataRepo/data/examples/sample_and_animal_tables_headers.yaml",
         )
 
-        # from DataRepo/example_data/obob_sample_table.tsv, not counting the header and BLANK samples
+        # from DataRepo/data/examples/obob_sample_table.tsv, not counting the header and BLANK samples
         cls.ALL_SAMPLES_COUNT += 106
         # not counting the header and the BLANK animal
         cls.ALL_OBOB_ANIMALS_COUNT = 7
@@ -365,11 +297,11 @@ class DataLoadingTests(TracebaseTestCase):
 
         call_command(
             "load_samples",
-            "DataRepo/example_data/serum_lactate_timecourse_treatment.tsv",
-            sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
+            "DataRepo/data/examples/serum_lactate_timecourse_treatment.tsv",
+            sample_table_headers="DataRepo/data/examples/sample_table_headers.yaml",
             skip_researcher_check=True,
         )
-        # from DataRepo/example_data/serum_lactate_timecourse_treatment.tsv, not counting the header
+        # from DataRepo/data/examples/serum_lactate_timecourse_treatment.tsv, not counting the header
         cls.ALL_SAMPLES_COUNT += 24
         # not counting the header
         cls.ALL_ANIMALS_COUNT += 5
@@ -377,8 +309,9 @@ class DataLoadingTests(TracebaseTestCase):
 
         call_command(
             "load_accucor_msruns",
-            protocol="Default",
-            accucor_file="DataRepo/example_data/obob_maven_6eaas_inf.xlsx",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="default instrument",
+            accucor_file="DataRepo/data/examples/obob_maven_6eaas_inf.xlsx",
             date="2021-04-29",
             researcher="Michael Neinast",
         )
@@ -389,8 +322,9 @@ class DataLoadingTests(TracebaseTestCase):
 
         call_command(
             "load_accucor_msruns",
-            protocol="Default",
-            accucor_file="DataRepo/example_data/obob_maven_6eaas_serum.xlsx",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="default instrument",
+            accucor_file="DataRepo/data/examples/obob_maven_6eaas_serum.xlsx",
             date="2021-04-29",
             researcher="Michael Neinast",
         )
@@ -402,8 +336,9 @@ class DataLoadingTests(TracebaseTestCase):
         # test load CSV file of corrected data, with no "original counterpart"
         call_command(
             "load_accucor_msruns",
-            protocol="Default",
-            accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_corrected.csv",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="default instrument",
+            accucor_file="DataRepo/data/examples/obob_maven_6eaas_inf_corrected.csv",
             date="2021-10-14",
             researcher="Michael Neinast",
         )
@@ -585,6 +520,7 @@ class DataLoadingTests(TracebaseTestCase):
         self.assertAlmostEqual(peak_data.raw_abundance, 1356.587)
         self.assertEqual(peak_data.corrected_abundance, 0)
 
+    @MaintainedModel.no_autoupdates()
     def test_dupe_sample_load_fails(self):
         # Insert the dupe sample.  Samples are required to pre-exist for the accucor loader.
         sample = Sample(
@@ -600,8 +536,9 @@ class DataLoadingTests(TracebaseTestCase):
         with self.assertRaises(ValidationError):
             call_command(
                 "load_accucor_msruns",
-                protocol="Default",
-                accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_sample_dupe.xlsx",
+                lc_protocol_name="polar-HILIC-25-min",
+                instrument="default instrument",
+                accucor_file="DataRepo/data/examples/obob_maven_6eaas_inf_sample_dupe.xlsx",
                 date="2021-08-20",
                 researcher="Michael",
             )
@@ -609,11 +546,13 @@ class DataLoadingTests(TracebaseTestCase):
     def test_dupe_samples_not_loaded(self):
         self.assertEqual(Sample.objects.filter(name__exact="tst-dupe1").count(), 0)
 
+    @MaintainedModel.no_autoupdates()
     def test_adl_existing_researcher(self):
         call_command(
             "load_accucor_msruns",
-            protocol="Default",
-            accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_new_researcher_err.xlsx",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="default instrument",
+            accucor_file="DataRepo/data/examples/obob_maven_6eaas_inf_new_researcher_err.xlsx",
             date="2021-04-30",
             researcher="Michael Neinast",
             new_researcher=False,
@@ -621,6 +560,7 @@ class DataLoadingTests(TracebaseTestCase):
         # Test that basically, no exception occurred
         self.assertTrue(True)
 
+    @MaintainedModel.no_autoupdates()
     def test_adl_new_researcher(self):
         # The error string must include:
         #   The new researcher is in the error
@@ -630,8 +570,9 @@ class DataLoadingTests(TracebaseTestCase):
             # Now load with a new researcher (and no --new-researcher flag)
             call_command(
                 "load_accucor_msruns",
-                protocol="Default",
-                accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_new_researcher_err2.xlsx",
+                lc_protocol_name="polar-HILIC-25-min",
+                instrument="default instrument",
+                accucor_file="DataRepo/data/examples/obob_maven_6eaas_inf_new_researcher_err2.xlsx",
                 date="2021-04-30",
                 researcher="Luke Skywalker",
             )
@@ -646,11 +587,13 @@ class DataLoadingTests(TracebaseTestCase):
             msg=f"String [Michael Neinast\nXianfeng Zeng] must be in {str(aes.exceptions[0])}",
         )
 
+    @MaintainedModel.no_autoupdates()
     def test_adl_new_researcher_confirmed(self):
         call_command(
             "load_accucor_msruns",
-            protocol="Default",
-            accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_new_researcher_err2.xlsx",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="default instrument",
+            accucor_file="DataRepo/data/examples/obob_maven_6eaas_inf_new_researcher_err2.xlsx",
             date="2021-04-30",
             researcher="Luke Skywalker",
             new_researcher=True,
@@ -658,6 +601,7 @@ class DataLoadingTests(TracebaseTestCase):
         # Test that basically, no exception occurred
         self.assertTrue(True)
 
+    @MaintainedModel.no_autoupdates()
     def test_adl_existing_researcher_marked_new(self):
         # The error string must include:
         #   The new researcher is in the error
@@ -670,8 +614,9 @@ class DataLoadingTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_accucor_msruns",
-                protocol="Default",
-                accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_new_researcher_err2.xlsx",
+                lc_protocol_name="polar-HILIC-25-min",
+                instrument="default instrument",
+                accucor_file="DataRepo/data/examples/obob_maven_6eaas_inf_new_researcher_err2.xlsx",
                 date="2021-04-30",
                 researcher="Michael Neinast",
                 new_researcher=True,
@@ -680,6 +625,7 @@ class DataLoadingTests(TracebaseTestCase):
         self.assertEqual(1, len(aes.exceptions))
         self.assertTrue(exp_err in str(aes.exceptions[0]))
 
+    @MaintainedModel.no_autoupdates()
     def test_ls_new_researcher_and_aggregate_errors(self):
         # The error string must include:
         #   The new researcher is in the error
@@ -693,8 +639,8 @@ class DataLoadingTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_samples",
-                "DataRepo/example_data/serum_lactate_timecourse_treatment_new_researcher.tsv",
-                sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
+                "DataRepo/data/examples/serum_lactate_timecourse_treatment_new_researcher.tsv",
+                sample_table_headers="DataRepo/data/examples/sample_table_headers.yaml",
             )
         aes = ar.exception
         ures = [e for e in aes.exceptions if isinstance(e, UnknownResearcherError)]
@@ -706,12 +652,13 @@ class DataLoadingTests(TracebaseTestCase):
         # There are 24 conflicts due to this file being a copy of a file already loaded, with the reseacher changed.
         self.assertEqual(25, len(aes.exceptions))
 
+    @MaintainedModel.no_autoupdates()
     def test_ls_new_researcher_confirmed(self):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_samples",
-                "DataRepo/example_data/serum_lactate_timecourse_treatment_new_researcher.tsv",
-                sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
+                "DataRepo/data/examples/serum_lactate_timecourse_treatment_new_researcher.tsv",
+                sample_table_headers="DataRepo/data/examples/sample_table_headers.yaml",
                 skip_researcher_check=True,
             )
         aes = ar.exception
@@ -738,12 +685,14 @@ class DataLoadingTests(TracebaseTestCase):
             self.assertFalse(pgl.from_serum_sample)
 
     @tag("synonym_data_loading")
+    @MaintainedModel.no_autoupdates()
     def test_valid_synonym_accucor_load(self):
         # this file contains 1 valid synonym for glucose, "dextrose"
         call_command(
             "load_accucor_msruns",
-            protocol="Default",
-            accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_corrected_valid_syn.csv",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="default instrument",
+            accucor_file="DataRepo/data/examples/obob_maven_6eaas_inf_corrected_valid_syn.csv",
             date="2021-11-19",
             researcher="Michael Neinast",
         )
@@ -760,6 +709,7 @@ class DataLoadingTests(TracebaseTestCase):
         self.assertEqual(peak_group.compounds.first().name, "glucose")
 
     @tag("synonym_data_loading")
+    @MaintainedModel.no_autoupdates()
     def test_invalid_synonym_accucor_load(self):
         with self.assertRaises(
             AggregatedErrors,
@@ -768,14 +718,18 @@ class DataLoadingTests(TracebaseTestCase):
             # this file contains 1 invalid synonym for glucose "table sugar"
             call_command(
                 "load_accucor_msruns",
-                protocol="Default",
-                accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_corrected_invalid_syn.csv",
+                lc_protocol_name="polar-HILIC-25-min",
+                instrument="default instrument",
+                accucor_file="DataRepo/data/examples/obob_maven_6eaas_inf_corrected_invalid_syn.csv",
                 date="2021-11-18",
                 researcher="Michael Neinast",
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
-        self.assertTrue(isinstance(aes.exceptions[0], MissingCompounds))
+        self.assertTrue(
+            isinstance(aes.exceptions[0], MissingCompounds),
+            msg=f"Exception [{type(aes.exceptions[0]).__name__}: {aes.exceptions[0]}] is MissingCompounds?",
+        )
         exp_str = "1 compounds were not found in the database:\n\ttable sugar"
         self.assertIn(
             exp_str,
@@ -788,13 +742,14 @@ class DataLoadingTests(TracebaseTestCase):
 class PropertyTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
+        call_command("loaddata", "lc_methods")
         call_command(
             "load_study",
-            "DataRepo/example_data/small_dataset/small_obob_study_prerequisites.yaml",
+            "DataRepo/data/tests/small_obob/small_obob_study_prerequisites.yaml",
         )
         call_command(
             "load_protocols",
-            protocols="DataRepo/example_data/protocols/T3_protocol.tsv",
+            protocols="DataRepo/data/examples/protocols/T3_protocol.tsv",
         )
         cls.ALL_COMPOUNDS_COUNT = 47
 
@@ -805,12 +760,12 @@ class PropertyTests(TracebaseTestCase):
 
         call_command(
             "load_animals_and_samples",
-            sample_table_filename="DataRepo/example_data/obob_samples_table.tsv",
-            animal_table_filename="DataRepo/example_data/obob_animals_table.tsv",
-            table_headers="DataRepo/example_data/sample_and_animal_tables_headers.yaml",
+            sample_table_filename="DataRepo/data/examples/obob_samples_table.tsv",
+            animal_table_filename="DataRepo/data/examples/obob_animals_table.tsv",
+            table_headers="DataRepo/data/examples/sample_and_animal_tables_headers.yaml",
         )
 
-        # from DataRepo/example_data/obob_sample_table.tsv, not counting the header and BLANK samples
+        # from DataRepo/data/examples/obob_sample_table.tsv, not counting the header and BLANK samples
         cls.ALL_SAMPLES_COUNT += 106
         # not counting the header and the BLANK animal
         cls.ALL_OBOB_ANIMALS_COUNT = 7
@@ -819,11 +774,11 @@ class PropertyTests(TracebaseTestCase):
 
         call_command(
             "load_samples",
-            "DataRepo/example_data/serum_lactate_timecourse_treatment.tsv",
-            sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
+            "DataRepo/data/examples/serum_lactate_timecourse_treatment.tsv",
+            sample_table_headers="DataRepo/data/examples/sample_table_headers.yaml",
             skip_researcher_check=True,
         )
-        # from DataRepo/example_data/serum_lactate_timecourse_treatment.tsv, not counting the header
+        # from DataRepo/data/examples/serum_lactate_timecourse_treatment.tsv, not counting the header
         cls.ALL_SAMPLES_COUNT += 24
         # not counting the header
         cls.ALL_ANIMALS_COUNT += 5
@@ -831,8 +786,9 @@ class PropertyTests(TracebaseTestCase):
 
         call_command(
             "load_accucor_msruns",
-            protocol="Default",
-            accucor_file="DataRepo/example_data/obob_maven_6eaas_inf.xlsx",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="default instrument",
+            accucor_file="DataRepo/data/examples/obob_maven_6eaas_inf.xlsx",
             date="2021-04-29",
             researcher="Michael Neinast",
         )
@@ -843,8 +799,9 @@ class PropertyTests(TracebaseTestCase):
 
         call_command(
             "load_accucor_msruns",
-            protocol="Default",
-            accucor_file="DataRepo/example_data/obob_maven_6eaas_serum.xlsx",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="default instrument",
+            accucor_file="DataRepo/data/examples/obob_maven_6eaas_serum.xlsx",
             date="2021-04-29",
             researcher="Michael Neinast",
         )
@@ -856,8 +813,9 @@ class PropertyTests(TracebaseTestCase):
         # test load CSV file of corrected data, with no "original counterpart"
         call_command(
             "load_accucor_msruns",
-            protocol="Default",
-            accucor_file="DataRepo/example_data/obob_maven_6eaas_inf_corrected.csv",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="default instrument",
+            accucor_file="DataRepo/data/examples/obob_maven_6eaas_inf_corrected.csv",
             date="2021-10-14",
             researcher="Michael Neinast",
         )
@@ -995,25 +953,23 @@ class PropertyTests(TracebaseTestCase):
         )
         self.assertAlmostEqual(peak_group.labels.first().normalized_labeling, 1)
 
+    @MaintainedModel.no_autoupdates()
     def test_no_peak_labeled_elements(self):
         # This creates an animal with a notrogen-labeled tracer (among others)
         call_command(
             "load_animals_and_samples",
             animal_and_sample_table_filename=(
-                "DataRepo/example_data/testing_data/animal_sample_table_labeled_elements.xlsx"
+                "DataRepo/data/tests/small_obob/animal_sample_table_labeled_elements.xlsx"
             ),
             skip_researcher_check=True,
         )
 
         # Retrieve a sample associated with an animal that has a tracer with only a nitrogen label
         sample = Sample.objects.get(name__exact="test_animal_2_sample_1")
-        pc = Protocol(name=Protocol.MSRUN_PROTOCOL)
-        pc.save()
         msrun = MSRun(
             sample=sample,
             researcher="george",
             date=datetime.strptime("1992-1-1".strip(), "%Y-%m-%d"),
-            protocol=pc,
         )
         msrun.save()
 
@@ -1144,7 +1100,6 @@ class PropertyTests(TracebaseTestCase):
         msrun = MSRun.objects.create(
             researcher="John Doe",
             date=datetime.now(),
-            protocol=first_serum_sample.msruns.first().protocol,
             sample=second_serum_sample,
         )
         second_serum_peak_group = PeakGroup.objects.create(
@@ -1232,7 +1187,6 @@ class PropertyTests(TracebaseTestCase):
         msrun = MSRun.objects.create(
             researcher="John Doe",
             date=datetime.now(),
-            protocol=first_serum_sample.msruns.first().protocol,
             sample=second_serum_sample,
         )
         # DO NOT CREATE A PEAKGROUP FOR THE TRACER
@@ -1362,7 +1316,6 @@ class PropertyTests(TracebaseTestCase):
         msrun = MSRun.objects.create(
             researcher="John Doe",
             date=datetime.now(),
-            protocol=peak_group.msrun.protocol,
             sample=peak_group.msrun.sample,
         )
         peak_group_zero = PeakGroup.objects.create(
@@ -1525,23 +1478,25 @@ class MultiTracerLabelPropertyTests(TracebaseTestCase):
     fixtures = ["data_types.yaml", "data_formats.yaml"]
 
     @classmethod
+    @MaintainedModel.no_autoupdates()
     def setUpTestData(cls):
+        call_command("loaddata", "lc_methods")
         call_command(
             "load_study",
-            "DataRepo/example_data/small_dataset/small_obob_study_prerequisites.yaml",
+            "DataRepo/data/tests/small_obob/small_obob_study_prerequisites.yaml",
         )
         call_command(
             "load_animals_and_samples",
             animal_and_sample_table_filename=(
-                "DataRepo/example_data/obob_fasted_glc_lac_gln_ala_multiple_labels/animal_sample_table.xlsx"
+                "DataRepo/data/tests/multiple_labels/animal_sample_table.xlsx"
             ),
             skip_researcher_check=True,
         )
         call_command(
             "load_accucor_msruns",
-            accucor_file="DataRepo/example_data/obob_fasted_glc_lac_gln_ala_multiple_labels/"
-            "alafasted_cor.xlsx",
-            protocol="Default",
+            accucor_file="DataRepo/data/tests/multiple_labels/alafasted_cor.xlsx",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="default instrument",
             date="2021-04-29",
             researcher="Xianfeng Zeng",
             new_researcher=False,
@@ -1595,7 +1550,7 @@ class MultiTracerLabelPropertyTests(TracebaseTestCase):
         self.assertAlmostEqual(expectedc, pgc)
         self.assertAlmostEqual(expectedn, pgn)
 
-    def test_normalized_labeling(self):
+    def test_normalized_labeling_2_elements(self):
         pg = PeakGroup.objects.filter(msrun__sample__name="xzl5_panc").get(
             name="glutamine"
         )
@@ -1612,24 +1567,26 @@ class MultiTracerLabelPropertyTests(TracebaseTestCase):
 class TracerRateTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
-        call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
+        call_command("loaddata", "lc_methods")
+        call_command("load_study", "DataRepo/data/examples/tissues/loading.yaml")
         call_command(
             "load_compounds",
-            compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
+            compounds="DataRepo/data/examples/consolidated_tracebase_compound_list.tsv",
         )
 
         call_command(
             "load_animals_and_samples",
-            sample_table_filename="DataRepo/example_data/obob_samples_table.tsv",
-            animal_table_filename="DataRepo/example_data/obob_animals_table.tsv",
-            table_headers="DataRepo/example_data/sample_and_animal_tables_headers.yaml",
+            sample_table_filename="DataRepo/data/examples/obob_samples_table.tsv",
+            animal_table_filename="DataRepo/data/examples/obob_animals_table.tsv",
+            table_headers="DataRepo/data/examples/sample_and_animal_tables_headers.yaml",
         )
 
         # for the fcirc and rate-calculation tests
         call_command(
             "load_accucor_msruns",
-            protocol="Default",
-            accucor_file="DataRepo/example_data/obob_maven_c160_serum.xlsx",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="default instrument",
+            accucor_file="DataRepo/data/examples/obob_maven_c160_serum.xlsx",
             date="2021-04-29",
             researcher="Xianfeng Zeng",
         )
@@ -1862,7 +1819,7 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
 
         call_command(
             "load_study",
-            "DataRepo/example_data/small_dataset/small_obob_study_prerequisites.yaml",
+            "DataRepo/data/tests/small_obob/small_obob_study_prerequisites.yaml",
         )
 
         if 0 != all_coordinators[0].buffer_size():
@@ -1903,6 +1860,7 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
                 0, coordinator.buffer_size(), msg=msg + "  The buffer is empty."
             )
 
+    @MaintainedModel.no_autoupdates()
     def test_animal_and_sample_load_xlsx(self):
         # initialize some sample-table-dependent counters
         SAMPLES_COUNT = 16
@@ -1912,7 +1870,7 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
         call_command(
             "load_animals_and_samples",
             animal_and_sample_table_filename=(
-                "DataRepo/example_data/small_dataset/"
+                "DataRepo/data/tests/small_obob/"
                 "small_obob_animal_and_sample_table.xlsx"
             ),
             dry_run=False,
@@ -1930,7 +1888,7 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
         call_command(
             "load_animals_and_samples",
             animal_and_sample_table_filename=(
-                "DataRepo/example_data/small_multitracer_data/animal_sample_table.xlsx"
+                "DataRepo/data/tests/small_multitracer/animal_sample_table.xlsx"
             ),
             skip_researcher_check=True,
         )
@@ -1950,7 +1908,7 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
             call_command(
                 "load_animals_and_samples",
                 animal_and_sample_table_filename=(
-                    "DataRepo/example_data/small_dataset/"
+                    "DataRepo/data/tests/small_obob/"
                     "small_obob_animal_and_sample_table.xlsx"
                 ),
                 dry_run=True,
@@ -1994,6 +1952,7 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
         )
         self.assertEqual([0, 1], rows)
 
+    @MaintainedModel.no_autoupdates()
     def test_empty_row(self):
         """
         Ensures SheetMergeError doesn't include completely empty rows - asserted by an animal sample table with an
@@ -2004,10 +1963,11 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
         call_command(
             "load_animals_and_samples",
             animal_and_sample_table_filename=(
-                "DataRepo/example_data/testing_data/small_obob_animal_and_sample_table_empty_row.xlsx"
+                "DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table_empty_row.xlsx"
             ),
         )
 
+    @MaintainedModel.no_autoupdates()
     def test_required_sample_values_error_ignores_emptyanimal_animalsheet(self):
         """
         Ensures RequiredSampleValuesError doesn't include rows with a missing animal ID (but has other values).
@@ -2017,7 +1977,7 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
             call_command(
                 "load_animals_and_samples",
                 animal_and_sample_table_filename=(
-                    "DataRepo/example_data/testing_data/"
+                    "DataRepo/data/tests/small_obob/"
                     "small_obob_animal_and_sample_table_empty_animalid_in_animalsheet.xlsx"
                 ),
             )
@@ -2033,6 +1993,7 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
         self.assertEqual(16, aes.exceptions[0].row_idxs[0])
         self.assertIn("row numbers can be inaccurate", str(aes.exceptions[0]))
 
+    @MaintainedModel.no_autoupdates()
     def test_required_sample_values_error_ignores_emptyanimal_samplesheet(self):
         """
         Ensures RequiredSampleValuesError doesn't include rows with a missing animal ID (but has other values).
@@ -2042,7 +2003,7 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
             call_command(
                 "load_animals_and_samples",
                 animal_and_sample_table_filename=(
-                    "DataRepo/example_data/testing_data/"
+                    "DataRepo/data/tests/small_obob/"
                     "small_obob_animal_and_sample_table_empty_animalid_in_samplesheet.xlsx"
                 ),
             )
@@ -2060,6 +2021,7 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
 
     @tag("broken")
     @skipIf(True, "This test demonstrates a current bug.")
+    @MaintainedModel.no_autoupdates()
     def test_unraised_samplesheet_error_case(self):
         """
         This test demonstrates a current bug.  If there are no empty rows between populated rows in the Animals sheet,
@@ -2070,7 +2032,7 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
             call_command(
                 "load_animals_and_samples",
                 animal_and_sample_table_filename=(
-                    "DataRepo/example_data/testing_data/"
+                    "DataRepo/data/tests/small_obob/"
                     "small_obob_animal_and_sample_table_empty_animalid_in_samplesheet_silent.xlsx"
                 ),
             )
@@ -2086,6 +2048,7 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
         self.assertEqual(18, aes.exceptions[0].row_idxs[0])
         self.assertIn("row numbers can be inaccurate", str(aes.exceptions[0]))
 
+    @MaintainedModel.no_autoupdates()
     def test_check_required_values(self):
         """
         Check that missing required vals are added to stl.missing_values
@@ -2094,8 +2057,7 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
             call_command(
                 "load_animals_and_samples",
                 animal_and_sample_table_filename=(
-                    "DataRepo/example_data/testing_data/"
-                    "small_obob_animal_and_sample_table_missing_rqd_vals.xlsx"
+                    "DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table_missing_rqd_vals.xlsx"
                 ),
             )
         aes = ar.exception
@@ -2156,11 +2118,13 @@ class StudyLoadingTests(TracebaseTestCase):
     fixtures = ["data_types.yaml", "data_formats.yaml"]
 
     @classmethod
+    @MaintainedModel.no_autoupdates()
     def setUpTestData(cls):
-        call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
+        call_command("loaddata", "lc_methods")
+        call_command("load_study", "DataRepo/data/examples/tissues/loading.yaml")
         call_command(
             "load_study",
-            "DataRepo/example_data/small_dataset/small_obob_study_params.yaml",
+            "DataRepo/data/tests/small_obob/small_obob_study_params.yaml",
         )
         cls.COMPOUNDS_COUNT = 2
         cls.SAMPLES_COUNT = 14
@@ -2430,23 +2394,26 @@ class StudyLoadingTests(TracebaseTestCase):
             ),
         )
 
+    @MaintainedModel.no_autoupdates()
     def test_singly_labeled_isocorr_study(self):
         call_command(
             "load_study",
-            "DataRepo/example_data/AsaelR_13C-Valine+PI3Ki_flank-KPC_2021-12_isocorr_CN-corrected/loading.yaml",
+            "DataRepo/data/examples/AsaelR_13C-Valine+PI3Ki_flank-KPC_2021-12_isocorr_CN-corrected/loading.yaml",
             verbosity=2,
         )
 
+    @MaintainedModel.no_autoupdates()
     def test_multi_tracer_isocorr_study(self):
         call_command(
             "load_study",
-            "DataRepo/example_data/obob_fasted_ace_glycerol_3hb_citrate_eaa_fa_multiple_tracers/loading.yaml",
+            "DataRepo/data/tests/multiple_tracers/loading.yaml",
         )
 
+    @MaintainedModel.no_autoupdates()
     def test_multi_label_isocorr_study(self):
         call_command(
             "load_study",
-            "DataRepo/example_data/obob_fasted_glc_lac_gln_ala_multiple_labels/loading.yaml",
+            "DataRepo/data/tests/multiple_labels/loading.yaml",
         )
 
 
@@ -2454,16 +2421,18 @@ class StudyLoadingTests(TracebaseTestCase):
 @tag("load_study")
 class ParseIsotopeLabelTests(TracebaseTestCase):
     @classmethod
+    @MaintainedModel.no_autoupdates()
     def setUpTestData(cls):
+        call_command("loaddata", "lc_methods")
         call_command(
             "load_study",
-            "DataRepo/example_data/small_dataset/small_obob_study_prerequisites.yaml",
+            "DataRepo/data/tests/small_obob/small_obob_study_prerequisites.yaml",
         )
 
         call_command(
             "load_samples",
-            "DataRepo/example_data/small_dataset/small_obob_sample_table.tsv",
-            sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
+            "DataRepo/data/tests/small_obob/small_obob_sample_table.tsv",
+            sample_table_headers="DataRepo/data/examples/sample_table_headers.yaml",
         )
 
         super().setUpTestData()
@@ -2533,6 +2502,7 @@ class ParseIsotopeLabelTests(TracebaseTestCase):
             tracer_labeled_elements,
         )
 
+    @MaintainedModel.no_autoupdates()
     def test_dupe_compound_isotope_pairs(self):
         # Error must contain:
         #   all compound/isotope pairs that were dupes
@@ -2549,8 +2519,9 @@ class ParseIsotopeLabelTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_accucor_msruns",
-                protocol="Default",
-                accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf_dupes.xlsx",
+                lc_protocol_name="polar-HILIC-25-min",
+                instrument="default instrument",
+                accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_dupes.xlsx",
                 date="2021-06-03",
                 researcher="Xianfeng Zeng",
             )
@@ -2584,21 +2555,24 @@ class AnimalLoadingTests(TracebaseTestCase):
     """Tests parsing various Animal attributes"""
 
     @classmethod
+    @MaintainedModel.no_autoupdates()
     def setUpTestData(cls):
-        call_command("load_study", "DataRepo/example_data/protocols/loading.yaml")
-        call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
+        call_command("loaddata", "lc_methods")
+        call_command("load_study", "DataRepo/data/examples/protocols/loading.yaml")
+        call_command("load_study", "DataRepo/data/examples/tissues/loading.yaml")
         call_command(
             "load_compounds",
-            compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
+            compounds="DataRepo/data/examples/consolidated_tracebase_compound_list.tsv",
         )
 
         super().setUpTestData()
 
+    @MaintainedModel.no_autoupdates()
     def test_labeled_element_parsing(self):
         call_command(
             "load_animals_and_samples",
             animal_and_sample_table_filename=(
-                "DataRepo/example_data/testing_data/animal_sample_table_labeled_elements.xlsx"
+                "DataRepo/data/tests/small_obob/animal_sample_table_labeled_elements.xlsx"
             ),
         )
         self.assertEqual(
@@ -2637,6 +2611,7 @@ class AnimalLoadingTests(TracebaseTestCase):
             "S",
         )
 
+    @MaintainedModel.no_autoupdates()
     def test_labeled_element_parsing_invalid(self):
         with self.assertRaisesMessage(
             IsotopeParsingError, "Encoded isotopes: [13Invalid6] cannot be parsed."
@@ -2644,6 +2619,6 @@ class AnimalLoadingTests(TracebaseTestCase):
             call_command(
                 "load_animals_and_samples",
                 animal_and_sample_table_filename=(
-                    "DataRepo/example_data/testing_data/animal_sample_table_labeled_elements_invalid.xlsx"
+                    "DataRepo/data/tests/small_obob/animal_sample_table_labeled_elements_invalid.xlsx"
                 ),
             )

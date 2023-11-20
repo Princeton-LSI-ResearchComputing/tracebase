@@ -1,9 +1,11 @@
 import argparse
 import pathlib
+from zipfile import BadZipFile
 
 import pandas as pd
 import yaml  # type: ignore
 from django.core.management import BaseCommand, CommandError
+from openpyxl.utils.exceptions import InvalidFileException
 
 from DataRepo.models.hier_cached_model import (
     disable_caching_updates,
@@ -11,10 +13,14 @@ from DataRepo.models.hier_cached_model import (
 )
 from DataRepo.models.maintained_model import MaintainedModel
 from DataRepo.utils import SampleTableLoader
+from DataRepo.utils.lcms_metadata_parser import (
+    extract_dataframes_from_lcms_tsv,
+    extract_dataframes_from_lcms_xlsx,
+)
 
 
 class Command(BaseCommand):
-    examples_dir = "DataRepo/example_data/"
+    examples_dir = "DataRepo/data/examples/"
     example_animals = examples_dir + "obob_animals_table.tsv"
     example_samples = examples_dir + "obob_samples_table.tsv"
     example_yaml = examples_dir + "sample_and_animal_tables_headers.yaml"
@@ -46,6 +52,16 @@ class Command(BaseCommand):
             required=False,
             type=str,
             help=f"file containing the animal-specific annotations, for example : {self.example_animals}",
+        )
+        parser.add_argument(
+            "--lcms-file",
+            type=str,
+            help=(
+                "Filepath of either an xlsx or csv file containing metadata associated with the liquid chromatography "
+                "and mass spec instrument run."
+            ),
+            default=None,
+            required=False,
         )
         parser.add_argument(
             "--table-headers",
@@ -105,6 +121,17 @@ class Command(BaseCommand):
         post_mass_update_func=enable_caching_updates,
     )
     def handle(self, *args, **options):
+        lcms_metadata_df = None
+        if options["lcms_file"] is not None:
+            try:
+                lcms_metadata_df = extract_dataframes_from_lcms_xlsx(
+                    options["lcms_file"]
+                )
+            except (InvalidFileException, ValueError, BadZipFile):  # type: ignore
+                lcms_metadata_df = extract_dataframes_from_lcms_tsv(
+                    options["lcms_file"]
+                )
+
         self.stdout.write(self.style.MIGRATE_HEADING("Reading header definition..."))
         if options["table_headers"]:
             with open(options["table_headers"]) as headers_file:
@@ -158,6 +185,7 @@ class Command(BaseCommand):
             defer_rollback=options["defer_rollback"],
             dry_run=options["dry_run"],
             update_caches=not options["skip_cache_updates"],
+            lcms_metadata_df=lcms_metadata_df,
         )
         loader.load_sample_table(
             merged.to_dict("records"),

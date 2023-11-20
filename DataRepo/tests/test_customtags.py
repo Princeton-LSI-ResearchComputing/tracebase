@@ -1,6 +1,6 @@
 from django.core.management import call_command
 
-from DataRepo.models import CompoundSynonym, PeakGroup, Study
+from DataRepo.models import CompoundSynonym, MaintainedModel, PeakGroup, Study
 from DataRepo.templatetags.customtags import (
     compile_stats,
     display_filter,
@@ -12,26 +12,29 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 class CustomTagsTests(TracebaseTestCase):
     @classmethod
+    @MaintainedModel.no_autoupdates()
     def setUpTestData(cls):
-        call_command("load_study", "DataRepo/example_data/tissues/loading.yaml")
+        call_command("loaddata", "lc_methods")
+        call_command("load_study", "DataRepo/data/examples/tissues/loading.yaml")
         call_command(
             "load_compounds",
-            compounds="DataRepo/example_data/consolidated_tracebase_compound_list.tsv",
+            compounds="DataRepo/data/examples/consolidated_tracebase_compound_list.tsv",
         )
         call_command(
             "load_samples",
-            "DataRepo/example_data/small_dataset/small_obob_sample_table.tsv",
-            sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
+            "DataRepo/data/tests/small_obob/small_obob_sample_table.tsv",
+            sample_table_headers="DataRepo/data/examples/sample_table_headers.yaml",
         )
         call_command(
             "load_samples",
-            "DataRepo/example_data/small_dataset/small_obob_sample_table_2ndstudy.tsv",
-            sample_table_headers="DataRepo/example_data/sample_table_headers.yaml",
+            "DataRepo/data/tests/small_obob/small_obob_sample_table_2ndstudy.tsv",
+            sample_table_headers="DataRepo/data/examples/sample_table_headers.yaml",
         )
         call_command(
             "load_accucor_msruns",
-            protocol="Default",
-            accucor_file="DataRepo/example_data/small_dataset/small_obob_maven_6eaas_inf.xlsx",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="default instrument",
+            accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf.xlsx",
             date="2021-06-03",
             researcher="Michael Neinast",
             new_researcher=True,
