@@ -2,6 +2,7 @@ from .animal import AnimalDetailView, AnimalListView
 from .archive_file import ArchiveFileDetailView, ArchiveFileListView
 from .compound import CompoundDetailView, CompoundListView
 from .infusate import InfusateDetailView, InfusateListView
+from .lcmethod import LCMethodDetailView, LCMethodListView
 from .msrun import MSRunDetailView, MSRunListView
 from .peakdata import PeakDataListView
 from .peakgroup import PeakGroupDetailView, PeakGroupListView
@@ -18,6 +19,8 @@ __all__ = [
     "CompoundDetailView",
     "InfusateListView",
     "InfusateDetailView",
+    "LCMethodListView",
+    "LCMethodDetailView",
     "StudyListView",
     "StudyDetailView",
     "study_summary",

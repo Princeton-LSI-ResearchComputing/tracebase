@@ -16,17 +16,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added an ArchiveFile class with associated DataType and DataFormat classes
 - LCMethod model and tests
-- Copy records from PeakGroupSet to ArchiveFile, all records are copied as MS
-  Peak Annotation data in AccuCor format as a default
+- LCMethod views
+- Copy records from PeakGroupSet to ArchiveFile, all records are copied as MS Peak Annotation data in AccuCor format as a default
 
 ### Changed
 
 - Updated dependencies
-- Use human readable string methods for ArchiveFile, DataType, and DataFormat
-  (affects admin interface, other default templates)
+- Use human readable string methods for ArchiveFile, DataType, and DataFormat (affects admin interface, other default templates)
 - Made auto-update code thread-safe
-- Implemented context managers and decorator wrappers to control autoupdate
-  behaviors
+- Implemented context managers and decorator wrappers to control autoupdate behaviors
 - Display ArchiveFile record associated with PeakGroup instead of PeakGroupSet
 
 ### Removed

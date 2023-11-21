@@ -1,0 +1,44 @@
+{% load customtags %}
+{% if lcmethods %}
+<div>
+    <table class="table table-sm table-hover table-bordered table-responsive-xl table-striped"
+        id="lcprotocol_table"
+        data-toggle="table"
+        data-buttons-class="primary"
+        data-buttons-align="left"
+        data-search="true"
+        data-search-align="left"
+        data-show-search-clear-button="true"
+        data-show-multi-sort="true"
+        data-show-columns="true"
+        data-show-columns-toggle-all="true"
+        data-show-fullscreen="true"
+        data-show-export="true"
+        data-export-types="['csv', 'txt', 'excel']"
+        data-virtual-scroll="true"
+        data-pagination="true"
+        data-page-size="10"
+        data-page-list="[10, 25, 50, 100, 200, 500, All]">
+    <thead>
+        <tr>
+            <th data-filter-control="input" data-sortable="true" data-sorter="htmlSorter" data-field="Name">Name</th>
+            <th data-filter-control="input" data-sortable="true" data-field="Method">Method</th>
+            <th data-filter-control="input" data-sortable="true" data-field="RunLength">Run Length (m)</th>
+            <th data-filter-control="input" data-sortable="true" data-field="Description">Description</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for lcmethod in lcmethods %}
+            <tr>
+                <td class="text-nowrap"><a href="{% url 'lcmethod_detail' lcmethod.id %}">{{ lcmethod.name }}</a></td>
+                <td class="text-nowrap">{{ lcmethod.type }}</td>
+                <td class="text-nowrap">{{ lcmethod.run_length|durationToMins|decimalPlaces:0 }}</td>
+                <td>{{ lcmethod.description }}</td>
+            </tr>
+        {% endfor %}
+    </tbody>
+    </table>
+</div>
+{% else %}
+    <p>There are no liquid chromatography protocols in this group.</p>
+{% endif %}

@@ -10,6 +10,7 @@ from DataRepo.models import (
     DataFormat,
     DataType,
     FCirc,
+    LCMethod,
     MSRun,
     PeakGroup,
     PeakGroupLabel,
@@ -61,6 +62,8 @@ class FCircTests(TracebaseTestCase):
             new_researcher=True,
         )
 
+        cls.lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
+
         # Get an animal (assuming it has an infusate/tracers/etc)
         animal = Animal.objects.last()
         # Get its last serum sample
@@ -105,6 +108,7 @@ class FCircTests(TracebaseTestCase):
             researcher="Anakin Skywalker",
             date=datetime.now(),
             sample=self.newlss,
+            lc_method=self.lcm,
         )
 
         for tracer in self.lss.animal.infusate.tracers.all():
@@ -306,6 +310,7 @@ class FCircTests(TracebaseTestCase):
             researcher="Anakin Skywalker",
             date=datetime.now(),
             sample=self.newlss,
+            lc_method=self.lcm,
         )
 
         for tracer in self.lss.animal.infusate.tracers.all():

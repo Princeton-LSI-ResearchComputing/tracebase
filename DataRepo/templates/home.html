@@ -23,19 +23,13 @@
 </div>
 <br>
 <div class="row">
-    {% for card_row in card_rows %}
+    {% for card_row in card_grid %}
         {% for i in card_row %}
         <div class="col-xl-3 col-md-6 mb-4">
             {% include "includes/obj_count_link_card.html" %}
         </div>
         {% endfor %}
     {% endfor %}
-
-    <div class ="col-xl-3">
-        {% with i=card_adv_search %}
-            {% include "includes/obj_count_link_card.html" %}
-        {% endwith %}
-    </div>
 </div>
 <br>
 <div>

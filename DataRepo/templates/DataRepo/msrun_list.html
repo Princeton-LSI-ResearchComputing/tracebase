@@ -3,31 +3,33 @@
 {% block title %}MS Runs{% endblock %}
 
 {% block content %}
-<div>
-    <ul>
-        <h4>List of MS RUNs</h4>
+    <div>
+        <ul>
+            <h4>List of MS RUNs</h4>
 
-        {% if msrun_list %}
-        <br>
-        <table class="table table-sm table-hover table-bordered table-responsive table-striped w-auto mw-100">
-            <tr>
-            <th>MSRun Detail Page</th>
-            <th>Sample</th>
-            <th>Date</th>
-            <th>Researcher</th>
-            </tr>
-            {% for msrun in msrun_list %}
-            <tr>
-            <td><a href="{% url 'msrun_detail' msrun.id %}">detail page</a></td>
-            <td><a href="{% url 'sample_detail' msrun.sample.id %}">{{ msrun.sample.name }}</a></td>
-            <td>{{ msrun.date }}</td>
-            <td>{{ msrun.researcher }}</td>
-            </tr>
-            {% endfor %}
-        </table>
-        {% else %}
-        <p>There are no MS Runs.</p>
-        {% endif %}
-    </ul>
-</div>
+            {% if msrun_list %}
+                <br>
+                <table class="table table-sm table-hover table-bordered table-responsive table-striped w-auto mw-100">
+                    <tr>
+                        <th>MSRun Detail Page</th>
+                        <th>Sample</th>
+                        <th>Date</th>
+                        <th>LC Protocol</th>
+                        <th>Researcher</th>
+                    </tr>
+                    {% for msrun in msrun_list %}
+                        <tr>
+                            <td><a href="{% url 'msrun_detail' msrun.id %}">detail page</a></td>
+                            <td><a href="{% url 'sample_detail' msrun.sample.id %}">{{ msrun.sample.name }}</a></td>
+                            <td>{{ msrun.date }}</td>
+                            <td>{% if msrun.lc_method %}<a href="{% url 'lcmethod_detail' msrun.lc_method.id %}">{{ msrun.lc_method.name }}{% else %}None{% endif %}</a></td>
+                            <td>{{ msrun.researcher }}</td>
+                        </tr>
+                    {% endfor %}
+                </table>
+            {% else %}
+                <p>There are no MS Runs.</p>
+            {% endif %}
+        </ul>
+    </div>
 {% endblock %}

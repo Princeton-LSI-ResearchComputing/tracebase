@@ -19,6 +19,7 @@ from DataRepo.models import (
     DataType,
     ElementLabel,
     Infusate,
+    LCMethod,
     MaintainedModel,
     MSRun,
     PeakData,
@@ -100,6 +101,8 @@ class ExampleDataConsumer:
 
 @override_settings(CACHES=settings.TEST_CACHES)
 class StudyTests(TracebaseTestCase, ExampleDataConsumer):
+    fixtures = ["lc_methods.yaml"]
+
     def setUp(self):
         super().setUp()
         # Get test data
@@ -138,10 +141,13 @@ class StudyTests(TracebaseTestCase, ExampleDataConsumer):
             date=first["Date Collected"],
         )
 
+        lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
+
         self.msrun = MSRun.objects.create(
             researcher="John Doe",
             date=datetime.now(),
             sample=self.sample,
+            lc_method=lcm,
         )
 
         self.ms_peak_annotation = DataType.objects.get(code="ms_peak_annotation")
@@ -966,10 +972,12 @@ class PropertyTests(TracebaseTestCase):
 
         # Retrieve a sample associated with an animal that has a tracer with only a nitrogen label
         sample = Sample.objects.get(name__exact="test_animal_2_sample_1")
+        lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
         msrun = MSRun(
             sample=sample,
             researcher="george",
             date=datetime.strptime("1992-1-1".strip(), "%Y-%m-%d"),
+            lc_method=lcm,
         )
         msrun.save()
 
@@ -1097,10 +1105,12 @@ class PropertyTests(TracebaseTestCase):
         # and the final one should now be the second one (just created)
         self.assertEqual(last_serum_sample.name, second_serum_sample.name)
 
+        lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
         msrun = MSRun.objects.create(
             researcher="John Doe",
             date=datetime.now(),
             sample=second_serum_sample,
+            lc_method=lcm,
         )
         second_serum_peak_group = PeakGroup.objects.create(
             name=peak_group.name,
@@ -1183,11 +1193,14 @@ class PropertyTests(TracebaseTestCase):
             peak_group.labels.first().normalized_labeling,
         )
 
+        lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
+
         # Create a later msrun with the later serum sample (but no peak group)
         msrun = MSRun.objects.create(
             researcher="John Doe",
             date=datetime.now(),
             sample=second_serum_sample,
+            lc_method=lcm,
         )
         # DO NOT CREATE A PEAKGROUP FOR THE TRACER
         self.assertEqual(peak_group.labels.count(), 1, msg="Assure load was complete")
@@ -1313,10 +1326,13 @@ class PropertyTests(TracebaseTestCase):
             .get()
         )
 
+        lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
+
         msrun = MSRun.objects.create(
             researcher="John Doe",
             date=datetime.now(),
             sample=peak_group.msrun.sample,
+            lc_method=lcm,
         )
         peak_group_zero = PeakGroup.objects.create(
             name=peak_group.name,
