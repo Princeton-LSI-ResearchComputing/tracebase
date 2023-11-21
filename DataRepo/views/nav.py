@@ -96,17 +96,6 @@ def home(request):
         }
     )
 
-    card_grid[1].append(
-        {
-            "card_bg_color": "bg-card-1",
-            "card_body_title": str(
-                Protocol.objects.filter(category=Protocol.MSRUN_PROTOCOL).count()
-            )
-            + " Mass Spectrometry Protocols",
-            "card_foot_url": reverse("msrun_protocol_list"),
-        }
-    )
-
     card_grid[2].append(
         {
             "card_bg_color": "bg-card-1",

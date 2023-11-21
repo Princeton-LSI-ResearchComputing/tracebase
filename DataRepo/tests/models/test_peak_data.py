@@ -10,6 +10,7 @@ from DataRepo.models import (
     DataFormat,
     DataType,
     Infusate,
+    LCMethod,
     MSRun,
     PeakData,
     PeakDataLabel,
@@ -21,7 +22,7 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
 class PeakDataData(TracebaseTestCase):
-    fixtures = ["data_types.yaml", "data_formats.yaml"]
+    fixtures = ["data_types.yaml", "data_formats.yaml", "lc_methods.yaml"]
 
     def setUp(self):
         super().setUp()
@@ -45,10 +46,12 @@ class PeakDataData(TracebaseTestCase):
             researcher="John Doe",
             date=datetime.now(),
         )
+        lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
         msr = MSRun.objects.create(
             researcher="John Doe",
             date=datetime.now(),
             sample=smpl,
+            lc_method=lcm,
         )
         path = Path("DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf.xlsx")
         with path.open(mode="rb") as f:
