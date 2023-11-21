@@ -93,6 +93,8 @@ class AutoupdateLoadingTests(TracebaseTestCase):
                     researcher="Michael Neinast",
                     new_researcher=True,
                     # defer_autoupdates=True,
+                    animal_and_sample_table_filename="DataRepo/data/tests/small_obob/"
+                    "small_obob_animal_and_sample_table.xlsx",
                 )
 
                 # Since autoupdates were defered (and we did not run perform_buffered_updates)

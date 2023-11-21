@@ -84,6 +84,7 @@ class ViewTests(TracebaseTestCase):
             date="2021-06-03",
             researcher="Michael Neinast",
             new_researcher=True,
+            animal_and_sample_table_filename="DataRepo/data/tests/small_obob/small_obob_sample_table.tsv",
         )
         cls.INF_COMPOUNDS_COUNT = 2
         cls.INF_SAMPLES_COUNT = 14
@@ -98,6 +99,7 @@ class ViewTests(TracebaseTestCase):
             date="2021-06-03",
             researcher="Michael Neinast",
             new_researcher=False,
+            animal_and_sample_table_filename="DataRepo/data/tests/small_obob/small_obob_sample_table.tsv",
         )
         cls.SERUM_COMPOUNDS_COUNT = 3
         cls.SERUM_SAMPLES_COUNT = 1
@@ -775,6 +777,7 @@ class ValidationViewTests(TracebaseTransactionTestCase):
                 "Sol-xz971.mzxml",
                 "Sp-xz971.mzxml",
             ],
+            animal_and_sample_table_filename="DataRepo/data/tests/small_obob/small_obob_sample_table.tsv",
         )
 
         # Ensure the auto-update buffer is empty.  If it's not, then a previously run test didn't clean up after itself

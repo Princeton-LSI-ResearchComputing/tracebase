@@ -62,6 +62,7 @@ class FormatsTests(TracebaseTestCase):
             date="2021-06-03",
             researcher="Michael Neinast",
             new_researcher=True,
+            animal_and_sample_table_filename="DataRepo/data/tests/small_obob/small_obob_sample_table.tsv",
         )
         call_command(
             "load_accucor_msruns",
@@ -71,6 +72,7 @@ class FormatsTests(TracebaseTestCase):
             date="2021-06-03",
             researcher="Michael Neinast",
             new_researcher=False,
+            animal_and_sample_table_filename="DataRepo/data/tests/small_obob/small_obob_sample_table.tsv",
         )
         basv = SearchGroup()
         for fmt in basv.modeldata.keys():
@@ -1342,6 +1344,7 @@ class FormatsTests(TracebaseTestCase):
             researcher="Xianfeng Zeng",
             new_researcher=False,
             isocorr_format=True,
+            animal_and_sample_table_filename="aRepo/data/tests/small_multitracer/animal_sample_table.xls",
         )
         call_command(
             "load_accucor_msruns",
@@ -1352,6 +1355,7 @@ class FormatsTests(TracebaseTestCase):
             researcher="Xianfeng Zeng",
             new_researcher=False,
             isocorr_format=True,
+            animal_and_sample_table_filename="aRepo/data/tests/small_multitracer/animal_sample_table.xls",
         )
 
         format = "fctemplate"

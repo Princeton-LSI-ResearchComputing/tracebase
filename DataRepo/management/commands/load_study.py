@@ -209,6 +209,9 @@ class Command(BaseCommand):
                     )
                     self.package_group_exceptions(aes, lcms_metadata_file_basename)
 
+            # Initialize for use in load_accucor_msruns
+            animals_samples_table_file = None
+
             if "animals_samples_treatments" in study_params:
                 # Read in animals and samples file
                 sample_file_basename = study_params["animals_samples_treatments"][
@@ -324,6 +327,7 @@ class Command(BaseCommand):
                             lcms_file=lcms_metadata_file,
                             validate=self.validate,
                             dry_run=self.dry_run,
+                            animal_and_sample_table_filename=animals_samples_table_file,
                         )
                         if self.verbosity > 1:
                             self.stdout.write(

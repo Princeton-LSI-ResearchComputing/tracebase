@@ -42,10 +42,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
 
         call_command(
             "load_animals_and_samples",
-            animal_and_sample_table_filename=(
-                "DataRepo/data/tests/small_obob/"
-                "small_obob_animal_and_sample_table.xlsx"
-            ),
+            animal_and_sample_table_filename="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx",
         )
 
         super().setUpTestData()
@@ -62,6 +59,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             date="2021-04-29",
             researcher="Michael Neinast",
             new_researcher=True,
+            animal_and_sample_table_filename="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx",
         )
 
     def test_accucor_load_blank_fail(self):
@@ -74,6 +72,8 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
                 date="2021-04-29",
                 researcher="Michael Neinast",
                 new_researcher=True,
+                animal_and_sample_table_filename="DataRepo/data/tests/small_obob/"
+                "small_obob_animal_and_sample_table.xlsx",
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
@@ -89,6 +89,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             date="2021-04-29",
             researcher="Michael Neinast",
             new_researcher=True,
+            animal_and_sample_table_filename="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx",
         )
         SAMPLES_COUNT = 14
         PEAKDATA_ROWS = 11
@@ -110,6 +111,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             date="2021-04-29",
             researcher="Michael Neinast",
             new_researcher=True,
+            animal_and_sample_table_filename="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx",
         )
         SAMPLES_COUNT = 1
         PEAKDATA_ROWS = 11
@@ -131,6 +133,8 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
                 date="2021-04-29",
                 researcher="Michael Neinast",
                 new_researcher=True,
+                animal_and_sample_table_filename="DataRepo/data/tests/small_obob/"
+                "small_obob_animal_and_sample_table.xlsx",
             )
         aes = ar.exception
         nl = "\n"
@@ -166,7 +170,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
                 0, coordinator.buffer_size(), msg=msg + "  The buffer is empty."
             )
 
-    def test_accucor_load_in_debug(self):
+    def test_accucor_load_in_dryrun(self):
         pre_load_counts = self.get_record_counts()
         pre_load_maintained_values = MaintainedModel.get_all_maintained_field_values()
         self.assertGreater(
@@ -188,6 +192,8 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
                 researcher="Michael Neinast",
                 new_researcher=True,
                 dry_run=True,
+                animal_and_sample_table_filename="DataRepo/data/tests/small_obob/"
+                "small_obob_animal_and_sample_table.xlsx",
             )
 
         post_load_maintained_values = MaintainedModel.get_all_maintained_field_values()
@@ -251,6 +257,8 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
                 date="2021-04-29",
                 researcher="Michael Neinast",
                 new_researcher=False,
+                animal_and_sample_table_filename="DataRepo/data/tests/small_obob/"
+                "small_obob_animal_and_sample_table.xlsx",
             )
 
         aes = ar.exception
@@ -282,6 +290,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             instrument="",
             peak_annotation_filename="peak_group_set_filename.tsv",
             mzxml_files=[],
+            animal_and_sample_table_filename="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx",
         )
         # Get the first PeakGroup, and collect attributes
         peak_group = PeakGroup.objects.first()
@@ -345,9 +354,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         """
         call_command(
             "load_animals_and_samples",
-            animal_and_sample_table_filename=(
-                "DataRepo/data/tests/accucor_with_multiple_labels/samples.xlsx"
-            ),
+            animal_and_sample_table_filename="DataRepo/data/tests/accucor_with_multiple_labels/samples.xlsx",
         )
         call_command(
             "load_accucor_msruns",
@@ -357,6 +364,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             date="2021-04-29",
             researcher="anonymous",
             new_researcher=False,
+            animal_and_sample_table_filename="DataRepo/data/tests/accucor_with_multiple_labels/samples.xlsx",
         )
 
     def test_accucor_bad_label(self):
@@ -379,6 +387,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
                 date="2021-04-29",
                 researcher="anonymous",
                 new_researcher=False,
+                animal_and_sample_table_filename="DataRepo/data/tests/accucor_with_multiple_labels/samples.xlsx",
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
@@ -402,6 +411,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             date="2021-04-29",
             researcher="Michael Neinast",
             new_researcher=False,
+            animal_and_sample_table_filename="DataRepo/data/tests/small_obob/small_obob_animal_and_sample_table.xlsx",
         )
         SAMPLES_COUNT = 2
         PEAKDATA_ROWS = 11
@@ -429,6 +439,8 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
                 date="2021-04-29",
                 researcher="Michael Neinast",
                 new_researcher=False,
+                animal_and_sample_table_filename="DataRepo/data/tests/small_obob/"
+                "small_obob_animal_and_sample_table.xlsx",
             )
         # Check second file failed (duplicate compound)
         aes = ar.exception
@@ -475,9 +487,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
 
         call_command(
             "load_animals_and_samples",
-            animal_and_sample_table_filename=(
-                "DataRepo/data/tests/singly_labeled_isocorr/animals_samples.xlsx"
-            ),
+            animal_and_sample_table_filename="DataRepo/data/tests/singly_labeled_isocorr/animals_samples.xlsx",
             skip_researcher_check=True,
         )
 
@@ -542,6 +552,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             researcher="Michael Neinast",
             new_researcher=True,
             isocorr_format=True,
+            animal_and_sample_table_filename="DataRepo/data/tests/singly_labeled_isocorr/animals_samples.xlsx",
         )
         post_pg_load_count = PeakGroup.objects.count()
         # The number of samples in the isocorr csv file (not the samples file)
@@ -577,6 +588,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
                 date="2021-04-29",
                 researcher="Michael Neinast",
                 new_researcher=True,
+                animal_and_sample_table_filename="DataRepo/data/tests/singly_labeled_isocorr/animals_samples.xlsx",
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
@@ -700,6 +712,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             researcher="Xianfeng Zeng",
             new_researcher=False,
             isocorr_format=True,
+            animal_and_sample_table_filename="DataRepo/data/tests/singly_labeled_isocorr/animals_samples.xlsx",
         )
         post_load_group_count = PeakGroup.objects.count()
         # The number of samples in the isocorr xlsx file (not the samples file)
@@ -727,6 +740,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             researcher="Xianfeng Zeng",
             new_researcher=False,
             isocorr_format=True,
+            animal_and_sample_table_filename="DataRepo/data/tests/singly_labeled_isocorr/animals_samples.xlsx",
         )
         post_load_group_count = PeakGroup.objects.count()
         # The number of samples in the isocorr xlsx file (not the samples file)
@@ -806,6 +820,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             researcher="Xianfeng Zeng",
             new_researcher=False,
             isocorr_format=True,
+            animal_and_sample_table_filename="DataRepo/data/tests/singly_labeled_isocorr/animals_samples.xlsx",
         )
         post_load_group_count = PeakGroup.objects.count()
 
@@ -826,6 +841,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             researcher="Xianfeng Zeng",
             new_researcher=False,
             isocorr_format=True,
+            animal_and_sample_table_filename="DataRepo/data/tests/singly_labeled_isocorr/animals_samples.xlsx",
         )
         post_load_group_count = PeakGroup.objects.count()
 
@@ -869,6 +885,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             researcher="Xianfeng Zeng",
             new_researcher=False,
             isocorr_format=True,
+            animal_and_sample_table_filename="DataRepo/data/tests/singly_labeled_isocorr/animals_samples.xlsx",
         )
         pg = (
             PeakGroup.objects.filter(msrun__sample__name="xzl5_panc")

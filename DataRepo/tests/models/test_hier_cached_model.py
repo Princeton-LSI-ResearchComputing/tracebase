@@ -27,6 +27,7 @@ def load_data():
         date="2021-06-03",
         researcher="Michael Neinast",
         new_researcher=False,
+        animal_and_sample_table_filename="DataRepo/data/tests/small_obob/small_obob_sample_table_2ndstudy.tsv",
     )
 
 
@@ -56,6 +57,7 @@ def load_minimum_data():
         date="2021-06-03",
         researcher="Michael Neinast",
         new_researcher=True,
+        animal_and_sample_table_filename="DataRepo/data/tests/small_obob/small_obob_sample_table.tsv",
     )
 
 

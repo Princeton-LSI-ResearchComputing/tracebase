@@ -32,6 +32,7 @@ class SampleTests(TracebaseTestCase):
             date="2021-06-03",
             researcher="Michael Neinast",
             new_researcher=True,
+            animal_and_sample_table_filename="DataRepo/data/tests/small_obob/small_obob_sample_table.tsv",
         )
         call_command(
             "load_accucor_msruns",
@@ -41,6 +42,7 @@ class SampleTests(TracebaseTestCase):
             date="2021-06-03",
             researcher="Michael Neinast",
             new_researcher=False,
+            animal_and_sample_table_filename="DataRepo/data/tests/small_obob/small_obob_sample_table.tsv",
         )
 
     def test_is_serum_sample_autoupdates(self):

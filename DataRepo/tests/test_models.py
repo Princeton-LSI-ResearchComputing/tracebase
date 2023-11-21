@@ -314,6 +314,7 @@ class DataLoadingTests(TracebaseTestCase):
             accucor_file="DataRepo/data/examples/obob_maven_6eaas_inf.xlsx",
             date="2021-04-29",
             researcher="Michael Neinast",
+            sample_table_filename="DataRepo/data/examples/obob_samples_table.tsv",
         )
         cls.PEAK_ANNOTATION_FILE_COUNT = 1
         cls.INF_COMPOUNDS_COUNT = 7
@@ -327,6 +328,7 @@ class DataLoadingTests(TracebaseTestCase):
             accucor_file="DataRepo/data/examples/obob_maven_6eaas_serum.xlsx",
             date="2021-04-29",
             researcher="Michael Neinast",
+            sample_table_filename="DataRepo/data/examples/obob_samples_table.tsv",
         )
         cls.PEAK_ANNOTATION_FILE_COUNT += 1
         cls.SERUM_COMPOUNDS_COUNT = 13
@@ -341,6 +343,7 @@ class DataLoadingTests(TracebaseTestCase):
             accucor_file="DataRepo/data/examples/obob_maven_6eaas_inf_corrected.csv",
             date="2021-10-14",
             researcher="Michael Neinast",
+            sample_table_filename="DataRepo/data/examples/obob_samples_table.tsv",
         )
         cls.PEAK_ANNOTATION_FILE_COUNT += 1
         cls.NULL_ORIG_COMPOUNDS_COUNT = 7
@@ -541,6 +544,7 @@ class DataLoadingTests(TracebaseTestCase):
                 accucor_file="DataRepo/data/examples/obob_maven_6eaas_inf_sample_dupe.xlsx",
                 date="2021-08-20",
                 researcher="Michael",
+                sample_table_filename="DataRepo/data/examples/obob_samples_table.tsv",
             )
 
     def test_dupe_samples_not_loaded(self):
@@ -556,6 +560,7 @@ class DataLoadingTests(TracebaseTestCase):
             date="2021-04-30",
             researcher="Michael Neinast",
             new_researcher=False,
+            sample_table_filename="DataRepo/data/examples/obob_samples_table.tsv",
         )
         # Test that basically, no exception occurred
         self.assertTrue(True)
@@ -575,6 +580,7 @@ class DataLoadingTests(TracebaseTestCase):
                 accucor_file="DataRepo/data/examples/obob_maven_6eaas_inf_new_researcher_err2.xlsx",
                 date="2021-04-30",
                 researcher="Luke Skywalker",
+                sample_table_filename="DataRepo/data/examples/obob_samples_table.tsv",
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
@@ -597,6 +603,7 @@ class DataLoadingTests(TracebaseTestCase):
             date="2021-04-30",
             researcher="Luke Skywalker",
             new_researcher=True,
+            sample_table_filename="DataRepo/data/examples/obob_samples_table.tsv",
         )
         # Test that basically, no exception occurred
         self.assertTrue(True)
@@ -620,6 +627,7 @@ class DataLoadingTests(TracebaseTestCase):
                 date="2021-04-30",
                 researcher="Michael Neinast",
                 new_researcher=True,
+                sample_table_filename="DataRepo/data/examples/obob_samples_table.tsv",
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
@@ -695,6 +703,7 @@ class DataLoadingTests(TracebaseTestCase):
             accucor_file="DataRepo/data/examples/obob_maven_6eaas_inf_corrected_valid_syn.csv",
             date="2021-11-19",
             researcher="Michael Neinast",
+            sample_table_filename="DataRepo/data/examples/obob_samples_table.tsv",
         )
 
         self.assertTrue(
@@ -723,6 +732,7 @@ class DataLoadingTests(TracebaseTestCase):
                 accucor_file="DataRepo/data/examples/obob_maven_6eaas_inf_corrected_invalid_syn.csv",
                 date="2021-11-18",
                 researcher="Michael Neinast",
+                sample_table_filename="DataRepo/data/examples/obob_samples_table.tsv",
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
@@ -791,6 +801,7 @@ class PropertyTests(TracebaseTestCase):
             accucor_file="DataRepo/data/examples/obob_maven_6eaas_inf.xlsx",
             date="2021-04-29",
             researcher="Michael Neinast",
+            sample_table_filename="DataRepo/data/examples/obob_samples_table.tsv",
         )
         cls.ALL_PEAK_ANNOTATION_FILE_COUNT = 1
         cls.INF_COMPOUNDS_COUNT = 7
@@ -804,6 +815,7 @@ class PropertyTests(TracebaseTestCase):
             accucor_file="DataRepo/data/examples/obob_maven_6eaas_serum.xlsx",
             date="2021-04-29",
             researcher="Michael Neinast",
+            sample_table_filename="DataRepo/data/examples/serum_lactate_timecourse_treatment.tsv",
         )
         cls.ALL_PEAK_ANNOTATION_FILE_COUNT += 1
         cls.SERUM_COMPOUNDS_COUNT = 13
@@ -818,6 +830,7 @@ class PropertyTests(TracebaseTestCase):
             accucor_file="DataRepo/data/examples/obob_maven_6eaas_inf_corrected.csv",
             date="2021-10-14",
             researcher="Michael Neinast",
+            sample_table_filename="DataRepo/data/examples/serum_lactate_timecourse_treatment.tsv",
         )
         cls.ALL_PEAK_ANNOTATION_FILE_COUNT += 1
         cls.NULL_ORIG_COMPOUNDS_COUNT = 7
@@ -1487,9 +1500,7 @@ class MultiTracerLabelPropertyTests(TracebaseTestCase):
         )
         call_command(
             "load_animals_and_samples",
-            animal_and_sample_table_filename=(
-                "DataRepo/data/tests/multiple_labels/animal_sample_table.xlsx"
-            ),
+            animal_and_sample_table_filename="DataRepo/data/tests/multiple_labels/animal_sample_table.xlsx",
             skip_researcher_check=True,
         )
         call_command(
@@ -1501,6 +1512,7 @@ class MultiTracerLabelPropertyTests(TracebaseTestCase):
             researcher="Xianfeng Zeng",
             new_researcher=False,
             isocorr_format=True,
+            sample_table_filename="DataRepo/data/tests/multiple_labels/animal_sample_table.xlsx",
         )
 
         super().setUpTestData()
@@ -1589,6 +1601,7 @@ class TracerRateTests(TracebaseTestCase):
             accucor_file="DataRepo/data/examples/obob_maven_c160_serum.xlsx",
             date="2021-04-29",
             researcher="Xianfeng Zeng",
+            sample_table_filename="DataRepo/data/examples/obob_samples_table.tsv",
         )
 
         # defining a primary animal object for repeated tests
@@ -2524,6 +2537,7 @@ class ParseIsotopeLabelTests(TracebaseTestCase):
                 accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_dupes.xlsx",
                 date="2021-06-03",
                 researcher="Xianfeng Zeng",
+                sample_table_filename="DataRepo/data/tests/small_obob/small_obob_sample_table.tsv",
             )
         aes = ar.exception
         aes.print_summary()

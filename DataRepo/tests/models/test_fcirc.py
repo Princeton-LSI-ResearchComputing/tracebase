@@ -59,6 +59,7 @@ class FCircTests(TracebaseTestCase):
             date="2021-06-03",
             researcher="Michael Neinast",
             new_researcher=True,
+            animal_and_sample_table_filename="DataRepo/data/tests/small_obob/small_obob_sample_table_serum_only.tsv",
         )
 
         # Get an animal (assuming it has an infusate/tracers/etc)
