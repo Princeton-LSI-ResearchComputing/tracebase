@@ -4,7 +4,7 @@ protocols: "small_obob_protocols.tsv"
 animals_samples_treatments:
   table: "small_obob_animal_and_sample_table.xlsx"
 lcms_metadata:
-  lcms_metadata_file: "lcms_metadata/glucose.tsv"
+  lcms_metadata_file: "../small_obob_lcms_metadata/glucose.tsv"
 accucor_data:
   accucor_files:
     - name: "small_obob_maven_6eaas_inf_glucose.xlsx"

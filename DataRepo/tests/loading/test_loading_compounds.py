@@ -25,7 +25,7 @@ class LoadCompoundsTests(TracebaseTestCase):
 
     @classmethod
     def setUpTestData(cls):
-        call_command("load_study", "DataRepo/data/examples/tissues/loading.yaml")
+        call_command("load_study", "DataRepo/data/tests/tissues/loading.yaml")
         super().setUpTestData()
 
     def test_compound_loading(self):
@@ -55,10 +55,10 @@ class CompoundLoadingTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
         primary_compound_file = (
-            "DataRepo/data/examples/consolidated_tracebase_compound_list.tsv"
+            "DataRepo/data/tests/compounds/consolidated_tracebase_compound_list.tsv"
         )
 
-        call_command("load_study", "DataRepo/data/examples/tissues/loading.yaml")
+        call_command("load_study", "DataRepo/data/tests/tissues/loading.yaml")
         try:
             call_command(
                 "load_compounds",
@@ -354,10 +354,10 @@ class CompoundsLoaderTests(TracebaseTestCase):
 class CompoundValidationLoadingTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
-        call_command("load_study", "DataRepo/data/examples/tissues/loading.yaml")
+        call_command("load_study", "DataRepo/data/tests/tissues/loading.yaml")
         call_command(
             "load_compounds",
-            compounds="DataRepo/data/examples/consolidated_tracebase_compound_list.tsv",
+            compounds="DataRepo/data/tests/compounds/consolidated_tracebase_compound_list.tsv",
             dry_run=True,
             verbosity=0,
         )

@@ -52,7 +52,7 @@ class ViewTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls, disabled_coordinator=False):
         call_command("loaddata", "lc_methods")
-        call_command("load_study", "DataRepo/data/examples/tissues/loading.yaml")
+        call_command("load_study", "DataRepo/data/tests/tissues/loading.yaml")
         cls.ALL_TISSUES_COUNT = 37
 
         call_command(
@@ -69,7 +69,7 @@ class ViewTests(TracebaseTestCase):
         call_command(
             "load_samples",
             "DataRepo/data/tests/small_obob/small_obob_sample_table.tsv",
-            sample_table_headers="DataRepo/data/examples/sample_table_headers.yaml",
+            sample_table_headers="DataRepo/data/tests/small_obob2/sample_table_headers.yaml",
         )
         # not counting the header and BLANK samples
         cls.ALL_SAMPLES_COUNT = 15
@@ -646,10 +646,10 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         assert_coordinator_state_is_initialized()
 
         call_command("loaddata", "lc_methods")
-        call_command("load_study", "DataRepo/data/examples/tissues/loading.yaml")
+        call_command("load_study", "DataRepo/data/tests/tissues/loading.yaml")
         call_command(
             "load_compounds",
-            compounds="DataRepo/data/examples/consolidated_tracebase_compound_list.tsv",
+            compounds="DataRepo/data/tests/compounds/consolidated_tracebase_compound_list.tsv",
         )
 
     @classmethod
@@ -693,10 +693,10 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         """
         # Load the necessary records for a successful test
         call_command("loaddata", "lc_methods")
-        call_command("load_study", "DataRepo/data/examples/tissues/loading.yaml")
+        call_command("load_study", "DataRepo/data/tests/tissues/loading.yaml")
         call_command(
             "load_compounds",
-            compounds="DataRepo/data/examples/consolidated_tracebase_compound_list.tsv",
+            compounds="DataRepo/data/tests/compounds/consolidated_tracebase_compound_list.tsv",
         )
 
         # Files/inputs we will test
@@ -741,7 +741,7 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         call_command(
             "load_samples",
             "DataRepo/data/tests/small_obob/small_obob_sample_table.tsv",
-            sample_table_headers="DataRepo/data/examples/sample_table_headers.yaml",
+            sample_table_headers="DataRepo/data/tests/small_obob2/sample_table_headers.yaml",
             validate=True,
         )
         call_command(
@@ -865,7 +865,7 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         Test to ensure that tissues load in both databases by default
         """
         self.clear_database()
-        call_command("load_study", "DataRepo/data/examples/tissues/loading.yaml")
+        call_command("load_study", "DataRepo/data/tests/tissues/loading.yaml")
         self.assertGreater(Tissue.objects.all().count(), 0)
 
     @override_settings(VALIDATION_ENABLED=False)

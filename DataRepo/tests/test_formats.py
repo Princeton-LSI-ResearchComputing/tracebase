@@ -39,7 +39,7 @@ class FormatsTests(TracebaseTestCase):
     @MaintainedModel.no_autoupdates()
     def setUpTestData(cls):
         call_command("loaddata", "lc_methods")
-        call_command("load_study", "DataRepo/data/examples/tissues/loading.yaml")
+        call_command("load_study", "DataRepo/data/tests/tissues/loading.yaml")
         call_command(
             "load_compounds",
             compounds="DataRepo/data/tests/small_obob/small_obob_compounds.tsv",
@@ -47,12 +47,12 @@ class FormatsTests(TracebaseTestCase):
         call_command(
             "load_samples",
             "DataRepo/data/tests/small_obob/small_obob_sample_table.tsv",
-            sample_table_headers="DataRepo/data/examples/sample_table_headers.yaml",
+            sample_table_headers="DataRepo/data/tests/small_obob2/sample_table_headers.yaml",
         )
         call_command(
             "load_samples",
             "DataRepo/data/tests/small_obob/small_obob_sample_table_2ndstudy.tsv",
-            sample_table_headers="DataRepo/data/examples/sample_table_headers.yaml",
+            sample_table_headers="DataRepo/data/tests/small_obob2/sample_table_headers.yaml",
         )
         call_command(
             "load_accucor_msruns",
@@ -1319,7 +1319,7 @@ class FormatsTests(TracebaseTestCase):
         # Make sure there are multiple tracers
         call_command(
             "load_compounds",
-            compounds="DataRepo/data/examples/consolidated_tracebase_compound_list.tsv",
+            compounds="DataRepo/data/tests/compounds/consolidated_tracebase_compound_list.tsv",
             verbosity=2,
         )
         call_command(

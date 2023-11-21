@@ -101,7 +101,7 @@ class ProtocolLoadingTests(TracebaseTestCase):
         """Test loading the protocols from a TSV containing previously loaded data"""
         call_command(
             "load_protocols",
-            protocols="DataRepo/data/examples/protocols/protocols.tsv",
+            protocols="DataRepo/data/tests/protocols/protocols.tsv",
         )
         self.assertEqual(Protocol.objects.count(), 8)
         # all of these were animal treatments
