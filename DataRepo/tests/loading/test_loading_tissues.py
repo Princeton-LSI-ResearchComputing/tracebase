@@ -20,7 +20,7 @@ class TissueLoadingTests(TracebaseTestCase):
         """Test the load_tissue management command"""
         call_command(
             "load_tissues",
-            tissues="DataRepo/data/examples/tissues/tissues.tsv",
+            tissues="DataRepo/data/tests/tissues/tissues.tsv",
         )
         self.assertEqual(Tissue.objects.count(), 37)
 
@@ -28,7 +28,7 @@ class TissueLoadingTests(TracebaseTestCase):
         """Test dry run of the load_tissue management command"""
         call_command(
             "load_tissues",
-            tissues="DataRepo/data/examples/tissues/tissues.tsv",
+            tissues="DataRepo/data/tests/tissues/tissues.tsv",
             dry_run=True,
         )
         # Dry run should not load any records

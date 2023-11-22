@@ -124,7 +124,7 @@ class AutoupdateLoadingTests(TracebaseTestCase):
             call_command(
                 "load_samples",
                 "DataRepo/data/tests/small_obob/small_obob_sample_table.tsv",
-                sample_table_headers="DataRepo/data/examples/sample_table_headers.yaml",
+                sample_table_headers="DataRepo/data/tests/small_obob2/sample_table_headers.yaml",
                 defer_autoupdates=True,
             )
 

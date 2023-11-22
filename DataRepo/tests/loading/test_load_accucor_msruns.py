@@ -459,17 +459,17 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
         call_command("loaddata", "lc_methods")
         call_command(
             "load_study",
-            "DataRepo/data/examples/protocols/loading.yaml",
+            "DataRepo/data/tests/protocols/loading.yaml",
             verbosity=2,
         )
         call_command(
             "load_study",
-            "DataRepo/data/examples/tissues/loading.yaml",
+            "DataRepo/data/tests/tissues/loading.yaml",
             verbosity=2,
         )
         call_command(
             "load_compounds",
-            compounds="DataRepo/data/examples/consolidated_tracebase_compound_list.tsv",
+            compounds="DataRepo/data/tests/compounds/consolidated_tracebase_compound_list.tsv",
             verbosity=2,
         )
 

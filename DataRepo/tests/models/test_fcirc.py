@@ -42,7 +42,7 @@ class FCircTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
         call_command("loaddata", "lc_methods")
-        call_command("load_study", "DataRepo/data/examples/tissues/loading.yaml")
+        call_command("load_study", "DataRepo/data/tests/tissues/loading.yaml")
         call_command(
             "load_compounds",
             compounds="DataRepo/data/tests/small_obob/small_obob_compounds.tsv",
@@ -50,7 +50,7 @@ class FCircTests(TracebaseTestCase):
         call_command(
             "load_samples",
             "DataRepo/data/tests/small_obob/small_obob_sample_table_serum_only.tsv",
-            sample_table_headers="DataRepo/data/examples/sample_table_headers.yaml",
+            sample_table_headers="DataRepo/data/tests/small_obob2/sample_table_headers.yaml",
         )
         call_command(
             "load_accucor_msruns",

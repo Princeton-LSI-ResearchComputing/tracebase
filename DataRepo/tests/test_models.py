@@ -270,15 +270,15 @@ class DataLoadingTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
         call_command("loaddata", "lc_methods")
-        call_command("load_study", "DataRepo/data/examples/protocols/loading.yaml")
+        call_command("load_study", "DataRepo/data/tests/protocols/loading.yaml")
         call_command(
             "load_protocols",
-            protocols="DataRepo/data/examples/protocols/T3_protocol.tsv",
+            protocols="DataRepo/data/tests/protocols/T3_protocol.tsv",
         )
-        call_command("load_study", "DataRepo/data/examples/tissues/loading.yaml")
+        call_command("load_study", "DataRepo/data/tests/tissues/loading.yaml")
         call_command(
             "load_compounds",
-            compounds="DataRepo/data/examples/consolidated_tracebase_compound_list.tsv",
+            compounds="DataRepo/data/tests/compounds/consolidated_tracebase_compound_list.tsv",
         )
         cls.ALL_COMPOUNDS_COUNT = 51
 
@@ -289,12 +289,12 @@ class DataLoadingTests(TracebaseTestCase):
 
         call_command(
             "load_animals_and_samples",
-            sample_table_filename="DataRepo/data/examples/obob_samples_table.tsv",
-            animal_table_filename="DataRepo/data/examples/obob_animals_table.tsv",
-            table_headers="DataRepo/data/examples/sample_and_animal_tables_headers.yaml",
+            sample_table_filename="DataRepo/data/tests/small_obob2/obob_samples_table.tsv",
+            animal_table_filename="DataRepo/data/tests/small_obob2/obob_animals_table.tsv",
+            table_headers="DataRepo/data/tests/small_obob2/sample_and_animal_tables_headers.yaml",
         )
 
-        # from DataRepo/data/examples/obob_sample_table.tsv, not counting the header and BLANK samples
+        # from DataRepo/data/tests/small_obob2/obob_sample_table.tsv, not counting the header and BLANK samples
         cls.ALL_SAMPLES_COUNT += 106
         # not counting the header and the BLANK animal
         cls.ALL_OBOB_ANIMALS_COUNT = 7
@@ -303,11 +303,11 @@ class DataLoadingTests(TracebaseTestCase):
 
         call_command(
             "load_samples",
-            "DataRepo/data/examples/serum_lactate_timecourse_treatment.tsv",
-            sample_table_headers="DataRepo/data/examples/sample_table_headers.yaml",
+            "DataRepo/data/tests/small_obob2/serum_lactate_timecourse_treatment.tsv",
+            sample_table_headers="DataRepo/data/tests/small_obob2/sample_table_headers.yaml",
             skip_researcher_check=True,
         )
-        # from DataRepo/data/examples/serum_lactate_timecourse_treatment.tsv, not counting the header
+        # from DataRepo/data/tests/small_obob2/serum_lactate_timecourse_treatment.tsv, not counting the header
         cls.ALL_SAMPLES_COUNT += 24
         # not counting the header
         cls.ALL_ANIMALS_COUNT += 5
@@ -317,7 +317,7 @@ class DataLoadingTests(TracebaseTestCase):
             "load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
-            accucor_file="DataRepo/data/examples/obob_maven_6eaas_inf.xlsx",
+            accucor_file="DataRepo/data/tests/small_obob2/obob_maven_6eaas_inf.xlsx",
             date="2021-04-29",
             researcher="Michael Neinast",
         )
@@ -330,7 +330,7 @@ class DataLoadingTests(TracebaseTestCase):
             "load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
-            accucor_file="DataRepo/data/examples/obob_maven_6eaas_serum.xlsx",
+            accucor_file="DataRepo/data/tests/small_obob2/obob_maven_6eaas_serum.xlsx",
             date="2021-04-29",
             researcher="Michael Neinast",
         )
@@ -344,7 +344,7 @@ class DataLoadingTests(TracebaseTestCase):
             "load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
-            accucor_file="DataRepo/data/examples/obob_maven_6eaas_inf_corrected.csv",
+            accucor_file="DataRepo/data/tests/small_obob2/obob_maven_6eaas_inf_corrected.csv",
             date="2021-10-14",
             researcher="Michael Neinast",
         )
@@ -544,7 +544,7 @@ class DataLoadingTests(TracebaseTestCase):
                 "load_accucor_msruns",
                 lc_protocol_name="polar-HILIC-25-min",
                 instrument="default instrument",
-                accucor_file="DataRepo/data/examples/obob_maven_6eaas_inf_sample_dupe.xlsx",
+                accucor_file="DataRepo/data/tests/small_obob2/obob_maven_6eaas_inf_sample_dupe.xlsx",
                 date="2021-08-20",
                 researcher="Michael",
             )
@@ -558,7 +558,7 @@ class DataLoadingTests(TracebaseTestCase):
             "load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
-            accucor_file="DataRepo/data/examples/obob_maven_6eaas_inf_new_researcher_err.xlsx",
+            accucor_file="DataRepo/data/tests/small_obob2/obob_maven_6eaas_inf_new_researcher_err.xlsx",
             date="2021-04-30",
             researcher="Michael Neinast",
             new_researcher=False,
@@ -578,7 +578,7 @@ class DataLoadingTests(TracebaseTestCase):
                 "load_accucor_msruns",
                 lc_protocol_name="polar-HILIC-25-min",
                 instrument="default instrument",
-                accucor_file="DataRepo/data/examples/obob_maven_6eaas_inf_new_researcher_err2.xlsx",
+                accucor_file="DataRepo/data/tests/small_obob2/obob_maven_6eaas_inf_new_researcher_err2.xlsx",
                 date="2021-04-30",
                 researcher="Luke Skywalker",
             )
@@ -599,7 +599,7 @@ class DataLoadingTests(TracebaseTestCase):
             "load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
-            accucor_file="DataRepo/data/examples/obob_maven_6eaas_inf_new_researcher_err2.xlsx",
+            accucor_file="DataRepo/data/tests/small_obob2/obob_maven_6eaas_inf_new_researcher_err2.xlsx",
             date="2021-04-30",
             researcher="Luke Skywalker",
             new_researcher=True,
@@ -622,7 +622,7 @@ class DataLoadingTests(TracebaseTestCase):
                 "load_accucor_msruns",
                 lc_protocol_name="polar-HILIC-25-min",
                 instrument="default instrument",
-                accucor_file="DataRepo/data/examples/obob_maven_6eaas_inf_new_researcher_err2.xlsx",
+                accucor_file="DataRepo/data/tests/small_obob2/obob_maven_6eaas_inf_new_researcher_err2.xlsx",
                 date="2021-04-30",
                 researcher="Michael Neinast",
                 new_researcher=True,
@@ -645,8 +645,8 @@ class DataLoadingTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_samples",
-                "DataRepo/data/examples/serum_lactate_timecourse_treatment_new_researcher.tsv",
-                sample_table_headers="DataRepo/data/examples/sample_table_headers.yaml",
+                "DataRepo/data/tests/small_obob2/serum_lactate_timecourse_treatment_new_researcher.tsv",
+                sample_table_headers="DataRepo/data/tests/small_obob2/sample_table_headers.yaml",
             )
         aes = ar.exception
         ures = [e for e in aes.exceptions if isinstance(e, UnknownResearcherError)]
@@ -663,8 +663,8 @@ class DataLoadingTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_samples",
-                "DataRepo/data/examples/serum_lactate_timecourse_treatment_new_researcher.tsv",
-                sample_table_headers="DataRepo/data/examples/sample_table_headers.yaml",
+                "DataRepo/data/tests/small_obob2/serum_lactate_timecourse_treatment_new_researcher.tsv",
+                sample_table_headers="DataRepo/data/tests/small_obob2/sample_table_headers.yaml",
                 skip_researcher_check=True,
             )
         aes = ar.exception
@@ -698,7 +698,7 @@ class DataLoadingTests(TracebaseTestCase):
             "load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
-            accucor_file="DataRepo/data/examples/obob_maven_6eaas_inf_corrected_valid_syn.csv",
+            accucor_file="DataRepo/data/tests/small_obob2/obob_maven_6eaas_inf_corrected_valid_syn.csv",
             date="2021-11-19",
             researcher="Michael Neinast",
         )
@@ -726,7 +726,7 @@ class DataLoadingTests(TracebaseTestCase):
                 "load_accucor_msruns",
                 lc_protocol_name="polar-HILIC-25-min",
                 instrument="default instrument",
-                accucor_file="DataRepo/data/examples/obob_maven_6eaas_inf_corrected_invalid_syn.csv",
+                accucor_file="DataRepo/data/tests/small_obob2/obob_maven_6eaas_inf_corrected_invalid_syn.csv",
                 date="2021-11-18",
                 researcher="Michael Neinast",
             )
@@ -755,7 +755,7 @@ class PropertyTests(TracebaseTestCase):
         )
         call_command(
             "load_protocols",
-            protocols="DataRepo/data/examples/protocols/T3_protocol.tsv",
+            protocols="DataRepo/data/tests/protocols/T3_protocol.tsv",
         )
         cls.ALL_COMPOUNDS_COUNT = 47
 
@@ -766,12 +766,12 @@ class PropertyTests(TracebaseTestCase):
 
         call_command(
             "load_animals_and_samples",
-            sample_table_filename="DataRepo/data/examples/obob_samples_table.tsv",
-            animal_table_filename="DataRepo/data/examples/obob_animals_table.tsv",
-            table_headers="DataRepo/data/examples/sample_and_animal_tables_headers.yaml",
+            sample_table_filename="DataRepo/data/tests/small_obob2/obob_samples_table.tsv",
+            animal_table_filename="DataRepo/data/tests/small_obob2/obob_animals_table.tsv",
+            table_headers="DataRepo/data/tests/small_obob2/sample_and_animal_tables_headers.yaml",
         )
 
-        # from DataRepo/data/examples/obob_sample_table.tsv, not counting the header and BLANK samples
+        # from DataRepo/data/tests/small_obob2/obob_sample_table.tsv, not counting the header and BLANK samples
         cls.ALL_SAMPLES_COUNT += 106
         # not counting the header and the BLANK animal
         cls.ALL_OBOB_ANIMALS_COUNT = 7
@@ -780,11 +780,11 @@ class PropertyTests(TracebaseTestCase):
 
         call_command(
             "load_samples",
-            "DataRepo/data/examples/serum_lactate_timecourse_treatment.tsv",
-            sample_table_headers="DataRepo/data/examples/sample_table_headers.yaml",
+            "DataRepo/data/tests/small_obob2/serum_lactate_timecourse_treatment.tsv",
+            sample_table_headers="DataRepo/data/tests/small_obob2/sample_table_headers.yaml",
             skip_researcher_check=True,
         )
-        # from DataRepo/data/examples/serum_lactate_timecourse_treatment.tsv, not counting the header
+        # from DataRepo/data/tests/small_obob2/serum_lactate_timecourse_treatment.tsv, not counting the header
         cls.ALL_SAMPLES_COUNT += 24
         # not counting the header
         cls.ALL_ANIMALS_COUNT += 5
@@ -794,7 +794,7 @@ class PropertyTests(TracebaseTestCase):
             "load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
-            accucor_file="DataRepo/data/examples/obob_maven_6eaas_inf.xlsx",
+            accucor_file="DataRepo/data/tests/small_obob2/obob_maven_6eaas_inf.xlsx",
             date="2021-04-29",
             researcher="Michael Neinast",
         )
@@ -807,7 +807,7 @@ class PropertyTests(TracebaseTestCase):
             "load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
-            accucor_file="DataRepo/data/examples/obob_maven_6eaas_serum.xlsx",
+            accucor_file="DataRepo/data/tests/small_obob2/obob_maven_6eaas_serum.xlsx",
             date="2021-04-29",
             researcher="Michael Neinast",
         )
@@ -821,7 +821,7 @@ class PropertyTests(TracebaseTestCase):
             "load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
-            accucor_file="DataRepo/data/examples/obob_maven_6eaas_inf_corrected.csv",
+            accucor_file="DataRepo/data/tests/small_obob2/obob_maven_6eaas_inf_corrected.csv",
             date="2021-10-14",
             researcher="Michael Neinast",
         )
@@ -1584,17 +1584,17 @@ class TracerRateTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
         call_command("loaddata", "lc_methods")
-        call_command("load_study", "DataRepo/data/examples/tissues/loading.yaml")
+        call_command("load_study", "DataRepo/data/tests/tissues/loading.yaml")
         call_command(
             "load_compounds",
-            compounds="DataRepo/data/examples/consolidated_tracebase_compound_list.tsv",
+            compounds="DataRepo/data/tests/compounds/consolidated_tracebase_compound_list.tsv",
         )
 
         call_command(
             "load_animals_and_samples",
-            sample_table_filename="DataRepo/data/examples/obob_samples_table.tsv",
-            animal_table_filename="DataRepo/data/examples/obob_animals_table.tsv",
-            table_headers="DataRepo/data/examples/sample_and_animal_tables_headers.yaml",
+            sample_table_filename="DataRepo/data/tests/small_obob2/obob_samples_table.tsv",
+            animal_table_filename="DataRepo/data/tests/small_obob2/obob_animals_table.tsv",
+            table_headers="DataRepo/data/tests/small_obob2/sample_and_animal_tables_headers.yaml",
         )
 
         # for the fcirc and rate-calculation tests
@@ -1602,7 +1602,7 @@ class TracerRateTests(TracebaseTestCase):
             "load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
             instrument="default instrument",
-            accucor_file="DataRepo/data/examples/obob_maven_c160_serum.xlsx",
+            accucor_file="DataRepo/data/tests/small_obob2/obob_maven_c160_serum.xlsx",
             date="2021-04-29",
             researcher="Xianfeng Zeng",
         )
@@ -2137,7 +2137,7 @@ class StudyLoadingTests(TracebaseTestCase):
     @MaintainedModel.no_autoupdates()
     def setUpTestData(cls):
         call_command("loaddata", "lc_methods")
-        call_command("load_study", "DataRepo/data/examples/tissues/loading.yaml")
+        call_command("load_study", "DataRepo/data/tests/tissues/loading.yaml")
         call_command(
             "load_study",
             "DataRepo/data/tests/small_obob/small_obob_study_params.yaml",
@@ -2414,7 +2414,7 @@ class StudyLoadingTests(TracebaseTestCase):
     def test_singly_labeled_isocorr_study(self):
         call_command(
             "load_study",
-            "DataRepo/data/examples/AsaelR_13C-Valine+PI3Ki_flank-KPC_2021-12_isocorr_CN-corrected/loading.yaml",
+            "DataRepo/data/tests/singly_labeled_isocorr/loading.yaml",
             verbosity=2,
         )
 
@@ -2448,7 +2448,7 @@ class ParseIsotopeLabelTests(TracebaseTestCase):
         call_command(
             "load_samples",
             "DataRepo/data/tests/small_obob/small_obob_sample_table.tsv",
-            sample_table_headers="DataRepo/data/examples/sample_table_headers.yaml",
+            sample_table_headers="DataRepo/data/tests/small_obob2/sample_table_headers.yaml",
         )
 
         super().setUpTestData()
@@ -2574,11 +2574,11 @@ class AnimalLoadingTests(TracebaseTestCase):
     @MaintainedModel.no_autoupdates()
     def setUpTestData(cls):
         call_command("loaddata", "lc_methods")
-        call_command("load_study", "DataRepo/data/examples/protocols/loading.yaml")
-        call_command("load_study", "DataRepo/data/examples/tissues/loading.yaml")
+        call_command("load_study", "DataRepo/data/tests/protocols/loading.yaml")
+        call_command("load_study", "DataRepo/data/tests/tissues/loading.yaml")
         call_command(
             "load_compounds",
-            compounds="DataRepo/data/examples/consolidated_tracebase_compound_list.tsv",
+            compounds="DataRepo/data/tests/compounds/consolidated_tracebase_compound_list.tsv",
         )
 
         super().setUpTestData()
