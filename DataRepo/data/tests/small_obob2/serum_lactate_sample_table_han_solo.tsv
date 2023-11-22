@@ -1,0 +1,6 @@
+Sample Name	Date Collected	Researcher Name	Tissue	Time Collected	Animal ID	Animal Genotype	Animal Body Weight	Animal Treatment	Infusate	Infusion Rate	Infusate Concentrations	Animal State	Experiment Name	Notes
+exp024f_M2_0	210421	Han Solo	serum_plasma_unspecified_location	0	exp024f_M2	C57/bl6	28	T3	lactate-[13C3]	0.3	148.88	fasted	exp024_michael lactate timecourse	all serum is arterial serum, and infusion included a priming phase
+exp024f_M2_1dot5	210421	Han Solo	serum_plasma_unspecified_location	1.5	exp024f_M2	C57/bl6	28	T3	lactate-[13C3]	0.3	148.88	fasted	exp024_michael lactate timecourse	all serum is arterial serum, and infusion included a priming phase
+exp024f_M2_3	210421	Han Solo	serum_plasma_unspecified_location	3	exp024f_M2	C57/bl6	28	T3	lactate-[13C3]	0.3	148.88	fasted	exp024_michael lactate timecourse	all serum is arterial serum, and infusion included a priming phase
+exp024f_M2_10	210421	Han Solo	serum_plasma_unspecified_location	10	exp024f_M2	C57/bl6	28	T3	lactate-[13C3]	0.3	148.88	fasted	exp024_michael lactate timecourse	all serum is arterial serum, and infusion included a priming phase
+exp024f_M2_30	210421	Han Solo	serum_plasma_unspecified_location	30	exp024f_M2	C57/bl6	28	T3	lactate-[13C3]	0.3	148.88	fasted	exp024_michael lactate timecourse	all serum is arterial serum, and infusion included a priming phase
