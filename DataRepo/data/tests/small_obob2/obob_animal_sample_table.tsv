@@ -6,3 +6,6 @@ serum-xz971	11/19/20	Xianfeng Zeng	serum_plasma_unspecified_location	150	971	WT	
 serum-xz972	11/19/20	Xianfeng Zeng	serum_plasma_unspecified_location	150	972	WT	25.6	lysine-[13C6]	0.12	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
 serum-xz981	12/04/20	Xianfeng Zeng	serum_plasma_unspecified_location	150	981	ob/ob	48.8	lysine-[13C6]	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
 serum-xz982	12/04/20	Xianfeng Zeng	serum_plasma_unspecified_location	150	982	ob/ob	50.2	lysine-[13C6]	0.06	23.2	Fasted	obob_fasted	Infusion was actually 6 labeled tracers:  Histidine, Lysine, Methionine, Phenylalanine, Threonine, Tryptophan
+serum-xz969	11/18/20	Xianfeng Zeng	serum_plasma_unspecified_location	150	969	WT	27.2	C16:0-[13C16]	0.55	8	Fasted	obob_fasted	
+serum-xz970	11/19/20	Xianfeng Zeng	serum_plasma_unspecified_location	150	970	WT	26.8	C16:0-[13C16]	0.56	8	Fasted	obob_fasted	
+serum-xz979	12/02/20	Xianfeng Zeng	serum_plasma_unspecified_location	150	979	ob/ob	53.6	C16:0-[13C16]	0.37	8.8	Fasted	obob_fasted	

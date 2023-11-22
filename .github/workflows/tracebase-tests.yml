@@ -68,7 +68,7 @@ jobs:
       - name: Load example sample table
         run: |
           python manage.py load_samples \
-            "DataRepo/data/tests/small_obob2/obob_animal_sample_table.tsv"
+          "DataRepo/data/tests/small_obob2/obob_animal_sample_table.tsv"
       - name: Load example accucor 6eaas data
         run: |
           python manage.py load_accucor_msruns \
