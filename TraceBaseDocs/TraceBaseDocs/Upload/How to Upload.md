@@ -18,10 +18,15 @@ you initially submit for upload.
 [Copy](https://docs.google.com/spreadsheets/d/1To3495KxJkAtnAD9KVdzc162zKbNiYuPEVyPseQPjMQ/copy?copyComments=true)
 the TraceBase Animal and Sample Table Template.
    1. Fill in the `Animals` sheet. Give each mouse in your study a unique ID.
-   2. Fill in the `Samples` sheet. Ensure that each `Sample Name` matches the
-      sample names in your AccuCor/Isocorr files. If you have a Tissue that is
-      not included in the existing list, please label it as you would like to
-      in the `Tissues` sheet and tell the developer you have a new Tissue.
+   2. Fill in the `Samples` sheet.
+      - Ensure that each `Sample Name` uniquely represents a true biological
+        sample. If a sample name does not match the sample headers in your
+        AccuCor/Isocorr files (e.g. a sample tube was injected multiple times),
+        you must add those non-matching samples to an
+        [LCMS-metadata file](https://docs.google.com/spreadsheets/d/1rfKOGqms8LPeqORO5gyTXLXDU2lvz-CG2aCEwmu8xHw/copy)
+      - If you have a Tissue that is not included in the existing list, please
+        label it as you would like to in the `Tissues` sheet and tell the
+        developer you have a new Tissue.
    3. Fill in Treatments sheet (optional) with any treatments not captured by
       other columns (ie `Diet`).  Use `no treatment` if applicable. Provide a
       list of treatments used in the study, along with a description of each.
@@ -36,15 +41,18 @@ the TraceBase Animal and Sample Table Template.
       on Google Drive
    2. Create a folder with your name (if it doesn't already exist).
    3. Create a new folder for this study.
-   4. Copy the Animal and Sample spread sheet and any AccuCor files that should
-      be included in the study
+   4. Add the Animal and Sample spread sheet, AccuCor/IsoCorr files, and the
+      conditionally required LCMS-metadata file to the study folder
 
 3. Submit the [TraceBase Study Submission
    form](https://forms.gle/vEfJEfhPbCbkybpE7).  Complete the following:
    1. Study Name
    2. Link to Google Drive folder with study submission.
    3. Mass Spectrometry Details (see [[How to label Mass Spec Run
-      Information]])
+      Information]]).  Note, the LCMS-metadata file can be used to denote
+      multiple different operators, dates, methods, etc. The values entered into
+      the submission form are used as defaults for any samples that are not
+      included in the file.
 
 What happens next?
 

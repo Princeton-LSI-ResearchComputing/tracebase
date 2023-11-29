@@ -13,23 +13,23 @@ A description of each field is listed here:
 
 - Researcher who prepared samples for MS and ran them on the machine
 
-## LC Method(s)
+## LC Method
 
-- Description of Liquid Chromatography method and run length used
+- Name of the Liquid Chromatography method used
 - Possible values:
   - unknown
   - polar-HILIC-25-min
   - polar-reversed-phase-ion-pairing-25-min
   - polar-reversed-phase-25-min
   - lipid-reversed-phase-25-min
-- If the method/run-length is not available, please also include a description
-  - Example Description: lipid-reversed-phase-25-min
-    This method involves the analysis of lipids using reversed-phase
-    chromatography on C18 columns, coupled with high resolution mass
-    spectrometry. It is mainly used for the analysis of lipids.
+- The submission form only takes predefined values. If the method is not
+  available among the options, select "Other" and enter a description that
+  includes the name and run length. Example:
+  - lipid-reversed-phase-25-min: This method involves the analysis of lipids
+    using reversed-phase chromatography on C18 columns, coupled with high
+    resolution mass spectrometry. It is mainly used for the analysis of lipids.
 
-## MS Mode(s)
+## Polarity
 
-- Description of Mass Spectrometry method used
-- General descriptions are adequate
-- Example  "negative" or "positive" or "negative SIM"
+- Ion mode used for the Mass Spectrometer
+  - Either  "negative" or "positive"

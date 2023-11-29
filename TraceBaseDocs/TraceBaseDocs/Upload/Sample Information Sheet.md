@@ -105,7 +105,8 @@ between their studies.
 
 ### Study Name
 
-An identifier for the “experiment” or collection of animals that this animal belongs to.
+An identifier for the “experiment” or collection of animals that this animal
+belongs to.
 
 ### Study Description
 
@@ -119,8 +120,12 @@ looking at the data from this study.
 
 ### Sample Name
 
-Unique identifier for the biological sample. Must match the name of a sample in
-Accucor or Isocorr data.
+Unique identifier for the biological sample. Generally, the sample names should
+match the sample headers in the AccuCor/IsoCorr files, but if a sample tube was
+injected multiple times, they can differ.  In that case, an
+[LCMS-metadata file](https://docs.google.com/spreadsheets/d/1rfKOGqms8LPeqORO5gyTXLXDU2lvz-CG2aCEwmu8xHw/copy)
+should be included in your submission to match the sample names in the database
+with the headers in the AccuCor/IsoCorr files.
 
 ### Date collected
 
