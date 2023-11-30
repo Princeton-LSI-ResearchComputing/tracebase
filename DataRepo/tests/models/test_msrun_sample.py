@@ -143,7 +143,7 @@ class MSRunSampleTests(TracebaseTestCase):
         exc = ar.exception
         self.assertIn("polarity", str(exc))
 
-    def make_bad_rec(self, fn, typ, fmt, raw=True):
+    def assert_archive_file_exception(self, fn, typ, fmt, raw=True):
         """
         Supply values that should cause the creation of an ArchiveFile record to produce an exception.  That exception
         will be returned.
@@ -176,27 +176,27 @@ class MSRunSampleTests(TracebaseTestCase):
     def test_bad_raw_type(self):
         mstype = DataType.objects.get(code="ms_peak_annotation")
         rawfmt = DataFormat.objects.get(code="ms_raw")
-        exc = self.make_bad_rec("test.raw", mstype, rawfmt)
+        exc = self.assert_archive_file_exception("test.raw", mstype, rawfmt)
         self.assertIn("ms_raw_file", str(exc))
         self.assertIn("data type", str(exc))
 
     def test_bad_raw_fmt(self):
         mstype = DataType.objects.get(code="ms_data")
         rawfmt = DataFormat.objects.get(code="accucor")
-        exc = self.make_bad_rec("test.raw", mstype, rawfmt)
+        exc = self.assert_archive_file_exception("test.raw", mstype, rawfmt)
         self.assertIn("ms_raw_file", str(exc))
         self.assertIn("data format", str(exc))
 
     def test_bad_mzx_type(self):
         mstype = DataType.objects.get(code="ms_peak_annotation")
         mzxfmt = DataFormat.objects.get(code="mzxml")
-        exc = self.make_bad_rec("test.mzxml", mstype, mzxfmt, False)
+        exc = self.assert_archive_file_exception("test.mzxml", mstype, mzxfmt, False)
         self.assertIn("ms_data_file", str(exc))
         self.assertIn("data type", str(exc))
 
     def test_bad_mzx_fmt(self):
         mstype = DataType.objects.get(code="ms_data")
         mzxfmt = DataFormat.objects.get(code="accucor")
-        exc = self.make_bad_rec("test.mzxml", mstype, mzxfmt, False)
+        exc = self.assert_archive_file_exception("test.mzxml", mstype, mzxfmt, False)
         self.assertIn("ms_data_file", str(exc))
         self.assertIn("data format", str(exc))
