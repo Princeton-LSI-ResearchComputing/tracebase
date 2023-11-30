@@ -62,5 +62,5 @@ author and/or reviewers should uncheck any unmet requirements:
   resolving the affected issue(s).
   -->
   - [x] [New/changed method tests implemented/updated *(or no change)*](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/CONTRIBUTING.md#test-implementation)
-  - [x] Added changes to *Unreleased* section of [`changelog.md`](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/changelog.md)
+  - [x] [Updated *Unreleased* section of `changelog.md` *(or no change)*](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/changelog.md)
   - [x] [Migrations created & committed *(or no change)*](https://github.com/Princeton-LSI-ResearchComputing/tracebase/blob/main/CONTRIBUTING.md#migration-process)
