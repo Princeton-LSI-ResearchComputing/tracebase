@@ -35,7 +35,7 @@ Age in weeks when the infusion started
 Most specific genotype possible.
 
 Check existing data on TraceBase for common genotypes.  If necessary, indicate
-genotype as “unknown” (e.g. if the animal is a mixed background wildtype).
+genotype as "unknown" (e.g. if the animal is a mixed background wildtype).
 
 ### Animal Body Weight
 
@@ -67,7 +67,7 @@ Mixtures of compounds are formatted: `tracer_mix_name {tracer; tracer}`
 Concentration(s) of infusate in this infusion solution (in mM)
 
 For multiple tracer compounds, list concentrations in the same order as in
-“infusate” separated by semicolons
+"infusate" separated by semicolons
 
 * Example: `5; 6; 9` to indicate 5 mM, 6 mM, 9 mM
 
@@ -93,7 +93,7 @@ Indicate the length of fasting/feeding in `Study Description`
 Short, unique identifier for animal treatment protocol.  Details are provided
 in the `Treatment Description` field on the `Treatments` sheet
 
-* Example:  “T3 in drinking water”
+* Example:  "T3 in drinking water"
 
 Default animal treatment is `no treatment`.
 
@@ -105,7 +105,8 @@ between their studies.
 
 ### Study Name
 
-An identifier for the “experiment” or collection of animals that this animal belongs to.
+An identifier for the "experiment" or collection of animals that this animal
+belongs to.
 
 ### Study Description
 
@@ -119,8 +120,12 @@ looking at the data from this study.
 
 ### Sample Name
 
-Unique identifier for the biological sample. Must match the name of a sample in
-Accucor or Isocorr data.
+Unique identifier for the biological sample. Generally, the sample names should
+match the sample headers in the AccuCor/IsoCorr files, but if a sample tube was
+injected multiple times, they can differ.  In that case, an
+[LCMS-metadata file](https://docs.google.com/spreadsheets/d/1rfKOGqms8LPeqORO5gyTXLXDU2lvz-CG2aCEwmu8xHw/copy)
+should be included in your submission to match the sample names in the database
+with the headers in the AccuCor/IsoCorr files.
 
 ### Date collected
 
@@ -155,7 +160,7 @@ Matches to the Animal ID that this sample was collected from.
 ### Animal Treatment
 
 * Short, unique identifier for animal treatment protocol.
-* Matches to the same value in “Samples” sheet.
+* Matches to the same value in "Samples" sheet.
 
 ### Treatment Description
 
