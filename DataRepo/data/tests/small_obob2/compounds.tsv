@@ -1,0 +1,21 @@
+Compound	Formula	HMDB ID	Synonyms
+3-hydroxybutyrate	C4H8O3	HMDB0000011	3HB;BHB;beta-hydryoxybutyric acid;beta-hydroxybutyrate;3-hydroxybutyric acid;3-HB;B-HB
+a-ketoglutarate	C5H6O5	HMDB0000208	2-ketoglutarate;2-ketoglutaric acid;alpha-ketoglutaric acid;a-ketoglutaric acid;oxoglutarate;2-oxoglutarate;2-oxoglutaric acid
+alanine	C3H7NO2	HMDB0000161	ala;L-alanine
+C16:0	C16H32O2	HMDB0000220	palmitate;PA;C16;C16 fatty acid;hexadecanoate;hexadecoic acid; palmitic acid
+C18:1	C18H34O2	HMDB0000207	cis-oleate;18:1 FA;cis-9-octadecenoic acid; oleic acid
+C18:2	C18H32O2	HMDB0000673	linoleate;LA;9,12-Octadecadienoic acid; linoleic acid
+citrate	C6H8O7	HMDB0000094	citric acid
+glucose	C6H12O6	HMDB0000122	dextrose;Glucose;D-Glucose
+glutamine	C5H10N2O3	HMDB0000641	gln
+histidine	C6H9N3O2	HMDB0000177	his
+isocitrate	C6H8O7	HMDB0000193	
+lactate	C3H6O3	HMDB0000190	lactic acid;2-hydroxypropanoate;2-hydroxypropanoic acid
+lysine	C6H14N2O2	HMDB0000182	lys
+malate	C4H6O5	HMDB0000156	malic acid;hydroxysuccinate;hydroxysuccinic acid
+pyruvate	C3H4O3	HMDB0000243	pyruvic acid;2-ketopropionic acid;2-oxopropanoic acid;2-oxopropanoate;2-ketopropionate
+succinate	C4H6O4	HMDB0000254	succinic acid
+tryptophan	C11H12N2O2	HMDB0000929	trp
+threonine	C4H9NO3	HMDB0000167	thr
+methionine	C5H11NO2S	HMDB0000696	met
+phenylalanine	C9H11NO2	HMDB0000159	phe
