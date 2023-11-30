@@ -47,14 +47,14 @@ First, select an output format ([[PeakGroups]], [[PeakData]], or [[Fcirc]]).
 
 Next, filter the sample information.  Note this is filtering from all the data
 in TraceBase.  In this example, PeakGroup data is filtered for all infusates
-including “glucose” and tissues including “serum”.  This produces a result with
+including "glucose" and tissues including "serum".  This produces a result with
 697 PeakGroups.
 
 Click the Search button.  This generates an output table with a small set of
 columns shown.  To show hidden columns, click the blue columns button at the
 top of the table.
 
-To get an overview of what is included, you can click the blue “Stats” button
+To get an overview of what is included, you can click the blue "Stats" button
 which will open the following box:
 ![Summary statistics for advanced search results in TraceBase](../Attachments/Snapshot%20Advanced%20Search%20Stats%20Pane.png)
 

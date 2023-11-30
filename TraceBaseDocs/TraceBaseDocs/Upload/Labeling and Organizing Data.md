@@ -26,7 +26,7 @@ TraceBase (and might be useful generally).
 
 ### Scheme for Unique Experiment, Animal, and Sample IDs
 
-For a new experiment, create a new identifier counting up from “study001”, and
+For a new experiment, create a new identifier counting up from "study001", and
 sometimes include a short identifier or name for the experiment. (e.g.
 "study001_hyperthyroid glucose infusion").  Now you can reference this
 experiment ID ("study001") elsewhere.
@@ -34,15 +34,15 @@ experiment ID ("study001") elsewhere.
 - A different experiment may have a new identifier (e.g. "study002_hypothyroid
   glucose infusion").
 - A related follow up experiment may have an extension to the identifier, e.g.
-  “study001b_hyperthyroid lactate infusion”.
-- Any text could be used in place of “study”.
+  "study001b_hyperthyroid lactate infusion".
+- Any text could be used in place of "study".
 
-Within each experiment, animal ID counts up from 001 “study001_m01, study001_m02…”.
+Within each experiment, animal ID counts up from 001 "study001_m01, study001_m02...".
 
 - A unique sample file can then be created by adding to this animal ID:
   - provide full animal identifier, tissue, and sometimes time collected:
-  - E.g. “study001_m01_quad, study001_m01_tailserum_000,
-    study001_m01_tailserum_120”
+  - E.g. "study001_m01_quad, study001_m01_tailserum_000,
+    study001_m01_tailserum_120"
 - Some researchers keep a single list of Animal IDs for all experiments (e.g.
   0001, 0002, etc)  This works well for TraceBase, because each Animal ID is
   unique.
@@ -77,8 +77,8 @@ These labeling schemes can be applied to your general organization of data
 outside of TraceBase.
 
 Data and any other information related to your experiments can be organized
-into one folder labeled for each study “study001_my first infusion”,
-“study001b_fixing my first infusion”.  Put everything related to the experiment
+into one folder labeled for each study "study001_my first infusion",
+"study001b_fixing my first infusion".  Put everything related to the experiment
 in this folder, for example:
 
 - mouse information sheets
@@ -96,7 +96,7 @@ with the full identifier, but shorthand can be used for intermediate tubes if
 everything is from the same study:
 
 - E.g. when extracting tissue from only study001, label working tubes with
-  minimal info “Q1, Q2”.
+  minimal info "Q1, Q2".
 - Label final tubes with as much information as possible (e.g. "001_M1_Q").
 - Label boxes stored in freezers with study identifier, a relevant date, and
   your initials

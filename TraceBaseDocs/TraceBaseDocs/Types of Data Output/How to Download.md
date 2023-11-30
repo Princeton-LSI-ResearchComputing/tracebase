@@ -9,7 +9,7 @@ Four types of data can be downloaded from TraceBase:
 
 TraceBase data can be downloaded in three ways:
 
-All the data in TraceBase can be downloaded by clicking the “Download” button
+All the data in TraceBase can be downloaded by clicking the "Download" button
 in the top menu bar.  This has strictly defined [Downloaded Data
 Formats](Downloaded%20Data%20Formats.md), which can be used for analysis
 outside of TraceBase.
@@ -21,7 +21,7 @@ format by clicking the blue download button.
 
 ![Buttons at the top of TraceBase search results with arrow pointing to the download button](../Attachments/How%20to%20Download%20from%20Advanced%20Search.png)
 
-TraceBase metadata found in other pages (e.g. “Studies” table) can be
+TraceBase metadata found in other pages (e.g. "Studies" table) can be
 downloaded in multiple formats by clicking the blue download button.  These are
 typically sample information tables that do not contain the underlying
 PeakGroups, PeakData, or Fcirc data.  For example, the Compounds table can be

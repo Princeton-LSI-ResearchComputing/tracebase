@@ -44,8 +44,8 @@ comparison of tracer infusions across different studies.  For example,
 Fcirc-intact for carbon can be directly compared between an animal given
 U13C-alanine infusion and another animal given U13C-15N-alanine infusion.
 
-* Note that for “intact” Fcirc values, this is different than “any
-  transformation”.  (e.g. the Fcirc-intact for U13C-15N-alanine infusion counts
+* Note that for "intact" Fcirc values, this is different than "any
+  transformation".  (e.g. the Fcirc-intact for U13C-15N-alanine infusion counts
   U13C-alanine and U13C-15N-alanine as un-transformed).
 
 ## Calculations
