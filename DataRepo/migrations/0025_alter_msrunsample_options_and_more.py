@@ -6,7 +6,7 @@ import django.db.models.deletion
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("DataRepo", "0022_alter_msrunsample_ms_data_files"),
+        ("DataRepo", "0024_alter_msrun_lc_method"),
     ]
 
     operations = [
