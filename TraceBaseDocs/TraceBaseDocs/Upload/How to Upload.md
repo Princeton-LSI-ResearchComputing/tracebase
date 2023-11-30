@@ -25,8 +25,9 @@ the TraceBase Animal and Sample Table Template.
         you must add those non-matching samples to an
         [LCMS-metadata file](https://docs.google.com/spreadsheets/d/1rfKOGqms8LPeqORO5gyTXLXDU2lvz-CG2aCEwmu8xHw/copy)
       - If you have a Tissue that is not included in the existing list, please
-        label it as you would like to in the `Tissues` sheet and tell the
-        developer you have a new Tissue.
+        label it as you would like to in the `Tissues` sheet and inidcate
+        that you are submitting a new Tissue Type in the "Special Instructions"
+        section of the form.
    3. Fill in Treatments sheet (optional) with any treatments not captured by
       other columns (ie `Diet`).  Use `no treatment` if applicable. Provide a
       list of treatments used in the study, along with a description of each.
