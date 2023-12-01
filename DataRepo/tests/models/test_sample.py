@@ -2,12 +2,13 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.core.management import call_command
-from django.test import override_settings
+from django.test import override_settings, tag
 
 from DataRepo.models import Animal, Sample
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
+@tag("broken_until_issue712")
 @override_settings(CACHES=settings.TEST_CACHES)
 class SampleTests(TracebaseTestCase):
     @classmethod

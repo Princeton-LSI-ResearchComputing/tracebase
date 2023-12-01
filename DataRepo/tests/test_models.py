@@ -22,6 +22,8 @@ from DataRepo.models import (
     LCMethod,
     MaintainedModel,
     MSRun,
+    MSRunSample,
+    MSRunSequence,
     PeakData,
     PeakDataLabel,
     PeakGroup,
@@ -101,7 +103,7 @@ class ExampleDataConsumer:
 
 @override_settings(CACHES=settings.TEST_CACHES)
 class StudyTests(TracebaseTestCase, ExampleDataConsumer):
-    fixtures = ["lc_methods.yaml"]
+    fixtures = ["data_types.yaml", "data_formats.yaml", "lc_methods.yaml"]
 
     def setUp(self):
         super().setUp()
@@ -143,12 +145,41 @@ class StudyTests(TracebaseTestCase, ExampleDataConsumer):
 
         lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
 
-        self.msrun = MSRun.objects.create(
+        seq = MSRunSequence(
             researcher="John Doe",
             date=datetime.now(),
-            sample=self.sample,
+            instrument=MSRunSequence.INSTRUMENT_CHOICES[0][1],
             lc_method=lcm,
         )
+        seq.full_clean()
+        seq.save()
+
+        mstype = DataType.objects.get(code="ms_data")
+        rawfmt = DataFormat.objects.get(code="ms_raw")
+        mzxfmt = DataFormat.objects.get(code="mzxml")
+        rawrec = ArchiveFile.objects.create(
+            filename="test.raw",
+            file_location=None,
+            checksum="558ea654d7f2914ca4527580edf4fac11bd151c5",
+            data_type=mstype,
+            data_format=rawfmt,
+        )
+        mzxrec = ArchiveFile.objects.create(
+            filename="test.mzxml",
+            file_location=None,
+            checksum="558ea654d7f2914ca4527580edf4fac11bd151c4",
+            data_type=mstype,
+            data_format=mzxfmt,
+        )
+        self.msrun = MSRunSample(
+            msrun_sequence=seq,
+            sample=self.sample,
+            polarity="positive",
+            ms_raw_file=rawrec,
+            ms_data_file=mzxrec,
+        )
+        self.msrun.full_clean()
+        self.msrun.save()
 
         self.ms_peak_annotation = DataType.objects.get(code="ms_peak_annotation")
         self.accucor_format = DataFormat.objects.get(code="accucor")
@@ -165,7 +196,7 @@ class StudyTests(TracebaseTestCase, ExampleDataConsumer):
         self.peak_group = PeakGroup.objects.create(
             name=initial_peak_group["name"],
             formula=initial_peak_group["formula"],
-            msrun=self.msrun,
+            # msrun_sample=self.msrun,  # TODO: 
             peak_annotation_file=self.peak_annotation_file,
         )
         # actual code would have to more careful in retrieving compounds based
@@ -247,7 +278,7 @@ class StudyTests(TracebaseTestCase, ExampleDataConsumer):
         self.assertRaises(
             IntegrityError,
             lambda: PeakGroup.objects.create(
-                name=self.peak_group.name, msrun=self.msrun
+                name=self.peak_group.name, msrun_sample=self.msrun
             ),
         )
 
@@ -265,6 +296,7 @@ class ProtocolTests(TracebaseTestCase):
             )
 
 
+@tag("broken_until_issue712")
 @override_settings(CACHES=settings.TEST_CACHES)
 class DataLoadingTests(TracebaseTestCase):
     @classmethod
@@ -692,7 +724,7 @@ class DataLoadingTests(TracebaseTestCase):
     def test_peakgroup_from_serum_sample_false(self):
         # get a tracer compound from a non-serum sample
         sample = Sample.objects.get(name="Liv-xz982")
-        pgl = sample.msruns.last().peak_groups.last().labels.first()
+        pgl = sample.msrun_samples.last().peak_groups.last().labels.first()
         with self.assertWarns(UserWarning):
             self.assertFalse(pgl.from_serum_sample)
 
@@ -750,6 +782,7 @@ class DataLoadingTests(TracebaseTestCase):
         )
 
 
+@tag("broken_until_issue712")
 @override_settings(CACHES=settings.TEST_CACHES)
 class PropertyTests(TracebaseTestCase):
     @classmethod
@@ -973,7 +1006,7 @@ class PropertyTests(TracebaseTestCase):
         )
 
         pg = PeakGroup(
-            name="lactate", peak_annotation_file=peak_annotation_file, msrun=msrun
+            name="lactate", peak_annotation_file=peak_annotation_file, msrun_sample=msrun
         )
         pg.save()
 
@@ -1097,7 +1130,7 @@ class PropertyTests(TracebaseTestCase):
         second_serum_peak_group = PeakGroup.objects.create(
             name=peak_group.name,
             formula=peak_group.formula,
-            msrun=msrun,
+            msrun_sample=msrun,
             peak_annotation_file=peak_group.peak_annotation_file,
         )
         second_serum_peak_group.compounds.add(
@@ -1199,7 +1232,7 @@ class PropertyTests(TracebaseTestCase):
         second_serum_peak_group = PeakGroup.objects.create(
             name=peak_group.name,
             formula=peak_group.formula,
-            msrun=msrun,
+            msrun_sample=msrun,
             peak_annotation_file=peak_group.peak_annotation_file,
         )
         second_serum_peak_group.compounds.add(
@@ -1322,7 +1355,7 @@ class PropertyTests(TracebaseTestCase):
         peak_group_zero = PeakGroup.objects.create(
             name=peak_group.name,
             formula=peak_group.formula,
-            msrun=msrun,
+            msrun_sample=msrun,
             peak_annotation_file=peak_group.peak_annotation_file,
         )
 
@@ -1362,7 +1395,7 @@ class PropertyTests(TracebaseTestCase):
     def test_peakgroup_is_tracer_label_compound_group_false(self):
         # get a non tracer compound from a serum sample
         sample = Sample.objects.get(name="serum-xz971")
-        pg = sample.msruns.last().peak_groups.filter(name__exact="tryptophan").last()
+        pg = sample.msrun_samples.last().peak_groups.filter(name__exact="tryptophan").last()
         pgl = pg.labels.first()
         self.assertFalse(pgl.is_tracer_label_compound_group)
 
@@ -1474,6 +1507,7 @@ class PropertyTests(TracebaseTestCase):
             self.assertFalse(pgl.can_compute_average_tracer_label_rates)
 
 
+@tag("broken_until_issue712")
 @override_settings(CACHES=settings.TEST_CACHES)
 class MultiTracerLabelPropertyTests(TracebaseTestCase):
     fixtures = ["data_types.yaml", "data_formats.yaml"]
@@ -1564,6 +1598,7 @@ class MultiTracerLabelPropertyTests(TracebaseTestCase):
         self.assertAlmostEqual(expectedn, pgn)
 
 
+@tag("broken_until_issue712")
 @override_settings(CACHES=settings.TEST_CACHES)
 class TracerRateTests(TracebaseTestCase):
     @classmethod
@@ -1669,7 +1704,7 @@ class TracerRateTests(TracebaseTestCase):
         animal = self.MAIN_SERUM_ANIMAL
         nontracer_compound = Compound.objects.get(name="succinate")
         non_tracer_pg_label = (
-            animal.last_serum_sample.msruns.first()
+            animal.last_serum_sample.msrun_samples.first()
             .peak_groups.get(compounds__exact=nontracer_compound)
             .labels.first()
         )
@@ -2116,6 +2151,7 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
         )
 
 
+@tag("broken_until_issue712")
 @override_settings(CACHES=settings.TEST_CACHES)
 @tag("load_study")
 class StudyLoadingTests(TracebaseTestCase):

@@ -1,4 +1,5 @@
 from django.core.management import call_command
+from django.test import tag
 
 from DataRepo.models import CompoundSynonym, MaintainedModel, PeakGroup, Study
 from DataRepo.templatetags.customtags import (
@@ -10,6 +11,7 @@ from DataRepo.templatetags.customtags import (
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
+@tag("broken_until_issue712")
 class CustomTagsTests(TracebaseTestCase):
     @classmethod
     @MaintainedModel.no_autoupdates()

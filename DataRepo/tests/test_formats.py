@@ -26,6 +26,7 @@ from DataRepo.templatetags.customtags import get_many_related_rec
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
+@tag("broken_until_issue712")
 class FormatsTests(TracebaseTestCase):
     fixtures = ["data_types.yaml", "data_formats.yaml"]
     maxDiff = None

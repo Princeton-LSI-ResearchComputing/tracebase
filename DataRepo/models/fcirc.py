@@ -241,9 +241,9 @@ class FCirc(MaintainedModel, HierCachedModel):
 
             if (
                 # If the date of the MSRun containing the "last" self.tracer peak group is none
-                self.last_peak_group_in_sample.msrun.date is None
+                self.last_peak_group_in_sample.msrun_sample.date is None
                 # and there exist other (potentially last) MSRuns that might contain a self.tracer peak group
-                and self.serum_sample.msruns.count() > 1
+                and self.serum_sample.msrun_samples.count() > 1
             ):
                 valid = False
                 level = "warn"
@@ -254,8 +254,8 @@ class FCirc(MaintainedModel, HierCachedModel):
                     "or should not be for the 'last' peak group for this serum sample."
                 )
             elif (
-                self.last_peak_group_in_sample.msrun.date is None
-                and self.serum_sample.msruns.count() == 1
+                self.last_peak_group_in_sample.msrun_sample.date is None
+                and self.serum_sample.msrun_samples.count() == 1
             ):
                 # This doesn't trigger/override the valid or level settings, but it does append a message
                 msr_date_is_none_but_only1_msr_for_smpl = 1

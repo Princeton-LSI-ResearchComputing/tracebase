@@ -12,6 +12,8 @@ from DataRepo.models import (
     Infusate,
     LCMethod,
     MSRun,
+    MSRunSample,
+    MSRunSequence,
     PeakData,
     PeakDataLabel,
     PeakGroup,
@@ -47,12 +49,42 @@ class PeakDataData(TracebaseTestCase):
             date=datetime.now(),
         )
         lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
-        msr = MSRun.objects.create(
+
+        seq = MSRunSequence(
             researcher="John Doe",
             date=datetime.now(),
-            sample=smpl,
+            instrument=MSRunSequence.INSTRUMENT_CHOICES[0][1],
             lc_method=lcm,
         )
+        seq.full_clean()
+        seq.save()
+        mstype = DataType.objects.get(code="ms_data")
+        rawfmt = DataFormat.objects.get(code="ms_raw")
+        mzxfmt = DataFormat.objects.get(code="mzxml")
+        rawrec = ArchiveFile.objects.create(
+            filename="test.raw",
+            file_location=None,
+            checksum="558ea654d7f2914ca4527580edf4fac11bd151c5",
+            data_type=mstype,
+            data_format=rawfmt,
+        )
+        mzxrec = ArchiveFile.objects.create(
+            filename="test.mzxml",
+            file_location=None,
+            checksum="558ea654d7f2914ca4527580edf4fac11bd151c4",
+            data_type=mstype,
+            data_format=mzxfmt,
+        )
+        msr = MSRunSample(
+            msrun_sequence=seq,
+            sample=smpl,
+            polarity="positive",
+            ms_raw_file=rawrec,
+            ms_data_file=mzxrec,
+        )
+        msr.full_clean()
+        msr.save()
+
         path = Path("DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf.xlsx")
         with path.open(mode="rb") as f:
             myfile = File(f, name=path.name)
@@ -70,7 +102,7 @@ class PeakDataData(TracebaseTestCase):
         pg = PeakGroup.objects.create(
             name="gluc",
             formula="C6H12O6",
-            msrun=msr,
+            msrun_sample=msr,
             peak_annotation_file=accucor_file,
         )
         PeakData.objects.create(

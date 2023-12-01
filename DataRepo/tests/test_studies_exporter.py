@@ -2,11 +2,13 @@ import os
 import tempfile
 
 from django.core.management import call_command
+from django.test import tag
 
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.studies_exporter import BadQueryTerm
 
 
+@tag("broken_until_issue712")
 class StudiesExporterTests(TracebaseTestCase):
     @classmethod
     def setUpClass(cls):

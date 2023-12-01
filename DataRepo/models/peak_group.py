@@ -13,7 +13,7 @@ from DataRepo.models.utilities import atom_count_in_formula
     update_label="fcirc_calcs",
 )
 class PeakGroup(HierCachedModel, MaintainedModel):
-    parent_related_key_name = "msrun"
+    parent_related_key_name = "msrun_sample"
     child_related_key_names = ["labels"]
 
     id = models.AutoField(primary_key=True)
@@ -29,7 +29,9 @@ class PeakGroup(HierCachedModel, MaintainedModel):
     msrun_sample = models.ForeignKey(
         to="DataRepo.MSRunSample",
         on_delete=models.CASCADE,
-        null=True,  # False,  # TODO: Temporarily True until migration performed to avoid error
+        null=True,  # False,
+        # TODO: Temporarily True until migration performed to avoid error. Note, display of advanced search results will
+        # be broken until null=False. Otherwise, there's no reverse lookup of null
         related_name="peak_groups",
         help_text="The MS Run this PeakGroup belongs to.",
     )
