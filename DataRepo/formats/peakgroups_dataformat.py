@@ -38,7 +38,9 @@ class PeakGroupsFormat(Format):
         },
         {
             "displayname": "Tracer Compounds",
-            "distincts": ["msrun_sample__sample__animal__infusate__tracers__compound__name"],
+            "distincts": [
+                "msrun_sample__sample__animal__infusate__tracers__compound__name"
+            ],
             "filter": None,
         },
         {

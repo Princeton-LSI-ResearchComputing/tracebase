@@ -141,10 +141,16 @@ class FormatsTests(TracebaseTestCase):
         return (
             ("peak_group__msrun_sample__sample__animal__age", "Age"),
             ("peak_group__msrun_sample__sample__animal__name", "Animal"),
-            ("peak_group__msrun_sample__sample__animal__body_weight", "Body Weight (g)"),
+            (
+                "peak_group__msrun_sample__sample__animal__body_weight",
+                "Body Weight (g)",
+            ),
             ("corrected_abundance", "Corrected Abundance"),
             ("peak_group__msrun_sample__sample__animal__diet", "Diet"),
-            ("peak_group__msrun_sample__sample__animal__feeding_status", "Feeding Status"),
+            (
+                "peak_group__msrun_sample__sample__animal__feeding_status",
+                "Feeding Status",
+            ),
             ("peak_group__formula", "Formula"),
             ("peak_group__msrun_sample__sample__animal__genotype", "Genotype"),
             ("peak_group__msrun_sample__sample__animal__infusate__name", "Infusate"),
@@ -172,7 +178,10 @@ class FormatsTests(TracebaseTestCase):
                 "Time Collected (since infusion)",
             ),
             ("peak_group__msrun_sample__sample__tissue__name", "Tissue"),
-            ("peak_group__msrun_sample__sample__animal__infusate__tracers__name", "Tracer"),
+            (
+                "peak_group__msrun_sample__sample__animal__infusate__tracers__name",
+                "Tracer",
+            ),
             (
                 "peak_group__msrun_sample__sample__animal__infusate__tracers__compound__name",
                 "Tracer Compound (Primary Synonym)",
@@ -297,10 +306,15 @@ class FormatsTests(TracebaseTestCase):
         # Path should be prepended to the field name
         self.assertIsNone(fld_units_lookup["msrun_sample__sample__animal__genotype"])
         # Each value should be a dict with the units, this one having 15 keys
-        self.assertEqual(15, len(fld_units_lookup["msrun_sample__sample__animal__age"].keys()))
+        self.assertEqual(
+            15, len(fld_units_lookup["msrun_sample__sample__animal__age"].keys())
+        )
         # This "native" unit type has 5 keys: name, example, convert, pyconvert, and about
         self.assertEqual(
-            5, len(fld_units_lookup["msrun_sample__sample__animal__age"]["identity"].keys())
+            5,
+            len(
+                fld_units_lookup["msrun_sample__sample__animal__age"]["identity"].keys()
+            ),
         )
         # Check the name (displayed in the units select list)
         self.assertEqual(
@@ -310,13 +324,17 @@ class FormatsTests(TracebaseTestCase):
         # Check the example (shown as a placeholder in the val field)
         self.assertEqual(
             "1w,1d,1:01:01.1",
-            fld_units_lookup["msrun_sample__sample__animal__age"]["identity"]["example"],
+            fld_units_lookup["msrun_sample__sample__animal__age"]["identity"][
+                "example"
+            ],
         )
         # The convert key should be a function
         self.assertEqual(
             "function",
             type(
-                fld_units_lookup["msrun_sample__sample__animal__age"]["identity"]["convert"]
+                fld_units_lookup["msrun_sample__sample__animal__age"]["identity"][
+                    "convert"
+                ]
             ).__name__,
         )
 
@@ -326,23 +344,34 @@ class FormatsTests(TracebaseTestCase):
         )
         # This "native" unit type has 5 keys: name, example, convert, pyconvert, and about
         self.assertEqual(
-            5, len(fld_units_lookup["msrun_sample__sample__time_collected"]["identity"].keys())
+            5,
+            len(
+                fld_units_lookup["msrun_sample__sample__time_collected"][
+                    "identity"
+                ].keys()
+            ),
         )
         # Check the name (displayed in the units select list)
         self.assertEqual(
             "n.n{units},...",
-            fld_units_lookup["msrun_sample__sample__time_collected"]["identity"]["name"],
+            fld_units_lookup["msrun_sample__sample__time_collected"]["identity"][
+                "name"
+            ],
         )
         # Check the example (shown as a placeholder in the val field)
         self.assertEqual(
             "1w,1d,1:01:01.1",
-            fld_units_lookup["msrun_sample__sample__time_collected"]["identity"]["example"],
+            fld_units_lookup["msrun_sample__sample__time_collected"]["identity"][
+                "example"
+            ],
         )
         # The convert key should be a function
         self.assertEqual(
             "function",
             type(
-                fld_units_lookup["msrun_sample__sample__time_collected"]["identity"]["convert"]
+                fld_units_lookup["msrun_sample__sample__time_collected"]["identity"][
+                    "convert"
+                ]
             ).__name__,
         )
 
@@ -361,7 +390,9 @@ class FormatsTests(TracebaseTestCase):
         # The convert function should modify the value to the format needed by the database
         self.assertEqual(
             "14w",
-            fld_units_lookup["msrun_sample__sample__animal__age"]["weeks"]["convert"](14),
+            fld_units_lookup["msrun_sample__sample__animal__age"]["weeks"]["convert"](
+                14
+            ),
         )
 
     def test_getSearchFieldChoicesDict(self):
@@ -416,7 +447,9 @@ class FormatsTests(TracebaseTestCase):
         reroot_instance_name = "CompoundSynonym"
         pgsv = PeakGroupsFormat()
         rerooted_fld = pgsv.reRootFieldPath(fld, reroot_instance_name)
-        expected_fld = "compound__peak_groups__msrun_sample__sample__animal__studies__name"
+        expected_fld = (
+            "compound__peak_groups__msrun_sample__sample__animal__studies__name"
+        )
         self.assertEqual(expected_fld, rerooted_fld)
 
     def test_reRootQry(self):
@@ -745,7 +778,9 @@ class FormatsTests(TracebaseTestCase):
         self.assertEqual(qs.count(), cnt)
 
     def get_basic_qry_inputs(self):
-        qs = PeakGroup.objects.all().prefetch_related("msrun_sample__sample__animal__studies")
+        qs = PeakGroup.objects.all().prefetch_related(
+            "msrun_sample__sample__animal__studies"
+        )
         tval = str(qs[0].msrun_sample.sample.animal.studies.all()[0].id)
         empty_tree = {
             "type": "group",

@@ -5,7 +5,6 @@ from django.db.models import (
     AutoField,
     CharField,
     ForeignKey,
-    Model,
     UniqueConstraint,
 )
 

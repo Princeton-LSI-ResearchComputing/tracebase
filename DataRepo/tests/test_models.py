@@ -1056,7 +1056,8 @@ class PropertyTests(TracebaseTestCase):
         )
 
         self.assertEqual(
-            ["C"], peak_group.msrun_sample.sample.animal.infusate.tracer_labeled_elements()
+            ["C"],
+            peak_group.msrun_sample.sample.animal.infusate.tracer_labeled_elements(),
         )
 
     def test_normalized_labeling_latest_serum(self):

@@ -373,7 +373,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_accucor_msruns",
-                accucor_file="DataRepo/data/tests/accucor_with_multiple_labels/accucor_bad_label.xlsx",
+                accucor_file="DataRepo/data/tests/accucor_with_multiple_labels/accucor_invalid_label.xlsx",
                 lc_protocol_name="polar-HILIC-25-min",
                 instrument="default instrument",
                 date="2021-04-29",

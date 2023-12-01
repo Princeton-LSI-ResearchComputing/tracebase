@@ -164,7 +164,9 @@ class Animal(MaintainedModel, HierCachedModel, ElementLabel):
         (d_extra_args, d_is_null_field) = create_is_null_field("msrun_sample__date")
         for tracer in self.tracers.all():
             tracer_peak_group = (
-                PeakGroup.objects.filter(msrun_sample__sample__animal__id__exact=self.id)
+                PeakGroup.objects.filter(
+                    msrun_sample__sample__animal__id__exact=self.id
+                )
                 .filter(compounds__id__exact=tracer.compound.id)
                 .filter(
                     msrun_sample__sample__tissue__name__istartswith=Tissue.SERUM_TISSUE_PREFIX
