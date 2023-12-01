@@ -492,7 +492,7 @@ class HierCachedModelTests(TracebaseTestCase):
         s1 = samples[0]
         s2 = samples[1]
         s2pg = (
-            PeakGroup.objects.filter(msrun__sample__id__exact=s2.id)
+            PeakGroup.objects.filter(msrun_sample__sample__id__exact=s2.id)
             .first()
             .labels.first()
         )
@@ -567,7 +567,7 @@ class HierCachedModelTests(TracebaseTestCase):
     def test_get_root_record(self):
         a = Animal.objects.all().first()
         s = Sample.objects.filter(animal__id__exact=a.id).first()
-        pg = PeakGroup.objects.filter(msrun__sample__id__exact=s.id).first()
+        pg = PeakGroup.objects.filter(msrun_sample__sample__id__exact=s.id).first()
 
         rep_rec = pg.get_root_record()
 

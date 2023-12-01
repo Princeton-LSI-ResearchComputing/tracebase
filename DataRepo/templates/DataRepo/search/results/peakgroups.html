@@ -68,28 +68,28 @@
                 <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Animal-data-visible' 'false' %}" data-field="Animal" class="idgrp">
                     {% with "Animal" as colhead %}
                         {% if mode == "view" %}{{ colhead }}{% else %}
-                            <div onclick="sortColumn(this)" class="sortable" id="msrun__sample__animal__name">{{ colhead }}</div>
+                            <div onclick="sortColumn(this)" class="sortable" id="msrun_sample__sample__animal__name">{{ colhead }}</div>
                         {% endif %}
                     {% endwith %}
                 </th>
                 <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Sample-data-visible' 'true' %}" data-field="Sample" class="idgrp" data-switchable="false">
                     {% with "Sample" as colhead %}
                         {% if mode == "view" %}{{ colhead }}{% else %}
-                            <div onclick="sortColumn(this)" class="sortable" id="msrun__sample__name">{{ colhead }}</div>
+                            <div onclick="sortColumn(this)" class="sortable" id="msrun_sample__sample__name">{{ colhead }}</div>
                         {% endif %}
                     {% endwith %}
                 </th>
                 <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Tissue-data-visible' 'true' %}" data-field="Tissue" class="idgrp">
                     {% with "Tissue" as colhead %}
                         {% if mode == "view" %}{{ colhead }}{% else %}
-                            <div onclick="sortColumn(this)" class="sortable" id="msrun__sample__tissue__name">{{ colhead }}</div>
+                            <div onclick="sortColumn(this)" class="sortable" id="msrun_sample__sample__tissue__name">{{ colhead }}</div>
                         {% endif %}
                     {% endwith %}
                 </th>
                 <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Time_Collected-data-visible' 'false' %}" data-field="Time_Collected" class="idgrp">
                     {% with "Time<br>Collected<br>(m)" as colhead %}
                         {% if mode == "view" %}{{ colhead }}{% else %}
-                            <div onclick="sortColumn(this)" class="sortable" id="msrun__sample__time_collected">{{ colhead }}</div>
+                            <div onclick="sortColumn(this)" class="sortable" id="msrun_sample__sample__time_collected">{{ colhead }}</div>
                         {% endif %}
                     {% endwith %}
                 </th>
@@ -152,91 +152,91 @@
                 <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Genotype-data-visible' 'true' %}" data-field="Genotype" class="metagrp">
                     {% with "Genotype" as colhead %}
                         {% if mode == "view" %}{{ colhead }}{% else %}
-                            <div onclick="sortColumn(this)" class="sortable" id="msrun__sample__animal__genotype">{{ colhead }}</div>
+                            <div onclick="sortColumn(this)" class="sortable" id="msrun_sample__sample__animal__genotype">{{ colhead }}</div>
                         {% endif %}
                     {% endwith %}
                 </th>
                 <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Sex-data-visible' 'false' %}" data-field="Sex" class="metagrp">
                     {% with "Sex" as colhead %}
                         {% if mode == "view" %}{{ colhead }}{% else %}
-                            <div onclick="sortColumn(this)" class="sortable" id="msrun__sample__animal__sex">{{ colhead }}</div>
+                            <div onclick="sortColumn(this)" class="sortable" id="msrun_sample__sample__animal__sex">{{ colhead }}</div>
                         {% endif %}
                     {% endwith %}
                 </th>
                 <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Feeding_Status-data-visible' 'true' %}" data-field="Feeding_Status" class="metagrp">
                     {% with "Feeding<br>Status" as colhead %}
                         {% if mode == "view" %}{{ colhead }}{% else %}
-                            <div onclick="sortColumn(this)" class="sortable" id="msrun__sample__animal__feeding_status">{{ colhead }}</div>
+                            <div onclick="sortColumn(this)" class="sortable" id="msrun_sample__sample__animal__feeding_status">{{ colhead }}</div>
                         {% endif %}
                     {% endwith %}
                 </th>
                 <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Diet-data-visible' 'false' %}" data-field="Diet" class="metagrp">
                     {% with "Diet" as colhead %}
                         {% if mode == "view" %}{{ colhead }}{% else %}
-                            <div onclick="sortColumn(this)" class="sortable" id="msrun__sample__animal__diet">{{ colhead }}</div>
+                            <div onclick="sortColumn(this)" class="sortable" id="msrun_sample__sample__animal__diet">{{ colhead }}</div>
                         {% endif %}
                     {% endwith %}
                 </th>
                 <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Treatment-data-visible' 'true' %}" data-field="Treatment" class="metagrp">
                     {% with "Treatment" as colhead %}
                         {% if mode == "view" %}{{ colhead }}{% else %}
-                            <div onclick="sortColumn(this)" class="sortable" id="msrun__sample__animal__treatment__name">{{ colhead }}</div>
+                            <div onclick="sortColumn(this)" class="sortable" id="msrun_sample__sample__animal__treatment__name">{{ colhead }}</div>
                         {% endif %}
                     {% endwith %}
                 </th>
                 <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Body_Weight-data-visible' 'false' %}" data-field="Body_Weight" class="metagrp">
                     {% with "Body<br>Weight<br>(g)" as colhead %}
                         {% if mode == "view" %}{{ colhead }}{% else %}
-                            <div onclick="sortColumn(this)" class="sortable" id="msrun__sample__animal__body_weight">{{ colhead }}</div>
+                            <div onclick="sortColumn(this)" class="sortable" id="msrun_sample__sample__animal__body_weight">{{ colhead }}</div>
                         {% endif %}
                     {% endwith %}
                 </th>
                 <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Age-data-visible' 'false' %}" data-field="Age" class="metagrp">
                     {% with "Age<br>(weeks)" as colhead %}
                         {% if mode == "view" %}{{ colhead }}{% else %}
-                            <div onclick="sortColumn(this)" class="sortable" id="msrun__sample__animal__age">{{ colhead }}</div>
+                            <div onclick="sortColumn(this)" class="sortable" id="msrun_sample__sample__animal__age">{{ colhead }}</div>
                         {% endif %}
                     {% endwith %}
                 </th>
                 <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Infusate-data-visible' 'true' %}" data-field="Infusate" class="metagrp" data-switchable="false">
                     {% with "Infusate" as colhead %}
                         {% if mode == "view" %}{{ colhead }}{% else %}
-                            <div onclick="sortColumn(this)" class="sortable" id="msrun__sample__animal__infusate__name">{{ colhead }}</div>
+                            <div onclick="sortColumn(this)" class="sortable" id="msrun_sample__sample__animal__infusate__name">{{ colhead }}</div>
                         {% endif %}
                     {% endwith %}
                 </th>
                 <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Tracers-data-visible' 'true' %}" data-field="Tracers" class="metagrp">
                     {% with "Tracer(s)" as colhead %}
                         {% if mode == "view" %}{{ colhead }}{% else %}
-                            <div onclick="sortColumn(this)" class="sortable" id="msrun__sample__animal__infusate__tracer_links__tracer__name">{{ colhead }}</div>
+                            <div onclick="sortColumn(this)" class="sortable" id="msrun_sample__sample__animal__infusate__tracer_links__tracer__name">{{ colhead }}</div>
                         {% endif %}
                     {% endwith %}
                 </th>
                 <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'TracerCompounds-data-visible' 'true' %}" data-field="Tracer_Compounds" class="metagrp">
                     {% with "Tracer<br>Compound(s)" as colhead %}
                         {% if mode == "view" %}{{ colhead }}{% else %}
-                            <div onclick="sortColumn(this)" class="sortable" id="msrun__sample__animal__infusate__tracer_links__tracer__compound__name">{{ colhead }}</div>
+                            <div onclick="sortColumn(this)" class="sortable" id="msrun_sample__sample__animal__infusate__tracer_links__tracer__compound__name">{{ colhead }}</div>
                         {% endif %}
                     {% endwith %}
                 </th>
                 <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'TracerConcentrations-data-visible' 'true' %}" data-field="Tracer_Concentrations" class="metagrp">
                     {% with "Tracer<br>Concentration(s)<br>(mM)" as colhead %}
                         {% if mode == "view" %}{{ colhead }}{% else %}
-                            <div onclick="sortColumn(this)" class="sortable" id="msrun__sample__animal__infusate__tracer_links__concentration">{{ colhead }}</div>
+                            <div onclick="sortColumn(this)" class="sortable" id="msrun_sample__sample__animal__infusate__tracer_links__concentration">{{ colhead }}</div>
                         {% endif %}
                     {% endwith %}
                 </th>
                 <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Infusion_Rate-data-visible' 'false' %}" data-field="Infusion_Rate" class="metagrp">
                     {% with "Infusion<br>Rate<br>(ul/min/g)" as colhead %}
                         {% if mode == "view" %}{{ colhead }}{% else %}
-                            <div onclick="sortColumn(this)" class="sortable" id="msrun__sample__animal__infusion_rate">{{ colhead }}</div>
+                            <div onclick="sortColumn(this)" class="sortable" id="msrun_sample__sample__animal__infusion_rate">{{ colhead }}</div>
                         {% endif %}
                     {% endwith %}
                 </th>
                 <th data-valign="top" data-sortable="{% if mode == 'view' %}true{% else %}false{% endif %}" data-sorter="alphanum" data-visible="{% get_template_cookie selfmt 'Study-data-visible' 'true' %}" data-field="Study" class="metagrp">
                     {% with "Studies" as colhead %}
                         {% if mode == "view" %}{{ colhead }}{% else %}
-                            <div onclick="sortColumn(this)" class="sortable" id="msrun__sample__animal__studies__name">{{ colhead }}</div>
+                            <div onclick="sortColumn(this)" class="sortable" id="msrun_sample__sample__animal__studies__name">{{ colhead }}</div>
                         {% endif %}
                     {% endwith %}
                 </th>
@@ -251,19 +251,19 @@
                     <!-- Animal -->
                     <td>
                         <!-- Put displayed link text first for sorting -->
-                        <div style="display:none;">{{ pg.msrun.sample.animal.name }}</div>
-                        <a href="{% url 'animal_detail' pg.msrun.sample.animal.id %}">
-                            {{ pg.msrun.sample.animal.name }}
+                        <div style="display:none;">{{ pg.msrun_sample.sample.animal.name }}</div>
+                        <a href="{% url 'animal_detail' pg.msrun_sample.sample.animal.id %}">
+                            {{ pg.msrun_sample.sample.animal.name }}
                         </a>
                     </td>
 
                     <!-- Sample -->
                     <td>
                         <!-- Put displayed link text first for sorting -->
-                        <div style="display:none;">{{ pg.msrun.sample.name }}</div>
+                        <div style="display:none;">{{ pg.msrun_sample.sample.name }}</div>
                         <div class="nobr">
-                            <a href="{% url 'sample_detail' pg.msrun.sample.id %}">
-                                {{ pg.msrun.sample.name }}
+                            <a href="{% url 'sample_detail' pg.msrun_sample.sample.id %}">
+                                {{ pg.msrun_sample.sample.name }}
                             </a>
                         </div>
                     </td>
@@ -271,15 +271,15 @@
                     <!-- Tissue -->
                     <td>
                         <!-- Put displayed link text first for sorting -->
-                        <div style="display:none;">{{ pg.msrun.sample.tissue.name }}</div>
-                        <a href="{% url 'tissue_detail' pg.msrun.sample.tissue.id %}">
-                            {{ pg.msrun.sample.tissue.name }}
+                        <div style="display:none;">{{ pg.msrun_sample.sample.tissue.name }}</div>
+                        <a href="{% url 'tissue_detail' pg.msrun_sample.sample.tissue.id %}">
+                            {{ pg.msrun_sample.sample.tissue.name }}
                         </a>
                     </td>
 
                     <!-- Time Collected (m) -->
                     <td class="text-end">
-                        <p title="{{ pg.msrun.sample.time_collected }} (h:m:s)">{{ pg.msrun.sample.time_collected|durationToMins|decimalPlaces:2 }}</p>
+                        <p title="{{ pg.msrun_sample.sample.time_collected }} (h:m:s)">{{ pg.msrun_sample.sample.time_collected|durationToMins|decimalPlaces:2 }}</p>
                     </td>
 
                     <!-- Peak Group -->
@@ -381,68 +381,68 @@
 
                     <!-- Genotype -->
                     <td>
-                        {{ pg.msrun.sample.animal.genotype }}
+                        {{ pg.msrun_sample.sample.animal.genotype }}
                     </td>
 
                     <!-- Sex -->
                     <td>
-                        {{ pg.msrun.sample.animal.sex }}
+                        {{ pg.msrun_sample.sample.animal.sex }}
                     </td>
 
                     <!-- Feeding Status -->
                     <td>
-                        {{ pg.msrun.sample.animal.feeding_status }}
+                        {{ pg.msrun_sample.sample.animal.feeding_status }}
                     </td>
 
                     <!-- Diet -->
                     <td>
-                        {{ pg.msrun.sample.animal.diet }}
+                        {{ pg.msrun_sample.sample.animal.diet }}
                     </td>
 
                     <!-- Treatment -->
                     <td>
-                        {% if pg.msrun.sample.animal.treatment is None %}
+                        {% if pg.msrun_sample.sample.animal.treatment is None %}
                             None
                         {% else %}
                             <!-- Put displayed link text first for sorting -->
-                            <div style="display:none;">{{ pg.msrun.sample.animal.treatment.name }}</div>
+                            <div style="display:none;">{{ pg.msrun_sample.sample.animal.treatment.name }}</div>
 
-                            <a href="{% url 'protocol_detail' pg.msrun.sample.animal.treatment.id %}">
-                                {{ pg.msrun.sample.animal.treatment.name }}
+                            <a href="{% url 'protocol_detail' pg.msrun_sample.sample.animal.treatment.id %}">
+                                {{ pg.msrun_sample.sample.animal.treatment.name }}
                             </a>
                         {% endif %}
                     </td>
 
                     <!-- Body Weight (g) -->
                     <td class="text-end">
-                        {{ pg.msrun.sample.animal.body_weight }}
+                        {{ pg.msrun_sample.sample.animal.body_weight }}
                     </td>
 
                     <!-- Age (weeks) -->
                     <td class="text-end">
-                        <p title="{{ pg.msrun.sample.animal.age }} (d-hh:mm:ss)">{{ pg.msrun.sample.animal.age|durationToWeeks|decimalPlaces:2 }}</p>
+                        <p title="{{ pg.msrun_sample.sample.animal.age }} (d-hh:mm:ss)">{{ pg.msrun_sample.sample.animal.age|durationToWeeks|decimalPlaces:2 }}</p>
                     </td>
 
                     <!-- Infusate -->
                     <td>
-                        {% if pg.msrun.sample.animal.infusate is None %}
+                        {% if pg.msrun_sample.sample.animal.infusate is None %}
                             None
                         {% else %}
                             <!-- Put displayed link text first for sorting -->
-                            <div style="display:none;">{{ pg.msrun.sample.animal.infusate.pretty_short_name }}</div>
+                            <div style="display:none;">{{ pg.msrun_sample.sample.animal.infusate.pretty_short_name }}</div>
 
-                            <a href="{% url 'infusate_detail' pg.msrun.sample.animal.infusate.id %}">
-                                <div class="newlines">{{ pg.msrun.sample.animal.infusate.pretty_short_name }}</div>
+                            <a href="{% url 'infusate_detail' pg.msrun_sample.sample.animal.infusate.id %}">
+                                <div class="newlines">{{ pg.msrun_sample.sample.animal.infusate.pretty_short_name }}</div>
                             </a>
                         {% endif %}
                     </td>
 
                     <!-- Tracer(s) -->
                     <td>
-                        {% if pg.msrun.sample.animal.infusate is None %}
+                        {% if pg.msrun_sample.sample.animal.infusate is None %}
                             None
                         {% else %}
-                            {% for link in pg.msrun.sample.animal.infusate.tracer_links.all %}
+                            {% for link in pg.msrun_sample.sample.animal.infusate.tracer_links.all %}
                                 {% if link.tracer.get_name is None %}
                                     None{% if not forloop.last %};<br>{% endif%}
                                 {% else %}
@@ -454,10 +454,10 @@
 
                     <!-- Tracer Compound(s) -->
                     <td>
-                        {% if pg.msrun.sample.animal.infusate is None %}
+                        {% if pg.msrun_sample.sample.animal.infusate is None %}
                             None
                         {% else %}
-                            {% for link in pg.msrun.sample.animal.infusate.tracer_links.all %}
+                            {% for link in pg.msrun_sample.sample.animal.infusate.tracer_links.all %}
                                 {% if link.tracer.compound.name is None %}
                                     None{% if not forloop.last %};<br>{% endif%}
                                 {% else %}
@@ -469,10 +469,10 @@
 
                     <!-- Tracer Concentration(s) (mM) -->
                     <td>
-                        {% if pg.msrun.sample.animal.infusate is None %}
+                        {% if pg.msrun_sample.sample.animal.infusate is None %}
                             None
                         {% else %}
-                            {% for link in pg.msrun.sample.animal.infusate.tracer_links.all %}
+                            {% for link in pg.msrun_sample.sample.animal.infusate.tracer_links.all %}
                                 {% if link.concentration is None %}
                                     None{% if not forloop.last %},<br>{% endif%}
                                 {% else %}
@@ -484,13 +484,13 @@
 
                     <!-- Infusion Rate (ul/min/g) -->
                     <td class="text-end">
-                        {{ pg.msrun.sample.animal.infusion_rate }}
+                        {{ pg.msrun_sample.sample.animal.infusion_rate }}
                     </td>
 
                     <!-- Studies -->
                     <td>
-                        <!-- This will work as intended even if pg.msrun.sample.animal.study wasn't added as an annotation (e.g. if split_rows is false or root_annot_fld is not defined) -->
-                        {% get_many_related_rec pg.msrun.sample.animal.studies pg.study as studies %}
+                        <!-- This will work as intended even if pg.msrun_sample.sample.animal.study wasn't added as an annotation (e.g. if split_rows is false or root_annot_fld is not defined) -->
+                        {% get_many_related_rec pg.msrun_sample.sample.animal.studies pg.study as studies %}
                         <!-- Put displayed link text first for sorting -->
                         <div style="display:none;">
                             {% for study in studies %}{% if not forloop.first %},<br>{% endif%}{{ study.name }}{% endfor %}

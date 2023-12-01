@@ -871,7 +871,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             isocorr_format=True,
         )
         pg = (
-            PeakGroup.objects.filter(msrun__sample__name="xzl5_panc")
+            PeakGroup.objects.filter(msrun_sample__sample__name="xzl5_panc")
             .filter(name__exact="serine")
             .filter(
                 peak_annotation_file__filename="alafasted_cor.xlsx",

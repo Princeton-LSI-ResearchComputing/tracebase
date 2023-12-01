@@ -9,8 +9,19 @@ from django.db.models import (
     UniqueConstraint,
 )
 
+from DataRepo.models import HierCachedModel, MaintainedModel
 
-class MSRunSample(Model):
+
+@MaintainedModel.relation(
+    generation=2,
+    parent_field_name="sample",
+    # child_field_names=["peak_groups"],  # Only propagate up
+    update_label="fcirc_calcs",
+)
+class MSRunSample(HierCachedModel, MaintainedModel):
+    parent_related_key_name = "sample"
+    child_related_key_names = ["peak_groups"]
+
     POLARITY_CHOICES = [
         ("negative", "negative"),
         ("positive", "positive"),

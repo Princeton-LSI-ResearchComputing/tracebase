@@ -52,7 +52,7 @@
         function updateColumnSortControls() {
             // Add sort controls to every sortable column header (div around th contents with class 'sortable')
 
-            // The column ID must match the database field path contained in the pager's order_by member variable, e.g. "peak_group__msrun__sample__animal__name"
+            // The column ID must match the database field path contained in the pager's order_by member variable, e.g. "peak_group__msrun_sample__sample__animal__name"
             sorted_column_id = "{{ pager.order_by }}"
             sorted_dir = {% if pager.order_dir is None %}"undefined"{% else %}"{{ pager.order_dir }}"{% endif %}
 

@@ -22,8 +22,8 @@
             <td><a href="{% url 'peakgroup_detail' peakgroup.id %}">{{ peakgroup.name }}</a></td>
             <td>{{ peakgroup.formula }}</td>
             <td>
-                <a href="{% url 'sample_detail' peakgroup.msrun.sample.id %}">
-                    {{ peakgroup.msrun.sample.name }}
+                <a href="{% url 'sample_detail' peakgroup.msrun_sample.sample.id %}">
+                    {{ peakgroup.msrun_sample.sample.name }}
                 </a>
             </td>
             <td><a href="{% url 'msrun_detail' peakgroup.msrun.id %}">{{ peakgroup.msrun.researcher }}, {{ peakgroup.msrun.date }}</a></td>

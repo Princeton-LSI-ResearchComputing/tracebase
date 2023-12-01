@@ -143,7 +143,7 @@ class PeakGroupLabel(HierCachedModel):
         finally:
             if warning:
                 warnings.warn(
-                    f"Unable to compute enrichment_fraction for {self.peak_group.msrun.sample}:{self}, {msg}."
+                    f"Unable to compute enrichment_fraction for {self.peak_group.msrun_sample.sample}:{self}, {msg}."
                 )
 
         return enrichment_fraction
@@ -192,7 +192,7 @@ class PeakGroupLabel(HierCachedModel):
 
         except Sample.DoesNotExist:
             warnings.warn(
-                f"Unable to compute normalized_labelings for {self.peak_group.msrun.sample}:{self}, associated "
+                f"Unable to compute normalized_labelings for {self.peak_group.msrun_sample.sample}:{self}, associated "
                 "'serum' sample not found."
             )
             normalized_labeling = None
@@ -203,7 +203,7 @@ class PeakGroupLabel(HierCachedModel):
     @cached_property
     def animal(self):
         """Convenient instance method to cache the animal this PeakGroup came from"""
-        return self.peak_group.msrun.sample.animal
+        return self.peak_group.msrun_sample.sample.animal
 
     @property  # type: ignore
     @cached_function
@@ -285,13 +285,13 @@ class PeakGroupLabel(HierCachedModel):
         """
         Instance method which returns True if a peakgroup was obtained from a serum sample.
         """
-        if self.peak_group.msrun.sample.is_serum_sample is None:
+        if self.peak_group.msrun_sample.sample.is_serum_sample is None:
             warnings.warn(
-                f"Sample {self.peak_group.msrun.sample.name}'s is_serum_sample field hasn't been set."
+                f"Sample {self.peak_group.msrun_sample.sample.name}'s is_serum_sample field hasn't been set."
             )
-            fss = self.peak_group.msrun.sample._is_serum_sample()
+            fss = self.peak_group.msrun_sample.sample._is_serum_sample()
         else:
-            fss = self.peak_group.msrun.sample.is_serum_sample
+            fss = self.peak_group.msrun_sample.sample.is_serum_sample
 
         if fss:
             return True
@@ -604,7 +604,7 @@ class NoCommonLabel(Exception):
             f"PeakGroup {peakgrouplabel.peak_group.name} found associated with peak group formula: "
             f"[{peakgrouplabel.peak_group.formula}] that does not contain the labeled element "
             f"{peakgrouplabel.element} that is associated via PeakGroupLabel (from the tracers in the infusate "
-            f"[{peakgrouplabel.peak_group.msrun.sample.animal.infusate.name}])."
+            f"[{peakgrouplabel.peak_group.msrun_sample.sample.animal.infusate.name}])."
         )
         super().__init__(msg)
         self.peak_group_label = peakgrouplabel

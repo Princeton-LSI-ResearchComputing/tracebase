@@ -231,7 +231,7 @@ class Format:
     #             'type': 'query',
     #             'pos': '',
     #             'ncmp': 'istartswith',
-    #             'fld': 'msrun__sample__tissue__name',
+    #             'fld': 'msrun_sample__sample__tissue__name',
     #             'val': Tissue.SERUM_TISSUE_PREFIX,
     #             'static': True,
     #         },
@@ -290,10 +290,10 @@ class Format:
         - self.unit_options[units_key]["entry_options"]
 
         The value is a dict keyed on the values of the units select list and contains the selected units' name, example
-        string, and convert function.  For example, for a key of `msrun__sample__animal__age`, a lookup of that key
+        string, and convert function.  For example, for a key of `msrun_sample__sample__animal__age`, a lookup of that key
         would look like:
 
-        returned_dict["msrun__sample__animal__age"] -> {
+        returned_dict["msrun_sample__sample__animal__age"] -> {
             ...
             "months": {
                 "name": "months",
@@ -541,7 +541,7 @@ class Format:
 
     def getTrueJoinPrefetchPathsAndQrys(self, qry):
         """
-        Takes a qry object and a units lookup dict (that maps the path version of fld [e.g. msrun__sample__animal__age]
+        Takes a qry object and a units lookup dict (that maps the path version of fld [e.g. msrun_sample__sample__animal__age]
         to a dict that contains the units options, including most importantly, a convert function that is found via the
         selected units key recorded in the qry) and returns a list of prefetch paths.  If a prefetch path contains
         models that are related M:M with the root model, that prefetch path will be split into multiple paths (all that
