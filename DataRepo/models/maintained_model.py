@@ -17,35 +17,41 @@ class MaintainedModelCoordinator:
     This class loosely mimmics a connection in a Django "database instrumentation" design.  But instead of providing a
     way to apply custom wrappers to database queries, it provides a way to supply context to MaintainedModel's calls to
     save, delete, and m2m_propagation_handler by providing access to a context manager that tells MaintainedModel how it
-    should behave in a certain context.  There are 3 context modes: immediate (the default), deferred, and disabled.  In
-    the immediate mode, autoupdates of maintained fields are performed immediately.  In deferred mode, autoupdates are
-    buffered and then performed once the last nested context has been exited.  In the disabled mode, no buffering or
-    autoupdates are performed at all.
+    should behave in a certain context.  There are 3 context modes: lazy (the default), immediate, deferred, and
+    disabled.  In lazy mode, auto-updates only occur when a model object is instantiated as query results are iterated
+    over (see MaintainedModel.from_db()).  In immediate mode, autoupdates of maintained fields are performed immediately
+    upon record creation (e.g. via calls to save()).  In deferred mode (see the MaintainedModel.deferred decorator),
+    autoupdates are buffered upon save() and then performed once the last nested context has been exited.  In the
+    disabled mode (see the MaintainedModel.disabled decorator), no buffering or autoupdates are performed at all.
     """
 
     def __init__(self, auto_update_mode="immediate", **kwargs):
         self.auto_update_mode = auto_update_mode
-        if auto_update_mode == "immediate":
-            # These 3 modes are for when autoupdates should be immediately performed upon every individual record change
-            self.auto_updates = True
-            self.buffering = True
+        if auto_update_mode == "lazy":
+            self.lazy_updates = True
+            self.immediate_updates = False
+            self.buffering = False
+        elif auto_update_mode == "immediate":
+            self.lazy_updates = False
+            self.immediate_updates = True
+            self.buffering = False
         elif auto_update_mode == "deferred":
-            # These 3 modes are for when autoupdates should be buffered upon every individual record change
-            self.auto_updates = False
+            self.lazy_updates = False
+            self.immediate_updates = False
             self.buffering = True
         elif auto_update_mode == "disabled":
-            # These 3 modes are for when autoupdates will never be performed
-            self.auto_updates = False
+            self.lazy_updates = False
+            self.immediate_updates = False
             self.buffering = False
         else:
             raise ValueError(
-                f"Invalid auto_update_mode: [{auto_update_mode}].  Valid values are: [immediate, deferred, and "
+                f"Invalid auto_update_mode: [{auto_update_mode}].  Valid values are: [lazy, immediate, deferred, and "
                 "disabled]."
             )
 
         # This tracks whether the underlying modes (autoupdates and buffering) have been overridden or not, e.g. by a
-        # parent context.  This is only used to override an immediate mode to a deferred mode.  disabled cannot be
-        # overridden.
+        # parent context.  This is only used to override an immediate or lazy mode to a deferred mode.  disabled cannot
+        # be overridden.
         self.overridden = False
 
         # These allow the user to turn on or off specific groups of auto-updates.
@@ -66,11 +72,12 @@ class MaintainedModelCoordinator:
         return self.auto_update_mode
 
     def _defer_override(self):
-        if self.auto_update_mode == "immediate":
-            print("Deferring immediate coordinator")
+        if self.auto_update_mode == "immediate" or self.auto_update_mode == "lazy":
+            print(f"Deferring {self.auto_update_mode} coordinator")
             self.auto_update_mode = "deferred"
             self.overridden = True
-            self.auto_updates = False
+            self.lazy_updates = False
+            self.immediate_updates = False
             self.buffering = True
         else:
             raise ValueError(
@@ -82,14 +89,21 @@ class MaintainedModelCoordinator:
         print(f"Disabling {current_mode} coordinator.")
         self.auto_update_mode = "disabled"
         self.overridden = True
-        self.auto_updates = False
+        self.lazy_updates = False
+        self.immediate_updates = False
         self.buffering = False
 
     def get_mode(self):
         return self.auto_update_mode
 
+    def are_immediate_updates_enabled(self):
+        return self.immediate_updates
+
+    def are_lazy_updates_enabled(self):
+        return self.lazy_updates
+
     def are_autoupdates_enabled(self):
-        return self.auto_updates
+        return self.immediate_updates or self.lazy_updates
 
     def buffer_size(self, generation=None, label_filters=None, filter_in=None):
         """
@@ -196,8 +210,9 @@ class MaintainedModelCoordinator:
 
     def buffer_update(self, mdl_obj):
         """
-        This is called when MaintainedModel.save (or delete) is called (if auto_updates is False), so that maintained
-        fields can be updated after loading code finishes (by calling the global method: perform_buffered_updates).
+        This is called when MaintainedModel.save (or delete) is called (if immediate_updates is False), so that
+        maintained fields can be updated after loading code finishes (by calling the global method:
+        perform_buffered_updates).
 
         It will only buffer the model object if the filters attached to it (originally from a coordinator (possibly a
         child coordinator with different labels) match any of the labels in the class's autoupdate fields, set in their
@@ -495,6 +510,7 @@ class MaintainedModel(Model):
         fields_to_autoupdate = kwargs.pop(
             "fields_to_autoupdate", None
         )  # None = update all maintained fields
+        via_query = kwargs.pop("via_query", False)
 
         # If the object is None, then what has happened is, there was a call to create an object off of the class.  That
         # means that __init__ was not called, so we are going to handle the initialization of MaintainedModel (including
@@ -519,7 +535,7 @@ class MaintainedModel(Model):
         # If auto-updates are turned on, a cascade of updates to linked models will occur, but if they are turned off,
         # the update will be buffered, to be manually triggered later (e.g. upon completion of loading), which
         # mitigates repeated updates to the same record
-        if coordinator.auto_updates is False and mass_updates is False:
+        if coordinator.are_autoupdates_enabled() is False and mass_updates is False:
             # Set the changed value triggering this update
             super().save(*args, **kwargs)
             self.super_save_called = True
@@ -531,9 +547,9 @@ class MaintainedModel(Model):
             coordinator.buffer_update(self)
 
             return
-        elif coordinator.auto_updates:
+        elif coordinator.are_autoupdates_enabled():
             # If autoupdates are happening (and it's not a mass-autoupdate (assumed because mass_updates
-            # can only be true if auto_updates is False)), set the label filters based on the currently set global
+            # can only be true if immediate_updates is False)), set the label filters based on the currently set global
             # conditions so that only fields matching the filters will be updated.
             self.label_filters = coordinator.default_label_filters
             self.filter_in = coordinator.default_filter_in
@@ -552,11 +568,20 @@ class MaintainedModel(Model):
         # note, we should not save during mass autoupdate because while the object was in the buffer, it could have been
         # deleted from the database and saving it would unintentionally re-add it to the database.
 
+        # The originating save has been called by this point. Below, pertains to auto-updates, which we don't want to do
+        # from anything but a query in lazy mode, so if this is not from a query in lazy mode
+        if not via_query and coordinator.are_lazy_updates_enabled():
+            # Remove the super_save_called if it was added (see the delattr comment near the bottom)
+            if hasattr(self, "super_save_called"):
+                delattr(self, "super_save_called")
+            # We don't want to perform autoupdates when lazy updates is false and via_query is True, so return
+            return
+
         # Update the fields that change due to the the triggering change (if any)
-        # This only executes either when auto_updates or mass_updates is true - both cannot be true
+        # This only executes either when immediate_updates or mass_updates is true - both cannot be true
         changed = self.update_decorated_fields(fields_to_autoupdate)
 
-        # This either saves both explicit changes and auto-update changes (when auto_updates is true) or it only
+        # This either saves both explicit changes and auto-update changes (when immediate_updates is true) or it only
         # saves the auto-updated values (when mass_updates is true)
         if changed is True or self.super_save_called is False:
             if self.super_save_called or mass_updates is True:
@@ -576,7 +601,8 @@ class MaintainedModel(Model):
 
         # We don't need to check mass_updates, because propagating changes during buffered updates is
         # handled differently (in a breadth-first fashion) to mitigate repeated updates of the same related record
-        if coordinator.auto_updates and propagate:
+        # Only propagate in immediate mode, not lazy
+        if coordinator.are_immediate_updates_enabled() and propagate:
             # Percolate changes up to the related models (if any)
             self.call_dfs_related_updaters()
 
@@ -604,7 +630,10 @@ class MaintainedModel(Model):
         # the update will be buffered, to be manually triggered later (e.g. upon completion of loading), which
         # mitigates repeated updates to the same record
         # mass_updates is checked for consistency, but perform_buffered_updates does not call delete()
-        if coordinator.auto_updates is False and mass_updates is False:
+        if (
+            coordinator.are_immediate_updates_enabled() is False
+            and mass_updates is False
+        ):
             # When buffering only, apply the global label filters, to be remembered during mass autoupdate
             self.label_filters = coordinator.default_label_filters
             self.filter_in = coordinator.default_filter_in
@@ -615,15 +644,15 @@ class MaintainedModel(Model):
                     coordinator.buffer_update(parent_inst)
 
             return
-        elif coordinator.auto_updates:
+        elif coordinator.are_immediate_updates_enabled():
             # If autoupdates are happening (and it's not a mass-autoupdate (assumed because mass_updates
-            # can only be true if auto_updates is False)), set the label filters based on the currently set global
+            # can only be true if immediate_updates is False)), set the label filters based on the currently set global
             # conditions so that only fields matching the filters will be updated.
             self.label_filters = coordinator.default_label_filters
             self.filter_in = coordinator.default_filter_in
         # Otherwise, we are performing a mass auto-update and want to update the previously set filter conditions
 
-        if coordinator.auto_updates and propagate:
+        if coordinator.are_immediate_updates_enabled() and propagate:
             # Percolate changes up to the parents (if any) and mark the deleted record as updated
             self.call_dfs_related_updaters(updated=[self_sig])
 
@@ -648,8 +677,8 @@ class MaintainedModel(Model):
         # Instantiate the model object
         rec = super().from_db(*args, **kwargs)
 
-        # If autoupdates are not enabled (i.e. we're not in "immediate" mode)
-        if not cls.get_coordinator().are_autoupdates_enabled():
+        # If autoupdates are not enabled (i.e. we're not in "lazy" mode)
+        if not cls.get_coordinator().are_lazy_updates_enabled():
             return rec
 
         # Get the field names
@@ -668,7 +697,7 @@ class MaintainedModel(Model):
                 f"Triggering lazy auto-update of fields: {cls.__name__}.{{{cs.join(lazy_update_fields)}}}"
             )
             # Trigger an auto-update
-            rec.save(fields_to_autoupdate=lazy_update_fields)
+            rec.save(fields_to_autoupdate=lazy_update_fields, via_query=True)
 
         return rec
 
@@ -786,14 +815,14 @@ class MaintainedModel(Model):
 
         The generation input is an integer indicating the hierarchy level.  E.g. if there is no parent, `generation`
         should be 0.  Each subsequence generation should increment generation.  It is used to populate update_buffer
-        when auto_updates is False, so that mass updates can be triggered after all data is loaded.
+        when immediate_updates is False, so that mass updates can be triggered after all data is loaded.
 
         Note that a class can have multiple fields to update and that those updates (according to their decorators) can
         trigger subsequent updates in different "parent"/"child" records.  If multiple update fields trigger updates to
         different parents, they are triggered in a depth-first fashion.  Child records are updated first, then parents.
         If a child links back to a parent, already-updated records prevent repeated/looped updates.  However, this only
-        becomes relevant when the global variable `auto_updates` is False, mass database changes are made (buffering the
-        auto-updates), and then auto-updates are explicitly triggered.
+        becomes relevant when the global variable `immediate_updates` is False, mass database changes are made
+        (buffering the auto-updates), and then auto-updates are explicitly triggered.
 
         Note, if there are many decorated methods updating different fields, and all of the "parent"/"child" fields are
         the same, only 1 of those decorators needs to set a parent field.
@@ -925,7 +954,7 @@ class MaintainedModel(Model):
         if (
             act.startswith("post_")
             and isinstance(obj, MaintainedModel)
-            and coordinator.auto_updates
+            and coordinator.are_immediate_updates_enabled()
         ):
             obj.call_dfs_related_updaters()
 
@@ -1008,7 +1037,7 @@ class MaintainedModel(Model):
             raise DeferredParentCoordinatorContextError()
 
         # Traverse the parent coordinators from immediate parent to distant parent.  Note, the stack doesn't include the
-        # default_coordinator, which is assumed to be mode "immediate".
+        # default_coordinator, which is assumed to not be mode "deferred".
         for coordinator in reversed(parent_coordinators):
             if coordinator.get_mode() == "deferred":
                 return coordinator
@@ -1025,7 +1054,7 @@ class MaintainedModel(Model):
         pushed onto the coordinator_stack, which is why it doesn't pop the last coordinator off.
         """
         # Traverse the parent coordinators from immediate parent to distant parent.  Note, the stack doesn't include the
-        # default_coordinator, which is assumed to be mode "immediate".
+        # default_coordinator, which is assumed to not be mode "deferred".
         cls._check_set_coordinator_thread_data()
         default_coordinator = cls._get_default_coordinator()
         if default_coordinator.get_mode() == "disabled":
@@ -1050,8 +1079,8 @@ class MaintainedModel(Model):
         This method allows you to set a temporary coordinator using a context manager.  Under this context (using a with
         block), the supplied coordinator will be used instead of the default whenever a MaintainedModel object is
         instantiated.  It behaves differently based on the coordinator mode and will change the mode based on the
-        hierarchy.  A disabled parent coordinator trumps deferred and immediate.  A deferred coordinator trumps an
-        immediate.  Deferred passes its buffer to the immediate parent deferred coordinator.  These contexts can be
+        hierarchy.  A disabled parent coordinator trumps deferred, immediate, and lazy.  A deferred coordinator trumps
+        an immediate and lazy.  Deferred passes its buffer to the parent deferred coordinator.  These contexts can be
         nested.
 
         Use this method like this:
@@ -1060,7 +1089,7 @@ class MaintainedModel(Model):
                 do_things()
         """
         coordinator_stack = cls._get_coordinator_stack()
-        # This assumes that the default_coordinator is in mode "immediate"
+        # This assumes that the default_coordinator is not in mode "deferred"
         if len(coordinator_stack) == 0 and coordinator.buffer_size() > 0:
             raise UncleanBufferError()
 
@@ -1078,7 +1107,7 @@ class MaintainedModel(Model):
             coordinator._disable_override()
         elif (
             # If the immediate parent coordinator is deferred, defer this one
-            effective_mode == "immediate"
+            (effective_mode == "immediate" or effective_mode == "lazy")
             and (
                 (
                     len(coordinator_stack) > 0
@@ -1939,7 +1968,7 @@ class AutoUpdateFailed(Exception):
 class StaleAutoupdateMode(Exception):
     def __init__(self):
         message = (
-            "Autoupdate mode enabled during a mass update of maintained fields.  Automated update of the global "
+            "An autoupdate mode was enabled during a mass update of maintained fields.  Automated update of the global "
             "variable mass_updates may have been interrupted during execution of "
             "perform_buffered_updates."
         )

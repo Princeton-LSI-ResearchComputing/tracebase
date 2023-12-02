@@ -332,19 +332,29 @@ class MaintainedModelImmediateTests(TracebaseTestCase):
         """
         Disables auto-updates to ensure the name field in the infusate model will be None.
         """
-        tmp_coordinator = MaintainedModelCoordinator("disabled")
-        with MaintainedModel.custom_coordinator(tmp_coordinator):
+        with MaintainedModel.custom_coordinator(MaintainedModelCoordinator("disabled")):
             io, _ = create_infusate_records()
 
         # Should be initially none
         self.assertIsNone(io.name)
 
-        # This triggers a lazy autoupdate
-        io_via_query = Infusate.objects.get(id__exact=io.id)
+        with MaintainedModel.custom_coordinator(MaintainedModelCoordinator("lazy")):
+            # This triggers a lazy autoupdate
+            io_via_query = Infusate.objects.get(id__exact=io.id)
 
         expected_name = "ti {C16:0-[5,6-13C2,17O2][2];glucose-[2,3-13C2,4-17O1][1]}"
         # And now the field should be updated
         self.assertEqual(expected_name, io_via_query.name)
+
+    def test_infusate_name_immediate_lazy_autoupdate(self):
+        """
+        Lazy auto-updates should not update upon save
+        """
+        with MaintainedModel.custom_coordinator(MaintainedModelCoordinator("lazy")):
+            io, _ = create_infusate_records()
+        # Should be initially none
+        self.assertIsNone(io.name)
+        # Would have been "ti {C16:0-[5,6-13C2,17O2][2];glucose-[2,3-13C2,4-17O1][1]}" in immediate mode
 
     def test_enable_autoupdates(self):
         """
