@@ -492,6 +492,7 @@ class MaintainedModel(Model):
         propagate = kwargs.pop(
             "propagate", not mass_updates
         )  # Effective default = True
+        fields_to_autoupdate = kwargs.pop("fields_to_autoupdate", None)  # None = update all maintained fields
 
         # If the object is None, then what has happened is, there was a call to create an object off of the class.  That
         # means that __init__ was not called, so we are going to handle the initialization of MaintainedModel (including
@@ -551,7 +552,7 @@ class MaintainedModel(Model):
 
         # Update the fields that change due to the the triggering change (if any)
         # This only executes either when auto_updates or mass_updates is true - both cannot be true
-        changed = self.update_decorated_fields()
+        changed = self.update_decorated_fields(fields_to_autoupdate)
 
         # This either saves both explicit changes and auto-update changes (when auto_updates is true) or it only
         # saves the auto-updated values (when mass_updates is true)
@@ -623,6 +624,58 @@ class MaintainedModel(Model):
         if coordinator.auto_updates and propagate:
             # Percolate changes up to the parents (if any) and mark the deleted record as updated
             self.call_dfs_related_updaters(updated=[self_sig])
+
+    @classmethod
+    def from_db(cls, *args, **kwargs):
+        """
+        This is an override of Model.from_db.  Model.from_db takes arguments: db, field_names, values.  It is used to
+        convert SQL query results into Model objects.  This over-ride uses this opportunity to perform lazy-auto-updates
+        of Model fields.  Note, it will not change the query results in terms of records.  I.e. if the maintained field
+        value is stale (e.g. it should be "x", but instead is null, and the query is "WHERE field = 'x'", the record
+        will NOT be updated because it would not have been returned by the SQL query.  This lazy-auto-update will occur
+        when a QuerySet is iterated over.  That's when `from_db` is called - at each iteration.
+
+        This method checks the field_names for the presence of maintained fields, and if the corresponding value is
+        None, it will trigger an auto-update and set the new value for the superclass method's model object creation.
+
+        Note, one down-side of this implementation of lazy auto-updates is that if the auto-update results in the value
+        being null/None, the code to auto-update the field will always execute (a waste of effort).
+
+        This will not lazy-update DEFERRED field values.
+        """
+        print(f"Calling super.from_db from a {cls.__name__} object")
+        # Instantiate the model object
+        rec = super().from_db(*args, **kwargs)
+        print(f"Super.from_db returned: {rec}")
+
+        # If autoupdates are not enabled (i.e. we're not in "immediate" mode)
+        if not cls.get_coordinator().are_autoupdates_enabled():
+            print(f"from_db override returning unchanged instance: {rec}")
+            return rec
+
+        # Get the field names
+        queryset_fields = set(args[1])  # field_names
+
+        # Intersect the queryset fields with the maintained fields
+        common_fields = set(cls.get_my_update_fields()).intersection(queryset_fields)
+
+        # Look for maintained field values that are None
+        lazy_update_fields = [
+            fld
+            for fld in common_fields
+            if getattr(rec, fld) is None
+        ]
+
+        # If any maintained fields are to be lazy-updated
+        if len(lazy_update_fields) > 0:
+            cs = ", "
+            print(f"Triggering lazy auto-update of fields: {cls.__name__}.{{{cs.join(lazy_update_fields)}}}")
+            # Trigger an auto-update
+            rec.save(fields_to_autoupdate=lazy_update_fields)
+            print(f"from_db override returning lazy-updated instance: {rec}")
+
+        print(f"from_db override returning potentially changed instance: {rec} lazy_update_fields: {lazy_update_fields} common_fields: {common_fields} queryset_fields: {queryset_fields}")
+        return rec
 
     @staticmethod
     def relation(
@@ -1477,7 +1530,7 @@ class MaintainedModel(Model):
                         except Exception as e:
                             raise AutoUpdateFailed(rec, e, updater_dicts)
 
-    def update_decorated_fields(self):
+    def update_decorated_fields(self, fields_to_autoupdate=None):
         """
         Updates every field identified in each MaintainedModel.setter decorator using the decorated function that
         generates its value.
@@ -1491,6 +1544,9 @@ class MaintainedModel(Model):
         for updater_dict in self.get_my_updaters():
             update_fld = updater_dict["update_field"]
             update_label = updater_dict["update_label"]
+
+            if fields_to_autoupdate is None or update_fld not in fields_to_autoupdate:
+                continue
 
             # If there is a maintained field(s) in this model and...
             # If auto-updates are restricted to fields by their update_label and this field matches the label
@@ -1759,18 +1815,18 @@ class MaintainedModel(Model):
 
         return children
 
-    def get_my_update_fields(self):
+    @classmethod
+    def get_my_update_fields(cls):
         """
         Returns a list of update_fields of the current model that are marked via the MaintainedModel.setter
         decorators in the model.  Returns an empty list if there are none (e.g. if the only decorator in the model is
         the relation decorator on the class).
         """
-        my_update_fields = []
-        for updater_dict in self.get_my_updaters():
-            if "update_field" in updater_dict.keys() and updater_dict["update_field"]:
-                my_update_fields.append(updater_dict["update_field"])
-
-        return my_update_fields
+        return [
+            updater_dict["update_field"]
+            for updater_dict in cls.get_my_updaters()
+            if "update_field" in updater_dict.keys() and updater_dict["update_field"]
+        ]
 
     @classmethod
     def get_my_updaters(cls):
