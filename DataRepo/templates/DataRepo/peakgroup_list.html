@@ -26,7 +26,7 @@
                     {{ peakgroup.msrun_sample.sample.name }}
                 </a>
             </td>
-            <td><a href="{% url 'msrun_detail' peakgroup.msrun_sample.id %}">{{ peakgroup.msrun_sample.researcher }}, {{ peakgroup.msrun_sample.date }}</a></td>
+            <td><a href="{% url 'msrunsample_detail' peakgroup.msrun_sample.id %}">{{ peakgroup.msrun_sample.researcher }}, {{ peakgroup.msrun_sample.date }}</a></td>
             <td>
                 {% if peakgroup.peak_annotation_file %}
                 <a href="{% url 'peakgroupset_detail' peakgroup.peak_annotation_file.id %}">

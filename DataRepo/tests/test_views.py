@@ -12,7 +12,8 @@ from DataRepo.models import (
     ArchiveFile,
     Compound,
     Infusate,
-    MSRun,
+    MSRunSample,
+    MSRunSequence,
     PeakData,
     PeakGroup,
     Sample,
@@ -291,22 +292,42 @@ class ViewTests(TracebaseTestCase):
         response = self.client.get(reverse("sample_detail", args=[s.id + 1]))
         self.assertEqual(response.status_code, 404)
 
-    def test_msrun_list(self):
-        response = self.client.get(reverse("msrun_list"))
+    def test_msrun_sample_list(self):
+        response = self.client.get(reverse("msrunsample_list"))
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "DataRepo/msrun_list.html")
-        self.assertEqual(len(response.context["msrun_list"]), self.ALL_SAMPLES_COUNT)
+        self.assertTemplateUsed(response, "DataRepo/msrunsample_list.html")
+        self.assertEqual(len(response.context["objects"]), self.ALL_SAMPLES_COUNT)
 
-    def test_msrun_detail(self):
-        ms1 = MSRun.objects.filter(sample__name="BAT-xz971").get()
-        response = self.client.get(reverse("msrun_detail", args=[ms1.id]))
+    def test_msrun_sequence_list(self):
+        response = self.client.get(reverse("msrunsequence_list"))
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "DataRepo/msrun_detail.html")
-        self.assertEqual(response.context["msrun"].sample.name, "BAT-xz971")
+        self.assertTemplateUsed(response, "DataRepo/msrunsequence_list.html")
+        self.assertEqual(len(response.context["objects"]), self.ALL_SAMPLES_COUNT)
 
-    def test_msrun_detail_404(self):
-        ms = MSRun.objects.order_by("id").last()
-        response = self.client.get(reverse("msrun_detail", args=[ms.id + 1]))
+    def test_msrun_sample_detail(self):
+        ms1 = MSRunSample.objects.filter(sample__name="BAT-xz971").get()
+        response = self.client.get(reverse("msrunsample_detail", args=[ms1.id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "DataRepo/msrunsample_detail.html")
+        self.assertEqual(response.context["object"].sample.name, "BAT-xz971")
+
+    def test_msrun_sample_detail_404(self):
+        ms = MSRunSample.objects.order_by("id").last()
+        response = self.client.get(reverse("msrunsample_detail", args=[ms.id + 1]))
+        self.assertEqual(response.status_code, 404)
+
+    def test_msrun_sequence_detail(self):
+        ms1 = MSRunSequence.objects.filter(
+            msrun_samples__sample__name="BAT-xz971"
+        ).get()
+        response = self.client.get(reverse("msrunsequence_detail", args=[ms1.id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "DataRepo/msrunsequence_detail.html")
+        self.assertEqual(response.context["object"].sample.name, "BAT-xz971")
+
+    def test_msrun_sequence_detail_404(self):
+        ms = MSRunSequence.objects.order_by("id").last()
+        response = self.client.get(reverse("msrunsequence_detail", args=[ms.id + 1]))
         self.assertEqual(response.status_code, 404)
 
     def test_archive_file_list(self):
@@ -341,16 +362,18 @@ class ViewTests(TracebaseTestCase):
         )
 
     def test_peakgroup_list_per_msrun(self):
-        ms1 = MSRun.objects.filter(sample__name="BAT-xz971").get()
-        pg1 = PeakGroup.objects.filter(msrun_id=ms1.id)
-        response = self.client.get("/DataRepo/peakgroups/?msrun_id=" + str(ms1.pk))
+        ms1 = MSRunSample.objects.filter(sample__name="BAT-xz971").get()
+        pg1 = PeakGroup.objects.filter(msrun_sample_id=ms1.id)
+        response = self.client.get(
+            "/DataRepo/peakgroups/?msrun_sample_id=" + str(ms1.pk)
+        )
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "DataRepo/peakgroup_list.html")
         self.assertEqual(len(response.context["peakgroup_list"]), pg1.count())
 
     def test_peakgroup_detail(self):
-        ms1 = MSRun.objects.filter(sample__name="BAT-xz971").get()
-        pg1 = PeakGroup.objects.filter(msrun_id=ms1.id).first()
+        ms1 = MSRunSample.objects.filter(sample__name="BAT-xz971").get()
+        pg1 = PeakGroup.objects.filter(msrun_sample_id=ms1.id).first()
         response = self.client.get(reverse("peakgroup_detail", args=[pg1.id]))
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "DataRepo/peakgroup_detail.html")

@@ -302,7 +302,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         with self.assertRaises(DuplicatePeakGroup):
             adl.insert_peak_group(
                 peak_group_attrs,
-                msrun_sample=peak_group.msrun_sample,
+                msrun=peak_group.msrun_sample,
                 peak_annotation_file=peak_group.peak_annotation_file,
             )
 
@@ -341,7 +341,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         with self.assertRaises(ConflictingValueError):
             adl.insert_peak_group(
                 peak_group_attrs,
-                msrun_sample=peak_group.msrun_sample,
+                msrun=peak_group.msrun_sample,
                 peak_annotation_file=peak_group.peak_annotation_file,
             )
 

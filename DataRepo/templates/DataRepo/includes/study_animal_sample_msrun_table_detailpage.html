@@ -2,6 +2,7 @@
 
 {% if out_df %}
 <div id="div_out_tab">
+    <!-- Commented until queryset_to_pandas_dataframes is updated for MSRunSample/Sequence
     <table class="table table-sm table-hover table-bordered table-responsive-xl table-striped"
         id="study_animal_sample_msrun"
         data-toggle="table"
@@ -91,7 +92,7 @@
             <td>{{ i.msrun_date|convert_iso_date }}</td>
             <td>
                 {% if i.msrun_id %}
-                    <a href="{% url 'msrun_detail' i.msrun_id %}">MSRun Detail</a>
+                    <a href="{% url 'msrunsample_detail' i.msrun_id %}">MSRun Detail</a>
                 {% else %}
                     None
                 {% endif %}
@@ -100,5 +101,6 @@
         {% endfor %}
     </tbody>
 </table>
+-->
 </div>
 {% endif %}

@@ -11,7 +11,6 @@ from DataRepo.models import (
     DataType,
     Infusate,
     LCMethod,
-    MSRun,
     MSRunSample,
     MSRunSequence,
     PeakData,

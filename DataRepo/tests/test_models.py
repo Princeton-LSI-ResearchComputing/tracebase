@@ -196,7 +196,7 @@ class StudyTests(TracebaseTestCase, ExampleDataConsumer):
         self.peak_group = PeakGroup.objects.create(
             name=initial_peak_group["name"],
             formula=initial_peak_group["formula"],
-            # msrun_sample=self.msrun,  # TODO: 
+            # msrun_sample=self.msrun,  # TODO: Uncomment this once issue 712 is done
             peak_annotation_file=self.peak_annotation_file,
         )
         # actual code would have to more careful in retrieving compounds based
@@ -1006,7 +1006,9 @@ class PropertyTests(TracebaseTestCase):
         )
 
         pg = PeakGroup(
-            name="lactate", peak_annotation_file=peak_annotation_file, msrun_sample=msrun
+            name="lactate",
+            peak_annotation_file=peak_annotation_file,
+            msrun_sample=msrun,
         )
         pg.save()
 
@@ -1395,7 +1397,11 @@ class PropertyTests(TracebaseTestCase):
     def test_peakgroup_is_tracer_label_compound_group_false(self):
         # get a non tracer compound from a serum sample
         sample = Sample.objects.get(name="serum-xz971")
-        pg = sample.msrun_samples.last().peak_groups.filter(name__exact="tryptophan").last()
+        pg = (
+            sample.msrun_samples.last()
+            .peak_groups.filter(name__exact="tryptophan")
+            .last()
+        )
         pgl = pg.labels.first()
         self.assertFalse(pgl.is_tracer_label_compound_group)
 
