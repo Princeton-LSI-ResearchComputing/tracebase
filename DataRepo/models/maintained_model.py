@@ -643,14 +643,11 @@ class MaintainedModel(Model):
 
         This will not lazy-update DEFERRED field values.
         """
-        print(f"Calling super.from_db from a {cls.__name__} object")
         # Instantiate the model object
         rec = super().from_db(*args, **kwargs)
-        print(f"Super.from_db returned: {rec}")
 
         # If autoupdates are not enabled (i.e. we're not in "immediate" mode)
         if not cls.get_coordinator().are_autoupdates_enabled():
-            print(f"from_db override returning unchanged instance: {rec}")
             return rec
 
         # Get the field names
@@ -672,9 +669,7 @@ class MaintainedModel(Model):
             print(f"Triggering lazy auto-update of fields: {cls.__name__}.{{{cs.join(lazy_update_fields)}}}")
             # Trigger an auto-update
             rec.save(fields_to_autoupdate=lazy_update_fields)
-            print(f"from_db override returning lazy-updated instance: {rec}")
 
-        print(f"from_db override returning potentially changed instance: {rec} lazy_update_fields: {lazy_update_fields} common_fields: {common_fields} queryset_fields: {queryset_fields}")
         return rec
 
     @staticmethod
@@ -1545,7 +1540,7 @@ class MaintainedModel(Model):
             update_fld = updater_dict["update_field"]
             update_label = updater_dict["update_label"]
 
-            if fields_to_autoupdate is None or update_fld not in fields_to_autoupdate:
+            if fields_to_autoupdate is not None and update_fld not in fields_to_autoupdate:
                 continue
 
             # If there is a maintained field(s) in this model and...
