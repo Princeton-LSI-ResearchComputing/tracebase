@@ -326,25 +326,20 @@ class MaintainedModelImmediateTests(TracebaseTestCase):
 
     def test_get_name_triggers_autoupdate(self):
         """
-        By disabling buffering, we ensure that the name field in the infusate model will be None, so it we get a value,
-        we infer it used the `._name()` method.
+        Disables auto-updates to ensure the name field in the infusate model will be None.
         """
         tmp_coordinator = MaintainedModelCoordinator("disabled")
         with MaintainedModel.custom_coordinator(tmp_coordinator):
             io, _ = create_infusate_records()
-        # The coordinator that was attached to that object was disabled.  To have a new coordinator, we either need to
-        # retrieve a new object or explicitly set the coordinator. Maybe I should be resetting the coordinator in the
-        # .save() override...
-        io_again = Infusate.objects.get(id__exact=io.id)
 
         # Should be initially none
-        self.assertIsNone(io_again.name)
+        self.assertIsNone(io.name)
 
         expected_name = "ti {C16:0-[5,6-13C2,17O2][2];glucose-[2,3-13C2,4-17O1][1]}"
         # Returned value should be equal
-        self.assertEqual(expected_name, io_again.get_name)
+        self.assertEqual(expected_name, io.get_name)
         # And now the field should be updated
-        self.assertEqual(expected_name, io_again.name)
+        self.assertEqual(expected_name, io.name)
 
     def test_enable_autoupdates(self):
         """
