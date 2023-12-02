@@ -240,16 +240,18 @@ class MaintainedModelDeferredTests(TracebaseTestCase):
         # Ensure the buffer was emptied by perform_buffered_updates
         self.assertEqual(self.test_coordinator.buffer_size(), 0)
 
-    def test_get_name_orig_deferred(self):
+    def test_lazy_autoupdate_blocked_in_deferred_mode(self):
         """
         Since a parent coordinator is deferred, auto-update should not happen.
         """
         io, _ = create_infusate_records()
-        # Since a parent coordinator is deferred, auto-update should not happen, but get_name always returns a value.
-        # See MaintainedModelImmediateTests.test_get_name_orig_updated
+        # Since a parent coordinator is set to deferred in setUp(), auto-update should not happen, but _name() always
+        # returns a value.  Test this to ensure the results of the following test will be valid.
         expected_name = "ti {C16:0-[5,6-13C2,17O2][2];glucose-[2,3-13C2,4-17O1][1]}"
-        self.assertEqual(expected_name, io.get_name)
-        # Assert method get_name does not auto-update if parent coordinator is deferred
+        self.assertEqual(expected_name, io._name())
+
+        # Assert lazy autoupdate does not auto-update if parent coordinator is deferred. This should call the lazy-
+        # autoupdate code in the from_db override
         io_again = Infusate.objects.get(id__exact=io.id)
         self.assertIsNone(io_again.name)
 
@@ -264,7 +266,7 @@ class MaintainedModelDeferredTests(TracebaseTestCase):
         io_again = Infusate.objects.get(id__exact=io.id)
         self.assertIsNone(io_again.name)
 
-    def test_get_name_orig_deferred_immediate(self):
+    def test_lazy_autoupdate_deferred_immediate(self):
         """
         Since a parent coordinator is deferred, auto-update should not happen, even if child coordinator is "immediate".
         """
@@ -272,10 +274,12 @@ class MaintainedModelDeferredTests(TracebaseTestCase):
         tmp_coordinator = MaintainedModelCoordinator("immediate")
         with MaintainedModel.custom_coordinator(tmp_coordinator):
             io, _ = create_infusate_records()
-            # Since a parent coordinator is deferred, auto-update should not happen, but get_name always returns a
-            # value.
-            io.get_name
-            # Assert method get_name does not auto-update if parent coordinator is deferred
+            # Since a parent coordinator is deferred, auto-update should not happen, but _name() always returns a
+            # value.  This test ensures the next test is meaningful.
+            expected_name = "ti {C16:0-[5,6-13C2,17O2][2];glucose-[2,3-13C2,4-17O1][1]}"
+            self.assertEqual(expected_name, io._name())
+
+            # Assert lazy-autoupdate does not auto-update if parent coordinator is deferred
             io_again = Infusate.objects.get(id__exact=io.id)
             self.assertIsNone(io_again.name)
 
@@ -324,7 +328,7 @@ class MaintainedModelImmediateTests(TracebaseTestCase):
                 0, coordinator.buffer_size(), msg=msg + "  The buffer is empty."
             )
 
-    def test_get_name_triggers_autoupdate(self):
+    def test_infusate_name_lazy_autoupdate(self):
         """
         Disables auto-updates to ensure the name field in the infusate model will be None.
         """
@@ -335,11 +339,12 @@ class MaintainedModelImmediateTests(TracebaseTestCase):
         # Should be initially none
         self.assertIsNone(io.name)
 
+        # This triggers a lazy autoupdate
+        io_via_query = Infusate.objects.get(id__exact=io.id)
+
         expected_name = "ti {C16:0-[5,6-13C2,17O2][2];glucose-[2,3-13C2,4-17O1][1]}"
-        # Returned value should be equal
-        self.assertEqual(expected_name, io.get_name)
         # And now the field should be updated
-        self.assertEqual(expected_name, io.name)
+        self.assertEqual(expected_name, io_via_query.name)
 
     def test_enable_autoupdates(self):
         """

@@ -492,7 +492,9 @@ class MaintainedModel(Model):
         propagate = kwargs.pop(
             "propagate", not mass_updates
         )  # Effective default = True
-        fields_to_autoupdate = kwargs.pop("fields_to_autoupdate", None)  # None = update all maintained fields
+        fields_to_autoupdate = kwargs.pop(
+            "fields_to_autoupdate", None
+        )  # None = update all maintained fields
 
         # If the object is None, then what has happened is, there was a call to create an object off of the class.  That
         # means that __init__ was not called, so we are going to handle the initialization of MaintainedModel (including
@@ -657,16 +659,14 @@ class MaintainedModel(Model):
         common_fields = set(cls.get_my_update_fields()).intersection(queryset_fields)
 
         # Look for maintained field values that are None
-        lazy_update_fields = [
-            fld
-            for fld in common_fields
-            if getattr(rec, fld) is None
-        ]
+        lazy_update_fields = [fld for fld in common_fields if getattr(rec, fld) is None]
 
         # If any maintained fields are to be lazy-updated
         if len(lazy_update_fields) > 0:
             cs = ", "
-            print(f"Triggering lazy auto-update of fields: {cls.__name__}.{{{cs.join(lazy_update_fields)}}}")
+            print(
+                f"Triggering lazy auto-update of fields: {cls.__name__}.{{{cs.join(lazy_update_fields)}}}"
+            )
             # Trigger an auto-update
             rec.save(fields_to_autoupdate=lazy_update_fields)
 
@@ -1540,7 +1540,10 @@ class MaintainedModel(Model):
             update_fld = updater_dict["update_field"]
             update_label = updater_dict["update_label"]
 
-            if fields_to_autoupdate is not None and update_fld not in fields_to_autoupdate:
+            if (
+                fields_to_autoupdate is not None
+                and update_fld not in fields_to_autoupdate
+            ):
                 continue
 
             # If there is a maintained field(s) in this model and...
