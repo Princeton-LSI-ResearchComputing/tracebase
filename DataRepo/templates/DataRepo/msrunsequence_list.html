@@ -7,7 +7,7 @@
         <ul>
             <h4>MS Run Sequences</h4>
 
-            {% if objects %}
+            {% if sequences %}
                 <br>
                 <table class="table table-sm table-hover table-bordered table-responsive table-striped w-auto mw-100">
                     <tr>
@@ -18,7 +18,7 @@
                         <th>Operator</th>
                         <th>Notes</th>
                     </tr>
-                    {% for msrun_sequence in objects %}
+                    {% for msrun_sequence in sequences %}
                         <tr>
                             <td><a href="{% url 'msrunsequence_detail' msrun_sequence.id %}">details</a></td>
                             <td>{{ msrun_sequence.instrument }}</td>

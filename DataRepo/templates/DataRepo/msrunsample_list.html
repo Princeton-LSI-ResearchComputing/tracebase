@@ -7,7 +7,7 @@
         <ul>
             <h4>MS Run Samples</h4>
 
-            {% if objects %}
+            {% if msrun_samples %}
                 <br>
                 <table class="table table-sm table-hover table-bordered table-responsive table-striped w-auto mw-100">
                     <tr>
@@ -18,7 +18,7 @@
                         <th>Raw File</th>
                         <th>MZ File</th>
                     </tr>
-                    {% for msrun_sample in objects %}
+                    {% for msrun_sample in msrun_samples %}
                         <tr>
                             <td><a href="{% url 'msrunsample_detail' msrun_sample.id %}">details</a></td>
                             <td><a href="{% url 'sample_detail' msrun_sample.sample.id %}">{{ msrun_sample.sample.name }}</a></td>
