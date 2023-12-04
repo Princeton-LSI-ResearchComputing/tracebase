@@ -180,17 +180,17 @@ class MaintainedModelDeferredTests(TracebaseTestCase):
             len(all_coordinators),
             msg=msg + "  The coordinator_stack has the test coordinator.",
         )
-        # Make sure that its mode is "immediate"
+        # Make sure that its mode is "always"
         self.assertEqual(
-            "immediate",
+            "always",
             all_coordinators[0].auto_update_mode,
-            msg=msg + "  Mode is 'immediate'.",
+            msg=msg + "  Mode should be 'always'.",
         )
         # Make sure the test coordinator's mode is "deferred"
         self.assertEqual(
             "deferred",
             all_coordinators[1].auto_update_mode,
-            msg=msg + "  Mode is 'immediate'.",
+            msg=msg + "  Mode should be 'deferred'.",
         )
         # Make sure that the buffer is empty to start
         self.assertEqual(
@@ -316,11 +316,11 @@ class MaintainedModelImmediateTests(TracebaseTestCase):
         self.assertEqual(
             1, len(all_coordinators), msg=msg + "  The coordinator_stack is empty."
         )
-        # Make sure that its mode is "immediate"
+        # Make sure that its mode is "always"
         self.assertEqual(
-            "immediate",
+            "always",
             all_coordinators[0].auto_update_mode,
-            msg=msg + "  Mode is 'immediate'.",
+            msg=msg + "  Mode should be 'always'.",
         )
         # Make sure that the buffer is empty to start
         for coordinator in all_coordinators:
@@ -330,7 +330,7 @@ class MaintainedModelImmediateTests(TracebaseTestCase):
 
     def test_infusate_name_lazy_autoupdate(self):
         """
-        Disables auto-updates to ensure the name field in the infusate model will be None.
+        Disable auto-updates to ensure the name field in the infusate model will be None.
         """
         with MaintainedModel.custom_coordinator(MaintainedModelCoordinator("disabled")):
             io, _ = create_infusate_records()
@@ -352,7 +352,7 @@ class MaintainedModelImmediateTests(TracebaseTestCase):
         """
         with MaintainedModel.custom_coordinator(MaintainedModelCoordinator("lazy")):
             io, _ = create_infusate_records()
-        # Should be initially none
+        # Should be none, because save shouldn't update - only from_db
         self.assertIsNone(io.name)
         # Would have been "ti {C16:0-[5,6-13C2,17O2][2];glucose-[2,3-13C2,4-17O1][1]}" in immediate mode
 

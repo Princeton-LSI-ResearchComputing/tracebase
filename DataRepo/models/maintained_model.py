@@ -17,17 +17,25 @@ class MaintainedModelCoordinator:
     This class loosely mimmics a connection in a Django "database instrumentation" design.  But instead of providing a
     way to apply custom wrappers to database queries, it provides a way to supply context to MaintainedModel's calls to
     save, delete, and m2m_propagation_handler by providing access to a context manager that tells MaintainedModel how it
-    should behave in a certain context.  There are 3 context modes: lazy (the default), immediate, deferred, and
-    disabled.  In lazy mode, auto-updates only occur when a model object is instantiated as query results are iterated
-    over (see MaintainedModel.from_db()).  In immediate mode, autoupdates of maintained fields are performed immediately
-    upon record creation (e.g. via calls to save()).  In deferred mode (see the MaintainedModel.deferred decorator),
-    autoupdates are buffered upon save() and then performed once the last nested context has been exited.  In the
-    disabled mode (see the MaintainedModel.disabled decorator), no buffering or autoupdates are performed at all.
+    should behave in a certain context.  There are 4 context modes: always (the default, meaning both lazy and
+    immediate), lazy, immediate, deferred, and disabled.  In lazy mode, auto-updates only occur when a model object is
+    instantiated as query results are iterated over (see MaintainedModel.from_db()).  In immediate mode, autoupdates of
+    maintained fields are performed immediately upon record creation (e.g. via calls to save()).  In deferred mode (see
+    the MaintainedModel.deferred decorator), autoupdates are buffered upon save() and then performed once the last
+    nested context has been exited.  In the disabled mode (see the MaintainedModel.disabled decorator), no buffering or
+    autoupdates are performed at all.
     """
 
-    def __init__(self, auto_update_mode="immediate", **kwargs):
+    def __init__(self, auto_update_mode=None, **kwargs):
+        if auto_update_mode is None:
+            auto_update_mode = "always"
         self.auto_update_mode = auto_update_mode
-        if auto_update_mode == "lazy":
+        if auto_update_mode == "always":
+            # Updates both on save and on query.  (Deferred will update, but later.)
+            self.lazy_updates = True
+            self.immediate_updates = True
+            self.buffering = False
+        elif auto_update_mode == "lazy":
             self.lazy_updates = True
             self.immediate_updates = False
             self.buffering = False
@@ -72,7 +80,7 @@ class MaintainedModelCoordinator:
         return self.auto_update_mode
 
     def _defer_override(self):
-        if self.auto_update_mode == "immediate" or self.auto_update_mode == "lazy":
+        if self.auto_update_mode in ["always", "immediate", "lazy"]:
             print(f"Deferring {self.auto_update_mode} coordinator")
             self.auto_update_mode = "deferred"
             self.overridden = True
@@ -499,17 +507,14 @@ class MaintainedModel(Model):
         This is an override of the derived model's save method that is being used here to automatically update
         maintained fields.
         """
-        # Custom argument: mass_updates - Whether auto-updating buffered model objects - default False
-        # Used internally.  Do not supply unless you know what you're doing.
+        # The following custom arguments are used internally.  Do not supply unless you know what you're doing.
+        # mass_updates: Whether auto-updating buffered model objects - default False
         mass_updates = kwargs.pop("mass_updates", False)
-        # Custom argument: propagate - Whether to propagate updates to related model objects - default True
-        # Used internally.  Do not supply unless you know what you're doing.
-        propagate = kwargs.pop(
-            "propagate", not mass_updates
-        )  # Effective default = True
-        fields_to_autoupdate = kwargs.pop(
-            "fields_to_autoupdate", None
-        )  # None = update all maintained fields
+        # propagate: Whether to propagate updates to related model objects - default True
+        propagate = kwargs.pop("propagate", not mass_updates)
+        # fields_to_autoupdate: List of fields to auto-update. - default None = update all maintained fields
+        fields_to_autoupdate = kwargs.pop("fields_to_autoupdate", None)
+        # via_query: Whether this is coming from the from_db method or not (implying no record change) - default False
         via_query = kwargs.pop("via_query", False)
 
         # If the object is None, then what has happened is, there was a call to create an object off of the class.  That
@@ -523,37 +528,35 @@ class MaintainedModel(Model):
         # Retrieve the current coordinator
         coordinator = self.get_coordinator()
 
-        # super_save_called will already have been initialized if the object was saved and buffered and mass auto-update
-        # is being performed
-        if not hasattr(self, "super_save_called"):
-            self.super_save_called = False
-        elif self.super_save_called is True and mass_updates is False:
-            # Save has been called from the developer's code a second time (presumably after having made subsequent
-            # changes), so we must reset to False
+        # Record whether/when we have made the super-save call, so that we don't do it twice when the developer's code
+        # is calling save just to trigger an auto-update.
+        # Note, super_save_called will already have been initialized if the object was saved and buffered and mass auto-
+        # update is being performed.  Save on an object can be called a second time from the developer's code
+        # (presumably after having made subsequent changes), so to support that we must reset to False, but we don't
+        # want to do it during a mass auto-update.
+        if not hasattr(self, "super_save_called") or not mass_updates:
             self.super_save_called = False
 
         # If auto-updates are turned on, a cascade of updates to linked models will occur, but if they are turned off,
         # the update will be buffered, to be manually triggered later (e.g. upon completion of loading), which
         # mitigates repeated updates to the same record
-        if coordinator.are_autoupdates_enabled() is False and mass_updates is False:
-            # Set the changed value triggering this update
-            super().save(*args, **kwargs)
-            self.super_save_called = True
-
-            # When buffering only, apply the global label filters, to be remembered during mass autoupdate
-            self.label_filters = coordinator.default_label_filters
-            self.filter_in = coordinator.default_filter_in
-
-            coordinator.buffer_update(self)
-
-            return
-        elif coordinator.are_autoupdates_enabled():
+        if not coordinator.are_autoupdates_enabled():
             # If autoupdates are happening (and it's not a mass-autoupdate (assumed because mass_updates
             # can only be true if immediate_updates is False)), set the label filters based on the currently set global
             # conditions so that only fields matching the filters will be updated.
             self.label_filters = coordinator.default_label_filters
             self.filter_in = coordinator.default_filter_in
-        # Otherwise, we are performing a mass auto-update and want to update the previously set filter conditions
+
+            if not mass_updates:
+                # Set the changed value triggering this update
+                super().save(*args, **kwargs)
+                self.super_save_called = True
+
+                # The global label filters applied above will be remembered during mass autoupdate of the buffer
+                coordinator.buffer_update(self)
+
+                return
+        # Otherwise, we are performing a mass auto-update and want to update using the previously set filter conditions
 
         # Calling super.save (if necessary) so that the call to update_decorated_fields can traverse reverse
         # relations without a ValueError exception that is a new behavior/constraint as of Django 4.2.  But, if we got
@@ -565,16 +568,23 @@ class MaintainedModel(Model):
         if self.pk is None and mass_updates is False:
             super().save(*args, **kwargs)
             self.super_save_called = True
-        # note, we should not save during mass autoupdate because while the object was in the buffer, it could have been
+        # Note, we should not save during mass autoupdate because while the object was in the buffer, it could have been
         # deleted from the database and saving it would unintentionally re-add it to the database.
 
-        # The originating save has been called by this point. Below, pertains to auto-updates, which we don't want to do
-        # from anything but a query in lazy mode, so if this is not from a query in lazy mode
-        if not via_query and coordinator.are_lazy_updates_enabled():
+        if (
+            # If this was triggered from a query and lazy mode is off
+            (via_query and not coordinator.are_lazy_updates_enabled())
+            # If this was not triggered from a query and lazy mode is on (and immediate mode is off)
+            or (
+                not via_query
+                and coordinator.are_lazy_updates_enabled()
+                and not coordinator.are_immediate_updates_enabled()
+            )
+        ):
             # Remove the super_save_called if it was added (see the delattr comment near the bottom)
             if hasattr(self, "super_save_called"):
                 delattr(self, "super_save_called")
-            # We don't want to perform autoupdates when lazy updates is false and via_query is True, so return
+            # We don't want to perform autoupdates when lazy updates is False and via_query is True, so return
             return
 
         # Update the fields that change due to the the triggering change (if any)
@@ -586,6 +596,7 @@ class MaintainedModel(Model):
         if changed is True or self.super_save_called is False:
             if self.super_save_called or mass_updates is True:
                 if mass_updates is True:
+                    # Intentionally trigger an exception if the buffer is stale (i.e. if the record was deleted)
                     self.exists_in_db(raise_exception=True)
                 # This is a subsequent call to save due to the auto-update, so we don't want to use the original
                 # arguments (which may direct save that it needs to do an insert).  If you do supply arguments in this
@@ -599,11 +610,16 @@ class MaintainedModel(Model):
         # deferred, only)
         delattr(self, "super_save_called")
 
-        # We don't need to check mass_updates, because propagating changes during buffered updates is
-        # handled differently (in a breadth-first fashion) to mitigate repeated updates of the same related record
-        # Only propagate in immediate mode, not lazy
+        # We don't need to check mass_updates, because propagating changes during buffered updates is handled elsewhere
+        # to mitigate repeated updates of the same related record.
+        # Only propagate in immediate mode, not lazy.  In lazy updates, no data in the record is changing other than
+        # maintained fields, and updates only need to propagate if not-maintained fields have changed, because
+        # propagation is intended to only trigger when other values depend on the values in the triggering record.  And
+        # since updater methods SHOULD NOT rely on maintained fields, there is no change in a query that should affect
+        # other maintained fields.
         if coordinator.are_immediate_updates_enabled() and propagate:
-            # Percolate changes up to the related models (if any)
+            # Percolate (non-maintained field) record changes up to the related models so they can change their
+            # maintained fields whose values are dependent on this record's non-maintained fields
             self.call_dfs_related_updaters()
 
     def delete(self, *args, **kwargs):
