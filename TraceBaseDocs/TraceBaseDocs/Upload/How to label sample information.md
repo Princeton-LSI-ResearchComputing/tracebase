@@ -107,9 +107,9 @@ Treatment Description
 
 ## Tissues Sheet
 TraceBase Tissue Name
-  - Short identifier used by TraceBase
-  - Use the most specific identifier applicable to your samples
-  - If your data contains a tissue not already listed here, create a new TraceBase Tissue Name and Description here.
+- Short identifier used by TraceBase
+- Use the most specific identifier applicable to your samples
+- If your data contains a tissue not already listed here, create a new TraceBase Tissue Name and Description here.
 
 Description
-  - Long form description of TraceBase tissue
+- Long form description of TraceBase tissue
