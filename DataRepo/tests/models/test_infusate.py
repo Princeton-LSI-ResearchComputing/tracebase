@@ -245,15 +245,16 @@ class MaintainedModelDeferredTests(TracebaseTestCase):
         Since a parent coordinator is deferred, auto-update should not happen.
         """
         io, _ = create_infusate_records()
-        # Since a parent coordinator is set to deferred in setUp(), auto-update should not happen, but _name() always
-        # returns a value.  Test this to ensure the results of the following test will be valid.
-        expected_name = "ti {C16:0-[5,6-13C2,17O2][2];glucose-[2,3-13C2,4-17O1][1]}"
-        self.assertEqual(expected_name, io._name())
+        with MaintainedModel.custom_coordinator(MaintainedModelCoordinator("lazy")):
+            # Since a parent coordinator is set to deferred in setUp(), auto-update should not happen, but _name()
+            # always returns a value.  Test this to ensure the results of the following test will be valid.
+            expected_name = "ti {C16:0-[5,6-13C2,17O2][2];glucose-[2,3-13C2,4-17O1][1]}"
+            self.assertEqual(expected_name, io._name())
 
-        # Assert lazy autoupdate does not auto-update if parent coordinator is deferred. This should call the lazy-
-        # autoupdate code in the from_db override
-        io_again = Infusate.objects.get(id__exact=io.id)
-        self.assertIsNone(io_again.name)
+            # Assert lazy autoupdate does not auto-update if parent coordinator is deferred. This should call the lazy-
+            # autoupdate code in the from_db override
+            io_again = Infusate.objects.get(id__exact=io.id)
+            self.assertIsNone(io_again.name)
 
     def test_pretty_name_deferred(self):
         io, _ = create_infusate_records()
