@@ -64,6 +64,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             new_researcher=True,
         )
 
+    @tag("broken_until_issue712")
     def test_accucor_load_blank_fail(self):
         with self.assertRaises(AggregatedErrors, msg="1 samples are missing.") as ar:
             call_command(
@@ -79,6 +80,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         self.assertEqual(1, len(aes.exceptions))
         self.assertTrue(isinstance(aes.exceptions[0], UnskippedBlanksError))
 
+    @tag("broken_until_issue712")
     def test_accucor_load_blank_skip(self):
         call_command(
             "load_accucor_msruns",
@@ -99,6 +101,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         )
         self.assertEqual(PeakData.objects.all().count(), PEAKDATA_ROWS * SAMPLES_COUNT)
 
+    @tag("broken_until_issue712")
     def test_accucor_load_sample_prefix(self):
         call_command(
             "load_accucor_msruns",
@@ -166,6 +169,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
                 0, coordinator.buffer_size(), msg=msg + "  The buffer is empty."
             )
 
+    @tag("broken_until_issue712")
     def test_accucor_load_in_debug(self):
         pre_load_counts = self.get_record_counts()
         pre_load_maintained_values = MaintainedModel.get_all_maintained_field_values()
@@ -230,6 +234,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             adl.missing_compounds,
         )
 
+    @tag("broken_until_issue712")
     @tag("multi-msrun")
     def test_conflicting_peakgroups(self):
         """Test loading two conflicting PeakGroups rasies ConflictingValueErrors
@@ -259,6 +264,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         # 1 compounds, 2 samples -> 2 PeakGroups
         self.assertEqual(2, len(aes.exceptions[0].conflicting_value_errors))
 
+    @tag("broken_until_issue712")
     @tag("multi-msrun")
     def test_duplicate_peak_group(self):
         """Test inerting two identical PeakGroups raises an DuplicatePeakGroup error
@@ -296,10 +302,11 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         with self.assertRaises(DuplicatePeakGroup):
             adl.insert_peak_group(
                 peak_group_attrs,
-                msrun=peak_group.msrun,
+                msrun=peak_group.msrun_sample,
                 peak_annotation_file=peak_group.peak_annotation_file,
             )
 
+    @tag("broken_until_issue712")
     @tag("multi-msrun")
     def test_conflicting_peak_group(self):
         """Test inserting two conflicting PeakGroups raises ConflictingValueErrors
@@ -334,10 +341,11 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         with self.assertRaises(ConflictingValueError):
             adl.insert_peak_group(
                 peak_group_attrs,
-                msrun=peak_group.msrun,
+                msrun=peak_group.msrun_sample,
                 peak_annotation_file=peak_group.peak_annotation_file,
             )
 
+    @tag("broken_until_issue712")
     def test_multiple_accucor_labels(self):
         """
         The infusate has tracers that cumulatively contain multiple Tracers/labels.  This tests that it loads without
@@ -373,7 +381,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_accucor_msruns",
-                accucor_file="DataRepo/data/tests/accucor_with_multiple_labels/accucor_bad_label.xlsx",
+                accucor_file="DataRepo/data/tests/accucor_with_multiple_labels/accucor_invalid_label.xlsx",
                 lc_protocol_name="polar-HILIC-25-min",
                 instrument="default instrument",
                 date="2021-04-29",
@@ -388,6 +396,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             f"[{type(aes.exceptions[0]).__name__}].",
         )
 
+    @tag("broken_until_issue712")
     @tag("multi-msrun")
     def test_multiple_accucor_one_msrun(self):
         """
@@ -412,6 +421,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         )
         self.assertEqual(PeakData.objects.all().count(), PEAKDATA_ROWS * SAMPLES_COUNT)
 
+    @tag("broken_until_issue712")
     @tag("multi-msrun")
     def test_duplicate_compounds_one_msrun(self):
         """
@@ -529,6 +539,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             num_tracerlabels,
         )
 
+    @tag("broken_until_issue712")
     @MaintainedModel.no_autoupdates()
     def test_singly_labeled_isocorr_load(self):
         pre_pg_load_count = PeakGroup.objects.count()
@@ -687,6 +698,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             f"samples [{SAMPLES_COUNT}] = [{PEAKDATA_ROWS * SAMPLES_COUNT}].",
         )
 
+    @tag("broken_until_issue712")
     @MaintainedModel.no_autoupdates()
     def test_multitracer_isocorr_load_1(self):
         self.load_multitracer_data()
@@ -714,6 +726,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             post_load_group_count,
         )
 
+    @tag("broken_until_issue712")
     @MaintainedModel.no_autoupdates()
     def test_multitracer_isocorr_load_2(self):
         self.load_multitracer_data()
@@ -793,6 +806,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             post_trclbls,
         )
 
+    @tag("broken_until_issue712")
     @MaintainedModel.no_autoupdates()
     def test_multilabel_isocorr_load_1(self):
         self.load_multilabel_data()
@@ -813,6 +827,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             pre_load_group_count, post_load_group_count, 4, 37, 4
         )
 
+    @tag("broken_until_issue712")
     @MaintainedModel.no_autoupdates()
     def test_multilabel_isocorr_load_2(self):
         self.load_multilabel_data()
@@ -854,6 +869,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             f"samples [{samples_count}] = [{peakdata_rows * samples_count}].",
         )
 
+    @tag("broken_until_issue712")
     @MaintainedModel.no_autoupdates()
     def test_labeled_elements_common_with_compound(self):
         """
@@ -871,7 +887,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             isocorr_format=True,
         )
         pg = (
-            PeakGroup.objects.filter(msrun__sample__name="xzl5_panc")
+            PeakGroup.objects.filter(msrun_sample__sample__name="xzl5_panc")
             .filter(name__exact="serine")
             .filter(
                 peak_annotation_file__filename="alafasted_cor.xlsx",

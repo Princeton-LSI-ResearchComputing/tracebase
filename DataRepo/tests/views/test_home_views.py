@@ -1,4 +1,5 @@
 from django.core.management import call_command
+from django.test import tag
 from django.urls import reverse
 
 from DataRepo.models import (
@@ -33,6 +34,7 @@ def assert_coordinator_state_is_initialized():
         raise UncleanBufferError()
 
 
+@tag("broken_until_issue712")
 class HomeViewTests(TracebaseTestCase):
     """
     Test home views

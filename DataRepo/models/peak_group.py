@@ -9,11 +9,11 @@ from DataRepo.models.utilities import atom_count_in_formula
 
 @MaintainedModel.relation(
     generation=3,
-    parent_field_name="msrun",
+    parent_field_name="msrun_sample",
     update_label="fcirc_calcs",
 )
 class PeakGroup(HierCachedModel, MaintainedModel):
-    parent_related_key_name = "msrun"
+    parent_related_key_name = "msrun_sample"
     child_related_key_names = ["labels"]
 
     id = models.AutoField(primary_key=True)
@@ -26,10 +26,12 @@ class PeakGroup(HierCachedModel, MaintainedModel):
         null=False,
         help_text='The molecular formula of the compound (e.g. "C6H12O6").',
     )
-    msrun = models.ForeignKey(
-        to="DataRepo.MSRun",
+    msrun_sample = models.ForeignKey(
+        to="DataRepo.MSRunSample",
         on_delete=models.CASCADE,
-        null=False,
+        null=True,  # False,
+        # TODO: Temporarily True until migration performed to avoid error. Note, display of advanced search results will
+        # be broken until null=False. Otherwise, there's no reverse lookup of null
         related_name="peak_groups",
         help_text="The MS Run this PeakGroup belongs to.",
     )
@@ -72,7 +74,7 @@ class PeakGroup(HierCachedModel, MaintainedModel):
         included in the returned list.
         """
         peak_labeled_elements = []
-        for atom in self.msrun.sample.animal.infusate.tracer_labeled_elements():
+        for atom in self.msrun_sample.sample.animal.infusate.tracer_labeled_elements():
             if atom_count_in_formula(self.formula, atom) > 0:
                 peak_labeled_elements.append(atom)
         return peak_labeled_elements
@@ -81,7 +83,7 @@ class PeakGroup(HierCachedModel, MaintainedModel):
     @cached_property
     def animal(self):
         """Convenient instance method to cache the animal this PeakGroup came from"""
-        return self.msrun.sample.animal
+        return self.msrun_sample.sample.animal
 
     class Meta:
         verbose_name = "peak group"
@@ -91,7 +93,7 @@ class PeakGroup(HierCachedModel, MaintainedModel):
         # composite key
         constraints = [
             models.UniqueConstraint(
-                fields=["name", "msrun"],
+                fields=["name", "msrun_sample"],
                 name="unique_peakgroup",
             ),
         ]
