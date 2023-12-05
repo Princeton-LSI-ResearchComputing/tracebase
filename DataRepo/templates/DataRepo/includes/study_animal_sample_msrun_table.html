@@ -88,11 +88,11 @@
                 <td>{{ i.sample_owner }}</td>
                 <td>{{ i.sample_date|convert_iso_date }}</td>
                 <td>{{ i.sample_time_collected|duration_iso_to_mins }}</td>
-                <td>{{ i.msrun_owner }}</td>
-                <td>{{ i.msrun_date|convert_iso_date }}</td>
+                <td>{{ i.msrunsample_owner }}</td>
+                <td>{{ i.msrunsample_date|convert_iso_date }}</td>
                 <td>
                     {% if i.msrun_id %}
-                        <a href="{% url 'msrunsample_detail' i.msrun_id %}">MSRun Detail</a>
+                        <a href="{% url 'msrunsample_detail' i.msrunsample_id %}">MSRunSample Detail</a>
                     {% else %}
                         None
                     {% endif %}
