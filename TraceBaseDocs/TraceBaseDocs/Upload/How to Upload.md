@@ -14,7 +14,7 @@ you initially submit for upload.
 ## Step-by-step instructions
 
 1. Create a Sample Sheet (see also [How to label sample
-   information](https://docs.google.com/document/d/15C1Qp_l-QQ7eCK8Iu2wWFS8f2eUb7I11DQKz-R3mHus/edit?usp=sharing))
+   information](How%20to%20label%20Mass%20Spec%20Run%20Information.md))
 [Copy](https://docs.google.com/spreadsheets/d/1To3495KxJkAtnAD9KVdzc162zKbNiYuPEVyPseQPjMQ/copy?copyComments=true)
 the TraceBase Animal and Sample Table Template.
    1. Fill in the `Animals` sheet. Give each mouse in your study a unique ID.
@@ -45,8 +45,8 @@ the TraceBase Animal and Sample Table Template.
    4. Add the Animal and Sample spread sheet, AccuCor/IsoCorr files, and the
       conditionally required LCMS-metadata file to the study folder
 
-3. Submit the [TraceBase Study Submission
-   form](https://forms.gle/vEfJEfhPbCbkybpE7).  Complete the following:
+3. Submit the [TraceBase Study Submission form](https://forms.gle/vEfJEfhPbCbkybpE7)
+   Complete the following:
    1. Study Name
    2. Link to Google Drive folder with study submission.
    3. Mass Spectrometry Details (see [[How to label Mass Spec Run

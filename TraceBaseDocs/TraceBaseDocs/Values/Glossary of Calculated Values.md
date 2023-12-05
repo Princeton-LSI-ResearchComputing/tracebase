@@ -21,7 +21,7 @@ calculated.
   * [Enrichment](Enrichment.md)
   * [Enrichment Abundance](Enrichment%20Abundance.md)
   * [Normalized Labeling](Normalized%20Labeling.md)
-  * [Example of Enrichment Fraction and Abundance Calculation](../Example%20of%20Enrichment%20Fraction%20and%20Abundance%20Calculation.md)
+  * [Example of Enrichment Fraction and Abundance Calculation](Example%20of%20Enrichment%20Fraction%20and%20Abundance%20Calculation.md)
 
 ---
 

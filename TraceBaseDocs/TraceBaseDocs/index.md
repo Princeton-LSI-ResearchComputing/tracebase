@@ -25,9 +25,9 @@ Slideshow introduction:  [221011_tracebase REintroduction to lab.pptx](https://d
 
 [Input Data for TraceBase Upload](Upload/Input%20Data%20for%20TraceBase%20Upload.md)
 
-[Sample Information Sheet](Sample%20Information%20Sheet/Sample%20Information%20Sheet.md)
+[Sample Information Sheet](Upload/Sample%20Information%20Sheet.md)
 
-[Labeling and Organizing Data](Sample%20Information%20Sheet/Labeling%20and%20Organizing%20Data.md)
+[Labeling and Organizing Data](Upload/Labeling%20and%20Organizing%20Data.md)
 
 ## Downloading from TraceBase
 
@@ -35,11 +35,11 @@ Slideshow introduction:  [221011_tracebase REintroduction to lab.pptx](https://d
 
 [Downloaded Data Formats](Types%20of%20Data%20Output/Downloaded%20Data%20Formats.md)
 
-[How do I analyze data downloaded from TraceBase?](https://docs.google.com/document/d/1HY8jNUHk1YVnIRf0Ypu8kinQeu0x2SnVpKHd7lzL7eQ/edit?usp=sharing)
+[How do I analyze data downloaded from TraceBase?](Download/How%20to%20analyze%20data%20downloaded%20from%20TraceBase.md)
 
-[Example_compare isotopomer labeling from glucose across studies](https://docs.google.com/document/d/1JrxNpSRx8OLYPuH-Z5BzUASipdC-ICpVt3jbncVSicE/edit?usp=sharing)
+[Example_compare isotopomer labeling from glucose across studies](Download/Example_compare%20isotopomer%20labeling%20from%20glucose%20across%20studies.md)
 
-[Example_compare normalized labeling from glucose across studies](https://docs.google.com/document/d/1I64NpjpfMwTEVJ76aL0KGDjlFXXJmgnUoTQ9S0cLSeM/edit?usp=sharing)
+[Example_compare normalized labeling from glucose across studies](Download/Example_compare%20normalized%20labeling%20from%20glucose%20across%20studies.md)
 
 ## Contact Developers and Additional Links
 
@@ -47,6 +47,6 @@ Slideshow introduction:  [221011_tracebase REintroduction to lab.pptx](https://d
 
 [GitHub Repository](https://github.com/Princeton-LSI-ResearchComputing/tracebase)
 
-- [Report a bug on GitHub](https://docs.google.com/document/d/1adaYcywNVs2R26PxSFTlwO8sgcEsCsgk2EJoNQsZoqo/edit?usp=sharing)
+- [Report a bug on GitHub](Contributing/Report%20a%20bug%20or%20request%20a%20feature%20on%20github.md)
 
-[Provide feedback in a google form](https://docs.google.com/document/d/1yY17rvizxhqbs4Ol7qvW8SD3mrPpL2ZLH-d1h6lL-wU/edit?usp=sharing)
+[Provide feedback in a google form](https://docs.google.com/forms/d/e/1FAIpQLSdnYe_gvKdoELXexZ9508xO8o59F1WgXcWBNh-_oxYh9WfHPg/viewform?usp=pp_url&entry.1881422913=/TraceBaseDocs/TraceBaseDocs)
