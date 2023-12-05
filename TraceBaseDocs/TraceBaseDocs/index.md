@@ -25,9 +25,9 @@ Slideshow introduction:  [221011_tracebase REintroduction to lab.pptx](https://d
 
 [Input Data for TraceBase Upload](Upload/Input%20Data%20for%20TraceBase%20Upload.md)
 
-[Sample Information Sheet](Sample%20Information%20Sheet/Sample%20Information%20Sheet.md)
+[Sample Information Sheet](Upload/Sample%20Information%20Sheet.md)
 
-[Labeling and Organizing Data](Sample%20Information%20Sheet/Labeling%20and%20Organizing%20Data.md)
+[Labeling and Organizing Data](Upload/Labeling%20and%20Organizing%20Data.md)
 
 ## Downloading from TraceBase
 

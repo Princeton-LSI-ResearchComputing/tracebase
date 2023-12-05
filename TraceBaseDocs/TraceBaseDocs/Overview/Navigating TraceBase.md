@@ -67,4 +67,4 @@ Adjust filters and search again, or download the table.
 
 To download the table of whatever you have filtered down into, click the blue
 download button.  Note that this downloaded table adheres to strict [Downloaded
-Data Formats](Types%20of%20Data%20Output/Downloaded%20Data%20Formats.md).
+Data Formats](../Types%20of%20Data%20Output/Downloaded%20Data%20Formats.md).
