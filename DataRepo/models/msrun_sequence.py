@@ -16,6 +16,7 @@ class MSRunSequence(Model):
         ("QE", "QE"),
         ("QE2", "QE2"),
         ("QTOF", "QTOF"),
+        ("unknown", "unknown"),
     ]
 
     id = AutoField(primary_key=True)
@@ -33,7 +34,7 @@ class MSRunSequence(Model):
     instrument = CharField(
         null=False,
         blank=False,
-        max_length=6,
+        max_length=7,
         choices=INSTRUMENT_CHOICES,
         help_text="The name of the mass spectrometer.",
     )
