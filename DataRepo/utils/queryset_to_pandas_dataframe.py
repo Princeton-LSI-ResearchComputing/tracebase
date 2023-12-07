@@ -7,7 +7,7 @@ from DataRepo.models import (
     Animal,
     CompoundSynonym,
     Infusate,
-    MSRun,
+    MSRunSample,
     Sample,
     Study,
 )
@@ -84,9 +84,9 @@ class QuerysetToPandasDataFrame:
         "sample_owner",
         "sample_date",
         "sample_time_collected",
-        "msrun_id",
-        "msrun_owner",
-        "msrun_date",
+        "msrunsample_id",
+        "msrunsample_owner",
+        "msrunsample_date",
         "lc_method_id",
         "lc_method",
     ]
@@ -404,9 +404,8 @@ class QuerysetToPandasDataFrame:
     @classmethod
     def get_sample_msrun_all_df(cls):
         """
-        generate a DataFrame for all sample and MSRun records
-        including animal data fields
-        Use left join to merge sample and MSRun records, since a sample may not have MSRun data
+        generate a DataFrame for all Sample and MSRunSample records, including animal data fields.
+        Use left join to merge Sample and MSRunSample records, since a Sample may not have MSRunSample data.
         """
         sam_qs = Sample.objects.select_related().all()
         qry_to_df_fields = {
@@ -422,13 +421,13 @@ class QuerysetToPandasDataFrame:
         }
         all_sam_df = cls.qs_to_df(sam_qs, qry_to_df_fields)
 
-        msrun_qs = MSRun.objects.all()
+        msrun_qs = MSRunSample.objects.all()
         qry_to_df_fields = {
-            "id": "msrun_id",
-            "researcher": "msrun_owner",
-            "date": "msrun_date",
-            "lc_method_id": "lc_method_id",
-            "lc_method__name": "lc_method",
+            "id": "msrunsample_id",
+            "msrun_sequence__researcher": "msrunsample_owner",
+            "msrun_sequence__date": "msrunsample_date",
+            "msrun_sequence__lc_method_id": "lc_method_id",
+            "msrun_sequence__lc_method__name": "lc_method",
             "sample_id": "sample_id",
         }
         all_ms_df = cls.qs_to_df(msrun_qs, qry_to_df_fields)
@@ -438,7 +437,7 @@ class QuerysetToPandasDataFrame:
             all_sam_df, all_ms_df, left_on="sample_id", right_on="sample_id", how="left"
         )
 
-        # null values converted to nan for msrun_date, set to pd.NA for consistence
+        # Convert msrunsample_date null values to nan (pd.NA) for consistency
         all_sam_msrun_df1.replace({np.nan: pd.NA}, inplace=True)
         # get best possible dtypes
         all_sam_msrun_df = all_sam_msrun_df1.convert_dtypes()
@@ -453,9 +452,9 @@ class QuerysetToPandasDataFrame:
             "tissue",
             "animal_id",
             "animal",
-            "msrun_id",
-            "msrun_owner",
-            "msrun_date",
+            "msrunsample_id",
+            "msrunsample_owner",
+            "msrunsample_date",
             "lc_method_id",
             "lc_method",
         ]
@@ -465,8 +464,8 @@ class QuerysetToPandasDataFrame:
     @classmethod
     def get_animal_msrun_all_df(cls):
         """
-        generate a DataFrame for all animals, sample and MSRun records
-        include study list for each animal
+        Generate a DataFrame for all Animal, Sample and MSRunSample records.
+        Include study list for each animal.
         """
         all_sam_msrun_df = cls.get_sample_msrun_all_df()
         anim_list_df = cls.get_animal_list_df()
@@ -503,7 +502,7 @@ class QuerysetToPandasDataFrame:
             .agg(
                 total_tissue=("tissue", "nunique"),
                 total_sample=("sample_id", "nunique"),
-                total_msrun=("msrun_id", "nunique"),
+                total_msrun=("msrunsample_id", "nunique"),
                 sample_owners=("sample_owner", "unique"),
             )
             .reset_index()
@@ -537,8 +536,7 @@ class QuerysetToPandasDataFrame:
     @classmethod
     def get_study_msrun_all_df(cls):
         """
-        generate a DataFrame for study based summary data including animal, sample, and MSRun
-        data fields
+        Generate a DataFrame for study summary data that includes Animal, Sample, and MSRunSample data fields.
         """
         all_stud_anim_df = cls.get_study_animal_all_df()
         all_anim_msrun_df = cls.get_animal_msrun_all_df()
@@ -616,7 +614,7 @@ class QuerysetToPandasDataFrame:
                 total_animal=("animal_id", "nunique"),
                 total_tissue=("tissue", "nunique"),
                 total_sample=("sample_id", "nunique"),
-                total_msrun=("msrun_id", "nunique"),
+                total_msrun=("msrunsample_id", "nunique"),
                 total_infusate=("infusate_id", "nunique"),
                 sample_owners=("sample_owner", "unique"),
                 genotypes=("genotype", "unique"),
@@ -684,8 +682,7 @@ class QuerysetToPandasDataFrame:
 
     def get_per_study_msrun_df(self, study_id):
         """
-        generate a DataFrame for summary data including animal, sample, and MSRun
-        data fields for a study
+        Generate a DataFrame for summary data that includes Animal, Sample, and MSRunSample data fields for a study.
         """
         all_stud_msrun_df = self.get_study_msrun_all_df()
         self.study_id = study_id
@@ -694,8 +691,7 @@ class QuerysetToPandasDataFrame:
 
     def get_per_study_stat_df(self, study_id):
         """
-        generate a DataFrame for summary data including animal, sample, and MSRun
-        counts for a study
+        Generate a DataFrame for summary data that includes Animal, Sample, and MSRunSample counts for a study.
         """
         stud_list_stats_df = self.get_study_list_stats_df()
         self.study_id = study_id
@@ -706,8 +702,7 @@ class QuerysetToPandasDataFrame:
 
     def get_per_animal_msrun_df(self, animal_id):
         """
-        generate a DataFrame for summary data including animal, sample, and MSRun
-        data fields for an animal
+        Generate a DataFrame for summary data that includes Animal, Sample, and MSRunSample data fields for an animal.
         """
         all_anim_msrun_df = self.get_animal_msrun_all_df()
         self.animal_id = animal_id
