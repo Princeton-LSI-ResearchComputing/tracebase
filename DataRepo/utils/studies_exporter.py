@@ -92,8 +92,8 @@ class StudiesExporter:
                     "id",
                     "exact",
                     study_id,
-                    "identity",
                     data_type_key,
+                    "identity",
                 )
 
                 # Do the query of the format (ignoring count and optional stats)

@@ -2,9 +2,9 @@ import json
 from copy import deepcopy
 from typing import Dict
 
+from django.core.exceptions import ObjectDoesNotExist, ValidationError, FieldError
 from django.db.models import Prefetch
 from django.db.utils import ProgrammingError
-from django.http import Http404
 
 from DataRepo.formats.dataformat import Format
 from DataRepo.formats.dataformat_group_query import (
@@ -424,7 +424,7 @@ class FormatGroup:
                 # We only expect to get here if fld is not a unique field.
 
                 # The value may be unique in the root queryset subset
-                recs, tot, stats = self.performQuery(qry, fmt)
+                recs, tot, _ = self.performQuery(qry, fmt)
 
                 # Note, "recs" is the root model records, not mdl records, so we except multiple results
                 if tot == 0:
@@ -435,7 +435,9 @@ class FormatGroup:
                 else:
                     # Set the field path for the display field
                     dfld = dfields[fld]
-                    dval = self.getJoinedRecFieldValue(recs, fmt, mdl, dfields[fld], fld, val)
+                    dval = self.getJoinedRecFieldValue(
+                        recs, fmt, mdl, dfields[fld], fld, val
+                    )
             else:
                 mdl_rec = qs.first()
                 dfld = dfields[fld]
@@ -452,7 +454,11 @@ class FormatGroup:
         """
 
         if len(recs) == 0:
-            raise Http404("Records not found.")
+            print(
+                f"WARNING: Unable to get field value in format {fmt} for field [{dfld}] where: "
+                f"[{mdl}.{sfld}='{sval}'].  No matching {self.modeldata[fmt].rootmodel.__name__} records found."
+            )
+            raise ObjectDoesNotExist("Records not found.")
 
         kpl = self.getKeyPathList(fmt, mdl)
         ptr = recs[0]
@@ -484,7 +490,7 @@ class FormatGroup:
             print(
                 f"ERROR: Values retrieved for search field {mdl}.{sfld} using search term: {sval} did not match."
             )
-            raise Http404(
+            raise ObjectDoesNotExist(
                 f"ERROR: Unable to find a value for [{mdl}.{sfld}] that matches the search term.  Unable to "
                 f"convert to the handoff field {dfld}."
             )
@@ -776,18 +782,18 @@ class FormatGroup:
             print(
                 f"Exception with format {fmt} and model {mdl}: {type(ke).__name__}: {ke}"
             )
-            raise Http404(ke)
+            raise ke
 
         sfields = self.getSearchFields(fmt, mdl)
 
         if fld not in sfields:
-            raise Http404(
+            raise FieldError(
                 f"Field [{fld}] is not searchable.  Must be one of [{','.join(sfields.keys())}]."
             )
 
         num_empties = getNumEmptyQueries(qry, fmt)
         if num_empties != 1:
-            raise Http404(
+            raise ValidationError(
                 f"The static filter for format {fmt} is improperly configured. It must contain exactly 1 empty query."
             )
 
