@@ -53,10 +53,10 @@ class StudiesExporterTests(TracebaseTestCase):
             data_type=["Fcirc"],
         )
 
-    def test_bad_data_type(self):
+    def test_str_data_type_changed_to_list(self):
         call_command(
             "export_studies",
-            outdir=os.path.join(self.tmpdir, "test_bad_data_type"),
+            outdir=os.path.join(self.tmpdir, "test_str_data_type_changed_to_list"),
             data_type="Fcirc",
         )
 
@@ -91,3 +91,14 @@ class StudiesExporterTests(TracebaseTestCase):
                 outdir=os.path.join(self.tmpdir, "test_dir_exists"),
                 data_type=["Fcirc"],
             )
+
+    def test_no_results(self):
+        """
+        Should not raise exception when no results
+        """
+        call_command(
+            "export_studies",
+            outdir=os.path.join(self.tmpdir, "test_no_results"),
+            data_type="Fcirc",
+            studies=["Non-existent study"],
+        )

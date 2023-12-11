@@ -1,7 +1,11 @@
 import json
 
 from django.conf import settings
-from django.core.exceptions import ObjectDoesNotExist, ValidationError, FieldError
+from django.core.exceptions import (
+    FieldError,
+    ObjectDoesNotExist,
+    ValidationError,
+)
 from django.http import Http404
 from django.shortcuts import render
 

@@ -2,7 +2,11 @@ import json
 from copy import deepcopy
 from typing import Dict
 
-from django.core.exceptions import ObjectDoesNotExist, ValidationError, FieldError
+from django.core.exceptions import (
+    FieldError,
+    ObjectDoesNotExist,
+    ValidationError,
+)
 from django.db.models import Prefetch
 from django.db.utils import ProgrammingError
 
@@ -762,7 +766,9 @@ class FormatGroup:
             )
         return qry_list
 
-    def createNewBasicQuery(self, mdl, fld, cmp, val, fmt, units="identity", search_again=True):
+    def createNewBasicQuery(
+        self, mdl, fld, cmp, val, fmt, units="identity", search_again=True
+    ):
         """
         Constructs a new qry object for an advanced search from basic search input.
 
