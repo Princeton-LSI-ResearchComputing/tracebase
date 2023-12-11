@@ -11,3 +11,4 @@ xlrd==2.0.1
 regex==2023.6.3
 pyparsing==3.1.0
 pytimeparse==1.1.8
+xmltodict==0.13.0

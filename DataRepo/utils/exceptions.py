@@ -98,7 +98,7 @@ class DuplicatePeakGroup(Exception):
 
     Attributes:
         adding_file: The peak annotation file in which the duplicate data was detected
-        ms_run: The MSRun in which the peak groups were measured
+        msrun_sample: The MSRunSample in which the peak groups were measured
         sample_name: The name of the sample the duplicated data blongs to
         peak_group_name (compounds): The name of duplicated peak group
         existing_peak_annotation_file: The peak annotation file that the previosly existing peak group blongs to
@@ -107,7 +107,7 @@ class DuplicatePeakGroup(Exception):
     def __init__(
         self,
         adding_file: str,
-        ms_run: MSRun,
+        msrun_sample: MSRun,
         sample: Sample,
         peak_group_name: str,
         existing_peak_annotation_file: ArchiveFile,
@@ -116,7 +116,7 @@ class DuplicatePeakGroup(Exception):
 
         message = (
             f"Duplicate data found when loading file [{adding_file}]:\n"
-            f"\tms_run: {ms_run}\n"
+            f"\tmsrun_sample: {msrun_sample}\n"
             f"\tsample: {sample}\n"
             f"\tpeak_group_name: {peak_group_name}\n"
             f"\texisting_peak_annotation_file: {existing_peak_annotation_file}\n"
@@ -124,7 +124,7 @@ class DuplicatePeakGroup(Exception):
         )
         super().__init__(message)
         self.adding_file = adding_file
-        self.ms_run = ms_run
+        self.msrun_sample = msrun_sample
         self.sample = sample
         self.peak_group_name = peak_group_name
         self.existing_peak_annotation_file = existing_peak_annotation_file
@@ -135,7 +135,7 @@ class DuplicatePeakGroups(Exception):
 
     Attributes:
         adding_file: The peak annotation file in which the duplicate data was detected
-        ms_run: The MSRun in which the peak groups were measured
+        msrun_sample: The MSRun in which the peak groups were measured
         duplicate_peak_groups: A list of DuplicatePeakGroup exceiptions
     """
 
@@ -154,8 +154,8 @@ class DuplicatePeakGroups(Exception):
             message += (
                 f"\t\tsample: {duplicate_peak_group.sample} | "
                 f"peak_group_name: {duplicate_peak_group.peak_group_name} | "
-                f"ms_run_date: {duplicate_peak_group.ms_run.date} | "
-                f"ms_run_researcher: {duplicate_peak_group.ms_run.researcher} | "
+                f"msrun_sample_date: {duplicate_peak_group.msrun_sample.date} | "
+                f"msrun_sample_researcher: {duplicate_peak_group.msrun_sample.researcher} | "
                 f"peak_annotation_file: {duplicate_peak_group.existing_peak_annotation_file.filename}\n"
             )
         super().__init__(message)

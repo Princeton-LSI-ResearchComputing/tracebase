@@ -350,7 +350,7 @@ class DataLoadingTests(TracebaseTestCase):
         call_command(
             "load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
-            instrument="default instrument",
+            instrument="unknown",
             accucor_file="DataRepo/data/tests/small_obob2/obob_maven_6eaas_inf.xlsx",
             date="2021-04-29",
             researcher="Michael Neinast",
@@ -363,7 +363,7 @@ class DataLoadingTests(TracebaseTestCase):
         call_command(
             "load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
-            instrument="default instrument",
+            instrument="unknown",
             accucor_file="DataRepo/data/tests/small_obob2/obob_maven_6eaas_serum.xlsx",
             date="2021-04-29",
             researcher="Michael Neinast",
@@ -377,7 +377,7 @@ class DataLoadingTests(TracebaseTestCase):
         call_command(
             "load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
-            instrument="default instrument",
+            instrument="unknown",
             accucor_file="DataRepo/data/tests/small_obob2/obob_maven_6eaas_inf_corrected.csv",
             date="2021-10-14",
             researcher="Michael Neinast",
@@ -577,7 +577,7 @@ class DataLoadingTests(TracebaseTestCase):
             call_command(
                 "load_accucor_msruns",
                 lc_protocol_name="polar-HILIC-25-min",
-                instrument="default instrument",
+                instrument="unknown",
                 accucor_file="DataRepo/data/tests/small_obob2/obob_maven_6eaas_inf_sample_dupe.xlsx",
                 date="2021-08-20",
                 researcher="Michael",
@@ -597,7 +597,7 @@ class DataLoadingTests(TracebaseTestCase):
         call_command(
             "load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
-            instrument="default instrument",
+            instrument="unknown",
             accucor_file="DataRepo/data/tests/small_obob2/obob_maven_6eaas_inf_2.xlsx",
             date="2021-04-30",
             researcher="Michael Neinast",
@@ -615,7 +615,7 @@ class DataLoadingTests(TracebaseTestCase):
             call_command(
                 "load_accucor_msruns",
                 lc_protocol_name="polar-HILIC-25-min",
-                instrument="default instrument",
+                instrument="unknown",
                 accucor_file="DataRepo/data/tests/small_obob2/obob_maven_6eaas_inf_2.xlsx",
                 date="2021-04-30",
                 researcher="Luke Skywalker",
@@ -636,7 +636,7 @@ class DataLoadingTests(TracebaseTestCase):
         call_command(
             "load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
-            instrument="default instrument",
+            instrument="unknown",
             accucor_file="DataRepo/data/tests/small_obob2/obob_maven_6eaas_inf_2.xlsx",
             date="2021-04-30",
             researcher="Luke Skywalker",
@@ -659,7 +659,7 @@ class DataLoadingTests(TracebaseTestCase):
             call_command(
                 "load_accucor_msruns",
                 lc_protocol_name="polar-HILIC-25-min",
-                instrument="default instrument",
+                instrument="unknown",
                 accucor_file="DataRepo/data/tests/small_obob2/obob_maven_6eaas_inf_2.xlsx",
                 date="2021-04-30",
                 researcher="Michael Neinast",
@@ -735,7 +735,7 @@ class DataLoadingTests(TracebaseTestCase):
         call_command(
             "load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
-            instrument="default instrument",
+            instrument="unknown",
             accucor_file="DataRepo/data/tests/small_obob2/obob_maven_6eaas_inf_corrected_valid_syn.csv",
             date="2021-11-19",
             researcher="Michael Neinast",
@@ -763,7 +763,7 @@ class DataLoadingTests(TracebaseTestCase):
             call_command(
                 "load_accucor_msruns",
                 lc_protocol_name="polar-HILIC-25-min",
-                instrument="default instrument",
+                instrument="unknown",
                 accucor_file="DataRepo/data/tests/small_obob2/obob_maven_6eaas_inf_corrected_invalid_syn.csv",
                 date="2021-11-18",
                 researcher="Michael Neinast",
@@ -818,7 +818,7 @@ class PropertyTests(TracebaseTestCase):
         call_command(
             "load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
-            instrument="default instrument",
+            instrument="unknown",
             accucor_file="DataRepo/data/tests/small_obob2/obob_maven_6eaas_inf.xlsx",
             date="2021-04-29",
             researcher="Michael Neinast",
@@ -827,7 +827,7 @@ class PropertyTests(TracebaseTestCase):
         call_command(
             "load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
-            instrument="default instrument",
+            instrument="unknown",
             accucor_file="DataRepo/data/tests/small_obob2/obob_maven_6eaas_serum.xlsx",
             date="2021-04-29",
             researcher="Michael Neinast",
@@ -838,7 +838,7 @@ class PropertyTests(TracebaseTestCase):
         call_command(
             "load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
-            instrument="default instrument",
+            instrument="unknown",
             accucor_file="DataRepo/data/tests/small_obob2/obob_maven_6eaas_inf_corrected.csv",
             date="2021-10-14",
             researcher="Michael Neinast",
@@ -1537,7 +1537,7 @@ class MultiTracerLabelPropertyTests(TracebaseTestCase):
             "load_accucor_msruns",
             accucor_file="DataRepo/data/tests/multiple_labels/alafasted_cor.xlsx",
             lc_protocol_name="polar-HILIC-25-min",
-            instrument="default instrument",
+            instrument="unknown",
             date="2021-04-29",
             researcher="Xianfeng Zeng",
             new_researcher=False,
@@ -1630,7 +1630,7 @@ class TracerRateTests(TracebaseTestCase):
         call_command(
             "load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
-            instrument="default instrument",
+            instrument="unknown",
             accucor_file="DataRepo/data/tests/small_obob2/obob_maven_c160_serum.xlsx",
             date="2021-04-29",
             researcher="Xianfeng Zeng",
@@ -2566,7 +2566,7 @@ class ParseIsotopeLabelTests(TracebaseTestCase):
             call_command(
                 "load_accucor_msruns",
                 lc_protocol_name="polar-HILIC-25-min",
-                instrument="default instrument",
+                instrument="unknown",
                 accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_dupes.xlsx",
                 date="2021-06-03",
                 researcher="Xianfeng Zeng",

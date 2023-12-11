@@ -5,7 +5,7 @@ import pandas as pd
 from django.core.management import call_command
 from django.test import tag
 
-from DataRepo.models import LCMethod, MaintainedModel, MSRun, Sample
+from DataRepo.models import LCMethod, MaintainedModel, MSRunSample, Sample
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import (
     AccuCorDataLoader,
@@ -87,6 +87,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             researcher="",
             lc_protocol_name="",
             instrument="",
+            polarity="",
             mzxml_files=None,
         )
         mzxml = adl2.sample_header_to_default_mzxml("sample")
@@ -172,7 +173,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             date="1972-11-24",
             researcher="Robert Leach",
             lc_protocol_name="polar-HILIC",
-            instrument="default instrument",
+            instrument="unknown",
             mzxml_files=["sample1.mzxml", "sample2.mzxml"],
             validate=False,
         )
@@ -245,7 +246,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             date="1972-11-24",
             researcher="Robert Leach",
             lc_protocol_name="polar-HILIC",
-            instrument="default instrument",
+            instrument="unknown",
             peak_annotation_filename="accucor.xlsx",
             mzxml_files=["sample1.mzxml", "sample2.mzxml"],
             validate=True,
@@ -289,7 +290,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             date="1972-11-24",
             researcher="Robert Leach",
             lc_protocol_name="polar-HILIC",
-            instrument="default instrument",
+            instrument="unknown",
             validate=False,
         )
 
@@ -313,7 +314,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             date="1972-11-24",
             researcher="Robert Leach",
             lc_protocol_name="polar-HILIC",
-            instrument="default instrument",
+            instrument="unknown",
             mzxml_files=[],
         )
         missing1 = adl1.get_missing_required_lcms_defaults()
@@ -361,7 +362,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             date="1972-11-24",
             researcher="Robert Leach",
             lc_protocol_name="polar-HILIC",
-            instrument="default instrument",
+            instrument="unknown",
             mzxml_files=[],
         )
         self.assertTrue(
@@ -401,7 +402,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             peak_annotation_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_pos.xlsx",
             peak_annotation_filename="small_obob_maven_6eaas_inf_glucose.xlsx",
             date="1972-11-24",
-            instrument="default instrument",
+            instrument="unknown",
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
                 "DataRepo/data/tests/small_obob_lcms_metadata/glucose_pos_no_extras.tsv"
             ),
@@ -439,7 +440,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             ),
             researcher="Robert Leach",
             lc_protocol_name=None,  # Left none intentionally
-            instrument="default instrument",
+            instrument="unknown",
             mzxml_files=[],
         )
 
@@ -635,22 +636,29 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
         `1.2.` Test that values missing in the LCMS metadata fall back to the defaults from 1.1.
         This test case tests when the sample data headers in the LCMS metadata file do not match the accucor file and
         sample table file.
+        Note that the accucor file is "small_obob_maven_6eaas_inf_glucose.xlsx", but the one in the LCMS datafile is
+        "other_valid_accucor_file.xlsx".  This is intentional.  There simply are not rows in the lcms for the samples
+        "BAT-xz971" and "Br-xz971".  The lcms metadata should automatically use the default values for those samples.
+
+        THIS WILL PRINT A WARNING, but if there are other errors, it will be among the exceptions listed, but note that
+        it is marked as a warning.
         """
         self.load_samples()
-        self.assertEqual(0, MSRun.objects.count())
+        self.assertEqual(0, MSRunSample.objects.count())
         call_command(
             "load_accucor_msruns",
             accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose.xlsx",
-            instrument="default instrument",
+            instrument="unknown",
             lc_protocol_name="polar-HILIC-25-min",
             date="2021-04-29",
             researcher="Michael Neinast",
             new_researcher=True,
             lcms_file="DataRepo/data/tests/small_obob_lcms_metadata/glucose_unrelated_data_only.tsv",
+            polarity="positive",
         )
-        self.assertEqual(2, MSRun.objects.count())
-        msr1 = MSRun.objects.first()
-        msr2 = MSRun.objects.last()
+        self.assertEqual(2, MSRunSample.objects.count())
+        msr1 = MSRunSample.objects.first()
+        msr2 = MSRunSample.objects.last()
         lcmr = LCMethod.objects.get(name="polar-HILIC-25-min")
         sample1 = Sample.objects.get(name="BAT-xz971")
         sample2 = Sample.objects.get(name="Br-xz971")
@@ -659,12 +667,12 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
         # TODO: Test for Instrument (which is not yet saved)
         # TODO: Test for mzxml_file (which is not yet saved)
 
-        self.assertEqual(researcher, msr1.researcher)
-        self.assertEqual(researcher, msr2.researcher)
-        self.assertEqual(date, msr1.date)
-        self.assertEqual(date, msr2.date)
-        self.assertEqual(lcmr, msr1.lc_method)
-        self.assertEqual(lcmr, msr2.lc_method)
+        self.assertEqual(researcher, msr1.msrun_sequence.researcher)
+        self.assertEqual(researcher, msr2.msrun_sequence.researcher)
+        self.assertEqual(date, msr1.msrun_sequence.date)
+        self.assertEqual(date, msr2.msrun_sequence.date)
+        self.assertEqual(lcmr, msr1.msrun_sequence.lc_method)
+        self.assertEqual(lcmr, msr2.msrun_sequence.lc_method)
         self.assertEqual(sample1, msr1.sample)
         self.assertEqual(sample2, msr2.sample)
 
@@ -700,20 +708,21 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
         table file.
         """
         self.load_samples()
-        self.assertEqual(0, MSRun.objects.count())
+        self.assertEqual(0, MSRunSample.objects.count())
         call_command(
             "load_accucor_msruns",
             accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose.xlsx",
             lc_protocol_name="polar-HILIC-25-min",
-            instrument="default instrument",
+            instrument="unknown",
             date="2021-04-29",
             researcher="Michael Neinast",
             new_researcher=True,
             lcms_file="DataRepo/data/tests/small_obob_lcms_metadata/glucose_only_reqd_col_vals.tsv",
+            polarity="positive",
         )
-        self.assertEqual(2, MSRun.objects.count())
-        msr1 = MSRun.objects.first()
-        msr2 = MSRun.objects.last()
+        self.assertEqual(2, MSRunSample.objects.count())
+        msr1 = MSRunSample.objects.first()
+        msr2 = MSRunSample.objects.last()
         lcmr = LCMethod.objects.get(name="polar-HILIC-25-min")
         sample1 = Sample.objects.get(name="BAT-xz971")
         sample2 = Sample.objects.get(name="Br-xz971")
@@ -722,12 +731,12 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
         # TODO: Test for Instrument (which is not yet saved)
         # TODO: Test for mzxml_file (which is not yet saved)
 
-        self.assertEqual(researcher, msr2.researcher)
-        self.assertEqual(researcher, msr1.researcher)
-        self.assertEqual(date, msr1.date)
-        self.assertEqual(date, msr2.date)
-        self.assertEqual(lcmr, msr2.lc_method)
-        self.assertEqual(lcmr, msr1.lc_method)
+        self.assertEqual(researcher, msr2.msrun_sequence.researcher)
+        self.assertEqual(researcher, msr1.msrun_sequence.researcher)
+        self.assertEqual(date, msr1.msrun_sequence.date)
+        self.assertEqual(date, msr2.msrun_sequence.date)
+        self.assertEqual(lcmr, msr2.msrun_sequence.lc_method)
+        self.assertEqual(lcmr, msr1.msrun_sequence.lc_method)
         self.assertEqual(sample1, msr1.sample)
         self.assertEqual(sample2, msr2.sample)
 
@@ -841,7 +850,7 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
             "load_accucor_msruns",
             accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose.xlsx",
             lc_protocol_name="polar-HILIC-25-min",
-            instrument="default instrument",
+            instrument="unknown",
             date="2021-04-29",
             researcher="Michael Neinast",
             new_researcher=True,
@@ -977,7 +986,7 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
                 "load_accucor_msruns",
                 accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose.xlsx",
                 lc_protocol_name="polar-HILIC-25-min",
-                instrument="default instrument",
+                instrument="unknown",
                 date="2021-04-29",
                 researcher="Michael Neinast",
                 new_researcher=True,
@@ -997,7 +1006,7 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
                 "load_accucor_msruns",
                 accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose.xlsx",
                 lc_protocol_name="polar-HILIC-25-min",
-                instrument="default instrument",
+                instrument="unknown",
                 date="2021-04-29",
                 researcher="Michael Neinast",
                 new_researcher=True,
@@ -1017,7 +1026,7 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
                 "load_accucor_msruns",
                 accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose.xlsx",
                 lc_protocol_name="polar-HILIC-25-min",
-                instrument="default instrument",
+                instrument="unknown",
                 date="2021-04-29",
                 researcher="Michael Neinast",
                 new_researcher=True,
@@ -1036,7 +1045,7 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
             "load_accucor_msruns",
             accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose.xlsx",
             lc_protocol_name="polar-HILIC-25-min",
-            instrument="default instrument",
+            instrument="unknown",
             date="2021-04-29",
             researcher="Michael Neinast",
             new_researcher=True,

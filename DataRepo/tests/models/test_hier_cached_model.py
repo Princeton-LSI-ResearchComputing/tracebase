@@ -23,7 +23,7 @@ def load_data():
     call_command(
         "load_accucor_msruns",
         lc_protocol_name="polar-HILIC-25-min",
-        instrument="default instrument",
+        instrument="unknown",
         accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_serum.xlsx",
         date="2021-06-03",
         researcher="Michael Neinast",
@@ -52,7 +52,7 @@ def load_minimum_data():
     call_command(
         "load_accucor_msruns",
         lc_protocol_name="polar-HILIC-25-min",
-        instrument="default instrument",
+        instrument="unknown",
         accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf.xlsx",
         date="2021-06-03",
         researcher="Michael Neinast",

@@ -149,8 +149,8 @@ def create_is_null_field(field_with_null):
     ordered by a date field.  This method will return a dict that contains the `select` and `order_by arguments for the
     .extra(method, along with the name of the added "is null field that you can use as an argument to `order_by`)`.
 
-    Example: extra_args, is_null_field = create_is_null_field("msrun_sample__date")
-    MSRun.objects.extra(**extra_args).order_by(f"-{is_null_field}", "msrun_sample__date")
+    Example: extra_args, is_null_field = create_is_null_field("msrun_sequence__date")
+    MSRun.objects.extra(**extra_args).order_by(f"-{is_null_field}", "msrun_sequence__date")
 
     Note, adding .annotate() doesn't seem to work, or rather I couldn't get it to work. See:
     https://stackoverflow.com/questions/7749216/django-order-by-date-but-have-none-at-end

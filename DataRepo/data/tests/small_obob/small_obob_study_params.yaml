@@ -8,6 +8,7 @@ accucor_data:
     - name: "small_obob_maven_6eaas_inf_blank_sample.xlsx"
   lc_protocol: "polar-HILIC-25-min"
   instrument: "default instrument"
+  polarity: "positive"
   date: "2021-04-29"
   researcher: "Xianfeng Zeng"
   new_researcher: False

@@ -69,21 +69,28 @@ class Command(BaseCommand):
         parser.add_argument(
             "--instrument",
             type=str,
-            help="Name of the LCMS instrument that analyzed the samples",
+            help="Default name of the LCMS instrument that analyzed the samples",
+            default=None,
+            required=False,
+        )
+        parser.add_argument(
+            "--polarity",
+            type=str,
+            help="Default ion mode of the LCMS instrument that analyzed the samples",
             default=None,
             required=False,
         )
         parser.add_argument(
             "--date",
             type=str,
-            help="Date MSRun was performed, formatted as YYYY-MM-DD",
+            help="Default date MSRun was performed, formatted as YYYY-MM-DD",
             default=None,
             required=False,
         )
         parser.add_argument(
             "--researcher",
             type=str,
-            help="Database name or ID of the researcher",
+            help="Default name or ID of the researcher",
             default=None,
             required=False,
         )
@@ -194,6 +201,7 @@ class Command(BaseCommand):
             lc_protocol_name=options["lc_protocol_name"],
             researcher=options["researcher"],
             instrument=options["instrument"],
+            polarity=options["polarity"],
             mzxml_files=mzxml_files,
             peak_annotation_filename=peak_annotation_filename,
             # Sample options

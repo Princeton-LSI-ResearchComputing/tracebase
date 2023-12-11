@@ -18,6 +18,7 @@ class MSRunSequence(Model):
         ("QTOF", "QTOF"),
         ("unknown", "unknown"),
     ]
+    DEFAULT_INSTRUMENT = INSTRUMENT_CHOICES[4][0]
 
     id = AutoField(primary_key=True)
     researcher = CharField(

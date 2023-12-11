@@ -60,6 +60,8 @@ properties:
               type: string
             instrument:
               type: string
+            polarity:
+              type: string
             date:
               type: string
             mzxml_files:
@@ -84,13 +86,16 @@ properties:
           additionalProperties: false
       lc_protocol:
         type: string
-        description: name of liquid chromatography protocol
+        description: default name of liquid chromatography protocol
       instrument:
         type: string
-        description: name of LCMS instrument
+        description: default name of LCMS instrument
+      polarity:
+        type: string
+        description: default ion mode of ms run
       date:
         type: string
-        description: date of ms run
+        description: default date of ms run
       mzxml_files:
         type: array
         description: list of mzXML files
@@ -98,7 +103,7 @@ properties:
           type: string
       researcher:
         type: string
-        description: name of resercher who performed ms run
+        description: default name of resercher who performed ms run
       new_researcher:
         type: boolean
         default: False
@@ -117,4 +122,5 @@ properties:
       - instrument
       - date
       - researcher
+      - polarity
     additionalProperties: false
