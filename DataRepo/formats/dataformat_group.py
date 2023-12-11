@@ -397,25 +397,49 @@ class FormatGroup:
     def searchFieldToDisplayField(self, mdl, fld, val, qry):
         """
         Takes a field from a basic search and converts it to a non-hidden field for an advanced search select list.
+
+        Currently, this is only used for id fields, but is written to handle any field.  Warning: this will only work
+        when the query does not involve "or" groups in the query.  This is not checked.  It is assumed.
         """
 
         dfld = fld
         dval = val
         fmt = getSelectedFormat(qry)
         dfields = self.getDisplayFields(fmt, mdl)
+
+        # If fld is not a displayed field
         if fld in dfields.keys() and dfields[fld] != fld:
-            # If fld is not a displayed field, perform a query to convert the undisplayed field query to a displayed
-            # query
-            recs, tot, stats = self.performQuery(qry, fmt)
-            if tot == 0:
+            # grab the model using its name
+            mdl_cls = get_model_by_name(mdl)
+            # Set the query parameters
+            kv_field_value = {f"{fld}__exact": val}
+            # Create the subquery queryset
+            qs = mdl_cls.objects.filter(**kv_field_value)
+            if qs.count() == 0:
                 print(
-                    f"WARNING: Failed search to display field {fmt} search conversion of query object for "
-                    f"field=value: [{fld}='{val}']. No records found matching {mdl}."
+                    f"WARNING: Failed search-field to display-field conversion in format {fmt} for: "
+                    f"[{mdl}.{fld}='{val}'].  No matching {mdl} records found."
                 )
-                raise Http404(f"No records found matching [{mdl}.{fld}={val}].")
-            # Set the field path for the display field
-            dfld = dfields[fld]
-            dval = self.getJoinedRecFieldValue(recs, fmt, mdl, dfields[fld], fld, val)
+            elif qs.count() > 1:
+                # We only expect to get here if fld is not a unique field.
+
+                # The value may be unique in the root queryset subset
+                recs, tot, stats = self.performQuery(qry, fmt)
+
+                # Note, "recs" is the root model records, not mdl records, so we except multiple results
+                if tot == 0:
+                    print(
+                        f"WARNING: Failed search-field to display-field conversion in format {fmt} for: "
+                        f"[{mdl}.{fld}='{val}'].  No matching {self.modeldata[fmt].rootmodel.__name__} records found."
+                    )
+                else:
+                    # Set the field path for the display field
+                    dfld = dfields[fld]
+                    dval = self.getJoinedRecFieldValue(recs, fmt, mdl, dfields[fld], fld, val)
+            else:
+                mdl_rec = qs.first()
+                dfld = dfields[fld]
+                dval = getattr(mdl_rec, dfld)
 
         return dfld, dval
 
@@ -516,7 +540,7 @@ class FormatGroup:
             )
 
         if fmt not in self.getFormatNames().keys():
-            raise KeyError("Invalid selected format: {fmt}")
+            raise KeyError(f"Invalid selected format: {fmt}")
 
         # If the Q expression is None, get all, otherwise filter
         if q_exp is None:
@@ -732,9 +756,15 @@ class FormatGroup:
             )
         return qry_list
 
-    def createNewBasicQuery(self, mdl, fld, cmp, val, units, fmt):
+    def createNewBasicQuery(self, mdl, fld, cmp, val, fmt, units="identity", search_again=True):
         """
         Constructs a new qry object for an advanced search from basic search input.
+
+        search_again - Set this to False if the search query interface will not be needed.  When this is true, search
+        fields like 'id' are converted into display fields (i.e. fields that can be seen and selected in the field
+        drop-down).  Sometimes this conversion can be problematic because there may not exist a field that is "unique".
+        (Note, any field [non-unique included] can be se as the display field as long as it is unique in the base
+        queryset.)
         """
 
         qry = self.getRootGroup(fmt)
@@ -766,17 +796,18 @@ class FormatGroup:
 
         setFirstEmptyQuery(qry, fmt, target_fld, cmp, target_val, units)
 
-        dfld, dval = self.searchFieldToDisplayField(mdl, fld, val, qry)
+        if search_again:
+            dfld, dval = self.searchFieldToDisplayField(mdl, fld, val, qry)
 
-        if dfld != fld:
-            # Set the field path for the display field
-            target_fld = sfields[dfld]
-            target_val = dval
+            if dfld != fld:
+                # Set the field path for the display field
+                target_fld = sfields[dfld]
+                target_val = dval
 
-            # Re-create another empty copy of the qry
-            qry = self.getRootGroup(fmt)
-            # Note units cannot be transfered, so default should always be "identity"
-            setFirstEmptyQuery(qry, fmt, target_fld, cmp, target_val, "identity")
+                # Re-create another empty copy of the qry
+                qry = self.getRootGroup(fmt)
+                # Note units cannot be transfered, so default should always be "identity"
+                setFirstEmptyQuery(qry, fmt, target_fld, cmp, target_val, "identity")
 
         return qry
 
