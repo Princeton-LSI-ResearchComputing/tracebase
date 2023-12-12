@@ -1,7 +1,4 @@
-import errno
 import os
-import shutil
-import tempfile
 from datetime import datetime
 
 from django.db.models import Q
@@ -112,21 +109,17 @@ class StudiesExporter:
                     raise FileExistsError(
                         f"Output file '{output_filepath}' exists. Overwrite with '--force' parameter."
                     )
-                with tempfile.NamedTemporaryFile(mode="w", delete=False) as tmpout:
+                with open(f"{output_filepath}.tmp", mode="w") as tmpout:
                     for line in tsv_template_iterator(
                         self.row_template, self.header_template, results, qry, dt_string
                     ):
                         tmpout.write(line)
-                try:
+                if self.force:
+                    # Move and overwrite if dest exists
+                    os.replace(tmpout.name, output_filepath)
+                else:
                     # Move, raise exception on existing file
-                    shutil.move(tmpout.name, output_filepath)
-                finally:
-                    try:
-                        os.remove(tmpout.name)
-                    except OSError as e:
-                        # errno.ENOENT = no such file or directory
-                        if e.errno != errno.ENOENT:
-                            raise
+                    os.rename(tmpout.name, output_filepath)
 
 
 class BadQueryTerm(Exception):
