@@ -95,17 +95,13 @@ class Sample(MaintainedModel, HierCachedModel):
             warnings.warn(f"Animal [{self.animal}] has no tracers.")
             return PeakGroup.objects.none()
 
-        # Create a way to intentionally sort MSRun date's that have a None value
-        (extra_args, is_null_field) = create_is_null_field("msrun_sample__msrun_sequence__date")
-
         # Get the last peakgroup for each tracer
         last_peakgroup_ids = []
         for tracer in self.animal.tracers.all():
             tracer_peak_group = (
                 PeakGroup.objects.filter(msrun_sample__sample__id__exact=self.id)
                 .filter(compounds__id__exact=tracer.compound.id)
-                .extra(**extra_args)
-                .order_by(f"-{is_null_field}", "msrun_sample__msrun_sequence__date")
+                .order_by("msrun_sample__msrun_sequence__date")
                 .last()
             )
             if tracer_peak_group:
