@@ -106,7 +106,7 @@ class MissingDataTests(StudiesExporterTestBase):
         """
         call_command(
             "export_studies",
-            outdir=os.path.join(self.tmpdir, "test_no_results"),
+            outdir=os.path.join(self.tmpdir, "test_no_data_study_exists"),
             studies=["Small OBOB"],
         )
 
@@ -117,6 +117,6 @@ class MissingDataTests(StudiesExporterTestBase):
         with self.assertRaises(ObjectDoesNotExist):
             call_command(
                 "export_studies",
-                outdir=os.path.join(self.tmpdir, "test_no_results"),
+                outdir=os.path.join(self.tmpdir, "test_study_does_not_exist"),
                 studies=["Small OBOB"],
             )
