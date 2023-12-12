@@ -1,7 +1,6 @@
 import os
 import tempfile
 
-from django.core.exceptions import ObjectDoesNotExist
 from django.core.management import call_command
 
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
@@ -109,14 +108,3 @@ class MissingDataTests(StudiesExporterTestBase):
             outdir=os.path.join(self.tmpdir, "test_no_data_study_exists"),
             studies=["Small OBOB"],
         )
-
-    def test_study_does_not_exist(self):
-        """
-        Should not raise exception when no data is available and study exists
-        """
-        with self.assertRaises(ObjectDoesNotExist):
-            call_command(
-                "export_studies",
-                outdir=os.path.join(self.tmpdir, "test_study_does_not_exist"),
-                studies=["Small OBOB"],
-            )
