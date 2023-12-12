@@ -839,7 +839,7 @@ class FormatsTests(TracebaseTestCase):
         val = tval
         fmt = "pgtemplate"
         units = "identity"
-        newqry = basv_metadata.createNewBasicQuery(mdl, fld, cmp, val, units, fmt)
+        newqry = basv_metadata.createNewBasicQuery(mdl, fld, cmp, val, fmt, units)
         self.maxDiff = None
         self.assertEqual(qry, newqry)
 
