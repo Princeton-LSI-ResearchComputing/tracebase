@@ -1,6 +1,11 @@
 import json
 
 from django.conf import settings
+from django.core.exceptions import (
+    FieldError,
+    ObjectDoesNotExist,
+    ValidationError,
+)
 from django.http import Http404
 from django.shortcuts import render
 
@@ -51,7 +56,10 @@ def search_basic(request, mdl, fld, cmp, val, fmt, units=None):
             f"Invalid format [{fmt}].  Must be one of: [{','.join(names.keys())},{','.join(names.values())}]"
         )
 
-    qry = basv_metadata.createNewBasicQuery(mdl, fld, cmp, val, units, fmtkey)
+    try:
+        qry = basv_metadata.createNewBasicQuery(mdl, fld, cmp, val, fmtkey, units)
+    except (KeyError, ObjectDoesNotExist, ValidationError, FieldError) as e:
+        raise Http404(e)
     download_form = AdvSearchDownloadForm(initial={"qryjson": json.dumps(qry)})
 
     rows_per_page = int(

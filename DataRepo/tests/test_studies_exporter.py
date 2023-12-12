@@ -8,8 +8,7 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.studies_exporter import BadQueryTerm
 
 
-@tag("broken_until_issue712")
-class StudiesExporterTests(TracebaseTestCase):
+class StudiesExporterTestBase(TracebaseTestCase):
     @classmethod
     def setUpClass(cls):
         cls.tmpdir_obj = tempfile.TemporaryDirectory()
@@ -33,6 +32,13 @@ class StudiesExporterTests(TracebaseTestCase):
             animal_and_sample_table_filename="DataRepo/data/tests/small_obob/"
             "small_obob_animal_and_sample_table.xlsx",
         )
+
+
+@tag("broken_until_issue712")
+class StudiesExporterTests(StudiesExporterTestBase):
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
         call_command(
             "load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
@@ -42,7 +48,6 @@ class StudiesExporterTests(TracebaseTestCase):
             new_researcher=True,
             instrument="unknown",
         )
-        super().setUpTestData()
 
     def test_all_studies_all_types(self):
         call_command(
@@ -57,10 +62,10 @@ class StudiesExporterTests(TracebaseTestCase):
             data_type=["Fcirc"],
         )
 
-    def test_bad_data_type(self):
+    def test_str_data_type_changed_to_list(self):
         call_command(
             "export_studies",
-            outdir=os.path.join(self.tmpdir, "test_bad_data_type"),
+            outdir=os.path.join(self.tmpdir, "test_str_data_type_changed_to_list"),
             data_type="Fcirc",
         )
 
@@ -95,3 +100,16 @@ class StudiesExporterTests(TracebaseTestCase):
                 outdir=os.path.join(self.tmpdir, "test_dir_exists"),
                 data_type=["Fcirc"],
             )
+
+
+@tag("broken_until_issue712")
+class MissingDataTests(StudiesExporterTestBase):
+    def test_no_data_study_exists(self):
+        """
+        Should not raise exception when no data is available and study exists
+        """
+        call_command(
+            "export_studies",
+            outdir=os.path.join(self.tmpdir, "test_no_data_study_exists"),
+            studies=["Small OBOB"],
+        )

@@ -6,9 +6,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
-### Added
+## Unreleased
 
 ### Fixed
 
@@ -28,6 +26,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Display ArchiveFile record associated with PeakGroup instead of PeakGroupSet
 
 ### Removed
+
+## [2.0.6] - 2023-12-08
+
+### Added
+
+- Added `export_studies` management command. This command exports all of the
+  data for the specified studies which consists of the PeakData, PeakGroup, and
+  FCirc formats.
 
 ## [2.0.5] - 2023-10-10
 
