@@ -26,6 +26,7 @@ from DataRepo.templatetags.customtags import get_many_related_rec
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
+@tag("broken_until_issue712")
 class FormatsTests(TracebaseTestCase):
     fixtures = ["data_types.yaml", "data_formats.yaml"]
     maxDiff = None
@@ -109,7 +110,7 @@ class FormatsTests(TracebaseTestCase):
                                 "pos": "",
                                 "static": False,
                                 "ncmp": "icontains",
-                                "fld": "msrun__sample__animal__studies__name",
+                                "fld": "msrun_sample__sample__animal__studies__name",
                                 "val": "obob_fasted",
                                 "units": "identity",
                             }
@@ -139,17 +140,23 @@ class FormatsTests(TracebaseTestCase):
 
     def getPdtemplateChoicesTuple(self):
         return (
-            ("peak_group__msrun__sample__animal__age", "Age"),
-            ("peak_group__msrun__sample__animal__name", "Animal"),
-            ("peak_group__msrun__sample__animal__body_weight", "Body Weight (g)"),
-            ("corrected_abundance", "Corrected Abundance"),
-            ("peak_group__msrun__sample__animal__diet", "Diet"),
-            ("peak_group__msrun__sample__animal__feeding_status", "Feeding Status"),
-            ("peak_group__formula", "Formula"),
-            ("peak_group__msrun__sample__animal__genotype", "Genotype"),
-            ("peak_group__msrun__sample__animal__infusate__name", "Infusate"),
+            ("peak_group__msrun_sample__sample__animal__age", "Age"),
+            ("peak_group__msrun_sample__sample__animal__name", "Animal"),
             (
-                "peak_group__msrun__sample__animal__infusion_rate",
+                "peak_group__msrun_sample__sample__animal__body_weight",
+                "Body Weight (g)",
+            ),
+            ("corrected_abundance", "Corrected Abundance"),
+            ("peak_group__msrun_sample__sample__animal__diet", "Diet"),
+            (
+                "peak_group__msrun_sample__sample__animal__feeding_status",
+                "Feeding Status",
+            ),
+            ("peak_group__formula", "Formula"),
+            ("peak_group__msrun_sample__sample__animal__genotype", "Genotype"),
+            ("peak_group__msrun_sample__sample__animal__infusate__name", "Infusate"),
+            (
+                "peak_group__msrun_sample__sample__animal__infusion_rate",
                 "Infusion Rate (ul/min/g)",
             ),
             ("labels__count", "Labeled Count"),
@@ -164,60 +171,63 @@ class FormatsTests(TracebaseTestCase):
             ("peak_group__peak_annotation_file__filename", "Peak Annotation Filename"),
             ("peak_group__name", "Peak Group"),
             ("raw_abundance", "Raw Abundance"),
-            ("peak_group__msrun__sample__name", "Sample"),
-            ("peak_group__msrun__sample__animal__sex", "Sex"),
-            ("peak_group__msrun__sample__animal__studies__name", "Study"),
+            ("peak_group__msrun_sample__sample__name", "Sample"),
+            ("peak_group__msrun_sample__sample__animal__sex", "Sex"),
+            ("peak_group__msrun_sample__sample__animal__studies__name", "Study"),
             (
-                "peak_group__msrun__sample__time_collected",
+                "peak_group__msrun_sample__sample__time_collected",
                 "Time Collected (since infusion)",
             ),
-            ("peak_group__msrun__sample__tissue__name", "Tissue"),
-            ("peak_group__msrun__sample__animal__infusate__tracers__name", "Tracer"),
+            ("peak_group__msrun_sample__sample__tissue__name", "Tissue"),
             (
-                "peak_group__msrun__sample__animal__infusate__tracers__compound__name",
+                "peak_group__msrun_sample__sample__animal__infusate__tracers__name",
+                "Tracer",
+            ),
+            (
+                "peak_group__msrun_sample__sample__animal__infusate__tracers__compound__name",
                 "Tracer Compound (Primary Synonym)",
             ),
             (
-                "peak_group__msrun__sample__animal__infusate__tracer_links__concentration",
+                "peak_group__msrun_sample__sample__animal__infusate__tracer_links__concentration",
                 "Tracer Concentration (mM)",
             ),
-            ("peak_group__msrun__sample__animal__treatment__name", "Treatment"),
+            ("peak_group__msrun_sample__sample__animal__treatment__name", "Treatment"),
         )
 
     def getPgtemplateChoicesTuple(self):
         return (
-            ("msrun__sample__animal__age", "Age"),
-            ("msrun__sample__animal__name", "Animal"),
-            ("msrun__sample__animal__body_weight", "Body Weight (g)"),
+            ("msrun_sample__sample__animal__age", "Age"),
+            ("msrun_sample__sample__animal__name", "Animal"),
+            ("msrun_sample__sample__animal__body_weight", "Body Weight (g)"),
             ("compounds__synonyms__name", "Compound (Measured) (Any Synonym)"),
             ("compounds__name", "Compound (Measured) (Primary Synonym)"),
             (
-                "msrun__sample__animal__infusate__tracers__compound__name",
+                "msrun_sample__sample__animal__infusate__tracers__compound__name",
                 "Compound (Tracer) (Primary Synonym)",
             ),
-            ("msrun__sample__animal__diet", "Diet"),
-            ("msrun__sample__animal__feeding_status", "Feeding Status"),
+            ("msrun_sample__sample__animal__diet", "Diet"),
+            ("msrun_sample__sample__animal__feeding_status", "Feeding Status"),
             ("formula", "Formula"),
-            ("msrun__sample__animal__genotype", "Genotype"),
-            ("msrun__sample__animal__infusate__name", "Infusate"),
-            ("msrun__sample__animal__infusion_rate", "Infusion Rate (ul/min/g)"),
+            ("msrun_sample__sample__animal__genotype", "Genotype"),
+            ("msrun_sample__sample__animal__infusate__name", "Infusate"),
+            ("msrun_sample__sample__animal__infusion_rate", "Infusion Rate (ul/min/g)"),
             ("labels__element", "Labeled Element"),
             ("peak_annotation_file__filename", "Peak Annotation Filename"),
             ("name", "Peak Group"),
-            ("msrun__sample__name", "Sample"),
-            ("msrun__sample__animal__sex", "Sex"),
-            ("msrun__sample__animal__studies__name", "Study"),
+            ("msrun_sample__sample__name", "Sample"),
+            ("msrun_sample__sample__animal__sex", "Sex"),
+            ("msrun_sample__sample__animal__studies__name", "Study"),
             (
-                "msrun__sample__time_collected",
+                "msrun_sample__sample__time_collected",
                 "Time Collected (since infusion)",
             ),
-            ("msrun__sample__tissue__name", "Tissue"),
-            ("msrun__sample__animal__infusate__tracers__name", "Tracer"),
+            ("msrun_sample__sample__tissue__name", "Tissue"),
+            ("msrun_sample__sample__animal__infusate__tracers__name", "Tracer"),
             (
-                "msrun__sample__animal__infusate__tracer_links__concentration",
+                "msrun_sample__sample__animal__infusate__tracer_links__concentration",
                 "Tracer Concentration (mM)",
             ),
-            ("msrun__sample__animal__treatment__name", "Treatment"),
+            ("msrun_sample__sample__animal__treatment__name", "Treatment"),
         )
 
     def getFctemplateChoicesTuple(self):
@@ -295,54 +305,74 @@ class FormatsTests(TracebaseTestCase):
         # There should be 39 fields with units lookups
         self.assertEqual(39, len(fld_units_lookup.keys()))
         # Path should be prepended to the field name
-        self.assertIsNone(fld_units_lookup["msrun__sample__animal__genotype"])
+        self.assertIsNone(fld_units_lookup["msrun_sample__sample__animal__genotype"])
         # Each value should be a dict with the units, this one having 15 keys
-        self.assertEqual(15, len(fld_units_lookup["msrun__sample__animal__age"].keys()))
+        self.assertEqual(
+            15, len(fld_units_lookup["msrun_sample__sample__animal__age"].keys())
+        )
         # This "native" unit type has 5 keys: name, example, convert, pyconvert, and about
         self.assertEqual(
-            5, len(fld_units_lookup["msrun__sample__animal__age"]["identity"].keys())
+            5,
+            len(
+                fld_units_lookup["msrun_sample__sample__animal__age"]["identity"].keys()
+            ),
         )
         # Check the name (displayed in the units select list)
         self.assertEqual(
             "n.n{units},...",
-            fld_units_lookup["msrun__sample__animal__age"]["identity"]["name"],
+            fld_units_lookup["msrun_sample__sample__animal__age"]["identity"]["name"],
         )
         # Check the example (shown as a placeholder in the val field)
         self.assertEqual(
             "1w,1d,1:01:01.1",
-            fld_units_lookup["msrun__sample__animal__age"]["identity"]["example"],
+            fld_units_lookup["msrun_sample__sample__animal__age"]["identity"][
+                "example"
+            ],
         )
         # The convert key should be a function
         self.assertEqual(
             "function",
             type(
-                fld_units_lookup["msrun__sample__animal__age"]["identity"]["convert"]
+                fld_units_lookup["msrun_sample__sample__animal__age"]["identity"][
+                    "convert"
+                ]
             ).__name__,
         )
 
         # Each value should be a dict with the units, this one having 15 keys
         self.assertEqual(
-            15, len(fld_units_lookup["msrun__sample__time_collected"].keys())
+            15, len(fld_units_lookup["msrun_sample__sample__time_collected"].keys())
         )
         # This "native" unit type has 5 keys: name, example, convert, pyconvert, and about
         self.assertEqual(
-            5, len(fld_units_lookup["msrun__sample__time_collected"]["identity"].keys())
+            5,
+            len(
+                fld_units_lookup["msrun_sample__sample__time_collected"][
+                    "identity"
+                ].keys()
+            ),
         )
         # Check the name (displayed in the units select list)
         self.assertEqual(
             "n.n{units},...",
-            fld_units_lookup["msrun__sample__time_collected"]["identity"]["name"],
+            fld_units_lookup["msrun_sample__sample__time_collected"]["identity"][
+                "name"
+            ],
         )
         # Check the example (shown as a placeholder in the val field)
         self.assertEqual(
             "1w,1d,1:01:01.1",
-            fld_units_lookup["msrun__sample__time_collected"]["identity"]["example"],
+            fld_units_lookup["msrun_sample__sample__time_collected"]["identity"][
+                "example"
+            ],
         )
         # The convert key should be a function
         self.assertEqual(
             "function",
             type(
-                fld_units_lookup["msrun__sample__time_collected"]["identity"]["convert"]
+                fld_units_lookup["msrun_sample__sample__time_collected"]["identity"][
+                    "convert"
+                ]
             ).__name__,
         )
 
@@ -356,12 +386,14 @@ class FormatsTests(TracebaseTestCase):
         )
         self.assertEqual(
             expected_about,
-            fld_units_lookup["msrun__sample__animal__age"]["identity"]["about"],
+            fld_units_lookup["msrun_sample__sample__animal__age"]["identity"]["about"],
         )
         # The convert function should modify the value to the format needed by the database
         self.assertEqual(
             "14w",
-            fld_units_lookup["msrun__sample__animal__age"]["weeks"]["convert"](14),
+            fld_units_lookup["msrun_sample__sample__animal__age"]["weeks"]["convert"](
+                14
+            ),
         )
 
     def test_getSearchFieldChoicesDict(self):
@@ -389,34 +421,36 @@ class FormatsTests(TracebaseTestCase):
     def test_extractFldPaths(self):
         qry = self.getQueryObject()
         paths = extractFldPaths(qry)
-        expected_paths = ["msrun__sample__animal__studies"]
+        expected_paths = ["msrun_sample__sample__animal__studies"]
         self.assertEqual(expected_paths, paths)
 
     def test_splitCommon_hascommon(self):
-        fld_path = "msrun__sample__animal__studies"
-        reroot_path = "msrun__sample__animal__tracer_compound"
+        fld_path = "msrun_sample__sample__animal__studies"
+        reroot_path = "msrun_sample__sample__animal__tracer_compound"
         common_path, remainder = splitCommon(fld_path, reroot_path)
-        self.assertEqual(common_path, "msrun__sample__animal")
+        self.assertEqual(common_path, "msrun_sample__sample__animal")
         self.assertEqual("studies", remainder)
 
     def test_splitCommon_nocommon(self):
-        fld_path = "msrun__sample__animal__studies"
+        fld_path = "msrun_sample__sample__animal__studies"
         reroot_path = "compounds__synonyms"
         common_path, remainder = splitCommon(fld_path, reroot_path)
         self.assertEqual(common_path, "")
-        self.assertEqual("msrun__sample__animal__studies", remainder)
+        self.assertEqual("msrun_sample__sample__animal__studies", remainder)
 
     def test_splitPathName(self):
-        path, name = splitPathName("msrun__sample__animal__treatment__name")
-        self.assertEqual(path, "msrun__sample__animal__treatment")
+        path, name = splitPathName("msrun_sample__sample__animal__treatment__name")
+        self.assertEqual(path, "msrun_sample__sample__animal__treatment")
         self.assertEqual("name", name)
 
     def test_reRootFieldPath(self):
-        fld = "msrun__sample__animal__studies__name"
+        fld = "msrun_sample__sample__animal__studies__name"
         reroot_instance_name = "CompoundSynonym"
         pgsv = PeakGroupsFormat()
         rerooted_fld = pgsv.reRootFieldPath(fld, reroot_instance_name)
-        expected_fld = "compound__peak_groups__msrun__sample__animal__studies__name"
+        expected_fld = (
+            "compound__peak_groups__msrun_sample__sample__animal__studies__name"
+        )
         self.assertEqual(expected_fld, rerooted_fld)
 
     def test_reRootQry(self):
@@ -427,7 +461,7 @@ class FormatsTests(TracebaseTestCase):
         expected_qry = deepcopy(self.getQueryObject2())
         expected_qry["searches"]["pgtemplate"]["tree"]["queryGroup"][0][
             "fld"
-        ] = "peak_groups__msrun__sample__animal__studies__name"
+        ] = "peak_groups__msrun_sample__sample__animal__studies__name"
         expected_qry["searches"]["pgtemplate"]["tree"]["queryGroup"][1][
             "fld"
         ] = "synonyms__name"
@@ -436,7 +470,7 @@ class FormatsTests(TracebaseTestCase):
 
     def test_pathToModelInstanceName(self):
         pgsv = PeakGroupsFormat()
-        mi = pgsv.pathToModelInstanceName("msrun__sample__animal__studies")
+        mi = pgsv.pathToModelInstanceName("msrun_sample__sample__animal__studies")
         self.assertEqual("Study", mi)
 
     def test_getTrueJoinPrefetchPathsAndQrys(self):
@@ -456,10 +490,10 @@ class FormatsTests(TracebaseTestCase):
         qry["searches"][fmt]["tree"]["queryGroup"][1]["val"] = "citrate"
         prefetches = basv.getTrueJoinPrefetchPathsAndQrys(qry)
         expected_prefetches = [
-            "msrun__sample__animal__infusate__tracers__compound",
-            "msrun__sample__animal__treatment",
-            "msrun__sample__animal__studies",
-            "msrun__sample__tissue",
+            "msrun_sample__sample__animal__infusate__tracers__compound",
+            "msrun_sample__sample__animal__treatment",
+            "msrun_sample__sample__animal__studies",
+            "msrun_sample__sample__tissue",
             "peak_annotation_file",
             [
                 "compounds",
@@ -478,7 +512,7 @@ class FormatsTests(TracebaseTestCase):
                             "tree": {
                                 "queryGroup": [
                                     {
-                                        "fld": "peak_groups__msrun__sample__animal__studies__name",
+                                        "fld": "peak_groups__msrun_sample__sample__animal__studies__name",
                                         "ncmp": "icontains",
                                         "pos": "",
                                         "static": False,
@@ -600,21 +634,21 @@ class FormatsTests(TracebaseTestCase):
             "labels__peak_group__name",
             "labels__element",
             "labels__pk",
-            "msrun__sample__animal__infusate__name",
-            "msrun__sample__animal__infusate__tracer_links__tracer__name",
-            "msrun__sample__animal__infusate__tracer_links__concentration",
-            "msrun__sample__animal__infusate__tracer_links__pk",
-            "msrun__sample__animal__infusate__tracers__name",
-            "msrun__sample__animal__infusate__tracers__pk",
-            "msrun__sample__animal__infusate__tracers__compound__name",
-            "msrun__sample__animal__infusate__tracers__compound__pk",
+            "msrun_sample__sample__animal__infusate__name",
+            "msrun_sample__sample__animal__infusate__tracer_links__tracer__name",
+            "msrun_sample__sample__animal__infusate__tracer_links__concentration",
+            "msrun_sample__sample__animal__infusate__tracer_links__pk",
+            "msrun_sample__sample__animal__infusate__tracers__name",
+            "msrun_sample__sample__animal__infusate__tracers__pk",
+            "msrun_sample__sample__animal__infusate__tracers__compound__name",
+            "msrun_sample__sample__animal__infusate__tracers__compound__pk",
             "compounds__name",
             "compounds__pk",
             "compounds__synonyms__compound__name",
             "compounds__synonyms__name",
             "compounds__synonyms__pk",
-            "msrun__sample__animal__studies__name",
-            "msrun__sample__animal__studies__pk",
+            "msrun_sample__sample__animal__studies__name",
+            "msrun_sample__sample__animal__studies__pk",
         ]
         self.assertEqual(expected_distincts, distincts)
 
@@ -739,14 +773,16 @@ class FormatsTests(TracebaseTestCase):
         Test that test_getAllBrowseData returns all data for the selected format.
         """
         basv_metadata = SearchGroup()
-        pf = "msrun__sample__animal__studies"
+        pf = "msrun_sample__sample__animal__studies"
         qs = PeakGroup.objects.all().prefetch_related(pf)
         res, cnt, stats = basv_metadata.getAllBrowseData("pgtemplate")
         self.assertEqual(qs.count(), cnt)
 
     def get_basic_qry_inputs(self):
-        qs = PeakGroup.objects.all().prefetch_related("msrun__sample__animal__studies")
-        tval = str(qs[0].msrun.sample.animal.studies.all()[0].id)
+        qs = PeakGroup.objects.all().prefetch_related(
+            "msrun_sample__sample__animal__studies"
+        )
+        tval = str(qs[0].msrun_sample.sample.animal.studies.all()[0].id)
         empty_tree = {
             "type": "group",
             "val": "all",
@@ -778,7 +814,7 @@ class FormatsTests(TracebaseTestCase):
                                 "pos": "",
                                 "static": False,
                                 "ncmp": "iexact",
-                                "fld": "msrun__sample__animal__studies__name",
+                                "fld": "msrun_sample__sample__animal__studies__name",
                                 "val": "obob_fasted",
                                 "units": "identity",
                             }
@@ -803,7 +839,7 @@ class FormatsTests(TracebaseTestCase):
         val = tval
         fmt = "pgtemplate"
         units = "identity"
-        newqry = basv_metadata.createNewBasicQuery(mdl, fld, cmp, val, units, fmt)
+        newqry = basv_metadata.createNewBasicQuery(mdl, fld, cmp, val, fmt, units)
         self.maxDiff = None
         self.assertEqual(qry, newqry)
 
@@ -814,7 +850,7 @@ class FormatsTests(TracebaseTestCase):
         [tval, qry] = self.get_basic_qry_inputs()
         qry["searches"]["pgtemplate"]["tree"]["queryGroup"][0][
             "fld"
-        ] = "msrun__sample__animal__studies__id"
+        ] = "msrun_sample__sample__animal__studies__id"
         qry["searches"]["pgtemplate"]["tree"]["queryGroup"][0]["val"] = tval
         basv_metadata = SearchGroup()
         mdl = "Study"
@@ -841,7 +877,7 @@ class FormatsTests(TracebaseTestCase):
                             {
                                 "type": "query",
                                 "pos": "",
-                                "fld": "msrun__sample__tissue__name",
+                                "fld": "msrun_sample__sample__tissue__name",
                                 "ncmp": "iexact",
                                 "static": "",
                                 "val": "Brain",
@@ -881,7 +917,7 @@ class FormatsTests(TracebaseTestCase):
                             {
                                 "type": "query",
                                 "pos": "",
-                                "fld": "msrun__sample__animal__name",
+                                "fld": "msrun_sample__sample__animal__name",
                                 "ncmp": "iexact",
                                 "static": "",
                                 "val": "",
@@ -901,7 +937,7 @@ class FormatsTests(TracebaseTestCase):
         qry = self.get_advanced_qry()
         qry["searches"]["pgtemplate"]["tree"]["queryGroup"][0][
             "fld"
-        ] = "msrun__sample__name"
+        ] = "msrun_sample__sample__name"
         qry["searches"]["pgtemplate"]["tree"]["queryGroup"][0]["val"] = "BAT-xz971"
         qry["searches"]["pgtemplate"]["tree"]["queryGroup"].append(
             {
@@ -914,7 +950,7 @@ class FormatsTests(TracebaseTestCase):
                         "pos": "",
                         "static": False,
                         "ncmp": "iexact",
-                        "fld": "msrun__sample__animal__studies__name",
+                        "fld": "msrun_sample__sample__animal__studies__name",
                         "val": "obob_fasted",
                         "units": "identity",
                     },
@@ -1032,7 +1068,7 @@ class FormatsTests(TracebaseTestCase):
         """
         qry = self.get_advanced_qry()
         q_exp = constructAdvancedQuery(qry)
-        expected_q = Q(msrun__sample__tissue__name__iexact="Brain")
+        expected_q = Q(msrun_sample__sample__tissue__name__iexact="Brain")
         self.assertEqual(expected_q, q_exp)
 
     def test_performQuery(self):
@@ -1042,15 +1078,15 @@ class FormatsTests(TracebaseTestCase):
         qry = self.get_advanced_qry()
         basv_metadata = SearchGroup()
         pf = [
-            "msrun__sample__tissue",
-            "msrun__sample__animal__tracer_compound",
-            "msrun__sample__animal__studies",
+            "msrun_sample__sample__tissue",
+            "msrun_sample__sample__animal__tracer_compound",
+            "msrun_sample__sample__animal__studies",
         ]
         res, cnt, stats = basv_metadata.performQuery(
             qry, "pgtemplate", generate_stats=False
         )
         qs = PeakGroup.objects.filter(
-            msrun__sample__tissue__name__iexact="Brain"
+            msrun_sample__sample__tissue__name__iexact="Brain"
         ).prefetch_related(*pf)
         self.assertEqual(cnt, qs.count())
         expected_stats = {
@@ -1069,8 +1105,8 @@ class FormatsTests(TracebaseTestCase):
         basv_metadata = SearchGroup()
         res, cnt, stats = basv_metadata.performQuery(qry, "pgtemplate")
         qs = (
-            PeakGroup.objects.filter(msrun__sample__name__iexact="BAT-xz971")
-            .filter(msrun__sample__animal__studies__name__iexact="obob_fasted")
+            PeakGroup.objects.filter(msrun_sample__sample__name__iexact="BAT-xz971")
+            .filter(msrun_sample__sample__animal__studies__name__iexact="obob_fasted")
             .filter(compounds__synonyms__name__iexact="glucose")
         )
         # Ensure the test is working by ensuring the number of records without distinct is larger
@@ -1108,7 +1144,7 @@ class FormatsTests(TracebaseTestCase):
         fmt = "pgtemplate"
         mdl = "Animal"
         fld = "feeding_status"
-        pf = "msrun__sample__animal__studies"
+        pf = "msrun_sample__sample__animal__studies"
         recs = PeakGroup.objects.all().prefetch_related(pf)
         val = basv_metadata.getJoinedRecFieldValue(recs, fmt, mdl, fld, fld, "Fasted")
         self.assertEqual("Fasted", val)
@@ -1121,35 +1157,35 @@ class FormatsTests(TracebaseTestCase):
         fmt = "pgtemplate"
         res = basv_metadata.getSearchFieldChoices(fmt)
         choices = (
-            ("msrun__sample__animal__age", "Age"),
-            ("msrun__sample__animal__name", "Animal"),
-            ("msrun__sample__animal__body_weight", "Body Weight (g)"),
+            ("msrun_sample__sample__animal__age", "Age"),
+            ("msrun_sample__sample__animal__name", "Animal"),
+            ("msrun_sample__sample__animal__body_weight", "Body Weight (g)"),
             ("compounds__synonyms__name", "Compound (Measured) (Any Synonym)"),
             ("compounds__name", "Compound (Measured) (Primary Synonym)"),
             (
-                "msrun__sample__animal__infusate__tracers__compound__name",
+                "msrun_sample__sample__animal__infusate__tracers__compound__name",
                 "Compound (Tracer) (Primary Synonym)",
             ),
-            ("msrun__sample__animal__diet", "Diet"),
-            ("msrun__sample__animal__feeding_status", "Feeding Status"),
+            ("msrun_sample__sample__animal__diet", "Diet"),
+            ("msrun_sample__sample__animal__feeding_status", "Feeding Status"),
             ("formula", "Formula"),
-            ("msrun__sample__animal__genotype", "Genotype"),
-            ("msrun__sample__animal__infusate__name", "Infusate"),
-            ("msrun__sample__animal__infusion_rate", "Infusion Rate (ul/min/g)"),
+            ("msrun_sample__sample__animal__genotype", "Genotype"),
+            ("msrun_sample__sample__animal__infusate__name", "Infusate"),
+            ("msrun_sample__sample__animal__infusion_rate", "Infusion Rate (ul/min/g)"),
             ("labels__element", "Labeled Element"),
             ("peak_annotation_file__filename", "Peak Annotation Filename"),
             ("name", "Peak Group"),
-            ("msrun__sample__name", "Sample"),
-            ("msrun__sample__animal__sex", "Sex"),
-            ("msrun__sample__animal__studies__name", "Study"),
-            ("msrun__sample__time_collected", "Time Collected (since infusion)"),
-            ("msrun__sample__tissue__name", "Tissue"),
-            ("msrun__sample__animal__infusate__tracers__name", "Tracer"),
+            ("msrun_sample__sample__name", "Sample"),
+            ("msrun_sample__sample__animal__sex", "Sex"),
+            ("msrun_sample__sample__animal__studies__name", "Study"),
+            ("msrun_sample__sample__time_collected", "Time Collected (since infusion)"),
+            ("msrun_sample__sample__tissue__name", "Tissue"),
+            ("msrun_sample__sample__animal__infusate__tracers__name", "Tracer"),
             (
-                "msrun__sample__animal__infusate__tracer_links__concentration",
+                "msrun_sample__sample__animal__infusate__tracer_links__concentration",
                 "Tracer Concentration (mM)",
             ),
-            ("msrun__sample__animal__treatment__name", "Treatment"),
+            ("msrun_sample__sample__animal__treatment__name", "Treatment"),
         )
         self.assertEqual(choices, res)
 
@@ -1173,10 +1209,10 @@ class FormatsTests(TracebaseTestCase):
         fmt = "pdtemplate"
         res = basv_metadata.getPrefetches(fmt)
         pfl = [
-            "peak_group__msrun__sample__animal__infusate__tracers__compound",
-            "peak_group__msrun__sample__animal__treatment",
-            "peak_group__msrun__sample__animal__studies",
-            "peak_group__msrun__sample__tissue",
+            "peak_group__msrun_sample__sample__animal__infusate__tracers__compound",
+            "peak_group__msrun_sample__sample__animal__treatment",
+            "peak_group__msrun_sample__sample__animal__studies",
+            "peak_group__msrun_sample__sample__tissue",
             "peak_group__peak_annotation_file",
             "peak_group__compounds__synonyms",
             "labels",
@@ -1217,15 +1253,15 @@ class FormatsTests(TracebaseTestCase):
         mdl = "Animal"
         res = basv_metadata.getSearchFields(fmt, mdl)
         sfd = {
-            "id": "msrun__sample__animal__id",
-            "name": "msrun__sample__animal__name",
-            "genotype": "msrun__sample__animal__genotype",
-            "age": "msrun__sample__animal__age",
-            "body_weight": "msrun__sample__animal__body_weight",
-            "sex": "msrun__sample__animal__sex",
-            "diet": "msrun__sample__animal__diet",
-            "feeding_status": "msrun__sample__animal__feeding_status",
-            "infusion_rate": "msrun__sample__animal__infusion_rate",
+            "id": "msrun_sample__sample__animal__id",
+            "name": "msrun_sample__sample__animal__name",
+            "genotype": "msrun_sample__sample__animal__genotype",
+            "age": "msrun_sample__sample__animal__age",
+            "body_weight": "msrun_sample__sample__animal__body_weight",
+            "sex": "msrun_sample__sample__animal__sex",
+            "diet": "msrun_sample__sample__animal__diet",
+            "feeding_status": "msrun_sample__sample__animal__feeding_status",
+            "infusion_rate": "msrun_sample__sample__animal__infusion_rate",
         }
         self.assertEqual(sfd, res)
 

@@ -1,19 +1,7 @@
 from django.db import models
 
-from DataRepo.models.hier_cached_model import HierCachedModel
-from DataRepo.models.maintained_model import MaintainedModel
 
-
-@MaintainedModel.relation(
-    generation=2,
-    parent_field_name="sample",
-    # child_field_names=["peak_groups"],  # Only propagate up
-    update_label="fcirc_calcs",
-)
-class MSRun(HierCachedModel, MaintainedModel):
-    parent_related_key_name = "sample"
-    child_related_key_names = ["peak_groups"]
-
+class MSRun(models.Model):
     # Instance / model fields
     id = models.AutoField(primary_key=True)
     researcher = models.CharField(

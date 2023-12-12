@@ -1,0 +1,19 @@
+---
+SAMPLE_NAME: "Sample Name"
+SAMPLE_DATE: "Date Collected"
+SAMPLE_RESEARCHER: "Researcher Name"
+TISSUE_NAME: "Tissue"
+TIME_COLLECTED: "Collection Time"
+STUDY_NAME: "Experiment Name"
+STUDY_DESCRIPTION: "Notes"
+ANIMAL_NAME: "Animal ID"
+ANIMAL_WEIGHT: "Animal Body Weight"
+ANIMAL_AGE:
+ANIMAL_SEX:
+ANIMAL_GENOTYPE: "Animal Genotype"
+ANIMAL_FEEDING_STATUS: "Animal State"
+ANIMAL_DIET:
+ANIMAL_TREATMENT: "Animal Treatment"
+INFUSATE: "Infusate"
+ANIMAL_INFUSION_RATE: "Infusion Rate"
+TRACER_CONCENTRATIONS: "Tracer Concentrations"

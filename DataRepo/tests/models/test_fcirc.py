@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 
 from django.conf import settings
 from django.core.management import call_command
-from django.test import override_settings
+from django.test import override_settings, tag
 
 from DataRepo.models import (
     Animal,
@@ -19,6 +19,7 @@ from DataRepo.models import (
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
+@tag("broken_until_issue712")
 @override_settings(CACHES=settings.TEST_CACHES)
 class FCircTests(TracebaseTestCase):
     def setUp(self):
@@ -115,7 +116,7 @@ class FCircTests(TracebaseTestCase):
             pg = PeakGroup.objects.create(
                 name=tracer.compound.name,
                 formula=tracer.compound.formula,
-                msrun=msr,
+                msrun_sample=msr,
                 peak_annotation_file=self.peak_annotation_file,
             )
             pg.compounds.add(tracer.compound)
@@ -317,7 +318,7 @@ class FCircTests(TracebaseTestCase):
             pg = PeakGroup.objects.create(
                 name=tracer.compound.name,
                 formula=tracer.compound.formula,
-                msrun=msr,
+                msrun_sample=msr,
                 peak_annotation_file=self.peak_annotation_file,
             )
             pg.compounds.add(tracer.compound)

@@ -3,7 +3,8 @@ from .archive_file import ArchiveFileDetailView, ArchiveFileListView
 from .compound import CompoundDetailView, CompoundListView
 from .infusate import InfusateDetailView, InfusateListView
 from .lcmethod import LCMethodDetailView, LCMethodListView
-from .msrun import MSRunDetailView, MSRunListView
+from .msrun_sample import MSRunSampleDetailView, MSRunSampleListView
+from .msrun_sequence import MSRunSequenceDetailView, MSRunSequenceListView
 from .peakdata import PeakDataListView
 from .peakgroup import PeakGroupDetailView, PeakGroupListView
 from .peakgroupset import PeakGroupSetDetailView, PeakGroupSetListView
@@ -32,8 +33,10 @@ __all__ = [
     "TissueDetailView",
     "SampleListView",
     "SampleDetailView",
-    "MSRunListView",
-    "MSRunDetailView",
+    "MSRunSampleListView",
+    "MSRunSampleDetailView",
+    "MSRunSequenceListView",
+    "MSRunSequenceDetailView",
     "PeakGroupSetListView",
     "PeakGroupSetDetailView",
     "PeakGroupListView",

@@ -85,7 +85,9 @@ class Researcher:
         """
         Returns QuerySet of Peakgroups that contain samples "owned" by this Researcher
         """
-        return PeakGroup.objects.filter(msrun__sample__researcher=self.name).distinct()
+        return PeakGroup.objects.filter(
+            msrun_sample__sample__researcher=self.name
+        ).distinct()
 
     def __eq__(self, other):
         if isinstance(other, Researcher):

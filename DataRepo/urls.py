@@ -62,8 +62,22 @@ urlpatterns = [
     path("tissues/<int:pk>/", views.TissueDetailView.as_view(), name="tissue_detail"),
     path("samples/", views.SampleListView.as_view(), name="sample_list"),
     path("samples/<int:pk>/", views.SampleDetailView.as_view(), name="sample_detail"),
-    path("msruns/", views.MSRunListView.as_view(), name="msrun_list"),
-    path("msruns/<int:pk>/", views.MSRunDetailView.as_view(), name="msrun_detail"),
+    path("msrunsamples/", views.MSRunSampleListView.as_view(), name="msrunsample_list"),
+    path(
+        "msrunsamples/<int:pk>/",
+        views.MSRunSampleDetailView.as_view(),
+        name="msrunsample_detail",
+    ),
+    path(
+        "msrunsequences/",
+        views.MSRunSequenceListView.as_view(),
+        name="msrunsequence_list",
+    ),
+    path(
+        "msrunsequences/<int:pk>/",
+        views.MSRunSequenceDetailView.as_view(),
+        name="msrunsequence_detail",
+    ),
     path(
         "peakgroupsets/",
         views.PeakGroupSetListView.as_view(),

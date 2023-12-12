@@ -13,7 +13,7 @@ class PeakGroupsFormat(Format):
     stats = [
         {
             "displayname": "Animals",
-            "distincts": ["msrun__sample__animal__name"],
+            "distincts": ["msrun_sample__sample__animal__name"],
             "filter": None,
         },
         {
@@ -28,39 +28,41 @@ class PeakGroupsFormat(Format):
         },
         {
             "displayname": "Samples",
-            "distincts": ["msrun__sample__name"],
+            "distincts": ["msrun_sample__sample__name"],
             "filter": None,
         },
         {
             "displayname": "Tissues",
-            "distincts": ["msrun__sample__tissue__name"],
+            "distincts": ["msrun_sample__sample__tissue__name"],
             "filter": None,
         },
         {
             "displayname": "Tracer Compounds",
-            "distincts": ["msrun__sample__animal__infusate__tracers__compound__name"],
+            "distincts": [
+                "msrun_sample__sample__animal__infusate__tracers__compound__name"
+            ],
             "filter": None,
         },
         {
             "displayname": "Studies",
-            "distincts": ["msrun__sample__animal__studies__name"],
+            "distincts": ["msrun_sample__sample__animal__studies__name"],
             "filter": None,
         },
         {
             "displayname": "Feeding Statuses",
-            "distincts": ["msrun__sample__animal__feeding_status"],
+            "distincts": ["msrun_sample__sample__animal__feeding_status"],
             "filter": None,
         },
         {
             "displayname": "Infusion Rates",
-            "distincts": ["msrun__sample__animal__infusion_rate"],
+            "distincts": ["msrun_sample__sample__animal__infusion_rate"],
             "filter": None,
         },
         {
             "displayname": "Tracer Concentrations",
             "distincts": [
-                "msrun__sample__animal__infusate__tracers__compound__name",
-                "msrun__sample__animal__infusate__tracer_links__concentration",
+                "msrun_sample__sample__animal__infusate__tracers__compound__name",
+                "msrun_sample__sample__animal__infusate__tracer_links__concentration",
             ],
             "filter": None,
             "delimiter": ":",
@@ -173,8 +175,8 @@ class PeakGroupsFormat(Format):
         },
         "Protocol": {
             "model": "Protocol",
-            "path": "msrun__sample__animal__treatment",
-            "reverse_path": "animals__samples__msruns__peak_groups",
+            "path": "msrun_sample__sample__animal__treatment",
+            "reverse_path": "animals__samples__msrun_samples__peak_groups",
             "manyrelated": {
                 "is": False,
                 "through": False,
@@ -199,8 +201,8 @@ class PeakGroupsFormat(Format):
         },
         "Sample": {
             "model": "Sample",
-            "path": "msrun__sample",
-            "reverse_path": "msruns__peak_groups",
+            "path": "msrun_sample__sample",
+            "reverse_path": "msrun_samples__peak_groups",
             "manyrelated": {
                 "is": False,
                 "through": False,
@@ -240,8 +242,8 @@ class PeakGroupsFormat(Format):
         },
         "Tissue": {
             "model": "Tissue",
-            "path": "msrun__sample__tissue",
-            "reverse_path": "samples__msruns__peak_groups",
+            "path": "msrun_sample__sample__tissue",
+            "reverse_path": "samples__msrun_samples__peak_groups",
             "manyrelated": {
                 "is": False,
                 "through": False,
@@ -266,8 +268,8 @@ class PeakGroupsFormat(Format):
         },
         "Animal": {
             "model": "Animal",
-            "path": "msrun__sample__animal",
-            "reverse_path": "samples__msruns__peak_groups",
+            "path": "msrun_sample__sample__animal",
+            "reverse_path": "samples__msrun_samples__peak_groups",
             "manyrelated": {
                 "is": False,
                 "through": False,
@@ -345,8 +347,8 @@ class PeakGroupsFormat(Format):
         },
         "Infusate": {
             "model": "InfusateTracer",
-            "path": "msrun__sample__animal__infusate",
-            "reverse_path": "animals__samples__msruns__peak_groups",
+            "path": "msrun_sample__sample__animal__infusate",
+            "reverse_path": "animals__samples__msrun_samples__peak_groups",
             "manyrelated": {
                 "is": True,  # searching for PeakGroups via Infusate.pk can produce many peak groups
                 "manytomany": False,  # but animal->infusate results in 1 infusate
@@ -371,8 +373,8 @@ class PeakGroupsFormat(Format):
         },
         "InfusateTracer": {
             "model": "InfusateTracer",
-            "path": "msrun__sample__animal__infusate__tracer_links",
-            "reverse_path": "infusate__animals__samples__msruns__peak_groups",
+            "path": "msrun_sample__sample__animal__infusate__tracer_links",
+            "reverse_path": "infusate__animals__samples__msrun_samples__peak_groups",
             "manyrelated": {
                 "is": True,
                 "manytomany": True,  # searching for peakGroups via InfusateTracer.pk can produce many peak groups
@@ -397,8 +399,8 @@ class PeakGroupsFormat(Format):
         },
         "Tracer": {
             "model": "Tracer",
-            "path": "msrun__sample__animal__infusate__tracers",
-            "reverse_path": "infusate__animals__samples__msruns__peak_groups",
+            "path": "msrun_sample__sample__animal__infusate__tracers",
+            "reverse_path": "infusate__animals__samples__msrun_samples__peak_groups",
             "manyrelated": {
                 "is": True,  # searching for PeakGroups via Tracer.pk can produce many peak groups
                 "manytomany": True,  # and searching for tracers via PG.pk can also produce many tracers
@@ -423,8 +425,8 @@ class PeakGroupsFormat(Format):
         },
         "TracerCompound": {
             "model": "Compound",
-            "path": "msrun__sample__animal__infusate__tracers__compound",
-            "reverse_path": "tracer__infusates__animals__samples__msruns__peak_groups",
+            "path": "msrun_sample__sample__animal__infusate__tracers__compound",
+            "reverse_path": "tracer__infusates__animals__samples__msrun_samples__peak_groups",
             "manyrelated": {
                 "is": True,
                 "manytomany": True,  # searching for peakGroups via compound.pk can produce many peak groups
@@ -502,8 +504,8 @@ class PeakGroupsFormat(Format):
         },
         "Study": {
             "model": "Study",
-            "path": "msrun__sample__animal__studies",
-            "reverse_path": "animals__samples__msruns__peak_groups",
+            "path": "msrun_sample__sample__animal__studies",
+            "reverse_path": "animals__samples__msrun_samples__peak_groups",
             "manyrelated": {
                 "is": True,
                 "manytomany": True,
@@ -521,6 +523,107 @@ class PeakGroupsFormat(Format):
                 },
                 "name": {
                     "displayname": "Study",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "string",
+                },
+            },
+        },
+        "MSRunSequence": {
+            "model": "MSRunSequence",
+            "path": "msrun_sample__msrun_sequence",
+            "reverse_path": "msrun_samples__peak_groups",
+            "manyrelated": {
+                "is": False,
+                "manytomany": False,
+                "through": False,
+                "split_rows": False,
+            },
+            "fields": {
+                # There is no single identifying field, so no ID field.  No handoff.  This means that a link from the
+                # basic_search to MSRunSample cannot be serviced.  Date would be the most likely field to be unique as a
+                # handoff, but date search is not yet supported in the advanced search interface.
+                "researcher": {
+                    "displayname": "Mass Spec Operator",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "string",
+                },
+                "instrument": {
+                    "displayname": "Mass Spectrometer Name",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "string",
+                },
+            },
+        },
+        "MSRunSample": {
+            "model": "MSRunSample",
+            "path": "msrun_sample",
+            "reverse_path": "peak_groups",
+            "manyrelated": {
+                "is": False,
+                "through": False,
+                "manytomany": False,
+                "split_rows": False,
+            },
+            "fields": {
+                # There is no single identifying field, so no ID field.  No handoff.  This means that a link from the
+                # basic_search to MSRunSample cannot be serviced.
+                "polarity": {
+                    "displayname": "Polarity",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "string",
+                },
+            },
+        },
+        "MZFile": {
+            "model": "ArchiveFile",
+            "path": "msrun_sample__ms_data_file",
+            "reverse_path": "mz_to_msrunsamples__peak_groups",
+            "manyrelated": {
+                "is": False,
+                "through": False,
+                "manytomany": False,
+                "split_rows": False,
+            },
+            "fields": {
+                "id": {
+                    "displayname": "(Internal) MZ File Index",
+                    "searchable": True,
+                    "displayed": False,  # Used in link
+                    "handoff": "filename",  # This is the field that will be loaded in the search form
+                    "type": "number",
+                },
+                "filename": {
+                    "displayname": "MZ Data Filename",
+                    "searchable": True,
+                    "displayed": True,
+                    "type": "string",
+                },
+            },
+        },
+        "RAWFile": {
+            "model": "ArchiveFile",
+            "path": "msrun_sample__ms_raw_file",
+            "reverse_path": "raw_to_msrunsamples__peak_groups",
+            "manyrelated": {
+                "is": False,
+                "through": False,
+                "manytomany": False,
+                "split_rows": False,
+            },
+            "fields": {
+                "id": {
+                    "displayname": "(Internal) RAW File Index",
+                    "searchable": True,
+                    "displayed": False,  # Used in link
+                    "handoff": "filename",  # This is the field that will be loaded in the search form
+                    "type": "number",
+                },
+                "filename": {
+                    "displayname": "RAW Data Filename",
                     "searchable": True,
                     "displayed": True,
                     "type": "string",

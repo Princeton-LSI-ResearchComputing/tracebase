@@ -1,13 +1,25 @@
 # How to label Mass Spec Run Information
 
 Information about the Mass Spectrometry used is collected in a google form when
-data is submitted.
+data is submitted.  Note, an LCMS-metadata file can be used to denote multiple
+different values for the options below. If such a file is provided, the values
+entered into the form are used as defaults for any samples that are not included
+in the file.
 
 A description of each field is listed here:
 
 ## Mass Spec Run Date
 
 - Date that the sequence was ran on on the machine
+
+## Mass Spec Instrument
+
+- The instrument that was used for the run
+- Possible values:
+  - HILIC
+  - QE
+  - QE2
+  - QTOF
 
 ## Mass Spec Operator
 
