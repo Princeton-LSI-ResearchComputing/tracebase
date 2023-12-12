@@ -91,3 +91,16 @@ class StudiesExporterTests(TracebaseTestCase):
                 outdir=os.path.join(self.tmpdir, "test_dir_exists"),
                 data_type=["Fcirc"],
             )
+
+    def test_dir_exists_force(self):
+        call_command(
+            "export_studies",
+            outdir=os.path.join(self.tmpdir, "test_dir_exists_force"),
+            data_type=["Fcirc"],
+        )
+        call_command(
+            "export_studies",
+            outdir=os.path.join(self.tmpdir, "test_dir_exists_force"),
+            data_type=["Fcirc"],
+            force=True,
+        )
