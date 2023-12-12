@@ -15,6 +15,15 @@ class Command(BaseCommand):
             help="Directory to create and save exported files.",
         )
         parser.add_argument(
+            "-f",
+            "--force",
+            action="store_true",
+            required=False,
+            default=False,
+            help="Ignore existing files, overwriting them if necessary.",
+        )
+
+        parser.add_argument(
             "--data-type",
             required=False,
             choices=StudiesExporter.all_data_types,
@@ -35,5 +44,6 @@ class Command(BaseCommand):
             outdir=options["outdir"],
             study_targets=options["studies"],
             data_types=options["data_type"],
+            force=options["force"],
         )
         se.export()

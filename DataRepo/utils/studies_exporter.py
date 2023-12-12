@@ -1,4 +1,7 @@
+import errno
 import os
+import shutil
+import tempfile
 from datetime import datetime
 
 from django.db.models import Q
@@ -22,6 +25,7 @@ class StudiesExporter:
         outdir,
         study_targets=None,
         data_types=None,
+        force=False,
     ):
         self.bad_searches = {}
 
@@ -33,6 +37,7 @@ class StudiesExporter:
         self.outdir = outdir
         self.study_targets = study_targets or []
         self.data_types = data_types or self.all_data_types
+        self.force = force
 
     def export(self):
         # For individual traceback prints
@@ -69,14 +74,14 @@ class StudiesExporter:
             study_ids = list(Study.objects.all().values_list("id", flat=True))
 
         # Make output directory
-        os.mkdir(self.outdir)
+        os.makedirs(self.outdir, exist_ok=True)
 
         # For each study (name)
         for study_id in study_ids:
             study_id_str = f"study_{study_id:04d}"
 
             # Make study directory
-            os.mkdir(os.path.join(self.outdir, study_id_str))
+            os.makedirs(os.path.join(self.outdir, study_id_str), exist_ok=True)
 
             # For each data type
             for data_type in self.data_types:
@@ -99,17 +104,29 @@ class StudiesExporter:
                 # Do the query of the format (ignoring count and optional stats)
                 results, _, _ = self.sg.performQuery(qry, data_type_key)
 
-                # Output a file
-                with open(
-                    os.path.join(
-                        self.outdir, study_id_str, f"{study_id_str}-{datatype_slug}.tsv"
-                    ),
-                    "w",
-                ) as outfile:
+                # Check if output file exists
+                output_filepath = os.path.join(
+                    self.outdir, study_id_str, f"{study_id_str}-{datatype_slug}.tsv"
+                )
+                if os.path.exists(output_filepath) and not self.force:
+                    raise FileExistsError(
+                        f"Output file '{output_filepath}' exists. Overwrite with '--force' parameter."
+                    )
+                with tempfile.NamedTemporaryFile(mode="w", delete=False) as tmpout:
                     for line in tsv_template_iterator(
                         self.row_template, self.header_template, results, qry, dt_string
                     ):
-                        outfile.write(line)
+                        tmpout.write(line)
+                try:
+                    # Move, raise exception on existing file
+                    shutil.move(tmpout.name, output_filepath)
+                finally:
+                    try:
+                        os.remove(tmpout.name)
+                    except OSError as e:
+                        # errno.ENOENT = no such file or directory
+                        if e.errno != errno.ENOENT:
+                            raise
 
 
 class BadQueryTerm(Exception):
