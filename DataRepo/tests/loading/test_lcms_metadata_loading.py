@@ -250,6 +250,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             peak_annotation_filename="accucor.xlsx",
             mzxml_files=["sample1.mzxml", "sample2.mzxml"],
             validate=True,
+            polarity="positive",
         )
         adl2.missing_mzxmls.append("sample3.mzxml")
         adl2.mismatching_mzxmls.append(
@@ -316,6 +317,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             lc_protocol_name="polar-HILIC",
             instrument="unknown",
             mzxml_files=[],
+            polarity="positive",
         )
         missing1 = adl1.get_missing_required_lcms_defaults()
         self.assertEqual(0, len(missing1), msg="No required defaults should be missing")
@@ -341,6 +343,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             "date",
             "researcher",
             "instrument",
+            "polarity",
             "peak_annot_file",
         ]
         self.assertEqual(
@@ -364,6 +367,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             lc_protocol_name="polar-HILIC",
             instrument="unknown",
             mzxml_files=[],
+            polarity="positive",
         )
         self.assertTrue(
             adl1.lcms_defaults_supplied(),
@@ -538,14 +542,24 @@ class LCMSMetadataParserMethodTests(TracebaseTestCase):
             "DataRepo/data/tests/small_obob_lcms_metadata/glucose.xlsx"
         )
         self.assertIsNotNone(df)
-        self.assertEqual((15, 10), df.shape)
+        expected_shape = (15, 11)
+        self.assertEqual(
+            expected_shape,
+            df.shape,
+            msg=f"There should be {expected_shape[0]} rows and {expected_shape[1]} columns.",
+        )
 
     def test_extract_dataframes_from_lcms_tsv(self):
         df = extract_dataframes_from_lcms_tsv(
             "DataRepo/data/tests/small_obob_lcms_metadata/glucose_pos.tsv"
         )
         self.assertIsNotNone(df)
-        self.assertEqual((15, 10), df.shape)
+        expected_shape = (15, 11)
+        self.assertEqual(
+            expected_shape,
+            df.shape,
+            msg=f"There should be {expected_shape[0]} rows and {expected_shape[1]} columns.",
+        )
 
     def test_lcms_headers_are_valid(self):
         case_unordered_lcms_headers = [
@@ -559,6 +573,7 @@ class LCMSMetadataParserMethodTests(TracebaseTestCase):
             "DATE",  # Changed case
             "lc method",
             "lc description",
+            "polarity",
         ]
         self.assertTrue(lcms_headers_are_valid(case_unordered_lcms_headers))
         self.assertFalse(

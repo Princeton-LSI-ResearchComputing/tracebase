@@ -2570,6 +2570,7 @@ class ParseIsotopeLabelTests(TracebaseTestCase):
                 accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_dupes.xlsx",
                 date="2021-06-03",
                 researcher="Xianfeng Zeng",
+                polarity="positive",
             )
         aes = ar.exception
         aes.print_summary()

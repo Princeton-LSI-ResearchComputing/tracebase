@@ -135,6 +135,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
                 date="2021-04-29",
                 researcher="Michael Neinast",
                 new_researcher=True,
+                polarity="positive",
             )
         aes = ar.exception
         nl = "\n"
@@ -388,6 +389,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
                 date="2021-04-29",
                 researcher="anonymous",
                 new_researcher=False,
+                polarity="positive",
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
@@ -589,6 +591,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
                 date="2021-04-29",
                 researcher="Michael Neinast",
                 new_researcher=True,
+                polarity="positive",
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
