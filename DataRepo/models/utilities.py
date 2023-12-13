@@ -154,6 +154,9 @@ def create_is_null_field(field_with_null):
 
     Note, adding .annotate() doesn't seem to work, or rather I couldn't get it to work. See:
     https://stackoverflow.com/questions/7749216/django-order-by-date-but-have-none-at-end
+
+    See the Django documentation for `extra()` and note that it is currently deprecated, and will go away in version 5.
+    TODO: Attempt again to solve the problem this function works around (see docstring)
     """
     is_null_field_name = f"{field_with_null}_is_null"
 

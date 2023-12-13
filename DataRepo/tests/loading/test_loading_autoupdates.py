@@ -94,6 +94,7 @@ class AutoupdateLoadingTests(TracebaseTestCase):
                     date="2021-04-29",
                     researcher="Michael Neinast",
                     new_researcher=True,
+                    polarity="positive",
                 )
 
                 # Since autoupdates were defered (and we did not run perform_buffered_updates)

@@ -1136,7 +1136,6 @@ class AccuCorDataLoader:
                 f"\tInserting {peak_group_attrs['name']} peak group for sample {msrun_sample.sample}"
             )
         try:
-            print(f"ANNOT FILE: {peak_annotation_file} ID: {peak_annotation_file.id}")
             peak_group, created = PeakGroup.objects.get_or_create(
                 msrun_sample=msrun_sample,
                 name=peak_group_attrs["name"],
@@ -1161,7 +1160,7 @@ class AccuCorDataLoader:
             ):
                 # "Peak group with this Name and Msrun already exists"
                 existing_peak_group = PeakGroup.objects.get(
-                    msrun=msrun_sample, name=peak_group_attrs["name"]
+                    msrun_sample=msrun_sample, name=peak_group_attrs["name"]
                 )
                 conflicting_fields = []
                 existing_values = []

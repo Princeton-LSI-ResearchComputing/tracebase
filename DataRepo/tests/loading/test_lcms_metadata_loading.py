@@ -870,6 +870,7 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
             researcher="Michael Neinast",
             new_researcher=True,
             lcms_file=lcms_file,
+            polarity="positive",
         )
 
     def test_UnexpectedLCMSSampleDataHeaders_no_annot_files(

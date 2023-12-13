@@ -62,6 +62,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             date="2021-04-29",
             researcher="Michael Neinast",
             new_researcher=True,
+            polarity="positive",
         )
 
     @tag("broken_until_issue712")
@@ -75,6 +76,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
                 date="2021-04-29",
                 researcher="Michael Neinast",
                 new_researcher=True,
+                polarity="positive",
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
@@ -114,6 +116,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             date="2021-04-29",
             researcher="Michael Neinast",
             new_researcher=True,
+            polarity="positive",
         )
         SAMPLES_COUNT = 1
         PEAKDATA_ROWS = 11
@@ -194,6 +197,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
                 researcher="Michael Neinast",
                 new_researcher=True,
                 dry_run=True,
+                polarity="positive",
             )
 
         post_load_maintained_values = MaintainedModel.get_all_maintained_field_values()
@@ -239,7 +243,8 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
     @tag("broken_until_issue712")
     @tag("multi-msrun")
     def test_conflicting_peakgroups(self):
-        """Test loading two conflicting PeakGroups rasies ConflictingValueErrors
+        """
+        Test loading two conflicting PeakGroups rasies ConflictingValueErrors
 
         Attempt to load two PeakGroups for the same Compound in the same MSRun
         but from different PeakGroupSets (filenames)
@@ -258,6 +263,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
                 date="2021-04-29",
                 researcher="Michael Neinast",
                 new_researcher=False,
+                polarity="positive",
             )
 
         aes = ar.exception
@@ -290,6 +296,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             instrument="",
             peak_annotation_filename="peak_group_set_filename.tsv",
             mzxml_files=[],
+            polarity="",
         )
         # Get the first PeakGroup, and collect attributes
         peak_group = PeakGroup.objects.first()
@@ -304,7 +311,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         with self.assertRaises(DuplicatePeakGroup):
             adl.insert_peak_group(
                 peak_group_attrs,
-                msrun=peak_group.msrun_sample,
+                msrun_sample=peak_group.msrun_sample,
                 peak_annotation_file=peak_group.peak_annotation_file,
             )
 
@@ -331,6 +338,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             instrument="",
             peak_annotation_filename="peak_group_set_filename.tsv",
             mzxml_files=[],
+            polarity="positive",
         )
         # Get the first PeakGroup, collect the attributes and change the formula
         peak_group = PeakGroup.objects.first()
@@ -343,7 +351,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         with self.assertRaises(ConflictingValueError):
             adl.insert_peak_group(
                 peak_group_attrs,
-                msrun=peak_group.msrun_sample,
+                msrun_sample=peak_group.msrun_sample,
                 peak_annotation_file=peak_group.peak_annotation_file,
             )
 
@@ -367,6 +375,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             date="2021-04-29",
             researcher="anonymous",
             new_researcher=False,
+            polarity="positive",
         )
 
     def test_accucor_bad_label(self):
@@ -414,6 +423,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
             date="2021-04-29",
             researcher="Michael Neinast",
             new_researcher=False,
+            polarity="positive",
         )
         SAMPLES_COUNT = 2
         PEAKDATA_ROWS = 11
@@ -442,6 +452,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
                 date="2021-04-29",
                 researcher="Michael Neinast",
                 new_researcher=False,
+                polarity="positive",
             )
         # Check second file failed (duplicate compound)
         aes = ar.exception
@@ -556,6 +567,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             researcher="Michael Neinast",
             new_researcher=True,
             isocorr_format=True,
+            polarity="positive",
         )
         post_pg_load_count = PeakGroup.objects.count()
         # The number of samples in the isocorr csv file (not the samples file)
@@ -716,6 +728,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             researcher="Xianfeng Zeng",
             new_researcher=False,
             isocorr_format=True,
+            polarity="positive",
         )
         post_load_group_count = PeakGroup.objects.count()
         # The number of samples in the isocorr xlsx file (not the samples file)
@@ -744,6 +757,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             researcher="Xianfeng Zeng",
             new_researcher=False,
             isocorr_format=True,
+            polarity="positive",
         )
         post_load_group_count = PeakGroup.objects.count()
         # The number of samples in the isocorr xlsx file (not the samples file)
@@ -824,6 +838,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             researcher="Xianfeng Zeng",
             new_researcher=False,
             isocorr_format=True,
+            polarity="positive",
         )
         post_load_group_count = PeakGroup.objects.count()
 
@@ -845,6 +860,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             researcher="Xianfeng Zeng",
             new_researcher=False,
             isocorr_format=True,
+            polarity="positive",
         )
         post_load_group_count = PeakGroup.objects.count()
 
@@ -889,6 +905,7 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             researcher="Xianfeng Zeng",
             new_researcher=False,
             isocorr_format=True,
+            polarity="positive",
         )
         pg = (
             PeakGroup.objects.filter(msrun_sample__sample__name="xzl5_panc")

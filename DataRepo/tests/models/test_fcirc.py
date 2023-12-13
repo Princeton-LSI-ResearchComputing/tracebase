@@ -11,7 +11,8 @@ from DataRepo.models import (
     DataType,
     FCirc,
     LCMethod,
-    MSRun,
+    MSRunSample,
+    MSRunSequence,
     PeakGroup,
     PeakGroupLabel,
     Sample,
@@ -22,6 +23,8 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 @tag("broken_until_issue712")
 @override_settings(CACHES=settings.TEST_CACHES)
 class FCircTests(TracebaseTestCase):
+    fixtures = ["data_types.yaml", "data_formats.yaml", "lc_methods.yaml"]
+
     def setUp(self):
         super().setUp()
 
@@ -42,7 +45,6 @@ class FCircTests(TracebaseTestCase):
 
     @classmethod
     def setUpTestData(cls):
-        call_command("loaddata", "lc_methods")
         call_command("load_study", "DataRepo/data/tests/tissues/loading.yaml")
         call_command(
             "load_compounds",
@@ -61,6 +63,7 @@ class FCircTests(TracebaseTestCase):
             date="2021-06-03",
             researcher="Michael Neinast",
             new_researcher=True,
+            polarity="positive",
         )
 
         cls.lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
@@ -104,19 +107,48 @@ class FCircTests(TracebaseTestCase):
             1. Confirm all FCirc.is_last values related to the old serum sample are now false.
         """
 
-        # Create new msrun, peak group, and peak group labels
-        msr = MSRun.objects.create(
+        # Create new msrun_sample, peak group, and peak group labels
+        seq = MSRunSequence(
             researcher="Anakin Skywalker",
             date=datetime.now(),
-            sample=self.newlss,
+            instrument=MSRunSequence.INSTRUMENT_CHOICES[0][1],
             lc_method=self.lcm,
         )
+        seq.full_clean()
+        seq.save()
+
+        mstype = DataType.objects.get(code="ms_data")
+        rawfmt = DataFormat.objects.get(code="ms_raw")
+        mzxfmt = DataFormat.objects.get(code="mzxml")
+        rawrec = ArchiveFile.objects.create(
+            filename="test.raw",
+            file_location=None,
+            checksum="558ea654d7f2914ca4527580edf4fac11bd151c5",
+            data_type=mstype,
+            data_format=rawfmt,
+        )
+        mzxrec = ArchiveFile.objects.create(
+            filename="test.mzxml",
+            file_location=None,
+            checksum="558ea654d7f2914ca4527580edf4fac11bd151c4",
+            data_type=mstype,
+            data_format=mzxfmt,
+        )
+        msrs = MSRunSample(
+            msrun_sequence=seq,
+            sample=self.newlss,
+            polarity="positive",
+            ms_raw_file=rawrec,
+            ms_data_file=mzxrec,
+        )
+        msrs.full_clean()
+        msrs.save()
 
         for tracer in self.lss.animal.infusate.tracers.all():
             pg = PeakGroup.objects.create(
                 name=tracer.compound.name,
                 formula=tracer.compound.formula,
-                msrun_sample=msr,
+                msrun_sample=msrs,
                 peak_annotation_file=self.peak_annotation_file,
             )
             pg.compounds.add(tracer.compound)
@@ -306,19 +338,48 @@ class FCircTests(TracebaseTestCase):
         self.newlss.save()
 
         # To get to the prev_smpl_tmclctd_is_none_amng_many state of 1, there must exist peakgroups for newlss
-        # Create new msrun, peak group, and peak group labels
-        msr = MSRun.objects.create(
+        # Create new msrun_sample, peak group, and peak group labels
+        seq = MSRunSequence(
             researcher="Anakin Skywalker",
             date=datetime.now(),
-            sample=self.newlss,
+            instrument=MSRunSequence.INSTRUMENT_CHOICES[0][1],
             lc_method=self.lcm,
         )
+        seq.full_clean()
+        seq.save()
+
+        mstype = DataType.objects.get(code="ms_data")
+        rawfmt = DataFormat.objects.get(code="ms_raw")
+        mzxfmt = DataFormat.objects.get(code="mzxml")
+        rawrec = ArchiveFile.objects.create(
+            filename="test.raw",
+            file_location=None,
+            checksum="558ea654d7f2914ca4527580edf4fac11bd151c5",
+            data_type=mstype,
+            data_format=rawfmt,
+        )
+        mzxrec = ArchiveFile.objects.create(
+            filename="test.mzxml",
+            file_location=None,
+            checksum="558ea654d7f2914ca4527580edf4fac11bd151c4",
+            data_type=mstype,
+            data_format=mzxfmt,
+        )
+        msrs = MSRunSample(
+            msrun_sequence=seq,
+            sample=self.newlss,
+            polarity="positive",
+            ms_raw_file=rawrec,
+            ms_data_file=mzxrec,
+        )
+        msrs.full_clean()
+        msrs.save()
 
         for tracer in self.lss.animal.infusate.tracers.all():
             pg = PeakGroup.objects.create(
                 name=tracer.compound.name,
                 formula=tracer.compound.formula,
-                msrun_sample=msr,
+                msrun_sample=msrs,
                 peak_annotation_file=self.peak_annotation_file,
             )
             pg.compounds.add(tracer.compound)

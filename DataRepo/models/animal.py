@@ -160,8 +160,6 @@ class Animal(MaintainedModel, HierCachedModel, ElementLabel):
         (tc_extra_args, tc_is_null_field) = create_is_null_field(
             "msrun_sample__sample__time_collected"
         )
-        # Create an is_null field for the date to be able to sort them
-        (d_extra_args, d_is_null_field) = create_is_null_field("msrun_sample__msrun_sequence__date")
         for tracer in self.tracers.all():
             tracer_peak_group = (
                 PeakGroup.objects.filter(
@@ -172,11 +170,9 @@ class Animal(MaintainedModel, HierCachedModel, ElementLabel):
                     msrun_sample__sample__tissue__name__istartswith=Tissue.SERUM_TISSUE_PREFIX
                 )
                 .extra(**tc_extra_args)
-                .extra(**d_extra_args)
                 .order_by(
                     f"-{tc_is_null_field}",
                     "msrun_sample__sample__time_collected",
-                    f"-{d_is_null_field}",
                     "msrun_sample__msrun_sequence__date",
                 )
                 .last()

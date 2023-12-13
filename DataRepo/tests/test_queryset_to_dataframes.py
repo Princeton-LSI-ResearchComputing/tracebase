@@ -70,7 +70,7 @@ class QuerysetToPandasDataFrameBaseTests(TracebaseTestCase):
             "tissue": "kidney",
             "sample": "a1_kd",
             "sample_owner": "Xianfeng Zeng",
-            "msrun_owner": "Xianfeng Zeng",
+            "msrunsample_owner": "Xianfeng Zeng",
             "studies": ["Study Test1", "Study Test2"],
         }
 
@@ -218,7 +218,7 @@ class QuerysetToPandasDataFrameBaseTests(TracebaseTestCase):
 
         # sample2 has no MSRun data
         self.assertTrue(sam2_msrun_all_dict["msrun_id"] is pd.NA)
-        self.assertTrue(sam2_msrun_all_dict["msrun_owner"] is pd.NA)
+        self.assertTrue(sam2_msrun_all_dict["msrunsample_owner"] is pd.NA)
 
     def test_comp_list_stats_df(self):
         """

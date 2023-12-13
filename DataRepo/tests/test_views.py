@@ -39,7 +39,7 @@ def assert_coordinator_state_is_initialized():
     all_coordinators.extend(MaintainedModel._get_coordinator_stack())
     if 1 != len(all_coordinators):
         raise ValueError(
-            f"Before setting up test data, there are {len(all_coordinators)} MaintainedModelCoordinators."
+            f"Before setting up test data, there are {len(all_coordinators)} (not 1) MaintainedModelCoordinators."
         )
     if all_coordinators[0].auto_update_mode != "immediate":
         raise ValueError(
@@ -86,6 +86,7 @@ class ViewTests(TracebaseTestCase):
             date="2021-06-03",
             researcher="Michael Neinast",
             new_researcher=True,
+            polarity="positive",
         )
         cls.INF_COMPOUNDS_COUNT = 2
         cls.INF_SAMPLES_COUNT = 14

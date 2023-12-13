@@ -63,6 +63,7 @@ class FormatsTests(TracebaseTestCase):
             date="2021-06-03",
             researcher="Michael Neinast",
             new_researcher=True,
+            polarity="positive",
         )
         call_command(
             "load_accucor_msruns",
@@ -72,6 +73,7 @@ class FormatsTests(TracebaseTestCase):
             date="2021-06-03",
             researcher="Michael Neinast",
             new_researcher=False,
+            polarity="positive",
         )
         basv = SearchGroup()
         for fmt in basv.modeldata.keys():
@@ -1378,6 +1380,7 @@ class FormatsTests(TracebaseTestCase):
             researcher="Xianfeng Zeng",
             new_researcher=False,
             isocorr_format=True,
+            polarity="positive",
         )
         call_command(
             "load_accucor_msruns",
@@ -1388,6 +1391,7 @@ class FormatsTests(TracebaseTestCase):
             researcher="Xianfeng Zeng",
             new_researcher=False,
             isocorr_format=True,
+            polarity="positive",
         )
 
         format = "fctemplate"

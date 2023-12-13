@@ -2,7 +2,7 @@ from django.core.management import call_command
 from django.test import tag
 
 from DataRepo.management.commands.build_caches import cached_function_call
-from DataRepo.models import Animal, MaintainedModel, MSRun, PeakGroup, Sample
+from DataRepo.models import Animal, MaintainedModel, MSRunSample, PeakGroup, Sample
 from DataRepo.models.hier_cached_model import (
     delete_all_caches,
     disable_caching_retrievals,
@@ -28,6 +28,7 @@ def load_data():
         date="2021-06-03",
         researcher="Michael Neinast",
         new_researcher=False,
+        polarity="positive",
     )
 
 
@@ -57,6 +58,7 @@ def load_minimum_data():
         date="2021-06-03",
         researcher="Michael Neinast",
         new_researcher=True,
+        polarity="positive",
     )
 
 
@@ -540,9 +542,9 @@ class HierCachedModelTests(TracebaseTestCase):
     def test_get_representative_root_rec_and_method(self):
         a = Animal.objects.all().first()
         s = Sample.objects.filter(animal__id__exact=a.id).first()
-        msr = MSRun.objects.filter(sample__id__exact=s.id).first()
+        msrs = MSRunSample.objects.filter(sample__id__exact=s.id).first()
 
-        rep_rec, rep_fnc = msr.get_representative_root_rec_and_method()
+        rep_rec, rep_fnc = msrs.get_representative_root_rec_and_method()
         cached_fncs = a.get_my_cached_method_names()
         first_fnc = cached_fncs[0]
 

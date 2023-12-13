@@ -48,6 +48,7 @@ class AnimalTests(TracebaseTestCase):
             date="2021-06-03",
             researcher="Michael Neinast",
             new_researcher=True,
+            polarity="positive",
         )
         call_command(
             "load_accucor_msruns",
@@ -57,6 +58,7 @@ class AnimalTests(TracebaseTestCase):
             date="2021-06-03",
             researcher="Michael Neinast",
             new_researcher=False,
+            polarity="positive",
         )
 
         super().setUpTestData()
