@@ -793,9 +793,10 @@ class DataLoadingTests(TracebaseTestCase):
 @tag("broken_until_issue712")
 @override_settings(CACHES=settings.TEST_CACHES)
 class PropertyTests(TracebaseTestCase):
+    fixtures = ["lc_methods.yaml", "data_types.yaml", "data_formats.yaml"]
+
     @classmethod
     def setUpTestData(cls):
-        call_command("loaddata", "lc_methods")
         call_command(
             "load_compounds",
             compounds="DataRepo/data/tests/small_obob2/compounds.tsv",
@@ -1325,6 +1326,7 @@ class PropertyTests(TracebaseTestCase):
         # With the new logic of obtaining the last instance of a peak group among serum samples, this should still
         # produce a calculation even though the last serum sample doesn't have a peak group for the tracer. It will
         # just use the one from the first
+        print(f"Initial normalized labeling")
         self.assertAlmostEqual(
             0.00911997807399377,
             peak_group.labels.first().normalized_labeling,
@@ -1371,6 +1373,8 @@ class PropertyTests(TracebaseTestCase):
         second_peak_data.corrected_abundance = 100
         second_peak_data.save()
         # Now confirm the different calculated value
+        print(f"Changed normalized labeling")
+        # TODO: It appears that caching updates are broken.  This test is failing because the cache is not getting updated with the database changes.  When I take @cached_function off the normalized_labeling method in PeakGroupLabel, this test passes, so figure out why it's not updating.
         self.assertAlmostEqual(
             3.4553550826083774, peak_group.labels.first().normalized_labeling
         )

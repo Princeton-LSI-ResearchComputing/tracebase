@@ -11,6 +11,7 @@ from django.shortcuts import redirect, render
 from django.views.generic.edit import FormView
 
 from DataRepo.forms import DataSubmissionValidationForm
+from DataRepo.models import MSRunSample
 from DataRepo.utils.accucor_data_loader import get_sample_headers
 from DataRepo.utils.exceptions import MultiLoadStatus
 
@@ -212,7 +213,7 @@ class DataValidationView(FormView):
                 ],
                 "lc_protocol": "unknown",
                 "instrument": "unknown",
-                "polarity": "unknown",
+                "polarity": MSRunSample.POLARITY_DEFAULT,
                 "date": "1972-11-24",
                 "researcher": "anonymous",
                 "new_researcher": False,

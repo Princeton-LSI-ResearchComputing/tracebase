@@ -56,7 +56,7 @@ class Researcher:
     """
     Non-model class that provides various researcher related methods
     """
-    DEFAULT_RESEARCHER = "anonymous"
+    RESEARCHER_DEFAULT = "anonymous"
 
     def __init__(self, name):
         """

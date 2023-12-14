@@ -132,6 +132,7 @@ class AnimalLabel(HierCachedModel):
             tracers_enrichment_fraction = (
                 last_serum_tracers_enrichment_sum / total_atom_count
             )
+            print(f"serum_tracers_enrichment_fraction = last_serum_tracers_enrichment_sum (sum(fraction * label_count) {last_serum_tracers_enrichment_sum}) / total_atom_count (in all formulae: {total_atom_count}) = {tracers_enrichment_fraction}")
 
         except NoTracerCompounds as ntc:
             error = True

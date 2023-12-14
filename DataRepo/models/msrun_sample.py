@@ -22,9 +22,11 @@ class MSRunSample(HierCachedModel, MaintainedModel):
     child_related_key_names = ["peak_groups"]
 
     POLARITY_CHOICES = [
-        ("negative", "negative"),
+        ("unknown", "unknown"),
         ("positive", "positive"),
+        ("negative", "negative"),
     ]
+    POLARITY_DEFAULT = POLARITY_CHOICES[0][0]
     VALID_RAW_FILES = {
         "TYPES": ["ms_data"],
         "FORMATS": ["ms_raw", "unknown"],

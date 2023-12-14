@@ -551,9 +551,9 @@ class AccuCorDataLoader:
         if self.lcms_defaults["date"] is None:
             self.lcms_defaults["date"] = datetime.strptime("1972-11-24", "%Y-%m-%d")
         if self.lcms_defaults["researcher"] is None:
-            self.lcms_defaults["researcher"] = Researcher.DEFAULT_RESEARCHER
+            self.lcms_defaults["researcher"] = Researcher.RESEARCHER_DEFAULT
         if self.lcms_defaults["instrument"] is None:
-            self.lcms_defaults["instrument"] = MSRunSequence.DEFAULT_INSTRUMENT
+            self.lcms_defaults["instrument"] = MSRunSequence.INSTRUMENT_DEFAULT
         if self.lcms_defaults["polarity"] is None:
             self.lcms_defaults["polarity"] = "positive"
         # No need to fill in "peak_annot_file".  Without this file, nothing will load

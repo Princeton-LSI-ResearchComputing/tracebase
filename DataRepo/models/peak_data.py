@@ -53,6 +53,7 @@ class PeakData(models.Model):
         """
         try:
             fraction = self.corrected_abundance / self.peak_group.total_abundance
+            print(f"fraction = corrected_abundance ({self.corrected_abundance}) / peak_group.total_abundance ({self.peak_group.total_abundance}) = {fraction}")
         except ZeroDivisionError:
             fraction = None
         return fraction

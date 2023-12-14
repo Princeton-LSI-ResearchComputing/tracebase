@@ -217,7 +217,7 @@ class QuerysetToPandasDataFrameBaseTests(TracebaseTestCase):
         )
 
         # sample2 has no MSRun data
-        self.assertTrue(sam2_msrun_all_dict["msrun_id"] is pd.NA)
+        self.assertTrue(sam2_msrun_all_dict["msrunsample_id"] is pd.NA)
         self.assertTrue(sam2_msrun_all_dict["msrunsample_owner"] is pd.NA)
 
     def test_comp_list_stats_df(self):

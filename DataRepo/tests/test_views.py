@@ -101,11 +101,14 @@ class ViewTests(TracebaseTestCase):
             date="2021-06-03",
             researcher="Michael Neinast",
             new_researcher=False,
+            polarity="positive",
         )
         cls.SERUM_COMPOUNDS_COUNT = 3
         cls.SERUM_SAMPLES_COUNT = 1
         cls.SERUM_PEAKDATA_ROWS = 13
         cls.SERUM_PEAKGROUP_COUNT = cls.SERUM_COMPOUNDS_COUNT * cls.SERUM_SAMPLES_COUNT
+
+        cls.ALL_SEQUENCES_COUNT = 1
 
         super().setUpTestData()
 
@@ -297,20 +300,20 @@ class ViewTests(TracebaseTestCase):
         response = self.client.get(reverse("msrunsample_list"))
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "DataRepo/msrunsample_list.html")
-        self.assertEqual(len(response.context["objects"]), self.ALL_SAMPLES_COUNT)
+        self.assertEqual(len(response.context["msrun_samples"]), self.ALL_SAMPLES_COUNT)
 
     def test_msrun_sequence_list(self):
         response = self.client.get(reverse("msrunsequence_list"))
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "DataRepo/msrunsequence_list.html")
-        self.assertEqual(len(response.context["objects"]), self.ALL_SAMPLES_COUNT)
+        self.assertEqual(len(response.context["sequences"]), self.ALL_SEQUENCES_COUNT)
 
     def test_msrun_sample_detail(self):
         ms1 = MSRunSample.objects.filter(sample__name="BAT-xz971").get()
         response = self.client.get(reverse("msrunsample_detail", args=[ms1.id]))
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "DataRepo/msrunsample_detail.html")
-        self.assertEqual(response.context["object"].sample.name, "BAT-xz971")
+        self.assertEqual(response.context["msrun_sample"].sample.name, "BAT-xz971")
 
     def test_msrun_sample_detail_404(self):
         ms = MSRunSample.objects.order_by("id").last()
@@ -324,7 +327,7 @@ class ViewTests(TracebaseTestCase):
         response = self.client.get(reverse("msrunsequence_detail", args=[ms1.id]))
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "DataRepo/msrunsequence_detail.html")
-        self.assertEqual(response.context["object"].sample.name, "BAT-xz971")
+        self.assertEqual(self.ALL_SAMPLES_COUNT, response.context["sequence"].msrun_samples.count())
 
     def test_msrun_sequence_detail_404(self):
         ms = MSRunSequence.objects.order_by("id").last()
@@ -740,7 +743,7 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         # Test the get_validation_results function
         # This call indirectly tests that ValidationView.validate_stody returns a MultiLoadStatus object on success
         # It also indirectly ensures that create_yaml(dir) puts a loading.yaml file in the dir
-        [results, valid, exceptions, ne, nw] = self.validate_some_files(sf, afs)
+        [results, valid, exceptions, _, _] = self.validate_some_files(sf, afs)
 
         # There is a researcher named "anonymous", but that name is ignored
         self.assertTrue(
@@ -796,6 +799,7 @@ class ValidationViewTests(TracebaseTransactionTestCase):
                 "Sol-xz971.mzxml",
                 "Sp-xz971.mzxml",
             ],
+            polarity="positive",
         )
 
         # Ensure the auto-update buffer is empty.  If it's not, then a previously run test didn't clean up after itself
