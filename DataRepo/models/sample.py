@@ -8,12 +8,11 @@ from django.forms.models import model_to_dict
 from DataRepo.models.hier_cached_model import HierCachedModel, cached_function
 from DataRepo.models.maintained_model import MaintainedModel
 from DataRepo.models.peak_group import PeakGroup
-from DataRepo.models.utilities import create_is_null_field
 
 
 class Sample(MaintainedModel, HierCachedModel):
     parent_related_key_name = "animal"
-    child_related_key_names = ["msruns", "fcircs"]
+    child_related_key_names = ["msrun_samples", "fcircs"]
 
     # Instance / model fields
     id = models.AutoField(primary_key=True)

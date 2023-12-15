@@ -164,8 +164,14 @@ class FormatsTests(TracebaseTestCase):
             ("labels__count", "Labeled Count"),
             ("labels__element", "Labeled Element"),
             ("peak_group__msrun_sample__ms_data_file__filename", "MZ Data Filename"),
-            ("peak_group__msrun_sample__msrun_sequence__researcher", "Mass Spec Operator"),
-            ("peak_group__msrun_sample__msrun_sequence__instrument", "Mass Spectrometer Name"),
+            (
+                "peak_group__msrun_sample__msrun_sequence__researcher",
+                "Mass Spec Operator",
+            ),
+            (
+                "peak_group__msrun_sample__msrun_sequence__instrument",
+                "Mass Spectrometer Name",
+            ),
             (
                 "peak_group__compounds__synonyms__name",
                 "Measured Compound (Any Synonym)",
@@ -313,7 +319,6 @@ class FormatsTests(TracebaseTestCase):
         )
 
     def assertIsAPgUnitsLookupDict(self, fld_units_lookup):
-        print(fld_units_lookup)
         # There should be 39 fields with units lookups
         self.assertEqual(46, len(fld_units_lookup.keys()))
         # Path should be prepended to the field name
@@ -1264,10 +1269,10 @@ class FormatsTests(TracebaseTestCase):
             "MeasuredCompound",
             "CompoundSynonym",
             "Study",
-            'MSRunSequence',
-            'MSRunSample',
-            'MZFile',
-            'RAWFile',
+            "MSRunSequence",
+            "MSRunSample",
+            "MZFile",
+            "RAWFile",
         ]
         self.assertEqual(ml, res)
 

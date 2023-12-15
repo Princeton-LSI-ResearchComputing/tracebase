@@ -327,7 +327,9 @@ class ViewTests(TracebaseTestCase):
         response = self.client.get(reverse("msrunsequence_detail", args=[ms1.id]))
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "DataRepo/msrunsequence_detail.html")
-        self.assertEqual(self.ALL_SAMPLES_COUNT, response.context["sequence"].msrun_samples.count())
+        self.assertEqual(
+            self.ALL_SAMPLES_COUNT, response.context["sequence"].msrun_samples.count()
+        )
 
     def test_msrun_sequence_detail_404(self):
         ms = MSRunSequence.objects.order_by("id").last()

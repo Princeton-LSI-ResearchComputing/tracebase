@@ -11,7 +11,7 @@ from django.shortcuts import redirect, render
 from django.views.generic.edit import FormView
 
 from DataRepo.forms import DataSubmissionValidationForm
-from DataRepo.models import MSRunSample
+from DataRepo.models import LCMethod, MSRunSample, MSRunSequence, Researcher
 from DataRepo.utils.accucor_data_loader import get_sample_headers
 from DataRepo.utils.exceptions import MultiLoadStatus
 
@@ -211,11 +211,11 @@ class DataValidationView(FormView):
                     #     "isocorr_format": False,  # Set by self.add_ms_data()
                     # },
                 ],
-                "lc_protocol": "unknown",
-                "instrument": "unknown",
+                "lc_protocol": LCMethod.create_name(),
+                "instrument": MSRunSequence.INSTRUMENT_DEFAULT,
                 "polarity": MSRunSample.POLARITY_DEFAULT,
                 "date": "1972-11-24",
-                "researcher": "anonymous",
+                "researcher": Researcher.RESEARCHER_DEFAULT,
                 "new_researcher": False,
                 "mzxml_files": self.mzxml_files,
             },

@@ -100,7 +100,6 @@ class PeakGroupLabel(HierCachedModel):
                 )
 
             enrichment_fraction = element_enrichment_sum / atom_count
-            print(f"enrichment_fraction = element_enrichment_sum ({element_enrichment_sum}) / atom_count ({atom_count}) = {enrichment_fraction}")
 
         except (AttributeError, TypeError, NoCommonLabel) as e:
             warning = True
@@ -188,7 +187,6 @@ class PeakGroupLabel(HierCachedModel):
                 normalized_labeling = (
                     self.enrichment_fraction / serum_tracers_enrichment_fraction
                 )
-                print(f"normalized_labeling (for element {self.element}) = enrichment_fraction ({self.enrichment_fraction}) / serum_tracers_enrichment_fraction ({serum_tracers_enrichment_fraction}) = {normalized_labeling}")
             else:
                 normalized_labeling = None
 

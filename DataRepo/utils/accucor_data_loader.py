@@ -1,15 +1,15 @@
 import hashlib
 import os
 import re
-import regex
-import xmltodict
 from collections import Counter, defaultdict
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, TypedDict
 
+import regex
+import xmltodict
 from django.conf import settings
-from django.core.exceptions import ValidationError, ObjectDoesNotExist
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.core.files import File
 from django.db import IntegrityError, transaction
 
@@ -420,7 +420,6 @@ class AccuCorDataLoader:
 
             if len(self.missing_sample_headers) > 0:
                 # Defaults are required if any sample is missing in the lcms_metadata file
-                print(f"SAMPLE HEADERS PRESENT: {self.lcms_metadata.keys()}")
                 self.aggregated_errors_object.buffer_exception(
                     MissingLCMSSampleDataHeaders(
                         self.missing_sample_headers,
@@ -555,7 +554,7 @@ class AccuCorDataLoader:
         if self.lcms_defaults["instrument"] is None:
             self.lcms_defaults["instrument"] = MSRunSequence.INSTRUMENT_DEFAULT
         if self.lcms_defaults["polarity"] is None:
-            self.lcms_defaults["polarity"] = "positive"
+            self.lcms_defaults["polarity"] = MSRunSample.POLARITY_DEFAULT
         # No need to fill in "peak_annot_file".  Without this file, nothing will load
 
     def sample_header_to_default_mzxml(self, sample_header):
@@ -1038,11 +1037,21 @@ class AccuCorDataLoader:
 
         return rec
 
-    def get_or_create_archive_file(self, filepath, code, format, is_binary=False, allow_missing=False, checksum=None):
+    def get_or_create_archive_file(
+        self,
+        filepath,
+        code,
+        format,
+        is_binary=False,
+        allow_missing=False,
+        checksum=None,
+    ):
         path_obj = Path(filepath)
 
         if not allow_missing and checksum is not None:
-            raise ValueError("A custom checksum value can only be supplied when allow_missing is False.")
+            raise ValueError(
+                "A custom checksum value can only be supplied when allow_missing is False."
+            )
 
         checksum_val = None
         if allow_missing and checksum is not None:
@@ -1075,7 +1084,9 @@ class AccuCorDataLoader:
                     archivefile_rec, _ = ArchiveFile.objects.get_or_create(**with_loc)
                 except Exception as e:
                     if not path_obj.is_file() and allow_missing:
-                        archivefile_rec, _ = ArchiveFile.objects.get_or_create(**rec_dict)
+                        archivefile_rec, _ = ArchiveFile.objects.get_or_create(
+                            **rec_dict
+                        )
                     else:
                         raise e
 
@@ -1094,7 +1105,7 @@ class AccuCorDataLoader:
             return None
 
         # Parse the xml content
-        with path_obj.open(mode="r") as f: 
+        with path_obj.open(mode="r") as f:
             xml_content = f.read()
         mzxml_dict = xmltodict.parse(xml_content)
 
@@ -1255,7 +1266,10 @@ class AccuCorDataLoader:
             )
             if sequence_key not in sequences.keys():
                 try:
-                    sequences[sequence_key], created = MSRunSequence.objects.get_or_create(
+                    (
+                        sequences[sequence_key],
+                        created,
+                    ) = MSRunSequence.objects.get_or_create(
                         researcher=self.lcms_metadata[sample_data_header]["researcher"],
                         date=self.lcms_metadata[sample_data_header]["date"],
                         lc_method=lc_protocol,
@@ -1279,9 +1293,10 @@ class AccuCorDataLoader:
                         format="ms_data",
                         allow_missing=True,
                     )
-                    ms_raw_file = self.get_or_create_raw_file(mzxml_file=self.lcms_metadata[sample_data_header]["mzxml"])
+                    ms_raw_file = self.get_or_create_raw_file(
+                        mzxml_file=self.lcms_metadata[sample_data_header]["mzxml"]
+                    )
 
-            print(f"POLARITY: {self.lcms_metadata[sample_data_header]['polarity']}")
             msrunsample_dict = {
                 "msrun_sequence": sequences[sequence_key],
                 "sample": self.db_samples_dict[sample_data_header],
@@ -1293,7 +1308,9 @@ class AccuCorDataLoader:
                 # This relies on sample name lookup and accurate msrun information (researcher, date, instrument, etc).
                 # Including mzXML files with accucor files will help ensure accurate msrun lookup since we will have
                 # checksums for the mzXML files and those are always associated with one MSRun record
-                msrun_sample, created = MSRunSample.objects.get_or_create(**msrunsample_dict)
+                msrun_sample, created = MSRunSample.objects.get_or_create(
+                    **msrunsample_dict
+                )
                 if created:
                     msrun_sample.full_clean()
                     # Already saved via create
@@ -1308,9 +1325,13 @@ class AccuCorDataLoader:
                         and msrun_sample.sample.animal.caches_exist()
                     ):
                         animals_to_uncache.append(msrun_sample.sample.animal)
-                    elif not msrun_sample.sample.animal.caches_exist() and self.verbosity >= 1:
+                    elif (
+                        not msrun_sample.sample.animal.caches_exist()
+                        and self.verbosity >= 1
+                    ):
                         print(
-                            f"No cache exists for animal {msrun_sample.sample.animal.id} linked to Sample {msrun_sample.sample.id}"
+                            f"No cache exists for animal {msrun_sample.sample.animal.id} linked to Sample "
+                            f"{msrun_sample.sample.id}"
                         )
             except Exception as e:
                 self.aggregated_errors_object.buffer_error(e)

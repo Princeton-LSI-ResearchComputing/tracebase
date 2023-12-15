@@ -170,15 +170,15 @@ class StudyTests(TracebaseTestCase, ExampleDataConsumer):
             data_type=mstype,
             data_format=mzxfmt,
         )
-        self.msrun = MSRunSample(
+        self.msrs = MSRunSample(
             msrun_sequence=seq,
             sample=self.sample,
             polarity="positive",
             ms_raw_file=rawrec,
             ms_data_file=mzxrec,
         )
-        self.msrun.full_clean()
-        self.msrun.save()
+        self.msrs.full_clean()
+        self.msrs.save()
 
         self.ms_peak_annotation = DataType.objects.get(code="ms_peak_annotation")
         self.accucor_format = DataFormat.objects.get(code="accucor")
@@ -195,7 +195,7 @@ class StudyTests(TracebaseTestCase, ExampleDataConsumer):
         self.peak_group = PeakGroup.objects.create(
             name=initial_peak_group["name"],
             formula=initial_peak_group["formula"],
-            # msrun_sample=self.msrun,  # TODO: Uncomment this once issue 712 is done
+            msrun_sample=self.msrs,
             peak_annotation_file=self.peak_annotation_file,
         )
         # actual code would have to more careful in retrieving compounds based
@@ -277,7 +277,7 @@ class StudyTests(TracebaseTestCase, ExampleDataConsumer):
         self.assertRaises(
             IntegrityError,
             lambda: PeakGroup.objects.create(
-                name=self.peak_group.name, msrun_sample=self.msrun
+                name=self.peak_group.name, msrun_sample=self.msrs
             ),
         )
 
@@ -1326,7 +1326,6 @@ class PropertyTests(TracebaseTestCase):
         # With the new logic of obtaining the last instance of a peak group among serum samples, this should still
         # produce a calculation even though the last serum sample doesn't have a peak group for the tracer. It will
         # just use the one from the first
-        print(f"Initial normalized labeling")
         self.assertAlmostEqual(
             0.00911997807399377,
             peak_group.labels.first().normalized_labeling,
@@ -1373,8 +1372,6 @@ class PropertyTests(TracebaseTestCase):
         second_peak_data.corrected_abundance = 100
         second_peak_data.save()
         # Now confirm the different calculated value
-        print(f"Changed normalized labeling")
-        # TODO: It appears that caching updates are broken.  This test is failing because the cache is not getting updated with the database changes.  When I take @cached_function off the normalized_labeling method in PeakGroupLabel, this test passes, so figure out why it's not updating.
         self.assertAlmostEqual(
             3.4553550826083774, peak_group.labels.first().normalized_labeling
         )
@@ -1423,7 +1420,9 @@ class PropertyTests(TracebaseTestCase):
             .get()
         )
 
-        serum_sample_msrun = MSRunSample.objects.filter(sample__name="serum-xz971").get()
+        serum_sample_msrun = MSRunSample.objects.filter(
+            sample__name="serum-xz971"
+        ).get()
         serum_sample_msrun.delete()
         serum_sample = Sample.objects.filter(name="serum-xz971").get()
         serum_sample.delete()
