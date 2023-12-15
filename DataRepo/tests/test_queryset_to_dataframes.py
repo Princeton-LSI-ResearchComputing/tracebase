@@ -2,7 +2,6 @@ import json
 
 import pandas as pd
 from django.core.management import call_command
-from django.test import tag
 from django.utils import dateparse
 
 from DataRepo.models import Animal, Infusate, Tracer, TracerLabel
@@ -10,7 +9,6 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import QuerysetToPandasDataFrame as qs2df
 
 
-@tag("broken_until_issue712")
 class QuerysetToPandasDataFrameBaseTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):

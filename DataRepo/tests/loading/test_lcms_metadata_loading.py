@@ -3,7 +3,6 @@ from datetime import datetime
 
 import pandas as pd
 from django.core.management import call_command
-from django.test import tag
 
 from DataRepo.models import LCMethod, MaintainedModel, MSRunSample, Sample
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
@@ -643,7 +642,6 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
 
     # Requirement 1.1 is tested by the method tests above
 
-    @tag("broken_until_issue712")
     @MaintainedModel.no_autoupdates()
     def test_lcms_metadata_default_fallbacks_lcms_good_no_data(self):
         """
@@ -691,7 +689,6 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
         self.assertEqual(sample1, msr1.sample)
         self.assertEqual(sample2, msr2.sample)
 
-    @tag("broken_until_issue712")
     @MaintainedModel.no_autoupdates()
     def test_lcms_metadata_default_fallbacks_lcms_good_no_defaults(self):
         """
@@ -713,7 +710,6 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
         self.assertEqual(1, len(aes.exceptions))
         self.assertEqual(LCMSDefaultsRequired, type(aes.exceptions[0]))
 
-    @tag("broken_until_issue712")
     @MaintainedModel.no_autoupdates()
     def test_lcms_metadata_default_fallbacks_lcms_good(self):
         """
@@ -775,7 +771,6 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
         self.assertEqual(["date"], ilh.missing)
         self.assertEqual([], ilh.unexpected)
 
-    @tag("broken_until_issue712")
     @MaintainedModel.no_autoupdates()
     def test_lcms_metadata_dupe_sample_header_error(self):
         """
@@ -828,7 +823,6 @@ class LCMSMetadataRequirementsTests(TracebaseTestCase):
         self.assertTrue(aes.exception_type_exists(LCMSDBSampleMissing))
 
 
-@tag("broken_until_issue712")
 class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
     """
     Tests in this class are intended to trigger a single (new) exception that was added on branch

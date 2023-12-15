@@ -295,7 +295,6 @@ class ProtocolTests(TracebaseTestCase):
             )
 
 
-@tag("broken_until_issue712")
 @override_settings(CACHES=settings.TEST_CACHES)
 class DataLoadingTests(TracebaseTestCase):
     @classmethod
@@ -790,7 +789,6 @@ class DataLoadingTests(TracebaseTestCase):
         )
 
 
-@tag("broken_until_issue712")
 @override_settings(CACHES=settings.TEST_CACHES)
 class PropertyTests(TracebaseTestCase):
     fixtures = ["lc_methods.yaml", "data_types.yaml", "data_formats.yaml"]
@@ -1648,7 +1646,6 @@ class PropertyTests(TracebaseTestCase):
             self.assertFalse(pgl.can_compute_average_tracer_label_rates)
 
 
-@tag("broken_until_issue712")
 @override_settings(CACHES=settings.TEST_CACHES)
 class MultiTracerLabelPropertyTests(TracebaseTestCase):
     fixtures = ["data_types.yaml", "data_formats.yaml"]
@@ -1740,7 +1737,6 @@ class MultiTracerLabelPropertyTests(TracebaseTestCase):
         self.assertAlmostEqual(expectedn, pgn)
 
 
-@tag("broken_until_issue712")
 @override_settings(CACHES=settings.TEST_CACHES)
 class TracerRateTests(TracebaseTestCase):
     @classmethod
@@ -2294,7 +2290,6 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
         )
 
 
-@tag("broken_until_issue712")
 @override_settings(CACHES=settings.TEST_CACHES)
 @tag("load_study")
 class StudyLoadingTests(TracebaseTestCase):

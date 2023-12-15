@@ -49,7 +49,6 @@ def assert_coordinator_state_is_initialized():
         raise UncleanBufferError()
 
 
-@tag("broken_until_issue712")
 class ViewTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls, disabled_coordinator=False):
@@ -573,7 +572,6 @@ class ViewTests(TracebaseTestCase):
         self.assertTrue(".tsv" in contentdisp)
 
 
-@tag("broken_until_issue712")
 class ViewNullToleranceTests(ViewTests):
     """
     This class inherits from the ViewTests class above and overrides the setUpTestData method to load without auto-
@@ -637,7 +635,6 @@ class ViewNullToleranceTests(ViewTests):
         super().test_study_detail()
 
 
-@tag("broken_until_issue712")
 class ValidationViewTests(TracebaseTransactionTestCase):
     """
     Note, without the TransactionTestCase (derived) class (and the with transaction.atomic block below), the infusate-

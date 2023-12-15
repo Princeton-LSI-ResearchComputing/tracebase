@@ -1,5 +1,4 @@
 from django.core.management import call_command
-from django.test import tag
 
 from DataRepo.management.commands.build_caches import cached_function_call
 from DataRepo.models import (
@@ -68,7 +67,6 @@ def load_minimum_data():
     )
 
 
-@tag("broken_until_issue712")
 class GlobalCacheTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
@@ -311,7 +309,6 @@ class GlobalCacheTests(TracebaseTestCase):
         )
 
 
-@tag("broken_until_issue712")
 class HierCachedModelTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):
@@ -594,7 +591,6 @@ class HierCachedModelTests(TracebaseTestCase):
         )
 
 
-@tag("broken_until_issue712")
 class BuildCachesTests(TracebaseTestCase):
     @classmethod
     def setUpTestData(cls):

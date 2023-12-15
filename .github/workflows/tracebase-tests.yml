@@ -51,7 +51,7 @@ jobs:
       - name: Make the cache table
         run: python manage.py createcachetable
       - name: Run tests
-        run: python manage.py test --exclude-tag broken_until_issue712
+        run: python manage.py test
       - name: Load lcmethod fixtures
         run: |
           python manage.py loaddata \

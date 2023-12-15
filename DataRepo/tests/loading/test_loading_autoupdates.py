@@ -1,5 +1,4 @@
 from django.core.management import call_command
-from django.test import tag
 
 from DataRepo.models import (
     Animal,
@@ -51,7 +50,6 @@ class AutoupdateLoadingTests(TracebaseTestCase):
                 0, coordinator.buffer_size(), msg=msg + "  The buffer is empty."
             )
 
-    @tag("broken_until_issue712")
     def test_defer_autoupdates_animal_accucor(self):
         self.assert_no_names_to_start()
         self.assert_no_fcirc_data_to_start()
@@ -115,7 +113,6 @@ class AutoupdateLoadingTests(TracebaseTestCase):
                 parent_coordinator._peek_update_buffer(0),
             )
 
-    @tag("broken_until_issue712")
     def test_defer_autoupdates_sample(self):
         self.assert_no_names_to_start()
         self.assert_no_fcirc_data_to_start()
@@ -136,7 +133,6 @@ class AutoupdateLoadingTests(TracebaseTestCase):
             self.assert_names_are_unupdated()
             self.assert_fcirc_data_is_unupdated()
 
-    @tag("broken_until_issue712")
     def test_load_study_runs_autoupdates(self):
         self.assert_coordinator_state_is_initialized()
         self.assert_no_names_to_start()

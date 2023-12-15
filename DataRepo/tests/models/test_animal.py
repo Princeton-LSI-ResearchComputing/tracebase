@@ -8,7 +8,6 @@ from DataRepo.models import Animal, Infusate, Sample
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
-@tag("broken_until_issue712")
 @override_settings(CACHES=settings.TEST_CACHES)
 @tag("animal")
 class AnimalTests(TracebaseTestCase):
