@@ -407,13 +407,13 @@ class DataLoadingTests(TracebaseTestCase):
         study = Study.objects.get(name="obob_fasted")
         self.assertEqual(study.animals.count(), self.ALL_OBOB_ANIMALS_COUNT)
 
-        # MsRun should be equivalent to the samples
-        MSRUN_COUNT = (
+        # MSRunSample should be equivalent to the samples
+        MSRUNSAMPLE_COUNT = (
             self.INF_SAMPLES_COUNT
             + self.SERUM_SAMPLES_COUNT
             + self.NULL_ORIG_SAMPLES_COUNT
         )
-        self.assertEqual(MSRunSample.objects.all().count(), MSRUN_COUNT)
+        self.assertEqual(MSRunSample.objects.all().count(), MSRUNSAMPLE_COUNT)
 
     def test_sample_data(self):
         sample = Sample.objects.get(name="bat-xz969")
@@ -882,13 +882,14 @@ class PropertyTests(TracebaseTestCase):
     def test_missing_serum_sample_peak_data(self):
         animal = self.MAIN_SERUM_ANIMAL
         last_serum_sample = animal.last_serum_sample
-        # Sample->MSRun is a restricted relationship, so the MSRuns must be deleted before the sample can be deleted
+        # Sample->MSRunSample is a restricted relationship, so the MSRunSamples must be deleted before the sample can be
+        # deleted
         serum_sample_msrun = MSRunSample.objects.filter(
             sample__name=last_serum_sample.name
         ).get()
         serum_sample_msrun.delete()
         """
-        with the msrun deleted, the 7 rows of prior peak data
+        with the msrun_sample deleted, the 7 rows of prior peak data
         (test_sample_peak_data, above) are now 0/gone
         """
         peakdata = PeakData.objects.filter(

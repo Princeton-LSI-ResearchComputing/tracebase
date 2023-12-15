@@ -50,7 +50,7 @@ class StudyDetailView(DetailView):
 def study_summary(request):
     """
     function-based view for studies based summary data, including selected
-    data fileds for animal, tissue, sample, and MSRun
+    data fileds for animal, tissue, sample, MSRunSample, and MSRunSequence
     get DataFrame for summary data, then convert to JSON format
     """
 

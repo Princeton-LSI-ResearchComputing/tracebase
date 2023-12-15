@@ -32,7 +32,6 @@ class ProtocolViewTests(TracebaseTestCase):
     Test two list views for subsets of protocols
     Test detail views for protocols
     expected protocol for animal treatment: "no treatment"
-    expected protocol for MSRun protocol: "Default"
     """
 
     @classmethod

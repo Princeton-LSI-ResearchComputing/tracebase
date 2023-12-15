@@ -418,13 +418,7 @@ class Format:
                             )
                     else:
                         opt_keys = self.unit_options[key]["entry_options"].keys()
-                    print(
-                        f"Setting default of {key} units to '{default}' for field {self.id}.{mdl}.{fld}"
-                    )
                 else:
-                    print(
-                        f"Setting default of 'identity' units to 'identity' for field {self.id}.{mdl}.{fld}"
-                    )
                     key = "identity"
                     default = "identity"
                     opt_keys = ["identity"]

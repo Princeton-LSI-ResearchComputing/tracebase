@@ -2,7 +2,13 @@ from django.core.management import call_command
 from django.test import tag
 
 from DataRepo.management.commands.build_caches import cached_function_call
-from DataRepo.models import Animal, MaintainedModel, MSRunSample, PeakGroup, Sample
+from DataRepo.models import (
+    Animal,
+    MaintainedModel,
+    MSRunSample,
+    PeakGroup,
+    Sample,
+)
 from DataRepo.models.hier_cached_model import (
     delete_all_caches,
     disable_caching_retrievals,
@@ -354,8 +360,8 @@ class HierCachedModelTests(TracebaseTestCase):
         rep_rec, rep_fnc = smp.get_representative_root_rec_and_method()
 
         # Ensure cached
-        v, s = get_cache(smp, f)
-        rv, rs = get_cache(rep_rec, rep_fnc)
+        _, s = get_cache(smp, f)
+        _, rs = get_cache(rep_rec, rep_fnc)
         self.assertTrue(
             s,
             msg=(
@@ -378,8 +384,8 @@ class HierCachedModelTests(TracebaseTestCase):
         smp.save()
 
         # Ensure no longer cached
-        nv, ns = get_cache(smp, f)
-        nrv, nrs = get_cache(rep_rec, rep_fnc)
+        _, ns = get_cache(smp, f)
+        _, nrs = get_cache(rep_rec, rep_fnc)
         self.assertFalse(
             ns,
             msg="Ensure the value for the called function in not cached after a save",
@@ -401,8 +407,8 @@ class HierCachedModelTests(TracebaseTestCase):
         rep_rec, rep_fnc = pg.get_representative_root_rec_and_method()
 
         # Ensure cached
-        v, s = get_cache(pg, f)
-        rv, rs = get_cache(rep_rec, rep_fnc)
+        _, s = get_cache(pg, f)
+        _, rs = get_cache(rep_rec, rep_fnc)
         self.assertTrue(
             s,
             msg=(
@@ -418,12 +424,12 @@ class HierCachedModelTests(TracebaseTestCase):
             ),
         )
 
-        # delete() calls from animal, sample, and MSRun are restricted
+        # delete() calls from animal, sample, and MSRunSample are restricted
         pg.delete()
 
         # Ensure no longer cached
-        nv, ns = get_cache(pg, f)
-        nrv, nrs = get_cache(rep_rec, rep_fnc)
+        _, ns = get_cache(pg, f)
+        _, nrs = get_cache(rep_rec, rep_fnc)
         self.assertFalse(
             ns,
             msg="Ensure the value for the called function in not cached after a delete",
@@ -442,8 +448,8 @@ class HierCachedModelTests(TracebaseTestCase):
         smp.delete_descendant_caches()
 
         # Ensure no longer cached
-        nv, ns = get_cache(smp, f)
-        nrv, nrs = get_cache(rep_rec, rep_fnc)
+        _, ns = get_cache(smp, f)
+        _, nrs = get_cache(rep_rec, rep_fnc)
         self.assertFalse(
             ns,
             msg="Ensure the value for the called function in not cached after a delete_descendant_caches",
@@ -464,8 +470,8 @@ class HierCachedModelTests(TracebaseTestCase):
         smp.delete_related_caches()
 
         # Ensure no longer cached
-        nv, ns = get_cache(smp, f)
-        nrv, nrs = get_cache(rep_rec, rep_fnc)
+        _, ns = get_cache(smp, f)
+        _, nrs = get_cache(rep_rec, rep_fnc)
         self.assertFalse(
             ns,
             msg="Ensure the value for the called function in not cached after a delete_descendant_caches",

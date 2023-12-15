@@ -102,8 +102,8 @@ class FCircTests(TracebaseTestCase):
         Issue #460, test 3.1.1.
         3. Updates of FCirc.is_last, Sample.is_serum_sample, and Animal.last_serum_sample are triggered by themselves
            and by changes to models down to PeakGroup.
-          2. Create a new msrun whose date is later than the msrun of the new serum sample (created above), a new
-             tracer peak group in the new serum sample (created above), and related peak group labels.
+          2. Create a new msrun_sample whose date is later than the msrun_sample of the new serum sample (created
+             above), a new tracer peak group in the new serum sample (created above), and related peak group labels.
             1. Confirm all FCirc.is_last values related to the old serum sample are now false.
         """
 
@@ -241,12 +241,12 @@ class FCircTests(TracebaseTestCase):
             # 0 - prev_smpl_tmclctd_is_none_amng_many - 0 = There is either only 1 serum sample or (I'm not last and I
             #                                               have a time_collected).
             # 0 - msr_date_is_none_and_many_msrs_for_smpl - 0 = This FCirc record's serum sample either has only 1
-            #                                                   MSRun or its date has a value.
+            #                                                   MSRunSample or its date has a value.
             # 1 - overall - 1 = Status is not "good" overall.
             # 0 - tmclctd_is_none_but_only1_smpl - 0 = There are either multiple serum samples or there is 1 and it has
             #                                          a time collected.
-            # 0 - msr_date_is_none_but_only1_msr_for_smpl - 0 = There are either many MSRuns for this serum sample or
-            #                                                   there is 1 & it has a date.
+            # 0 - msr_date_is_none_but_only1_msr_for_smpl - 0 = There are either many MSRunSamples for this serum sample
+            #                                                   or there is 1 & it has a date.
             self.assertEqual("100000100", fcr.serum_validity["bitcode"])
 
     def test_serum_validity_no_time_collected(self):
@@ -278,12 +278,12 @@ class FCircTests(TracebaseTestCase):
             # 0 - prev_smpl_tmclctd_is_none_amng_many - 0 = There is either only 1 serum sample or (I'm not last and I
             #                                               have a time_collected).
             # 0 - msr_date_is_none_and_many_msrs_for_smpl - 0 = This FCirc record's serum sample either has only 1
-            #                                                   MSRun or its date has a value.
+            #                                                   MSRunSample or its date has a value.
             # 1 - overall - 1 = Status is not "good" overall.
             # 0 - tmclctd_is_none_but_only1_smpl - 0 = There are either multiple serum samples or there is 1 and it has
             #                                          a time collected.
-            # 0 - msr_date_is_none_but_only1_msr_for_smpl - 0 = There are either many MSRuns for this serum sample or
-            #                                                   there is 1 & it has a date.
+            # 0 - msr_date_is_none_but_only1_msr_for_smpl - 0 = There are either many MSRunSamples for this serum sample
+            #                                                   or there is 1 & it has a date.
             self.assertEqual("011000100", fcr.serum_validity["bitcode"])
 
         self.lss.time_collected = tcbak
@@ -321,12 +321,12 @@ class FCircTests(TracebaseTestCase):
             # 0 - prev_smpl_tmclctd_is_none_amng_many - 0 = There is either only 1 serum sample or (I'm not last and I
             #                                               have a time_collected).
             # 0 - msr_date_is_none_and_many_msrs_for_smpl - 0 = This FCirc record's serum sample either has only 1
-            #                                                   MSRun or its date has a value.
+            #                                                   MSRunSample or its date has a value.
             # 1 - overall - 1 = Status is not "good" overall.
             # 0 - tmclctd_is_none_but_only1_smpl - 0 = There are either multiple serum samples or there is 1 and it has
             #                                          a time collected.
-            # 0 - msr_date_is_none_but_only1_msr_for_smpl - 0 = There are either many MSRuns for this serum sample or
-            #                                                   there is 1 & it has a date.
+            # 0 - msr_date_is_none_but_only1_msr_for_smpl - 0 = There are either many MSRunSamples for this serum sample
+            #                                                   or there is 1 & it has a date.
             self.assertEqual("000100100", fcr.serum_validity["bitcode"])
 
         self.newlss.time_collected = tcbak
@@ -412,12 +412,12 @@ class FCircTests(TracebaseTestCase):
             #                                            time_collected.
             # 1 - prev_smpl_tmclctd_is_none_amng_many - 1 = There are many serum samples and my time_collected is null.
             # 0 - msr_date_is_none_and_many_msrs_for_smpl - 0 = This FCirc record's serum sample either has only 1
-            #                                                   MSRun or its date has a value.
+            #                                                   MSRunSample or its date has a value.
             # 1 - overall - 1 = Status is not "good" overall.
             # 0 - tmclctd_is_none_but_only1_smpl - 0 = There are either multiple serum samples or there is 1 and it has
             #                                          a time collected.
-            # 0 - msr_date_is_none_but_only1_msr_for_smpl - 0 = There are either many MSRuns for this serum sample or
-            #                                                   there is 1 & it has a date.
+            # 0 - msr_date_is_none_but_only1_msr_for_smpl - 0 = There are either many MSRunSamples for this serum sample
+            #                                                   or there is 1 & it has a date.
             self.assertEqual("000010100", fcr.serum_validity["bitcode"])
 
         self.newlss.time_collected = tcbak

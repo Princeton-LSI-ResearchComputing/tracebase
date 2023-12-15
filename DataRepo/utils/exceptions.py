@@ -8,7 +8,7 @@ from django.core.exceptions import ValidationError
 from django.forms.models import model_to_dict
 
 if TYPE_CHECKING:
-    from DataRepo.models import ArchiveFile, MSRun, Sample
+    from DataRepo.models import ArchiveFile, MSRunSample, Sample
 
 
 class HeaderError(Exception):
@@ -107,7 +107,7 @@ class DuplicatePeakGroup(Exception):
     def __init__(
         self,
         adding_file: str,
-        msrun_sample: MSRun,
+        msrun_sample: MSRunSample,
         sample: Sample,
         peak_group_name: str,
         existing_peak_annotation_file: ArchiveFile,
@@ -135,7 +135,7 @@ class DuplicatePeakGroups(Exception):
 
     Attributes:
         adding_file: The peak annotation file in which the duplicate data was detected
-        msrun_sample: The MSRun in which the peak groups were measured
+        msrun_sample: The MSRunSample in which the peak groups were measured
         duplicate_peak_groups: A list of DuplicatePeakGroup exceiptions
     """
 

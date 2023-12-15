@@ -367,7 +367,7 @@ class ViewTests(TracebaseTestCase):
             self.INF_PEAKGROUP_COUNT + self.SERUM_PEAKGROUP_COUNT,
         )
 
-    def test_peakgroup_list_per_msrun(self):
+    def test_peakgroup_list_per_msrun_sample(self):
         ms1 = MSRunSample.objects.filter(sample__name="BAT-xz971").get()
         pg1 = PeakGroup.objects.filter(msrun_sample_id=ms1.id)
         response = self.client.get(

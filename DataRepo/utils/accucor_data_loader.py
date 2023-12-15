@@ -1169,7 +1169,6 @@ class AccuCorDataLoader:
                 'duplicate key value violates unique constraint "unique_peakgroup"'
                 in iestr
             ):
-                # "Peak group with this Name and Msrun already exists"
                 existing_peak_group = PeakGroup.objects.get(
                     msrun_sample=msrun_sample, name=peak_group_attrs["name"]
                 )
@@ -1305,9 +1304,9 @@ class AccuCorDataLoader:
                 "ms_raw_file": ms_raw_file,
             }
             try:
-                # This relies on sample name lookup and accurate msrun information (researcher, date, instrument, etc).
-                # Including mzXML files with accucor files will help ensure accurate msrun lookup since we will have
-                # checksums for the mzXML files and those are always associated with one MSRun record
+                # This relies on sample name lookup and accurate msrun_sample information (researcher, date, instrument,
+                # etc).  Including mzXML files with accucor files will help ensure accurate msrun_sample lookup since we
+                # will have checksums for the mzXML files and those are always associated with one MSRunSample record
                 msrun_sample, created = MSRunSample.objects.get_or_create(
                     **msrunsample_dict
                 )
@@ -1316,7 +1315,7 @@ class AccuCorDataLoader:
                     # Already saved via create
 
                 # This will be used to iterate the sample loop below so that we don't attempt to load samples whose
-                # msrun creations failed.
+                # msrun_sample creations failed.
                 sample_msrun_dict[sample_data_header] = msrun_sample
 
                 if self.update_caches is True:
