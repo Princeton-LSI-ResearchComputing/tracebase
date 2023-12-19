@@ -14,16 +14,21 @@ from django.db.models.signals import m2m_changed
 
 class MaintainedModelCoordinator:
     """
-    This class loosely mimmics a connection in a Django "database instrumentation" design.  But instead of providing a
-    way to apply custom wrappers to database queries, it provides a way to supply context to MaintainedModel's calls to
-    save, delete, and m2m_propagation_handler by providing access to a context manager that tells MaintainedModel how it
-    should behave in a certain context.  There are 4 context modes: always (the default, meaning both lazy and
-    immediate), lazy, immediate, deferred, and disabled.  In lazy mode, auto-updates only occur when a model object is
-    instantiated as query results are iterated over (see MaintainedModel.from_db()).  In immediate mode, autoupdates of
-    maintained fields are performed immediately upon record creation (e.g. via calls to save()).  In deferred mode (see
-    the MaintainedModel.deferred decorator), autoupdates are buffered upon save() and then performed once the last
-    nested context has been exited.  In the disabled mode (see the MaintainedModel.disabled decorator), no buffering or
-    autoupdates are performed at all.
+    This class loosely mimmics a "connection" in a Django "database instrumentation" design.  But instead of providing a
+    way to apply custom wrappers to database queries, it provides a way to tell MaintainedModel how it should behave
+    (i.e. its running mode based on "context") during calls to save, delete, and m2m_propagation_handler.  It does this
+    by providing a context manager.
+
+    There are 5 running modes that determine when and if autoupdates should occur:
+        always: (the default, meaning both lazy and immediate)
+        lazy: Auto-updates occuras query results are iterated over (see MaintainedModel.from_db()).
+        immediate: Auto-updates occur immediately upon record creation (e.g. via calls to save()).
+        deferred: Auto-updates are buffered upon save() and occur when the last nested context has been exited (see
+            MaintainedModel.deferred).
+        disabled: No buffering or autoupdates are performed at all (see MaintainedModel.disabled).
+
+    Attributes:
+        None
     """
 
     def __init__(self, auto_update_mode=None, **kwargs):
@@ -53,8 +58,8 @@ class MaintainedModelCoordinator:
             self.buffering = False
         else:
             raise ValueError(
-                f"Invalid auto_update_mode: [{auto_update_mode}].  Valid values are: [lazy, immediate, deferred, and "
-                "disabled]."
+                f"Invalid auto_update_mode: [{auto_update_mode}].  Valid values are: [always, lazy, immediate, "
+                "deferred, and disabled]."
             )
 
         # This tracks whether the underlying modes (autoupdates and buffering) have been overridden or not, e.g. by a
@@ -1585,6 +1590,14 @@ class MaintainedModel(Model):
             update_fld = updater_dict["update_field"]
             update_label = updater_dict["update_label"]
 
+            # from_db was implemented somewhat more carefully than save was.  The documentation for from_db warns about
+            # "DEFERRED" fields, whose values aren't available.  After I implemented it, I realized that the deferred
+            # fields are likely related to foreign keys, so this conditional probably doesn't effectively do anything.
+            #
+            # An intersection of the maintained fields and "available" fields is used here to tell MaintainedModel to
+            # only auto-update a subset of fields.
+            #
+            # This conditional just skips fields that aren't in the available fields.
             if (
                 fields_to_autoupdate is not None
                 and update_fld not in fields_to_autoupdate
