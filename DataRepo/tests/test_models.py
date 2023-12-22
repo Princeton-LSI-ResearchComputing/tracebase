@@ -656,8 +656,8 @@ class DataLoadingTests(TracebaseTestCase):
         #   Hidden flag is suggested
         #   Existing researchers are shown
         exp_err = (
-            "Researcher [Michael Neinast] exists.  --new-researcher cannot be used for existing researchers.  Current "
-            "researchers are:\nMichael Neinast\nXianfeng Zeng"
+            "Researcher ['Michael Neinast'] exists.  --new-researcher cannot be used for existing researchers.  "
+            "Current researchers are:\nMichael Neinast\nXianfeng Zeng"
         )
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
@@ -672,7 +672,10 @@ class DataLoadingTests(TracebaseTestCase):
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
-        self.assertTrue(exp_err in str(aes.exceptions[0]))
+        self.assertTrue(
+            exp_err in str(aes.exceptions[0]),
+            msg=f"Expected: [{exp_err}] Got: [{str(aes.exceptions[0])}]",
+        )
 
     @MaintainedModel.no_autoupdates()
     def test_ls_new_researcher_and_aggregate_errors(self):

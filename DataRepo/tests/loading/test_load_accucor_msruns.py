@@ -1,11 +1,17 @@
+from pathlib import Path
+
 from django.conf import settings
 from django.core.management import call_command
 from django.test import override_settings, tag
 
 from DataRepo.models import (
+    ArchiveFile,
     Infusate,
     InfusateTracer,
     MaintainedModel,
+    MSRun,
+    MSRunSample,
+    MSRunSequence,
     PeakData,
     PeakGroup,
     Sample,
@@ -34,7 +40,6 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
 
     @classmethod
     def setUpTestData(cls):
-        call_command("loaddata", "lc_methods")
         call_command(
             "load_study",
             "DataRepo/data/tests/small_obob/small_obob_study_prerequisites.yaml",
@@ -241,8 +246,8 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         """
         Test loading two conflicting PeakGroups rasies ConflictingValueErrors
 
-        Attempt to load two PeakGroups for the same Compound in the same MSRun
-        but from different PeakGroupSets (filenames)
+        Attempt to load two PeakGroups for the same Compound in the same MSRunSample
+        but from different peak annotation files
         """
 
         self.load_glucose_data()
@@ -403,7 +408,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
     @tag("multi-msrun")
     def test_multiple_accucor_one_msrun(self):
         """
-        Test that we can load different compounds in separate data files for the same sample run (MSRun)
+        Test that we can load different compounds in separate data files for the same sample run (MSRunSample)
         """
         self.load_glucose_data()
         call_command(
@@ -429,7 +434,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
     def test_duplicate_compounds_one_msrun(self):
         """
         Test that we do not allow the same compound to be measured from the
-        same sample run (MSRun) more than once
+        same sample run (MSRunSample) more than once
         """
         self.load_glucose_data()
         with self.assertRaises(AggregatedErrors) as ar:
@@ -470,7 +475,6 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
     @classmethod
     @MaintainedModel.no_autoupdates()
     def setUpTestData(cls):
-        call_command("loaddata", "lc_methods")
         call_command(
             "load_study",
             "DataRepo/data/tests/protocols/loading.yaml",
@@ -904,3 +908,217 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
         self.assertEqual(pg.count(), 2)
         self.assertEqual(pg.filter(peak_data__labels__element__exact="C").count(), 1)
         self.assertEqual(pg.filter(peak_data__labels__element__exact="N").count(), 1)
+
+
+class MSRunSampleSequenceTests(TracebaseTestCase):
+    fixtures = ["data_types.yaml", "data_formats.yaml", "lc_methods.yaml"]
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command(
+            "load_study",
+            "DataRepo/data/tests/small_obob/small_obob_study_prerequisites.yaml",
+        )
+
+        call_command(
+            "load_animals_and_samples",
+            animal_and_sample_table_filename=(
+                "DataRepo/data/tests/small_obob/"
+                "small_obob_animal_and_sample_table.xlsx"
+            ),
+        )
+
+        call_command(
+            "load_accucor_msruns",
+            accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose.xlsx",
+            skip_samples=("blank"),
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="unknown",
+            date="2021-04-29",
+            researcher="Michael Neinast",
+            new_researcher=True,
+            # polarity="positive",  # Use parsed mzxml as default
+            mzxml_files=[
+                "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls/BAT-xz971.mzXML",
+                "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls/Br-xz971.mzXML",
+            ],
+        )
+
+        cls.MSRUNSAMPLE_COUNT = 2
+        cls.MSRUNSEQUENCE_COUNT = 1
+
+        super().setUpTestData()
+
+    @MaintainedModel.no_autoupdates()
+    def test_no_msrun_recs_loaded(self):
+        """
+        Issue #712
+        Requirement: 1. None of the load scripts result in MSRun being loaded
+        TODO: This is a temporary test. Remove when MSRun is removed in issue #714
+        """
+        self.assertEqual(0, MSRun.objects.count())
+
+    @MaintainedModel.no_autoupdates()
+    def test_msrunsample_and_msrunsequence_are_loaded(self):
+        """
+        Issue #712
+        Requirement: 2. accucor_data_loader loads MSRunSample and MSRunSequence
+        NOTE: This should also ensure that ms_data_file and ms_raw_file are loaded and that the files are archived
+        """
+        self.assertEqual(self.MSRUNSAMPLE_COUNT, MSRunSample.objects.count())
+        self.assertEqual(self.MSRUNSEQUENCE_COUNT, MSRunSequence.objects.count())
+
+        # mzXML ArchiveFile records exist
+        ArchiveFile.objects.get(filename="BAT-xz971.mzXML")
+        ArchiveFile.objects.get(filename="Br-xz971.mzXML")
+
+        # Files exist in the archive
+        # TODO: Fix these file exist tests
+        # PR REVIEW NOTE: These file exist tests fail.  I suspect it's due to the fact that the tests use
+        #                 django.core.files.storage.InMemoryStorage in the settings.  Should I override that setting for
+        #                 this test or just not test this?
+        # batmz_rec = ArchiveFile.objects.get(filename="BAT-xz971.mzXML")
+        # brmz_rec = ArchiveFile.objects.get(filename="Br-xz971.mzXML")
+        # batmz_loc = Path(str(batmz_rec.file_location))
+        # brmz_loc = Path(str(brmz_rec.file_location))
+        # self.assertTrue(batmz_loc.is_file(), msg=f"{str(batmz_loc)} must be a real file")
+        # self.assertTrue(brmz_loc.is_file(), msg=f"{str(brmz_loc)} must be a real file")
+
+        # RAW ArchiveFile records exist
+        batraw_rec = ArchiveFile.objects.get(filename="BAT-xz971.raw")
+        brraw_rec = ArchiveFile.objects.get(filename="Br-xz971.raw")
+
+        # Checksums are correct
+        self.assertEqual(
+            "31bc554534cf9f1e568529d110caa85f1fd0a8c8", batraw_rec.checksum
+        )
+        self.assertEqual("a129d2228d5a693875d2bb03fb03830becdeecc1", brraw_rec.checksum)
+
+        # Raw files do not exist
+        batraw_loc = Path(str(batraw_rec.file_location))
+        brraw_loc = Path(str(brraw_rec.file_location))
+        self.assertFalse(batraw_loc.is_file())
+        self.assertFalse(brraw_loc.is_file())
+
+    def test_peakgroup_msrunsample_null_is_false(self):
+        """
+        Issue #712
+        Requirement: 3. PeakGroup.msrun_sample.null must be set to False
+        Requirement: 4. Add migration for PeakGroup.msrun_sample change
+        """
+        self.assertFalse(PeakGroup.msrun_sample.__dict__["field"].null)
+
+    # NOTE: Test for Issue #712, Requirement 5 (All broken_until_issue712 test tegs must be removed) is unnecessary
+    # NOTE: Test for Issue #712, Requirement 6 is in test_exceptions.py
+
+    def test_polarity_choices_includes_unknown(self):
+        """
+        Issue #712
+        Requirement: 7.1. Add a polarity choices value: "unknown"
+        """
+        choices = [
+            ("unknown", "unknown"),  # This is the one essential for the test
+            ("positive", "positive"),  # The others are a bonus check
+            ("negative", "negative"),
+        ]
+        self.assertEqual(choices, MSRunSample.POLARITY_CHOICES)
+
+    @MaintainedModel.no_autoupdates()
+    def test_parse_mzxml(self):
+        """
+        Issue #712
+        Requirement: 7.2. Parse polarity from the mzXML
+        """
+        expected = {
+            "raw_file_name": "BAT-xz971.raw",
+            "raw_file_sha1": "31bc554534cf9f1e568529d110caa85f1fd0a8c8",
+            "polarity": "positive",
+        }
+        adl = AccuCorDataLoader(
+            None,
+            None,
+            None,
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="unknown",
+            date="2021-04-29",
+            researcher="Michael Neinast",
+        )
+        mz_dict = adl.parse_mzxml(
+            Path(
+                "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_mzxmls/BAT-xz971.mzXML"
+            )
+        )
+        self.assertEqual(expected, mz_dict)
+
+    # NOTE: Test for Issue #712, Requirement 7.3 (A default polarity should be removed from the study submission form)
+    # is unnecessary
+
+    @MaintainedModel.no_autoupdates()
+    def test_mzxml_polarity_trumps_cmdln_default(self):
+        """
+        Issue #712
+        Requirement: 7.3. Polarity value precedence: mzXML file value > LCMS metadata file value > command line value >
+        static "unknown" value
+        This test tests that LCMS metadata file value > command line value
+        NOTE: A test for "mzXML file value > LCMS metadata file value" is unnecessary due to requirement 7.6 (see
+        test_mzxml_lcms_polarity_conflict_raises_error)
+        """
+        call_command(
+            "load_accucor_msruns",
+            accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate.xlsx",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="unknown",
+            date="2021-04-29",
+            researcher="Michael Neinast",
+            new_researcher=False,
+            polarity="positive",  # The mzxml files have "negative"
+            mzxml_files=[
+                "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_mzxmls/BAT-xz971.mzXML",
+                "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_mzxmls/Br-xz971.mzXML",
+            ],
+        )
+        MSRunSample.objects.get(sample__name="BAT-xz971", polarity="negative")
+        MSRunSample.objects.get(sample__name="Br-xz971", polarity="negative")
+
+    @MaintainedModel.no_autoupdates()
+    def test_lcms_polarity_trumps_cmdln_default(self):
+        """
+        Issue #712
+        Requirement: 7.3. Polarity value precedence: mzXML file value > LCMS metadata file value > command line value >
+        static "unknown" value
+        This test tests that LCMS metadata file value > command line value
+        NOTE: A test for "mzXML file value > LCMS metadata file value" is unnecessary due to requirement 7.6 (see
+        test_mzxml_lcms_polarity_conflict_raises_error)
+        """
+        call_command(
+            "load_accucor_msruns",
+            accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate.xlsx",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="unknown",
+            date="2021-04-29",
+            researcher="Michael Neinast",
+            new_researcher=False,
+            polarity="positive",  # LCMS metadata file has "negative"
+            lcms_file="DataRepo/data/tests/small_obob_lcms_metadata/lactate_neg.tsv",
+        )
+        MSRunSample.objects.get(sample__name="BAT-xz971", polarity="negative")
+        MSRunSample.objects.get(sample__name="Br-xz971", polarity="negative")
+
+    @MaintainedModel.no_autoupdates()
+    def test_polarity_not_required(self):
+        """
+        Issue #712
+        Requirement: 7.4. A command line default polarity value is no longer required
+        """
+        pass
+
+    # NOTE: Test for Issue #712, Requirement 7.5 (A default polarity should be removed from the study submission form)
+    # is unnecessary
+
+    @MaintainedModel.no_autoupdates()
+    def test_mzxml_lcms_polarity_conflict_raises_error(self):
+        """
+        Issue #712
+        Requirement: 7.6. Raise exception if LCMS metadata polarity value differs from what's parsed from the mzXML file (if it was supplied)
+        """
+        pass

@@ -48,15 +48,11 @@ class DataValidationView(FormView):
 
         if accucor_files:
             self.accucor_files = accucor_files
-            for afp in accucor_files:
-                self.mzxml_files.extend(self.get_mzxml_names(afp))
         else:
             self.accucor_files = []
 
         if isocorr_files:
             self.isocorr_files = isocorr_files
-            for ifp in isocorr_files:
-                self.mzxml_files.extend(self.get_mzxml_names(ifp))
         else:
             self.isocorr_files = []
 
@@ -217,7 +213,6 @@ class DataValidationView(FormView):
                 "date": "1972-11-24",
                 "researcher": Researcher.RESEARCHER_DEFAULT,
                 "new_researcher": False,
-                "mzxml_files": self.mzxml_files,
             },
         }
 

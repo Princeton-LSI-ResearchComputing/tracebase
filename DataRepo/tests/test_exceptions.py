@@ -3,6 +3,7 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     MultiLoadStatus,
+    ResearcherNotNew,
     UnexpectedIsotopes,
     UnitsWrong,
     summarize_int_list,
@@ -240,6 +241,16 @@ class ExceptionTests(TracebaseTestCase):
         )
         self.assertTrue(hasattr(uw, "units_dict"))
         self.assertEqual(uw.units_dict, units_dict)
+
+    def test_researcher_not_new_takes_list(self):
+        """
+        Issue #712
+        Requirement: 6. ResearcherNotNew must take a list of researchers (see TODO in accucor_data_loader.py)
+        """
+        existing = ["paul", "bob"]
+        all = ["paul", "bob", "george"]
+        ResearcherNotNew(existing, "--new-researcher", all)
+        # No exception = successful test
 
 
 class MultiLoadStatusTests(TracebaseTestCase):

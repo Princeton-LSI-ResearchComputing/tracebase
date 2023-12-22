@@ -27,6 +27,8 @@ class MSRunSample(HierCachedModel, MaintainedModel):
         ("negative", "negative"),
     ]
     POLARITY_DEFAULT = POLARITY_CHOICES[0][0]
+    POSITIVE_POLARITY = POLARITY_CHOICES[1][0]
+    NEGATIVE_POLARITY = POLARITY_CHOICES[2][0]
     VALID_RAW_FILES = {
         "TYPES": ["ms_data"],
         "FORMATS": ["ms_raw", "unknown"],

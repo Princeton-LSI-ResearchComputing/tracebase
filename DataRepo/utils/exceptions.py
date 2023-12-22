@@ -172,16 +172,19 @@ class UnknownHeadersError(HeaderError):
 
 
 class ResearcherNotNew(Exception):
-    def __init__(self, researcher, new_flag, researchers):
+    def __init__(self, new_researchers, new_flag, existing_researchers):
         nl = "\n"
+        errstr = f"Researchers {new_researchers} exist."
+        if isinstance(new_researchers, str) or len(new_researchers) == 1:
+            errstr = f"Researcher {new_researchers} exists."
         message = (
-            f"Researcher [{researcher}] exists.  {new_flag} cannot be used for existing "
-            f"researchers.  Current researchers are:{nl}{nl.join(sorted(researchers))}"
+            f"{errstr}  {new_flag} cannot be used for existing researchers.  Current researchers are:{nl}"
+            f"{nl.join(sorted(existing_researchers))}"
         )
         super().__init__(message)
-        self.researcher = researcher
+        self.new_researchers = new_researchers
         self.new_flag = new_flag
-        self.researchers = researchers
+        self.existing_researchers = existing_researchers
 
 
 class AllMissingSamples(Exception):
@@ -1370,7 +1373,7 @@ class MismatchedSampleHeaderMZXML(Exception):
         message = (
             "The following sample data headers do not match any mzXML file names.  No mzXML files will be loaded for "
             "these columns in the peak annotation file:\n\n"
-            "\tSample Data Header\tmzXML File Name\tPattern Used"
+            "\tSample Data Header\tmzXML File Name"
         )
         tab = "\t"
         for details in mismatching_mzxmls:
@@ -1524,3 +1527,38 @@ class LCMSDBSampleMissing(Exception):
         )
         super().__init__(message)
         self.lcms_samples_missing = lcms_samples_missing
+
+
+class MixedPolarityErrors(Exception):
+    def __init__(self, mixed_polarity_dict):
+        deets = []
+        for filename in mixed_polarity_dict.keys():
+            deets.append(
+                f"{filename}: {mixed_polarity_dict['filename']['first']} vs "
+                f"{mixed_polarity_dict['filename']['different']} in scan {mixed_polarity_dict['filename']['scan']}"
+            )
+        nlt = "\n\t"
+        message = (
+            "The following mzXML files have multiple polarities, which is unsupported:\n\t"
+            f"{nlt.join(deets)}"
+        )
+        super().__init__(message)
+        self.mixed_polarity_dict = mixed_polarity_dict
+
+
+class PolarityConflictErrors(Exception):
+    def __init__(self, polarity_conflicts):
+        deets = []
+        for mzxml_file in polarity_conflicts.keys():
+            deets.append(
+                f"{mzxml_file}: {polarity_conflicts[mzxml_file]['mzxml_value']} vs LCMS "
+                f"{polarity_conflicts[mzxml_file]['sample_header']} row: "
+                f"{polarity_conflicts[mzxml_file]['lcms_value']}"
+            )
+        nlt = "\n\t"
+        message = (
+            "The following mzXML files have a polarity value that differs from the value supplied in the LCMS metadata "
+            f"file:\n\t{nlt.join(deets)}"
+        )
+        super().__init__(message)
+        self.polarity_conflicts = polarity_conflicts

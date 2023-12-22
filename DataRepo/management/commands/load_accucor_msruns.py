@@ -184,9 +184,7 @@ class Command(BaseCommand):
 
         mzxml_files = None
         if options["mzxml_files"] is not None and len(options["mzxml_files"]) > 0:
-            mzxml_files = [
-                os.path.basename(mzxmlf).strip() for mzxmlf in options["mzxml_files"]
-            ]
+            mzxml_files = [mzxmlf.strip() for mzxmlf in options["mzxml_files"]]
 
         loader = AccuCorDataLoader(
             # Peak annotation file data

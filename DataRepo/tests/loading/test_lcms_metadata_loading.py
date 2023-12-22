@@ -40,9 +40,7 @@ from DataRepo.utils.lcms_metadata_parser import (
 
 
 class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
-    @classmethod
-    def setUpTestData(cls):
-        call_command("loaddata", "lc_methods")
+    fixtures = ["data_types.yaml", "data_formats.yaml", "lc_methods.yaml"]
 
     def test_sample_header_to_default_mzxml(self):
         adl1 = AccuCorDataLoader(
@@ -154,11 +152,11 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
         adl1.check_mzxml("sample2", "sample1.mzxml")
         pat = re.compile(r"^sample2\.").pattern
         self.assertEqual([], adl1.missing_mzxmls)
-        self.assertEqual([["sample2", "sample1.mzxml", pat]], adl1.mismatching_mzxmls)
+        self.assertEqual([["sample2", "sample1.mzxml"]], adl1.mismatching_mzxmls)
 
         adl1.check_mzxml("sample3", "sample3.mzxml")
         self.assertEqual(["sample3.mzxml"], adl1.missing_mzxmls)
-        self.assertEqual([["sample2", "sample1.mzxml", pat]], adl1.mismatching_mzxmls)
+        self.assertEqual([["sample2", "sample1.mzxml"]], adl1.mismatching_mzxmls)
 
     def test_validate_mzxmls(self):
         adl1 = AccuCorDataLoader(
@@ -342,7 +340,6 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             "date",
             "researcher",
             "instrument",
-            "polarity",
             "peak_annot_file",
         ]
         self.assertEqual(
@@ -465,6 +462,8 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
 
 
 class LCMSSampleTableLoaderMethodTests(TracebaseTestCase):
+    fixtures = ["data_types.yaml", "data_formats.yaml", "lc_methods.yaml"]
+
     def test_check_lcms_samples(self):
         stl = SampleTableLoader()
         stl.lcms_samples = [
@@ -519,6 +518,8 @@ class LCMSSampleTableLoaderMethodTests(TracebaseTestCase):
 
 
 class LCMSMetadataParserMethodTests(TracebaseTestCase):
+    fixtures = ["data_types.yaml", "data_formats.yaml", "lc_methods.yaml"]
+
     def test_lcms_df_to_dict(self):
         df = extract_dataframes_from_lcms_tsv(
             "DataRepo/data/tests/small_obob_lcms_metadata/glucose_pos.tsv"
@@ -622,10 +623,11 @@ class LCMSMetadataParserMethodTests(TracebaseTestCase):
 
 
 class LCMSMetadataRequirementsTests(TracebaseTestCase):
+    fixtures = ["data_types.yaml", "data_formats.yaml", "lc_methods.yaml"]
+
     @classmethod
     @MaintainedModel.no_autoupdates()
     def setUpTestData(cls):
-        call_command("loaddata", "lc_methods")
         call_command(
             "load_study",
             "DataRepo/data/tests/small_obob/small_obob_study_prerequisites.yaml",
@@ -838,7 +840,9 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
     """
 
     def load_prereqs(self):
-        call_command("loaddata", "lc_methods")
+        call_command(
+            "loaddata", "data_types.yaml", "data_formats.yaml", "lc_methods.yaml"
+        )
         call_command(
             "load_study",
             "DataRepo/data/tests/small_obob/small_obob_study_prerequisites.yaml",
@@ -949,7 +953,6 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
 
     @MaintainedModel.no_autoupdates()
     def test_MissingPeakAnnotationFiles(self):
-        call_command("loaddata", "lc_methods")
         call_command("load_study", "DataRepo/data/tests/tissues/loading.yaml")
         with self.assertRaises(AggregatedErrorsSet) as ar:
             call_command(
@@ -1007,25 +1010,26 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
         self.assertEqual(1, len(aes.exceptions))
         self.assertEqual(MissingMZXMLFiles, type(aes.exceptions[0]))
 
-    @MaintainedModel.no_autoupdates()
-    def test_NoMZXMLFiles(self):
-        self.load_prereqs()
-        self.load_samples()
-        with self.assertRaises(AggregatedErrors) as ar:
-            call_command(
-                "load_accucor_msruns",
-                accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose.xlsx",
-                lc_protocol_name="polar-HILIC-25-min",
-                instrument="unknown",
-                date="2021-04-29",
-                researcher="Michael Neinast",
-                new_researcher=True,
-                lcms_file="DataRepo/data/tests/small_obob_lcms_metadata/glucose_no_extras.tsv",
-                validate=True,
-            )
-        aes = ar.exception
-        self.assertEqual(1, len(aes.exceptions))
-        self.assertEqual(NoMZXMLFiles, type(aes.exceptions[0]))
+    # TODO: Uncomment when issue #814 is implemented
+    # @MaintainedModel.no_autoupdates()
+    # def test_NoMZXMLFiles(self):
+    #     self.load_prereqs()
+    #     self.load_samples()
+    #     with self.assertRaises(AggregatedErrors) as ar:
+    #         call_command(
+    #             "load_accucor_msruns",
+    #             accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose.xlsx",
+    #             lc_protocol_name="polar-HILIC-25-min",
+    #             instrument="unknown",
+    #             date="2021-04-29",
+    #             researcher="Michael Neinast",
+    #             new_researcher=True,
+    #             lcms_file="DataRepo/data/tests/small_obob_lcms_metadata/glucose_no_extras.tsv",
+    #             validate=True,
+    #         )
+    #     aes = ar.exception
+    #     self.assertEqual(1, len(aes.exceptions))
+    #     self.assertEqual(NoMZXMLFiles, type(aes.exceptions[0]))
 
     @MaintainedModel.no_autoupdates()
     def test_MismatchedSampleHeaderMZXML(self):
@@ -1041,7 +1045,10 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
                 researcher="Michael Neinast",
                 new_researcher=True,
                 lcms_file="DataRepo/data/tests/small_obob_lcms_metadata/glucose_unmatching_mzxmls.tsv",
-                mzxml_files=["BAT-xz971_pos.mzxml", "Br-xz971_pos.mzxml"],
+                mzxml_files=[
+                    "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_pos_mzxmls/BAT-xz971_pos.mzXML",
+                    "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_pos_mzxmls/Br-xz971_pos.mzXML",
+                ],
                 # This is a warning in any case, but in validate mode, the exception is raised
                 validate=True,
             )
@@ -1060,5 +1067,8 @@ class LCMSLoadingExceptionBehaviorTests(TracebaseTestCase):
             researcher="Michael Neinast",
             new_researcher=True,
             lcms_file="DataRepo/data/tests/small_obob_lcms_metadata/glucose_unmatching_mzxmls.tsv",
-            mzxml_files=["BAT-xz971_pos.mzxml", "Br-xz971_pos.mzxml"],
+            mzxml_files=[
+                "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_pos_mzxmls/BAT-xz971_pos.mzXML",
+                "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_pos_mzxmls/Br-xz971_pos.mzXML",
+            ],
         )
