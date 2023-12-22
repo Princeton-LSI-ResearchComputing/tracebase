@@ -1032,7 +1032,7 @@ class MSRunSampleSequenceTests(TracebaseTestCase):
         expected = {
             "raw_file_name": "BAT-xz971.raw",
             "raw_file_sha1": "31bc554534cf9f1e568529d110caa85f1fd0a8c8",
-            "polarity": "positive",
+            "polarity": MSRunSample.POSITIVE_POLARITY,
         }
         adl = AccuCorDataLoader(
             None,
@@ -1071,14 +1071,18 @@ class MSRunSampleSequenceTests(TracebaseTestCase):
             date="2021-04-29",
             researcher="Michael Neinast",
             new_researcher=False,
-            polarity="positive",  # The mzxml files have "negative"
+            polarity=MSRunSample.POSITIVE_POLARITY,  # The mzxml files have "negative"
             mzxml_files=[
                 "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_mzxmls/BAT-xz971.mzXML",
                 "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_mzxmls/Br-xz971.mzXML",
             ],
         )
-        MSRunSample.objects.get(sample__name="BAT-xz971", polarity="negative")
-        MSRunSample.objects.get(sample__name="Br-xz971", polarity="negative")
+        MSRunSample.objects.get(
+            sample__name="BAT-xz971", polarity=MSRunSample.NEGATIVE_POLARITY
+        )
+        MSRunSample.objects.get(
+            sample__name="Br-xz971", polarity=MSRunSample.NEGATIVE_POLARITY
+        )
 
     @MaintainedModel.no_autoupdates()
     def test_lcms_polarity_trumps_cmdln_default(self):
@@ -1098,11 +1102,15 @@ class MSRunSampleSequenceTests(TracebaseTestCase):
             date="2021-04-29",
             researcher="Michael Neinast",
             new_researcher=False,
-            polarity="positive",  # LCMS metadata file has "negative"
+            polarity=MSRunSample.POSITIVE_POLARITY,  # LCMS metadata file has "negative"
             lcms_file="DataRepo/data/tests/small_obob_lcms_metadata/lactate_neg.tsv",
         )
-        MSRunSample.objects.get(sample__name="BAT-xz971", polarity="negative")
-        MSRunSample.objects.get(sample__name="Br-xz971", polarity="negative")
+        MSRunSample.objects.get(
+            sample__name="BAT-xz971", polarity=MSRunSample.NEGATIVE_POLARITY
+        )
+        MSRunSample.objects.get(
+            sample__name="Br-xz971", polarity=MSRunSample.NEGATIVE_POLARITY
+        )
 
     @MaintainedModel.no_autoupdates()
     def test_polarity_not_required(self):
@@ -1110,7 +1118,21 @@ class MSRunSampleSequenceTests(TracebaseTestCase):
         Issue #712
         Requirement: 7.4. A command line default polarity value is no longer required
         """
-        pass
+        call_command(
+            "load_accucor_msruns",
+            accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate.xlsx",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="unknown",
+            date="2021-04-29",
+            researcher="Michael Neinast",
+            new_researcher=False,
+        )
+        MSRunSample.objects.get(
+            sample__name="BAT-xz971", polarity=MSRunSample.POLARITY_DEFAULT
+        )
+        MSRunSample.objects.get(
+            sample__name="Br-xz971", polarity=MSRunSample.POLARITY_DEFAULT
+        )
 
     # NOTE: Test for Issue #712, Requirement 7.5 (A default polarity should be removed from the study submission form)
     # is unnecessary
@@ -1119,6 +1141,7 @@ class MSRunSampleSequenceTests(TracebaseTestCase):
     def test_mzxml_lcms_polarity_conflict_raises_error(self):
         """
         Issue #712
-        Requirement: 7.6. Raise exception if LCMS metadata polarity value differs from what's parsed from the mzXML file (if it was supplied)
+        Requirement: 7.6. Raise exception if LCMS metadata polarity value differs from what's parsed from the mzXML file
+        (if it was supplied)
         """
         pass
