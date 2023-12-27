@@ -606,7 +606,11 @@ class IsoCorrDataLoadingTests(TracebaseTestCase):
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
-        self.assertIn("--isocorr-format", str(aes.exceptions[0]))
+        self.assertIn(
+            "--isocorr-format",
+            str(aes.exceptions[0]),
+            msg=f"This error should reference --isocorr-format: [{aes.exceptions[0]}]",
+        )
 
     def get_model_counts(self):
         return (
@@ -1280,7 +1284,7 @@ class MSRunSampleSequenceTests(TracebaseTestCase):
 
     def create_populated_AccuCorDataLoader_object(self, lcms_file):
         xlsx = "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate.xlsx"
-        return AccuCorDataLoader(
+        adl = AccuCorDataLoader(
             # Original dataframe
             pd.read_excel(
                 xlsx,
@@ -1301,6 +1305,8 @@ class MSRunSampleSequenceTests(TracebaseTestCase):
             researcher="Michael Neinast",
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(lcms_file),
         )
+        adl.prepare_metadata()
+        return adl
 
     @MaintainedModel.no_autoupdates()
     def test_get_sample_header_by_mzxml_basename_one_match(self):

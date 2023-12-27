@@ -45,7 +45,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
         adl1 = AccuCorDataLoader(
             None,
             None,
-            peak_annotation_file=None,
+            None,
             peak_annotation_filename="",
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
                 "DataRepo/data/tests/small_obob_lcms_metadata/glucose_pos.tsv"
@@ -56,6 +56,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             instrument="",
             mzxml_files=["sample1.mzxml", "sample2.mzxml"],
         )
+        adl1.prepare_metadata()
         mzxml1 = adl1.sample_header_to_default_mzxml("does-not-exist")
         self.assertEqual(
             "does-not-exist.mzxml",
@@ -74,7 +75,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
         adl2 = AccuCorDataLoader(
             None,
             None,
-            peak_annotation_file=None,
+            None,
             peak_annotation_filename="",
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
                 "DataRepo/data/tests/small_obob_lcms_metadata/glucose_pos.tsv"
@@ -86,6 +87,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             polarity="",
             mzxml_files=None,
         )
+        adl2.prepare_metadata()
         mzxml = adl2.sample_header_to_default_mzxml("sample")
         self.assertIsNone(mzxml, msg="If mzxml files array is None, None is returned")
         self.assertEqual(0, len(adl2.aggregated_errors_object.exceptions))
@@ -93,7 +95,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
         adl3 = AccuCorDataLoader(
             None,
             None,
-            peak_annotation_file=None,
+            None,
             peak_annotation_filename="",
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
                 "DataRepo/data/tests/small_obob_lcms_metadata/glucose_pos.tsv"
@@ -104,6 +106,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             instrument="",
             mzxml_files=[],
         )
+        adl3.prepare_metadata()
         mzxml = adl3.sample_header_to_default_mzxml("sample")
         self.assertIsNone(mzxml, msg="If mzxml files array is empty, None is returned")
         self.assertEqual(0, len(adl3.aggregated_errors_object.exceptions))
@@ -112,7 +115,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
         adl1 = AccuCorDataLoader(
             None,
             None,
-            peak_annotation_file=None,
+            None,
             peak_annotation_filename="",
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
                 "DataRepo/data/tests/small_obob_lcms_metadata/glucose_pos.tsv"
@@ -122,6 +125,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             lc_protocol_name="",
             instrument="",
         )
+        adl1.prepare_metadata()
         mzxml = adl1.sample_header_to_default_mzxml("does-not-exist")
         self.assertIsNone(
             mzxml,
@@ -133,7 +137,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
         adl1 = AccuCorDataLoader(
             None,
             None,
-            peak_annotation_file=None,
+            None,
             peak_annotation_filename="",
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
                 "DataRepo/data/tests/small_obob_lcms_metadata/glucose_pos.tsv"
@@ -144,15 +148,16 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             instrument="",
             mzxml_files=["sample1.mzxml", "sample2.mzxml"],
         )
-        adl1.check_mzxml("sample1", "sample1.mzxml")
+        adl1.prepare_metadata()
+        adl1.find_mismatching_missing_mzxml_files("sample1", "sample1.mzxml")
         self.assertEqual([], adl1.missing_mzxmls)
         self.assertEqual([], adl1.mismatching_mzxmls)
 
-        adl1.check_mzxml("sample2", "sample1.mzxml")
+        adl1.find_mismatching_missing_mzxml_files("sample2", "sample1.mzxml")
         self.assertEqual([], adl1.missing_mzxmls)
         self.assertEqual([["sample2", "sample1.mzxml"]], adl1.mismatching_mzxmls)
 
-        adl1.check_mzxml("sample3", "sample3.mzxml")
+        adl1.find_mismatching_missing_mzxml_files("sample3", "sample3.mzxml")
         self.assertEqual(["sample3.mzxml"], adl1.missing_mzxmls)
         self.assertEqual([["sample2", "sample1.mzxml"]], adl1.mismatching_mzxmls)
 
@@ -160,7 +165,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
         adl1 = AccuCorDataLoader(
             None,
             None,
-            peak_annotation_file=None,
+            None,
             peak_annotation_filename="accucor.xlsx",
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
                 "DataRepo/data/tests/small_obob_lcms_metadata/glucose_pos.tsv"
@@ -172,12 +177,13 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             mzxml_files=["sample1.mzxml", "sample2.mzxml"],
             validate=False,
         )
+        adl1.prepare_metadata()
         adl1.missing_mzxmls.append("sample3.mzxml")
         adl1.mismatching_mzxmls.append(
             ["sample", "sample2.mzxml", re.compile(r"^sample\.").pattern]
         )
 
-        adl1.validate_mzxmls()
+        adl1.buffer_mismatching_missing_mzxml_file_errors()
 
         self.assertEqual(
             2,
@@ -237,7 +243,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
         adl2 = AccuCorDataLoader(
             None,
             None,
-            peak_annotation_file=None,
+            None,
             date="1972-11-24",
             researcher="Robert Leach",
             lc_protocol_name="polar-HILIC",
@@ -247,12 +253,13 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             validate=True,
             polarity="positive",
         )
+        adl2.prepare_metadata()
         adl2.missing_mzxmls.append("sample3.mzxml")
         adl2.mismatching_mzxmls.append(
             ["sample", "sample2.mzxml", re.compile(r"^sample\.").pattern]
         )
 
-        adl2.validate_mzxmls()
+        adl2.buffer_mismatching_missing_mzxml_file_errors()
 
         self.assertEqual(2, len(adl2.aggregated_errors_object.exceptions))
 
@@ -278,7 +285,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
         adl = AccuCorDataLoader(
             None,
             None,
-            peak_annotation_file=None,
+            None,
             peak_annotation_filename="accucor.xlsx",
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
                 "DataRepo/data/tests/small_obob_lcms_metadata/glucose_pos.tsv"
@@ -289,8 +296,9 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             instrument="unknown",
             validate=False,
         )
+        adl.prepare_metadata()
 
-        adl.validate_mzxmls()
+        adl.buffer_mismatching_missing_mzxml_file_errors()
 
         self.assertEqual(
             0,
@@ -302,7 +310,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
         adl1 = AccuCorDataLoader(
             None,
             None,
-            peak_annotation_file=None,
+            None,
             peak_annotation_filename="accucor.xlsx",
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
                 "DataRepo/data/tests/small_obob_lcms_metadata/glucose_pos.tsv"
@@ -314,6 +322,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             mzxml_files=[],
             polarity="positive",
         )
+        adl1.prepare_metadata()
         missing1 = adl1.get_missing_required_lcms_defaults()
         self.assertEqual(0, len(missing1), msg="No required defaults should be missing")
         self.assertEqual(0, len(adl1.aggregated_errors_object.exceptions))
@@ -321,7 +330,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
         adl2 = AccuCorDataLoader(
             None,
             None,
-            peak_annotation_file=None,
+            None,
             peak_annotation_filename=None,
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
                 "DataRepo/data/tests/small_obob_lcms_metadata/glucose_pos.tsv"
@@ -332,6 +341,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             instrument=None,
             mzxml_files=None,
         )
+        adl2.prepare_metadata()
         missing2 = adl2.get_missing_required_lcms_defaults()
         expected_missing = [
             "lc_protocol_name",
@@ -351,7 +361,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
         adl1 = AccuCorDataLoader(
             None,
             None,
-            peak_annotation_file=None,
+            None,
             peak_annotation_filename="accucor.xlsx",
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
                 "DataRepo/data/tests/small_obob_lcms_metadata/glucose_pos.tsv"
@@ -363,6 +373,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             mzxml_files=[],
             polarity="positive",
         )
+        adl1.prepare_metadata()
         self.assertTrue(
             adl1.lcms_defaults_supplied(),
             msg="LCMS defaults should show as having been supplied.",
@@ -372,7 +383,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
         adl2 = AccuCorDataLoader(
             None,
             None,
-            peak_annotation_file=None,
+            None,
             peak_annotation_filename=None,
             lcms_metadata_df=extract_dataframes_from_lcms_tsv(
                 "DataRepo/data/tests/small_obob_lcms_metadata/glucose_pos.tsv"
@@ -383,6 +394,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             lc_protocol_name=None,
             instrument=None,
         )
+        adl2.prepare_metadata()
         self.assertFalse(
             adl2.lcms_defaults_supplied(),
             msg="LCMS defaults should show as not having been supplied.",
