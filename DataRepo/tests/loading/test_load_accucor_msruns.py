@@ -31,6 +31,7 @@ from DataRepo.utils import (
 from DataRepo.utils.exceptions import (
     ConflictingValueErrors,
     DuplicatePeakGroup,
+    PolarityConflictErrors,
 )
 
 
@@ -1008,7 +1009,7 @@ class MSRunSampleSequenceTests(TracebaseTestCase):
         """
         self.assertFalse(PeakGroup.msrun_sample.__dict__["field"].null)
 
-    # NOTE: Test for Issue #712, Requirement 5 (All broken_until_issue712 test tegs must be removed) is unnecessary
+    # NOTE: Test for Issue #712, Requirement 5 (All broken_until_issue712 test tags must be removed) is unnecessary
     # NOTE: Test for Issue #712, Requirement 6 is in test_exceptions.py
 
     def test_polarity_choices_includes_unknown(self):
@@ -1144,4 +1145,22 @@ class MSRunSampleSequenceTests(TracebaseTestCase):
         Requirement: 7.6. Raise exception if LCMS metadata polarity value differs from what's parsed from the mzXML file
         (if it was supplied)
         """
-        pass
+        with self.assertRaises(AggregatedErrors) as ar:
+            call_command(
+                "load_accucor_msruns",
+                accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate.xlsx",
+                lc_protocol_name="polar-HILIC-25-min",
+                instrument="unknown",
+                date="2021-04-29",
+                researcher="Michael Neinast",
+                new_researcher=False,
+                polarity="unknown",
+                mzxml_files=[
+                    "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_mzxmls/BAT-xz971.mzXML",
+                    "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_mzxmls/Br-xz971.mzXML",
+                ],
+                lcms_file="DataRepo/data/tests/small_obob_lcms_metadata/lactate.tsv",
+            )
+        aes = ar.exception
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertEqual(PolarityConflictErrors, type(aes.exceptions[0]))

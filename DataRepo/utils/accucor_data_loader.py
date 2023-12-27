@@ -494,14 +494,14 @@ class AccuCorDataLoader:
                     if (
                         sample_header in self.lcms_metadata.keys()
                         and parsed_polarity is not None
-                        and (
-                            self.lcms_metadata[sample_header]["polarity"] is None
-                            or self.lcms_metadata[sample_header]["polarity"]
-                            == MSRunSample.POLARITY_DEFAULT
-                        )
+                        # When lcms metadata has None or default, quietly overwrite with the value from the mzxml
+                        and self.lcms_metadata[sample_header]["polarity"] is not None
+                        and self.lcms_metadata[sample_header]["polarity"]
+                        != MSRunSample.POLARITY_DEFAULT
                         and parsed_polarity
                         != self.lcms_metadata[sample_header]["polarity"]
                     ):
+                        # Add a polarity conflict
                         self.conflicting_polarities[str(path_obj)] = {
                             "sample_header": sample_header,
                             "lcms_value": self.lcms_metadata[sample_header]["polarity"],

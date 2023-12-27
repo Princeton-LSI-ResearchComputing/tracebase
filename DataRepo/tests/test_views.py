@@ -782,7 +782,7 @@ class ValidationViewTests(TracebaseTransactionTestCase):
             researcher="Michael Neinast",
             new_researcher=True,
             validate=True,
-            # Uncomment (and make it actual files) when #814 is implemented
+            # TODO: Uncomment (and make it actual files) when #814 is implemented
             # mzxml_files=[
             #     "BAT-xz971.mzxml",
             #     "Br-xz971.mzxml",
