@@ -4,7 +4,7 @@ import warnings
 from chempy import Substance
 from chempy.util.periodic import atomic_number
 from django.apps import apps
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.forms.models import model_to_dict
 
 # Generally, child tables are at the top and parent tables are at the bottom
@@ -184,3 +184,20 @@ def create_is_null_field(field_with_null):
 
 def model_as_dict(obj):
     return model_to_dict(obj)
+
+
+def exists_in_db(mdl_obj):
+    """
+    This takes a model object and returns a boolean to indicate whether the object exists in the database.
+
+    Note, it does not assert that the values of the fields are the same.
+    """
+    if not hasattr(mdl_obj, "pk"):
+        return False
+    try:
+        type(mdl_obj).objects.get(pk__exact=mdl_obj.pk)
+    except Exception as e:
+        if issubclass(type(e), ObjectDoesNotExist):
+            return False
+        raise e
+    return True

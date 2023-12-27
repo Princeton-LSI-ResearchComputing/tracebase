@@ -6,7 +6,7 @@ from django.core.management import call_command
 
 from DataRepo.models import LCMethod, MaintainedModel, MSRunSample, Sample
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
-from DataRepo.utils import (
+from DataRepo.utils import (  # TODO: Uncomment when issue #814 is implemented; NoMZXMLFiles,
     AccuCorDataLoader,
     AggregatedErrors,
     AggregatedErrorsSet,
@@ -20,7 +20,6 @@ from DataRepo.utils import (
     MissingMZXMLFiles,
     MissingPeakAnnotationFiles,
     MissingRequiredLCMSValues,
-    NoMZXMLFiles,
     PeakAnnotFileMismatches,
     SampleTableLoader,
     UnexpectedLCMSSampleDataHeaders,
@@ -150,7 +149,6 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
         self.assertEqual([], adl1.mismatching_mzxmls)
 
         adl1.check_mzxml("sample2", "sample1.mzxml")
-        pat = re.compile(r"^sample2\.").pattern
         self.assertEqual([], adl1.missing_mzxmls)
         self.assertEqual([["sample2", "sample1.mzxml"]], adl1.mismatching_mzxmls)
 

@@ -1,5 +1,7 @@
+import hashlib
 from pathlib import Path
 
+import pandas as pd
 from django.conf import settings
 from django.core.management import call_command
 from django.test import override_settings, tag
@@ -18,6 +20,7 @@ from DataRepo.models import (
     Tracer,
     TracerLabel,
 )
+from DataRepo.models.utilities import exists_in_db
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import (
     AccuCorDataLoader,
@@ -27,7 +30,9 @@ from DataRepo.utils import (
     NoSamplesError,
     TracerLabeledElementNotFound,
     UnskippedBlanksError,
+    extract_dataframes_from_lcms_tsv,
 )
+from DataRepo.utils.accucor_data_loader import hash_file
 from DataRepo.utils.exceptions import (
     ConflictingValueErrors,
     DuplicatePeakGroup,
@@ -1164,3 +1169,178 @@ class MSRunSampleSequenceTests(TracebaseTestCase):
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
         self.assertEqual(PolarityConflictErrors, type(aes.exceptions[0]))
+
+    def create_AccuCorDataLoader_object(self):
+        return AccuCorDataLoader(
+            None,
+            None,
+            None,
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="unknown",
+            date="1972-11-24",
+            researcher="Michael Neinast",
+        )
+
+    @MaintainedModel.no_autoupdates()
+    def test_get_or_create_raw_file(self):
+        fn = "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_mzxmls/BAT-xz971.mzXML"
+        adl = self.create_AccuCorDataLoader_object()
+        mz_dict = adl.parse_mzxml(Path(fn))
+
+        # Test that a new record is created
+        inafs = ArchiveFile.objects.count()
+        afrec = adl.get_or_create_raw_file(mz_dict)
+        self.assertTrue(exists_in_db(afrec))
+        self.assertEqual(inafs + 1, ArchiveFile.objects.count())
+
+        # Test that the record is retrieved (not created)
+        afrec2 = adl.get_or_create_raw_file(mz_dict)
+        self.assertEqual(afrec, afrec2)
+        # Record count is unchanged
+        self.assertEqual(inafs + 1, ArchiveFile.objects.count())
+
+    @MaintainedModel.no_autoupdates()
+    def test_hash_file_allow_missing_true(self):
+        """
+        If a file does not exist and allow_missing is True, hash_file should create a hash based on the file name
+        """
+        fn = "does not exist"
+        hash = hash_file(Path(fn), allow_missing=True)
+        self.assertEqual(hashlib.sha1(fn.encode()).hexdigest(), hash)
+
+    @MaintainedModel.no_autoupdates()
+    def test_hash_file_allow_missing_false(self):
+        """
+        If a file does not exist and allow_missing is False, hash_file should raise a FileNotFoundError
+        """
+        fn = "does not exist"
+        with self.assertRaises(FileNotFoundError):
+            hash_file(Path(fn), allow_missing=False)
+
+    @MaintainedModel.no_autoupdates()
+    def test_get_or_create_archive_file_allow_missing_no_checksum_or_existing_file(
+        self,
+    ):
+        """
+        If a file does not exist and allow_missing is True, an ArchiveFile record should be created and its checksum
+        should be created from the file name.
+        """
+        fn = "does not exist"
+        adl = self.create_AccuCorDataLoader_object()
+        inafs = ArchiveFile.objects.count()
+        afrec = adl.get_or_create_archive_file(
+            Path(fn),
+            "ms_data",
+            "ms_raw",
+            allow_missing=True,
+        )
+        self.assertTrue(exists_in_db(afrec))
+        self.assertEqual(inafs + 1, ArchiveFile.objects.count())
+        self.assertEqual(hashlib.sha1(fn.encode()).hexdigest(), afrec.checksum)
+
+    @MaintainedModel.no_autoupdates()
+    def test_get_or_create_archive_file_with_checksum(self):
+        """
+        If a checksum is supplied when allow_missing is False, a ValueError should be raised
+        """
+        fn = "does not exist"
+        adl = self.create_AccuCorDataLoader_object()
+        with self.assertRaises(ValueError) as ar:
+            adl.get_or_create_archive_file(
+                Path(fn),
+                "ms_data",
+                "ms_raw",
+                allow_missing=False,
+                checksum="somesuppliedvalue",
+            )
+        exc = ar.exception
+        self.assertEqual(
+            "A custom checksum value can only be supplied when allow_missing is False.",
+            str(exc),
+        )
+
+    @MaintainedModel.no_autoupdates()
+    def test_get_or_create_archive_file_allow_missing_file_exists(self):
+        """
+        If a file exists and allow_missing is True, an ArchiveFile record should be created and its checksum
+        should be created from the actual file content, even if a checksum is provided.
+        """
+        fn = "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_mzxmls/BAT-xz971.mzXML"
+        adl = self.create_AccuCorDataLoader_object()
+        afrec = adl.get_or_create_archive_file(
+            Path(fn),
+            "ms_data",
+            "mzxml",
+            allow_missing=True,
+            checksum="somesuppliedvalue",
+        )
+        self.assertTrue(exists_in_db(afrec))
+        expected_hash = hash_file(Path(fn))
+        self.assertEqual(expected_hash, afrec.checksum)
+
+    def create_populated_AccuCorDataLoader_object(self, lcms_file):
+        xlsx = "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate.xlsx"
+        return AccuCorDataLoader(
+            # Original dataframe
+            pd.read_excel(
+                xlsx,
+                sheet_name=0,  # The first sheet
+                engine="openpyxl",
+            ).dropna(axis=0, how="all"),
+            # Corrected dataframe
+            pd.read_excel(
+                xlsx,
+                sheet_name=1,  # The second sheet
+                engine="openpyxl",
+            ).dropna(axis=0, how="all"),
+            # Peak annot file name
+            xlsx,
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="unknown",
+            date="1972-11-24",
+            researcher="Michael Neinast",
+            lcms_metadata_df=extract_dataframes_from_lcms_tsv(lcms_file),
+        )
+
+    @MaintainedModel.no_autoupdates()
+    def test_get_sample_header_by_mzxml_basename_one_match(self):
+        """
+        get_sample_header_by_mzxml_basename returns the sample header from the line of the lcms metadata file that has
+        the matching mzxml file basename on it
+        """
+        adl = self.create_populated_AccuCorDataLoader_object(
+            "DataRepo/data/tests/small_obob_lcms_metadata/lactate_neg.tsv",
+        )
+        hdr = adl.get_sample_header_by_mzxml_basename("BAT-xz971_neg.mzXML")
+        self.assertEqual("BAT-xz971", hdr)
+        self.assertEqual(0, adl.aggregated_errors_object.num_errors)
+
+    @MaintainedModel.no_autoupdates()
+    def test_get_sample_header_by_mzxml_basename_no_match(self):
+        """
+        get_sample_header_by_mzxml_basename returns None if the mzxml file basename isn't in the lcms metadata file
+        (because mzxml files are not required)
+        """
+        adl = self.create_populated_AccuCorDataLoader_object(
+            "DataRepo/data/tests/small_obob_lcms_metadata/lactate_neg.tsv",
+        )
+        hdr = adl.get_sample_header_by_mzxml_basename("BAT-xz971.mzXML")
+        self.assertIsNone(hdr)
+        self.assertEqual(0, adl.aggregated_errors_object.num_errors)
+
+    @MaintainedModel.no_autoupdates()
+    def test_get_sample_header_by_mzxml_basename_multiple_matches(self):
+        """
+        Exception if the same mzxml file basename occurs in the LCMS metadata file multiple times
+        """
+        adl = self.create_populated_AccuCorDataLoader_object(
+            "DataRepo/data/tests/small_obob_lcms_metadata/lactate_neg_multiple.tsv",
+        )
+        hdr = adl.get_sample_header_by_mzxml_basename("BAT-xz971_neg.mzXML")
+        self.assertIsNone(hdr)
+        self.assertEqual(1, len(adl.aggregated_errors_object.exceptions))
+        self.assertEqual(ValueError, type(adl.aggregated_errors_object.exceptions[0]))
+        self.assertEqual(
+            "2 instances of mzxml file [BAT-xz971_neg.mzXML] in the LCMS metadata file.",
+            str(adl.aggregated_errors_object.exceptions[0]),
+        )

@@ -1139,7 +1139,7 @@ class AccuCorDataLoader:
             )
 
         checksum_val = None
-        if allow_missing and checksum is not None:
+        if not path_obj.is_file() and allow_missing and checksum is not None:
             checksum_val = checksum
         else:
             checksum_val = hash_file(path_obj, allow_missing)
