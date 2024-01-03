@@ -23,8 +23,11 @@ class Command(BaseCommand):
         parser.add_argument(
             "--accucor-file",
             type=str,
-            help="Filepath of either an Accucor xlsx output, an Accucor csv export of the corrected data worksheet, "
-            "or (with --isocorr-format) an Isocorr corrected data csv output.",
+            help=(
+                "Filepath of either an Accucor xlsx output, an Accucor csv export of the corrected data worksheet, "
+                "or (with --isocorr-format) an Isocorr corrected data csv output.  The excel sheet names must be: "
+                "Accucor: 'Original' and 'Corrected'; Isocorr: 'absolte'."
+            ),
             required=True,
         )
         parser.add_argument(

@@ -19,8 +19,8 @@ class Command(BaseCommand):
             "--compounds",
             type=str,
             help=(
-                "Path to tab-delimited file containing headers of "
-                "'Compound','Formula', 'HMDB ID', and 'Synonyms'; required."
+                "Path to either an excel file containing a sheet named 'Compounds' or a tab-delimited file, containing "
+                "headers: 'Compound', 'Formula', 'HMDB ID', and 'Synonyms'; required."
             ),
             required=True,
         )

@@ -32,7 +32,7 @@ class Command(BaseCommand):
             "--protocols",
             type=str,
             help=(
-                "Path to EITHER a tab-delimited file containing the headers "
+                "Path to either a tab-delimited file containing the headers "
                 f"'{self.name_header}','{self.category_header}','{self.description_header}' "
                 f"OR a path to an xlsx workbook file containing a sheet named '{self.TREATMENTS_SHEET_NAME}' "
                 f"with the headers '{self.TREATMENTS_NAME_HEADER}','{self.TREATMENTS_DESC_HEADER}'"

@@ -13,6 +13,8 @@ from DataRepo.utils.file_utils import read_from_file
 
 
 class Command(BaseCommand):
+    example_samples = "DataRepo/data/examples/obob_fasted/obob_samples_table.tsv"
+
     # Show this when the user types help
     help = (
         "Loads data from a sample table into the database."
@@ -21,7 +23,15 @@ class Command(BaseCommand):
     )
 
     def add_arguments(self, parser):
-        parser.add_argument("sample_table_filename", type=str)
+        parser.add_argument(
+            "sample_table_filename",
+            type=str,
+            help=(
+                "Path to either a tab-delimited file or excel file with a sheet named 'Samples', e.g. "
+                f"{self.example_samples}."
+            ),
+            required=True,
+        )
         parser.add_argument(
             "--sample-table-headers",
             type=str,

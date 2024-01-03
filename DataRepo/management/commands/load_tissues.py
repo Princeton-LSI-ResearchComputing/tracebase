@@ -19,8 +19,8 @@ class Command(BaseCommand):
             "--tissues",
             type=str,
             help=(
-                "Path to tab-delimited file containing the headers "
-                "'Tissue','Description'"
+                "Path to either a tab-delimited file or excel file with a sheet named 'Tissues'.  "
+                "Required headers: 'Tissue' & 'Description'"
             ),
             required=True,
         )
