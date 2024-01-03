@@ -58,24 +58,24 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        if options["dry_run"]:
-            self.stdout.write(
-                self.style.MIGRATE_HEADING("DRY-RUN, NO CHANGES WILL BE SAVED")
+        try:
+            if options["dry_run"]:
+                self.stdout.write(
+                    self.style.MIGRATE_HEADING("DRY-RUN, NO CHANGES WILL BE SAVED")
+                )
+
+            self.protocols_df, self.batch_category = self.read_from_file(
+                options["protocols"]
             )
 
-        self.protocols_df, self.batch_category = self.read_from_file(
-            options["protocols"]
-        )
+            self.protocol_loader = ProtocolsLoader(
+                protocols=self.protocols_df,
+                category=self.batch_category,
+                dry_run=options["dry_run"],
+                verbosity=options["verbosity"],
+                defer_rollback=options["defer_rollback"],
+            )
 
-        self.protocol_loader = ProtocolsLoader(
-            protocols=self.protocols_df,
-            category=self.batch_category,
-            dry_run=options["dry_run"],
-            verbosity=options["verbosity"],
-            defer_rollback=options["defer_rollback"],
-        )
-
-        try:
             self.protocol_loader.load_protocol_data()
 
             self.stdout.write(
@@ -94,6 +94,12 @@ class Command(BaseCommand):
         except AggregatedErrors as aes:
             aes.print_summary()
             raise aes
+        except Exception as e:
+            aes2 = AggregatedErrors()
+            aes2.buffer_error(e)
+            if aes2.should_raise():
+                aes2.print_summary()
+                raise aes2
 
     def read_from_file(self, filename, format=None):
         """
@@ -151,7 +157,7 @@ class Command(BaseCommand):
 
         protocols_df = read_from_file(
             xlxs_file_containing_treatments_sheet,
-            sheet_name=self.TREATMENTS_SHEET_NAME,
+            sheet=self.TREATMENTS_SHEET_NAME,
             dtype={
                 name_header: str,
                 description_header: str,

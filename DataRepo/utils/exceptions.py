@@ -1449,14 +1449,19 @@ class InvalidHeaders(ValidationError):
         super().__init__(message)
         self.headers = headers
         self.expected_headers = expected_headers
-        self.lcms_file = file
+        self.file = file
         self.missing = missing
         self.unexpected = unexpected
 
 
 class InvalidLCMSHeaders(InvalidHeaders):
     def __init__(self, headers, expected_headers=None, file=None):
-        super().__init__(headers, expected_headers=expected_headers, file=file, fileformat="LCMS metadata")
+        super().__init__(
+            headers,
+            expected_headers=expected_headers,
+            file=file,
+            fileformat="LCMS metadata",
+        )
 
 
 class DuplicateHeaders(ValidationError):

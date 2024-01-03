@@ -1,5 +1,4 @@
 import argparse
-from csv import DictReader
 
 import yaml  # type: ignore
 from django.core.management import BaseCommand
@@ -95,6 +94,8 @@ class Command(BaseCommand):
             update_caches=not options["skip_cache_updates"],
         )
         loader.load_sample_table(
-            read_from_file(options["sample_table_filename"], sheet="Samples"),
+            read_from_file(options["sample_table_filename"], sheet="Samples").to_dict(
+                "records"
+            ),
         )
         print("Done loading sample table")

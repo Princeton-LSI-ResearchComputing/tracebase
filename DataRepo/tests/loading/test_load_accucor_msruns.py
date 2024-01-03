@@ -30,7 +30,7 @@ from DataRepo.utils import (
     NoSamplesError,
     TracerLabeledElementNotFound,
     UnskippedBlanksError,
-    extract_dataframes_from_lcms_tsv,
+    read_from_file,
 )
 from DataRepo.utils.accucor_data_loader import hash_file
 from DataRepo.utils.exceptions import (
@@ -1303,7 +1303,7 @@ class MSRunSampleSequenceTests(TracebaseTestCase):
             instrument="unknown",
             date="1972-11-24",
             researcher="Michael Neinast",
-            lcms_metadata_df=extract_dataframes_from_lcms_tsv(lcms_file),
+            lcms_metadata_df=read_from_file(lcms_file),
         )
         adl.prepare_metadata()
         return adl

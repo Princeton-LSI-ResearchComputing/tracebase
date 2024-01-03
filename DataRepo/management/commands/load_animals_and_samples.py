@@ -1,9 +1,7 @@
 import argparse
-from zipfile import BadZipFile
 
 import yaml  # type: ignore
 from django.core.management import BaseCommand, CommandError
-from openpyxl.utils.exceptions import InvalidFileException
 
 from DataRepo.models.hier_cached_model import (
     disable_caching_updates,
@@ -11,7 +9,7 @@ from DataRepo.models.hier_cached_model import (
 )
 from DataRepo.models.maintained_model import MaintainedModel
 from DataRepo.utils import SampleTableLoader
-from DataRepo.utils.file_utils import read_from_file, merge_dataframes
+from DataRepo.utils.file_utils import merge_dataframes, read_from_file
 
 
 class Command(BaseCommand):
@@ -167,7 +165,7 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.MIGRATE_HEADING("Loading samples..."))
         samples = read_from_file(
-            filename=sample_table_filename,
+            filepath=sample_table_filename,
             dtype={headers.ANIMAL_NAME: str},
             sheet="Samples",
         )

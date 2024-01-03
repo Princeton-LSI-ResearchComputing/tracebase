@@ -1,21 +1,16 @@
 import argparse
 import os
-from zipfile import BadZipFile
 
 from django.core.management import BaseCommand
-from openpyxl.utils.exceptions import InvalidFileException
 
 from DataRepo.models.hier_cached_model import (
     disable_caching_updates,
     enable_caching_updates,
 )
 from DataRepo.models.maintained_model import MaintainedModel
-from DataRepo.utils import AccuCorDataLoader
+from DataRepo.utils import AccuCorDataLoader, get_sheet_names, read_from_file
 from DataRepo.utils.exceptions import WrongExcelSheet
-from DataRepo.utils.file_utils import (
-    get_sheet_names,
-    read_from_file,
-)
+from DataRepo.utils.lcms_metadata_parser import read_lcms_metadata_from_file
 
 
 class Command(BaseCommand):
@@ -152,14 +147,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         lcms_metadata_df = None
         if options["lcms_file"] is not None:
-            try:
-                lcms_metadata_df = extract_dataframes_from_lcms_xlsx(
-                    options["lcms_file"]
-                )
-            except (InvalidFileException, ValueError, BadZipFile):  # type: ignore
-                lcms_metadata_df = extract_dataframes_from_lcms_tsv(
-                    options["lcms_file"]
-                )
+            lcms_metadata_df = read_lcms_metadata_from_file(options["lcms_file"])
 
         fmt = "Isocorr" if options["isocorr_format"] else "Accucor"
         print(f"Reading {fmt} file: {options['accucor_file']}")
@@ -213,22 +201,29 @@ class Command(BaseCommand):
         print(f"Done loading {fmt} data into MsRun, PeakGroups, and PeakData")
 
     def extract_dataframes_from_peakannotation_file(self, is_isocorr, peak_annot_file):
-        # Validate the format (Accucor vs Isocorr) using the sheet names (assuming excel)
+        # Validate the format (Accucor vs Isocorr) using the sheet names (returns None if not an excel file)
         sheet_names = get_sheet_names(peak_annot_file)
         if is_isocorr:
-            if "absolte" not in sheet_names:
+            if sheet_names is not None and "absolte" not in sheet_names:
                 raise WrongExcelSheet("Isocorr", sheet_names[1], "absolte", 2)
 
-            self.original = None  # We don't need the "original sheet for isocorr format
-            header = "absolte"
+            self.original = (
+                None  # We don't need the "original" sheet for isocorr format
+            )
+            corrected_sheet_name = "absolte"
         else:
-            if "Original" not in sheet_names:
-                raise WrongExcelSheet("Accucor", sheet_names[0], "Original", 1)
-            if "Corrected" not in sheet_names:
-                raise WrongExcelSheet("Accucor", sheet_names[1], "Corrected", 2)
+            if sheet_names is not None:
+                if "Original" not in sheet_names:
+                    raise WrongExcelSheet("Accucor", sheet_names[0], "Original", 1)
+                if "Corrected" not in sheet_names:
+                    raise WrongExcelSheet("Accucor", sheet_names[1], "Corrected", 2)
+                # get the "original" sheet when in accucor format
+                self.original = read_from_file(peak_annot_file, sheet="Original")
+            else:
+                self.original = (
+                    None  # There is no original sheet if the file is not an excel file
+                )
 
-            # get the "original" sheet when in accucor format
-            self.original = read_from_file(peak_annot_file, sheet_name="Original")
-            header = "Corrected"
+            corrected_sheet_name = "Corrected"
 
-        self.corrected = read_from_file(peak_annot_file, sheet_name=header)
+        self.corrected = read_from_file(peak_annot_file, sheet=corrected_sheet_name)

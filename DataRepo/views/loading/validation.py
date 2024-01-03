@@ -13,7 +13,7 @@ from DataRepo.forms import DataSubmissionValidationForm
 from DataRepo.models import LCMethod, MSRunSample, MSRunSequence, Researcher
 from DataRepo.utils.accucor_data_loader import get_sample_headers
 from DataRepo.utils.exceptions import MultiLoadStatus
-from DataRepo.utils.file_utils import read_from_file, get_sheet_names
+from DataRepo.utils.file_utils import get_sheet_names, read_from_file
 
 
 class DataValidationView(FormView):
@@ -301,7 +301,7 @@ class DataValidationView(FormView):
         sheet_name = "Corrected"
         if "absolte" in sheet_names:
             sheet_name = "absolte"
-        corrected_df = read_from_file(fp, sheet_name=sheet_name)
+        corrected_df = read_from_file(fp, sheet=sheet_name)
 
         return [f"{smpl_hdr}.mzxml" for smpl_hdr in get_sample_headers(corrected_df)]
 

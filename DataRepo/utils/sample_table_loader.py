@@ -696,7 +696,7 @@ class SampleTableLoader:
             # Pandas may have already parsed the date.  Note that the database returns a datetime.date, but the parser
             # returns a datetime.datetime.  To compare them, the parsed value is cast to a datetime.date.
             try:
-                sample_date = dateutil.parser.parse(sample_date_value).date()
+                sample_date = dateutil.parser.parse(str(sample_date_value)).date()
             except TypeError:
                 sample_date = sample_date_value.date()
 

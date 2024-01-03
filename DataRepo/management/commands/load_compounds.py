@@ -2,8 +2,12 @@ import argparse
 
 from django.core.management import BaseCommand
 
-from DataRepo.utils import CompoundsLoader, DryRun
-from DataRepo.utils.file_utils import read_from_file
+from DataRepo.utils import (
+    AggregatedErrors,
+    CompoundsLoader,
+    DryRun,
+    read_from_file,
+)
 
 
 class Command(BaseCommand):
@@ -48,24 +52,33 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        action = "Loading"
-        if options["dry_run"]:
-            action = "Validating"
-        self.stdout.write(self.style.MIGRATE_HEADING(f"{action} compound data"))
-
-        self.compounds_df = read_from_file(options["compounds"], sheet="Compounds")
-
-        # Initialize loader class
-        loader = CompoundsLoader(
-            compounds_df=self.compounds_df,
-            synonym_separator=options["synonym_separator"],
-            dry_run=options["dry_run"],
-            defer_rollback=options["defer_rollback"],
-        )
-
         try:
+            action = "Loading"
+            if options["dry_run"]:
+                action = "Validating"
+            self.stdout.write(self.style.MIGRATE_HEADING(f"{action} compound data"))
+
+            self.compounds_df = read_from_file(options["compounds"], sheet="Compounds")
+
+            # Initialize loader class
+            loader = CompoundsLoader(
+                compounds_df=self.compounds_df,
+                synonym_separator=options["synonym_separator"],
+                dry_run=options["dry_run"],
+                defer_rollback=options["defer_rollback"],
+            )
+
             loader.load_compound_data()
         except DryRun:
             pass
+        except AggregatedErrors as aes:
+            aes.print_summary()
+            raise aes
+        except Exception as e:
+            aes2 = AggregatedErrors()
+            aes2.buffer_error(e)
+            if aes2.should_raise():
+                aes2.print_summary()
+                raise aes2
 
         self.stdout.write(self.style.SUCCESS(f"{action} compound data completed"))

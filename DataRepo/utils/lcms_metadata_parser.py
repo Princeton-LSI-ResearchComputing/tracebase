@@ -3,12 +3,14 @@ from collections import defaultdict
 from datetime import timedelta
 
 from DataRepo.models.lc_method import LCMethod
+from DataRepo.utils import headers_are_as_expected, read_from_file
 from DataRepo.utils.exceptions import (
     DuplicateSampleDataHeaders,
+    InvalidHeaders,
+    InvalidLCMSHeaders,
     MissingPeakAnnotationFiles,
     MissingRequiredLCMSValues,
 )
-from DataRepo.utils.file_utils import read_from_file
 
 LCMS_HEADERS = (
     "tracebase sample name",  # Required
@@ -134,6 +136,19 @@ def get_lcms_metadata_dict_from_file(lcms_file, aes=None):
     return lcms_df_to_dict(lcms_metadata_df, aes)
 
 
+def read_lcms_metadata_from_file(lcms_file):
+    try:
+        return read_from_file(
+            lcms_file,
+            sheet="LCMS Metadata",
+            expected_headers=LCMS_HEADERS,
+        )
+    except InvalidHeaders as ih:
+        raise InvalidLCMSHeaders(
+            headers=ih.headers, expected_headers=ih.expected_headers, file=ih.file
+        )
+
+
 def check_peak_annotation_files(
     annot_files_from_study, lcms_metadata_dict=None, lcms_file=None, aes=None
 ):
@@ -195,3 +210,7 @@ def check_peak_annotation_files(
             aes.buffer_error(exc)
         else:
             raise exc
+
+
+def lcms_headers_are_valid(headers):
+    return headers_are_as_expected(LCMS_HEADERS, headers)
