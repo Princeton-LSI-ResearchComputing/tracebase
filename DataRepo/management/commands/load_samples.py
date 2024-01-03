@@ -30,7 +30,6 @@ class Command(BaseCommand):
                 "Path to either a tab-delimited file or excel file with a sheet named 'Samples', e.g. "
                 f"{self.example_samples}."
             ),
-            required=True,
         )
         parser.add_argument(
             "--sample-table-headers",
