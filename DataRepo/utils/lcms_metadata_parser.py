@@ -3,7 +3,6 @@ from collections import defaultdict
 from datetime import timedelta
 
 from DataRepo.models.lc_method import LCMethod
-from DataRepo.utils import headers_are_as_expected, read_from_file
 from DataRepo.utils.exceptions import (
     DuplicateSampleDataHeaders,
     InvalidHeaders,
@@ -11,6 +10,7 @@ from DataRepo.utils.exceptions import (
     MissingPeakAnnotationFiles,
     MissingRequiredLCMSValues,
 )
+from DataRepo.utils.file_utils import headers_are_as_expected, read_from_file
 
 LCMS_HEADERS = (
     "tracebase sample name",  # Required
