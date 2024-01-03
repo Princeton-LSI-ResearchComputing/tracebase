@@ -10,6 +10,7 @@ from DataRepo.models.hier_cached_model import (
 )
 from DataRepo.models.maintained_model import MaintainedModel
 from DataRepo.utils import SampleTableLoader
+from DataRepo.utils.file_utils import read_from_file
 
 
 class Command(BaseCommand):
@@ -94,9 +95,6 @@ class Command(BaseCommand):
             update_caches=not options["skip_cache_updates"],
         )
         loader.load_sample_table(
-            DictReader(
-                open(options["sample_table_filename"]),
-                dialect="excel-tab",
-            ),
+            read_from_file(options["sample_table_filename"], sheet="Samples"),
         )
         print("Done loading sample table")

@@ -2,11 +2,11 @@ import argparse
 import pathlib
 
 import numpy as np
-import pandas as pd
 from django.core.management import BaseCommand, CommandError
 
 from DataRepo.models.protocol import Protocol
 from DataRepo.utils import AggregatedErrors, DryRun, ProtocolsLoader
+from DataRepo.utils.file_utils import read_from_file
 
 
 class Command(BaseCommand):
@@ -105,6 +105,7 @@ class Command(BaseCommand):
         if format is None:
             format = pathlib.Path(filename).suffix.strip(".")
 
+        self.stdout.write(self.style.MIGRATE_HEADING("Loading animal treatments..."))
         if format == "tsv":
             protocols_df = self.read_protocols_tsv(filename)
         elif format == "xlsx":
@@ -124,7 +125,7 @@ class Command(BaseCommand):
     def read_protocols_tsv(self, protocols_tsv):
         # Keeping `na` to differentiate between intentional empty descriptions and spaces in the first column that were
         # intended to be tab characters
-        protocols_df = pd.read_table(
+        protocols_df = read_from_file(
             protocols_tsv,
             dtype=object,
             keep_default_na=False,
@@ -145,11 +146,10 @@ class Command(BaseCommand):
         return protocols_df
 
     def read_protocols_xlsx(self, xlxs_file_containing_treatments_sheet):
-        self.stdout.write(self.style.MIGRATE_HEADING("Loading animal treatments..."))
         name_header = self.TREATMENTS_NAME_HEADER
         description_header = self.TREATMENTS_DESC_HEADER
 
-        protocols_df = pd.read_excel(
+        protocols_df = read_from_file(
             xlxs_file_containing_treatments_sheet,
             sheet_name=self.TREATMENTS_SHEET_NAME,
             dtype={
@@ -157,7 +157,6 @@ class Command(BaseCommand):
                 description_header: str,
             },
             keep_default_na=False,
-            engine="openpyxl",
         )
 
         # rename template columns to ProtocolsLoader expectations

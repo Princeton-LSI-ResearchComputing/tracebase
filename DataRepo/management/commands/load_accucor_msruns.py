@@ -2,8 +2,6 @@ import argparse
 import os
 from zipfile import BadZipFile
 
-import pandas as pd
-from django.core.exceptions import ValidationError
 from django.core.management import BaseCommand
 from openpyxl.utils.exceptions import InvalidFileException
 
@@ -12,12 +10,12 @@ from DataRepo.models.hier_cached_model import (
     enable_caching_updates,
 )
 from DataRepo.models.maintained_model import MaintainedModel
-from DataRepo.utils import (
-    AccuCorDataLoader,
-    extract_dataframes_from_lcms_tsv,
-    extract_dataframes_from_lcms_xlsx,
-)
+from DataRepo.utils import AccuCorDataLoader
 from DataRepo.utils.exceptions import WrongExcelSheet
+from DataRepo.utils.file_utils import (
+    get_sheet_names,
+    read_from_file,
+)
 
 
 class Command(BaseCommand):
@@ -167,12 +165,9 @@ class Command(BaseCommand):
         print(f"Reading {fmt} file: {options['accucor_file']}")
         print(f"LOADING WITH PREFIX: {options['sample_name_prefix']}")
 
-        try:
-            self.extract_dataframes_from_peakannotation_xlsx(
-                options["isocorr_format"], options["accucor_file"]
-            )
-        except (InvalidFileException, ValueError, BadZipFile):  # type: ignore
-            self.extract_dataframes_from_peakannotation_csv(options["accucor_file"])
+        self.extract_dataframes_from_peakannotation_file(
+            options["isocorr_format"], options["accucor_file"]
+        )
 
         peak_annotation_file = options["accucor_file"]
 
@@ -217,94 +212,23 @@ class Command(BaseCommand):
 
         print(f"Done loading {fmt} data into MsRun, PeakGroups, and PeakData")
 
-    def extract_dataframes_from_peakannotation_xlsx(self, is_isocorr, peak_annot_file):
-        # For checking the sheets
-        sheet_names = pd.ExcelFile(peak_annot_file, engine="openpyxl").sheet_names
+    def extract_dataframes_from_peakannotation_file(self, is_isocorr, peak_annot_file):
+        # Validate the format (Accucor vs Isocorr) using the sheet names (assuming excel)
+        sheet_names = get_sheet_names(peak_annot_file)
         if is_isocorr:
-            if sheet_names[1] != "absolte":
+            if "absolte" not in sheet_names:
                 raise WrongExcelSheet("Isocorr", sheet_names[1], "absolte", 2)
 
-            self.original = None
+            self.original = None  # We don't need the "original sheet for isocorr format
+            header = "absolte"
         else:
-            if sheet_names[0] != "Original":
+            if "Original" not in sheet_names:
                 raise WrongExcelSheet("Accucor", sheet_names[0], "Original", 1)
-            if sheet_names[1] != "Corrected":
+            if "Corrected" not in sheet_names:
                 raise WrongExcelSheet("Accucor", sheet_names[1], "Corrected", 2)
 
-            # Note, setting `mangle_dupe_cols=False` would overwrite duplicates instead of raise an exception, so we're
-            # checking for duplicate headers manually here.
-            orig_heads = (
-                pd.read_excel(
-                    peak_annot_file,
-                    nrows=1,  # Read only the first row
-                    header=None,
-                    sheet_name=0,  # The first sheet
-                    engine="openpyxl",
-                )
-                .squeeze("columns")
-                .iloc[0]
-            )
+            # get the "original" sheet when in accucor format
+            self.original = read_from_file(peak_annot_file, sheet_name="Original")
+            header = "Corrected"
 
-            if self.headers_are_not_unique(orig_heads):
-                raise ValidationError(
-                    f"Column headers in Original data sheet are not unique. There are {self.num_heads} columns and "
-                    f"{self.num_uniq_heads} unique values"
-                )
-
-            # get the first 2 sheets as the original and corrected data
-            self.original = pd.read_excel(
-                peak_annot_file,
-                sheet_name=0,  # The first sheet
-                engine="openpyxl",
-            ).dropna(axis=0, how="all")
-
-        corr_heads = (
-            pd.read_excel(
-                peak_annot_file,
-                nrows=1,  # Read only the first row
-                header=None,
-                sheet_name=1,  # The second sheet
-                engine="openpyxl",
-            )
-            .squeeze("columns")
-            .iloc[0]
-        )
-
-        if self.headers_are_not_unique(corr_heads):
-            raise ValidationError(
-                f"Column headers in Corrected data sheet are not unique. There are {self.num_heads} columns and "
-                f"{self.num_uniq_heads} unique values"
-            )
-
-        self.corrected = pd.read_excel(
-            peak_annot_file,
-            sheet_name=1,  # The second sheet
-            engine="openpyxl",
-        ).dropna(axis=0, how="all")
-
-    def extract_dataframes_from_peakannotation_csv(self, peak_annot_file):
-        corr_heads = (
-            pd.read_csv(
-                peak_annot_file,
-                nrows=1,
-                header=None,
-            )
-            .squeeze("columns")
-            .iloc[0]
-        )
-
-        if self.headers_are_not_unique(corr_heads):
-            raise ValidationError(
-                f"Column headers in Corrected data sheet are not unique. There are {self.num_heads} columns and "
-                f"{self.num_uniq_heads} unique values"
-            )
-
-        self.original = None
-        self.corrected = pd.read_csv(peak_annot_file).dropna(axis=0, how="all")
-
-    def headers_are_not_unique(self, headers):
-        self.num_uniq_heads = len(pd.unique(headers))
-        self.num_heads = len(headers)
-        if self.num_uniq_heads != self.num_heads:
-            return True
-        return False
+        self.corrected = read_from_file(peak_annot_file, sheet_name=header)

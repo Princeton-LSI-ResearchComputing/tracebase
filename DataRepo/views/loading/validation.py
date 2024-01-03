@@ -3,7 +3,6 @@ import shutil
 import tempfile
 from typing import List
 
-import pandas as pd
 import yaml  # type: ignore
 from django.conf import settings
 from django.core.management import call_command
@@ -14,6 +13,7 @@ from DataRepo.forms import DataSubmissionValidationForm
 from DataRepo.models import LCMethod, MSRunSample, MSRunSequence, Researcher
 from DataRepo.utils.accucor_data_loader import get_sample_headers
 from DataRepo.utils.exceptions import MultiLoadStatus
+from DataRepo.utils.file_utils import read_from_file, get_sheet_names
 
 
 class DataValidationView(FormView):
@@ -297,11 +297,11 @@ class DataValidationView(FormView):
 
         TODO: Add the ability to submit mzxml files.
         """
-        corrected_df = pd.read_excel(
-            fp,
-            sheet_name=1,  # The second sheet
-            engine="openpyxl",
-        ).dropna(axis=0, how="all")
+        sheet_names = get_sheet_names(fp)
+        sheet_name = "Corrected"
+        if "absolte" in sheet_names:
+            sheet_name = "absolte"
+        corrected_df = read_from_file(fp, sheet_name=sheet_name)
 
         return [f"{smpl_hdr}.mzxml" for smpl_hdr in get_sample_headers(corrected_df)]
 

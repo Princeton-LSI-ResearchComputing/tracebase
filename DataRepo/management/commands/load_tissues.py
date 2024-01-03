@@ -1,9 +1,9 @@
 import argparse
 
-import pandas as pd
 from django.core.management import BaseCommand
 
 from DataRepo.utils import DryRun, TissuesLoader
+from DataRepo.utils.file_utils import read_from_file
 
 
 class Command(BaseCommand):
@@ -41,7 +41,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         # Keeping `na` to differentiate between intentional empty descriptions and spaces in the first column that were
         # intended to be tab characters
-        new_tissues = pd.read_csv(options["tissues"], sep="\t", keep_default_na=True)
+        new_tissues = read_from_file(options["tissues"], sheet="Tissues", keep_default_na=True)
 
         self.tissue_loader = TissuesLoader(
             tissues=new_tissues,

@@ -1,8 +1,6 @@
 import argparse
-import pathlib
 from zipfile import BadZipFile
 
-import pandas as pd
 import yaml  # type: ignore
 from django.core.management import BaseCommand, CommandError
 from openpyxl.utils.exceptions import InvalidFileException
@@ -13,10 +11,7 @@ from DataRepo.models.hier_cached_model import (
 )
 from DataRepo.models.maintained_model import MaintainedModel
 from DataRepo.utils import SampleTableLoader
-from DataRepo.utils.lcms_metadata_parser import (
-    extract_dataframes_from_lcms_tsv,
-    extract_dataframes_from_lcms_xlsx,
-)
+from DataRepo.utils.file_utils import read_from_file, merge_dataframes
 
 
 class Command(BaseCommand):
@@ -24,6 +19,7 @@ class Command(BaseCommand):
     example_animals = examples_dir + "obob_animals_table.tsv"
     example_samples = examples_dir + "obob_samples_table.tsv"
     example_yaml = examples_dir + "sample_and_animal_tables_headers.yaml"
+    example_lcms = "DataRepo/data/tests/small_obob_lcms_metadata/glucose.xlsx"
 
     # Show this when the user types help
     help = (
@@ -39,26 +35,38 @@ class Command(BaseCommand):
             "--animal-and-sample-table-filename",
             required=False,
             type=str,
-            help=f"file containing the sample-specific annotations, for example : {self.example_samples}",
+            help=(
+                f"Excel file containing the sample-specific annotations, (e.g. {self.example_samples}).  Required "
+                "sheet names: 'Animals' and 'Samples'.  Supported extensions: ['tsv', 'xlsx']."
+            ),
         )
         parser.add_argument(
             "--sample-table-filename",
             required=False,
             type=str,
-            help=f"file containing the sample-specific annotations, for example : {self.example_samples}",
+            help=(
+                "Excel or tab-delimited file containing the sample-specific annotations, (e.g. "
+                f"{self.example_samples}).  Required sheet name for excel: 'Samples'.  Supported extensions: ['tsv', "
+                "'xlsx']."
+            ),
         )
         parser.add_argument(
             "--animal-table-filename",
             required=False,
             type=str,
-            help=f"file containing the animal-specific annotations, for example : {self.example_animals}",
+            help=(
+                "Excel or tab-delimited file containing the animal-specific annotations, (e.g. "
+                f"{self.example_animals}).  Required sheet name for excel: 'Animals'.  Supported extensions: ['tsv', "
+                "'xlsx']."
+            ),
         )
         parser.add_argument(
             "--lcms-file",
             type=str,
             help=(
-                "Filepath of either an xlsx or csv file containing metadata associated with the liquid chromatography "
-                "and mass spec instrument run."
+                "Excel or tab-delimited file containing metadata associated with the liquid chromatography and mass "
+                f"spec instrument run, (e.g. {self.example_lcms}).  If an excel file is used, it will use the sheet "
+                "named 'LCMS Metadata' or the first sheet."
             ),
             default=None,
             required=False,
@@ -123,14 +131,10 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         lcms_metadata_df = None
         if options["lcms_file"] is not None:
-            try:
-                lcms_metadata_df = extract_dataframes_from_lcms_xlsx(
-                    options["lcms_file"]
-                )
-            except (InvalidFileException, ValueError, BadZipFile):  # type: ignore
-                lcms_metadata_df = extract_dataframes_from_lcms_tsv(
-                    options["lcms_file"]
-                )
+            lcms_metadata_df = read_from_file(
+                options["lcms_file"],
+                sheet="LCMS Metadata",
+            )
 
         self.stdout.write(self.style.MIGRATE_HEADING("Reading header definition..."))
         if options["table_headers"]:
@@ -172,7 +176,7 @@ class Command(BaseCommand):
         self.stdout.write(
             self.style.MIGRATE_HEADING("Merging animal and samples tables...")
         )
-        merged = pd.merge(left=samples, right=animals, on=headers.ANIMAL_NAME)
+        merged = merge_dataframes(left=samples, right=animals, on=headers.ANIMAL_NAME)
 
         self.stdout.write(
             self.style.MIGRATE_HEADING("Importing animals and samples...")
@@ -192,33 +196,3 @@ class Command(BaseCommand):
         )
 
         self.stdout.write(self.style.SUCCESS("Done loading sample table"))
-
-
-def read_from_file(filename, dtype, format=None, sheet=0):
-    """
-    Read sample data from a file and return a pandas dataframe
-    """
-    format_choices = ("tsv", "xlsx")
-    if format is None:
-        format = pathlib.Path(filename).suffix.strip(".")
-    if format == "tsv":
-        sample_data = pd.read_table(
-            filename,
-            dtype=dtype,
-            keep_default_na=False,
-        )
-    elif format == "xlsx":
-        sample_data = pd.read_excel(
-            filename,
-            sheet_name=sheet,
-            dtype=dtype,
-            keep_default_na=False,
-            engine="openpyxl",
-        )
-    else:
-        raise CommandError(
-            'Invalid file format reading samples: "%s", expected one of %s',
-            format_choices,
-            format,
-        )
-    return sample_data

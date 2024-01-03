@@ -280,7 +280,7 @@ class SampleTableLoader:
                 continue
 
             infusate_rec = self.get_or_create_infusate(rownum, row)
-            treatment_rec = self.get_treatment(rownum, row)
+            treatment_rec = self.get_treatment(row)
             animal_rec = self.get_or_create_animal(
                 rownum, row, infusate_rec, treatment_rec
             )
@@ -476,7 +476,7 @@ class SampleTableLoader:
             )[0]
         return infusate_rec
 
-    def get_treatment(self, rownum, row):
+    def get_treatment(self, row):
         treatment_name = self.getRowVal(row, "ANIMAL_TREATMENT")
         treatment_rec = None
         if treatment_name:

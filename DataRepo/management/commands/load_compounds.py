@@ -1,9 +1,9 @@
 import argparse
 
-import pandas as pd
 from django.core.management import BaseCommand
 
 from DataRepo.utils import CompoundsLoader, DryRun
+from DataRepo.utils.file_utils import read_from_file
 
 
 class Command(BaseCommand):
@@ -53,7 +53,7 @@ class Command(BaseCommand):
             action = "Validating"
         self.stdout.write(self.style.MIGRATE_HEADING(f"{action} compound data"))
 
-        self.extract_compounds_from_tsv(options)
+        self.compounds_df = read_from_file(options["compounds"], sheet="Compounds")
 
         # Initialize loader class
         loader = CompoundsLoader(
@@ -69,8 +69,3 @@ class Command(BaseCommand):
             pass
 
         self.stdout.write(self.style.SUCCESS(f"{action} compound data completed"))
-
-    def extract_compounds_from_tsv(self, options):
-        self.compounds_df = pd.read_csv(
-            options["compounds"], sep="\t", keep_default_na=False
-        )
