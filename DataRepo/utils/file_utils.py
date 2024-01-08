@@ -275,6 +275,11 @@ def get_sheet_names(filepath):
         return None  # Not an excel file
 
 
+def is_excel(filepath):
+    # Assuming excel if sheets are retrieved
+    return get_sheet_names(filepath) is not None
+
+
 def merge_dataframes(left, right, on):
     return pd.merge(left=left, right=right, on=on)
 

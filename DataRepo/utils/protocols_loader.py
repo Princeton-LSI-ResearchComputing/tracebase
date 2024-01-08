@@ -8,6 +8,8 @@ from DataRepo.utils.exceptions import (
     AggregatedErrors,
     ConflictingValueError,
     DryRun,
+    InfileDatabaseError,
+    NoSpaceAllowedWhenOneColumn,
     RequiredHeadersError,
     RequiredValuesError,
 )
@@ -140,7 +142,7 @@ class ProtocolsLoader:
                     )
                 else:
                     self.aggregated_errors_object.buffer_error(
-                        InfileDatabaseError(ie, index + 2, rec_dict)
+                        InfileDatabaseError(ie, rec_dict, rownum=index + 2)
                     )
             except ValidationError as ve:
                 vestr = str(ve)
@@ -152,12 +154,12 @@ class ProtocolsLoader:
                     # Only include a batch category error once
                     if not batch_cat_err_occurred:
                         self.aggregated_errors_object.buffer_error(
-                            InfileDatabaseError(ve, index + 2, rec_dict)
+                            InfileDatabaseError(ve, rec_dict, rownum=index + 2)
                         )
                     batch_cat_err_occurred = True
                 else:
                     self.aggregated_errors_object.buffer_error(
-                        InfileDatabaseError(ve, index + 2, rec_dict)
+                        InfileDatabaseError(ve, rec_dict, rownum=index + 2)
                     )
 
         if len(self.missing_reqd_vals.keys()) > 0:
@@ -182,27 +184,3 @@ class ProtocolsLoader:
                 val = None
 
         return val
-
-
-class NoSpaceAllowedWhenOneColumn(Exception):
-    def __init__(self, name):
-        message = (
-            f"Protocol with name '{name}' cannot contain a space unless a description is provided.  "
-            "Either the space(s) must be changed to a tab character or a description must be provided."
-        )
-        super().__init__(message)
-        self.name = name
-
-
-class InfileDatabaseError(Exception):
-    def __init__(self, exception, line_num, rec_dict):
-        nltab = "\n\t"
-        deets = [f"{k}: {v}" for k, v in rec_dict.items()]
-        message = (
-            f"{type(exception).__name__} on infile line {line_num}, creating record:\n\t{nltab.join(deets)}\n"
-            f"{str(exception)}"
-        )
-        super().__init__(message)
-        self.exception = exception
-        self.line_num = line_num
-        self.rec_dict = rec_dict

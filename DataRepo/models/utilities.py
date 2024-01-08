@@ -5,6 +5,8 @@ from chempy import Substance
 from chempy.util.periodic import atomic_number
 from django.apps import apps
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
+from django.db import IntegrityError
+from django.db.models import Q
 from django.forms.models import model_to_dict
 
 # Generally, child tables are at the top and parent tables are at the bottom
@@ -94,18 +96,16 @@ def get_model_fields(model):
     """
     Retrieves all non-auto- and non-relation- fields from the supplied model and returns as a list
     """
-    return list(
-        filter(
-            lambda x: x.get_internal_type() != "AutoField"
-            and not getattr(x, "is_relation"),
-            model._meta.get_fields(),
-        )
-    )
+    return [
+        f
+        for f in model._meta.get_fields()
+        if f.get_internal_type() != "AutoField" and not getattr(f, "is_relation")
+    ]
 
 
 def get_unique_constraint_fields(model):
     """
-    Returns a list of lists of fields involved in UniqueConstrains in a given model.
+    Returns a list of lists of fields involved in UniqueConstraints in a given model.
     """
     uflds = []
     if hasattr(model._meta, "constraints"):
@@ -113,6 +113,39 @@ def get_unique_constraint_fields(model):
             if type(constraint).__name__ == "UniqueConstraint":
                 uflds.append(constraint.fields)
     return uflds
+
+
+def get_unique_fields(model, fields=None):
+    """
+    Returns a list of non-auto-fields where unique is True.
+
+    If fields (list of field names) is provided, the returned fields are limited to the list of field names provided.
+    """
+    return [
+        f
+        for f in get_non_auto_model_fields(model)
+        if (fields is None or f.name in fields) and hasattr(f, "unique") and f.unique
+    ]
+
+
+def get_enumerated_fields(model, fields=None):
+    """
+    Returns a list of non-auto-fields where choices is populated.
+
+    If fields (list of field names) is provided, the returned fields are limited to the list of field names provided.
+    """
+    return [
+        f
+        for f in get_non_auto_model_fields(model)
+        if (fields is None or f.name in fields) and hasattr(f, "choices") and f.choices
+    ]
+
+
+def get_non_auto_model_fields(model):
+    """
+    Retrieves all non-auto-fields from the supplied model and returns as a list
+    """
+    return [f for f in model._meta.get_fields() if f.get_internal_type() != "AutoField"]
 
 
 def get_all_fields_named(target_field):
@@ -201,3 +234,115 @@ def exists_in_db(mdl_obj):
             return False
         raise e
     return True
+
+
+def check_for_inconsistencies(rec, rec_dict, rownum=None, sheet=None, file=None):
+    # This was moved here (from its prior global location at the top) to avoid circular import
+    from DataRepo.utils.exceptions import ConflictingValueError
+
+    conflicting_value_errors = []
+    for field, new_value in rec_dict.items():
+        orig_value = getattr(rec, field)
+        if orig_value != new_value:
+            conflicting_value_errors.append(
+                ConflictingValueError(
+                    rec,
+                    field,
+                    orig_value,
+                    new_value,
+                    rownum=rownum,
+                    sheet=sheet,
+                    file=file,
+                )
+            )
+    return conflicting_value_errors
+
+
+def handle_load_db_errors(
+    exception,
+    model,
+    rec_dict,
+    aes=None,
+    conflicts_list=None,
+    rownum=None,
+    sheet=None,
+    file=None,
+):
+    """
+    This function evaluates whether the supplied exception is the result of either a field value conflict or a
+    validation error (triggered by the clean code that runs from a full_save).  It will either buffer a
+    ConflictingValue error in the supplied conflicts_list, buffer a validation error in the supplied
+    AggregatedErrors object, or not buffer anything.  It returns a boolean indicating whether an error was handled
+    (/buffered).
+    """
+    # This was moved here (from its prior global location at the top) to avoid circular import
+    from DataRepo.utils.exceptions import InfileDatabaseError
+
+    if aes is None and conflicts_list is None:
+        raise ValueError(
+            "Either aes and/or conflicts_list is required by handle_load_db_errors()."
+        )
+    estr = str(exception)
+    if isinstance(exception, IntegrityError):
+        if "duplicate key value violates unique constraint" in estr:
+            # Create a list of lists of unique fields and unique combos of fields
+            # This first one is forced into a list of lists so that we only need to loop once
+            unique_combos = [
+                [f] for f in get_unique_fields(model, fields=rec_dict.keys())
+            ]
+            # Now get the actual unique combos
+            unique_combos.extend(get_unique_constraint_fields(model))
+            field_set = set(rec_dict.keys())
+            for combo_fields in unique_combos:
+                combo_set = set(combo_fields)
+                # Only proceed if we have all the values
+                if not combo_set.issubset(field_set):
+                    continue
+                # Retrieve the record with the conflicting value(s) that caused the unique constraint error
+                q = Q()
+                for uf in combo_fields:
+                    q &= Q(**{f"{uf}__exact": rec_dict[uf]})
+                qs = model.objects.filter(q)
+                if qs.count() == 1:
+                    rec = qs.first()
+                    errs = check_for_inconsistencies(
+                        rec, rec_dict, rownum=rownum, sheet=sheet, file=file
+                    )
+                    if conflicts_list:
+                        conflicts_list.extend(errs)
+                        return True
+                    elif aes:
+                        for err in errs:
+                            aes.buffer_error(err)
+                        return True
+        elif aes is not None:
+            aes.buffer_error(InfileDatabaseError(exception, rec_dict, rownum=rownum))
+            return True
+        # Raise Integrity errors that are not handled above
+        raise InfileDatabaseError(exception, rec_dict, rownum=rownum)
+    elif isinstance(exception, ValidationError):
+        if "is not a valid choice" in estr:
+            choice_fields = get_enumerated_fields(model, fields=rec_dict.keys())
+            for choice_field in choice_fields:
+                if choice_field in estr and rec_dict[choice_field] is not None:
+                    if aes is not None:
+                        # Only include error once
+                        if not aes.exception_type_exists():
+                            aes.buffer_error(
+                                InfileDatabaseError(exception, rec_dict, rownum=rownum)
+                            )
+                        else:
+                            for existing_exc in aes.get_exception_type(
+                                InfileDatabaseError
+                            ):
+                                if existing_exc.rec_dict != rec_dict:
+                                    aes.buffer_error(
+                                        InfileDatabaseError(
+                                            exception, rec_dict, rownum=rownum
+                                        )
+                                    )
+                        # Whether we buffered or not, the error was identified and handled
+                        return True
+                    raise InfileDatabaseError(exception, rec_dict, rownum=rownum)
+    # If we get here, we did not identify the error as one we knew what to do with
+    return False
