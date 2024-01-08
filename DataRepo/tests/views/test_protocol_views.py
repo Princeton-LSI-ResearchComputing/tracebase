@@ -18,9 +18,9 @@ def assert_coordinator_state_is_initialized():
         raise ValueError(
             f"Before setting up test data, there are {len(all_coordinators)} MaintainedModelCoordinators."
         )
-    if all_coordinators[0].auto_update_mode != "immediate":
+    if all_coordinators[0].auto_update_mode != "always":
         raise ValueError(
-            "Before setting up test data, the default coordinator is not in immediate autoupdate mode."
+            "Before setting up test data, the default coordinator is not in always autoupdate mode."
         )
     if 0 != all_coordinators[0].buffer_size():
         raise UncleanBufferError()

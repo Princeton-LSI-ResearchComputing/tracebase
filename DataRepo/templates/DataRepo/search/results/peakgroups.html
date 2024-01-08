@@ -443,10 +443,10 @@
                             None
                         {% else %}
                             {% for link in pg.msrun_sample.sample.animal.infusate.tracer_links.all %}
-                                {% if link.tracer.get_name is None %}
+                                {% if link.tracer.name is None %}
                                     None{% if not forloop.last %};<br>{% endif%}
                                 {% else %}
-                                    <div class="nobr">{{ link.tracer.get_name }}{% if not forloop.last %};<br>{% endif%}</div>
+                                    <div class="nobr">{{ link.tracer.name }}{% if not forloop.last %};<br>{% endif%}</div>
                                 {% endif %}
                             {% endfor %}
                         {% endif %}

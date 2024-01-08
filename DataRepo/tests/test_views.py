@@ -41,9 +41,9 @@ def assert_coordinator_state_is_initialized():
         raise ValueError(
             f"Before setting up test data, there are {len(all_coordinators)} MaintainedModelCoordinators."
         )
-    if all_coordinators[0].auto_update_mode != "immediate":
+    if all_coordinators[0].auto_update_mode != "always":
         raise ValueError(
-            "Before setting up test data, the default coordinator is not in immediate autoupdate mode."
+            "Before setting up test data, the default coordinator is not in always autoupdate mode."
         )
     if 0 != all_coordinators[0].buffer_size():
         raise UncleanBufferError()
@@ -129,11 +129,11 @@ class ViewTests(TracebaseTestCase):
             len(all_coordinators),
             msg=msg + "  The coordinator_stack should be empty.",
         )
-        # Make sure that its mode is "immediate"
+        # Make sure that its mode is "always"
         self.assertEqual(
-            "immediate",
+            "always",
             all_coordinators[0].auto_update_mode,
-            msg=msg + "  Mode is 'immediate'.",
+            msg=msg + "  Mode should be 'always'.",
         )
         # Make sure that the buffer is empty to start
         for coordinator in all_coordinators:
@@ -610,11 +610,11 @@ class ViewNullToleranceTests(ViewTests):
             len(all_coordinators),
             msg=msg + "  The coordinator_stack should have the disabled coordinator.",
         )
-        # Make sure that its mode is "immediate"
+        # Make sure that its mode is "always"
         self.assertEqual(
-            "immediate",
+            "always",
             all_coordinators[0].auto_update_mode,
-            msg=msg + "  Mode is 'immediate'.",
+            msg=msg + "  Mode should be 'always'.",
         )
         # Make sure that the buffer is empty to start
         for coordinator in all_coordinators:
@@ -654,11 +654,11 @@ class ValidationViewTests(TracebaseTransactionTestCase):
         self.assertEqual(
             1, len(all_coordinators), msg=msg + "  The coordinator_stack is empty."
         )
-        # Make sure that its mode is "immediate"
+        # Make sure that its mode is "always"
         self.assertEqual(
-            "immediate",
+            "always",
             all_coordinators[0].auto_update_mode,
-            msg=msg + "  Mode is 'immediate'.",
+            msg=msg + "  Mode should be 'always'.",
         )
         # Make sure that the buffer is empty to start
         for coordinator in all_coordinators:

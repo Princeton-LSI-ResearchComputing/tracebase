@@ -1853,7 +1853,7 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
             raise ValueError(
                 f"Before setting up test data, there are {len(all_coordinators)} MaintainedModelCoordinators."
             )
-        if all_coordinators[0].auto_update_mode != "immediate":
+        if all_coordinators[0].auto_update_mode != "always":
             raise ValueError(
                 "Before setting up test data, the default coordinator is not in immediate autoupdate mode."
             )
@@ -1893,11 +1893,11 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
         self.assertEqual(
             1, len(all_coordinators), msg=msg + "  The coordinator_stack is empty."
         )
-        # Make sure that its mode is "immediate"
+        # Make sure that its mode is "always"
         self.assertEqual(
-            "immediate",
+            "always",
             all_coordinators[0].auto_update_mode,
-            msg=msg + "  Mode is 'immediate'.",
+            msg=msg + "  Mode should be 'always'.",
         )
         # Make sure that the buffer is empty to start
         for coordinator in all_coordinators:
