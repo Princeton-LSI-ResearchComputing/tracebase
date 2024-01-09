@@ -138,7 +138,7 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
         self.assertEqual(expected, field_names)
 
     def test_get_enumerated_fields(self):
-        field_names = [f.name for f in get_enumerated_fields(Animal)]
+        field_names = get_enumerated_fields(Animal)
         self.assertEqual(["sex"], field_names)
 
     def test_get_unique_fields(self):
