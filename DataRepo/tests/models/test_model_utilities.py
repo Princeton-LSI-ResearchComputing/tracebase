@@ -169,7 +169,7 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
 
     def test_handle_load_db_errors_integrityerror(self):
         """
-        Tests handle_load_db_errors's handling of unique constraint violations
+        Tests handle_load_db_errors's handling of unique constraint violations (i.e. IntegrityErrors).
         """
         call_command(
             "load_study_table",
@@ -202,7 +202,7 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
 
     def test_handle_load_db_errors_otherintegrityerror(self):
         """
-        Tests handle_load_db_errors's handling of other integrity errors
+        Tests handle_load_db_errors's handling of other IntegrityErrors.
         """
         rec_dict = {
             "code": "obf",
@@ -224,7 +224,7 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
 
     def test_handle_load_db_errors_validationerror(self):
         """
-        Tests handle_load_db_errors's handling of validation errors raised by invalid enumeration choices
+        Tests handle_load_db_errors's handling of ValidationErrors raised by invalid enumeration choices.
         """
         rec_dict = {
             "researcher": "George",
@@ -250,7 +250,7 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
 
     def test_handle_load_db_errors_unsupportederror(self):
         """
-        Tests handle_load_db_errors's handling of unsupported error types
+        Tests handle_load_db_errors's handling of unsupported error types (should raise)
         """
         rec_dict = {
             "name": "anything",
