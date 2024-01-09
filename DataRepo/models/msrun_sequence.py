@@ -18,6 +18,12 @@ class MSRunSequence(Model):
         ("QTOF", "QTOF"),
         ("unknown", "unknown"),
     ]
+    # Note, INSTRUMENT_DEFAULT is not used as a "default" value for loading.  It is used for the following reasons:
+    # 1. To allow the validation page to proceed without complaining about a missing instrument value
+    # 2. As a placeholder value in order to proceed when a problem with an instrument value is encountered.  Whenever
+    #    such a problem is encountered, an error is buffered and eventually raised at the end of a failed load.
+    # 3. To avoid hard-coding static "magic" values in multiple places.
+    INSTRUMENT_DEFAULT = INSTRUMENT_CHOICES[4][0]
 
     id = AutoField(primary_key=True)
     researcher = CharField(

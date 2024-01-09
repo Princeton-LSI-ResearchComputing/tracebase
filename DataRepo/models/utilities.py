@@ -4,7 +4,7 @@ import warnings
 from chempy import Substance
 from chempy.util.periodic import atomic_number
 from django.apps import apps
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.forms.models import model_to_dict
 
 # Generally, child tables are at the top and parent tables are at the bottom
@@ -149,11 +149,14 @@ def create_is_null_field(field_with_null):
     ordered by a date field.  This method will return a dict that contains the `select` and `order_by arguments for the
     .extra(method, along with the name of the added "is null field that you can use as an argument to `order_by`)`.
 
-    Example: extra_args, is_null_field = create_is_null_field("msrun_sample__date")
-    MSRun.objects.extra(**extra_args).order_by(f"-{is_null_field}", "msrun_sample__date")
+    Example: extra_args, is_null_field = create_is_null_field("msrun_sequence__date")
+    MSRunSequence.objects.extra(**extra_args).order_by(f"-{is_null_field}", "msrun_sequence__date")
 
     Note, adding .annotate() doesn't seem to work, or rather I couldn't get it to work. See:
     https://stackoverflow.com/questions/7749216/django-order-by-date-but-have-none-at-end
+
+    See the Django documentation for `extra()` and note that it is currently deprecated, and will go away in version 5.
+    TODO: Attempt again to solve the problem this function works around (see docstring)
     """
     is_null_field_name = f"{field_with_null}_is_null"
 
@@ -181,3 +184,20 @@ def create_is_null_field(field_with_null):
 
 def model_as_dict(obj):
     return model_to_dict(obj)
+
+
+def exists_in_db(mdl_obj):
+    """
+    This takes a model object and returns a boolean to indicate whether the object exists in the database.
+
+    Note, it does not assert that the values of the fields are the same.
+    """
+    if not hasattr(mdl_obj, "pk"):
+        return False
+    try:
+        type(mdl_obj).objects.get(pk__exact=mdl_obj.pk)
+    except Exception as e:
+        if issubclass(type(e), ObjectDoesNotExist):
+            return False
+        raise e
+    return True

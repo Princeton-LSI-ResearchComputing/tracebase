@@ -21,7 +21,6 @@ from DataRepo.models import (
     Infusate,
     LCMethod,
     MaintainedModel,
-    MSRun,
     MSRunSample,
     MSRunSequence,
     PeakData,
@@ -171,15 +170,15 @@ class StudyTests(TracebaseTestCase, ExampleDataConsumer):
             data_type=mstype,
             data_format=mzxfmt,
         )
-        self.msrun = MSRunSample(
+        self.msrs = MSRunSample(
             msrun_sequence=seq,
             sample=self.sample,
             polarity="positive",
             ms_raw_file=rawrec,
             ms_data_file=mzxrec,
         )
-        self.msrun.full_clean()
-        self.msrun.save()
+        self.msrs.full_clean()
+        self.msrs.save()
 
         self.ms_peak_annotation = DataType.objects.get(code="ms_peak_annotation")
         self.accucor_format = DataFormat.objects.get(code="accucor")
@@ -196,7 +195,7 @@ class StudyTests(TracebaseTestCase, ExampleDataConsumer):
         self.peak_group = PeakGroup.objects.create(
             name=initial_peak_group["name"],
             formula=initial_peak_group["formula"],
-            # msrun_sample=self.msrun,  # TODO: Uncomment this once issue 712 is done
+            msrun_sample=self.msrs,
             peak_annotation_file=self.peak_annotation_file,
         )
         # actual code would have to more careful in retrieving compounds based
@@ -278,7 +277,7 @@ class StudyTests(TracebaseTestCase, ExampleDataConsumer):
         self.assertRaises(
             IntegrityError,
             lambda: PeakGroup.objects.create(
-                name=self.peak_group.name, msrun_sample=self.msrun
+                name=self.peak_group.name, msrun_sample=self.msrs
             ),
         )
 
@@ -296,7 +295,6 @@ class ProtocolTests(TracebaseTestCase):
             )
 
 
-@tag("broken_until_issue712")
 @override_settings(CACHES=settings.TEST_CACHES)
 class DataLoadingTests(TracebaseTestCase):
     @classmethod
@@ -350,10 +348,11 @@ class DataLoadingTests(TracebaseTestCase):
         call_command(
             "load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
-            instrument="default instrument",
+            instrument="unknown",
             accucor_file="DataRepo/data/tests/small_obob2/obob_maven_6eaas_inf.xlsx",
             date="2021-04-29",
             researcher="Michael Neinast",
+            polarity="positive",
         )
         cls.PEAK_ANNOTATION_FILE_COUNT = 1
         cls.INF_COMPOUNDS_COUNT = 7
@@ -363,10 +362,11 @@ class DataLoadingTests(TracebaseTestCase):
         call_command(
             "load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
-            instrument="default instrument",
+            instrument="unknown",
             accucor_file="DataRepo/data/tests/small_obob2/obob_maven_6eaas_serum.xlsx",
             date="2021-04-29",
             researcher="Michael Neinast",
+            polarity="positive",
         )
         cls.PEAK_ANNOTATION_FILE_COUNT += 1
         cls.SERUM_COMPOUNDS_COUNT = 13
@@ -377,10 +377,11 @@ class DataLoadingTests(TracebaseTestCase):
         call_command(
             "load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
-            instrument="default instrument",
+            instrument="unknown",
             accucor_file="DataRepo/data/tests/small_obob2/obob_maven_6eaas_inf_corrected.csv",
             date="2021-10-14",
             researcher="Michael Neinast",
+            polarity="positive",
         )
         cls.PEAK_ANNOTATION_FILE_COUNT += 1
         cls.NULL_ORIG_COMPOUNDS_COUNT = 7
@@ -405,13 +406,13 @@ class DataLoadingTests(TracebaseTestCase):
         study = Study.objects.get(name="obob_fasted")
         self.assertEqual(study.animals.count(), self.ALL_OBOB_ANIMALS_COUNT)
 
-        # MsRun should be equivalent to the samples
-        MSRUN_COUNT = (
+        # MSRunSample should be equivalent to the samples
+        MSRUNSAMPLE_COUNT = (
             self.INF_SAMPLES_COUNT
             + self.SERUM_SAMPLES_COUNT
             + self.NULL_ORIG_SAMPLES_COUNT
         )
-        self.assertEqual(MSRun.objects.all().count(), MSRUN_COUNT)
+        self.assertEqual(MSRunSample.objects.all().count(), MSRUNSAMPLE_COUNT)
 
     def test_sample_data(self):
         sample = Sample.objects.get(name="bat-xz969")
@@ -577,7 +578,7 @@ class DataLoadingTests(TracebaseTestCase):
             call_command(
                 "load_accucor_msruns",
                 lc_protocol_name="polar-HILIC-25-min",
-                instrument="default instrument",
+                instrument="unknown",
                 accucor_file="DataRepo/data/tests/small_obob2/obob_maven_6eaas_inf_sample_dupe.xlsx",
                 date="2021-08-20",
                 researcher="Michael",
@@ -597,11 +598,12 @@ class DataLoadingTests(TracebaseTestCase):
         call_command(
             "load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
-            instrument="default instrument",
+            instrument="unknown",
             accucor_file="DataRepo/data/tests/small_obob2/obob_maven_6eaas_inf_2.xlsx",
             date="2021-04-30",
             researcher="Michael Neinast",
             new_researcher=False,
+            polarity="positive",
         )
 
     @MaintainedModel.no_autoupdates()
@@ -615,10 +617,11 @@ class DataLoadingTests(TracebaseTestCase):
             call_command(
                 "load_accucor_msruns",
                 lc_protocol_name="polar-HILIC-25-min",
-                instrument="default instrument",
+                instrument="unknown",
                 accucor_file="DataRepo/data/tests/small_obob2/obob_maven_6eaas_inf_2.xlsx",
                 date="2021-04-30",
                 researcher="Luke Skywalker",
+                polarity="positive",
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
@@ -636,11 +639,12 @@ class DataLoadingTests(TracebaseTestCase):
         call_command(
             "load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
-            instrument="default instrument",
+            instrument="unknown",
             accucor_file="DataRepo/data/tests/small_obob2/obob_maven_6eaas_inf_2.xlsx",
             date="2021-04-30",
             researcher="Luke Skywalker",
             new_researcher=True,
+            polarity="positive",
         )
         # Test that basically, no exception occurred
         self.assertTrue(True)
@@ -652,22 +656,26 @@ class DataLoadingTests(TracebaseTestCase):
         #   Hidden flag is suggested
         #   Existing researchers are shown
         exp_err = (
-            "Researcher [Michael Neinast] exists.  --new-researcher cannot be used for existing researchers.  Current "
-            "researchers are:\nMichael Neinast\nXianfeng Zeng"
+            "Researcher ['Michael Neinast'] exists.  --new-researcher cannot be used for existing researchers.  "
+            "Current researchers are:\nMichael Neinast\nXianfeng Zeng"
         )
         with self.assertRaises(AggregatedErrors) as ar:
             call_command(
                 "load_accucor_msruns",
                 lc_protocol_name="polar-HILIC-25-min",
-                instrument="default instrument",
+                instrument="unknown",
                 accucor_file="DataRepo/data/tests/small_obob2/obob_maven_6eaas_inf_2.xlsx",
                 date="2021-04-30",
                 researcher="Michael Neinast",
                 new_researcher=True,
+                polarity="positive",
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
-        self.assertTrue(exp_err in str(aes.exceptions[0]))
+        self.assertTrue(
+            exp_err in str(aes.exceptions[0]),
+            msg=f"Expected: [{exp_err}] Got: [{str(aes.exceptions[0])}]",
+        )
 
     @MaintainedModel.no_autoupdates()
     def test_ls_new_researcher_and_aggregate_errors(self):
@@ -735,10 +743,11 @@ class DataLoadingTests(TracebaseTestCase):
         call_command(
             "load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
-            instrument="default instrument",
+            instrument="unknown",
             accucor_file="DataRepo/data/tests/small_obob2/obob_maven_6eaas_inf_corrected_valid_syn.csv",
             date="2021-11-19",
             researcher="Michael Neinast",
+            polarity="positive",
         )
 
         self.assertTrue(
@@ -763,10 +772,11 @@ class DataLoadingTests(TracebaseTestCase):
             call_command(
                 "load_accucor_msruns",
                 lc_protocol_name="polar-HILIC-25-min",
-                instrument="default instrument",
+                instrument="unknown",
                 accucor_file="DataRepo/data/tests/small_obob2/obob_maven_6eaas_inf_corrected_invalid_syn.csv",
                 date="2021-11-18",
                 researcher="Michael Neinast",
+                polarity="positive",
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
@@ -782,12 +792,12 @@ class DataLoadingTests(TracebaseTestCase):
         )
 
 
-@tag("broken_until_issue712")
 @override_settings(CACHES=settings.TEST_CACHES)
 class PropertyTests(TracebaseTestCase):
+    fixtures = ["lc_methods.yaml", "data_types.yaml", "data_formats.yaml"]
+
     @classmethod
     def setUpTestData(cls):
-        call_command("loaddata", "lc_methods")
         call_command(
             "load_compounds",
             compounds="DataRepo/data/tests/small_obob2/compounds.tsv",
@@ -818,19 +828,21 @@ class PropertyTests(TracebaseTestCase):
         call_command(
             "load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
-            instrument="default instrument",
+            instrument="unknown",
             accucor_file="DataRepo/data/tests/small_obob2/obob_maven_6eaas_inf.xlsx",
             date="2021-04-29",
             researcher="Michael Neinast",
+            polarity="positive",
         )
 
         call_command(
             "load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
-            instrument="default instrument",
+            instrument="unknown",
             accucor_file="DataRepo/data/tests/small_obob2/obob_maven_6eaas_serum.xlsx",
             date="2021-04-29",
             researcher="Michael Neinast",
+            polarity="positive",
         )
         cls.SERUM_COMPOUNDS_COUNT = 13
 
@@ -838,10 +850,11 @@ class PropertyTests(TracebaseTestCase):
         call_command(
             "load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
-            instrument="default instrument",
+            instrument="unknown",
             accucor_file="DataRepo/data/tests/small_obob2/obob_maven_6eaas_inf_corrected.csv",
             date="2021-10-14",
             researcher="Michael Neinast",
+            polarity="positive",
         )
 
         # defining a primary animal object for repeated tests
@@ -870,13 +883,14 @@ class PropertyTests(TracebaseTestCase):
     def test_missing_serum_sample_peak_data(self):
         animal = self.MAIN_SERUM_ANIMAL
         last_serum_sample = animal.last_serum_sample
-        # Sample->MSRun is a restricted relationship, so the MSRuns must be deleted before the sample can be deleted
-        serum_sample_msrun = MSRun.objects.filter(
+        # Sample->MSRunSample is a restricted relationship, so the MSRunSamples must be deleted before the sample can be
+        # deleted
+        serum_sample_msrun = MSRunSample.objects.filter(
             sample__name=last_serum_sample.name
         ).get()
         serum_sample_msrun.delete()
         """
-        with the msrun deleted, the 7 rows of prior peak data
+        with the msrun_sample deleted, the 7 rows of prior peak data
         (test_sample_peak_data, above) are now 0/gone
         """
         peakdata = PeakData.objects.filter(
@@ -987,13 +1001,42 @@ class PropertyTests(TracebaseTestCase):
         # Retrieve a sample associated with an animal that has a tracer with only a nitrogen label
         sample = Sample.objects.get(name__exact="test_animal_2_sample_1")
         lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
-        msrun = MSRun(
-            sample=sample,
+
+        seq = MSRunSequence(
             researcher="george",
             date=datetime.strptime("1992-1-1".strip(), "%Y-%m-%d"),
+            instrument=MSRunSequence.INSTRUMENT_CHOICES[0][1],
             lc_method=lcm,
         )
-        msrun.save()
+        seq.full_clean()
+        seq.save()
+
+        mstype = DataType.objects.get(code="ms_data")
+        rawfmt = DataFormat.objects.get(code="ms_raw")
+        mzxfmt = DataFormat.objects.get(code="mzxml")
+        rawrec = ArchiveFile.objects.create(
+            filename="test.raw",
+            file_location=None,
+            checksum="558ea654d7f2914ca4527580edf4fac11bd151c5",
+            data_type=mstype,
+            data_format=rawfmt,
+        )
+        mzxrec = ArchiveFile.objects.create(
+            filename="test.mzxml",
+            file_location=None,
+            checksum="558ea654d7f2914ca4527580edf4fac11bd151c4",
+            data_type=mstype,
+            data_format=mzxfmt,
+        )
+        msrs = MSRunSample(
+            msrun_sequence=seq,
+            sample=sample,
+            polarity="positive",
+            ms_raw_file=rawrec,
+            ms_data_file=mzxrec,
+        )
+        msrs.full_clean()
+        msrs.save()
 
         ms_peak_annotation = DataType.objects.get(code="ms_peak_annotation")
         accucor_format = DataFormat.objects.get(code="accucor")
@@ -1008,7 +1051,7 @@ class PropertyTests(TracebaseTestCase):
         pg = PeakGroup(
             name="lactate",
             peak_annotation_file=peak_annotation_file,
-            msrun_sample=msrun,
+            msrun_sample=msrs,
         )
         pg.save()
 
@@ -1123,16 +1166,47 @@ class PropertyTests(TracebaseTestCase):
         self.assertEqual(last_serum_sample.name, second_serum_sample.name)
 
         lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
-        msrun = MSRun.objects.create(
+
+        seq = MSRunSequence(
             researcher="John Doe",
             date=datetime.now(),
-            sample=second_serum_sample,
+            instrument=MSRunSequence.INSTRUMENT_CHOICES[0][1],
             lc_method=lcm,
         )
+        seq.full_clean()
+        seq.save()
+
+        mstype = DataType.objects.get(code="ms_data")
+        rawfmt = DataFormat.objects.get(code="ms_raw")
+        mzxfmt = DataFormat.objects.get(code="mzxml")
+        rawrec = ArchiveFile.objects.create(
+            filename="test.raw",
+            file_location=None,
+            checksum="558ea654d7f2914ca4527580edf4fac11bd151c5",
+            data_type=mstype,
+            data_format=rawfmt,
+        )
+        mzxrec = ArchiveFile.objects.create(
+            filename="test.mzxml",
+            file_location=None,
+            checksum="558ea654d7f2914ca4527580edf4fac11bd151c4",
+            data_type=mstype,
+            data_format=mzxfmt,
+        )
+        msrs = MSRunSample(
+            msrun_sequence=seq,
+            sample=second_serum_sample,
+            polarity="positive",
+            ms_raw_file=rawrec,
+            ms_data_file=mzxrec,
+        )
+        msrs.full_clean()
+        msrs.save()
+
         second_serum_peak_group = PeakGroup.objects.create(
             name=peak_group.name,
             formula=peak_group.formula,
-            msrun_sample=msrun,
+            msrun_sample=msrs,
             peak_annotation_file=peak_group.peak_annotation_file,
         )
         second_serum_peak_group.compounds.add(
@@ -1212,13 +1286,43 @@ class PropertyTests(TracebaseTestCase):
 
         lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
 
-        # Create a later msrun with the later serum sample (but no peak group)
-        msrun = MSRun.objects.create(
+        # Create a later msrun_sample with the later serum sample (but no peak group)
+        seq = MSRunSequence(
             researcher="John Doe",
             date=datetime.now(),
-            sample=second_serum_sample,
+            instrument=MSRunSequence.INSTRUMENT_CHOICES[0][1],
             lc_method=lcm,
         )
+        seq.full_clean()
+        seq.save()
+
+        mstype = DataType.objects.get(code="ms_data")
+        rawfmt = DataFormat.objects.get(code="ms_raw")
+        mzxfmt = DataFormat.objects.get(code="mzxml")
+        rawrec = ArchiveFile.objects.create(
+            filename="test.raw",
+            file_location=None,
+            checksum="558ea654d7f2914ca4527580edf4fac11bd151c5",
+            data_type=mstype,
+            data_format=rawfmt,
+        )
+        mzxrec = ArchiveFile.objects.create(
+            filename="test.mzxml",
+            file_location=None,
+            checksum="558ea654d7f2914ca4527580edf4fac11bd151c4",
+            data_type=mstype,
+            data_format=mzxfmt,
+        )
+        msrs = MSRunSample(
+            msrun_sequence=seq,
+            sample=second_serum_sample,
+            polarity="positive",
+            ms_raw_file=rawrec,
+            ms_data_file=mzxrec,
+        )
+        msrs.full_clean()
+        msrs.save()
+
         # DO NOT CREATE A PEAKGROUP FOR THE TRACER
         self.assertEqual(peak_group.labels.count(), 1, msg="Assure load was complete")
         # With the new logic of obtaining the last instance of a peak group among serum samples, this should still
@@ -1234,7 +1338,7 @@ class PropertyTests(TracebaseTestCase):
         second_serum_peak_group = PeakGroup.objects.create(
             name=peak_group.name,
             formula=peak_group.formula,
-            msrun_sample=msrun,
+            msrun_sample=msrs,
             peak_annotation_file=peak_group.peak_annotation_file,
         )
         second_serum_peak_group.compounds.add(
@@ -1318,7 +1422,9 @@ class PropertyTests(TracebaseTestCase):
             .get()
         )
 
-        serum_sample_msrun = MSRun.objects.filter(sample__name="serum-xz971").get()
+        serum_sample_msrun = MSRunSample.objects.filter(
+            sample__name="serum-xz971"
+        ).get()
         serum_sample_msrun.delete()
         serum_sample = Sample.objects.filter(name="serum-xz971").get()
         serum_sample.delete()
@@ -1348,16 +1454,46 @@ class PropertyTests(TracebaseTestCase):
 
         lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
 
-        msrun = MSRun.objects.create(
+        seq = MSRunSequence(
             researcher="John Doe",
             date=datetime.now(),
-            sample=peak_group.msrun_sample.sample,
+            instrument=MSRunSequence.INSTRUMENT_CHOICES[0][1],
             lc_method=lcm,
         )
+        seq.full_clean()
+        seq.save()
+
+        mstype = DataType.objects.get(code="ms_data")
+        rawfmt = DataFormat.objects.get(code="ms_raw")
+        mzxfmt = DataFormat.objects.get(code="mzxml")
+        rawrec = ArchiveFile.objects.create(
+            filename="test.raw",
+            file_location=None,
+            checksum="558ea654d7f2914ca4527580edf4fac11bd151c5",
+            data_type=mstype,
+            data_format=rawfmt,
+        )
+        mzxrec = ArchiveFile.objects.create(
+            filename="test.mzxml",
+            file_location=None,
+            checksum="558ea654d7f2914ca4527580edf4fac11bd151c4",
+            data_type=mstype,
+            data_format=mzxfmt,
+        )
+        msrs = MSRunSample(
+            msrun_sequence=seq,
+            sample=peak_group.msrun_sample.sample,
+            polarity="positive",
+            ms_raw_file=rawrec,
+            ms_data_file=mzxrec,
+        )
+        msrs.full_clean()
+        msrs.save()
+
         peak_group_zero = PeakGroup.objects.create(
             name=peak_group.name,
             formula=peak_group.formula,
-            msrun_sample=msrun,
+            msrun_sample=msrs,
             peak_annotation_file=peak_group.peak_annotation_file,
         )
 
@@ -1513,7 +1649,6 @@ class PropertyTests(TracebaseTestCase):
             self.assertFalse(pgl.can_compute_average_tracer_label_rates)
 
 
-@tag("broken_until_issue712")
 @override_settings(CACHES=settings.TEST_CACHES)
 class MultiTracerLabelPropertyTests(TracebaseTestCase):
     fixtures = ["data_types.yaml", "data_formats.yaml"]
@@ -1537,11 +1672,12 @@ class MultiTracerLabelPropertyTests(TracebaseTestCase):
             "load_accucor_msruns",
             accucor_file="DataRepo/data/tests/multiple_labels/alafasted_cor.xlsx",
             lc_protocol_name="polar-HILIC-25-min",
-            instrument="default instrument",
+            instrument="unknown",
             date="2021-04-29",
             researcher="Xianfeng Zeng",
             new_researcher=False,
             isocorr_format=True,
+            polarity="positive",
         )
 
         super().setUpTestData()
@@ -1604,7 +1740,6 @@ class MultiTracerLabelPropertyTests(TracebaseTestCase):
         self.assertAlmostEqual(expectedn, pgn)
 
 
-@tag("broken_until_issue712")
 @override_settings(CACHES=settings.TEST_CACHES)
 class TracerRateTests(TracebaseTestCase):
     @classmethod
@@ -1630,10 +1765,11 @@ class TracerRateTests(TracebaseTestCase):
         call_command(
             "load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
-            instrument="default instrument",
+            instrument="unknown",
             accucor_file="DataRepo/data/tests/small_obob2/obob_maven_c160_serum.xlsx",
             date="2021-04-29",
             researcher="Xianfeng Zeng",
+            polarity="positive",
         )
 
         # defining a primary animal object for repeated tests
@@ -2157,7 +2293,6 @@ class AnimalAndSampleLoadingTests(TracebaseTestCase):
         )
 
 
-@tag("broken_until_issue712")
 @override_settings(CACHES=settings.TEST_CACHES)
 @tag("load_study")
 class StudyLoadingTests(TracebaseTestCase):
@@ -2566,10 +2701,11 @@ class ParseIsotopeLabelTests(TracebaseTestCase):
             call_command(
                 "load_accucor_msruns",
                 lc_protocol_name="polar-HILIC-25-min",
-                instrument="default instrument",
+                instrument="unknown",
                 accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_dupes.xlsx",
                 date="2021-06-03",
                 researcher="Xianfeng Zeng",
+                polarity="positive",
             )
         aes = ar.exception
         aes.print_summary()

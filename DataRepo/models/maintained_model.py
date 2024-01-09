@@ -960,7 +960,7 @@ class MaintainedModel(Model):
         """
         Additions to M:M related models do not require a .save() to be called afterwards, thus additions like:
             peakgroup.compounds.add(cmpd)
-        do not propagate a change to MSRun as is necessary for automatic field maintenance, expressly because
+        do not propagate a change to MSRunSample as is necessary for automatic field maintenance, expressly because
         peakgroup.save() is not called.  To deal with this, and trigger the necessary automatic updates of maintained
         fields, an m2m_changed signal is attached to all M:M fields in MaintainedModel.__init__ to tell us when a
         MaintainedModel has an M:M field that has been added to.  That causes this method to be called, and from here

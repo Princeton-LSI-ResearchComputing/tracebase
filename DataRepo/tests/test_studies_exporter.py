@@ -2,7 +2,6 @@ import os
 import tempfile
 
 from django.core.management import call_command
-from django.test import tag
 
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils.studies_exporter import BadQueryTerm
@@ -34,7 +33,6 @@ class StudiesExporterTestBase(TracebaseTestCase):
         )
 
 
-@tag("broken_until_issue712")
 class StudiesExporterTests(StudiesExporterTestBase):
     @classmethod
     def setUpTestData(cls):
@@ -46,7 +44,8 @@ class StudiesExporterTests(StudiesExporterTestBase):
             date="2021-06-03",
             researcher="Michael Neinast",
             new_researcher=True,
-            instrument="default instrument",
+            instrument="unknown",
+            polarity="positive",
         )
 
     def test_all_studies_all_types(self):
@@ -102,7 +101,6 @@ class StudiesExporterTests(StudiesExporterTestBase):
             )
 
 
-@tag("broken_until_issue712")
 class MissingDataTests(StudiesExporterTestBase):
     def test_no_data_study_exists(self):
         """

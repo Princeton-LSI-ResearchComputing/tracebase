@@ -7,8 +7,9 @@ from pathlib import Path
 from typing import Dict, List, TypedDict
 
 import regex
+import xmltodict
 from django.conf import settings
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.core.files import File
 from django.db import IntegrityError, transaction
 
@@ -20,11 +21,13 @@ from DataRepo.models import (
     ElementLabel,
     LCMethod,
     MaintainedModel,
-    MSRun,
+    MSRunSample,
+    MSRunSequence,
     PeakData,
     PeakDataLabel,
     PeakGroup,
     PeakGroupLabel,
+    Researcher,
     Sample,
 )
 from DataRepo.models.hier_cached_model import (
@@ -57,12 +60,13 @@ from DataRepo.utils.exceptions import (
     MissingLCMSSampleDataHeaders,
     MissingMZXMLFiles,
     MissingSamplesError,
+    MixedPolarityErrors,
     MultipleAccucorTracerLabelColumnsError,
     MultipleMassNumbers,
-    NoMZXMLFiles,
     NoSamplesError,
     NoTracerLabeledElements,
     PeakAnnotFileMismatches,
+    PolarityConflictErrors,
     ResearcherNotNew,
     SampleColumnInconsistency,
     SampleIndexNotFound,
@@ -129,7 +133,7 @@ class PeakGroupAttrs(TypedDict):
 
 class AccuCorDataLoader:
     """
-    Load the LCMethod, MsRun, PeakGroup, and PeakData tables
+    Load the LCMethod, MsRunSequence, MSRunSample, PeakGroup, and PeakData tables
     """
 
     def __init__(
@@ -140,6 +144,7 @@ class AccuCorDataLoader:
         peak_annotation_filename=None,
         lcms_metadata_df=None,
         instrument=None,
+        polarity=None,
         date=None,
         lc_protocol_name=None,
         mzxml_files=None,
@@ -153,115 +158,162 @@ class AccuCorDataLoader:
         dry_run=False,
         update_caches=True,
     ):
+        # File data
+        self.accucor_original_df = accucor_original_df
+        self.accucor_corrected_df = accucor_corrected_df
+        self.peak_annotation_filepath = peak_annotation_file
+        self.isocorr_format = isocorr_format
+        self.lcms_metadata_df = lcms_metadata_df
+        self.mzxml_files_list = mzxml_files
+        self.peak_annotation_filename = None
+        if peak_annotation_filename:
+            self.peak_annotation_filename = peak_annotation_filename.strip()
+
+        # LCMS Defaults
+        self.lc_protocol_name = lc_protocol_name
+        self.date = date
+        self.researcher = researcher
+        self.instrument = instrument
+        self.polarity = polarity
+
+        # Modes
+        self.allow_new_researchers = allow_new_researchers
+        self.verbosity = verbosity
+        self.dry_run = dry_run
+        self.validate = validate
+        self.update_caches = update_caches
+        # Making update_caches True causes existing caches associated with loaded records to be deleted
+
+        # Tracking Data
+        self.skip_samples = skip_samples if skip_samples else []
+        self.sample_name_prefix = sample_name_prefix if sample_name_prefix else ""
+        self.peak_group_dict: Dict[str, PeakGroupAttrs] = {}
+        self.corrected_sample_headers = []
+        self.original_sample_headers = []
+        self.db_samples_dict = None
+        self.labeled_element_header = None
+        self.labeled_element = None  # For accucor only
+        self.tracer_labeled_elements = []  # For isocorr only
+        self.mzxml_data = {}
+
+        # Error tracking
         self.aggregated_errors_object = AggregatedErrors()
+        self.missing_samples = []
+        self.missing_sample_headers = []
+        self.unexpected_sample_headers = []
+        self.missing_compounds = {}
+        self.dupe_isotope_compounds = {
+            "original": defaultdict(dict),
+            "corrected": defaultdict(dict),
+        }
+        self.duplicate_peak_groups = []
+        self.conflicting_peak_groups = []
+        self.missing_mzxmls = []
+        self.mismatching_mzxmls = []
+        self.mixed_polarities = {}
+        self.conflicting_polarities = {}
 
-        try:
-            # File data
-            self.accucor_original_df = accucor_original_df
-            self.accucor_corrected_df = accucor_corrected_df
-            self.isocorr_format = isocorr_format
-            self.peak_annotation_filepath = peak_annotation_file
-            self.peak_annotation_filename = (
-                None
-                if peak_annotation_filename is None
-                else peak_annotation_filename.strip()
+    def process_default_lcms_opts(self):
+        """
+        This validates and initializes all of the default LCMS (command line) options.
+
+        It also checks the LCMS metadata file for any missing headers, to determine whether any particular default
+        option is necessary.
+        """
+        # Required LCMS Metadata Defaults
+        reqd_lcms_defaults = {
+            "lc_protocol_name": self.lc_protocol_name,
+            "date": self.date,
+            "researcher": self.researcher,
+            "instrument": self.instrument,
+        }
+        # Initialize LCMS Defaults
+        lcms_defaults = {
+            "lc_protocol_name": None,
+            "date": None,
+            "researcher": None,
+            "instrument": None,
+            "polarity": MSRunSample.POLARITY_DEFAULT,
+            "peak_annot_file": self.peak_annotation_filename,
+        }
+
+        if self.lc_protocol_name is not None and self.lc_protocol_name.strip() != "":
+            lcms_defaults["lc_protocol_name"] = self.lc_protocol_name.strip()
+        if self.date is not None and self.date.strip() != "":
+            lcms_defaults["date"] = datetime.strptime(self.date.strip(), "%Y-%m-%d")
+        if self.researcher is not None and self.researcher.strip() != "":
+            lcms_defaults["researcher"] = self.researcher.strip()
+        if self.instrument is not None and self.instrument.strip() != "":
+            lcms_defaults["instrument"] = self.instrument.strip()
+        if self.polarity is not None and self.polarity.strip() != "":
+            lcms_defaults["polarity"] = self.polarity.strip()
+
+        # Check LCMS metadata (after having initialized the lcms defaults)
+        if self.lcms_metadata_df is None and None in reqd_lcms_defaults.values():
+            missing = [
+                key
+                for key in reqd_lcms_defaults.keys()
+                if reqd_lcms_defaults[key] is None
+            ]
+            self.aggregated_errors_object.buffer_error(
+                LCMSDefaultsRequired(missing_defaults_list=missing)
             )
-            self.lcms_metadata_df = lcms_metadata_df
-            self.lcms_metadata = {}
+            self.set_lcms_placeholder_defaults()
+        elif self.lcms_metadata_df is not None and not lcms_headers_are_valid(
+            list(self.lcms_metadata_df.columns)
+        ):
+            self.aggregated_errors_object.buffer_error(
+                InvalidLCMSHeaders(list(self.lcms_metadata_df.columns))
+            )
+            self.set_lcms_placeholder_defaults()
 
-            # Validate the required LCMS Metadata
-            reqd_args = {
-                "lc_protocol_name": lc_protocol_name,
-                "date": date,
-                "researcher": researcher,
-                "instrument": instrument,
-            }
-            if lcms_metadata_df is None and None in reqd_args.values():
-                missing = [key for key in reqd_args.keys() if reqd_args[key] is None]
-                self.aggregated_errors_object.buffer_error(
-                    LCMSDefaultsRequired(missing_defaults_list=missing)
-                )
-                self.set_lcms_placeholder_defaults()
-            elif lcms_metadata_df is not None and not lcms_headers_are_valid(
-                list(lcms_metadata_df.columns)
-            ):
-                raise InvalidLCMSHeaders(list(lcms_metadata_df.columns))
+        return lcms_defaults
 
-            self.mzxml_files = None
-            if mzxml_files is not None and len(mzxml_files) > 0:
-                # mzxml_files is assumed to be populated with basenames
-                # This code also assumes that the filename (minus suffix) matches the header in the accucor/isocorr
-                # file.  This assumption is later checked in validate_mzxmls().  If the assumption is incorrect, the
-                # actual header to zmXML relationship should be added to the LCMS metadata file (to not use the invalid
-                # default).
-                self.mzxml_files = defaultdict(str)
-                for fn in mzxml_files:
-                    nm, _ = os.path.splitext(fn)
+    def associate_mzxml_files_with_sample_headers(self):
+        """
+        This creates an mzxml_files_dict, keyed by sample header and contains both the mzxml file "path" and "base" name
+        """
+        mzxml_files_dict = None
+        if self.mzxml_files_list is not None and len(self.mzxml_files_list) > 0:
+            # self.mzxml_files_list is assumed to be populated with basenames
+            mzxml_files_dict = defaultdict(dict)
+            for fn in self.mzxml_files_list:
+                mz_basename = os.path.basename(fn)
+                hdr = self.get_sample_header_by_mzxml_basename(mz_basename)
+                if self.lcms_metadata_df is not None and hdr is not None:
+                    mzxml_files_dict[hdr]["path"] = fn
+                    mzxml_files_dict[hdr]["base"] = mz_basename
+                else:
+                    nm, _ = os.path.splitext(mz_basename)
                     # pylint: disable=unsupported-assignment-operation
-                    self.mzxml_files[nm] = fn
+                    mzxml_files_dict[nm]["path"] = fn
+                    mzxml_files_dict[nm]["base"] = mz_basename
                     # pylint: enable=unsupported-assignment-operation
+        return mzxml_files_dict
 
-            # LCMS Metadata
-            self.lcms_defaults = {
-                "lc_protocol_name": None,
-                "date": None,
-                "researcher": None,
-                "instrument": None,
-                "peak_annot_file": self.peak_annotation_filename,
-            }
-            if lc_protocol_name is not None and lc_protocol_name.strip() != "":
-                self.lcms_defaults["lc_protocol_name"] = lc_protocol_name.strip()
-            if date is not None and date.strip() != "":
-                self.lcms_defaults["date"] = datetime.strptime(date.strip(), "%Y-%m-%d")
-            if researcher is not None and researcher.strip() != "":
-                self.lcms_defaults["researcher"] = researcher.strip()
-            if instrument is not None and instrument.strip() != "":
-                self.lcms_defaults["instrument"] = instrument.strip()
+    def get_sample_header_by_mzxml_basename(self, mzxml_basename):
+        """
+        This method searches the lcms_metadata dict for an mzxml file that matches the a supplied basename from the
+        actual files supplied.
 
-            # Sample Metadata
-            if skip_samples is None:
-                self.skip_samples = []
-            else:
-                self.skip_samples = skip_samples
-            if sample_name_prefix is None:
-                sample_name_prefix = ""
-            self.sample_name_prefix = sample_name_prefix
-
-            # Modes
-            self.allow_new_researchers = allow_new_researchers
-            self.verbosity = verbosity
-            self.dry_run = dry_run
-            self.validate = validate
-
-            # Making this True causes existing caches associated with loaded records to be deleted
-            self.update_caches = update_caches
-
-            # Tracking Data
-            self.peak_group_dict: Dict[str, PeakGroupAttrs] = {}
-            self.corrected_sample_headers = []
-            self.original_sample_headers = []
-            self.db_samples_dict = None
-            self.labeled_element_header = None
-            self.missing_samples = []
-            self.missing_sample_headers = []
-            self.unexpected_sample_headers = []
-            self.missing_compounds = {}
-            self.dupe_isotope_compounds = {
-                "original": defaultdict(dict),
-                "corrected": defaultdict(dict),
-            }
-            self.duplicate_peak_groups = []
-            self.conflicting_peak_groups = []
-            self.missing_mzxmls = []
-            self.mismatching_mzxmls = []
-
-            # Used for accucor
-            self.labeled_element = None
-            # Used for isocorr
-            self.tracer_labeled_elements = []
-        except Exception as e:
-            self.aggregated_errors_object.buffer_error(e)
-            raise self.aggregated_errors_object
+        Note, previously, an assumption was made that the header and mzxml file will always match.  While this may or
+        may not be true in a real world use-case, it caused problems in the tests, and instead of create new input
+        files, I just decided to eliminate the assumption.
+        """
+        results = []
+        for header in self.lcms_metadata.keys():
+            if mzxml_basename == self.lcms_metadata[header]["mzxml"]:
+                results.append(header)
+        if len(results) == 0:
+            return None
+        elif len(results) > 1:
+            self.aggregated_errors_object.buffer_error(
+                ValueError(
+                    f"{len(results)} instances of mzxml file [{mzxml_basename}] in the LCMS metadata file."
+                )
+            )
+            return None
+        return results[0]
 
     def initialize_preloaded_animal_sample_data(self):
         """
@@ -272,6 +324,26 @@ class AccuCorDataLoader:
         self.initialize_tracer_labeled_elements()
 
     def preprocess_data(self):
+        # Prepare all of the LCMS Metadata
+        self.prepare_metadata()
+        # Clean up the peak annotation dataframes
+        self.clean_peak_annotation_dataframes()
+        # Obtain the sample names from the headers
+        self.initialize_sample_names()
+        # Use the obtained sample names to fill in default values in the lcms_metadata dict
+        self.fill_in_lcms_defaults()
+
+    def prepare_metadata(self):
+        # Process the LCMS default arguments
+        self.lcms_defaults = self.process_default_lcms_opts()
+        # Process the LCMS metadata "file"
+        self.lcms_metadata = lcms_df_to_dict(
+            self.lcms_metadata_df, self.aggregated_errors_object
+        )
+        # Associate the actual mzxml files with the sample headers in the peak annot file
+        self.mzxml_files_dict = self.associate_mzxml_files_with_sample_headers()
+
+    def clean_peak_annotation_dataframes(self):
         if self.accucor_original_df is not None:
             # Strip white space from all original sheet headers
             self.accucor_original_df.rename(columns=lambda x: x.strip())
@@ -309,9 +381,6 @@ class AccuCorDataLoader:
             self.compound_header
         ].str.strip()
 
-        # Obtain the sample names from the headers
-        self.initialize_sample_names()
-
     def validate_data(self):
         """
         Basic sanity/integrity checks for the data inputs
@@ -342,9 +411,8 @@ class AccuCorDataLoader:
                     break
             if all_existing and len(adding_researchers) > 0:
                 self.aggregated_errors_object.buffer_error(
-                    # TODO: Refine the error to take a list of researcher names
                     ResearcherNotNew(
-                        ", ".join(adding_researchers), "--new-researcher", researchers
+                        adding_researchers, "--new-researcher", researchers
                     )
                 )
         else:
@@ -380,12 +448,11 @@ class AccuCorDataLoader:
                 if sample not in self.skip_samples
             ]
 
-        # Update all of the associated LCMS metadata associated with the sample data headers
+    def fill_in_lcms_defaults(self):
+        # Validate the sample data headers WRT to lcms metadata and fill in placeholder defaults for missing defaults
+        # Note, we won't know if any defaults are actually required until this check is done.  I.e. defaults are not
+        # required if the LCMS metadata file is fully fleshed out.
         if self.lcms_metadata_df is not None:
-            self.lcms_metadata = lcms_df_to_dict(
-                self.lcms_metadata_df, self.aggregated_errors_object
-            )
-
             # We loop on self.lcms_metadata.keys() instead of self.corrected_sample_headers in order to catch issues
             # where incorrect sample data headers are associated with the wrong accucor file.  This assumes that sample
             # data headers are unique across all accucor files in a study.
@@ -432,25 +499,66 @@ class AccuCorDataLoader:
                     )
                 )
 
-        # Note, this intentionally fills in any that caused errors above in order to catch more errors
+        # Fill in any LCMS metadata that caused errors above with available default values
         incorrect_pgs_files = {}
         missing_header_defaults = defaultdict(dict)
         placeholders_needed = False
         for sample_header in self.corrected_sample_headers:
+            # Determine the polarity using the LCMS metadata file's value, the parsed mzXML file value, the command line
+            # default value, and the global default value.
+            # Precedence: mzXML > LCMS file > Command line default > global default.
+            polarity = self.lcms_defaults["polarity"]
+            if (
+                self.mzxml_files_dict is not None
+                and sample_header in self.mzxml_files_dict.keys()
+            ):
+                parsed_polarity = None
+                path_obj = Path(str(self.mzxml_files_dict[sample_header]["path"]))
+                if path_obj.is_file():
+                    self.mzxml_data[sample_header] = self.parse_mzxml(path_obj)
+                    parsed_polarity = self.mzxml_data[sample_header]["polarity"]
+                    if (
+                        sample_header in self.lcms_metadata.keys()
+                        and parsed_polarity is not None
+                        # When lcms metadata has None or default, quietly overwrite with the value from the mzxml
+                        and self.lcms_metadata[sample_header]["polarity"] is not None
+                        and self.lcms_metadata[sample_header]["polarity"]
+                        != MSRunSample.POLARITY_DEFAULT
+                        and parsed_polarity
+                        != self.lcms_metadata[sample_header]["polarity"]
+                    ):
+                        # Add a polarity conflict
+                        self.conflicting_polarities[str(path_obj)] = {
+                            "sample_header": sample_header,
+                            "lcms_value": self.lcms_metadata[sample_header]["polarity"],
+                            "mzxml_value": parsed_polarity,
+                        }
+                else:
+                    self.aggregated_errors_object.buffer_error(
+                        ValueError(f"mzxml file does not exist: {str(path_obj)}")
+                    )
+                if parsed_polarity is not None:
+                    polarity = parsed_polarity
+
+            # A default file name is constructed (if missing in the LCMS metadata file, associated with a sample data
+            # header).  It is used to match against the supplied bolus of mzXML files that are separately supplied.
             default_mzxml_file = self.sample_header_to_default_mzxml(sample_header)
+            mzxml_file = default_mzxml_file
+
+            # If the sample header obtained from the peak annotation file is not in the LCMS metadata file, we will need
+            # to completely use the default values (and the imputed mzXML file name
             if sample_header not in self.lcms_metadata.keys():
-                # Fill in default values for anything missing
+                # Fill in default mzXML file name by checking the mzxml_files_dict
                 if (
-                    self.mzxml_files is not None
-                    and len(self.mzxml_files.keys()) > 0
-                    and sample_header in self.mzxml_files.keys()
+                    self.mzxml_files_dict is not None
+                    and len(self.mzxml_files_dict.keys()) > 0
+                    and sample_header in self.mzxml_files_dict.keys()
                 ):
                     # pylint: disable=unsubscriptable-object
-                    mzxml_file = self.mzxml_files[sample_header]
+                    mzxml_file = self.mzxml_files_dict[sample_header]["path"]
                     # pylint: enable=unsubscriptable-object
-                else:
-                    mzxml_file = default_mzxml_file
-                self.check_mzxml(sample_header, mzxml_file)
+
+                # Fill in all default values for the missing sample header
                 self.lcms_metadata[sample_header] = {
                     "sample_header": sample_header,
                     "sample_name": sample_header,
@@ -458,6 +566,7 @@ class AccuCorDataLoader:
                     "mzxml": mzxml_file,
                     "researcher": self.lcms_defaults["researcher"],
                     "instrument": self.lcms_defaults["instrument"],
+                    "polarity": polarity,
                     "date": self.lcms_defaults["date"],
                     "lc_protocol_name": self.lcms_defaults["lc_protocol_name"],
                     "lc_type": None,
@@ -465,7 +574,7 @@ class AccuCorDataLoader:
                     "lc_description": None,
                 }
             else:
-                # Note any mismatched file names
+                # Note any mismatched peak annot file names
                 if (
                     self.lcms_metadata[sample_header]["peak_annot_file"] is not None
                     and self.lcms_metadata[sample_header]["peak_annot_file"]
@@ -476,20 +585,24 @@ class AccuCorDataLoader:
                         sample_header
                     ]["peak_annot_file"]
 
-                # Fill in default values for anything missing
+                # Fill in default mzxml file if missing
                 if (
                     self.lcms_metadata[sample_header]["mzxml"] is None
-                    and self.mzxml_files is not None
-                    and len(self.mzxml_files.keys()) > 0
+                    and self.mzxml_files_dict is not None
+                    and len(self.mzxml_files_dict.keys()) > 0
+                    and sample_header not in self.mzxml_files_dict.keys()
                 ):
                     self.lcms_metadata[sample_header]["mzxml"] = default_mzxml_file
 
-                self.check_mzxml(
-                    sample_header, self.lcms_metadata[sample_header]["mzxml"]
-                )
+                mzxml_file = self.lcms_metadata[sample_header]["mzxml"]
 
+                # Fill in default values for any key whose value is missing
                 for key in self.lcms_defaults.keys():
                     if self.lcms_metadata[sample_header][key] is None:
+                        # Special case for polarity (because it could have been parsed from the mzxml file)
+                        if polarity is not None and key == "polarity":
+                            self.lcms_metadata[sample_header][key] = polarity
+                            continue
                         if self.lcms_defaults[key] is None:
                             placeholders_needed = True
                             missing_header_defaults["default"][key] = True
@@ -499,6 +612,10 @@ class AccuCorDataLoader:
                                 key
                             ]
 
+            # Make sure the mzXML file name matches the sample header (warn if it's not an exact match)
+            self.find_mismatching_missing_mzxml_files(sample_header, mzxml_file)
+
+        # If there are missing LCMS headers, buffer an error
         if len(missing_header_defaults.keys()) > 0:
             self.aggregated_errors_object.buffer_error(
                 LCMSDefaultsRequired(
@@ -512,6 +629,9 @@ class AccuCorDataLoader:
             )
             self.set_lcms_placeholder_defaults()
 
+        # We cannot fill in placeholders for the defaults until we have made a complete accounting of all data in the
+        # LCMS metadata file that is the reason placeholders are needed (i.e. a complete traversal of all of the sample
+        # data headers).  Now that we've done that, we can make a second pass and fill in the placeholders.
         if placeholders_needed is True:
             # Fill in the placeholders
             for sample_header in self.corrected_sample_headers:
@@ -522,6 +642,7 @@ class AccuCorDataLoader:
                     ):
                         self.lcms_metadata[sample_header][key] = self.lcms_defaults[key]
 
+        # If there were mismatching peak annot files, buffer an error about them
         if len(incorrect_pgs_files.keys()) > 0:
             self.aggregated_errors_object.buffer_error(
                 PeakAnnotFileMismatches(
@@ -529,7 +650,7 @@ class AccuCorDataLoader:
                 )
             )
 
-        self.validate_mzxmls()
+        self.buffer_mismatching_missing_mzxml_file_errors()
 
     def set_lcms_placeholder_defaults(self):
         """
@@ -540,21 +661,23 @@ class AccuCorDataLoader:
         if self.lcms_defaults["date"] is None:
             self.lcms_defaults["date"] = datetime.strptime("1972-11-24", "%Y-%m-%d")
         if self.lcms_defaults["researcher"] is None:
-            self.lcms_defaults["researcher"] = "anonymous"
-        if self.lcms_defaults["researcher"] is None:
-            self.lcms_defaults["instrument"] = "placeholder instrument"
+            self.lcms_defaults["researcher"] = Researcher.RESEARCHER_DEFAULT
+        if self.lcms_defaults["instrument"] is None:
+            self.lcms_defaults["instrument"] = MSRunSequence.INSTRUMENT_DEFAULT
+        if self.lcms_defaults["polarity"] is None:
+            self.lcms_defaults["polarity"] = MSRunSample.POLARITY_DEFAULT
         # No need to fill in "peak_annot_file".  Without this file, nothing will load
 
     def sample_header_to_default_mzxml(self, sample_header):
         """
         This retrieves the mzXML file name from self.mzxml_files that matches the supplied sample header.  If mzxml
         files were not provided, it will be recorded as missing, but will be automatically filled in with
-        "{sample_header}.xml".
+        "{sample_header}.mzxml".
         """
-        if self.mzxml_files is not None and len(self.mzxml_files.keys()) > 0:
+        if self.mzxml_files_dict is not None and len(self.mzxml_files_dict.keys()) > 0:
             # pylint: disable=unsubscriptable-object
-            if sample_header in self.mzxml_files.keys():
-                return self.mzxml_files[sample_header]
+            if sample_header in self.mzxml_files_dict.keys():
+                return self.mzxml_files_dict[sample_header]["path"]
             else:
                 # PR REVIEW NOTE: Is this the standard extension of mzxml files???
                 return f"{sample_header}.mzxml"
@@ -562,7 +685,7 @@ class AccuCorDataLoader:
 
         return None
 
-    def check_mzxml(self, sample_header, mzxml_file):
+    def find_mismatching_missing_mzxml_files(self, sample_header, mzxml_file):
         """
         This method is intended to check that a single mzxml file, listed in the LCMS metadata file, was actually
         supplied.
@@ -571,37 +694,41 @@ class AccuCorDataLoader:
         contained in the mzXML file name.  If not, it notes the mismatch, which will later result in a mild warning.
         """
         # For historical reasons, we don't require mzXML files
+        mzxml_basename = None
+        if mzxml_file is not None:
+            mzxml_basename = os.path.basename(mzxml_file)
         if (
-            self.mzxml_files is not None
-            and len(self.mzxml_files.keys()) > 0
+            self.mzxml_files_dict is not None
+            and len(self.mzxml_files_dict.keys()) > 0
             and mzxml_file is not None
-            and mzxml_file not in self.mzxml_files.values()
+            and mzxml_basename
+            not in [d["base"] for d in self.mzxml_files_dict.values()]
         ):
             self.missing_mzxmls.append(mzxml_file)
 
         # Issue a warning if the sample header doesn't match the file name
         if mzxml_file is not None and mzxml_file != "":
-            sample_header_pat = re.compile(r"^" + sample_header + r"\.")
-            match = sample_header_pat.search(mzxml_file)
-            if match is None:
-                self.mismatching_mzxmls.append(
-                    [sample_header, mzxml_file, sample_header_pat.pattern]
-                )
+            mzxml_noext, _ = os.path.splitext(mzxml_basename)
+            if sample_header != mzxml_noext:
+                self.mismatching_mzxmls.append([sample_header, mzxml_file])
 
-    def validate_mzxmls(self):
+    def buffer_mismatching_missing_mzxml_file_errors(self):
         """
         This method buffers exceptions if there happened to be logged issues with any mzxml files
         """
-        if self.validate and (
-            self.mzxml_files is None or len(self.mzxml_files.keys()) == 0
-        ):
-            # New studies should require mzxml files, thus the user validate mode is a fatal error
-            # Old studies should have mzXML files as optional, thus the curator only gets a printed warning
-            self.aggregated_errors_object.buffer_error(NoMZXMLFiles())
+        # TODO: Implement issue #814 and then uncomment this warning
+        # if self.validate and (
+        #     self.mzxml_files is None or len(self.mzxml_files.keys()) == 0
+        # ):
+        #     # New studies should be encouraged to include mzxml files, thus validate mode should generate a warning
+        #     # without them.  (Old studies should have mzXML files as optional, thus the curator only gets a printed
+        #     # warning.)
+        #     self.aggregated_errors_object.buffer_warning(NoMZXMLFiles())
 
-        elif (
-            self.mzxml_files is not None
-            and len(self.mzxml_files.keys()) > 0
+        # elif (
+        if (
+            self.mzxml_files_dict is not None
+            and len(self.mzxml_files_dict.keys()) > 0
             and len(self.missing_mzxmls) > 0
         ):
             # New studies should require mzxml files, thus the user validate mode is a fatal error
@@ -622,8 +749,14 @@ class AccuCorDataLoader:
         # mzXML files.
 
     def get_missing_required_lcms_defaults(self):
+        optionals = ["polarity"]
+        # polarity will default to the value in the parsed mzXML file.  If the mzXML file is not supplied, it the
+        # supplied --polarity default will be used, and if that default is not supplied, it will default to
+        # MSRunSample.POLARITY_DEFAULT
         return [
-            key for key in self.lcms_defaults.keys() if self.lcms_defaults[key] is None
+            key
+            for key in self.lcms_defaults.keys()
+            if self.lcms_defaults[key] is None and key not in optionals
         ]
 
     def lcms_defaults_supplied(self):
@@ -1025,35 +1158,168 @@ class AccuCorDataLoader:
 
         return rec
 
-    def insert_peak_annotation_file(self):
-        peak_annotaion_path = Path(self.peak_annotation_filepath)
-        hexa_value = hash_file(self.peak_annotation_filepath)
-
-        with peak_annotaion_path.open(mode="rb") as f:
-            # Don't store the file during dry-run or validation
-            if self.dry_run or self.validate:
-                peak_annotation_file = None
-            else:
-                peak_annotation_file = File(f, name=peak_annotaion_path.name)
-
-            ms_peak_annotation = DataType.objects.get(code="ms_peak_annotation")
-            annotation_format = "isocorr" if self.isocorr_format else "accucor"
-            peak_annotation_format = DataFormat.objects.get(code=annotation_format)
-            peak_annotation_archivefile = ArchiveFile.objects.create(
-                filename=peak_annotaion_path.name,
-                file_location=peak_annotation_file,
-                checksum=hexa_value,
-                data_type=ms_peak_annotation,
-                data_format=peak_annotation_format,
+    def get_or_create_archive_file(
+        self,
+        path_obj,
+        code,
+        format,
+        is_binary=False,
+        checksum=None,
+    ):
+        checksum_val = checksum
+        if path_obj.is_file():
+            checksum_val = hash_file(path_obj)
+            if checksum is not None and checksum != checksum_val:
+                raise ValueError(
+                    f"The supplied checksum [{checksum}] does not match the computed checksum [{checksum_val}]."
+                )
+        elif checksum is None:
+            raise ValueError(
+                "A checksum is required if the supplied file path is not an existing file."
             )
-            peak_annotation_archivefile.save()
 
-        return peak_annotation_archivefile
+        rec_dict = {
+            "filename": path_obj.name,
+            "checksum": checksum_val,
+            "data_type": DataType.objects.get(code=code),
+            "data_format": DataFormat.objects.get(code=format),
+            # file_location is conditionally set below
+        }
+
+        mode = "rb" if is_binary else "r"
+
+        if self.dry_run or self.validate:
+            # Don't store the file during dry-run or validation
+            try:
+                archivefile_rec = ArchiveFile.objects.get(**rec_dict)
+            except ObjectDoesNotExist:
+                rec_dict["file_location"] = None
+                archivefile_rec = ArchiveFile.objects.create(**rec_dict)
+        elif path_obj.is_file():
+            with path_obj.open(mode=mode) as f:
+                with_loc = {**rec_dict}
+                with_loc["file_location"] = File(f, name=path_obj.name)
+                archivefile_rec, _ = ArchiveFile.objects.get_or_create(**with_loc)
+        elif checksum is not None:
+            # We allow a record to be created without an actual file if a checksum is provided
+            archivefile_rec, _ = ArchiveFile.objects.get_or_create(**rec_dict)
+        else:
+            self.aggregated_errors_object.buffer_error(
+                FileNotFoundError(f"No such file: {str(path_obj)}")
+            )
+            # Placeholder record, so we can proceed to find more errors:
+            archivefile_rec, _ = ArchiveFile.objects.get_or_create(**rec_dict)
+
+        return archivefile_rec
+
+    def get_or_create_raw_file(self, mz_dict):
+        """
+        This takes an mzXML file's path object and creates an ArchiveFile record based on the contents of the mzXML
+        file.  It parses the file and extracts the RAW file's name (which includes its path) and its sha1.
+        """
+        raw_file_name = mz_dict["raw_file_name"]
+
+        if raw_file_name is None:
+            return None
+
+        return self.get_or_create_archive_file(
+            path_obj=Path(raw_file_name),
+            checksum=mz_dict["raw_file_sha1"],
+            code="ms_data",
+            format="ms_raw",
+        )
+
+    def parse_mzxml(self, mzxml_path_obj, full_dict=False):
+        """Creates a dict of select data parsed from an mzXML file
+
+        This extracts the raw file name, raw file's sha1, and the polarity from an mzxml file and returns a condensed
+        dictionary of only those values (for simplicity).  The construction of the condensed dict will perform
+        validation and conversion of the desired values, which will not occur when the full_dict is requested.  If
+        full_dict is True, it will return the uncondensed version.
+
+        If not all polarities of all the scans are the same, an error will be buffered.
+
+        Args:
+            mzxml_path_obj (Path): mzXML file Path object
+            full_dict (boolean): Whether to return the raw/full dict of the mzXML file
+
+        Returns:
+            If mzxml_path_obj is not a real existing file:
+                None
+            If full_dict=False:
+                {
+                    "raw_file_name": <raw file base name parsed from mzXML file>,
+                    "raw_file_sha1": <sha1 string parsed from mzXML file>,
+                    "polarity": "positive" or "negative" (based on first polarity parsed from mzXML file),
+                }
+            If full_dict=True:
+                xmltodict.parse(xml_content)
+
+        Raises:
+            Nothing, but buffers a ValueError
+        """
+        if not mzxml_path_obj.is_file():
+            # mzXML files are optional, but the file names are supplied in a file, in which case, we may have a name,
+            # but not the file, so just return None if what we have isn't a real file.
+            return None
+
+        # Parse the xml content
+        with mzxml_path_obj.open(mode="r") as f:
+            xml_content = f.read()
+        mzxml_dict = xmltodict.parse(xml_content)
+
+        if full_dict:
+            return mzxml_dict
+
+        raw_file_type = mzxml_dict["mzXML"]["msRun"]["parentFile"]["@fileType"]
+        raw_file_name = Path(
+            mzxml_dict["mzXML"]["msRun"]["parentFile"]["@fileName"]
+        ).name
+        raw_file_sha1 = mzxml_dict["mzXML"]["msRun"]["parentFile"]["@fileSha1"]
+        if raw_file_type != "RAWData":
+            self.aggregated_errors_object.buffer_error(
+                ValueError(
+                    f"Unsupported file type [{raw_file_type}] encountered in mzXML file [{str(mzxml_path_obj)}].  "
+                    "Expected: [RAWData]."
+                )
+            )
+            raw_file_name = None
+            raw_file_sha1 = None
+
+        polarity = MSRunSample.POLARITY_DEFAULT
+        symbol_polarity = ""
+        for entry_dict in mzxml_dict["mzXML"]["msRun"]["scan"]:
+            if symbol_polarity == "":
+                symbol_polarity = entry_dict["@polarity"]
+            elif symbol_polarity != entry_dict["@polarity"]:
+                self.mixed_polarities[str(mzxml_path_obj)] = {
+                    "first": symbol_polarity,
+                    "different": entry_dict["@polarity"],
+                    "scan": entry_dict["@num"],
+                }
+                break
+        if symbol_polarity == "+":
+            polarity = MSRunSample.POSITIVE_POLARITY
+        elif symbol_polarity == "-":
+            polarity = MSRunSample.NEGATIVE_POLARITY
+        elif symbol_polarity != "":
+            self.aggregated_errors_object.buffer_error(
+                ValueError(
+                    f"Unsupported polarity value [{symbol_polarity}] encountered in mzXML file "
+                    f"[{str(mzxml_path_obj)}]."
+                )
+            )
+
+        return {
+            "raw_file_name": raw_file_name,
+            "raw_file_sha1": raw_file_sha1,
+            "polarity": polarity,
+        }
 
     def insert_peak_group(
         self,
         peak_group_attrs: PeakGroupAttrs,
-        msrun: MSRun,
+        msrun_sample: MSRunSample,
         peak_annotation_file: ArchiveFile,
     ):
         """Insert a PeakGroup record
@@ -1063,7 +1329,7 @@ class AccuCorDataLoader:
 
         Args:
             peak_group_attrs: dictionary of peak group atrributes
-            msrun: MSRun object the PeakGroup belongs to
+            msrun_sample: MSRunSample object the PeakGroup belongs to
             peak_annotation_file: ArchiveFile object of the peak annotation file the peak group was loaded from
 
         Returns:
@@ -1071,17 +1337,17 @@ class AccuCorDataLoader:
 
         Raises:
             DuplicatePeakGroup: A PeakGroup record with the same values already exists
-            ConflictingValueError: A PeakGroup with the same unique key (MSRun and PeakGroup.name) exists, but with a
-              different formula or different peak_annotation_file
+            ConflictingValueError: A PeakGroup with the same unique key (MSRunSample and PeakGroup.name) exists, but
+              with a different formula or different peak_annotation_file
         """
 
         if self.verbosity >= 1:
             print(
-                f"\tInserting {peak_group_attrs['name']} peak group for sample {msrun.sample}"
+                f"\tInserting {peak_group_attrs['name']} peak group for sample {msrun_sample.sample}"
             )
         try:
             peak_group, created = PeakGroup.objects.get_or_create(
-                msrun=msrun,
+                msrun_sample=msrun_sample,
                 name=peak_group_attrs["name"],
                 formula=peak_group_attrs["formula"],
                 peak_annotation_file=peak_annotation_file,
@@ -1089,8 +1355,8 @@ class AccuCorDataLoader:
             if not created:
                 raise DuplicatePeakGroup(
                     adding_file=peak_annotation_file.filename,
-                    ms_run=msrun,
-                    sample=msrun.sample,
+                    msrun_sample=msrun_sample,
+                    sample=msrun_sample.sample,
                     peak_group_name=peak_group_attrs["name"],
                     existing_peak_annotation_file=peak_group.peak_annotation_file,
                 )
@@ -1102,9 +1368,8 @@ class AccuCorDataLoader:
                 'duplicate key value violates unique constraint "unique_peakgroup"'
                 in iestr
             ):
-                # "Peak group with this Name and Msrun already exists"
                 existing_peak_group = PeakGroup.objects.get(
-                    msrun=msrun, name=peak_group_attrs["name"]
+                    msrun_sample=msrun_sample, name=peak_group_attrs["name"]
                 )
                 conflicting_fields = []
                 existing_values = []
@@ -1159,7 +1424,7 @@ class AccuCorDataLoader:
 
     def load_data(self):
         """
-        Extract and store the data for MsRun PeakGroup and PeakData
+        Extract and store the data for MsRunSample, PeakGroup, and PeakData
         """
         animals_to_uncache = []
 
@@ -1167,59 +1432,105 @@ class AccuCorDataLoader:
             print("Loading data...")
 
         # No need to try/catch - these need to succeed to start loading samples
-        peak_annotation_file = self.insert_peak_annotation_file()
+        path_obj = Path(self.peak_annotation_filepath)
+        peak_annotation_file = self.get_or_create_archive_file(
+            path_obj=path_obj,
+            code="ms_peak_annotation",
+            format="isocorr" if self.isocorr_format else "accucor",
+            is_binary="xls" in path_obj.suffix,
+        )
 
+        sequences = {}
         sample_msrun_dict = {}
 
-        # Each sample gets its own msrun
+        # Each sample gets its own msrun_sample
         for sample_data_header in self.db_samples_dict.keys():
             lc_protocol = self.get_or_create_lc_protocol(sample_data_header)
 
             if lc_protocol is None:
-                # Cannot create the msrun record without protocols
-                # TODO: Currently, lc_method is NOT required, but it WILL be.  Once it is, this should buffer an
-                # exception
+                # Cannot create the msrun_sample record without protocols
+                # An exception will have already been buffered by get_or_create_lc_protocol, so just move on
                 continue
 
-            # TODO: Load instrument
-            # TODO: Load mzXML file as an ArchiveFile record and save the file
+            sequence_key = (
+                self.lcms_metadata[sample_data_header]["researcher"]
+                + "."
+                + str(self.lcms_metadata[sample_data_header]["date"])
+                + "."
+                + lc_protocol.name
+                + "."
+                + self.lcms_metadata[sample_data_header]["instrument"]
+            )
+            if sequence_key not in sequences.keys():
+                try:
+                    (
+                        sequences[sequence_key],
+                        created,
+                    ) = MSRunSequence.objects.get_or_create(
+                        researcher=self.lcms_metadata[sample_data_header]["researcher"],
+                        date=self.lcms_metadata[sample_data_header]["date"],
+                        lc_method=lc_protocol,
+                        instrument=self.lcms_metadata[sample_data_header]["instrument"],
+                        # TODO: implement the ability to load the notes field (which is not a part of issue #712 and was
+                        # not partially implemented in #774 like it did with instrument and the mzxml files)
+                    )
+                except Exception as e:
+                    # Note, there should be no reason to catch any IntegrityErrors UNTIL the notes field is added, since
+                    # all the fields being added are a part of the unique constraint.
+                    self.aggregated_errors_object.buffer_error(e)
 
-            msrun_dict = {
-                "date": self.lcms_metadata[sample_data_header]["date"],
-                "researcher": self.lcms_metadata[sample_data_header]["researcher"],
-                "lc_method": lc_protocol,
+            ms_data_file = None
+            ms_raw_file = None
+            if (
+                self.mzxml_files_dict is not None
+                and sample_data_header in self.mzxml_files_dict.keys()
+            ):
+                path_obj = Path(str(self.mzxml_files_dict[sample_data_header]["path"]))
+                if path_obj.is_file():
+                    ms_data_file = self.get_or_create_archive_file(
+                        path_obj=path_obj,
+                        code="ms_data",
+                        format="mzxml",
+                    )
+                    ms_raw_file = self.get_or_create_raw_file(
+                        self.mzxml_data[sample_data_header]
+                    )
+
+            msrunsample_dict = {
+                "msrun_sequence": sequences[sequence_key],
                 "sample": self.db_samples_dict[sample_data_header],
+                "polarity": self.lcms_metadata[sample_data_header]["polarity"],
+                "ms_data_file": ms_data_file,
+                "ms_raw_file": ms_raw_file,
             }
             try:
-                # This relies on sample name lookup and accurate msrun information (researcher, date, instrument, etc).
-                # Including mzXML files with accucor files will help ensure accurate msrun lookup since we will have
-                # checksums for the mzXML files and those are always associated with one MSRun record
-                msrun, created = MSRun.objects.get_or_create(**msrun_dict)
+                # This relies on sample name lookup and accurate msrun_sample information (researcher, date, instrument,
+                # etc).  Including mzXML files with accucor files will help ensure accurate msrun_sample lookup since we
+                # will have checksums for the mzXML files and those are always associated with one MSRunSample record
+                msrun_sample, created = MSRunSample.objects.get_or_create(
+                    **msrunsample_dict
+                )
                 if created:
-                    msrun.full_clean()
-                    msrun.save()
-                    if self.verbosity >= 1:
-                        print(
-                            "Inserting msrun for "
-                            f"sample {self.lcms_metadata[sample_data_header]['sample_name']}, "
-                            f"date {self.lcms_metadata[sample_data_header]['date']}, "
-                            f"researcher {self.lcms_metadata[sample_data_header]['researcher']}, and "
-                            f"lc protocol {lc_protocol}."
-                        )
+                    msrun_sample.full_clean()
+                    # Already saved via create
 
                 # This will be used to iterate the sample loop below so that we don't attempt to load samples whose
-                # msrun creations failed.
-                sample_msrun_dict[sample_data_header] = msrun
+                # msrun_sample creations failed.
+                sample_msrun_dict[sample_data_header] = msrun_sample
 
                 if self.update_caches is True:
                     if (
-                        msrun.sample.animal not in animals_to_uncache
-                        and msrun.sample.animal.caches_exist()
+                        msrun_sample.sample.animal not in animals_to_uncache
+                        and msrun_sample.sample.animal.caches_exist()
                     ):
-                        animals_to_uncache.append(msrun.sample.animal)
-                    elif not msrun.sample.animal.caches_exist() and self.verbosity >= 1:
+                        animals_to_uncache.append(msrun_sample.sample.animal)
+                    elif (
+                        not msrun_sample.sample.animal.caches_exist()
+                        and self.verbosity >= 1
+                    ):
                         print(
-                            f"No cache exists for animal {msrun.sample.animal.id} linked to Sample {msrun.sample.id}"
+                            f"No cache exists for animal {msrun_sample.sample.animal.id} linked to Sample "
+                            f"{msrun_sample.sample.id}"
                         )
             except Exception as e:
                 self.aggregated_errors_object.buffer_error(e)
@@ -1230,7 +1541,7 @@ class AccuCorDataLoader:
 
         # Create all PeakGroups
         for sample_data_header in sample_msrun_dict.keys():
-            msrun = sample_msrun_dict[sample_data_header]
+            msrun_sample = sample_msrun_dict[sample_data_header]
 
             # Pass through the rows once to identify the PeakGroups
             for _, corr_row in self.accucor_corrected_df.iterrows():
@@ -1262,7 +1573,7 @@ class AccuCorDataLoader:
                         try:
                             peak_group = self.insert_peak_group(
                                 peak_group_attrs=self.peak_group_dict[peak_group_name],
-                                msrun=msrun,
+                                msrun_sample=msrun_sample,
                                 peak_annotation_file=peak_annotation_file,
                             )
                             inserted_peak_group_dict[peak_group_name] = peak_group
@@ -1473,6 +1784,16 @@ class AccuCorDataLoader:
                 ),
             )
 
+        if len(self.conflicting_polarities.keys()) > 0:
+            self.aggregated_errors_object.buffer_exception(
+                PolarityConflictErrors(self.conflicting_polarities),
+            )
+
+        if len(self.mixed_polarities.keys()) > 0:
+            self.aggregated_errors_object.buffer_exception(
+                MixedPolarityErrors(self.mixed_polarities),
+            )
+
         if self.aggregated_errors_object.should_raise():
             raise self.aggregated_errors_object
 
@@ -1675,21 +1996,33 @@ class AccuCorDataLoader:
         enable_caching_updates()
 
 
-def hash_file(filename):
-    """ "This function returns the SHA-1 hash
-    of the file passed into it"""
+def hash_file(path_obj, allow_missing=False):
+    """
+    This function returns the SHA-1 hash of the file passed into it.
+
+    If allow_missing is True, the filename is not None, and an exception occurs during hash creation, a hash will be
+    constructed using the filename.
+    """
+    # TODO: Consider removing the allow_missing argument
 
     # make a hash object
     h = hashlib.sha1()
 
-    # open file for reading in binary mode
-    with open(filename, "rb") as file:
-        # loop till the end of the file
-        chunk = 0
-        while chunk != b"":
-            # read only 1024 bytes at a time
-            chunk = file.read(1024)
-            h.update(chunk)
+    try:
+        # open file for reading in binary mode
+        with path_obj.open("rb") as file:
+            # loop till the end of the file
+            chunk = 0
+            while chunk != b"":
+                # read only 1024 bytes at a time
+                chunk = file.read(1024)
+                h.update(chunk)
+    except Exception as e:
+        if allow_missing and path_obj is not None:
+            encoded_filename = str(path_obj).encode()
+            h = hashlib.sha1(encoded_filename)
+        else:
+            raise e
 
     # return the hex representation of digest
     return h.hexdigest()

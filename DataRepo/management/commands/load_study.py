@@ -269,6 +269,7 @@ class Command(BaseCommand):
                 # Get parameters for all accucor files
                 study_lc_protocol = study_params["accucor_data"]["lc_protocol"]
                 study_instrument = study_params["accucor_data"]["instrument"]
+                study_polarity = study_params["accucor_data"]["polarity"]
                 study_date = study_params["accucor_data"]["date"]
                 study_researcher = study_params["accucor_data"]["researcher"]
                 study_new_researcher = study_params["accucor_data"]["new_researcher"]
@@ -292,6 +293,7 @@ class Command(BaseCommand):
                         "lc_protocol", study_lc_protocol
                     )
                     instrument = accucor_info_dict.get("instrument", study_instrument)
+                    polarity = accucor_info_dict.get("polarity", study_polarity)
                     date = accucor_info_dict.get("date", study_date)
                     researcher = accucor_info_dict.get("researcher", study_researcher)
                     new_researcher = accucor_info_dict.get(
@@ -324,6 +326,7 @@ class Command(BaseCommand):
                             accucor_file=accucor_file,
                             lc_protocol_name=lc_protocol_name,
                             instrument=instrument,
+                            polarity=polarity,
                             date=date,
                             researcher=researcher,
                             new_researcher=new_researcher,

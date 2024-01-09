@@ -29,9 +29,8 @@ class PeakGroup(HierCachedModel, MaintainedModel):
     msrun_sample = models.ForeignKey(
         to="DataRepo.MSRunSample",
         on_delete=models.CASCADE,
-        null=True,  # False,
-        # TODO: Temporarily True until migration performed to avoid error. Note, display of advanced search results will
-        # be broken until null=False. Otherwise, there's no reverse lookup of null
+        null=False,
+        blank=False,
         related_name="peak_groups",
         help_text="The MS Run this PeakGroup belongs to.",
     )

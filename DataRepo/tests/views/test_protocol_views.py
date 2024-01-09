@@ -1,5 +1,4 @@
 from django.core.management import call_command
-from django.test import tag
 from django.urls import reverse
 
 from DataRepo.models import Protocol
@@ -26,13 +25,11 @@ def assert_coordinator_state_is_initialized():
         raise UncleanBufferError()
 
 
-@tag("broken_until_issue712")
 class ProtocolViewTests(TracebaseTestCase):
     """
     Test two list views for subsets of protocols
     Test detail views for protocols
     expected protocol for animal treatment: "no treatment"
-    expected protocol for MSRun protocol: "Default"
     """
 
     @classmethod

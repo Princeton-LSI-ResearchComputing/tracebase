@@ -11,6 +11,7 @@ from django.shortcuts import redirect, render
 from django.views.generic.edit import FormView
 
 from DataRepo.forms import DataSubmissionValidationForm
+from DataRepo.models import LCMethod, MSRunSample, MSRunSequence, Researcher
 from DataRepo.utils.accucor_data_loader import get_sample_headers
 from DataRepo.utils.exceptions import MultiLoadStatus
 
@@ -47,15 +48,11 @@ class DataValidationView(FormView):
 
         if accucor_files:
             self.accucor_files = accucor_files
-            for afp in accucor_files:
-                self.mzxml_files.extend(self.get_mzxml_names(afp))
         else:
             self.accucor_files = []
 
         if isocorr_files:
             self.isocorr_files = isocorr_files
-            for ifp in isocorr_files:
-                self.mzxml_files.extend(self.get_mzxml_names(ifp))
         else:
             self.isocorr_files = []
 
@@ -210,12 +207,12 @@ class DataValidationView(FormView):
                     #     "isocorr_format": False,  # Set by self.add_ms_data()
                     # },
                 ],
-                "lc_protocol": "unknown",
-                "instrument": "Default instrument",
+                "lc_protocol": LCMethod.create_name(),
+                "instrument": MSRunSequence.INSTRUMENT_DEFAULT,
+                "polarity": MSRunSample.POLARITY_DEFAULT,
                 "date": "1972-11-24",
-                "researcher": "anonymous",
+                "researcher": Researcher.RESEARCHER_DEFAULT,
                 "new_researcher": False,
-                "mzxml_files": self.mzxml_files,
             },
         }
 

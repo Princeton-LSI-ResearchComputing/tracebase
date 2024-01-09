@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 
 from django.conf import settings
 from django.core.management import call_command
-from django.test import override_settings, tag
+from django.test import override_settings
 
 from DataRepo.models import (
     Animal,
@@ -11,7 +11,8 @@ from DataRepo.models import (
     DataType,
     FCirc,
     LCMethod,
-    MSRun,
+    MSRunSample,
+    MSRunSequence,
     PeakGroup,
     PeakGroupLabel,
     Sample,
@@ -19,9 +20,10 @@ from DataRepo.models import (
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
-@tag("broken_until_issue712")
 @override_settings(CACHES=settings.TEST_CACHES)
 class FCircTests(TracebaseTestCase):
+    fixtures = ["data_types.yaml", "data_formats.yaml", "lc_methods.yaml"]
+
     def setUp(self):
         super().setUp()
 
@@ -42,7 +44,6 @@ class FCircTests(TracebaseTestCase):
 
     @classmethod
     def setUpTestData(cls):
-        call_command("loaddata", "lc_methods")
         call_command("load_study", "DataRepo/data/tests/tissues/loading.yaml")
         call_command(
             "load_compounds",
@@ -56,11 +57,12 @@ class FCircTests(TracebaseTestCase):
         call_command(
             "load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
-            instrument="default instrument",
+            instrument="unknown",
             accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_serum.xlsx",
             date="2021-06-03",
             researcher="Michael Neinast",
             new_researcher=True,
+            polarity="positive",
         )
 
         cls.lcm = LCMethod.objects.get(name__exact="polar-HILIC-25-min")
@@ -99,24 +101,53 @@ class FCircTests(TracebaseTestCase):
         Issue #460, test 3.1.1.
         3. Updates of FCirc.is_last, Sample.is_serum_sample, and Animal.last_serum_sample are triggered by themselves
            and by changes to models down to PeakGroup.
-          2. Create a new msrun whose date is later than the msrun of the new serum sample (created above), a new
-             tracer peak group in the new serum sample (created above), and related peak group labels.
+          2. Create a new msrun_sample whose date is later than the msrun_sample of the new serum sample (created
+             above), a new tracer peak group in the new serum sample (created above), and related peak group labels.
             1. Confirm all FCirc.is_last values related to the old serum sample are now false.
         """
 
-        # Create new msrun, peak group, and peak group labels
-        msr = MSRun.objects.create(
+        # Create new msrun_sample, peak group, and peak group labels
+        seq = MSRunSequence(
             researcher="Anakin Skywalker",
             date=datetime.now(),
-            sample=self.newlss,
+            instrument=MSRunSequence.INSTRUMENT_CHOICES[0][1],
             lc_method=self.lcm,
         )
+        seq.full_clean()
+        seq.save()
+
+        mstype = DataType.objects.get(code="ms_data")
+        rawfmt = DataFormat.objects.get(code="ms_raw")
+        mzxfmt = DataFormat.objects.get(code="mzxml")
+        rawrec = ArchiveFile.objects.create(
+            filename="test.raw",
+            file_location=None,
+            checksum="558ea654d7f2914ca4527580edf4fac11bd151c5",
+            data_type=mstype,
+            data_format=rawfmt,
+        )
+        mzxrec = ArchiveFile.objects.create(
+            filename="test.mzxml",
+            file_location=None,
+            checksum="558ea654d7f2914ca4527580edf4fac11bd151c4",
+            data_type=mstype,
+            data_format=mzxfmt,
+        )
+        msrs = MSRunSample(
+            msrun_sequence=seq,
+            sample=self.newlss,
+            polarity="positive",
+            ms_raw_file=rawrec,
+            ms_data_file=mzxrec,
+        )
+        msrs.full_clean()
+        msrs.save()
 
         for tracer in self.lss.animal.infusate.tracers.all():
             pg = PeakGroup.objects.create(
                 name=tracer.compound.name,
                 formula=tracer.compound.formula,
-                msrun_sample=msr,
+                msrun_sample=msrs,
                 peak_annotation_file=self.peak_annotation_file,
             )
             pg.compounds.add(tracer.compound)
@@ -209,12 +240,12 @@ class FCircTests(TracebaseTestCase):
             # 0 - prev_smpl_tmclctd_is_none_amng_many - 0 = There is either only 1 serum sample or (I'm not last and I
             #                                               have a time_collected).
             # 0 - msr_date_is_none_and_many_msrs_for_smpl - 0 = This FCirc record's serum sample either has only 1
-            #                                                   MSRun or its date has a value.
+            #                                                   MSRunSample or its date has a value.
             # 1 - overall - 1 = Status is not "good" overall.
             # 0 - tmclctd_is_none_but_only1_smpl - 0 = There are either multiple serum samples or there is 1 and it has
             #                                          a time collected.
-            # 0 - msr_date_is_none_but_only1_msr_for_smpl - 0 = There are either many MSRuns for this serum sample or
-            #                                                   there is 1 & it has a date.
+            # 0 - msr_date_is_none_but_only1_msr_for_smpl - 0 = There are either many MSRunSamples for this serum sample
+            #                                                   or there is 1 & it has a date.
             self.assertEqual("100000100", fcr.serum_validity["bitcode"])
 
     def test_serum_validity_no_time_collected(self):
@@ -246,12 +277,12 @@ class FCircTests(TracebaseTestCase):
             # 0 - prev_smpl_tmclctd_is_none_amng_many - 0 = There is either only 1 serum sample or (I'm not last and I
             #                                               have a time_collected).
             # 0 - msr_date_is_none_and_many_msrs_for_smpl - 0 = This FCirc record's serum sample either has only 1
-            #                                                   MSRun or its date has a value.
+            #                                                   MSRunSample or its date has a value.
             # 1 - overall - 1 = Status is not "good" overall.
             # 0 - tmclctd_is_none_but_only1_smpl - 0 = There are either multiple serum samples or there is 1 and it has
             #                                          a time collected.
-            # 0 - msr_date_is_none_but_only1_msr_for_smpl - 0 = There are either many MSRuns for this serum sample or
-            #                                                   there is 1 & it has a date.
+            # 0 - msr_date_is_none_but_only1_msr_for_smpl - 0 = There are either many MSRunSamples for this serum sample
+            #                                                   or there is 1 & it has a date.
             self.assertEqual("011000100", fcr.serum_validity["bitcode"])
 
         self.lss.time_collected = tcbak
@@ -289,12 +320,12 @@ class FCircTests(TracebaseTestCase):
             # 0 - prev_smpl_tmclctd_is_none_amng_many - 0 = There is either only 1 serum sample or (I'm not last and I
             #                                               have a time_collected).
             # 0 - msr_date_is_none_and_many_msrs_for_smpl - 0 = This FCirc record's serum sample either has only 1
-            #                                                   MSRun or its date has a value.
+            #                                                   MSRunSample or its date has a value.
             # 1 - overall - 1 = Status is not "good" overall.
             # 0 - tmclctd_is_none_but_only1_smpl - 0 = There are either multiple serum samples or there is 1 and it has
             #                                          a time collected.
-            # 0 - msr_date_is_none_but_only1_msr_for_smpl - 0 = There are either many MSRuns for this serum sample or
-            #                                                   there is 1 & it has a date.
+            # 0 - msr_date_is_none_but_only1_msr_for_smpl - 0 = There are either many MSRunSamples for this serum sample
+            #                                                   or there is 1 & it has a date.
             self.assertEqual("000100100", fcr.serum_validity["bitcode"])
 
         self.newlss.time_collected = tcbak
@@ -306,19 +337,48 @@ class FCircTests(TracebaseTestCase):
         self.newlss.save()
 
         # To get to the prev_smpl_tmclctd_is_none_amng_many state of 1, there must exist peakgroups for newlss
-        # Create new msrun, peak group, and peak group labels
-        msr = MSRun.objects.create(
+        # Create new msrun_sample, peak group, and peak group labels
+        seq = MSRunSequence(
             researcher="Anakin Skywalker",
             date=datetime.now(),
-            sample=self.newlss,
+            instrument=MSRunSequence.INSTRUMENT_CHOICES[0][1],
             lc_method=self.lcm,
         )
+        seq.full_clean()
+        seq.save()
+
+        mstype = DataType.objects.get(code="ms_data")
+        rawfmt = DataFormat.objects.get(code="ms_raw")
+        mzxfmt = DataFormat.objects.get(code="mzxml")
+        rawrec = ArchiveFile.objects.create(
+            filename="test.raw",
+            file_location=None,
+            checksum="558ea654d7f2914ca4527580edf4fac11bd151c5",
+            data_type=mstype,
+            data_format=rawfmt,
+        )
+        mzxrec = ArchiveFile.objects.create(
+            filename="test.mzxml",
+            file_location=None,
+            checksum="558ea654d7f2914ca4527580edf4fac11bd151c4",
+            data_type=mstype,
+            data_format=mzxfmt,
+        )
+        msrs = MSRunSample(
+            msrun_sequence=seq,
+            sample=self.newlss,
+            polarity="positive",
+            ms_raw_file=rawrec,
+            ms_data_file=mzxrec,
+        )
+        msrs.full_clean()
+        msrs.save()
 
         for tracer in self.lss.animal.infusate.tracers.all():
             pg = PeakGroup.objects.create(
                 name=tracer.compound.name,
                 formula=tracer.compound.formula,
-                msrun_sample=msr,
+                msrun_sample=msrs,
                 peak_annotation_file=self.peak_annotation_file,
             )
             pg.compounds.add(tracer.compound)
@@ -351,12 +411,12 @@ class FCircTests(TracebaseTestCase):
             #                                            time_collected.
             # 1 - prev_smpl_tmclctd_is_none_amng_many - 1 = There are many serum samples and my time_collected is null.
             # 0 - msr_date_is_none_and_many_msrs_for_smpl - 0 = This FCirc record's serum sample either has only 1
-            #                                                   MSRun or its date has a value.
+            #                                                   MSRunSample or its date has a value.
             # 1 - overall - 1 = Status is not "good" overall.
             # 0 - tmclctd_is_none_but_only1_smpl - 0 = There are either multiple serum samples or there is 1 and it has
             #                                          a time collected.
-            # 0 - msr_date_is_none_but_only1_msr_for_smpl - 0 = There are either many MSRuns for this serum sample or
-            #                                                   there is 1 & it has a date.
+            # 0 - msr_date_is_none_but_only1_msr_for_smpl - 0 = There are either many MSRunSamples for this serum sample
+            #                                                   or there is 1 & it has a date.
             self.assertEqual("000010100", fcr.serum_validity["bitcode"])
 
         self.newlss.time_collected = tcbak

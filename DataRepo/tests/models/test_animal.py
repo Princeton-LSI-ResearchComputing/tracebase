@@ -8,7 +8,6 @@ from DataRepo.models import Animal, Infusate, Sample
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
-@tag("broken_until_issue712")
 @override_settings(CACHES=settings.TEST_CACHES)
 @tag("animal")
 class AnimalTests(TracebaseTestCase):
@@ -43,20 +42,22 @@ class AnimalTests(TracebaseTestCase):
         call_command(
             "load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
-            instrument="default instrument",
+            instrument="unknown",
             accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf.xlsx",
             date="2021-06-03",
             researcher="Michael Neinast",
             new_researcher=True,
+            polarity="positive",
         )
         call_command(
             "load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
-            instrument="default instrument",
+            instrument="unknown",
             accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_serum.xlsx",
             date="2021-06-03",
             researcher="Michael Neinast",
             new_researcher=False,
+            polarity="positive",
         )
 
         super().setUpTestData()

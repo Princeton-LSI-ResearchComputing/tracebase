@@ -62,28 +62,50 @@ class Command(BaseCommand):
         parser.add_argument(
             "--lc-protocol-name",
             type=str,
-            help="Default LCMethod.name of the liquid chromatography protocol used",
+            help=(
+                "Default LCMethod.name of the liquid chromatography protocol used.  Used if --lcms-file is not "
+                "supplied, or specifies no LC info for a sample."
+            ),
             default=None,
             required=False,
         )
         parser.add_argument(
             "--instrument",
             type=str,
-            help="Name of the LCMS instrument that analyzed the samples",
+            help=(
+                "Default name of the LCMS instrument that analyzed the samples.  Used if --lcms-file is not supplied, "
+                "or specifies no instrument for a sample."
+            ),
+            default=None,
+            required=False,
+        )
+        parser.add_argument(
+            "--polarity",
+            type=str,
+            help=(
+                "Default ion mode of the LCMS instrument that analyzed the samples.  Used if --lcms-file is not "
+                "supplied, or specifies no polarity for a sample."
+            ),
             default=None,
             required=False,
         )
         parser.add_argument(
             "--date",
             type=str,
-            help="Date MSRun was performed, formatted as YYYY-MM-DD",
+            help=(
+                "Default date MSRun was performed, formatted as YYYY-MM-DD.  Used if --lcms-file is not supplied, or "
+                "specifies no date for a sample."
+            ),
             default=None,
             required=False,
         )
         parser.add_argument(
             "--researcher",
             type=str,
-            help="Database name or ID of the researcher",
+            help=(
+                "Default name or ID of the researcher.  Used if --lcms-file is not supplied, or specifies no "
+                "researcher for a sample."
+            ),
             default=None,
             required=False,
         )
@@ -177,9 +199,7 @@ class Command(BaseCommand):
 
         mzxml_files = None
         if options["mzxml_files"] is not None and len(options["mzxml_files"]) > 0:
-            mzxml_files = [
-                os.path.basename(mzxmlf).strip() for mzxmlf in options["mzxml_files"]
-            ]
+            mzxml_files = options["mzxml_files"]
 
         loader = AccuCorDataLoader(
             # Peak annotation file data
@@ -194,6 +214,7 @@ class Command(BaseCommand):
             lc_protocol_name=options["lc_protocol_name"],
             researcher=options["researcher"],
             instrument=options["instrument"],
+            polarity=options["polarity"],
             mzxml_files=mzxml_files,
             peak_annotation_filename=peak_annotation_filename,
             # Sample options

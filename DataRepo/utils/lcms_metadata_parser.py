@@ -21,6 +21,7 @@ LCMS_HEADERS = (
     "peak annotation filename",
     "instrument",
     "operator",
+    "polarity",
     "date",
     "lc method",
     "lc run length",
@@ -93,6 +94,7 @@ def lcms_df_to_dict(df, aes=None):
             "lc_type": row["lc method"],
             "lc_run_length": run_len,
             "lc_description": row["lc description"],
+            "polarity": row["polarity"],
             "row_num": str(idx + 2),  # From 1, not including header row
         }
 

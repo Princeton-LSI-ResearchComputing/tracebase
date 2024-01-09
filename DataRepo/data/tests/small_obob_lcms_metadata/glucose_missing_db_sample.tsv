@@ -1,16 +1,16 @@
-tracebase sample name	sample data header	mzxml filename	peak annotation filename	instrument	operator	date	lc method	lc run length	lc description
-BAT-xz971	BAT-xz971_pos		small_obob_maven_6eaas_inf_glucose.xlsx	default instrument	Michael Neinast	2021-04-29	polar-HILIC	25	
-a-missing-sample	Br-xz971_pos		small_obob_maven_6eaas_inf_glucose.xlsx	default instrument	Michael Neinast	2021-04-29	new-lc-method	30	new lc method description
-Dia-xz971	Dia-xz971_pos								
-gas-xz971	gas-xz971_pos								
-gWAT-xz971	gWAT-xz971_pos								
-H-xz971	H-xz971_pos								
-Kid-xz971	Kid-xz971_pos								
-Liv-xz971	Liv-xz971_pos								
-Lu-xz971	Lu-xz971_pos								
-Pc-xz971	Pc-xz971_pos								
-Q-xz971	Q-xz971_pos								
-SI-xz971	SI-xz971_pos								
-Sol-xz971	Sol-xz971_pos								
-Sp-xz971	Sp-xz971_pos								
-another-missing-sample	serum-xz971_pos								
+tracebase sample name	sample data header	mzxml filename	peak annotation filename	instrument	polarity	operator	date	lc method	lc run length	lc description
+BAT-xz971	BAT-xz971_pos		small_obob_maven_6eaas_inf_glucose.xlsx	unknown	positive	Michael Neinast	2021-04-29	polar-HILIC	25	
+a-missing-sample	Br-xz971_pos		small_obob_maven_6eaas_inf_glucose.xlsx	unknown	positive	Michael Neinast	2021-04-29	new-lc-method	30	new lc method description
+Dia-xz971	Dia-xz971_pos									
+gas-xz971	gas-xz971_pos									
+gWAT-xz971	gWAT-xz971_pos									
+H-xz971	H-xz971_pos									
+Kid-xz971	Kid-xz971_pos									
+Liv-xz971	Liv-xz971_pos									
+Lu-xz971	Lu-xz971_pos									
+Pc-xz971	Pc-xz971_pos									
+Q-xz971	Q-xz971_pos									
+SI-xz971	SI-xz971_pos									
+Sol-xz971	Sol-xz971_pos									
+Sp-xz971	Sp-xz971_pos									
+another-missing-sample	serum-xz971_pos									

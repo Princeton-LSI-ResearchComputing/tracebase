@@ -2,13 +2,12 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.core.management import call_command
-from django.test import override_settings, tag
+from django.test import override_settings
 
 from DataRepo.models import Animal, Sample
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
-@tag("broken_until_issue712")
 @override_settings(CACHES=settings.TEST_CACHES)
 class SampleTests(TracebaseTestCase):
     @classmethod
@@ -28,20 +27,22 @@ class SampleTests(TracebaseTestCase):
         call_command(
             "load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
-            instrument="default instrument",
+            instrument="unknown",
             accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf.xlsx",
             date="2021-06-03",
             researcher="Michael Neinast",
             new_researcher=True,
+            polarity="positive",
         )
         call_command(
             "load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
-            instrument="default instrument",
+            instrument="unknown",
             accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_serum.xlsx",
             date="2021-06-03",
             researcher="Michael Neinast",
             new_researcher=False,
+            polarity="positive",
         )
 
     def test_is_serum_sample_autoupdates(self):

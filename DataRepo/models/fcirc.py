@@ -6,7 +6,6 @@ from django.db import models
 from DataRepo.models.element_label import ElementLabel
 from DataRepo.models.hier_cached_model import HierCachedModel, cached_function
 from DataRepo.models.maintained_model import MaintainedModel
-from DataRepo.models.utilities import create_is_null_field
 
 
 class FCirc(MaintainedModel, HierCachedModel):
@@ -85,15 +84,15 @@ class FCirc(MaintainedModel, HierCachedModel):
         """
         Note, there is an FCirc record for every serum sample, tracer, and label combo.  Each such combo represents a
         single "peak group" even though there can exist multiple peak groups from different serum samples and different
-        msruns from the same serum sample.  However, multiple msruns from the same sample are ignored - only the last
-        one is represented by a record in this table.  Michael and I (Rob) discussed whether it was worthwhile to
-        compute values for peak groups from this sample in prior msruns and Michael said no, so:
+        msrun_samples from the same serum sample.  However, multiple msrun_samples from the same sample are ignored -
+        only the last one is represented by a record in this table.  Michael and I (Rob) discussed whether it was
+        worthwhile to compute values for peak groups from this sample in prior msrun_samples and Michael said no, so:
 
-        This method determines whether the peak group from the last msrun that included this tracer and label is the
-        last peakgroup when considered among multiple serum samples.  There could exist last peak groups in prior serum
-        samples that would result in a false return here.  There can also be later serum samples that don't include a
-        peak group for this tracer which would return false if it was among the peakgroups returned, but they will not
-        be among the peakgroups represented in this table.
+        This method determines whether the peak group from the last msrun_sample that included this tracer and label is
+        the last peakgroup when considered among multiple serum samples.  There could exist last peak groups in prior
+        serum samples that would result in a false return here.  There can also be later serum samples that don't
+        include a peak group for this tracer which would return false if it was among the peakgroups returned, but they
+        will not be among the peakgroups represented in this table.
         """
 
         if self.last_peak_group_in_sample:
@@ -136,19 +135,16 @@ class FCirc(MaintainedModel, HierCachedModel):
     @cached_function
     def peak_groups(self):
         """
-        Retrieve all PeakGroups for this serum sample and tracer, regardless of msrun date.
+        Retrieve all PeakGroups for this serum sample and tracer, regardless of msrun_sequence date.
 
         Currently unused - see docstring in self.is_last_serum_peak_group
         """
         from DataRepo.models.peak_group import PeakGroup
 
-        # Create an is_null field for msrun date to be able to sort them
-        (extra_args, is_null_field) = create_is_null_field("msrun_sample__date")
         peakgroups = (
             PeakGroup.objects.filter(msrun_sample__sample__exact=self.serum_sample)
             .filter(compounds__exact=self.tracer.compound)
-            .extra(**extra_args)
-            .order_by(f"-{is_null_field}", "msrun_sample__date")
+            .order_by("msrun_sample__msrun_sequence__date")
         )
 
         if peakgroups.count() == 0:
@@ -163,8 +159,7 @@ class FCirc(MaintainedModel, HierCachedModel):
     def serum_validity(self):
         """
         Returns a dict containing information about the validity of this animal's serum samples, such as if all serum
-        samples have a time_collected, if the last serum sample has all tracer peak groups, if the sample's msruns all
-        have dates, etc.
+        samples have a time_collected, if the last serum sample has all tracer peak groups, etc.
         """
         valid = True
         messages = []
@@ -239,30 +234,31 @@ class FCirc(MaintainedModel, HierCachedModel):
                         "may not actually be the last one."
                     )
 
+            # TODO: MSRunSequence.date can no longer be null, so these warnings can probably be removed
             if (
-                # If the date of the MSRun containing the "last" self.tracer peak group is none
-                self.last_peak_group_in_sample.msrun_sample.date is None
-                # and there exist other (potentially last) MSRuns that might contain a self.tracer peak group
+                # If the date of the MSRunSequence containing the "last" self.tracer peak group is none
+                self.last_peak_group_in_sample.msrun_sample.msrun_sequence.date is None
+                # and there exist other (potentially last) MSRunSamples that might contain a self.tracer peak group
                 and self.serum_sample.msrun_samples.count() > 1
             ):
                 valid = False
                 level = "warn"
                 msr_date_is_none_and_many_msrs_for_smpl = 1
                 messages.append(
-                    f"The MSRun date is not set for this {prev_or_last_str} serum tracer peak group for sample "
+                    f"The MSRunSequence date is not set for this {prev_or_last_str} serum tracer peak group for sample "
                     f"{self.serum_sample} and tracer {self.tracer}, so it's possible these FCirc calculations should "
                     "or should not be for the 'last' peak group for this serum sample."
                 )
             elif (
-                self.last_peak_group_in_sample.msrun_sample.date is None
+                self.last_peak_group_in_sample.msrun_sample.msrun_sequence.date is None
                 and self.serum_sample.msrun_samples.count() == 1
             ):
                 # This doesn't trigger/override the valid or level settings, but it does append a message
                 msr_date_is_none_but_only1_msr_for_smpl = 1
                 messages.append(
-                    f"The MSRun date is not set for this {prev_or_last_str} serum tracer peak group for sample "
-                    f"{self.serum_sample} and tracer {self.tracer}, but there's only 1 MSRun for this sample, so it's "
-                    "of no real concern (yet)."
+                    f"The MSRunSequence date is not set for this {prev_or_last_str} serum tracer peak group for sample "
+                    f"{self.serum_sample} and tracer {self.tracer}, but there's only 1 MSRunSequence for this sample, "
+                    "so it's of no real concern (yet)."
                 )
 
             # Determine the number of serum samples, but don't rely on maintained fields (for robustness)
@@ -300,7 +296,7 @@ class FCirc(MaintainedModel, HierCachedModel):
             overall = 0
             messages.insert(
                 0,
-                "No significant problems found with the peak group, sample collection time, or MSRun date.",
+                "No significant problems found with the peak group or sample collection time.",
             )
 
         # Any int produced from this bit str less than 000000100 should be status "good" (i.e. code < 4)

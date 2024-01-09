@@ -26,7 +26,6 @@ from DataRepo.templatetags.customtags import get_many_related_rec
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
-@tag("broken_until_issue712")
 class FormatsTests(TracebaseTestCase):
     fixtures = ["data_types.yaml", "data_formats.yaml"]
     maxDiff = None
@@ -58,20 +57,22 @@ class FormatsTests(TracebaseTestCase):
         call_command(
             "load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
-            instrument="default instrument",
+            instrument="unknown",
             accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf.xlsx",
             date="2021-06-03",
             researcher="Michael Neinast",
             new_researcher=True,
+            polarity="positive",
         )
         call_command(
             "load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
-            instrument="default instrument",
+            instrument="unknown",
             accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_serum.xlsx",
             date="2021-06-03",
             researcher="Michael Neinast",
             new_researcher=False,
+            polarity="positive",
         )
         basv = SearchGroup()
         for fmt in basv.modeldata.keys():
@@ -161,6 +162,15 @@ class FormatsTests(TracebaseTestCase):
             ),
             ("labels__count", "Labeled Count"),
             ("labels__element", "Labeled Element"),
+            ("peak_group__msrun_sample__ms_data_file__filename", "MZ Data Filename"),
+            (
+                "peak_group__msrun_sample__msrun_sequence__researcher",
+                "Mass Spec Operator",
+            ),
+            (
+                "peak_group__msrun_sample__msrun_sequence__instrument",
+                "Mass Spectrometer Name",
+            ),
             (
                 "peak_group__compounds__synonyms__name",
                 "Measured Compound (Any Synonym)",
@@ -170,6 +180,8 @@ class FormatsTests(TracebaseTestCase):
             ("med_rt", "Median RT"),
             ("peak_group__peak_annotation_file__filename", "Peak Annotation Filename"),
             ("peak_group__name", "Peak Group"),
+            ("peak_group__msrun_sample__polarity", "Polarity"),
+            ("peak_group__msrun_sample__ms_raw_file__filename", "RAW Data Filename"),
             ("raw_abundance", "Raw Abundance"),
             ("peak_group__msrun_sample__sample__name", "Sample"),
             ("peak_group__msrun_sample__sample__animal__sex", "Sex"),
@@ -212,8 +224,13 @@ class FormatsTests(TracebaseTestCase):
             ("msrun_sample__sample__animal__infusate__name", "Infusate"),
             ("msrun_sample__sample__animal__infusion_rate", "Infusion Rate (ul/min/g)"),
             ("labels__element", "Labeled Element"),
+            ("msrun_sample__ms_data_file__filename", "MZ Data Filename"),
+            ("msrun_sample__msrun_sequence__researcher", "Mass Spec Operator"),
+            ("msrun_sample__msrun_sequence__instrument", "Mass Spectrometer Name"),
             ("peak_annotation_file__filename", "Peak Annotation Filename"),
             ("name", "Peak Group"),
+            ("msrun_sample__polarity", "Polarity"),
+            ("msrun_sample__ms_raw_file__filename", "RAW Data Filename"),
             ("msrun_sample__sample__name", "Sample"),
             ("msrun_sample__sample__animal__sex", "Sex"),
             ("msrun_sample__sample__animal__studies__name", "Study"),
@@ -301,9 +318,8 @@ class FormatsTests(TracebaseTestCase):
         )
 
     def assertIsAPgUnitsLookupDict(self, fld_units_lookup):
-        print(fld_units_lookup)
         # There should be 39 fields with units lookups
-        self.assertEqual(39, len(fld_units_lookup.keys()))
+        self.assertEqual(46, len(fld_units_lookup.keys()))
         # Path should be prepended to the field name
         self.assertIsNone(fld_units_lookup["msrun_sample__sample__animal__genotype"])
         # Each value should be a dict with the units, this one having 15 keys
@@ -494,6 +510,9 @@ class FormatsTests(TracebaseTestCase):
             "msrun_sample__sample__animal__treatment",
             "msrun_sample__sample__animal__studies",
             "msrun_sample__sample__tissue",
+            "msrun_sample__msrun_sequence",
+            "msrun_sample__ms_data_file",
+            "msrun_sample__ms_raw_file",
             "peak_annotation_file",
             [
                 "compounds",
@@ -544,12 +563,12 @@ class FormatsTests(TracebaseTestCase):
             "labels",
         ]
 
-        self.assertEqual(8, len(prefetches))
+        self.assertEqual(11, len(prefetches))
         self.assertEqual("list", type(prefetches).__name__)
-        self.assertEqual(expected_prefetches[0:5], prefetches[0:5])
-        self.assertEqual(expected_prefetches[6:3], prefetches[6:3])
-        self.assertEqual(expected_prefetches[5][0:3], prefetches[5][0:3])
-        self.assertIsAPgUnitsLookupDict(prefetches[5][3])
+        self.assertEqual(expected_prefetches[0:8], prefetches[0:8])
+        self.assertEqual(expected_prefetches[9:3], prefetches[9:3])
+        self.assertEqual(expected_prefetches[8][0:3], prefetches[8][0:3])
+        self.assertIsAPgUnitsLookupDict(prefetches[8][3])
 
         # Should be called after tearDown()
         # self.restore_split_rows()
@@ -1173,8 +1192,13 @@ class FormatsTests(TracebaseTestCase):
             ("msrun_sample__sample__animal__infusate__name", "Infusate"),
             ("msrun_sample__sample__animal__infusion_rate", "Infusion Rate (ul/min/g)"),
             ("labels__element", "Labeled Element"),
+            ("msrun_sample__ms_data_file__filename", "MZ Data Filename"),
+            ("msrun_sample__msrun_sequence__researcher", "Mass Spec Operator"),
+            ("msrun_sample__msrun_sequence__instrument", "Mass Spectrometer Name"),
             ("peak_annotation_file__filename", "Peak Annotation Filename"),
             ("name", "Peak Group"),
+            ("msrun_sample__polarity", "Polarity"),
+            ("msrun_sample__ms_raw_file__filename", "RAW Data Filename"),
             ("msrun_sample__sample__name", "Sample"),
             ("msrun_sample__sample__animal__sex", "Sex"),
             ("msrun_sample__sample__animal__studies__name", "Study"),
@@ -1197,7 +1221,7 @@ class FormatsTests(TracebaseTestCase):
         fmt = "pgtemplate"
         mdl = "Animal"
         res = basv_metadata.getKeyPathList(fmt, mdl)
-        kpl = ["msrun", "sample", "animal"]
+        kpl = ["msrun_sample", "sample", "animal"]
         self.assertEqual(kpl, res)
 
     def test_cv_getPrefetches(self):
@@ -1213,6 +1237,9 @@ class FormatsTests(TracebaseTestCase):
             "peak_group__msrun_sample__sample__animal__treatment",
             "peak_group__msrun_sample__sample__animal__studies",
             "peak_group__msrun_sample__sample__tissue",
+            "peak_group__msrun_sample__msrun_sequence",
+            "peak_group__msrun_sample__ms_data_file",
+            "peak_group__msrun_sample__ms_raw_file",
             "peak_group__peak_annotation_file",
             "peak_group__compounds__synonyms",
             "labels",
@@ -1241,6 +1268,10 @@ class FormatsTests(TracebaseTestCase):
             "MeasuredCompound",
             "CompoundSynonym",
             "Study",
+            "MSRunSequence",
+            "MSRunSample",
+            "MZFile",
+            "RAWFile",
         ]
         self.assertEqual(ml, res)
 
@@ -1373,21 +1404,23 @@ class FormatsTests(TracebaseTestCase):
             "load_accucor_msruns",
             accucor_file="DataRepo/data/tests/small_multitracer/6eaafasted1_cor.xlsx",
             lc_protocol_name="polar-HILIC-25-min",
-            instrument="default instrument",
+            instrument="unknown",
             date="2021-04-29",
             researcher="Xianfeng Zeng",
             new_researcher=False,
             isocorr_format=True,
+            polarity="positive",
         )
         call_command(
             "load_accucor_msruns",
             accucor_file="DataRepo/data/tests/small_multitracer/bcaafasted_cor.xlsx",
             lc_protocol_name="polar-HILIC-25-min",
-            instrument="default instrument",
+            instrument="unknown",
             date="2021-04-29",
             researcher="Xianfeng Zeng",
             new_researcher=False,
             isocorr_format=True,
+            polarity="positive",
         )
 
         format = "fctemplate"
@@ -1484,8 +1517,8 @@ class FormatsTests(TracebaseTestCase):
             expected_age_dict, fld_units_dict["fctemplate"]["serum_sample__animal__age"]
         )
         self.assertEqual(31, len(fld_units_dict["fctemplate"].keys()))
-        self.assertEqual(40, len(fld_units_dict["pgtemplate"].keys()))
-        self.assertEqual(44, len(fld_units_dict["pdtemplate"].keys()))
+        self.assertEqual(47, len(fld_units_dict["pgtemplate"].keys()))
+        self.assertEqual(51, len(fld_units_dict["pdtemplate"].keys()))
 
     def test_getAllFieldUnitsChoices(self):
         sg = SearchGroup()

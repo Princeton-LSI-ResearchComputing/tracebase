@@ -57,6 +57,13 @@ class Researcher:
     Non-model class that provides various researcher related methods
     """
 
+    # Note, RESEARCHER_DEFAULT is not used as a "default" value for loading.  It is used for the following reasons:
+    # 1. To allow the validation page to proceed without complaining about a missing researcher value
+    # 2. As a placeholder value in order to proceed when a problem with a researcher value is encountered.  Whenever
+    #    such a problem is encountered, an error is buffered and eventually raised at the end of a failed load.
+    # 3. To avoid hard-coding static "magic" values in multiple places.
+    RESEARCHER_DEFAULT = "anonymous"
+
     def __init__(self, name):
         """
         Create a researcher object that will lookup items by name

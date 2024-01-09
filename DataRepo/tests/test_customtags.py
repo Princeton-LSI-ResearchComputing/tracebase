@@ -1,5 +1,4 @@
 from django.core.management import call_command
-from django.test import tag
 
 from DataRepo.models import CompoundSynonym, MaintainedModel, PeakGroup, Study
 from DataRepo.templatetags.customtags import (
@@ -11,7 +10,6 @@ from DataRepo.templatetags.customtags import (
 from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 
 
-@tag("broken_until_issue712")
 class CustomTagsTests(TracebaseTestCase):
     @classmethod
     @MaintainedModel.no_autoupdates()
@@ -35,11 +33,12 @@ class CustomTagsTests(TracebaseTestCase):
         call_command(
             "load_accucor_msruns",
             lc_protocol_name="polar-HILIC-25-min",
-            instrument="default instrument",
+            instrument="unknown",
             accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf.xlsx",
             date="2021-06-03",
             researcher="Michael Neinast",
             new_researcher=True,
+            polarity="positive",
         )
         super().setUpTestData()
 

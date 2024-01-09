@@ -81,10 +81,18 @@ class ModelUtilitiesTests(TracebaseTestCase):
         self.assertEqual(mdl_input, model_output.__name__)
 
     def test_get_unique_constraint_fields(self):
-        mdl_name = "MSRun"
+        mdl_name = "MSRunSample"
         model = get_model_by_name(mdl_name)
         unique_field_sets = get_unique_constraint_fields(model)
-        self.assertEqual(1, len(unique_field_sets))
+        self.assertEqual(2, len(unique_field_sets))
+        self.assertEqual(("ms_data_file",), unique_field_sets[0])
         self.assertEqual(
-            ("researcher", "date", "lc_method", "sample"), unique_field_sets[0]
+            (
+                "msrun_sequence",
+                "sample",
+                "polarity",
+                "ms_raw_file",
+                "ms_data_file",
+            ),
+            unique_field_sets[1],
         )
