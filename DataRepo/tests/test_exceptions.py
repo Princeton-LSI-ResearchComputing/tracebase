@@ -6,6 +6,7 @@ from DataRepo.utils.exceptions import (
     ResearcherNotNew,
     UnexpectedIsotopes,
     UnitsWrong,
+    generate_file_location_string,
     summarize_int_list,
 )
 
@@ -251,6 +252,28 @@ class ExceptionTests(TracebaseTestCase):
         all = ["paul", "bob", "george"]
         ResearcherNotNew(existing, "--new-researcher", all)
         # No exception = successful test
+
+    def test_generate_file_location_string(self):
+        lstr = generate_file_location_string(
+            column=2, rownum=3, sheet="Animals", file="animals.xlsx"
+        )
+        self.assertEqual(
+            "column 2 on row 3 of sheet [Animals] in file [animals.xlsx]", lstr
+        )
+        lstr = generate_file_location_string(column=2, rownum=3, sheet="Animals")
+        self.assertEqual(
+            "column 2 on row 3 of sheet [Animals] in the load file data", lstr
+        )
+        lstr = generate_file_location_string(
+            rownum=3, sheet="Animals", file="animals.xlsx"
+        )
+        self.assertEqual("row 3 of sheet [Animals] in file [animals.xlsx]", lstr)
+        lstr = generate_file_location_string(
+            column=2, sheet="Animals", file="animals.xlsx"
+        )
+        self.assertEqual("column 2 of sheet [Animals] in file [animals.xlsx]", lstr)
+        lstr = generate_file_location_string(column=2, rownum=3, file="animals.xlsx")
+        self.assertEqual("column 2 on row 3 in file [animals.xlsx]", lstr)
 
 
 class MultiLoadStatusTests(TracebaseTestCase):

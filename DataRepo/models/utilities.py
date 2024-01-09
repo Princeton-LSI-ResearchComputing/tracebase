@@ -122,9 +122,11 @@ def get_unique_fields(model, fields=None):
     If fields (list of field names) is provided, the returned fields are limited to the list of field names provided.
     """
     return [
-        f
+        f.name if hasattr(f, "name") else f.field_name
         for f in get_non_auto_model_fields(model)
-        if (fields is None or f.name in fields) and hasattr(f, "unique") and f.unique
+        if (fields is None or field_in_fieldnames(f, fields))
+        and hasattr(f, "unique")
+        and f.unique
     ]
 
 
@@ -135,10 +137,18 @@ def get_enumerated_fields(model, fields=None):
     If fields (list of field names) is provided, the returned fields are limited to the list of field names provided.
     """
     return [
-        f
+        f.name if hasattr(f, "name") else f.field_name
         for f in get_non_auto_model_fields(model)
-        if (fields is None or f.name in fields) and hasattr(f, "choices") and f.choices
+        if (fields is None or field_in_fieldnames(f, fields))
+        and hasattr(f, "choices")
+        and f.choices
     ]
+
+
+def field_in_fieldnames(fld, fld_names):
+    return (hasattr(fld, "name") and fld.name in fld_names) or (
+        hasattr(fld, "field_name") and fld.field_name in fld_names
+    )
 
 
 def get_non_auto_model_fields(model):
@@ -308,7 +318,7 @@ def handle_load_db_errors(
                     errs = check_for_inconsistencies(
                         rec, rec_dict, rownum=rownum, sheet=sheet, file=file
                     )
-                    if conflicts_list:
+                    if conflicts_list is not None:
                         conflicts_list.extend(errs)
                         return True
                     elif aes:
@@ -327,7 +337,7 @@ def handle_load_db_errors(
                 if choice_field in estr and rec_dict[choice_field] is not None:
                     if aes is not None:
                         # Only include error once
-                        if not aes.exception_type_exists():
+                        if not aes.exception_type_exists(InfileDatabaseError):
                             aes.buffer_error(
                                 InfileDatabaseError(exception, rec_dict, rownum=rownum)
                             )

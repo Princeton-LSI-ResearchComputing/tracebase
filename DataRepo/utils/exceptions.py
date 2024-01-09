@@ -968,6 +968,7 @@ class ConflictingValueError(Exception):
                 f"\tfile: [{differing_value}]"
             )
         super().__init__(message)
+        self.rec = rec
         self.consistent_field = consistent_field
         self.existing_value = existing_value
         self.differing_value = differing_value
@@ -1625,7 +1626,7 @@ def generate_file_location_string(column=None, rownum=None, sheet=None, file=Non
         loc_str += "of "
     if sheet is not None:
         loc_str += f"sheet [{sheet}] "
-    if loc_str != "" and file is not None:
+    if loc_str != "":
         loc_str += "in "
     if file is not None:
         loc_str += f"file [{file}]"

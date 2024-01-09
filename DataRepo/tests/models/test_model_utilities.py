@@ -1,15 +1,32 @@
-from django.apps import apps
+from datetime import datetime
 
+from django.apps import apps
+from django.core.management import call_command
+from django.db import IntegrityError
+
+from DataRepo.models import Animal, LCMethod, MSRunSequence, Study
 from DataRepo.models.utilities import (
+    check_for_inconsistencies,
     dereference_field,
     get_all_models,
+    get_enumerated_fields,
     get_model_by_name,
+    get_non_auto_model_fields,
     get_unique_constraint_fields,
+    get_unique_fields,
+    handle_load_db_errors,
 )
-from DataRepo.tests.tracebase_test_case import TracebaseTestCase
+from DataRepo.tests.tracebase_test_case import TracebaseTransactionTestCase
+from DataRepo.utils.exceptions import (
+    AggregatedErrors,
+    ConflictingValueError,
+    InfileDatabaseError,
+)
 
 
-class ModelUtilitiesTests(TracebaseTestCase):
+class ModelUtilitiesTests(TracebaseTransactionTestCase):
+    fixtures = ["data_types.yaml", "data_formats.yaml", "lc_methods.yaml"]
+
     def test_get_all_models(self):
         """Test that we return all models in the right order"""
         all_models = set(apps.get_app_config("DataRepo").get_models())
@@ -96,3 +113,157 @@ class ModelUtilitiesTests(TracebaseTestCase):
             ),
             unique_field_sets[1],
         )
+
+    def test_get_non_auto_model_fields(self):
+        expected = [
+            "labels",
+            "samples",
+            "name",
+            "infusate",
+            "infusion_rate",
+            "genotype",
+            "body_weight",
+            "age",
+            "sex",
+            "diet",
+            "feeding_status",
+            "treatment",
+            "last_serum_sample",
+            "studies",
+        ]
+        field_names = [
+            f.name if hasattr(f, "name") else f.field_name
+            for f in get_non_auto_model_fields(Animal)
+        ]
+        self.assertEqual(expected, field_names)
+
+    def test_get_enumerated_fields(self):
+        field_names = [f.name for f in get_enumerated_fields(Animal)]
+        self.assertEqual(["sex"], field_names)
+
+    def test_get_unique_fields(self):
+        field_names = get_unique_fields(Animal)
+        self.assertEqual(["name"], field_names)
+
+    def test_check_for_inconsistencies(self):
+        call_command(
+            "load_study_table",
+            study_table="DataRepo/data/tests/small_obob/small_obob_study.xlsx",
+        )
+        rec = Study.objects.first()
+        rec_dict = {
+            "code": "obf",
+            "name": "ob/ob Fasted",
+            "description": "Inconsistent description",
+        }
+        incs = check_for_inconsistencies(rec, rec_dict)
+        self.assertEqual(1, len(incs))
+        self.assertEqual(ConflictingValueError, type(incs[0]))
+        self.assertEqual(rec, incs[0].rec)
+        self.assertEqual("description", incs[0].consistent_field)
+        self.assertEqual("Inconsistent description", incs[0].differing_value)
+        self.assertEqual(
+            "ob/ob and wildtype littermates were fasted 7 hours and infused with tracers",
+            incs[0].existing_value,
+        )
+
+    def test_handle_load_db_errors_integrityerror(self):
+        """
+        Tests handle_load_db_errors's handling of unique constraint violations
+        """
+        call_command(
+            "load_study_table",
+            study_table="DataRepo/data/tests/small_obob/small_obob_study.xlsx",
+        )
+        conflicts = []
+        rec_dict = {
+            "code": "obf",
+            "name": "ob/ob Fasted",
+            "description": "Inconsistent description",
+        }
+        try:
+            Study.objects.create(**rec_dict)
+        except Exception as e:
+            handle_load_db_errors(
+                e,
+                Study,
+                rec_dict,
+                conflicts_list=conflicts,
+            )
+        self.assertEqual(1, len(conflicts))
+        self.assertEqual(ConflictingValueError, type(conflicts[0]))
+        self.assertEqual(Study.objects.first(), conflicts[0].rec)
+        self.assertEqual("description", conflicts[0].consistent_field)
+        self.assertEqual("Inconsistent description", conflicts[0].differing_value)
+        self.assertEqual(
+            "ob/ob and wildtype littermates were fasted 7 hours and infused with tracers",
+            conflicts[0].existing_value,
+        )
+
+    def test_handle_load_db_errors_otherintegrityerror(self):
+        """
+        Tests handle_load_db_errors's handling of other integrity errors
+        """
+        rec_dict = {
+            "code": "obf",
+            "name": "ob/ob Fasted",
+            "description": "Inconsistent description",
+        }
+        aes = AggregatedErrors()
+        try:
+            raise IntegrityError("Some other error")
+        except Exception as e:
+            handle_load_db_errors(
+                e,
+                Study,
+                rec_dict,
+                aes=aes,
+            )
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertEqual(InfileDatabaseError, type(aes.exceptions[0]))
+
+    def test_handle_load_db_errors_validationerror(self):
+        """
+        Tests handle_load_db_errors's handling of validation errors raised by invalid enumeration choices
+        """
+        rec_dict = {
+            "researcher": "George",
+            "date": datetime.now(),
+            "instrument": "invalid",
+            "lc_method": LCMethod.objects.get(name__exact="polar-HILIC-25-min"),
+        }
+        aes = AggregatedErrors()
+        try:
+            rec = MSRunSequence(**rec_dict)
+            rec.full_clean()
+            rec.save()
+        except Exception as e:
+            if not handle_load_db_errors(
+                e,
+                MSRunSequence,
+                rec_dict,
+                aes=aes,
+            ):
+                raise e
+        self.assertEqual(1, len(aes.exceptions))
+        self.assertEqual(InfileDatabaseError, type(aes.exceptions[0]))
+
+    def test_handle_load_db_errors_unsupportederror(self):
+        """
+        Tests handle_load_db_errors's handling of unsupported error types
+        """
+        rec_dict = {
+            "name": "anything",
+        }
+        aes = AggregatedErrors()
+        with self.assertRaises(ValueError):
+            try:
+                raise ValueError("Not supported")
+            except Exception as e:
+                if not handle_load_db_errors(
+                    e,
+                    Animal,
+                    rec_dict,
+                    aes=aes,
+                ):
+                    raise e
