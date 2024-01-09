@@ -117,7 +117,6 @@ class StudyTableLoader:
             try:
                 study_rec, created = Study.objects.get_or_create(**study_dict)
                 if created:
-                    study_rec.description = desc
                     study_rec.full_clean()
                     study_rec.save()
             except Exception as exception:
