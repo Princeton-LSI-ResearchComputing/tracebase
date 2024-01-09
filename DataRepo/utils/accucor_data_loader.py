@@ -1164,19 +1164,19 @@ class AccuCorDataLoader:
         code,
         format,
         is_binary=False,
-        allow_missing=False,
         checksum=None,
     ):
-        if not allow_missing and checksum is not None:
+        checksum_val = checksum
+        if path_obj.is_file():
+            checksum_val = hash_file(path_obj)
+            if checksum is not None and checksum != checksum_val:
+                raise ValueError(
+                    f"The supplied checksum [{checksum}] does not match the computed checksum [{checksum_val}]."
+                )
+        elif checksum is None:
             raise ValueError(
-                "A custom checksum value can only be supplied when allow_missing is False."
+                "A checksum is required if the supplied file path is not an existing file."
             )
-
-        checksum_val = None
-        if not path_obj.is_file() and allow_missing and checksum is not None:
-            checksum_val = checksum
-        else:
-            checksum_val = hash_file(path_obj, allow_missing)
 
         rec_dict = {
             "filename": path_obj.name,
@@ -1200,7 +1200,8 @@ class AccuCorDataLoader:
                 with_loc = {**rec_dict}
                 with_loc["file_location"] = File(f, name=path_obj.name)
                 archivefile_rec, _ = ArchiveFile.objects.get_or_create(**with_loc)
-        elif allow_missing:
+        elif checksum is not None:
+            # We allow a record to be created without an actual file if a checksum is provided
             archivefile_rec, _ = ArchiveFile.objects.get_or_create(**rec_dict)
         else:
             self.aggregated_errors_object.buffer_error(
@@ -1226,7 +1227,6 @@ class AccuCorDataLoader:
             checksum=mz_dict["raw_file_sha1"],
             code="ms_data",
             format="ms_raw",
-            allow_missing=True,
         )
 
     def parse_mzxml(self, mzxml_path_obj, full_dict=False):
@@ -1491,7 +1491,6 @@ class AccuCorDataLoader:
                         path_obj=path_obj,
                         code="ms_data",
                         format="mzxml",
-                        allow_missing=True,
                     )
                     ms_raw_file = self.get_or_create_raw_file(
                         self.mzxml_data[sample_data_header]
@@ -2004,6 +2003,7 @@ def hash_file(path_obj, allow_missing=False):
     If allow_missing is True, the filename is not None, and an exception occurs during hash creation, a hash will be
     constructed using the filename.
     """
+    # TODO: Consider removing the allow_missing argument
 
     # make a hash object
     h = hashlib.sha1()
