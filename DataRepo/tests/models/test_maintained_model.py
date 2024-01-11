@@ -101,9 +101,7 @@ class MaintainedModelThreadTests(TracebaseTransactionTestCase):
             self.assertEqual(
                 "disabled", t1_trcr._get_current_coordinator().auto_update_mode
             )
-        self.assertEqual(
-            "immediate", t1_trcr._get_current_coordinator().auto_update_mode
-        )
+        self.assertEqual("always", t1_trcr._get_current_coordinator().auto_update_mode)
 
     def test_parent_thread_coordinator_unaffected_by_custom_child_coordinator(self):
         def child_func():
@@ -121,7 +119,7 @@ class MaintainedModelThreadTests(TracebaseTransactionTestCase):
             own coordinator_stack
             """
             parent_coordinator = MaintainedModel._get_current_coordinator()
-            self.assertEqual("immediate", parent_coordinator.auto_update_mode)
+            self.assertEqual("always", parent_coordinator.auto_update_mode)
 
         run_parent_during_child_thread(parent_func, child_func)
 
@@ -135,9 +133,9 @@ class MaintainedModelThreadTests(TracebaseTransactionTestCase):
             time.sleep(0.1)
             child_coordinator = MaintainedModel._get_current_coordinator()
             # Wasn't sure if I could use self.assertEqual()
-            if "immediate" != child_coordinator.auto_update_mode:
+            if "always" != child_coordinator.auto_update_mode:
                 raise Exception(
-                    "The child thread's default coordinator should be 'immediate', but it is "
+                    "The child thread's default coordinator should be 'always', but it is "
                     f"{child_coordinator.auto_update_mode}"
                 )
             # Allow time to let the parent be assured there was no exception

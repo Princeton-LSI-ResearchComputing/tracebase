@@ -170,11 +170,11 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         self.assertEqual(
             1, len(all_coordinators), msg=msg + "  The coordinator_stack is empty."
         )
-        # Make sure that its mode is "immediate"
+        # Make sure that its mode is "always"
         self.assertEqual(
-            "immediate",
+            "always",
             all_coordinators[0].auto_update_mode,
-            msg=msg + "  Mode is 'immediate'.",
+            msg=msg + "  Mode should be 'always'.",
         )
         # Make sure that the buffer is empty to start
         for coordinator in all_coordinators:
@@ -1226,26 +1226,7 @@ class MSRunSampleSequenceTests(TracebaseTestCase):
         self,
     ):
         """
-        If a file does not exist and allow_missing is True, an ArchiveFile record should be created and its checksum
-        should be created from the file name.
-        """
-        fn = "does not exist"
-        adl = self.create_AccuCorDataLoader_object()
-        inafs = ArchiveFile.objects.count()
-        afrec = adl.get_or_create_archive_file(
-            Path(fn),
-            "ms_data",
-            "ms_raw",
-            allow_missing=True,
-        )
-        self.assertTrue(exists_in_db(afrec))
-        self.assertEqual(inafs + 1, ArchiveFile.objects.count())
-        self.assertEqual(hashlib.sha1(fn.encode()).hexdigest(), afrec.checksum)
-
-    @MaintainedModel.no_autoupdates()
-    def test_get_or_create_archive_file_with_checksum(self):
-        """
-        If a checksum is supplied when allow_missing is False, a ValueError should be raised
+        If a file does not exist and no checksum is provided, a ValueError should be raised.
         """
         fn = "does not exist"
         adl = self.create_AccuCorDataLoader_object()
@@ -1254,33 +1235,47 @@ class MSRunSampleSequenceTests(TracebaseTestCase):
                 Path(fn),
                 "ms_data",
                 "ms_raw",
-                allow_missing=False,
-                checksum="somesuppliedvalue",
             )
-        exc = ar.exception
-        self.assertEqual(
-            "A custom checksum value can only be supplied when allow_missing is False.",
-            str(exc),
+        ve = ar.exception
+        self.assertIn(
+            "A checksum is required if the supplied file path is not an existing file.",
+            str(ve),
         )
 
     @MaintainedModel.no_autoupdates()
-    def test_get_or_create_archive_file_allow_missing_file_exists(self):
+    def test_get_or_create_archive_file_with_checksum(self):
         """
-        If a file exists and allow_missing is True, an ArchiveFile record should be created and its checksum
-        should be created from the actual file content, even if a checksum is provided.
+        If a checksum is supplied and the file doesn't exist, a record is created
         """
-        fn = "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_mzxmls/BAT-xz971.mzXML"
+        fn = "does not exist"
         adl = self.create_AccuCorDataLoader_object()
         afrec = adl.get_or_create_archive_file(
             Path(fn),
             "ms_data",
             "mzxml",
-            allow_missing=True,
             checksum="somesuppliedvalue",
         )
         self.assertTrue(exists_in_db(afrec))
+        self.assertEqual("somesuppliedvalue", afrec.checksum)
+
+    @MaintainedModel.no_autoupdates()
+    def test_get_or_create_archive_file_allow_missing_file_exists(self):
+        """
+        If a file exists and a checksum is provided, an exception should be raised when that checksum does not match.
+        """
+        fn = "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate_mzxmls/BAT-xz971.mzXML"
+        adl = self.create_AccuCorDataLoader_object()
+        with self.assertRaises(ValueError) as ar:
+            adl.get_or_create_archive_file(
+                Path(fn),
+                "ms_data",
+                "mzxml",
+                checksum="somesuppliedvalue",
+            )
+        ve = ar.exception
+        self.assertIn("somesuppliedvalue", str(ve))
         expected_hash = hash_file(Path(fn))
-        self.assertEqual(expected_hash, afrec.checksum)
+        self.assertIn(expected_hash, str(ve))
 
     def create_populated_AccuCorDataLoader_object(self, lcms_file):
         xlsx = "DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_lactate.xlsx"
