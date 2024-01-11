@@ -18,30 +18,52 @@ def read_from_file(
     na_values=None,
     expected_headers=None,
 ):
-    """
-    Converts either an excel or tab delimited file into a dataframe.
+    """Converts either an excel or tab delimited file into a dataframe.
+
+    Args:
+        filepath (str): Path to infile
+        sheet (str): Name of excel sheet
+        filetype (str): Enumeration ["csv", "tsv", "excel"]
+        dtype (Dict(str)): header: type
+        keep_default_na (bool): The keep_default_na arg to pandas
+        dropna (bool): Whether to drop na
+        na_values (bool): The na_values arg to pandas
+        expected_headers (List(str)): List of all expected header names
+
+    Raises:
+        CommandError
+
+    Returns:
+        Pandas dataframe of parsed and processed infile data
     """
     filetypes = ["csv", "tsv", "excel"]
-    extensions = ["csv", "tsv", "xlsx"]
-    ext = pathlib.Path(filepath).suffix.strip(".")
+    extensions = {
+        "csv": "csv",
+        "tsv": "tsv",
+        "xlsx": "excel",
+    }
 
-    if filetype is None and ext not in extensions:
-        try:
-            dataframe = _read_from_xlsx(
-                filepath, sheet=sheet, keep_default_na=keep_default_na, dropna=dropna
-            )
-        except (InvalidFileException, ValueError, BadZipFile):  # type: ignore
-            try:
-                dataframe = _read_from_tsv(
-                    filepath, keep_default_na=keep_default_na, dropna=dropna
-                )
-            except Exception:
+    if filetype is None:
+        ext = pathlib.Path(filepath).suffix.strip(".")
+        if ext in extensions.keys():
+            filetype = extensions[ext]
+        elif ext not in extensions.keys():
+            if is_excel(filepath):
+                filetype = "excel"
+            else:
                 raise CommandError(
                     'Invalid file extension: "%s", expected one of %s',
-                    extensions,
+                    extensions.keys(),
                     ext,
                 )
-    elif filetype == "excel" or ext == "xlsx":
+    elif filetype not in filetypes:
+        raise CommandError(
+            'Invalid file type: "%s", expected one of %s',
+            filetypes,
+            filetype,
+        )
+
+    if filetype == "excel":
         dataframe = _read_from_xlsx(
             filepath,
             sheet=sheet,
@@ -51,7 +73,7 @@ def read_from_file(
             dtype=dtype,
             expected_headers=expected_headers,
         )
-    elif filetype == "tsv" or ext == "tsv":
+    elif filetype == "tsv":
         dataframe = _read_from_tsv(
             filepath,
             dtype=dtype,
@@ -60,7 +82,7 @@ def read_from_file(
             na_values=na_values,
             expected_headers=expected_headers,
         )
-    elif filetype == "csv" or ext == "csv":
+    elif filetype == "csv":
         dataframe = _read_from_csv(
             filepath,
             dtype=dtype,
@@ -69,19 +91,7 @@ def read_from_file(
             na_values=na_values,
             expected_headers=expected_headers,
         )
-    else:
-        if filetype is not None and filetype not in filetypes:
-            raise CommandError(
-                'Invalid file type: "%s", expected one of %s',
-                filetypes,
-                filetype,
-            )
-        else:
-            raise CommandError(
-                'Invalid file extension: "%s", expected one of %s',
-                extensions,
-                ext,
-            )
+
     return dataframe
 
 
@@ -99,7 +109,7 @@ def _read_from_xlsx(
     if str(sheet_name) not in sheets:
         sheet_name = 0
 
-    _validate_headers(
+    validate_headers(
         filepath,
         _read_headers_from_xlsx(filepath, sheet=sheet_name),
         expected_headers,
@@ -140,7 +150,7 @@ def _read_from_tsv(
 
     df = pd.read_table(filepath, **kwargs)
 
-    _validate_headers(
+    validate_headers(
         filepath,
         _read_headers_from_tsv(filepath),
         expected_headers,
@@ -169,7 +179,7 @@ def _read_from_csv(
 
     df = pd.read_csv(filepath, **kwargs)
 
-    _validate_headers(
+    validate_headers(
         filepath,
         _read_headers_from_csv(filepath),
         expected_headers,
@@ -197,7 +207,21 @@ def _collect_kwargs(dtype=None, keep_default_na=False, na_values=None):
     return kwargs
 
 
-def _validate_headers(filepath, headers, expected_headers=None):
+def validate_headers(filepath, headers, expected_headers=None):
+    """Checks that all headers are the expected headers.
+
+    Args:
+        filepath (str): Path to infile
+        headers (List(str)): List of present header names
+        expected_headers (List(str)): List of all expected header names
+
+    Raises:
+        DuplicateHeaders
+        InvalidHeaders
+
+    Returns:
+        Nothing
+    """
     not_unique, nuniqs, nall = _headers_are_not_unique(headers)
 
     if not_unique:
@@ -261,26 +285,71 @@ def _read_headers_from_csv(filepath):
 
 
 def headers_are_as_expected(expected, headers):
-    """Confirms all headers are present, irrespective of case and order."""
+    """Confirms all headers are present, irrespective of case and order.
+
+    Args:
+        expected (List(str)): List of all expected header names
+        headers (List(str)): List of present header names
+
+    Raises:
+        Nothing
+
+    Returns:
+        bool: Whether headers are valid or not
+    """
     return sorted([s.lower() for s in headers]) == sorted([s.lower() for s in expected])
 
 
 def get_sheet_names(filepath):
+    """Returns a list of sheet names in an excel file.
+
+    Args:
+        filepath (str): Path to infile
+
+    Raises:
+        InvalidFileException
+        ValueError
+        BadZipFile
+
+    Returns:
+        List(str): Sheet names
     """
-    Returns a list of sheet names in an excel file.  Returns None if the file is not an excel file.
-    """
-    try:
-        return pd.ExcelFile(filepath, engine="openpyxl").sheet_names
-    except (InvalidFileException, ValueError, BadZipFile):  # type: ignore
-        return None  # Not an excel file
+    return pd.ExcelFile(filepath, engine="openpyxl").sheet_names
 
 
 def is_excel(filepath):
-    # Assuming excel if sheets are retrieved
-    return get_sheet_names(filepath) is not None
+    """Determines whether a file is an excel file or not.
+
+    Args:
+        filepath (str): Path to infile
+
+    Raises:
+        Nothing
+
+    Returns:
+        bool: Whether the file is an excel file or not
+    """
+    try:
+        pd.ExcelFile(filepath, engine="openpyxl")
+        return True
+    except (InvalidFileException, ValueError, BadZipFile):  # type: ignore
+        return False
 
 
 def merge_dataframes(left, right, on):
+    """Merges 2 sheets using a common column.
+
+    Args:
+        left (str): Name of excel sheet
+        right (str): Name of excel sheet
+        on (str): Name of column in both the left and right sheets
+
+    Raises:
+        Nothing
+
+    Returns:
+        Pandas dataframe of merged sheet data
+    """
     return pd.merge(left=left, right=right, on=on)
 
 
