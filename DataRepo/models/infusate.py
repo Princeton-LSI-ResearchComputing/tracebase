@@ -115,7 +115,7 @@ class Infusate(MaintainedModel):
         ordering = ["name"]
 
     def __str__(self):
-        return str(self.get_name)
+        return str(self._name())
 
     @MaintainedModel.setter(generation=0, update_field_name="name", update_label="name")
     def _name(self):
@@ -147,33 +147,11 @@ class Infusate(MaintainedModel):
         return name
 
     @property
-    def get_name(self):
-        """
-        Returns the name field if populated.  If it's not populated, it populates it (in the same manner that the old
-        cache mechanism worked).
-        """
-        display_name = None
-
-        # Get the name.  Initialize if not set and auto-updates are on.
-        if self.name:
-            display_name = self.name
-        elif self.get_coordinator().are_autoupdates_enabled():
-            # This triggers an auto-update
-            self.save()
-            display_name = self.name
-
-        # If it's still not set, call the method that generates the name.  It just won't be saved.
-        if not display_name:
-            display_name = self._name()
-
-        return display_name
-
-    @property
     def pretty_name(self):
         """
         Returns the name with hard-returns inserted
         """
-        display_name = self.get_name
+        display_name = self._name()
 
         if display_name:
             display_name = display_name.replace(
@@ -191,12 +169,12 @@ class Infusate(MaintainedModel):
     @property
     def short_name(self):
         """
-        Returns the tracer_group_name field if populated.  If it's not populated, it returns the output of get_name()
+        Returns the tracer_group_name field if populated.  If it's not populated, it returns the output of _name()
         """
         if self.tracer_group_name:
             return self.tracer_group_name
         else:
-            return self.get_name
+            return self._name()
 
     @property
     def pretty_short_name(self):

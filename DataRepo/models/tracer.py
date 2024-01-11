@@ -96,25 +96,3 @@ class Tracer(MaintainedModel, ElementLabel):
             return self.compound.name
         labels_string = ",".join([str(label) for label in self.labels.all()])
         return f"{self.compound.name}-[{labels_string}]"
-
-    @property
-    def get_name(self):
-        """
-        Returns the name field if populated.  If it's not populated, it populates it (in the same manner that the old
-        cache mechanism worked).
-        """
-        display_name = None
-
-        # Get the name.  Initialize if not set and auto-updates are on.
-        if self.name:
-            display_name = self.name
-        elif self.get_coordinator().are_autoupdates_enabled():
-            # This triggers an auto-update
-            self.save()
-            display_name = self.name
-
-        # If it's still not set, call the method that generates the name.  It just won't be saved.
-        if not display_name:
-            display_name = self._name()
-
-        return display_name
