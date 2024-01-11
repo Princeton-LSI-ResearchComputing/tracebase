@@ -1,5 +1,4 @@
 import argparse
-from csv import DictReader
 
 import yaml  # type: ignore
 from django.core.management import BaseCommand
@@ -10,9 +9,12 @@ from DataRepo.models.hier_cached_model import (
 )
 from DataRepo.models.maintained_model import MaintainedModel
 from DataRepo.utils import SampleTableLoader
+from DataRepo.utils.file_utils import read_from_file
 
 
 class Command(BaseCommand):
+    example_samples = "DataRepo/data/examples/obob_fasted/obob_samples_table.tsv"
+
     # Show this when the user types help
     help = (
         "Loads data from a sample table into the database."
@@ -21,7 +23,14 @@ class Command(BaseCommand):
     )
 
     def add_arguments(self, parser):
-        parser.add_argument("sample_table_filename", type=str)
+        parser.add_argument(
+            "sample_table_filename",
+            type=str,
+            help=(
+                "Path to either a tab-delimited file or excel file with a sheet named 'Samples', e.g. "
+                f"{self.example_samples}."
+            ),
+        )
         parser.add_argument(
             "--sample-table-headers",
             type=str,
@@ -94,9 +103,8 @@ class Command(BaseCommand):
             update_caches=not options["skip_cache_updates"],
         )
         loader.load_sample_table(
-            DictReader(
-                open(options["sample_table_filename"]),
-                dialect="excel-tab",
+            read_from_file(options["sample_table_filename"], sheet="Samples").to_dict(
+                "records"
             ),
         )
         print("Done loading sample table")

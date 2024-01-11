@@ -1427,13 +1427,17 @@ class DuplicateSampleDataHeaders(Exception):
         self.samples = samples
 
 
-class InvalidLCMSHeaders(ValidationError):
-    def __init__(self, headers, expected_headers=None, lcms_file=None):
+class InvalidHeaders(ValidationError):
+    def __init__(self, headers, expected_headers=None, file=None, fileformat=None):
         if expected_headers is None:
             expected_headers = expected_headers
-        message = "LCMS metadata "
-        if lcms_file is not None:
-            message += f"file [{lcms_file}] "
+        message = ""
+        if file is not None:
+            if fileformat is not None:
+                message += f"{fileformat} file "
+            else:
+                message += "File "
+            message += f"[{file}] "
         missing = [i for i in expected_headers if i not in headers]
         unexpected = [i for i in headers if i not in expected_headers]
         if len(missing) > 0:
@@ -1445,9 +1449,28 @@ class InvalidLCMSHeaders(ValidationError):
         super().__init__(message)
         self.headers = headers
         self.expected_headers = expected_headers
-        self.lcms_file = lcms_file
+        self.file = file
         self.missing = missing
         self.unexpected = unexpected
+
+
+class InvalidLCMSHeaders(InvalidHeaders):
+    def __init__(self, headers, expected_headers=None, file=None):
+        super().__init__(
+            headers,
+            expected_headers=expected_headers,
+            file=file,
+            fileformat="LCMS metadata",
+        )
+
+
+class DuplicateHeaders(ValidationError):
+    def __init__(self, filepath, nall, nuniqs):
+        message = f"Column headers are not unique in {filepath}. There are {nall} columns and {nuniqs} unique values"
+        super().__init__(message)
+        self.filepath = filepath
+        self.nall = nall
+        self.nuniqs = nuniqs
 
 
 class MissingRequiredLCMSValues(Exception):

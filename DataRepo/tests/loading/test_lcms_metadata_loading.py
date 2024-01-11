@@ -23,11 +23,10 @@ from DataRepo.utils import (  # TODO: Uncomment when issue #814 is implemented; 
     PeakAnnotFileMismatches,
     SampleTableLoader,
     UnexpectedLCMSSampleDataHeaders,
+    read_from_file,
 )
 from DataRepo.utils.lcms_metadata_parser import (
     check_peak_annotation_files,
-    extract_dataframes_from_lcms_tsv,
-    extract_dataframes_from_lcms_xlsx,
     get_lcms_metadata_dict_from_file,
     lcms_df_to_dict,
     lcms_headers_are_valid,
@@ -47,7 +46,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             None,
             None,
             peak_annotation_filename="",
-            lcms_metadata_df=extract_dataframes_from_lcms_tsv(
+            lcms_metadata_df=read_from_file(
                 "DataRepo/data/tests/small_obob_lcms_metadata/glucose_pos.tsv"
             ),
             date="",
@@ -77,7 +76,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             None,
             None,
             peak_annotation_filename="",
-            lcms_metadata_df=extract_dataframes_from_lcms_tsv(
+            lcms_metadata_df=read_from_file(
                 "DataRepo/data/tests/small_obob_lcms_metadata/glucose_pos.tsv"
             ),
             date="",
@@ -97,7 +96,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             None,
             None,
             peak_annotation_filename="",
-            lcms_metadata_df=extract_dataframes_from_lcms_tsv(
+            lcms_metadata_df=read_from_file(
                 "DataRepo/data/tests/small_obob_lcms_metadata/glucose_pos.tsv"
             ),
             date="",
@@ -117,7 +116,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             None,
             None,
             peak_annotation_filename="",
-            lcms_metadata_df=extract_dataframes_from_lcms_tsv(
+            lcms_metadata_df=read_from_file(
                 "DataRepo/data/tests/small_obob_lcms_metadata/glucose_pos.tsv"
             ),
             date="",
@@ -139,7 +138,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             None,
             None,
             peak_annotation_filename="",
-            lcms_metadata_df=extract_dataframes_from_lcms_tsv(
+            lcms_metadata_df=read_from_file(
                 "DataRepo/data/tests/small_obob_lcms_metadata/glucose_pos.tsv"
             ),
             date="1972-11-24",
@@ -167,7 +166,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             None,
             None,
             peak_annotation_filename="accucor.xlsx",
-            lcms_metadata_df=extract_dataframes_from_lcms_tsv(
+            lcms_metadata_df=read_from_file(
                 "DataRepo/data/tests/small_obob_lcms_metadata/glucose_pos.tsv"
             ),
             date="1972-11-24",
@@ -287,7 +286,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             None,
             None,
             peak_annotation_filename="accucor.xlsx",
-            lcms_metadata_df=extract_dataframes_from_lcms_tsv(
+            lcms_metadata_df=read_from_file(
                 "DataRepo/data/tests/small_obob_lcms_metadata/glucose_pos.tsv"
             ),
             date="1972-11-24",
@@ -312,7 +311,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             None,
             None,
             peak_annotation_filename="accucor.xlsx",
-            lcms_metadata_df=extract_dataframes_from_lcms_tsv(
+            lcms_metadata_df=read_from_file(
                 "DataRepo/data/tests/small_obob_lcms_metadata/glucose_pos.tsv"
             ),
             date="1972-11-24",
@@ -332,7 +331,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             None,
             None,
             peak_annotation_filename=None,
-            lcms_metadata_df=extract_dataframes_from_lcms_tsv(
+            lcms_metadata_df=read_from_file(
                 "DataRepo/data/tests/small_obob_lcms_metadata/glucose_pos.tsv"
             ),
             date=None,
@@ -363,7 +362,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             None,
             None,
             peak_annotation_filename="accucor.xlsx",
-            lcms_metadata_df=extract_dataframes_from_lcms_tsv(
+            lcms_metadata_df=read_from_file(
                 "DataRepo/data/tests/small_obob_lcms_metadata/glucose_pos.tsv"
             ),
             date="1972-11-24",
@@ -385,7 +384,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             None,
             None,
             peak_annotation_filename=None,
-            lcms_metadata_df=extract_dataframes_from_lcms_tsv(
+            lcms_metadata_df=read_from_file(
                 "DataRepo/data/tests/small_obob_lcms_metadata/glucose_pos.tsv"
             ),
             mzxml_files=None,
@@ -413,7 +412,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             peak_annotation_filename="small_obob_maven_6eaas_inf_glucose.xlsx",
             date="1972-11-24",
             instrument="unknown",
-            lcms_metadata_df=extract_dataframes_from_lcms_tsv(
+            lcms_metadata_df=read_from_file(
                 "DataRepo/data/tests/small_obob_lcms_metadata/glucose_pos_no_extras.tsv"
             ),
             researcher="Robert Leach",
@@ -445,7 +444,7 @@ class LCMSMetadataAccucorMethodTests(TracebaseTestCase):
             peak_annotation_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose.xlsx",
             peak_annotation_filename="small_obob_maven_6eaas_inf_glucose.xlsx",
             date="1972-11-24",
-            lcms_metadata_df=extract_dataframes_from_lcms_tsv(
+            lcms_metadata_df=read_from_file(
                 "DataRepo/data/tests/small_obob_lcms_metadata/glucose_pos_no_extras.tsv"
             ),
             researcher="Robert Leach",
@@ -531,7 +530,7 @@ class LCMSMetadataParserMethodTests(TracebaseTestCase):
     fixtures = ["data_types.yaml", "data_formats.yaml", "lc_methods.yaml"]
 
     def test_lcms_df_to_dict(self):
-        df = extract_dataframes_from_lcms_tsv(
+        df = read_from_file(
             "DataRepo/data/tests/small_obob_lcms_metadata/glucose_pos.tsv"
         )
         dct = lcms_df_to_dict(df)
@@ -540,17 +539,15 @@ class LCMSMetadataParserMethodTests(TracebaseTestCase):
         self.assertEqual(15, len(dct.keys()))
 
     def test_lcms_metadata_to_samples(self):
-        df = extract_dataframes_from_lcms_tsv(
+        df = read_from_file(
             "DataRepo/data/tests/small_obob_lcms_metadata/glucose_pos.tsv"
         )
         dct = lcms_df_to_dict(df)
         samples = lcms_metadata_to_samples(dct)
         self.assertEqual(15, len(samples))
 
-    def test_extract_dataframes_from_lcms_xlsx(self):
-        df = extract_dataframes_from_lcms_xlsx(
-            "DataRepo/data/tests/small_obob_lcms_metadata/glucose.xlsx"
-        )
+    def test_read_from_file_xlsx(self):
+        df = read_from_file("DataRepo/data/tests/small_obob_lcms_metadata/glucose.xlsx")
         self.assertIsNotNone(df)
         expected_shape = (15, 11)
         self.assertEqual(
@@ -559,8 +556,8 @@ class LCMSMetadataParserMethodTests(TracebaseTestCase):
             msg=f"There should be {expected_shape[0]} rows and {expected_shape[1]} columns.",
         )
 
-    def test_extract_dataframes_from_lcms_tsv(self):
-        df = extract_dataframes_from_lcms_tsv(
+    def test_read_from_file_tsv(self):
+        df = read_from_file(
             "DataRepo/data/tests/small_obob_lcms_metadata/glucose_pos.tsv"
         )
         self.assertIsNotNone(df)

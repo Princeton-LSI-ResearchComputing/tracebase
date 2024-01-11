@@ -1,9 +1,13 @@
 import argparse
 
-import pandas as pd
 from django.core.management import BaseCommand
 
-from DataRepo.utils import DryRun, TissuesLoader
+from DataRepo.utils import (
+    AggregatedErrors,
+    DryRun,
+    TissuesLoader,
+    read_from_file,
+)
 
 
 class Command(BaseCommand):
@@ -15,8 +19,8 @@ class Command(BaseCommand):
             "--tissues",
             type=str,
             help=(
-                "Path to tab-delimited file containing the headers "
-                "'Tissue','Description'"
+                "Path to either a tab-delimited file or excel file with a sheet named 'Tissues'.  "
+                "Required headers: 'Tissue' & 'Description'"
             ),
             required=True,
         )
@@ -39,20 +43,31 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        # Keeping `na` to differentiate between intentional empty descriptions and spaces in the first column that were
-        # intended to be tab characters
-        new_tissues = pd.read_csv(options["tissues"], sep="\t", keep_default_na=True)
-
-        self.tissue_loader = TissuesLoader(
-            tissues=new_tissues,
-            dry_run=options["dry_run"],
-            defer_rollback=options["defer_rollback"],
-        )
-
         try:
+            # Keeping `na` to differentiate between intentional empty descriptions and spaces in the first column that
+            # were intended to be tab characters
+            new_tissues = read_from_file(
+                options["tissues"], sheet="Tissues", keep_default_na=True
+            )
+
+            self.tissue_loader = TissuesLoader(
+                tissues=new_tissues,
+                dry_run=options["dry_run"],
+                defer_rollback=options["defer_rollback"],
+            )
+
             self.tissue_loader.load_tissue_data()
         except DryRun:
             pass
+        except AggregatedErrors as aes:
+            aes.print_summary()
+            raise aes
+        except Exception as e:
+            aes2 = AggregatedErrors()
+            aes2.buffer_error(e)
+            if aes2.should_raise():
+                aes2.print_summary()
+                raise aes2
 
         self.print_notices(
             self.tissue_loader.get_stats(), options["tissues"], options["verbosity"]

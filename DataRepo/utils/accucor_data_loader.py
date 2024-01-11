@@ -1149,7 +1149,12 @@ class AccuCorDataLoader:
                 )
                 self.aggregated_errors_object.buffer_error(e)
             except LCMethod.DoesNotExist as dne:
-                self.aggregated_errors_object.buffer_error(LCMethodFixturesMissing(dne))
+                if not self.aggregated_errors_object.exception_type_exists(
+                    LCMethodFixturesMissing
+                ):
+                    self.aggregated_errors_object.buffer_error(
+                        LCMethodFixturesMissing(dne)
+                    )
                 rec = None
             except Exception:
                 # We don't know what the new exception is, so revert to the enclosing exception
@@ -1634,8 +1639,16 @@ class AccuCorDataLoader:
                                     ):
                                         # We have a matching row, use it and increment row_idx
                                         raw_abundance = orig_row[sample_data_header]
-                                        med_mz = orig_row["medMz"]
-                                        med_rt = orig_row["medRt"]
+                                        med_mz = (
+                                            orig_row["medMz"]
+                                            if str(orig_row["medMz"]) != ""
+                                            else None
+                                        )
+                                        med_rt = (
+                                            orig_row["medRt"]
+                                            if str(orig_row["medRt"]) != ""
+                                            else None
+                                        )
                                         orig_row_idx = orig_row_idx + 1
                                         mass_number = isotope["mass_number"]
                             except IndexError:

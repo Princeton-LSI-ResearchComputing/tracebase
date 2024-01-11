@@ -1,18 +1,16 @@
 import os
 from collections import defaultdict
 from datetime import timedelta
-from zipfile import BadZipFile
-
-import pandas as pd
-from openpyxl.utils.exceptions import InvalidFileException
 
 from DataRepo.models.lc_method import LCMethod
 from DataRepo.utils.exceptions import (
     DuplicateSampleDataHeaders,
+    InvalidHeaders,
     InvalidLCMSHeaders,
     MissingPeakAnnotationFiles,
     MissingRequiredLCMSValues,
 )
+from DataRepo.utils.file_utils import headers_are_as_expected, read_from_file
 
 LCMS_HEADERS = (
     "tracebase sample name",  # Required
@@ -130,11 +128,25 @@ def lcms_metadata_to_samples(lcms_metadata):
 
 
 def get_lcms_metadata_dict_from_file(lcms_file, aes=None):
-    try:
-        lcms_metadata_df = extract_dataframes_from_lcms_xlsx(lcms_file)
-    except (InvalidFileException, ValueError, BadZipFile):  # type: ignore
-        lcms_metadata_df = extract_dataframes_from_lcms_tsv(lcms_file)
+    lcms_metadata_df = read_from_file(
+        lcms_file,
+        sheet="LCMS Metadata",
+        expected_headers=LCMS_HEADERS,
+    )
     return lcms_df_to_dict(lcms_metadata_df, aes)
+
+
+def read_lcms_metadata_from_file(lcms_file):
+    try:
+        return read_from_file(
+            lcms_file,
+            sheet="LCMS Metadata",
+            expected_headers=LCMS_HEADERS,
+        )
+    except InvalidHeaders as ih:
+        raise InvalidLCMSHeaders(
+            headers=ih.headers, expected_headers=ih.expected_headers, file=ih.file
+        )
 
 
 def check_peak_annotation_files(
@@ -200,52 +212,5 @@ def check_peak_annotation_files(
             raise exc
 
 
-def extract_dataframes_from_lcms_xlsx(lcms_file):
-    headers = (
-        pd.read_excel(
-            lcms_file,
-            nrows=1,  # Read only the first row
-            header=None,
-            sheet_name=0,  # The first sheet
-            engine="openpyxl",
-        )
-        .squeeze("columns")
-        .iloc[0]
-    )
-
-    if not lcms_headers_are_valid(headers):
-        raise InvalidLCMSHeaders(headers, LCMS_HEADERS, lcms_file)
-
-    return pd.read_excel(
-        lcms_file,
-        sheet_name=0,  # The first sheet
-        engine="openpyxl",
-    ).dropna(axis=0, how="all")
-
-
-def extract_dataframes_from_lcms_tsv(lcms_file):
-    headers = (
-        pd.read_table(
-            lcms_file,
-            nrows=1,
-            header=None,
-        )
-        .squeeze("columns")
-        .iloc[0]
-        .to_list()
-    )
-
-    if not lcms_headers_are_valid(headers):
-        raise InvalidLCMSHeaders(headers, LCMS_HEADERS, lcms_file)
-
-    return pd.read_table(
-        lcms_file,
-        keep_default_na=False,
-    ).dropna(axis=0, how="all")
-
-
 def lcms_headers_are_valid(headers):
-    """Confiorms all headers are present, irrespective of case and order."""
-    return sorted([s.lower() for s in headers]) == sorted(
-        [s.lower() for s in LCMS_HEADERS]
-    )
+    return headers_are_as_expected(LCMS_HEADERS, headers)

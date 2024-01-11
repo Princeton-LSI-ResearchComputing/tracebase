@@ -2,11 +2,11 @@ import argparse
 import pathlib
 
 import numpy as np
-import pandas as pd
 from django.core.management import BaseCommand, CommandError
 
 from DataRepo.models.protocol import Protocol
 from DataRepo.utils import AggregatedErrors, DryRun, ProtocolsLoader
+from DataRepo.utils.file_utils import read_from_file
 
 
 class Command(BaseCommand):
@@ -32,7 +32,7 @@ class Command(BaseCommand):
             "--protocols",
             type=str,
             help=(
-                "Path to EITHER a tab-delimited file containing the headers "
+                "Path to either a tab-delimited file containing the headers "
                 f"'{self.name_header}','{self.category_header}','{self.description_header}' "
                 f"OR a path to an xlsx workbook file containing a sheet named '{self.TREATMENTS_SHEET_NAME}' "
                 f"with the headers '{self.TREATMENTS_NAME_HEADER}','{self.TREATMENTS_DESC_HEADER}'"
@@ -58,24 +58,24 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        if options["dry_run"]:
-            self.stdout.write(
-                self.style.MIGRATE_HEADING("DRY-RUN, NO CHANGES WILL BE SAVED")
+        try:
+            if options["dry_run"]:
+                self.stdout.write(
+                    self.style.MIGRATE_HEADING("DRY-RUN, NO CHANGES WILL BE SAVED")
+                )
+
+            self.protocols_df, self.batch_category = self.read_from_file(
+                options["protocols"]
             )
 
-        self.protocols_df, self.batch_category = self.read_from_file(
-            options["protocols"]
-        )
+            self.protocol_loader = ProtocolsLoader(
+                protocols=self.protocols_df,
+                category=self.batch_category,
+                dry_run=options["dry_run"],
+                verbosity=options["verbosity"],
+                defer_rollback=options["defer_rollback"],
+            )
 
-        self.protocol_loader = ProtocolsLoader(
-            protocols=self.protocols_df,
-            category=self.batch_category,
-            dry_run=options["dry_run"],
-            verbosity=options["verbosity"],
-            defer_rollback=options["defer_rollback"],
-        )
-
-        try:
             self.protocol_loader.load_protocol_data()
 
             self.stdout.write(
@@ -94,6 +94,12 @@ class Command(BaseCommand):
         except AggregatedErrors as aes:
             aes.print_summary()
             raise aes
+        except Exception as e:
+            aes2 = AggregatedErrors()
+            aes2.buffer_error(e)
+            if aes2.should_raise():
+                aes2.print_summary()
+                raise aes2
 
     def read_from_file(self, filename, format=None):
         """
@@ -105,6 +111,7 @@ class Command(BaseCommand):
         if format is None:
             format = pathlib.Path(filename).suffix.strip(".")
 
+        self.stdout.write(self.style.MIGRATE_HEADING("Loading animal treatments..."))
         if format == "tsv":
             protocols_df = self.read_protocols_tsv(filename)
         elif format == "xlsx":
@@ -124,7 +131,7 @@ class Command(BaseCommand):
     def read_protocols_tsv(self, protocols_tsv):
         # Keeping `na` to differentiate between intentional empty descriptions and spaces in the first column that were
         # intended to be tab characters
-        protocols_df = pd.read_table(
+        protocols_df = read_from_file(
             protocols_tsv,
             dtype=object,
             keep_default_na=False,
@@ -145,19 +152,17 @@ class Command(BaseCommand):
         return protocols_df
 
     def read_protocols_xlsx(self, xlxs_file_containing_treatments_sheet):
-        self.stdout.write(self.style.MIGRATE_HEADING("Loading animal treatments..."))
         name_header = self.TREATMENTS_NAME_HEADER
         description_header = self.TREATMENTS_DESC_HEADER
 
-        protocols_df = pd.read_excel(
+        protocols_df = read_from_file(
             xlxs_file_containing_treatments_sheet,
-            sheet_name=self.TREATMENTS_SHEET_NAME,
+            sheet=self.TREATMENTS_SHEET_NAME,
             dtype={
                 name_header: str,
                 description_header: str,
             },
             keep_default_na=False,
-            engine="openpyxl",
         )
 
         # rename template columns to ProtocolsLoader expectations
