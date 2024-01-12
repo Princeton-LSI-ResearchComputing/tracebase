@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import traceback
 import warnings
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict
 
 from django.core.exceptions import ValidationError
 from django.forms.models import model_to_dict
@@ -937,8 +937,34 @@ class ConflictingValueErrors(Exception):
         """Initializes a ConflictingValueErrors exception"""
 
         message = f"Conflicting values found when loading {model_name} records:\n"
+        diff_sum: Dict[str, dict] = {}
         for conflicting_value_error in conflicting_value_errors:
-            message += str(conflicting_value_error) + "\n"
+            if str(conflicting_value_error.differences) not in diff_sum.keys():
+                diff_sum[str(conflicting_value_error.differences)] = {
+                    "sum": "\tDifference(s):\n",
+                    "list": [],
+                }
+                for fld in conflicting_value_error.differences.keys():
+                    diff_sum[str(conflicting_value_error.differences)]["sum"] += (
+                        f"\t\t{fld} in\n"
+                        f"\t\t\tdatabase: [{str(conflicting_value_error.differences[fld]['orig'])}]\n"
+                        f"\t\t\tfile: [{str(conflicting_value_error.differences[fld]['new'])}]\n"
+                    )
+                diff_sum[str(conflicting_value_error.differences)]["sum"] += (
+                    "\tThe above differences were encountered with each the following existing DB records when loading "
+                    "the data:\n"
+                )
+            diff_sum[str(conflicting_value_error.differences)]["list"].append(
+                conflicting_value_error
+            )
+
+        for diff_key in diff_sum.keys():
+            message += diff_sum[diff_key]["sum"]
+            for cve in diff_sum[diff_key]["list"]:
+                # If we have actual location details
+                if cve.loc != "the load file data":
+                    message += f"\t\t{cve.loc}\n\t"
+                message += f"\t\t{str(model_to_dict(cve.rec))}\n"
         super().__init__(message)
         self.model_name = model_name
         self.conflicting_value_errors = conflicting_value_errors
@@ -948,30 +974,50 @@ class ConflictingValueError(Exception):
     def __init__(
         self,
         rec,
-        consistent_field,
-        existing_value,
-        differing_value,
+        differences,
         rownum=None,
         sheet=None,
         message=None,
         file=None,
+        col=None,
     ):
+        """Constructor
+
+        Args:
+            rec (Model): Matching existing database record that caused the unique constraint violation.
+            differences (Dict(str)): Dictionary keyed on field name and whose values are dics whose keys are "orig" and
+                "new", and the values are the value of the field in the database and file, respectively.  Example:
+                {
+                    "description": {
+                        "orig": "the database decription",
+                        "new": "the file description",
+                }
+            rownum (int): The row or line number with the data that caused the conflict.
+            sheet (str): The name of the excel sheet where the conflict was encountered.
+            message (str): The error message.
+            file (str): The name/path of the file where the conflict was encoutnered.
+        """
+        loc = generate_file_location_string(
+            rownum=rownum, sheet=sheet, file=file, column=col
+        )
         if not message:
-            loc = generate_file_location_string(rownum=rownum, sheet=sheet, file=file)
             message = (
-                f"Conflicting [{consistent_field}] field values encountered in {loc} in {type(rec).__name__} record "
+                f"Conflicting field values encountered in {loc} in {type(rec).__name__} record "
                 f"[{str(model_to_dict(rec))}]:\n"
-                f"\tdatabase: [{existing_value}]\n"
-                f"\tfile: [{differing_value}]"
             )
+            for fld in differences.keys():
+                message += (
+                    f"\t{fld} in\n"
+                    f"\t\tdatabase: [{differences[fld]['orig']}]\n"
+                    f"\t\tfile: [{differences[fld]['new']}]"
+                )
         super().__init__(message)
         self.rec = rec
-        self.consistent_field = consistent_field
-        self.existing_value = existing_value
-        self.differing_value = differing_value
+        self.differences = differences
         self.rownum = rownum
         self.sheet = sheet
         self.file = file
+        self.loc = loc
 
 
 class SaveError(Exception):
@@ -1614,11 +1660,11 @@ class InfileDatabaseError(Exception):
 def generate_file_location_string(column=None, rownum=None, sheet=None, file=None):
     loc_str = ""
     if column is not None:
-        loc_str += f"column {column} "
+        loc_str += f"column [{column}] "
     if loc_str != "" and rownum is not None:
         loc_str += "on "
     if rownum is not None:
-        loc_str += f"row {rownum} "
+        loc_str += f"row [{rownum}] "
     if loc_str != "" and sheet is not None:
         loc_str += "of "
     if sheet is not None:

@@ -1354,6 +1354,8 @@ class AccuCorDataLoader:
         peak_group_attrs: PeakGroupAttrs,
         msrun_sample: MSRunSample,
         peak_annotation_file: ArchiveFile,
+        rownum=None,
+        col=None,
     ):
         """Insert a PeakGroup record
 
@@ -1404,24 +1406,24 @@ class AccuCorDataLoader:
                 existing_peak_group = PeakGroup.objects.get(
                     msrun_sample=msrun_sample, name=peak_group_attrs["name"]
                 )
-                conflicting_fields = []
-                existing_values = []
-                new_values = []
+                differences = {}
                 if existing_peak_group.formula != peak_group_attrs["formula"]:
-                    conflicting_fields.append("formula")
-                    existing_values.append(existing_peak_group.formula)
-                    new_values.append(peak_group_attrs["formula"])
+                    differences["formula"] = {
+                        "orig": existing_peak_group.formula,
+                        "new": peak_group_attrs["formula"],
+                    }
                 if existing_peak_group.peak_annotation_file != peak_annotation_file:
-                    conflicting_fields.append("peak_annotation_file")
-                    existing_values.append(
-                        existing_peak_group.peak_annotation_file.filename
-                    )
-                    new_values.append(peak_annotation_file.filename)
+                    differences["peak_annotation_file"] = {
+                        "orig": existing_peak_group.peak_annotation_file.filename,
+                        "new": peak_annotation_file.filename,
+                    }
                 raise ConflictingValueError(
                     rec=existing_peak_group,
-                    consistent_field=conflicting_fields,
-                    existing_value=existing_values,
-                    differing_value=new_values,
+                    differences=differences,
+                    file=peak_annotation_file.filename,
+                    rownum=rownum,
+                    col=col,
+                    sheet="absolte" if self.isocorr_format else "Corrected",
                 )
 
             else:
@@ -1574,7 +1576,7 @@ class AccuCorDataLoader:
             msrun_sample = sample_msrun_dict[sample_data_header]
 
             # Pass through the rows once to identify the PeakGroups
-            for _, corr_row in self.accucor_corrected_df.iterrows():
+            for idx, corr_row in self.accucor_corrected_df.iterrows():
                 try:
                     obs_isotopes = self.get_observed_isotopes(corr_row)
                     peak_group_name = corr_row[self.compound_header]
@@ -1605,6 +1607,8 @@ class AccuCorDataLoader:
                                 peak_group_attrs=self.peak_group_dict[peak_group_name],
                                 msrun_sample=msrun_sample,
                                 peak_annotation_file=peak_annotation_file,
+                                rownum=idx + 2,
+                                col=sample_data_header,
                             )
                             inserted_peak_group_dict[peak_group_name] = peak_group
                         except DuplicatePeakGroup as dup_pg:

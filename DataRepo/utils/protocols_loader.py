@@ -133,9 +133,12 @@ class ProtocolsLoader:
                     self.aggregated_errors_object.buffer_error(
                         ConflictingValueError(
                             protocol_rec,
-                            "description",
-                            protocol_rec.description,
-                            description,
+                            {
+                                "description": {
+                                    "orig": protocol_rec.description,
+                                    "new": description,
+                                },
+                            },
                             index + 2,
                             "treatments",
                         )

@@ -160,11 +160,13 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
         self.assertEqual(1, len(incs))
         self.assertEqual(ConflictingValueError, type(incs[0]))
         self.assertEqual(rec, incs[0].rec)
-        self.assertEqual("description", incs[0].consistent_field)
-        self.assertEqual("Inconsistent description", incs[0].differing_value)
+        self.assertIn("description", incs[0].differences.keys())
+        self.assertEqual(
+            "Inconsistent description", incs[0].differences["description"]["new"]
+        )
         self.assertEqual(
             "ob/ob and wildtype littermates were fasted 7 hours and infused with tracers",
-            incs[0].existing_value,
+            incs[0].differences["description"]["orig"],
         )
 
     def test_handle_load_db_errors_integrityerror(self):
@@ -193,11 +195,13 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
         self.assertEqual(1, len(conflicts))
         self.assertEqual(ConflictingValueError, type(conflicts[0]))
         self.assertEqual(Study.objects.first(), conflicts[0].rec)
-        self.assertEqual("description", conflicts[0].consistent_field)
-        self.assertEqual("Inconsistent description", conflicts[0].differing_value)
+        self.assertIn("description", conflicts[0].differences.keys())
+        self.assertEqual(
+            "Inconsistent description", conflicts[0].differences["description"]["new"]
+        )
         self.assertEqual(
             "ob/ob and wildtype littermates were fasted 7 hours and infused with tracers",
-            conflicts[0].existing_value,
+            conflicts[0].differences["description"]["orig"],
         )
 
     def test_handle_load_db_errors_otherintegrityerror(self):

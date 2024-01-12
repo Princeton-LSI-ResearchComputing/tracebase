@@ -277,20 +277,24 @@ def check_for_inconsistencies(rec, rec_dict, rownum=None, sheet=None, file=None)
     from DataRepo.utils.exceptions import ConflictingValueError
 
     conflicting_value_errors = []
+    differences = {}
     for field, new_value in rec_dict.items():
         orig_value = getattr(rec, field)
         if orig_value != new_value:
-            conflicting_value_errors.append(
-                ConflictingValueError(
-                    rec,
-                    field,
-                    orig_value,
-                    new_value,
-                    rownum=rownum,
-                    sheet=sheet,
-                    file=file,
-                )
+            differences[field] = {
+                "orig": orig_value,
+                "new": new_value,
+            }
+    if len(differences.keys()) > 0:
+        conflicting_value_errors.append(
+            ConflictingValueError(
+                rec,
+                differences,
+                rownum=rownum,
+                sheet=sheet,
+                file=file,
             )
+        )
     return conflicting_value_errors
 
 

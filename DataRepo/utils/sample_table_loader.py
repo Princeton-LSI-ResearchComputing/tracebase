@@ -406,9 +406,12 @@ class SampleTableLoader:
                         self.aggregated_errors_object.buffer_error(
                             ConflictingValueError(
                                 study_rec,
-                                "description",
-                                orig_desc,
-                                study_desc,
+                                {
+                                    "description": {
+                                        "orig": orig_desc,
+                                        "new": study_desc,
+                                    },
+                                },
                                 rownum,
                             )
                         )
@@ -825,20 +828,24 @@ class SampleTableLoader:
 
     def check_for_inconsistencies(self, rec, value_dict, rownum=None):
         updates_dict = {}
+        differences = {}
         for field, new_value in value_dict.items():
             orig_value = getattr(rec, field)
             if orig_value is None and new_value is not None:
                 updates_dict[field] = new_value
             elif orig_value != new_value:
-                self.aggregated_errors_object.buffer_error(
-                    ConflictingValueError(
-                        rec,
-                        field,
-                        orig_value,
-                        new_value,
-                        rownum,
-                    )
+                differences[field] = {
+                    "orig": orig_value,
+                    "new": new_value,
+                }
+        if len(differences.keys()) > 0:
+            self.aggregated_errors_object.buffer_error(
+                ConflictingValueError(
+                    rec,
+                    differences,
+                    rownum,
                 )
+            )
         return updates_dict
 
     def check_headers(self, headers):
