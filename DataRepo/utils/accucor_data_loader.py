@@ -39,6 +39,7 @@ from DataRepo.models.researcher import (
     get_researchers,
     validate_researchers,
 )
+from DataRepo.models.utilities import handle_load_db_errors
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
     ConflictingValueError,
@@ -212,6 +213,7 @@ class AccuCorDataLoader:
         self.mismatching_mzxmls = []
         self.mixed_polarities = {}
         self.conflicting_polarities = {}
+        self.conflicting_archive_files = []
 
     def process_default_lcms_opts(self):
         """
@@ -1193,27 +1195,53 @@ class AccuCorDataLoader:
 
         mode = "rb" if is_binary else "r"
 
-        if self.dry_run or self.validate:
-            # Don't store the file during dry-run or validation
-            try:
-                archivefile_rec = ArchiveFile.objects.get(**rec_dict)
-            except ObjectDoesNotExist:
-                rec_dict["file_location"] = None
-                archivefile_rec = ArchiveFile.objects.create(**rec_dict)
-        elif path_obj.is_file():
-            with path_obj.open(mode=mode) as f:
-                with_loc = {**rec_dict}
-                with_loc["file_location"] = File(f, name=path_obj.name)
-                archivefile_rec, _ = ArchiveFile.objects.get_or_create(**with_loc)
-        elif checksum is not None:
-            # We allow a record to be created without an actual file if a checksum is provided
-            archivefile_rec, _ = ArchiveFile.objects.get_or_create(**rec_dict)
-        else:
-            self.aggregated_errors_object.buffer_error(
-                FileNotFoundError(f"No such file: {str(path_obj)}")
-            )
-            # Placeholder record, so we can proceed to find more errors:
-            archivefile_rec, _ = ArchiveFile.objects.get_or_create(**rec_dict)
+        try:
+            if self.dry_run or self.validate:
+                # Don't store the file during dry-run or validation
+                try:
+                    archivefile_rec = ArchiveFile.objects.get(**rec_dict)
+                except ObjectDoesNotExist:
+                    rec_dict["file_location"] = None
+                    archivefile_rec = ArchiveFile.objects.create(**rec_dict)
+            elif path_obj.is_file():
+                # When an ArchiveFile record is get_or_created, and you expect a `get` to occur, the handling of the
+                # `file_location` value results in an unexpected outcome. Instead of `getting` the record, since the
+                # path and name is the same, the DFjango code appends a small hash value to the file name before the
+                # file extension.  This results in the `get_or_create` method to try to "create" a record, because one
+                # of the field value differs.  This then results in a unique constraint violation, because the hash must
+                # be unique.  So to work around this, we will perform a `get_or_create` *without* the `file_location`
+                # value, and instead add that after, only *if* the record was created...
+                archivefile_rec, created = ArchiveFile.objects.get_or_create(**rec_dict)
+                if created:
+                    with path_obj.open(mode=mode) as f:
+                        archivefile_rec.file_location = File(f, name=path_obj.name)
+                        archivefile_rec.full_clean()
+                        archivefile_rec.save()
+            elif checksum is not None:
+                # We allow a record to be created without an actual file if a checksum is provided
+                archivefile_rec, _ = ArchiveFile.objects.get_or_create(**rec_dict)
+            else:
+                self.aggregated_errors_object.buffer_error(
+                    FileNotFoundError(f"No such file: {str(path_obj)}")
+                )
+                # Placeholder record, so we can proceed to find more errors:
+                archivefile_rec, _ = ArchiveFile.objects.get_or_create(**rec_dict)
+        except Exception as e:
+            if not handle_load_db_errors(
+                e,
+                ArchiveFile,
+                rec_dict,
+                self.aggregated_errors_object,
+                self.conflicting_archive_files,
+            ):
+                self.aggregated_errors_object.buffer_error(e)
+            # There will be an exception raised (either as buffered above or via the error buffered in
+            # handle_load_db_errors), so in order to move forward and catch more errors, let's create a placeholder
+            # record without the actual file
+            rec_dict["filename"] = f"{path_obj.name}-placeholder"
+            rec_dict["checksum"] = f"{checksum_val}-placeholder"
+            rec_dict["file_location"] = None
+            archivefile_rec = ArchiveFile.objects.create(**rec_dict)
 
         return archivefile_rec
 
@@ -1399,10 +1427,7 @@ class AccuCorDataLoader:
             else:
                 self.aggregated_errors_object.buffer_error(ie)
 
-        """
-        associate the pre-vetted compounds with the newly inserted
-        PeakGroup
-        """
+        # Associate the pre-vetted compounds with the newly inserted PeakGroup
         for compound in peak_group_attrs["compounds"]:
             # Must save the compound before it can be linked
             compound.save()
@@ -1780,7 +1805,15 @@ class AccuCorDataLoader:
                             self.aggregated_errors_object.buffer_error(e)
                             continue
 
-        if len(self.duplicate_peak_groups) > 0:
+        # num_expected_peakgroups = number of sample columns times the number of peak groups expected to be loaded
+        num_expected_peakgroups = len(sample_msrun_dict.keys()) * len(
+            self.peak_group_dict.keys()
+        )
+        # If there are duplicate peakgroups and it's not all expected peakgroups
+        if (
+            len(self.duplicate_peak_groups) > 0
+            and len(self.duplicate_peak_groups) != num_expected_peakgroups
+        ):
             self.aggregated_errors_object.buffer_exception(
                 DuplicatePeakGroups(
                     adding_file=peak_annotation_file.filename,
@@ -1789,6 +1822,15 @@ class AccuCorDataLoader:
                 is_fatal=self.validate,
                 is_error=False,
             )
+
+        if len(self.conflicting_archive_files) > 0:
+            self.aggregated_errors_object.buffer_exception(
+                ConflictingValueErrors(
+                    model_name="ArchiveFile",
+                    conflicting_value_errors=self.conflicting_archive_files,
+                ),
+            )
+
         if len(self.conflicting_peak_groups) > 0:
             self.aggregated_errors_object.buffer_exception(
                 ConflictingValueErrors(

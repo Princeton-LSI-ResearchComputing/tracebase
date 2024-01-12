@@ -115,7 +115,7 @@ class DuplicatePeakGroup(Exception):
         """Initializes a DuplicatePeakGroup exception"""
 
         message = (
-            f"Duplicate data found when loading file [{adding_file}]:\n"
+            f"Duplicate peak group data found when loading file [{adding_file}]:\n"
             f"\tmsrun_sample: {msrun_sample}\n"
             f"\tsample: {sample}\n"
             f"\tpeak_group_name: {peak_group_name}\n"
@@ -135,7 +135,6 @@ class DuplicatePeakGroups(Exception):
 
     Attributes:
         adding_file: The peak annotation file in which the duplicate data was detected
-        msrun_sample: The MSRunSample in which the peak groups were measured
         duplicate_peak_groups: A list of DuplicatePeakGroup exceiptions
     """
 
@@ -147,16 +146,14 @@ class DuplicatePeakGroups(Exception):
         """Initializes a DuplicatePeakGroups exception"""
 
         message = (
-            f"Duplicate data found when loading file [{adding_file}]:\n"
+            f"Duplicate peak groups data skipped when loading file [{adding_file}]:\n"
             "\tpeak_groups:\n"
         )
         for duplicate_peak_group in duplicate_peak_groups:
             message += (
-                f"\t\tsample: {duplicate_peak_group.sample} | "
-                f"peak_group_name: {duplicate_peak_group.peak_group_name} | "
-                f"msrun_sample_date: {duplicate_peak_group.msrun_sample.date} | "
-                f"msrun_sample_researcher: {duplicate_peak_group.msrun_sample.researcher} | "
-                f"peak_annotation_file: {duplicate_peak_group.existing_peak_annotation_file.filename}\n"
+                f"\t\tpeak_group_name: {duplicate_peak_group.peak_group_name} | "
+                f"msrun_sample: {duplicate_peak_group.msrun_sample} | "
+                f"existing_peak_annotation_file: {duplicate_peak_group.existing_peak_annotation_file.filename}\n"
             )
         super().__init__(message)
         self.adding_file = adding_file

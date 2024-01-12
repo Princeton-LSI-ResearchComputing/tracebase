@@ -313,12 +313,18 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
 
         # Test the instance method "insert_peak_group" rasies and error
         # when inserting an exact duplicate PeakGroup
-        with self.assertRaises(DuplicatePeakGroup):
+        with self.assertRaises(Exception) as ar:
             adl.insert_peak_group(
                 peak_group_attrs,
                 msrun_sample=peak_group.msrun_sample,
                 peak_annotation_file=peak_group.peak_annotation_file,
             )
+        exc = ar.exception
+        self.assertEqual(
+            DuplicatePeakGroup,
+            type(exc),
+            msg=f"{DuplicatePeakGroup} expected. Got [{type(exc).__name__}: {exc}].",
+        )
 
     @tag("multi-msrun")
     def test_conflicting_peak_group(self):
