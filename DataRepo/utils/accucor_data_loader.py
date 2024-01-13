@@ -42,6 +42,8 @@ from DataRepo.models.researcher import (
 from DataRepo.models.utilities import handle_load_db_errors
 from DataRepo.utils.exceptions import (
     AggregatedErrors,
+    AmbiguousMSRun,
+    AmbiguousMSRuns,
     ConflictingValueError,
     ConflictingValueErrors,
     CorrectedCompoundHeaderMissing,
@@ -219,6 +221,7 @@ class AccuCorDataLoader:
         self.mixed_polarities = {}
         self.conflicting_mzxml_values = defaultdict(dict)
         self.conflicting_archive_files = []
+        self.ambiguous_msruns = defaultdict(dict)
 
     def process_default_lcms_opts(self):
         """
@@ -728,6 +731,9 @@ class AccuCorDataLoader:
             self.lcms_defaults["instrument"] = MSRunSequence.INSTRUMENT_DEFAULT
         if self.lcms_defaults["polarity"] is None:
             self.lcms_defaults["polarity"] = MSRunSample.POLARITY_DEFAULT
+        # NOTE: The below placeholders will only work for 1 additional scan, but in the context of this script, which
+        # only loads a single peak annotation file, that should be fine.  Chances are very low that these values will
+        # conflict with real data.
         if self.lcms_defaults["mz_min"] is None:
             self.lcms_defaults["mz_min"] = 0
         if self.lcms_defaults["mz_max"] is None:
@@ -1495,6 +1501,9 @@ class AccuCorDataLoader:
                 existing_peak_group = PeakGroup.objects.get(
                     msrun_sample=msrun_sample, name=peak_group_attrs["name"]
                 )
+                # TODO: Check more than just formula and peak_annotation_file.  Otherwise, if there are other
+                # differences, they will all be labeled inaccurately as AmbiguousMSRuns, though users should be able to
+                # figure it out.
                 differences = {}
                 if existing_peak_group.formula != peak_group_attrs["formula"]:
                     differences["formula"] = {
@@ -1506,6 +1515,18 @@ class AccuCorDataLoader:
                         "orig": existing_peak_group.peak_annotation_file.filename,
                         "new": peak_annotation_file.filename,
                     }
+                if (
+                    len(differences.keys()) == 1
+                    and "peak_annotation_file" in differences.keys()
+                ):
+                    raise AmbiguousMSRun(
+                        pg_rec=existing_peak_group,
+                        peak_annot1=existing_peak_group.peak_annotation_file.filename,
+                        peak_annot2=peak_annotation_file.filename,
+                        col=col,
+                        rownum=rownum,
+                        sheet="absolte" if self.isocorr_format else "Corrected",
+                    )
                 raise ConflictingValueError(
                     rec=existing_peak_group,
                     differences=differences,
@@ -1702,6 +1723,8 @@ class AccuCorDataLoader:
                                 col=sample_data_header,
                             )
                             inserted_peak_group_dict[peak_group_name] = peak_group
+                        except AmbiguousMSRun as amsr:
+                            self.ambiguous_msruns[amsr.peak_annot1][amsr.loc] = amsr
                         except DuplicatePeakGroup as dup_pg:
                             self.duplicate_peak_groups.append(dup_pg)
                         except ConflictingValueError as cve:
@@ -1899,6 +1922,14 @@ class AccuCorDataLoader:
                         except Exception as e:
                             self.aggregated_errors_object.buffer_error(e)
                             continue
+
+        if len(self.ambiguous_msruns.keys()) > 0:
+            self.aggregated_errors_object.buffer_exception(
+                AmbiguousMSRuns(
+                    self.ambiguous_msruns,
+                    peak_annotation_file.filename,
+                )
+            )
 
         # num_expected_peakgroups = number of sample columns times the number of peak groups expected to be loaded
         num_expected_peakgroups = len(sample_msrun_dict.keys()) * len(

@@ -143,12 +143,20 @@ class MSRunSample(HierCachedModel, MaintainedModel):
     def __str__(self):
         details = ", ".join(
             [
-                i
-                for i in [self.polarity, self.ms_raw_file, self.ms_data_file]
+                f"{k}: {i}"
+                for k, i in {
+                    "polarity": self.polarity,
+                    "mz min": self.mz_min,
+                    "mz max": self.mz_max,
+                    "RAW file": self.ms_raw_file,
+                    "mzXML": self.ms_data_file,
+                }.items()
                 if i is not None
             ]
         )
-        return f"MS run of sample {self.sample} in {self.msrun_sequence} ({details})"
+        if details == "":
+            details = "using default parameters"
+        return f"MS run of sample {self.sample} ({details}) in {self.msrun_sequence}"
 
     def clean(self, *args, **kwargs):
         super().clean(*args, **kwargs)

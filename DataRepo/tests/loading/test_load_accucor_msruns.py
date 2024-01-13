@@ -25,6 +25,7 @@ from DataRepo.tests.tracebase_test_case import TracebaseTestCase
 from DataRepo.utils import (
     AccuCorDataLoader,
     AggregatedErrors,
+    AmbiguousMSRuns,
     ConflictingValueError,
     DryRun,
     NoSamplesError,
@@ -253,7 +254,8 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         Test loading two conflicting PeakGroups rasies ConflictingValueErrors
 
         Attempt to load two PeakGroups for the same Compound in the same MSRunSample
-        but from different peak annotation files
+        Note, when there are 2 different peak annotation files, that is an AmbiguousMSRuns error, but when other data
+        differs, it's a ConflictingValueErrors.  The formula for glucose was changed in the conflicting file.
         """
 
         self.load_glucose_data()
@@ -443,9 +445,12 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         self.assertEqual(PeakData.objects.all().count(), PEAKDATA_ROWS * SAMPLES_COUNT)
 
     @tag("multi-msrun")
-    def test_duplicate_compounds_one_msrun(self):
+    def test_ambiguous_msruns_error(self):
         """
-        Test that we do not allow the same compound to be measured from the
+        Tests that an AmbiguousMSRuns exception is raised when a duplicate sample.peak group is encountered and the
+        peak annotation file names differ
+
+        This also tests that we do not allow the same compound to be measured from the
         same sample run (MSRunSample) more than once
         """
         self.load_glucose_data()
@@ -465,19 +470,7 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         aes = ar.exception
         print(f"{aes}")
         self.assertEqual(1, len(aes.exceptions))
-        self.assertTrue(isinstance(aes.exceptions[0], ConflictingValueErrors))
-        # 2 samples in the accucor file, so 2 PeakGroup peak annotation file conflicts
-        self.assertEqual(2, len(aes.exceptions[0].conflicting_value_errors))
-
-        # Check first file loaded
-        SAMPLES_COUNT = 2
-        PEAKDATA_ROWS = 7
-        MEASURED_COMPOUNDS_COUNT = 1  # Glucose
-
-        self.assertEqual(
-            PeakGroup.objects.count(), MEASURED_COMPOUNDS_COUNT * SAMPLES_COUNT
-        )
-        self.assertEqual(PeakData.objects.all().count(), PEAKDATA_ROWS * SAMPLES_COUNT)
+        self.assertTrue(isinstance(aes.exceptions[0], AmbiguousMSRuns))
 
 
 @override_settings(CACHES=settings.TEST_CACHES)
