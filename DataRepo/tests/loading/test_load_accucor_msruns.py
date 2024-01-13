@@ -472,6 +472,37 @@ class AccuCorDataLoadingTests(TracebaseTestCase):
         self.assertEqual(1, len(aes.exceptions))
         self.assertTrue(isinstance(aes.exceptions[0], AmbiguousMSRuns))
 
+    @tag("multi-msrun")
+    def test_resolve_ambiguous_msruns_error(self):
+        """
+        Tests that an AmbiguousMSRuns exception can be gotten around by adding a distinct scan range, identifying it as
+        an independent MSRun.
+        """
+        self.load_glucose_data()
+        call_command(
+            "load_accucor_msruns",
+            # We just need a different file name with the same data, so _2 is a copy of the original
+            accucor_file="DataRepo/data/tests/small_obob/small_obob_maven_6eaas_inf_glucose_2.xlsx",
+            lc_protocol_name="polar-HILIC-25-min",
+            instrument="unknown",
+            date="2021-04-29",
+            researcher="Michael Neinast",
+            new_researcher=False,
+            polarity="positive",
+            mz_min=0,
+            mz_max=500,
+        )
+
+        # Check both files loaded
+        SAMPLES_COUNT = 2  # Same number of original samples
+        PEAKDATA_ROWS = 7 * 2
+        MEASURED_COMPOUNDS_COUNT = 1 * 2  # Glucose, in 2 ranges
+
+        self.assertEqual(
+            PeakGroup.objects.count(), MEASURED_COMPOUNDS_COUNT * SAMPLES_COUNT
+        )
+        self.assertEqual(PeakData.objects.all().count(), PEAKDATA_ROWS * SAMPLES_COUNT)
+
 
 @override_settings(CACHES=settings.TEST_CACHES)
 class IsoCorrDataLoadingTests(TracebaseTestCase):
