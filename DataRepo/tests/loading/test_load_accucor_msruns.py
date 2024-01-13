@@ -36,7 +36,7 @@ from DataRepo.utils.accucor_data_loader import hash_file
 from DataRepo.utils.exceptions import (
     ConflictingValueErrors,
     DuplicatePeakGroup,
-    PolarityConflictErrors,
+    MzxmlConflictErrors,
 )
 
 
@@ -1049,6 +1049,8 @@ class MSRunSampleSequenceTests(TracebaseTestCase):
             "raw_file_name": "BAT-xz971.raw",
             "raw_file_sha1": "31bc554534cf9f1e568529d110caa85f1fd0a8c8",
             "polarity": MSRunSample.POSITIVE_POLARITY,
+            "mz_max": 502.9,
+            "mz_min": 1.0,
         }
         adl = AccuCorDataLoader(
             None,
@@ -1178,7 +1180,7 @@ class MSRunSampleSequenceTests(TracebaseTestCase):
             )
         aes = ar.exception
         self.assertEqual(1, len(aes.exceptions))
-        self.assertEqual(PolarityConflictErrors, type(aes.exceptions[0]))
+        self.assertEqual(MzxmlConflictErrors, type(aes.exceptions[0]))
 
     def create_AccuCorDataLoader_object(self):
         return AccuCorDataLoader(

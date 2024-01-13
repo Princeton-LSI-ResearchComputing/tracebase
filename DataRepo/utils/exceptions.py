@@ -1537,7 +1537,7 @@ class MissingPeakAnnotationFiles(Exception):
             f"\t{nlt.join(missing_peak_annot_files)}\n\n"
         )
         if lcms_file is not None:
-            message += f"from the LCMS metadata file:\n\n\t{lcms_file}]"
+            message += f"from the LCMS metadata file:\n\n\t{lcms_file}\n\n"
         message += "were not supplied."
         if (
             unmatching_peak_annot_files is not None
@@ -1612,22 +1612,25 @@ class MixedPolarityErrors(Exception):
         self.mixed_polarity_dict = mixed_polarity_dict
 
 
-class PolarityConflictErrors(Exception):
-    def __init__(self, polarity_conflicts):
+class MzxmlConflictErrors(Exception):
+    def __init__(self, mzxml_conflicts):
         deets = []
-        for mzxml_file in polarity_conflicts.keys():
-            deets.append(
-                f"{mzxml_file}: {polarity_conflicts[mzxml_file]['mzxml_value']} vs LCMS "
-                f"{polarity_conflicts[mzxml_file]['sample_header']} row: "
-                f"{polarity_conflicts[mzxml_file]['lcms_value']}"
-            )
+        for mzxml_file in mzxml_conflicts.keys():
+            val = f"{mzxml_file}:\n"
+            for var in mzxml_conflicts[mzxml_file].keys():
+                val += (
+                    f"\t\t{var}: {mzxml_conflicts[mzxml_file][var]['mzxml_value']} vs LCMS "
+                    f"row [{mzxml_conflicts[mzxml_file][var]['sample_header']}]: "
+                    f"{mzxml_conflicts[mzxml_file][var]['lcms_value']}\n"
+                )
+            deets.append(val)
         nlt = "\n\t"
         message = (
-            "The following mzXML files have a polarity value that differs from the value supplied in the LCMS metadata "
+            "The following mzXML files have al least 1 value that differs from the value supplied in the LCMS metadata "
             f"file:\n\t{nlt.join(deets)}"
         )
         super().__init__(message)
-        self.polarity_conflicts = polarity_conflicts
+        self.mzxml_conflicts = mzxml_conflicts
 
 
 class NoSpaceAllowedWhenOneColumn(Exception):
@@ -1655,6 +1658,10 @@ class InfileDatabaseError(Exception):
         self.rec_dict = rec_dict
         self.sheet = sheet
         self.file = file
+
+
+class MzxmlParseError(Exception):
+    pass
 
 
 def generate_file_location_string(column=None, rownum=None, sheet=None, file=None):

@@ -20,6 +20,8 @@ LCMS_HEADERS = (
     "instrument",
     "operator",
     "polarity",
+    "mz min",
+    "mz max",
     "date",
     "lc method",
     "lc run length",
@@ -80,6 +82,14 @@ def lcms_df_to_dict(df, aes=None):
         if row["lc run length"] is not None:
             run_len = timedelta(minutes=int(row["lc run length"]))
 
+        mz_min = None
+        if row["mz min"] is not None:
+            mz_min = float(row["mz min"])
+
+        mz_max = None
+        if row["mz max"] is not None:
+            mz_max = float(row["mz max"])
+
         lcms_metadata[sample_header] = {
             "sample_header": sample_header,
             "sample_name": sample_name,
@@ -93,6 +103,8 @@ def lcms_df_to_dict(df, aes=None):
             "lc_run_length": run_len,
             "lc_description": row["lc description"],
             "polarity": row["polarity"],
+            "mz_min": mz_min,
+            "mz_max": mz_max,
             "row_num": str(idx + 2),  # From 1, not including header row
         }
 

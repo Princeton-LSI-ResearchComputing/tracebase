@@ -110,6 +110,8 @@ class ModelUtilitiesTests(TracebaseTransactionTestCase):
                 "polarity",
                 "ms_raw_file",
                 "ms_data_file",
+                "mz_min",
+                "mz_max",
             ),
             unique_field_sets[1],
         )

@@ -7,9 +7,13 @@
                 fileType="RAWData"
                 fileSha1="a129d2228d5a693875d2bb03fb03830becdeecc1"/>
     <scan num="1"
+          lowMz="1"
+          highMz="100.9"
           polarity="+">
     </scan>
     <scan num="3"
+          lowMz="2"
+          highMz="502.9"
           polarity="+">
     </scan>
   </msRun>

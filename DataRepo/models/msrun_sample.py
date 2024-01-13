@@ -1,9 +1,11 @@
 from django.core.exceptions import ValidationError
+from django.core.validators import MinValueValidator
 from django.db.models import (
     CASCADE,
     RESTRICT,
     AutoField,
     CharField,
+    FloatField,
     ForeignKey,
     UniqueConstraint,
 )
@@ -70,6 +72,26 @@ class MSRunSample(HierCachedModel, MaintainedModel):
         choices=POLARITY_CHOICES,
         help_text="The polarity mode of this mass spectrometry run.",
     )
+    mz_min = FloatField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(0)],
+        help_text=(
+            "Unsigned minimum charge of the scan range.  Only required if a study contains multiple MSRuns with the "
+            "same polarity.  Automatically parsed from mzXML.  If unavailable, the minimum medMz value from the "
+            "accucor/isocorr file is acceptable."
+        ),
+    )
+    mz_max = FloatField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(0)],
+        help_text=(
+            "Unsigned maximum charge of the scan range.  Only required if a study contains multiple MSRuns with the "
+            "same polarity.  Automatically parsed from mzXML.  If unavailable, the maximum medMz value from the "
+            "accucor/isocorr file is acceptable."
+        ),
+    )
     ms_raw_file = ForeignKey(
         to="DataRepo.ArchiveFile",
         null=True,
@@ -111,6 +133,8 @@ class MSRunSample(HierCachedModel, MaintainedModel):
                     "polarity",
                     "ms_raw_file",
                     "ms_data_file",
+                    "mz_min",
+                    "mz_max",
                 ],
                 name="unique_msrunsample",
             ),
@@ -154,3 +178,12 @@ class MSRunSample(HierCachedModel, MaintainedModel):
                     f"Invalid ms_data_file ({self.ms_data_file.filename}) data format: "
                     f"[{self.ms_data_file.data_format.code}], must be one of [{self.VALID_DATA_FILES['FORMATS']}]."
                 )
+        if (
+            self.mz_min is not None
+            and self.mz_max is not None
+            and self.mz_min > self.mz_max
+        ):
+            raise ValidationError(
+                f"Invalid mz_min [{self.mz_min}] and mz_max [{self.mz_max}]: "
+                f"The minimum charge must be less than or equal to the maximum charge in the scan range."
+            )
