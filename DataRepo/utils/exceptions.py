@@ -328,8 +328,9 @@ class LoadFileError(Exception):
     This exception is a wrapper for other exceptions, which adds file-related context
     """
 
-    def __init__(self, exception, line_num):
-        message = f"{type(exception).__name__} on infile line {line_num}: {exception}"
+    def __init__(self, exception, line_num, sheet=None, file=None):
+        loc = generate_file_location_string(rownum=line_num, sheet=sheet, file=file)
+        message = f"{type(exception).__name__} on {loc}: {exception}"
         super().__init__(message)
         self.exception = exception
         self.line_num = line_num
@@ -956,25 +957,24 @@ class ConflictingValueError(Exception):
         rownum=None,
         sheet=None,
         message=None,
+        file=None,
     ):
         if not message:
-            rowmsg = (
-                f"on row {rownum} of the load file data " if rownum is not None else ""
-            )
-            if sheet is not None:
-                rowmsg += f"in sheet [{sheet}] "
+            loc = generate_file_location_string(rownum=rownum, sheet=sheet, file=file)
             message = (
-                f"Conflicting [{consistent_field}] field values encountered {rowmsg}in {type(rec).__name__} record "
+                f"Conflicting [{consistent_field}] field values encountered in {loc} in {type(rec).__name__} record "
                 f"[{str(model_to_dict(rec))}]:\n"
                 f"\tdatabase: [{existing_value}]\n"
                 f"\tfile: [{differing_value}]"
             )
         super().__init__(message)
+        self.rec = rec
         self.consistent_field = consistent_field
         self.existing_value = existing_value
         self.differing_value = differing_value
         self.rownum = rownum
         self.sheet = sheet
+        self.file = file
 
 
 class SaveError(Exception):
@@ -1585,3 +1585,51 @@ class PolarityConflictErrors(Exception):
         )
         super().__init__(message)
         self.polarity_conflicts = polarity_conflicts
+
+
+class NoSpaceAllowedWhenOneColumn(Exception):
+    def __init__(self, name):
+        message = (
+            f"Protocol with name '{name}' cannot contain a space unless a description is provided.  "
+            "Either the space(s) must be changed to a tab character or a description must be provided."
+        )
+        super().__init__(message)
+        self.name = name
+
+
+class InfileDatabaseError(Exception):
+    def __init__(self, exception, rec_dict, rownum=None, sheet=None, file=None):
+        nltab = "\n\t"
+        deets = [f"{k}: {v}" for k, v in rec_dict.items()]
+        loc = generate_file_location_string(rownum=rownum, sheet=sheet, file=file)
+        message = (
+            f"{type(exception).__name__} in {loc}, creating record:\n\t{nltab.join(deets)}\n"
+            f"{str(exception)}"
+        )
+        super().__init__(message)
+        self.exception = exception
+        self.rownum = rownum
+        self.rec_dict = rec_dict
+        self.sheet = sheet
+        self.file = file
+
+
+def generate_file_location_string(column=None, rownum=None, sheet=None, file=None):
+    loc_str = ""
+    if column is not None:
+        loc_str += f"column {column} "
+    if loc_str != "" and rownum is not None:
+        loc_str += "on "
+    if rownum is not None:
+        loc_str += f"row {rownum} "
+    if loc_str != "" and sheet is not None:
+        loc_str += "of "
+    if sheet is not None:
+        loc_str += f"sheet [{sheet}] "
+    if loc_str != "":
+        loc_str += "in "
+    if file is not None:
+        loc_str += f"file [{file}]"
+    else:
+        loc_str += "the load file data"
+    return loc_str

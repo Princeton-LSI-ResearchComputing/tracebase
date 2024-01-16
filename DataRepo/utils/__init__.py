@@ -46,6 +46,7 @@ from DataRepo.utils.exceptions import (
 from DataRepo.utils.file_utils import (
     get_sheet_names,
     headers_are_as_expected,
+    is_excel,
     read_from_file,
 )
 from DataRepo.utils.infusate_name_parser import (
@@ -61,6 +62,7 @@ from DataRepo.utils.sample_table_loader import (
     LCMSDBSampleMissing,
     SampleTableLoader,
 )
+from DataRepo.utils.study_table_loader import StudyTableLoader
 from DataRepo.utils.tissues_loader import TissuesLoader
 
 __all__ = [
@@ -81,6 +83,7 @@ __all__ = [
     "HeaderError",
     "HeaderConfigError",
     "InvalidLCMSHeaders",
+    "is_excel",
     "IsotopeObservationData",
     "IsotopeParsingError",
     "IsotopeObservationParsingError",
@@ -105,6 +108,7 @@ __all__ = [
     "LCMSDBSampleMissing",
     "QuerysetToPandasDataFrame",
     "SampleTableLoader",
+    "StudyTableLoader",
     "TissuesLoader",
     "TracerLabeledElementNotFound",
     "UnexpectedLCMSSampleDataHeaders",
