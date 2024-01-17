@@ -9,7 +9,6 @@ from DataRepo.models.infusate import Infusate
 from DataRepo.models.infusate_tracer import InfusateTracer
 from DataRepo.models.lc_method import LCMethod
 from DataRepo.models.maintained_model import MaintainedModel
-from DataRepo.models.ms_run import MSRun
 from DataRepo.models.msrun_sample import MSRunSample
 from DataRepo.models.msrun_sequence import MSRunSequence
 from DataRepo.models.peak_data import PeakData
@@ -37,7 +36,6 @@ __all__ = [
     "CompoundSynonym",
     "LCMethod",
     "MaintainedModel",
-    "MSRun",
     "MSRunSample",
     "MSRunSequence",
     "PeakData",
